@@ -1,7 +1,7 @@
 # InterGenOS Vision Document
 
 **Created:** March 30, 2026
-**Author:** Christopher Cork
+**Author:** InterGenJLU
 **Status:** Draft — living document
 
 ---
@@ -101,7 +101,7 @@ When the AI runs a command, it explains what it's doing. When it configures some
 
 ## Development Environment
 
-- **Build host:** Ubuntu 24.04 (Christopher's desktop — Ryzen 9 5900X, 64GB RAM)
+- **Build host:** Ubuntu 24.04 (AMD Desktop — Ryzen 9 5900X, 64GB RAM)
 - **Build/test:** VirtualBox VMs
 - **Development drive:** `/mnt/intergenos` (466GB ext4)
 - **Future:** Dedicated NVMe over USB (1TB, ordered)
@@ -140,4 +140,4 @@ Full research archives in `/mnt/intergenos/research/` (to be populated)
 - **2015:** InterGenOS build_001 — first LFS attempt (Linux 3.18.2)
 - **2016:** build_002, build_003 — refined, 60+ packages, automated build
 - **2016-2025:** Life happened. Project shelved.
-- **2026:** Revival. Christopher now has AI development experience (JARVIS, VOQR), Python/C toolchain expertise, and Claude as a development partner. The dream continues.
+- **2026:** Revival. Leveraging a decade of growth and AI development experience to bring Linux closer to everyday users — proving that a from-source distribution can be both deeply educational and genuinely accessible.

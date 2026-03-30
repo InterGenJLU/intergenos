@@ -6,7 +6,7 @@
 
 **InterGenOS** — A Linux From Scratch distribution with switchable desktop environments and a tiered local AI assistant. Built from source, every component chosen deliberately.
 
-**Owner:** Christopher | **Original:** ~2015 (build_001 through build_003 on GitHub under github.com/InterGenOS)
+**Owner:** InterGenJLU | **Original:** ~2015 (build_001 through build_003 on GitHub under github.com/InterGenOS)
 **Revival:** March 2026 | **Development Drive:** `/mnt/intergenos`
 
 ## The PRIME DIRECTIVE

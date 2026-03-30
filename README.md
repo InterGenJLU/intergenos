@@ -21,4 +21,4 @@ TBD
 
 ## Author
 
-Christopher Cork — [InterGen Studios](https://intergenstudios.com)
+InterGenJLU — [InterGen Studios](https://intergenstudios.com)
