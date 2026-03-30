@@ -1,0 +1,37 @@
+# Filesystem artifacts
+lost+found/
+
+# Build artifacts
+build/output/
+build/tools/
+build/sources/
+*.iso
+*.img
+*.img.gz
+
+# VirtualBox VMs
+*.vdi
+*.vmdk
+*.ova
+*.vbox-prev
+
+# IDE / tools
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Research (local reference, not published)
+research/
+
+# Logs
+*.log
+logs/
+
+# Temporary
+tmp/
