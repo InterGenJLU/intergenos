@@ -664,9 +664,16 @@ rm -rf /tmp/{*,.*} 2>/dev/null || true
 # Remove libtool .la files
 find /usr/lib /usr/libexec -name \*.la -delete 2>/dev/null
 
-# Remove cross-compiler remnants
+# Remove cross-compiler remnants (lfs triplet from LFS book)
 find /usr -depth -name $(uname -m)-lfs-linux-gnu\* | xargs rm -rf 2>/dev/null
-find /usr -depth -name $(uname -m)-pc-linux-gnu\* | xargs rm -rf 2>/dev/null
+
+# Flag if any pc-linux-gnu files exist — indicates a triplet misconfiguration
+PC_REMNANTS=$(find /usr -depth -name "$(uname -m)-pc-linux-gnu*" 2>/dev/null)
+if [ -n "$PC_REMNANTS" ]; then
+    log "WARNING: Found x86_64-pc-linux-gnu files — triplet misconfiguration!"
+    log "  These should be x86_64-igos-linux-gnu. Investigate before continuing."
+    echo "$PC_REMNANTS" | while IFS= read -r f; do log "    $f"; done
+fi
 
 # Remove tester user
 userdel -r tester 2>/dev/null || true
