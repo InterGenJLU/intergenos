@@ -21,6 +21,6 @@ check() {
 
 do_install() {
     make -C libelf DESTDIR="$DESTDIR" install
-    install -vm644 config/libelf.pc "${DESTDIR}/usr/lib/pkgconfig"
+    install -vDm644 config/libelf.pc "${DESTDIR}/usr/lib/pkgconfig/libelf.pc"
     rm -f "${DESTDIR}/usr/lib/libelf.a"
 }
