@@ -28,7 +28,6 @@ do_install() {
     make DESTDIR="$DESTDIR" install
 }
 
-# Post-install: replace running shell with newly installed bash
-post_install() {
-    exec /usr/bin/bash --login
-}
+# No post_install needed — the new bash is deployed to /usr/bin/bash
+# by pkg_deploy and will be used automatically by subsequent packages.
+# In an interactive build, you would run: exec /usr/bin/bash --login
