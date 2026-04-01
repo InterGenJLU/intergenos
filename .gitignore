@@ -20,6 +20,9 @@ build/sources/*.patch
 vm/*.qcow2
 vm/*.iso
 
+# LFS/BLFS reference books (copyrighted, local only)
+docs/lfs-13.0/
+
 # Python
 __pycache__/
 *.pyc
