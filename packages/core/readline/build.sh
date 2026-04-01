@@ -3,16 +3,23 @@
 # LFS 13.0 Section 8.12
 
 configure() {
-    # Reinstalling readline will cause old libraries to be moved to <name>.old
-    # While not normally a problem, it can cause linking issues with ldconfig
-    sed -i '/MV.*telerik/d' support/shlib-install
+    # Prevent old libraries from being moved to .old (triggers ldconfig bug)
+    sed -i '/MV.*old/d' Makefile.in
+    sed -i '/{OLDSUFF}/c:' support/shlib-install
 
-    # Fix an issue identified upstream
-    sed -i 's/SHLIB_LIBS -o/SHLIB_LIBS -L/usr/lib -o/' support/shlib-install
+    # Remove rpath from shared libraries (not needed, potential security issue)
+    sed -i 's/-Wl,-rpath,[^ ]*//' support/shobj-conf
 
-    ./configure --prefix=/usr        \
-        --disable-static             \
-        --with-curses                \
+    # Fix upstream issue specific to this version
+    sed -e '270a\
+     else\
+       chars_avail = 1;'      \
+        -e '288i\   result = -1;' \
+        -i.orig input.c
+
+    ./configure --prefix=/usr    \
+        --disable-static         \
+        --with-curses            \
         --docdir=/usr/share/doc/readline-8.3
 }
 
