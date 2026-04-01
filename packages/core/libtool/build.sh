@@ -14,7 +14,7 @@ check() {
     make check
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
     rm -fv "${DESTDIR}/usr/lib/libltdl.a"
 }

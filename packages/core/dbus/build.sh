@@ -23,7 +23,7 @@ check() {
     ninja test
 }
 
-install() {
+do_install() {
     cd build
     DESTDIR="$DESTDIR" ninja install
 

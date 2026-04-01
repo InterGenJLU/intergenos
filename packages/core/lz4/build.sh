@@ -16,6 +16,6 @@ check() {
     make -j1 check
 }
 
-install() {
+do_install() {
     make BUILD_STATIC=no PREFIX=/usr DESTDIR="$DESTDIR" install
 }

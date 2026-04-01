@@ -13,6 +13,6 @@ build() {
     : # Nothing to build
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" -R GIT=false prefix=/usr install
 }

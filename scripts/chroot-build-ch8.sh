@@ -89,7 +89,7 @@ build_ch8_package() {
     local start=$(date +%s)
 
     # Clear any previously-defined functions
-    unset -f configure build check install pkg_custom_install post_install
+    unset -f configure build check do_install post_install
 
     # Source the package build script (defines configure/build/check/install)
     source "$build_script"

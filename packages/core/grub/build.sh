@@ -16,7 +16,7 @@ build() {
     make -j${IGOS_JOBS}
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
     mkdir -pv "${DESTDIR}/usr/share/bash-completion/completions"
     mv -v "${DESTDIR}/etc/bash_completion.d/grub" "${DESTDIR}/usr/share/bash-completion/completions"

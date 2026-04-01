@@ -23,7 +23,7 @@ check() {
     grep -E 'Executed|FAILED|ALL DONE' vim-test.log || true
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
 
     # Symlinks: vi -> vim, man pages

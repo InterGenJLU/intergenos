@@ -32,6 +32,6 @@ check() {
     su tester -c "make -k check" || true
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
 }

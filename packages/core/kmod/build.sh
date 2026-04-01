@@ -22,7 +22,7 @@ check() {
     : # Tests require raw kernel headers, beyond LFS scope
 }
 
-install() {
+do_install() {
     cd build
     DESTDIR="$DESTDIR" ninja install
 }

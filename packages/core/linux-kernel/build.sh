@@ -32,7 +32,7 @@ build() {
     make -j${IGOS_JOBS}
 }
 
-install() {
+do_install() {
     # Kernel uses INSTALL_MOD_PATH, not DESTDIR
     make INSTALL_MOD_PATH="$DESTDIR" modules_install
 

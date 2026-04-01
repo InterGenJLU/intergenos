@@ -19,7 +19,7 @@ check() {
     HARNESS_JOBS=$(nproc) make test || true
 }
 
-install() {
+do_install() {
     sed -i '/INSTALL_LIBS/s/libcrypto.a libssl.a//' Makefile
     make DESTDIR="$DESTDIR" MANSUFFIX=ssl install
 

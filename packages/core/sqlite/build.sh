@@ -21,6 +21,6 @@ check() {
     : # No test suite
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
 }

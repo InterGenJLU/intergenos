@@ -12,6 +12,6 @@ build() {
     pip3 wheel -w dist --no-cache-dir --no-build-isolation --no-deps $PWD
 }
 
-install() {
+do_install() {
     pip3 install --no-index --no-user --root="$DESTDIR" --no-deps --find-links dist flit_core
 }

@@ -16,7 +16,7 @@ check() {
     make check
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
     chmod -v 0755 "${DESTDIR}/usr/lib/preloadable_libintl.so"
 }

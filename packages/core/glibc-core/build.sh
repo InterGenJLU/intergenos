@@ -38,7 +38,7 @@ check() {
     grep "Timed out" $(find -name \*.out) 2>/dev/null || echo "No timeouts"
 }
 
-install() {
+do_install() {
     cd build
 
     # Prevent warnings during install

@@ -16,7 +16,7 @@ check() {
     su tester -c "PATH=$PATH make check"
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
     install -d -m755 "${DESTDIR}/usr/share/doc/sed-4.9"
     install -m644 doc/sed.html "${DESTDIR}/usr/share/doc/sed-4.9"

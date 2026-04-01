@@ -18,7 +18,7 @@ check() {
     su tester -c "PATH=$PATH make check"
 }
 
-install() {
+do_install() {
     rm -f /usr/bin/gawk-5.3.2
     make DESTDIR="$DESTDIR" install
     ln -sv gawk.1 "${DESTDIR}/usr/share/man/man1/awk.1"

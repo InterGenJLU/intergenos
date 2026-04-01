@@ -16,6 +16,6 @@ check() {
     su tester -c "PATH=$PATH make check"
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
 }

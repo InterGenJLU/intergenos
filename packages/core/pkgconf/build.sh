@@ -12,7 +12,7 @@ build() {
     make -j${IGOS_JOBS}
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
 
     # pkg-config compatibility symlinks

@@ -25,7 +25,7 @@ check() {
     make check || true
 }
 
-install() {
+do_install() {
     cd build
     make DESTDIR="$DESTDIR" install
 

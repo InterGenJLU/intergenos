@@ -46,7 +46,7 @@ check() {
     unshare -m ninja test || true
 }
 
-install() {
+do_install() {
     cd build
     DESTDIR="$DESTDIR" ninja install
 

@@ -21,7 +21,7 @@ build() {
     make -j${IGOS_JOBS}
 }
 
-install() {
+do_install() {
     # Bzip2 uses PREFIX, not DESTDIR
     make PREFIX="${DESTDIR}/usr" install
 

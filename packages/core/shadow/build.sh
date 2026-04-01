@@ -33,7 +33,7 @@ build() {
     make -j${IGOS_JOBS}
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" exec_prefix=/usr install
     make DESTDIR="$DESTDIR" -C man install-man
 

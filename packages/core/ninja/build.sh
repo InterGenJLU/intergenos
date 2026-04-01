@@ -19,7 +19,7 @@ check() {
     $ninja_test/ninja_test --gtest_filter=-SubprocessTest.SetWithLots || true
 }
 
-install() {
+do_install() {
     # Manual installation — no make install target exists
     install -vm755 -d "${DESTDIR}/usr/bin"
     install -vm755 ninja "${DESTDIR}/usr/bin/"

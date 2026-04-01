@@ -16,6 +16,6 @@ check() {
     make -j$(($(nproc)>4?$(nproc):4)) check
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
 }

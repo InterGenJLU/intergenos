@@ -16,6 +16,6 @@ check() {
     make test
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
 }

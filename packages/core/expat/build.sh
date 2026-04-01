@@ -16,7 +16,7 @@ check() {
     make check
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
     install -v -m644 doc/*.{html,css} "${DESTDIR}/usr/share/doc/expat-2.7.4"
 }

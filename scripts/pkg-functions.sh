@@ -73,17 +73,16 @@ pkg_stage() {
 
     pkg_log "Staging ${name}-${version} to ${PKG_DEST}"
 
-    # Run the package's install function
+    # Run the package's do_install function
+    # Named do_install (not install) to avoid collision with /usr/bin/install.
     # Output goes directly to a log file (not a pipe) to prevent
     # child processes from blocking on a full pipe buffer.
     local install_log="${IGOS_LOGS}/${name}-install.log"
 
-    if type -t pkg_custom_install | grep -q function 2>/dev/null; then
-        pkg_custom_install > "$install_log" 2>&1
-    elif type -t install | grep -q function 2>/dev/null; then
-        install > "$install_log" 2>&1
+    if type -t do_install | grep -q function 2>/dev/null; then
+        do_install > "$install_log" 2>&1
     else
-        pkg_error "No install() or pkg_custom_install() function defined for ${name}"
+        pkg_error "No do_install() function defined for ${name}"
         return 1
     fi
 
@@ -98,7 +97,7 @@ pkg_stage() {
     file_count=$(find "$PKG_DEST" -not -type d | wc -l)
     if [ "$file_count" -eq 0 ]; then
         pkg_error "Staging produced no files for ${name}-${version}"
-        pkg_error "Check that install() uses \$DESTDIR or the correct staging variable"
+        pkg_error "Check that do_install() uses \$DESTDIR or the correct staging variable"
         return 1
     fi
 

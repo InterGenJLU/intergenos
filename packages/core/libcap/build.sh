@@ -17,6 +17,6 @@ check() {
     make test
 }
 
-install() {
+do_install() {
     make prefix=/usr lib=lib DESTDIR="$DESTDIR" RAISE_SETFCAP=no install
 }

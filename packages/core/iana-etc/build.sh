@@ -12,7 +12,7 @@ build() {
     : # Nothing to build
 }
 
-install() {
+do_install() {
     mkdir -pv "${DESTDIR}/etc"
     cp -v services protocols "${DESTDIR}/etc"
 }

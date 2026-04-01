@@ -30,7 +30,7 @@ check() {
     TEST_JOBS=$(nproc) make test_harness
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
     unset BUILD_ZLIB BUILD_BZIP2
 }

@@ -19,7 +19,7 @@ check() {
     : # Test suite fails to build with glibc-2.43+, skip
 }
 
-install() {
+do_install() {
     make -C libelf DESTDIR="$DESTDIR" install
     install -vm644 config/libelf.pc "${DESTDIR}/usr/lib/pkgconfig"
     rm -f "${DESTDIR}/usr/lib/libelf.a"

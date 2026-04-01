@@ -40,7 +40,7 @@ check() {
     LC_ALL=C.UTF-8 make test
 }
 
-install() {
+do_install() {
     cd unix
     make DESTDIR="$DESTDIR" install
 

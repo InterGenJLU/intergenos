@@ -27,7 +27,7 @@ build() {
     make SHLIB_LIBS="-lncursesw" -j${IGOS_JOBS}
 }
 
-install() {
+do_install() {
     make SHLIB_LIBS="-lncursesw" DESTDIR="$DESTDIR" install
     install -v -dm755 "${DESTDIR}/usr/share/doc/readline-8.3"
     install -v -m644 doc/*.{ps,pdf,html,dvi} "${DESTDIR}/usr/share/doc/readline-8.3"

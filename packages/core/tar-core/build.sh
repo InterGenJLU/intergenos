@@ -15,7 +15,7 @@ check() {
     make check
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
     make DESTDIR="$DESTDIR" -C doc install-html docdir=/usr/share/doc/tar-1.35
 }

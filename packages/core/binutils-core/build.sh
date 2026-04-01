@@ -33,7 +33,7 @@ check() {
     grep -A7 'Summaries' $(find . -name '*.sum') | grep -E 'PASS|FAIL' || true
 }
 
-install() {
+do_install() {
     cd build
     make DESTDIR="$DESTDIR" tooldir=/usr install
 

@@ -51,7 +51,7 @@ check() {
     ../contrib/test_summary | grep -A7 '=== .* Summary ===' || true
 }
 
-install() {
+do_install() {
     cd build
     make DESTDIR="$DESTDIR" install
 

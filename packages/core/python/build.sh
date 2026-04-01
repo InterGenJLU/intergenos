@@ -13,7 +13,7 @@ build() {
     make -j${IGOS_JOBS}
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
 
     mkdir -pv "${DESTDIR}/etc"

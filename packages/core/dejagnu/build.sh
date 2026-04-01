@@ -21,7 +21,7 @@ check() {
     make check
 }
 
-install() {
+do_install() {
     cd build
     make DESTDIR="$DESTDIR" install
     install -v -dm755 "${DESTDIR}/usr/share/doc/dejagnu-1.6.3"

@@ -26,7 +26,7 @@ check() {
     make check
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
     mv -v "${DESTDIR}/usr/"{,s}bin/ifconfig
 }

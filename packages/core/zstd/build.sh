@@ -16,7 +16,7 @@ check() {
     make check
 }
 
-install() {
+do_install() {
     make prefix=/usr DESTDIR="$DESTDIR" install
     rm -v "${DESTDIR}/usr/lib/libzstd.a"
 }

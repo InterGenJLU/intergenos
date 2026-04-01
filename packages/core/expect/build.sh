@@ -25,7 +25,7 @@ check() {
     make test
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
     ln -svf expect5.45.4/libexpect5.45.4.so "${DESTDIR}/usr/lib"
 }

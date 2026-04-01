@@ -26,7 +26,7 @@ check() {
     awk '/# PASS:/{total+=$3} ; END{print "Total tests passed:",total}' gmp-check-log
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
     make DESTDIR="$DESTDIR" install-html
 }

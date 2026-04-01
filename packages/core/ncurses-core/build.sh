@@ -21,7 +21,7 @@ build() {
     make -j${IGOS_JOBS}
 }
 
-install() {
+do_install() {
     # Stage into a local dest first (LFS pattern), then copy to $DESTDIR
     make DESTDIR=$PWD/dest install
 

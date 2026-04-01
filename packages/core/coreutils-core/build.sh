@@ -33,7 +33,7 @@ check() {
     groupdel dummy
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
 
     # Move chroot to /usr/sbin and fix its man page section

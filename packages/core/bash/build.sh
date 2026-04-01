@@ -24,7 +24,7 @@ exit $value
 EOF
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" install
 }
 

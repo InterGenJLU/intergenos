@@ -12,6 +12,6 @@ build() {
     make NETNS_RUN_DIR=/run/netns -j${IGOS_JOBS}
 }
 
-install() {
+do_install() {
     make DESTDIR="$DESTDIR" SBINDIR=/usr/sbin install
 }
