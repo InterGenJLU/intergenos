@@ -3,15 +3,16 @@
 # LFS 13.0 Section 6.3
 #
 # Ncurses requires special handling: build tic for the host first,
-# then cross-compile the library for the target.
+# install it to $IGOS/tools, then cross-compile the library for the target.
 
 configure() {
-    # Build tic for the host system first
+    # Build tic for the host system first and install to tools
     mkdir -v build
     pushd build
-        ../configure
+        ../configure --prefix=$IGOS/tools AWK=gawk
         make -C include
         make -C progs tic
+        install progs/tic $IGOS/tools/bin
     popd
 
     # Now configure for cross-compilation
@@ -26,7 +27,8 @@ configure() {
         --with-cxx-shared                \
         --without-debug                  \
         --without-ada                    \
-        --disable-stripping
+        --disable-stripping              \
+        AWK=gawk
 }
 
 build() {

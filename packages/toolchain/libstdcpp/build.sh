@@ -17,7 +17,7 @@ configure() {
         --disable-multilib               \
         --disable-nls                    \
         --disable-libstdcxx-pch          \
-        --with-gxx-include-dir=/tools/$IGOS_TARGET/include/c++/${version}
+        --with-gxx-include-dir=/tools/$IGOS_TARGET/include/c++/$PKG_VERSION
 }
 
 build() {
