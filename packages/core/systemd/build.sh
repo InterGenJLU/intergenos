@@ -51,6 +51,7 @@ do_install() {
     DESTDIR="$DESTDIR" ninja install
 
     # Install man pages from separate tarball
+    mkdir -pv "${DESTDIR}/usr/share/man"
     tar -xf ${IGOS_SOURCES}/systemd-man-pages-259.1.tar.xz \
         --no-same-owner --strip-components=1                \
         -C "${DESTDIR}/usr/share/man"
