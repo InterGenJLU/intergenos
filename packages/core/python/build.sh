@@ -3,14 +3,19 @@
 # LFS 13.0 Section 8.52
 
 configure() {
-    ./configure --prefix=/usr        \
-        --enable-shared              \
-        --with-system-expat          \
-        --enable-optimizations
+    ./configure --prefix=/usr             \
+        --enable-shared                   \
+        --with-system-expat               \
+        --enable-optimizations            \
+        --without-static-libpython
 }
 
 build() {
-    make -j${IGOS_JOBS}
+    # Exclude test_generators from PGO profiling — it fails under PGO
+    # instrumentation in KVM/chroot due to signal delivery timing changes.
+    # 1 of 46 PGO tests excluded; negligible impact on optimization quality.
+    make PROFILE_TASK="-m test --pgo -x test_generators --timeout 120" \
+        -j${IGOS_JOBS}
 }
 
 do_install() {
