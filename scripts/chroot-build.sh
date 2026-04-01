@@ -11,9 +11,9 @@
 set +h
 umask 022
 
-IGOS_SOURCES=/mnt/intergenos/build/sources
-IGOS_PATCHES=/mnt/intergenos/build/patches
-IGOS_LOGS=/mnt/intergenos/build/logs
+IGOS_SOURCES=/sources
+IGOS_PATCHES=/sources
+IGOS_LOGS=/var/log/igos-build
 IGOS_JOBS=$(nproc)
 
 mkdir -pv $IGOS_LOGS

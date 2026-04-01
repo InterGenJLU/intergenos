@@ -50,8 +50,8 @@ exec chroot "$IGOS" /usr/bin/env -i          \
     MAKEFLAGS="-j${JOBS}"                    \
     TESTSUITEFLAGS="-j${JOBS}"               \
     IGOS_JOBS="${JOBS}"                       \
-    IGOS_SOURCES=/mnt/intergenos/build/sources \
-    IGOS_PATCHES=/mnt/intergenos/build/patches \
-    IGOS_LOGS=/mnt/intergenos/build/logs     \
+    IGOS_SOURCES=/sources                    \
+    IGOS_PATCHES=/sources                    \
+    IGOS_LOGS=/var/log/igos-build            \
     PKG_VERSION=""                           \
     $CHROOT_CMD
