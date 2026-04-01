@@ -28,5 +28,6 @@ check() {
 
 do_install() {
     make DESTDIR="$DESTDIR" install
-    mv -v "${DESTDIR}/usr/"{,s}bin/ifconfig
+    mkdir -pv "${DESTDIR}/usr/sbin"
+    mv -v "${DESTDIR}/usr/bin/ifconfig" "${DESTDIR}/usr/sbin/ifconfig"
 }
