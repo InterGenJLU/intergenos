@@ -158,18 +158,21 @@ EOF
 }
 
 # ============================================================================
-# pkg_archive — Create a .igos.tar.zst archive from staged files
+# pkg_archive — Create a .igos.tar.gz archive from staged files
 #
 # Usage: pkg_archive <name> <version>
 #
-# Creates: $IGOS_PKG_ARCHIVES/<name>-<version>.igos.tar.zst
+# Creates: $IGOS_PKG_ARCHIVES/<name>-<version>.igos.tar.gz
+#
+# Uses gzip during initial build (available from Chapter 7).
+# Archives can be re-compressed to zstd later if desired.
 # ============================================================================
 
 pkg_archive() {
     local name="$1"
     local version="$2"
     local dest="${IGOS_PKG_STAGING}/${name}-${version}"
-    local archive="${IGOS_PKG_ARCHIVES}/${name}-${version}.igos.tar.zst"
+    local archive="${IGOS_PKG_ARCHIVES}/${name}-${version}.igos.tar.gz"
 
     if [ ! -d "$dest" ]; then
         pkg_error "No staging directory found for ${name}-${version}"
@@ -178,7 +181,7 @@ pkg_archive() {
 
     # Create the archive — rooted at the staging directory so paths are relative
     # This means extracting to / will put files in the right place
-    tar -C "$dest" -cf - . | zstd -T0 -19 -o "$archive"
+    tar -C "$dest" -czf "$archive" .
 
     local rc=$?
     if [ $rc -ne 0 ]; then
