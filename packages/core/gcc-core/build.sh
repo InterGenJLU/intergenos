@@ -84,7 +84,7 @@ post_install() {
     echo ""
     echo "=== GCC Sanity Check ==="
     echo 'int main(){}' > /tmp/dummy.c
-    cc /tmp/dummy.c -v -Wl,--verbose &> /tmp/dummy.log
+    cc /tmp/dummy.c -o /tmp/a.out -v -Wl,--verbose &> /tmp/dummy.log
     readelf -l /tmp/a.out | grep ': /lib'
 
     echo ""
