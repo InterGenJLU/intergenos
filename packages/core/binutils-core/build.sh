@@ -7,6 +7,8 @@ configure() {
     cd       build
 
     ../configure --prefix=/usr       \
+        --build=x86_64-igos-linux-gnu \
+        --host=x86_64-igos-linux-gnu  \
         --sysconfdir=/etc            \
         --enable-gold                \
         --enable-ld=default          \

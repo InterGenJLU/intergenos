@@ -15,6 +15,8 @@ configure() {
     echo "rootsbindir=/usr/sbin" > configparms
 
     ../configure --prefix=/usr                   \
+        --build=x86_64-igos-linux-gnu            \
+        --host=x86_64-igos-linux-gnu             \
         --disable-werror                         \
         --disable-nscd                           \
         libc_cv_slibdir=/usr/lib                 \

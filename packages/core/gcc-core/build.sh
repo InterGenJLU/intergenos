@@ -18,6 +18,9 @@ configure() {
     cd       build
 
     ../configure --prefix=/usr            \
+        --build=x86_64-igos-linux-gnu     \
+        --host=x86_64-igos-linux-gnu      \
+        --target=x86_64-igos-linux-gnu    \
         LD=ld                             \
         --enable-languages=c,c++          \
         --enable-default-pie              \
@@ -26,7 +29,9 @@ configure() {
         --disable-multilib                \
         --disable-bootstrap               \
         --disable-fixincludes             \
-        --with-system-zlib
+        --with-system-zlib                \
+        --with-pkgversion='InterGenOS GCC 15.2.0' \
+        --with-bugurl='https://github.com/InterGenOS/intergenos/issues'
 }
 
 build() {
