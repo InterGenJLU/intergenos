@@ -38,6 +38,6 @@ do_install() {
 
     # Create and install additional documentation
     makeinfo -o doc/com_err.info ../lib/et/com_err.texinfo
-    install -v -m644 doc/com_err.info "${DESTDIR}/usr/share/info"
+    install -v -m644 doc/com_err.info "${DESTDIR}/usr/share/info/"
     install-info --dir-file="${DESTDIR}/usr/share/info/dir" "${DESTDIR}/usr/share/info/com_err.info"
 }

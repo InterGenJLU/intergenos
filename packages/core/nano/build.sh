@@ -26,6 +26,7 @@ do_install() {
     make DESTDIR="$DESTDIR" install
 
     # Install documentation
+    install -v -dm755 "${DESTDIR}/usr/share/doc/nano-8.7.1"
     install -v -m644 doc/{nano.html,sample.nanorc} "${DESTDIR}/usr/share/doc/nano-8.7.1"
 
     # Create system-wide nanorc with creature comforts

@@ -37,7 +37,8 @@ do_install() {
     make DESTDIR="$DESTDIR" install
 
     # Move chroot to /usr/sbin and fix its man page section
-    mv -v "${DESTDIR}/usr/bin/chroot" "${DESTDIR}/usr/sbin"
+    mkdir -pv "${DESTDIR}/usr/sbin"
+    mv -v "${DESTDIR}/usr/bin/chroot" "${DESTDIR}/usr/sbin/chroot"
     mkdir -pv "${DESTDIR}/usr/share/man/man8"
     mv -v "${DESTDIR}/usr/share/man/man1/chroot.1" \
           "${DESTDIR}/usr/share/man/man8/chroot.8"
