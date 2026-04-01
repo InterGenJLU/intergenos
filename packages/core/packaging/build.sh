@@ -1,6 +1,8 @@
 #!/bin/bash
 # Packaging 26.0
-# LFS 13.0 Section 8.54
+# LFS 13.0 Section 8.55
+#
+# DESTDIR exception: pip uses --root instead of DESTDIR.
 
 configure() {
     : # No configure step
@@ -11,5 +13,5 @@ build() {
 }
 
 install() {
-    pip3 install --no-index --no-user --find-links dist packaging
+    pip3 install --no-index --no-user --root="$DESTDIR" --no-deps --find-links dist packaging
 }

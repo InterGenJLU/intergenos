@@ -21,6 +21,7 @@ build() {
 }
 
 install() {
-    make SHLIB_LIBS="-lncursesw" install
-    install -v -m644 doc/*.{ps,pdf,html,dvi} /usr/share/doc/readline-8.3
+    make SHLIB_LIBS="-lncursesw" DESTDIR="$DESTDIR" install
+    install -v -dm755 "${DESTDIR}/usr/share/doc/readline-8.3"
+    install -v -m644 doc/*.{ps,pdf,html,dvi} "${DESTDIR}/usr/share/doc/readline-8.3"
 }

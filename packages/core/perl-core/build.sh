@@ -31,6 +31,6 @@ check() {
 }
 
 install() {
-    make install
+    make DESTDIR="$DESTDIR" install
     unset BUILD_ZLIB BUILD_BZIP2
 }

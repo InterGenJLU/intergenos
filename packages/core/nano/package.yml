@@ -1,0 +1,16 @@
+name: nano
+version: 8.7.1
+release: 1
+description: Small, friendly text editor with syntax highlighting and UTF-8 support
+license: GPL-3.0-or-later
+source:
+- url: https://www.nano-editor.org/dist/v8/nano-${version}.tar.xz
+  md5: d873085c342e3670d108c08a0c3ebe2f
+dependencies:
+  build: []
+  host:
+  - ncurses
+  - gettext
+  runtime: []
+tier: core
+build_style: custom

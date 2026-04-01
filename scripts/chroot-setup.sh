@@ -27,15 +27,24 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-# Verify the target exists and has a toolchain
-if [ ! -d "$IGOS/tools" ]; then
-    echo "ERROR: $IGOS/tools not found. Build the toolchain first."
+# Check system state and inform the user
+if [ ! -d "$IGOS/usr/bin" ]; then
+    echo "ERROR: $IGOS/usr/bin not found. The target system doesn't appear to be built."
+    echo "       Build the toolchain (Chapters 5-6) before running this script."
     exit 1
+fi
+
+if [ -d "$IGOS/tools" ]; then
+    echo "NOTE: /tools directory exists — the cross-toolchain is still present."
+    echo "      This is expected if you haven't completed Chapter 7 cleanup yet."
+else
+    echo "NOTE: /tools directory is gone — Chapter 7 cleanup has been completed."
+    echo "      This is the expected state for Chapter 8 builds."
 fi
 
 # --- 7.2: Changing Ownership ---
 echo "--- Changing ownership to root ---"
-chown --from christopher -R root:root $IGOS/{usr,var,etc,tools} 2>/dev/null || true
+chown --from christopher -R root:root $IGOS/{usr,var,etc} 2>/dev/null || true
 case $(uname -m) in
     x86_64) chown --from christopher -R root:root $IGOS/lib64 2>/dev/null || true ;;
 esac

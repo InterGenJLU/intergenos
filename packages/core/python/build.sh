@@ -14,9 +14,10 @@ build() {
 }
 
 install() {
-    make install
+    make DESTDIR="$DESTDIR" install
 
-    cat > /etc/pip.conf << PIPEOF
+    mkdir -pv "${DESTDIR}/etc"
+    cat > "${DESTDIR}/etc/pip.conf" << PIPEOF
 [install]
 root = /usr
 compile = no
@@ -29,10 +30,10 @@ user = false
 user-site = false
 PIPEOF
 
-    install -v -dm755 /usr/share/doc/python-3.14.3/html
+    install -v -dm755 "${DESTDIR}/usr/share/doc/python-3.14.3/html"
 
     tar --no-same-owner \
         -xvf $IGOS_SOURCES/python-3.14.3-docs-html.tar.bz2
     cp -R --no-preserve=mode python-3.14.3-docs-html/* \
-        /usr/share/doc/python-3.14.3/html
+        "${DESTDIR}/usr/share/doc/python-3.14.3/html"
 }

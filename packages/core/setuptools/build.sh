@@ -1,6 +1,8 @@
 #!/bin/bash
 # Setuptools 82.0.0
-# LFS 13.0 Section 8.56
+# LFS 13.0 Section 8.57
+#
+# DESTDIR exception: pip uses --root instead of DESTDIR.
 
 configure() {
     : # No configure step
@@ -11,5 +13,5 @@ build() {
 }
 
 install() {
-    pip3 install --no-index --no-user --find-links dist setuptools
+    pip3 install --no-index --no-user --root="$DESTDIR" --no-deps --find-links dist setuptools
 }

@@ -21,9 +21,9 @@ check() {
 
 install() {
     sed -i '/INSTALL_LIBS/s/libcrypto.a libssl.a//' Makefile
-    make MANSUFFIX=ssl install
+    make DESTDIR="$DESTDIR" MANSUFFIX=ssl install
 
     # Add version to documentation directory
-    mv -v /usr/share/doc/openssl /usr/share/doc/openssl-3.6.1
-    cp -vfr doc/* /usr/share/doc/openssl-3.6.1
+    mv -v "${DESTDIR}/usr/share/doc/openssl" "${DESTDIR}/usr/share/doc/openssl-3.6.1"
+    cp -vfr doc/* "${DESTDIR}/usr/share/doc/openssl-3.6.1"
 }

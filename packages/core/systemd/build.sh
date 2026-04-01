@@ -1,0 +1,66 @@
+#!/bin/bash
+# Systemd 259.1
+# LFS 13.0 Section 8.78
+#
+# Complex meson build. DESTDIR supported.
+# Post-install: machine-id-setup, preset-all.
+
+configure() {
+    # Fix udev rules: render -> video group, remove sgx
+    sed -e 's/GROUP="render"/GROUP="video"/' \
+        -e 's/GROUP="sgx", //'               \
+        -i rules.d/50-udev-default.rules.in
+
+    mkdir -p build
+    cd       build
+
+    meson setup ..                \
+        --prefix=/usr             \
+        --buildtype=release       \
+        -D default-dnssec=no      \
+        -D firstboot=false        \
+        -D install-tests=false    \
+        -D ldconfig=false         \
+        -D sysusers=false         \
+        -D rpmmacrosdir=no        \
+        -D homed=disabled         \
+        -D man=disabled           \
+        -D mode=release           \
+        -D pamconfdir=no          \
+        -D dev-kvm-mode=0660      \
+        -D nobody-group=nogroup   \
+        -D sysupdate=disabled     \
+        -D ukify=disabled         \
+        -D docdir=/usr/share/doc/systemd-259.1
+}
+
+build() {
+    cd build
+    ninja -j${IGOS_JOBS}
+}
+
+check() {
+    cd build
+    # os-release is needed for tests
+    echo 'NAME="InterGenOS"' > /etc/os-release
+    unshare -m ninja test || true
+}
+
+install() {
+    cd build
+    DESTDIR="$DESTDIR" ninja install
+
+    # Install man pages from separate tarball
+    tar -xf ${IGOS_SOURCES}/systemd-man-pages-259.1.tar.xz \
+        --no-same-owner --strip-components=1                \
+        -C "${DESTDIR}/usr/share/man"
+}
+
+# Post-install: runs on the live system AFTER deploy
+post_install() {
+    # Create machine ID (unique per machine, never bake into a package)
+    systemd-machine-id-setup
+
+    # Enable/disable services per preset policy
+    systemctl preset-all
+}

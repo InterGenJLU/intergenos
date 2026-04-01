@@ -24,6 +24,6 @@ check() {
 }
 
 install() {
-    make install
-    make install-html
+    make DESTDIR="$DESTDIR" install
+    make DESTDIR="$DESTDIR" install-html
 }

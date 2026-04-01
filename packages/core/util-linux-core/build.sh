@@ -33,5 +33,5 @@ check() {
 }
 
 install() {
-    make install
+    make DESTDIR="$DESTDIR" install
 }

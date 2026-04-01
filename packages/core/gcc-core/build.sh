@@ -3,6 +3,9 @@
 # LFS 13.0 Section 8.30
 
 configure() {
+    # Fix for glibc-2.43 compatibility
+    sed -i 's/char [*]q/const &/' libgomp/affinity-fmt.c
+
     # Change default directory for 64-bit libraries to "lib"
     case $(uname -m) in
         x86_64)
@@ -21,6 +24,7 @@ configure() {
         --enable-default-ssp              \
         --enable-host-pie                 \
         --disable-multilib                \
+        --disable-bootstrap               \
         --disable-fixincludes             \
         --with-system-zlib
 }
@@ -33,7 +37,10 @@ build() {
 check() {
     cd build
     # Increase stack size for tests
-    ulimit -s 32768
+    ulimit -s -H unlimited
+
+    # Remove test known to fail with current Python
+    sed -e '/cpython/d' -i ../gcc/testsuite/gcc.dg/plugin/plugin.exp
 
     # Run tests as non-root (some tests fail as root)
     chown -R tester .
@@ -46,50 +53,54 @@ check() {
 
 install() {
     cd build
-    make install
+    make DESTDIR="$DESTDIR" install
 
-    # Compatibility symlink for cc
-    ln -svr /usr/bin/cpp /usr/lib
-    ln -sv gcc.1 /usr/share/man/man1/cc.1
-
-    # Compatibility symlink: many packages use cc instead of gcc
-    ln -sfv gcc /usr/bin/cc
+    # Compatibility symlinks
+    ln -svr "${DESTDIR}/usr/bin/cpp" "${DESTDIR}/usr/lib"
+    ln -sv gcc.1 "${DESTDIR}/usr/share/man/man1/cc.1"
 
     # Add LTO plugin to linker
-    mkdir -pv /usr/lib/bfd-plugins/
+    mkdir -pv "${DESTDIR}/usr/lib/bfd-plugins/"
     ln -sfv ../../libexec/gcc/$(gcc -dumpmachine)/15.2.0/liblto_plugin.so \
-        /usr/lib/bfd-plugins/
+        "${DESTDIR}/usr/lib/bfd-plugins/"
 
-    # Sanity check
+    # Move gdb python files
+    mkdir -pv "${DESTDIR}/usr/share/gdb/auto-load/usr/lib"
+    mv -v "${DESTDIR}/usr/lib"/*gdb.py "${DESTDIR}/usr/share/gdb/auto-load/usr/lib"
+
+    # Fix ownership of headers
+    chown -v -R root:root \
+        "${DESTDIR}/usr/lib/gcc/$(gcc -dumpmachine)/15.2.0/include"{,-fixed}
+}
+
+# Post-install: runs on the live system AFTER deploy
+post_install() {
+    # GCC sanity check — must pass or stop the build
     echo ""
     echo "=== GCC Sanity Check ==="
-    echo 'int main(){}' > dummy.c
-    cc dummy.c -v -Wl,--verbose &> dummy.log
-    readelf -l a.out | grep ': /lib'
+    echo 'int main(){}' > /tmp/dummy.c
+    cc /tmp/dummy.c -v -Wl,--verbose &> /tmp/dummy.log
+    readelf -l /tmp/a.out | grep ': /lib'
 
     echo ""
     echo "=== Start Files ==="
-    grep -E -o '/usr/lib.*/S?crt[1in].*succeeded' dummy.log
+    grep -E -o '/usr/lib.*/S?crt[1in].*succeeded' /tmp/dummy.log
 
     echo ""
     echo "=== Header Search Paths ==="
-    grep -B4 '^ /usr/include' dummy.log
+    grep -B4 '^ /usr/include' /tmp/dummy.log
 
     echo ""
     echo "=== Linker Search Paths ==="
-    grep 'SEARCH.*/usr/lib' dummy.log | sed 's|; |\n|g'
+    grep 'SEARCH.*/usr/lib' /tmp/dummy.log | sed 's|; |\n|g'
 
     echo ""
     echo "=== Correct libc ==="
-    grep "/lib.*/libc.so.6 " dummy.log
+    grep "/lib.*/libc.so.6 " /tmp/dummy.log
 
     echo ""
     echo "=== Dynamic Linker ==="
-    grep found dummy.log
+    grep found /tmp/dummy.log
 
-    rm -v dummy.c a.out dummy.log
-
-    # Move a misplaced file
-    mkdir -pv /usr/share/gdb/auto-load/usr/lib
-    mv -v /usr/lib/*gdb.py /usr/share/gdb/auto-load/usr/lib
+    rm -v /tmp/dummy.c /tmp/a.out /tmp/dummy.log
 }

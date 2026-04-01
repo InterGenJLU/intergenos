@@ -15,6 +15,6 @@ check() {
 }
 
 install() {
-    make install
-    rm -fv /usr/lib/libz.a
+    make DESTDIR="$DESTDIR" install
+    rm -fv "${DESTDIR}/usr/lib/libz.a"
 }

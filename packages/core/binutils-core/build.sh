@@ -35,9 +35,9 @@ check() {
 
 install() {
     cd build
-    make tooldir=/usr install
+    make DESTDIR="$DESTDIR" tooldir=/usr install
 
     # Remove useless static libraries and .la files
-    rm -fv /usr/lib/lib{bfd,ctf,ctf-nobfd,gprofng,opcodes,sframe}.a
-    rm -fv /usr/lib/lib{bfd,ctf,ctf-nobfd,gprofng,opcodes,sframe}.la
+    rm -fv "${DESTDIR}/usr/lib"/lib{bfd,ctf,ctf-nobfd,gprofng,opcodes,sframe}.a
+    rm -fv "${DESTDIR}/usr/lib"/lib{bfd,ctf,ctf-nobfd,gprofng,opcodes,sframe}.la
 }
