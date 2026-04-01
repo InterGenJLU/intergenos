@@ -49,7 +49,7 @@ check() {
 
     # Run tests as non-root (some tests fail as root)
     chown -R tester .
-    su tester -c "PATH=$PATH make -k check" || true
+    su tester -c "PATH=$PATH make -k -j${IGOS_JOBS} check" || true
 
     echo ""
     echo "=== GCC Test Summary ==="
