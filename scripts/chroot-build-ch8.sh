@@ -263,8 +263,8 @@ run_package "m4-core" "m4" "1.4.21" \
     "m4-1.4.21.tar.xz" \
     "GNU macro processor"
 
-run_package "bc" "bc" "7.0.3" \
-    "bc-7.0.3.tar.xz" \
+run_package "bc" "bc" "7.1.0" \
+    "bc-7.1.0.tar.xz" \
     "Arbitrary precision calculator"
 
 run_package "flex" "flex" "2.6.4" \

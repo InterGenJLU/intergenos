@@ -1,13 +1,10 @@
 #!/bin/bash
-# Bc 7.0.3
-# LFS 13.0 Section 8.15
+# Bc 7.1.0
+# Upstream fix for GCC 15 C23 token-pasting issue (bc 7.0.3 failed)
+# LFS 13.0 specifies 7.0.3 — bumped to 7.1.0 for GCC 15 compatibility
 
 configure() {
-    # LFS specifies CC='gcc -std=c99' but bc 7.0.3 uses bare true/false
-    # in macros (concatenated with UL). These are keywords in C23 but not
-    # in C99/C11. Bc's configure adds -D_POSIX_C_SOURCE=200809L which
-    # disables C23 keywords even under GCC 15. Force C23 explicitly.
-    CC='gcc -std=c23' ./configure --prefix=/usr -G -O3 -r
+    CC=gcc ./configure --prefix=/usr -G -O3 -r
 }
 
 build() {
