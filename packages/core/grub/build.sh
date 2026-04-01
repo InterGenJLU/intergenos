@@ -6,6 +6,9 @@ configure() {
     # Unset any GRUB-related environment variables
     unset {C,CXX,CPP,LD}FLAGS
 
+    # Fix a bug introduced in grub-2.14
+    sed 's/--image-base/--nonexist-linker-option/' -i configure
+
     ./configure --prefix=/usr          \
         --sysconfdir=/etc              \
         --disable-efiemu               \
@@ -18,6 +21,4 @@ build() {
 
 do_install() {
     make DESTDIR="$DESTDIR" install
-    mkdir -pv "${DESTDIR}/usr/share/bash-completion/completions"
-    mv -v "${DESTDIR}/etc/bash_completion.d/grub" "${DESTDIR}/usr/share/bash-completion/completions"
 }

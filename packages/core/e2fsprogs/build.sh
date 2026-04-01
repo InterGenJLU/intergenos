@@ -41,3 +41,10 @@ do_install() {
     install -v -m644 doc/com_err.info "${DESTDIR}/usr/share/info/"
     install-info --dir-file="${DESTDIR}/usr/share/info/dir" "${DESTDIR}/usr/share/info/com_err.info"
 }
+
+# Post-install: fix mke2fs defaults on live system
+post_install() {
+    # Remove metadata_csum_seed from default mkfs features
+    # (compatibility with older bootloaders/kernels)
+    sed 's/metadata_csum_seed,//' -i /etc/mke2fs.conf
+}
