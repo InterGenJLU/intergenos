@@ -666,6 +666,7 @@ find /usr/lib /usr/libexec -name \*.la -delete 2>/dev/null
 
 # Remove cross-compiler remnants
 find /usr -depth -name $(uname -m)-lfs-linux-gnu\* | xargs rm -rf 2>/dev/null
+find /usr -depth -name $(uname -m)-pc-linux-gnu\* | xargs rm -rf 2>/dev/null
 
 # Remove tester user
 userdel -r tester 2>/dev/null || true
