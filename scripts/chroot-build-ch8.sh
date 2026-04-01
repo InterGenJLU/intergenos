@@ -129,7 +129,7 @@ build_ch8_package() {
 
     # --- INSTALL (via DESTDIR staging + package tracking) ---
     log "  [INSTALL] staging..."
-    pkg_install "$name" "$version" "$description"
+    pkg_install "$name" "$version" "$description" >> "$pkg_log" 2>&1
     local rc=$?
     if [ $rc -ne 0 ]; then
         log "  FAILED in install/staging (exit $rc)"
