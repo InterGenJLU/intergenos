@@ -1,0 +1,25 @@
+name: findutils-tmp
+version: "4.10.0"
+release: 1
+description: "GNU find utilities (temporary tools)"
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/findutils/
+
+source:
+  - url: https://ftpmirror.gnu.org/findutils/findutils-${version}.tar.xz
+    sha256: 1387e0b67ff247d2abde998f90dfbf70c1491391a59ddfecb8ae698789f0a4f5
+
+dependencies:
+  build: []
+  host:
+    - ncurses
+  runtime: []
+
+tier: toolchain
+target_triple: x86_64-igos-linux-gnu
+build_style: autotools
+configure_flags:
+  - --prefix=/usr
+  - --localstatedir=/var/lib/locate
+  - --host=$IGOS_TARGET
+  - --build=$(build-aux/config.guess)

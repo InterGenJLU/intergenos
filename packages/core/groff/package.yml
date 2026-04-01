@@ -1,0 +1,14 @@
+name: groff
+version: 1.23.0
+release: 1
+description: GNU troff text formatting
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/groff/groff-${version}.tar.gz
+  sha256: 6b9757f592b7518b4902eb6af7e54570bdccba37a871fddb2d30ae3863511c13
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools

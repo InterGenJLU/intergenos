@@ -1,0 +1,15 @@
+name: markupsafe
+version: 3.0.3
+release: 1
+description: Safe markup string implementation
+license: BSD-3-Clause
+source:
+- url: https://pypi.org/packages/source/M/MarkupSafe/markupsafe-${version}.tar.gz
+  sha256: 722695808f4b6457b320fdc131280796bdceb04ab50fe1795cd540799ebe1698
+dependencies:
+  build: []
+  host:
+  - setuptools
+  runtime: []
+tier: core
+build_style: custom

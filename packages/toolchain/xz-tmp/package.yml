@@ -1,0 +1,26 @@
+name: xz-tmp
+version: "5.8.2"
+release: 1
+description: "XZ Utils compression (temporary tools)"
+license: GPL-2.0-or-later
+homepage: https://tukaani.org/xz/
+
+source:
+  - url: https://github.com//tukaani-project/xz/releases/download/v${version}/xz-${version}.tar.xz
+    sha256: 890966ec3f5d5cc151077879e157c0593500a522f413ac50ba26d22a9a145214
+
+dependencies:
+  build: []
+  host:
+    - ncurses
+  runtime: []
+
+tier: toolchain
+target_triple: x86_64-igos-linux-gnu
+build_style: autotools
+configure_flags:
+  - --prefix=/usr
+  - --host=$IGOS_TARGET
+  - --build=$(build-aux/config.guess)
+  - --disable-static
+  - --docdir=/usr/share/doc/xz-${version}

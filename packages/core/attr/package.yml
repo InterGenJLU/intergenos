@@ -1,0 +1,14 @@
+name: attr
+version: 2.5.2
+release: 1
+description: Extended attributes utilities
+license: LGPL-2.1-or-later
+source:
+- url: https://download.savannah.gnu.org/releases/attr/attr-${version}.tar.gz
+  sha256: 39bf67452fa41d0948c2197601053f48b3d78a029389734332a6309a680c6c87
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools

@@ -1,0 +1,16 @@
+name: tar-core
+version: '1.35'
+release: 1
+description: GNU tar archiver
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/tar/tar-${version}.tar.xz
+  sha256: 4d62ff37342ec7aed748535323930c7cf94acf71c3591882b26a7ea50f3edc16
+dependencies:
+  build: []
+  host:
+  - acl
+  - xz
+  runtime: []
+tier: core
+build_style: autotools

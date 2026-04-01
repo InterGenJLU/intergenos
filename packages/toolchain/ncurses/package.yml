@@ -1,0 +1,20 @@
+name: ncurses
+version: "6.6"
+release: 1
+description: "Terminal-independent handling of character screens"
+license: MIT
+homepage: https://invisible-island.net/ncurses/
+
+source:
+  - url: https://invisible-mirror.net/archives/ncurses/ncurses-${version}.tar.gz
+    sha256: 355b4cbbed880b0381a04c46617b7656e362585d52e9cf84a67e2009b749ff11
+
+dependencies:
+  build: []
+  host:
+    - m4
+  runtime: []
+
+tier: toolchain
+target_triple: x86_64-igos-linux-gnu
+build_style: custom

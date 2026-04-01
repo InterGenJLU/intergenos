@@ -1,0 +1,20 @@
+name: python
+version: 3.14.3
+release: 1
+description: Python programming language
+license: PSF-2.0
+source:
+- url: https://www.python.org/ftp/python/${version}/Python-${version}.tar.xz
+  sha256: a97d5549e9ad81fe17159ed02c68774ad5d266c72f8d9a0b5a9c371fe85d902b
+dependencies:
+  build: []
+  host:
+  - openssl
+  - libffi
+  - expat
+  - sqlite
+  - readline
+  - ncurses-core
+  runtime: []
+tier: core
+build_style: custom

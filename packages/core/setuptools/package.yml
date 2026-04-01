@@ -1,0 +1,15 @@
+name: setuptools
+version: 82.0.0
+release: 1
+description: Python package management
+license: MIT
+source:
+- url: https://pypi.org/packages/source/s/setuptools/setuptools-${version}.tar.gz
+  sha256: 22e0a2d69474c6ae4feb01951cb69d515ed23728cf96d05513d36e42b62b37cb
+dependencies:
+  build: []
+  host:
+  - wheel
+  runtime: []
+tier: core
+build_style: custom

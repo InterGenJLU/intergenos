@@ -1,0 +1,15 @@
+name: readline
+version: '8.3'
+release: 1
+description: Line input library with editing
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/readline/readline-${version}.tar.gz
+  sha256: fe5383204467828cd495ee8d1d3c037a7eba1389c22bc6a041f627976f9061cc
+dependencies:
+  build: []
+  host:
+  - ncurses-core
+  runtime: []
+tier: core
+build_style: custom

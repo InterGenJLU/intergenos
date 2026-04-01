@@ -1,0 +1,15 @@
+name: jinja2
+version: 3.1.6
+release: 1
+description: Template engine for Python
+license: BSD-3-Clause
+source:
+- url: https://pypi.org/packages/source/J/Jinja2/jinja2-${version}.tar.gz
+  sha256: 0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d
+dependencies:
+  build: []
+  host:
+  - markupsafe
+  runtime: []
+tier: core
+build_style: custom

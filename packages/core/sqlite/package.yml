@@ -1,0 +1,15 @@
+name: sqlite
+version: '3510200'
+release: 1
+description: SQL database engine
+license: Public Domain
+source:
+- url: https://sqlite.org/2026/sqlite-autoconf-${version}.tar.gz
+  sha256: fbd89f866b1403bb66a143065440089dd76100f2238314d92274a082d4f2b7bb
+dependencies:
+  build: []
+  host:
+  - readline
+  runtime: []
+tier: core
+build_style: autotools

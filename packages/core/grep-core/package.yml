@@ -1,0 +1,14 @@
+name: grep-core
+version: '3.12'
+release: 1
+description: GNU grep pattern matcher
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/grep/grep-${version}.tar.xz
+  sha256: 2649b27c0e90e632eadcd757be06c6e9a4f48d941de51e7c0f83ff76408a07b9
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools

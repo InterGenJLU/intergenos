@@ -1,0 +1,14 @@
+name: libtool
+version: 2.5.4
+release: 1
+description: GNU generic library support script
+license: GPL-2.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/libtool/libtool-${version}.tar.xz
+  sha256: f81f5860666b0bc7d84baddefa60d1cb9fa6fceb2398cc3baca6afaa60266675
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools

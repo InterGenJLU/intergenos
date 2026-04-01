@@ -1,0 +1,14 @@
+name: man-pages
+version: '6.17'
+release: 1
+description: Linux man pages
+license: man-pages
+source:
+- url: https://www.kernel.org/pub/linux/docs/man-pages/man-pages-${version}.tar.xz
+  sha256: d18f21a602b09778a5a9096bf1be8441b7733e998150474accf703d165f4ebf4
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: make

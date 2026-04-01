@@ -1,0 +1,24 @@
+name: diffutils-tmp
+version: "3.12"
+release: 1
+description: "GNU diff utilities (temporary tools)"
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/diffutils/
+
+source:
+  - url: https://ftpmirror.gnu.org/diffutils/diffutils-${version}.tar.xz
+    sha256: 7c8b7f9fc8609141fdea9cece85249d308624391ff61dedaf528fcb337727dfd
+
+dependencies:
+  build: []
+  host:
+    - ncurses
+  runtime: []
+
+tier: toolchain
+target_triple: x86_64-igos-linux-gnu
+build_style: autotools
+configure_flags:
+  - --prefix=/usr
+  - --host=$IGOS_TARGET
+  - --build=$(./build-aux/config.guess)

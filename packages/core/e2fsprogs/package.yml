@@ -1,0 +1,15 @@
+name: e2fsprogs
+version: 1.47.3
+release: 1
+description: Ext2/3/4 filesystem utilities
+license: GPL-2.0-or-later
+source:
+- url: https://downloads.sourceforge.net/project/e2fsprogs/e2fsprogs/v${version}/e2fsprogs-${version}.tar.gz
+  sha256: 2f5164e64dd7d91eadd1e0e8a77d92c06dd7837bb19f1d9189ce1939b363d2b4
+dependencies:
+  build: []
+  host:
+  - util-linux-core
+  runtime: []
+tier: core
+build_style: custom

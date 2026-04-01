@@ -1,0 +1,26 @@
+name: coreutils-tmp
+version: "9.10"
+release: 1
+description: "GNU core utilities (temporary tools)"
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/coreutils/
+
+source:
+  - url: https://ftpmirror.gnu.org/coreutils/coreutils-${version}.tar.xz
+    sha256: 16535a9adf0b10037364e2d612aad3d9f4eca3a344949ced74d12faf4bd51d25
+
+dependencies:
+  build: []
+  host:
+    - ncurses
+  runtime: []
+
+tier: toolchain
+target_triple: x86_64-igos-linux-gnu
+build_style: autotools
+configure_flags:
+  - --prefix=/usr
+  - --host=$IGOS_TARGET
+  - --build=$(build-aux/config.guess)
+  - --enable-install-program=hostname
+  - gl_cv_macro_MB_CUR_MAX_good=y

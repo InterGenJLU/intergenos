@@ -1,0 +1,14 @@
+name: bc
+version: 7.0.3
+release: 1
+description: Arbitrary precision calculator
+license: BSD-2-Clause
+source:
+- url: https://github.com/gavinhoward/bc/releases/download/${version}/bc-${version}.tar.xz
+  sha256: 91eb74caed0ee6655b669711a4f350c25579778694df248e28363318e03c7fc4
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: custom

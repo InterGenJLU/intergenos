@@ -1,0 +1,14 @@
+name: bison-core
+version: 3.8.2
+release: 1
+description: GNU parser generator
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/bison/bison-${version}.tar.xz
+  sha256: 9bba0214ccf7f1079c5d59210045227bcf619519840ebfa80cd3849cff5a5bf2
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools

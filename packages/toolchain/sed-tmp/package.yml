@@ -1,0 +1,24 @@
+name: sed-tmp
+version: "4.9"
+release: 1
+description: "GNU sed stream editor (temporary tools)"
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/sed/
+
+source:
+  - url: https://ftpmirror.gnu.org/sed/sed-${version}.tar.xz
+    sha256: 6e226b732e1cd739464ad6862bd1a1aba42d7982922da7a53519631d24975181
+
+dependencies:
+  build: []
+  host:
+    - ncurses
+  runtime: []
+
+tier: toolchain
+target_triple: x86_64-igos-linux-gnu
+build_style: autotools
+configure_flags:
+  - --prefix=/usr
+  - --host=$IGOS_TARGET
+  - --build=$(./build-aux/config.guess)

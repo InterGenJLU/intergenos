@@ -1,0 +1,26 @@
+name: bash-tmp
+version: "5.3"
+release: 1
+description: "GNU Bourne Again Shell (temporary tools)"
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/bash/
+
+source:
+  - url: https://ftpmirror.gnu.org/bash/bash-${version}.tar.gz
+    sha256: 0d5cd86965f869a26cf64f4b71be7b96f90a3ba8b3d74e27e8e9d9d5550f31ba
+
+dependencies:
+  build: []
+  host:
+    - ncurses
+  runtime: []
+
+tier: toolchain
+target_triple: x86_64-igos-linux-gnu
+build_style: autotools
+configure_flags:
+  - --prefix=/usr
+  - --build=$(sh support/config.guess)
+  - --host=$IGOS_TARGET
+  - --without-bash-malloc
+  - bash_cv_strtold_broken=no

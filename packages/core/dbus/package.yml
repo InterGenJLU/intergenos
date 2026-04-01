@@ -1,0 +1,16 @@
+name: dbus
+version: 1.16.2
+release: 1
+description: Message bus system
+license: AFL-2.1 OR GPL-2.0-or-later
+source:
+- url: https://dbus.freedesktop.org/releases/dbus/dbus-${version}.tar.xz
+  sha256: 0ba2a1a4b16afe7bceb2c07e9ce99a8c2c3508e5dec290dbb643384bd6beb7e2
+dependencies:
+  build: []
+  host:
+  - systemd
+  - expat
+  runtime: []
+tier: core
+build_style: autotools

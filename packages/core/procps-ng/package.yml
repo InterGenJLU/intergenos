@@ -1,0 +1,15 @@
+name: procps-ng
+version: 4.0.6
+release: 1
+description: Process monitoring utilities
+license: GPL-2.0-or-later
+source:
+- url: https://sourceforge.net/projects/procps-ng/files/Production/procps-ng-${version}.tar.xz
+  sha256: 67bea6fbc3a42a535a0230c9e891e5ddfb4d9d39422d46565a2990d1ace15216
+dependencies:
+  build: []
+  host:
+  - ncurses-core
+  runtime: []
+tier: core
+build_style: autotools

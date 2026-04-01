@@ -1,0 +1,14 @@
+name: libpipeline
+version: 1.5.8
+release: 1
+description: Pipeline manipulation library
+license: GPL-3.0-or-later
+source:
+- url: https://download.savannah.gnu.org/releases/libpipeline/libpipeline-${version}.tar.gz
+  sha256: 1b1203ca152ccd63983c3f2112f7fe6fa5afd453218ede5153d1b31e11bb8405
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools

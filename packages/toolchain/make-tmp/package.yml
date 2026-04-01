@@ -1,0 +1,25 @@
+name: make-tmp
+version: "4.4.1"
+release: 1
+description: "GNU make (temporary tools)"
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/make/
+
+source:
+  - url: https://ftpmirror.gnu.org/make/make-${version}.tar.gz
+    sha256: dd16fb1d67bfab79a72f5e8390735c49e3e8e70b4945a15ab1f81ddb78658fb3
+
+dependencies:
+  build: []
+  host:
+    - ncurses
+  runtime: []
+
+tier: toolchain
+target_triple: x86_64-igos-linux-gnu
+build_style: autotools
+configure_flags:
+  - --prefix=/usr
+  - --without-guile
+  - --host=$IGOS_TARGET
+  - --build=$(build-aux/config.guess)

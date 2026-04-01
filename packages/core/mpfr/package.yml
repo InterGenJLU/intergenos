@@ -1,0 +1,15 @@
+name: mpfr
+version: 4.2.2
+release: 1
+description: Multiple Precision Floating-Point Reliable Library
+license: LGPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/mpfr/mpfr-${version}.tar.xz
+  sha256: b67ba0383ef7e8a8563734e2e889ef5ec3c3b898a01d00fa0a6869ad81c6ce01
+dependencies:
+  build: []
+  host:
+  - gmp
+  runtime: []
+tier: core
+build_style: autotools

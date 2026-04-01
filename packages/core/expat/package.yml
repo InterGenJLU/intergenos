@@ -1,0 +1,14 @@
+name: expat
+version: 2.7.4
+release: 1
+description: XML parser library
+license: MIT
+source:
+- url: https://github.com/libexpat/libexpat/releases/download/R_2_7_4/expat-${version}.tar.xz
+  sha256: 9e9cabb457c1e09de91db2706d8365645792638eb3be1f94dbb2149301086ac0
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools

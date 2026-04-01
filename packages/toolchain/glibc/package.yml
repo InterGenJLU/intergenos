@@ -1,0 +1,46 @@
+name: glibc
+version: "2.43"
+release: 1
+description: "GNU C Library"
+license: LGPL-2.1-or-later
+homepage: https://www.gnu.org/software/libc/
+
+source:
+  - url: https://ftp.gnu.org/gnu/${name}/${name}-${version}.tar.xz
+    sha256: d9c86c6b5dbddb43a3e08270c5844fc5177d19442cf5b8df4be7c07cd5fa3831
+
+dependencies:
+  build: []
+  host:
+    - binutils-pass1
+    - gcc-pass1
+    - linux-headers
+  runtime: []
+
+tier: toolchain
+target_triple: x86_64-igos-linux-gnu
+build_style: custom
+
+patches:
+  - glibc-fhs-1.patch
+
+# Note: configure flags are in build.sh for glibc because the
+# configure invocation has special setup steps (symlinks, configparms).
+# These are kept here for documentation and dry-run visibility.
+configure_flags:
+  - --prefix=/usr
+  - --host=x86_64-igos-linux-gnu
+  - --build=$(../scripts/config.guess)
+  - --enable-kernel=5.4
+  - --with-headers=$IGOS/usr/include
+  - --disable-nscd
+  - libc_cv_slibdir=/usr/lib
+
+validation:
+  - type: sanity_check
+    description: "Verify dynamic linker exists"
+    script: |
+      echo 'int main(){}' | $IGOS_TARGET-gcc -x c -
+      readelf -l a.out | grep ld-linux
+    expect_contains: "ld-linux"
+    fatal: true

@@ -1,0 +1,14 @@
+name: iana-etc
+version: '20260202'
+release: 1
+description: IANA network service and protocol data
+license: MIT
+source:
+- url: https://github.com/Mic92/iana-etc/releases/download/${version}/iana-etc-${version}.tar.gz
+  sha256: 32f1d8fb403b0afd8b2649dbdb3f5137ac5dd1262c72ec670249f54cc87e2900
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: make

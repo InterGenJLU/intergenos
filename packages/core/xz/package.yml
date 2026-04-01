@@ -1,0 +1,14 @@
+name: xz
+version: 5.8.2
+release: 1
+description: XZ Utils compression
+license: GPL-2.0-or-later
+source:
+- url: https://github.com/tukaani-project/xz/releases/download/v${version}/xz-${version}.tar.xz
+  sha256: 890966ec3f5d5cc151077879e157c0593500a522f413ac50ba26d22a9a145214
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools

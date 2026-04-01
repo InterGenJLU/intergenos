@@ -1,0 +1,14 @@
+name: lz4
+version: 1.10.0
+release: 1
+description: Extremely fast compression
+license: BSD-2-Clause
+source:
+- url: https://github.com/lz4/lz4/releases/download/v${version}/lz4-${version}.tar.gz
+  sha256: 537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: make

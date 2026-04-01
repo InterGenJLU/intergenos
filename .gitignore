@@ -1,19 +1,30 @@
 # Filesystem artifacts
 lost+found/
 
-# Build artifacts
-build/output/
-build/tools/
-build/sources/
+# Build artifacts (generated, not source)
+build/work/
+build/system/
+build/packages/
+build/logs/
+build/sources/*.tar.*
+build/sources/*.patch
 *.iso
 *.img
 *.img.gz
 
-# VirtualBox VMs
-*.vdi
-*.vmdk
-*.ova
-*.vbox-prev
+# Keep build directory structure but not contents
+!build/sources/wget-list-systemd
+!build/sources/md5sums-systemd
+
+# KVM virtual machines
+vm/*.qcow2
+vm/*.iso
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
 
 # IDE / tools
 .vscode/
@@ -26,12 +37,11 @@ build/sources/
 .DS_Store
 Thumbs.db
 
-# Research (local reference, not published)
+# Research (local reference, not published to public repo)
 research/
 
 # Logs
 *.log
-logs/
 
 # Temporary
 tmp/

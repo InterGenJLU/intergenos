@@ -1,0 +1,16 @@
+name: intltool
+version: 0.51.0
+release: 1
+description: Internationalization tool collection
+license: GPL-2.0-or-later
+source:
+- url: https://launchpad.net/intltool/trunk/0.51.0/+download/intltool-${version}.tar.gz
+  sha256: 67c74d94196b153b774ab9f89b2fa6c6ba79352407037c8c14d5aeb334e959cd
+dependencies:
+  build: []
+  host:
+  - xml-parser
+  - perl-core
+  runtime: []
+tier: core
+build_style: autotools

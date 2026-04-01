@@ -1,0 +1,14 @@
+name: pkgconf
+version: 2.5.1
+release: 1
+description: Package compiler and linker metadata toolkit
+license: ISC
+source:
+- url: https://distfiles.ariadne.space/pkgconf/pkgconf-${version}.tar.xz
+  sha256: cd05c9589b9f86ecf044c10a2269822bc9eb001eced2582cfffd658b0a50c243
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools

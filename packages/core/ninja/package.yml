@@ -1,0 +1,15 @@
+name: ninja
+version: 1.13.2
+release: 1
+description: Small build system with focus on speed
+license: Apache-2.0
+source:
+- url: https://github.com/ninja-build/ninja/archive/v${version}/ninja-${version}.tar.gz
+  sha256: 974d6b2f4eeefa25625d34da3cb36bdcebe7fbce40f4c16ac0835fd1c0cbae17
+dependencies:
+  build: []
+  host:
+  - python
+  runtime: []
+tier: core
+build_style: custom

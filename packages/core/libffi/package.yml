@@ -1,0 +1,14 @@
+name: libffi
+version: 3.5.2
+release: 1
+description: Foreign Function Interface library
+license: MIT
+source:
+- url: https://github.com/libffi/libffi/releases/download/v${version}/libffi-${version}.tar.gz
+  sha256: f3a3082a23b37c293a4fcd1053147b371f2ff91fa7ea1b2a52e335676bac82dc
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools

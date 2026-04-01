@@ -1,0 +1,14 @@
+name: ncurses-core
+version: '6.6'
+release: 1
+description: Terminal handling library
+license: MIT
+source:
+- url: https://invisible-mirror.net/archives/ncurses/ncurses-${version}.tar.gz
+  sha256: 355b4cbbed880b0381a04c46617b7656e362585d52e9cf84a67e2009b749ff11
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: custom

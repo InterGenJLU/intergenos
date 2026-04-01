@@ -1,0 +1,15 @@
+name: gettext
+version: '1.0'
+release: 1
+description: GNU internationalization utilities
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/gettext/gettext-${version}.tar.xz
+  sha256: 71132a3fb71e68245b8f2ac4e9e97137d3e5c02f415636eb508ae607bc01add7
+dependencies:
+  build: []
+  host:
+  - ncurses-core
+  runtime: []
+tier: core
+build_style: autotools

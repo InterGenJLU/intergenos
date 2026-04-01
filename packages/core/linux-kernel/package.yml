@@ -1,0 +1,14 @@
+name: linux-kernel
+version: 6.18.10
+release: 1
+description: Linux kernel
+license: GPL-2.0-only
+source:
+- url: https://www.kernel.org/pub/linux/kernel/v6.x/linux-${version}.tar.xz
+  sha256: d6d377161741ada2fab28eed69143277634a2aeb5e3883e50c031588ede48ede
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: custom

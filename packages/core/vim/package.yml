@@ -1,0 +1,15 @@
+name: vim
+version: 9.2.0078
+release: 1
+description: Vi IMproved text editor
+license: Vim
+source:
+- url: https://github.com/vim/vim/archive/v${version}/vim-${version}.tar.gz
+  sha256: 031e56ccc745fd2db2464dbde1e232cde6ec45251a6f7253ef34deca7faed887
+dependencies:
+  build: []
+  host:
+  - ncurses-core
+  runtime: []
+tier: core
+build_style: custom

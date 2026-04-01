@@ -1,0 +1,14 @@
+name: diffutils-core
+version: '3.12'
+release: 1
+description: GNU diff utilities
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/diffutils/diffutils-${version}.tar.xz
+  sha256: 7c8b7f9fc8609141fdea9cece85249d308624391ff61dedaf528fcb337727dfd
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools

@@ -1,0 +1,15 @@
+name: less
+version: '692'
+release: 1
+description: Text file viewer
+license: GPL-3.0-or-later
+source:
+- url: https://www.greenwoodsoftware.com/less/less-${version}.tar.gz
+  sha256: 61300f603798ecf1d7786570789f0ff3f5a1acf075a6fb9f756837d166e37d14
+dependencies:
+  build: []
+  host:
+  - ncurses-core
+  runtime: []
+tier: core
+build_style: autotools

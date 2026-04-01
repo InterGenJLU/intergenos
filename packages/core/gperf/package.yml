@@ -1,0 +1,14 @@
+name: gperf
+version: '3.3'
+release: 1
+description: Perfect hash function generator
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/gperf/gperf-${version}.tar.gz
+  sha256: fd87e0aba7e43ae054837afd6cd4db03a3f2693deb3619085e6ed9d8d9604ad8
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools

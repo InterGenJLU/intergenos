@@ -1,0 +1,15 @@
+name: acl
+version: 2.3.2
+release: 1
+description: Access Control Lists utilities
+license: LGPL-2.1-or-later
+source:
+- url: https://download.savannah.gnu.org/releases/acl/acl-${version}.tar.xz
+  sha256: 97203a72cae99ab89a067fe2210c1cbf052bc492b479eca7d226d9830883b0bd
+dependencies:
+  build: []
+  host:
+  - attr
+  runtime: []
+tier: core
+build_style: autotools

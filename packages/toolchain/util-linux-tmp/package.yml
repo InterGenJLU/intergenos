@@ -1,0 +1,19 @@
+name: util-linux-tmp
+version: "2.41.3"
+release: 1
+description: "Miscellaneous system utilities (temporary tools)"
+license: GPL-2.0-or-later
+homepage: https://www.kernel.org/pub/linux/utils/util-linux/
+
+source:
+  - url: https://www.kernel.org/pub/linux/utils/util-linux/v2.41/util-linux-${version}.tar.xz
+    sha256: 3330d873f0fceb5560b89a7dc14e4f3288bbd880e96903ed9b50ec2b5799e58b
+
+dependencies:
+  build: []
+  host:
+    - texinfo-tmp
+  runtime: []
+
+tier: toolchain
+build_style: custom

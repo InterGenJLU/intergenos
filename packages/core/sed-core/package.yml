@@ -1,0 +1,14 @@
+name: sed-core
+version: '4.9'
+release: 1
+description: GNU stream editor
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/sed/sed-${version}.tar.xz
+  sha256: 6e226b732e1cd739464ad6862bd1a1aba42d7982922da7a53519631d24975181
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools

@@ -1,0 +1,36 @@
+name: binutils-pass1
+version: "2.46.0"
+release: 1
+description: "GNU Binutils — cross-linker and assembler (pass 1)"
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/binutils/
+
+source:
+  - url: https://sourceware.org/pub/binutils/releases/binutils-${version}.tar.xz
+    sha256: d75a94f4d73e7a4086f7513e67e439e8fcdcbb726ffe63f4661744e6256b2cf2
+
+dependencies:
+  build: []
+  host: []
+  runtime: []
+
+tier: toolchain
+pass_number: 1
+target_triple: x86_64-igos-linux-gnu
+build_style: custom
+
+configure_flags:
+  - --prefix=$IGOS/tools
+  - --with-sysroot=$IGOS
+  - --target=${IGOS_TARGET}
+  - --disable-nls
+  - --enable-gprofng=no
+  - --disable-werror
+  - --enable-new-dtags
+  - --enable-default-hash-style=gnu
+
+validation:
+  - type: sanity_check
+    description: "Verify cross-linker was built"
+    script: "ls $IGOS/tools/bin/x86_64-igos-linux-gnu-ld"
+    fatal: true

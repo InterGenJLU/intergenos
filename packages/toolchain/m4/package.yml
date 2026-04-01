@@ -1,0 +1,24 @@
+name: m4
+version: "1.4.21"
+release: 1
+description: "GNU macro processor"
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/m4/
+
+source:
+  - url: https://ftpmirror.gnu.org/m4/m4-${version}.tar.xz
+    sha256: f25c6ab51548a73a75558742fb031e0625d6485fe5f9155949d6486a2408ab66
+
+dependencies:
+  build: []
+  host:
+    - libstdcpp
+  runtime: []
+
+tier: toolchain
+target_triple: x86_64-igos-linux-gnu
+build_style: autotools
+configure_flags:
+  - --prefix=/usr
+  - --host=$IGOS_TARGET
+  - --build=$(build-aux/config.guess)

@@ -1,0 +1,18 @@
+name: gcc-core
+version: 15.2.0
+release: 1
+description: GNU Compiler Collection (final system)
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/gcc/gcc-${version}/gcc-${version}.tar.xz
+  sha256: 438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e
+dependencies:
+  build: []
+  host:
+  - gmp
+  - mpfr
+  - mpc
+  - zstd
+  runtime: []
+tier: core
+build_style: custom

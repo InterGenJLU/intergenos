@@ -1,0 +1,14 @@
+name: grub
+version: '2.14'
+release: 1
+description: GNU bootloader
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/grub/grub-${version}.tar.xz
+  sha256: bc8d3c73535b8838d8c8e2654d73edc4e6ae8c8acdb45d5df5dc9a1547446d43
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: custom

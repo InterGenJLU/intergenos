@@ -1,0 +1,23 @@
+name: gzip-tmp
+version: "1.14"
+release: 1
+description: "GNU gzip compression (temporary tools)"
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/gzip/
+
+source:
+  - url: https://ftpmirror.gnu.org/gzip/gzip-${version}.tar.xz
+    sha256: 01a7b881bd220bfdf615f97b8718f80bdfd3f6add385b993dcf6efd14e8c0ac6
+
+dependencies:
+  build: []
+  host:
+    - ncurses
+  runtime: []
+
+tier: toolchain
+target_triple: x86_64-igos-linux-gnu
+build_style: autotools
+configure_flags:
+  - --prefix=/usr
+  - --host=$IGOS_TARGET

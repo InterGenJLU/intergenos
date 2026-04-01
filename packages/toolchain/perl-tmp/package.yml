@@ -1,0 +1,19 @@
+name: perl-tmp
+version: "5.42.0"
+release: 1
+description: "Practical Extraction and Report Language (temporary tools)"
+license: Artistic-1.0-Perl OR GPL-1.0-or-later
+homepage: https://www.perl.org/
+
+source:
+  - url: https://www.cpan.org/src/5.0/perl-${version}.tar.xz
+    sha256: 73cf6cc1ea2b2b1c110a18c14bbbc73a362073003893ffcedc26d22ebdbdd0c3
+
+dependencies:
+  build: []
+  host:
+    - bison-tmp
+  runtime: []
+
+tier: toolchain
+build_style: custom

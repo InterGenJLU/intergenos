@@ -1,0 +1,14 @@
+name: libxcrypt
+version: 4.5.2
+release: 1
+description: Modern password hashing library
+license: LGPL-2.1-or-later
+source:
+- url: https://github.com/besser82/libxcrypt/releases/download/v${version}/libxcrypt-${version}.tar.xz
+  sha256: 71513a31c01a428bccd5367a32fd95f115d6dac50fb5b60c779d5c7942aec071
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools

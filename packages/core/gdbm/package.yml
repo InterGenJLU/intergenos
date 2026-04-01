@@ -1,0 +1,15 @@
+name: gdbm
+version: '1.26'
+release: 1
+description: GNU database manager
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/gdbm/gdbm-${version}.tar.gz
+  sha256: 6a24504a14de4a744103dcb936be976df6fbe88ccff26065e54c1c47946f4a5e
+dependencies:
+  build: []
+  host:
+  - readline
+  runtime: []
+tier: core
+build_style: autotools

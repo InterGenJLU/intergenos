@@ -1,0 +1,24 @@
+name: grep-tmp
+version: "3.12"
+release: 1
+description: "GNU grep (temporary tools)"
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/grep/
+
+source:
+  - url: https://ftpmirror.gnu.org/grep/grep-${version}.tar.xz
+    sha256: 2649b27c0e90e632eadcd757be06c6e9a4f48d941de51e7c0f83ff76408a07b9
+
+dependencies:
+  build: []
+  host:
+    - ncurses
+  runtime: []
+
+tier: toolchain
+target_triple: x86_64-igos-linux-gnu
+build_style: autotools
+configure_flags:
+  - --prefix=/usr
+  - --host=$IGOS_TARGET
+  - --build=$(./build-aux/config.guess)

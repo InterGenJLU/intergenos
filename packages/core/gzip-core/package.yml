@@ -1,0 +1,14 @@
+name: gzip-core
+version: '1.14'
+release: 1
+description: GNU gzip compression
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/gzip/gzip-${version}.tar.xz
+  sha256: 01a7b881bd220bfdf615f97b8718f80bdfd3f6add385b993dcf6efd14e8c0ac6
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools

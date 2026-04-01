@@ -1,0 +1,17 @@
+name: binutils-core
+version: 2.46.0
+release: 1
+description: GNU Binutils (final system)
+license: GPL-3.0-or-later
+source:
+- url: https://sourceware.org/pub/binutils/releases/binutils-${version}.tar.xz
+  sha256: d75a94f4d73e7a4086f7513e67e439e8fcdcbb726ffe63f4661744e6256b2cf2
+dependencies:
+  build: []
+  host:
+  - zlib
+  - zstd
+  - elfutils
+  runtime: []
+tier: core
+build_style: custom

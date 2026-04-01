@@ -1,0 +1,16 @@
+name: coreutils-core
+version: '9.10'
+release: 1
+description: GNU core utilities
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/coreutils/coreutils-${version}.tar.xz
+  sha256: 16535a9adf0b10037364e2d612aad3d9f4eca3a344949ced74d12faf4bd51d25
+dependencies:
+  build: []
+  host:
+  - acl
+  - libcap
+  runtime: []
+tier: core
+build_style: autotools

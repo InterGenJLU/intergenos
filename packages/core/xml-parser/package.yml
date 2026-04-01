@@ -1,0 +1,16 @@
+name: xml-parser
+version: '2.47'
+release: 1
+description: Perl XML parser module
+license: Artistic-1.0-Perl
+source:
+- url: https://cpan.metacpan.org/authors/id/T/TO/TODDR/XML-Parser-${version}.tar.gz
+  sha256: ad4aae643ec784f489b956abe952432871a622d4e2b5c619e8855accbfc4d1d8
+dependencies:
+  build: []
+  host:
+  - perl-core
+  - expat
+  runtime: []
+tier: core
+build_style: autotools

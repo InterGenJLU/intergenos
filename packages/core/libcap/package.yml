@@ -1,0 +1,15 @@
+name: libcap
+version: '2.77'
+release: 1
+description: POSIX capabilities library
+license: BSD-3-Clause
+source:
+- url: https://www.kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${version}.tar.xz
+  sha256: 897bc18b44afc26c70e78cead3dbb31e154acc24bee085a5a09079a88dbf6f52
+dependencies:
+  build: []
+  host:
+  - acl
+  runtime: []
+tier: core
+build_style: make

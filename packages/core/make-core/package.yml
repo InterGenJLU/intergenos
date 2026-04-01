@@ -1,0 +1,14 @@
+name: make-core
+version: 4.4.1
+release: 1
+description: GNU make
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/make/make-${version}.tar.gz
+  sha256: dd16fb1d67bfab79a72f5e8390735c49e3e8e70b4945a15ab1f81ddb78658fb3
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools
