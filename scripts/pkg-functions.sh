@@ -74,12 +74,14 @@ pkg_stage() {
     pkg_log "Staging ${name}-${version} to ${PKG_DEST}"
 
     # Run the package's install function
-    # The install() function in build.sh should use $DESTDIR or be
-    # written to respect the DESTDIR environment variable.
+    # Output goes directly to a log file (not a pipe) to prevent
+    # child processes from blocking on a full pipe buffer.
+    local install_log="${IGOS_LOGS}/${name}-install.log"
+
     if type -t pkg_custom_install | grep -q function 2>/dev/null; then
-        pkg_custom_install
+        pkg_custom_install > "$install_log" 2>&1
     elif type -t install | grep -q function 2>/dev/null; then
-        install
+        install > "$install_log" 2>&1
     else
         pkg_error "No install() or pkg_custom_install() function defined for ${name}"
         return 1
