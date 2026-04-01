@@ -3,6 +3,9 @@
 # LFS 13.0 Section 8.22
 
 configure() {
+    # Fix for gcc-15 compatibility
+    sed -i '/long long t1;/,+1s/()/(...)/' configure
+
     ./configure --prefix=/usr    \
         --enable-cxx             \
         --disable-static         \
