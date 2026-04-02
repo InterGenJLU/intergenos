@@ -1,0 +1,21 @@
+name: rsync
+version: 3.4.1
+release: 1
+description: Fast incremental file transfer
+license: GPL-3.0-or-later
+homepage: https://rsync.samba.org/
+tier: base
+build_style: custom
+
+source:
+  - url: https://www.samba.org/ftp/rsync/src/rsync-${version}.tar.gz
+    sha256: placeholder-rsync-3.4.1
+
+dependencies:
+  build:
+    - popt
+  host: []
+  runtime: []
+
+patches:
+  - rsync-3.4.1-security_fix-1.patch

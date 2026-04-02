@@ -1,0 +1,19 @@
+name: make-ca
+version: 1.16.1
+release: 1
+description: CA certificate management utility
+license: MIT
+homepage: https://github.com/lfs-book/make-ca
+tier: base
+build_style: custom
+
+source:
+  - url: https://github.com/lfs-book/make-ca/archive/v${version}/make-ca-${version}.tar.gz
+    sha256: placeholder-make-ca-1.16.1
+
+dependencies:
+  build:
+    - p11-kit
+  host: []
+  runtime:
+    - p11-kit

@@ -1,0 +1,20 @@
+name: htop
+version: "3.4.1"
+release: 1
+description: Interactive process viewer
+license: GPL-2.0-or-later
+homepage: https://htop.dev/
+tier: base
+build_style: autotools
+
+source:
+  - url: https://github.com/htop-dev/htop/releases/download/${version}/htop-${version}.tar.xz
+    sha256: placeholder-htop-3.4.1
+
+dependencies:
+  build: []
+  host: []
+  runtime: []
+
+configure_flags:
+  - "--prefix=/usr"

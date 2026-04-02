@@ -1,0 +1,21 @@
+name: libtasn1
+version: 4.21.0
+release: 1
+description: ASN.1 library used by GnuTLS and p11-kit
+license: LGPL-2.1-or-later
+homepage: https://www.gnu.org/software/libtasn1/
+tier: base
+build_style: autotools
+
+source:
+  - url: https://ftpmirror.gnu.org/libtasn1/libtasn1-${version}.tar.gz
+    sha256: placeholder-libtasn1-4.21.0
+
+dependencies:
+  build: []
+  host: []
+  runtime: []
+
+configure_flags:
+  - "--prefix=/usr"
+  - "--disable-static"

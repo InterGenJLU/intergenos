@@ -1,0 +1,21 @@
+name: cmake
+version: 4.2.3
+release: 1
+description: Cross-platform build system generator
+license: BSD-3-Clause
+homepage: https://cmake.org/
+tier: base
+build_style: custom
+
+source:
+  - url: https://cmake.org/files/v4.2/cmake-${version}.tar.gz
+    sha256: placeholder-cmake-4.2.3
+
+dependencies:
+  build:
+    - curl
+    - libarchive
+    - libuv
+    - nghttp2
+  host: []
+  runtime: []

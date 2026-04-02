@@ -1,0 +1,20 @@
+name: strace
+version: "6.14"
+release: 1
+description: System call tracer
+license: LGPL-2.1-or-later
+homepage: https://strace.io/
+tier: base
+build_style: autotools
+
+source:
+  - url: https://strace.io/files/${version}/strace-${version}.tar.xz
+    sha256: placeholder-strace-6.14
+
+dependencies:
+  build: []
+  host: []
+  runtime: []
+
+configure_flags:
+  - "--prefix=/usr"

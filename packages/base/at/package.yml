@@ -1,0 +1,19 @@
+name: at
+version: 3.2.5
+release: 1
+description: Job scheduling commands (at, batch, atq, atrm)
+license: GPL-2.0-or-later
+tier: base
+build_style: custom
+
+source:
+  - url: https://anduin.linuxfromscratch.org/BLFS/at/at_${version}.orig.tar.gz
+    sha256: placeholder-at-3.2.5
+
+dependencies:
+  build:
+    - exim
+    - linux-pam
+  host: []
+  runtime:
+    - exim

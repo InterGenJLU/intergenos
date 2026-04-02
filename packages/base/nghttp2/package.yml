@@ -1,0 +1,23 @@
+name: nghttp2
+version: 1.68.0
+release: 1
+description: HTTP/2 C library
+license: MIT
+homepage: https://nghttp2.org/
+tier: base
+build_style: autotools
+
+source:
+  - url: https://github.com/nghttp2/nghttp2/releases/download/v${version}/nghttp2-${version}.tar.xz
+    sha256: placeholder-nghttp2-1.68.0
+
+dependencies:
+  build: []
+  host: []
+  runtime: []
+
+configure_flags:
+  - "--prefix=/usr"
+  - "--disable-static"
+  - "--enable-lib-only"
+  - "--docdir=/usr/share/doc/nghttp2-1.68.0"

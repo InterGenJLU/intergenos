@@ -1,0 +1,17 @@
+name: perl-file-fcntllock
+version: "0.22"
+release: 1
+description: Perl module for file locking (required by Exim)
+license: Artistic-2.0
+homepage: https://metacpan.org/pod/File::FcntlLock
+tier: base
+build_style: custom
+
+source:
+  - url: https://www.cpan.org/authors/id/J/JT/JTT/File-FcntlLock-${version}.tar.gz
+    sha256: placeholder-file-fcntllock-0.22
+
+dependencies:
+  build: []
+  host: []
+  runtime: []

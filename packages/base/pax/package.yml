@@ -1,0 +1,17 @@
+name: pax
+version: "20240817"
+release: 1
+description: POSIX standard archive utility
+license: BSD-3-Clause
+homepage: http://www.mirbsd.org/pax.htm
+tier: base
+build_style: custom
+
+source:
+  - url: http://www.mirbsd.org/MirOS/dist/mir/cpio/paxmirabilis-${version}.tgz
+    sha256: placeholder-pax-20240817
+
+dependencies:
+  build: []
+  host: []
+  runtime: []

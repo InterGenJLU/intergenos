@@ -1,0 +1,17 @@
+name: fcron
+version: 3.4.0
+release: 1
+description: Periodical command scheduler
+license: GPL-2.0-or-later
+homepage: http://fcron.free.fr/
+tier: base
+build_style: custom
+
+source:
+  - url: http://fcron.free.fr/archives/fcron-${version}.src.tar.gz
+    sha256: placeholder-fcron-3.4.0
+
+dependencies:
+  build: []
+  host: []
+  runtime: []

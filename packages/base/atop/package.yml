@@ -1,0 +1,17 @@
+name: atop
+version: "2.11.0"
+release: 1
+description: Advanced system and process monitor
+license: GPL-2.0-or-later
+homepage: https://www.atoptool.nl/
+tier: base
+build_style: custom
+
+source:
+  - url: https://www.atoptool.nl/download/atop-${version}.tar.gz
+    sha256: placeholder-atop-2.11.0
+
+dependencies:
+  build: []
+  host: []
+  runtime: []

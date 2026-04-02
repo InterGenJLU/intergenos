@@ -1,0 +1,20 @@
+name: curl
+version: 8.18.0
+release: 1
+description: Command line tool and library for transferring data with URLs
+license: MIT
+homepage: https://curl.se/
+tier: base
+build_style: custom
+
+source:
+  - url: https://curl.se/download/curl-${version}.tar.xz
+    sha256: placeholder-curl-8.18.0
+
+dependencies:
+  build:
+    - libpsl
+    - make-ca
+  host: []
+  runtime:
+    - make-ca

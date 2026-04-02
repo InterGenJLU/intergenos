@@ -1,0 +1,19 @@
+name: libpsl
+version: 0.21.5
+release: 1
+description: Public Suffix List library
+license: MIT
+homepage: https://github.com/rockdaboot/libpsl
+tier: base
+build_style: custom
+
+source:
+  - url: https://github.com/rockdaboot/libpsl/releases/download/${version}/libpsl-${version}.tar.gz
+    sha256: placeholder-libpsl-0.21.5
+
+dependencies:
+  build:
+    - libidn2
+    - libunistring
+  host: []
+  runtime: []

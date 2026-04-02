@@ -1,0 +1,18 @@
+name: lsof
+version: 4.99.5
+release: 1
+description: List open files
+license: Zlib
+homepage: https://github.com/lsof-org/lsof
+tier: base
+build_style: custom
+
+source:
+  - url: https://github.com/lsof-org/lsof/releases/download/${version}/lsof-${version}.tar.gz
+    sha256: placeholder-lsof-4.99.5
+
+dependencies:
+  build:
+    - libtirpc
+  host: []
+  runtime: []

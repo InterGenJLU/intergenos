@@ -1,0 +1,18 @@
+name: p11-kit
+version: 0.26.2
+release: 1
+description: PKCS#11 module loading library
+license: BSD-3-Clause
+homepage: https://p11-glue.github.io/p11-glue/p11-kit.html
+tier: base
+build_style: custom
+
+source:
+  - url: https://github.com/p11-glue/p11-kit/releases/download/${version}/p11-kit-${version}.tar.xz
+    sha256: placeholder-p11-kit-0.26.2
+
+dependencies:
+  build:
+    - libtasn1
+  host: []
+  runtime: []

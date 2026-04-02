@@ -1,0 +1,22 @@
+name: libnsl
+version: 2.0.1
+release: 1
+description: NIS library (libnsl replacement for glibc)
+license: LGPL-2.1-or-later
+homepage: https://github.com/thkukuk/libnsl
+tier: base
+build_style: autotools
+
+source:
+  - url: https://github.com/thkukuk/libnsl/releases/download/v${version}/libnsl-${version}.tar.xz
+    sha256: placeholder-libnsl-2.0.1
+
+dependencies:
+  build:
+    - libtirpc
+  host: []
+  runtime: []
+
+configure_flags:
+  - "--sysconfdir=/etc"
+  - "--disable-static"

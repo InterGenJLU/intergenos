@@ -1,0 +1,17 @@
+name: libarchive
+version: 3.8.5
+release: 1
+description: Multi-format archive and compression library
+license: BSD-2-Clause
+homepage: https://libarchive.org/
+tier: base
+build_style: custom
+
+source:
+  - url: https://github.com/libarchive/libarchive/releases/download/v${version}/libarchive-${version}.tar.xz
+    sha256: placeholder-libarchive-3.8.5
+
+dependencies:
+  build: []
+  host: []
+  runtime: []

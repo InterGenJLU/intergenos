@@ -1,0 +1,17 @@
+name: time
+version: "1.9"
+release: 1
+description: GNU time - runs programs and summarizes resource usage
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/time/
+tier: base
+build_style: custom
+
+source:
+  - url: https://ftpmirror.gnu.org/time/time-${version}.tar.gz
+    sha256: placeholder-time-1.9
+
+dependencies:
+  build: []
+  host: []
+  runtime: []

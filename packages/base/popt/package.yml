@@ -1,0 +1,21 @@
+name: popt
+version: "1.19"
+release: 1
+description: Command line option parsing library
+license: MIT
+homepage: https://github.com/rpm-software-management/popt
+tier: base
+build_style: autotools
+
+source:
+  - url: https://ftp.osuosl.org/pub/rpm/popt/releases/popt-1.x/popt-${version}.tar.gz
+    sha256: placeholder-popt-1.19
+
+dependencies:
+  build: []
+  host: []
+  runtime: []
+
+configure_flags:
+  - "--prefix=/usr"
+  - "--disable-static"

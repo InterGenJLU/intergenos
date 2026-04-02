@@ -1,0 +1,17 @@
+name: libunistring
+version: 1.4.1
+release: 1
+description: Unicode string library for C
+license: LGPL-3.0-or-later
+homepage: https://www.gnu.org/software/libunistring/
+tier: base
+build_style: custom
+
+source:
+  - url: https://ftpmirror.gnu.org/libunistring/libunistring-${version}.tar.xz
+    sha256: placeholder-libunistring-1.4.1
+
+dependencies:
+  build: []
+  host: []
+  runtime: []
