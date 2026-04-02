@@ -1,5 +1,5 @@
 #!/bin/bash
-# btop 1.4.4 — Resource monitor
+# btop 1.4.6 — Resource monitor
 # From upstream (not in BLFS)
 
 configure() {

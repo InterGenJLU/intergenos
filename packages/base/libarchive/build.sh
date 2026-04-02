@@ -1,5 +1,5 @@
 #!/bin/bash
-# libarchive 3.8.5 — Multi-format archive library
+# libarchive 3.8.6 — Multi-format archive library
 # BLFS 13.0
 
 configure() {

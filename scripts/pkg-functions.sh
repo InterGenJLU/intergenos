@@ -4,12 +4,12 @@
 # Sourced by the Chapter 8 build runner. Provides functions to:
 #   1. Stage a package's installed files via DESTDIR
 #   2. Generate a file manifest
-#   3. Create a compressed archive (.igos.tar.zst)
+#   3. Create a compressed archive (.igos.tar.gz)
 #   4. Deploy staged files to the live filesystem
 #   5. Run post-install hooks on the live system
 #
 # Database: /var/lib/igos/packages/<name>-<version>  (one text file per package)
-# Archives: /var/lib/igos/archives/<name>-<version>.igos.tar.zst
+# Archives: /var/lib/igos/archives/<name>-<version>.igos.tar.gz
 #
 # Design: Slackware-style manifests — human-readable, cat-inspectable,
 # no binary database, no dependency resolution at install time.

@@ -43,10 +43,9 @@ Name=en*
 
 [Network]
 DHCP=ipv4
-DNS=8.8.8.8
-DNS=8.8.4.4
 
 [DHCPv4]
+UseDNS=true
 UseDomains=true
 EOF
 

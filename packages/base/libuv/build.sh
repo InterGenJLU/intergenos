@@ -1,5 +1,5 @@
 #!/bin/bash
-# libuv 1.52.0 — Multi-platform async I/O
+# libuv 1.52.1 — Multi-platform async I/O
 # BLFS 13.0
 
 configure() {

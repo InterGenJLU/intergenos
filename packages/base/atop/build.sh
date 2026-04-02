@@ -1,5 +1,5 @@
 #!/bin/bash
-# atop 2.11.0 — Advanced system and process monitor
+# atop 2.12.1 — Advanced system and process monitor
 # From upstream (not in BLFS)
 
 build() {

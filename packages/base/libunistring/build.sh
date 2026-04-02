@@ -1,5 +1,5 @@
 #!/bin/bash
-# libunistring 1.4.1 — Unicode string library
+# libunistring 1.4.2 — Unicode string library
 # BLFS 13.0
 
 configure() {
@@ -9,7 +9,7 @@ configure() {
 
     ./configure --prefix=/usr    \
                 --disable-static \
-                --docdir=/usr/share/doc/libunistring-1.4.1
+                --docdir=/usr/share/doc/libunistring-${PKG_VERSION}
 }
 
 build() {

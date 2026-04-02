@@ -1,5 +1,5 @@
 #!/bin/bash
-# lsof 4.99.5 — List open files
+# lsof 4.99.6 — List open files
 # BLFS 13.0
 
 configure() {

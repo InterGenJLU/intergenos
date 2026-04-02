@@ -23,6 +23,7 @@
 #        /mnt/intergenos/scripts/chroot-build-ch8.sh
 
 set +h
+set -e
 umask 022
 
 # ============================================================================
@@ -83,7 +84,10 @@ build_ch8_package() {
     # Clean and extract
     rm -rf "$workdir"
     mkdir -pv "$workdir"
-    tar -xf "${IGOS_SOURCES}/${tarball}" -C "$workdir" --strip-components=1
+    tar -xf "${IGOS_SOURCES}/${tarball}" -C "$workdir" --strip-components=1 || {
+        log "ERROR: Failed to extract ${tarball}"
+        return 1
+    }
     cd "$workdir"
 
     local start=$(date +%s)
@@ -95,7 +99,7 @@ build_ch8_package() {
     source "$build_script"
 
     # --- CONFIGURE ---
-    if type -t configure | grep -q function 2>/dev/null; then
+    if declare -f configure > /dev/null 2>&1; then
         log "  [CONFIGURE] starting..."
         configure >> "$pkg_log" 2>&1
         local rc=$?
@@ -108,7 +112,7 @@ build_ch8_package() {
     fi
 
     # --- BUILD ---
-    if type -t build | grep -q function 2>/dev/null; then
+    if declare -f build > /dev/null 2>&1; then
         log "  [BUILD] starting..."
         build >> "$pkg_log" 2>&1
         local rc=$?
@@ -121,7 +125,7 @@ build_ch8_package() {
     fi
 
     # --- CHECK (optional — failures logged but don't stop the build) ---
-    if type -t check | grep -q function 2>/dev/null; then
+    if declare -f check > /dev/null 2>&1; then
         log "  [CHECK] starting..."
         check >> "$pkg_log" 2>&1
         log "  [CHECK] done (see log for results)"
@@ -137,7 +141,7 @@ build_ch8_package() {
     fi
 
     # --- POST-INSTALL (runs on live system if defined) ---
-    if type -t post_install | grep -q function 2>/dev/null; then
+    if declare -f post_install > /dev/null 2>&1; then
         log "  [POST-INSTALL] running live system hooks..."
         post_install >> "$pkg_log" 2>&1
         log "  [POST-INSTALL] done"
@@ -602,12 +606,12 @@ save_usrlib="$(cd /usr/lib; ls ld-linux*[^g])
 cd /usr/lib
 
 for LIB in $save_usrlib; do
-    objcopy --only-keep-debug --compress-debug-sections=zstd $LIB $LIB.dbg
-    cp $LIB /tmp/$LIB
-    strip --strip-debug /tmp/$LIB
-    objcopy --add-gnu-debuglink=$LIB.dbg /tmp/$LIB
-    install -vm755 /tmp/$LIB /usr/lib
-    rm /tmp/$LIB
+    objcopy --only-keep-debug --compress-debug-sections=zstd "$LIB" "$LIB.dbg"
+    cp "$LIB" "/tmp/$LIB"
+    strip --strip-debug "/tmp/$LIB"
+    objcopy --add-gnu-debuglink="$LIB.dbg" "/tmp/$LIB"
+    install -vm755 "/tmp/$LIB" /usr/lib
+    rm "/tmp/$LIB"
 done
 
 online_usrbin="bash find strip"
@@ -622,17 +626,17 @@ online_usrlib="libbfd-2.46.0.20260210.so
                $(cd /usr/lib; find libnss*.so* -type f)"
 
 for BIN in $online_usrbin; do
-    cp /usr/bin/$BIN /tmp/$BIN
-    strip --strip-debug /tmp/$BIN
-    install -vm755 /tmp/$BIN /usr/bin
-    rm /tmp/$BIN
+    cp "/usr/bin/$BIN" "/tmp/$BIN"
+    strip --strip-debug "/tmp/$BIN"
+    install -vm755 "/tmp/$BIN" /usr/bin
+    rm "/tmp/$BIN"
 done
 
 for LIB in $online_usrlib; do
-    cp /usr/lib/$LIB /tmp/$LIB
-    strip --strip-debug /tmp/$LIB
-    install -vm755 /tmp/$LIB /usr/lib
-    rm /tmp/$LIB
+    cp "/usr/lib/$LIB" "/tmp/$LIB"
+    strip --strip-debug "/tmp/$LIB"
+    install -vm755 "/tmp/$LIB" /usr/lib
+    rm "/tmp/$LIB"
 done
 
 for i in $(find /usr/lib -type f -name \*.so* ! -name \*dbg) \
@@ -664,8 +668,8 @@ rm -rf /tmp/{*,.*} 2>/dev/null || true
 # Remove libtool .la files
 find /usr/lib /usr/libexec -name \*.la -delete 2>/dev/null
 
-# Remove cross-compiler remnants (lfs triplet from LFS book)
-find /usr -depth -name $(uname -m)-lfs-linux-gnu\* | xargs rm -rf 2>/dev/null
+# Remove cross-compiler remnants (igos triplet)
+find /usr -depth -name "$(uname -m)-igos-linux-gnu*" | xargs rm -rf 2>/dev/null
 
 # Flag if any pc-linux-gnu files exist — indicates a triplet misconfiguration
 PC_REMNANTS=$(find /usr -depth -name "$(uname -m)-pc-linux-gnu*" 2>/dev/null)

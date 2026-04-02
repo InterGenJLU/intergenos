@@ -34,7 +34,7 @@ do_install() {
 }
 
 post_install() {
-    chmod -v a+wt /var/mail
+    install -v -d -m1777 /var/mail
 
     # Create aliases
     cat >> /etc/aliases << "EOF"

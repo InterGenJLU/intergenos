@@ -92,7 +92,9 @@ class BuildExecutor:
             if pkg.direct_install:
                 # Multi-pass packages install directly to /
                 # Tracking uses filesystem diff instead of DESTDIR staging
-                env["DESTDIR"] = ""
+                # DESTDIR must be unset (not empty string) — some build systems
+                # treat "" differently from unset
+                env.pop("DESTDIR", None)
             else:
                 staging = self.pkg_staging / f"{pkg.name}-{pkg.version}"
                 if staging.exists():
@@ -221,11 +223,17 @@ class BuildExecutor:
                     dest = src_dir / dest_rel.replace("${version}", pkg.version)
                     dest.mkdir(parents=True, exist_ok=True)
                     self.logger.info(f"Extracting bundled dep: {dep_name} -> {dest}")
-                    self.run_command(
+                    exit_code = self.run_command(
                         f'tar -xf "{dep_tarball}" -C "{dest}" --strip-components=1',
                         env=os.environ.copy(),
                         cwd=pkg_work_dir,
                     )
+                    if exit_code != 0:
+                        self.logger.error(f"Failed to extract bundled dep: {dep_name}")
+                        return None
+                else:
+                    self.logger.error(f"Bundled dep tarball not found: {dep_name}")
+                    return None
 
         return src_dir
 
@@ -417,9 +425,10 @@ class BuildExecutor:
     # ------------------------------------------------------------------
 
     def fs_snapshot(self, dirs: list[str] | None = None) -> set[str]:
-        """Snapshot all files under key system directories.
+        """Snapshot all files and symlinks under key system directories.
 
-        Returns a set of file paths for later diffing.
+        Captures regular files, symlinks (both file and directory symlinks),
+        and any other non-directory entries. Returns a set of paths for diffing.
         """
         if dirs is None:
             dirs = ["/usr", "/etc", "/opt", "/var/lib", "/lib"]
@@ -427,9 +436,15 @@ class BuildExecutor:
         for d in dirs:
             if not os.path.isdir(d):
                 continue
-            for root, _, files in os.walk(d):
+            for root, dirnames, files in os.walk(d, followlinks=False):
+                # Capture regular files and file symlinks
                 for f in files:
                     snapshot.add(os.path.join(root, f))
+                # Capture directory symlinks (os.walk skips them by default)
+                for dn in dirnames:
+                    path = os.path.join(root, dn)
+                    if os.path.islink(path):
+                        snapshot.add(path)
         return snapshot
 
     def pkg_manifest_from_diff(self, pkg: Package, before: set[str], after: set[str]) -> bool:
@@ -644,11 +659,11 @@ class BuildExecutor:
         self.logger.info(f"\nStarting build of {total} package(s)...\n")
 
         for i, pkg in enumerate(packages, 1):
-            # Skip packages that already have a tracked manifest
+            # Skip packages that have a tracked manifest AND all files present
             if self.skip_built:
                 manifest = self.pkg_db / f"{pkg.name}-{pkg.version}"
-                if manifest.exists():
-                    self.logger.info(f"[{i}/{total}] Skipping {pkg.name} {pkg.version} (already tracked)")
+                if manifest.exists() and self.pkg_verify(pkg):
+                    self.logger.info(f"[{i}/{total}] Skipping {pkg.name} {pkg.version} (already tracked and verified)")
                     self.summary.record(pkg.name, pkg.version, True, 0, skipped=True)
                     continue
 
