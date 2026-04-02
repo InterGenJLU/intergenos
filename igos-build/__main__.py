@@ -1,10 +1,12 @@
 """Entry point for igos-build: python -m igos-build
 
 Usage:
-    python -m igos-build                  Parse templates, show build order
-    python -m igos-build --dry-run        Show what commands would run
-    python -m igos-build --build          Actually build packages
-    python -m igos-build --only <name>    Build only one package
+    python -m igos-build                            Parse templates, show build order
+    python -m igos-build --dry-run                  Show what commands would run
+    python -m igos-build --build                    Actually build packages
+    python -m igos-build --build --tracked          Build with package tracking
+    python -m igos-build --only <name>              Build only one package
+    python -m igos-build --sources-dir /sources     Override sources directory
 """
 
 import sys
@@ -33,10 +35,15 @@ def main():
     do_build = "--build" in args
     tracked = "--tracked" in args
     only_pkg = None
+    sources_dir = SOURCES_DIR
     if "--only" in args:
         idx = args.index("--only")
         if idx + 1 < len(args):
             only_pkg = args[idx + 1]
+    if "--sources-dir" in args:
+        idx = args.index("--sources-dir")
+        if idx + 1 < len(args):
+            sources_dir = Path(args[idx + 1])
 
     print("igos-build v0.1.0")
     print(f"Scanning: {PACKAGES_DIR}\n")
@@ -114,7 +121,7 @@ def main():
         executor = BuildExecutor(
             work_dir=WORK_DIR,
             log_dir=LOG_DIR,
-            sources_dir=SOURCES_DIR,
+            sources_dir=sources_dir,
             patches_dir=PATCHES_DIR,
             system_root=SYSTEM_ROOT,
             tracked=tracked,
