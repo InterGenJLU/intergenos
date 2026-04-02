@@ -1,0 +1,18 @@
+name: iso-codes
+version: 4.17.0
+release: 1
+description: Country, language, and currency code lists
+license: LGPL-2.1-or-later
+homepage: https://salsa.debian.org/iso-codes-team/iso-codes
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://ftp.debian.org/debian/pool/main/i/iso-codes/iso-codes_${version}.orig.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr

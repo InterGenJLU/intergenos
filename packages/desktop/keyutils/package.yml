@@ -1,0 +1,16 @@
+name: keyutils
+version: 1.6.3
+release: 1
+description: Linux key management utilities
+license: GPL-2.0-or-later
+homepage: https://people.redhat.com/~dhowells/keyutils/
+tier: desktop
+build_style: make
+install_func: do_install
+source:
+- url: https://people.redhat.com/~dhowells/keyutils/keyutils-${version}.tar.bz2
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

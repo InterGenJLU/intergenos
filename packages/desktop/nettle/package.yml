@@ -1,0 +1,19 @@
+name: nettle
+version: 3.10.1
+release: 1
+description: Low-level cryptographic library
+license: LGPL-3.0-or-later
+homepage: https://www.lysator.liu.se/~nisse/nettle/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://ftpmirror.gnu.org/nettle/nettle-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

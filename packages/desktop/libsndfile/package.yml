@@ -1,0 +1,21 @@
+name: libsndfile
+version: 1.2.2
+release: 1
+description: Library for reading and writing sound files
+license: LGPL-2.1-or-later
+homepage: https://libsndfile.github.io/libsndfile/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/libsndfile/libsndfile/releases/download/${version}/libsndfile-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - flac
+  - opus
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

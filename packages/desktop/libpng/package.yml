@@ -1,0 +1,19 @@
+name: libpng
+version: 1.6.44
+release: 1
+description: PNG reference library
+license: Libpng
+homepage: http://www.libpng.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://downloads.sourceforge.net/libpng/libpng-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

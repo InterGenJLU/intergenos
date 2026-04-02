@@ -1,0 +1,19 @@
+name: libyaml
+version: 0.2.5
+release: 1
+description: YAML 1.1 parser and emitter
+license: MIT
+homepage: https://pyyaml.org/wiki/LibYAML
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/yaml/libyaml/releases/download/${version}/yaml-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

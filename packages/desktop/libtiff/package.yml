@@ -1,0 +1,17 @@
+name: libtiff
+version: 4.7.0
+release: 1
+description: TIFF image library
+license: libtiff
+homepage: http://www.libtiff.org/
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://download.osgeo.org/libtiff/tiff-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libjpeg-turbo
+  host: []
+  runtime: []

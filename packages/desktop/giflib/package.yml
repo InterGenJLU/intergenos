@@ -1,0 +1,16 @@
+name: giflib
+version: 5.2.2
+release: 1
+description: GIF image library
+license: MIT
+homepage: https://giflib.sourceforge.net/
+tier: desktop
+build_style: make
+install_func: do_install
+source:
+- url: https://sourceforge.net/projects/giflib/files/giflib-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

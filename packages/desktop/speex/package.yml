@@ -1,0 +1,20 @@
+name: speex
+version: 1.2.1
+release: 1
+description: Audio codec designed for speech compression
+license: BSD-3-Clause
+homepage: https://www.speex.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://downloads.xiph.org/releases/speex/speex-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libogg
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

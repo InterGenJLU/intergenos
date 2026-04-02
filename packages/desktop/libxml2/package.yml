@@ -1,0 +1,22 @@
+name: libxml2
+version: 2.13.5
+release: 1
+description: XML parsing library
+license: MIT
+homepage: https://gitlab.gnome.org/GNOME/libxml2
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/libxml2/2.13/libxml2-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - icu
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static
+- --with-history
+- --with-icu

@@ -1,0 +1,16 @@
+name: json-c
+version: '0.18'
+release: 1
+description: JSON library for C
+license: MIT
+homepage: https://github.com/json-c/json-c
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://s3.amazonaws.com/json-c_releases/releases/json-c-${version}-nodoc.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

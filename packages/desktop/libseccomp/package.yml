@@ -1,0 +1,19 @@
+name: libseccomp
+version: 2.6.0
+release: 1
+description: Enhanced seccomp library
+license: LGPL-2.1-or-later
+homepage: https://github.com/seccomp/libseccomp
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/seccomp/libseccomp/releases/download/v${version}/libseccomp-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

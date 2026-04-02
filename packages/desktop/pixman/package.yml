@@ -1,0 +1,16 @@
+name: pixman
+version: 0.44.2
+release: 1
+description: Pixel manipulation library
+license: MIT
+homepage: https://www.cairographics.org/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://www.cairographics.org/releases/pixman-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

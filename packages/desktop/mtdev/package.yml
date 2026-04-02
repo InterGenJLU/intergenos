@@ -1,0 +1,19 @@
+name: mtdev
+version: 1.1.7
+release: 1
+description: Multitouch protocol translation library
+license: MIT
+homepage: https://bitmath.org/code/mtdev/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://bitmath.org/code/mtdev/mtdev-${version}.tar.bz2
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

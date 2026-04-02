@@ -1,0 +1,17 @@
+name: libjpeg-turbo
+version: 3.1.0
+release: 1
+description: High-speed JPEG compression/decompression library
+license: IJG
+homepage: https://libjpeg-turbo.org/
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/${version}/libjpeg-turbo-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - nasm
+  host: []
+  runtime: []

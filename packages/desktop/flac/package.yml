@@ -1,0 +1,16 @@
+name: flac
+version: 1.4.3
+release: 1
+description: Free Lossless Audio Codec
+license: GPL-2.0-or-later
+homepage: https://xiph.org/flac/
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://downloads.xiph.org/releases/flac/flac-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

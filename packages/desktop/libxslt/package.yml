@@ -1,0 +1,20 @@
+name: libxslt
+version: 1.1.42
+release: 1
+description: XSLT processor library
+license: MIT
+homepage: https://gitlab.gnome.org/GNOME/libxslt
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/libxslt/1.1/libxslt-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libxml2
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static
