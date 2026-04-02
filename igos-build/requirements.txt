@@ -1,0 +1,4 @@
+# igos-build Python dependencies
+# Install with: pip3 install -r requirements.txt
+# Or from local source: pip3 install --no-build-isolation /sources/pyyaml-6.0.3.tar.gz
+pyyaml>=6.0
