@@ -13,6 +13,7 @@ Usage:
 import sys
 from pathlib import Path
 
+from . import __version__
 from .parser import load_all_packages, TemplateError
 from .graph import build_graph, CycleError, MissingDependencyError
 from .styles import get_style
@@ -47,7 +48,7 @@ def main():
         if idx + 1 < len(args):
             sources_dir = Path(args[idx + 1])
 
-    print("igos-build v0.1.0")
+    print(f"igos-build v{__version__}")
     print(f"Scanning: {PACKAGES_DIR}\n")
 
     # --- Parse all templates ---
