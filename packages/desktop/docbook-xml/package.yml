@@ -8,8 +8,8 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: https://www.docbook.org/xml/${version}/docbook-xml-${version}.zip
-  sha256: NEEDS_CHECKSUM
+- url: https://archive.docbook.org/xml/${version}/docbook-xml-${version}.zip
+  sha256: 4e4e037a2b83c98c6c94818390d4bdd3f6e10f6ec62dd79188594e26190dc7b4
 dependencies:
   build: []
   host: []

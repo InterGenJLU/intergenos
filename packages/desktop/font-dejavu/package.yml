@@ -8,8 +8,8 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_${version}/dejavu-fonts-ttf-${version}.tar.bz2
-  sha256: NEEDS_CHECKSUM
+- url: https://sourceforge.net/projects/dejavu/files/dejavu/${version}/dejavu-fonts-ttf-${version}.tar.bz2
+  sha256: fa9ca4d13871dd122f61258a80d01751d603b4d3ee14095d65453b4e846e17d7
 dependencies:
   build: []
   host: []

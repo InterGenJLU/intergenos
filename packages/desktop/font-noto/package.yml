@@ -8,7 +8,7 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: https://github.com/notofonts/notofonts.github.io/archive/refs/tags/noto-monthly-release-${version}.tar.gz
+- url: https://github.com/notofonts/notofonts.github.io/archive/noto-monthly-release-${version}/noto-fonts-${version}.tar.gz
   sha256: NEEDS_CHECKSUM
 dependencies:
   build: []

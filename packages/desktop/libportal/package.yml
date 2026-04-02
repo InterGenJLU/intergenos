@@ -3,13 +3,13 @@ version: 0.8.1
 release: 1
 description: Flatpak portal library
 license: LGPL-3.0-or-later
-homepage: https://github.com/nickvank/libportal
+homepage: https://github.com/flatpak/libportal
 tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://github.com/nickvank/libportal/releases/download/${version}/libportal-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+- url: https://github.com/flatpak/libportal/releases/download/${version}/libportal-${version}.tar.xz
+  sha256: 281e54e4f8561125a65d20658f1462ab932b2b1258c376fed2137718441825ac
 dependencies:
   build:
   - gtk3

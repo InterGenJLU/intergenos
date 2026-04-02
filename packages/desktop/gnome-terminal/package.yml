@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/gnome-terminal/3.54/gnome-terminal-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+- url: https://gitlab.gnome.org/GNOME/gnome-terminal/-/archive/${version}/gnome-terminal-${version}.tar.gz
+  sha256: 101e69d2c4abec2789e01605588d09e43d8a65fdf327e13b74d78773c71f55b5
 dependencies:
   build:
   - dconf

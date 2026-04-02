@@ -8,8 +8,8 @@ tier: desktop
 build_style: autotools
 install_func: do_install
 source:
-- url: https://github.com/nickvank/ibus/releases/download/${version}/ibus-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+- url: https://github.com/ibus/ibus/archive/${version}/ibus-${version}.tar.gz
+  sha256: 1d93df0bd0d9581decb8f0c85fe3b2d248878140c6e5a7cd8ca459c72f75870c
 dependencies:
   build:
   - dconf

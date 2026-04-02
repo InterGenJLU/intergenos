@@ -8,8 +8,8 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: https://github.com/nickvank/rust-bindgen/archive/v${version}/rust-bindgen-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+- url: https://github.com/rust-lang/rust-bindgen/archive/refs/tags/v${version}/rust-bindgen-${version}.tar.gz
+  sha256: 243ed50f99c00ae8c18d50429a1278b6fd37dff94df46df38f2733745362c014
 dependencies:
   build:
   - rust

@@ -8,8 +8,8 @@ tier: desktop
 build_style: autotools
 install_func: do_install
 source:
-- url: https://ftp.debian.org/debian/pool/main/i/iso-codes/iso-codes_${version}.orig.tar.xz
-  sha256: NEEDS_CHECKSUM
+- url: https://salsa.debian.org/iso-codes-team/iso-codes/-/archive/v${version}/iso-codes-v${version}.tar.gz
+  sha256: dd5ca13db77ec6dd1cc25f5c0184290a870ec1fed245d8e39a04ff34f59076c3
 dependencies:
   build: []
   host: []

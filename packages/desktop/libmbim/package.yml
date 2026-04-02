@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://www.freedesktop.org/software/libmbim/libmbim-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+- url: https://gitlab.freedesktop.org/mobile-broadband/libmbim/-/archive/${version}/libmbim-${version}.tar.gz
+  sha256: cfc729d23b9bf699b23a7ef2f5d732d6eff96234e31fed36b778771a6e3d3ee5
 dependencies:
   build: []
   host: []

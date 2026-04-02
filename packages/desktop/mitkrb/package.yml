@@ -8,8 +8,8 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: https://kerberos.org/dist/krb5/${version}/krb5-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+- url: https://kerberos.org/dist/krb5/1.21/krb5-${version}.tar.gz
+  sha256: b7a4cd5ead67fb08b980b21abd150ff7217e85ea320c9ed0c6dadd304840ad35
 dependencies:
   build:
   - keyutils

@@ -8,8 +8,8 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: https://github.com/nickvank/libvpx/archive/v${version}/libvpx-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+- url: https://github.com/webmproject/libvpx/archive/v${version}/libvpx-${version}.tar.gz
+  sha256: e935eded7d81631a538bfae703fd1e293aad1c7fd3407ba00440c95105d2011e
 dependencies:
   build:
   - nasm

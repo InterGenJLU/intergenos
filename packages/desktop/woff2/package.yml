@@ -8,8 +8,8 @@ tier: desktop
 build_style: cmake
 install_func: do_install
 source:
-- url: https://github.com/nickvank/woff2/archive/v${version}/woff2-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+- url: https://github.com/google/woff2/archive/v${version}/woff2-${version}.tar.gz
+  sha256: add272bb09e6384a4833ffca4896350fdb16e0ca22df68c0384773c67a175594
 dependencies:
   build:
   - brotli

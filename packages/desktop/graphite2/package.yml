@@ -8,8 +8,8 @@ tier: desktop
 build_style: cmake
 install_func: do_install
 source:
-- url: https://github.com/nicovank/graphite/releases/download/${version}/graphite2-${version}.tgz
-  sha256: NEEDS_CHECKSUM
+- url: https://github.com/silnrsi/graphite/releases/download/${version}/graphite2-${version}.tgz
+  sha256: f99d1c13aa5fa296898a181dff9b82fb25f6cc0933dbaa7a475d8109bd54209d
 dependencies:
   build: []
   host: []
