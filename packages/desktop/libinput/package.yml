@@ -1,0 +1,18 @@
+name: libinput
+version: 1.27.1
+release: 1
+description: Input device management and event handling library
+license: MIT
+homepage: https://www.freedesktop.org/wiki/Software/libinput/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/libinput/libinput/-/archive/${version}/libinput-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libevdev
+  - mtdev
+  host: []
+  runtime: []

@@ -1,0 +1,16 @@
+name: libepoxy
+version: 1.5.10
+release: 1
+description: OpenGL function pointer management library
+license: MIT
+homepage: https://github.com/anholt/libepoxy
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/libepoxy/1.5/libepoxy-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

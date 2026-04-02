@@ -1,0 +1,17 @@
+name: wayland-protocols
+version: '1.38'
+release: 1
+description: Wayland protocol extensions
+license: MIT
+homepage: https://wayland.freedesktop.org/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/wayland/wayland-protocols/-/releases/${version}/downloads/wayland-protocols-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - wayland
+  host: []
+  runtime: []

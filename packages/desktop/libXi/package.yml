@@ -1,0 +1,21 @@
+name: libXi
+version: 1.8.2
+release: 1
+description: X Input extension library
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/lib/libXi-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libXext
+  - libXfixes
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

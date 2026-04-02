@@ -1,0 +1,20 @@
+name: libXrender
+version: 0.9.12
+release: 1
+description: X Render extension library
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/lib/libXrender-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libX11
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

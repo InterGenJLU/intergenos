@@ -1,0 +1,20 @@
+name: libXinerama
+version: 1.1.5
+release: 1
+description: X Xinerama extension library
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/lib/libXinerama-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libXext
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

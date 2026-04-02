@@ -1,0 +1,21 @@
+name: libFS
+version: 1.0.9
+release: 1
+description: X Font Service client library
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/lib/libFS-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - xtrans
+  - xorgproto
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

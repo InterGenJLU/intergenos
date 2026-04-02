@@ -1,0 +1,21 @@
+name: libXmu
+version: 1.2.1
+release: 1
+description: X miscellaneous utility library
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/lib/libXmu-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libXt
+  - libXext
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

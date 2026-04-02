@@ -1,0 +1,21 @@
+name: libXaw
+version: 1.0.16
+release: 1
+description: X Athena Widgets library
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/lib/libXaw-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libXmu
+  - libXpm
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

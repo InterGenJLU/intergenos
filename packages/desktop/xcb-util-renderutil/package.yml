@@ -1,0 +1,20 @@
+name: xcb-util-renderutil
+version: 0.3.10
+release: 1
+description: XCB render utility library
+license: MIT
+homepage: https://xcb.freedesktop.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://xcb.freedesktop.org/dist/xcb-util-renderutil-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libxcb
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

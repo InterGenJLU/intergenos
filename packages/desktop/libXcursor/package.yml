@@ -1,0 +1,21 @@
+name: libXcursor
+version: 1.2.3
+release: 1
+description: X Cursor management library
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/lib/libXcursor-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libXfixes
+  - libXrender
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static
