@@ -42,7 +42,7 @@ SCRIPTS=/mnt/intergenos/scripts
 SOURCES=/mnt/intergenos/build/sources
 PATCHES=/mnt/intergenos/build/patches
 LOGS=/mnt/intergenos/build/logs
-PHASE_FILE="${IGOS}/.build-phase"
+PHASE_FILE="${LOGS}/.build-phase"
 STOP_FILE="${IGOS}/.build-stop"
 BUILD_LOG="${LOGS}/build-intergenos-$(date '+%Y%m%d-%H%M%S').log"
 
