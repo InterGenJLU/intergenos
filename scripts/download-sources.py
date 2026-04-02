@@ -46,13 +46,27 @@ def resolve_url(url: str, name: str, version: str) -> str:
 
 
 def download_file(url: str, dest: str, timeout: int = 300) -> bool:
-    """Download a file using wget (quiet mode). Returns True on success."""
+    """Download a file using wget, falling back to curl. Returns True on success."""
     try:
+        # Try wget first
         result = subprocess.run(
             ["wget", "-q", "--timeout=30", "-O", dest, url],
             capture_output=True, timeout=timeout,
         )
-        return result.returncode == 0
+        if result.returncode == 0 and os.path.exists(dest) and os.path.getsize(dest) > 0:
+            return True
+
+        # wget failed — try curl as fallback (some sites block wget)
+        if os.path.exists(dest):
+            os.unlink(dest)
+        result = subprocess.run(
+            ["curl", "-sL", "--connect-timeout", "30", "-o", dest, url],
+            capture_output=True, timeout=timeout,
+        )
+        if result.returncode == 0 and os.path.exists(dest) and os.path.getsize(dest) > 0:
+            return True
+
+        return False
     except subprocess.TimeoutExpired:
         print(f"    TIMEOUT: {url}", flush=True)
         if os.path.exists(dest):

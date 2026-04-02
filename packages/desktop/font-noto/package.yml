@@ -1,15 +1,16 @@
 name: font-noto
-version: 24.12.1
+version: "2025.12.01"
 release: 1
 description: Google Noto fonts
 license: OFL-1.1
-homepage: ''
+homepage: https://fonts.google.com/noto
 tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: https://github.com/notofonts/notofonts.github.io/archive/noto-monthly-release-${version}/noto-fonts-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+- url: https://github.com/notofonts/notofonts.github.io/archive/refs/tags/noto-monthly-release-${version}.tar.gz
+  sha256: a06f15babc162a10768964965e95a062022622a078af4bc9d988c9ba65b4c8f7
+  filename: noto-fonts-${version}.tar.gz
 dependencies:
   build: []
   host: []

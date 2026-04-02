@@ -1,5 +1,5 @@
 name: gnome-online-accounts
-version: 3.52.3
+version: 3.56.4
 release: 1
 description: GNOME online accounts service
 license: LGPL-2.0-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/gnome-online-accounts/3.52/gnome-online-accounts-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+- url: https://download.gnome.org/sources/gnome-online-accounts/3.56/gnome-online-accounts-${version}.tar.xz
+  sha256: 2a831eadab45e38aae33e8229c3c944dfa1521de9c3140d3602a9277caa161b3
 dependencies:
   build:
   - gcr4

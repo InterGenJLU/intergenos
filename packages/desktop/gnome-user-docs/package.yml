@@ -1,5 +1,5 @@
 name: gnome-user-docs
-version: '47.4'
+version: '49.4'
 release: 1
 description: GNOME user documentation
 license: CC-BY-SA-3.0
@@ -8,8 +8,8 @@ tier: desktop
 build_style: autotools
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/gnome-user-docs/47/gnome-user-docs-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+- url: https://download.gnome.org/sources/gnome-user-docs/49/gnome-user-docs-${version}.tar.xz
+  sha256: 064448eadd5c1f15bc8feb50418a6347114ef815dc8d15d00a20dc5f48ae8a80
 dependencies:
   build:
   - itstool
