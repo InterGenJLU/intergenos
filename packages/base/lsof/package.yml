@@ -6,6 +6,7 @@ license: Zlib
 homepage: https://github.com/lsof-org/lsof
 tier: base
 build_style: custom
+install_func: do_install
 
 source:
   - url: https://github.com/lsof-org/lsof/releases/download/${version}/lsof-${version}.tar.gz

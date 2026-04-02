@@ -6,6 +6,7 @@ license: Artistic-2.0
 homepage: https://metacpan.org/pod/File::FcntlLock
 tier: base
 build_style: custom
+install_func: do_install
 
 source:
   - url: https://www.cpan.org/authors/id/J/JT/JTT/File-FcntlLock-${version}.tar.gz

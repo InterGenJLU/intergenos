@@ -6,6 +6,7 @@ license: GPL-3.0-or-later
 homepage: https://www.gnu.org/software/screen/
 tier: base
 build_style: custom
+install_func: do_install
 
 source:
   - url: https://ftpmirror.gnu.org/screen/screen-${version}.tar.gz

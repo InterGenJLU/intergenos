@@ -68,6 +68,9 @@ class Package:
     pass_number: int | None = None
     bundled_deps: list[str] = field(default_factory=list)
 
+    # Install function name for custom build style
+    install_func: str = "install"    # "install" (toolchain) or "do_install" (core/base)
+
     # Validation steps
     validation: list[ValidationCheck] = field(default_factory=list)
 
@@ -263,6 +266,7 @@ def parse_template(template_path: Path) -> Package:
         target_triple=raw.get("target_triple"),
         pass_number=raw.get("pass_number"),
         bundled_deps=bundled_deps,
+        install_func=raw.get("install_func", "install"),
         validation=validation,
         template_path=template_path,
     )

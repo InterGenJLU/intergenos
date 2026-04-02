@@ -56,10 +56,11 @@ class CustomStyle(BuildStyle):
 
     def install(self, pkg: Package) -> BuildPhase:
         script = self._build_sh_path(pkg)
+        func = pkg.install_func  # "install" (toolchain) or "do_install" (core/base)
         return BuildPhase(
             name="install",
             commands=[
                 f"source {script}",
-                "type install &>/dev/null && install || true",
+                f"type {func} &>/dev/null && {func} || true",
             ],
         )

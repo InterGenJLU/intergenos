@@ -6,6 +6,7 @@ license: ISC
 homepage: https://www.sudo.ws/
 tier: base
 build_style: custom
+install_func: do_install
 
 source:
   - url: https://www.sudo.ws/dist/sudo-${version}.tar.gz

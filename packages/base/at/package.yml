@@ -5,6 +5,7 @@ description: Job scheduling commands (at, batch, atq, atrm)
 license: GPL-2.0-or-later
 tier: base
 build_style: custom
+install_func: do_install
 
 source:
   - url: https://anduin.linuxfromscratch.org/BLFS/at/at_${version}.orig.tar.gz

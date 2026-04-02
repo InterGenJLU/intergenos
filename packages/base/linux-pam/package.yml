@@ -6,6 +6,7 @@ license: GPL-2.0-or-later
 homepage: https://github.com/linux-pam/linux-pam
 tier: base
 build_style: custom
+install_func: do_install
 
 source:
   - url: https://github.com/linux-pam/linux-pam/releases/download/v${version}/Linux-PAM-${version}.tar.xz

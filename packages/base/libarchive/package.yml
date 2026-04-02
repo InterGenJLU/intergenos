@@ -6,6 +6,7 @@ license: BSD-2-Clause
 homepage: https://libarchive.org/
 tier: base
 build_style: custom
+install_func: do_install
 
 source:
   - url: https://github.com/libarchive/libarchive/releases/download/v${version}/libarchive-${version}.tar.xz

@@ -6,6 +6,7 @@ license: MIT
 homepage: https://libuv.org/
 tier: base
 build_style: custom
+install_func: do_install
 
 source:
   - url: https://dist.libuv.org/dist/v${version}/libuv-v${version}.tar.gz

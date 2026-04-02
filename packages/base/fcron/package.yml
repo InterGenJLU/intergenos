@@ -6,6 +6,7 @@ license: GPL-2.0-or-later
 homepage: http://fcron.free.fr/
 tier: base
 build_style: custom
+install_func: do_install
 
 source:
   - url: http://fcron.free.fr/archives/fcron-${version}.src.tar.gz

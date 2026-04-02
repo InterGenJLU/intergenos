@@ -6,6 +6,7 @@ license: GPL-2.0-only
 homepage: https://git-scm.com/
 tier: base
 build_style: custom
+install_func: do_install
 
 source:
   - url: https://www.kernel.org/pub/software/scm/git/git-${version}.tar.xz
