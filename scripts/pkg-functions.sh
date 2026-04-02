@@ -75,12 +75,17 @@ pkg_stage() {
 
     # Run the package's do_install function
     # Named do_install (not install) to avoid collision with /usr/bin/install.
-    # Output goes directly to a log file (not a pipe) to prevent
-    # child processes from blocking on a full pipe buffer.
-    local install_log="${IGOS_LOGS}/${name}-install.log"
+    # Output appends to the most recent build log for this package so all
+    # output is in one place. Falls back to a standalone install log.
+    local install_log
+    install_log=$(ls -t "${IGOS_LOGS}/${name}-"*".log" 2>/dev/null | head -1)
+    if [ -z "$install_log" ]; then
+        install_log="${IGOS_LOGS}/${name}-install-$(date '+%Y%m%d-%H%M%S').log"
+    fi
 
-    if type -t do_install | grep -q function 2>/dev/null; then
-        do_install > "$install_log" 2>&1
+    if declare -f do_install > /dev/null 2>&1; then
+        echo "=== [INSTALL] $(date '+%Y-%m-%d %H:%M:%S') ===" >> "$install_log"
+        do_install >> "$install_log" 2>&1
     else
         pkg_error "No do_install() function defined for ${name}"
         return 1

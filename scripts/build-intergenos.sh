@@ -44,7 +44,7 @@ PATCHES=/mnt/intergenos/build/patches
 LOGS=/mnt/intergenos/build/logs
 PHASE_FILE="${IGOS}/.build-phase"
 STOP_FILE="${IGOS}/.build-stop"
-BUILD_LOG="${LOGS}/build-intergenos.log"
+BUILD_LOG="${LOGS}/build-intergenos-$(date '+%Y%m%d-%H%M%S').log"
 
 PHASES=(
     validate

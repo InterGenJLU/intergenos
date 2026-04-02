@@ -39,12 +39,16 @@ fi
 # Number of cores for parallel builds
 JOBS=$(nproc)
 
+# Capture host timezone before entering chroot
+HOST_TZ="$(cat /etc/timezone 2>/dev/null || echo UTC)"
+
 # Enter the chroot with a clean environment
 # env -i clears ALL host environment variables
-# Only HOME, TERM, PS1, PATH, MAKEFLAGS, TESTSUITEFLAGS survive
+# Only HOME, TERM, TZ, PS1, PATH, MAKEFLAGS, TESTSUITEFLAGS survive
 chroot "$IGOS" /usr/bin/env -i               \
     HOME=/root                               \
     TERM="$TERM"                             \
+    TZ="$HOST_TZ"                            \
     PS1='\[\e[1;34m\][\[\e[m\]\[\e[1;31m\](igos-chroot)\[\e[m\]\[\e[1;34m\]]\[\e[m\]\[\e[1;34m\][\[\e[m\]\[\e[1;37m\]<\[\e[m\]\[\e[1;32m\]\w\[\e[m\]\[\e[1;37m\]>\[\e[m\]\[\e[1;34m\]]\[\e[m\]\[\e[1;37m\]:\[\e[m\]\[\e[1;31m\]#\[\e[m\] ' \
     PATH=/usr/bin:/usr/sbin                  \
     MAKEFLAGS="-j${JOBS}"                    \
