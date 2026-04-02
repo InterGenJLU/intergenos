@@ -304,8 +304,11 @@ phase_setup() {
 
 phase_toolchain() {
     # Toolchain must run as the build user, NOT root
-    log "Running toolchain build as $BUILD_USER..."
-    su - "$BUILD_USER" -c "bash ${SCRIPTS}/toolchain-build.sh" 2>&1 | tee -a "$BUILD_LOG"
+    # env -i wipes ALL host variables (LFS 13.0 Section 4.4 requirement)
+    # Only HOME, TERM, and PATH survive — prevents host CFLAGS, LD_LIBRARY_PATH, etc.
+    # from contaminating the cross-compilation
+    log "Running toolchain build as $BUILD_USER (clean environment)..."
+    su - "$BUILD_USER" -c "env -i HOME=/home/${BUILD_USER} TERM=${TERM} bash ${SCRIPTS}/toolchain-build.sh" 2>&1 | tee -a "$BUILD_LOG"
     # Check if toolchain produced the expected output
     if [ ! -x "${IGOS}/tools/bin/${IGOS_TARGET}-gcc" ]; then
         log "ERROR: Toolchain build did not produce ${IGOS_TARGET}-gcc"

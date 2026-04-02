@@ -44,9 +44,9 @@ fi
 
 # --- 7.2: Changing Ownership ---
 echo "--- Changing ownership to root ---"
-chown --from christopher -R root:root $IGOS/{usr,var,etc} 2>/dev/null || true
+chown -R root:root $IGOS/{usr,var,etc,tools} 2>/dev/null || true
 case $(uname -m) in
-    x86_64) chown --from christopher -R root:root $IGOS/lib64 2>/dev/null || true ;;
+    x86_64) chown -R root:root $IGOS/lib64 2>/dev/null || true ;;
 esac
 echo "  Done"
 

@@ -42,7 +42,7 @@ JOBS=$(nproc)
 # Enter the chroot with a clean environment
 # env -i clears ALL host environment variables
 # Only HOME, TERM, PS1, PATH, MAKEFLAGS, TESTSUITEFLAGS survive
-exec chroot "$IGOS" /usr/bin/env -i          \
+chroot "$IGOS" /usr/bin/env -i               \
     HOME=/root                               \
     TERM="$TERM"                             \
     PS1='\[\e[1;34m\][\[\e[m\]\[\e[1;31m\](igos-chroot)\[\e[m\]\[\e[1;34m\]]\[\e[m\]\[\e[1;34m\][\[\e[m\]\[\e[1;37m\]<\[\e[m\]\[\e[1;32m\]\w\[\e[m\]\[\e[1;37m\]>\[\e[m\]\[\e[1;34m\]]\[\e[m\]\[\e[1;37m\]:\[\e[m\]\[\e[1;31m\]#\[\e[m\] ' \
