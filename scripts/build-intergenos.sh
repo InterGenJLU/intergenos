@@ -269,6 +269,22 @@ phase_setup() {
     chmod 755 "$IGOS"
     log "  /mnt/igos owned by $BUILD_USER"
 
+    # Create LFS directory layout (Section 4.2)
+    # These directories and symlinks must exist before the toolchain build
+    mkdir -pv "$IGOS"/{etc,var} "$IGOS"/usr/{bin,lib,sbin}
+    for i in bin lib sbin; do
+        if [ ! -L "$IGOS/$i" ]; then
+            ln -sv "usr/$i" "$IGOS/$i"
+        fi
+    done
+    case $(uname -m) in
+        x86_64) mkdir -pv "$IGOS/lib64" ;;
+    esac
+    # Tools directory for cross-toolchain
+    mkdir -pv "$IGOS/tools"
+    chown -R "${BUILD_USER}:${BUILD_USER}" "$IGOS"
+    log "  LFS directory layout created (Section 4.2)"
+
     # Verify virtiofs
     if ! mount | grep -q "intergenos.*virtiofs"; then
         log "ERROR: /mnt/intergenos not mounted via virtiofs"
