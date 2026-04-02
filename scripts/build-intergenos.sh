@@ -9,6 +9,7 @@
 #   sudo bash build-intergenos.sh --user <username>
 #   sudo bash build-intergenos.sh --user <username> --start-at <phase>
 #   sudo bash build-intergenos.sh --user <username> --stop-after <phase>
+#   sudo bash build-intergenos.sh --user <username> --checkpoint
 #
 # Phases (in order):
 #   validate     — Verify host meets all build requirements
@@ -26,6 +27,7 @@
 # Controls:
 #   --start-at <phase>   Start (or resume) at a specific phase
 #   --stop-after <phase> Stop after the named phase completes
+#   --checkpoint          Save a tarball after each significant phase
 #   touch /mnt/igos/.build-stop   Graceful halt between phases
 #   Ctrl+C               Immediate stop (traps SIGINT)
 #
@@ -45,6 +47,7 @@ PATCHES=/mnt/intergenos/build/patches
 LOGS=/mnt/intergenos/build/logs
 PHASE_FILE="${LOGS}/.build-phase"
 STOP_FILE="${IGOS}/.build-stop"
+CHECKPOINT_DIR="/home"
 BUILD_LOG="${LOGS}/build-intergenos-$(date '+%Y%m%d-%H%M%S').log"
 
 PHASES=(
@@ -68,6 +71,7 @@ PHASES=(
 BUILD_USER=""
 START_AT=""
 STOP_AFTER=""
+CHECKPOINT=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -82,6 +86,10 @@ while [[ $# -gt 0 ]]; do
         --stop-after)
             STOP_AFTER="$2"
             shift 2
+            ;;
+        --checkpoint)
+            CHECKPOINT=true
+            shift
             ;;
         -h|--help)
             head -30 "$0" | grep '^#' | sed 's/^# \?//'
@@ -146,6 +154,35 @@ log() {
     local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
     echo "$msg"
     echo "$msg" >> "$BUILD_LOG"
+}
+
+# ==========================================================================
+# Checkpoint support
+# ==========================================================================
+
+save_checkpoint() {
+    local phase="$1"
+    local checkpoint="${CHECKPOINT_DIR}/${BUILD_USER}/intergenos-${phase}.tar.gz"
+
+    log ""
+    log ">>> Saving checkpoint: $checkpoint"
+
+    mkdir -p "$(dirname "$checkpoint")"
+
+    # Tear down chroot mounts temporarily for a clean snapshot
+    bash "${SCRIPTS}/chroot-teardown.sh" > /dev/null 2>&1 || true
+
+    local start_time=$(date +%s)
+    tar -C "$IGOS" --one-file-system -czf "$checkpoint" . 2>&1
+
+    local elapsed=$(( $(date +%s) - start_time ))
+    local size=$(du -h "$checkpoint" | cut -f1)
+
+    log ">>> Checkpoint saved: $size in ${elapsed}s"
+    log ">>> Restore with: rm -rf ${IGOS}/* && tar -C ${IGOS} -xzf ${checkpoint}"
+
+    # Re-mount chroot filesystems
+    bash "${SCRIPTS}/chroot-setup.sh" > /dev/null 2>&1 || true
 }
 
 # ==========================================================================
@@ -233,6 +270,15 @@ run_phase() {
 
     log ""
     log "[DONE ] $phase — ${minutes}m ${seconds}s"
+
+    # Save checkpoint after significant phases
+    if $CHECKPOINT; then
+        case "$phase" in
+            toolchain|chroot-tools|core|config|core-extra|base|desktop)
+                save_checkpoint "$phase"
+                ;;
+        esac
+    fi
 
     # Handle --stop-after
     if [ "$phase" = "$STOP_AFTER" ]; then
@@ -461,6 +507,9 @@ if [ -n "$START_AT" ]; then
 fi
 if [ -n "$STOP_AFTER" ]; then
     log "  Stopping after: $STOP_AFTER"
+fi
+if $CHECKPOINT; then
+    log "  Checkpoints: enabled (saving to ${CHECKPOINT_DIR}/${BUILD_USER}/)"
 fi
 log "================================================================"
 
