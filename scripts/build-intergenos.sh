@@ -16,10 +16,10 @@
 #   toolchain    — Cross-compilation toolchain (LFS Chapters 5-6)
 #   chroot-prep  — Mount virtual filesystems for chroot (Chapter 7 prep)
 #   chroot-tools — Build temporary tools inside chroot (Chapter 7)
-#   core         — Build 82 core packages in chroot (Chapter 8)
+#   core         — Build LFS core packages in chroot (Chapter 8)
 #   config       — System configuration in chroot (Chapter 9)
-#   core-extra   — Build 19 additional core packages in chroot
-#   base         — Build 20 base packages in chroot
+#   core-extra   — Build additional core packages in chroot
+#   base         — Build base packages in chroot
 #   image        — Package chroot into bootable disk image
 #
 # Controls:
@@ -386,7 +386,8 @@ phase_chroot_tools() {
 }
 
 phase_core() {
-    log "Building 82 core packages in chroot (this will take a while)..."
+    local core_count=$(grep -c '^run_package' "${IGOS}/mnt/intergenos/scripts/chroot-build-ch8.sh" 2>/dev/null || echo "?")
+    log "Building ${core_count} core packages in chroot (this will take a while)..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-ch8.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
@@ -396,12 +397,14 @@ phase_config() {
 }
 
 phase_core_extra() {
-    log "Building 19 additional core packages in chroot..."
+    local extra_count=$(grep -c '^run_package' "${IGOS}/mnt/intergenos/scripts/chroot-build-core-extra.sh" 2>/dev/null || echo "?")
+    log "Building ${extra_count} additional core packages in chroot..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-core-extra.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_base() {
-    log "Building 20 base packages in chroot..."
+    local base_count=$(grep -c '^run_package' "${IGOS}/mnt/intergenos/scripts/chroot-build-base.sh" 2>/dev/null || echo "?")
+    log "Building ${base_count} base packages in chroot..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-base.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
@@ -459,10 +462,10 @@ run_phase "setup"        "Create build environment"            phase_setup
 run_phase "toolchain"    "Cross-compilation toolchain (Ch 5-6)" phase_toolchain
 run_phase "chroot-prep"  "Prepare chroot environment (Ch 7)"   phase_chroot_prep
 run_phase "chroot-tools" "Build temp tools in chroot (Ch 7)"   phase_chroot_tools
-run_phase "core"         "Build 82 core packages (Ch 8)"       phase_core
+run_phase "core"         "Build LFS core packages (Ch 8)"      phase_core
 run_phase "config"       "System configuration (Ch 9)"         phase_config
-run_phase "core-extra"   "Build 19 extra core packages"        phase_core_extra
-run_phase "base"         "Build 20 base packages"              phase_base
+run_phase "core-extra"   "Build extra core packages"           phase_core_extra
+run_phase "base"         "Build base packages"                 phase_base
 run_phase "image"        "Create bootable disk image"          phase_image
 
 # ==========================================================================

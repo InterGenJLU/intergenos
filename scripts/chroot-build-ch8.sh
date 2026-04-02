@@ -3,7 +3,7 @@
 # LFS 13.0 Systemd + nano from BLFS
 #
 # Runs INSIDE the chroot (launched via chroot-enter.sh).
-# Builds 82 packages (81 LFS + nano) with DESTDIR staging
+# Builds LFS core packages with DESTDIR staging
 # and Slackware-style package tracking.
 #
 # Each package is:
@@ -170,7 +170,8 @@ build_ch8_package() {
 log ""
 log "============================================"
 log "  InterGenOS Chapter 8 Build"
-log "  LFS 13.0 Systemd — 82 packages"
+PKG_COUNT=$(grep -c '^run_package' "$0" 2>/dev/null || echo "?")
+log "  LFS 13.0 Systemd — ${PKG_COUNT} packages"
 log "  Start: $(date)"
 log "  Cores: ${IGOS_JOBS}"
 log "============================================"

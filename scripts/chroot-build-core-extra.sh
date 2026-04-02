@@ -1,5 +1,5 @@
 #!/bin/bash
-# InterGenOS Core Extra Build — 19 packages beyond LFS
+# InterGenOS Core Extra Build — additional packages beyond LFS
 # Builds after Chapter 8 completes, inside the chroot.
 #
 # These packages were promoted from "base" to "core" because they are
@@ -188,13 +188,14 @@ run_package() {
 }
 
 # ============================================================================
-# Build Order — 19 additional core packages
+# Build Order — additional core packages
 # ============================================================================
 
 log ""
 log "============================================"
 log "  InterGenOS Core Extra Build"
-log "  19 packages beyond LFS 13.0"
+EXTRA_PKG_COUNT=$(grep -c '^run_package' "$0" 2>/dev/null || echo "?")
+log "  ${EXTRA_PKG_COUNT} packages beyond LFS 13.0"
 log "  Start: $(date)"
 log "  Cores: ${IGOS_JOBS}"
 log "============================================"

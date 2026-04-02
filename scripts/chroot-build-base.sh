@@ -1,5 +1,5 @@
 #!/bin/bash
-# InterGenOS Base Package Build — 20 packages beyond core
+# InterGenOS Base Package Build — end-user tools and services beyond core
 # Builds after core-extra completes, inside the chroot.
 #
 # These are end-user tools and system services that don't need to be
@@ -187,7 +187,7 @@ run_package() {
 }
 
 # ============================================================================
-# Build Order — 20 base packages
+# Build Order — base packages
 #
 # Dependencies that are in core (already installed) don't need to be
 # listed here. Only inter-base dependencies affect ordering.
@@ -196,7 +196,8 @@ run_package() {
 log ""
 log "============================================"
 log "  InterGenOS Base Package Build"
-log "  20 packages"
+BASE_PKG_COUNT=$(grep -c '^run_package' "$0" 2>/dev/null || echo "?")
+log "  ${BASE_PKG_COUNT} packages"
 log "  Start: $(date)"
 log "  Cores: ${IGOS_JOBS}"
 log "============================================"
