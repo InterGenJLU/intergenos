@@ -31,6 +31,7 @@ def main():
     verbose = "--verbose" in args or "-v" in args
     dry_run = "--dry-run" in args
     do_build = "--build" in args
+    tracked = "--tracked" in args
     only_pkg = None
     if "--only" in args:
         idx = args.index("--only")
@@ -116,6 +117,7 @@ def main():
             sources_dir=SOURCES_DIR,
             patches_dir=PATCHES_DIR,
             system_root=SYSTEM_ROOT,
+            tracked=tracked,
         )
 
         success = executor.build_all(order, halt_on_failure=True)
