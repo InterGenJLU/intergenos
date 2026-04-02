@@ -163,8 +163,8 @@ log "  IGOS_SOURCES=$IGOS_SOURCES"
 log ""
 
 if [ ! -d "$IGOS/tools" ]; then
-    log "ERROR: $IGOS/tools not found. Run setup first."
-    exit 1
+    log "Creating $IGOS/tools..."
+    mkdir -pv "$IGOS/tools"
 fi
 
 if [ ! -f "$IGOS_SOURCES/binutils-2.46.0.tar.xz" ]; then
