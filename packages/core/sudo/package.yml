@@ -1,0 +1,19 @@
+name: sudo
+version: 1.9.17p2
+release: 1
+description: Execute commands as another user
+license: ISC
+homepage: https://www.sudo.ws/
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://www.sudo.ws/dist/sudo-${version}.tar.gz
+    sha256: 4a38a1ab3adb1199257edc2a7c4a2bd714665eb605b04368843b06dada2cfcfb
+
+dependencies:
+  build:
+    - linux-pam
+  host: []
+  runtime: []

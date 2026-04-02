@@ -1,0 +1,25 @@
+name: wget
+version: 1.25.0
+release: 1
+description: Network file retriever
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/wget/
+tier: core
+build_style: autotools
+
+source:
+  - url: https://ftpmirror.gnu.org/wget/wget-${version}.tar.gz
+    sha256: 766e48423e79359ea31e41db9e5c289675947a7fcf2efdcedb726ac9d0da3784
+
+dependencies:
+  build:
+    - libpsl
+    - make-ca
+  host: []
+  runtime:
+    - make-ca
+
+configure_flags:
+  - "--prefix=/usr"
+  - "--sysconfdir=/etc"
+  - "--with-ssl=openssl"

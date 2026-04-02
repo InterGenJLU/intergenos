@@ -1,0 +1,18 @@
+name: linux-pam
+version: 1.7.2
+release: 1
+description: Pluggable Authentication Modules
+license: GPL-2.0-or-later
+homepage: https://github.com/linux-pam/linux-pam
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://github.com/linux-pam/linux-pam/releases/download/v${version}/Linux-PAM-${version}.tar.xz
+    sha256: 3d86b6383fb5fd9eb9578d2cd47d92801191f4bf3f9bc61419bfefc8aa1e531a
+
+dependencies:
+  build: []
+  host: []
+  runtime: []

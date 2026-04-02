@@ -1,0 +1,22 @@
+name: libssh2
+version: 1.11.1
+release: 1
+description: Client-side C library implementing the SSH2 protocol
+license: BSD-3-Clause
+homepage: https://www.libssh2.org/
+tier: core
+build_style: autotools
+
+source:
+  - url: https://www.libssh2.org/download/libssh2-${version}.tar.gz
+    sha256: d9ec76cbe34db98eec3539fe2c899d26b0c837cb3eb466a56b0f109cabf658f7
+
+dependencies:
+  build: []
+  host: []
+  runtime: []
+
+configure_flags:
+  - "--prefix=/usr"
+  - "--disable-static"
+  - "--disable-docker-tests"

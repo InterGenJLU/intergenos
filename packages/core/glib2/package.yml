@@ -1,0 +1,24 @@
+name: glib2
+version: 2.86.4
+release: 1
+description: Low-level core library for GNOME and GTK applications
+license: LGPL-2.1-or-later
+homepage: https://docs.gtk.org/glib/
+tier: core
+build_style: custom
+install_func: do_install
+direct_install: true
+
+source:
+  - url: https://download.gnome.org/sources/glib/2.86/glib-${version}.tar.xz
+    sha256: d4e2b5d791d5015ffd8c6971ad8e975a0a55c1a14926cdb25cf843ff00682260
+  - url: https://download.gnome.org/sources/gobject-introspection/1.86/gobject-introspection-1.86.0.tar.xz
+    sha256: 920d1a3fcedeadc32acff95c2e203b319039dd4b4a08dd1a2dfd283d19c0b9ae
+
+dependencies:
+  build: []
+  host: []
+  runtime: []
+
+patches:
+  - glib-2.86.4-upstream_fixes-1.patch

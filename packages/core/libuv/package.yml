@@ -1,0 +1,18 @@
+name: libuv
+version: 1.52.1
+release: 1
+description: Multi-platform asynchronous I/O library
+license: MIT
+homepage: https://libuv.org/
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://dist.libuv.org/dist/v${version}/libuv-v${version}.tar.gz
+    sha256: 66d511b9e6e334c0e62279eb234fbfb2b3110b1479c09b95b44c7afca8cff9e7
+
+dependencies:
+  build: []
+  host: []
+  runtime: []

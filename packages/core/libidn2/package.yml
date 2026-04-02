@@ -1,0 +1,22 @@
+name: libidn2
+version: 2.3.8
+release: 1
+description: Internationalized domain names library
+license: LGPL-3.0-or-later
+homepage: https://www.gnu.org/software/libidn/
+tier: core
+build_style: autotools
+
+source:
+  - url: https://ftpmirror.gnu.org/libidn/libidn2-${version}.tar.gz
+    sha256: f557911bf6171621e1f72ff35f5b1825bb35b52ed45325dcdee931e5d3c0787a
+
+dependencies:
+  build:
+    - libunistring
+  host: []
+  runtime: []
+
+configure_flags:
+  - "--prefix=/usr"
+  - "--disable-static"
