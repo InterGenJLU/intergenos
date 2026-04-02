@@ -1,0 +1,19 @@
+name: libexif
+version: 0.6.24
+release: 1
+description: EXIF metadata library
+license: LGPL-2.1-or-later
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/libexif/libexif/releases/download/v${version}/libexif-${version}.tar.bz2
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

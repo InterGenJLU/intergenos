@@ -1,0 +1,21 @@
+name: newt
+version: 0.52.24
+release: 1
+description: Text mode windowing toolkit
+license: LGPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://releases.pagure.org/newt/newt-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - popt
+  - slang
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --with-gpm-support

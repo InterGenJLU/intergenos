@@ -1,0 +1,16 @@
+name: docbook-xml
+version: '4.5'
+release: 1
+description: DocBook XML DTD
+license: OASIS
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.docbook.org/xml/${version}/docbook-xml-${version}.zip
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

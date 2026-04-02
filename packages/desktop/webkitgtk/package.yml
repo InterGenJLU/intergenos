@@ -1,0 +1,35 @@
+name: webkitgtk
+version: 2.46.6
+release: 1
+description: Web content engine for GTK
+license: LGPL-2.0-or-later
+homepage: https://webkitgtk.org/
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://webkitgtk.org/releases/webkitgtk-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - cairo
+  - gst-plugins-base
+  - gst-plugins-bad
+  - gtk3
+  - gtk4
+  - libgudev
+  - libsoup3
+  - libwebp
+  - openjpeg2
+  - ruby
+  - enchant
+  - unifdef
+  - bubblewrap
+  - geoclue2
+  - libseccomp
+  - xdg-dbus-proxy
+  - libX11
+  - wayland
+  - icu
+  host: []
+  runtime: []

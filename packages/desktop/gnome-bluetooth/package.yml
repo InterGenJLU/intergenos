@@ -1,0 +1,20 @@
+name: gnome-bluetooth
+version: '47.1'
+release: 1
+description: GNOME Bluetooth integration
+license: GPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-bluetooth/47/gnome-bluetooth-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - gtk4
+  - gsound
+  - upower
+  - libadwaita1
+  host: []
+  runtime: []

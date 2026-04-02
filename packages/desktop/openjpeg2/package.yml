@@ -1,0 +1,16 @@
+name: openjpeg2
+version: 2.5.3
+release: 1
+description: JPEG 2000 codec library
+license: BSD-2-Clause
+homepage: ''
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://github.com/uclouvain/openjpeg/archive/v${version}/openjpeg-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

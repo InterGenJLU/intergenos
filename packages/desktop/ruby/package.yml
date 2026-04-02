@@ -1,0 +1,19 @@
+name: ruby
+version: 3.3.6
+release: 1
+description: Ruby programming language
+license: Ruby
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://cache.ruby-lang.org/pub/ruby/3.3/ruby-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --enable-shared

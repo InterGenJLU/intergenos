@@ -1,0 +1,16 @@
+name: setuptools-scm
+version: 8.1.0
+release: 1
+description: Setuptools SCM plugin
+license: MIT
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/s/setuptools_scm/setuptools_scm-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

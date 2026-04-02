@@ -1,0 +1,16 @@
+name: cython
+version: 3.0.11
+release: 1
+description: C extensions for Python
+license: Apache-2.0
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/C/Cython/cython-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

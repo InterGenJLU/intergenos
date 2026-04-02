@@ -1,0 +1,20 @@
+name: vulkan-loader
+version: 1.3.290.0
+release: 1
+description: Vulkan ICD loader
+license: Apache-2.0
+homepage: ''
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://github.com/KhronosGroup/Vulkan-Loader/archive/vulkan-sdk-${version}/vulkan-loader-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - vulkan-headers
+  - libX11
+  - libXrandr
+  - wayland
+  host: []
+  runtime: []

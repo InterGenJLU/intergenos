@@ -1,0 +1,16 @@
+name: vulkan-headers
+version: 1.3.290.0
+release: 1
+description: Vulkan API headers
+license: Apache-2.0
+homepage: ''
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://github.com/KhronosGroup/Vulkan-Headers/archive/vulkan-sdk-${version}/vulkan-headers-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

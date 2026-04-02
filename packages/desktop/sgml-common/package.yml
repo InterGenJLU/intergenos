@@ -1,0 +1,16 @@
+name: sgml-common
+version: 0.6.3
+release: 1
+description: SGML common files
+license: GPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://sourceware.org/ftp/docbook-tools/new-trials/SOURCES/sgml-common-${version}.tgz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

@@ -1,0 +1,18 @@
+name: font-alias
+version: 1.0.5
+release: 1
+description: X font aliases
+license: MIT
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/font/font-alias-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr

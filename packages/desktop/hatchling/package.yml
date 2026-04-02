@@ -1,0 +1,18 @@
+name: hatchling
+version: 1.25.0
+release: 1
+description: Python build backend
+license: MIT
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/h/hatchling/hatchling-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - editables
+  - pluggy
+  host: []
+  runtime: []

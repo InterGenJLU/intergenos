@@ -1,0 +1,16 @@
+name: fuse3
+version: 3.16.2
+release: 1
+description: Filesystem in Userspace
+license: GPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://github.com/libfuse/libfuse/releases/download/fuse-${version}/fuse-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

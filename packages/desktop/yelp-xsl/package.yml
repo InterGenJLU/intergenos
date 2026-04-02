@@ -1,0 +1,19 @@
+name: yelp-xsl
+version: '42.1'
+release: 1
+description: GNOME help stylesheets
+license: GPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/yelp-xsl/42/yelp-xsl-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libxslt
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr

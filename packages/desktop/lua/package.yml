@@ -1,0 +1,16 @@
+name: lua
+version: 5.4.7
+release: 1
+description: Lightweight scripting language
+license: MIT
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.lua.org/ftp/lua-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

@@ -1,0 +1,17 @@
+name: docbook-xsl-nons
+version: 1.79.2
+release: 1
+description: DocBook XSL stylesheets
+license: MIT
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/docbook/xslt10-stylesheets/releases/download/release%2F${version}/docbook-xsl-nons-${version}.tar.bz2
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - docbook-xml
+  host: []
+  runtime: []

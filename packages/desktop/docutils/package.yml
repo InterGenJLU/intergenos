@@ -1,0 +1,16 @@
+name: docutils
+version: 0.21.2
+release: 1
+description: Python documentation utilities
+license: Public-Domain
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/d/docutils/docutils-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

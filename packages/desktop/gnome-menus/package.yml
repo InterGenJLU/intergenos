@@ -1,0 +1,20 @@
+name: gnome-menus
+version: 3.36.0
+release: 1
+description: GNOME menu specification implementation
+license: LGPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-menus/3.36/gnome-menus-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --sysconfdir=/etc
+- --disable-static

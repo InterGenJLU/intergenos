@@ -1,0 +1,19 @@
+name: rpcsvc-proto
+version: 1.4.4
+release: 1
+description: RPC service protocol definitions
+license: BSD-3-Clause
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/thkukuk/rpcsvc-proto/releases/download/v${version}/rpcsvc-proto-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --sysconfdir=/etc

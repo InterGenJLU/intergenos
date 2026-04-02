@@ -1,0 +1,16 @@
+name: duktape
+version: 2.7.0
+release: 1
+description: Embeddable JavaScript engine
+license: MIT
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://duktape.org/duktape-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

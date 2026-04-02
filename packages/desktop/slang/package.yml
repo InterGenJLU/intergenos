@@ -1,0 +1,20 @@
+name: slang
+version: 2.3.3
+release: 1
+description: S-Lang programming library
+license: GPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.jedsoft.org/releases/slang/slang-${version}.tar.bz2
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --sysconfdir=/etc
+- --with-readline=gnu

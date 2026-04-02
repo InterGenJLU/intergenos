@@ -1,0 +1,19 @@
+name: enchant
+version: 2.8.2
+release: 1
+description: Generic spell checking library
+license: LGPL-2.1-or-later
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/AbiWord/enchant/releases/download/v${version}/enchant-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

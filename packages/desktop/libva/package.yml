@@ -1,0 +1,20 @@
+name: libva
+version: 2.22.0
+release: 1
+description: Video Acceleration API
+license: MIT
+homepage: https://github.com/intel/libva
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://github.com/intel/libva/releases/download/${version}/libva-${version}.tar.bz2
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libdrm
+  - libX11
+  - wayland
+  - mesa
+  host: []
+  runtime: []

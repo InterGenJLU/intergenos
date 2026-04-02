@@ -1,0 +1,21 @@
+name: gpgme
+version: 1.24.1
+release: 1
+description: GnuPG Made Easy library
+license: LGPL-2.1-or-later
+homepage: https://www.gnupg.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.gnupg.org/ftp/gcrypt/gpgme/gpgme-${version}.tar.bz2
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libassuan
+  - gnupg2
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

@@ -1,0 +1,27 @@
+name: gnome-control-center
+version: '47.4'
+release: 1
+description: GNOME system settings
+license: GPL-2.0-or-later
+homepage: https://gitlab.gnome.org/GNOME/gnome-control-center
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-control-center/47/gnome-control-center-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - accountsservice
+  - colord-gtk
+  - gnome-bluetooth
+  - gnome-online-accounts
+  - gnome-settings-daemon
+  - gsound
+  - libadwaita1
+  - libpwquality
+  - networkmanager
+  - tecla
+  - udisks2
+  host: []
+  runtime: []

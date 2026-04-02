@@ -1,0 +1,24 @@
+name: libXfont2
+version: 2.0.7
+release: 1
+description: X font handling library
+license: MIT
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/lib/libXfont2-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - freetype2
+  - libfontenc
+  - xorgproto
+  - xtrans
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static
+- --disable-devel-docs

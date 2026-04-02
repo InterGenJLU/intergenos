@@ -1,0 +1,21 @@
+name: xmlto
+version: 0.0.29
+release: 1
+description: XML-to-format conversion tool
+license: GPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://releases.pagure.org/xmlto/xmlto-${version}.tar.bz2
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - docbook-xml
+  - docbook-xsl-nons
+  - libxslt
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr

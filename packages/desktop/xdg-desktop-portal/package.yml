@@ -1,0 +1,19 @@
+name: xdg-desktop-portal
+version: 1.18.4
+release: 1
+description: Desktop integration portal
+license: LGPL-2.1-or-later
+homepage: ''
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://github.com/nickvank/xdg-desktop-portal/releases/download/${version}/xdg-desktop-portal-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - fuse3
+  - json-glib
+  - pipewire
+  host: []
+  runtime: []

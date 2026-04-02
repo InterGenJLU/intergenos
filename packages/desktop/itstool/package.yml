@@ -1,0 +1,20 @@
+name: itstool
+version: 2.0.7
+release: 1
+description: ITS-based XML translation tool
+license: GPL-3.0-or-later
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://files.itstool.org/itstool/itstool-${version}.tar.bz2
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - docbook-xml
+  - lxml
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr

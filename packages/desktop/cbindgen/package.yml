@@ -1,0 +1,17 @@
+name: cbindgen
+version: 0.27.0
+release: 1
+description: C bindings generator for Rust
+license: MPL-2.0
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/mozilla/cbindgen/archive/v${version}/cbindgen-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - rust
+  host: []
+  runtime: []

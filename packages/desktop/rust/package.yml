@@ -1,0 +1,16 @@
+name: rust
+version: 1.82.0
+release: 1
+description: Rust programming language
+license: MIT
+homepage: https://www.rust-lang.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://static.rust-lang.org/dist/rustc-${version}-src.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

@@ -1,0 +1,26 @@
+name: gnupg2
+version: 2.4.7
+release: 1
+description: GNU Privacy Guard
+license: GPL-3.0-or-later
+homepage: https://www.gnupg.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.gnupg.org/ftp/gcrypt/gnupg/gnupg-${version}.tar.bz2
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libassuan
+  - libgcrypt
+  - libksba
+  - npth
+  - gnutls
+  - pinentry
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --localstatedir=/var
+- --sysconfdir=/etc
