@@ -133,33 +133,41 @@ class SummaryLogger:
         self._results: list[tuple[str, str, bool, float]] = []
         self._start = time.monotonic()
 
-    def record(self, name: str, version: str, success: bool, elapsed: float):
+    def record(self, name: str, version: str, success: bool, elapsed: float, skipped: bool = False):
         """Record the result of one package build."""
-        self._results.append((name, version, success, elapsed))
+        self._results.append((name, version, success, elapsed, skipped))
 
     def print_summary(self):
         """Print the final build summary."""
         total_time = time.monotonic() - self._start
-        succeeded = [r for r in self._results if r[2]]
-        failed = [r for r in self._results if not r[2]]
+        built = [r for r in self._results if not r[4]]  # not skipped
+        skipped = [r for r in self._results if r[4]]
+        succeeded = [r for r in built if r[2]]
+        failed = [r for r in built if not r[2]]
 
         print(f"\n{'=' * 72}")
         print(f"  BUILD SUMMARY")
         print(f"{'=' * 72}\n")
         print(f"  Total packages: {len(self._results)}")
+        print(f"  Built:          {len(built)}")
         print(f"  Succeeded:      {len(succeeded)}")
         print(f"  Failed:         {len(failed)}")
+        if skipped:
+            print(f"  Skipped:        {len(skipped)}")
         print(f"  Total time:     {total_time:.1f}s\n")
 
         if failed:
             print("  FAILURES:")
-            for name, version, _, elapsed in failed:
+            for name, version, _, elapsed, _ in failed:
                 print(f"    - {name} {version} ({elapsed:.1f}s)")
             print()
 
         print("  COMPLETED:")
-        for name, version, success, elapsed in self._results:
-            status = "OK" if success else "FAIL"
-            print(f"    [{status:4s}] {name} {version} ({elapsed:.1f}s)")
+        for name, version, success, elapsed, was_skipped in self._results:
+            if was_skipped:
+                print(f"    [SKIP] {name} {version}")
+            else:
+                status = "OK" if success else "FAIL"
+                print(f"    [{status:4s}] {name} {version} ({elapsed:.1f}s)")
 
         print(f"\n{'=' * 72}\n")

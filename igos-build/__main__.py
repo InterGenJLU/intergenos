@@ -5,6 +5,7 @@ Usage:
     python -m igos-build --dry-run                  Show what commands would run
     python -m igos-build --build                    Actually build packages
     python -m igos-build --build --tracked          Build with package tracking
+    python -m igos-build --build --skip-built       Skip packages with existing manifests
     python -m igos-build --only <name>              Build only one package
     python -m igos-build --sources-dir /sources     Override sources directory
 """
@@ -34,6 +35,7 @@ def main():
     dry_run = "--dry-run" in args
     do_build = "--build" in args
     tracked = "--tracked" in args
+    skip_built = "--skip-built" in args
     only_pkg = None
     sources_dir = SOURCES_DIR
     if "--only" in args:
@@ -125,6 +127,7 @@ def main():
             patches_dir=PATCHES_DIR,
             system_root=SYSTEM_ROOT,
             tracked=tracked,
+            skip_built=skip_built,
         )
 
         success = executor.build_all(order, halt_on_failure=True)

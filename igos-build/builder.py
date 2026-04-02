@@ -47,6 +47,7 @@ class BuildExecutor:
         target_triple: str = "x86_64-igos-linux-gnu",
         jobs: int | None = None,
         tracked: bool = False,
+        skip_built: bool = False,
     ):
         self.work_dir = Path(work_dir)
         self.log_dir = Path(log_dir)
@@ -56,6 +57,7 @@ class BuildExecutor:
         self.target_triple = target_triple
         self.jobs = jobs or os.cpu_count() or 4
         self.tracked = tracked
+        self.skip_built = skip_built
 
         # Package tracking paths (Slackware-style manifests + archives)
         self.pkg_db = Path("/var/lib/igos/packages")
@@ -343,17 +345,26 @@ class BuildExecutor:
         return True
 
     def pkg_deploy(self, pkg: Package, staging_dir: Path) -> bool:
-        """Copy staged files to the live filesystem, then clean up.
+        """Deploy staged files to the live filesystem using tar.
 
-        Copies everything from staging_dir to /
-        Preserves permissions, ownership, and symlinks.
+        Uses tar to handle symlink/directory conflicts gracefully
+        (e.g., /var/run is a symlink to /run on systemd systems).
         """
         result = subprocess.run(
-            ["cp", "-a", "--remove-destination", f"{staging_dir}/.", "/"],
-            capture_output=True, text=True,
+            ["tar", "-C", str(staging_dir), "-cf", "-", "."],
+            capture_output=True,
         )
         if result.returncode != 0:
-            self.logger.error(f"Deploy failed: {result.stderr}")
+            self.logger.error(f"Deploy tar-create failed: {result.stderr.decode()}")
+            return False
+
+        result2 = subprocess.run(
+            ["tar", "-C", "/", "-xf", "-", "--no-overwrite-dir"],
+            input=result.stdout,
+            capture_output=True,
+        )
+        if result2.returncode != 0:
+            self.logger.error(f"Deploy tar-extract failed: {result2.stderr.decode()}")
             return False
 
         self.logger.info(f"Deployed {pkg.name}-{pkg.version} to live filesystem")
@@ -633,6 +644,14 @@ class BuildExecutor:
         self.logger.info(f"\nStarting build of {total} package(s)...\n")
 
         for i, pkg in enumerate(packages, 1):
+            # Skip packages that already have a tracked manifest
+            if self.skip_built:
+                manifest = self.pkg_db / f"{pkg.name}-{pkg.version}"
+                if manifest.exists():
+                    self.logger.info(f"[{i}/{total}] Skipping {pkg.name} {pkg.version} (already tracked)")
+                    self.summary.record(pkg.name, pkg.version, True, 0, skipped=True)
+                    continue
+
             self.logger.info(f"[{i}/{total}] Building {pkg.name} {pkg.version}...")
             success = self.build_package(pkg)
 
