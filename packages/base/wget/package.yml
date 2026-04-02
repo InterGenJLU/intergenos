@@ -9,7 +9,7 @@ build_style: autotools
 
 source:
   - url: https://ftpmirror.gnu.org/wget/wget-${version}.tar.gz
-    sha256: placeholder-wget-1.25.0
+    sha256: 766e48423e79359ea31e41db9e5c289675947a7fcf2efdcedb726ac9d0da3784
 
 dependencies:
   build:

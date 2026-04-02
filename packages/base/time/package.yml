@@ -9,7 +9,7 @@ build_style: custom
 
 source:
   - url: https://ftpmirror.gnu.org/time/time-${version}.tar.gz
-    sha256: placeholder-time-1.9
+    sha256: fbacf0c81e62429df3e33bda4cee38756604f18e01d977338e23306a3e3b521e
 
 dependencies:
   build: []

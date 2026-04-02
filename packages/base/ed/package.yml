@@ -9,7 +9,7 @@ build_style: autotools
 
 source:
   - url: https://ftpmirror.gnu.org/ed/ed-${version}.tar.lz
-    sha256: placeholder-ed-1.22.5
+    sha256: 56e107ddc2f29dad6690376c15bf9751509e1ee3b8241710e44edbe5c3a158cc
 
 dependencies:
   build:

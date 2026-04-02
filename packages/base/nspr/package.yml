@@ -9,7 +9,7 @@ build_style: custom
 
 source:
   - url: https://archive.mozilla.org/pub/nspr/releases/v${version}/src/nspr-${version}.tar.gz
-    sha256: placeholder-nspr-4.38.2
+    sha256: e4092faeab77bdc9b32db1113e4215948ee768e26c4666db3b5a60b35f2c9105
 
 dependencies:
   build: []

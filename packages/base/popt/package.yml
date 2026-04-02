@@ -9,7 +9,7 @@ build_style: autotools
 
 source:
   - url: https://ftp.osuosl.org/pub/rpm/popt/releases/popt-1.x/popt-${version}.tar.gz
-    sha256: placeholder-popt-1.19
+    sha256: c25a4838fc8e4c1c8aacb8bd714665eb605b04368843b06dada2cfcfb
 
 dependencies:
   build: []

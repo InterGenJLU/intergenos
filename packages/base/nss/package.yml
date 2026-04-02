@@ -9,7 +9,7 @@ build_style: custom
 
 source:
   - url: https://archive.mozilla.org/pub/security/nss/releases/NSS_3_120_1_RTM/src/nss-${version}.tar.gz
-    sha256: placeholder-nss-3.120.1
+    sha256: a98f002d20bfe719f50f81824a64c9e6f067f4da3c6a1f0455e97e6d79240512
 
 dependencies:
   build:

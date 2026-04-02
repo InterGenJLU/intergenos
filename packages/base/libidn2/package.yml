@@ -9,7 +9,7 @@ build_style: autotools
 
 source:
   - url: https://ftpmirror.gnu.org/libidn/libidn2-${version}.tar.gz
-    sha256: placeholder-libidn2-2.3.8
+    sha256: f557911bf6171621e1f72ff35f5b1825bb35b52ed45325dcdee931e5d3c0787a
 
 dependencies:
   build:

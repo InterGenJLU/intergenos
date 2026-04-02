@@ -9,7 +9,7 @@ build_style: custom
 
 source:
   - url: http://www.mirbsd.org/MirOS/dist/mir/cpio/paxmirabilis-${version}.tgz
-    sha256: placeholder-pax-20240817
+    sha256: e955d5d3af97aede0a3f463a9a59b83e8d1083aaf142eb6f388c549a7d182e6b
 
 dependencies:
   build: []

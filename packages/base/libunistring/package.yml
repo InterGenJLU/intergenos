@@ -9,7 +9,7 @@ build_style: custom
 
 source:
   - url: https://ftpmirror.gnu.org/libunistring/libunistring-${version}.tar.xz
-    sha256: placeholder-libunistring-1.4.1
+    sha256: 67d88430892527861903788868c77802a217b0959990f7449f2976126a307763
 
 dependencies:
   build: []

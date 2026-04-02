@@ -9,7 +9,7 @@ build_style: custom
 
 source:
   - url: https://github.com/p11-glue/p11-kit/releases/download/${version}/p11-kit-${version}.tar.xz
-    sha256: placeholder-p11-kit-0.26.2
+    sha256: 09fd9f44da4813a3141e73d5e7cf7008e5660d0405f13d56c15e1da9dcecf828
 
 dependencies:
   build:

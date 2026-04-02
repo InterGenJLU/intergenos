@@ -9,7 +9,7 @@ build_style: custom
 
 source:
   - url: https://dist.libuv.org/dist/v${version}/libuv-v${version}.tar.gz
-    sha256: placeholder-libuv-1.52.0
+    sha256: 19fd091a582c39c7ea26dcbb40a7d2e7cf095b070a757b3c32c05de6cfed6638
 
 dependencies:
   build: []

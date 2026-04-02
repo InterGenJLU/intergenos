@@ -9,7 +9,7 @@ build_style: custom
 
 source:
   - url: https://ftp.exim.org/pub/exim/exim4/exim-${version}.tar.xz
-    sha256: placeholder-exim-4.99.1
+    sha256: eae967bd49a5f879933b8c6ec88c30475a1c6646232135f37f05b55dbc4e3447
 
 dependencies:
   build:

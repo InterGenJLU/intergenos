@@ -9,7 +9,7 @@ build_style: custom
 
 source:
   - url: https://curl.se/download/curl-${version}.tar.xz
-    sha256: placeholder-curl-8.18.0
+    sha256: 40df79166e74aa20149365e11ee4c798a46ad57c34e4f68fd13100e2c9a91946
 
 dependencies:
   build:
