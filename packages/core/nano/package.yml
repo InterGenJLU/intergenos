@@ -5,7 +5,7 @@ description: Small, friendly text editor with syntax highlighting and UTF-8 supp
 license: GPL-3.0-or-later
 source:
 - url: https://www.nano-editor.org/dist/v8/nano-${version}.tar.xz
-  md5: d873085c342e3670d108c08a0c3ebe2f
+  sha256: 76f0dcb248f2e2f1251d4ecd20fd30fb400a360a3a37c6c340e0a52c2d1cdedf
 dependencies:
   build: []
   host:

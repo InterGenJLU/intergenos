@@ -85,12 +85,21 @@ class BuildExecutor:
         env["PATH"] = f"{self.system_root}/tools/bin:" + env.get("PATH", "")
 
         # When tracked, each package stages into its own DESTDIR
+        # and staged files are made visible as a sysroot for multi-pass builds
         if self.tracked:
-            staging = self.pkg_staging / f"{pkg.name}-{pkg.version}"
-            if staging.exists():
-                shutil.rmtree(staging)
-            staging.mkdir(parents=True)
-            env["DESTDIR"] = str(staging)
+            if pkg.direct_install:
+                # Multi-pass packages install directly to /
+                # Tracking uses filesystem diff instead of DESTDIR staging
+                env["DESTDIR"] = ""
+            else:
+                staging = self.pkg_staging / f"{pkg.name}-{pkg.version}"
+                if staging.exists():
+                    shutil.rmtree(staging)
+                staging.mkdir(parents=True)
+                env["DESTDIR"] = str(staging)
+                env["PATH"] = f"{staging}/usr/bin:{staging}/usr/sbin:" + env["PATH"]
+                env["PKG_CONFIG_PATH"] = f"{staging}/usr/lib/pkgconfig:{staging}/usr/lib64/pkgconfig:" + env.get("PKG_CONFIG_PATH", "")
+                env["LD_LIBRARY_PATH"] = f"{staging}/usr/lib:{staging}/usr/lib64:" + env.get("LD_LIBRARY_PATH", "")
         else:
             env["DESTDIR"] = str(self.system_root)
 
@@ -141,7 +150,7 @@ class BuildExecutor:
             return pkg_work_dir
 
         primary = pkg.source[0]
-        tarball_name = primary.url.split("/")[-1]
+        tarball_name = primary.filename or primary.url.split("/")[-1]
         tarball_path = self.sources_dir / tarball_name
 
         if not tarball_path.exists():
@@ -182,8 +191,13 @@ class BuildExecutor:
         src_dir.mkdir(parents=True, exist_ok=True)
 
         self.logger.info(f"Extracting to {src_dir}")
+        # Use bsdtar for .lz archives (lzip format), tar for everything else
+        if str(tarball_path).endswith('.lz'):
+            extract_cmd = f'bsdtar -xf "{tarball_path}" -C "{src_dir}" --strip-components=1'
+        else:
+            extract_cmd = f'tar -xf "{tarball_path}" -C "{src_dir}" --strip-components=1'
         exit_code = self.run_command(
-            f'tar -xf "{tarball_path}" -C "{src_dir}" --strip-components=1',
+            extract_cmd,
             env=os.environ.copy(),
             cwd=pkg_work_dir,
         )
@@ -348,6 +362,142 @@ class BuildExecutor:
         shutil.rmtree(staging_dir, ignore_errors=True)
         return True
 
+    def pkg_verify(self, pkg: Package) -> bool:
+        """Verify every file in the manifest exists on the live filesystem.
+
+        Reads: /var/lib/igos/packages/<name>-<version>
+        Returns True if all files are present, False if any are missing.
+        """
+        manifest_path = self.pkg_db / f"{pkg.name}-{pkg.version}"
+        if not manifest_path.exists():
+            self.logger.error(f"Manifest not found: {manifest_path}")
+            return False
+
+        content = manifest_path.read_text()
+        in_file_list = False
+        missing = []
+
+        for line in content.splitlines():
+            if line == "FILE LIST:":
+                in_file_list = True
+                continue
+            if in_file_list and line.strip():
+                # Skip directories (trailing /), only verify files
+                if line.endswith("/"):
+                    continue
+                filepath = "/" + line
+                if not os.path.exists(filepath):
+                    missing.append(filepath)
+
+        if missing:
+            self.logger.error(
+                f"Manifest verification FAILED for {pkg.name}-{pkg.version}:\n"
+                + "\n".join(f"  MISSING: {f}" for f in missing[:20])
+            )
+            if len(missing) > 20:
+                self.logger.error(f"  ... and {len(missing) - 20} more")
+            return False
+
+        self.logger.info("Manifest verified: all files present on live filesystem")
+        return True
+
+    # ------------------------------------------------------------------
+    # Direct install tracking (filesystem diff)
+    # ------------------------------------------------------------------
+
+    def fs_snapshot(self, dirs: list[str] | None = None) -> set[str]:
+        """Snapshot all files under key system directories.
+
+        Returns a set of file paths for later diffing.
+        """
+        if dirs is None:
+            dirs = ["/usr", "/etc", "/opt", "/var/lib", "/lib"]
+        snapshot = set()
+        for d in dirs:
+            if not os.path.isdir(d):
+                continue
+            for root, _, files in os.walk(d):
+                for f in files:
+                    snapshot.add(os.path.join(root, f))
+        return snapshot
+
+    def pkg_manifest_from_diff(self, pkg: Package, before: set[str], after: set[str]) -> bool:
+        """Generate manifest from filesystem diff (for direct_install packages).
+
+        Writes: /var/lib/igos/packages/<name>-<version>
+        """
+        new_files = sorted(after - before)
+
+        if not new_files:
+            self.logger.error(f"No new files detected for {pkg.name}-{pkg.version}")
+            return False
+
+        manifest_path = self.pkg_db / f"{pkg.name}-{pkg.version}"
+
+        # Build directory + file list
+        file_list = []
+        dirs_seen = set()
+        for filepath in new_files:
+            parts = Path(filepath).relative_to("/")
+            for i in range(1, len(parts.parts)):
+                parent = str(Path(*parts.parts[:i]))
+                if parent not in dirs_seen:
+                    dirs_seen.add(parent)
+                    file_list.append(parent + "/")
+            file_list.append(str(parts))
+
+        # Deduplicate and sort
+        file_list = sorted(set(file_list))
+
+        total_size = sum(
+            os.path.getsize(f) for f in new_files if os.path.isfile(f)
+        )
+        human_size = f"{total_size / 1024 / 1024:.1f}M" if total_size > 1024*1024 else f"{total_size / 1024:.0f}K"
+
+        from datetime import datetime, timezone
+        manifest_content = (
+            f"PACKAGE NAME: {pkg.name}-{pkg.version}\n"
+            f"PACKAGE VERSION: {pkg.version}\n"
+            f"UNCOMPRESSED SIZE: {human_size} ({total_size} bytes)\n"
+            f"BUILD DATE: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}\n"
+            f"BUILD SYSTEM: InterGenOS igos-build\n"
+            f"INSTALL MODE: direct (filesystem diff)\n"
+            f"DESCRIPTION:\n"
+            f"{pkg.name}: {pkg.description}\n"
+            f"\n"
+            f"FILE LIST:\n"
+        )
+        manifest_content += "\n".join(file_list) + "\n"
+
+        manifest_path.write_text(manifest_content)
+        self.logger.info(f"Manifest (diff): {manifest_path} ({len(new_files)} files, {len(dirs_seen)} dirs)")
+        return True
+
+    def pkg_archive_from_files(self, pkg: Package, new_files: list[str]) -> bool:
+        """Create .igos.tar.gz archive from a list of files on the live filesystem."""
+        archive_path = self.pkg_archives / f"{pkg.name}-{pkg.version}.igos.tar.gz"
+
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            for filepath in new_files:
+                f.write(filepath.lstrip("/") + "\n")
+            filelist_path = f.name
+
+        result = subprocess.run(
+            ["tar", "-C", "/", "-czf", str(archive_path), "-T", filelist_path],
+            capture_output=True, text=True,
+        )
+        os.unlink(filelist_path)
+
+        if result.returncode != 0:
+            self.logger.error(f"Archive creation failed: {result.stderr}")
+            return False
+
+        archive_size = archive_path.stat().st_size
+        human = f"{archive_size / 1024 / 1024:.1f}M" if archive_size > 1024*1024 else f"{archive_size / 1024:.0f}K"
+        self.logger.info(f"Archive: {archive_path} ({human})")
+        return True
+
     def build_package(self, pkg: Package) -> bool:
         """Build a single package through all phases.
 
@@ -365,6 +515,12 @@ class BuildExecutor:
 
         env = self.build_env(pkg)
         success = True
+
+        # Snapshot filesystem before build (for direct_install diff tracking)
+        fs_before = None
+        if self.tracked and pkg.direct_install:
+            self.logger.info("Taking pre-build filesystem snapshot...")
+            fs_before = self.fs_snapshot()
 
         # --- Extract source ---
         self.logger.start_phase("extract")
@@ -416,22 +572,45 @@ class BuildExecutor:
             else:
                 self.logger.end_phase("validate", 0)
 
-        # --- Package tracking (manifest, archive, deploy) ---
+        # --- Package tracking (manifest, archive, deploy, verify) ---
         if success and self.tracked:
-            staging_dir = self.pkg_staging / f"{pkg.name}-{pkg.version}"
             self.logger.start_phase("track")
 
-            if not self.pkg_manifest(pkg, staging_dir):
-                success = False
-                self.logger.end_phase("track", 1)
-            elif not self.pkg_archive(pkg, staging_dir):
-                success = False
-                self.logger.end_phase("track", 1)
-            elif not self.pkg_deploy(pkg, staging_dir):
-                success = False
-                self.logger.end_phase("track", 1)
+            if pkg.direct_install:
+                # Diff-based tracking: compare before/after filesystem snapshots
+                self.logger.info("Taking post-build filesystem snapshot...")
+                fs_after = self.fs_snapshot()
+                new_files = sorted(fs_after - fs_before)
+
+                if not self.pkg_manifest_from_diff(pkg, fs_before, fs_after):
+                    success = False
+                    self.logger.end_phase("track", 1)
+                elif not self.pkg_archive_from_files(pkg, new_files):
+                    success = False
+                    self.logger.end_phase("track", 1)
+                elif not self.pkg_verify(pkg):
+                    success = False
+                    self.logger.end_phase("track", 1)
+                else:
+                    self.logger.end_phase("track", 0)
             else:
-                self.logger.end_phase("track", 0)
+                # DESTDIR staging: manifest, archive, deploy, verify
+                staging_dir = self.pkg_staging / f"{pkg.name}-{pkg.version}"
+
+                if not self.pkg_manifest(pkg, staging_dir):
+                    success = False
+                    self.logger.end_phase("track", 1)
+                elif not self.pkg_archive(pkg, staging_dir):
+                    success = False
+                    self.logger.end_phase("track", 1)
+                elif not self.pkg_deploy(pkg, staging_dir):
+                    success = False
+                    self.logger.end_phase("track", 1)
+                elif not self.pkg_verify(pkg):
+                    success = False
+                    self.logger.end_phase("track", 1)
+                else:
+                    self.logger.end_phase("track", 0)
 
         elapsed = time.monotonic() - build_start
         self.logger.end_package(success)

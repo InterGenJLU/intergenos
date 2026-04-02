@@ -11,8 +11,10 @@ install_func: do_install
 source:
   - url: https://github.com/Atoptool/atop/archive/refs/tags/v${version}.tar.gz
     sha256: 0f49f3aa5e3449f8c1cf10ac08036e2b67887640fe7980b8bc6ca9fd84d46fdf
+    filename: ${name}-${version}.tar.gz
 
 dependencies:
-  build: []
+  build:
+    - glib2
   host: []
   runtime: []

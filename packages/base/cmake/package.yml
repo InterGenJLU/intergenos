@@ -10,7 +10,7 @@ install_func: do_install
 
 source:
   - url: https://cmake.org/files/v4.3/cmake-${version}.tar.gz
-    sha256: placeholder
+    sha256: 0798f4be7a1a406a419ac32db90c2956936fecbf50db3057d7af47d69a2d7edb
 
 dependencies:
   build:

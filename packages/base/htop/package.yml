@@ -13,7 +13,8 @@ source:
 
 dependencies:
   build: []
-  host: []
+  host:
+    - ncurses
   runtime: []
 
 configure_flags:

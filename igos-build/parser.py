@@ -20,6 +20,7 @@ class Source:
     """A source tarball or file to download."""
     url: str
     sha256: str
+    filename: str | None = None
 
 
 @dataclass
@@ -70,6 +71,9 @@ class Package:
 
     # Install function name for custom build style
     install_func: str = "install"    # "install" (toolchain) or "do_install" (core/base)
+
+    # Install directly to / instead of DESTDIR staging (for multi-pass builds)
+    direct_install: bool = False
 
     # Validation steps
     validation: list[ValidationCheck] = field(default_factory=list)
@@ -138,7 +142,10 @@ def _parse_sources(raw: list, variables: dict, path: Path) -> list[Source]:
         if not sha256:
             raise TemplateError(path, f"source[{i}]: missing 'sha256'")
         url = _resolve_variables(url, variables)
-        sources.append(Source(url=url, sha256=sha256))
+        filename = entry.get("filename")
+        if filename:
+            filename = _resolve_variables(filename, variables)
+        sources.append(Source(url=url, sha256=sha256, filename=filename))
     return sources
 
 
@@ -267,6 +274,7 @@ def parse_template(template_path: Path) -> Package:
         pass_number=raw.get("pass_number"),
         bundled_deps=bundled_deps,
         install_func=raw.get("install_func", "install"),
+        direct_install=bool(raw.get("direct_install", False)),
         validation=validation,
         template_path=template_path,
     )
