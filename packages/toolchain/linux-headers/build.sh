@@ -20,5 +20,6 @@ build() {
 
 install() {
     # Install headers to the target system root
-    cp -rv usr/include $IGOS/usr
+    mkdir -pv $IGOS/usr/include
+    cp -rv usr/include/* $IGOS/usr/include/
 }
