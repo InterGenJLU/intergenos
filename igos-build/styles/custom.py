@@ -2,7 +2,7 @@
 
 For complex packages (GCC, glibc, kernel) that don't fit standard patterns.
 The build.sh lives alongside the package.yml and defines bash functions:
-  configure(), build(), check(), install()
+  configure(), build(), check(), install() or do_install()
 """
 
 from ..parser import Package
@@ -29,8 +29,7 @@ class CustomStyle(BuildStyle):
         return BuildPhase(
             name="configure",
             commands=[
-                f"source {script}",
-                "type configure &>/dev/null && configure || true",
+                f"source {script} && type configure &>/dev/null && configure || true",
             ],
         )
 
@@ -39,8 +38,7 @@ class CustomStyle(BuildStyle):
         return BuildPhase(
             name="build",
             commands=[
-                f"source {script}",
-                "type build &>/dev/null && build || true",
+                f"source {script} && type build &>/dev/null && build || true",
             ],
         )
 
@@ -49,8 +47,7 @@ class CustomStyle(BuildStyle):
         return BuildPhase(
             name="check",
             commands=[
-                f"source {script}",
-                "type check &>/dev/null && check || true",
+                f"source {script} && type check &>/dev/null && check || true",
             ],
         )
 
@@ -60,7 +57,6 @@ class CustomStyle(BuildStyle):
         return BuildPhase(
             name="install",
             commands=[
-                f"source {script}",
-                f"type {func} &>/dev/null && {func} || true",
+                f"source {script} && type {func} &>/dev/null && {func} || true",
             ],
         )
