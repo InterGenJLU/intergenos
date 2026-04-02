@@ -1,0 +1,22 @@
+name: poppler
+version: 24.12.0
+release: 1
+description: PDF rendering library
+license: GPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://poppler.freedesktop.org/poppler-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - fontconfig
+  - libjpeg-turbo
+  - libpng
+  - nss
+  - openjpeg2
+  - cairo
+  host: []
+  runtime: []

@@ -1,0 +1,22 @@
+name: samba
+version: 4.21.3
+release: 1
+description: SMB/CIFS file and print server
+license: GPL-3.0-or-later
+homepage: https://www.samba.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.samba.org/ftp/samba/stable/samba-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - gnutls
+  - gpgme
+  - perl-parse-yapp
+  - rpcsvc-proto
+  - fuse3
+  - libtirpc
+  host: []
+  runtime: []

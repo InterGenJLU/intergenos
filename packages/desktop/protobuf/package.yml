@@ -1,0 +1,17 @@
+name: protobuf
+version: '28.3'
+release: 1
+description: Protocol Buffers serialization library
+license: BSD-3-Clause
+homepage: ''
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://github.com/protocolbuffers/protobuf/releases/download/v${version}/protobuf-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - abseil-cpp
+  host: []
+  runtime: []

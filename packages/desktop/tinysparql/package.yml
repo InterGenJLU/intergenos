@@ -1,0 +1,21 @@
+name: tinysparql
+version: 3.8.1
+release: 1
+description: RDF graph database and SPARQL query engine
+license: GPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/tinysparql/3.8/tinysparql-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - json-glib
+  - icu
+  - libsoup3
+  - pygobject3
+  - vala
+  host: []
+  runtime: []

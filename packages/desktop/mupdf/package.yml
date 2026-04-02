@@ -1,0 +1,20 @@
+name: mupdf
+version: 1.24.11
+release: 1
+description: Lightweight PDF and XPS viewer
+license: AGPL-3.0-or-later
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://mupdf.com/downloads/archive/mupdf-${version}-source.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - harfbuzz
+  - libjpeg-turbo
+  - openjpeg2
+  - freetype2
+  host: []
+  runtime: []

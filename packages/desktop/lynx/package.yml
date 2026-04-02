@@ -1,0 +1,24 @@
+name: lynx
+version: 2.9.2
+release: 1
+description: Text-mode web browser
+license: GPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://invisible-mirror.net/archives/lynx/tarballs/lynx${version}.tar.bz2
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --sysconfdir=/etc/lynx
+- --with-zlib
+- --with-bzlib
+- --with-ssl
+- --with-screen=ncursesw
+- --enable-locale-strstrcase

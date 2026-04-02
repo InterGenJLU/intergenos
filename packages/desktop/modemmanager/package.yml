@@ -1,0 +1,21 @@
+name: modemmanager
+version: 1.22.0
+release: 1
+description: Mobile broadband modem management daemon
+license: GPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://www.freedesktop.org/software/ModemManager/ModemManager-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libgudev
+  - libmbim
+  - libqmi
+  - polkit
+  - vala
+  host: []
+  runtime: []

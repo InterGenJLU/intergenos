@@ -1,0 +1,17 @@
+name: libcloudproviders
+version: 0.3.6
+release: 1
+description: Cloud storage integration library
+license: LGPL-3.0-or-later
+homepage: ''
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/libcloudproviders/0.3/libcloudproviders-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - vala
+  host: []
+  runtime: []

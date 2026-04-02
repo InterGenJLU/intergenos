@@ -1,0 +1,20 @@
+name: xdriinfo
+version: 1.0.7
+release: 1
+description: DRI information utility
+license: MIT
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/app/xdriinfo-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libX11
+  - mesa
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr

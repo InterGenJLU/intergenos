@@ -1,0 +1,664 @@
+# InterGenOS Desktop Tier 5b — Printing, Samba, remaining Xorg apps, misc libs
+# Source: BLFS 13.0
+
+tier: desktop
+
+packages:
+  # --- CUPS printing chain (circular dep: cups <-> cups-filters) ---
+  - name: cups
+    version: "2.4.11"
+    url: https://github.com/OpenPrinting/cups/releases/download/v${version}/cups-${version}-source.tar.gz
+    license: Apache-2.0
+    description: Common UNIX Printing System
+    homepage: https://openprinting.github.io/cups/
+    build_style: custom
+    deps:
+      build:
+        - gnutls
+
+  - name: poppler
+    version: "24.12.0"
+    url: https://poppler.freedesktop.org/poppler-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: PDF rendering library
+    build_style: cmake
+    cmake_flags:
+      - "CMAKE_INSTALL_PREFIX=/usr"
+      - "CMAKE_BUILD_TYPE=Release"
+      - "ENABLE_UNSTABLE_API_ABI_HEADERS=ON"
+      - "ENABLE_BOOST=OFF"
+    deps:
+      build:
+        - fontconfig
+        - libjpeg-turbo
+        - libpng
+        - nss
+        - openjpeg2
+        - cairo
+
+  - name: qpdf
+    version: "11.9.1"
+    url: https://github.com/qpdf/qpdf/releases/download/v${version}/qpdf-${version}.tar.gz
+    license: Apache-2.0
+    description: PDF transformation utility
+    build_style: cmake
+    cmake_flags:
+      - "CMAKE_INSTALL_PREFIX=/usr"
+      - "CMAKE_BUILD_TYPE=Release"
+    deps:
+      build:
+        - libjpeg-turbo
+
+  - name: mupdf
+    version: "1.24.11"
+    url: https://mupdf.com/downloads/archive/mupdf-${version}-source.tar.gz
+    license: AGPL-3.0-or-later
+    description: Lightweight PDF and XPS viewer
+    build_style: custom
+    deps:
+      build:
+        - harfbuzz
+        - libjpeg-turbo
+        - openjpeg2
+        - freetype2
+
+  - name: libcupsfilters
+    version: "2.0.1"
+    url: https://github.com/OpenPrinting/libcupsfilters/releases/download/${version}/libcupsfilters-${version}.tar.xz
+    license: Apache-2.0
+    description: CUPS filters library
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+    deps:
+      build:
+        - cups
+        - mupdf
+        - lcms2
+        - poppler
+        - qpdf
+
+  - name: libppd
+    version: "2.0.0"
+    url: https://github.com/OpenPrinting/libppd/releases/download/${version}/libppd-${version}.tar.xz
+    license: Apache-2.0
+    description: PPD file handling library
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+    deps:
+      build:
+        - libcupsfilters
+
+  - name: cups-filters
+    version: "2.0.1"
+    url: https://github.com/OpenPrinting/cups-filters/releases/download/${version}/cups-filters-${version}.tar.xz
+    license: Apache-2.0
+    description: CUPS print filters
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+    deps:
+      build:
+        - libcupsfilters
+        - libppd
+
+  # --- Samba (needed by gnome-control-center) ---
+  - name: perl-parse-yapp
+    version: "1.21"
+    url: https://www.cpan.org/authors/id/W/WB/WBRASWELL/Parse-Yapp-${version}.tar.gz
+    license: Artistic-1.0
+    description: Perl parser generator
+    build_style: custom
+
+  - name: samba
+    version: "4.21.3"
+    url: https://www.samba.org/ftp/samba/stable/samba-${version}.tar.gz
+    license: GPL-3.0-or-later
+    description: SMB/CIFS file and print server
+    homepage: https://www.samba.org/
+    build_style: custom
+    deps:
+      build:
+        - gnutls
+        - gpgme
+        - perl-parse-yapp
+        - rpcsvc-proto
+        - fuse3
+        - libtirpc
+
+  # --- IBus input method ---
+  - name: ibus
+    version: "1.5.31"
+    url: https://github.com/nickvank/ibus/releases/download/${version}/ibus-${version}.tar.gz
+    license: LGPL-2.1-or-later
+    description: Intelligent Input Bus framework
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--sysconfdir=/etc"
+    deps:
+      build:
+        - dconf
+        - gtk3
+        - gtk4
+        - iso-codes
+        - vala
+
+  # --- Additional Xorg apps we missed ---
+  - name: iceauth
+    version: "1.0.10"
+    url: https://www.x.org/pub/individual/app/iceauth-${version}.tar.xz
+    license: MIT
+    description: ICE authority file utility
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - libICE
+
+  - name: sessreg
+    version: "1.1.3"
+    url: https://www.x.org/pub/individual/app/sessreg-${version}.tar.xz
+    license: MIT
+    description: Manage utmpx/wtmpx entries for non-init sessions
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - xorgproto
+
+  - name: smproxy
+    version: "1.0.7"
+    url: https://www.x.org/pub/individual/app/smproxy-${version}.tar.xz
+    license: MIT
+    description: Session Manager Proxy
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - libSM
+        - libXt
+
+  - name: xdpyinfo
+    version: "1.3.4"
+    url: https://www.x.org/pub/individual/app/xdpyinfo-${version}.tar.xz
+    license: MIT
+    description: Display information utility for X
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - libXtst
+        - libXi
+
+  - name: xev
+    version: "1.2.6"
+    url: https://www.x.org/pub/individual/app/xev-${version}.tar.xz
+    license: MIT
+    description: X event monitor
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - libX11
+
+  - name: xhost
+    version: "1.0.9"
+    url: https://www.x.org/pub/individual/app/xhost-${version}.tar.xz
+    license: MIT
+    description: Server access control program
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - libX11
+        - libXmu
+
+  - name: xmodmap
+    version: "1.0.11"
+    url: https://www.x.org/pub/individual/app/xmodmap-${version}.tar.xz
+    license: MIT
+    description: Keyboard modifier utility
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - libX11
+
+  - name: xwininfo
+    version: "1.1.6"
+    url: https://www.x.org/pub/individual/app/xwininfo-${version}.tar.xz
+    license: MIT
+    description: Window information utility for X
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - libxcb
+        - libX11
+
+  - name: xdriinfo
+    version: "1.0.7"
+    url: https://www.x.org/pub/individual/app/xdriinfo-${version}.tar.xz
+    license: MIT
+    description: DRI information utility
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - libX11
+        - mesa
+
+  # --- Additional Xorg fonts ---
+  - name: font-cursor-misc
+    version: "1.0.4"
+    url: https://www.x.org/pub/individual/font/font-cursor-misc-${version}.tar.xz
+    license: Public-Domain
+    description: Cursor fonts for X
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - font-util
+        - mkfontscale
+
+  - name: font-dejavu
+    version: "2.37"
+    url: https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_${version}/dejavu-fonts-ttf-${version}.tar.bz2
+    license: Bitstream-Vera
+    description: DejaVu TrueType fonts
+    build_style: custom
+
+  - name: font-noto
+    version: "24.12.1"
+    url: https://github.com/notofonts/notofonts.github.io/archive/refs/tags/noto-monthly-release-${version}.tar.gz
+    license: OFL-1.1
+    description: Google Noto fonts
+    build_style: custom
+
+  # --- XDG utils ---
+  - name: lynx
+    version: "2.9.2"
+    url: https://invisible-mirror.net/archives/lynx/tarballs/lynx${version}.tar.bz2
+    license: GPL-2.0-or-later
+    description: Text-mode web browser
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--sysconfdir=/etc/lynx"
+      - "--with-zlib"
+      - "--with-bzlib"
+      - "--with-ssl"
+      - "--with-screen=ncursesw"
+      - "--enable-locale-strstrcase"
+
+  - name: xdg-utils
+    version: "1.2.1"
+    url: https://portland.freedesktop.org/download/xdg-utils-${version}.tar.gz
+    license: MIT
+    description: Desktop integration utilities
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - xmlto
+        - lynx
+
+  # --- Misc supporting libraries ---
+  - name: libwacom
+    version: "2.13.0"
+    url: https://github.com/linuxwacom/libwacom/releases/download/libwacom-${version}/libwacom-${version}.tar.xz
+    license: MIT
+    description: Wacom tablet information library
+    build_style: meson
+    meson_flags:
+      - "-Dtests=disabled"
+    deps:
+      build:
+        - libevdev
+        - libgudev
+        - libxml2
+
+  - name: libpcap
+    version: "1.10.5"
+    url: https://www.tcpdump.org/release/libpcap-${version}.tar.xz
+    license: BSD-3-Clause
+    description: Packet capture library
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+
+  - name: libnma
+    version: "1.10.6"
+    url: https://download.gnome.org/sources/libnma/1.10/libnma-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: NetworkManager GTK widgets
+    build_style: meson
+    meson_flags:
+      - "-Dgtk_doc=false"
+      - "-Dgtk4=true"
+    deps:
+      build:
+        - gcr4
+        - gtk3
+        - gtk4
+        - networkmanager
+        - vala
+
+  - name: libgtop
+    version: "2.41.3"
+    url: https://download.gnome.org/sources/libgtop/2.41/libgtop-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: System monitoring library
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+    deps:
+      build:
+        - libXau
+
+  - name: libpeas
+    version: "1.36.0"
+    url: https://download.gnome.org/sources/libpeas/1.36/libpeas-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: GObject plugin system
+    build_style: meson
+    meson_flags:
+      - "-Ddemos=false"
+      - "-Dgtk_doc=false"
+    deps:
+      build:
+        - gtk3
+        - pygobject3
+
+  - name: librest
+    version: "0.9.1"
+    url: https://download.gnome.org/sources/rest/0.9/rest-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: REST web service access library
+    build_style: meson
+    meson_flags:
+      - "-Dgtk_doc=false"
+      - "-Dtests=false"
+    deps:
+      build:
+        - json-glib
+        - libsoup3
+
+  - name: totem-pl-parser
+    version: "3.26.6"
+    url: https://download.gnome.org/sources/totem-pl-parser/3.26/totem-pl-parser-${version}.tar.xz
+    license: LGPL-2.0-or-later
+    description: Playlist parser library
+    build_style: meson
+    meson_flags:
+      - "-Denable-gtk-doc=false"
+
+  - name: evolution-data-server
+    version: "3.54.3"
+    url: https://download.gnome.org/sources/evolution-data-server/3.54/evolution-data-server-${version}.tar.xz
+    license: LGPL-2.0-or-later
+    description: Calendar and contacts data server
+    build_style: cmake
+    cmake_flags:
+      - "CMAKE_INSTALL_PREFIX=/usr"
+      - "ENABLE_GTK_DOC=OFF"
+      - "ENABLE_INSTALLED_TESTS=OFF"
+      - "ENABLE_OAUTH2_WEBKITGTK4=ON"
+    deps:
+      build:
+        - libical
+        - nss
+        - gnome-online-accounts
+        - gtk3
+        - gtk4
+        - libgweather
+        - vala
+        - webkitgtk
+
+  - name: tinysparql
+    version: "3.8.1"
+    url: https://download.gnome.org/sources/tinysparql/3.8/tinysparql-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: RDF graph database and SPARQL query engine
+    build_style: meson
+    meson_flags:
+      - "-Ddocs=false"
+      - "-Dman=false"
+      - "-Dtests=false"
+    deps:
+      build:
+        - json-glib
+        - icu
+        - libsoup3
+        - pygobject3
+        - vala
+
+  - name: exiv2
+    version: "0.28.3"
+    url: https://github.com/Exiv2/exiv2/releases/download/v${version}/exiv2-${version}-Source.tar.gz
+    license: GPL-2.0-or-later
+    description: Image metadata library
+    build_style: cmake
+    cmake_flags:
+      - "CMAKE_INSTALL_PREFIX=/usr"
+      - "CMAKE_BUILD_TYPE=Release"
+    deps:
+      build:
+        - brotli
+        - inih
+
+  - name: gexiv2
+    version: "0.14.3"
+    url: https://download.gnome.org/sources/gexiv2/0.14/gexiv2-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: GObject wrapper for Exiv2
+    build_style: meson
+    meson_flags:
+      - "-Dgtk_doc=false"
+    deps:
+      build:
+        - exiv2
+        - vala
+
+  - name: libcloudproviders
+    version: "0.3.6"
+    url: https://download.gnome.org/sources/libcloudproviders/0.3/libcloudproviders-${version}.tar.xz
+    license: LGPL-3.0-or-later
+    description: Cloud storage integration library
+    build_style: meson
+    meson_flags:
+      - "-Denable-gtk-doc=false"
+    deps:
+      build:
+        - vala
+
+  - name: gnome-user-docs
+    version: "47.4"
+    url: https://download.gnome.org/sources/gnome-user-docs/47/gnome-user-docs-${version}.tar.xz
+    license: CC-BY-SA-3.0
+    description: GNOME user documentation
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - itstool
+
+  - name: blueprint-compiler
+    version: "0.14.0"
+    url: https://gitlab.gnome.org/jwestman/blueprint-compiler/-/archive/v${version}/blueprint-compiler-v${version}.tar.gz
+    license: LGPL-3.0-or-later
+    description: Markup language compiler for GTK UI files
+    build_style: meson
+    deps:
+      build:
+        - pygobject3
+
+  # --- LibMbim and LibQmi for ModemManager ---
+  - name: libmbim
+    version: "1.30.0"
+    url: https://www.freedesktop.org/software/libmbim/libmbim-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: MBIM protocol library
+    build_style: meson
+    meson_flags:
+      - "-Dgtk_doc=false"
+      - "-Dman=false"
+
+  - name: libqmi
+    version: "1.34.0"
+    url: https://www.freedesktop.org/software/libqmi/libqmi-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: QMI protocol library
+    build_style: meson
+    meson_flags:
+      - "-Dgtk_doc=false"
+      - "-Dman=false"
+    deps:
+      build:
+        - libgudev
+        - libmbim
+
+  - name: modemmanager
+    version: "1.22.0"
+    url: https://www.freedesktop.org/software/ModemManager/ModemManager-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: Mobile broadband modem management daemon
+    build_style: meson
+    meson_flags:
+      - "-Dgtk_doc=false"
+      - "-Dman=false"
+      - "-Dtests=false"
+    deps:
+      build:
+        - libgudev
+        - libmbim
+        - libqmi
+        - polkit
+        - vala
+
+  # --- Misc image libraries ---
+  - name: libjxl
+    version: "0.11.1"
+    url: https://github.com/libjxl/libjxl/archive/v${version}/libjxl-${version}.tar.gz
+    license: BSD-3-Clause
+    description: JPEG XL image format library
+    build_style: cmake
+    cmake_flags:
+      - "CMAKE_INSTALL_PREFIX=/usr"
+      - "CMAKE_BUILD_TYPE=Release"
+      - "BUILD_TESTING=OFF"
+      - "DJPEGXL_ENABLE_BENCHMARK=OFF"
+    deps:
+      build:
+        - brotli
+        - giflib
+        - libjpeg-turbo
+        - libpng
+
+  - name: libavif
+    version: "1.1.1"
+    url: https://github.com/AOMediaCodec/libavif/archive/v${version}/libavif-${version}.tar.gz
+    license: BSD-2-Clause
+    description: AVIF image format library
+    build_style: cmake
+    cmake_flags:
+      - "CMAKE_INSTALL_PREFIX=/usr"
+      - "CMAKE_BUILD_TYPE=Release"
+      - "AVIF_CODEC_DAV1D=SYSTEM"
+    deps:
+      build:
+        - dav1d
+
+  - name: woff2
+    version: "1.0.2"
+    url: https://github.com/nickvank/woff2/archive/v${version}/woff2-${version}.tar.gz
+    license: MIT
+    description: Web Open Font Format 2.0 library
+    build_style: cmake
+    deps:
+      build:
+        - brotli
+
+  # --- Additional GNOME runtime libs ---
+  - name: libshumate
+    version: "1.3.2"
+    url: https://download.gnome.org/sources/libshumate/1.3/libshumate-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: GTK4 map widget
+    build_style: meson
+    meson_flags:
+      - "-Dgtk_doc=false"
+    deps:
+      build:
+        - gtk4
+        - libsoup3
+
+  - name: abseil-cpp
+    version: "20240722.0"
+    url: https://github.com/abseil/abseil-cpp/archive/${version}/abseil-cpp-${version}.tar.gz
+    license: Apache-2.0
+    description: Abseil C++ common libraries
+    build_style: cmake
+    cmake_flags:
+      - "CMAKE_INSTALL_PREFIX=/usr"
+      - "CMAKE_BUILD_TYPE=Release"
+      - "BUILD_SHARED_LIBS=ON"
+      - "ABSL_PROPAGATE_CXX_STD=ON"
+
+  - name: protobuf
+    version: "28.3"
+    url: https://github.com/protocolbuffers/protobuf/releases/download/v${version}/protobuf-${version}.tar.gz
+    license: BSD-3-Clause
+    description: Protocol Buffers serialization library
+    build_style: cmake
+    cmake_flags:
+      - "CMAKE_INSTALL_PREFIX=/usr"
+      - "CMAKE_BUILD_TYPE=Release"
+      - "BUILD_SHARED_LIBS=ON"
+      - "protobuf_BUILD_TESTS=OFF"
+    deps:
+      build:
+        - abseil-cpp
+
+  - name: protobuf-c
+    version: "1.5.0"
+    url: https://github.com/protobuf-c/protobuf-c/releases/download/v${version}/protobuf-c-${version}.tar.gz
+    license: BSD-2-Clause
+    description: C implementation of Protocol Buffers
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+    deps:
+      build:
+        - protobuf
+
+  # --- MIT Kerberos (needed by gnome-control-center) ---
+  - name: mitkrb
+    version: "1.21.3"
+    url: https://kerberos.org/dist/krb5/${version}/krb5-${version}.tar.gz
+    license: MIT
+    description: MIT Kerberos V5 authentication
+    build_style: custom
+    deps:
+      build:
+        - keyutils

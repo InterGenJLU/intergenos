@@ -1,0 +1,16 @@
+name: totem-pl-parser
+version: 3.26.6
+release: 1
+description: Playlist parser library
+license: LGPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/totem-pl-parser/3.26/totem-pl-parser-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

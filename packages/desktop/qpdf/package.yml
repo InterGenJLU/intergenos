@@ -1,0 +1,17 @@
+name: qpdf
+version: 11.9.1
+release: 1
+description: PDF transformation utility
+license: Apache-2.0
+homepage: ''
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://github.com/qpdf/qpdf/releases/download/v${version}/qpdf-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libjpeg-turbo
+  host: []
+  runtime: []

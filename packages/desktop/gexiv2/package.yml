@@ -1,0 +1,18 @@
+name: gexiv2
+version: 0.14.3
+release: 1
+description: GObject wrapper for Exiv2
+license: GPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gexiv2/0.14/gexiv2-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - exiv2
+  - vala
+  host: []
+  runtime: []

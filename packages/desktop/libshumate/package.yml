@@ -1,0 +1,18 @@
+name: libshumate
+version: 1.3.2
+release: 1
+description: GTK4 map widget
+license: LGPL-2.1-or-later
+homepage: ''
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/libshumate/1.3/libshumate-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - gtk4
+  - libsoup3
+  host: []
+  runtime: []

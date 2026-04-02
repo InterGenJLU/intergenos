@@ -1,0 +1,18 @@
+name: libpeas
+version: 1.36.0
+release: 1
+description: GObject plugin system
+license: LGPL-2.1-or-later
+homepage: ''
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/libpeas/1.36/libpeas-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - gtk3
+  - pygobject3
+  host: []
+  runtime: []

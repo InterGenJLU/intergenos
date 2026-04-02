@@ -1,0 +1,20 @@
+name: protobuf-c
+version: 1.5.0
+release: 1
+description: C implementation of Protocol Buffers
+license: BSD-2-Clause
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/protobuf-c/protobuf-c/releases/download/v${version}/protobuf-c-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - protobuf
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

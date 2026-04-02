@@ -1,0 +1,19 @@
+name: libwacom
+version: 2.13.0
+release: 1
+description: Wacom tablet information library
+license: MIT
+homepage: ''
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://github.com/linuxwacom/libwacom/releases/download/libwacom-${version}/libwacom-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libevdev
+  - libgudev
+  - libxml2
+  host: []
+  runtime: []

@@ -1,0 +1,20 @@
+name: libppd
+version: 2.0.0
+release: 1
+description: PPD file handling library
+license: Apache-2.0
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/OpenPrinting/libppd/releases/download/${version}/libppd-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libcupsfilters
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

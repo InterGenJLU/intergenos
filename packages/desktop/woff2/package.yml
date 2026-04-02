@@ -1,0 +1,17 @@
+name: woff2
+version: 1.0.2
+release: 1
+description: Web Open Font Format 2.0 library
+license: MIT
+homepage: ''
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://github.com/nickvank/woff2/archive/v${version}/woff2-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - brotli
+  host: []
+  runtime: []

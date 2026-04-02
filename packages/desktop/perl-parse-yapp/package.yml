@@ -1,0 +1,16 @@
+name: perl-parse-yapp
+version: '1.21'
+release: 1
+description: Perl parser generator
+license: Artistic-1.0
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.cpan.org/authors/id/W/WB/WBRASWELL/Parse-Yapp-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

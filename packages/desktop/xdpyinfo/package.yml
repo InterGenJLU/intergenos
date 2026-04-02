@@ -1,0 +1,20 @@
+name: xdpyinfo
+version: 1.3.4
+release: 1
+description: Display information utility for X
+license: MIT
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/app/xdpyinfo-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libXtst
+  - libXi
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
