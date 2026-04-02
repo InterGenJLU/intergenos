@@ -9,7 +9,7 @@ build_style: autotools
 
 source:
   - url: https://github.com/htop-dev/htop/releases/download/${version}/htop-${version}.tar.xz
-    sha256: placeholder-htop-3.4.1
+    sha256: 904f7d4580fc11cffc7e0f06895a4789e0c1c054435752c151e812fead9f6220
 
 dependencies:
   build: []

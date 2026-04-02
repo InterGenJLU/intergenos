@@ -1,16 +1,16 @@
 name: iotop
-version: 0.6
+version: "1.31"
 release: 1
-description: I/O monitoring tool (Python-based)
+description: I/O monitoring tool
 license: GPL-2.0-or-later
-homepage: http://guichaz.free.fr/iotop/
+homepage: https://github.com/Tomas-M/iotop
 tier: base
 build_style: custom
 install_func: do_install
 
 source:
-  - url: https://github.com/Tomas-M/iotop/releases/download/v${version}/iotop-${version}.tar.gz
-    sha256: placeholder-iotop-0.6
+  - url: https://github.com/Tomas-M/iotop/releases/download/v${version}/iotop-${version}.tar.xz
+    sha256: 7740ada353262808c12f19b5efc37b3c7bfb6be3be4abc0404557806d0204b26
 
 dependencies:
   build: []

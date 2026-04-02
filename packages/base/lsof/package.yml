@@ -10,7 +10,7 @@ install_func: do_install
 
 source:
   - url: https://github.com/lsof-org/lsof/releases/download/${version}/lsof-${version}.tar.gz
-    sha256: placeholder-lsof-4.99.5
+    sha256: 4682c2491ec8b3d62f84e135afc1d9ead1bad5f034b50716f0c3826a4ee7d229
 
 dependencies:
   build:

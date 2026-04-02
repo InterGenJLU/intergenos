@@ -10,7 +10,7 @@ install_func: do_install
 
 source:
   - url: https://github.com/aristocratos/btop/archive/v${version}/btop-${version}.tar.gz
-    sha256: placeholder-btop-1.4.4
+    sha256: 98d464041015c888c7b48de14ece5ebc6e410bc00ca7bb7c5a8010fe781f1dd8
 
 dependencies:
   build:
