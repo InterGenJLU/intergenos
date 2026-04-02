@@ -1,5 +1,5 @@
 name: rust
-version: 1.82.0
+version: 1.93.1
 release: 1
 description: Rust programming language
 license: MIT
@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://static.rust-lang.org/dist/rustc-${version}-src.tar.xz
-  sha256: 1276a0bb8fa12288ba6fa96597d28b40e74c44257c051d3bc02c2b049bb38210
+  sha256: 848c9171212c998c069e6979a205a1a44fa3235a463696d62e24701c83596ce0
 dependencies:
   build: []
   host: []

@@ -1,15 +1,15 @@
 name: webkitgtk
-version: 2.46.6
+version: 2.50.5
 release: 1
 description: Web content engine for GTK
 license: LGPL-2.0-or-later
 homepage: https://webkitgtk.org/
 tier: desktop
-build_style: cmake
+build_style: custom
 install_func: do_install
 source:
 - url: https://webkitgtk.org/releases/webkitgtk-${version}.tar.xz
-  sha256: f2b31de693220ba9bab76ce6ddfe5b0bfab2515cb2b0a70f3c54d4050766c32b
+  sha256: 8737631bac3e9c7ad3e5208f9370e076c09d9c45b39980021ce54edadcc6f94f
 dependencies:
   build:
   - cairo

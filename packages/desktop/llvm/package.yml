@@ -1,15 +1,15 @@
 name: llvm
-version: 19.1.7
+version: 21.1.8
 release: 1
 description: LLVM compiler infrastructure
 license: Apache-2.0
 homepage: https://llvm.org/
 tier: desktop
-build_style: cmake
+build_style: custom
 install_func: do_install
 source:
 - url: https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/llvm-project-${version}.src.tar.xz
-  sha256: 82401fea7b79d0078043f7598b835284d6650a75b93e64b6f761ea7b63097501
+  sha256: 4633a23617fa31a3ea51242586ea7fb1da7140e426bd62fc164261fe036aa142
 dependencies:
   build: []
   host: []

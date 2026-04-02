@@ -1,5 +1,5 @@
 name: mesa
-version: 24.3.4
+version: 25.3.5
 release: 1
 description: OpenGL, Vulkan, and OpenCL implementation
 license: MIT
@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://mesa.freedesktop.org/archive/mesa-${version}.tar.xz
-  sha256: e641ae27191d387599219694560d221b7feaa91c900bcec46bf444218ed66025
+  sha256: be472413475082df945e0f9be34f5af008baa03eb357e067ce5a611a2d44c44b
 dependencies:
   build:
   - libdrm
