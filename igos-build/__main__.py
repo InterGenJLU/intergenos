@@ -62,17 +62,21 @@ def main():
 
     # --- Parse all templates ---
     try:
-        packages = load_all_packages(PACKAGES_DIR)
+        all_packages = load_all_packages(PACKAGES_DIR)
     except TemplateError as e:
         print(f"TEMPLATE ERROR: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Filter by tier if requested
+    # When tier filtering, load ALL packages for the dependency graph
+    # but only BUILD packages in the requested tier(s).
+    # This ensures cross-tier dependencies are properly resolved.
     if tier_filter:
-        packages = [p for p in packages if p.tier in tier_filter]
+        packages = [p for p in all_packages if p.tier in tier_filter]
         print(f"Filtered to tier(s): {', '.join(tier_filter)}")
+        print(f"  {len(packages)} packages to build (from {len(all_packages)} total)\n")
+    else:
+        packages = all_packages
 
-    print(f"Parsed {len(packages)} package template(s):\n")
     for pkg in packages:
         sources = ", ".join(s.url.split("/")[-1] for s in pkg.source)
         deps_count = (len(pkg.dependencies.build)
@@ -89,12 +93,16 @@ def main():
         print()
 
     # --- Build dependency graph ---
+    # Always use ALL packages for the graph so cross-tier deps are resolved
     print("=" * 60)
     print("Building dependency graph...\n")
 
     try:
-        graph = build_graph(packages, strict=False)
+        graph = build_graph(all_packages, strict=False)
         order = graph.build_order()
+        # Filter build order to only include requested tiers
+        if tier_filter:
+            order = [p for p in order if p.tier in tier_filter]
     except CycleError as e:
         print(f"CYCLE ERROR: {e}", file=sys.stderr)
         sys.exit(1)
