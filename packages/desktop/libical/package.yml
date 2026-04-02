@@ -1,0 +1,16 @@
+name: libical
+version: 3.0.18
+release: 1
+description: iCalendar protocol implementation
+license: LGPL-2.1-or-later
+homepage: https://github.com/nickvank/libical
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://github.com/nickvank/libical/releases/download/v${version}/libical-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

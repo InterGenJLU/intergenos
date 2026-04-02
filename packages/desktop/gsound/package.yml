@@ -1,0 +1,18 @@
+name: gsound
+version: 1.0.3
+release: 1
+description: GObject wrapper for libcanberra
+license: LGPL-2.1-or-later
+homepage: https://wiki.gnome.org/Projects/GSound
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gsound/1.0/gsound-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libcanberra
+  - vala
+  host: []
+  runtime: []

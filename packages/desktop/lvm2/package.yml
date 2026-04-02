@@ -1,0 +1,16 @@
+name: lvm2
+version: 2.03.28
+release: 1
+description: Logical Volume Manager
+license: GPL-2.0-or-later
+homepage: https://sourceware.org/lvm2/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://sourceware.org/ftp/lvm2/LVM2.${version}.tgz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

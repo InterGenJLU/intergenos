@@ -1,0 +1,32 @@
+name: mutter
+version: '47.4'
+release: 1
+description: GNOME window manager and Wayland compositor
+license: GPL-2.0-or-later
+homepage: https://gitlab.gnome.org/GNOME/mutter
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/mutter/47/mutter-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - at-spi2-core
+  - graphene
+  - libei
+  - libxcvt
+  - libdisplay-info
+  - pipewire
+  - startup-notification
+  - libinput
+  - wayland-protocols
+  - libxkbcommon
+  - libX11
+  - libXrandr
+  - libXi
+  - libXcomposite
+  - libXdamage
+  - libXfixes
+  host: []
+  runtime: []

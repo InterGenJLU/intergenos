@@ -1,0 +1,23 @@
+name: bluez
+version: '5.79'
+release: 1
+description: Bluetooth protocol stack
+license: GPL-2.0-or-later
+homepage: http://www.bluez.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.kernel.org/pub/linux/bluetooth/bluez-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libical
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --sysconfdir=/etc
+- --localstatedir=/var
+- --enable-library
+- --disable-manpages

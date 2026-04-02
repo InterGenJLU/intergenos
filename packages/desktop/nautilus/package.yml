@@ -1,0 +1,20 @@
+name: nautilus
+version: '47.2'
+release: 1
+description: GNOME file manager
+license: GPL-3.0-or-later
+homepage: https://wiki.gnome.org/Apps/Files
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/nautilus/47/nautilus-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - gnome-desktop
+  - libadwaita1
+  - libportal
+  - gst-plugins-base
+  host: []
+  runtime: []

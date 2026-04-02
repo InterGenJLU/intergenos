@@ -1,0 +1,22 @@
+name: vte
+version: 0.78.2
+release: 1
+description: Virtual Terminal Emulator widget
+license: LGPL-2.1-or-later
+homepage: https://wiki.gnome.org/Apps/Terminal/VTE
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/vte/0.78/vte-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - gtk3
+  - gtk4
+  - icu
+  - gnutls
+  - fribidi
+  - vala
+  host: []
+  runtime: []

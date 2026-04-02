@@ -1,0 +1,20 @@
+name: gnome-terminal
+version: 3.54.2
+release: 1
+description: GNOME terminal emulator
+license: GPL-3.0-or-later
+homepage: https://wiki.gnome.org/Apps/Terminal
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-terminal/3.54/gnome-terminal-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - dconf
+  - gsettings-desktop-schemas
+  - vte
+  - libadwaita1
+  host: []
+  runtime: []

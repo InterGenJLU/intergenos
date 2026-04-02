@@ -1,0 +1,24 @@
+name: udisks2
+version: 2.10.1
+release: 1
+description: Disk management D-Bus service
+license: GPL-2.0-or-later
+homepage: https://github.com/storaged-project/udisks
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/storaged-project/udisks/releases/download/udisks-${version}/udisks-${version}.tar.bz2
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libgudev
+  - polkit
+  - lvm2
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --sysconfdir=/etc
+- --localstatedir=/var
+- --disable-static

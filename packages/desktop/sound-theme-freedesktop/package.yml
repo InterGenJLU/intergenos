@@ -1,0 +1,18 @@
+name: sound-theme-freedesktop
+version: '0.8'
+release: 1
+description: Default XDG sound theme
+license: CC-BY-SA-3.0
+homepage: https://www.freedesktop.org/wiki/Specifications/sound-theme-spec/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://people.freedesktop.org/~mccann/dist/sound-theme-freedesktop-${version}.tar.bz2
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr

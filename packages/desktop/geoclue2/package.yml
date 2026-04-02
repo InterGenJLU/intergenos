@@ -1,0 +1,20 @@
+name: geoclue2
+version: 2.7.2
+release: 1
+description: D-Bus geolocation service
+license: LGPL-2.0-or-later
+homepage: https://gitlab.freedesktop.org/geoclue/geoclue
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/geoclue/geoclue/-/archive/${version}/geoclue-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - json-glib
+  - libsoup3
+  - libnotify
+  - vala
+  host: []
+  runtime: []

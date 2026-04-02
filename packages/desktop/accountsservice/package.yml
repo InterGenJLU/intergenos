@@ -1,0 +1,18 @@
+name: accountsservice
+version: 23.13.9
+release: 1
+description: D-Bus interface for user account management
+license: GPL-3.0-or-later
+homepage: https://www.freedesktop.org/wiki/Software/AccountsService/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://www.freedesktop.org/software/accountsservice/accountsservice-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - polkit
+  - vala
+  host: []
+  runtime: []

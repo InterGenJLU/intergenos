@@ -1,0 +1,19 @@
+name: libgweather
+version: 4.4.4
+release: 1
+description: GNOME weather information library
+license: GPL-2.0-or-later
+homepage: https://wiki.gnome.org/Projects/LibGWeather
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/libgweather/4.4/libgweather-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - geocode-glib
+  - libsoup3
+  - pygobject3
+  host: []
+  runtime: []

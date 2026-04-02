@@ -1,0 +1,16 @@
+name: libei
+version: 1.3.0
+release: 1
+description: Emulated Input library
+license: MIT
+homepage: https://gitlab.freedesktop.org/libinput/libei
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/libinput/libei/-/archive/${version}/libei-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

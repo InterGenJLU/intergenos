@@ -1,0 +1,23 @@
+name: gnome-shell
+version: '47.4'
+release: 1
+description: GNOME desktop shell
+license: GPL-2.0-or-later
+homepage: https://wiki.gnome.org/Projects/GnomeShell
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-shell/47/gnome-shell-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - gcr4
+  - gjs
+  - gnome-desktop
+  - mutter
+  - polkit
+  - startup-notification
+  - gnome-settings-daemon
+  host: []
+  runtime: []
