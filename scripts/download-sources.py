@@ -46,20 +46,20 @@ def resolve_url(url: str, name: str, version: str) -> str:
 
 
 def download_file(url: str, dest: str, timeout: int = 300) -> bool:
-    """Download a file using wget. Returns True on success."""
+    """Download a file using wget (quiet mode). Returns True on success."""
     try:
         result = subprocess.run(
-            ["wget", "-q", "--show-progress", "--timeout=30", "-O", dest, url],
-            capture_output=False, timeout=timeout,
+            ["wget", "-q", "--timeout=30", "-O", dest, url],
+            capture_output=True, timeout=timeout,
         )
         return result.returncode == 0
     except subprocess.TimeoutExpired:
-        print(f"    TIMEOUT: {url}")
+        print(f"    TIMEOUT: {url}", flush=True)
         if os.path.exists(dest):
             os.unlink(dest)
         return False
     except Exception as e:
-        print(f"    ERROR: {e}")
+        print(f"    ERROR: {e}", flush=True)
         return False
 
 
@@ -168,33 +168,33 @@ def cmd_download(tiers: list[str], update_checksums: bool = False, dry_run: bool
         name = pkg.get("name", "?")
 
         if item["action"] == "download":
-            print(f"  [{i}/{len(to_download)}] Downloading {src['filename']}...")
+            print(f"  [{i}/{len(to_download)}] Downloading {src['filename']}...", flush=True)
             if download_file(src["url"], str(dest)):
                 size = dest.stat().st_size
                 human = f"{size/1024/1024:.1f}MB" if size > 1024*1024 else f"{size/1024:.0f}KB"
-                print(f"    OK ({human})")
+                print(f"    OK ({human})", flush=True)
                 succeeded += 1
 
                 # Compute checksum for newly downloaded file
                 if update_checksums:
                     sha = sha256_file(str(dest))
                     update_package_checksum(pkg["_path"], src["url"], sha)
-                    print(f"    SHA256: {sha[:16]}... (updated)")
+                    print(f"    SHA256: {sha[:16]}... (updated)", flush=True)
                     checksummed += 1
             else:
-                print(f"    FAILED: {src['url']}")
+                print(f"    FAILED: {src['url']}", flush=True)
                 failed += 1
 
         elif item["action"] == "checksum_only":
-            print(f"  [{i}/{len(to_download)}] Computing checksum: {src['filename']}...")
+            print(f"  [{i}/{len(to_download)}] Computing checksum: {src['filename']}...", flush=True)
             sha = sha256_file(str(dest))
             update_package_checksum(pkg["_path"], src["url"], sha)
-            print(f"    SHA256: {sha[:16]}... (updated)")
+            print(f"    SHA256: {sha[:16]}... (updated)", flush=True)
             checksummed += 1
 
-    print(f"\nDone: {succeeded} downloaded, {failed} failed, {checksummed} checksums updated")
+    print(f"\nDone: {succeeded} downloaded, {failed} failed, {checksummed} checksums updated", flush=True)
     if failed:
-        print(f"\n  WARNING: {failed} downloads failed. Re-run to retry.")
+        print(f"\n  WARNING: {failed} downloads failed. Re-run to retry.", flush=True)
 
 
 def update_package_checksum(pkg_path: Path, url: str, sha256: str):
