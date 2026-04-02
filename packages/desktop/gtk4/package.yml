@@ -1,0 +1,29 @@
+name: gtk4
+version: 4.16.12
+release: 1
+description: GTK 4 widget toolkit
+license: LGPL-2.0-or-later
+homepage: https://www.gtk.org/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gtk/4.16/gtk-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - gdk-pixbuf
+  - graphene
+  - iso-codes
+  - libepoxy
+  - librsvg
+  - pango
+  - pygobject3
+  - wayland-protocols
+  - libxkbcommon
+  - cairo
+  - libXi
+  - libXrandr
+  - libXcursor
+  host: []
+  runtime: []

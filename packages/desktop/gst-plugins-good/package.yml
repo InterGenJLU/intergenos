@@ -1,0 +1,22 @@
+name: gst-plugins-good
+version: 1.24.10
+release: 1
+description: GStreamer good plugins
+license: LGPL-2.0-or-later
+homepage: https://gstreamer.freedesktop.org/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - gst-plugins-base
+  - cairo
+  - flac
+  - lame
+  - libpng
+  - pulseaudio
+  host: []
+  runtime: []

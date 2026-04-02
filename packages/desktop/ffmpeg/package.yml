@@ -1,0 +1,26 @@
+name: ffmpeg
+version: '7.1'
+release: 1
+description: Complete multimedia framework
+license: LGPL-2.1-or-later
+homepage: https://ffmpeg.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://ffmpeg.org/releases/ffmpeg-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - nasm
+  - alsa-lib
+  - dav1d
+  - fdk-aac
+  - lame
+  - libvpx
+  - svt-av1
+  - x264
+  - x265
+  - opus
+  host: []
+  runtime: []

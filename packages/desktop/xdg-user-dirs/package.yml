@@ -1,0 +1,19 @@
+name: xdg-user-dirs
+version: '0.18'
+release: 1
+description: XDG user directory management
+license: GPL-2.0-or-later
+homepage: https://www.freedesktop.org/wiki/Software/xdg-user-dirs/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://user-dirs.freedesktop.org/releases/xdg-user-dirs-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --sysconfdir=/etc

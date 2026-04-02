@@ -1,0 +1,19 @@
+name: alsa-lib
+version: 1.2.13
+release: 1
+description: ALSA sound library
+license: LGPL-2.1-or-later
+homepage: https://www.alsa-project.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.alsa-project.org/files/pub/lib/alsa-lib-${version}.tar.bz2
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

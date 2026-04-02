@@ -1,0 +1,17 @@
+name: wireplumber
+version: 0.5.7
+release: 1
+description: PipeWire session manager
+license: MIT
+homepage: https://pipewire.pages.freedesktop.org/wireplumber/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/pipewire/wireplumber/-/archive/${version}/wireplumber-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - pipewire
+  host: []
+  runtime: []

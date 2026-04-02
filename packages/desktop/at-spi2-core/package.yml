@@ -1,0 +1,19 @@
+name: at-spi2-core
+version: 2.54.0
+release: 1
+description: Assistive Technology Service Provider Interface
+license: LGPL-2.1-or-later
+homepage: https://wiki.gnome.org/Accessibility
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/at-spi2-core/2.54/at-spi2-core-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - libX11
+  - libXi
+  - libXtst
+  host: []
+  runtime: []

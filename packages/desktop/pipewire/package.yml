@@ -1,0 +1,17 @@
+name: pipewire
+version: 1.2.7
+release: 1
+description: Multimedia processing framework
+license: MIT
+homepage: https://pipewire.org/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://github.com/PipeWire/pipewire/archive/${version}/pipewire-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - alsa-lib
+  host: []
+  runtime: []

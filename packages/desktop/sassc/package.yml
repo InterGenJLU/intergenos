@@ -1,0 +1,16 @@
+name: sassc
+version: 3.6.2
+release: 1
+description: SASS CSS preprocessor compiler
+license: MIT
+homepage: https://github.com/sass/sassc
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/sass/sassc/archive/${version}/sassc-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

@@ -1,0 +1,16 @@
+name: bubblewrap
+version: 0.10.0
+release: 1
+description: Unprivileged sandboxing tool
+license: LGPL-2.0-or-later
+homepage: https://github.com/containers/bubblewrap
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://github.com/containers/bubblewrap/releases/download/v${version}/bubblewrap-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

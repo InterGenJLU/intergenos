@@ -1,0 +1,20 @@
+name: libadwaita1
+version: 1.6.2
+release: 1
+description: GTK4 adaptive widgets library
+license: LGPL-2.1-or-later
+homepage: https://gnome.pages.gitlab.gnome.org/libadwaita/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/libadwaita/1.6/libadwaita-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - appstream
+  - gtk4
+  - sassc
+  - vala
+  host: []
+  runtime: []

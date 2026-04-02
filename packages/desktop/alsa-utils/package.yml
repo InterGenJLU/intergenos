@@ -1,0 +1,21 @@
+name: alsa-utils
+version: 1.2.13
+release: 1
+description: ALSA utilities
+license: GPL-2.0-or-later
+homepage: https://www.alsa-project.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.alsa-project.org/files/pub/utils/alsa-utils-${version}.tar.bz2
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - alsa-lib
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-alsaconf
+- --with-udev-rules-dir=/usr/lib/udev/rules.d

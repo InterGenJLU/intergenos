@@ -1,0 +1,21 @@
+name: gnutls
+version: 3.8.8
+release: 1
+description: GNU TLS library
+license: LGPL-2.1-or-later
+homepage: https://gnutls.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.gnupg.org/ftp/gcrypt/gnutls/v3.8/gnutls-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - nettle
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static
+- '--with-default-trust-store-pkcs11=pkcs11:'

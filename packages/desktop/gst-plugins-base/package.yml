@@ -1,0 +1,23 @@
+name: gst-plugins-base
+version: 1.24.10
+release: 1
+description: GStreamer base plugins
+license: LGPL-2.0-or-later
+homepage: https://gstreamer.freedesktop.org/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugins-base-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - gstreamer
+  - alsa-lib
+  - libogg
+  - libvorbis
+  - pango
+  - libX11
+  - libXext
+  host: []
+  runtime: []

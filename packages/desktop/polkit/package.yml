@@ -1,0 +1,16 @@
+name: polkit
+version: '125'
+release: 1
+description: PolicyKit authorization toolkit
+license: LGPL-2.0-or-later
+homepage: https://github.com/polkit-org/polkit
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://github.com/polkit-org/polkit/archive/${version}/polkit-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
