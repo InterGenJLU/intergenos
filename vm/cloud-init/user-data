@@ -1,0 +1,40 @@
+#cloud-config
+autoinstall:
+  version: 1
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+  identity:
+    hostname: igos-build
+    username: christopher
+    # Generate with: python3 -c "import crypt; print(crypt.crypt('YOUR_PASSWORD', crypt.mksalt(crypt.METHOD_SHA512)))"
+    password: "REPLACE_WITH_PASSWORD_HASH"
+  ssh:
+    install-server: true
+    allow-pw: true
+    authorized-keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO8+0p853D+0x4dCIlqZCGRtfOd3MMtBPHbVQwN6mNdw christopher@ubuntu2404
+  storage:
+    layout:
+      name: lvm
+      sizing-policy: all
+  packages:
+    - openssh-server
+    - qemu-guest-agent
+    - build-essential
+    - bison
+    - gawk
+    - texinfo
+    - python3
+    - python3-pip
+  late-commands:
+    - echo "intergenos /mnt/intergenos virtiofs defaults,nofail 0 0" >> /target/etc/fstab
+    - mkdir -p /target/mnt/intergenos
+    # Ensure bash is /bin/sh (LFS requirement)
+    - ln -sf bash /target/bin/sh
+    # Give christopher sudo without password for build automation
+    - echo "christopher ALL=(ALL) NOPASSWD:ALL" > /target/etc/sudoers.d/christopher
+    - chmod 440 /target/etc/sudoers.d/christopher
+  user-data:
+    disable_root: true
+    timezone: America/Chicago
