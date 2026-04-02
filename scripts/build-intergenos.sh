@@ -20,6 +20,7 @@
 #   config       — System configuration in chroot (Chapter 9)
 #   core-extra   — Build additional core packages in chroot
 #   base         — Build base packages in chroot
+#   desktop      — Build desktop packages in chroot (GNOME + dependencies)
 #   image        — Package chroot into bootable disk image
 #
 # Controls:
@@ -56,6 +57,7 @@ PHASES=(
     config
     core-extra
     base
+    desktop
     image
 )
 
@@ -408,6 +410,11 @@ phase_base() {
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-base.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
+phase_desktop() {
+    log "Building desktop packages in chroot (this will take a long time)..."
+    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-desktop.sh" 2>&1 | tee -a "$BUILD_LOG"
+}
+
 phase_image() {
     log "Packaging chroot into bootable disk image..."
 
@@ -466,6 +473,7 @@ run_phase "core"         "Build LFS core packages (Ch 8)"      phase_core
 run_phase "config"       "System configuration (Ch 9)"         phase_config
 run_phase "core-extra"   "Build extra core packages"           phase_core_extra
 run_phase "base"         "Build base packages"                 phase_base
+run_phase "desktop"      "Build desktop packages (GNOME)"      phase_desktop
 run_phase "image"        "Create bootable disk image"          phase_image
 
 # ==========================================================================

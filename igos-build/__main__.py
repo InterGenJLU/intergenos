@@ -7,6 +7,7 @@ Usage:
     python -m igos-build --build --tracked          Build with package tracking
     python -m igos-build --build --skip-built       Skip packages with existing manifests
     python -m igos-build --only <name>              Build only one package
+    python -m igos-build --tier desktop             Build only one tier
     python -m igos-build --sources-dir /sources     Override sources directory
 """
 
@@ -38,11 +39,19 @@ def main():
     tracked = "--tracked" in args
     skip_built = "--skip-built" in args
     only_pkg = None
+    tier_filter = None
     sources_dir = SOURCES_DIR
     if "--only" in args:
         idx = args.index("--only")
         if idx + 1 < len(args):
             only_pkg = args[idx + 1]
+    if "--tier" in args:
+        idx = args.index("--tier")
+        tier_filter = []
+        for a in args[idx+1:]:
+            if a.startswith("--"):
+                break
+            tier_filter.append(a)
     if "--sources-dir" in args:
         idx = args.index("--sources-dir")
         if idx + 1 < len(args):
@@ -57,6 +66,11 @@ def main():
     except TemplateError as e:
         print(f"TEMPLATE ERROR: {e}", file=sys.stderr)
         sys.exit(1)
+
+    # Filter by tier if requested
+    if tier_filter:
+        packages = [p for p in packages if p.tier in tier_filter]
+        print(f"Filtered to tier(s): {', '.join(tier_filter)}")
 
     print(f"Parsed {len(packages)} package template(s):\n")
     for pkg in packages:
