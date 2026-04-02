@@ -612,10 +612,14 @@ rm -rf /tmp/{*,.*} 2>/dev/null || true
 # Remove libtool .la files
 find /usr/lib /usr/libexec -name \*.la -delete 2>/dev/null
 
-# Remove cross-compiler remnants (igos triplet)
-find /usr -depth -name "$(uname -m)-igos-linux-gnu*" | xargs rm -rf 2>/dev/null
-
-# Flag if any pc-linux-gnu files exist — indicates a triplet misconfiguration
+# NOTE: LFS removes x86_64-lfs-linux-gnu* cross-compiler remnants here.
+# InterGenOS uses x86_64-igos-linux-gnu for BOTH the cross-compiler and
+# the final system, so there's nothing to remove — the triplet-named
+# directories (e.g., /usr/libexec/gcc/x86_64-igos-linux-gnu/) contain
+# the LIVE compiler, not remnants. Deleting them bricks GCC.
+#
+# If x86_64-pc-linux-gnu files exist, that indicates a build that used
+# the wrong triplet somewhere.
 PC_REMNANTS=$(find /usr -depth -name "$(uname -m)-pc-linux-gnu*" 2>/dev/null)
 if [ -n "$PC_REMNANTS" ]; then
     log "WARNING: Found x86_64-pc-linux-gnu files — triplet misconfiguration!"
