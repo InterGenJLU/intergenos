@@ -1,0 +1,23 @@
+name: cairo
+version: 1.18.2
+release: 1
+description: 2D graphics library
+license: LGPL-2.1-or-later
+homepage: https://www.cairographics.org/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://www.cairographics.org/releases/cairo-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - fontconfig
+  - freetype2
+  - libpng
+  - libX11
+  - libXext
+  - libXrender
+  - pixman
+  host: []
+  runtime: []

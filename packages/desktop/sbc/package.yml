@@ -1,0 +1,19 @@
+name: sbc
+version: '2.0'
+release: 1
+description: Bluetooth SBC audio codec
+license: LGPL-2.1-or-later
+homepage: https://www.kernel.org/pub/linux/bluetooth/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.kernel.org/pub/linux/bluetooth/sbc-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

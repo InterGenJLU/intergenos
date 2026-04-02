@@ -1,0 +1,16 @@
+name: libgudev
+version: '238'
+release: 1
+description: GObject-based wrapper around libudev
+license: LGPL-2.1-or-later
+homepage: https://wiki.gnome.org/Projects/libgudev
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/libgudev/238/libgudev-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

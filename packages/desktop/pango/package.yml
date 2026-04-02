@@ -1,0 +1,23 @@
+name: pango
+version: 1.54.0
+release: 1
+description: Text layout and rendering library
+license: LGPL-2.0-or-later
+homepage: https://pango.gnome.org/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/pango/1.54/pango-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - cairo
+  - fontconfig
+  - freetype2
+  - fribidi
+  - harfbuzz
+  - libX11
+  - libXft
+  host: []
+  runtime: []

@@ -1,0 +1,16 @@
+name: libxmlb
+version: 0.3.21
+release: 1
+description: Library for querying compressed XML metadata
+license: LGPL-2.1-or-later
+homepage: https://github.com/hughsie/libxmlb
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://github.com/hughsie/libxmlb/releases/download/${version}/libxmlb-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

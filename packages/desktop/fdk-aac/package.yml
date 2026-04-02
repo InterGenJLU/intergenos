@@ -1,0 +1,19 @@
+name: fdk-aac
+version: 2.0.3
+release: 1
+description: Fraunhofer FDK AAC codec
+license: FDK-AAC
+homepage: https://sourceforge.net/projects/opencore-amr/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://downloads.sourceforge.net/opencore-amr/fdk-aac-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

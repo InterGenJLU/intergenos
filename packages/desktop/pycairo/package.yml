@@ -1,0 +1,17 @@
+name: pycairo
+version: 1.27.0
+release: 1
+description: Python bindings for Cairo
+license: LGPL-2.1-or-later
+homepage: https://pycairo.readthedocs.io/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://github.com/pygobject/pycairo/releases/download/v${version}/pycairo-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - cairo
+  host: []
+  runtime: []

@@ -1,0 +1,22 @@
+name: fontconfig
+version: 2.15.0
+release: 1
+description: Font configuration and customization library
+license: MIT
+homepage: https://www.freedesktop.org/wiki/Software/fontconfig/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.freedesktop.org/software/fontconfig/release/fontconfig-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - freetype2
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --sysconfdir=/etc
+- --localstatedir=/var
+- --disable-docs

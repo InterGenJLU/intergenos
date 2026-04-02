@@ -1,0 +1,17 @@
+name: svt-av1
+version: 3.0.0
+release: 1
+description: SVT-based AV1 encoder
+license: BSD-2-Clause
+homepage: https://gitlab.com/AOMediaCodec/SVT-AV1
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://gitlab.com/AOMediaCodec/SVT-AV1/-/archive/v${version}/SVT-AV1-v${version}.tar.bz2
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - nasm
+  host: []
+  runtime: []
