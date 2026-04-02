@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/gexiv2/0.14/gexiv2-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 21e64d2c56e9b333d44fef3f2a4b25653d922c419acd972fa96fab695217e2c8
 dependencies:
   build:
   - exiv2

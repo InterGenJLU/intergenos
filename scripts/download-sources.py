@@ -122,7 +122,7 @@ def cmd_download(tiers: list[str], update_checksums: bool = False, dry_run: bool
             total_sources += 1
             dest = SOURCES_DIR / src["filename"]
 
-            if dest.exists():
+            if dest.exists() and dest.stat().st_size > 0:
                 already_have += 1
                 # If we have the file but need checksum, compute it
                 if update_checksums and src["needs_checksum"]:
@@ -133,6 +133,9 @@ def cmd_download(tiers: list[str], update_checksums: bool = False, dry_run: bool
                         "action": "checksum_only",
                     })
             else:
+                # Remove empty files from failed downloads
+                if dest.exists() and dest.stat().st_size == 0:
+                    dest.unlink()
                 to_download.append({
                     "pkg": pkg,
                     "src": src,
@@ -183,6 +186,9 @@ def cmd_download(tiers: list[str], update_checksums: bool = False, dry_run: bool
                     checksummed += 1
             else:
                 print(f"    FAILED: {src['url']}", flush=True)
+                # Remove empty/partial file from failed download
+                if dest.exists():
+                    dest.unlink()
                 failed += 1
 
         elif item["action"] == "checksum_only":

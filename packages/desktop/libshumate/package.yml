@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/libshumate/1.3/libshumate-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: f8762bbc6e296d78be1f8422f56da4c40bc8d12afc7002a324172a9198eeed5c
 dependencies:
   build:
   - gtk4

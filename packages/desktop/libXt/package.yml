@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXt-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: e0a774b33324f4d4c05b199ea45050f87206586d81655f8bef4dba434d931288
 dependencies:
   build:
   - libX11

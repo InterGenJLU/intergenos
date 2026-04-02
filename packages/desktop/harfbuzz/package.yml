@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://github.com/harfbuzz/harfbuzz/releases/download/${version}/harfbuzz-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 6ce3520f2d089a33cef0fc48321334b8e0b72141f6a763719aaaecd2779ecb82
 dependencies:
   build:
   - freetype2-pass1

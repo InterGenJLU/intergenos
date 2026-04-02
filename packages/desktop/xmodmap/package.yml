@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/app/xmodmap-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 9a2f8168f7b0bc382828847403902cb6bf175e17658b36189eac87edda877e81
 dependencies:
   build:
   - libX11

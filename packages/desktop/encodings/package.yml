@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/font/encodings-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 9ff13c621756cfa12e95f32ba48a5b23839e8f577d0048beda66c67dab4de975
 dependencies:
   build:
   - font-util

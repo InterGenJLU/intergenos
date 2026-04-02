@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://people.freedesktop.org/~mccann/dist/sound-theme-freedesktop-${version}.tar.bz2
-  sha256: NEEDS_CHECKSUM
+  sha256: cb518b20eef05ec2e82dda1fa89a292c1760dc023aba91b8aa69bafac85e8a14
 dependencies:
   build: []
   host: []

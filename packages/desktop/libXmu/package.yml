@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXmu-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: fcb27793248a39e5fcc5b9c4aec40cc0734b3ca76aac3d7d1c264e7f7e14e8b2
 dependencies:
   build:
   - libXt

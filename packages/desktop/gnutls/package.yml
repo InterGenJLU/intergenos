@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.gnupg.org/ftp/gcrypt/gnutls/v3.8/gnutls-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: ac4f020e583880b51380ed226e59033244bc536cad2623f2e26f5afa2939d8fb
 dependencies:
   build:
   - nettle

@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://downloads.sourceforge.net/opencore-amr/fdk-aac-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 829b6b89eef382409cda6857fd82af84fabb63417b08ede9ea7a553f811cb79e
 dependencies:
   build: []
   host: []

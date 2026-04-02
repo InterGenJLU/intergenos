@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://github.com/mm2/Little-CMS/releases/download/lcms${version}/lcms2-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: d873d34ad8b9b4cea010631f1a6228d2087475e4dc5e763eb81acc23d9d45a51
 dependencies:
   build: []
   host: []

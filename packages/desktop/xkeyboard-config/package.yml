@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/data/xkeyboard-config/xkeyboard-config-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: c810f362c82a834ee89da81e34cd1452c99789339f46f6037f4b9e227dd06c01
 dependencies:
   build:
   - libX11

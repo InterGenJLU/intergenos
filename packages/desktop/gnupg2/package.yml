@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.gnupg.org/ftp/gcrypt/gnupg/gnupg-${version}.tar.bz2
-  sha256: NEEDS_CHECKSUM
+  sha256: 7b24706e4da7e0e3b06ca068231027401f238102c41c909631349dcc3b85eb46
 dependencies:
   build:
   - libassuan

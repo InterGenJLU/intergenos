@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://www.freedesktop.org/software/colord/releases/colord-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: de02d9910634ae159547585cec414e450f711c27235453b4f9b38a9f2361a653
 dependencies:
   build:
   - lcms2

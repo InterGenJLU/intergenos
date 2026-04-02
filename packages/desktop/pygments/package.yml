@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://files.pythonhosted.org/packages/source/P/Pygments/pygments-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 786ff802f32e91311bff3889f6e9a86e81505fe99f2735bb6d60ae0c5004f199
 dependencies:
   build:
   - hatchling

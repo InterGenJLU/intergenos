@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.nasm.us/pub/nasm/releasebuilds/${version}/nasm-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 1412a1c760bbd05db026b6c0d1657affd6631cd0a63cddb6f73cc6d4aa616148
 dependencies:
   build: []
   host: []

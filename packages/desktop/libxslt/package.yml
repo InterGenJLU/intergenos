@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/libxslt/1.1/libxslt-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 85ca62cac0d41fc77d3f6033da9df6fd73d20ea2fc18b0a3609ffb4110e1baeb
 dependencies:
   build:
   - libxml2

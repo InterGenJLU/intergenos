@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libxcvt-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 0561690544796e25cfbd71806ba1b0d797ffe464e9796411123e79450f71db38
 dependencies:
   build: []
   host: []

@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://github.com/OpenPrinting/libppd/releases/download/${version}/libppd-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 882d3c659a336e91559de8f3c76fc26197fe6e5539d9b484a596e29a5a4e0bc8
 dependencies:
   build:
   - libcupsfilters

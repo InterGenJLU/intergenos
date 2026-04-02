@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libX11-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 2b3b3dad9347db41dca56beb7db5878f283bde1142f04d9f8e478af435dfdc53
 dependencies:
   build:
   - libxcb

@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXvMC-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: e4be9eb6b6bafdbbf81f47f7163047215376e45e2dc786d0ea6181c930725ed9
 dependencies:
   build:
   - libXv

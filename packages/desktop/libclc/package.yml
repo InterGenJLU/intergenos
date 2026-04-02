@@ -9,7 +9,7 @@ build_style: cmake
 install_func: do_install
 source:
 - url: https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/libclc-${version}.src.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 77e2d71f5cea1d0b1014ba88186299d1a0848eb3dc20948baae649db9e7641cb
 dependencies:
   build:
   - llvm

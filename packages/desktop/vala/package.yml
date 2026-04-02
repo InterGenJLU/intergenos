@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/vala/0.56/vala-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: f2affe7d40ab63db8e7b9ecc3f6bdc9c2fc7e3134c84ff2d795f482fe926a382
 dependencies:
   build: []
   host: []

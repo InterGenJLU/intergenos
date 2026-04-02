@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXdamage-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 52733c1f5262fca35f64e7d5060c6fcd81a880ba8e1e65c9621cf0727afb5d11
 dependencies:
   build:
   - libXfixes

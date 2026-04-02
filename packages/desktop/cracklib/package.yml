@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://github.com/cracklib/cracklib/releases/download/v${version}/cracklib-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: febfa832ec11e6a12942daf0dbaa0acdbd2242920202edfedde2abbc030d3b0c
 dependencies:
   build: []
   host: []

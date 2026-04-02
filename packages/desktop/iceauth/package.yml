@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/app/iceauth-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 3deefb7da26af9dc799b5628d929d91c9af68c78575639944db3b955f29aa029
 dependencies:
   build:
   - libICE

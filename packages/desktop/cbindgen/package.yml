@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://github.com/mozilla/cbindgen/archive/v${version}/cbindgen-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: af74dd0452ace58895088048873a765fffacc3ad55eea00c0f2999cc4bcf9b5d
 dependencies:
   build:
   - rust

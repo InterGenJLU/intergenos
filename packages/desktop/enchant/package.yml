@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://github.com/AbiWord/enchant/releases/download/v${version}/enchant-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 8f19535adb5577b83b00e02f330fe9b9eb40dd21f19e2899636fc4d3a7696375
 dependencies:
   build: []
   host: []

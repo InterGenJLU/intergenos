@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://gitlab.freedesktop.org/upower/upower/-/archive/v${version}/upower-v${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 7e367c2619ca0f26d5bfc085b46bad9657b2774cc3eaffbf310b607df6e21377
 dependencies:
   build:
   - libgudev

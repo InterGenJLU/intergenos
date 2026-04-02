@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/app/sessreg-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 022acd5de8077dddc4f919961f79e102ecd5f3228a333681af5cd0e7344facc2
 dependencies:
   build:
   - xorgproto

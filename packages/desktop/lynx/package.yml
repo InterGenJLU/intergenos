@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://invisible-mirror.net/archives/lynx/tarballs/lynx${version}.tar.bz2
-  sha256: NEEDS_CHECKSUM
+  sha256: 7374b89936d991669e101f4e97f2c9592036e1e8cdaa7bafc259a77ab6fb07ce
 dependencies:
   build: []
   host: []

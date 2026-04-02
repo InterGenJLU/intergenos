@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/app/mkfontscale-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 2921cdc344f1acee04bcd6ea1e29565c1308263006e134a9ee38cf9c9d6fe75e
 dependencies:
   build:
   - libX11

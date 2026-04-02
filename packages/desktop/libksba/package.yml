@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.gnupg.org/ftp/gcrypt/libksba/libksba-${version}.tar.bz2
-  sha256: NEEDS_CHECKSUM
+  sha256: cf72510b8ebb4eb6693eef765749d83677a03c79291a311040a5bfd79baab763
 dependencies:
   build:
   - libgpg-error

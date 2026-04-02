@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://github.com/jpirko/libndp/archive/v${version}/libndp-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: e564f5914a6b1b799c3afa64c258824a801c1b79a29e2fe6525b682249c65261
 dependencies:
   build: []
   host: []

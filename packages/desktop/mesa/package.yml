@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://mesa.freedesktop.org/archive/mesa-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: e641ae27191d387599219694560d221b7feaa91c900bcec46bf444218ed66025
 dependencies:
   build:
   - libdrm

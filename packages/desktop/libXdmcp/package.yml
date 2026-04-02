@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXdmcp-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: d8a5222828c3adab70adf69a5583f1d32eb5ece04304f7f8392b6a353aa2228c
 dependencies:
   build:
   - xorgproto

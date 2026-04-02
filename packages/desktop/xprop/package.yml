@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/app/xprop-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 4436e3148bb91a162406230d9f736a49ca8b50b74790015dc15d78d6ce8e825f
 dependencies:
   build:
   - libX11

@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://files.pythonhosted.org/packages/source/l/lxml/lxml-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 4e109ca30d1edec1ac60cdbe341905dc3b8f55b16855e03a54aaf59e51ec8c6f
 dependencies:
   build:
   - libxslt

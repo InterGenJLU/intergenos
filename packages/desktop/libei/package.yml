@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://gitlab.freedesktop.org/libinput/libei/-/archive/${version}/libei-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 162dc7b0d86a4575cdde1d3cb04f364f89a8b1ba6d95fe0b442564e0444d851d
 dependencies:
   build: []
   host: []

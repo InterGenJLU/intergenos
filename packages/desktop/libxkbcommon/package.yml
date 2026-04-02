@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://xkbcommon.org/download/libxkbcommon-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 65782f0a10a4b455af9c6baab7040e2f537520caa2ec2092805cdfd36863b247
 dependencies:
   build:
   - xkeyboard-config

@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libxshmfence-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 870df257bc40b126d91b5a8f1da6ca8a524555268c50b59c0acd1a27f361606f
 dependencies:
   build:
   - xorgproto

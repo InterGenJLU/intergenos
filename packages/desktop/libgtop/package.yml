@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/libgtop/2.41/libgtop-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 775676df958e2ea2452f7568f28b2ea581063d312773dd5c0b7624c1b9b2da8c
 dependencies:
   build:
   - libXau

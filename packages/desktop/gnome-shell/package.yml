@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/gnome-shell/47/gnome-shell-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 680baf694f45f8fc832d245ada6c63b5fc4b030ccfbebbfc0e0e3bc28da2e46d
 dependencies:
   build:
   - gcr4

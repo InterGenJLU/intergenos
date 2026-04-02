@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/gvfs/1.54/gvfs-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 54908f4e10b5f1c231e90330c8c15b7f21f2bb610f194c034b338e379c508e3c
 dependencies:
   build:
   - libsecret

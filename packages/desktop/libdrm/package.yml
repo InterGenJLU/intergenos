@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://dri.freedesktop.org/libdrm/libdrm-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: ac36293f61ca4aafaf4b16a2a7afff312aa4f5c37c9fbd797de9e3c0863ca379
 dependencies:
   build:
   - libpciaccess

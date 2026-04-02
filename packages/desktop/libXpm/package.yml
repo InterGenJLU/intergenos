@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXpm-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 64b31f81019e7d388c822b0b28af8d51c4622b83f1f0cb6fa3fc95e271226e43
 dependencies:
   build:
   - libXt

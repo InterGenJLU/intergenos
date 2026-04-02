@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/app/xwininfo-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 3518897c17448df9ba99ad6d9bb1ca0f17bc0ed7c0fd61281b34ceed29a9253f
 dependencies:
   build:
   - libxcb

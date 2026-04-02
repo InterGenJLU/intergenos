@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/app/xset-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 9f692d55635b3862cd63633b1222a87680ec283c7a8e8ed6dd698a3147f75e2f
 dependencies:
   build:
   - libXmu

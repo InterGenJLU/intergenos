@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXrender-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: b832128da48b39c8d608224481743403ad1691bf4e554e4be9c174df171d1b97
 dependencies:
   build:
   - libX11

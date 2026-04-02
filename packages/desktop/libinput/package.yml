@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://gitlab.freedesktop.org/libinput/libinput/-/archive/${version}/libinput-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: f6d623dd8230db337a6457645ebca96b9d4788a56385463bb14b8174910dfe23
 dependencies:
   build:
   - libevdev

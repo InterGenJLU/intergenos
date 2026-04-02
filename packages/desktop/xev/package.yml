@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/app/xev-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 61e1c5e008ac9973aca7cdddf36e9df7410e77083b030eb04f4dc737c51807d7
 dependencies:
   build:
   - libX11

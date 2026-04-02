@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://github.com/polkit-org/polkit/archive/${version}/polkit-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: ea5cd6e6e2afa6bad938ee770bf0c2cd9317910f37956faeba2869adcf3747d1
 dependencies:
   build: []
   host: []

@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXfont2-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 8b7b82fdeba48769b69433e8e3fbb984a5f6bf368b0d5f47abeec49de3e58efb
 dependencies:
   build:
   - freetype2

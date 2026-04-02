@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://xcb.freedesktop.org/dist/xcb-util-renderutil-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 3e15d4f0e22d8ddbfbb9f5d77db43eacd7a304029bf25a6166cc63caa96d04ba
 dependencies:
   build:
   - libxcb

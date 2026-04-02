@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/app/xdpyinfo-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: a8ada581dbd7266440d7c3794fa89edf6b99b8857fc2e8c31042684f3af4822b
 dependencies:
   build:
   - libXtst

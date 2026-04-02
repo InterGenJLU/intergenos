@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://github.com/containers/bubblewrap/releases/download/v${version}/bubblewrap-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 65d92cf44a63a51e1b7771f70c05013dce5bd6b0b2841c4b4be54b0c45565471
 dependencies:
   build: []
   host: []

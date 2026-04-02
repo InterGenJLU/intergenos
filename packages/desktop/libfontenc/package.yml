@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libfontenc-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 7b02c3d405236e0d86806b1de9d6868fe60c313628b38350b032914aa4fd14c6
 dependencies:
   build:
   - xorgproto

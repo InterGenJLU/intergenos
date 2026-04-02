@@ -9,7 +9,7 @@ build_style: cmake
 install_func: do_install
 source:
 - url: https://downloads.xiph.org/releases/flac/flac-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 6c58e69cd22348f441b861092b825e591d0b822e106de6eb0ee4d05d27205b70
 dependencies:
   build: []
   host: []

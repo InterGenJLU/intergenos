@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://github.com/protobuf-c/protobuf-c/releases/download/v${version}/protobuf-c-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 7b404c63361ed35b3667aec75cc37b54298d56dd2bcf369de3373212cc06fd98
 dependencies:
   build:
   - protobuf

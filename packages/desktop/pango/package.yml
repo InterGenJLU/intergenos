@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/pango/1.54/pango-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 8a9eed75021ee734d7fc0fdf3a65c3bba51dfefe4ae51a9b414a60c70b2d1ed8
 dependencies:
   build:
   - cairo

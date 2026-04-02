@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.tcpdump.org/release/libpcap-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 84fa89ac6d303028c1c5b754abff77224f45eca0a94eb1a34ff0aa9ceece3925
 dependencies:
   build: []
   host: []

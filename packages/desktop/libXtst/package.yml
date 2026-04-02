@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXtst-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: b50d4c25b97009a744706c1039c598f4d8e64910c9fde381994e1cae235d9242
 dependencies:
   build:
   - libXi

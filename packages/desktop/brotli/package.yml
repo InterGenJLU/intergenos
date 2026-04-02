@@ -9,7 +9,7 @@ build_style: cmake
 install_func: do_install
 source:
 - url: https://github.com/google/brotli/archive/v${version}/brotli-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: e720a6ca29428b803f4ad165371771f5398faba397edf6778837a18599ea13ff
 dependencies:
   build: []
   host: []

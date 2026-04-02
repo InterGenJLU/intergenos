@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://downloads.xiph.org/releases/speex/speex-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 4b44d4f2b38a370a2d98a78329fefc56a0cf93d1c1be70029217baae6628feea
 dependencies:
   build:
   - libogg

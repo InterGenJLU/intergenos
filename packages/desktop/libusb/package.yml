@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://github.com/libusb/libusb/releases/download/v${version}/libusb-${version}.tar.bz2
-  sha256: NEEDS_CHECKSUM
+  sha256: ffaa41d741a8a3bee244ac8e54a72ea05bf2879663c098c82fc5757853441575
 dependencies:
   build: []
   host: []

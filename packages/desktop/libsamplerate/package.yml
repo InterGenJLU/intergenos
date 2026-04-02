@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://github.com/libsndfile/libsamplerate/releases/download/${version}/libsamplerate-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 3258da280511d24b49d6b08615bbe824d0cacc9842b0e4caf11c52cf2b043893
 dependencies:
   build: []
   host: []

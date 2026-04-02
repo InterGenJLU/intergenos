@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://github.com/pygobject/pycairo/releases/download/v${version}/pycairo-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 5cb21e7a00a2afcafea7f14390235be33497a2cce53a98a19389492a60628430
 dependencies:
   build:
   - cairo

@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/gtk/4.16/gtk-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: ef31bdbd6f082c4401634a20c850b0050c9bf252ef1e079764ee95a2a0c4c95a
 dependencies:
   build:
   - gdk-pixbuf

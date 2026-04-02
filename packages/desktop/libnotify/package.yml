@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/libnotify/0.8/libnotify-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 8fa04d4ebdc155b0a239df88bd9f09e8f2739d5707a1390b427ab4985f83d25a
 dependencies:
   build:
   - gdk-pixbuf

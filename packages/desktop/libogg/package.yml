@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://downloads.xiph.org/releases/ogg/libogg-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: c4d91be36fc8e54deae7575241e03f4211eb102afb3fc0775fbbc1b740016705
 dependencies:
   build: []
   host: []

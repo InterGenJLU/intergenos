@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://ftpmirror.gnu.org/nettle/nettle-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: b0fcdd7fc0cdea6e80dcf1dd85ba794af0d5b4a57e26397eee3bc193272d9132
 dependencies:
   build: []
   host: []

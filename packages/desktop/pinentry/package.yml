@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.gnupg.org/ftp/gcrypt/pinentry/pinentry-${version}.tar.bz2
-  sha256: NEEDS_CHECKSUM
+  sha256: bc72ee27c7239007ab1896c3c2fae53b076e2c9bd2483dc2769a16902bce8c04
 dependencies:
   build:
   - libassuan

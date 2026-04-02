@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://xcb.freedesktop.org/dist/xcb-util-image-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: ccad8ee5dadb1271fd4727ad14d9bd77a64e505608766c4e98267d9aede40d3d
 dependencies:
   build:
   - xcb-util

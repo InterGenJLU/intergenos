@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/glib-networking/2.80/glib-networking-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: b80e2874157cd55071f1b6710fa0b911d5ac5de106a9ee2a4c9c7bee61782f8e
 dependencies:
   build:
   - gnutls

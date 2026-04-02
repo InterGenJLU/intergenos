@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://downloads.sourceforge.net/lame/lame-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e
 dependencies:
   build: []
   host: []

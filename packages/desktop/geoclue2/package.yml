@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://gitlab.freedesktop.org/geoclue/geoclue/-/archive/${version}/geoclue-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 9c2f3626e3131abc037955cb38a8c0f28a29b4d6cc9992a067fe04be46e37fbe
 dependencies:
   build:
   - json-glib

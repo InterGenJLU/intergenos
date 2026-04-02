@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/font/font-cursor-misc-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 25d9c9595013cb8ca08420509993a6434c917e53ca1fec3f63acd45a19d4f982
 dependencies:
   build:
   - font-util

@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.freedesktop.org/software/fontconfig/release/fontconfig-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 63a0658d0e06e0fa886106452b58ef04f21f58202ea02a94c39de0d3335d7c0e
 dependencies:
   build:
   - freetype2

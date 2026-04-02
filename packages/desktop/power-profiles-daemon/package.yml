@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://gitlab.freedesktop.org/upower/power-profiles-daemon/-/archive/${version}/power-profiles-daemon-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: ccf6e00093dc5300be48d66d439540bb6239460b602bbd85001c937860de2e5f
 dependencies:
   build:
   - polkit

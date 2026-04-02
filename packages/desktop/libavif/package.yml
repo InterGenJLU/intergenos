@@ -9,7 +9,7 @@ build_style: cmake
 install_func: do_install
 source:
 - url: https://github.com/AOMediaCodec/libavif/archive/v${version}/libavif-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 914662e16245e062ed73f90112fbb4548241300843a7772d8d441bb6859de45b
 dependencies:
   build:
   - dav1d

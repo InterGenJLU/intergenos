@@ -9,7 +9,7 @@ build_style: cmake
 install_func: do_install
 source:
 - url: https://github.com/KhronosGroup/SPIRV-LLVM-Translator/archive/v${version}/spirv-llvm-translator-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: b53f74299ee44e4052a004196dc2bd1bb587f430028a668631fea06ed2b2253c
 dependencies:
   build:
   - llvm

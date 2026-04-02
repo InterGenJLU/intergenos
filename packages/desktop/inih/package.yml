@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://github.com/benhoyt/inih/archive/r${version}/inih-r${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: e79216260d5dffe809bda840be48ab0eec7737b2bb9f02d2275c1b46344ea7b7
 dependencies:
   build: []
   host: []

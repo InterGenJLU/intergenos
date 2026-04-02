@@ -9,7 +9,7 @@ build_style: cmake
 install_func: do_install
 source:
 - url: https://download.osgeo.org/libtiff/tiff-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 67160e3457365ab96c5b3286a0903aa6e78bdc44c4bc737d2e486bcecb6ba976
 dependencies:
   build:
   - libjpeg-turbo

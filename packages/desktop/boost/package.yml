@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://github.com/boostorg/boost/releases/download/boost-${version}/boost-${version}-b2-nodocs.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: a4d99d032ab74c9c5e76eddcecc4489134282245fffa7e079c5804b92b45f51d
 dependencies:
   build: []
   host: []

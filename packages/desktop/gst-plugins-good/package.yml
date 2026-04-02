@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: fce748fa66d7a8ee1fb261489e59d01e3fa787623d6d5c35068416fe7cd0acb3
 dependencies:
   build:
   - gst-plugins-base

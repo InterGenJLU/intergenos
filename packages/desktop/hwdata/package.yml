@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://github.com/vcrhonek/hwdata/archive/v${version}/hwdata-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 34813e6821a5dab0f663a363026e4d17e880e5f5f2ed49244c42263b226ff98a
 dependencies:
   build: []
   host: []

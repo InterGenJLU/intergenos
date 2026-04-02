@@ -9,7 +9,7 @@ build_style: make
 install_func: do_install
 source:
 - url: https://dotat.at/prog/unifdef/unifdef-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 43ce0f02ecdcdc723b2475575563ddb192e988c886d368260bc0a63aee3ac400
 dependencies:
   build: []
   host: []

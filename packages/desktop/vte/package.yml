@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/vte/0.78/vte-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 35d7bcde07356846b4a12881c8e016705b70a9004a9082285eee5834ccc49890
 dependencies:
   build:
   - gtk3

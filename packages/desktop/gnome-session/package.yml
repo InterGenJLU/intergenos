@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/gnome-session/47/gnome-session-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 53b1ad01af4a31f2427909d2ca7a870124f68fe426a404520292bf0fe0959896
 dependencies:
   build:
   - gnome-desktop

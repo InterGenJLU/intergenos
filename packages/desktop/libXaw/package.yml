@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXaw-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 731d572b54c708f81e197a6afa8016918e2e06dfd3025e066ca642a5b8c39c8f
 dependencies:
   build:
   - libXmu

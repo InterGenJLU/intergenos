@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/gnome-shell-extensions/47/gnome-shell-extensions-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: dd774a0291584917abde88bbc4eccf9244178e3c269ce0618d0495177c12652d
 dependencies:
   build:
   - gnome-shell

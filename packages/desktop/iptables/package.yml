@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.netfilter.org/projects/iptables/files/iptables-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: d87303d55ef8c92bcad4dd3f978b26d272013642b029425775f5bad1009fe7b2
 dependencies:
   build: []
   host: []

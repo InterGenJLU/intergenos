@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/gnome-bluetooth/47/gnome-bluetooth-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 03e3e7403a15108ffc1496210a1da5c2961b2834a5c07eccc7a3f493195daba3
 dependencies:
   build:
   - gtk4

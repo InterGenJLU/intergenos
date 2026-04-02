@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://gitlab.gnome.org/jwestman/blueprint-compiler/-/archive/v${version}/blueprint-compiler-v${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 05faf3810cb76d4e2d2382c6a7e6c8096af27e144e2260635c97f6a173d67234
 dependencies:
   build:
   - pygobject3

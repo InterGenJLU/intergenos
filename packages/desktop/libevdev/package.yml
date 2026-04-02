@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://www.freedesktop.org/software/libevdev/libevdev-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: abf1aace86208eebdd5d3550ffded4c8d73bb405b796d51c389c9d0604cbcfbf
 dependencies:
   build: []
   host: []

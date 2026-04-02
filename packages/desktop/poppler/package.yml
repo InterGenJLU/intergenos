@@ -9,7 +9,7 @@ build_style: cmake
 install_func: do_install
 source:
 - url: https://poppler.freedesktop.org/poppler-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 1cf374c3146f3f685d9257701bf0c2866c61d6c202c14d1f5c01a1f3a089028a
 dependencies:
   build:
   - fontconfig

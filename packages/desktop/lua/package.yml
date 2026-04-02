@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://www.lua.org/ftp/lua-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 9fbf5e28ef86c69858f6d3d34eccc32e911c1a28b4120ff3e84aaa70cfbf1e30
 dependencies:
   build: []
   host: []

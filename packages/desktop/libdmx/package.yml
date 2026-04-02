@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libdmx-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 35a4e26a8b0b2b4fe36441dca463645c3fa52d282ac3520501a38ea942cbf74f
 dependencies:
   build:
   - libXext

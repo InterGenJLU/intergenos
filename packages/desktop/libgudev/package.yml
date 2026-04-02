@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/libgudev/238/libgudev-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 61266ab1afc9d73dbc60a8b2af73e99d2fdff47d99544d085760e4fa667b5dd1
 dependencies:
   build: []
   host: []

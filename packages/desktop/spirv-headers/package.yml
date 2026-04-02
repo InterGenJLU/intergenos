@@ -9,7 +9,7 @@ build_style: cmake
 install_func: do_install
 source:
 - url: https://github.com/KhronosGroup/SPIRV-Headers/archive/vulkan-sdk-${version}/spirv-headers-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 1b9ff8a33e07814671dee61fe246c67ccbcfc9be6581f229e251784499700e24
 dependencies:
   build: []
   host: []

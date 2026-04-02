@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://files.itstool.org/itstool/itstool-${version}.tar.bz2
-  sha256: NEEDS_CHECKSUM
+  sha256: 6b9a7cd29a12bb95598f5750e8763cee78836a1a207f85b74d8b3275b27e87ca
 dependencies:
   build:
   - docbook-xml

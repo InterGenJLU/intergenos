@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://www.freedesktop.org/software/colord/releases/colord-gtk-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: c176b889b75630a17f4e3d7ef24c09a3e12368e633496087459c8b53ac3a122d
 dependencies:
   build:
   - colord

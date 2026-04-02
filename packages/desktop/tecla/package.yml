@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/tecla/47/tecla-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 0790b99ec29137a54b546c510661a99aa6f039c8d75f10c08e928682c0804fe5
 dependencies:
   build:
   - libadwaita1

@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/xtrans-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 5c5cbfe34764a9131d048f03c31c19e57fb4c682d67713eab6a65541b4dff86c
 dependencies:
   build: []
   host: []

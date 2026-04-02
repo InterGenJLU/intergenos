@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/gnome-backgrounds/47/gnome-backgrounds-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 874a4a39c4261736f6a854722833400b612441c4681aa5982d90b15abc9c91fd
 dependencies:
   build: []
   host: []

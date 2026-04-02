@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/font/font-alias-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 9f89e217bb73e0e3636a0a493fbf8b7c995156e0c53d9a0476d201b67c2d6b6e
 dependencies:
   build: []
   host: []

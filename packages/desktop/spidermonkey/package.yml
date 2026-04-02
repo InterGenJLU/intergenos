@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://archive.mozilla.org/pub/firefox/releases/${version}esr/source/firefox-${version}esr.source.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: b7a39d3ce12d05021dd34a5e449cdd4bb53d3dc24f0ae9201eaaa85c71868508
 dependencies:
   build:
   - cbindgen

@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://sourceware.org/ftp/lvm2/LVM2.${version}.tgz
-  sha256: NEEDS_CHECKSUM
+  sha256: b822baff6b62df36382c717ceba98a2688ebb31bf2b768f3ffa2b6d5e2557242
 dependencies:
   build: []
   host: []

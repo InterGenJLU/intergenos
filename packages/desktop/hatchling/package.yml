@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://files.pythonhosted.org/packages/source/h/hatchling/hatchling-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 7064631a512610b52250a4d3ff1bd81551d6d1431c4eb7b72e734df6c74f4262
 dependencies:
   build:
   - editables

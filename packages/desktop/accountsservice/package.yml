@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://www.freedesktop.org/software/accountsservice/accountsservice-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: adda4cdeae24fa0992e7df3ffff9effa7090be3ac233a3edfdf69d5a9c9b924f
 dependencies:
   build:
   - polkit

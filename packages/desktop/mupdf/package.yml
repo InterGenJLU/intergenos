@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://mupdf.com/downloads/archive/mupdf-${version}-source.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 191227b96775f6705ef7d9551187511932b519273b34535a331491cf7d98163f
 dependencies:
   build:
   - harfbuzz

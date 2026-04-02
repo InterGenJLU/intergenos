@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/app/smproxy-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 4aa99237cc9dab7d87ce9bc7cca4116674a853b5f08dfe3f9db1bb2b2cf9f305
 dependencies:
   build:
   - libSM

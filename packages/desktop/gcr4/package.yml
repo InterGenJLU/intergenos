@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/gcr/4.3/gcr-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: c3ee8728e4364b0397f435fa20f92f901ab139d2b264f4e059d67b3c0f43cd36
 dependencies:
   build:
   - libgcrypt

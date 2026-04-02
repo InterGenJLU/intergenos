@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/nautilus/47/nautilus-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 7f3203474f2e6374a11c6754ef33f3360eaf7f5b5e85f5e477e8a0ae0fa764d9
 dependencies:
   build:
   - gnome-desktop

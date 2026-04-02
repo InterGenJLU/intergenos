@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/app/xauth-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: e7075498bae332f917f01d660f9b940c0752b2556a8da61ccb62a44d0ffe9d33
 dependencies:
   build:
   - libXau

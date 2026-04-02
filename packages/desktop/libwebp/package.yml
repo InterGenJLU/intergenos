@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 7d6fab70cf844bf6769077bd5d7a74893f8ffd4dfb42861745750c63c2a5c92c
 dependencies:
   build:
   - libjpeg-turbo

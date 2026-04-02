@@ -9,7 +9,7 @@ build_style: cmake
 install_func: do_install
 source:
 - url: https://s3.amazonaws.com/json-c_releases/releases/json-c-${version}-nodoc.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 602cdefc1d2aab8318fc0814b7ce7d59e72514d4276ca3eff92f35f86cf1c160
 dependencies:
   build: []
   host: []

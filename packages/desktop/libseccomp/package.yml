@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://github.com/seccomp/libseccomp/releases/download/v${version}/libseccomp-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 83b6085232d1588c379dc9b9cae47bb37407cf262e6e74993c61ba72d2a784dc
 dependencies:
   build: []
   host: []

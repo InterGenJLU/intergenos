@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/app/xrandr-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: f8dd7566adb74147fab9964680b6bbadee87cf406a7fcff51718a5e6949b841c
 dependencies:
   build:
   - libXrandr

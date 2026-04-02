@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://github.com/OpenPrinting/cups/releases/download/v${version}/cups-${version}-source.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 9a88fe1da3a29a917c3fc67ce6eb3178399d68e1a548c6d86c70d9b13651fd71
 dependencies:
   build:
   - gnutls

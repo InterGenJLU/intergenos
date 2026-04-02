@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://gitlab.freedesktop.org/wayland/wayland/-/releases/${version}/downloads/wayland-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 864fb2a8399e2d0ec39d56e9d9b753c093775beadc6022ce81f441929a81e5ed
 dependencies:
   build:
   - libxml2

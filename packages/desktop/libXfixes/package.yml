@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXfixes-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: b695f93cd2499421ab02d22744458e650ccc88c1d4c8130d60200213abc02d58
 dependencies:
   build:
   - libX11

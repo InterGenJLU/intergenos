@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/libadwaita/1.6/libadwaita-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 7542f8354e6808dd4e9a31551bbdfc0170735e4af4d1b3e69186500ccb9c01eb
 dependencies:
   build:
   - appstream

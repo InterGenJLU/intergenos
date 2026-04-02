@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://releases.pagure.org/xmlto/xmlto-${version}.tar.bz2
-  sha256: NEEDS_CHECKSUM
+  sha256: 6000d8e8f0f9040426c4f85d7ad86789bc88d4aeaef585c4d4110adb0b214f21
 dependencies:
   build:
   - docbook-xml

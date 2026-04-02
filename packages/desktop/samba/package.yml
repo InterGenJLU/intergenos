@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://www.samba.org/ftp/samba/stable/samba-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: ae2179a613e7a5d4088735ab100d4ca1cae0f92374d6307e22eaec13ad90125c
 dependencies:
   build:
   - gnutls

@@ -9,7 +9,7 @@ build_style: cmake
 install_func: do_install
 source:
 - url: https://github.com/protocolbuffers/protobuf/releases/download/v${version}/protobuf-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 7c3ebd7aaedd86fa5dc479a0fda803f602caaf78d8aff7ce83b89e1b8ae7442a
 dependencies:
   build:
   - abseil-cpp

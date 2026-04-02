@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/app/setxkbmap-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: be8d8554d40e981d1b93b5ff82497c9ad2259f59f675b38f1b5e84624c07fade
 dependencies:
   build:
   - libX11

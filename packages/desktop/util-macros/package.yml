@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/util/util-macros-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 9ac269eba24f672d7d7b3574e4be5f333d13f04a7712303b1821b2a51ac82e8e
 dependencies:
   build: []
   host: []

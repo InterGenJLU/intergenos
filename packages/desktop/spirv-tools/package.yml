@@ -9,7 +9,7 @@ build_style: cmake
 install_func: do_install
 source:
 - url: https://github.com/KhronosGroup/SPIRV-Tools/archive/vulkan-sdk-${version}/spirv-tools-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 8f8b487e20e062c3abfbc86c4541faf767588d167b395ec94f2a7f996ef40efe
 dependencies:
   build:
   - spirv-headers

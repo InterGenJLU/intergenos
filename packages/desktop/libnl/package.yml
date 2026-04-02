@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://github.com/thom311/libnl/releases/download/libnl3_11_0/libnl-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 2a56e1edefa3e68a7c00879496736fdbf62fc94ed3232c0baba127ecfa76874d
 dependencies:
   build: []
   host: []

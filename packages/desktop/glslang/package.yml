@@ -9,7 +9,7 @@ build_style: cmake
 install_func: do_install
 source:
 - url: https://github.com/KhronosGroup/glslang/archive/${version}/glslang-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 4bdcd8cdb330313f0d4deed7be527b0ac1c115ff272e492853a6e98add61b4bc
 dependencies:
   build:
   - spirv-tools

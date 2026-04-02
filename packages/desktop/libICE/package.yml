@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libICE-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 974e4ed414225eb3c716985df9709f4da8d22a67a2890066bc6dfc89ad298625
 dependencies:
   build:
   - xorgproto

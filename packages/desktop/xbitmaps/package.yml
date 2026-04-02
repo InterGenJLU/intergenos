@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/data/xbitmaps-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: ad6cad54887832a17d86c2ccfc5e52a1dfab090f8307b152c78b0e1529cd0f7a
 dependencies:
   build:
   - util-macros

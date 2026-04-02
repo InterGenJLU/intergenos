@@ -9,7 +9,7 @@ build_style: cmake
 install_func: do_install
 source:
 - url: https://github.com/KhronosGroup/Vulkan-Headers/archive/vulkan-sdk-${version}/vulkan-headers-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 5b186e1492d97c44102fe858fb9f222b55524a8b6da940a8795c9e326ae6d722
 dependencies:
   build: []
   host: []

@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://downloads.xiph.org/releases/cdparanoia/cdparanoia-III-${version}.src.tgz
-  sha256: NEEDS_CHECKSUM
+  sha256: 005db45ef4ee017f5c32ec124f913a0546e77014266c6a1c50df902a55fe64df
 dependencies:
   build: []
   host: []

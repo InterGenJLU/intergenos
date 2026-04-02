@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://code.videolan.org/videolan/dav1d/-/archive/${version}/dav1d-${version}.tar.bz2
-  sha256: NEEDS_CHECKSUM
+  sha256: a6ca64e34cec56ae1c2d359e1da5c5386ecd7a3a62f931d026ac4f2ff72ade64
 dependencies:
   build:
   - nasm

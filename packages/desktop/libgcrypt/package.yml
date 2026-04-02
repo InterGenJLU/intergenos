@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.gnupg.org/ftp/gcrypt/libgcrypt/libgcrypt-${version}.tar.bz2
-  sha256: NEEDS_CHECKSUM
+  sha256: 09120c9867ce7f2081d6aaa1775386b98c2f2f246135761aae47d81f58685b9c
 dependencies:
   build:
   - libgpg-error

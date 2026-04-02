@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://ffmpeg.org/releases/ffmpeg-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 40973d44970dbc83ef302b0609f2e74982be2d85916dd2ee7472d30678a7abe6
 dependencies:
   build:
   - nasm

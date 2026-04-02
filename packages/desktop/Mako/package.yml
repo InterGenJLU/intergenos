@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://files.pythonhosted.org/packages/source/M/Mako/mako-${version}.tar.gz
-  sha256: NEEDS_CHECKSUM
+  sha256: 9ec3a1583713479fae654f83ed9fa8c9a4c16b7bb0daba0e6bbebff50c0d983d
 dependencies:
   build: []
   host: []

@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/app/xkbcomp-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 0a288114e5f44e31987042c79aecff1ffad53a8154b8ec971c24a69a80f81f77
 dependencies:
   build:
   - libX11

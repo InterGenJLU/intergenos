@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/geocode-glib/3.26/geocode-glib-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 2d9a6826d158470449a173871221596da0f83ebdcff98b90c7049089056a37aa
 dependencies:
   build:
   - json-glib

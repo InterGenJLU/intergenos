@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/json-glib/1.10/json-glib-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 77f4bcbf9339528f166b8073458693f0a20b77b7059dbc2db61746a1928b0293
 dependencies:
   build: []
   host: []

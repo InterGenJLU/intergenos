@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/librsvg/2.59/librsvg-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: ecd293fb0cc338c170171bbc7bcfbea6725d041c95f31385dc935409933e4597
 dependencies:
   build:
   - cairo

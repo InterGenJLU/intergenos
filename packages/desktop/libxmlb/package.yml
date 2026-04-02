@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://github.com/hughsie/libxmlb/releases/download/${version}/libxmlb-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: 642343c9b3eca5c234ef83d3d5f6307c78d024f2545f3cc2fa252c9e14e4efd1
 dependencies:
   build: []
   host: []

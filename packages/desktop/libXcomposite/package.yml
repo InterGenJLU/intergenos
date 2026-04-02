@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXcomposite-${version}.tar.xz
-  sha256: NEEDS_CHECKSUM
+  sha256: fe40bcf0ae1a09070eba24088a5eb9810efe57453779ec1e20a55080c6dc2c87
 dependencies:
   build:
   - libXfixes
