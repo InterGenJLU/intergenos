@@ -307,7 +307,7 @@ phase_setup() {
     fi
 
     local total=$(ls "$SOURCES" | wc -l)
-    log "  Sources: $total tarballs in $SOURCES"
+    log "  Sources: $total tarballs on host"
 
     # Verify patches
     if [ ! -f "${PATCHES}/glibc-fhs-1.patch" ]; then
@@ -315,7 +315,32 @@ phase_setup() {
         return 1
     fi
     log "  Patches: OK"
-    log "  Build root: $IGOS ready"
+
+    # --- Place everything directly on the target filesystem ---
+    # Like build_003: no bind mounts, no tricks. The chroot is self-contained.
+    # Everything the chroot needs is physically present on $IGOS.
+
+    # Copy source tarballs (LFS Section 3.1)
+    log "  Copying sources to $IGOS/sources/..."
+    mkdir -pv "$IGOS/sources"
+    chmod -v a+wt "$IGOS/sources"
+    cp -n "${SOURCES}"/* "$IGOS/sources/" 2>/dev/null || true
+    cp -n "${PATCHES}"/* "$IGOS/sources/" 2>/dev/null || true
+    local placed=$(ls "$IGOS/sources" | wc -l)
+    log "  Placed $placed files in $IGOS/sources/"
+
+    # Copy build infrastructure (scripts, packages, igos-build)
+    # Preserves paths so /mnt/intergenos/scripts/... works inside the chroot
+    log "  Copying build infrastructure to $IGOS/mnt/intergenos/..."
+    mkdir -pv "$IGOS/mnt/intergenos"
+    cp -a /mnt/intergenos/scripts    "$IGOS/mnt/intergenos/"
+    cp -a /mnt/intergenos/packages   "$IGOS/mnt/intergenos/"
+    cp -a /mnt/intergenos/igos-build "$IGOS/mnt/intergenos/"
+    cp    /mnt/intergenos/igos-build.py "$IGOS/mnt/intergenos/" 2>/dev/null || true
+    log "  Build infrastructure placed on target filesystem"
+
+    chown -R "${BUILD_USER}:${BUILD_USER}" "$IGOS"
+    log "  Build root: $IGOS ready (self-contained)"
 }
 
 phase_toolchain() {
@@ -386,6 +411,16 @@ phase_image() {
     # Tear down chroot mounts before imaging
     log "  Tearing down chroot mounts..."
     bash "${SCRIPTS}/chroot-teardown.sh" 2>&1 | tee -a "$BUILD_LOG" || true
+
+    # Clean up build artifacts from the target filesystem
+    # These were placed during setup — the built system doesn't need them
+    log "  Cleaning build artifacts from target..."
+    rm -rf "${IGOS}/mnt/intergenos"
+    rm -rf "${IGOS}/sources"
+    rm -rf "${IGOS}/tmp"/*
+    mkdir -p "${IGOS}/tmp"
+    chmod 1777 "${IGOS}/tmp"
+    log "  Build artifacts removed"
 
     # Create the image on VM local storage (fast)
     local image_path="/home/${BUILD_USER}/intergenos.qcow2"
