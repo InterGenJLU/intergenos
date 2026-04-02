@@ -31,7 +31,7 @@ configure() {
         --disable-fixincludes             \
         --with-system-zlib                \
         --with-pkgversion='InterGenOS GCC 15.2.0' \
-        --with-bugurl='https://github.com/InterGenOS/intergenos/issues'
+        --with-bugurl='https://github.com/InterGenJLU/intergenos/issues'
 }
 
 build() {
