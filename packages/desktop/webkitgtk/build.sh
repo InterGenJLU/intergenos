@@ -1,23 +1,36 @@
 #!/bin/bash
-# webkitgtk 2.46.6 — Web content engine for GTK
+# webkitgtk 2.50.5 — Web content engine for GTK
 # BLFS 13.0
+# Note: builds GTK-4 version; GTK-3 version can be built separately with USE_GTK4=OFF
 
 configure() {
-    cmake -B build                    \
-          -DCMAKE_INSTALL_PREFIX=/usr \
-          -DCMAKE_BUILD_TYPE=Release  \
-          -DCMAKE_INSTALL_PREFIX=/usr \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DENABLE_MINIBROWSER=ON \
-          -DUSE_GTK4=ON \
-          -DENABLE_DOCUMENTATION=OFF \
-          -DUSE_LIBBACKTRACE=OFF
+    mkdir -vp build &&
+    cd        build &&
+
+    cmake -D CMAKE_BUILD_TYPE=Release         \
+          -D CMAKE_INSTALL_PREFIX=/usr        \
+          -D CMAKE_SKIP_INSTALL_RPATH=ON      \
+          -D PORT=GTK                         \
+          -D LIB_INSTALL_DIR=/usr/lib         \
+          -D USE_LIBBACKTRACE=OFF             \
+          -D USE_LIBHYPHEN=OFF                \
+          -D ENABLE_GAMEPAD=OFF               \
+          -D ENABLE_MINIBROWSER=ON            \
+          -D ENABLE_DOCUMENTATION=OFF         \
+          -D USE_WOFF2=OFF                    \
+          -D USE_GTK4=ON                      \
+          -D ENABLE_BUBBLEWRAP_SANDBOX=ON     \
+          -D USE_SYSPROF_CAPTURE=NO           \
+          -D ENABLE_SPEECH_SYNTHESIS=OFF      \
+          -W no-dev -G Ninja ..
 }
 
 build() {
-    cmake --build build -j${IGOS_JOBS}
+    cd build &&
+    ninja -j${IGOS_JOBS}
 }
 
 do_install() {
-    DESTDIR="$DESTDIR" cmake --install build
+    cd build &&
+    DESTDIR="$DESTDIR" ninja install
 }

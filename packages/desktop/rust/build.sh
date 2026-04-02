@@ -1,21 +1,41 @@
 #!/bin/bash
-# rust 1.82.0 — Rust programming language
+# rust 1.93.1 — Rust programming language
 # BLFS 13.0
 # Note: requires internet connection for bootstrap download
 
 configure() {
     cat << EOF > bootstrap.toml
-# See bootstrap.toml.example for more possible options
+# See bootstrap.toml.example for more possible options,
+# and see src/bootstrap/defaults/bootstrap.dist.toml for a few options
+# automatically set when building from a release tarball
+# (unfortunately, we have to override many of them).
+
+# Tell x.py that the editors have reviewed the content of this file
+# and updated it to follow the major changes of the building system,
+# so x.py will not warn users to review that information.
 change-id = 148795
 
 [llvm]
+# When using the system installed copy of LLVM, prefer the shared libraries
 link-shared = true
+
+# If building the shipped LLVM source, only enable the x86 target
+# instead of all the targets supported by LLVM.
 targets = "X86"
 
 [build]
 description = "for InterGenOS"
+
+# Omit the documentation to save time and space (the default is to build them).
 docs = false
+
+# Do not look for new versions of the dependencies online.
 locked-deps = true
+
+# Only install these extended tools. Cargo, clippy, rustdoc, and rustfmt
+# are installed by a default rustup installation, and rust-src is needed
+# to build the Rust code in Linux kernel (in case you need such a kernel
+# feature).
 tools = ["cargo", "clippy", "rustdoc", "rustfmt", "src"]
 
 [install]
@@ -24,8 +44,13 @@ docdir = "share/doc/rustc-${version}"
 
 [rust]
 channel = "stable"
+
+# Enable the same optimizations as the official upstream build.
 lto = "thin"
 codegen-units = 1
+
+# Don't build llvm-bitcode-linker which is only useful for the NVPTX
+# backend that we don't enable.
 llvm-bitcode-linker = false
 
 [target.x86_64-unknown-linux-gnu]
@@ -46,7 +71,7 @@ do_install() {
     export LIBSSH2_SYS_USE_PKG_CONFIG=1
     export LIBSQLITE3_SYS_USE_PKG_CONFIG=1
 
-    # Create prefix directory
+    # Create prefix directory and symlink
     mkdir -pv "${DESTDIR}/opt/rustc-${version}"
     ln -svfn "rustc-${version}" "${DESTDIR}/opt/rustc"
 
@@ -54,7 +79,7 @@ do_install() {
 }
 
 post_install() {
-    # Clean up docs
+    # Fix up docs
     rm -fv /opt/rustc-${version}/share/doc/rustc-${version}/*.old
     install -vm644 README.md /opt/rustc-${version}/share/doc/rustc-${version}
 
@@ -64,16 +89,18 @@ post_install() {
         /usr/share/zsh/site-functions
 
     # Bash completions
-    mv -v /etc/bash_completion.d/cargo /usr/share/bash-completion/completions 2>/dev/null || true
+    mv -v /etc/bash_completion.d/cargo /usr/share/bash-completion/completions
 
     # PATH setup
     cat > /etc/profile.d/rustc.sh << "PROFILE"
 # Begin /etc/profile.d/rustc.sh
-pathprepend /opt/rustc/bin PATH
+
+pathprepend /opt/rustc/bin           PATH
+
 # End /etc/profile.d/rustc.sh
 PROFILE
 
-    # Symlink for ldconfig
+    # Ensure symlink exists on live system
     ln -svfn rustc-${version} /opt/rustc
 
     unset LIBSSH2_SYS_USE_PKG_CONFIG

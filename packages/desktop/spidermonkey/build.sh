@@ -1,5 +1,5 @@
 #!/bin/bash
-# spidermonkey 128.6.0 — Mozilla SpiderMonkey JavaScript engine
+# spidermonkey 140.8.0 — Mozilla SpiderMonkey JavaScript engine
 # BLFS 13.0
 # Note: source is from firefox ESR tarball
 
