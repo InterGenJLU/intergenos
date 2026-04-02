@@ -1,3 +1,39 @@
 #!/bin/bash
 # mitkrb 1.21.3 — MIT Kerberos V5 authentication
-# Custom build — provide build.sh manually
+# BLFS 13.0
+
+configure() {
+    # Apply upstream fix
+    patch -Np1 -i ../mitkrb-*-upstream_fix-1.patch
+
+    cd src &&
+
+    sed -i -e '/eq 0/{N;s/12 //}' plugins/kdb/db2/libdb2/test/run.test &&
+
+    ./configure --prefix=/usr            \
+                --sysconfdir=/etc        \
+                --localstatedir=/var/lib \
+                --runstatedir=/run       \
+                --with-system-et         \
+                --with-system-ss         \
+                --with-system-verto=no   \
+                --enable-dns-for-realm   \
+                --disable-rpath
+}
+
+build() {
+    cd src &&
+    make -j${IGOS_JOBS}
+}
+
+check() {
+    cd src &&
+    make -j1 -k check || true
+}
+
+do_install() {
+    cd src &&
+    make DESTDIR="$DESTDIR" install
+
+    cp -vfr ../doc -T "${DESTDIR}/usr/share/doc/krb5-${version}"
+}

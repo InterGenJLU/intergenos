@@ -1,3 +1,13 @@
 #!/bin/bash
 # docutils 0.21.2 — Python documentation utilities
-# Custom build — provide build.sh manually
+# BLFS 13.0
+
+configure() { : ; }
+
+build() {
+    pip3 wheel -w dist --no-build-isolation --no-deps --no-cache-dir $PWD
+}
+
+do_install() {
+    pip3 install --no-index --find-links dist --no-cache-dir --no-user --root="$DESTDIR" docutils
+}
