@@ -1,5 +1,5 @@
 #!/bin/bash
-# cURL 8.18.0 — URL transfer library and tool
+# cURL 8.19.0 — URL transfer library and tool
 # BLFS 13.0
 
 configure() {
@@ -28,5 +28,5 @@ do_install() {
                  -name \*.3       -o  \
                  -name CMakeLists.txt \) -delete
 
-    cp -v -R docs -T "${DESTDIR}/usr/share/doc/curl-8.18.0"
+    cp -v -R docs -T "${DESTDIR}/usr/share/doc/curl-8.19.0"
 }

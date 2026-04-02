@@ -1,5 +1,5 @@
 name: strace
-version: "6.14"
+version: "6.19"
 release: 1
 description: System call tracer
 license: LGPL-2.1-or-later
@@ -9,7 +9,7 @@ build_style: autotools
 
 source:
   - url: https://strace.io/files/${version}/strace-${version}.tar.xz
-    sha256: 244f3b5c20a32854ca9b7ca7a3ee091dd3d4bd20933a171ecee8db486c77d3c9
+    sha256: e076c851eec0972486ec842164fdc54547f9d17abd3d1449de8b120f5d299143
 
 dependencies:
   build: []

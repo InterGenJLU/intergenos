@@ -1,5 +1,5 @@
 name: nss
-version: 3.120.1
+version: "3.121"
 release: 1
 description: Network Security Services
 license: MPL-2.0
@@ -9,8 +9,8 @@ build_style: custom
 install_func: do_install
 
 source:
-  - url: https://archive.mozilla.org/pub/security/nss/releases/NSS_3_120_1_RTM/src/nss-${version}.tar.gz
-    sha256: a98f002d20bfe719f50f81824a64c9e6f067f4da3c6a1f0455e97e6d79240512
+  - url: https://archive.mozilla.org/pub/security/nss/releases/NSS_3_121_RTM/src/nss-${version}.tar.gz
+    sha256: cb3a8f8781bea78b7b8edd3afb7a2cb58e4881bb0160d189a39b98216ba7632e
 
 dependencies:
   build:

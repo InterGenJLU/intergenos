@@ -1,5 +1,5 @@
 name: lsof
-version: 4.99.5
+version: 4.99.6
 release: 1
 description: List open files
 license: Zlib
@@ -10,7 +10,7 @@ install_func: do_install
 
 source:
   - url: https://github.com/lsof-org/lsof/releases/download/${version}/lsof-${version}.tar.gz
-    sha256: 4682c2491ec8b3d62f84e135afc1d9ead1bad5f034b50716f0c3826a4ee7d229
+    sha256: 6081dedf841cd61f8a022ff7cbe04ed78918a47dea3c39528c8571474167aa0f
 
 dependencies:
   build:

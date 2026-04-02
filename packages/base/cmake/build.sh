@@ -1,5 +1,5 @@
 #!/bin/bash
-# CMake 4.2.3 — Cross-platform build system
+# CMake 4.3.1 — Cross-platform build system
 # BLFS 13.0
 
 configure() {
@@ -12,7 +12,7 @@ configure() {
                 --no-system-jsoncpp  \
                 --no-system-cppdap   \
                 --no-system-librhash \
-                --docdir=/share/doc/cmake-4.2.3
+                --docdir=/share/doc/cmake-4.3.1
 }
 
 build() {

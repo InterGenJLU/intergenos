@@ -1,5 +1,5 @@
 name: atop
-version: "2.11.0"
+version: "2.12.1"
 release: 1
 description: Advanced system and process monitor
 license: GPL-2.0-or-later
@@ -9,8 +9,8 @@ build_style: custom
 install_func: do_install
 
 source:
-  - url: https://www.atoptool.nl/download/atop-${version}.tar.gz
-    sha256: 9b94c666602efff7bf402ecce706c347f38c39cb63498f9d39626861e5646e20
+  - url: https://github.com/Atoptool/atop/archive/refs/tags/v${version}.tar.gz
+    sha256: 0f49f3aa5e3449f8c1cf10ac08036e2b67887640fe7980b8bc6ca9fd84d46fdf
 
 dependencies:
   build: []
