@@ -19,3 +19,4 @@ configure_flags:
 - --prefix=/usr
 - --disable-static
 - --with-securedir=/usr/lib/security
+- --disable-python-bindings
