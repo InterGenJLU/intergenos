@@ -9,9 +9,10 @@ configure() {
     autoreconf -fi
     ./configure --prefix=/usr --disable-static
     make -j${IGOS_JOBS}
-    # Install libsass to live filesystem (not DESTDIR) so sassc's
-    # configure can find it via pkg-config
-    make install
+    # Install libsass to live filesystem — must unset DESTDIR which
+    # the builder exports, otherwise autotools picks it up from env
+    env -u DESTDIR make install
+    ldconfig
     cd ..
 
     # Now configure sassc
