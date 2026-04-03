@@ -5,9 +5,10 @@
 configure() {
     # BLFS required fixes
     sed -r '/cmake_policy.*(0025|0054)/d' -i source/CMakeLists.txt
-    cmake -B build                    \
-          -DCMAKE_INSTALL_PREFIX=/usr \
-          -DCMAKE_BUILD_TYPE=Release  
+    cmake -B build -S source                  \
+          -DCMAKE_INSTALL_PREFIX=/usr         \
+          -DCMAKE_BUILD_TYPE=Release          \
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 }
 
 build() {

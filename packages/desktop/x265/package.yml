@@ -5,7 +5,7 @@ description: H.265/HEVC video encoder
 license: GPL-2.0-or-later
 homepage: https://www.x265.org/
 tier: desktop
-build_style: cmake
+build_style: custom
 install_func: do_install
 source:
 - url: https://bitbucket.org/multicoreware/x265_git/downloads/x265_${version}.tar.gz
