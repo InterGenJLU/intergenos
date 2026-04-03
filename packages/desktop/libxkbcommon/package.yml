@@ -1,5 +1,5 @@
 name: libxkbcommon
-version: 1.7.0
+version: 1.13.1
 release: 1
 description: Keyboard handling library
 license: MIT
@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://xkbcommon.org/download/libxkbcommon-${version}.tar.xz
-  sha256: 65782f0a10a4b455af9c6baab7040e2f537520caa2ec2092805cdfd36863b247
+  sha256: b620507312c5e97566a3c6cfaf99144fefc18a0da7d941401dfa0f5f58fb0368
 dependencies:
   build:
   - xkeyboard-config

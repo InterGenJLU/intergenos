@@ -1,5 +1,5 @@
 name: dconf
-version: 0.40.0
+version: 0.49.0
 release: 1
 description: Low-level GSettings backend
 license: LGPL-2.1-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/dconf/0.40/dconf-${version}.tar.xz
-  sha256: cf7f22a4c9200421d8d3325c5c1b8b93a36843650c9f95d6451e20f0bcb24533
+- url: https://download.gnome.org/sources/dconf/0.49/dconf-${version}.tar.xz
+  sha256: 16a47e49a58156dbb96578e1708325299e4c19eea9be128d5bd12fd0963d6c36
 dependencies:
   build:
   - gtk3

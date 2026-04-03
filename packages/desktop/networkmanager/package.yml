@@ -1,5 +1,5 @@
 name: networkmanager
-version: 1.50.0
+version: 1.56.0
 release: 1
 description: Network connection manager
 license: GPL-2.0-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/NetworkManager/1.50/NetworkManager-${version}.tar.xz
-  sha256: fc03e7388a656cebc454c5d89481626122b1975d7c26babc64dc7e488faa66e3
+- url: https://download.gnome.org/sources/NetworkManager/1.56/NetworkManager-${version}.tar.xz
+  sha256: 6e95d3011ecc51a72fec8b2a8e5b06b4e134c2b2cfe513bfce42d9029c6c8dd1
 dependencies:
   build:
   - iptables

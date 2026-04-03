@@ -1,5 +1,5 @@
 name: gnome-backgrounds
-version: '47.0'
+version: '49.0'
 release: 1
 description: GNOME desktop wallpapers
 license: CC-BY-SA-3.0
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/gnome-backgrounds/47/gnome-backgrounds-${version}.tar.xz
-  sha256: 874a4a39c4261736f6a854722833400b612441c4681aa5982d90b15abc9c91fd
+- url: https://download.gnome.org/sources/gnome-backgrounds/49/gnome-backgrounds-${version}.tar.xz
+  sha256: 01fe260de58ba00e44aba589a998e33e8bc7aecc701df0bee64cf4cfba44f4b5
 dependencies:
   build: []
   host: []

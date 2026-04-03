@@ -1,5 +1,5 @@
 name: gnome-shell-extensions
-version: '47.2'
+version: '49.0'
 release: 1
 description: GNOME Shell extensions collection
 license: GPL-2.0-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/gnome-shell-extensions/47/gnome-shell-extensions-${version}.tar.xz
-  sha256: dd774a0291584917abde88bbc4eccf9244178e3c269ce0618d0495177c12652d
+- url: https://download.gnome.org/sources/gnome-shell-extensions/49/gnome-shell-extensions-${version}.tar.xz
+  sha256: 1570e064786cb4389759e0483f3a1bdbd5b9b38f06246eb4d1d509292a9c6a62
 dependencies:
   build:
   - gnome-shell

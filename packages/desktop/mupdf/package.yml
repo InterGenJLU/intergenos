@@ -1,5 +1,5 @@
 name: mupdf
-version: 1.24.11
+version: 1.26.12
 release: 1
 description: Lightweight PDF and XPS viewer
 license: AGPL-3.0-or-later
@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://mupdf.com/downloads/archive/mupdf-${version}-source.tar.gz
-  sha256: 191227b96775f6705ef7d9551187511932b519273b34535a331491cf7d98163f
+  sha256: 6baf910928f404167ba49be6340195dec340795724722b331f5a2143f5aa0d01
 dependencies:
   build:
   - harfbuzz

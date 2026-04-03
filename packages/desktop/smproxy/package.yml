@@ -1,5 +1,5 @@
 name: smproxy
-version: 1.0.7
+version: 1.0.8
 release: 1
 description: Session Manager Proxy
 license: MIT
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/app/smproxy-${version}.tar.xz
-  sha256: 4aa99237cc9dab7d87ce9bc7cca4116674a853b5f08dfe3f9db1bb2b2cf9f305
+  sha256: fee584eae2ec1ce2d178d72d3b484920271ba68a27935769cefbafbc3a2ff6c8
 dependencies:
   build:
   - libSM

@@ -1,5 +1,5 @@
 name: adwaita-icon-theme
-version: '47.0'
+version: '49.0'
 release: 1
 description: GNOME default icon theme
 license: LGPL-3.0-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/adwaita-icon-theme/47/adwaita-icon-theme-${version}.tar.xz
-  sha256: ad088a22958cb8469e41d9f1bba0efb27e586a2102213cd89cc26db2e002bdfe
+- url: https://download.gnome.org/sources/adwaita-icon-theme/49/adwaita-icon-theme-${version}.tar.xz
+  sha256: 65166461d1b278aa942f59aa8d0fccf1108d71c65f372c6266e172449791755c
 dependencies:
   build:
   - gtk3

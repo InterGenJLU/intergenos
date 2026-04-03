@@ -1,5 +1,5 @@
 name: libXfixes
-version: 6.0.1
+version: 6.0.2
 release: 1
 description: X Fixes extension library
 license: MIT
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXfixes-${version}.tar.xz
-  sha256: b695f93cd2499421ab02d22744458e650ccc88c1d4c8130d60200213abc02d58
+  sha256: 39f115d72d9c5f8111e4684164d3d68cc1fd21f9b27ff2401b08fddfc0f409ba
 dependencies:
   build:
   - libX11

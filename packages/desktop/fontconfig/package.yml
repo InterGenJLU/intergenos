@@ -1,5 +1,5 @@
 name: fontconfig
-version: 2.15.0
+version: 2.17.1
 release: 1
 description: Font configuration and customization library
 license: MIT
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.freedesktop.org/software/fontconfig/release/fontconfig-${version}.tar.xz
-  sha256: 63a0658d0e06e0fa886106452b58ef04f21f58202ea02a94c39de0d3335d7c0e
+  sha256: 74c56b6d4ae602dab6bf290bc85a556ee2abaee1ece250e0fd1699547415c483
 dependencies:
   build:
   - freetype2

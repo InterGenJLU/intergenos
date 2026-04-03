@@ -1,5 +1,5 @@
 name: lxml
-version: 5.3.0
+version: 6.0.2
 release: 1
 description: Python XML processing library
 license: BSD-3-Clause
@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://files.pythonhosted.org/packages/source/l/lxml/lxml-${version}.tar.gz
-  sha256: 4e109ca30d1edec1ac60cdbe341905dc3b8f55b16855e03a54aaf59e51ec8c6f
+  sha256: cd79f3367bd74b317dda655dc8fcfa304d9eb6e4fb06b7168c5cf27f96e0cd62
 dependencies:
   build:
   - libxslt

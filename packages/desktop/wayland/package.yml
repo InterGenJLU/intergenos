@@ -1,5 +1,5 @@
 name: wayland
-version: 1.23.1
+version: 1.24.0
 release: 1
 description: Wayland display server protocol
 license: MIT
@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://gitlab.freedesktop.org/wayland/wayland/-/releases/${version}/downloads/wayland-${version}.tar.xz
-  sha256: 864fb2a8399e2d0ec39d56e9d9b753c093775beadc6022ce81f441929a81e5ed
+  sha256: 82892487a01ad67b334eca83b54317a7c86a03a89cfadacfef5211f11a5d0536
 dependencies:
   build:
   - libxml2

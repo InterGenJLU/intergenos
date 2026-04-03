@@ -1,5 +1,5 @@
 name: libXxf86vm
-version: 1.1.5
+version: 1.1.7
 release: 1
 description: X XFree86 Video Mode extension library
 license: MIT
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXxf86vm-${version}.tar.xz
-  sha256: 247fef48b3e0e7e67129e41f1e789e8d006ba47dba1c0cdce684b9b703f888e7
+  sha256: ae50c0f669e0af5a67cc4cd0f54f21d64a64d2660af883e80e95d3fe51b945d8
 dependencies:
   build:
   - libXext

@@ -1,5 +1,5 @@
 name: libXinerama
-version: 1.1.5
+version: 1.1.6
 release: 1
 description: X Xinerama extension library
 license: MIT
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXinerama-${version}.tar.xz
-  sha256: 5094d1f0fcc1828cb1696d0d39d9e866ae32520c54d01f618f1a3c1e30c2085c
+  sha256: d00fc1599c303dc5cbc122b8068bdc7405d6fcb19060f4597fc51bd3a8be51d7
 dependencies:
   build:
   - libXext

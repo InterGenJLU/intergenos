@@ -1,5 +1,5 @@
 name: gnome-session
-version: '47.0'
+version: '49.2'
 release: 1
 description: GNOME session manager
 license: GPL-2.0-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/gnome-session/47/gnome-session-${version}.tar.xz
-  sha256: 53b1ad01af4a31f2427909d2ca7a870124f68fe426a404520292bf0fe0959896
+- url: https://download.gnome.org/sources/gnome-session/49/gnome-session-${version}.tar.xz
+  sha256: fcdb4f45d6a60d84e9ecae1e3740bab6e55bab0cb49e0fb38280e9b38f3a8485
 dependencies:
   build:
   - gnome-desktop

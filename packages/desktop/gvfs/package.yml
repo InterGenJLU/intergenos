@@ -1,5 +1,5 @@
 name: gvfs
-version: 1.54.2
+version: 1.58.2
 release: 1
 description: GNOME virtual filesystem
 license: LGPL-2.0-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/gvfs/1.54/gvfs-${version}.tar.xz
-  sha256: 54908f4e10b5f1c231e90330c8c15b7f21f2bb610f194c034b338e379c508e3c
+- url: https://download.gnome.org/sources/gvfs/1.58/gvfs-${version}.tar.xz
+  sha256: ad9d5bf0b45caf232520df0adee51eb650200b0370680f80a350ead9d1d61ddf
 dependencies:
   build:
   - libsecret

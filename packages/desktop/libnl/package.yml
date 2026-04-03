@@ -1,5 +1,5 @@
 name: libnl
-version: 3.11.0
+version: 3.12.0
 release: 1
 description: Netlink protocol library suite
 license: LGPL-2.1-or-later
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://github.com/thom311/libnl/releases/download/libnl3_11_0/libnl-${version}.tar.gz
-  sha256: 2a56e1edefa3e68a7c00879496736fdbf62fc94ed3232c0baba127ecfa76874d
+  sha256: 0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5
 dependencies:
   build: []
   host: []

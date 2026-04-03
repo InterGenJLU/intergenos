@@ -1,5 +1,5 @@
 name: pygobject3
-version: 3.50.0
+version: 3.54.5
 release: 1
 description: Python GObject bindings
 license: LGPL-2.1-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/pygobject/3.50/pygobject-${version}.tar.xz
-  sha256: 8d836e75b5a881d457ee1622cae4a32bcdba28a0ba562193adb3bbb472472212
+- url: https://download.gnome.org/sources/pygobject/3.54/pygobject-${version}.tar.xz
+  sha256: 6e95d3011ecc51a72fec8b2a8e5b06b4e134c2b2cfe513bfce42d9029c6c8dd1
 dependencies:
   build:
   - pycairo

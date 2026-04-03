@@ -1,5 +1,5 @@
 name: pinentry
-version: 1.3.1
+version: 1.3.2
 release: 1
 description: PIN/passphrase entry dialog
 license: GPL-2.0-or-later
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.gnupg.org/ftp/gcrypt/pinentry/pinentry-${version}.tar.bz2
-  sha256: bc72ee27c7239007ab1896c3c2fae53b076e2c9bd2483dc2769a16902bce8c04
+  sha256: 8e986ed88561b4da6e9efe0c54fa4ca8923035c99264df0b0464497c5fb94e9e
 dependencies:
   build:
   - libassuan

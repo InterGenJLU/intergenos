@@ -1,5 +1,5 @@
 name: libgpg-error
-version: '1.51'
+version: '1.59'
 release: 1
 description: GPG error code library
 license: LGPL-2.1-or-later
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.gnupg.org/ftp/gcrypt/libgpg-error/libgpg-error-${version}.tar.bz2
-  sha256: be0f1b2db6b93eed55369cdf79f19f72750c8c7c39fc20b577e724545427e6b2
+  sha256: a19bc5087fd97026d93cb4b45d51638d1a25202a5e1fbc3905799f424cfa6134
 dependencies:
   build: []
   host: []

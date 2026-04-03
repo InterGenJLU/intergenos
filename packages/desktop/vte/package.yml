@@ -1,5 +1,5 @@
 name: vte
-version: 0.78.2
+version: 0.82.3
 release: 1
 description: Virtual Terminal Emulator widget
 license: LGPL-2.1-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/vte/0.78/vte-${version}.tar.xz
-  sha256: 35d7bcde07356846b4a12881c8e016705b70a9004a9082285eee5834ccc49890
+- url: https://download.gnome.org/sources/vte/0.82/vte-${version}.tar.xz
+  sha256: 6dc6278f6fee30d07d1a03e2ba3335b1ea4e8d2956ceb59d861943115d930a85
 dependencies:
   build:
   - gtk3

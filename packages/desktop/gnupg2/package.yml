@@ -1,5 +1,5 @@
 name: gnupg2
-version: 2.4.7
+version: 2.5.17
 release: 1
 description: GNU Privacy Guard
 license: GPL-3.0-or-later
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.gnupg.org/ftp/gcrypt/gnupg/gnupg-${version}.tar.bz2
-  sha256: 7b24706e4da7e0e3b06ca068231027401f238102c41c909631349dcc3b85eb46
+  sha256: 2c1fbe20e2958fd8fb53cf37d7c38e84a900edc0d561a1c4af4bc3a10888685d
 dependencies:
   build:
   - libassuan

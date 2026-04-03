@@ -1,5 +1,5 @@
 name: inih
-version: '58'
+version: '62'
 release: 1
 description: Simple INI file parser
 license: BSD-3-Clause
@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://github.com/benhoyt/inih/archive/r${version}/inih-r${version}.tar.gz
-  sha256: e79216260d5dffe809bda840be48ab0eec7737b2bb9f02d2275c1b46344ea7b7
+  sha256: 9c15fa751bb8093d042dae1b9f125eb45198c32c6704cd5481ccde460d4f8151
 dependencies:
   build: []
   host: []

@@ -1,5 +1,5 @@
 name: power-profiles-daemon
-version: '0.23'
+version: '0.30'
 release: 1
 description: System-wide power profile management
 license: GPL-3.0-or-later
@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://gitlab.freedesktop.org/upower/power-profiles-daemon/-/archive/${version}/power-profiles-daemon-${version}.tar.gz
-  sha256: ccf6e00093dc5300be48d66d439540bb6239460b602bbd85001c937860de2e5f
+  sha256: 90f2c95024861d9f4062abedd514084939224e7a49edd468f001af7260ec8e6c
 dependencies:
   build:
   - polkit

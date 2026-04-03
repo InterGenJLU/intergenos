@@ -1,5 +1,5 @@
 name: iso-codes
-version: 4.17.0
+version: 4.20.1
 release: 1
 description: Country, language, and currency code lists
 license: LGPL-2.1-or-later
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://salsa.debian.org/iso-codes-team/iso-codes/-/archive/v${version}/iso-codes-v${version}.tar.gz
-  sha256: dd5ca13db77ec6dd1cc25f5c0184290a870ec1fed245d8e39a04ff34f59076c3
+  sha256: 2d7d9f6084ab9ce6c534ce71a3dd5144b6e474f3c97616459a88f73f44a64bff
 dependencies:
   build: []
   host: []

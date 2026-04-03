@@ -1,5 +1,5 @@
 name: libXau
-version: 1.0.11
+version: 1.0.12
 release: 1
 description: X11 Authorization Protocol library
 license: MIT
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXau-${version}.tar.xz
-  sha256: f3fa3282f5570c3f6bd620244438dbfbdd580fc80f02f549587a0f8ab329bbeb
+  sha256: 74d0e4dfa3d39ad8939e99bda37f5967aba528211076828464d2777d477fc0fb
 dependencies:
   build:
   - xorgproto

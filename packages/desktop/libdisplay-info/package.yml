@@ -1,5 +1,5 @@
 name: libdisplay-info
-version: 0.2.0
+version: 0.3.0
 release: 1
 description: EDID and DisplayID library
 license: MIT
@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://gitlab.freedesktop.org/emersion/libdisplay-info/-/releases/${version}/downloads/libdisplay-info-${version}.tar.xz
-  sha256: 5a2f002a16f42dd3540c8846f80a90b8f4bdcd067a94b9d2087bc2feae974176
+  sha256: 6ae77cd937f9cf7d1321d35c116062c4911e8447010a6a713ac4286f7a9d5987
 dependencies:
   build:
   - hwdata

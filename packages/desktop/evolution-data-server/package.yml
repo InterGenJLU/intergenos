@@ -1,5 +1,5 @@
 name: evolution-data-server
-version: 3.54.3
+version: 3.58.3
 release: 1
 description: Calendar and contacts data server
 license: LGPL-2.0-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: cmake
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/evolution-data-server/3.54/evolution-data-server-${version}.tar.xz
-  sha256: 5108dc38ee5cc1f8ef9155e87f6c4129f9644550a0962c5ae23ff807b57cb8d0
+- url: https://download.gnome.org/sources/evolution-data-server/3.58/evolution-data-server-${version}.tar.xz
+  sha256: da136d1190d9e8b09499452f6058e24eee6b77f441a8c769f74a52451bf379f1
 dependencies:
   build:
   - libical

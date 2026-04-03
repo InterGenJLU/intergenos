@@ -1,5 +1,5 @@
 name: soundtouch
-version: 2.3.3
+version: 2.4.0
 release: 1
 description: Audio tempo/pitch processing library
 license: LGPL-2.1-or-later
@@ -9,7 +9,7 @@ build_style: cmake
 install_func: do_install
 source:
 - url: https://www.surina.net/soundtouch/soundtouch-${version}.tar.gz
-  sha256: 43b23dfac2f64a3aff55d64be096ffc7b73842c3f5665caff44975633a975a99
+  sha256: 3dda3c9ab1e287f15028c010a66ab7145fa855dfa62763538f341e70b4d10abd
 dependencies:
   build: []
   host: []

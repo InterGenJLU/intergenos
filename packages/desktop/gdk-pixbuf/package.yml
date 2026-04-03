@@ -1,5 +1,5 @@
 name: gdk-pixbuf
-version: 2.42.12
+version: 2.44.5
 release: 1
 description: Image loading library for GTK
 license: LGPL-2.1-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/gdk-pixbuf/2.42/gdk-pixbuf-${version}.tar.xz
-  sha256: b9505b3445b9a7e48ced34760c3bcb73e966df3ac94c95a148cb669ab748e3c7
+- url: https://download.gnome.org/sources/gdk-pixbuf/2.44/gdk-pixbuf-${version}.tar.xz
+  sha256: 69b93e09139b80c0ee661503d60deb5a5874a31772b5184b9cd5462a4100ab68
 dependencies:
   build:
   - shared-mime-info

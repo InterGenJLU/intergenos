@@ -1,5 +1,5 @@
 name: gnome-terminal
-version: 3.54.2
+version: 3.58.1
 release: 1
 description: GNOME terminal emulator
 license: GPL-3.0-or-later
@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://gitlab.gnome.org/GNOME/gnome-terminal/-/archive/${version}/gnome-terminal-${version}.tar.gz
-  sha256: 101e69d2c4abec2789e01605588d09e43d8a65fdf327e13b74d78773c71f55b5
+  sha256: 6165f671fb26d8b724f22a185d90212787512e375108b02a27df5069efb846c9
 dependencies:
   build:
   - dconf

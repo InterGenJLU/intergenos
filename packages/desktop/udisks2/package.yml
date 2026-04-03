@@ -1,5 +1,5 @@
 name: udisks2
-version: 2.10.1
+version: 2.11.1
 release: 1
 description: Disk management D-Bus service
 license: GPL-2.0-or-later
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://github.com/storaged-project/udisks/releases/download/udisks-${version}/udisks-${version}.tar.bz2
-  sha256: b75734ccf602540dedb4068bec206adcb508a4c003725e117ae8f994d92d8ece
+  sha256: e88c52bae02fa13414604bbef42c6bb91c2e24177ee0057ed55c6bd7451bcb6d
 dependencies:
   build:
   - libgudev

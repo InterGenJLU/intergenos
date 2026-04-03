@@ -1,5 +1,5 @@
 name: pygments
-version: 2.18.0
+version: 2.19.2
 release: 1
 description: Syntax highlighting library
 license: BSD-2-Clause
@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://files.pythonhosted.org/packages/source/P/Pygments/pygments-${version}.tar.gz
-  sha256: 786ff802f32e91311bff3889f6e9a86e81505fe99f2735bb6d60ae0c5004f199
+  sha256: 636cb2477cec7f8952536970bc533bc43743542f70392ae026374600add5b887
 dependencies:
   build:
   - hatchling

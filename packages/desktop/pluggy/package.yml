@@ -1,5 +1,5 @@
 name: pluggy
-version: 1.5.0
+version: 1.6.0
 release: 1
 description: Plugin management framework
 license: MIT
@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://files.pythonhosted.org/packages/source/p/pluggy/pluggy-${version}.tar.gz
-  sha256: 2cffa88e94fdc978c4c574f15f9e59b7f4201d439195c3715ca9e2486f1d0cf1
+  sha256: 7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3
 dependencies:
   build: []
   host: []

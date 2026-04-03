@@ -1,5 +1,5 @@
 name: ruby
-version: 3.3.6
+version: 4.0.1
 release: 1
 description: Ruby programming language
 license: Ruby
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://cache.ruby-lang.org/pub/ruby/3.3/ruby-${version}.tar.xz
-  sha256: 540975969d1af42190d26ff629bc93b1c3f4bffff4ab253e245e125085e66266
+  sha256: 5fad6c9f7b8cfa21597e9073dd65d9e35a07d08cab5c4114e0e7d6b5a233e4e6
 dependencies:
   build: []
   host: []

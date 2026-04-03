@@ -1,5 +1,5 @@
 name: protobuf
-version: '28.3'
+version: '33.5'
 release: 1
 description: Protocol Buffers serialization library
 license: BSD-3-Clause
@@ -9,7 +9,7 @@ build_style: cmake
 install_func: do_install
 source:
 - url: https://github.com/protocolbuffers/protobuf/releases/download/v${version}/protobuf-${version}.tar.gz
-  sha256: 7c3ebd7aaedd86fa5dc479a0fda803f602caaf78d8aff7ce83b89e1b8ae7442a
+  sha256: c6c7c27fadc19d40ab2eaa23ff35debfe01f6494a8345559b9bb285ce4144dd1
 dependencies:
   build:
   - abseil-cpp

@@ -1,5 +1,5 @@
 name: libpng
-version: 1.6.44
+version: 1.6.55
 release: 1
 description: PNG reference library
 license: Libpng
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://downloads.sourceforge.net/libpng/libpng-${version}.tar.xz
-  sha256: 60c4da1d5b7f0aa8d158da48e8f8afa9773c1c8baa5d21974df61f1886b8ce8e
+  sha256: d925722864837ad5ae2a82070d4b2e0603dc72af44bd457c3962298258b8e82d
 dependencies:
   build: []
   host: []

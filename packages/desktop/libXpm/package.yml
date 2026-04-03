@@ -1,5 +1,5 @@
 name: libXpm
-version: 3.5.17
+version: 3.5.18
 release: 1
 description: X Pixmap library
 license: MIT
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXpm-${version}.tar.xz
-  sha256: 64b31f81019e7d388c822b0b28af8d51c4622b83f1f0cb6fa3fc95e271226e43
+  sha256: b4ed79bfc718000edee837d551c35286f0b84576db0ce07bbbebe60a4affa1e4
 dependencies:
   build:
   - libXt

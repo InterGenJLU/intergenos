@@ -1,5 +1,5 @@
 name: libSM
-version: 1.2.4
+version: 1.2.6
 release: 1
 description: X Session Management library
 license: MIT
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libSM-${version}.tar.xz
-  sha256: fdcbe51e4d1276b1183da77a8a4e74a137ca203e0bcfb20972dd5f3347e97b84
+  sha256: be7c0abdb15cbfd29ac62573c1c82e877f9d4047ad15321e7ea97d1e43d835be
 dependencies:
   build:
   - libICE

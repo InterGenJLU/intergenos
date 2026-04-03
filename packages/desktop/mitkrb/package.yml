@@ -1,5 +1,5 @@
 name: mitkrb
-version: 1.21.3
+version: 1.22.2
 release: 1
 description: MIT Kerberos V5 authentication
 license: MIT
@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://kerberos.org/dist/krb5/1.21/krb5-${version}.tar.gz
-  sha256: b7a4cd5ead67fb08b980b21abd150ff7217e85ea320c9ed0c6dadd304840ad35
+  sha256: 751f98e84ea54d7487d44cf70f0dba200e29b032991cc5edb34f2a45c0dafaf4
 dependencies:
   build:
   - keyutils

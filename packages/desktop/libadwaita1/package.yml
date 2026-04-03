@@ -1,5 +1,5 @@
 name: libadwaita1
-version: 1.6.2
+version: 1.8.4
 release: 1
 description: GTK4 adaptive widgets library
 license: LGPL-2.1-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/libadwaita/1.6/libadwaita-${version}.tar.xz
-  sha256: 7542f8354e6808dd4e9a31551bbdfc0170735e4af4d1b3e69186500ccb9c01eb
+- url: https://download.gnome.org/sources/libadwaita/1.8/libadwaita-${version}.tar.xz
+  sha256: d02bb77b6f0ff1055002d299898c487cb2d83dbf940d9edf59f6fdf2572a921c
 dependencies:
   build:
   - appstream

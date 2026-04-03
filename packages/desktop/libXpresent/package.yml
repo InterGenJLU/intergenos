@@ -1,5 +1,5 @@
 name: libXpresent
-version: 1.0.1
+version: 1.0.2
 release: 1
 description: X Present extension library
 license: MIT
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXpresent-${version}.tar.xz
-  sha256: b964df9e5a066daa5e08d2dc82692c57ca27d00b8cc257e8e960c9f1cf26231b
+  sha256: 4e5b21b4812206a4b223013606ae31170502c1043038777a1ef8f70c09d37602
 dependencies:
   build:
   - libXfixes

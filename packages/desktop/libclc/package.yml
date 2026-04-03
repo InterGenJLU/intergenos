@@ -1,5 +1,5 @@
 name: libclc
-version: 19.1.7
+version: 21.1.8
 release: 1
 description: OpenCL C library
 license: Apache-2.0
@@ -9,7 +9,7 @@ build_style: cmake
 install_func: do_install
 source:
 - url: https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/libclc-${version}.src.tar.xz
-  sha256: 77e2d71f5cea1d0b1014ba88186299d1a0848eb3dc20948baae649db9e7641cb
+  sha256: 6c2677362a53531c35edf482bdc9171ea0471ca0a1e9138ac9b5a1782925616f
 dependencies:
   build:
   - llvm

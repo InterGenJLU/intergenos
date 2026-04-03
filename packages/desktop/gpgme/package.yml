@@ -1,5 +1,5 @@
 name: gpgme
-version: 1.24.1
+version: 2.0.1
 release: 1
 description: GnuPG Made Easy library
 license: LGPL-2.1-or-later
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.gnupg.org/ftp/gcrypt/gpgme/gpgme-${version}.tar.bz2
-  sha256: ea05d0258e71061d61716584ec34cef59330a91340571edc46b78374973ba85f
+  sha256: 821ab0695c842eab51752a81980c92b0410c7eadd04103f791d5d2a526784966
 dependencies:
   build:
   - libassuan

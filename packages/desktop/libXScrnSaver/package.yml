@@ -1,5 +1,5 @@
 name: libXScrnSaver
-version: 1.2.4
+version: 1.2.5
 release: 1
 description: X11 Screen Saver extension library
 license: MIT
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/libXScrnSaver-${version}.tar.xz
-  sha256: 75cd2859f38e207a090cac980d76bc71e9da99d48d09703584e00585abc920fe
+  sha256: 5057365f847253e0e275871441e10ff7846c8322a5d88e1e187d326de1cd8d00
 dependencies:
   build:
   - libXext

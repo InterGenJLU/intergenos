@@ -1,5 +1,5 @@
 name: gdm
-version: '47.0'
+version: '49.2'
 release: 1
 description: GNOME Display Manager
 license: GPL-2.0-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/gdm/47/gdm-${version}.tar.xz
-  sha256: c5858326bfbcc8ace581352e2be44622dc0e9e5c2801c8690fd2eed502607f84
+- url: https://download.gnome.org/sources/gdm/49/gdm-${version}.tar.xz
+  sha256: 9813631f9f5f0f860ea14a437866e60efc7bed3023b7c3b765cc5de1de597a06
 dependencies:
   build:
   - accountsservice

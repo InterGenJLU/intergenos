@@ -1,5 +1,5 @@
 name: nettle
-version: 3.10.1
+version: 3.10.2
 release: 1
 description: Low-level cryptographic library
 license: LGPL-3.0-or-later
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://ftpmirror.gnu.org/nettle/nettle-${version}.tar.gz
-  sha256: b0fcdd7fc0cdea6e80dcf1dd85ba794af0d5b4a57e26397eee3bc193272d9132
+  sha256: c79255f6cb550eaa07d6e90d859b8c1abe81658115ae8175e74b67ac22c7ed87
 dependencies:
   build: []
   host: []

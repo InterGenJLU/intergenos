@@ -1,5 +1,5 @@
 name: mutter
-version: '47.4'
+version: '49.4'
 release: 1
 description: GNOME window manager and Wayland compositor
 license: GPL-2.0-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/mutter/47/mutter-${version}.tar.xz
-  sha256: f531fc00e6ec6dbb570b3bf942b6490f7a93df91c4c267a918b4d2afe9211bda
+- url: https://download.gnome.org/sources/mutter/49/mutter-${version}.tar.xz
+  sha256: c1666ec50561530be25cb88d939c2bcc2af34f01c63b8b16b82b892ee33d7855
 dependencies:
   build:
   - at-spi2-core

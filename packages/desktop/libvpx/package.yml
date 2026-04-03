@@ -1,5 +1,5 @@
 name: libvpx
-version: 1.15.0
+version: 1.16.0
 release: 1
 description: VP8/VP9 video codec
 license: BSD-3-Clause
@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://github.com/webmproject/libvpx/archive/v${version}/libvpx-${version}.tar.gz
-  sha256: e935eded7d81631a538bfae703fd1e293aad1c7fd3407ba00440c95105d2011e
+  sha256: 7a479a3c66b9f5d5542a4c6a1b7d3768a983b1e5c14c60a9396edc9b649e015c
 dependencies:
   build:
   - nasm

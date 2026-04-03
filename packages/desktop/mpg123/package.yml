@@ -1,5 +1,5 @@
 name: mpg123
-version: 1.32.9
+version: 1.33.4
 release: 1
 description: MPEG audio decoder
 license: LGPL-2.1-or-later
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://downloads.sourceforge.net/mpg123/mpg123-${version}.tar.bz2
-  sha256: 03b61e4004e960bacf2acdada03ed94d376e6aab27a601447bd4908d8407b291
+  sha256: 3ae8c9ff80a97bfc0e22e89fbcd74687eca4fc1db315b12607f27f01cb5a47d9
 dependencies:
   build: []
   host: []

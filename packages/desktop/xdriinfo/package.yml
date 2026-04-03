@@ -1,5 +1,5 @@
 name: xdriinfo
-version: 1.0.7
+version: 1.0.8
 release: 1
 description: DRI information utility
 license: MIT
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/app/xdriinfo-${version}.tar.xz
-  sha256: dd838bae9d2b19ddd71fe6d30ed33abc7c85e19d223e79d35600db3fa44bf734
+  sha256: 00463056435b82261c227ad0de1873fd4536101607fbc57540e28e4a0a9b71f7
 dependencies:
   build:
   - libX11

@@ -1,5 +1,5 @@
 name: libgcrypt
-version: 1.11.0
+version: 1.12.0
 release: 1
 description: General purpose cryptographic library
 license: LGPL-2.1-or-later
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.gnupg.org/ftp/gcrypt/libgcrypt/libgcrypt-${version}.tar.bz2
-  sha256: 09120c9867ce7f2081d6aaa1775386b98c2f2f246135761aae47d81f58685b9c
+  sha256: 0311454e678189bad62a7e9402a9dd793025efff6e7449898616e2fc75e0f4f5
 dependencies:
   build:
   - libgpg-error

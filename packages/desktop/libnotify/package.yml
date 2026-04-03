@@ -1,5 +1,5 @@
 name: libnotify
-version: 0.8.4
+version: 0.8.8
 release: 1
 description: Desktop notification library
 license: LGPL-2.1-or-later
@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/libnotify/0.8/libnotify-${version}.tar.xz
-  sha256: 8fa04d4ebdc155b0a239df88bd9f09e8f2739d5707a1390b427ab4985f83d25a
+  sha256: 23420ef619dc2cb5aebad613f4823a2fa41c07e5a1d05628d40f6ec4b35bfddd
 dependencies:
   build:
   - gdk-pixbuf

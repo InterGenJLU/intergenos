@@ -1,5 +1,5 @@
 name: gnome-desktop
-version: '44.1'
+version: '44.5'
 release: 1
 description: GNOME desktop core library
 license: LGPL-2.0-or-later
@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/gnome-desktop/44/gnome-desktop-${version}.tar.xz
-  sha256: ae7ca55dc9e08914999741523a17d29ce223915626bd2462a120bf96f47a79ab
+  sha256: 20e0995a6e3a03e8c1026c5a27bc3f45e69ffcc392ad743dcab6107a541d232f
 dependencies:
   build:
   - gsettings-desktop-schemas

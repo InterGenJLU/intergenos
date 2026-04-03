@@ -1,5 +1,5 @@
 name: xtrans
-version: 1.5.2
+version: 1.6.0
 release: 1
 description: X transport library
 license: MIT
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/lib/xtrans-${version}.tar.xz
-  sha256: 5c5cbfe34764a9131d048f03c31c19e57fb4c682d67713eab6a65541b4dff86c
+  sha256: faafea166bf2451a173d9d593352940ec6404145c5d1da5c213423ce4d359e92
 dependencies:
   build: []
   host: []

@@ -1,5 +1,5 @@
 name: xkeyboard-config
-version: '2.43'
+version: '2.46'
 release: 1
 description: X Keyboard Configuration Database
 license: MIT
@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/data/xkeyboard-config/xkeyboard-config-${version}.tar.xz
-  sha256: c810f362c82a834ee89da81e34cd1452c99789339f46f6037f4b9e227dd06c01
+  sha256: 10c58218fb60d08fb1f7b30304deb3ba47613195aa8a08a81f1972775ccc3640
 dependencies:
   build:
   - libX11

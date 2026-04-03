@@ -1,5 +1,5 @@
 name: nasm
-version: 2.16.03
+version: 3.01
 release: 1
 description: Netwide Assembler
 license: BSD-2-Clause
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.nasm.us/pub/nasm/releasebuilds/${version}/nasm-${version}.tar.xz
-  sha256: 1412a1c760bbd05db026b6c0d1657affd6631cd0a63cddb6f73cc6d4aa616148
+  sha256: b7324cbe86e767b65f26f467ed8b12ad80e124e3ccb89076855c98e43a9eddd4
 dependencies:
   build: []
   host: []

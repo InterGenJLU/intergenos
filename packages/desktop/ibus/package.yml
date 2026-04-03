@@ -1,5 +1,5 @@
 name: ibus
-version: 1.5.31
+version: 1.5.33
 release: 1
 description: Intelligent Input Bus framework
 license: LGPL-2.1-or-later
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://github.com/ibus/ibus/archive/${version}/ibus-${version}.tar.gz
-  sha256: 1d93df0bd0d9581decb8f0c85fe3b2d248878140c6e5a7cd8ca459c72f75870c
+  sha256: a777068caba4ba7599a3214e2966f564daec01bba94cd7f2ca63062107e0604f
 dependencies:
   build:
   - dconf

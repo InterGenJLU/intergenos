@@ -1,5 +1,5 @@
 name: gst-plugins-bad
-version: 1.24.10
+version: 1.28.1
 release: 1
 description: GStreamer bad plugins
 license: LGPL-2.0-or-later
@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugins-bad-${version}.tar.xz
-  sha256: 1707e3103950c9baed364a8af2ba0495d6b113fcd36e1062dda5f582b8f8904d
+  sha256: 56c1593787f8b5550893d59e4ff29e6bcccf34973316fa55e34ce493e04313a2
 dependencies:
   build:
   - gst-plugins-base

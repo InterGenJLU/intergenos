@@ -1,5 +1,5 @@
 name: iptables
-version: 1.8.11
+version: 1.8.12
 release: 1
 description: Linux kernel packet filtering framework
 license: GPL-2.0-or-later
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.netfilter.org/projects/iptables/files/iptables-${version}.tar.xz
-  sha256: d87303d55ef8c92bcad4dd3f978b26d272013642b029425775f5bad1009fe7b2
+  sha256: 8e7ee962601492de6503d171d4a948092ab18f89f111de72e3037c1f40cfb846
 dependencies:
   build: []
   host: []

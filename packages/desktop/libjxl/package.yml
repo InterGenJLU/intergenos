@@ -1,5 +1,5 @@
 name: libjxl
-version: 0.11.1
+version: 0.11.2
 release: 1
 description: JPEG XL image format library
 license: BSD-3-Clause
@@ -9,7 +9,7 @@ build_style: cmake
 install_func: do_install
 source:
 - url: https://github.com/libjxl/libjxl/archive/v${version}/libjxl-${version}.tar.gz
-  sha256: 1492dfef8dd6c3036446ac3b340005d92ab92f7d48ee3271b5dac1d36945d3d9
+  sha256: ab38928f7f6248e2a98cc184956021acb927b16a0dee71b4d260dc040a4320ea
 dependencies:
   build:
   - brotli

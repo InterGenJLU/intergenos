@@ -1,5 +1,5 @@
 name: gnome-control-center
-version: '47.4'
+version: '49.4'
 release: 1
 description: GNOME system settings
 license: GPL-2.0-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/gnome-control-center/47/gnome-control-center-${version}.tar.xz
-  sha256: 28c7db74d720fcc9f213c12d372e7eacc1767a49bc4ca66b2bd20b0fd1022668
+- url: https://download.gnome.org/sources/gnome-control-center/49/gnome-control-center-${version}.tar.xz
+  sha256: 131975e5fddd208f3a30f766a1c667f8cb3f15b689a868d285a641a234204b02
 dependencies:
   build:
   - accountsservice

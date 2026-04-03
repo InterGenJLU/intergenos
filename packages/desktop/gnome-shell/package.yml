@@ -1,5 +1,5 @@
 name: gnome-shell
-version: '47.4'
+version: '49.4'
 release: 1
 description: GNOME desktop shell
 license: GPL-2.0-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/gnome-shell/47/gnome-shell-${version}.tar.xz
-  sha256: 680baf694f45f8fc832d245ada6c63b5fc4b030ccfbebbfc0e0e3bc28da2e46d
+- url: https://download.gnome.org/sources/gnome-shell/49/gnome-shell-${version}.tar.xz
+  sha256: 9d6f0ca2f0140c114f114f6707413611f614fb1ea6c317a8d1fcc40c3c595b08
 dependencies:
   build:
   - gcr4

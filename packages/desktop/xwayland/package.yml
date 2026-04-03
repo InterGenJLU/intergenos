@@ -1,5 +1,5 @@
 name: xwayland
-version: 24.1.5
+version: 24.1.9
 release: 1
 description: X server running as a Wayland client
 license: MIT
@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://www.x.org/pub/individual/xserver/xwayland-${version}.tar.xz
-  sha256: cb4bd170e6fa6b545ba0567be8f693d2eeccfc62d04c67037dd14f06daad361d
+  sha256: f297af27a84508db9b80d1cbbcc69c3801da38eb64c72f3b5b50f582459afdd0
 dependencies:
   build:
   - libepoxy

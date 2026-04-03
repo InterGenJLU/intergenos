@@ -1,5 +1,5 @@
 name: gnome-settings-daemon
-version: '47.1'
+version: '49.1'
 release: 1
 description: GNOME settings daemon
 license: GPL-2.0-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/gnome-settings-daemon/47/gnome-settings-daemon-${version}.tar.xz
-  sha256: f2aacbe55fa38e8708583eec0a6651049e537eb505a3ed2ce0baa4e9b64246d1
+- url: https://download.gnome.org/sources/gnome-settings-daemon/49/gnome-settings-daemon-${version}.tar.xz
+  sha256: 2a9957fc4f91c3b9127b49484179bef485120d9c1c208e44d44e6a746e6cc1c1
 dependencies:
   build:
   - alsa-lib

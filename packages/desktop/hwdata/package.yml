@@ -1,5 +1,5 @@
 name: hwdata
-version: '0.389'
+version: '0.404'
 release: 1
 description: Hardware identification and configuration data
 license: GPL-2.0-or-later
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://github.com/vcrhonek/hwdata/archive/v${version}/hwdata-${version}.tar.gz
-  sha256: 34813e6821a5dab0f663a363026e4d17e880e5f5f2ed49244c42263b226ff98a
+  sha256: 5c14fc99bf193faad1ccc267ccfff14ee4e4550a582b17a76aec72178539f837
 dependencies:
   build: []
   host: []

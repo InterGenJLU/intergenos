@@ -1,5 +1,5 @@
 name: tecla
-version: '47.0'
+version: '49.0'
 release: 1
 description: GNOME on-screen keyboard
 license: GPL-2.0-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/tecla/47/tecla-${version}.tar.xz
-  sha256: 0790b99ec29137a54b546c510661a99aa6f039c8d75f10c08e928682c0804fe5
+- url: https://download.gnome.org/sources/tecla/49/tecla-${version}.tar.xz
+  sha256: 2ca424e402baf60cd6b13777703b701ebb1faf8f3d0f2f971144d823f651249f
 dependencies:
   build:
   - libadwaita1

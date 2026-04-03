@@ -1,5 +1,5 @@
 name: libpcap
-version: 1.10.5
+version: 1.10.6
 release: 1
 description: Packet capture library
 license: BSD-3-Clause
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://www.tcpdump.org/release/libpcap-${version}.tar.xz
-  sha256: 84fa89ac6d303028c1c5b754abff77224f45eca0a94eb1a34ff0aa9ceece3925
+  sha256: ec97d1206bdd19cb6bdd043eaa9f0037aa732262ec68e070fd7c7b5f834d5dfc
 dependencies:
   build: []
   host: []

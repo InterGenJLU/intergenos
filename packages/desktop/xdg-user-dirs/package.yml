@@ -1,5 +1,5 @@
 name: xdg-user-dirs
-version: '0.18'
+version: '0.19'
 release: 1
 description: XDG user directory management
 license: GPL-2.0-or-later
@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://user-dirs.freedesktop.org/releases/xdg-user-dirs-${version}.tar.gz
-  sha256: ec6f06d7495cdba37a732039f9b5e1578bcb296576fde0da40edb2f52220df3c
+  sha256: 29210bd94158f1adb85c095e113dc306a9626cfc10d672ebdbf4ce95c8dfe626
 dependencies:
   build: []
   host: []
