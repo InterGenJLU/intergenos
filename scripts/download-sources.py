@@ -45,6 +45,35 @@ def resolve_url(url: str, name: str, version: str) -> str:
     return url.replace("${version}", version).replace("${name}", name)
 
 
+def validate_download(dest: str) -> bool:
+    """Verify a downloaded file is actually an archive, not an error page.
+
+    Returns True if the file looks valid. Removes the file and returns False
+    if it's suspiciously small or is plain text (HTML error page, "Not Found", etc.).
+    """
+    if not os.path.exists(dest):
+        return False
+
+    size = os.path.getsize(dest)
+
+    # Archives should be at least 1KB — anything smaller is almost certainly
+    # an error page or empty response
+    if size < 1024:
+        with open(dest, "rb") as f:
+            head = f.read(512)
+        # Check if it's text (HTML error, "Not Found", redirect page, etc.)
+        try:
+            text = head.decode("utf-8", errors="strict")
+            if any(marker in text.lower() for marker in ["not found", "<html", "<!doctype", "error", "redirect"]):
+                print(f"    CORRUPT: downloaded file is a text error page ({size} bytes: {text.strip()[:80]})", flush=True)
+                os.unlink(dest)
+                return False
+        except UnicodeDecodeError:
+            pass  # Binary data — probably fine, just very small
+
+    return True
+
+
 def download_file(url: str, dest: str, timeout: int = 300) -> bool:
     """Download a file using wget, falling back to curl. Returns True on success."""
     try:
@@ -54,7 +83,8 @@ def download_file(url: str, dest: str, timeout: int = 300) -> bool:
             capture_output=True, timeout=timeout,
         )
         if result.returncode == 0 and os.path.exists(dest) and os.path.getsize(dest) > 0:
-            return True
+            if validate_download(dest):
+                return True
 
         # wget failed — try curl as fallback (some sites block wget)
         if os.path.exists(dest):
@@ -64,7 +94,8 @@ def download_file(url: str, dest: str, timeout: int = 300) -> bool:
             capture_output=True, timeout=timeout,
         )
         if result.returncode == 0 and os.path.exists(dest) and os.path.getsize(dest) > 0:
-            return True
+            if validate_download(dest):
+                return True
 
         return False
     except subprocess.TimeoutExpired:
