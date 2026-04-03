@@ -5,7 +5,7 @@ description: GNOME virtual filesystem
 license: LGPL-2.0-or-later
 homepage: ''
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/gvfs/1.58/gvfs-${version}.tar.xz

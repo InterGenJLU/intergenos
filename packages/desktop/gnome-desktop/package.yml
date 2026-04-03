@@ -5,7 +5,7 @@ description: GNOME desktop core library
 license: LGPL-2.0-or-later
 homepage: https://gitlab.gnome.org/GNOME/gnome-desktop
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/gnome-desktop/44/gnome-desktop-${version}.tar.xz

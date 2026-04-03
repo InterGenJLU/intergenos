@@ -5,7 +5,7 @@ description: GObject wrapper for Exiv2
 license: GPL-2.0-or-later
 homepage: ''
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/gexiv2/0.14/gexiv2-${version}.tar.xz

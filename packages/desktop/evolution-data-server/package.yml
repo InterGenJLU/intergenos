@@ -5,7 +5,7 @@ description: Calendar and contacts data server
 license: LGPL-2.0-or-later
 homepage: ''
 tier: desktop
-build_style: cmake
+build_style: custom
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/evolution-data-server/3.58/evolution-data-server-${version}.tar.xz

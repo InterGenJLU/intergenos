@@ -5,7 +5,7 @@ description: System-wide power profile management
 license: GPL-3.0-or-later
 homepage: https://gitlab.freedesktop.org/upower/power-profiles-daemon
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://gitlab.freedesktop.org/upower/power-profiles-daemon/-/archive/${version}/power-profiles-daemon-${version}.tar.gz

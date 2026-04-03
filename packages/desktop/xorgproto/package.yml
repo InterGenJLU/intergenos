@@ -5,7 +5,7 @@ description: X11 protocol headers
 license: MIT
 homepage: https://www.x.org/
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://xorg.freedesktop.org/archive/individual/proto/xorgproto-${version}.tar.xz

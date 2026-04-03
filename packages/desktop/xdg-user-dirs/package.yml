@@ -5,7 +5,7 @@ description: XDG user directory management
 license: GPL-2.0-or-later
 homepage: https://www.freedesktop.org/wiki/Software/xdg-user-dirs/
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://gitlab.freedesktop.org/xdg/xdg-user-dirs/-/archive/v${version}/xdg-user-dirs-v${version}.tar.gz

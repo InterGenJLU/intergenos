@@ -5,7 +5,7 @@ description: Wacom tablet information library
 license: MIT
 homepage: ''
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://github.com/linuxwacom/libwacom/releases/download/libwacom-${version}/libwacom-${version}.tar.xz

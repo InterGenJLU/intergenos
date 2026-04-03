@@ -5,7 +5,7 @@ description: Graphics data types library
 license: MIT
 homepage: https://ebassi.github.io/graphene/
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/graphene/1.10/graphene-${version}.tar.xz

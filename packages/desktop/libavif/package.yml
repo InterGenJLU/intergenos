@@ -5,7 +5,7 @@ description: AVIF image format library
 license: BSD-2-Clause
 homepage: ''
 tier: desktop
-build_style: cmake
+build_style: custom
 install_func: do_install
 source:
 - url: https://github.com/AOMediaCodec/libavif/archive/v${version}/libavif-${version}.tar.gz

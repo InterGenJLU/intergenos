@@ -5,7 +5,7 @@ description: GNOME system settings
 license: GPL-2.0-or-later
 homepage: https://gitlab.gnome.org/GNOME/gnome-control-center
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/gnome-control-center/49/gnome-control-center-${version}.tar.xz

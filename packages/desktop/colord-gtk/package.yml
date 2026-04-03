@@ -5,7 +5,7 @@ description: GTK integration for colord
 license: LGPL-2.1-or-later
 homepage: https://www.freedesktop.org/software/colord/
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://www.freedesktop.org/software/colord/releases/colord-gtk-${version}.tar.xz

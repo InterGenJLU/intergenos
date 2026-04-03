@@ -5,7 +5,7 @@ description: Text shaping engine
 license: MIT
 homepage: https://harfbuzz.github.io/
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://github.com/harfbuzz/harfbuzz/releases/download/${version}/harfbuzz-${version}.tar.xz

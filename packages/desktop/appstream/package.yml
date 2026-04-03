@@ -5,7 +5,7 @@ description: AppStream metadata handling library
 license: LGPL-2.1-or-later
 homepage: https://www.freedesktop.org/wiki/Distributions/AppStream/
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://www.freedesktop.org/software/appstream/releases/AppStream-${version}.tar.xz

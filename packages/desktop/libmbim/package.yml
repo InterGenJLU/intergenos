@@ -5,7 +5,7 @@ description: MBIM protocol library
 license: LGPL-2.1-or-later
 homepage: ''
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://gitlab.freedesktop.org/mobile-broadband/libmbim/-/archive/${version}/libmbim-${version}.tar.gz

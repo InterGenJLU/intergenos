@@ -5,7 +5,7 @@ description: NetworkManager GTK widgets
 license: GPL-2.0-or-later
 homepage: ''
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/libnma/1.10/libnma-${version}.tar.xz
