@@ -5,7 +5,7 @@ description: Virtual Terminal Emulator widget
 license: LGPL-2.1-or-later
 homepage: https://wiki.gnome.org/Apps/Terminal/VTE
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/vte/0.82/vte-${version}.tar.xz

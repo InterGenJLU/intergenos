@@ -5,7 +5,7 @@ description: Text layout and rendering library
 license: LGPL-2.0-or-later
 homepage: https://pango.gnome.org/
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/pango/1.57/pango-${version}.tar.xz

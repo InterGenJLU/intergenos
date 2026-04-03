@@ -5,7 +5,7 @@ description: PIN/passphrase entry dialog
 license: GPL-2.0-or-later
 homepage: https://www.gnupg.org/
 tier: desktop
-build_style: autotools
+build_style: custom
 install_func: do_install
 source:
 - url: https://www.gnupg.org/ftp/gcrypt/pinentry/pinentry-${version}.tar.bz2

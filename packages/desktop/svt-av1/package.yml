@@ -5,7 +5,7 @@ description: SVT-based AV1 encoder
 license: BSD-2-Clause
 homepage: https://gitlab.com/AOMediaCodec/SVT-AV1
 tier: desktop
-build_style: cmake
+build_style: custom
 install_func: do_install
 source:
 - url: https://gitlab.com/AOMediaCodec/SVT-AV1/-/archive/v${version}/SVT-AV1-v${version}.tar.bz2

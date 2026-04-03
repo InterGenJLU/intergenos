@@ -5,7 +5,7 @@ description: Web Open Font Format 2.0 library
 license: MIT
 homepage: ''
 tier: desktop
-build_style: cmake
+build_style: custom
 install_func: do_install
 source:
 - url: https://github.com/google/woff2/archive/v${version}/woff2-${version}.tar.gz

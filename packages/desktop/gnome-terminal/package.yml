@@ -5,7 +5,7 @@ description: GNOME terminal emulator
 license: GPL-3.0-or-later
 homepage: https://wiki.gnome.org/Apps/Terminal
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://gitlab.gnome.org/GNOME/gnome-terminal/-/archive/${version}/gnome-terminal-${version}.tar.gz

@@ -5,7 +5,7 @@ description: "FreeType font rendering library (pass 2 \u2014 with HarfBuzz)"
 license: FTL
 homepage: https://www.freetype.org/
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://downloads.sourceforge.net/freetype/freetype-${version}.tar.xz

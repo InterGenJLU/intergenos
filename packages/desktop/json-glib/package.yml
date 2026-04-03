@@ -5,7 +5,7 @@ description: JSON parser for GLib
 license: LGPL-2.1-or-later
 homepage: https://wiki.gnome.org/Projects/JsonGlib
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/json-glib/1.10/json-glib-${version}.tar.xz
