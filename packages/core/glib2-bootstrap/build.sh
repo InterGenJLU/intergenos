@@ -1,7 +1,6 @@
 #!/bin/bash
-# glib2 2.86.4 — GLib with introspection enabled
-# Final pass of bootstrap: glib-bootstrap → gobject-introspection → glib (full)
-# gobject-introspection is already installed, so this is a clean single-pass build.
+# glib2-bootstrap 2.86.4 — GLib without introspection
+# First pass of bootstrap: glib-bootstrap → gobject-introspection → glib (full)
 # BLFS 13.0
 
 configure() {
@@ -13,7 +12,7 @@ configure() {
     meson setup ..                  \
           --prefix=/usr             \
           --buildtype=release       \
-          -D introspection=enabled  \
+          -D introspection=disabled \
           -D glib_debug=disabled    \
           -D man-pages=disabled     \
           -D sysprof=disabled

@@ -242,11 +242,22 @@ run_package "shadow-pam" "shadow-pam" "4.19.3" \
     "shadow-4.19.3.tar.xz" \
     "Shadow password suite (rebuilt with Linux-PAM support)"
 
-# --- Group D: glib2 (two-pass, direct install in chroot is safe) ---
+# --- Group D: glib2 bootstrap (Void Linux approach) ---
+# Three separate packages break the circular dependency:
+#   glib2-bootstrap (no introspection) → gobject-introspection → glib2 (full)
+# Each is a standard DESTDIR build. No hacks needed.
+
+run_package "glib2-bootstrap" "glib2-bootstrap" "2.86.4" \
+    "glib-2.86.4.tar.xz" \
+    "GLib core library (bootstrap — without introspection)"
+
+run_package "gobject-introspection" "gobject-introspection" "1.86.0" \
+    "gobject-introspection-1.86.0.tar.xz" \
+    "GObject type introspection framework"
 
 run_package "glib2" "glib2" "2.86.4" \
     "glib-2.86.4.tar.xz" \
-    "Low-level core library for GNOME and GTK applications"
+    "GLib core library (full — with introspection)"
 
 # --- Group A: TLS chain (deps on libtasn1, libunistring) ---
 
