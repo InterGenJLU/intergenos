@@ -12,7 +12,7 @@ configure() {
                 SENDMAIL=/usr/sbin/sendmail       \
                 --with-jobdir=/var/spool/atjobs   \
                 --with-atspool=/var/spool/atspool \
-                --with-systemdsystemunitdir=/lib/systemd/system
+                --with-systemdsystemunitdir=/usr/lib/systemd/system
 }
 
 build() {

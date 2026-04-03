@@ -22,8 +22,11 @@ build() {
 }
 
 do_install() {
+    # Create /etc in DESTDIR before make install — the Makefile tries to
+    # copy screenrc there during install and fails if it doesn't exist
+    install -v -d -m755 "${DESTDIR}/etc"
+
     make DESTDIR="$DESTDIR" install
 
-    install -v -d -m755 "${DESTDIR}/etc"
     install -v -m644 etc/etcscreenrc "${DESTDIR}/etc/screenrc"
 }

@@ -49,8 +49,21 @@ class BuildStyle(ABC):
     def install(self, pkg: Package) -> BuildPhase:
         """Generate install commands."""
 
+    def post_install(self, pkg: Package) -> BuildPhase:
+        """Generate post-install commands (runs on live filesystem, not DESTDIR).
+
+        Default: no-op. Override in styles that support post_install hooks
+        (currently custom style only).
+        """
+        return BuildPhase(name="post_install", commands=[])
+
     def all_phases(self, pkg: Package) -> list[BuildPhase]:
-        """Return all phases in order."""
+        """Return all phases in order.
+
+        Note: post_install is NOT included here — it runs after package
+        tracking (deploy), not as a regular build phase. The builder
+        handles it separately so it executes on the live filesystem.
+        """
         return [
             self.patch(pkg),
             self.configure(pkg),

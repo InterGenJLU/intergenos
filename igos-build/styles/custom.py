@@ -60,3 +60,17 @@ class CustomStyle(BuildStyle):
                 f"source {script} && if type {func} &>/dev/null; then {func}; fi",
             ],
         )
+
+    def post_install(self, pkg: Package) -> BuildPhase:
+        """Post-install hooks that run on the live filesystem (not in DESTDIR).
+
+        Used for things like catalog registration, user/group creation,
+        systemd enable, config file generation, etc.
+        """
+        script = self._build_sh_path(pkg)
+        return BuildPhase(
+            name="post_install",
+            commands=[
+                f"source {script} && if type post_install &>/dev/null; then post_install; fi",
+            ],
+        )

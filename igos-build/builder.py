@@ -355,9 +355,28 @@ class BuildExecutor:
     def pkg_deploy(self, pkg: Package, staging_dir: Path) -> bool:
         """Deploy staged files to the live filesystem using tar.
 
-        Uses tar to handle symlink/directory conflicts gracefully
-        (e.g., /var/run is a symlink to /run on systemd systems).
+        Safety: pre-checks for top-level entries that would collide with
+        root-level symlinks (lib -> usr/lib, bin -> usr/bin, etc.).
+        A package staging a real directory over one of these symlinks
+        would kill the dynamic linker and break every binary on the system.
         """
+        # Pre-deploy safety check: detect staging entries that would clobber
+        # load-bearing root symlinks (lib -> usr/lib, bin -> usr/bin, etc.)
+        dangerous = []
+        for entry in ("lib", "lib64", "bin", "sbin"):
+            staged = staging_dir / entry
+            root_path = Path("/") / entry
+            if staged.is_dir() and root_path.is_symlink():
+                dangerous.append(entry)
+
+        if dangerous:
+            self.logger.error(
+                f"DANGEROUS: {pkg.name}-{pkg.version} staging contains top-level "
+                f"dirs that would collide with root symlinks: {' '.join(dangerous)}\n"
+                f"  Fix the package build.sh to install to usr/ paths instead"
+            )
+            return False
+
         result = subprocess.run(
             ["tar", "-C", str(staging_dir), "-cf", "-", "."],
             capture_output=True,
@@ -367,7 +386,8 @@ class BuildExecutor:
             return False
 
         result2 = subprocess.run(
-            ["tar", "-C", "/", "-xf", "-", "--no-overwrite-dir"],
+            ["tar", "-C", "/", "-xf", "-",
+             "--no-overwrite-dir", "--keep-directory-symlink"],
             input=result.stdout,
             capture_output=True,
         )
@@ -637,6 +657,29 @@ class BuildExecutor:
                     self.logger.end_phase("track", 1)
                 else:
                     self.logger.end_phase("track", 0)
+
+        # --- Post-install (runs on live filesystem, after deploy) ---
+        # post_install hooks handle things like catalog registration, systemd
+        # enable, config file generation — anything that must run on the live
+        # system rather than in DESTDIR.
+        if success:
+            post_phase = style.post_install(pkg)
+            if post_phase.commands:
+                self.logger.start_phase("post_install")
+                # Run with DESTDIR unset so commands target the live filesystem
+                post_env = env.copy()
+                post_env.pop("DESTDIR", None)
+                for cmd in post_phase.commands:
+                    exit_code = self.run_command(cmd, post_env, src_dir)
+                    if exit_code != 0:
+                        self.logger.error(
+                            f"post_install failed for {pkg.name} {pkg.version}\n"
+                            f"  Command: {cmd}\n"
+                            f"  Exit code: {exit_code}"
+                        )
+                        success = False
+                        break
+                self.logger.end_phase("post_install", 0 if success else 1)
 
         elapsed = time.monotonic() - build_start
         self.logger.end_package(success)

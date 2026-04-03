@@ -5,7 +5,8 @@
 configure() {
     cmake -B build \
           -DCMAKE_INSTALL_PREFIX=/usr \
-          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_TESTING=OFF
 }
 
 build() {
