@@ -9,5 +9,5 @@ build() {
 }
 
 do_install() {
-    pip3 install --no-index --find-links dist --no-cache-dir --no-user --root="$DESTDIR" hatchling
+    pip3 install --no-index --find-links dist --no-deps --no-cache-dir --no-user --root="$DESTDIR" hatchling
 }
