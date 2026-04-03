@@ -10,6 +10,8 @@ install_func: do_install
 source:
 - url: https://0pointer.de/lennart/projects/libcanberra/libcanberra-${version}.tar.xz
   sha256: c2b671e67e0c288a69fc33dc1b6f1b534d07882c2aceed37004bf48c601afa72
+patches:
+  - libcanberra-0.30-wayland-1.patch
 dependencies:
   build:
   - libvorbis

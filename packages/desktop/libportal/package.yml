@@ -10,6 +10,8 @@ install_func: do_install
 source:
 - url: https://github.com/flatpak/libportal/releases/download/${version}/libportal-${version}.tar.xz
   sha256: de801ee349ed3c255a9af3c01b1a401fab5b3fc1c35eb2fd7dfb35d4b8194d7f
+patches:
+  - libportal-0.9.1-qt6.9_fixes-1.patch
 dependencies:
   build:
   - gtk3

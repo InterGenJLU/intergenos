@@ -10,6 +10,8 @@ install_func: do_install
 source:
 - url: https://download.gnome.org/sources/evolution-data-server/3.58/evolution-data-server-${version}.tar.xz
   sha256: da136d1190d9e8b09499452f6058e24eee6b77f441a8c769f74a52451bf379f1
+patches:
+  - evolution-data-server-3.58.3-security_fixes-1.patch
 dependencies:
   build:
   - libical
