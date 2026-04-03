@@ -3,9 +3,13 @@
 # BLFS 13.0
 
 build() {
-    make LIBDIR=/usr/lib USRLIBDIR=/usr/lib BINDIR=/usr/bin SBINDIR=/usr/sbin -j${IGOS_JOBS}
+    make -j${IGOS_JOBS}
 }
 
 do_install() {
-    make LIBDIR=/usr/lib USRLIBDIR=/usr/lib BINDIR=/usr/bin SBINDIR=/usr/sbin DESTDIR="$DESTDIR" install
+    make NO_ARLIB=1 \
+         LIBDIR=/usr/lib \
+         BINDIR=/usr/bin \
+         SBINDIR=/usr/sbin \
+         DESTDIR="$DESTDIR" install
 }
