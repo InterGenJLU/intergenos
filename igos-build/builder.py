@@ -195,8 +195,8 @@ class BuildExecutor:
         src_dir.mkdir(parents=True, exist_ok=True)
 
         self.logger.info(f"Extracting to {src_dir}")
-        # Use bsdtar for .lz archives (lzip format), tar for everything else
-        if str(tarball_path).endswith('.lz'):
+        # Use bsdtar for .lz and .zip archives, tar for everything else
+        if str(tarball_path).endswith('.lz') or str(tarball_path).endswith('.zip'):
             extract_cmd = f'bsdtar -xf "{tarball_path}" -C "{src_dir}" --strip-components=1'
         else:
             extract_cmd = f'tar -xf "{tarball_path}" -C "{src_dir}" --strip-components=1'
