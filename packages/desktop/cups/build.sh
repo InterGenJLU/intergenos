@@ -29,6 +29,7 @@ check() {
 do_install() {
     make DESTDIR="$DESTDIR" install
 
+    install -v -d -m755 "${DESTDIR}/usr/share/doc"
     ln -svnf ../cups/doc-${version} "${DESTDIR}/usr/share/doc/cups-${version}"
 }
 
