@@ -15,3 +15,5 @@ dependencies:
   - libxml2
   host: []
   runtime: []
+configure_flags:
+- -Ddocumentation=false
