@@ -34,5 +34,6 @@ do_install() {
     cd src &&
     make DESTDIR="$DESTDIR" install
 
-    cp -vfr ../doc -T "${DESTDIR}/usr/share/doc/krb5-${version}"
+    install -v -d -m755 "${DESTDIR}/usr/share/doc/krb5-${version}"
+    cp -vfr ../doc/* "${DESTDIR}/usr/share/doc/krb5-${version}"
 }
