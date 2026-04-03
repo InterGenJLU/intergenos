@@ -42,13 +42,24 @@ do_install() {
     ninja -C gi-build
     DESTDIR="$DESTDIR" ninja -C gi-build install
 
-    # Pass 3: rebuild glib with introspection enabled
-    # g-ir-scanner is now in DESTDIR — make it visible on PATH
+    # Pass 3: fresh meson setup with introspection enabled
+    # g-ir-scanner is in DESTDIR — put it on PATH BEFORE meson setup
+    # so meson finds it during program search (meson configure won't re-scan)
     export PATH="${DESTDIR}/usr/bin:${PATH}"
     export PKG_CONFIG_PATH="${DESTDIR}/usr/lib/pkgconfig:${PKG_CONFIG_PATH}"
     export LD_LIBRARY_PATH="${DESTDIR}/usr/lib:${LD_LIBRARY_PATH}"
 
-    meson configure -D introspection=enabled
+    cd ..
+    mkdir build-pass3
+    cd    build-pass3
+
+    meson setup ..                  \
+          --prefix=/usr             \
+          --buildtype=release       \
+          -D introspection=enabled  \
+          -D glib_debug=disabled    \
+          -D man-pages=disabled     \
+          -D sysprof=disabled
     ninja
     DESTDIR="$DESTDIR" ninja install
 }
