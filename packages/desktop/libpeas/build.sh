@@ -9,8 +9,10 @@ configure() {
     meson setup ..            \
           --prefix=/usr       \
           --buildtype=release \
+          --wrap-mode=nofallback \
           -Ddemos=false \
-          -Dgtk_doc=false
+          -Dgtk_doc=false \
+          -Dpython3=false
 }
 
 build() {

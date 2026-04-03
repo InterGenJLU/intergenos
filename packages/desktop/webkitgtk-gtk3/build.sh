@@ -1,5 +1,5 @@
 #!/bin/bash
-# webkitgtk 2.50.5 — Web content engine for GTK (GTK-4 version)
+# webkitgtk-gtk3 2.50.5 — Web content engine for GTK (GTK-3 version)
 # BLFS 13.0
 
 configure() {
@@ -17,7 +17,8 @@ configure() {
           -D ENABLE_MINIBROWSER=ON            \
           -D ENABLE_DOCUMENTATION=OFF         \
           -D USE_WOFF2=OFF                    \
-          -D USE_GTK4=ON                      \
+          -D USE_GTK4=OFF                     \
+          -D ENABLE_WEBDRIVER=OFF             \
           -D ENABLE_BUBBLEWRAP_SANDBOX=ON     \
           -D USE_SYSPROF_CAPTURE=NO           \
           -D ENABLE_SPEECH_SYNTHESIS=OFF      \

@@ -1,7 +1,7 @@
-name: webkitgtk
+name: webkitgtk-gtk3
 version: 2.50.5
 release: 1
-description: Web content engine for GTK
+description: Web content engine for GTK (GTK-3 version)
 license: LGPL-2.0-or-later
 homepage: https://webkitgtk.org/
 tier: desktop
@@ -12,12 +12,10 @@ source:
   sha256: 8737631bac3e9c7ad3e5208f9370e076c09d9c45b39980021ce54edadcc6f94f
 dependencies:
   build:
-  - webkitgtk-gtk3
   - cairo
   - gst-plugins-base
   - gst-plugins-bad
   - gtk3
-  - gtk4
   - libgudev
   - libsoup3
   - libwebp

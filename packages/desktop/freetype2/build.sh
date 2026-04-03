@@ -1,8 +1,15 @@
 #!/bin/bash
-# freetype2 2.13.3 — FreeType font rendering library (pass 2 — with HarfBuzz)
+# freetype2 2.14.1 — FreeType font rendering library (pass 2 — with HarfBuzz)
 # BLFS 13.0
 
 configure() {
+    # Enable GX/AAT and OpenType table validation
+    sed -ri "s:.*(AUX_MODULES.*valid):\1:" modules.cfg
+
+    # Enable subpixel rendering (improves font clarity on LCD screens)
+    sed -r "s:.*(#.*SUBPIXEL_RENDERING) .*:\1:" \
+        -i include/freetype/config/ftoption.h
+
     mkdir build
     cd    build
 

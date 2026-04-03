@@ -10,7 +10,7 @@ configure() {
           --prefix=/usr       \
           --buildtype=release \
           -Dgtk_doc=false \
-          -Dssh_agent=false
+          -Dssh_agent=true
 }
 
 build() {
