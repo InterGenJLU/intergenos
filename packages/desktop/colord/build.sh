@@ -1,8 +1,13 @@
 #!/bin/bash
-# colord 1.4.7 — Color management daemon
+# colord 1.4.8 — Color management daemon
 # BLFS 13.0
 
 configure() {
+    # Create colord system user/group
+    groupadd -g 71 colord 2>/dev/null || true
+    useradd -c "Color Daemon Owner" -d /var/lib/colord \
+            -u 71 -g colord -s /bin/false colord 2>/dev/null || true
+
     mkdir build
     cd    build
 
@@ -11,7 +16,12 @@ configure() {
           --buildtype=release \
           -Ddocs=false \
           -Dman=false \
-          -Ddaemon_user=colord
+          -Ddaemon_user=colord \
+          -Dvapi=true \
+          -Dsystemd=true \
+          -Dlibcolordcompat=true \
+          -Dargyllcms_sensor=false \
+          -Dbash_completion=false
 }
 
 build() {

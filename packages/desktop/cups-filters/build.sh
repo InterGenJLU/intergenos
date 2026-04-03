@@ -3,6 +3,9 @@
 # BLFS 13.0
 
 configure() {
+    # Fix for GCC 15 — function pointer type mismatch
+    sed -i '/proc_func)()/s/()/(FILE*, FILE*, void*)/' filter/foomatic-rip/process.h
+
     ./configure --prefix=/usr \
                 --disable-static
 }

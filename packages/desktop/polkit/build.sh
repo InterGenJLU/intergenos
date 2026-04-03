@@ -1,8 +1,13 @@
 #!/bin/bash
-# polkit 125 — PolicyKit authorization toolkit
+# polkit 127 — PolicyKit authorization toolkit
 # BLFS 13.0
 
 configure() {
+    # Create polkitd system user/group
+    groupadd -fg 27 polkitd 2>/dev/null || true
+    useradd -c "PolicyKit Daemon Owner" -d /etc/polkit-1 \
+            -u 27 -g polkitd -s /bin/false polkitd 2>/dev/null || true
+
     mkdir build
     cd    build
 
@@ -11,7 +16,8 @@ configure() {
           --buildtype=release \
           -Dtests=false \
           -Dman=false \
-          -Djs_engine=duktape
+          -Djs_engine=duktape \
+          -Dsession_tracking=logind
 }
 
 build() {

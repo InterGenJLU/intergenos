@@ -4,7 +4,8 @@
 
 configure() {
     ./configure --prefix=/usr \
-                --disable-static
+                --disable-static \
+                --without-python
 }
 
 build() {

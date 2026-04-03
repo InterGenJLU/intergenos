@@ -1,8 +1,11 @@
 #!/bin/bash
-# networkmanager 1.50.0 — Network connection manager
+# networkmanager 1.56.0 — Network connection manager
 # BLFS 13.0
 
 configure() {
+    # Fix Python scripts that reference python2
+    grep -rl '^#!.*python$' | xargs sed -i '1s/python/&3/' 2>/dev/null || true
+
     mkdir build
     cd    build
 
@@ -10,7 +13,9 @@ configure() {
           --prefix=/usr       \
           --buildtype=release \
           -Dlibaudit=no \
-          -Dmodem_manager=true \
+          -Dmodem_manager=false \
+          -Dnm_cloud_setup=false \
+          -Dnbft=false \
           -Dnmtui=true \
           -Dovs=false \
           -Dppp=false \

@@ -9,6 +9,7 @@ configure() {
     meson setup ..            \
           --prefix=/usr       \
           --buildtype=release \
+          --wrap-mode=nofallback \
           -Dtests=false \
           -Ddocs=disabled
 }

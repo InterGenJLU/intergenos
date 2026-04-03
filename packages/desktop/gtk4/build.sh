@@ -1,5 +1,5 @@
 #!/bin/bash
-# gtk4 4.16.12 — GTK 4 widget toolkit
+# gtk4 4.20.3 — GTK 4 widget toolkit
 # BLFS 13.0
 
 configure() {
@@ -11,6 +11,7 @@ configure() {
           --buildtype=release \
           -Dbroadway-backend=true \
           -Dintrospection=enabled \
+          -Dvulkan=enabled \
           -Dbuild-testsuite=false \
           -Dbuild-tests=false
 }

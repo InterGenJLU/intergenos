@@ -1,21 +1,26 @@
 #!/bin/bash
-# evolution-data-server 3.54.3 — Calendar and contacts data server
+# evolution-data-server 3.58.3 — Calendar and contacts data server
 # BLFS 13.0
 
 configure() {
-    cmake -B build                    \
-          -DCMAKE_INSTALL_PREFIX=/usr \
-          -DCMAKE_BUILD_TYPE=Release  \
-          -DCMAKE_INSTALL_PREFIX=/usr \
-          -DENABLE_GTK_DOC=OFF \
-          -DENABLE_INSTALLED_TESTS=OFF \
-          -DENABLE_OAUTH2_WEBKITGTK4=ON
+    cmake -B build -G Ninja                    \
+          -DCMAKE_INSTALL_PREFIX=/usr          \
+          -DCMAKE_BUILD_TYPE=Release           \
+          -DSYSCONF_INSTALL_DIR=/etc           \
+          -DENABLE_GTK_DOC=OFF                 \
+          -DENABLE_INSTALLED_TESTS=OFF         \
+          -DENABLE_VALA_BINDINGS=ON            \
+          -DENABLE_INTROSPECTION=ON            \
+          -DWITH_OPENLDAP=OFF                  \
+          -DWITH_KRB5=OFF                      \
+          -DWITH_LIBDB=OFF                     \
+          -W no-dev
 }
 
 build() {
-    cmake --build build -j${IGOS_JOBS}
+    ninja -C build -j${IGOS_JOBS}
 }
 
 do_install() {
-    DESTDIR="$DESTDIR" cmake --install build
+    DESTDIR="$DESTDIR" ninja -C build install
 }

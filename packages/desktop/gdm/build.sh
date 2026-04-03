@@ -1,8 +1,14 @@
 #!/bin/bash
-# gdm 47.0 — GNOME Display Manager
+# gdm 49.2 — GNOME Display Manager
 # BLFS 13.0
 
 configure() {
+    # Create gdm system user/group
+    groupadd -g 21 gdm 2>/dev/null || true
+    useradd -c "GDM Daemon Owner" -d /var/lib/gdm \
+            -u 21 -g gdm -s /bin/false gdm 2>/dev/null || true
+    passwd -ql gdm 2>/dev/null || true
+
     mkdir build
     cd    build
 

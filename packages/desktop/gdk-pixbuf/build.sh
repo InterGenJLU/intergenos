@@ -1,5 +1,5 @@
 #!/bin/bash
-# gdk-pixbuf 2.42.12 — Image loading library for GTK
+# gdk-pixbuf 2.44.5 — Image loading library for GTK
 # BLFS 13.0
 
 configure() {
@@ -20,4 +20,8 @@ build() {
 do_install() {
     cd build
     DESTDIR="$DESTDIR" ninja install
+}
+
+post_install() {
+    gdk-pixbuf-query-loaders --update-cache
 }
