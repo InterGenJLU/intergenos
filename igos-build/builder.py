@@ -87,6 +87,7 @@ class BuildExecutor:
         env["version"] = str(pkg.version)  # convenience for build.sh scripts
         env["MAKEFLAGS"] = f"-j{self.jobs}"
         env["LC_ALL"] = "POSIX"
+        env["XML_CATALOG_FILES"] = "/etc/xml/catalog"
         env["PATH"] = f"{self.system_root}/tools/bin:" + env.get("PATH", "")
 
         # When tracked, each package stages into its own DESTDIR
