@@ -58,4 +58,5 @@ chroot "$IGOS" /usr/bin/env -i               \
     IGOS_PATCHES=/sources                    \
     IGOS_LOGS=/var/log/igos-build            \
     PKG_VERSION=""                           \
+    IGOS_START_AT="${IGOS_START_AT:-}"       \
     $CHROOT_CMD
