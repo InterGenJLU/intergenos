@@ -3,6 +3,8 @@
 # BLFS 13.0
 
 configure() {
+    # BLFS required fixes
+    sed -i '1i#include <stdio.h>' src/user.c
     mkdir build
     cd    build
 

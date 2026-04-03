@@ -3,6 +3,10 @@
 # BLFS 13.0
 
 configure() {
+    # BLFS required fixes
+    sed -i '/cmptest/d' tests/CMakeLists.txt
+    sed -i 's/PythonInterp/Python3/' CMakeLists.txt
+    sed -i '/Font.h/i #include <cstdint>' tests/featuremap/featuremaptest.cpp
     cmake -B build                    \
           -DCMAKE_INSTALL_PREFIX=/usr \
           -DCMAKE_BUILD_TYPE=Release  

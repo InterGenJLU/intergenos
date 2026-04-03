@@ -3,6 +3,9 @@
 # BLFS 13.0
 
 configure() {
+    # BLFS required fixes
+    sed -i 's/VERSION 2.8/VERSION 4.0/' apps/CMakeLists.txt
+    sed -i 's/VERSION 3.9/VERSION 4.0/' tests/CMakeLists.txt
     cmake -B build                    \
           -DCMAKE_INSTALL_PREFIX=/usr \
           -DCMAKE_BUILD_TYPE=Release  

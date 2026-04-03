@@ -3,6 +3,8 @@
 # BLFS 13.0
 
 configure() {
+    # BLFS required fixes
+    sed -i '4967,4968d' src/adapter.c
     ./configure --prefix=/usr \
                 --sysconfdir=/etc \
                 --localstatedir=/var \

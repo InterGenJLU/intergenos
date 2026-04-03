@@ -3,6 +3,8 @@
 # BLFS 13.0
 
 configure() {
+    # BLFS required fixes
+    sed '/docs/d;/GTK_DOC/d' -i Makefile.am configure.ac
     # Fix deprecated GSettings schema path
     sed -e 's@/desktop/ibus@/org/freedesktop/ibus@g' \
         -i data/dconf/org.freedesktop.ibus.gschema.xml

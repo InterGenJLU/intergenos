@@ -3,6 +3,8 @@
 # BLFS 13.0
 
 configure() {
+    # BLFS required fixes
+    sed -i 's#@CUPS_HTMLVIEW@#firefox#' desktop/cups.desktop.in
     # Create lp user/group if needed
     useradd -c "Print Service User" -d /var/spool/cups -g lp -s /bin/false -u 9 lp 2>/dev/null || true
     groupadd -g 19 lpadmin 2>/dev/null || true

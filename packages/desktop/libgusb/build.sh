@@ -3,6 +3,8 @@
 # BLFS 13.0
 
 configure() {
+    # BLFS required fixes
+    sed -E "/output|install_dir/s/('libgusb)'/\1-${PKG_VERSION}'/" -i ../docs/meson.build
     mkdir build
     cd    build
 

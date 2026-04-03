@@ -3,6 +3,8 @@
 # BLFS 13.0
 
 configure() {
+    # BLFS required fixes
+    sed 's/apiversion/soup_version/' -i docs/reference/meson.build
     mkdir build
     cd    build
 

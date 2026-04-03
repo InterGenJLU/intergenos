@@ -3,6 +3,8 @@
 # BLFS 13.0
 
 configure() {
+    # BLFS required fixes
+    sed -i -r 's:"(/system):"/org/gnome\1:g' schemas/*.in
     mkdir build
     cd    build
 

@@ -3,6 +3,8 @@
 # BLFS 13.0
 
 configure() {
+    # BLFS required fixes
+    sed "/docs_dir =/s@\$@/ 'libpeas-${PKG_VERSION}'@" -i ../docs/reference/meson.build
     mkdir build
     cd    build
 

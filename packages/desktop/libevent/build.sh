@@ -3,6 +3,8 @@
 # BLFS 13.0
 
 configure() {
+    # BLFS required fixes
+    sed -i 's/python/\&3/' event_rpcgen.py
     ./configure --prefix=/usr \
                 --disable-static
 }

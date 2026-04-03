@@ -3,6 +3,8 @@
 # BLFS 13.0
 
 configure() {
+    # BLFS required fixes
+    sed -i '/^udev/,$ s/^/#/' util/meson.build
     mkdir build
     cd    build
 

@@ -3,6 +3,9 @@
 # BLFS 13.0
 
 configure() {
+    # BLFS required fixes
+    sed "/tests_c_args =/s/\$/ + ['-U', 'G_DISABLE_ASSERT']/" -i src/tests/meson.build
+    sed "/c_args:/a '-U', 'G_DISABLE_ASSERT'," -i src/tests/cogl/unit/meson.build
     mkdir build
     cd    build
 

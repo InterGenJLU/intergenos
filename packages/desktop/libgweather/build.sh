@@ -3,6 +3,8 @@
 # BLFS 13.0
 
 configure() {
+    # BLFS required fixes
+    sed "s/libgweather_full_version/'libgweather-${PKG_VERSION}'/" -i ../docs/meson.build
     mkdir build
     cd    build
 

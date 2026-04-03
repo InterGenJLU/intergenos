@@ -3,6 +3,8 @@
 # BLFS 13.0
 
 configure() {
+    # BLFS required fixes
+    sed -i '/install_man/,\$d' meson.build
     mkdir build
     cd    build
 

@@ -3,6 +3,8 @@
 # BLFS 13.0
 
 configure() {
+    # BLFS required fixes
+    sed "s/apiversion/'${PKG_VERSION}'/" -i ../doc/meson.build
     mkdir build
     cd    build
 
