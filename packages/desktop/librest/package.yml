@@ -8,8 +8,9 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/rest/0.10/rest-${version}.tar.xz
-  sha256: 6e95d3011ecc51a72fec8b2a8e5b06b4e134c2b2cfe513bfce42d9029c6c8dd1
+- url: https://download.gnome.org/sources/librest/0.10/librest-${version}.tar.xz
+  filename: librest-${version}.tar.xz
+  sha256: 7b6cb912bb3a22cfa7dcf005925dcb62883024db0c09099486e7d6851185c9b8
 dependencies:
   build:
   - json-glib

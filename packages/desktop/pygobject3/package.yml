@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/pygobject/3.54/pygobject-${version}.tar.xz
-  sha256: 6e95d3011ecc51a72fec8b2a8e5b06b4e134c2b2cfe513bfce42d9029c6c8dd1
+- url: https://download.gnome.org/sources/pygobject/3.54/pygobject-${version}.tar.gz
+  sha256: b6656f6348f5245606cf15ea48c384c7f05156c75ead206c1b246c80a22fb585
 dependencies:
   build:
   - pycairo

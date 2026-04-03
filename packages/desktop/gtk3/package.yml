@@ -8,8 +8,9 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/gtk+/3.24/gtk+-${version}.tar.xz
-  sha256: 6e95d3011ecc51a72fec8b2a8e5b06b4e134c2b2cfe513bfce42d9029c6c8dd1
+- url: https://download.gnome.org/sources/gtk/3.24/gtk-${version}.tar.xz
+  filename: gtk-${version}.tar.xz
+  sha256: 0013877c6bd23c2dbe42ad7c70a053d0e449be66736574e37867c49c5f905a4f
 dependencies:
   build:
   - at-spi2-core
