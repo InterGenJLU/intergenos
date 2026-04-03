@@ -81,7 +81,10 @@ class BuildExecutor:
         env["IGOS_TARGET"] = pkg.target_triple or self.target_triple
         env["IGOS_JOBS"] = str(self.jobs)
         env["IGOS_SOURCES"] = str(self.sources_dir)
+        env["IGOS_SOURCES_DIR"] = str(self.sources_dir)  # alias for build.sh compat
         env["IGOS_PATCHES"] = str(self.patches_dir)
+        env["PKG_VERSION"] = str(pkg.version)
+        env["version"] = str(pkg.version)  # convenience for build.sh scripts
         env["MAKEFLAGS"] = f"-j{self.jobs}"
         env["LC_ALL"] = "POSIX"
         env["PATH"] = f"{self.system_root}/tools/bin:" + env.get("PATH", "")
