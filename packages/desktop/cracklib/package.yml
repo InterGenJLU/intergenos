@@ -5,7 +5,7 @@ description: Password checking library
 license: LGPL-2.1-or-later
 homepage: ''
 tier: desktop
-build_style: autotools
+build_style: custom
 install_func: do_install
 source:
 - url: https://github.com/cracklib/cracklib/releases/download/v${version}/cracklib-${version}.tar.xz
