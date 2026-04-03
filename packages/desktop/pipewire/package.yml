@@ -15,3 +15,6 @@ dependencies:
   - alsa-lib
   host: []
   runtime: []
+configure_flags:
+- --wrap-mode=nofallback
+- -Dsession-managers=[]
