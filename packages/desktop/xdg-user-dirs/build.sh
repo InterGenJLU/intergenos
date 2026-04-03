@@ -1,16 +1,23 @@
 #!/bin/bash
-# xdg-user-dirs 0.18 — XDG user directory management
+# xdg-user-dirs 0.19 — XDG user directory management
 # BLFS 13.0
 
 configure() {
-    ./configure --prefix=/usr \
-                --sysconfdir=/etc
+    mkdir build
+    cd    build
+
+    meson setup ..            \
+          --prefix=/usr       \
+          --buildtype=release \
+          -Dsysconfdir=/etc
 }
 
 build() {
-    make -j${IGOS_JOBS}
+    cd build
+    ninja
 }
 
 do_install() {
-    make DESTDIR="$DESTDIR" install
+    cd build
+    DESTDIR="$DESTDIR" ninja install
 }
