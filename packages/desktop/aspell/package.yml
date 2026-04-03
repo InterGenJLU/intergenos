@@ -1,0 +1,19 @@
+name: aspell
+version: 0.60.8.2
+release: 1
+description: Interactive spell checking program and libraries
+license: LGPL-2.1-or-later
+homepage: http://aspell.net/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://ftpmirror.gnu.org/aspell/aspell-${version}.tar.gz
+  sha256: 57fe4863eae6048f72245a8575b44b718fb85ca14b9f8c0afc41b254dfd76919
+- url: https://ftpmirror.gnu.org/aspell/dict/en/aspell6-en-2020.12.07-0.tar.bz2
+  sha256: 4c8f734a28a088b88bb6481fcf972d0b2c3dc8da944f7673283ce487eac49fb3
+dependencies:
+  build:
+  - which
+  host: []
+  runtime: []
