@@ -11,7 +11,9 @@ configure() {
           --buildtype=release \
           -Ddatabase=gdbm \
           -Dbluez5=disabled \
-          -Dtests=false
+          -Ddoxygen=false \
+          -Dtests=false \
+          -Dudevrulesdir=/usr/lib/udev/rules.d
 }
 
 build() {
