@@ -8,11 +8,11 @@ configure() {
 
     ./bootstrap --prefix=/usr        \
                 --system-libs        \
-                --mandir=/share/man  \
-                --no-system-jsoncpp  \
-                --no-system-cppdap   \
-                --no-system-librhash \
-                --docdir=/share/doc/cmake-4.3.1
+                --mandir=/usr/share/man  \
+                --no-system-jsoncpp     \
+                --no-system-cppdap      \
+                --no-system-librhash    \
+                --docdir=/usr/share/doc/cmake-${PKG_VERSION}
 }
 
 build() {
