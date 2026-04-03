@@ -8,7 +8,8 @@ configure() {
 
     meson setup ..            \
           --prefix=/usr       \
-          --buildtype=release 
+          --buildtype=release \
+          -Dlibproxy=disabled
 }
 
 build() {
