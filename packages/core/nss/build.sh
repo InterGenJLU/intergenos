@@ -1,7 +1,12 @@
 #!/bin/bash
-# NSS 3.120.1 — Network Security Services
+# NSS 3.121 — Network Security Services
 # BLFS 13.0
 # Non-standard build: uses raw make, no configure
+
+configure() {
+    # Apply standalone build patch (required)
+    patch -Np1 -i "${IGOS_SOURCES}/nss-standalone-1.patch"
+}
 
 build() {
     cd nss

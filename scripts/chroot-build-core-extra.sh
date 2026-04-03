@@ -238,10 +238,9 @@ run_package "linux-pam" "linux-pam" "1.7.2" \
     "Linux-PAM-1.7.2.tar.xz" \
     "Pluggable Authentication Modules"
 
-# TODO: Rebuild shadow with PAM support here
-# run_package "shadow" "shadow" "4.19.3" \
-#     "shadow-4.19.3.tar.xz" \
-#     "Shadow password suite (rebuilt with PAM)"
+run_package "shadow-pam" "shadow-pam" "4.19.3" \
+    "shadow-4.19.3.tar.xz" \
+    "Shadow password suite (rebuilt with Linux-PAM support)"
 
 # --- Group D: glib2 (two-pass, direct install in chroot is safe) ---
 
