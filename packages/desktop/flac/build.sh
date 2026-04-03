@@ -1,19 +1,21 @@
 #!/bin/bash
-# flac 1.4.3 — Free Lossless Audio Codec
-# BLFS 13.0
+# flac 1.5.0 — Free Lossless Audio Codec
+# BLFS 13.0 (uses autotools, not cmake)
 
 configure() {
-    cmake -B build                    \
-          -DCMAKE_INSTALL_PREFIX=/usr \
-          -DCMAKE_BUILD_TYPE=Release  \
-          -DBUILD_SHARED_LIBS=ON \
-          -DCMAKE_INSTALL_PREFIX=/usr
+    ./configure --prefix=/usr            \
+                --disable-thorough-tests \
+                --docdir=/usr/share/doc/flac-${version}
 }
 
 build() {
-    cmake --build build -j${IGOS_JOBS}
+    make -j${IGOS_JOBS}
+}
+
+check() {
+    make check || true
 }
 
 do_install() {
-    DESTDIR="$DESTDIR" cmake --install build
+    make DESTDIR="$DESTDIR" install
 }

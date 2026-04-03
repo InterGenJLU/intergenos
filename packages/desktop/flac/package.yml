@@ -5,7 +5,7 @@ description: Free Lossless Audio Codec
 license: GPL-2.0-or-later
 homepage: https://xiph.org/flac/
 tier: desktop
-build_style: cmake
+build_style: custom
 install_func: do_install
 source:
 - url: https://downloads.xiph.org/releases/flac/flac-${version}.tar.xz
