@@ -29,5 +29,6 @@ do_install() {
                  -name \*.3       -o  \
                  -name CMakeLists.txt \) -delete
 
-    cp -v -R docs -T "${DESTDIR}/usr/share/doc/curl-${PKG_VERSION}"
+    install -v -d -m755 "${DESTDIR}/usr/share/doc/curl-${PKG_VERSION}"
+    cp -v -R docs/* "${DESTDIR}/usr/share/doc/curl-${PKG_VERSION}/"
 }
