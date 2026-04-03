@@ -217,6 +217,10 @@ pkg_archive() {
 #
 # Copies everything from the staging directory to /
 # Preserves permissions, ownership, and symlinks
+#
+# Safety: pre-checks for top-level entries that would collide with root-level
+# symlinks (lib -> usr/lib, bin -> usr/bin, etc.). A package staging a real
+# directory over one of these symlinks would kill the system.
 # ============================================================================
 
 pkg_deploy() {
@@ -229,12 +233,31 @@ pkg_deploy() {
         return 1
     fi
 
+    # Pre-deploy safety check: detect staging entries that would collide with
+    # root-level symlinks. These symlinks (lib -> usr/lib, bin -> usr/bin, etc.)
+    # are load-bearing — replacing them with real directories is catastrophic.
+    local dangerous=""
+    for entry in lib lib64 bin sbin; do
+        if [ -d "${dest}/${entry}" ] && [ -L "/${entry}" ]; then
+            dangerous="${dangerous} ${entry}"
+        fi
+    done
+
+    if [ -n "$dangerous" ]; then
+        pkg_error "DANGEROUS: ${name}-${version} staging contains top-level dirs" \
+                  "that would collide with root symlinks:${dangerous}"
+        pkg_error "Fix the package build.sh to install to usr/ paths instead"
+        return 1
+    fi
+
     pkg_log "Deploying ${name}-${version} to live filesystem"
 
-    # Use tar for deployment — handles symlink/directory conflicts gracefully
-    # (e.g., /var/run is a symlink to /run on systemd systems)
-    # --no-overwrite-dir follows existing symlinks instead of replacing them
-    tar -C "${dest}" -cf - . | tar -C / -xf - --no-overwrite-dir
+    # Use tar for deployment:
+    # --no-overwrite-dir    preserves metadata of existing real directories
+    # --keep-directory-symlink  follows existing symlinks to directories instead
+    #                           of replacing them (e.g., /var/run -> /run)
+    tar -C "${dest}" -cf - . \
+        | tar -C / -xf - --no-overwrite-dir --keep-directory-symlink
 
     local rc=$?
     if [ $rc -ne 0 ]; then

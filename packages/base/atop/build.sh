@@ -7,5 +7,9 @@ build() {
 }
 
 do_install() {
-    make DESTDIR="$DESTDIR" install
+    # Upstream Makefile sets SYSDPATH=/lib/systemd/system which creates a bare
+    # lib/ dir in DESTDIR — on LFS systems /lib is a symlink to usr/lib, and
+    # deploying a real lib/ directory over that symlink kills the dynamic linker.
+    # Override to the correct FHS/systemd path.
+    make DESTDIR="$DESTDIR" SYSDPATH=/usr/lib/systemd/system install
 }
