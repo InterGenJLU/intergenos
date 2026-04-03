@@ -16,7 +16,6 @@ configure() {
           --buildtype=release \
           -Dtests=false \
           -Dman=false \
-          -Djs_engine=duktape \
           -Dsession_tracking=logind
 }
 
