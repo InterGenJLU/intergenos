@@ -21,6 +21,7 @@ do_install() {
     make DESTDIR="$DESTDIR" perllibdir=/usr/lib/perl5/site_perl install
 
     # Install pre-built man pages
+    install -v -d -m755 "${DESTDIR}/usr/share/man"
     tar -xf "${IGOS_SOURCES}/git-manpages-${PKG_VERSION}.tar.xz" \
         -C "${DESTDIR}/usr/share/man" --no-same-owner --no-overwrite-dir
 }
