@@ -3,11 +3,6 @@
 # BLFS 13.0
 
 configure() {
-    # Set up Python venv for build dependencies
-    python3 -m venv --system-site-packages pyvenv &&
-    ./pyvenv/bin/pip3 install cryptography pyasn1 iso8601
-
-    PYTHON=$PWD/pyvenv/bin/python3             \
     ./configure                                \
         --prefix=/usr                          \
         --sysconfdir=/etc                      \
@@ -26,7 +21,7 @@ build() {
 }
 
 check() {
-    PATH=$PWD/pyvenv/bin:$PATH make quicktest || true
+    make quicktest || true
 }
 
 do_install() {
