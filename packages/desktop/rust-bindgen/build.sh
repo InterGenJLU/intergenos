@@ -1,9 +1,11 @@
 #!/bin/bash
-# rust-bindgen 0.70.1 — Rust FFI bindings generator
+# rust-bindgen 0.72.1 — Rust FFI bindings generator
 # BLFS 13.0
-# Note: requires internet connection for cargo dependencies
 
-configure() { : ; }
+configure() {
+    # Extract vendored crate dependencies (built offline on host)
+    tar xf "${IGOS_SOURCES}/rust-bindgen-${PKG_VERSION}-vendor.tar.xz" --strip-components=1
+}
 
 build() {
     cargo build --release

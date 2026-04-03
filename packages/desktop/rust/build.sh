@@ -4,6 +4,14 @@
 # Note: requires internet connection for bootstrap download
 
 configure() {
+    # Place pre-downloaded bootstrap tarballs where x.py expects them
+    # so it skips the network download. Date from src/stage0.
+    mkdir -pv build/cache/2025-12-11
+    cp -v "${IGOS_SOURCES}/rustc-1.92.0-x86_64-unknown-linux-gnu.tar.xz" \
+          "${IGOS_SOURCES}/cargo-1.92.0-x86_64-unknown-linux-gnu.tar.xz" \
+          "${IGOS_SOURCES}/rust-std-1.92.0-x86_64-unknown-linux-gnu.tar.xz" \
+          build/cache/2025-12-11/
+
     cat << EOF > bootstrap.toml
 # See bootstrap.toml.example for more possible options,
 # and see src/bootstrap/defaults/bootstrap.dist.toml for a few options

@@ -1,5 +1,5 @@
 name: rust-bindgen
-version: 0.70.1
+version: 0.72.1
 release: 1
 description: Rust FFI bindings generator
 license: BSD-3-Clause
@@ -9,7 +9,9 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://github.com/rust-lang/rust-bindgen/archive/refs/tags/v${version}/rust-bindgen-${version}.tar.gz
-  sha256: 243ed50f99c00ae8c18d50429a1278b6fd37dff94df46df38f2733745362c014
+  sha256: 4ffb17061b2d71f19c5062d2e17e64107248f484f9775c0b7d30a16a8238dfd1
+- url: local://rust-bindgen-${version}-vendor.tar.xz
+  sha256: placeholder-vendor
 dependencies:
   build:
   - rust

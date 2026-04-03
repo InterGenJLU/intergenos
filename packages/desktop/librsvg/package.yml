@@ -1,5 +1,5 @@
 name: librsvg
-version: 2.59.2
+version: 2.61.4
 release: 1
 description: SVG rendering library
 license: LGPL-2.1-or-later
@@ -8,10 +8,13 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/librsvg/2.59/librsvg-${version}.tar.xz
-  sha256: ecd293fb0cc338c170171bbc7bcfbea6725d041c95f31385dc935409933e4597
+- url: https://download.gnome.org/sources/librsvg/2.61/librsvg-${version}.tar.xz
+  sha256: fca0ea28d1f28f95c8407d2579f4702dac085e7c758644daca8b40d1e072ca0c
+- url: local://librsvg-${version}-vendor.tar.xz
+  sha256: placeholder-vendor
 dependencies:
   build:
+  - cargo-c
   - cairo
   - gdk-pixbuf
   - pango

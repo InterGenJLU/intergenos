@@ -1,9 +1,11 @@
 #!/bin/bash
-# cbindgen 0.27.0 — C bindings generator for Rust
+# cbindgen 0.29.2 — C bindings generator for Rust
 # BLFS 13.0
-# Note: requires internet connection for cargo dependencies
 
-configure() { : ; }
+configure() {
+    # Extract vendored crate dependencies (built offline on host)
+    tar xf "${IGOS_SOURCES}/cbindgen-${PKG_VERSION}-vendor.tar.xz" --strip-components=1
+}
 
 build() {
     cargo build --release
