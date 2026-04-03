@@ -19,8 +19,10 @@ IGOS_JOBS=$(nproc)
 
 mkdir -pv "$IGOS_LOGS"
 
+DESKTOP_LOG="$IGOS_LOGS/desktop-build-$(date '+%Y%m%d-%H%M%S').log"
+
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$IGOS_LOGS/desktop-build.log"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$DESKTOP_LOG"
 }
 
 log ""
@@ -104,7 +106,7 @@ python3 igos-build.py \
     --skip-built \
     --tier desktop \
     --sources-dir "$IGOS_SOURCES" \
-    2>&1 | tee -a "$IGOS_LOGS/desktop-build.log"
+    2>&1 | tee -a "$DESKTOP_LOG"
 
 BUILD_RC=${PIPESTATUS[0]}
 
