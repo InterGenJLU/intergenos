@@ -5,7 +5,7 @@ description: Country, language, and currency code lists
 license: LGPL-2.1-or-later
 homepage: https://salsa.debian.org/iso-codes-team/iso-codes
 tier: desktop
-build_style: autotools
+build_style: meson
 install_func: do_install
 source:
 - url: https://salsa.debian.org/iso-codes-team/iso-codes/-/archive/v${version}/iso-codes-v${version}.tar.gz
