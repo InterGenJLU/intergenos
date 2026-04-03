@@ -4,7 +4,6 @@
 
 configure() {
     # Apply upstream fix
-    patch -Np1 -i ../mitkrb-*-upstream_fix-1.patch
 
     cd src &&
 

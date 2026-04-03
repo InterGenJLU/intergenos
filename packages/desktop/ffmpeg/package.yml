@@ -10,6 +10,8 @@ install_func: do_install
 source:
 - url: https://ffmpeg.org/releases/ffmpeg-${version}.tar.xz
   sha256: 05ee0b03119b45c0bdb4df654b96802e909e0a752f72e4fe3794f487229e5a41
+patches:
+  - ffmpeg-8.0.1-chromium_method-1.patch
 dependencies:
   build:
   - nasm

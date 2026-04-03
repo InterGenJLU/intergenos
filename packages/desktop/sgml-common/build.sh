@@ -3,7 +3,6 @@
 # BLFS 13.0
 
 configure() {
-    patch -Np1 -i ../sgml-common-0.6.3-manpage-1.patch &&
     autoreconf -f -i &&
 
     ./configure --prefix=/usr --sysconfdir=/etc

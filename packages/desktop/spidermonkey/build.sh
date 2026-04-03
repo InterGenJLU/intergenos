@@ -5,7 +5,6 @@
 
 configure() {
     # Apply Python 3.14 compatibility patch
-    patch -Np1 -i ../spidermonkey-*-python_3.14_fixes-1.patch
 
     mkdir obj &&
     cd    obj &&

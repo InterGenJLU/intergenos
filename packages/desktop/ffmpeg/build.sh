@@ -4,7 +4,6 @@
 
 configure() {
     # Apply chromium method patch
-    patch -Np1 -i ../ffmpeg-*-chromium_method-1.patch
 
     # Fix for SVT-AV1 4.0.0+
     sed -e '/adaptive/c\ param->aq_mode = 0;' \

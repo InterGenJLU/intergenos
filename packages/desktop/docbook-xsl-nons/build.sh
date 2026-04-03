@@ -3,7 +3,6 @@
 # BLFS 13.0
 
 configure() {
-    patch -Np1 -i ../docbook-xsl-nons-1.79.2-stack_fix-1.patch
 }
 
 build() { : ; }
