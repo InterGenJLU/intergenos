@@ -1,0 +1,20 @@
+#!/bin/bash
+# libnsl 2.0.1 — NIS library (libnsl replacement for glibc)
+# BLFS 13.0
+
+configure() {
+    ./configure --sysconfdir=/etc \
+                --disable-static
+}
+
+build() {
+    make -j${IGOS_JOBS}
+}
+
+check() {
+    make check || true
+}
+
+do_install() {
+    make DESTDIR="$DESTDIR" install
+}
