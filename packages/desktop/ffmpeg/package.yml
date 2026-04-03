@@ -14,7 +14,10 @@ patches:
   - ffmpeg-8.0.1-chromium_method-1.patch
 dependencies:
   build:
+  - freetype2
+  - libass
   - libaom
+  - libvorbis
   - nasm
   - alsa-lib
   - dav1d
