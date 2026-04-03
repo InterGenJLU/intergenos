@@ -5,7 +5,7 @@ description: Remove
 license: BSD-2-Clause
 homepage: ''
 tier: desktop
-build_style: make
+build_style: custom
 install_func: do_install
 source:
 - url: https://dotat.at/prog/unifdef/unifdef-${version}.tar.xz
