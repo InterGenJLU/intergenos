@@ -2,8 +2,7 @@
 # docbook-xsl-nons 1.79.2 — DocBook XSL stylesheets
 # BLFS 13.0
 
-configure() {
-}
+configure() { : ; }
 
 build() { : ; }
 
