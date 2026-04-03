@@ -5,7 +5,7 @@ description: GIF image library
 license: MIT
 homepage: https://giflib.sourceforge.net/
 tier: desktop
-build_style: make
+build_style: custom
 install_func: do_install
 source:
 - url: https://sourceforge.net/projects/giflib/files/giflib-${version}.tar.gz
