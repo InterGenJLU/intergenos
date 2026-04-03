@@ -6,7 +6,7 @@ configure() {
     # Create pkg-config file
     cat > lua.pc << "EOF"
 V=5.4
-R=${version}
+R=5.4.8
 
 prefix=/usr
 INSTALL_BIN=${prefix}/bin
