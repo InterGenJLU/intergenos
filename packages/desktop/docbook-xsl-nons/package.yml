@@ -15,5 +15,6 @@ patches:
 dependencies:
   build:
   - docbook-xml
+  - libxml2
   host: []
   runtime: []
