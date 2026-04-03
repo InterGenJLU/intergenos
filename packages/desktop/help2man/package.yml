@@ -1,0 +1,18 @@
+name: help2man
+version: 1.49.3
+release: 1
+description: Generate man pages from --help output
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/help2man/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://ftpmirror.gnu.org/help2man/help2man-${version}.tar.xz
+  sha256: 4d7e4fdef2eca6afe07a2682151cea78781e0a4e8f9622142d9f70c083a2fd4f
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
