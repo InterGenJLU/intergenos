@@ -27,8 +27,6 @@ Libs: -L${libdir} -llua -lm -ldl
 Cflags: -I${includedir}
 EOF
 
-    # Apply shared library patch
-    patch -Np1 -i ../lua-*-shared_library-1.patch
 }
 
 build() {
