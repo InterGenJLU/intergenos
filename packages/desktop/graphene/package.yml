@@ -11,6 +11,7 @@ source:
 - url: https://download.gnome.org/sources/graphene/1.10/graphene-${version}.tar.xz
   sha256: a37bb0e78a419dcbeaa9c7027bcff52f5ec2367c25ec859da31dfde2928f279a
 dependencies:
-  build: []
+  build:
+  - glib2
   host: []
   runtime: []

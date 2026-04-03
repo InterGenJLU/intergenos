@@ -11,6 +11,7 @@ source:
 - url: https://github.com/flatpak/xdg-dbus-proxy/releases/download/${version}/xdg-dbus-proxy-${version}.tar.xz
   sha256: 131bf59fce7c7ee7ecbc5d9106d6750f4f597bfe609966573240f7e4952973a1
 dependencies:
-  build: []
+  build:
+  - glib2
   host: []
   runtime: []

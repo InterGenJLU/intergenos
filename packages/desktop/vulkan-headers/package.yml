@@ -11,6 +11,7 @@ source:
 - url: https://github.com/KhronosGroup/Vulkan-Headers/archive/vulkan-sdk-${version}/vulkan-headers-${version}.tar.gz
   sha256: d73bc5036b6556b741f6985ff600ca720308c5f2850e4a43ceb498bd3de069e7
 dependencies:
-  build: []
+  build:
+  - cmake
   host: []
   runtime: []

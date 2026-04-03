@@ -11,6 +11,10 @@ source:
 - url: https://github.com/polkit-org/polkit/archive/${version}/polkit-${version}.tar.gz
   sha256: 9b7bc16f086479dcc626c575976568ba4a85d34297a750d8ab3d2e57f6d8b988
 dependencies:
-  build: []
+  build:
+  - duktape
+  - glib2
+  - libxslt
+  - linux-pam
   host: []
   runtime: []

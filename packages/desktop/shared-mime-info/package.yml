@@ -11,6 +11,8 @@ source:
 - url: https://gitlab.freedesktop.org/xdg/shared-mime-info/-/archive/${version}/shared-mime-info-${version}.tar.gz
   sha256: 531291d0387eb94e16e775d7e73788d06d2b2fdd8cd2ac6b6b15287593b6a2de
 dependencies:
-  build: []
+  build:
+  - glib2
+  - libxml2
   host: []
   runtime: []

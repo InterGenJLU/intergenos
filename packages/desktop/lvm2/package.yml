@@ -11,6 +11,7 @@ source:
 - url: https://sourceware.org/ftp/lvm2/LVM2.${version}.tgz
   sha256: 322d44bf40de318e6e6b52c56999aaeb86b16c8267187ac2e01a44d4dc526960
 dependencies:
-  build: []
+  build:
+  - libaio
   host: []
   runtime: []

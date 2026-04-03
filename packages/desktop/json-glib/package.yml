@@ -11,6 +11,7 @@ source:
 - url: https://download.gnome.org/sources/json-glib/1.10/json-glib-${version}.tar.xz
   sha256: 55c5c141a564245b8f8fbe7698663c87a45a7333c2a2c56f06f811ab73b212dd
 dependencies:
-  build: []
+  build:
+  - glib2
   host: []
   runtime: []

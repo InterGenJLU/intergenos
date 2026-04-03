@@ -1,0 +1,16 @@
+name: hatch-fancy-pypi-readme
+version: 25.1.0
+release: 1
+description: Hatch plugin for fancy PyPI READMEs
+license: MIT
+homepage: https://github.com/hynek/hatch-fancy-pypi-readme
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/h/hatch-fancy-pypi-readme/hatch_fancy_pypi_readme-${version}.tar.gz
+  sha256: 9c58ed3dff90d51f43414ce37009ad1d5b0f08ffc9fc216998a06380f01c0045
+dependencies:
+  build: []
+  host: []
+  runtime: []

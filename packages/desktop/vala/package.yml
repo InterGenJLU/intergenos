@@ -13,7 +13,8 @@ source:
 patches:
   - vala-0.56.18-graphviz_13_fix-1.patch
 dependencies:
-  build: []
+  build:
+  - glib2
   host: []
   runtime: []
 configure_flags:

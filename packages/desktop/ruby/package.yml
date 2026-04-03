@@ -11,7 +11,8 @@ source:
 - url: https://cache.ruby-lang.org/pub/ruby/3.3/ruby-${version}.tar.xz
   sha256: 5fad6c9f7b8cfa21597e9073dd65d9e35a07d08cab5c4114e0e7d6b5a233e4e6
 dependencies:
-  build: []
+  build:
+  - libyaml
   host: []
   runtime: []
 configure_flags:
