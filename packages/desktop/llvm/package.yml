@@ -10,7 +10,17 @@ install_func: do_install
 source:
 - url: https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/llvm-${version}.src.tar.xz
   sha256: d9022ddadb40a15015f6b27e6549a7144704ded8828ba036ffe4b8165707de21
+# Additional tarballs extracted by pre_configure in build.sh
+- url: https://anduin.linuxfromscratch.org/BLFS/llvm/llvm-cmake-${version}.src.tar.xz
+  sha256: 85735f20fd8c81ecb0a09abb0c267018475420e93b65050cc5b7634eab744de9
+- url: https://anduin.linuxfromscratch.org/BLFS/llvm/llvm-third-party-${version}.src.tar.xz
+  sha256: 7fe99424384aea529ffaeec9cc9dfb8b451fd1852c03fc109e426fe208a1f1a7
+- url: https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/clang-${version}.src.tar.xz
+  sha256: 6090e3f23720d003cdd84483a47d0eec6d01adbb5e0c714ac0c8b58de546aa62
+- url: https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/compiler-rt-${version}.src.tar.xz
+  sha256: dd54ae21aee1780fac59445b51ebff601ad016b31ac3a7de3b21126fd3ccb229
 dependencies:
-  build: []
+  build:
+  - cmake
   host: []
   runtime: []
