@@ -24,5 +24,6 @@ build() {
 do_install() {
     make DESTDIR="$DESTDIR" install
 
+    install -v -d -m755 "${DESTDIR}/etc"
     install -v -m644 etc/etcscreenrc "${DESTDIR}/etc/screenrc"
 }
