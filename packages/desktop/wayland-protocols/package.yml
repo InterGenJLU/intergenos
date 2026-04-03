@@ -5,7 +5,7 @@ description: Wayland protocol extensions
 license: MIT
 homepage: https://wayland.freedesktop.org/
 tier: desktop
-build_style: meson
+build_style: custom
 install_func: do_install
 source:
 - url: https://gitlab.freedesktop.org/wayland/wayland-protocols/-/releases/${version}/downloads/wayland-protocols-${version}.tar.xz
