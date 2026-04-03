@@ -9,5 +9,5 @@ build() {
 }
 
 do_install() {
-    pip3 install --no-index --find-links dist --no-user --root="$DESTDIR" hatch_fancy_pypi_readme
+    pip3 install --no-index --no-deps --find-links dist --no-user --root="$DESTDIR" hatch_fancy_pypi_readme
 }
