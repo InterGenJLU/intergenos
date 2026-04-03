@@ -231,10 +231,10 @@ pkg_deploy() {
 
     pkg_log "Deploying ${name}-${version} to live filesystem"
 
-    # cp -a preserves permissions, ownership, timestamps, symlinks
-    # --remove-destination handles the case where a file is being replaced
-    # (important for shared libraries — avoids crashing running processes)
-    cp -a --remove-destination "${dest}/." /
+    # Use tar for deployment — handles symlink/directory conflicts gracefully
+    # (e.g., /var/run is a symlink to /run on systemd systems)
+    # --no-overwrite-dir follows existing symlinks instead of replacing them
+    tar -C "${dest}" -cf - . | tar -C / -xf - --no-overwrite-dir
 
     local rc=$?
     if [ $rc -ne 0 ]; then
