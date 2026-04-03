@@ -14,5 +14,12 @@ build() {
 }
 
 do_install() {
-    make DESTDIR="$DESTDIR" install
+    # cdparanoia's Makefile has no DESTDIR support — redirect install
+    # paths manually to the staging directory
+    make install \
+        BINDIR="${DESTDIR}/usr/bin" \
+        MANDIR="${DESTDIR}/usr/share/man" \
+        INCLUDEDIR="${DESTDIR}/usr/include/cdda" \
+        LIBDIR="${DESTDIR}/usr/lib"
+
 }
