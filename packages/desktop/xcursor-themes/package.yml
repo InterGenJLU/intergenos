@@ -11,7 +11,8 @@ source:
 - url: https://www.x.org/pub/individual/data/xcursor-themes-${version}.tar.xz
   sha256: 95bae8f48823d894a05bf42dfbf453674ab7dbdeb11e2bc079e8525ad47378c8
 dependencies:
-  build: []
+  build:
+  - xcursorgen
   host: []
   runtime: []
 configure_flags:

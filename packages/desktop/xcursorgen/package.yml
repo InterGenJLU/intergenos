@@ -1,0 +1,20 @@
+name: xcursorgen
+version: 1.0.9
+release: 1
+description: X cursor file generator
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/app/xcursorgen-${version}.tar.xz
+  sha256: 0cc9e156ac84ca16ea902710af35e0faffa51d13797071e3b4b6cc7cbd493bbc
+dependencies:
+  build:
+  - libXcursor
+  - libpng
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
