@@ -1,0 +1,13 @@
+#!/bin/bash
+# trove-classifiers 2026.1.14.14 — Canonical trove classifiers
+# BLFS 13.0
+
+configure() { : ; }
+
+build() {
+    pip3 wheel -w dist --no-build-isolation --no-deps --no-cache-dir $PWD
+}
+
+do_install() {
+    pip3 install --no-index --find-links dist --no-user --root="$DESTDIR" trove_classifiers
+}

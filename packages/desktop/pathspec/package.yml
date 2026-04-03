@@ -1,0 +1,16 @@
+name: pathspec
+version: 1.0.4
+release: 1
+description: Utility library for gitignore style pattern matching
+license: MPL-2.0
+homepage: https://github.com/cpburnz/python-pathspec
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/p/pathspec/pathspec-${version}.tar.gz
+  sha256: 0210e2ae8a21a9137c0d470578cb0e595af87edaa6ebf12ff176f14a02e0e645
+dependencies:
+  build: []
+  host: []
+  runtime: []
