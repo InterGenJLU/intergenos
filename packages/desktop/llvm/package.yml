@@ -8,8 +8,8 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/llvm-project-${version}.src.tar.xz
-  sha256: 4633a23617fa31a3ea51242586ea7fb1da7140e426bd62fc164261fe036aa142
+- url: https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/llvm-${version}.src.tar.xz
+  sha256: d9022ddadb40a15015f6b27e6549a7144704ded8828ba036ffe4b8165707de21
 dependencies:
   build: []
   host: []
