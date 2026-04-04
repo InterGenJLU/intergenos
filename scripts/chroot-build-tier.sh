@@ -92,6 +92,28 @@ else
 
     # Manual install fallback (required for Python 3.14 where pip is broken)
     if [ "${PIP_BROKEN:-}" = "true" ]; then
+        # Python 3.14 ships without setuptools or distutils — bootstrap setuptools first
+        if ! python3 -c "import setuptools" 2>/dev/null; then
+            SETUPTOOLS_TAR=$(ls ${IGOS_SOURCES}/setuptools-*.tar.gz 2>/dev/null | head -1)
+            if [ -z "$SETUPTOOLS_TAR" ]; then
+                log "ERROR: No setuptools tarball found in $IGOS_SOURCES"
+                exit 1
+            fi
+            log "  Bootstrapping setuptools from $SETUPTOOLS_TAR..."
+            SETUPTOOLS_WORK=$(mktemp -d)
+            tar -xf "$SETUPTOOLS_TAR" -C "$SETUPTOOLS_WORK" --strip-components=1
+            cd "$SETUPTOOLS_WORK"
+            python3 bootstrap/bootstrap.py 2>&1 | tail -5
+            cd /
+            rm -rf "$SETUPTOOLS_WORK"
+            if python3 -c "import setuptools" 2>/dev/null; then
+                log "  setuptools: bootstrapped"
+            else
+                log "ERROR: Failed to bootstrap setuptools"
+                exit 1
+            fi
+        fi
+
         PYYAML_TAR=$(ls ${IGOS_SOURCES}/PyYAML-*.tar.gz ${IGOS_SOURCES}/pyyaml-*.tar.gz 2>/dev/null | head -1)
         if [ -z "$PYYAML_TAR" ]; then
             log "ERROR: No PyYAML tarball found in $IGOS_SOURCES"
