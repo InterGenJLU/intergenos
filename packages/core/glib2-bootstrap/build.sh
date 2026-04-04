@@ -11,6 +11,7 @@ configure() {
 
     meson setup ..                  \
           --prefix=/usr             \
+          --libdir=/usr/lib         \
           --buildtype=release       \
           -D introspection=disabled \
           -D glib_debug=disabled    \

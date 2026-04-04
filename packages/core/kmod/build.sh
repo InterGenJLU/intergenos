@@ -9,6 +9,7 @@ configure() {
     cd       build
 
     meson setup --prefix=/usr ..    \
+        --libdir=/usr/lib           \
         --buildtype=release         \
         -D manpages=false
 }

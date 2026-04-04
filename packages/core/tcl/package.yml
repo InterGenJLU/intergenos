@@ -1,0 +1,17 @@
+name: tcl
+version: 8.6.17
+release: 1
+description: Tool Command Language
+license: TCL
+homepage: https://www.tcl.tk/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://downloads.sourceforge.net/tcl/tcl${version}-src.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host:
+  - zlib
+  runtime: []

@@ -26,6 +26,9 @@ build() {
 }
 
 check() {
+    # LFS: touch /etc/fstab to prevent two test failures
+    touch /etc/fstab
+
     # WARNING: Running tests as root can be harmful to the system
     # Some tests require specific kernel config options
     chown -R tester .

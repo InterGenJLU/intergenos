@@ -14,7 +14,7 @@ source:
 dependencies:
   build:
     - libpsl
-    - make-ca
+    - openssl
   host: []
   runtime:
     - make-ca

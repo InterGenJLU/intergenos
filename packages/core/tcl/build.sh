@@ -5,7 +5,6 @@
 # Test infrastructure — needed for Binutils, GCC, and other test suites.
 
 configure() {
-    SRCDIR=$(pwd)
     cd unix
     ./configure --prefix=/usr           \
         --mandir=/usr/share/man         \
@@ -13,6 +12,8 @@ configure() {
 }
 
 build() {
+    # SRCDIR must be computed here — each phase runs in a separate subprocess
+    SRCDIR=$(dirname $(pwd))
     cd unix
     make -j${IGOS_JOBS}
 
@@ -31,8 +32,6 @@ build() {
         -e "s|$SRCDIR/pkgs/itcl4.3.4/generic|/usr/include|"    \
         -e "s|$SRCDIR/pkgs/itcl4.3.4|/usr/include|"            \
         -i pkgs/itcl4.3.4/itclConfig.sh
-
-    unset SRCDIR
 }
 
 check() {

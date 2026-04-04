@@ -15,6 +15,9 @@ build() {
 }
 
 check() {
+    # LFS: exclude test that requires curl/wget (not available during core build)
+    sed '/test_plugin_glvs/d' -i src/testdir/Make_all.mak
+
     # Tests must be run as non-root and from a terminal
     chown -R tester .
     su tester -c "TERM=xterm-256color LANG=en_US.UTF-8 make -j1 test" &> vim-test.log || true

@@ -17,6 +17,7 @@ dependencies:
     - libpsl
     - libssh2
     - make-ca
+    - openssl
   host: []
   runtime:
     - make-ca

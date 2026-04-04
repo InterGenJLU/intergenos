@@ -19,6 +19,7 @@ EOF
 
     meson setup ..            \
           --prefix=/usr       \
+          --libdir=/usr/lib   \
           --buildtype=release \
           -D trust_paths=/etc/pki/anchors
 }

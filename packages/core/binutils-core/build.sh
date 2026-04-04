@@ -39,7 +39,8 @@ do_install() {
     cd build
     make DESTDIR="$DESTDIR" tooldir=/usr install
 
-    # Remove useless static libraries and .la files
+    # Remove useless static libraries, .la files, and gprofng docs per LFS
     rm -fv "${DESTDIR}/usr/lib"/lib{bfd,ctf,ctf-nobfd,gprofng,opcodes,sframe}.a
     rm -fv "${DESTDIR}/usr/lib"/lib{bfd,ctf,ctf-nobfd,gprofng,opcodes,sframe}.la
+    rm -rfv "${DESTDIR}/usr/share/doc/gprofng/"
 }

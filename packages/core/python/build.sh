@@ -28,6 +28,8 @@ root = /usr
 compile = no
 
 [global]
+root-user-action = ignore
+disable-pip-version-check = true
 break-system-packages = true
 
 [freeze]

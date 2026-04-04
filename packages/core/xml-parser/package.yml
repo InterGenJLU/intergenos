@@ -13,4 +13,5 @@ dependencies:
   - expat
   runtime: []
 tier: core
-build_style: autotools
+build_style: custom
+install_func: do_install

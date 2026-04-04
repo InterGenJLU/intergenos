@@ -118,11 +118,29 @@ password  required    pam_permit.so
 # End /etc/pam.d/chage
 EOF
 
-    for PROGRAM in chfn chgpasswd chpasswd chsh groupadd groupdel \
-                   groupmems groupmod newusers useradd userdel usermod
+    for PROGRAM in chfn chgpasswd chsh groupadd groupdel \
+                   groupmems groupmod useradd userdel usermod
     do
         install -v -m644 /etc/pam.d/chage "/etc/pam.d/${PROGRAM}"
         sed -i "s/chage/$PROGRAM/" "/etc/pam.d/${PROGRAM}"
+    done
+
+    # BLFS: chpasswd and newusers need system-password, not pam_permit.so
+    for PROGRAM in chpasswd newusers; do
+        cat > /etc/pam.d/${PROGRAM} << CPEOF
+# Begin /etc/pam.d/${PROGRAM}
+
+auth      sufficient  pam_rootok.so
+auth      include     system-auth
+
+account   include     system-account
+
+session   include     system-session
+
+password  include     system-password
+
+# End /etc/pam.d/${PROGRAM}
+CPEOF
     done
 
     cat > /etc/pam.d/other << "EOF"

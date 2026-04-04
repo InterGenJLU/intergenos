@@ -19,6 +19,7 @@ EOF
 
     meson setup ..        \
       --prefix=/usr       \
+      --libdir=/usr/lib   \
       --buildtype=release \
       -D docdir=/usr/share/doc/Linux-PAM-1.7.2
 }

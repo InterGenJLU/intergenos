@@ -16,6 +16,7 @@ configure() {
 
     meson setup ..                \
         --prefix=/usr             \
+        --libdir=/usr/lib         \
         --buildtype=release       \
         -D default-dnssec=no      \
         -D firstboot=false        \
