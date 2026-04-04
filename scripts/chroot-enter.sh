@@ -29,8 +29,8 @@ fi
 
 # Determine what to run inside the chroot
 if [ -n "$1" ]; then
-    # Run a specific script inside the chroot
-    CHROOT_CMD="/bin/bash $1"
+    # Run a specific script inside the chroot (pass all arguments through)
+    CHROOT_CMD="/bin/bash $*"
 else
     # Interactive shell
     CHROOT_CMD="/bin/bash --login"
