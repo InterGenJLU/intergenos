@@ -12,7 +12,11 @@ source:
   sha256: a7b341421bfd459acf7a374ca4af3b9e06608dcd7bd792b2bf470bea012b8e51
 dependencies:
   build:
+  - libtasn1
+  - libunistring
+  - make-ca
   - nettle
+  - p11-kit
   host: []
   runtime: []
 configure_flags:

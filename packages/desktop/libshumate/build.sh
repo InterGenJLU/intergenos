@@ -1,5 +1,5 @@
 #!/bin/bash
-# libshumate 1.3.2 — GTK4 map widget
+# libshumate 1.5.3 — GTK4 map widget
 # BLFS 13.0
 
 configure() {

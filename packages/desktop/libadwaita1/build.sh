@@ -1,5 +1,5 @@
 #!/bin/bash
-# libadwaita1 1.6.2 — GTK4 adaptive widgets library
+# libadwaita1 1.8.4 — GTK4 adaptive widgets library
 # BLFS 13.0
 
 configure() {

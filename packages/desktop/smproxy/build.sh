@@ -1,5 +1,5 @@
 #!/bin/bash
-# smproxy 1.0.7 — Session Manager Proxy
+# smproxy 1.0.8 — Session Manager Proxy
 # BLFS 13.0
 
 configure() {

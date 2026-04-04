@@ -13,5 +13,6 @@ source:
 dependencies:
   build:
   - dav1d
+  - svt-av1
   host: []
   runtime: []

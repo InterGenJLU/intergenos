@@ -1,5 +1,5 @@
 #!/bin/bash
-# gcr4 4.3.0 — GNOME crypto and certificate library
+# gcr4 4.4.0.1 — GNOME crypto and certificate library
 # BLFS 13.0
 
 configure() {

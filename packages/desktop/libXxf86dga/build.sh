@@ -1,5 +1,5 @@
 #!/bin/bash
-# libXxf86dga 1.1.6 — X XFree86-DGA extension library
+# libXxf86dga 1.1.7 — X XFree86-DGA extension library
 # BLFS 13.0
 
 configure() {

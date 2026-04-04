@@ -1,5 +1,5 @@
 #!/bin/bash
-# gst-plugins-base 1.24.10 — GStreamer base plugins
+# gst-plugins-base 1.28.1 — GStreamer base plugins
 # BLFS 13.0
 
 configure() {

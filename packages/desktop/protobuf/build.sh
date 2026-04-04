@@ -1,5 +1,5 @@
 #!/bin/bash
-# protobuf 28.3 — Protocol Buffers serialization library
+# protobuf 33.5 — Protocol Buffers serialization library
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# libclc 19.1.7 — OpenCL C library
+# libclc 21.1.8 — OpenCL C library
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# blueprint-compiler 0.14.0 — Markup language compiler for GTK UI files
+# blueprint-compiler 0.18.0 — Markup language compiler for GTK UI files
 # BLFS 13.0
 
 configure() {

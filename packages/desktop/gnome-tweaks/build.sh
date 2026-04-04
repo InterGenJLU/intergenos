@@ -1,5 +1,5 @@
 #!/bin/bash
-# gnome-tweaks 47.0 — GNOME advanced settings tool
+# gnome-tweaks 49.0 — GNOME advanced settings tool
 # BLFS 13.0
 
 configure() {

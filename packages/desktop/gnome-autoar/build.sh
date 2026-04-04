@@ -1,5 +1,5 @@
 #!/bin/bash
-# gnome-autoar 0.4.4 — GNOME automatic archive library
+# gnome-autoar 0.4.5 — GNOME automatic archive library
 # BLFS 13.0
 
 configure() {

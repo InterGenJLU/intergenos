@@ -1,5 +1,5 @@
 #!/bin/bash
-# gnome-menus 3.36.0 — GNOME menu specification implementation
+# gnome-menus 3.38.1 — GNOME menu specification implementation
 # BLFS 13.0
 
 configure() {

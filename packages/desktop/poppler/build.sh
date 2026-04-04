@@ -1,5 +1,5 @@
 #!/bin/bash
-# poppler 24.12.0 — PDF rendering library
+# poppler 26.02.0 — PDF rendering library
 # BLFS 13.0
 
 configure() {

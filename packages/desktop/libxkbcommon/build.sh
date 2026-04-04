@@ -1,5 +1,5 @@
 #!/bin/bash
-# libxkbcommon 1.7.0 — Keyboard handling library
+# libxkbcommon 1.13.1 — Keyboard handling library
 # BLFS 13.0
 
 configure() {

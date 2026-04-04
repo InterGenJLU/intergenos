@@ -1,5 +1,5 @@
 #!/bin/bash
-# abseil-cpp 20240722.0 — Abseil C++ common libraries
+# abseil-cpp 20260107.1 — Abseil C++ common libraries
 # BLFS 13.0
 
 configure() {

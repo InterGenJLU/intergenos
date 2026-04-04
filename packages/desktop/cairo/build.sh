@@ -1,5 +1,5 @@
 #!/bin/bash
-# cairo 1.18.2 — 2D graphics library
+# cairo 1.18.4 — 2D graphics library
 # BLFS 13.0
 
 configure() {

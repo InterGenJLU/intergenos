@@ -1,5 +1,5 @@
 #!/bin/bash
-# hatchling 1.25.0 — Python build backend
+# hatchling 1.28.0 — Python build backend
 # BLFS 13.0
 
 configure() { : ; }

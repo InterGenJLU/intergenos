@@ -1,5 +1,5 @@
 #!/bin/bash
-# docutils 0.21.2 — Python documentation utilities
+# docutils 0.22.4 — Python documentation utilities
 # BLFS 13.0
 
 configure() { : ; }

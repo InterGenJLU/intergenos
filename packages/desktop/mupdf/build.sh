@@ -1,5 +1,5 @@
 #!/bin/bash
-# mupdf 1.24.11 — Lightweight PDF and XPS viewer
+# mupdf 1.26.12 — Lightweight PDF and XPS viewer
 # BLFS 13.0
 
 configure() {

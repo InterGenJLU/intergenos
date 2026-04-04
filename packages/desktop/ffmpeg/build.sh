@@ -1,5 +1,5 @@
 #!/bin/bash
-# ffmpeg 7.1 — Complete multimedia framework
+# ffmpeg 8.0.1 — Complete multimedia framework
 # BLFS 13.0
 
 configure() {

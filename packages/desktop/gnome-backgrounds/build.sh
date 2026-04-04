@@ -1,5 +1,5 @@
 #!/bin/bash
-# gnome-backgrounds 47.0 — GNOME desktop wallpapers
+# gnome-backgrounds 49.0 — GNOME desktop wallpapers
 # BLFS 13.0
 
 configure() {

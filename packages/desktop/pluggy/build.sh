@@ -1,5 +1,5 @@
 #!/bin/bash
-# pluggy 1.5.0 — Plugin management framework
+# pluggy 1.6.0 — Plugin management framework
 # BLFS 13.0
 
 configure() { : ; }

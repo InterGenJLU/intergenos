@@ -1,5 +1,5 @@
 #!/bin/bash
-# libwebp 1.5.0 — WebP image format library
+# libwebp 1.6.0 — WebP image format library
 # BLFS 13.0
 
 configure() {

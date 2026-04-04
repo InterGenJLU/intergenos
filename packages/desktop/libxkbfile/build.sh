@@ -1,5 +1,5 @@
 #!/bin/bash
-# libxkbfile 1.1.3 — XKB file handling library
+# libxkbfile 1.2.0 — XKB file handling library
 # BLFS 13.0
 
 configure() {

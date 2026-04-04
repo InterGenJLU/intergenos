@@ -1,5 +1,5 @@
 #!/bin/bash
-# libXmu 1.2.1 — X miscellaneous utility library
+# libXmu 1.3.1 — X miscellaneous utility library
 # BLFS 13.0
 
 configure() {

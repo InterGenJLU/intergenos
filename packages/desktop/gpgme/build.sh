@@ -1,5 +1,5 @@
 #!/bin/bash
-# gpgme 1.24.1 — GnuPG Made Easy library
+# gpgme 2.0.1 — GnuPG Made Easy library
 # BLFS 13.0
 
 configure() {

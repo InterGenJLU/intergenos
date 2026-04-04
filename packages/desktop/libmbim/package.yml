@@ -13,6 +13,7 @@ source:
 dependencies:
   build:
   - bash-completion
+  - glib2
   - help2man
   host: []
   runtime: []

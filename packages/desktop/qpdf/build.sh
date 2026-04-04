@@ -1,5 +1,5 @@
 #!/bin/bash
-# qpdf 11.9.1 — PDF transformation utility
+# qpdf 12.3.2 — PDF transformation utility
 # BLFS 13.0
 
 configure() {

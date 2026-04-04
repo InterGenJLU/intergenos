@@ -1,5 +1,5 @@
 #!/bin/bash
-# boost 1.86.0 — C++ utility libraries
+# boost 1.90.0 — C++ utility libraries
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# samba 4.21.3 — SMB/CIFS file and print server
+# samba 4.23.5 — SMB/CIFS file and print server
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# gsettings-desktop-schemas 47.1 — GSettings schemas for GNOME desktop
+# gsettings-desktop-schemas 49.1 — GSettings schemas for GNOME desktop
 # BLFS 13.0
 
 configure() {

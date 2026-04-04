@@ -1,5 +1,5 @@
 #!/bin/bash
-# libxmlb 0.3.21 — Library for querying compressed XML metadata
+# libxmlb 0.3.25 — Library for querying compressed XML metadata
 # BLFS 13.0
 
 configure() {

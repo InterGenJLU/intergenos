@@ -1,5 +1,5 @@
 #!/bin/bash
-# gnome-desktop 44.1 — GNOME desktop core library
+# gnome-desktop 44.5 — GNOME desktop core library
 # BLFS 13.0
 
 configure() {

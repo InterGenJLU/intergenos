@@ -1,5 +1,5 @@
 #!/bin/bash
-# gnome-shell-extensions 47.2 — GNOME Shell extensions collection
+# gnome-shell-extensions 49.0 — GNOME Shell extensions collection
 # BLFS 13.0
 
 configure() {

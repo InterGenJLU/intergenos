@@ -1,5 +1,5 @@
 #!/bin/bash
-# gnome-session 47.0 — GNOME session manager
+# gnome-session 49.2 — GNOME session manager
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# libXv 1.0.12 — X Video extension library
+# libXv 1.0.13 — X Video extension library
 # BLFS 13.0
 
 configure() {

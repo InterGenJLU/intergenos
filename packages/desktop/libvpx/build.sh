@@ -1,5 +1,5 @@
 #!/bin/bash
-# libvpx 1.15.0 — VP8/VP9 video codec
+# libvpx 1.16.0 — VP8/VP9 video codec
 # BLFS 13.0
 
 configure() {

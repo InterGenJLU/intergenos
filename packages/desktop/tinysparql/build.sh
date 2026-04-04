@@ -1,5 +1,5 @@
 #!/bin/bash
-# tinysparql 3.8.1 — RDF graph database and SPARQL query engine
+# tinysparql 3.10.1 — RDF graph database and SPARQL query engine
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# libva 2.22.0 — Video Acceleration API
+# libva 2.23.0 — Video Acceleration API
 # BLFS 13.0
 
 configure() {

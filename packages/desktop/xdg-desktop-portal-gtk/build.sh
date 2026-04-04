@@ -1,5 +1,5 @@
 #!/bin/bash
-# xdg-desktop-portal-gtk 1.15.2 — GTK backend for xdg-desktop-portal
+# xdg-desktop-portal-gtk 1.15.3 — GTK backend for xdg-desktop-portal
 # BLFS 13.0
 
 configure() {

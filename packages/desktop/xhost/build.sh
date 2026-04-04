@@ -1,5 +1,5 @@
 #!/bin/bash
-# xhost 1.0.9 — Server access control program
+# xhost 1.0.10 — Server access control program
 # BLFS 13.0
 
 configure() {

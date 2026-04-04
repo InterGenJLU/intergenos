@@ -1,5 +1,5 @@
 #!/bin/bash
-# gnome-user-docs 47.4 — GNOME user documentation
+# gnome-user-docs 49.4 — GNOME user documentation
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# lvm2 2.03.28 — Logical Volume Manager
+# lvm2 2.03.38 — Logical Volume Manager
 # BLFS 13.0
 
 configure() {

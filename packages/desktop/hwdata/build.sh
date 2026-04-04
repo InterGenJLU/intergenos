@@ -1,5 +1,5 @@
 #!/bin/bash
-# hwdata 0.389 — Hardware identification and configuration data
+# hwdata 0.404 — Hardware identification and configuration data
 # BLFS 13.0
 
 configure() {

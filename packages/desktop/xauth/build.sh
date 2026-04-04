@@ -1,5 +1,5 @@
 #!/bin/bash
-# xauth 1.1.3 — X authority file utility
+# xauth 1.1.5 — X authority file utility
 # BLFS 13.0
 
 configure() {

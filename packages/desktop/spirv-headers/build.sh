@@ -1,5 +1,5 @@
 #!/bin/bash
-# spirv-headers 1.3.290.0 — SPIR-V headers
+# spirv-headers 1.4.341.0 — SPIR-V headers
 # BLFS 13.0
 
 configure() {

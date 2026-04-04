@@ -1,5 +1,5 @@
 #!/bin/bash
-# markdown 3.7 — Python Markdown implementation
+# markdown 3.10.2 — Python Markdown implementation
 # BLFS 13.0
 
 configure() { : ; }

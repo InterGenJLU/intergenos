@@ -1,5 +1,5 @@
 #!/bin/bash
-# wayland-protocols 1.38 — Wayland protocol extensions
+# wayland-protocols 1.47 — Wayland protocol extensions
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# wayland 1.23.1 — Wayland display server protocol
+# wayland 1.24.0 — Wayland display server protocol
 # BLFS 13.0
 
 configure() {

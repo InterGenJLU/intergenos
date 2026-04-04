@@ -1,5 +1,5 @@
 #!/bin/bash
-# gnome-terminal 3.54.2 — GNOME terminal emulator
+# gnome-terminal 3.58.1 — GNOME terminal emulator
 # BLFS 13.0
 
 configure() {

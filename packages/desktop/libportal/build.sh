@@ -1,5 +1,5 @@
 #!/bin/bash
-# libportal 0.8.1 — Flatpak portal library
+# libportal 0.9.1 — Flatpak portal library
 # BLFS 13.0
 
 configure() {

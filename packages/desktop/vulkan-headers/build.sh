@@ -1,5 +1,5 @@
 #!/bin/bash
-# vulkan-headers 1.3.290.0 — Vulkan API headers
+# vulkan-headers 1.4.341.0 — Vulkan API headers
 # BLFS 13.0
 
 configure() {

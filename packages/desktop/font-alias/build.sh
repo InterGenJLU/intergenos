@@ -1,9 +1,11 @@
 #!/bin/bash
-# font-alias 1.0.5 — X font aliases
+# font-alias 1.0.6 — X font aliases
 # BLFS 13.0
 
 configure() {
     ./configure --prefix=/usr
+                --sysconfdir=/etc \
+                --localstatedir=/var \
 }
 
 build() {

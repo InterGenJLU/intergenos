@@ -1,5 +1,5 @@
 #!/bin/bash
-# fuse3 3.16.2 — Filesystem in Userspace
+# fuse3 3.18.1 — Filesystem in Userspace
 # BLFS 13.0
 
 configure() {

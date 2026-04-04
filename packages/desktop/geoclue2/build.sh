@@ -1,5 +1,5 @@
 #!/bin/bash
-# geoclue2 2.7.2 — D-Bus geolocation service
+# geoclue2 2.8.0 — D-Bus geolocation service
 # BLFS 13.0
 
 configure() {

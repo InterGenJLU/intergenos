@@ -1,5 +1,5 @@
 #!/bin/bash
-# gstreamer 1.24.10 — GStreamer multimedia framework
+# gstreamer 1.28.1 — GStreamer multimedia framework
 # BLFS 13.0
 
 configure() {

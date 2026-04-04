@@ -1,5 +1,5 @@
 #!/bin/bash
-# nautilus 47.2 — GNOME file manager
+# nautilus 49.3 — GNOME file manager
 # BLFS 13.0
 
 configure() {

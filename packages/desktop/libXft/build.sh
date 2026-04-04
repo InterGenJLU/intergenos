@@ -1,5 +1,5 @@
 #!/bin/bash
-# libXft 2.3.8 — X FreeType interface library
+# libXft 2.3.9 — X FreeType interface library
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# xwayland 24.1.5 — X server running as a Wayland client
+# xwayland 24.1.9 — X server running as a Wayland client
 # BLFS 13.0
 
 configure() {

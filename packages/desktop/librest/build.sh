@@ -1,5 +1,5 @@
 #!/bin/bash
-# librest 0.9.1 — REST web service access library
+# librest 0.10.2 — REST web service access library
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Mako 1.3.6 — Python template library (needed by Mesa)
+# Mako 1.3.10 — Python template library (needed by Mesa)
 # BLFS 13.0
 
 configure() { : ; }

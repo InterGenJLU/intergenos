@@ -1,5 +1,5 @@
 #!/bin/bash
-# libXpm 3.5.17 — X Pixmap library
+# libXpm 3.5.18 — X Pixmap library
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# cython 3.0.11 — C extensions for Python
+# cython 3.2.4 — C extensions for Python
 # BLFS 13.0
 
 configure() { : ; }

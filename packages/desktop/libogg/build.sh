@@ -1,5 +1,5 @@
 #!/bin/bash
-# libogg 1.3.5 — Ogg bitstream container library
+# libogg 1.3.6 — Ogg bitstream container library
 # BLFS 13.0
 
 configure() {

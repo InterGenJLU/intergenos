@@ -1,5 +1,5 @@
 #!/bin/bash
-# libXrandr 1.5.4 — X Resize and Rotate extension library
+# libXrandr 1.5.5 — X Resize and Rotate extension library
 # BLFS 13.0
 
 configure() {

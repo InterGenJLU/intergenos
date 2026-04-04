@@ -1,5 +1,5 @@
 #!/bin/bash
-# nasm 2.16.03 — Netwide Assembler
+# nasm 3.01 — Netwide Assembler
 # BLFS 13.0
 
 configure() {

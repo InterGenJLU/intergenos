@@ -1,5 +1,5 @@
 #!/bin/bash
-# gnome-control-center 47.4 — GNOME system settings
+# gnome-control-center 49.4 — GNOME system settings
 # BLFS 13.0
 
 configure() {

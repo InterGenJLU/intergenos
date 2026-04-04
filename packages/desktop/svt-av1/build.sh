@@ -1,5 +1,5 @@
 #!/bin/bash
-# svt-av1 3.0.0 — SVT-based AV1 encoder
+# svt-av1 4.0.1 — SVT-based AV1 encoder
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# sbc 2.0 — Bluetooth SBC audio codec
+# sbc 2.2 — Bluetooth SBC audio codec
 # BLFS 13.0
 
 configure() {

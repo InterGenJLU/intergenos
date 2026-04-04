@@ -1,5 +1,5 @@
 #!/bin/bash
-# dconf 0.40.0 — Low-level GSettings backend
+# dconf 0.49.0 — Low-level GSettings backend
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# setuptools-scm 8.1.0 — Setuptools SCM plugin
+# setuptools-scm 9.2.2 — Setuptools SCM plugin
 # BLFS 13.0
 
 configure() { : ; }

@@ -1,5 +1,5 @@
 #!/bin/bash
-# modemmanager 1.22.0 — Mobile broadband modem management daemon
+# modemmanager 1.24.2 — Mobile broadband modem management daemon
 # BLFS 13.0
 
 configure() {

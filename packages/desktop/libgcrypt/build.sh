@@ -1,5 +1,5 @@
 #!/bin/bash
-# libgcrypt 1.11.0 — General purpose cryptographic library
+# libgcrypt 1.12.0 — General purpose cryptographic library
 # BLFS 13.0
 
 configure() {

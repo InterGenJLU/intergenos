@@ -1,5 +1,5 @@
 #!/bin/bash
-# libXcomposite 0.4.6 — X Composite extension library
+# libXcomposite 0.4.7 — X Composite extension library
 # BLFS 13.0
 
 configure() {

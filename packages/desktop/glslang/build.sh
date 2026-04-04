@@ -1,5 +1,5 @@
 #!/bin/bash
-# glslang 15.1.0 — GLSL/HLSL to SPIR-V compiler
+# glslang 16.2.0 — GLSL/HLSL to SPIR-V compiler
 # BLFS 13.0
 
 configure() {

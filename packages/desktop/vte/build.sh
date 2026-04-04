@@ -1,5 +1,5 @@
 #!/bin/bash
-# vte 0.78.2 — Virtual Terminal Emulator widget
+# vte 0.82.3 — Virtual Terminal Emulator widget
 # BLFS 13.0
 
 configure() {

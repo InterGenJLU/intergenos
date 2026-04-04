@@ -1,5 +1,5 @@
 #!/bin/bash
-# libusb 1.0.27 — USB access library
+# libusb 1.0.29 — USB access library
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# libXScrnSaver 1.2.4 — X11 Screen Saver extension library
+# libXScrnSaver 1.2.5 — X11 Screen Saver extension library
 # BLFS 13.0
 
 configure() {

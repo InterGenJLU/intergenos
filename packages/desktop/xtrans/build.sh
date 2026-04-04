@@ -1,5 +1,5 @@
 #!/bin/bash
-# xtrans 1.5.2 — X transport library
+# xtrans 1.6.0 — X transport library
 # BLFS 13.0
 
 configure() {

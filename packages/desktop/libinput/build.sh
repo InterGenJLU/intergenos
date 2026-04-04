@@ -1,5 +1,5 @@
 #!/bin/bash
-# libinput 1.27.1 — Input device management and event handling library
+# libinput 1.31.0 — Input device management and event handling library
 # BLFS 13.0
 
 configure() {

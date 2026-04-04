@@ -1,5 +1,5 @@
 #!/bin/bash
-# libjpeg-turbo 3.1.0 — High-speed JPEG compression/decompression library
+# libjpeg-turbo 3.1.3 — High-speed JPEG compression/decompression library
 # BLFS 13.0
 
 configure() {

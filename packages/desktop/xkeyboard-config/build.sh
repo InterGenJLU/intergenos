@@ -1,5 +1,5 @@
 #!/bin/bash
-# xkeyboard-config 2.43 — X Keyboard Configuration Database
+# xkeyboard-config 2.46 — X Keyboard Configuration Database
 # BLFS 13.0
 
 configure() {

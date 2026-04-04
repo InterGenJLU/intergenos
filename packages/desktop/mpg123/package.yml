@@ -11,7 +11,8 @@ source:
 - url: https://downloads.sourceforge.net/mpg123/mpg123-${version}.tar.bz2
   sha256: 3ae8c9ff80a97bfc0e22e89fbcd74687eca4fc1db315b12607f27f01cb5a47d9
 dependencies:
-  build: []
+  build:
+  - alsa-lib
   host: []
   runtime: []
 configure_flags:

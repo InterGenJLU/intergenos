@@ -1,5 +1,5 @@
 #!/bin/bash
-# libnl 3.11.0 — Netlink protocol library suite
+# libnl 3.12.0 — Netlink protocol library suite
 # BLFS 13.0
 
 configure() {

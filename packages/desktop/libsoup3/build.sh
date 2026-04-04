@@ -1,5 +1,5 @@
 #!/bin/bash
-# libsoup3 3.6.4 — HTTP client/server library for GNOME
+# libsoup3 3.6.6 — HTTP client/server library for GNOME
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# c-ares 1.34.4 — Asynchronous DNS resolver library
+# c-ares 1.34.6 — Asynchronous DNS resolver library
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# libqmi 1.34.0 — QMI protocol library
+# libqmi 1.38.0 — QMI protocol library
 # BLFS 13.0
 
 configure() {

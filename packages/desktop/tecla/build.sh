@@ -1,5 +1,5 @@
 #!/bin/bash
-# tecla 47.0 — GNOME on-screen keyboard
+# tecla 49.0 — GNOME on-screen keyboard
 # BLFS 13.0
 
 configure() {

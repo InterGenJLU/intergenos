@@ -1,5 +1,5 @@
 #!/bin/bash
-# pipewire 1.2.7 — Multimedia processing framework
+# pipewire 1.6.0 — Multimedia processing framework
 # BLFS 13.0
 
 configure() {

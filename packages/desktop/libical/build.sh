@@ -1,5 +1,5 @@
 #!/bin/bash
-# libical 3.0.18 — iCalendar protocol implementation
+# libical 3.0.20 — iCalendar protocol implementation
 # BLFS 13.0
 
 configure() {

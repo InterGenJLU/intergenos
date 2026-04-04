@@ -1,5 +1,5 @@
 #!/bin/bash
-# libXfixes 6.0.1 — X Fixes extension library
+# libXfixes 6.0.2 — X Fixes extension library
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# alsa-utils 1.2.13 — ALSA utilities
+# alsa-utils 1.2.15.2 — ALSA utilities
 # BLFS 13.0
 
 configure() {

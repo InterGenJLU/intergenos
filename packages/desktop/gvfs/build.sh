@@ -1,5 +1,5 @@
 #!/bin/bash
-# gvfs 1.54.2 — GNOME virtual filesystem
+# gvfs 1.58.2 — GNOME virtual filesystem
 # BLFS 13.0
 
 configure() {

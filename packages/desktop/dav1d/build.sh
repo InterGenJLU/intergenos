@@ -1,5 +1,5 @@
 #!/bin/bash
-# dav1d 1.5.0 — AV1 video decoder
+# dav1d 1.5.3 — AV1 video decoder
 # BLFS 13.0
 
 configure() {

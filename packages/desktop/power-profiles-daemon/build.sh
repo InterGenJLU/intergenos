@@ -1,5 +1,5 @@
 #!/bin/bash
-# power-profiles-daemon 0.23 — System-wide power profile management
+# power-profiles-daemon 0.30 — System-wide power profile management
 # BLFS 13.0
 
 configure() {

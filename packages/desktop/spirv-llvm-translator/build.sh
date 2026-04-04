@@ -1,5 +1,5 @@
 #!/bin/bash
-# spirv-llvm-translator 19.1.7 — SPIR-V to LLVM IR translator
+# spirv-llvm-translator 21.1.4 — SPIR-V to LLVM IR translator
 # BLFS 13.0
 
 configure() {

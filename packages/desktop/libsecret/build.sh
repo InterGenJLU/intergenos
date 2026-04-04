@@ -1,5 +1,5 @@
 #!/bin/bash
-# libsecret 0.21.4 — Library for accessing secrets stored in the keyring
+# libsecret 0.21.7 — Library for accessing secrets stored in the keyring
 # BLFS 13.0
 
 configure() {

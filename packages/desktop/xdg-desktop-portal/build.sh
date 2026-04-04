@@ -1,5 +1,5 @@
 #!/bin/bash
-# xdg-desktop-portal 1.18.4 — Desktop integration portal
+# xdg-desktop-portal 1.20.3 — Desktop integration portal
 # BLFS 13.0
 
 configure() {

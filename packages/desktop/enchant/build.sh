@@ -1,5 +1,5 @@
 #!/bin/bash
-# enchant 2.8.2 — Generic spell checking library
+# enchant 2.8.15 — Generic spell checking library
 # BLFS 13.0
 
 configure() {

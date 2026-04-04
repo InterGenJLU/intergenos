@@ -1,5 +1,5 @@
 #!/bin/bash
-# upower 1.90.6 — Power management service
+# upower 1.91.1 — Power management service
 # BLFS 13.0
 
 configure() {

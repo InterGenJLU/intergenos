@@ -1,5 +1,5 @@
 #!/bin/bash
-# yelp-xsl 42.1 — GNOME help stylesheets
+# yelp-xsl 49.0 — GNOME help stylesheets
 # BLFS 13.0
 
 configure() {

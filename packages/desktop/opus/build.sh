@@ -1,5 +1,5 @@
 #!/bin/bash
-# opus 1.5.2 — Interactive speech and audio codec
+# opus 1.6.1 — Interactive speech and audio codec
 # BLFS 13.0
 
 configure() {

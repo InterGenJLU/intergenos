@@ -1,5 +1,5 @@
 #!/bin/bash
-# libXinerama 1.1.5 — X Xinerama extension library
+# libXinerama 1.1.6 — X Xinerama extension library
 # BLFS 13.0
 
 configure() {

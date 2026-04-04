@@ -1,5 +1,5 @@
 #!/bin/bash
-# at-spi2-core 2.54.0 — Assistive Technology Service Provider Interface
+# at-spi2-core 2.58.3 — Assistive Technology Service Provider Interface
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# mitkrb 1.21.3 — MIT Kerberos V5 authentication
+# mitkrb 1.22.2 — MIT Kerberos V5 authentication
 # BLFS 13.0
 
 configure() {

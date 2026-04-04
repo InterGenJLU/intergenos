@@ -1,5 +1,5 @@
 #!/bin/bash
-# libmbim 1.30.0 — MBIM protocol library
+# libmbim 1.34.0 — MBIM protocol library
 # BLFS 13.0
 
 configure() {

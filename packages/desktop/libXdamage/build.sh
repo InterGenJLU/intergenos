@@ -1,5 +1,5 @@
 #!/bin/bash
-# libXdamage 1.1.6 — X Damage extension library
+# libXdamage 1.1.7 — X Damage extension library
 # BLFS 13.0
 
 configure() {

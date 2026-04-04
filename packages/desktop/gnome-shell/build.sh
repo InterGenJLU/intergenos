@@ -1,5 +1,5 @@
 #!/bin/bash
-# gnome-shell 47.4 — GNOME desktop shell
+# gnome-shell 49.4 — GNOME desktop shell
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# libxcvt 0.1.2 — VESA CVT standard timing modelines generator
+# libxcvt 0.1.3 — VESA CVT standard timing modelines generator
 # BLFS 13.0
 
 configure() {

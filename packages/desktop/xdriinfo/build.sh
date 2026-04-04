@@ -1,5 +1,5 @@
 #!/bin/bash
-# xdriinfo 1.0.7 — DRI information utility
+# xdriinfo 1.0.8 — DRI information utility
 # BLFS 13.0
 
 configure() {

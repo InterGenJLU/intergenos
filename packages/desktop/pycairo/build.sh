@@ -1,5 +1,5 @@
 #!/bin/bash
-# pycairo 1.27.0 — Python bindings for Cairo
+# pycairo 1.29.0 — Python bindings for Cairo
 # BLFS 13.0
 
 configure() {

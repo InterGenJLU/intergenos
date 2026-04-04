@@ -1,5 +1,5 @@
 #!/bin/bash
-# xorgproto 2024.1 — X11 protocol headers
+# xorgproto 2025.1 — X11 protocol headers
 # BLFS 13.0
 
 configure() {

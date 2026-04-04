@@ -1,5 +1,5 @@
 #!/bin/bash
-# libwacom 2.13.0 — Wacom tablet information library
+# libwacom 2.18.0 — Wacom tablet information library
 # BLFS 13.0
 
 configure() {

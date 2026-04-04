@@ -1,5 +1,5 @@
 #!/bin/bash
-# soundtouch 2.3.3 — Audio tempo/pitch processing library
+# soundtouch 2.4.0 — Audio tempo/pitch processing library
 # BLFS 13.0
 
 configure() {

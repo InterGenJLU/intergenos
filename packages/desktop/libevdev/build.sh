@@ -1,5 +1,5 @@
 #!/bin/bash
-# libevdev 1.13.3 — Input event device wrapper library
+# libevdev 1.13.6 — Input event device wrapper library
 # BLFS 13.0
 
 configure() {

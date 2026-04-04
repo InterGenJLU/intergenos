@@ -1,5 +1,5 @@
 #!/bin/bash
-# libjxl 0.11.1 — JPEG XL image format library
+# libjxl 0.11.2 — JPEG XL image format library
 # BLFS 13.0
 
 configure() {

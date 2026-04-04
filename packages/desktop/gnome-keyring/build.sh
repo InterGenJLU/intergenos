@@ -1,5 +1,5 @@
 #!/bin/bash
-# gnome-keyring 47.0 — GNOME password and secret storage
+# gnome-keyring 48.0 — GNOME password and secret storage
 # BLFS 13.0
 
 configure() {

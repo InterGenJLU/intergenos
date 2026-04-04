@@ -1,5 +1,5 @@
 #!/bin/bash
-# mpg123 1.32.9 — MPEG audio decoder
+# mpg123 1.33.4 — MPEG audio decoder
 # BLFS 13.0
 
 configure() {

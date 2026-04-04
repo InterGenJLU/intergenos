@@ -1,5 +1,5 @@
 #!/bin/bash
-# font-noto 24.12.1 — Google Noto fonts
+# font-noto 2025.12.01 — Google Noto fonts
 # Pre-built TTF fonts — no compilation needed
 # Installs core Noto Sans/Serif/Mono (not the full 1GB+ collection)
 

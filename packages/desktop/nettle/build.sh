@@ -1,5 +1,5 @@
 #!/bin/bash
-# nettle 3.10.1 — Low-level cryptographic library
+# nettle 3.10.2 — Low-level cryptographic library
 # BLFS 13.0
 
 configure() {

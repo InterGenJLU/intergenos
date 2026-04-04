@@ -1,5 +1,5 @@
 #!/bin/bash
-# pygments 2.18.0 — Syntax highlighting library
+# pygments 2.19.2 — Syntax highlighting library
 # BLFS 13.0
 
 configure() { : ; }

@@ -1,5 +1,5 @@
 #!/bin/bash
-# alsa-lib 1.2.13 — ALSA sound library
+# alsa-lib 1.2.15.3 — ALSA sound library
 # BLFS 13.0
 
 configure() {

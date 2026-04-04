@@ -1,5 +1,5 @@
 #!/bin/bash
-# libXpresent 1.0.1 — X Present extension library
+# libXpresent 1.0.2 — X Present extension library
 # BLFS 13.0
 
 configure() {

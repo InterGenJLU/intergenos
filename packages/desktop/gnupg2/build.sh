@@ -1,5 +1,5 @@
 #!/bin/bash
-# gnupg2 2.4.7 — GNU Privacy Guard
+# gnupg2 2.5.17 — GNU Privacy Guard
 # BLFS 13.0
 
 configure() {

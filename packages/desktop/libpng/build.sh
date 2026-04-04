@@ -1,5 +1,5 @@
 #!/bin/bash
-# libpng 1.6.44 — PNG reference library
+# libpng 1.6.55 — PNG reference library
 # BLFS 13.0
 
 configure() {

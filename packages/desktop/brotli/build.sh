@@ -1,5 +1,5 @@
 #!/bin/bash
-# brotli 1.1.0 — Brotli compression library
+# brotli 1.2.0 — Brotli compression library
 # BLFS 13.0
 
 configure() {

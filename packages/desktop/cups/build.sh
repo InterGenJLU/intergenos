@@ -1,5 +1,5 @@
 #!/bin/bash
-# cups 2.4.11 — Common UNIX Printing System
+# cups 2.4.16 — Common UNIX Printing System
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# libdrm 2.4.124 — Direct Rendering Manager library
+# libdrm 2.4.131 — Direct Rendering Manager library
 # BLFS 13.0
 
 configure() {

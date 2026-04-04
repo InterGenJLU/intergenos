@@ -1,5 +1,5 @@
 #!/bin/bash
-# libxslt 1.1.42 — XSLT processor library
+# libxslt 1.1.45 — XSLT processor library
 # BLFS 13.0
 
 configure() {

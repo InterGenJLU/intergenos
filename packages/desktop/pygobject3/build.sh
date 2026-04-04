@@ -1,5 +1,5 @@
 #!/bin/bash
-# pygobject3 3.50.0 — Python GObject bindings
+# pygobject3 3.54.5 — Python GObject bindings
 # BLFS 13.0
 
 configure() {

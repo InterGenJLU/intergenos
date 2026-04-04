@@ -1,5 +1,5 @@
 #!/bin/bash
-# libavif 1.1.1 — AVIF image format library
+# libavif 1.3.0 — AVIF image format library
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# spirv-tools 1.3.290.0 — SPIR-V tools
+# spirv-tools 1.4.341.0 — SPIR-V tools
 # BLFS 13.0
 
 configure() {

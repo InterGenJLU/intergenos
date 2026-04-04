@@ -13,6 +13,7 @@ source:
 dependencies:
   build:
   - flac
+  - libvorbis
   - opus
   host: []
   runtime: []

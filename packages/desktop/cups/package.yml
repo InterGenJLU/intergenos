@@ -12,6 +12,9 @@ source:
   sha256: 0339587204b4f9428dd0592eb301dec0bf9ea6ea8dce5d9690d56be585aba92d
 dependencies:
   build:
+  - dbus
   - gnutls
+  - libusb
+  - linux-pam
   host: []
   runtime: []

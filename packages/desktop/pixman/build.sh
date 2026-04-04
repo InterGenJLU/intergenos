@@ -1,5 +1,5 @@
 #!/bin/bash
-# pixman 0.44.2 — Pixel manipulation library
+# pixman 0.46.4 — Pixel manipulation library
 # BLFS 13.0
 
 configure() {

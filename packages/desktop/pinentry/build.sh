@@ -1,5 +1,5 @@
 #!/bin/bash
-# pinentry 1.3.1 — PIN/passphrase entry dialog
+# pinentry 1.3.2 — PIN/passphrase entry dialog
 # BLFS 13.0
 
 configure() {

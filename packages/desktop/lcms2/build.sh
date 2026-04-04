@@ -1,5 +1,5 @@
 #!/bin/bash
-# lcms2 2.16 — Little Color Management System
+# lcms2 2.18 — Little Color Management System
 # BLFS 13.0
 
 configure() {

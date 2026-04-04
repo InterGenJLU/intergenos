@@ -1,5 +1,5 @@
 #!/bin/bash
-# adwaita-icon-theme 47.0 — GNOME default icon theme
+# adwaita-icon-theme 49.0 — GNOME default icon theme
 # BLFS 13.0
 
 configure() {

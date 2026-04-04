@@ -12,6 +12,7 @@ source:
   sha256: 6b452e4750590a2b5617adc40026f28d2f4903de15f1250e1d1c40bfd68ed55e
 dependencies:
   build:
+  - glib2
   - libgcrypt
   - vala
   host: []

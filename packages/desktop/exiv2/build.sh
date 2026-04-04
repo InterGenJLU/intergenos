@@ -1,5 +1,5 @@
 #!/bin/bash
-# exiv2 0.28.3 — Image metadata library
+# exiv2 0.28.7 — Image metadata library
 # BLFS 13.0
 
 configure() {

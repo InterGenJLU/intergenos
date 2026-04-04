@@ -12,6 +12,7 @@ source:
   sha256: 904e4219dacfc6070e13fcb41846b085c61aa1c1cbb0dcc59e1ab982adc8968a
 dependencies:
   build:
+  - glib2
   - lua
   - pipewire
   host: []

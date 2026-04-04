@@ -1,5 +1,5 @@
 #!/bin/bash
-# bubblewrap 0.10.0 — Unprivileged sandboxing tool
+# bubblewrap 0.11.0 — Unprivileged sandboxing tool
 # BLFS 13.0
 
 configure() {

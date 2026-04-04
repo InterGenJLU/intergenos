@@ -13,6 +13,7 @@ source:
 dependencies:
   build:
   - cracklib
+  - linux-pam
   host: []
   runtime: []
 configure_flags:

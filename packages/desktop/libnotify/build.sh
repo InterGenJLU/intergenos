@@ -1,5 +1,5 @@
 #!/bin/bash
-# libnotify 0.8.4 — Desktop notification library
+# libnotify 0.8.8 — Desktop notification library
 # BLFS 13.0
 
 configure() {

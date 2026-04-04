@@ -1,5 +1,5 @@
 #!/bin/bash
-# libgpg-error 1.51 — GPG error code library
+# libgpg-error 1.59 — GPG error code library
 # BLFS 13.0
 
 configure() {

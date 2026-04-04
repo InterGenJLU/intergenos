@@ -1,5 +1,5 @@
 #!/bin/bash
-# libpcap 1.10.5 — Packet capture library
+# libpcap 1.10.6 — Packet capture library
 # BLFS 13.0
 
 configure() {

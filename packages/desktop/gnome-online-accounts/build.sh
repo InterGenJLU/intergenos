@@ -1,5 +1,5 @@
 #!/bin/bash
-# gnome-online-accounts 3.52.3 — GNOME online accounts service
+# gnome-online-accounts 3.56.4 — GNOME online accounts service
 # BLFS 13.0
 
 configure() {

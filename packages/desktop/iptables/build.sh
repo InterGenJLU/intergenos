@@ -1,5 +1,5 @@
 #!/bin/bash
-# iptables 1.8.11 — Linux kernel packet filtering framework
+# iptables 1.8.12 — Linux kernel packet filtering framework
 # BLFS 13.0
 
 configure() {

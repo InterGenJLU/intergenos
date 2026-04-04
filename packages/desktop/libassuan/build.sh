@@ -1,5 +1,5 @@
 #!/bin/bash
-# libassuan 3.0.1 — GnuPG IPC library
+# libassuan 3.0.2 — GnuPG IPC library
 # BLFS 13.0
 
 configure() {

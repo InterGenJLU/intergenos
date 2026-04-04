@@ -1,5 +1,5 @@
 #!/bin/bash
-# xkbcomp 1.4.7 — XKB keyboard description compiler
+# xkbcomp 1.5.0 — XKB keyboard description compiler
 # BLFS 13.0
 
 configure() {

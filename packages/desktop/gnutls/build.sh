@@ -1,5 +1,5 @@
 #!/bin/bash
-# gnutls 3.8.8 — GNU TLS library
+# gnutls 3.8.12 — GNU TLS library
 # BLFS 13.0
 
 configure() {

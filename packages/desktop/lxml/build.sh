@@ -1,5 +1,5 @@
 #!/bin/bash
-# lxml 5.3.0 — Python XML processing library
+# lxml 6.0.2 — Python XML processing library
 # BLFS 13.0
 
 configure() { : ; }

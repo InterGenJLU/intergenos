@@ -1,5 +1,5 @@
 #!/bin/bash
-# vulkan-loader 1.3.290.0 — Vulkan ICD loader
+# vulkan-loader 1.4.341.0 — Vulkan ICD loader
 # BLFS 13.0
 
 configure() {

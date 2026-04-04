@@ -1,5 +1,5 @@
 #!/bin/bash
-# libX11 1.8.10 — Core X11 client library
+# libX11 1.8.13 — Core X11 client library
 # BLFS 13.0
 
 configure() {

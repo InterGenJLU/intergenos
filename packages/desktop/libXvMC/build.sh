@@ -1,5 +1,5 @@
 #!/bin/bash
-# libXvMC 1.0.14 — X Video Motion Compensation library
+# libXvMC 1.0.15 — X Video Motion Compensation library
 # BLFS 13.0
 
 configure() {

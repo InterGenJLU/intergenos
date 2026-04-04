@@ -1,5 +1,5 @@
 #!/bin/bash
-# xdpyinfo 1.3.4 — Display information utility for X
+# xdpyinfo 1.4.0 — Display information utility for X
 # BLFS 13.0
 
 configure() {

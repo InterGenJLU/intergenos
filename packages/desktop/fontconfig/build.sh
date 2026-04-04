@@ -1,5 +1,5 @@
 #!/bin/bash
-# fontconfig 2.15.0 — Font configuration and customization library
+# fontconfig 2.17.1 — Font configuration and customization library
 # BLFS 13.0
 
 configure() {

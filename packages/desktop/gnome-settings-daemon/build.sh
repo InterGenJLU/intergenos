@@ -1,5 +1,5 @@
 #!/bin/bash
-# gnome-settings-daemon 47.1 — GNOME settings daemon
+# gnome-settings-daemon 49.1 — GNOME settings daemon
 # BLFS 13.0
 
 configure() {

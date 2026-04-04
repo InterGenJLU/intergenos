@@ -1,5 +1,5 @@
 #!/bin/bash
-# protobuf-c 1.5.0 — C implementation of Protocol Buffers
+# protobuf-c 1.5.2 — C implementation of Protocol Buffers
 # BLFS 13.0
 
 configure() {

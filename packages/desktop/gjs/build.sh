@@ -1,5 +1,5 @@
 #!/bin/bash
-# gjs 1.82.1 — GNOME JavaScript bindings
+# gjs 1.86.0 — GNOME JavaScript bindings
 # BLFS 13.0
 
 configure() {

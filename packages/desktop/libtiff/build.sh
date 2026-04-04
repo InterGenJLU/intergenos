@@ -1,5 +1,5 @@
 #!/bin/bash
-# libtiff 4.7.0 — TIFF image library
+# libtiff 4.7.1 — TIFF image library
 # BLFS 13.0
 
 configure() {

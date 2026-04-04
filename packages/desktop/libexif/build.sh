@@ -1,5 +1,5 @@
 #!/bin/bash
-# libexif 0.6.24 — EXIF metadata library
+# libexif 0.6.25 — EXIF metadata library
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# libdisplay-info 0.2.0 — EDID and DisplayID library
+# libdisplay-info 0.3.0 — EDID and DisplayID library
 # BLFS 13.0
 
 configure() {

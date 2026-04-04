@@ -1,5 +1,5 @@
 #!/bin/bash
-# openjpeg2 2.5.3 — JPEG 2000 codec library
+# openjpeg2 2.5.4 — JPEG 2000 codec library
 # BLFS 13.0
 
 configure() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# libppd 2.0.0 — PPD file handling library
+# libppd 2.1.1 — PPD file handling library
 # BLFS 13.0
 
 configure() {

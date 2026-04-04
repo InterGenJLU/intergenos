@@ -1,5 +1,5 @@
 #!/bin/bash
-# lua 5.4.7 — Lightweight scripting language
+# lua 5.4.8 — Lightweight scripting language
 # BLFS 13.0
 
 configure() {

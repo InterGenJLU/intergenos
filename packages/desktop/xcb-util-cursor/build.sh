@@ -1,5 +1,5 @@
 #!/bin/bash
-# xcb-util-cursor 0.1.5 — XCB cursor library
+# xcb-util-cursor 0.1.6 — XCB cursor library
 # BLFS 13.0
 
 configure() {

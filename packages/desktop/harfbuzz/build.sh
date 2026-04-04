@@ -1,5 +1,5 @@
 #!/bin/bash
-# harfbuzz 10.1.0 — Text shaping engine
+# harfbuzz 12.3.2 — Text shaping engine
 # BLFS 13.0
 
 configure() {
