@@ -56,6 +56,10 @@ do_install() {
 
 # Post-install: runs on the live system AFTER deploy
 post_install() {
-    # Regenerate module dependency files
-    depmod 6.18.10
+    # Regenerate module dependency files (depmod from kmod)
+    if command -v depmod >/dev/null 2>&1; then
+        depmod 6.18.10
+    else
+        echo "  NOTE: depmod not yet available (kmod not built) — skipping"
+    fi
 }
