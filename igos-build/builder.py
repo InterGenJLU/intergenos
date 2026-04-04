@@ -585,7 +585,14 @@ class BuildExecutor:
         self.logger.end_phase("extract", 0)
 
         # --- Run build style phases ---
-        style = get_style(pkg.build_style)
+        # build.sh is always authoritative: if it exists, use CustomStyle
+        # regardless of declared build_style. build_style remains as a label
+        # for humans and generate-templates.py, not a builder instruction.
+        build_sh = pkg.template_path.parent / "build.sh" if pkg.template_path else None
+        if build_sh and build_sh.exists():
+            style = get_style("custom")
+        else:
+            style = get_style(pkg.build_style)
         phases = style.all_phases(pkg)
 
         for phase in phases:

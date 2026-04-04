@@ -15,7 +15,7 @@ class MesonStyle(BuildStyle):
 
     def configure(self, pkg: Package) -> BuildPhase:
         flags = " \\\n    ".join(pkg.configure_flags) if pkg.configure_flags else ""
-        base = "meson setup build --prefix=/usr --buildtype=release"
+        base = "meson setup build --prefix=/usr --libdir=/usr/lib --buildtype=release"
 
         if flags:
             cmd = f"{base} \\\n    {flags}"
