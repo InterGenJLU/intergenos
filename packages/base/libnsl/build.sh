@@ -3,7 +3,8 @@
 # BLFS 13.0
 
 configure() {
-    ./configure --sysconfdir=/etc \
+    ./configure --prefix=/usr     \
+                --sysconfdir=/etc \
                 --disable-static
 }
 

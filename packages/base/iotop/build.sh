@@ -1,5 +1,5 @@
 #!/bin/bash
-# iotop 0.6 — I/O monitor (C rewrite by Tomas-M)
+# iotop 1.31 — I/O monitor (C rewrite by Tomas-M)
 # From upstream (not in BLFS)
 # Note: this is the C rewrite, not the Python original
 
