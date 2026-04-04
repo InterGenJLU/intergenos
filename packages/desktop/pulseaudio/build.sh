@@ -8,6 +8,7 @@ configure() {
 
     meson setup ..            \
           --prefix=/usr       \
+          --libdir=/usr/lib   \
           --buildtype=release \
           -Ddatabase=gdbm \
           -Dbluez5=disabled \

@@ -13,6 +13,7 @@ configure() {
 
     meson setup ..            \
           --prefix=/usr       \
+          --libdir=/usr/lib   \
           --buildtype=release \
           -Ddocs=false \
           -Dman=false \

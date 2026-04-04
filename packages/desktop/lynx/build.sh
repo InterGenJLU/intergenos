@@ -9,7 +9,7 @@ configure() {
                 --with-bzlib \
                 --with-ssl \
                 --with-screen=ncursesw \
-                --enable-locale-strstrcase
+                --enable-locale-charset
 }
 
 build() {

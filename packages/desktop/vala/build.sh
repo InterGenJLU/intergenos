@@ -9,7 +9,8 @@ configure() {
 }
 
 build() {
-    make -j${IGOS_JOBS}
+    # BLFS: make bootstrap rebuilds the compiler using itself
+    make bootstrap -j${IGOS_JOBS}
 }
 
 do_install() {

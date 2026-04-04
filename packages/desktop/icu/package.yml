@@ -8,8 +8,8 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: https://github.com/unicode-org/icu/releases/download/release-76-1/icu4c-76_1-src.tgz
-  sha256: dfacb46bfe4747410472ce3e1144bf28a102feeaa4e3875bac9b4c6cf30f4f3e
+- url: https://github.com/unicode-org/icu/releases/download/release-${version}/icu4c-${version}-sources.tgz
+  sha256: 3e99687b5c435d4b209630e2d2ebb79906c984685e78635078b672e03c89df35
 dependencies:
   build: []
   host: []

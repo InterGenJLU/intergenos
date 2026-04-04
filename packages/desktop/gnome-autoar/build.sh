@@ -8,6 +8,7 @@ configure() {
 
     meson setup ..            \
           --prefix=/usr       \
+          --libdir=/usr/lib   \
           --buildtype=release \
           -Dgtk_doc=false \
           -Dtests=false

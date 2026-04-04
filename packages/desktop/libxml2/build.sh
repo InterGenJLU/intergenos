@@ -11,6 +11,7 @@ configure() {
 
     meson setup ..              \
           --prefix=/usr         \
+          --libdir=/usr/lib   \
           -Dhistory=enabled     \
           -Dicu=enabled         \
           -Dpython=enabled

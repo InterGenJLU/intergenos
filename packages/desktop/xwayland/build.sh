@@ -10,6 +10,7 @@ configure() {
 
     meson setup ..            \
           --prefix=/usr       \
+          --libdir=/usr/lib   \
           --buildtype=release \
           -Dxkb_dir=/usr/share/X11/xkb \
           -Dxkb_output_dir=/var/lib/xkb

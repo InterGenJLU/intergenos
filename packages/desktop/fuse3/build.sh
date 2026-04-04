@@ -10,6 +10,7 @@ configure() {
 
     meson setup ..            \
           --prefix=/usr       \
+          --libdir=/usr/lib   \
           --buildtype=release \
           -Dexamples=false \
           -Duseroot=false

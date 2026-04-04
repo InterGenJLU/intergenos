@@ -9,9 +9,10 @@ configure() {
 }
 
 build() {
-    make -j${IGOS_JOBS}
+    # BLFS: slang does not support parallel build; RPATH= prevents hardcoded paths
+    make -j1 RPATH=
 }
 
 do_install() {
-    make DESTDIR="$DESTDIR" install
+    make DESTDIR="$DESTDIR" RPATH= install
 }

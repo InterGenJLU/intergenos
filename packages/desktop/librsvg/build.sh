@@ -15,6 +15,7 @@ configure() {
     cd    build
 
     meson setup --prefix=/usr --buildtype=release ..
+          --libdir=/usr/lib   \
 }
 
 build() {

@@ -8,6 +8,7 @@ configure() {
 
     meson setup ..            \
           --prefix=/usr       \
+          --libdir=/usr/lib   \
           --buildtype=release \
           -Dgraphite2=enabled \
           -Dicu=enabled

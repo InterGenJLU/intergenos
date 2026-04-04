@@ -7,6 +7,7 @@ configure() {
     cd    build
 
     meson setup --prefix=/usr       \
+          --libdir=/usr/lib   \
           --buildtype=release       \
           --wrap-mode=nofallback    \
           -Dsystem-lua=true ..

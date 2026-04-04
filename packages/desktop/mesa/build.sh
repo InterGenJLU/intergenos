@@ -13,6 +13,7 @@ configure() {
 
     meson setup ..                 \
           --prefix=/usr            \
+          --libdir=/usr/lib   \
           --buildtype=release      \
           -D platforms=x11,wayland \
           -D gallium-drivers=auto  \
