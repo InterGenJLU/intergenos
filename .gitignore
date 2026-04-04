@@ -7,14 +7,12 @@ build/system/
 build/packages/
 build/logs/
 build/sources/*.tar.*
-build/sources/*.patch
+build/sources/*.tgz
+build/sources/*.zip
+build/sources/*-Cargo.lock
 *.iso
 *.img
 *.img.gz
-
-# Keep build directory structure but not contents
-!build/sources/wget-list-systemd
-!build/sources/md5sums-systemd
 
 # KVM virtual machines
 vm/*.qcow2
