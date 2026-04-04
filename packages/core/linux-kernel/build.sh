@@ -14,8 +14,10 @@ configure() {
     make mrproper
 
     # If a pre-built config exists, use it
-    if [ -f "$IGOS/config/kernel/intergenos.config" ]; then
-        cp -v $IGOS/config/kernel/intergenos.config .config
+    # Config is at /mnt/intergenos/config/kernel/ (project tree, not build system root)
+    local config_dir="/mnt/intergenos/config/kernel"
+    if [ -f "$config_dir/intergenos.config" ]; then
+        cp -v "$config_dir/intergenos.config" .config
         make olddefconfig
     else
         echo ""

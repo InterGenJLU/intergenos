@@ -448,6 +448,7 @@ sync_build_infra() {
     rsync -a --delete /mnt/intergenos/packages/   "$IGOS/mnt/intergenos/packages/"
     rsync -a --delete /mnt/intergenos/igos-build/ "$IGOS/mnt/intergenos/igos-build/"
     cp /mnt/intergenos/igos-build.py "$IGOS/mnt/intergenos/" 2>/dev/null || true
+    rsync -a /mnt/intergenos/config/ "$IGOS/mnt/intergenos/config/" 2>/dev/null || true
     find "$IGOS/mnt/intergenos/igos-build" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
     log "  Build infrastructure synced"
 }
