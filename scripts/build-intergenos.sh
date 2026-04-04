@@ -434,9 +434,8 @@ phase_chroot_tools() {
 }
 
 phase_core() {
-    local core_count=$(grep -c '^run_package' "${IGOS}/mnt/intergenos/scripts/chroot-build-ch8.sh" 2>/dev/null || echo "?")
-    log "Building ${core_count} core packages in chroot (this will take a while)..."
-    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-ch8.sh" 2>&1 | tee -a "$BUILD_LOG"
+    log "Building core packages in chroot via Python builder (this will take a while)..."
+    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-tier.sh" --tier core 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_config() {
@@ -445,20 +444,20 @@ phase_config() {
 }
 
 phase_core_extra() {
-    local extra_count=$(grep -c '^run_package' "${IGOS}/mnt/intergenos/scripts/chroot-build-core-extra.sh" 2>/dev/null || echo "?")
-    log "Building ${extra_count} additional core packages in chroot..."
-    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-core-extra.sh" 2>&1 | tee -a "$BUILD_LOG"
+    log "Building additional core packages in chroot via Python builder..."
+    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-tier.sh" --tier core 2>&1 | tee -a "$BUILD_LOG"
+    # Note: core-extra packages have tier=core in their templates.
+    # The --skip-built flag ensures already-built Ch.8 packages are skipped.
 }
 
 phase_base() {
-    local base_count=$(grep -c '^run_package' "${IGOS}/mnt/intergenos/scripts/chroot-build-base.sh" 2>/dev/null || echo "?")
-    log "Building ${base_count} base packages in chroot..."
-    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-base.sh" 2>&1 | tee -a "$BUILD_LOG"
+    log "Building base packages in chroot via Python builder..."
+    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-tier.sh" --tier base 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_desktop() {
-    log "Building desktop packages in chroot (this will take a long time)..."
-    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-desktop.sh" 2>&1 | tee -a "$BUILD_LOG"
+    log "Building desktop packages in chroot via Python builder (this will take a long time)..."
+    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-tier.sh" --tier desktop 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_image() {
