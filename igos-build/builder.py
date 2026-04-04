@@ -432,7 +432,7 @@ class BuildExecutor:
                 if line.endswith("/"):
                     continue
                 filepath = "/" + line
-                if not os.path.exists(filepath):
+                if not os.path.lexists(filepath):
                     missing.append(filepath)
 
         if missing:
