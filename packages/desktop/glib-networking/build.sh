@@ -8,6 +8,7 @@ configure() {
 
     meson setup ..            \
           --prefix=/usr       \
+          --libdir=/usr/lib   \
           --buildtype=release \
           -Dlibproxy=disabled
 }
@@ -23,5 +24,5 @@ do_install() {
 }
 
 post_install() {
-    gio-querymodules /usr/lib64/gio/modules
+    gio-querymodules /usr/lib/gio/modules
 }
