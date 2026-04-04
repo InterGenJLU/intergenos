@@ -440,7 +440,20 @@ phase_chroot_tools() {
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
+sync_build_infra() {
+    # Sync latest scripts, packages, and builder into the chroot.
+    # Needed when --start-at skips setup, or when code changes between restarts.
+    log "  Syncing build infrastructure into chroot..."
+    rsync -a --delete /mnt/intergenos/scripts/    "$IGOS/mnt/intergenos/scripts/"
+    rsync -a --delete /mnt/intergenos/packages/   "$IGOS/mnt/intergenos/packages/"
+    rsync -a --delete /mnt/intergenos/igos-build/ "$IGOS/mnt/intergenos/igos-build/"
+    cp /mnt/intergenos/igos-build.py "$IGOS/mnt/intergenos/" 2>/dev/null || true
+    find "$IGOS/mnt/intergenos/igos-build" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+    log "  Build infrastructure synced"
+}
+
 phase_core() {
+    sync_build_infra
     log "Building core packages in chroot via Python builder (this will take a while)..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-tier.sh" --tier core 2>&1 | tee -a "$BUILD_LOG"
 }
@@ -451,6 +464,7 @@ phase_config() {
 }
 
 phase_core_extra() {
+    sync_build_infra
     log "Building additional core packages in chroot via Python builder..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-tier.sh" --tier core 2>&1 | tee -a "$BUILD_LOG"
     # Note: core-extra packages have tier=core in their templates.
@@ -458,11 +472,13 @@ phase_core_extra() {
 }
 
 phase_base() {
+    sync_build_infra
     log "Building base packages in chroot via Python builder..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-tier.sh" --tier base 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_desktop() {
+    sync_build_infra
     log "Building desktop packages in chroot via Python builder (this will take a long time)..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-tier.sh" --tier desktop 2>&1 | tee -a "$BUILD_LOG"
 }
