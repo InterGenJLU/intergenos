@@ -27,7 +27,7 @@ PACKAGES_DIR = PROJECT_ROOT / "packages"
 WORK_DIR = PROJECT_ROOT / "build" / "work"
 LOG_DIR = PROJECT_ROOT / "build" / "logs"
 SOURCES_DIR = PROJECT_ROOT / "build" / "sources"
-PATCHES_DIR = PROJECT_ROOT / "build" / "patches"
+PATCHES_DIR = PROJECT_ROOT / "build" / "patches"  # overridden to sources_dir below
 SYSTEM_ROOT = PROJECT_ROOT / "build" / "system"
 
 
@@ -147,7 +147,7 @@ def main():
             work_dir=WORK_DIR,
             log_dir=LOG_DIR,
             sources_dir=sources_dir,
-            patches_dir=PATCHES_DIR,
+            patches_dir=sources_dir,  # patches are co-located with sources in /sources/
             system_root=SYSTEM_ROOT,
             tracked=tracked,
             skip_built=skip_built,
