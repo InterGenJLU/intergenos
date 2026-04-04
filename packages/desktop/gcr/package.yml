@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/gcr/3.41/gcr-${version}.tar.xz
-  sha256: bb52e54453f340291d4e3f6a0deca63b3cee965bfc72927a444e10a6b2972460
+  sha256: bad10f3c553a0e1854649ab59c5b2434da22ca1a54ae6138f1f53961567e1ab7
 dependencies:
   build:
   - libgcrypt
