@@ -35,8 +35,13 @@ build() {
 }
 
 do_install() {
-    # Kernel uses INSTALL_MOD_PATH, not DESTDIR
+    # Kernel installs to /lib/modules but LFS uses /usr/lib/modules
     make INSTALL_MOD_PATH="$DESTDIR" modules_install
+    if [ -d "${DESTDIR}/lib/modules" ]; then
+        mkdir -p "${DESTDIR}/usr/lib"
+        mv "${DESTDIR}/lib/modules" "${DESTDIR}/usr/lib/"
+        rm -rf "${DESTDIR}/lib"
+    fi
 
     # Install kernel image, System.map, and config
     install -vm755 -d "${DESTDIR}/boot"
