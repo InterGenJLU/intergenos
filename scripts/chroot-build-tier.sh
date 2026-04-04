@@ -102,9 +102,12 @@ else
             log "  Bootstrapping setuptools from $SETUPTOOLS_TAR..."
             SETUPTOOLS_WORK=$(mktemp -d)
             tar -xf "$SETUPTOOLS_TAR" -C "$SETUPTOOLS_WORK" --strip-components=1
-            cd "$SETUPTOOLS_WORK"
-            python3 bootstrap/bootstrap.py 2>&1 | tail -5
-            cd /
+            SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
+            cp -r "$SETUPTOOLS_WORK/setuptools" "$SITE/"
+            cp -r "$SETUPTOOLS_WORK/_distutils_hack" "$SITE/"
+            if [ -d "$SETUPTOOLS_WORK/setup.cfg" ]; then
+                cp "$SETUPTOOLS_WORK/setup.cfg" "$SITE/"
+            fi
             rm -rf "$SETUPTOOLS_WORK"
             if python3 -c "import setuptools" 2>/dev/null; then
                 log "  setuptools: bootstrapped"
