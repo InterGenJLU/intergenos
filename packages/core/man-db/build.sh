@@ -4,6 +4,7 @@
 
 configure() {
     ./configure --prefix=/usr                         \
+        --libdir=/usr/lib                             \
         --docdir=/usr/share/doc/man-db-2.13.1         \
         --sysconfdir=/etc                             \
         --disable-setuid                              \
