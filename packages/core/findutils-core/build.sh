@@ -12,8 +12,13 @@ build() {
 }
 
 check() {
-    chown -R tester .
-    su tester -c "PATH=$PATH make check"
+    if command -v su >/dev/null 2>&1 && id tester >/dev/null 2>&1; then
+        chown -R tester .
+        su tester -c "PATH=$PATH make check"
+    else
+        # su/tester not yet available (shadow not built) — run tests as root
+        make check
+    fi
 }
 
 do_install() {

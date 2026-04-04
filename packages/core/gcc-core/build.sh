@@ -47,9 +47,13 @@ check() {
     # Remove test known to fail with current Python
     sed -e '/cpython/d' -i ../gcc/testsuite/gcc.dg/plugin/plugin.exp
 
-    # Run tests as non-root (some tests fail as root)
-    chown -R tester .
-    su tester -c "PATH=$PATH make -k -j${IGOS_JOBS} check" || true
+    # Run tests as non-root when possible (some tests fail as root)
+    if command -v su >/dev/null 2>&1 && id tester >/dev/null 2>&1; then
+        chown -R tester .
+        su tester -c "PATH=$PATH make -k -j${IGOS_JOBS} check" || true
+    else
+        make -k -j${IGOS_JOBS} check || true
+    fi
 
     echo ""
     echo "=== GCC Test Summary ==="
