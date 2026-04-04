@@ -7,7 +7,8 @@ source:
 - url: https://www.kernel.org/pub/linux/utils/kbd/kbd-${version}.tar.xz
   sha256: fb3197f17a99eb44d22a3a1a71f755f9622dd963e66acfdea1a45120951b02ed
 dependencies:
-  build: []
+  build:
+    - pkgconf
   host: []
   runtime: []
 tier: core
