@@ -12,6 +12,7 @@ source:
   sha256: 2921cdc344f1acee04bcd6ea1e29565c1308263006e134a9ee38cf9c9d6fe75e
 dependencies:
   build:
+  - libfontenc
   - libX11
   - freetype2
   host: []

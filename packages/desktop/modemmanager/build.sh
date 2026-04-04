@@ -12,7 +12,9 @@ configure() {
           --buildtype=release \
           -Dgtk_doc=false \
           -Dman=false \
-          -Dtests=false
+          -Dtests=false \
+          -Dbash_completion=false \
+          -Dqrtr=false
 }
 
 build() {

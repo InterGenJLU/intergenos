@@ -16,6 +16,7 @@ dependencies:
   - fontconfig
   - freetype2
   - fribidi
+  - glib2
   - harfbuzz
   - libX11
   - libXft

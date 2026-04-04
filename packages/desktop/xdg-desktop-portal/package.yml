@@ -14,6 +14,7 @@ source:
   sha256: 4bfb164937f59107eb1a3cc21abaa948d903c76f3b99fac210cea38ce1da9edc
 dependencies:
   build:
+  - bubblewrap
   - fuse3
   - gdk-pixbuf
   - json-glib

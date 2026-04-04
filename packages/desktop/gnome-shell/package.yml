@@ -12,9 +12,11 @@ source:
   sha256: 9d6f0ca2f0140c114f114f6707413611f614fb1ea6c317a8d1fcc40c3c595b08
 dependencies:
   build:
+  - evolution-data-server
   - gcr4
   - gjs
   - gnome-desktop
+  - ibus
   - mutter
   - polkit
   - startup-notification

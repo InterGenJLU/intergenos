@@ -15,6 +15,7 @@ dependencies:
   - accountsservice
   - dconf
   - libcanberra
+  - linux-pam
   - gtk3
   host: []
   runtime: []

@@ -13,5 +13,6 @@ source:
 dependencies:
   build:
   - gtk3
+  - librsvg
   host: []
   runtime: []

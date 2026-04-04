@@ -8,7 +8,7 @@ configure() {
 }
 
 build() {
-    make -j${IGOS_JOBS}
+    make -j1
 }
 
 do_install() {

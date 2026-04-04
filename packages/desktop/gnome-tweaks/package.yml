@@ -12,8 +12,11 @@ source:
   sha256: b3909bdcb4905b68427d6ab581e01f436dff8e5c0a389b1e0b14500f18806ebb
 dependencies:
   build:
+  - gsettings-desktop-schemas
   - gtk4
   - libadwaita1
+  - libgudev
   - pygobject3
+  - sound-theme-freedesktop
   host: []
   runtime: []

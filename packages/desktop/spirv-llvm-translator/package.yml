@@ -14,5 +14,6 @@ dependencies:
   build:
   - llvm
   - spirv-tools
+  - libxml2
   host: []
   runtime: []

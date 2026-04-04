@@ -14,6 +14,7 @@ dependencies:
   build:
   - at-spi2-core
   - graphene
+  - gtk4
   - libei
   - libxcvt
   - libdisplay-info

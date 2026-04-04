@@ -13,6 +13,7 @@ source:
 dependencies:
   build:
   - colord
+  - gtk3
   - gtk4
   host: []
   runtime: []

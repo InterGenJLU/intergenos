@@ -15,6 +15,7 @@ dependencies:
   - libepoxy
   - libxcvt
   - mesa
+  - pixman
   - wayland-protocols
   - libX11
   - libXfont2

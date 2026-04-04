@@ -5,14 +5,23 @@
 configure() {
     # BLFS required fixes
     sed -i 's:"/desktop:"/org:' schema/*.xml
-    ./configure --prefix=/usr \
-                --with-pam-dir=/usr/lib/security
+
+    mkdir build
+    cd    build
+
+    meson setup ..            \
+          --prefix=/usr       \
+          --libdir=/usr/lib   \
+          --buildtype=release \
+          -D selinux=false
 }
 
 build() {
-    make -j${IGOS_JOBS}
+    cd build
+    ninja
 }
 
 do_install() {
-    make DESTDIR="$DESTDIR" install
+    cd build
+    DESTDIR="$DESTDIR" ninja install
 }

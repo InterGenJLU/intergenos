@@ -6,10 +6,12 @@ configure() {
     cmake -B build                    \
           -DCMAKE_INSTALL_PREFIX=/usr \
           -DCMAKE_BUILD_TYPE=Release  \
-          -DCMAKE_INSTALL_PREFIX=/usr \
-          -DCMAKE_BUILD_TYPE=Release \
           -DBUILD_TESTING=OFF \
-          -DDJPEGXL_ENABLE_BENCHMARK=OFF
+          -DBUILD_SHARED_LIBS=ON \
+          -DJPEGXL_ENABLE_BENCHMARK=OFF \
+          -DJPEGXL_ENABLE_SKCMS=OFF \
+          -DJPEGXL_ENABLE_SJPEG=OFF \
+          -DJPEGXL_ENABLE_PLUGINS=OFF
 }
 
 build() {

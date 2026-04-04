@@ -12,7 +12,8 @@ configure() {
           --buildtype=release \
           -Dtests=disabled \
           -Dexamples=disabled \
-          -Ddoc=disabled
+          -Ddoc=disabled \
+          -Dgpl=enabled
 }
 
 build() {

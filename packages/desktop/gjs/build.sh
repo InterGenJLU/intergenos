@@ -10,6 +10,7 @@ configure() {
           --prefix=/usr       \
           --libdir=/usr/lib   \
           --buildtype=release \
+          --wrap-mode=nofallback \
           -Dinstalled_tests=false \
           -Dskip_dbus_tests=true
 }

@@ -6,13 +6,14 @@ configure() {
     cmake -B build                    \
           -DCMAKE_INSTALL_PREFIX=/usr \
           -DCMAKE_BUILD_TYPE=Release  \
-          -DCMAKE_INSTALL_PREFIX=/usr \
-          -DBUILD_SHARED_LIBS=ON \
+          -DSHARED_ONLY=yes \
+          -DICAL_BUILD_DOCS=false \
+          -DICAL_GLIB_VAPI=true \
           -DGOBJECT_INTROSPECTION=true
 }
 
 build() {
-    cmake --build build -j${IGOS_JOBS}
+    cmake --build build -j1
 }
 
 do_install() {

@@ -11,7 +11,9 @@ configure() {
           --libdir=/usr/lib   \
           --buildtype=release \
           -Dman=false \
-          -Ddocs=false
+          -Ddocs=false \
+          -Dgtk4=true \
+          -Dvapi=true
 }
 
 build() {

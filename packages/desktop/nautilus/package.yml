@@ -16,5 +16,9 @@ dependencies:
   - libadwaita1
   - libportal
   - gst-plugins-base
+  - gexiv2
+  - gnome-autoar
+  - libseccomp
+  - tinysparql
   host: []
   runtime: []

@@ -10,8 +10,9 @@ configure() {
           --prefix=/usr       \
           --libdir=/usr/lib   \
           --buildtype=release \
-          -Dgtk_doc=false \
-          -Dman=false
+          -Ddocumentation=false \
+          -Dman=false \
+          -Dkerberos=false
 }
 
 build() {

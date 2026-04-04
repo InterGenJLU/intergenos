@@ -9,7 +9,8 @@ configure() {
     meson setup ..            \
           --prefix=/usr       \
           --libdir=/usr/lib   \
-          --buildtype=release 
+          --buildtype=release \
+          -Dgtk2_atk_adaptor=false
 }
 
 build() {

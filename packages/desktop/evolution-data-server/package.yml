@@ -15,6 +15,7 @@ patches:
 dependencies:
   build:
   - libical
+  - libsecret
   - nss
   - gnome-online-accounts
   - gtk3

@@ -3,7 +3,9 @@
 # BLFS 13.0
 
 configure() {
-    ./configure --prefix=/usr
+    ./configure --prefix=/usr \
+                --sysconfdir=/etc \
+                --localstatedir=/var
 }
 
 build() {

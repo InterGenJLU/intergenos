@@ -16,11 +16,13 @@ dependencies:
   - colord
   - fontconfig
   - gcr4
+  - geocode-glib
   - geoclue2
   - gnome-desktop
   - libcanberra
   - libgweather
   - libnotify
+  - libwacom
   - pulseaudio
   - upower
   - networkmanager

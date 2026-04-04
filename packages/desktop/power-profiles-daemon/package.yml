@@ -13,6 +13,7 @@ source:
 dependencies:
   build:
   - polkit
+  - pygobject3
   - upower
   host: []
   runtime: []

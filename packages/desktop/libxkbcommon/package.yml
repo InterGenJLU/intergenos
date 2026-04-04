@@ -14,6 +14,7 @@ dependencies:
   build:
   - xkeyboard-config
   - libxcb
+  - wayland
   - wayland-protocols
   host: []
   runtime: []

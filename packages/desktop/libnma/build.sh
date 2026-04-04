@@ -11,7 +11,8 @@ configure() {
           --libdir=/usr/lib   \
           --buildtype=release \
           -Dgtk_doc=false \
-          -Dgtk4=true
+          -Dlibnma_gtk4=true \
+          -Dmobile_broadband_provider_info=false
 }
 
 build() {

@@ -4,6 +4,8 @@
 
 configure() {
     ./configure --prefix=/usr \
+                --sysconfdir=/etc \
+                --localstatedir=/var \
                 --disable-static \
                 --disable-devel-docs
 }

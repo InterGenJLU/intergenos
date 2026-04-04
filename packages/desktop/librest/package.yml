@@ -15,5 +15,6 @@ dependencies:
   build:
   - json-glib
   - libsoup3
+  - make-ca
   host: []
   runtime: []

@@ -4,7 +4,7 @@
 
 configure() {
     # BLFS required fixes
-    sed "/docdir =/s@\$@ / 'nautilus-${PKG_VERSION}'@" -i ../meson.build
+    sed "/docdir =/s@\$@ / 'nautilus-${PKG_VERSION}'@" -i meson.build
     mkdir build
     cd    build
 

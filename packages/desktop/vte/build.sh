@@ -4,7 +4,7 @@
 
 configure() {
     # BLFS required fixes
-    sed -e "/docdir =/s@\$@/ 'vte-${PKG_VERSION}'@" -i ../doc/meson.build
+    sed -e "/docdir =/s@\$@/ 'vte-${PKG_VERSION}'@" -i doc/meson.build
     mkdir build
     cd    build
 
@@ -26,4 +26,8 @@ build() {
 do_install() {
     cd build
     DESTDIR="$DESTDIR" ninja install
+}
+
+post_install() {
+    rm -fv /etc/profile.d/vte.*
 }

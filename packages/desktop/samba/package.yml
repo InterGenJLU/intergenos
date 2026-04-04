@@ -14,6 +14,7 @@ dependencies:
   build:
   - gnutls
   - gpgme
+  - mitkrb
   - perl-parse-yapp
   - rpcsvc-proto
   - fuse3

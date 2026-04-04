@@ -13,6 +13,7 @@ source:
 dependencies:
   build:
   - lcms2
+  - libgudev
   - libgusb
   - polkit
   - vala

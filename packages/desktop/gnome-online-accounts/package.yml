@@ -13,6 +13,9 @@ source:
 dependencies:
   build:
   - gcr4
+  - json-glib
   - libadwaita1
+  - librest
+  - vala
   host: []
   runtime: []

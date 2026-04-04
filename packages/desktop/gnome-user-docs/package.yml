@@ -13,6 +13,7 @@ source:
 dependencies:
   build:
   - itstool
+  - libxml2
   host: []
   runtime: []
 configure_flags:

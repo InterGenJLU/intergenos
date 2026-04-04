@@ -4,7 +4,9 @@
 
 configure() {
     ./configure --prefix=/usr \
-                --disable-static
+                --disable-static \
+                --with-cups-rundir=/run/cups \
+                --enable-ppdc-utils
 }
 
 build() {

@@ -10,7 +10,8 @@ configure() {
           --prefix=/usr       \
           --libdir=/usr/lib   \
           --buildtype=release \
-          -Denable-gtk-doc=false
+          -Denable-gtk-doc=false \
+          -Dsoup2=false
 }
 
 build() {

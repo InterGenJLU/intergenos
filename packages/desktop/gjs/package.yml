@@ -15,5 +15,6 @@ dependencies:
   - cairo
   - gtk3
   - gtk4
+  - spidermonkey
   host: []
   runtime: []

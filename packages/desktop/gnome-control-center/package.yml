@@ -13,14 +13,22 @@ source:
 dependencies:
   build:
   - accountsservice
+  - blueprint-compiler
   - colord-gtk
+  - cups
   - gnome-bluetooth
   - gnome-online-accounts
   - gnome-settings-daemon
   - gsound
   - libadwaita1
+  - libgtop
+  - libnma
   - libpwquality
+  - mitkrb
+  - modemmanager
   - networkmanager
+  - samba
+  - shared-mime-info
   - tecla
   - udisks2
   host: []

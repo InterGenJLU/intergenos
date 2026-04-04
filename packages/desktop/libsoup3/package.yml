@@ -15,6 +15,9 @@ patches:
 dependencies:
   build:
   - glib-networking
+  - libpsl
+  - libxml2
+  - nghttp2
   - vala
   host: []
   runtime: []

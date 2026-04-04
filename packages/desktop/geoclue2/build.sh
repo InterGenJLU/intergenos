@@ -13,7 +13,8 @@ configure() {
           -Dgtk-doc=false \
           -D3g-source=false \
           -Dmodem-gps-source=false \
-          -Dcdma-source=false
+          -Dcdma-source=false \
+          -Dnmea-source=false
 }
 
 build() {

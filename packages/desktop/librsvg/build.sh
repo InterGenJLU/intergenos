@@ -14,8 +14,8 @@ configure() {
     mkdir build
     cd    build
 
-    meson setup --prefix=/usr --buildtype=release ..
-          --libdir=/usr/lib   \
+    meson setup --prefix=/usr --buildtype=release \
+          --libdir=/usr/lib   ..
 }
 
 build() {

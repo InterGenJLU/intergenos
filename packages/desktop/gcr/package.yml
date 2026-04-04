@@ -1,0 +1,21 @@
+name: gcr
+version: 3.41.2
+release: 1
+description: GLib crypto and PKCS#11 framework (GTK3 version)
+license: LGPL-2.1-or-later
+homepage: https://gitlab.gnome.org/GNOME/gcr
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gcr/3.41/gcr-${version}.tar.xz
+  sha256: bb52e54453f340291d4e3f6a0deca63b3cee965bfc72927a444e10a6b2972460
+dependencies:
+  build:
+  - libgcrypt
+  - p11-kit
+  - gtk3
+  - libsecret
+  - vala
+  host: []
+  runtime: []

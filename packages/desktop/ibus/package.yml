@@ -18,6 +18,7 @@ dependencies:
   - gtk3
   - gtk4
   - iso-codes
+  - libarchive
   - vala
   host: []
   runtime: []
