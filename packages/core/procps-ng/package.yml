@@ -7,9 +7,10 @@ source:
 - url: https://sourceforge.net/projects/procps-ng/files/Production/procps-ng-${version}.tar.xz
   sha256: 67bea6fbc3a42a535a0230c9e891e5ddfb4d9d39422d46565a2990d1ace15216
 dependencies:
-  build: []
-  host:
-  - ncurses-core
+  build:
+    - systemd
+    - ncurses-core
+  host: []
   runtime: []
 tier: core
 build_style: autotools
