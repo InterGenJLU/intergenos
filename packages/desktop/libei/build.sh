@@ -1,5 +1,5 @@
 #!/bin/bash
-# libei 1.3.0 — Emulated Input library
+# libei 1.5.0 — Emulated Input library
 # BLFS 13.0
 
 configure() {
@@ -9,9 +9,7 @@ configure() {
     meson setup ..            \
           --prefix=/usr       \
           --buildtype=release \
-          -Dtests=disabled \
-          -Ddocumentation=[] \
-          -Dman=disabled
+          -Dtests=disabled
 }
 
 build() {
