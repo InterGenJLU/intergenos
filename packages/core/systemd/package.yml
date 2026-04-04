@@ -7,10 +7,11 @@ source:
 - url: https://github.com/systemd/systemd/archive/v${version}/systemd-${version}.tar.gz
   sha256: 7af4f36db512ad2f0f749a0f9886370edeb2bb5128014fc47cdf73702c7e1911
 dependencies:
-  build: []
+  build:
+    - meson
+    - ninja
   host:
   - jinja2
-  - meson
   - util-linux-core
   - kmod
   - libcap

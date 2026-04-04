@@ -6,9 +6,6 @@
 # Post-install: nsswitch.conf, ld.so.conf, timezone, locales.
 
 configure() {
-    # FHS compliance patch
-    patch -Np1 -i ${IGOS_PATCHES}/glibc-fhs-1.patch
-
     mkdir -v build
     cd       build
 

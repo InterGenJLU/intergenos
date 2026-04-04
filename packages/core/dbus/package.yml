@@ -7,7 +7,9 @@ source:
 - url: https://dbus.freedesktop.org/releases/dbus/dbus-${version}.tar.xz
   sha256: 0ba2a1a4b16afe7bceb2c07e9ce99a8c2c3508e5dec290dbb643384bd6beb7e2
 dependencies:
-  build: []
+  build:
+    - meson
+    - ninja
   host:
   - systemd
   - expat

@@ -13,7 +13,9 @@ source:
     sha256: d4e2b5d791d5015ffd8c6971ad8e975a0a55c1a14926cdb25cf843ff00682260
 
 dependencies:
-  build: []
+  build:
+    - meson
+    - ninja
   host: []
   runtime: []
 

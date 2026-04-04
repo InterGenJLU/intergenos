@@ -15,5 +15,7 @@ source:
 dependencies:
   build:
     - glib2-bootstrap
+    - meson
+    - ninja
   host: []
   runtime: []

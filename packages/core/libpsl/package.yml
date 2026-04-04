@@ -16,5 +16,7 @@ dependencies:
   build:
     - libidn2
     - libunistring
+    - meson
+    - ninja
   host: []
   runtime: []

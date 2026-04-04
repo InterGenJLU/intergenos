@@ -15,5 +15,7 @@ source:
 dependencies:
   build:
     - libtasn1
+    - meson
+    - ninja
   host: []
   runtime: []
