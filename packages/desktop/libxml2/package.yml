@@ -5,18 +5,14 @@ description: XML parsing library
 license: MIT
 homepage: https://gitlab.gnome.org/GNOME/libxml2
 tier: desktop
-build_style: autotools
+build_style: custom
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/libxml2/2.15/libxml2-${version}.tar.xz
   sha256: c008bac08fd5c7b4a87f7b8a71f283fa581d80d80ff8d2efd3b26224c39bc54c
 dependencies:
   build:
+  - doxygen
   - icu
   host: []
   runtime: []
-configure_flags:
-- --prefix=/usr
-- --disable-static
-- --with-history
-- --with-icu

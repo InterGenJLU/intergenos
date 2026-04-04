@@ -1,18 +1,27 @@
 #!/bin/bash
-# libxml2 2.13.5 — XML parsing library
-# BLFS 13.0
+# libxml2 2.15.1 — XML parsing library
+# BLFS 13.0 (meson build with Python bindings)
 
 configure() {
-    ./configure --prefix=/usr \
-                --disable-static \
-                --with-history \
-                --with-icu
+    # BLFS: remove unnecessary git call
+    sed -i "/'git'/,+3d" meson.build
+
+    mkdir build
+    cd    build
+
+    meson setup ..              \
+          --prefix=/usr         \
+          -Dhistory=enabled     \
+          -Dicu=enabled         \
+          -Dpython=enabled
 }
 
 build() {
-    make -j${IGOS_JOBS}
+    cd build
+    ninja
 }
 
 do_install() {
-    make DESTDIR="$DESTDIR" install
+    cd build
+    DESTDIR="$DESTDIR" ninja install
 }

@@ -1,0 +1,18 @@
+name: doxygen
+version: 1.16.1
+release: 1
+description: Documentation generation tool from annotated sources
+license: GPL-2.0-or-later
+homepage: https://www.doxygen.nl/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://doxygen.nl/files/doxygen-${version}.src.tar.gz
+  sha256: 201ce33b514ea87cc1697c0dcf829692c2695c1812683a9cc622194b05e263a8
+dependencies:
+  build:
+  - cmake
+  - git
+  host: []
+  runtime: []
