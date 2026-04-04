@@ -70,7 +70,7 @@ class Package:
     bundled_deps: list[str] = field(default_factory=list)
 
     # Install function name for custom build style
-    install_func: str = "install"    # "install" (toolchain) or "do_install" (core/base)
+    install_func: str = "do_install"  # "do_install" (default) or "install" (toolchain only)
 
     # Install directly to / instead of DESTDIR staging (for multi-pass builds)
     direct_install: bool = False
@@ -273,7 +273,7 @@ def parse_template(template_path: Path) -> Package:
         target_triple=raw.get("target_triple"),
         pass_number=raw.get("pass_number"),
         bundled_deps=bundled_deps,
-        install_func=raw.get("install_func", "install"),
+        install_func=raw.get("install_func", "do_install"),
         direct_install=bool(raw.get("direct_install", False)),
         validation=validation,
         template_path=template_path,

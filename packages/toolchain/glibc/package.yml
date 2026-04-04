@@ -20,6 +20,7 @@ dependencies:
 tier: toolchain
 target_triple: x86_64-igos-linux-gnu
 build_style: custom
+install_func: install
 
 patches:
   - glibc-fhs-1.patch

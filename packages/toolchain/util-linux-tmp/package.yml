@@ -17,3 +17,4 @@ dependencies:
 
 tier: toolchain
 build_style: custom
+install_func: install

@@ -26,6 +26,7 @@ tier: toolchain
 pass_number: 1
 target_triple: x86_64-igos-linux-gnu
 build_style: custom
+install_func: install
 
 bundled_deps:
   - mpfr-4.2.2 -> gcc-${version}/mpfr

@@ -19,3 +19,4 @@ tier: toolchain
 pass_number: 2
 target_triple: x86_64-igos-linux-gnu
 build_style: custom
+install_func: install

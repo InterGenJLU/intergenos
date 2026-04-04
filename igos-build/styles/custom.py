@@ -29,7 +29,7 @@ class CustomStyle(BuildStyle):
         return BuildPhase(
             name="configure",
             commands=[
-                f"source {script} && if type configure &>/dev/null; then configure; fi",
+                f"source {script} && if declare -f configure >/dev/null 2>&1; then configure; fi",
             ],
         )
 
@@ -38,7 +38,7 @@ class CustomStyle(BuildStyle):
         return BuildPhase(
             name="build",
             commands=[
-                f"source {script} && if type build &>/dev/null; then build; fi",
+                f"source {script} && if declare -f build >/dev/null 2>&1; then build; fi",
             ],
         )
 
@@ -47,7 +47,7 @@ class CustomStyle(BuildStyle):
         return BuildPhase(
             name="check",
             commands=[
-                f"source {script} && if type check &>/dev/null; then check; fi",
+                f"source {script} && if declare -f check >/dev/null 2>&1; then check; fi",
             ],
         )
 
@@ -57,7 +57,7 @@ class CustomStyle(BuildStyle):
         return BuildPhase(
             name="install",
             commands=[
-                f"source {script} && if type {func} &>/dev/null; then {func}; fi",
+                f"source {script} && if declare -f {func} >/dev/null 2>&1; then {func}; fi",
             ],
         )
 
@@ -71,6 +71,6 @@ class CustomStyle(BuildStyle):
         return BuildPhase(
             name="post_install",
             commands=[
-                f"source {script} && if type post_install &>/dev/null; then post_install; fi",
+                f"source {script} && if declare -f post_install >/dev/null 2>&1; then post_install; fi",
             ],
         )
