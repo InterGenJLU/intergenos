@@ -10,7 +10,7 @@ install_func: do_install
 
 source:
   - url: https://github.com/shadow-maint/shadow/releases/download/${version}/shadow-${version}.tar.xz
-    sha256: NEEDS_CHECKSUM
+    sha256: 11a8f358910712cf957dd4fd205063fce7e386b68fc7dfe3a0e1e53155ec53c5
 
 dependencies:
   build:
