@@ -24,4 +24,11 @@ check() {
 
 do_install() {
     make DESTDIR="$DESTDIR" install
+
+    # Move misplaced /lib files to /usr/lib (libtool ignores --libdir sometimes)
+    if [ -d "${DESTDIR}/lib" ]; then
+        mkdir -p "${DESTDIR}/usr/lib"
+        cp -a "${DESTDIR}/lib"/* "${DESTDIR}/usr/lib/" 2>/dev/null || true
+        rm -rf "${DESTDIR}/lib"
+    fi
 }
