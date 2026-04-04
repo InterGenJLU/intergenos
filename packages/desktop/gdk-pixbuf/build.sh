@@ -3,15 +3,19 @@
 # BLFS 13.0
 
 configure() {
-    # BLFS required fixes
-    sed "/docs_dir =/s@\$@ / 'gdk-pixbuf-${PKG_VERSION}'@" -i ../docs/meson.build
     mkdir build
     cd    build
 
-    meson setup ..            \
-          --prefix=/usr       \
-          --buildtype=release \
-          -Dman=false
+    meson setup ..                \
+          --prefix=/usr           \
+          --buildtype=release     \
+          -Dpng=disabled          \
+          -Dgif=disabled          \
+          -Djpeg=disabled         \
+          -Dtiff=disabled         \
+          -Dthumbnailer=disabled  \
+          -Dglycin=disabled       \
+          --wrap-mode=nofallback
 }
 
 build() {

@@ -1,0 +1,20 @@
+name: libnvme
+version: 1.16.1
+release: 1
+description: NVMe management library
+license: LGPL-2.1-or-later
+homepage: https://github.com/linux-nvme/libnvme
+tier: desktop
+build_style: meson
+install_func: do_install
+configure_flags:
+- -Dlibdbus=auto
+source:
+- url: https://github.com/linux-nvme/libnvme/archive/v${version}/libnvme-${version}.tar.gz
+  sha256: ce1d9d393feb84c4e82ca096db2bdb7dd4a5fd1997d711cc1904796944f2c579
+dependencies:
+  build:
+  - json-c
+  - keyutils
+  host: []
+  runtime: []

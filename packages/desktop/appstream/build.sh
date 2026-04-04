@@ -1,5 +1,5 @@
 #!/bin/bash
-# appstream 1.0.4 — AppStream metadata handling library
+# appstream 1.1.2 — AppStream metadata handling library
 # BLFS 13.0
 
 configure() {

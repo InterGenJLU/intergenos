@@ -12,8 +12,11 @@ source:
   sha256: 46b4257100e25a6468ceed7b3ab82441f47b119da3398d30aea6d7b91174b586
 dependencies:
   build:
-  - libxmlb
+  - curl
+  - itstool
+  - libfyaml
   - libxml2
-  - libyaml
+  - libxmlb
+  - libxslt
   host: []
   runtime: []

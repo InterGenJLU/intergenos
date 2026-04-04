@@ -1,0 +1,19 @@
+name: cryptsetup
+version: 2.8.4
+release: 1
+description: Transparent disk encryption using the kernel crypto API
+license: GPL-2.0-or-later
+homepage: https://gitlab.com/cryptsetup/cryptsetup
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.kernel.org/pub/linux/utils/cryptsetup/v2.8/cryptsetup-${version}.tar.xz
+  sha256: 443e46f8964c9acc780f455afbb8e23aa0e8ed7ec504cfc59e04f406fa1e8a83
+dependencies:
+  build:
+  - json-c
+  - lvm2
+  - popt
+  host: []
+  runtime: []

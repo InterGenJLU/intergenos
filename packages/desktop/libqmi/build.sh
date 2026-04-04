@@ -10,7 +10,8 @@ configure() {
           --prefix=/usr       \
           --buildtype=release \
           -Dgtk_doc=false \
-          -Dman=false
+          -Dman=false \
+          -Dqrtr=false
 }
 
 build() {

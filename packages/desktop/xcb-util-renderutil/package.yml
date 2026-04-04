@@ -13,6 +13,7 @@ source:
 dependencies:
   build:
   - libxcb
+  - xcb-util
   host: []
   runtime: []
 configure_flags:

@@ -1,5 +1,5 @@
 #!/bin/bash
-# udisks2 2.10.1 — Disk management D-Bus service
+# udisks2 2.11.1 — Disk management D-Bus service
 # BLFS 13.0
 
 configure() {

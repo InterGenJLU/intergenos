@@ -1,0 +1,17 @@
+name: libbytesize
+version: '2.12'
+release: 1
+description: Library for operations with sizes in bytes
+license: LGPL-2.1-or-later
+homepage: https://github.com/storaged-project/libbytesize
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/storaged-project/libbytesize/releases/download/${version}/libbytesize-${version}.tar.gz
+  sha256: 8356bac2cafd2f31f39bf1ad373cef8448cab08b817aeaee5c526d54e81c3c5a
+dependencies:
+  build:
+  - pygments
+  host: []
+  runtime: []

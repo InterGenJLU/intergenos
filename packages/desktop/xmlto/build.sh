@@ -3,6 +3,11 @@
 # BLFS 13.0
 
 configure() {
+    # Source tarball lacks pre-generated configure script
+    autoreconf -fiv
+
+    # BLFS: set LINKS to avoid confusion with elinks
+    LINKS="/usr/bin/links" \
     ./configure --prefix=/usr
 }
 

@@ -1,0 +1,22 @@
+name: libblockdev
+version: 3.4.0
+release: 1
+description: Library for manipulating block devices
+license: LGPL-2.1-or-later
+homepage: https://github.com/storaged-project/libblockdev
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/storaged-project/libblockdev/releases/download/${version}/libblockdev-${version}.tar.gz
+  sha256: 65ef9a37babd44b85b8ff9b273f90f9f7d5f8ff7b0c76a8edb69240325fd83f4
+dependencies:
+  build:
+  - cryptsetup
+  - keyutils
+  - libatasmart
+  - libbytesize
+  - libnvme
+  - lvm2
+  host: []
+  runtime: []
