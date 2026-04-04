@@ -304,6 +304,13 @@ run_phase() {
 # ==========================================================================
 
 phase_validate() {
+    # LFS 13.0 requires /bin/sh -> bash (Ubuntu defaults to dash)
+    if [ "$(readlink -f /bin/sh)" != "/usr/bin/bash" ]; then
+        log "  /bin/sh does not point to bash — fixing..."
+        ln -sf /usr/bin/bash /bin/sh
+        log "  /bin/sh -> bash"
+    fi
+
     log "Running host requirements check..."
     python3 "${SCRIPTS}/host-check.py"
 }
