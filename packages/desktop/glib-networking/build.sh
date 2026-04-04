@@ -21,3 +21,7 @@ do_install() {
     cd build
     DESTDIR="$DESTDIR" ninja install
 }
+
+post_install() {
+    gio-querymodules /usr/lib64/gio/modules
+}
