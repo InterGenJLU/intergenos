@@ -108,7 +108,9 @@ class BuildExecutor:
                 env["DESTDIR"] = str(staging)
                 env["PATH"] = f"{staging}/usr/bin:{staging}/usr/sbin:" + env["PATH"]
                 env["PKG_CONFIG_PATH"] = f"{staging}/usr/lib/pkgconfig:{staging}/usr/lib64/pkgconfig:" + env.get("PKG_CONFIG_PATH", "")
-                env["LD_LIBRARY_PATH"] = f"{staging}/usr/lib:{staging}/usr/lib64:" + env.get("LD_LIBRARY_PATH", "")
+                existing_ldpath = env.get("LD_LIBRARY_PATH", "")
+                new_ldpath = f"{staging}/usr/lib:{staging}/usr/lib64"
+                env["LD_LIBRARY_PATH"] = f"{new_ldpath}:{existing_ldpath}" if existing_ldpath else new_ldpath
         else:
             env["DESTDIR"] = str(self.system_root)
 
