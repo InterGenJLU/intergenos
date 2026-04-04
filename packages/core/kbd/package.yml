@@ -9,6 +9,7 @@ source:
 dependencies:
   build:
     - pkgconf
+    - autoconf
   host: []
   runtime: []
 tier: core
