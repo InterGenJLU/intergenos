@@ -3,9 +3,10 @@
 # LFS 13.0 Section 7.9
 
 configure() {
-    ./configure --prefix=/usr   \
-        --enable-shared         \
-        --without-ensurepip
+    ./configure --prefix=/usr           \
+                --enable-shared         \
+                --without-ensurepip     \
+                --without-static-libpython
 }
 
 build() {

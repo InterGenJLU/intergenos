@@ -3,7 +3,7 @@
 # LFS 13.0 Section 7.11
 
 configure() {
-    mkdir -pv /var/lib/hwclock
+    mkdir -pv $IGOS/var/lib/hwclock
 
     ./configure                       \
         --libdir=/usr/lib             \

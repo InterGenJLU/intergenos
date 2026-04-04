@@ -17,8 +17,5 @@ dependencies:
 
 tier: toolchain
 target_triple: x86_64-igos-linux-gnu
-build_style: autotools
-configure_flags:
-  - --prefix=/usr
-  - --host=$IGOS_TARGET
-  - --build=$(./build-aux/config.guess)
+build_style: custom
+install_func: install

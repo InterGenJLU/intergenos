@@ -20,6 +20,5 @@ target_triple: x86_64-igos-linux-gnu
 build_style: autotools
 configure_flags:
   - --prefix=/usr
-  - --without-guile
   - --host=$IGOS_TARGET
   - --build=$(build-aux/config.guess)
