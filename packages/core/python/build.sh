@@ -37,10 +37,12 @@ user = false
 user-site = false
 PIPEOF
 
-    install -v -dm755 "${DESTDIR}/usr/share/doc/python-3.14.3/html"
-
-    tar --no-same-owner \
-        -xvf $IGOS_SOURCES/python-3.14.3-docs-html.tar.bz2
-    cp -R --no-preserve=mode python-3.14.3-docs-html/* \
-        "${DESTDIR}/usr/share/doc/python-3.14.3/html"
+    # Install HTML docs if available
+    if [ -f "$IGOS_SOURCES/python-3.14.3-docs-html.tar.bz2" ]; then
+        install -v -dm755 "${DESTDIR}/usr/share/doc/python-3.14.3/html"
+        tar --no-same-owner \
+            -xvf $IGOS_SOURCES/python-3.14.3-docs-html.tar.bz2
+        cp -R --no-preserve=mode python-3.14.3-docs-html/* \
+            "${DESTDIR}/usr/share/doc/python-3.14.3/html"
+    fi
 }
