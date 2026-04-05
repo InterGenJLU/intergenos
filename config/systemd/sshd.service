@@ -1,0 +1,54 @@
+# InterGenOS OpenSSH Server
+#
+# Designed for reliability and security. Based on research of BLFS, Arch Linux,
+# and Debian implementations. Key design decisions:
+#
+# - Type=simple with -D flag (foreground) for proper systemd process management
+# - Config validation before start AND reload (catches errors before disruption)
+# - Automatic host key generation on first boot
+# - No socket activation (known DoS vulnerability — Arch FS#62248)
+# - Security hardening directives (ProtectSystem, etc.)
+# - Restart=on-failure (not always — don't restart on clean shutdown)
+# - KillMode=process (don't kill active SSH sessions on daemon restart)
+
+[Unit]
+Description=InterGenOS OpenSSH Server
+Documentation=man:sshd(8) man:sshd_config(5)
+After=network.target
+
+[Service]
+Type=simple
+
+# Validate config before starting — catches syntax errors early
+ExecStartPre=/usr/sbin/sshd -t
+
+# Generate host keys if missing (first boot)
+ExecStartPre=/bin/bash -c 'test -f /etc/ssh/ssh_host_ed25519_key || ssh-keygen -A'
+
+# Run in foreground (-D) for proper systemd process management
+ExecStart=/usr/sbin/sshd -D
+
+# Graceful reload — validate config first, then signal
+ExecReload=/bin/bash -c '/usr/sbin/sshd -t && /bin/kill -HUP $MAINPID'
+
+# Only kill the main process, not child sessions
+KillMode=process
+
+# Restart on failure but not on clean exit
+Restart=on-failure
+RestartSec=5s
+
+# Create /run/sshd with correct permissions
+RuntimeDirectory=sshd
+RuntimeDirectoryMode=0755
+
+# Security hardening
+ProtectSystem=strict
+ReadWritePaths=/etc/ssh /var/lib/sshd /run/sshd
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+
+[Install]
+WantedBy=multi-user.target

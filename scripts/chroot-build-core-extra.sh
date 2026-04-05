@@ -242,6 +242,12 @@ run_package "shadow-pam" "shadow-pam" "4.19.3" \
     "shadow-4.19.3.tar.xz" \
     "Shadow password suite (rebuilt with Linux-PAM support)"
 
+# --- Group C2: OpenSSH (requires linux-pam + shadow-pam) ---
+
+run_package "openssh" "openssh" "10.2p1" \
+    "openssh-10.2p1.tar.gz" \
+    "Secure Shell client and server"
+
 # --- Group D: glib2 bootstrap (Void Linux approach) ---
 # Three separate packages break the circular dependency:
 #   glib2-bootstrap (no introspection) → gobject-introspection → glib2 (full)
