@@ -440,22 +440,37 @@ phase_chroot_tools() {
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
+sync_chroot_scripts() {
+    # Sync scripts and packages into the chroot copy.
+    # The setup phase copies build infrastructure to $IGOS/mnt/intergenos/,
+    # but --start-at skips setup and code changes between restarts aren't
+    # reflected. This ensures the chroot always has the latest.
+    log "  Syncing scripts into chroot..."
+    rsync -a /mnt/intergenos/scripts/   "$IGOS/mnt/intergenos/scripts/"
+    rsync -a /mnt/intergenos/packages/  "$IGOS/mnt/intergenos/packages/"
+    rsync -a /mnt/intergenos/config/    "$IGOS/mnt/intergenos/config/" 2>/dev/null || true
+}
+
 phase_core() {
+    sync_chroot_scripts
     log "Building core system in chroot (Ch 8, LFS order)..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-ch8.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_config() {
+    sync_chroot_scripts
     log "Configuring system in chroot (Ch 9)..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-config-ch9.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_core_extra() {
+    sync_chroot_scripts
     log "Building additional core packages in chroot (BLFS)..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-core-extra.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_kernel() {
+    sync_chroot_scripts
     log "Building kernel in chroot (Ch 10)..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-ch10.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
