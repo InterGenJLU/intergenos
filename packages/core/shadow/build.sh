@@ -50,10 +50,14 @@ post_install() {
     # Set default group for new users
     useradd -D --gid 999
 
-    # Set root password (interactive)
-    echo ""
-    echo "=========================================="
-    echo "  Set the root password for InterGenOS"
-    echo "=========================================="
-    passwd root
+    # Set temporary root password (non-interactive for automated build)
+    # Forces password change on first interactive login
+    echo "root:intergenos" | chpasswd
+    passwd -e root
+
+    # Create tester user for running test suites as non-root
+    # (LFS uses this for packages like gcc, coreutils, findutils)
+    if ! id tester >/dev/null 2>&1; then
+        useradd -m -s /bin/bash tester
+    fi
 }
