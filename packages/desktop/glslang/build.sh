@@ -6,8 +6,6 @@ configure() {
     cmake -B build                    \
           -DCMAKE_INSTALL_PREFIX=/usr \
           -DCMAKE_BUILD_TYPE=Release  \
-          -DCMAKE_INSTALL_PREFIX=/usr \
-          -DCMAKE_BUILD_TYPE=Release \
           -DBUILD_SHARED_LIBS=ON \
           -DALLOW_EXTERNAL_SPIRV_TOOLS=ON
 }

@@ -9,7 +9,8 @@ configure() {
                 --with-bzlib \
                 --with-ssl \
                 --with-screen=ncursesw \
-                --enable-locale-charset
+                --enable-locale-charset \
+                --datadir=/usr/share/doc/lynx-2.9.2
 }
 
 build() {
@@ -17,5 +18,9 @@ build() {
 }
 
 do_install() {
-    make DESTDIR="$DESTDIR" install
+    make DESTDIR="$DESTDIR" install-full
+}
+
+post_install() {
+    chgrp -v -R root /usr/share/doc/lynx-2.9.2/lynx_doc
 }

@@ -3,14 +3,20 @@
 # BLFS 13.0
 
 configure() {
-    ./configure --prefix=/usr \
-                --disable-static
+    mkdir build &&
+    cd    build &&
+
+    meson setup --prefix=/usr        \
+                --buildtype=release  \
+                -D docdir=/usr/share/doc/opus-1.6.1
 }
 
 build() {
-    make -j${IGOS_JOBS}
+    cd build &&
+    ninja
 }
 
 do_install() {
-    make DESTDIR="$DESTDIR" install
+    cd build &&
+    DESTDIR="$DESTDIR" ninja install
 }

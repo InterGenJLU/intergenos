@@ -10,6 +10,7 @@ configure() {
           --prefix=/usr       \
           --libdir=/usr/lib   \
           --buildtype=release \
+          -Dudev-dir=/usr/lib/udev \
           -Ddebug-gui=false \
           -Dtests=false \
           -Ddocumentation=false

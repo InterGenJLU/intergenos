@@ -3,8 +3,7 @@
 # BLFS 13.0
 
 configure() {
-    ./configure --prefix=/usr \
-                --disable-static
+    ./configure --prefix=/usr
 }
 
 build() {

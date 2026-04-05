@@ -4,8 +4,7 @@
 
 configure() {
     ./configure --prefix=/usr \
-                --disable-static \
-                --disable-valadoc
+                --disable-static
 }
 
 build() {

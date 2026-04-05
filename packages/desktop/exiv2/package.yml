@@ -13,6 +13,7 @@ source:
 dependencies:
   build:
   - brotli
+  - curl
   - inih
   host: []
   runtime: []

@@ -3,15 +3,15 @@
 # BLFS 13.0
 
 configure() {
-    cmake -B build                    \
-          -DCMAKE_INSTALL_PREFIX=/usr \
-          -DCMAKE_BUILD_TYPE=Release  
+    ./bootstrap
+    ./configure --prefix=/usr \
+                --docdir=/usr/share/doc/soundtouch-2.4.0
 }
 
 build() {
-    cmake --build build -j${IGOS_JOBS}
+    make -j${IGOS_JOBS}
 }
 
 do_install() {
-    DESTDIR="$DESTDIR" cmake --install build
+    make DESTDIR="$DESTDIR" install
 }

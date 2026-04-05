@@ -3,9 +3,13 @@
 # BLFS 13.0
 
 configure() {
-    cmake -B build                    \
-          -DCMAKE_INSTALL_PREFIX=/usr \
-          -DCMAKE_BUILD_TYPE=Release  
+    cmake -B build                       \
+          -DCMAKE_INSTALL_PREFIX=/usr    \
+          -DCMAKE_BUILD_TYPE=Release     \
+          -DCMAKE_SKIP_INSTALL_RPATH=ON  \
+          -DBUILD_SHARED_LIBS=ON         \
+          -Wno-dev                       \
+          -G Ninja
 }
 
 build() {

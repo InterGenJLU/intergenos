@@ -5,7 +5,8 @@
 configure() {
     ./configure --prefix=/usr \
                 --sysconfdir=/etc \
-                --localstatedir=/var
+                --localstatedir=/var \
+                --disable-static
 }
 
 build() {

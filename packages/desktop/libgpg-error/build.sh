@@ -4,6 +4,7 @@
 
 configure() {
     ./configure --prefix=/usr \
+                --sysconfdir=/etc \
                 --disable-static
 }
 

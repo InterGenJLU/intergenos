@@ -10,7 +10,7 @@ configure() {
           --prefix=/usr       \
           --libdir=/usr/lib   \
           --buildtype=release \
-          -Dman=false \
+          -Dman=true \
           -Dbroadway_backend=true
 }
 

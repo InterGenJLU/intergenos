@@ -7,7 +7,9 @@ configure() {
                 --disable-static \
                 --enable-libwebpmux \
                 --enable-libwebpdemux \
-                --enable-libwebpdecoder
+                --enable-libwebpdecoder \
+                --enable-libwebpextras \
+                --enable-swap-16bit-csp
 }
 
 build() {

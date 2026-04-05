@@ -9,7 +9,9 @@ configure() {
     meson setup ..            \
           --prefix=/usr       \
           --libdir=/usr/lib   \
-          --buildtype=release 
+          --buildtype=release \
+          -Dtests=disabled    \
+          -Ddocumentation=disabled
 }
 
 build() {

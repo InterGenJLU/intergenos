@@ -14,5 +14,4 @@ dependencies:
   build: []
   host: []
   runtime: []
-configure_flags:
-- --prefix=/usr
+configure_flags: []

@@ -14,9 +14,7 @@ configure() {
           --buildtype=release \
           -Dbroadway-backend=true \
           -Dintrospection=enabled \
-          -Dvulkan=enabled \
-          -Dbuild-testsuite=false \
-          -Dbuild-tests=false
+          -Dvulkan=enabled
 }
 
 build() {

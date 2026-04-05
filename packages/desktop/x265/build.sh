@@ -8,6 +8,7 @@ configure() {
     cmake -B build -S source                  \
           -DCMAKE_INSTALL_PREFIX=/usr         \
           -DCMAKE_BUILD_TYPE=Release          \
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5  \
           -DGIT_ARCHETYPE=1                   \
           -Wno-dev
 }
@@ -18,4 +19,5 @@ build() {
 
 do_install() {
     DESTDIR="$DESTDIR" cmake --install build
+    rm -vf "${DESTDIR}/usr/lib/libx265.a"
 }

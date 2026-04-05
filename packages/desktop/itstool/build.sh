@@ -8,7 +8,7 @@ configure() {
     patch -Np1 --force -i $IGOS_PATCHES/itstool-2.0.7-lxml-1.patch || true
 
     PYTHON=/usr/bin/python3 \
-    ./configure --prefix=/usr
+    ./autogen.sh --prefix=/usr
 }
 
 build() {

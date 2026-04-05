@@ -17,5 +17,6 @@ dependencies:
   - itstool
   - vte
   - libadwaita1
+  - libhandy1
   host: []
   runtime: []

@@ -15,8 +15,8 @@ configure() {
           --prefix=/usr       \
           --libdir=/usr/lib   \
           --buildtype=release \
-          -Dtests=false \
-          -Dman=false \
+          -Dtests=true \
+          -Dman=true \
           -Dsession_tracking=logind
 }
 

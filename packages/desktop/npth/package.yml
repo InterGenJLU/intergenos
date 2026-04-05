@@ -16,4 +16,3 @@ dependencies:
   runtime: []
 configure_flags:
 - --prefix=/usr
-- --disable-static

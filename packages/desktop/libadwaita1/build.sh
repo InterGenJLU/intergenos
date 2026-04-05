@@ -11,9 +11,7 @@ configure() {
     meson setup ..            \
           --prefix=/usr       \
           --libdir=/usr/lib   \
-          --buildtype=release \
-          -Dexamples=false \
-          -Dtests=false
+          --buildtype=release
 }
 
 build() {
