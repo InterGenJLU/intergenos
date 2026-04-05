@@ -7,6 +7,8 @@ configure() {
     sed -i '/cmptest/d' tests/CMakeLists.txt
     sed -i 's/PythonInterp/Python3/' CMakeLists.txt
     sed -i '/Font.h/i #include <cstdint>' tests/featuremap/featuremaptest.cpp
+    # Fix cmake minimum version for cmake 4.x
+    sed -i 's/VERSION 2.8.0/VERSION 3.5/' CMakeLists.txt
     cmake -B build                    \
           -DCMAKE_INSTALL_PREFIX=/usr \
           -DCMAKE_BUILD_TYPE=Release  
