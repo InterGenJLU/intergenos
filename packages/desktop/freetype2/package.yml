@@ -17,4 +17,3 @@ dependencies:
   - brotli
   host: []
   runtime: []
-direct_install: true
