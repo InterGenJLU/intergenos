@@ -106,6 +106,13 @@ class BuildExecutor:
                 if staging.exists():
                     shutil.rmtree(staging)
                 staging.mkdir(parents=True)
+
+                # Mirror root-level symlinks into staging so DESTDIR installs
+                # to paths like /usr/sbin work correctly (matching pkg-functions.sh)
+                for link in ("bin", "lib", "sbin"):
+                    target = Path(f"/{link}")
+                    if target.is_symlink():
+                        os.symlink(f"usr/{link}", str(staging / link))
                 env["DESTDIR"] = str(staging)
                 env["PATH"] = f"{staging}/usr/bin:{staging}/usr/sbin:" + env["PATH"]
                 env["PKG_CONFIG_PATH"] = f"{staging}/usr/lib/pkgconfig:{staging}/usr/lib64/pkgconfig:" + env.get("PKG_CONFIG_PATH", "")
