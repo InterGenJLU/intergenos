@@ -1,0 +1,28 @@
+Submitted By:            Douglas R. Reno <renodr at linuxfromscratch dot org>
+Date:                    2025-11-18
+Initial Package Version: 22.20.0
+Origin:                  Upstream (changes to configure in PR59983)
+Upstream Status:         Applied
+Description:             Adjusts the configure script for nodejs to allow the
+                         package to build with Python 3.14.
+
+diff -Naurp node-v22.20.0.orig/configure node-v22.20.0/configure
+--- node-v22.20.0.orig/configure	2025-09-23 23:12:08.000000000 -0500
++++ node-v22.20.0/configure	2025-11-18 10:51:45.368000340 -0600
+@@ -4,6 +4,7 @@
+ # Note that the mix of single and double quotes is intentional,
+ # as is the fact that the ] goes on a new line.
+ _=[ 'exec' '/bin/sh' '-c' '''
++command -v python3.14 >/dev/null && exec python3.14 "$0" "$@"
+ command -v python3.13 >/dev/null && exec python3.13 "$0" "$@"
+ command -v python3.12 >/dev/null && exec python3.12 "$0" "$@"
+ command -v python3.11 >/dev/null && exec python3.11 "$0" "$@"
+@@ -23,7 +24,7 @@ except ImportError:
+   from distutils.spawn import find_executable as which
+ 
+ print('Node.js configure: Found Python {}.{}.{}...'.format(*sys.version_info))
+-acceptable_pythons = ((3, 13), (3, 12), (3, 11), (3, 10), (3, 9), (3, 8))
++acceptable_pythons = ((3, 14), (3, 13), (3, 12), (3, 11), (3, 10), (3, 9), (3, 8))
+ if sys.version_info[:2] in acceptable_pythons:
+   import configure
+ else:

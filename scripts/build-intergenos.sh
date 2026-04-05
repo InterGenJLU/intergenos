@@ -487,6 +487,12 @@ phase_desktop() {
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-desktop.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
+phase_extra() {
+    sync_chroot_scripts
+    log "Building extra tier packages in chroot (user applications)..."
+    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-extra.sh" 2>&1 | tee -a "$BUILD_LOG"
+}
+
 phase_image() {
     log "Packaging chroot into bootable disk image..."
 

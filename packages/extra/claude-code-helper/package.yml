@@ -1,0 +1,15 @@
+name: claude-code-helper
+version: "1.0"
+release: 1
+description: Helper to install Anthropic Claude Code CLI and VS Code extension
+license: GPL-3.0-or-later
+homepage: https://code.claude.com/
+tier: extra
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - nodejs

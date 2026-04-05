@@ -1,0 +1,24 @@
+name: nodejs
+version: "22.22.0"
+release: 1
+description: JavaScript runtime built on V8
+license: MIT
+homepage: https://nodejs.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://nodejs.org/dist/v${version}/node-v${version}.tar.xz
+  sha256: 4c138012bb5352f49822a8f3e6d1db71e00639d0c36d5b6756f91e4c6f30b683
+patches:
+  - node-v22.22.0-python_build_fix-1.patch
+dependencies:
+  build:
+  - brotli
+  - c-ares
+  - icu
+  - libuv
+  - nghttp2
+  - which
+  host: []
+  runtime: []

@@ -1,0 +1,15 @@
+name: vscode-helper
+version: "1.0"
+release: 1
+description: Helper to download and install Microsoft Visual Studio Code
+license: GPL-3.0-or-later
+homepage: https://code.visualstudio.com/
+tier: extra
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - nodejs
