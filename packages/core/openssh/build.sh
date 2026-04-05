@@ -65,10 +65,13 @@ post_install() {
 
     # Create PAM config from shadow's login config (BLFS)
     sed 's@d/login@d/sshd@g' /etc/pam.d/login > /etc/pam.d/sshd
+    # Remove pam_lastlog.so — deprecated and removed from Linux-PAM >= 1.6.0
+    sed -i '/pam_lastlog\.so/d' /etc/pam.d/sshd
     chmod 644 /etc/pam.d/sshd
 
-    # Enable PAM in sshd_config
+    # Enable PAM and root login in sshd_config
     echo "UsePAM yes" >> /etc/ssh/sshd_config
+    sed -i 's/^#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 
     # Generate host keys if they don't exist
     ssh-keygen -A

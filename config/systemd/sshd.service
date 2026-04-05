@@ -7,9 +7,12 @@
 # - Config validation before start AND reload (catches errors before disruption)
 # - Automatic host key generation on first boot
 # - No socket activation (known DoS vulnerability — Arch FS#62248)
-# - Security hardening directives (ProtectSystem, etc.)
 # - Restart=on-failure (not always — don't restart on clean shutdown)
 # - KillMode=process (don't kill active SSH sessions on daemon restart)
+#
+# NOTE: ProtectSystem/ProtectKernel* are deliberately omitted. SSH spawns
+# user sessions that inherit the service's mount namespace — restricting
+# the filesystem here would make the system unmanageable over SSH.
 
 [Unit]
 Description=InterGenOS OpenSSH Server
@@ -42,13 +45,6 @@ RestartSec=5s
 RuntimeDirectory=sshd
 RuntimeDirectoryMode=0755
 
-# Security hardening
-ProtectSystem=strict
-ReadWritePaths=/etc/ssh /var/lib/sshd /run/sshd
-ProtectKernelTunables=yes
-ProtectKernelModules=yes
-ProtectControlGroups=yes
-RestrictSUIDSGID=yes
 
 [Install]
 WantedBy=multi-user.target
