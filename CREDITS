@@ -1,0 +1,51 @@
+# InterGenOS Credits and Attribution
+
+InterGenOS is built on the work of many open source projects and communities.
+We are grateful for their contributions and committed to proper attribution.
+
+## Linux From Scratch (LFS)
+
+InterGenOS core is built following the Linux From Scratch 13.0 methodology.
+
+    LFS 13.0 (systemd edition)
+    Copyright (C) 1999-2026 Gerard Beekmans et al.
+    Licensed under Creative Commons Attribution-NonCommercial-ShareAlike 2.0
+    https://www.linuxfromscratch.org/lfs/
+
+LFS provides the foundational build methodology, package selection, and
+configuration guidance that InterGenOS core follows. Our core tier (Ch 5-10)
+adheres closely to LFS 13.0 with documented deviations.
+
+## Beyond Linux From Scratch (BLFS)
+
+InterGenOS desktop and extended packages follow BLFS 13.0 guidance.
+
+    BLFS 13.0 (systemd edition)
+    Copyright (C) 1999-2026 The BLFS Development Team
+    Licensed under Creative Commons Attribution-NonCommercial-ShareAlike 2.0
+    https://www.linuxfromscratch.org/blfs/
+
+BLFS provides build instructions, dependency information, and configuration
+guidance for packages beyond the base LFS system. Our desktop tier follows
+BLFS 13.0 with documented deviations.
+
+## LFS/BLFS Patches
+
+The build/patches/ directory contains patches distributed by the LFS and
+BLFS projects for fixing build issues and security vulnerabilities.
+
+    LFS/BLFS Patches
+    https://www.linuxfromscratch.org/patches/
+    Distributed under the same license as the respective packages they modify.
+
+## Individual Package Authors
+
+Every package built by InterGenOS is the work of its respective authors and
+communities. See individual package licenses in packages/*/package.yml.
+
+## InterGenOS
+
+    InterGenOS — AI-Integrated Linux Distribution
+    Copyright (C) 2015-2016, 2026 InterGenJLU
+    Licensed under GPL-3.0-or-later
+    https://github.com/InterGenJLU/intergenos

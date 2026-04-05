@@ -1,6 +1,21 @@
 #!/usr/bin/env python3
 """Parse the BLFS 13.0 HTML book into a structured SQLite database.
 
+This tool parses package metadata from the "Beyond Linux From Scratch" (BLFS)
+book for use as a local development reference. The generated database is a
+derived work and is NOT distributed — it is generated locally from a locally
+held copy of the BLFS book.
+
+Attribution:
+    Beyond Linux From Scratch (BLFS) is a project of Linux From Scratch (LFS).
+    BLFS 13.0 (systemd edition) — https://www.linuxfromscratch.org/blfs/
+    Copyright (C) 1999-2026, The BLFS Development Team.
+    Licensed under Creative Commons Attribution-NonCommercial-ShareAlike 2.0.
+
+    This parser is an original work by InterGenOS (GPL-3.0-or-later).
+    The generated database (build/blfs-packages.db) is for local development
+    use only and must not be distributed separately from the BLFS book.
+
 Usage:
     python3 scripts/parse-blfs-book.py [--book PATH] [--db PATH] [--packages-dir PATH]
 

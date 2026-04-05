@@ -10,6 +10,7 @@ build/sources/*.tar.*
 build/sources/*.tgz
 build/sources/*.zip
 build/sources/*-Cargo.lock
+build/*.db
 *.iso
 *.img
 *.img.gz
@@ -18,7 +19,9 @@ build/sources/*-Cargo.lock
 vm/*.qcow2
 vm/*.iso
 
-# LFS/BLFS reference books (copyrighted, local only)
+# LFS/BLFS reference books and derived databases (local only)
+# BLFS 13.0 © 1999-2026 The BLFS Development Team (CC BY-NC-SA 2.0)
+# LFS 13.0 © 1999-2026 Gerard Beekmans et al. (CC BY-NC-SA 2.0)
 docs/lfs-13.0/
 
 # Python
