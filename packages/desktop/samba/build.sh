@@ -11,6 +11,7 @@ configure() {
         --with-pammodulesdir=/usr/lib/security \
         --enable-fhs                           \
         --without-ad-dc                        \
+        --without-ads                          \
         --without-ldap                         \
         --without-ldb-lmdb                     \
         --without-json                         \
