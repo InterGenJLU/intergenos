@@ -9,6 +9,7 @@ configure() {
     mkdir obj &&
     cd    obj &&
 
+    CC=gcc CXX=g++ \
     ../js/src/configure --prefix=/usr            \
                         --disable-debug-symbols  \
                         --disable-jemalloc       \
