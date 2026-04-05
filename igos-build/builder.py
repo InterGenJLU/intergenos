@@ -89,7 +89,8 @@ class BuildExecutor:
         env["LC_ALL"] = "POSIX"
         env["XML_CATALOG_FILES"] = "/etc/xml/catalog"
         env["PKG_CONFIG_PATH"] = "/usr/lib/pkgconfig:/usr/share/pkgconfig"
-        env["PATH"] = f"{self.system_root}/tools/bin:" + env.get("PATH", "")
+        # Include /opt/rustc/bin for Rust toolchain (installed to /opt per BLFS)
+        env["PATH"] = f"/opt/rustc/bin:{self.system_root}/tools/bin:" + env.get("PATH", "")
 
         # When tracked, each package stages into its own DESTDIR
         # and staged files are made visible as a sysroot for multi-pass builds
