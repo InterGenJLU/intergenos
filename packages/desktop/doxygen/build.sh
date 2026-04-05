@@ -10,7 +10,7 @@ configure() {
     cd    build
 
     cmake -G "Unix Makefiles"          \
-          -DCMAKE_BUILD_TYPE=Release   \
+          -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5   \
           -DCMAKE_INSTALL_PREFIX=/usr  \
           -Dbuild_wizard=OFF           \
           -Wno-dev ..

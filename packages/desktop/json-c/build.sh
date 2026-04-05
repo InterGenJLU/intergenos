@@ -8,7 +8,7 @@ configure() {
     sed -i 's/VERSION 3.9/VERSION 4.0/' tests/CMakeLists.txt
     cmake -B build                    \
           -DCMAKE_INSTALL_PREFIX=/usr \
-          -DCMAKE_BUILD_TYPE=Release  \
+          -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5  \
           -DBUILD_STATIC_LIBS=OFF
 }
 

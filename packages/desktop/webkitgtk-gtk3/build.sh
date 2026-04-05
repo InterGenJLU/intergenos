@@ -8,6 +8,7 @@ configure() {
 
     cmake -D CMAKE_BUILD_TYPE=Release         \
           -D CMAKE_INSTALL_PREFIX=/usr        \
+          -D CMAKE_POLICY_VERSION_MINIMUM=3.5 \
           -D CMAKE_SKIP_INSTALL_RPATH=ON      \
           -D PORT=GTK                         \
           -D LIB_INSTALL_DIR=/usr/lib         \

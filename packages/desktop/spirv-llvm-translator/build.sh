@@ -5,7 +5,7 @@
 configure() {
     cmake -B build                                          \
           -DCMAKE_INSTALL_PREFIX=/usr                       \
-          -DCMAKE_BUILD_TYPE=Release                        \
+          -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5                        \
           -DBUILD_SHARED_LIBS=ON                            \
           -DCMAKE_SKIP_INSTALL_RPATH=ON                     \
           -DLLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR=/usr

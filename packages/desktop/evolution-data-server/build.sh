@@ -5,7 +5,7 @@
 configure() {
     cmake -B build -G Ninja                    \
           -DCMAKE_INSTALL_PREFIX=/usr          \
-          -DCMAKE_BUILD_TYPE=Release           \
+          -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5           \
           -DSYSCONF_INSTALL_DIR=/etc           \
           -DENABLE_GTK_DOC=OFF                 \
           -DENABLE_INSTALLED_TESTS=OFF         \

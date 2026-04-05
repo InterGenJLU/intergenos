@@ -8,7 +8,7 @@ configure() {
 
     cmake -B build                    \
           -DCMAKE_INSTALL_PREFIX=/usr \
-          -DCMAKE_BUILD_TYPE=Release  \
+          -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5  \
           -DAVIF_CODEC_DAV1D=SYSTEM   \
           -DAVIF_LIBYUV=OFF
 }

@@ -7,7 +7,7 @@ configure() {
     sed "s/'git', 'clone'/\&, '--depth=1', '-b', self.commit/" -i ../scripts/update_deps.py
     cmake -B build                    \
           -DCMAKE_INSTALL_PREFIX=/usr \
-          -DCMAKE_BUILD_TYPE=Release  
+          -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5  
 }
 
 build() {

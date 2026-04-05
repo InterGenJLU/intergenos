@@ -50,6 +50,7 @@ configure() {
           -D LLVM_INCLUDE_BENCHMARKS=OFF             \
           -D CLANG_DEFAULT_PIE_ON_LINUX=ON           \
           -D CLANG_CONFIG_FILE_SYSTEM_DIR=/etc/clang \
+          -D CMAKE_POLICY_VERSION_MINIMUM=3.5 \
           -W no-dev -G Ninja ..
 }
 

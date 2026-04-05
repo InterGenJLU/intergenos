@@ -5,7 +5,7 @@
 configure() {
     cmake -B build                    \
           -DCMAKE_INSTALL_PREFIX=/usr \
-          -DCMAKE_BUILD_TYPE=Release  \
+          -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5  \
           -DSHARED_ONLY=yes \
           -DICAL_BUILD_DOCS=false \
           -DICAL_GLIB_VAPI=true \
