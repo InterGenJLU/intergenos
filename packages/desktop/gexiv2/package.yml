@@ -14,5 +14,6 @@ dependencies:
   build:
   - exiv2
   - vala
+  - pygobject3
   host: []
   runtime: []
