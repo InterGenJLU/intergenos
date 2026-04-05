@@ -30,7 +30,7 @@ do_install() {
 
     # Copy staged files to our DESTDIR
     mkdir -pv "$DESTDIR"
-    cp -av dest/* "$DESTDIR"
+    cp --remove-destination -av dest/* "$DESTDIR"
 
     # Compatibility symlinks for non-wide-character programs
     for lib in ncurses form panel menu; do

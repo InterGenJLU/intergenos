@@ -1,6 +1,6 @@
 #!/bin/bash
 # Vim 9.2.0078
-# LFS 13.0 Section 8.72
+# LFS 13.0 Section 8.75
 
 configure() {
     # Change default location of vimrc to /etc

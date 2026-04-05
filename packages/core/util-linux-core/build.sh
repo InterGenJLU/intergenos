@@ -1,6 +1,6 @@
 #!/bin/bash
 # Util-linux 2.41.3
-# LFS 13.0 Section 8.80
+# LFS 13.0 Section 8.82
 
 configure() {
     ./configure --bindir=/usr/bin      \

@@ -1,6 +1,6 @@
 #!/bin/bash
 # E2fsprogs 1.47.3
-# LFS 13.0 Section 8.81
+# LFS 13.0 Section 8.83
 
 configure() {
     mkdir -v build

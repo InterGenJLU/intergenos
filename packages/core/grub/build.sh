@@ -1,6 +1,6 @@
 #!/bin/bash
 # GRUB 2.14
-# LFS 13.0 Section 8.64
+# LFS 13.0 Section 8.66
 
 configure() {
     # Unset any GRUB-related environment variables

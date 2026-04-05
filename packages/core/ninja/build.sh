@@ -10,7 +10,7 @@ configure() {
 }
 
 build() {
-    python3 configure.py --bootstrap
+    python3 configure.py --bootstrap --verbose
 }
 
 # check() — tests require cmake which isn't available during core build.
