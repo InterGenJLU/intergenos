@@ -162,7 +162,7 @@ log() {
 
 save_checkpoint() {
     local phase="$1"
-    local checkpoint="${CHECKPOINT_DIR}/${BUILD_USER}/intergenos-${phase}.tar.gz"
+    local checkpoint="${CHECKPOINT_DIR}/${BUILD_USER}/intergenos-${phase}-$(date '+%Y%m%d-%H%M%S').tar.gz"
 
     log ""
     log ">>> Saving checkpoint: $checkpoint"

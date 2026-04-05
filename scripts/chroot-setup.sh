@@ -103,6 +103,15 @@ else
     fi
 fi
 
+# --- Timezone: match host ---
+echo "--- Syncing host timezone into chroot ---"
+if [ -f /etc/localtime ]; then
+    cp -f /etc/localtime $IGOS/etc/localtime
+    echo "  Copied host /etc/localtime"
+else
+    echo "  WARNING: /etc/localtime not found on host, chroot will use UTC"
+fi
+
 echo ""
 echo "======================="
 echo "Chroot environment ready."
