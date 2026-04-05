@@ -729,11 +729,15 @@ class BuildExecutor:
         self.logger.info(f"\nStarting build of {total} package(s)...\n")
 
         for i, pkg in enumerate(packages, 1):
-            # Skip packages that have a tracked manifest AND all files present
+            # Skip packages that have a tracked manifest.
+            # Manifest existence is sufficient — full file verification already
+            # ran at install time. Re-verifying here causes false rebuilds when
+            # post_install moves/deletes files after the manifest was written
+            # (e.g., Rust removes .old docs and moves bash completions).
             if self.skip_built:
                 manifest = self.pkg_db / f"{pkg.name}-{pkg.version}"
-                if manifest.exists() and self.pkg_verify(pkg):
-                    self.logger.info(f"[{i}/{total}] Skipping {pkg.name} {pkg.version} (already tracked and verified)")
+                if manifest.exists():
+                    self.logger.info(f"[{i}/{total}] Skipping {pkg.name} {pkg.version} (already tracked)")
                     self.summary.record(pkg.name, pkg.version, True, 0, skipped=True)
                     continue
 
