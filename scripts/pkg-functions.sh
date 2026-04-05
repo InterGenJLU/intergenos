@@ -251,7 +251,7 @@ pkg_deploy() {
     # are load-bearing — replacing them with real directories is catastrophic.
     local dangerous=""
     for entry in lib lib64 bin sbin; do
-        if [ -d "${dest}/${entry}" ] && [ -L "/${entry}" ]; then
+        if [ -d "${dest}/${entry}" ] && [ ! -L "${dest}/${entry}" ] && [ -L "/${entry}" ]; then
             dangerous="${dangerous} ${entry}"
         fi
     done
