@@ -18,6 +18,7 @@ build() {
 }
 
 do_install() {
+    mkdir -pv "${DESTDIR}/usr/bin"
     install -vm755 target/release/cargo-{capi,cbuild,cinstall,ctest} \
         "${DESTDIR}/usr/bin/"
 }
