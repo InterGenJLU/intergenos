@@ -107,8 +107,17 @@ class BuildExecutor:
                     shutil.rmtree(staging)
                 staging.mkdir(parents=True)
 
-                # Mirror root-level symlinks into staging so DESTDIR installs
-                # to paths like /usr/sbin work correctly (matching pkg-functions.sh)
+                # Prepare staging directory to match live filesystem layout.
+                # This mirrors what pkg-functions.sh does for bash-built packages:
+                #   1. Create usr/{bin,lib,sbin} so make install has targets
+                #   2. Symlink /bin→usr/bin, /lib→usr/lib, /sbin→usr/sbin so
+                #      installs through either path land in the same place
+                #   3. Create lib64 on x86_64 (GCC multilib convention)
+                for d in ("usr/bin", "usr/lib", "usr/sbin"):
+                    (staging / d).mkdir(parents=True, exist_ok=True)
+                import platform
+                if platform.machine() == "x86_64":
+                    (staging / "lib64").mkdir(exist_ok=True)
                 for link in ("bin", "lib", "sbin"):
                     target = Path(f"/{link}")
                     if target.is_symlink():
@@ -394,7 +403,9 @@ class BuildExecutor:
         for entry in ("lib", "lib64", "bin", "sbin"):
             staged = staging_dir / entry
             root_path = Path("/") / entry
-            if staged.is_dir() and root_path.is_symlink():
+            # Only flag real directories — symlinks in staging are intentional
+            # (we create them in build_env to mirror the live filesystem layout)
+            if staged.is_dir() and not staged.is_symlink() and root_path.is_symlink():
                 dangerous.append(entry)
 
         if dangerous:
