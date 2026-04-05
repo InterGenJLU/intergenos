@@ -68,6 +68,19 @@ pkg_stage() {
     rm -rf "$PKG_DEST"
     mkdir -pv "$PKG_DEST"
 
+    # Mirror root-level symlinks so DESTDIR installs follow them.
+    # Without this, `make install DESTDIR=...` creates real /lib, /bin, /sbin
+    # directories that collide with the root filesystem's symlinks.
+    for link in bin lib sbin; do
+        if [ -L "/$link" ]; then
+            ln -sv "usr/$link" "${PKG_DEST}/$link"
+        fi
+    done
+    case $(uname -m) in
+        x86_64) mkdir -pv "${PKG_DEST}/lib64" ;;
+    esac
+    mkdir -pv "${PKG_DEST}/usr/"{bin,lib,sbin}
+
     # Export DESTDIR for autotools/meson packages
     export DESTDIR="$PKG_DEST"
 
