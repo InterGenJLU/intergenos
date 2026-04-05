@@ -3,7 +3,7 @@ version: 2.1.12
 release: 1
 description: Event notification library
 license: BSD-3-Clause
-homepage: ''
+homepage: https://libevent.org/
 tier: desktop
 build_style: custom
 install_func: do_install
@@ -14,6 +14,3 @@ dependencies:
   build: []
   host: []
   runtime: []
-configure_flags:
-- --prefix=/usr
-- --disable-static

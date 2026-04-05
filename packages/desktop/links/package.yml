@@ -1,0 +1,17 @@
+name: links
+version: 2.30
+release: 1
+description: Text and graphics mode web browser
+license: GPL-2.0-or-later
+homepage: http://links.twibright.com/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: http://links.twibright.com/download/links-${version}.tar.bz2
+  sha256: c4631c6b5a11527cdc3cb7872fc23b7f2b25c2b021d596be410dadb40315f166
+dependencies:
+  build:
+  - libevent
+  host: []
+  runtime: []

@@ -539,6 +539,47 @@ def parse_blfs_book(book_path, db_path, packages_dir):
             (pkg_name, data['tier'], data['our_version'], data['status'])
         )
 
+    # Alias table: maps our package names to BLFS anchor IDs where they differ.
+    # This allows accurate gap analysis when BLFS uses different names.
+    conn.execute("""CREATE TABLE IF NOT EXISTS aliases (
+        igos_name TEXT NOT NULL,
+        blfs_anchor TEXT NOT NULL,
+        PRIMARY KEY(igos_name, blfs_anchor)
+    )""")
+    ALIASES = [
+        # GStreamer (BLFS uses gst10- prefix)
+        ('gstreamer', 'gstreamer10'),
+        ('gst-plugins-base', 'gst10-plugins-base'),
+        ('gst-plugins-bad', 'gst10-plugins-bad'),
+        ('gst-plugins-good', 'gst10-plugins-good'),
+        # Image libraries
+        ('libjpeg-turbo', 'libjpeg'),
+        # DocBook
+        ('docbook-xml', 'DocBook'),
+        ('docbook-xsl-nons', 'docbook-xsl'),
+        # Network managers (case difference)
+        ('networkmanager', 'NetworkManager'),
+        ('modemmanager', 'ModemManager'),
+    ]
+    for igos_name, blfs_anchor in ALIASES:
+        try:
+            conn.execute(
+                "INSERT INTO aliases (igos_name, blfs_anchor) VALUES (?, ?)",
+                (igos_name, blfs_anchor)
+            )
+            # Also register in igos_status under the BLFS anchor
+            existing = conn.execute(
+                "SELECT tier, our_version FROM igos_status WHERE blfs_anchor = ?",
+                (igos_name,)
+            ).fetchone()
+            if existing:
+                conn.execute(
+                    "INSERT OR REPLACE INTO igos_status (blfs_anchor, tier, our_version, status) VALUES (?, ?, ?, ?)",
+                    (blfs_anchor, existing[0], existing[1], 'planned')
+                )
+        except sqlite3.IntegrityError:
+            pass
+
     conn.commit()
 
     # Summary

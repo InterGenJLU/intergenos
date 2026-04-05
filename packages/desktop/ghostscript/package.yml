@@ -1,0 +1,24 @@
+name: ghostscript
+version: 10.06.0
+release: 1
+description: Interpreter for the PostScript language and PDF
+license: AGPL-3.0-or-later
+homepage: https://www.ghostscript.com/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10060/ghostscript-${version}.tar.xz
+  sha256: 64352648c2c081c8a9fb1a12dc1965e01ead7c57f58b72d1b54f6ef1cef3c561
+dependencies:
+  build:
+  - cups
+  - fontconfig
+  - freetype2
+  - lcms2
+  - libjpeg-turbo
+  - libpng
+  - libtiff
+  - openjpeg2
+  host: []
+  runtime: []
