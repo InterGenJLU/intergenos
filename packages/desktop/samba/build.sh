@@ -12,8 +12,8 @@ configure() {
         --enable-fhs                           \
         --without-ad-dc                        \
         --without-ldap                         \
+        --without-ldb-lmdb                     \
         --with-system-mitkrb5                  \
-        --enable-selftest                      \
         --disable-rpath-install
 }
 
