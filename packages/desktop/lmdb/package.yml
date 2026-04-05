@@ -1,0 +1,16 @@
+name: lmdb
+version: 0.9.35
+release: 1
+description: Lightning Memory-Mapped Database
+license: OLDAP-2.8
+homepage: https://www.openldap.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://git.openldap.org/openldap/openldap/-/archive/LMDB_${version}/LMDB_${version}.tar.bz2
+  sha256: 3fa3ec5e52966cb81b1deb3f59d1a1f241aef1d0bf323b7a1146519c2d284924
+dependencies:
+  build: []
+  host: []
+  runtime: []

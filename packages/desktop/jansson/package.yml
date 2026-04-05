@@ -1,0 +1,16 @@
+name: jansson
+version: 2.15.0
+release: 1
+description: C library for encoding, decoding and manipulating JSON data
+license: MIT
+homepage: https://github.com/akheron/jansson
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/akheron/jansson/releases/download/v${version}/jansson-${version}.tar.bz2
+  sha256: a7eac7765000373165f9373eb748be039c10b2efc00be9af3467ec92357d8954
+dependencies:
+  build: []
+  host: []
+  runtime: []

@@ -21,6 +21,12 @@ build() {
     ninja
 }
 
+check() {
+    cd build
+    # Three tests (test-font-data, test-font, test-layout) are known to fail per BLFS
+    ninja test || true
+}
+
 do_install() {
     cd build
     DESTDIR="$DESTDIR" ninja install

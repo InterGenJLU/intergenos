@@ -14,7 +14,9 @@ dependencies:
   build:
   - gnutls
   - gpgme
+  - jansson
   - mitkrb
+  - openldap
   - perl-parse-yapp
   - rpcsvc-proto
   - fuse3

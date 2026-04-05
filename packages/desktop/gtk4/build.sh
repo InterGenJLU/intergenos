@@ -22,6 +22,12 @@ build() {
     ninja
 }
 
+check() {
+    cd build
+    # Requires graphical session per BLFS; failures expected in chroot
+    ninja test || true
+}
+
 do_install() {
     cd build
     DESTDIR="$DESTDIR" ninja install

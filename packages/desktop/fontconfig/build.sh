@@ -13,6 +13,11 @@ build() {
     make -j${IGOS_JOBS}
 }
 
+check() {
+    # One test known to fail per BLFS; some tests download fonts via Internet
+    make check || true
+}
+
 do_install() {
     make DESTDIR="$DESTDIR" install
 }

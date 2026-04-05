@@ -11,10 +11,6 @@ configure() {
         --with-pammodulesdir=/usr/lib/security \
         --enable-fhs                           \
         --without-ad-dc                        \
-        --without-ads                          \
-        --without-ldap                         \
-        --without-ldb-lmdb                     \
-        --without-json                         \
         --with-system-mitkrb5                  \
         --disable-rpath-install
 }
@@ -40,5 +36,12 @@ do_install() {
         -e "s;path = /usr/spool/samba;path = /var/spool/samba;" \
         -i "${DESTDIR}/etc/samba/smb.conf.default"
 
-    # LDAP schema install omitted — built --without-ldap
+    # Install LDAP schema files
+    mkdir -pv "${DESTDIR}/etc/openldap/schema"
+    install -v -m644 examples/LDAP/README \
+                     "${DESTDIR}/etc/openldap/schema/README.samba"
+    install -v -m644 examples/LDAP/samba* \
+                     "${DESTDIR}/etc/openldap/schema"
+    install -v -m755 examples/LDAP/{get*,ol*} \
+                     "${DESTDIR}/etc/openldap/schema"
 }
