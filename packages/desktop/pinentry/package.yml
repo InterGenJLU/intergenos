@@ -1,5 +1,5 @@
 name: pinentry
-version: 1.3.2
+version: "1.3.2"
 release: 1
 description: PIN/passphrase entry dialog
 license: GPL-2.0-or-later

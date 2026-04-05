@@ -1,5 +1,5 @@
 name: libevent
-version: 2.1.12
+version: "2.1.12"
 release: 1
 description: Event notification library
 license: BSD-3-Clause

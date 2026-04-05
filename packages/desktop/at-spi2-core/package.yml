@@ -1,5 +1,5 @@
 name: at-spi2-core
-version: 2.58.3
+version: "2.58.3"
 release: 1
 description: Assistive Technology Service Provider Interface
 license: LGPL-2.1-or-later

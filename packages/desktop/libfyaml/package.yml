@@ -1,5 +1,5 @@
 name: libfyaml
-version: 0.9.4
+version: "0.9.4"
 release: 1
 description: YAML 1.3 parser and writer
 license: MIT

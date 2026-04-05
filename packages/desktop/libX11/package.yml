@@ -1,5 +1,5 @@
 name: libX11
-version: 1.8.13
+version: "1.8.13"
 release: 1
 description: Core X11 client library
 license: MIT

@@ -1,5 +1,5 @@
 name: zstd
-version: 1.5.7
+version: "1.5.7"
 release: 1
 description: Zstandard real-time compression
 license: BSD-3-Clause

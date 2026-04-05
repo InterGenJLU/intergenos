@@ -1,5 +1,5 @@
 name: xz
-version: 5.8.2
+version: "5.8.2"
 release: 1
 description: XZ Utils compression
 license: GPL-2.0-or-later

@@ -1,5 +1,5 @@
 name: acl
-version: 2.3.2
+version: "2.3.2"
 release: 1
 description: Access Control Lists utilities
 license: LGPL-2.1-or-later

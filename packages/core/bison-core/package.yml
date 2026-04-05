@@ -1,5 +1,5 @@
 name: bison-core
-version: 3.8.2
+version: "3.8.2"
 release: 1
 description: GNU parser generator
 license: GPL-3.0-or-later

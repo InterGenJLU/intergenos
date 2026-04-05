@@ -1,5 +1,5 @@
 name: json-glib
-version: 1.10.8
+version: "1.10.8"
 release: 1
 description: JSON parser for GLib
 license: LGPL-2.1-or-later

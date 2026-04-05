@@ -1,5 +1,5 @@
 name: libXau
-version: 1.0.12
+version: "1.0.12"
 release: 1
 description: X11 Authorization Protocol library
 license: MIT

@@ -1,5 +1,5 @@
 name: python
-version: 3.14.3
+version: "3.14.3"
 release: 1
 description: Python programming language
 license: PSF-2.0

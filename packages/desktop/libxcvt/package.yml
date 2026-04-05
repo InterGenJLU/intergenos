@@ -1,5 +1,5 @@
 name: libxcvt
-version: 0.1.3
+version: "0.1.3"
 release: 1
 description: VESA CVT standard timing modelines generator
 license: MIT

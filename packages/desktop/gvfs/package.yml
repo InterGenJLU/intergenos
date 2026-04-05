@@ -1,5 +1,5 @@
 name: gvfs
-version: 1.58.2
+version: "1.58.2"
 release: 1
 description: GNOME virtual filesystem
 license: LGPL-2.0-or-later

@@ -1,5 +1,5 @@
 name: libXi
-version: 1.8.2
+version: "1.8.2"
 release: 1
 description: X Input extension library
 license: MIT

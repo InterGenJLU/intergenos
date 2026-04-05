@@ -1,5 +1,5 @@
 name: libXxf86dga
-version: 1.1.7
+version: "1.1.7"
 release: 1
 description: X XFree86-DGA extension library
 license: MIT

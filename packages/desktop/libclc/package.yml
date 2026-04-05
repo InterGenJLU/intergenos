@@ -1,5 +1,5 @@
 name: libclc
-version: 21.1.8
+version: "21.1.8"
 release: 1
 description: OpenCL C library
 license: Apache-2.0

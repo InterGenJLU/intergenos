@@ -1,5 +1,5 @@
 name: freetype2
-version: 2.14.1
+version: "2.14.1"
 release: 1
 description: "FreeType font rendering library (pass 2 \u2014 with HarfBuzz)"
 license: FTL

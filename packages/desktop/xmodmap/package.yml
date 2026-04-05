@@ -1,5 +1,5 @@
 name: xmodmap
-version: 1.0.11
+version: "1.0.11"
 release: 1
 description: Keyboard modifier utility
 license: MIT

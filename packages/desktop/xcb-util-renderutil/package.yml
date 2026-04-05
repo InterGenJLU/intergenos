@@ -1,5 +1,5 @@
 name: xcb-util-renderutil
-version: 0.3.10
+version: "0.3.10"
 release: 1
 description: XCB render utility library
 license: MIT

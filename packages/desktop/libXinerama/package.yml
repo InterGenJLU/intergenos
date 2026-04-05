@@ -1,5 +1,5 @@
 name: libXinerama
-version: 1.1.6
+version: "1.1.6"
 release: 1
 description: X Xinerama extension library
 license: MIT

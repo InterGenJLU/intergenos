@@ -1,5 +1,5 @@
 name: libshumate
-version: 1.5.3
+version: "1.5.3"
 release: 1
 description: GTK4 map widget
 license: LGPL-2.1-or-later

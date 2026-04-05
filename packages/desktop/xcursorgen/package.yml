@@ -1,5 +1,5 @@
 name: xcursorgen
-version: 1.0.9
+version: "1.0.9"
 release: 1
 description: X cursor file generator
 license: MIT

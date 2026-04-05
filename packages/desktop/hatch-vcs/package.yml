@@ -1,5 +1,5 @@
 name: hatch-vcs
-version: 0.5.0
+version: "0.5.0"
 release: 1
 description: Hatch plugin for VCS version source
 license: MIT

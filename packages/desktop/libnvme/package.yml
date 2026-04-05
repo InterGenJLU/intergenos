@@ -1,5 +1,5 @@
 name: libnvme
-version: 1.16.1
+version: "1.16.1"
 release: 1
 description: NVMe management library
 license: LGPL-2.1-or-later

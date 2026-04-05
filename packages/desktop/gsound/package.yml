@@ -1,5 +1,5 @@
 name: gsound
-version: 1.0.3
+version: "1.0.3"
 release: 1
 description: GObject wrapper for libcanberra
 license: LGPL-2.1-or-later

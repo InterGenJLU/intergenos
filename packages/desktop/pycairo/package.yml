@@ -1,5 +1,5 @@
 name: pycairo
-version: 1.29.0
+version: "1.29.0"
 release: 1
 description: Python bindings for Cairo
 license: LGPL-2.1-or-later

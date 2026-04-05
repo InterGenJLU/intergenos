@@ -1,5 +1,5 @@
 name: pango
-version: 1.57.0
+version: "1.57.0"
 release: 1
 description: Text layout and rendering library
 license: LGPL-2.0-or-later

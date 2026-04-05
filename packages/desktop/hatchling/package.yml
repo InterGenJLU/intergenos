@@ -1,5 +1,5 @@
 name: hatchling
-version: 1.28.0
+version: "1.28.0"
 release: 1
 description: Python build backend
 license: MIT

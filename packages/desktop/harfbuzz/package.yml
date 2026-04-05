@@ -1,5 +1,5 @@
 name: harfbuzz
-version: 12.3.2
+version: "12.3.2"
 release: 1
 description: Text shaping engine
 license: MIT

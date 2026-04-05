@@ -1,5 +1,5 @@
 name: libXcursor
-version: 1.2.3
+version: "1.2.3"
 release: 1
 description: X Cursor management library
 license: MIT

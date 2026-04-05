@@ -35,19 +35,25 @@ Build VM (Ubuntu 24.04) → chroot at /mnt/igos → build everything → bootabl
 
 **Master orchestrator:** `scripts/build-intergenos.sh`
 - Single entry point for the entire build
-- Phases: validate → setup → toolchain → chroot-prep → chroot-tools → core → config → core-extra → base → image
+- Phases: validate → setup → toolchain → chroot-prep → chroot-tools → core → config → core-extra → base → desktop → extra → image
 - Controls: `--user`, `--start-at`, `--stop-after`, `.build-stop` file, Ctrl+C
 
 **Self-contained chroot** (build_003 approach): sources and scripts are copied onto the target filesystem. No bind mounts for content. The chroot is transparent and inspectable.
 
-## Package Tiers (458 templates)
+## Package Tiers
 
-| Tier | Count | Purpose |
-|------|-------|---------|
-| toolchain | 28 | Cross-compilation (LFS Ch. 5-7) |
-| core | 98 | Full system (LFS Ch. 8 + TLS chain, PAM, glib2, curl/wget/git, cmake) |
-| base | 20 | End-user tools (htop, rsync, strace, screen, etc.) |
-| desktop | 312 | GNOME on Wayland (X11 libs, GTK, Mesa, GStreamer, GNOME Shell) |
+| Tier | Purpose |
+|------|---------|
+| toolchain | Cross-compilation (LFS Ch. 5-7) |
+| core | Full system (LFS Ch. 8 + TLS chain, PAM, glib2, curl/wget/git, cmake) |
+| base | End-user CLI tools (htop, rsync, strace, screen, etc.) |
+| desktop | GNOME on Wayland (X11 libs, GTK, Mesa, GStreamer, GNOME Shell) |
+| extra | User-facing applications (Code-OSS, Node.js, etc.) |
+
+The `extra` tier follows the Arch Linux convention — optional packages that extend the
+system beyond the base desktop. Proprietary software (VS Code, Claude Code) is handled
+via download helpers, not bundled — consistent with how Debian (non-free), Void (nonfree),
+and Arch (AUR) separate free from proprietary.
 
 ## Repository Structure
 
@@ -57,8 +63,9 @@ Build VM (Ubuntu 24.04) → chroot at /mnt/igos → build everything → bootabl
 ├── packages/            # 458 package templates (YAML + build.sh)
 │   ├── toolchain/       # LFS Ch. 5-7
 │   ├── core/            # LFS Ch. 8 + extras
-│   ├── base/            # End-user tools
-│   └── desktop/         # GNOME desktop stack
+│   ├── base/            # End-user CLI tools
+│   ├── desktop/         # GNOME desktop stack
+│   └── extra/           # User-facing applications
 ├── scripts/             # Build orchestrator, chroot scripts, tools
 │   ├── build-intergenos.sh      # Master orchestrator
 │   ├── generate-templates.py    # Batch template generator

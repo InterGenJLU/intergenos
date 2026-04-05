@@ -1,5 +1,5 @@
 name: binutils-core
-version: 2.46.0
+version: "2.46.0"
 release: 1
 description: GNU Binutils (final system)
 license: GPL-3.0-or-later

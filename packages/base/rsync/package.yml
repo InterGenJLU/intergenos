@@ -1,5 +1,5 @@
 name: rsync
-version: 3.4.1
+version: "3.4.1"
 release: 1
 description: Fast incremental file transfer
 license: GPL-3.0-or-later

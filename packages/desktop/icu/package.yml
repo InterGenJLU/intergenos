@@ -1,5 +1,5 @@
 name: icu
-version: 78.2
+version: "78.2"
 release: 1
 description: International Components for Unicode
 license: ICU

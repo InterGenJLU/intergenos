@@ -1,5 +1,5 @@
 name: libtiff
-version: 4.7.1
+version: "4.7.1"
 release: 1
 description: TIFF image library
 license: libtiff

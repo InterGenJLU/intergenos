@@ -1,5 +1,5 @@
 name: libdisplay-info
-version: 0.3.0
+version: "0.3.0"
 release: 1
 description: EDID and DisplayID library
 license: MIT

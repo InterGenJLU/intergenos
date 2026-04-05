@@ -1,5 +1,5 @@
 name: pathspec
-version: 1.0.4
+version: "1.0.4"
 release: 1
 description: Utility library for gitignore style pattern matching
 license: MPL-2.0

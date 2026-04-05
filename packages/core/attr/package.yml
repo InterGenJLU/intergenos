@@ -1,5 +1,5 @@
 name: attr
-version: 2.5.2
+version: "2.5.2"
 release: 1
 description: Extended attributes utilities
 license: LGPL-2.1-or-later

@@ -1,5 +1,5 @@
 name: gnome-online-accounts
-version: 3.56.4
+version: "3.56.4"
 release: 1
 description: GNOME online accounts service
 license: LGPL-2.0-or-later

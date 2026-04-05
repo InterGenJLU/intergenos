@@ -1,5 +1,5 @@
 name: duktape
-version: 2.7.0
+version: "2.7.0"
 release: 1
 description: Embeddable JavaScript engine
 license: MIT

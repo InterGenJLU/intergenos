@@ -1,5 +1,5 @@
 name: rust-bindgen
-version: 0.72.1
+version: "0.72.1"
 release: 1
 description: Rust FFI bindings generator
 license: BSD-3-Clause

@@ -1,5 +1,5 @@
 name: vte
-version: 0.82.3
+version: "0.82.3"
 release: 1
 description: Virtual Terminal Emulator widget
 license: LGPL-2.1-or-later

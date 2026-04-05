@@ -1,5 +1,5 @@
 name: libgtop
-version: 2.41.3
+version: "2.41.3"
 release: 1
 description: System monitoring library
 license: GPL-2.0-or-later

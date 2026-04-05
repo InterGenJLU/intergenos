@@ -1,5 +1,5 @@
 name: libpwquality
-version: 1.4.5
+version: "1.4.5"
 release: 1
 description: Password quality checking library
 license: GPL-2.0-or-later

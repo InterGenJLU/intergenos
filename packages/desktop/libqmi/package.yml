@@ -1,5 +1,5 @@
 name: libqmi
-version: 1.38.0
+version: "1.38.0"
 release: 1
 description: QMI protocol library
 license: LGPL-2.1-or-later

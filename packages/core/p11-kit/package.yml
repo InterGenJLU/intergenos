@@ -1,5 +1,5 @@
 name: p11-kit
-version: 0.26.2
+version: "0.26.2"
 release: 1
 description: PKCS#11 module loading library
 license: BSD-3-Clause

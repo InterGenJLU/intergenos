@@ -1,5 +1,5 @@
 name: libuv
-version: 1.52.1
+version: "1.52.1"
 release: 1
 description: Multi-platform asynchronous I/O library
 license: MIT

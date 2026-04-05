@@ -1,5 +1,5 @@
 name: gnutls
-version: 3.8.12
+version: "3.8.12"
 release: 1
 description: GNU TLS library
 license: LGPL-2.1-or-later

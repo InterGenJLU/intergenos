@@ -1,5 +1,5 @@
 name: gst-plugins-bad
-version: 1.28.1
+version: "1.28.1"
 release: 1
 description: GStreamer bad plugins
 license: LGPL-2.0-or-later

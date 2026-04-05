@@ -1,5 +1,5 @@
 name: dejagnu
-version: 1.6.3
+version: "1.6.3"
 release: 1
 description: Framework for testing programs
 license: GPL-3.0-or-later

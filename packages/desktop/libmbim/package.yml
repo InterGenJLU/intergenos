@@ -1,5 +1,5 @@
 name: libmbim
-version: 1.34.0
+version: "1.34.0"
 release: 1
 description: MBIM protocol library
 license: LGPL-2.1-or-later

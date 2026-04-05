@@ -1,5 +1,5 @@
 name: mupdf
-version: 1.26.12
+version: "1.26.12"
 release: 1
 description: Lightweight PDF and XPS viewer
 license: AGPL-3.0-or-later

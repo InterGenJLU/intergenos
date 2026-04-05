@@ -1,5 +1,5 @@
 name: xrdb
-version: 1.2.2
+version: "1.2.2"
 release: 1
 description: X server resource database utility
 license: MIT

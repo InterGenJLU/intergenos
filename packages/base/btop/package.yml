@@ -1,5 +1,5 @@
 name: btop
-version: 1.4.6
+version: "1.4.6"
 release: 1
 description: Resource monitor with TUI
 license: Apache-2.0

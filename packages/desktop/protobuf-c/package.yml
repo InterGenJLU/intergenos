@@ -1,5 +1,5 @@
 name: protobuf-c
-version: 1.5.2
+version: "1.5.2"
 release: 1
 description: C implementation of Protocol Buffers
 license: BSD-2-Clause

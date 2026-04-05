@@ -1,5 +1,5 @@
 name: gcc-core
-version: 15.2.0
+version: "15.2.0"
 release: 1
 description: GNU Compiler Collection (final system)
 license: GPL-3.0-or-later

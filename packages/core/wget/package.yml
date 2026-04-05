@@ -1,5 +1,5 @@
 name: wget
-version: 1.25.0
+version: "1.25.0"
 release: 1
 description: Network file retriever
 license: GPL-3.0-or-later

@@ -1,5 +1,5 @@
 name: Mako
-version: 1.3.10
+version: "1.3.10"
 release: 1
 description: Python template library (needed by Mesa)
 license: MIT

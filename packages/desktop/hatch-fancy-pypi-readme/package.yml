@@ -1,5 +1,5 @@
 name: hatch-fancy-pypi-readme
-version: 25.1.0
+version: "25.1.0"
 release: 1
 description: Hatch plugin for fancy PyPI READMEs
 license: MIT

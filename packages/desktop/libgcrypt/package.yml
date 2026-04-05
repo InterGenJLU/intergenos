@@ -1,5 +1,5 @@
 name: libgcrypt
-version: 1.12.0
+version: "1.12.0"
 release: 1
 description: General purpose cryptographic library
 license: LGPL-2.1-or-later

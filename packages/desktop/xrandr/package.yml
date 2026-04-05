@@ -1,5 +1,5 @@
 name: xrandr
-version: 1.5.3
+version: "1.5.3"
 release: 1
 description: Primitive command line interface to RandR extension
 license: MIT

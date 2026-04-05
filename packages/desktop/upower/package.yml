@@ -1,5 +1,5 @@
 name: upower
-version: 1.91.1
+version: "1.91.1"
 release: 1
 description: Power management service
 license: GPL-2.0-or-later

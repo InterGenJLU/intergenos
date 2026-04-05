@@ -1,5 +1,5 @@
 name: at
-version: 3.2.5
+version: "3.2.5"
 release: 1
 description: Job scheduling commands (at, batch, atq, atrm)
 license: GPL-2.0-or-later

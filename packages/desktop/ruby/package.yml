@@ -1,5 +1,5 @@
 name: ruby
-version: 4.0.1
+version: "4.0.1"
 release: 1
 description: Ruby programming language
 license: Ruby

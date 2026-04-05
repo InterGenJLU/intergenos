@@ -1,5 +1,5 @@
 name: libsecret
-version: 0.21.7
+version: "0.21.7"
 release: 1
 description: Library for accessing secrets stored in the keyring
 license: LGPL-2.1-or-later

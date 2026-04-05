@@ -1,5 +1,5 @@
 name: newt
-version: 0.52.25
+version: "0.52.25"
 release: 1
 description: Text mode windowing toolkit
 license: LGPL-2.0-or-later

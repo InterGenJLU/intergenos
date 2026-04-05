@@ -1,5 +1,5 @@
 name: gexiv2
-version: 0.14.6
+version: "0.14.6"
 release: 1
 description: GObject wrapper for Exiv2
 license: GPL-2.0-or-later

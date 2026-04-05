@@ -1,5 +1,5 @@
 name: libsamplerate
-version: 0.2.2
+version: "0.2.2"
 release: 1
 description: Audio sample rate conversion library
 license: BSD-2-Clause

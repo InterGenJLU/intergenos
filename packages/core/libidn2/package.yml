@@ -1,5 +1,5 @@
 name: libidn2
-version: 2.3.8
+version: "2.3.8"
 release: 1
 description: Internationalized domain names library
 license: LGPL-3.0-or-later

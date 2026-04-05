@@ -1,5 +1,5 @@
 name: docbook-xsl-nons
-version: 1.79.2
+version: "1.79.2"
 release: 1
 description: DocBook XSL stylesheets
 license: MIT

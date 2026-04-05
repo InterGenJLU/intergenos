@@ -1,5 +1,5 @@
 name: make-ca
-version: 1.16.1
+version: "1.16.1"
 release: 1
 description: CA certificate management utility
 license: MIT

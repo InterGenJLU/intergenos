@@ -1,5 +1,5 @@
 name: linux-pam
-version: 1.7.2
+version: "1.7.2"
 release: 1
 description: Pluggable Authentication Modules
 license: GPL-2.0-or-later

@@ -1,5 +1,5 @@
 name: libunistring
-version: 1.4.2
+version: "1.4.2"
 release: 1
 description: Unicode string library for C
 license: LGPL-3.0-or-later

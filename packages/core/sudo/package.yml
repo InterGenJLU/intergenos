@@ -1,5 +1,5 @@
 name: sudo
-version: 1.9.17p2
+version: "1.9.17p2"
 release: 1
 description: Execute commands as another user
 license: ISC

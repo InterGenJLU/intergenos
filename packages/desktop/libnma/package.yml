@@ -1,5 +1,5 @@
 name: libnma
-version: 1.10.6
+version: "1.10.6"
 release: 1
 description: NetworkManager GTK widgets
 license: GPL-2.0-or-later

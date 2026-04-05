@@ -1,5 +1,5 @@
 name: libyaml
-version: 0.2.5
+version: "0.2.5"
 release: 1
 description: YAML 1.1 parser and emitter
 license: MIT

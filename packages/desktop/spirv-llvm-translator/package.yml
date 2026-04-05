@@ -1,5 +1,5 @@
 name: spirv-llvm-translator
-version: 21.1.4
+version: "21.1.4"
 release: 1
 description: SPIR-V to LLVM IR translator
 license: Apache-2.0

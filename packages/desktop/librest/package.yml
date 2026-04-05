@@ -1,5 +1,5 @@
 name: librest
-version: 0.10.2
+version: "0.10.2"
 release: 1
 description: REST web service access library
 license: LGPL-2.1-or-later

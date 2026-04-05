@@ -257,6 +257,29 @@ MaxUse=5G
 EOF
 
 # ============================================================================
+# InterGenOS Branding — TTY Login Banner and MOTD
+# ============================================================================
+
+install_config "/etc/issue" "TTY login banner"
+cat > /etc/issue << "EOF"
+
+  InterGenOS 1.0-dev (Revival)
+  Kernel \r on \m (\l)
+
+EOF
+
+install_config "/etc/motd" "message of the day"
+cat > /etc/motd << "EOF"
+
+  Welcome to InterGenOS
+  "A system you understand, can modify, and can trust."
+
+  Documentation:  https://github.com/InterGenJLU/intergenos
+  Report issues:  https://github.com/InterGenJLU/intergenos/issues
+
+EOF
+
+# ============================================================================
 # InterGenOS Identity Files
 # ============================================================================
 
@@ -378,6 +401,8 @@ log "    /etc/bashrc"
 log "    /etc/profile.d/prompt.sh"
 log "    /etc/inputrc"
 log "    /etc/shells"
+log "    /etc/issue"
+log "    /etc/motd"
 log "    /etc/os-release"
 log "    /etc/lsb-release"
 log "    /etc/igos-release"

@@ -1,5 +1,5 @@
 name: tinysparql
-version: 3.10.1
+version: "3.10.1"
 release: 1
 description: RDF graph database and SPARQL query engine
 license: GPL-2.0-or-later

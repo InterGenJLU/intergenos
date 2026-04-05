@@ -1,5 +1,5 @@
 name: udisks2
-version: 2.11.1
+version: "2.11.1"
 release: 1
 description: Disk management D-Bus service
 license: GPL-2.0-or-later

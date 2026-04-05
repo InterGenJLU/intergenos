@@ -1,5 +1,5 @@
 name: glslang
-version: 16.2.0
+version: "16.2.0"
 release: 1
 description: GLSL/HLSL to SPIR-V compiler
 license: Apache-2.0

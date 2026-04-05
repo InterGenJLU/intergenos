@@ -1,5 +1,5 @@
 name: xdg-desktop-portal
-version: 1.20.3
+version: "1.20.3"
 release: 1
 description: Desktop integration portal
 license: LGPL-2.1-or-later

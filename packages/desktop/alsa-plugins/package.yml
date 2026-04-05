@@ -1,5 +1,5 @@
 name: alsa-plugins
-version: 1.2.12
+version: "1.2.12"
 release: 1
 description: ALSA plugin collection
 license: LGPL-2.1-or-later

@@ -1,5 +1,5 @@
 name: libadwaita1
-version: 1.8.4
+version: "1.8.4"
 release: 1
 description: GTK4 adaptive widgets library
 license: LGPL-2.1-or-later

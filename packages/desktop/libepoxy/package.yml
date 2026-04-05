@@ -1,5 +1,5 @@
 name: libepoxy
-version: 1.5.10
+version: "1.5.10"
 release: 1
 description: OpenGL function pointer management library
 license: MIT

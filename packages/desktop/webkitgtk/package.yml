@@ -1,5 +1,5 @@
 name: webkitgtk
-version: 2.50.5
+version: "2.50.5"
 release: 1
 description: Web content engine for GTK
 license: LGPL-2.0-or-later

@@ -1,5 +1,5 @@
 name: markupsafe
-version: 3.0.3
+version: "3.0.3"
 release: 1
 description: Safe markup string implementation
 license: BSD-3-Clause

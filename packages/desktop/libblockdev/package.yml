@@ -1,5 +1,5 @@
 name: libblockdev
-version: 3.4.0
+version: "3.4.0"
 release: 1
 description: Library for manipulating block devices
 license: LGPL-2.1-or-later

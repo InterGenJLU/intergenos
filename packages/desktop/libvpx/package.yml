@@ -1,5 +1,5 @@
 name: libvpx
-version: 1.16.0
+version: "1.16.0"
 release: 1
 description: VP8/VP9 video codec
 license: BSD-3-Clause

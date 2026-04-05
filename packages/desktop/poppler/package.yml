@@ -1,5 +1,5 @@
 name: poppler
-version: 26.02.0
+version: "26.02.0"
 release: 1
 description: PDF rendering library
 license: GPL-2.0-or-later

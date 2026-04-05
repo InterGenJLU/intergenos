@@ -1,5 +1,5 @@
 name: cairo
-version: 1.18.4
+version: "1.18.4"
 release: 1
 description: 2D graphics library
 license: LGPL-2.1-or-later

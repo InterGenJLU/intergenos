@@ -1,5 +1,5 @@
 name: lxml
-version: 6.0.2
+version: "6.0.2"
 release: 1
 description: Python XML processing library
 license: BSD-3-Clause

@@ -1,5 +1,5 @@
 name: nano
-version: 8.7.1
+version: "8.7.1"
 release: 1
 description: Small, friendly text editor with syntax highlighting and UTF-8 support
 license: GPL-3.0-or-later

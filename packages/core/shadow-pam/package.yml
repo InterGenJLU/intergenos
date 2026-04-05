@@ -1,5 +1,5 @@
 name: shadow-pam
-version: 4.19.3
+version: "4.19.3"
 release: 1
 description: Shadow password suite (rebuilt with Linux-PAM support)
 license: BSD-3-Clause

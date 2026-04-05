@@ -1,5 +1,5 @@
 name: libpng
-version: 1.6.55
+version: "1.6.55"
 release: 1
 description: PNG reference library
 license: Libpng

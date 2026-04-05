@@ -1,5 +1,5 @@
 name: giflib
-version: 5.2.2
+version: "5.2.2"
 release: 1
 description: GIF image library
 license: MIT

@@ -1,5 +1,5 @@
 name: libical
-version: 3.0.20
+version: "3.0.20"
 release: 1
 description: iCalendar protocol implementation
 license: LGPL-2.1-or-later

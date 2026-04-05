@@ -1,5 +1,5 @@
 name: util-linux-core
-version: 2.41.3
+version: "2.41.3"
 release: 1
 description: Miscellaneous system utilities
 license: GPL-2.0-or-later

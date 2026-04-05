@@ -1,5 +1,5 @@
 name: m4-core
-version: 1.4.21
+version: "1.4.21"
 release: 1
 description: GNU macro processor
 license: GPL-3.0-or-later

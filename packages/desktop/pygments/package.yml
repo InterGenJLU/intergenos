@@ -1,5 +1,5 @@
 name: pygments
-version: 2.19.2
+version: "2.19.2"
 release: 1
 description: Syntax highlighting library
 license: BSD-2-Clause

@@ -1,5 +1,5 @@
 name: alsa-utils
-version: 1.2.15.2
+version: "1.2.15.2"
 release: 1
 description: ALSA utilities
 license: GPL-2.0-or-later

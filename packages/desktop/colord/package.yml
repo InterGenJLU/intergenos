@@ -1,5 +1,5 @@
 name: colord
-version: 1.4.8
+version: "1.4.8"
 release: 1
 description: Color management daemon
 license: GPL-2.0-or-later

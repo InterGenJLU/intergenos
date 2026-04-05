@@ -1,5 +1,5 @@
 name: libusb
-version: 1.0.29
+version: "1.0.29"
 release: 1
 description: USB access library
 license: LGPL-2.1-or-later

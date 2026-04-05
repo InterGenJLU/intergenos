@@ -1,5 +1,5 @@
 name: xinput
-version: 1.6.4
+version: "1.6.4"
 release: 1
 description: Utility to configure and test X input devices
 license: MIT

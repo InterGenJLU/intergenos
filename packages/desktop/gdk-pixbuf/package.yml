@@ -1,5 +1,5 @@
 name: gdk-pixbuf
-version: 2.44.5
+version: "2.44.5"
 release: 1
 description: Image loading library for GTK
 license: LGPL-2.1-or-later

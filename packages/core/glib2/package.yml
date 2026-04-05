@@ -1,5 +1,5 @@
 name: glib2
-version: 2.86.4
+version: "2.86.4"
 release: 1
 description: GLib core library (full — with introspection)
 license: LGPL-2.1-or-later

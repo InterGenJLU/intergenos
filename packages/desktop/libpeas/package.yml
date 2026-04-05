@@ -1,5 +1,5 @@
 name: libpeas
-version: 1.36.0
+version: "1.36.0"
 release: 1
 description: GObject plugin system
 license: LGPL-2.1-or-later

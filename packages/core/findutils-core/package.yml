@@ -1,5 +1,5 @@
 name: findutils-core
-version: 4.10.0
+version: "4.10.0"
 release: 1
 description: GNU find utilities
 license: GPL-3.0-or-later

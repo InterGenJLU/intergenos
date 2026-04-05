@@ -1,5 +1,5 @@
 name: mtdev
-version: 1.1.7
+version: "1.1.7"
 release: 1
 description: Multitouch protocol translation library
 license: MIT

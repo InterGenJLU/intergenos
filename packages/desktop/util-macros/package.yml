@@ -1,5 +1,5 @@
 name: util-macros
-version: 1.20.2
+version: "1.20.2"
 release: 1
 description: Xorg autotools macros
 license: MIT

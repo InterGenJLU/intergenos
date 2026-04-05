@@ -1,5 +1,5 @@
 name: xwayland
-version: 24.1.9
+version: "24.1.9"
 release: 1
 description: X server running as a Wayland client
 license: MIT

@@ -1,5 +1,5 @@
 name: iptables
-version: 1.8.12
+version: "1.8.12"
 release: 1
 description: Linux kernel packet filtering framework
 license: GPL-2.0-or-later

@@ -1,5 +1,5 @@
 name: flit-core
-version: 3.12.0
+version: "3.12.0"
 release: 1
 description: Python build backend (minimal)
 license: MIT

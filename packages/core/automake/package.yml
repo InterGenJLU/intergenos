@@ -1,5 +1,5 @@
 name: automake
-version: 1.18.1
+version: "1.18.1"
 release: 1
 description: GNU automake
 license: GPL-2.0-or-later

@@ -1,5 +1,5 @@
 name: librsvg
-version: 2.61.4
+version: "2.61.4"
 release: 1
 description: SVG rendering library
 license: LGPL-2.1-or-later

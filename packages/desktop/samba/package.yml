@@ -1,5 +1,5 @@
 name: samba
-version: 4.23.5
+version: "4.23.5"
 release: 1
 description: SMB/CIFS file and print server
 license: GPL-3.0-or-later

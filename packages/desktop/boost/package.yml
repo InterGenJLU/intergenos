@@ -1,5 +1,5 @@
 name: boost
-version: 1.90.0
+version: "1.90.0"
 release: 1
 description: C++ utility libraries
 license: BSL-1.0

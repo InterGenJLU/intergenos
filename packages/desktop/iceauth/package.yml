@@ -1,5 +1,5 @@
 name: iceauth
-version: 1.0.10
+version: "1.0.10"
 release: 1
 description: ICE authority file utility
 license: MIT

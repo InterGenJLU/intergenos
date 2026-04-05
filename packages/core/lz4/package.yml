@@ -1,5 +1,5 @@
 name: lz4
-version: 1.10.0
+version: "1.10.0"
 release: 1
 description: Extremely fast compression
 license: BSD-2-Clause

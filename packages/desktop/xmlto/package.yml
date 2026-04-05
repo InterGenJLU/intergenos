@@ -1,5 +1,5 @@
 name: xmlto
-version: 0.0.29
+version: "0.0.29"
 release: 1
 description: XML-to-format conversion tool
 license: GPL-2.0-or-later

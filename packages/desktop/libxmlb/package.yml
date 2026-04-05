@@ -1,5 +1,5 @@
 name: libxmlb
-version: 0.3.25
+version: "0.3.25"
 release: 1
 description: Library for querying compressed XML metadata
 license: LGPL-2.1-or-later

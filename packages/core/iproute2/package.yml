@@ -1,5 +1,5 @@
 name: iproute2
-version: 6.18.0
+version: "6.18.0"
 release: 1
 description: IP routing utilities
 license: GPL-2.0-or-later

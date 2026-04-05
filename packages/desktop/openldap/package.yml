@@ -1,5 +1,5 @@
 name: openldap
-version: 2.6.12
+version: "2.6.12"
 release: 1
 description: Open source LDAP directory server and client libraries
 license: OLDAP-2.8

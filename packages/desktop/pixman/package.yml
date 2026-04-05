@@ -1,5 +1,5 @@
 name: pixman
-version: 0.46.4
+version: "0.46.4"
 release: 1
 description: Pixel manipulation library
 license: MIT

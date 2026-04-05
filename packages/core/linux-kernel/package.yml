@@ -1,5 +1,5 @@
 name: linux-kernel
-version: 6.18.10
+version: "6.18.10"
 release: 1
 description: Linux kernel
 license: GPL-2.0-only

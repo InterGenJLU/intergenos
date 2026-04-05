@@ -1,5 +1,5 @@
 name: perl-core
-version: 5.42.0
+version: "5.42.0"
 release: 1
 description: Practical Extraction and Report Language
 license: Artistic-1.0-Perl OR GPL-1.0-or-later

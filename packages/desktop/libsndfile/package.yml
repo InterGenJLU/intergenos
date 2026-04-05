@@ -1,5 +1,5 @@
 name: libsndfile
-version: 1.2.2
+version: "1.2.2"
 release: 1
 description: Library for reading and writing sound files
 license: LGPL-2.1-or-later

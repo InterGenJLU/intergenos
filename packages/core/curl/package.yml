@@ -1,5 +1,5 @@
 name: curl
-version: 8.19.0
+version: "8.19.0"
 release: 1
 description: Command line tool and library for transferring data with URLs
 license: MIT

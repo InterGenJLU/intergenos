@@ -1,5 +1,5 @@
 name: nghttp2
-version: 1.68.1
+version: "1.68.1"
 release: 1
 description: HTTP/2 C library
 license: MIT

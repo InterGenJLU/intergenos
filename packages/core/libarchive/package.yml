@@ -1,5 +1,5 @@
 name: libarchive
-version: 3.8.6
+version: "3.8.6"
 release: 1
 description: Multi-format archive and compression library
 license: BSD-2-Clause

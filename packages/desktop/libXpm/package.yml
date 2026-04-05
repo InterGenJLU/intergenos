@@ -1,5 +1,5 @@
 name: libXpm
-version: 3.5.18
+version: "3.5.18"
 release: 1
 description: X Pixmap library
 license: MIT

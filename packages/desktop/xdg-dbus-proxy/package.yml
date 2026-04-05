@@ -1,5 +1,5 @@
 name: xdg-dbus-proxy
-version: 0.1.6
+version: "0.1.6"
 release: 1
 description: D-Bus proxy for sandboxed applications
 license: LGPL-2.1-or-later

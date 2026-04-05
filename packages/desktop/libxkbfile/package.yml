@@ -1,5 +1,5 @@
 name: libxkbfile
-version: 1.2.0
+version: "1.2.0"
 release: 1
 description: XKB file handling library
 license: MIT

@@ -1,5 +1,5 @@
 name: cython
-version: 3.2.4
+version: "3.2.4"
 release: 1
 description: C extensions for Python
 license: Apache-2.0

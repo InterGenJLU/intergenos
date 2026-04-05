@@ -1,5 +1,5 @@
 name: networkmanager
-version: 1.56.0
+version: "1.56.0"
 release: 1
 description: Network connection manager
 license: GPL-2.0-or-later

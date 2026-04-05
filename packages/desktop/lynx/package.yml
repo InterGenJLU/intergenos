@@ -1,5 +1,5 @@
 name: lynx
-version: 2.9.2
+version: "2.9.2"
 release: 1
 description: Text-mode web browser
 license: GPL-2.0-or-later

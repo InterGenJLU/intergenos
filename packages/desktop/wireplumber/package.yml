@@ -1,5 +1,5 @@
 name: wireplumber
-version: 0.5.13
+version: "0.5.13"
 release: 1
 description: PipeWire session manager
 license: MIT

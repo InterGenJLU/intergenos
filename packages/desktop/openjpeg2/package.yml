@@ -1,5 +1,5 @@
 name: openjpeg2
-version: 2.5.4
+version: "2.5.4"
 release: 1
 description: JPEG 2000 codec library
 license: BSD-2-Clause

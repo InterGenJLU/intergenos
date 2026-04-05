@@ -1,5 +1,5 @@
 name: llvm
-version: 21.1.8
+version: "21.1.8"
 release: 1
 description: LLVM compiler infrastructure
 license: Apache-2.0

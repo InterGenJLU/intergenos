@@ -1,5 +1,5 @@
 name: ed
-version: 1.22.5
+version: "1.22.5"
 release: 1
 description: Classic UNIX line editor
 license: GPL-2.0-or-later

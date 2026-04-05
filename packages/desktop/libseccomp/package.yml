@@ -1,5 +1,5 @@
 name: libseccomp
-version: 2.6.0
+version: "2.6.0"
 release: 1
 description: Enhanced seccomp library
 license: LGPL-2.1-or-later

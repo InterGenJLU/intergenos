@@ -1,5 +1,5 @@
 name: spidermonkey
-version: 140.8.0
+version: "140.8.0"
 release: 1
 description: Mozilla SpiderMonkey JavaScript engine
 license: MPL-2.0

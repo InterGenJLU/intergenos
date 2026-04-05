@@ -1,5 +1,5 @@
 name: procps-ng
-version: 4.0.6
+version: "4.0.6"
 release: 1
 description: Process monitoring utilities
 license: GPL-2.0-or-later

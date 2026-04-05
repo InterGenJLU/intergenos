@@ -1,5 +1,5 @@
 name: doxygen
-version: 1.16.1
+version: "1.16.1"
 release: 1
 description: Documentation generation tool from annotated sources
 license: GPL-2.0-or-later

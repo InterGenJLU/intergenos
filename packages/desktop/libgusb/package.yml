@@ -1,5 +1,5 @@
 name: libgusb
-version: 0.4.9
+version: "0.4.9"
 release: 1
 description: GObject wrapper for libusb
 license: LGPL-2.1-or-later

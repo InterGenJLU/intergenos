@@ -1,5 +1,5 @@
 name: spirv-tools
-version: 1.4.341.0
+version: "1.4.341.0"
 release: 1
 description: SPIR-V tools
 license: Apache-2.0

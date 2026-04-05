@@ -1,5 +1,5 @@
 name: cyrus-sasl
-version: 2.1.28
+version: "2.1.28"
 release: 1
 description: Cyrus Simple Authentication and Security Layer
 license: BSD-4-Clause-UC

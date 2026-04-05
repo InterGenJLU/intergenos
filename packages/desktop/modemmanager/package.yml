@@ -1,5 +1,5 @@
 name: modemmanager
-version: 1.24.2
+version: "1.24.2"
 release: 1
 description: Mobile broadband modem management daemon
 license: GPL-2.0-or-later

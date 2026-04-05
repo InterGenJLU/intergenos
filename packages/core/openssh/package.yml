@@ -1,5 +1,5 @@
 name: openssh
-version: 10.2p1
+version: "10.2p1"
 release: 1
 description: Secure Shell client and server
 license: BSD-2-Clause

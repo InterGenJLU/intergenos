@@ -1,5 +1,5 @@
 name: gtk4
-version: 4.20.3
+version: "4.20.3"
 release: 1
 description: GTK 4 widget toolkit
 license: LGPL-2.0-or-later

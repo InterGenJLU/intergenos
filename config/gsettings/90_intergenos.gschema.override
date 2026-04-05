@@ -1,0 +1,36 @@
+# InterGenOS GNOME Defaults
+#
+# gsettings override file — sets default values for GNOME desktop.
+# Installed to /usr/share/glib-2.0/schemas/ and compiled with glib-compile-schemas.
+# Users can override any of these in their own dconf database.
+#
+# To apply: glib-compile-schemas /usr/share/glib-2.0/schemas/
+
+[org.gnome.desktop.interface]
+# Default to dark theme — modern, easier on the eyes
+color-scheme='prefer-dark'
+# Font defaults
+font-name='DejaVu Sans 11'
+monospace-font-name='DejaVu Sans Mono 11'
+document-font-name='DejaVu Sans 11'
+
+[org.gnome.desktop.wm.preferences]
+titlebar-font='DejaVu Sans Bold 11'
+
+[org.gnome.desktop.background]
+# Solid color until custom wallpaper is created via FLUX pipeline
+primary-color='#1a1a2e'
+secondary-color='#16213e'
+color-shading-type='vertical'
+picture-options='none'
+
+[org.gnome.desktop.screensaver]
+primary-color='#1a1a2e'
+secondary-color='#16213e'
+color-shading-type='vertical'
+picture-options='none'
+
+[org.gnome.login-screen]
+# GDM login screen banner
+banner-message-enable=true
+banner-message-text='Welcome to InterGenOS'

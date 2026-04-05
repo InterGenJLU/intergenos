@@ -1,5 +1,5 @@
 name: kbd
-version: 2.9.0
+version: "2.9.0"
 release: 1
 description: Keyboard utilities
 license: GPL-2.0-or-later

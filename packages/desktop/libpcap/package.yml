@@ -1,5 +1,5 @@
 name: libpcap
-version: 1.10.6
+version: "1.10.6"
 release: 1
 description: Packet capture library
 license: BSD-3-Clause

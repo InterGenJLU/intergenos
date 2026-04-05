@@ -1,5 +1,5 @@
 name: dconf
-version: 0.49.0
+version: "0.49.0"
 release: 1
 description: Low-level GSettings backend
 license: LGPL-2.1-or-later

@@ -1,5 +1,5 @@
 name: libaom
-version: 3.13.1
+version: "3.13.1"
 release: 1
 description: AV1 video codec reference implementation
 license: BSD-2-Clause

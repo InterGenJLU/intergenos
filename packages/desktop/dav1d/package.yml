@@ -1,5 +1,5 @@
 name: dav1d
-version: 1.5.3
+version: "1.5.3"
 release: 1
 description: AV1 video decoder
 license: BSD-2-Clause

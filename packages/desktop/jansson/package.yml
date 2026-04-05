@@ -1,5 +1,5 @@
 name: jansson
-version: 2.15.0
+version: "2.15.0"
 release: 1
 description: C library for encoding, decoding and manipulating JSON data
 license: MIT

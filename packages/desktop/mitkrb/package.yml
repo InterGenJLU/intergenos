@@ -1,5 +1,5 @@
 name: mitkrb
-version: 1.22.2
+version: "1.22.2"
 release: 1
 description: MIT Kerberos V5 authentication
 license: MIT

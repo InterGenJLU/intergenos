@@ -1,5 +1,5 @@
 name: aspell
-version: 0.60.8.2
+version: "0.60.8.2"
 release: 1
 description: Interactive spell checking program and libraries
 license: LGPL-2.1-or-later

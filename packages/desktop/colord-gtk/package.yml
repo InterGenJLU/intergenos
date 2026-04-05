@@ -1,5 +1,5 @@
 name: colord-gtk
-version: 0.3.1
+version: "0.3.1"
 release: 1
 description: GTK integration for colord
 license: LGPL-2.1-or-later

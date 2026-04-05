@@ -1,5 +1,5 @@
 name: e2fsprogs
-version: 1.47.3
+version: "1.47.3"
 release: 1
 description: Ext2/3/4 filesystem utilities
 license: GPL-2.0-or-later

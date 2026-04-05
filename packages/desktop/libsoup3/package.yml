@@ -1,5 +1,5 @@
 name: libsoup3
-version: 3.6.6
+version: "3.6.6"
 release: 1
 description: HTTP client/server library for GNOME
 license: LGPL-2.0-or-later

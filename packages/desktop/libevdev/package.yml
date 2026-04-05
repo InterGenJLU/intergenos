@@ -1,5 +1,5 @@
 name: libevdev
-version: 1.13.6
+version: "1.13.6"
 release: 1
 description: Input event device wrapper library
 license: MIT

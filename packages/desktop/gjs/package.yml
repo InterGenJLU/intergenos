@@ -1,5 +1,5 @@
 name: gjs
-version: 1.86.0
+version: "1.86.0"
 release: 1
 description: GNOME JavaScript bindings
 license: LGPL-2.0-or-later

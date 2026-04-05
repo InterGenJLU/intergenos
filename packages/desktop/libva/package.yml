@@ -1,5 +1,5 @@
 name: libva
-version: 2.23.0
+version: "2.23.0"
 release: 1
 description: Video Acceleration API
 license: MIT

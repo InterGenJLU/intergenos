@@ -1,5 +1,5 @@
 name: ghostscript
-version: 10.06.0
+version: "10.06.0"
 release: 1
 description: Interpreter for the PostScript language and PDF
 license: AGPL-3.0-or-later

@@ -1,5 +1,5 @@
 name: pkgconf
-version: 2.5.1
+version: "2.5.1"
 release: 1
 description: Package compiler and linker metadata toolkit
 license: ISC

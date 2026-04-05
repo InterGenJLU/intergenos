@@ -1,5 +1,5 @@
 name: gcr
-version: 3.41.2
+version: "3.41.2"
 release: 1
 description: GLib crypto and PKCS#11 framework (GTK3 version)
 license: LGPL-2.1-or-later

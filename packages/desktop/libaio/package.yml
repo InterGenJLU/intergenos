@@ -1,5 +1,5 @@
 name: libaio
-version: 0.3.113
+version: "0.3.113"
 release: 1
 description: Linux-native asynchronous I/O facility
 license: LGPL-2.1-or-later

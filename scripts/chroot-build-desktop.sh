@@ -132,6 +132,21 @@ if [ $BUILD_RC -ne 0 ]; then
 fi
 
 # ============================================================================
+# Step 4: Apply InterGenOS desktop branding
+# ============================================================================
+
+log ""
+log "--- Applying InterGenOS desktop branding ---"
+
+# Install gsettings override for GNOME defaults (dark theme, fonts, colors)
+if [ -f /mnt/intergenos/config/gsettings/90_intergenos.gschema.override ]; then
+    install -v -m644 /mnt/intergenos/config/gsettings/90_intergenos.gschema.override \
+        /usr/share/glib-2.0/schemas/
+    glib-compile-schemas /usr/share/glib-2.0/schemas/
+    log "  gsettings overrides installed (dark theme, fonts, branding)"
+fi
+
+# ============================================================================
 # Summary
 # ============================================================================
 

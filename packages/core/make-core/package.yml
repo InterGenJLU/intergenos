@@ -1,5 +1,5 @@
 name: make-core
-version: 4.4.1
+version: "4.4.1"
 release: 1
 description: GNU make
 license: GPL-3.0-or-later

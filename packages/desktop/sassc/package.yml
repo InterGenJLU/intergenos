@@ -1,5 +1,5 @@
 name: sassc
-version: 3.6.2
+version: "3.6.2"
 release: 1
 description: SASS CSS preprocessor compiler
 license: MIT

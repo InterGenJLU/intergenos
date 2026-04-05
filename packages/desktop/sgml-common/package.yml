@@ -1,5 +1,5 @@
 name: sgml-common
-version: 0.6.3
+version: "0.6.3"
 release: 1
 description: SGML common files
 license: GPL-2.0-or-later

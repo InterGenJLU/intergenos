@@ -1,5 +1,5 @@
 name: libinput
-version: 1.31.0
+version: "1.31.0"
 release: 1
 description: Input device management and event handling library
 license: MIT

@@ -1,5 +1,5 @@
 name: libtool
-version: 2.5.4
+version: "2.5.4"
 release: 1
 description: GNU generic library support script
 license: GPL-2.0-or-later

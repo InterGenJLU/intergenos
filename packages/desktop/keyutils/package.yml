@@ -1,5 +1,5 @@
 name: keyutils
-version: 1.6.3
+version: "1.6.3"
 release: 1
 description: Linux key management utilities
 license: GPL-2.0-or-later

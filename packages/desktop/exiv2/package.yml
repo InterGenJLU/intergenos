@@ -1,5 +1,5 @@
 name: exiv2
-version: 0.28.7
+version: "0.28.7"
 release: 1
 description: Image metadata library
 license: GPL-2.0-or-later

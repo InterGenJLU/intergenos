@@ -1,5 +1,5 @@
 name: docutils
-version: 0.22.4
+version: "0.22.4"
 release: 1
 description: Python documentation utilities
 license: Public-Domain

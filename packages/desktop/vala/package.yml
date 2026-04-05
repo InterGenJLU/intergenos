@@ -1,5 +1,5 @@
 name: vala
-version: 0.56.18
+version: "0.56.18"
 release: 1
 description: Vala programming language compiler
 license: LGPL-2.1-or-later

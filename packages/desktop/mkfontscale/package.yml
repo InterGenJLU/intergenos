@@ -1,5 +1,5 @@
 name: mkfontscale
-version: 1.2.3
+version: "1.2.3"
 release: 1
 description: Create index of scalable font files
 license: MIT

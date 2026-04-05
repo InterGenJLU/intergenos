@@ -1,5 +1,5 @@
 name: libXft
-version: 2.3.9
+version: "2.3.9"
 release: 1
 description: X FreeType interface library
 license: MIT

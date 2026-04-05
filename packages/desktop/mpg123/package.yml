@@ -1,5 +1,5 @@
 name: mpg123
-version: 1.33.4
+version: "1.33.4"
 release: 1
 description: MPEG audio decoder
 license: LGPL-2.1-or-later

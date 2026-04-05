@@ -1,5 +1,5 @@
 name: gpgme
-version: 2.0.1
+version: "2.0.1"
 release: 1
 description: GnuPG Made Easy library
 license: LGPL-2.1-or-later

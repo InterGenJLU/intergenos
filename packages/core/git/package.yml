@@ -1,5 +1,5 @@
 name: git
-version: 2.53.0
+version: "2.53.0"
 release: 1
 description: Distributed version control system
 license: GPL-2.0-only

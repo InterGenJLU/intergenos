@@ -1,5 +1,5 @@
 name: bc
-version: 7.0.3
+version: "7.0.3"
 release: 1
 description: Arbitrary precision calculator
 license: BSD-2-Clause

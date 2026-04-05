@@ -1,5 +1,5 @@
 name: svt-av1
-version: 4.0.1
+version: "4.0.1"
 release: 1
 description: SVT-based AV1 encoder
 license: BSD-2-Clause

@@ -1,5 +1,5 @@
 name: fdk-aac
-version: 2.0.3
+version: "2.0.3"
 release: 1
 description: Fraunhofer FDK AAC codec
 license: FDK-AAC

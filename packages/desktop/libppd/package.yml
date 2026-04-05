@@ -1,5 +1,5 @@
 name: libppd
-version: 2.1.1
+version: "2.1.1"
 release: 1
 description: PPD file handling library
 license: Apache-2.0
