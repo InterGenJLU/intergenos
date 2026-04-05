@@ -449,6 +449,9 @@ sync_chroot_scripts() {
     rsync -a /mnt/intergenos/scripts/   "$IGOS/mnt/intergenos/scripts/"
     rsync -a /mnt/intergenos/packages/  "$IGOS/mnt/intergenos/packages/"
     rsync -a /mnt/intergenos/config/    "$IGOS/mnt/intergenos/config/" 2>/dev/null || true
+    # Sync Python builder for desktop tier
+    rsync -a /mnt/intergenos/igos-build.py "$IGOS/mnt/intergenos/" 2>/dev/null || true
+    rsync -a /mnt/intergenos/igos-build/   "$IGOS/mnt/intergenos/igos-build/" 2>/dev/null || true
 }
 
 phase_core() {
@@ -476,6 +479,12 @@ phase_kernel() {
     sync_chroot_scripts
     log "Building kernel in chroot (Ch 10)..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-ch10.sh" 2>&1 | tee -a "$BUILD_LOG"
+}
+
+phase_desktop() {
+    sync_chroot_scripts
+    log "Building desktop packages in chroot (GNOME + dependencies)..."
+    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-desktop.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_image() {

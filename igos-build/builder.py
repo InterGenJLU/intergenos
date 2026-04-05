@@ -202,16 +202,29 @@ class BuildExecutor:
         src_dir.mkdir(parents=True, exist_ok=True)
 
         self.logger.info(f"Extracting to {src_dir}")
-        # Use bsdtar for .lz and .zip archives, tar for everything else
-        if str(tarball_path).endswith('.lz') or str(tarball_path).endswith('.zip'):
-            extract_cmd = f'bsdtar -xf "{tarball_path}" -C "{src_dir}" --strip-components=1'
+        # Use Python zipfile for .zip, lzip for .lz, tar for everything else
+        if str(tarball_path).endswith('.zip'):
+            import zipfile
+            try:
+                with zipfile.ZipFile(str(tarball_path)) as zf:
+                    zf.extractall(str(src_dir))
+                # Strip one component level if there's a single top-level dir
+                entries = list(src_dir.iterdir())
+                if len(entries) == 1 and entries[0].is_dir():
+                    top = entries[0]
+                    for item in top.iterdir():
+                        item.rename(src_dir / item.name)
+                    top.rmdir()
+                exit_code = 0
+            except Exception as e:
+                self.logger.error(f"Failed to extract zip: {e}")
+                exit_code = 1
+        elif str(tarball_path).endswith('.lz'):
+            extract_cmd = f'tar --lzip -xf "{tarball_path}" -C "{src_dir}" --strip-components=1'
+            exit_code = self.run_command(extract_cmd, env=os.environ.copy(), cwd=pkg_work_dir)
         else:
             extract_cmd = f'tar -xf "{tarball_path}" -C "{src_dir}" --strip-components=1'
-        exit_code = self.run_command(
-            extract_cmd,
-            env=os.environ.copy(),
-            cwd=pkg_work_dir,
-        )
+            exit_code = self.run_command(extract_cmd, env=os.environ.copy(), cwd=pkg_work_dir)
         if exit_code != 0:
             self.logger.error(f"Failed to extract {tarball_name}")
             return None
