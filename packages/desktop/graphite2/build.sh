@@ -11,7 +11,8 @@ configure() {
     sed -i 's/VERSION 2.8.0/VERSION 3.5/' CMakeLists.txt
     cmake -B build                    \
           -DCMAKE_INSTALL_PREFIX=/usr \
-          -DCMAKE_BUILD_TYPE=Release  
+          -DCMAKE_BUILD_TYPE=Release  \
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5  
 }
 
 build() {
