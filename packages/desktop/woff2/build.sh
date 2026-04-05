@@ -5,9 +5,11 @@
 configure() {
     # BLFS required fixes
     sed -i '/output.h/i #include <cstdint>' src/woff2_out.cc
+    # Fix cmake_minimum_required for cmake 4.x
+    sed -i 's/cmake_minimum_required(VERSION 2\./cmake_minimum_required(VERSION 3.5 #was 2./' CMakeLists.txt
     cmake -B build                    \
           -DCMAKE_INSTALL_PREFIX=/usr \
-          -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5  
+          -DCMAKE_BUILD_TYPE=Release  
 }
 
 build() {
