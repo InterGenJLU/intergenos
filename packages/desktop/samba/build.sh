@@ -13,6 +13,7 @@ configure() {
         --without-ad-dc                        \
         --without-ldap                         \
         --without-ldb-lmdb                     \
+        --without-json                         \
         --with-system-mitkrb5                  \
         --disable-rpath-install
 }
