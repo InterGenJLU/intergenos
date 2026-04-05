@@ -11,8 +11,7 @@ build() {
 }
 
 check() {
-    # test-execute.sh known to fail in chroot environments
-    make check || true
+    make check
 }
 
 do_install() {

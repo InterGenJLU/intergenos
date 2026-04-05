@@ -13,8 +13,7 @@ build() {
 }
 
 check() {
-    # Some tests known to fail in chroot environments
-    make check || true
+    make check
 }
 
 do_install() {

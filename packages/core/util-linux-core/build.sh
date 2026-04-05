@@ -29,12 +29,10 @@ check() {
     # LFS: touch /etc/fstab to prevent two test failures
     touch /etc/fstab
 
-    if command -v su >/dev/null 2>&1 && id tester >/dev/null 2>&1; then
-        chown -R tester .
-        su tester -c "make -k check" || true
-    else
-        make -k check || true
-    fi
+    # WARNING: Running tests as root can be harmful to the system
+    # Some tests require specific kernel config options
+    chown -R tester .
+    su tester -c "make -k check" || true
 }
 
 do_install() {

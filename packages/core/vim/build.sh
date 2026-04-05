@@ -19,12 +19,8 @@ check() {
     sed '/test_plugin_glvs/d' -i src/testdir/Make_all.mak
 
     # Tests must be run as non-root and from a terminal
-    if command -v su >/dev/null 2>&1 && id tester >/dev/null 2>&1; then
-        chown -R tester .
-        su tester -c "TERM=xterm-256color LANG=en_US.UTF-8 make -j1 test" &> vim-test.log || true
-    else
-        TERM=xterm-256color LANG=en_US.UTF-8 make -j1 test &> vim-test.log || true
-    fi
+    chown -R tester .
+    su tester -c "TERM=xterm-256color LANG=en_US.UTF-8 make -j1 test" &> vim-test.log || true
     echo ""
     echo "=== Vim Test Summary ==="
     grep -E 'Executed|FAILED|ALL DONE' vim-test.log || true

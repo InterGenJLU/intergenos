@@ -11,12 +11,8 @@ build() {
 }
 
 check() {
-    if command -v su >/dev/null 2>&1 && id tester >/dev/null 2>&1; then
-        chown -R tester .
-        su tester -c "PATH=$PATH make check"
-    else
-        make check || true
-    fi
+    chown -R tester .
+    su tester -c "PATH=$PATH make check"
 }
 
 do_install() {

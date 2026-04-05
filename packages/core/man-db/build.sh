@@ -4,7 +4,6 @@
 
 configure() {
     ./configure --prefix=/usr                         \
-        --libdir=/usr/lib                             \
         --docdir=/usr/share/doc/man-db-2.13.1         \
         --sysconfdir=/etc                             \
         --disable-setuid                              \
@@ -19,16 +18,9 @@ build() {
 }
 
 check() {
-    make check || true
+    make check
 }
 
 do_install() {
     make DESTDIR="$DESTDIR" install
-
-    # Move misplaced /lib files to /usr/lib (libtool ignores --libdir sometimes)
-    if [ -d "${DESTDIR}/lib" ]; then
-        mkdir -p "${DESTDIR}/usr/lib"
-        cp -a "${DESTDIR}/lib"/* "${DESTDIR}/usr/lib/" 2>/dev/null || true
-        rm -rf "${DESTDIR}/lib"
-    fi
 }

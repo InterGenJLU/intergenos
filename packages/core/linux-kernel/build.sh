@@ -14,10 +14,8 @@ configure() {
     make mrproper
 
     # If a pre-built config exists, use it
-    # Config is at /mnt/intergenos/config/kernel/ (project tree, not build system root)
-    local config_dir="/mnt/intergenos/config/kernel"
-    if [ -f "$config_dir/intergenos.config" ]; then
-        cp -v "$config_dir/intergenos.config" .config
+    if [ -f "$IGOS/config/kernel/intergenos.config" ]; then
+        cp -v $IGOS/config/kernel/intergenos.config .config
         make olddefconfig
     else
         echo ""
@@ -35,13 +33,8 @@ build() {
 }
 
 do_install() {
-    # Kernel installs to /lib/modules but LFS uses /usr/lib/modules
+    # Kernel uses INSTALL_MOD_PATH, not DESTDIR
     make INSTALL_MOD_PATH="$DESTDIR" modules_install
-    if [ -d "${DESTDIR}/lib/modules" ]; then
-        mkdir -p "${DESTDIR}/usr/lib"
-        mv "${DESTDIR}/lib/modules" "${DESTDIR}/usr/lib/"
-        rm -rf "${DESTDIR}/lib"
-    fi
 
     # Install kernel image, System.map, and config
     install -vm755 -d "${DESTDIR}/boot"
@@ -56,10 +49,6 @@ do_install() {
 
 # Post-install: runs on the live system AFTER deploy
 post_install() {
-    # Regenerate module dependency files (depmod from kmod)
-    if command -v depmod >/dev/null 2>&1; then
-        depmod 6.18.10
-    else
-        echo "  NOTE: depmod not yet available (kmod not built) — skipping"
-    fi
+    # Regenerate module dependency files
+    depmod 6.18.10
 }

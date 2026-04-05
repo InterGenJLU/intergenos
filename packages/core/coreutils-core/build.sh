@@ -18,23 +18,19 @@ build() {
 }
 
 check() {
-    if command -v su >/dev/null 2>&1 && id tester >/dev/null 2>&1; then
-        # Run root-specific tests first
-        make NON_ROOT_USERNAME=tester check-root
+    # Run root-specific tests first
+    make NON_ROOT_USERNAME=tester check-root
 
-        # Create test group and run full test suite as tester
-        groupadd -g 102 dummy -U tester
+    # Create test group and run full test suite as tester
+    groupadd -g 102 dummy -U tester
 
-        chown -R tester .
+    chown -R tester .
 
-        # < /dev/null prevents hang in graphical/SSH sessions
-        su tester -c "PATH=$PATH make -k RUN_EXPENSIVE_TESTS=yes check" \
-            < /dev/null || true
+    # < /dev/null prevents hang in graphical/SSH sessions
+    su tester -c "PATH=$PATH make -k RUN_EXPENSIVE_TESTS=yes check" \
+        < /dev/null || true
 
-        groupdel dummy
-    else
-        make -k RUN_EXPENSIVE_TESTS=yes check < /dev/null || true
-    fi
+    groupdel dummy
 }
 
 do_install() {

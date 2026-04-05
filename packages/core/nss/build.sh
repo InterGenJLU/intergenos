@@ -4,7 +4,8 @@
 # Non-standard build: uses raw make, no configure
 
 configure() {
-    :  # Patch applied in patch phase
+    # Apply standalone build patch (required)
+    patch -Np1 -i "${IGOS_SOURCES}/nss-standalone-1.patch"
 }
 
 build() {

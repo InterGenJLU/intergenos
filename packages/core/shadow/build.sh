@@ -50,14 +50,10 @@ post_install() {
     # Set default group for new users
     useradd -D --gid 999
 
-    # Set root password — non-interactive for automated builds
-    # TODO: prompt interactively during installer, not during build
-    echo "root:intergenos" | chpasswd
-    echo "  Root password set (change after first boot)"
-
-    # Create tester user for running test suites as non-root
-    if ! id tester >/dev/null 2>&1; then
-        useradd -m -s /bin/bash tester
-        echo "  Created tester user for test suites"
-    fi
+    # Set root password (interactive)
+    echo ""
+    echo "=========================================="
+    echo "  Set the root password for InterGenOS"
+    echo "=========================================="
+    passwd root
 }

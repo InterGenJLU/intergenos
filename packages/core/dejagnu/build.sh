@@ -18,7 +18,7 @@ build() {
 
 check() {
     cd build
-    make check || true
+    make check
 }
 
 do_install() {

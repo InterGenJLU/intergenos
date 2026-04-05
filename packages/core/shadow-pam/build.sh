@@ -20,7 +20,6 @@ configure() {
 
     ./configure --sysconfdir=/etc   \
                 --disable-static    \
-                --disable-logind    \
                 --without-libbsd    \
                 --with-{b,yes}crypt
 }

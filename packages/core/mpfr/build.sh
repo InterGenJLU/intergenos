@@ -15,7 +15,7 @@ build() {
 }
 
 check() {
-    make check || true
+    make check
 }
 
 do_install() {
