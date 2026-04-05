@@ -175,6 +175,47 @@ umount "${MOUNT_POINT}/dev/pts"
 umount "${MOUNT_POINT}/dev"
 
 # ============================================================================
+# Step 8b: Apply post-deploy fixes for VM boot
+# ============================================================================
+
+log "Applying post-deploy fixes..."
+
+# Enable serial console for VM management
+chroot "$MOUNT_POINT" /bin/bash -c '
+    ln -sf /usr/lib/systemd/system/serial-getty@.service \
+        /etc/systemd/system/getty.target.wants/serial-getty@ttyS0.service
+'
+
+# Enable networking (systemd-networkd + resolved)
+chroot "$MOUNT_POINT" /bin/bash -c '
+    ln -sf /usr/lib/systemd/system/systemd-networkd.service \
+        /etc/systemd/system/multi-user.target.wants/systemd-networkd.service
+    ln -sf /usr/lib/systemd/system/systemd-resolved.service \
+        /etc/systemd/system/multi-user.target.wants/systemd-resolved.service
+'
+
+# Create DHCP network config
+mkdir -p "${MOUNT_POINT}/etc/systemd/network"
+cat > "${MOUNT_POINT}/etc/systemd/network/10-dhcp.network" << 'NETEOF'
+[Match]
+Name=en*
+
+[Network]
+DHCP=yes
+NETEOF
+
+# Set up DNS resolution via systemd-resolved
+ln -sf /run/systemd/resolve/stub-resolv.conf "${MOUNT_POINT}/etc/resolv.conf"
+
+# Set root password for initial access (no expiry for testing)
+chroot "$MOUNT_POINT" /bin/bash -c '
+    chpasswd <<< "root:intergenos"
+    passwd -x 99999 root
+'
+
+log "  Post-deploy fixes applied (serial console, networking, DNS, root password)"
+
+# ============================================================================
 # Step 9: Unmount and disconnect
 # ============================================================================
 

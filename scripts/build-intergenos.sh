@@ -274,7 +274,7 @@ run_phase() {
     # Save checkpoint after significant phases
     if $CHECKPOINT; then
         case "$phase" in
-            toolchain|core|kernel)
+            toolchain|core|kernel|desktop)
                 save_checkpoint "$phase"
                 ;;
         esac
