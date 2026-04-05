@@ -458,6 +458,9 @@ phase_core() {
 }
 
 phase_config() {
+    # Clear IGOS_START_AT so it doesn't leak from core restarts
+    # into subsequent phases (config, core-extra, kernel)
+    unset IGOS_START_AT
     sync_chroot_scripts
     log "Configuring system in chroot (Ch 9)..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-config-ch9.sh" 2>&1 | tee -a "$BUILD_LOG"
