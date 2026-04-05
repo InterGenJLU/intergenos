@@ -5,6 +5,7 @@
 configure() {
     ./configure --prefix=/usr \
                 --disable-static \
+                --disable-python-bindings \
                 --with-securedir=/usr/lib/security
 }
 
