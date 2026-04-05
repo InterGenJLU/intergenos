@@ -11,6 +11,7 @@ configure() {
           --libdir=/usr/lib   \
           --buildtype=release \
           -Dgtk_doc=false \
+          -Dexamples=false \
           -Dtests=false
 }
 
