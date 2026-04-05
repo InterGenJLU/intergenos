@@ -274,7 +274,7 @@ run_phase() {
     # Save checkpoint after significant phases
     if $CHECKPOINT; then
         case "$phase" in
-            toolchain|core|desktop)
+            toolchain|core|kernel)
                 save_checkpoint "$phase"
                 ;;
         esac
@@ -440,48 +440,24 @@ phase_chroot_tools() {
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
-sync_build_infra() {
-    # Sync latest scripts, packages, and builder into the chroot.
-    # Needed when --start-at skips setup, or when code changes between restarts.
-    log "  Syncing build infrastructure into chroot..."
-    rsync -a --delete /mnt/intergenos/scripts/    "$IGOS/mnt/intergenos/scripts/"
-    rsync -a --delete /mnt/intergenos/packages/   "$IGOS/mnt/intergenos/packages/"
-    rsync -a --delete /mnt/intergenos/igos-build/ "$IGOS/mnt/intergenos/igos-build/"
-    cp /mnt/intergenos/igos-build.py "$IGOS/mnt/intergenos/" 2>/dev/null || true
-    rsync -a /mnt/intergenos/config/ "$IGOS/mnt/intergenos/config/" 2>/dev/null || true
-    find "$IGOS/mnt/intergenos/igos-build" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
-    log "  Build infrastructure synced"
-}
-
 phase_core() {
-    sync_build_infra
-    log "Building core packages in chroot via Python builder (this will take a while)..."
-    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-tier.sh" --tier core 2>&1 | tee -a "$BUILD_LOG"
+    log "Building core system in chroot (Ch 8, LFS order)..."
+    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-ch8.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_config() {
-    log "Configuring system in chroot..."
+    log "Configuring system in chroot (Ch 9)..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-config-ch9.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_core_extra() {
-    sync_build_infra
-    log "Building additional core packages in chroot via Python builder..."
-    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-tier.sh" --tier core 2>&1 | tee -a "$BUILD_LOG"
-    # Note: core-extra packages have tier=core in their templates.
-    # The --skip-built flag ensures already-built Ch.8 packages are skipped.
+    log "Building additional core packages in chroot (BLFS)..."
+    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-core-extra.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
-phase_base() {
-    sync_build_infra
-    log "Building base packages in chroot via Python builder..."
-    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-tier.sh" --tier base 2>&1 | tee -a "$BUILD_LOG"
-}
-
-phase_desktop() {
-    sync_build_infra
-    log "Building desktop packages in chroot via Python builder (this will take a long time)..."
-    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-tier.sh" --tier desktop 2>&1 | tee -a "$BUILD_LOG"
+phase_kernel() {
+    log "Building kernel in chroot (Ch 10)..."
+    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-ch10.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_image() {
@@ -541,12 +517,10 @@ run_phase "setup"        "Create build environment"            phase_setup
 run_phase "toolchain"    "Cross-compilation toolchain (Ch 5-6)" phase_toolchain
 run_phase "chroot-prep"  "Prepare chroot environment (Ch 7)"   phase_chroot_prep
 run_phase "chroot-tools" "Build temp tools in chroot (Ch 7)"   phase_chroot_tools
-run_phase "core"         "Build LFS core packages (Ch 8)"      phase_core
+run_phase "core"         "Build core system (Ch 8, LFS order)" phase_core
 run_phase "config"       "System configuration (Ch 9)"         phase_config
-run_phase "core-extra"   "Build extra core packages"           phase_core_extra
-run_phase "base"         "Build base packages"                 phase_base
-run_phase "desktop"      "Build desktop packages (GNOME)"      phase_desktop
-run_phase "image"        "Create bootable disk image"          phase_image
+run_phase "core-extra"   "Build extra core packages (BLFS)"    phase_core_extra
+run_phase "kernel"       "Build kernel (Ch 10)"                phase_kernel
 
 # ==========================================================================
 # Done
