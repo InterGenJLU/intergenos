@@ -16,6 +16,7 @@ check() {
 }
 
 do_install() {
+    mkdir -pv "${DESTDIR}/usr/bin"
     install -v -m755 target/release/bindgen "${DESTDIR}/usr/bin/bindgen"
 }
 
