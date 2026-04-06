@@ -13,8 +13,9 @@ configure() {
 
     meson setup ..                 \
           --prefix=/usr            \
-          --libdir=/usr/lib   \
+          --libdir=/usr/lib        \
           --buildtype=release      \
+          --wrap-mode=nofallback   \
           -D platforms=x11,wayland \
           -D gallium-drivers=auto  \
           -D vulkan-drivers=auto   \
