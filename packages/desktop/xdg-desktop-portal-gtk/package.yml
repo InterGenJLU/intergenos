@@ -12,6 +12,7 @@ source:
   sha256: 47a3743d2419a8601e691db37e85bb5fac5ae4b26842177065cd5f22ada23b37
 dependencies:
   build:
+  - gnome-desktop
   - gtk3
   - xdg-desktop-portal
   host: []
