@@ -18,8 +18,7 @@ configure() {
           --wrap-mode=nofallback   \
           -D platforms=x11,wayland \
           -D gallium-drivers=auto  \
-          -D vulkan-drivers=auto   \
-          -D vulkan-rust=false      \
+          -D vulkan-drivers=amd,intel,swrast,virtio \
           -D valgrind=disabled     \
           -D video-codecs=all      \
           -D libunwind=disabled
