@@ -12,5 +12,5 @@ build() {
 
 do_install() {
     pip3 install --no-index --find-links dist --no-user \
-         --root="$DESTDIR" --prefix=/usr argcomplete
+         --root="$DESTDIR" --no-deps argcomplete
 }

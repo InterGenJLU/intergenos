@@ -554,6 +554,9 @@ run_phase "core"         "Build core system (Ch 8, LFS order)" phase_core
 run_phase "config"       "System configuration (Ch 9)"         phase_config
 run_phase "core-extra"   "Build extra core packages (BLFS)"    phase_core_extra
 run_phase "kernel"       "Build kernel (Ch 10)"                phase_kernel
+run_phase "desktop"     "Build desktop (GNOME on Wayland)"    phase_desktop
+run_phase "extra"       "Build extra tier (applications)"     phase_extra
+run_phase "image"       "Package bootable disk image"         phase_image
 
 # ==========================================================================
 # Done

@@ -15,7 +15,7 @@ configure() {
           --wrap-mode=nofallback \
           -Dbroadway-backend=true \
           -Dintrospection=enabled \
-          -Dvulkan=disabled
+          -Dvulkan=enabled
 }
 
 build() {

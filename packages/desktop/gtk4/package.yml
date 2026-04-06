@@ -14,11 +14,13 @@ dependencies:
   build:
   - gdk-pixbuf
   - graphene
+  - gst-plugins-base-pass2
   - iso-codes
   - libepoxy
   - librsvg
   - pango
   - pygobject3
+  - shaderc
   - wayland-protocols
   - libxkbcommon
   - cairo

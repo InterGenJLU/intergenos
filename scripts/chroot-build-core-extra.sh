@@ -97,8 +97,14 @@ build_core_package() {
     # Source the package build script
     source "$build_script"
 
+    # Reset CWD before each phase. Build functions may cd into subdirectories
+    # (e.g., NSS's build() does "cd nss") and bash doesn't scope cd to
+    # functions — it persists into the next call. Without resetting, later
+    # phases start from the wrong directory.
+
     # --- CONFIGURE ---
     if declare -f configure > /dev/null 2>&1; then
+        cd "$workdir"
         log "  [CONFIGURE] starting..."
         configure >> "$pkg_log" 2>&1
         local rc=$?
@@ -112,6 +118,7 @@ build_core_package() {
 
     # --- BUILD ---
     if declare -f build > /dev/null 2>&1; then
+        cd "$workdir"
         log "  [BUILD] starting..."
         build >> "$pkg_log" 2>&1
         local rc=$?
@@ -125,12 +132,14 @@ build_core_package() {
 
     # --- CHECK (optional — failures logged but don't stop the build) ---
     if declare -f check > /dev/null 2>&1; then
+        cd "$workdir"
         log "  [CHECK] starting..."
         check >> "$pkg_log" 2>&1
         log "  [CHECK] done (see log for results)"
     fi
 
     # --- INSTALL (via DESTDIR staging + package tracking) ---
+    cd "$workdir"
     log "  [INSTALL] staging..."
     pkg_install "$name" "$version" "$description"
     local rc=$?
@@ -141,6 +150,7 @@ build_core_package() {
 
     # --- POST-INSTALL (runs on live system if defined) ---
     if declare -f post_install > /dev/null 2>&1; then
+        cd "$workdir"
         log "  [POST-INSTALL] running live system hooks..."
         post_install >> "$pkg_log" 2>&1
         log "  [POST-INSTALL] done"

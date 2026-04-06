@@ -47,6 +47,29 @@ if python3 -c "import yaml" 2>/dev/null; then
 else
     log "  PyYAML: not found — installing..."
 
+    # Python 3.14 ships without setuptools — bootstrap it first if needed
+    if ! python3 -c "import setuptools" 2>/dev/null; then
+        SETUPTOOLS_TAR=$(ls ${IGOS_SOURCES}/setuptools-*.tar.gz 2>/dev/null | head -1)
+        if [ -n "$SETUPTOOLS_TAR" ]; then
+            log "  Bootstrapping setuptools from $SETUPTOOLS_TAR..."
+            SETUPTOOLS_WORK=$(mktemp -d)
+            tar -xf "$SETUPTOOLS_TAR" -C "$SETUPTOOLS_WORK" --strip-components=1
+            SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
+            cp -r "$SETUPTOOLS_WORK/setuptools" "$SITE/"
+            cp -r "$SETUPTOOLS_WORK/_distutils_hack" "$SITE/" 2>/dev/null || true
+            rm -rf "$SETUPTOOLS_WORK"
+            if python3 -c "import setuptools" 2>/dev/null; then
+                log "  setuptools: bootstrapped"
+            else
+                log "ERROR: Failed to bootstrap setuptools"
+                exit 1
+            fi
+        else
+            log "ERROR: No setuptools tarball found in $IGOS_SOURCES"
+            exit 1
+        fi
+    fi
+
     PYYAML_TAR=$(ls ${IGOS_SOURCES}/PyYAML-*.tar.gz ${IGOS_SOURCES}/pyyaml-*.tar.gz 2>/dev/null | head -1)
     if [ -z "$PYYAML_TAR" ]; then
         log "ERROR: No PyYAML tarball found in $IGOS_SOURCES"
