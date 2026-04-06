@@ -7,8 +7,11 @@ configure() {
     # not present in the release tarball (only in GitHub archive)
     patch -Np1 --force -i $IGOS_PATCHES/itstool-2.0.7-lxml-1.patch || true
 
+    # Patch modifies configure.ac — regenerate configure
+    autoreconf -fiv
+
     PYTHON=/usr/bin/python3 \
-    ./autogen.sh --prefix=/usr
+    ./configure --prefix=/usr
 }
 
 build() {
