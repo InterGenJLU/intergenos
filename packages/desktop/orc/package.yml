@@ -1,0 +1,15 @@
+name: orc
+version: "0.4.42"
+release: 1
+description: Oil Runtime Compiler — JIT compiler for SIMD multimedia operations
+license: BSD-2-Clause
+homepage: https://gstreamer.freedesktop.org/projects/orc.html
+tier: desktop
+build_style: meson
+source:
+- url: https://gstreamer.freedesktop.org/src/orc/orc-${version}.tar.xz
+  sha256: 7ec912ab59af3cc97874c456a56a8ae1eec520c385ec447e8a102b2bd122c90c
+dependencies:
+  build: []
+  host: []
+  runtime: []

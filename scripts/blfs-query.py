@@ -23,6 +23,9 @@ Usage:
     python3 scripts/blfs-query.py versions [--diff]
     python3 scripts/blfs-query.py search <term>
     python3 scripts/blfs-query.py stats
+    python3 scripts/blfs-query.py meson-flags <package>
+    python3 scripts/blfs-query.py meson-audit [--tier desktop]
+    python3 scripts/blfs-query.py meson-impact <dep-package>
 """
 
 import argparse
@@ -345,6 +348,279 @@ def cmd_stats(conn):
     for row in conn.execute("SELECT tier, COUNT(*) FROM igos_status GROUP BY tier ORDER BY COUNT(*) DESC"):
         print(f"    {row[0]:12s} {row[1]}")
 
+    # Meson feature database (if populated)
+    try:
+        mp = conn.execute("SELECT COUNT(*) FROM meson_packages").fetchone()[0]
+        mo = conn.execute("SELECT COUNT(*) FROM meson_options").fetchone()[0]
+        mf = conn.execute("SELECT COUNT(*) FROM meson_options WHERE opt_type = 'feature' OR category = 'feature'").fetchone()[0]
+        ma = conn.execute(
+            "SELECT COUNT(*) FROM meson_options WHERE (opt_type = 'feature' OR category = 'feature') "
+            "AND our_value IS NULL AND (default_value = 'auto' OR default_value = 'true')"
+        ).fetchone()[0]
+        md = conn.execute("SELECT COUNT(*) FROM meson_option_deps").fetchone()[0]
+        print(f"\n  Meson Feature Database:")
+        print(f"    Packages:          {mp}")
+        print(f"    Total options:     {mo}")
+        print(f"    Feature options:   {mf}")
+        print(f"    Features at risk:  {ma} (auto/true with no -D flag)")
+        print(f"    Dep mappings:      {md}")
+    except sqlite3.OperationalError:
+        pass  # meson tables not yet populated
+
+
+# ---------------------------------------------------------------------------
+# Meson feature database commands
+# ---------------------------------------------------------------------------
+
+def _has_meson_tables(conn):
+    """Check if meson tables exist in the database."""
+    try:
+        conn.execute("SELECT 1 FROM meson_packages LIMIT 1")
+        return True
+    except sqlite3.OperationalError:
+        return False
+
+
+def cmd_meson_flags(conn, pkg_name):
+    """Show all meson options for a package with dependency status."""
+    if not _has_meson_tables(conn):
+        print("Meson tables not found. Run: python3 scripts/populate-meson-db.py")
+        return
+
+    # Find the package
+    row = conn.execute(
+        "SELECT id, igos_name, version, tier, options_file, option_count, feature_count, auto_count "
+        "FROM meson_packages WHERE igos_name = ?",
+        (pkg_name,),
+    ).fetchone()
+
+    if not row:
+        # Try LIKE match
+        row = conn.execute(
+            "SELECT id, igos_name, version, tier, options_file, option_count, feature_count, auto_count "
+            "FROM meson_packages WHERE igos_name LIKE ?",
+            (f"%{pkg_name}%",),
+        ).fetchone()
+
+    if not row:
+        print(f"Package '{pkg_name}' not found in meson database")
+        return
+
+    pkg_id, name, version, tier, options_file, opt_count, feat_count, auto_count = row
+    print(f"Meson options for {name} {version} ({tier})")
+    print(f"  Options file: {options_file or 'none found'}")
+    print(f"  {opt_count} options, {feat_count} features, {auto_count} at risk")
+    print()
+
+    # Get all options grouped by category
+    options = conn.execute(
+        "SELECT id, opt_name, opt_type, default_value, our_value, description, category, is_deprecated "
+        "FROM meson_options WHERE package_id = ? ORDER BY category, opt_name",
+        (pkg_id,),
+    ).fetchall()
+
+    if not options:
+        print("  No options parsed (tarball may be missing)")
+        return
+
+    # Group by category
+    categories = {}
+    for opt in options:
+        cat = opt[6] or "other"
+        categories.setdefault(cat, []).append(opt)
+
+    # Display features first (most important)
+    cat_order = ["feature", "platform", "path_config", "test_doc", "other", "builtin"]
+    cat_labels = {
+        "feature": "Features",
+        "platform": "Platform/Driver Selection",
+        "path_config": "Path Configuration",
+        "test_doc": "Test/Doc (suppressed)",
+        "other": "Other",
+        "builtin": "Meson Builtins",
+    }
+
+    for cat in cat_order:
+        opts = categories.get(cat, [])
+        if not opts:
+            continue
+
+        print(f"  {cat_labels.get(cat, cat)}:")
+        for opt_id, opt_name, opt_type, default_val, our_val, desc, _cat, is_dep in opts:
+            # Determine status marker
+            if our_val is not None:
+                marker = "[SET] "
+                val_str = f"= {our_val}"
+            elif opt_type == "feature" and default_val == "auto":
+                marker = "[AUTO]"
+                val_str = "= (auto)"
+            elif opt_type == "boolean" and default_val == "true" and cat == "feature":
+                marker = "[AUTO]"
+                val_str = "= (true)"
+            else:
+                marker = "[ -- ]"
+                val_str = f"  (default: {default_val})" if default_val else ""
+
+            dep_str = ""
+            if cat == "feature":
+                deps = conn.execute(
+                    "SELECT dep_igos_name, in_tree FROM meson_option_deps WHERE option_id = ?",
+                    (opt_id,),
+                ).fetchall()
+                if deps:
+                    dep_parts = []
+                    for dep_name, in_tree in deps:
+                        if dep_name and dep_name != "null":
+                            status = "OK" if in_tree else "MISSING"
+                            dep_parts.append(f"{dep_name} [{status}]")
+                    if dep_parts:
+                        dep_str = f"  deps: {', '.join(dep_parts)}"
+
+            deprecated = " (DEPRECATED)" if is_dep else ""
+            default_str = f"(default: {default_val})" if default_val and our_val else ""
+
+            print(f"    {marker} {opt_name:24s} {val_str:20s} {default_str:20s}{dep_str}{deprecated}")
+
+        print()
+
+
+def cmd_meson_audit(conn, tier_filter=None):
+    """Find all features left to auto-detection across all meson packages."""
+    if not _has_meson_tables(conn):
+        print("Meson tables not found. Run: python3 scripts/populate-meson-db.py")
+        return
+
+    # Find all feature options that are at risk (auto/true default, no explicit -D flag)
+    query = """
+        SELECT mp.igos_name, mp.version, mp.tier,
+               mo.id, mo.opt_name, mo.opt_type, mo.default_value, mo.description
+        FROM meson_options mo
+        JOIN meson_packages mp ON mo.package_id = mp.id
+        WHERE (mo.opt_type = 'feature' OR mo.category = 'feature')
+          AND mo.our_value IS NULL
+          AND (mo.default_value = 'auto' OR mo.default_value = 'true' OR mo.default_value IS NULL)
+          AND mo.is_deprecated = 0
+    """
+    params = []
+    if tier_filter:
+        query += " AND mp.tier = ?"
+        params.append(tier_filter)
+    query += " ORDER BY mp.igos_name, mo.opt_name"
+
+    rows = conn.execute(query, params).fetchall()
+
+    if not rows:
+        print("No features at risk of auto-detection. All features are explicitly set.")
+        return
+
+    # Group by package
+    packages = {}
+    for pkg_name, version, tier, opt_id, opt_name, opt_type, default_val, desc in rows:
+        packages.setdefault(pkg_name, {"version": version, "tier": tier, "options": []})
+        # Check deps
+        deps = conn.execute(
+            "SELECT dep_igos_name, in_tree FROM meson_option_deps WHERE option_id = ?",
+            (opt_id,),
+        ).fetchall()
+
+        all_in_tree = all(d[1] for d in deps) if deps else None
+        packages[pkg_name]["options"].append({
+            "name": opt_name,
+            "type": opt_type,
+            "default": default_val,
+            "desc": desc,
+            "deps": deps,
+            "all_in_tree": all_in_tree,
+        })
+
+    # Counts
+    total_at_risk = len(rows)
+    deps_in_tree = sum(
+        1 for r in rows
+        if conn.execute(
+            "SELECT COUNT(*) FROM meson_option_deps WHERE option_id = ? AND in_tree = 1",
+            (r[3],),
+        ).fetchone()[0] > 0
+    )
+    deps_missing = sum(
+        1 for r in rows
+        if conn.execute(
+            "SELECT COUNT(*) FROM meson_option_deps WHERE option_id = ? AND in_tree = 0",
+            (r[3],),
+        ).fetchone()[0] > 0
+    )
+    no_mapping = sum(
+        1 for r in rows
+        if conn.execute(
+            "SELECT COUNT(*) FROM meson_option_deps WHERE option_id = ?",
+            (r[3],),
+        ).fetchone()[0] == 0
+    )
+
+    title = "Meson auto-detection audit"
+    if tier_filter:
+        title += f" (tier: {tier_filter})"
+    print(title)
+    print("=" * 60)
+    print(f"  {total_at_risk} features left to auto across {len(packages)} packages\n")
+
+    for pkg_name in sorted(packages):
+        pkg = packages[pkg_name]
+        opts = pkg["options"]
+        print(f"  {pkg_name} {pkg['version']} ({pkg['tier']}) — {len(opts)} at risk:")
+        for opt in opts:
+            dep_str = ""
+            if opt["deps"]:
+                dep_parts = []
+                for dep_name, in_tree in opt["deps"]:
+                    if dep_name and dep_name != "null":
+                        status = "OK" if in_tree else "MISSING"
+                        dep_parts.append(f"{dep_name} [{status}]")
+                dep_str = f"  deps: {', '.join(dep_parts)}"
+            elif opt["all_in_tree"] is None:
+                dep_str = "  deps: (no mapping)"
+            desc_str = f" — {opt['desc'][:50]}" if opt["desc"] else ""
+            print(f"    {opt['name']:24s} ({opt['type']}, default: {opt['default'] or '?'}){dep_str}{desc_str}")
+        print()
+
+    print(f"Summary:")
+    print(f"  {total_at_risk} feature options left to auto-detection")
+    print(f"  {deps_in_tree} have deps in tree (should explicitly enable)")
+    print(f"  {deps_missing} have missing deps (would silently disable)")
+    print(f"  {no_mapping} have no dep mapping (need curation)")
+
+
+def cmd_meson_impact(conn, dep_name):
+    """Show what features become available if a dependency is added."""
+    if not _has_meson_tables(conn):
+        print("Meson tables not found. Run: python3 scripts/populate-meson-db.py")
+        return
+
+    rows = conn.execute(
+        """SELECT DISTINCT mp.igos_name, mp.version, mo.opt_name, mo.opt_type,
+                  mo.default_value, mo.our_value, mo.description
+           FROM meson_option_deps mod
+           JOIN meson_options mo ON mod.option_id = mo.id
+           JOIN meson_packages mp ON mo.package_id = mp.id
+           WHERE mod.dep_igos_name = ? OR mod.dep_pkg_config = ?
+           ORDER BY mp.igos_name, mo.opt_name""",
+        (dep_name, dep_name),
+    ).fetchall()
+
+    if not rows:
+        print(f"No meson features depend on '{dep_name}' (or no curations exist for it)")
+        return
+
+    print(f"Impact of '{dep_name}' on meson features:")
+    print()
+
+    for pkg_name, version, opt_name, opt_type, default_val, our_val, desc in rows:
+        status = f"currently {our_val}" if our_val else f"currently auto (default: {default_val})"
+        desc_str = f" — {desc[:60]}" if desc else ""
+        print(f"  {pkg_name} {version}:")
+        print(f"    {opt_name} ({opt_type}, {status}){desc_str}")
+        print()
+
 
 def main():
     parser = argparse.ArgumentParser(description="Query the BLFS package database")
@@ -380,6 +656,15 @@ def main():
 
     sub.add_parser('stats', help='Database statistics')
 
+    p_mflags = sub.add_parser('meson-flags', help='Show meson options for a package')
+    p_mflags.add_argument('package')
+
+    p_maudit = sub.add_parser('meson-audit', help='Find features left to auto-detection')
+    p_maudit.add_argument('--tier', help='Filter by tier (e.g., desktop, core)')
+
+    p_mimpact = sub.add_parser('meson-impact', help='What features does a dep enable?')
+    p_mimpact.add_argument('package', help='Dependency package name')
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -405,6 +690,12 @@ def main():
         cmd_search(conn, args.term)
     elif args.command == 'stats':
         cmd_stats(conn)
+    elif args.command == 'meson-flags':
+        cmd_meson_flags(conn, args.package)
+    elif args.command == 'meson-audit':
+        cmd_meson_audit(conn, args.tier)
+    elif args.command == 'meson-impact':
+        cmd_meson_impact(conn, args.package)
 
     conn.close()
 

@@ -17,6 +17,7 @@ dependencies:
   - alsa-lib
   - libogg
   - libvorbis
+  - orc
   - pango
   - libX11
   - libXext

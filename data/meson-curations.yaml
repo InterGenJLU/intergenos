@@ -1,0 +1,227 @@
+# Meson Feature Database — Curated Option-to-Dependency Mappings
+#
+# Maps meson -D options to the packages they require for enablement.
+# Used by scripts/populate-meson-db.py to populate meson_option_deps table.
+#
+# Format:
+#   package_name:           # our packages/ directory name (without -pass2 suffix)
+#     option_name:          # meson -D option name
+#       - pkg_config: X     # pkg-config module meson checks (null if no pkg-config check)
+#         igos_name: Y      # our package name in packages/
+#         notes: "..."      # optional notes
+#
+# Only feature/boolean options that depend on external packages need entries.
+# Options with no external deps (CPU features, internal toggles) are omitted.
+# Test/doc suppression options are omitted (handled by category classification).
+#
+# Uses base package names — pass packages (gvfs-pass2, gst-plugins-base-pass2)
+# inherit curations from their base package automatically.
+
+# ---------------------------------------------------------------------------
+# GTK4 — widget toolkit (packages/desktop/gtk4)
+# ---------------------------------------------------------------------------
+gtk4:
+  media-gstreamer:
+    - pkg_config: gstreamer-1.0
+      igos_name: gstreamer
+    - pkg_config: gstreamer-player-1.0
+      igos_name: gst-plugins-base
+  print-cups:
+    - pkg_config: cups
+      igos_name: cups
+      notes: "CUPS printing backend"
+  vulkan:
+    - pkg_config: vulkan
+      igos_name: vulkan-loader
+    - pkg_config: null
+      igos_name: shaderc
+      notes: "provides glslc shader compiler for Vulkan renderer"
+  cloudproviders:
+    - pkg_config: cloudproviders
+      igos_name: libcloudproviders
+  tracker:
+    - pkg_config: tracker-sparql-3.0
+      igos_name: tinysparql
+  colord:
+    - pkg_config: colord
+      igos_name: colord
+      notes: "color management for CUPS printing backend"
+  introspection:
+    - pkg_config: gobject-introspection-1.0
+      igos_name: gobject-introspection
+
+# ---------------------------------------------------------------------------
+# gvfs — GNOME virtual filesystem (packages/desktop/gvfs)
+# ---------------------------------------------------------------------------
+gvfs:
+  admin:
+    - pkg_config: polkit-gobject-1
+      igos_name: polkit
+  afc:
+    - pkg_config: libimobiledevice-1.0
+      igos_name: libimobiledevice
+  archive:
+    - pkg_config: libarchive
+      igos_name: libarchive
+  cdda:
+    - pkg_config: libcdio_paranoia
+      igos_name: libcdio-paranoia
+  dnssd:
+    - pkg_config: avahi-client
+      igos_name: avahi
+  goa:
+    - pkg_config: goa-1.0
+      igos_name: gnome-online-accounts
+  google:
+    - pkg_config: libgdata
+      igos_name: libgdata
+      notes: "deprecated by Google, removed from BLFS — owner approved -Dgoogle=false"
+  gphoto2:
+    - pkg_config: libgphoto2
+      igos_name: libgphoto2
+  http:
+    - pkg_config: libsoup-3.0
+      igos_name: libsoup3
+  mtp:
+    - pkg_config: libmtp
+      igos_name: libmtp
+  nfs:
+    - pkg_config: libnfs
+      igos_name: libnfs
+  onedrive:
+    - pkg_config: msgraph-0.1
+      igos_name: libmsgraph
+    - pkg_config: goa-1.0
+      igos_name: gnome-online-accounts
+      notes: "OneDrive requires both libmsgraph AND GOA"
+  smb:
+    - pkg_config: smbclient
+      igos_name: samba
+      notes: "Samba client library for SMB/CIFS backends"
+  udisks2:
+    - pkg_config: udisks2
+      igos_name: udisks2
+  bluray:
+    - pkg_config: libbluray
+      igos_name: libbluray
+  fuse:
+    - pkg_config: fuse3
+      igos_name: fuse3
+  gcr:
+    - pkg_config: gcr-4
+      igos_name: gcr4
+  gcrypt:
+    - pkg_config: null
+      igos_name: libgcrypt
+      notes: "checked via find_library, not pkg-config"
+  gudev:
+    - pkg_config: gudev-1.0
+      igos_name: libgudev
+  keyring:
+    - pkg_config: libsecret-1
+      igos_name: libsecret
+  libusb:
+    - pkg_config: libusb-1.0
+      igos_name: libusb
+
+# ---------------------------------------------------------------------------
+# gst-plugins-base — GStreamer base plugins (packages/desktop/gst-plugins-base)
+# ---------------------------------------------------------------------------
+gst-plugins-base:
+  gl:
+    - pkg_config: gl
+      igos_name: mesa
+  gl-graphene:
+    - pkg_config: graphene-1.0
+      igos_name: graphene
+  gl-jpeg:
+    - pkg_config: null
+      igos_name: libjpeg-turbo
+      notes: "checked via find_library"
+  gl-png:
+    - pkg_config: libpng
+      igos_name: libpng
+  alsa:
+    - pkg_config: alsa
+      igos_name: alsa-lib
+  cdparanoia:
+    - pkg_config: null
+      igos_name: cdparanoia
+      notes: "checked via find_library, not pkg-config"
+  ogg:
+    - pkg_config: ogg
+      igos_name: libogg
+  opus:
+    - pkg_config: opus
+      igos_name: opus
+  pango:
+    - pkg_config: pango
+      igos_name: pango
+  theora:
+    - pkg_config: theora
+      igos_name: libtheora
+  vorbis:
+    - pkg_config: vorbis
+      igos_name: libvorbis
+  x11:
+    - pkg_config: x11
+      igos_name: libX11
+  xshm:
+    - pkg_config: x11-xcb
+      igos_name: libxcb
+  xvideo:
+    - pkg_config: xv
+      igos_name: libXv
+  xi:
+    - pkg_config: xi
+      igos_name: libXi
+  iso-codes:
+    - pkg_config: iso-codes
+      igos_name: iso-codes
+  introspection:
+    - pkg_config: gobject-introspection-1.0
+      igos_name: gobject-introspection
+  orc:
+    - pkg_config: orc-0.4
+      igos_name: orc
+
+# ---------------------------------------------------------------------------
+# Mesa — OpenGL/Vulkan (packages/desktop/mesa)
+# ---------------------------------------------------------------------------
+mesa:
+  expat:
+    - pkg_config: expat
+      igos_name: expat
+  llvm:
+    - pkg_config: null
+      igos_name: llvm
+      notes: "detected via llvm-config, not pkg-config"
+  valgrind:
+    - pkg_config: valgrind
+      igos_name: valgrind
+  libunwind:
+    - pkg_config: libunwind
+      igos_name: libunwind
+  zstd:
+    - pkg_config: libzstd
+      igos_name: zstd
+  zlib:
+    - pkg_config: zlib
+      igos_name: zlib
+  display-info:
+    - pkg_config: libdisplay-info
+      igos_name: libdisplay-info
+  xlib-lease:
+    - pkg_config: xrandr
+      igos_name: libXrandr
+  xmlconfig:
+    - pkg_config: expat
+      igos_name: expat
+      notes: "driconf XML config parsing requires expat"
+  gallium-va:
+    - pkg_config: libva
+      igos_name: libva
+  glvnd:
+    - pkg_config: libglvnd
+      igos_name: libglvnd
+      notes: "optional GL vendor dispatch"
