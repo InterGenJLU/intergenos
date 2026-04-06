@@ -17,10 +17,10 @@ set -o pipefail
 umask 022
 
 IGOS_SOURCES=/sources
-IGOS_LOGS=/var/log/igos-build
+IGOS_LOGS=/mnt/intergenos/build/logs
 IGOS_JOBS=$(nproc)
 
-mkdir -pv "$IGOS_LOGS"
+mkdir -p "$IGOS_LOGS"
 
 DESKTOP_LOG="$IGOS_LOGS/desktop-build-$(date '+%Y%m%d-%H%M%S').log"
 

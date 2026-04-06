@@ -13,10 +13,10 @@ umask 022
 
 IGOS_SOURCES=/sources
 IGOS_PATCHES=/sources
-IGOS_LOGS=/var/log/igos-build
+IGOS_LOGS=/mnt/intergenos/build/logs
 IGOS_JOBS=$(nproc)
 
-mkdir -pv $IGOS_LOGS
+mkdir -p "$IGOS_LOGS"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$IGOS_LOGS/chroot-build.log"

@@ -34,14 +34,14 @@ umask 022
 
 IGOS_SOURCES=/sources
 IGOS_PATCHES=/sources
-IGOS_LOGS=/var/log/igos-build
+IGOS_LOGS=/mnt/intergenos/build/logs
 IGOS_JOBS=$(nproc)
 IGOS_PACKAGES=/mnt/intergenos/packages/core
 IGOS_START_AT="${IGOS_START_AT:-}"
 
 export IGOS_SOURCES IGOS_PATCHES IGOS_LOGS IGOS_JOBS
 
-mkdir -pv "$IGOS_LOGS"
+mkdir -p "$IGOS_LOGS"
 
 # Source the package tracking functions
 source /mnt/intergenos/scripts/pkg-functions.sh

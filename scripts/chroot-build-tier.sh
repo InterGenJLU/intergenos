@@ -23,7 +23,7 @@ set -e
 umask 022
 
 IGOS_SOURCES=/sources
-IGOS_LOGS=/var/log/igos-build
+IGOS_LOGS=/mnt/intergenos/build/logs
 TIER=""
 
 # --------------------------------------------------------------------------
@@ -50,7 +50,7 @@ if [ -z "$TIER" ]; then
     exit 1
 fi
 
-mkdir -pv "$IGOS_LOGS"
+mkdir -p "$IGOS_LOGS"
 
 TIER_LOG="${IGOS_LOGS}/${TIER}-build-$(date '+%Y%m%d-%H%M%S').log"
 

@@ -12,7 +12,7 @@
 set -e
 umask 022
 
-IGOS_LOGS=/var/log/igos-build
+IGOS_LOGS=/mnt/intergenos/build/logs
 mkdir -p "$IGOS_LOGS"
 
 LOGFILE="$IGOS_LOGS/ch9-config-$(date '+%Y%m%d-%H%M%S').log"
