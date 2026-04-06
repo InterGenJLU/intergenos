@@ -39,16 +39,26 @@ log ""
 # ============================================================================
 
 if ! python3 -c "import yaml" 2>/dev/null; then
-    log "  Installing PyYAML..."
-    PYYAML_TAR=$(find ${IGOS_SOURCES} -maxdepth 1 \( -name 'PyYAML-*.tar.gz' -o -name 'pyyaml-*.tar.gz' \) 2>/dev/null | head -1)
-    if [ -n "$PYYAML_TAR" ]; then
-        TMPDIR=$(mktemp -d)
-        tar -xzf "$PYYAML_TAR" -C "$TMPDIR" --strip-components=1
-        SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
-        cp -r "$TMPDIR/lib/yaml" "$SITE/"
-        cp -r "$TMPDIR/lib/_yaml" "$SITE/" 2>/dev/null || true
-        rm -rf "$TMPDIR"
+    log "  PyYAML not found — installing via ensurepip + pip..."
+
+    if ! pip3 --version 2>/dev/null; then
+        python3 -m ensurepip --upgrade
+        log "  pip: $(pip3 --version)"
     fi
+
+    if ! python3 -c "import setuptools" 2>/dev/null; then
+        pip3 install --no-index --find-links="${IGOS_SOURCES}" \
+            --no-cache-dir --no-user setuptools
+    fi
+
+    pip3 install --no-index --find-links="${IGOS_SOURCES}" \
+        --no-cache-dir --no-user PyYAML
+
+    if ! python3 -c "import yaml" 2>/dev/null; then
+        log "ERROR: Failed to install PyYAML"
+        exit 1
+    fi
+    log "  PyYAML: installed"
 fi
 
 # ============================================================================

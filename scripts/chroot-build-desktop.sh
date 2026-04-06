@@ -48,54 +48,23 @@ if python3 -c "import yaml" 2>/dev/null; then
 else
     log "  PyYAML: not found — installing..."
 
-    # Python 3.14 ships without setuptools — full install required.
-    # A bare file copy is insufficient: pip needs setuptools' dist_info
-    # command which is only available after a proper install.
-    if ! python3 -c "import setuptools" 2>/dev/null; then
-        SETUPTOOLS_TAR=$(find ${IGOS_SOURCES} -maxdepth 1 -name 'setuptools-*.tar.gz' 2>/dev/null | head -1)
-        if [ -n "$SETUPTOOLS_TAR" ]; then
-            log "  Installing setuptools from $SETUPTOOLS_TAR..."
-            SETUPTOOLS_WORK=$(mktemp -d)
-            tar -xf "$SETUPTOOLS_TAR" -C "$SETUPTOOLS_WORK" --strip-components=1
-            # Step 1: bootstrap by copying the bare package so setup.py can import it
-            SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
-            cp -r "$SETUPTOOLS_WORK/setuptools" "$SITE/"
-            cp -r "$SETUPTOOLS_WORK/_distutils_hack" "$SITE/" 2>/dev/null || true
-            # Step 2: full install to register entry points and commands (dist_info, etc.)
-            cd "$SETUPTOOLS_WORK"
-            python3 setup.py install --prefix=/usr 2>&1 || true
-            cd /
-            rm -rf "$SETUPTOOLS_WORK"
-            if python3 -c "import setuptools" 2>/dev/null; then
-                log "  setuptools: installed ($(python3 -c 'import setuptools; print(setuptools.__version__)'))"
-            else
-                log "ERROR: Failed to install setuptools"
-                exit 1
-            fi
-        else
-            log "ERROR: No setuptools tarball found in $IGOS_SOURCES"
-            exit 1
-        fi
-    fi
+    # Python 3.14 includes ensurepip — the upstream-supported way to
+    # bootstrap pip into a fresh installation. Once pip exists, it
+    # installs setuptools and PyYAML properly from local tarballs.
+    # No deprecated setup.py, no file copies, no swallowed errors.
+    log "  Bootstrapping pip via ensurepip..."
+    python3 -m ensurepip --upgrade
+    log "  pip: $(pip3 --version)"
 
-    PYYAML_TAR=$(find ${IGOS_SOURCES} -maxdepth 1 \( -name 'PyYAML-*.tar.gz' -o -name 'pyyaml-*.tar.gz' \) 2>/dev/null | head -1)
-    if [ -z "$PYYAML_TAR" ]; then
-        log "ERROR: No PyYAML tarball found in $IGOS_SOURCES"
-        exit 1
-    fi
+    log "  Installing setuptools from local tarball..."
+    pip3 install --no-index --find-links="${IGOS_SOURCES}" \
+        --no-cache-dir --no-user setuptools
 
-    # Direct copy — avoids deprecated setup.py which breaks under
-    # set -e / set -o pipefail with Python 3.14 deprecation warnings
-    TMPDIR=$(mktemp -d)
-    tar -xzf "$PYYAML_TAR" -C "$TMPDIR" --strip-components=1
-    SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
-    cp -r "$TMPDIR/lib/yaml" "$SITE/"
-    cp -r "$TMPDIR/lib/_yaml" "$SITE/" 2>/dev/null || true
-    rm -rf "$TMPDIR"
+    log "  Installing PyYAML from local tarball..."
+    pip3 install --no-index --find-links="${IGOS_SOURCES}" \
+        --no-cache-dir --no-user PyYAML
 
-    if python3 -c "import yaml" 2>/dev/null; then
-        log "  PyYAML: installed manually"
-    else
+    if ! python3 -c "import yaml" 2>/dev/null; then
         log "ERROR: Failed to install PyYAML — igos-build cannot run"
         exit 1
     fi

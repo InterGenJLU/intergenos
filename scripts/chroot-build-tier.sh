@@ -77,67 +77,27 @@ if python3 -c "import yaml" 2>/dev/null; then
 else
     log "  PyYAML: not found — installing..."
 
-    # Try pip first (may work on some Python versions)
-    if pip3 install --no-cache-dir PyYAML 2>/dev/null; then
-        if python3 -c "import yaml" 2>/dev/null; then
-            log "  PyYAML: installed via pip"
-        else
-            log "  PyYAML: pip reported success but import failed — using manual install"
-            PIP_BROKEN=true
-        fi
-    else
-        log "  PyYAML: pip failed — using manual install"
-        PIP_BROKEN=true
+    # Bootstrap pip via ensurepip (Python 3.14 upstream method),
+    # then install setuptools + PyYAML from local tarballs.
+    if ! pip3 --version 2>/dev/null; then
+        log "  Bootstrapping pip via ensurepip..."
+        python3 -m ensurepip --upgrade
+        log "  pip: $(pip3 --version)"
     fi
 
-    # Manual install fallback (required for Python 3.14 where pip is broken)
-    if [ "${PIP_BROKEN:-}" = "true" ]; then
-        # Python 3.14 ships without setuptools — full install required
-        if ! python3 -c "import setuptools" 2>/dev/null; then
-            SETUPTOOLS_TAR=$(find ${IGOS_SOURCES} -maxdepth 1 -name 'setuptools-*.tar.gz' 2>/dev/null | head -1)
-            if [ -z "$SETUPTOOLS_TAR" ]; then
-                log "ERROR: No setuptools tarball found in $IGOS_SOURCES"
-                exit 1
-            fi
-            log "  Installing setuptools from $SETUPTOOLS_TAR..."
-            SETUPTOOLS_WORK=$(mktemp -d)
-            tar -xf "$SETUPTOOLS_TAR" -C "$SETUPTOOLS_WORK" --strip-components=1
-            SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
-            cp -r "$SETUPTOOLS_WORK/setuptools" "$SITE/"
-            cp -r "$SETUPTOOLS_WORK/_distutils_hack" "$SITE/" 2>/dev/null || true
-            cd "$SETUPTOOLS_WORK"
-            python3 setup.py install --prefix=/usr 2>&1 || true
-            cd /
-            rm -rf "$SETUPTOOLS_WORK"
-            if python3 -c "import setuptools" 2>/dev/null; then
-                log "  setuptools: installed ($(python3 -c 'import setuptools; print(setuptools.__version__)'))"
-            else
-                log "ERROR: Failed to install setuptools"
-                exit 1
-            fi
-        fi
+    if ! python3 -c "import setuptools" 2>/dev/null; then
+        log "  Installing setuptools from local tarball..."
+        pip3 install --no-index --find-links="${IGOS_SOURCES}" \
+            --no-cache-dir --no-user setuptools
+    fi
 
-        PYYAML_TAR=$(find ${IGOS_SOURCES} -maxdepth 1 \( -name 'PyYAML-*.tar.gz' -o -name 'pyyaml-*.tar.gz' \) 2>/dev/null | head -1)
-        if [ -z "$PYYAML_TAR" ]; then
-            log "ERROR: No PyYAML tarball found in $IGOS_SOURCES"
-            log "       Download PyYAML from https://pypi.org/project/PyYAML/"
-            exit 1
-        fi
+    log "  Installing PyYAML from local tarball..."
+    pip3 install --no-index --find-links="${IGOS_SOURCES}" \
+        --no-cache-dir --no-user PyYAML
 
-        log "  Installing PyYAML from $PYYAML_TAR..."
-        PYYAML_WORK=$(mktemp -d)
-        tar -xf "$PYYAML_TAR" -C "$PYYAML_WORK" --strip-components=1
-        SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
-        cp -r "$PYYAML_WORK/lib/yaml" "$SITE/"
-        cp -r "$PYYAML_WORK/lib/_yaml" "$SITE/" 2>/dev/null || true
-        rm -rf "$PYYAML_WORK"
-
-        if python3 -c "import yaml" 2>/dev/null; then
-            log "  PyYAML: installed manually"
-        else
-            log "ERROR: Failed to install PyYAML — igos-build cannot run"
-            exit 1
-        fi
+    if ! python3 -c "import yaml" 2>/dev/null; then
+        log "ERROR: Failed to install PyYAML — igos-build cannot run"
+        exit 1
     fi
 fi
 
