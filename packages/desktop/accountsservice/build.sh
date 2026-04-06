@@ -14,6 +14,12 @@ configure() {
     # BLFS: fix locale test
     sed -i '/^SIMULATED_SYSTEM_LOCALE/s/en_IE.UTF-8/en_HK.iso88591/' tests/test-daemon.py
 
+    # The generate-version.sh script derives version from directory name
+    # (accountsservice-X.Y.Z), but our builder extracts to src/ with
+    # --strip-components=1. Replace script with one that echoes the version.
+    echo "#!/bin/sh" > generate-version.sh
+    echo "echo ${PKG_VERSION}" >> generate-version.sh
+
     mkdir build
     cd    build
 
