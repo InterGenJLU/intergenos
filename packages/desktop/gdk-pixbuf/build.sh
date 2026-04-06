@@ -8,8 +8,12 @@ configure() {
 
     meson setup ..                \
           --prefix=/usr           \
-          --libdir=/usr/lib   \
+          --libdir=/usr/lib       \
           --buildtype=release     \
+          -Dpng=disabled          \
+          -Dgif=disabled          \
+          -Djpeg=disabled         \
+          -Dtiff=disabled         \
           -Dthumbnailer=disabled  \
           -Dglycin=disabled       \
           --wrap-mode=nofallback
