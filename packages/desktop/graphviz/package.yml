@@ -13,5 +13,10 @@ source:
 dependencies:
   build:
   - cmake
+  - cairo
+  - pango
+  - freetype2
+  - fontconfig
+  - libpng
   host: []
   runtime: []

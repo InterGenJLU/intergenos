@@ -11,7 +11,7 @@ configure() {
           -DCMAKE_BUILD_TYPE=Release
 
     # Fix gzip compression in man pages (BLFS)
-    sed -i '/GZIP/s:.*$/=/' build/CMakeCache.txt
+    sed -i '/GZIP/s/:.*$/=/' build/CMakeCache.txt
 }
 
 build() {
