@@ -12,6 +12,7 @@ source:
   sha256: 79abe361f58bb21ade9f565898e486300ce1cc621d5285bec26e14b6a8618fed
 dependencies:
   build:
+  - bdftopcf
   - font-util
   - mkfontscale
   host: []

@@ -1,0 +1,19 @@
+name: bdftopcf
+version: "1.1"
+release: 1
+description: BDF to PCF bitmap font converter
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/app/bdftopcf-${version}.tar.bz2
+  sha256: 4b4df05fc53f1e98993638d6f7e178d95b31745c4568cee407e167491fd311a2
+dependencies:
+  build:
+  - xorgproto
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
