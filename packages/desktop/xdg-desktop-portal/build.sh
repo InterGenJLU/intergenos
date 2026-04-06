@@ -10,7 +10,7 @@ configure() {
           --prefix=/usr       \
           --libdir=/usr/lib   \
           --buildtype=release \
-          -Ddocbook-docs=disabled \
+          -Ddocumentation=disabled \
           -Dman-pages=disabled
 }
 
