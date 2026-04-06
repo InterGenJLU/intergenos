@@ -13,7 +13,7 @@ configure() {
           --prefix=/usr       \
           --libdir=/usr/lib   \
           --buildtype=release \
-          -D selinux=false
+          -D selinux=disabled
 }
 
 build() {
