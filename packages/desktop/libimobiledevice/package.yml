@@ -1,0 +1,24 @@
+name: libimobiledevice
+version: "1.4.0"
+release: 1
+description: Apple mobile device access library
+license: LGPL-2.1-or-later
+homepage: https://github.com/libimobiledevice/libimobiledevice
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/libimobiledevice/libimobiledevice/releases/download/${version}/libimobiledevice-${version}.tar.bz2
+  sha256: 23cc0077e221c7d991bd0eb02150a0d49199bcca1ddf059edccee9ffd914939d
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - libplist
+  - libimobiledevice-glue
+  - libusbmuxd
+  - libusb
+  - openssl
+configure_flags:
+- --prefix=/usr
+- --disable-static

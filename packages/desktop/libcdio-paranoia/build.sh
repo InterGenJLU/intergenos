@@ -1,11 +1,10 @@
 #!/bin/bash
-# libpwquality 1.4.5 — Password quality checking library
+# libcdio-paranoia 10.2+2.0.2 — CD paranoia library from libcdio
 # BLFS 13.0
 
 configure() {
     ./configure --prefix=/usr \
-                --disable-static \
-                --with-securedir=/usr/lib/security
+                --disable-static
 }
 
 build() {

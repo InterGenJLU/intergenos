@@ -1,0 +1,16 @@
+name: libcdio
+version: "2.1.0"
+release: 1
+description: GNU Compact Disc Input and Control library
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/libcdio/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://ftpmirror.gnu.org/libcdio/libcdio-${version}.tar.bz2
+  sha256: 8550e9589dbd594bfac93b81ecf129b1dc9d0d51e90f9696f1b2f9b2af32712b
+dependencies:
+  build: []
+  host: []
+  runtime: []

@@ -1,5 +1,5 @@
 #!/bin/bash
-# librest 0.10.2 — REST web service access library
+# gtksourceview5 5.18.0 — Source code editing widget for GTK4
 # BLFS 13.0
 
 configure() {
@@ -8,9 +8,7 @@ configure() {
 
     meson setup ..            \
           --prefix=/usr       \
-          --libdir=/usr/lib   \
-          --buildtype=release \
-          -Dgtk_doc=false
+          --buildtype=release
 }
 
 build() {

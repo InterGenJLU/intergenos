@@ -1,0 +1,22 @@
+name: libgphoto2
+version: "2.5.33"
+release: 1
+description: Digital camera access library
+license: LGPL-2.1-or-later
+homepage: https://github.com/gphoto/libgphoto2
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/gphoto/libgphoto2/releases/download/v${version}/libgphoto2-${version}.tar.gz
+  sha256: fc994b550dfba6575ce0495c7246b36fff0d24e1bb2a0feb835f4da77b2ffc6b
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - libusb
+  - libexif
+  - curl
+configure_flags:
+- --prefix=/usr
+- --disable-static

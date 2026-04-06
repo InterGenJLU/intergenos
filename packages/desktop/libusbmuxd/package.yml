@@ -1,0 +1,21 @@
+name: libusbmuxd
+version: "2.1.1"
+release: 1
+description: USB multiplexing daemon client library
+license: LGPL-2.1-or-later
+homepage: https://github.com/libimobiledevice/libusbmuxd
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/libimobiledevice/libusbmuxd/releases/download/${version}/libusbmuxd-${version}.tar.bz2
+  sha256: 5546f1aba1c3d1812c2b47d976312d00547d1044b84b6a461323c621f396efce
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - libplist
+  - libimobiledevice-glue
+configure_flags:
+- --prefix=/usr
+- --disable-static

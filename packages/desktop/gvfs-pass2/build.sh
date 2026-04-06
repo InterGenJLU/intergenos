@@ -1,9 +1,11 @@
 #!/bin/bash
-# gvfs 1.58.2 — GNOME virtual filesystem
+# gvfs 1.58.2 — pass 2 rebuild with GOA and OneDrive support
 # BLFS 13.0
 #
-# All backends enabled except:
-#   -Dgoogle=false — libgdata deprecated by Google, removed from BLFS (owner approved)
+# Pass 1 builds before gnome-online-accounts (no GOA/OneDrive).
+# This pass rebuilds after GOA is available, enabling cloud backends.
+#
+# Only -Dgoogle=false remains (libgdata deprecated, owner approved).
 
 configure() {
     mkdir build

@@ -1,11 +1,10 @@
 #!/bin/bash
-# libpwquality 1.4.5 — Password quality checking library
+# libcdio 2.1.0 — GNU Compact Disc Input and Control library
 # BLFS 13.0
 
 configure() {
     ./configure --prefix=/usr \
-                --disable-static \
-                --with-securedir=/usr/lib/security
+                --disable-static
 }
 
 build() {

@@ -1,0 +1,16 @@
+name: libdaemon
+version: "0.14"
+release: 1
+description: Lightweight C library for writing UNIX daemons
+license: LGPL-2.1-or-later
+homepage: https://0pointer.de/lennart/projects/libdaemon/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://0pointer.de/lennart/projects/libdaemon/libdaemon-${version}.tar.gz
+  sha256: fd23eb5f6f986dcc7e708307355ba3289abe03cc381fc47a80bca4a50aa6b834
+dependencies:
+  build: []
+  host: []
+  runtime: []

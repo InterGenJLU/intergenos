@@ -15,6 +15,7 @@ patches:
 dependencies:
   build:
   - glib2
+  - graphviz
   host: []
   runtime: []
 configure_flags:

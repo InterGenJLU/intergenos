@@ -1,0 +1,19 @@
+name: libplist
+version: "2.7.0"
+release: 1
+description: Apple property list library
+license: LGPL-2.1-or-later
+homepage: https://github.com/libimobiledevice/libplist
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/libimobiledevice/libplist/releases/download/${version}/libplist-${version}.tar.bz2
+  sha256: 7ac42301e896b1ebe3c654634780c82baa7cb70df8554e683ff89f7c2643eb8b
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static
