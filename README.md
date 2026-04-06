@@ -14,9 +14,9 @@ InterGenOS puts the user in control of their own machine. Every package is compi
 - **Custom package manager** (`pkm`) — Natural-language CLI with SQLite + text manifest hybrid storage
 - **System installer** (`forge`) — TUI-based installer powered by pkm, from partition to bootable desktop
 - **Custom build system** (`igos-build`) — Python orchestrator with YAML templates, dependency resolution, and full build logging
-- **BLFS package database** — 926 packages with 4,679 dependencies queryable via SQL
+- **BLFS package database** — 926 packages with 4,679 dependencies queryable via SQL, plus meson feature database (2,558 options across 133 packages)
 - **GNOME desktop** — Wayland-native with dark theme and InterGenOS branding
-- **Extra tier** — Node.js, Google Chrome, VS Code, and Claude Code via download helpers
+- **Extra tier** — Node.js, Google Chrome, VS Code, and Claude Code (proprietary packages fetched transparently via pkm)
 - **Tiered local AI assistant** — Hardware-detected, fully offline (planned)
 
 ## Tools
@@ -26,7 +26,8 @@ InterGenOS puts the user in control of their own machine. Every package is compi
 | `pkm` | Package manager — install, remove, search, verify, depends |
 | `forge` | System installer — partition, deploy archives, configure, boot |
 | `igos-build` | Build system — source to archives with dependency resolution |
-| `blfs-query` | BLFS database query tool — deps, gaps, chain-cost, versions |
+| `blfs-query` | BLFS database query tool — deps, gaps, chain-cost, versions, meson-flags, meson-audit |
+| `populate-meson-db` | Meson feature database populator — parses options from source tarballs |
 
 ## Package Tiers
 
@@ -36,58 +37,64 @@ InterGenOS puts the user in control of their own machine. Every package is compi
 | core | Full system: kernel, shell, coreutils, systemd, GCC, SSH |
 | base | CLI tools: htop, rsync, strace, screen |
 | desktop | GNOME on Wayland: GTK, Mesa, GStreamer, GNOME Shell |
-| extra | User applications: Node.js, Chrome/VS Code/Claude Code helpers |
+| extra | User applications: Node.js, Google Chrome, VS Code, Claude Code |
 
 ## Build System
 
 Single command builds the entire system:
 
 ```bash
-sudo bash scripts/build-intergenos.sh --user christopher --checkpoint
+sudo bash scripts/build-intergenos.sh --user <username> --checkpoint
 ```
 
 Phases: `validate → setup → toolchain → chroot-prep → chroot-tools → core → config → core-extra → kernel → desktop → extra → image`
 
-Resume from any phase with `--start-at`, stop with `--stop-after`. Checkpoints saved after toolchain, core, kernel, and desktop.
+Resume from any phase with `--start-at`, stop with `--stop-after`. Checkpoints saved after toolchain, core, kernel, and desktop phases.
 
 ## Quick Start
 
 ```bash
 # Build the OS (on Ubuntu 24.04 build VM)
-sudo bash scripts/build-intergenos.sh --user christopher --checkpoint
+sudo bash scripts/build-intergenos.sh --user <username> --checkpoint
 
 # Query the BLFS package database
 python3 scripts/blfs-query.py info samba
 python3 scripts/blfs-query.py deps mesa --recursive
 python3 scripts/blfs-query.py chain-cost openldap
 
+# Meson feature database — what flags does a package need?
+python3 scripts/blfs-query.py meson-flags gtk4
+python3 scripts/blfs-query.py meson-audit --tier desktop
+python3 scripts/blfs-query.py meson-impact shaderc
+
 # Package management (on a running InterGenOS system)
+pkm install alsa-utils
+pkm install chrome              # Fetches from Google, installs via pkm
+pkm install vscode              # Fetches from Microsoft, installs via pkm
+pkm install claude-code         # Fetches from Anthropic, installs via pkm
+pkm remove htop
 pkm list installed
 pkm search audio
 pkm info openssh
 pkm provides /usr/bin/bash
 pkm verify --all
-
-# Install applications (on a running InterGenOS system)
-sudo igos-install-chrome        # Google Chrome
-sudo igos-install-vscode        # Visual Studio Code
-igos-install-claude-code        # Claude Code CLI + extension
 ```
 
 ## Project Structure
 
 ```
 intergenos/
-├── igos-build/          # Build system (Python — parser, graph, builder)
+├── igos-build/          # Build system (Python — parser, graph, builder, tracker)
 ├── pkm/                 # Package manager (Python — install, remove, query, verify)
 ├── installer/           # Forge installer (Python — TUI + backend)
-├── packages/            # Package templates (YAML + build.sh)
+├── packages/            # 526 package templates (YAML + build.sh)
 │   ├── toolchain/       # LFS Ch. 5-7
 │   ├── core/            # LFS Ch. 8 + TLS/PAM/SSH
 │   ├── base/            # End-user CLI tools
-│   ├── desktop/         # GNOME desktop stack
+│   ├── desktop/         # GNOME desktop stack (~368 packages)
 │   └── extra/           # User-facing applications
 ├── scripts/             # Build orchestrator, chroot scripts, BLFS tools
+├── data/                # Curated metadata (meson option-to-dep mappings)
 ├── config/              # Kernel config, systemd units, gsettings overrides
 ├── build/               # Sources, patches, logs, archives (not committed)
 └── docs/                # LFS/BLFS reference books (not committed)
@@ -97,7 +104,7 @@ intergenos/
 
 Active development. Originally built in 2015-2016 (build_001 through build_003). Revived March 2026.
 
-**Current:** Core system proven (134 packages, zero failures, boots and runs). Desktop build in progress. Package manager and installer written. Extra tier established.
+**Current:** 526 packages templated across 5 tiers. Core system proven (boots and runs). Desktop build (GNOME on Wayland, ~368 packages) in progress. Package manager, installer, and meson feature database written. Codebase reviewed by 4 external LLMs with all findings remediated.
 
 ## History
 
