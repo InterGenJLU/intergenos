@@ -17,6 +17,7 @@ dependencies:
   - bubblewrap
   - fuse3
   - gdk-pixbuf
+  - gst-plugins-base
   - json-glib
   - pipewire
   host: []
