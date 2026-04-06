@@ -106,8 +106,15 @@ fi
 # --- Timezone: match host ---
 echo "--- Syncing host timezone into chroot ---"
 if [ -f /etc/localtime ]; then
-    cp -f /etc/localtime $IGOS/etc/localtime
+    # Copy as a regular file (not symlink) so it works even before
+    # glibc installs /usr/share/zoneinfo/ in the chroot
+    cp -fL /etc/localtime $IGOS/etc/localtime
     echo "  Copied host /etc/localtime"
+    # Also store the timezone name so glibc post_install can use it
+    if [ -f /etc/timezone ]; then
+        cp -f /etc/timezone $IGOS/etc/timezone
+        echo "  Copied host /etc/timezone ($(cat /etc/timezone))"
+    fi
 else
     echo "  WARNING: /etc/localtime not found on host, chroot will use UTC"
 fi

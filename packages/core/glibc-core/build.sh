@@ -104,8 +104,15 @@ EOF
     zic -d $ZONEINFO -p America/New_York
     unset ZONEINFO
 
-    # Default to UTC — user can change with timedatectl
-    ln -sfv /usr/share/zoneinfo/UTC /etc/localtime
+    # Set timezone from host — check TZ env, then /etc/timezone, fall back to UTC
+    local tz="${TZ:-}"
+    [ -z "$tz" ] && [ -f /etc/timezone ] && tz="$(cat /etc/timezone)"
+    [ -z "$tz" ] && tz="UTC"
+    if [ -f "/usr/share/zoneinfo/$tz" ]; then
+        ln -sfv /usr/share/zoneinfo/$tz /etc/localtime
+    else
+        ln -sfv /usr/share/zoneinfo/UTC /etc/localtime
+    fi
 
     # Dynamic loader configuration
     cat > /etc/ld.so.conf << "EOF"
