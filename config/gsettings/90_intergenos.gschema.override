@@ -16,6 +16,18 @@ document-font-name='DejaVu Sans 11'
 
 [org.gnome.desktop.wm.preferences]
 titlebar-font='DejaVu Sans Bold 11'
+button-layout='close,minimize,maximize:'
+
+[org.gnome.shell]
+# Default dock favorites
+favorite-apps=['org.gnome.Settings.desktop', 'org.gnome.tweaks.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.Epiphany.desktop', 'org.gnome.TextEditor.desktop']
+
+[org.gnome.Terminal.Legacy.Profile]
+# White on black, Linux console palette
+use-theme-colors=false
+foreground-color='rgb(255,255,255)'
+background-color='rgb(0,0,0)'
+palette=['rgb(0,0,0)', 'rgb(170,0,0)', 'rgb(0,170,0)', 'rgb(170,85,0)', 'rgb(0,0,170)', 'rgb(170,0,170)', 'rgb(0,170,170)', 'rgb(170,170,170)', 'rgb(85,85,85)', 'rgb(255,85,85)', 'rgb(85,255,85)', 'rgb(255,255,85)', 'rgb(85,85,255)', 'rgb(255,85,255)', 'rgb(85,255,255)', 'rgb(255,255,255)']
 
 [org.gnome.desktop.background]
 # Solid color until custom wallpaper is created via FLUX pipeline
