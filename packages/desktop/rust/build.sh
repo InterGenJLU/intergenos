@@ -40,10 +40,6 @@ docs = false
 # Do not look for new versions of the dependencies online.
 locked-deps = true
 
-# Do not attempt to download a pre-built rustc for bootstrapping.
-# We provide the bootstrap compiler manually in build/cache/.
-download-rustc = false
-
 # Only install these extended tools. Cargo, clippy, rustdoc, and rustfmt
 # are installed by a default rustup installation, and rust-src is needed
 # to build the Rust code in Linux kernel (in case you need such a kernel
@@ -56,6 +52,10 @@ docdir = "share/doc/rustc-${version}"
 
 [rust]
 channel = "stable"
+
+# Do not attempt to download a pre-built rustc for bootstrapping.
+# We provide the bootstrap compiler manually in build/cache/.
+download-rustc = false
 
 # Enable the same optimizations as the official upstream build.
 lto = "thin"
