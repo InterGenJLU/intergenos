@@ -21,6 +21,9 @@ build() {
 do_install() {
     make DESTDIR="$DESTDIR" install
 
+    # PEP 394: 'python' should point to 'python3' on modern systems
+    ln -sv python3 "${DESTDIR}/usr/bin/python"
+
     mkdir -pv "${DESTDIR}/etc"
     cat > "${DESTDIR}/etc/pip.conf" << PIPEOF
 [install]

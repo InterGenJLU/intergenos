@@ -3,6 +3,7 @@
 # Not in BLFS — standard autotools
 
 configure() {
+    PYTHON=python3 \
     ./configure --prefix=/usr \
                 --disable-static
 }
