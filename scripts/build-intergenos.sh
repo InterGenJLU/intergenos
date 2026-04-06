@@ -451,6 +451,15 @@ phase_chroot_tools() {
 }
 
 sync_chroot_scripts() {
+    # Ensure chroot virtual filesystems are mounted.
+    # When using --start-at to resume from a later phase, the chroot-prep
+    # phase (which normally mounts these) is skipped. Without mounts,
+    # chroot-enter.sh refuses to enter.
+    if ! mountpoint -q "${IGOS}/dev" 2>/dev/null; then
+        log "  Chroot not mounted — running chroot-setup.sh..."
+        bash "${SCRIPTS}/chroot-setup.sh" 2>&1 | tee -a "$BUILD_LOG"
+    fi
+
     # Sync scripts and packages into the chroot copy.
     # The setup phase copies build infrastructure to $IGOS/mnt/intergenos/,
     # but --start-at skips setup and code changes between restarts aren't
