@@ -21,7 +21,15 @@ CARGOEOF
 
     # Apply XBM/XPM support patch AFTER vendor extraction
     # (patch modifies files in vendor/ directory)
-    patch -Np1 --forward -i "${IGOS_SOURCES}/glycin-2.0.8-xbm_xpm-1.patch" || true
+    # Use --no-backup-if-mismatch to avoid .orig files in vendor/
+    patch -Np1 --forward --no-backup-if-mismatch \
+          -i "${IGOS_SOURCES}/glycin-2.0.8-xbm_xpm-1.patch" || true
+
+    # Clear cargo checksums for any patched vendor crates
+    # (cargo rejects modified vendored files otherwise)
+    for cs in vendor/*/.cargo-checksum.json; do
+        sed -i 's/"files":{[^}]*}/"files":{}/' "$cs" 2>/dev/null
+    done
 
     export PATH="/opt/rustc/bin:$PATH"
 
