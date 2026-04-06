@@ -31,3 +31,8 @@ do_install() {
     # the package manifest (prevents spurious rebuilds on skip-built checks).
     rm -fv "${DESTDIR}/usr/share/dbus-1/system.d/pulseaudio-system.conf"
 }
+
+post_install() {
+    udevadm control --reload 2>/dev/null || true
+    udevadm trigger 2>/dev/null || true
+}

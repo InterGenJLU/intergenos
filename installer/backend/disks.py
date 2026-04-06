@@ -66,18 +66,26 @@ def detect_disks():
         )
 
         # Collect partitions
+        is_root_disk = False
         for child in dev.get("children", []):
             if child.get("type") == "part":
                 part_size = int(child.get("size", 0))
+                mountpoint = child.get("mountpoint") or ""
                 disk.partitions.append(Partition(
                     path=child.get("path", f"/dev/{child['name']}"),
                     number=int(child["name"].replace(name, "").lstrip("p")),
                     size_bytes=part_size,
                     fstype=child.get("fstype") or "",
-                    mountpoint=child.get("mountpoint") or "",
+                    mountpoint=mountpoint,
                     label=child.get("label") or "",
                     uuid=child.get("uuid") or "",
                 ))
+                # Exclude disks containing the running root filesystem
+                if mountpoint == "/":
+                    is_root_disk = True
+
+        if is_root_disk:
+            continue
 
         disks.append(disk)
 
@@ -160,11 +168,37 @@ def is_efi():
 # Helpers
 # ------------------------------------------------------------------
 
+_DRY_RUN = False
+
+
+def set_dry_run(enabled: bool):
+    """Enable or disable dry-run mode globally."""
+    global _DRY_RUN
+    _DRY_RUN = enabled
+
+
 def _run(cmd):
-    """Run a shell command, raise on failure."""
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    """Run a command as a list (no shell), raise on failure.
+
+    In dry-run mode, logs the command without executing it.
+    Accepts either a list ["parted", "-s", "/dev/sda", ...] or a string
+    that will be split with shlex. List form is preferred for safety —
+    no shell metacharacter interpretation.
+    """
+    import shlex
+    if isinstance(cmd, str):
+        cmd_list = shlex.split(cmd)
+    else:
+        cmd_list = cmd
+
+    if _DRY_RUN:
+        print(f"  [DRY-RUN] {' '.join(cmd_list)}")
+        import types
+        result = types.SimpleNamespace(returncode=0, stdout="", stderr="")
+        return result
+    result = subprocess.run(cmd_list, capture_output=True, text=True)
     if result.returncode != 0:
-        raise RuntimeError(f"Command failed: {cmd}\n{result.stderr}")
+        raise RuntimeError(f"Command failed: {' '.join(cmd_list)}\n{result.stderr}")
     return result
 
 

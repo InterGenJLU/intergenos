@@ -15,3 +15,8 @@ build() {
 do_install() {
     make DESTDIR="$DESTDIR" install
 }
+
+post_install() {
+    udevadm control --reload 2>/dev/null || true
+    udevadm trigger 2>/dev/null || true
+}

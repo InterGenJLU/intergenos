@@ -3,14 +3,15 @@
 import subprocess
 from pathlib import Path
 
-from .hooks import mount_virtual_fs, unmount_virtual_fs, run_chroot
+from .hooks import mount_virtual_fs, unmount_virtual_fs, run_chroot, run_chroot_stdin
 
 
 def set_root_password(target, password):
     """Set the root password on the target system."""
     mount_virtual_fs(target)
     try:
-        run_chroot(target, f"echo 'root:{password}' | chpasswd")
+        # Feed password via stdin to avoid process table exposure
+        run_chroot_stdin(target, "chpasswd", f"root:{password}\n")
         # Remove password expiry for initial setup
         run_chroot(target, "passwd -x 99999 root")
     finally:
@@ -42,8 +43,8 @@ def create_user(target, username, password, groups=None):
         if rc != 0 and "already exists" not in stderr:
             raise RuntimeError(f"Failed to create user {username}: {stderr}")
 
-        # Set password
-        run_chroot(target, f"echo '{username}:{password}' | chpasswd")
+        # Set password via stdin (avoids process table exposure)
+        run_chroot_stdin(target, "chpasswd", f"{username}:{password}\n")
 
         # Enable sudo for wheel group (if sudoers exists)
         sudoers = Path(target) / "etc" / "sudoers"

@@ -14,6 +14,7 @@ dependencies:
   build:
   - avahi
   - gcr4
+  - glib-networking
   - gtk3
   - libcdio-paranoia
   - libbluray

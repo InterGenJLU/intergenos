@@ -89,11 +89,13 @@ sleep 1
 # Step 3: Partition the disk (GPT + BIOS boot)
 # ============================================================================
 
-log "Creating partition table..."
+log "Creating partition table (GPT with BIOS + EFI support)..."
 parted -s "$NBD_DEV" mklabel gpt
 parted -s "$NBD_DEV" mkpart bios_grub 1MiB 2MiB
 parted -s "$NBD_DEV" set 1 bios_grub on
-parted -s "$NBD_DEV" mkpart root ext4 2MiB 100%
+parted -s "$NBD_DEV" mkpart ESP fat32 2MiB 514MiB
+parted -s "$NBD_DEV" set 2 esp on
+parted -s "$NBD_DEV" mkpart root ext4 514MiB 100%
 
 # Wait for partition devices
 sleep 1
@@ -101,11 +103,12 @@ partprobe "$NBD_DEV" 2>/dev/null || true
 sleep 1
 
 # ============================================================================
-# Step 4: Format root partition
+# Step 4: Format partitions
 # ============================================================================
 
-log "Formatting root partition..."
-mkfs.ext4 -L intergenos "${NBD_DEV}p2"
+log "Formatting partitions..."
+mkfs.fat -F32 -n ESP "${NBD_DEV}p2"
+mkfs.ext4 -L intergenos "${NBD_DEV}p3"
 
 # ============================================================================
 # Step 5: Mount and copy chroot contents
@@ -113,7 +116,7 @@ mkfs.ext4 -L intergenos "${NBD_DEV}p2"
 
 log "Mounting image and copying chroot..."
 mkdir -p "$MOUNT_POINT"
-mount "${NBD_DEV}p2" "$MOUNT_POINT"
+mount "${NBD_DEV}p3" "$MOUNT_POINT"
 
 # Use tar to preserve everything correctly
 # --one-file-system avoids copying virtual filesystems (/proc, /sys, etc.)
@@ -128,8 +131,9 @@ log "  Copy complete: $(du -sh "$MOUNT_POINT" | cut -f1)"
 log "Writing /etc/fstab..."
 cat > "${MOUNT_POINT}/etc/fstab" << 'EOF'
 # /etc/fstab — InterGenOS
-# <file system>  <mount point>  <type>  <options>         <dump>  <pass>
-/dev/vda2         /              ext4    defaults          1       1
+# <file system>  <mount point>  <type>  <options>              <dump>  <pass>
+/dev/vda3         /              ext4    defaults,noatime       1       1
+/dev/vda2         /boot/efi      vfat    fmask=0077,dmask=0077  0       2
 EOF
 
 # ============================================================================
@@ -154,7 +158,11 @@ EOF
 # Step 8: Install GRUB bootloader
 # ============================================================================
 
-log "Installing GRUB..."
+log "Installing GRUB (BIOS + EFI)..."
+
+# Mount ESP
+mkdir -p "${MOUNT_POINT}/boot/efi"
+mount "${NBD_DEV}p2" "${MOUNT_POINT}/boot/efi"
 
 # Bind mount host filesystems into the image
 mount --bind /dev "${MOUNT_POINT}/dev"
@@ -162,17 +170,22 @@ mount --bind /dev/pts "${MOUNT_POINT}/dev/pts"
 mount -t proc proc "${MOUNT_POINT}/proc"
 mount -t sysfs sysfs "${MOUNT_POINT}/sys"
 
-# Install GRUB to the disk (BIOS/i386-pc mode)
+# Install GRUB for BIOS boot
 chroot "$MOUNT_POINT" grub-install --target=i386-pc "$NBD_DEV"
+
+# Install GRUB for EFI boot
+chroot "$MOUNT_POINT" grub-install --target=x86_64-efi \
+    --efi-directory=/boot/efi --bootloader-id=InterGenOS --removable
 
 # Generate GRUB config
 chroot "$MOUNT_POINT" grub-mkconfig -o /boot/grub/grub.cfg
 
-# Unmount bind mounts
+# Unmount bind mounts and ESP
 umount "${MOUNT_POINT}/sys"
 umount "${MOUNT_POINT}/proc"
 umount "${MOUNT_POINT}/dev/pts"
 umount "${MOUNT_POINT}/dev"
+umount "${MOUNT_POINT}/boot/efi"
 
 # ============================================================================
 # Step 8b: Apply post-deploy fixes for VM boot
@@ -207,11 +220,13 @@ NETEOF
 # Set up DNS resolution via systemd-resolved
 ln -sf /run/systemd/resolve/stub-resolv.conf "${MOUNT_POINT}/etc/resolv.conf"
 
-# Set root password for initial access (no expiry for testing)
-chroot "$MOUNT_POINT" /bin/bash -c '
-    chpasswd <<< "root:intergenos"
-    passwd -x 99999 root
-'
+# Set root password — override with ROOT_PASSWORD env var
+IMAGE_ROOT_PASSWORD="${ROOT_PASSWORD:-intergenos}"
+if [ "$IMAGE_ROOT_PASSWORD" = "intergenos" ]; then
+    log "  WARNING: Using default root password — set ROOT_PASSWORD env var for production"
+fi
+echo "root:${IMAGE_ROOT_PASSWORD}" | chroot "$MOUNT_POINT" chpasswd
+chroot "$MOUNT_POINT" passwd -x 99999 root
 
 log "  Post-deploy fixes applied (serial console, networking, DNS, root password)"
 

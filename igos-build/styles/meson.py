@@ -15,7 +15,9 @@ class MesonStyle(BuildStyle):
 
     def configure(self, pkg: Package) -> BuildPhase:
         flags = " \\\n    ".join(pkg.configure_flags) if pkg.configure_flags else ""
-        base = "meson setup build --prefix=/usr --libdir=/usr/lib --buildtype=release"
+        # --wrap-mode=nodownload prevents meson from fetching subprojects
+        # at configure time, enforcing the offline chroot build model
+        base = "meson setup build --prefix=/usr --libdir=/usr/lib --buildtype=release --wrap-mode=nodownload"
 
         if flags:
             cmd = f"{base} \\\n    {flags}"

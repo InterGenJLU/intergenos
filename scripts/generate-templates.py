@@ -217,11 +217,19 @@ def generate_package_yml(pkg: dict, tier: str) -> str:
 
 def generate_build_sh(pkg: dict) -> str:
     """Generate build.sh content based on build_style."""
+    import re
     style = pkg.get("build_style", "autotools")
     name = pkg["name"]
     version = str(pkg["version"])
     description = pkg.get("description", "")
     source = pkg.get("source_note", "BLFS 13.0")
+
+    # Validate package name and version against shell injection.
+    # These appear in comments, but defense in depth.
+    if not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9._+\-]*$', name):
+        raise ValueError(f"Invalid package name (shell-unsafe characters): {name!r}")
+    if not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9._+\-]*$', version):
+        raise ValueError(f"Invalid version (shell-unsafe characters): {version!r}")
 
     # Pre-configure commands
     pre_configure = pkg.get("pre_configure", "").strip()

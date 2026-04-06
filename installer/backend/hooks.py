@@ -10,25 +10,25 @@ def mount_virtual_fs(target):
     target = str(target)
 
     mounts = [
-        (f"mount --bind /dev {target}/dev", f"{target}/dev"),
-        (f"mount --bind /dev/pts {target}/dev/pts", f"{target}/dev/pts"),
-        (f"mount -t proc proc {target}/proc", f"{target}/proc"),
-        (f"mount -t sysfs sysfs {target}/sys", f"{target}/sys"),
-        (f"mount -t tmpfs tmpfs {target}/run", f"{target}/run"),
+        (["mount", "--bind", "/dev", f"{target}/dev"], f"{target}/dev"),
+        (["mount", "--bind", "/dev/pts", f"{target}/dev/pts"], f"{target}/dev/pts"),
+        (["mount", "-t", "proc", "proc", f"{target}/proc"], f"{target}/proc"),
+        (["mount", "-t", "sysfs", "sysfs", f"{target}/sys"], f"{target}/sys"),
+        (["mount", "-t", "tmpfs", "tmpfs", f"{target}/run"], f"{target}/run"),
     ]
 
     for cmd, mountpoint in mounts:
         os.makedirs(mountpoint, exist_ok=True)
-        subprocess.run(cmd, shell=True, capture_output=True)
+        subprocess.run(cmd, capture_output=True, check=True)
 
 
 def unmount_virtual_fs(target):
-    """Unmount virtual filesystems from target."""
+    """Unmount virtual filesystems from target (reverse order)."""
     target = str(target)
 
     for sub in ["run", "sys", "proc", "dev/pts", "dev"]:
-        subprocess.run(f"umount {target}/{sub}",
-                       shell=True, capture_output=True)
+        subprocess.run(["umount", f"{target}/{sub}"],
+                       capture_output=True)
 
 
 def run_chroot(target, command):
@@ -36,6 +36,19 @@ def run_chroot(target, command):
     result = subprocess.run(
         ["chroot", str(target), "/bin/bash", "-c", command],
         capture_output=True, text=True
+    )
+    return result.returncode, result.stdout, result.stderr
+
+
+def run_chroot_stdin(target, command, input_data):
+    """Run a command inside a chroot, feeding data via stdin.
+
+    Use this instead of shell echo pipes for sensitive data (passwords)
+    to avoid process table exposure.
+    """
+    result = subprocess.run(
+        ["chroot", str(target), "/bin/bash", "-c", command],
+        input=input_data, capture_output=True, text=True
     )
     return result.returncode, result.stdout, result.stderr
 

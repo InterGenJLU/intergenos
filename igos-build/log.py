@@ -29,6 +29,15 @@ class BuildLogger:
         self._phase_start = None
         self._build_start = None
 
+    def __del__(self):
+        """Ensure log file is closed on garbage collection."""
+        if self._file:
+            try:
+                self._file.close()
+            except Exception:
+                pass
+            self._file = None
+
     def start_package(self, name: str, version: str, style: str):
         """Open a log file for a new package build."""
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")

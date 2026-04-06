@@ -18,9 +18,10 @@ from pathlib import Path
 from .parser import Package
 from .styles import get_style
 from .log import BuildLogger, SummaryLogger
+from .tracker import PackageTracker
 
 
-class BuildExecutor:
+class BuildExecutor(PackageTracker):
     """Executes package builds with full logging and validation.
 
     Directory layout during builds:
@@ -164,7 +165,8 @@ class BuildExecutor:
             return proc.returncode
 
         except Exception as e:
-            self.logger.error(f"command execution failed: {e}")
+            import traceback
+            self.logger.error(f"command execution failed: {e}\n{traceback.format_exc()}")
             return 1
 
     def extract_source(self, pkg: Package, pkg_work_dir: Path) -> Path | None:
@@ -182,16 +184,16 @@ class BuildExecutor:
         tarball_path = self.sources_dir / tarball_name
 
         if not tarball_path.exists():
-            self.logger.info(f"Source not found locally: {tarball_name}")
-            self.logger.info(f"Downloading: {primary.url}")
-            exit_code = self.run_command(
-                f'wget -q --show-progress -O "{tarball_path}" "{primary.url}"',
-                env=os.environ.copy(),
-                cwd=self.sources_dir,
+            # Hard-fail if source is missing. The build runs in an offline
+            # chroot — network downloads are not available. Run
+            # download-sources.py on the host first.
+            self.logger.error(
+                f"Source not found: {tarball_name}\n"
+                f"  Expected at: {tarball_path}\n"
+                f"  URL: {primary.url}\n"
+                f"  Run 'python3 scripts/download-sources.py' on the host to fetch missing sources."
             )
-            if exit_code != 0:
-                self.logger.error(f"Failed to download {primary.url}")
-                return None
+            return None
         else:
             self.logger.info(f"Source cached: {tarball_name}")
 
@@ -220,10 +222,21 @@ class BuildExecutor:
 
         self.logger.info(f"Extracting to {src_dir}")
         # Use Python zipfile for .zip, lzip for .lz, tar for everything else
+        # All extraction uses hardened flags to prevent path traversal,
+        # symlink attacks, and UID/GID injection.
+        TAR_SAFETY = "--no-same-owner --no-same-permissions"
         if str(tarball_path).endswith('.zip'):
             import zipfile
             try:
                 with zipfile.ZipFile(str(tarball_path)) as zf:
+                    # Validate members before extraction — reject path traversal
+                    for member in zf.namelist():
+                        resolved = (src_dir / member).resolve()
+                        if not str(resolved).startswith(str(src_dir.resolve())):
+                            self.logger.error(
+                                f"SECURITY: zip member '{member}' escapes extraction root — rejecting archive"
+                            )
+                            return None
                     zf.extractall(str(src_dir))
                 # Strip one component level if there's a single top-level dir
                 entries = list(src_dir.iterdir())
@@ -235,12 +248,14 @@ class BuildExecutor:
                 exit_code = 0
             except Exception as e:
                 self.logger.error(f"Failed to extract zip: {e}")
+                import traceback
+                self.logger.error(traceback.format_exc())
                 exit_code = 1
         elif str(tarball_path).endswith('.lz'):
-            extract_cmd = f'tar --lzip -xf "{tarball_path}" -C "{src_dir}" --strip-components=1'
+            extract_cmd = f'tar --lzip -xf "{tarball_path}" -C "{src_dir}" --strip-components=1 {TAR_SAFETY}'
             exit_code = self.run_command(extract_cmd, env=os.environ.copy(), cwd=pkg_work_dir)
         else:
-            extract_cmd = f'tar -xf "{tarball_path}" -C "{src_dir}" --strip-components=1'
+            extract_cmd = f'tar -xf "{tarball_path}" -C "{src_dir}" --strip-components=1 {TAR_SAFETY}'
             exit_code = self.run_command(extract_cmd, env=os.environ.copy(), cwd=pkg_work_dir)
         if exit_code != 0:
             self.logger.error(f"Failed to extract {tarball_name}")
@@ -261,7 +276,7 @@ class BuildExecutor:
                     dest.mkdir(parents=True, exist_ok=True)
                     self.logger.info(f"Extracting bundled dep: {dep_name} -> {dest}")
                     exit_code = self.run_command(
-                        f'tar -xf "{dep_tarball}" -C "{dest}" --strip-components=1',
+                        f'tar -xf "{dep_tarball}" -C "{dest}" --strip-components=1 {TAR_SAFETY}',
                         env=os.environ.copy(),
                         cwd=pkg_work_dir,
                     )
@@ -290,16 +305,21 @@ class BuildExecutor:
             self.logger.info(f"  Check: {check.description} [{check.type}]")
 
             if check.script:
-                exit_code = self.run_command(check.script, env, cwd)
-
                 if check.expect_contains:
-                    # Re-run and capture output for content check
+                    # Run once with output capture for content check
                     result = subprocess.run(
                         check.script,
                         shell=True, executable="/bin/bash",
                         capture_output=True, text=True,
                         env=env, cwd=str(cwd),
                     )
+                    # Log the output (mirrors what run_command does)
+                    self.logger.command(check.script)
+                    if result.stdout:
+                        self.logger.output(result.stdout)
+                    if result.stderr:
+                        self.logger.output(result.stderr)
+
                     if check.expect_contains not in result.stdout:
                         self.logger.error(
                             f"Validation failed: expected output to contain '{check.expect_contains}'\n"
@@ -308,279 +328,17 @@ class BuildExecutor:
                         )
                         if check.fatal:
                             return False
+                else:
+                    # No content check needed — just run and check exit code
+                    exit_code = self.run_command(check.script, env, cwd)
 
-                elif exit_code != 0:
+                    if exit_code != 0:
                     self.logger.error(f"Validation script exited with code {exit_code}")
                     if check.fatal:
                         return False
 
             self.logger.info(f"  Check passed: {check.description}")
 
-        return True
-
-    # ------------------------------------------------------------------
-    # Package tracking (--tracked mode)
-    # ------------------------------------------------------------------
-
-    def pkg_manifest(self, pkg: Package, staging_dir: Path) -> bool:
-        """Generate a Slackware-style manifest from staged files.
-
-        Writes: /var/lib/igos/packages/<name>-<version>
-        """
-        manifest_path = self.pkg_db / f"{pkg.name}-{pkg.version}"
-
-        file_list = []
-        for root, dirs, files in os.walk(staging_dir):
-            for d in sorted(dirs):
-                rel = os.path.relpath(os.path.join(root, d), staging_dir)
-                file_list.append(rel + "/")
-            for f in sorted(files):
-                rel = os.path.relpath(os.path.join(root, f), staging_dir)
-                file_list.append(rel)
-
-        if not file_list:
-            self.logger.error(f"Staging produced no files for {pkg.name}-{pkg.version}")
-            return False
-
-        # Calculate size
-        total_size = sum(
-            os.path.getsize(os.path.join(root, f))
-            for root, _, files in os.walk(staging_dir)
-            for f in files
-            if os.path.isfile(os.path.join(root, f))
-        )
-        human_size = f"{total_size / 1024 / 1024:.1f}M" if total_size > 1024*1024 else f"{total_size / 1024:.0f}K"
-
-        from datetime import datetime, timezone
-        manifest_content = (
-            f"PACKAGE NAME: {pkg.name}-{pkg.version}\n"
-            f"PACKAGE VERSION: {pkg.version}\n"
-            f"UNCOMPRESSED SIZE: {human_size} ({total_size} bytes)\n"
-            f"BUILD DATE: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}\n"
-            f"BUILD SYSTEM: InterGenOS igos-build\n"
-            f"DESCRIPTION:\n"
-            f"{pkg.name}: {pkg.description}\n"
-            f"\n"
-            f"FILE LIST:\n"
-        )
-        manifest_content += "\n".join(file_list) + "\n"
-
-        manifest_path.write_text(manifest_content)
-        self.logger.info(f"Manifest: {manifest_path} ({len(file_list)} entries)")
-        return True
-
-    def pkg_archive(self, pkg: Package, staging_dir: Path) -> bool:
-        """Create a .igos.tar.gz archive from staged files.
-
-        Creates: /var/lib/igos/archives/<name>-<version>.igos.tar.gz
-        """
-        archive_path = self.pkg_archives / f"{pkg.name}-{pkg.version}.igos.tar.gz"
-
-        result = subprocess.run(
-            ["tar", "-C", str(staging_dir), "-czf", str(archive_path), "."],
-            capture_output=True, text=True,
-        )
-        if result.returncode != 0:
-            self.logger.error(f"Archive creation failed: {result.stderr}")
-            return False
-
-        archive_size = archive_path.stat().st_size
-        human = f"{archive_size / 1024 / 1024:.1f}M" if archive_size > 1024*1024 else f"{archive_size / 1024:.0f}K"
-        self.logger.info(f"Archive: {archive_path} ({human})")
-        return True
-
-    def pkg_deploy(self, pkg: Package, staging_dir: Path) -> bool:
-        """Deploy staged files to the live filesystem using tar.
-
-        Safety: pre-checks for top-level entries that would collide with
-        root-level symlinks (lib -> usr/lib, bin -> usr/bin, etc.).
-        A package staging a real directory over one of these symlinks
-        would kill the dynamic linker and break every binary on the system.
-        """
-        # Pre-deploy safety check: detect staging entries that would clobber
-        # load-bearing root symlinks (lib -> usr/lib, bin -> usr/bin, etc.)
-        dangerous = []
-        for entry in ("lib", "lib64", "bin", "sbin"):
-            staged = staging_dir / entry
-            root_path = Path("/") / entry
-            # Only flag real directories — symlinks in staging are intentional
-            # (we create them in build_env to mirror the live filesystem layout)
-            if staged.is_dir() and not staged.is_symlink() and root_path.is_symlink():
-                dangerous.append(entry)
-
-        if dangerous:
-            self.logger.error(
-                f"DANGEROUS: {pkg.name}-{pkg.version} staging contains top-level "
-                f"dirs that would collide with root symlinks: {' '.join(dangerous)}\n"
-                f"  Fix the package build.sh to install to usr/ paths instead"
-            )
-            return False
-
-        result = subprocess.run(
-            ["tar", "-C", str(staging_dir), "-cf", "-", "."],
-            capture_output=True,
-        )
-        if result.returncode != 0:
-            self.logger.error(f"Deploy tar-create failed: {result.stderr.decode()}")
-            return False
-
-        result2 = subprocess.run(
-            ["tar", "-C", "/", "-xf", "-",
-             "--no-overwrite-dir", "--keep-directory-symlink"],
-            input=result.stdout,
-            capture_output=True,
-        )
-        if result2.returncode != 0:
-            self.logger.error(f"Deploy tar-extract failed: {result2.stderr.decode()}")
-            return False
-
-        self.logger.info(f"Deployed {pkg.name}-{pkg.version} to live filesystem")
-
-        # Clean up staging directory
-        shutil.rmtree(staging_dir, ignore_errors=True)
-        return True
-
-    def pkg_verify(self, pkg: Package) -> bool:
-        """Verify every file in the manifest exists on the live filesystem.
-
-        Reads: /var/lib/igos/packages/<name>-<version>
-        Returns True if all files are present, False if any are missing.
-        """
-        manifest_path = self.pkg_db / f"{pkg.name}-{pkg.version}"
-        if not manifest_path.exists():
-            self.logger.error(f"Manifest not found: {manifest_path}")
-            return False
-
-        content = manifest_path.read_text()
-        in_file_list = False
-        missing = []
-
-        for line in content.splitlines():
-            if line == "FILE LIST:":
-                in_file_list = True
-                continue
-            if in_file_list and line.strip():
-                # Skip directories (trailing /), only verify files
-                if line.endswith("/"):
-                    continue
-                filepath = "/" + line
-                if not os.path.lexists(filepath):
-                    missing.append(filepath)
-
-        if missing:
-            self.logger.error(
-                f"Manifest verification FAILED for {pkg.name}-{pkg.version}:\n"
-                + "\n".join(f"  MISSING: {f}" for f in missing[:20])
-            )
-            if len(missing) > 20:
-                self.logger.error(f"  ... and {len(missing) - 20} more")
-            return False
-
-        self.logger.info("Manifest verified: all files present on live filesystem")
-        return True
-
-    # ------------------------------------------------------------------
-    # Direct install tracking (filesystem diff)
-    # ------------------------------------------------------------------
-
-    def fs_snapshot(self, dirs: list[str] | None = None) -> set[str]:
-        """Snapshot all files and symlinks under key system directories.
-
-        Captures regular files, symlinks (both file and directory symlinks),
-        and any other non-directory entries. Returns a set of paths for diffing.
-        """
-        if dirs is None:
-            dirs = ["/usr", "/etc", "/opt", "/var/lib", "/lib"]
-        snapshot = set()
-        for d in dirs:
-            if not os.path.isdir(d):
-                continue
-            for root, dirnames, files in os.walk(d, followlinks=False):
-                # Capture regular files and file symlinks
-                for f in files:
-                    snapshot.add(os.path.join(root, f))
-                # Capture directory symlinks (os.walk skips them by default)
-                for dn in dirnames:
-                    path = os.path.join(root, dn)
-                    if os.path.islink(path):
-                        snapshot.add(path)
-        return snapshot
-
-    def pkg_manifest_from_diff(self, pkg: Package, before: set[str], after: set[str]) -> bool:
-        """Generate manifest from filesystem diff (for direct_install packages).
-
-        Writes: /var/lib/igos/packages/<name>-<version>
-        """
-        new_files = sorted(after - before)
-
-        if not new_files:
-            self.logger.error(f"No new files detected for {pkg.name}-{pkg.version}")
-            return False
-
-        manifest_path = self.pkg_db / f"{pkg.name}-{pkg.version}"
-
-        # Build directory + file list
-        file_list = []
-        dirs_seen = set()
-        for filepath in new_files:
-            parts = Path(filepath).relative_to("/")
-            for i in range(1, len(parts.parts)):
-                parent = str(Path(*parts.parts[:i]))
-                if parent not in dirs_seen:
-                    dirs_seen.add(parent)
-                    file_list.append(parent + "/")
-            file_list.append(str(parts))
-
-        # Deduplicate and sort
-        file_list = sorted(set(file_list))
-
-        total_size = sum(
-            os.path.getsize(f) for f in new_files if os.path.isfile(f)
-        )
-        human_size = f"{total_size / 1024 / 1024:.1f}M" if total_size > 1024*1024 else f"{total_size / 1024:.0f}K"
-
-        from datetime import datetime, timezone
-        manifest_content = (
-            f"PACKAGE NAME: {pkg.name}-{pkg.version}\n"
-            f"PACKAGE VERSION: {pkg.version}\n"
-            f"UNCOMPRESSED SIZE: {human_size} ({total_size} bytes)\n"
-            f"BUILD DATE: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}\n"
-            f"BUILD SYSTEM: InterGenOS igos-build\n"
-            f"INSTALL MODE: direct (filesystem diff)\n"
-            f"DESCRIPTION:\n"
-            f"{pkg.name}: {pkg.description}\n"
-            f"\n"
-            f"FILE LIST:\n"
-        )
-        manifest_content += "\n".join(file_list) + "\n"
-
-        manifest_path.write_text(manifest_content)
-        self.logger.info(f"Manifest (diff): {manifest_path} ({len(new_files)} files, {len(dirs_seen)} dirs)")
-        return True
-
-    def pkg_archive_from_files(self, pkg: Package, new_files: list[str]) -> bool:
-        """Create .igos.tar.gz archive from a list of files on the live filesystem."""
-        archive_path = self.pkg_archives / f"{pkg.name}-{pkg.version}.igos.tar.gz"
-
-        import tempfile
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-            for filepath in new_files:
-                f.write(filepath.lstrip("/") + "\n")
-            filelist_path = f.name
-
-        result = subprocess.run(
-            ["tar", "-C", "/", "-czf", str(archive_path), "-T", filelist_path],
-            capture_output=True, text=True,
-        )
-        os.unlink(filelist_path)
-
-        if result.returncode != 0:
-            self.logger.error(f"Archive creation failed: {result.stderr}")
-            return False
-
-        archive_size = archive_path.stat().st_size
-        human = f"{archive_size / 1024 / 1024:.1f}M" if archive_size > 1024*1024 else f"{archive_size / 1024:.0f}K"
-        self.logger.info(f"Archive: {archive_path} ({human})")
         return True
 
     def build_package(self, pkg: Package) -> bool:
@@ -756,9 +514,25 @@ class BuildExecutor:
             if self.skip_built:
                 manifest = self.pkg_db / f"{pkg.name}-{pkg.version}"
                 if manifest.exists():
-                    self.logger.info(f"[{i}/{total}] Skipping {pkg.name} {pkg.version} (already tracked)")
-                    self.summary.record(pkg.name, pkg.version, True, 0, skipped=True)
-                    continue
+                    # Check if template has changed since last build
+                    # by comparing a hash of package.yml + build.sh
+                    rebuild_needed = False
+                    if pkg.template_path:
+                        import hashlib
+                        hasher = hashlib.sha256()
+                        for tpl_file in [pkg.template_path, pkg.template_path.parent / "build.sh"]:
+                            if tpl_file.exists():
+                                hasher.update(tpl_file.read_bytes())
+                        current_hash = hasher.hexdigest()[:16]
+                        # Check if manifest contains our hash marker
+                        manifest_text = manifest.read_text()
+                        if f"TEMPLATE_HASH: {current_hash}" not in manifest_text:
+                            self.logger.info(f"[{i}/{total}] Rebuilding {pkg.name} {pkg.version} (template changed)")
+                            rebuild_needed = True
+                    if not rebuild_needed:
+                        self.logger.info(f"[{i}/{total}] Skipping {pkg.name} {pkg.version} (already tracked)")
+                        self.summary.record(pkg.name, pkg.version, True, 0, skipped=True)
+                        continue
 
             self.logger.info(f"[{i}/{total}] Building {pkg.name} {pkg.version}...")
             success = self.build_package(pkg)

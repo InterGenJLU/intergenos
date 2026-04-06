@@ -98,7 +98,7 @@ def main():
     print("Building dependency graph...\n")
 
     try:
-        graph = build_graph(all_packages, strict=False)
+        graph = build_graph(all_packages, strict=True)
         order = graph.build_order()
         # Filter build order to only include requested tiers
         if tier_filter:

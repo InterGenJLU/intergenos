@@ -13,6 +13,7 @@
 
 set +h
 set -e
+set -o pipefail
 umask 022
 
 IGOS_SOURCES=/sources

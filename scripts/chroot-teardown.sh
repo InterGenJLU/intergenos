@@ -9,6 +9,18 @@
 
 IGOS=/mnt/igos
 
+# Defensive validation — if $IGOS is empty or "/", unmounting
+# would target host filesystems, which is catastrophic.
+if [ -z "$IGOS" ] || [ "$IGOS" = "/" ]; then
+    echo "ERROR: \$IGOS is empty or '/' — refusing to unmount host filesystems"
+    exit 1
+fi
+
+if [ ! -d "$IGOS" ]; then
+    echo "WARNING: $IGOS does not exist — nothing to unmount"
+    exit 0
+fi
+
 # Verify we're root
 if [ "$(id -u)" -ne 0 ]; then
     echo "ERROR: This script must be run as root."

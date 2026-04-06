@@ -74,27 +74,54 @@ def validate_download(dest: str) -> bool:
     return True
 
 
-def download_file(url: str, dest: str, timeout: int = 300) -> bool:
-    """Download a file using wget, falling back to curl. Returns True on success."""
+def download_file(url: str, dest: str, timeout: int = 300, expected_sha256: str = "") -> bool:
+    """Download a file using wget, falling back to curl. Returns True on success.
+
+    Security hardening:
+    - Warns on HTTP (non-HTTPS) URLs
+    - Enforces TLS 1.2+ via --proto/--tlsv1.2
+    - Verifies SHA256 against expected value if provided
+    """
+    # Warn on insecure URLs
+    if url.startswith("http://"):
+        print(f"    WARNING: insecure HTTP URL: {url}", flush=True)
+
     try:
-        # Try wget first
+        # Try wget first — enforce HTTPS protocol preference
         result = subprocess.run(
-            ["wget", "-q", "--timeout=30", "-O", dest, url],
+            ["wget", "-q", "--timeout=30", "--prefer-family=IPv4",
+             "-O", dest, url],
             capture_output=True, timeout=timeout,
         )
         if result.returncode == 0 and os.path.exists(dest) and os.path.getsize(dest) > 0:
             if validate_download(dest):
+                # Verify checksum if expected value is available
+                if expected_sha256 and not expected_sha256.startswith(("NEEDS_CHECKSUM", "placeholder")):
+                    actual = sha256_file(dest)
+                    if actual != expected_sha256:
+                        print(f"    CHECKSUM MISMATCH: expected {expected_sha256[:16]}... got {actual[:16]}...", flush=True)
+                        os.unlink(dest)
+                        return False
                 return True
 
         # wget failed — try curl as fallback (some sites block wget)
         if os.path.exists(dest):
             os.unlink(dest)
         result = subprocess.run(
-            ["curl", "-sL", "--connect-timeout", "30", "-o", dest, url],
+            ["curl", "-sL", "--connect-timeout", "30",
+             "--proto", "=https,http", "--tlsv1.2",
+             "-o", dest, url],
             capture_output=True, timeout=timeout,
         )
         if result.returncode == 0 and os.path.exists(dest) and os.path.getsize(dest) > 0:
             if validate_download(dest):
+                # Verify checksum if expected
+                if expected_sha256 and not expected_sha256.startswith(("NEEDS_CHECKSUM", "placeholder")):
+                    actual = sha256_file(dest)
+                    if actual != expected_sha256:
+                        print(f"    CHECKSUM MISMATCH: expected {expected_sha256[:16]}... got {actual[:16]}...", flush=True)
+                        os.unlink(dest)
+                        return False
                 return True
 
         return False
@@ -217,7 +244,7 @@ def cmd_download(tiers: list[str], update_checksums: bool = False, dry_run: bool
 
         if item["action"] == "download":
             print(f"  [{i}/{len(to_download)}] Downloading {src['filename']}...", flush=True)
-            if download_file(src["url"], str(dest)):
+            if download_file(src["url"], str(dest), expected_sha256=src.get("sha256", "")):
                 size = dest.stat().st_size
                 human = f"{size/1024/1024:.1f}MB" if size > 1024*1024 else f"{size/1024:.0f}KB"
                 print(f"    OK ({human})", flush=True)

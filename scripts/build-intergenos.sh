@@ -194,12 +194,22 @@ CURRENT_PHASE=""
 cleanup() {
     log ""
     log "!!! Build interrupted during phase: ${CURRENT_PHASE:-none}"
+    log "!!! Cleaning up..."
+
+    # Tear down chroot mounts to prevent host filesystem corruption
+    if [ -f "${SCRIPTS}/chroot-teardown.sh" ]; then
+        bash "${SCRIPTS}/chroot-teardown.sh" >/dev/null 2>&1 || true
+    fi
+
+    # Kill any child processes spawned by this build
+    pkill -P $$ 2>/dev/null || true
+
     log "!!! Resume with: sudo bash $0 --user $BUILD_USER --start-at ${CURRENT_PHASE:-validate}"
     log ""
     exit 130
 }
 
-trap cleanup SIGINT SIGTERM
+trap cleanup SIGINT SIGTERM SIGHUP
 
 # ==========================================================================
 # Phase runner

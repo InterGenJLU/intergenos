@@ -15,6 +15,7 @@ patches:
   sha256: 218c909581d0ca2c86c8145bb0797050d987a6b0ae3417949dbe2a6d55c49360
 dependencies:
   build:
+  - dbus
   - glib2
   - libdaemon
   - gtk3

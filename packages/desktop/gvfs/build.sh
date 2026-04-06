@@ -26,3 +26,8 @@ do_install() {
     cd build
     DESTDIR="$DESTDIR" ninja install
 }
+
+post_install() {
+    glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null || true
+    gio-querymodules /usr/lib/gio/modules 2>/dev/null || true
+}

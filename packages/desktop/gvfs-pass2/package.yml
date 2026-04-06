@@ -12,6 +12,7 @@ source:
   sha256: ad9d5bf0b45caf232520df0adee51eb650200b0370680f80a350ead9d1d61ddf
 dependencies:
   build:
+  - glib-networking
   - gvfs
   - gnome-online-accounts
   - libmsgraph

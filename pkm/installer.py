@@ -44,9 +44,12 @@ class PackageInstaller:
         # Extract to temp staging area for inspection
         staging = Path(tempfile.mkdtemp(prefix=f"pkm-{name}-"))
         try:
-            # Extract archive
+            # Extract archive with hardened flags:
+            # --no-same-owner: don't preserve UID/GID from archive
+            # --no-same-permissions: apply umask instead of archive perms
             result = subprocess.run(
-                ["tar", "-xzf", str(archive_path), "-C", str(staging)],
+                ["tar", "-xzf", str(archive_path), "-C", str(staging),
+                 "--no-same-owner", "--no-same-permissions"],
                 capture_output=True, text=True
             )
             if result.returncode != 0:

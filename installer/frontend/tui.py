@@ -267,8 +267,18 @@ class InstallerTUI:
         self.message(11, f"  Groups:    {', '.join(self.selected_groups)}")
 
         self.message(13, "ALL DATA ON THE SELECTED DISK WILL BE ERASED.", color=3)
+        self.message(14, f"  Model: {self.selected_disk.model or 'Unknown'}")
 
-        if not self.yes_no(15, "Begin installation?", default=False):
+        # Require typing the disk path to confirm — prevents accidental wipe
+        self.message(16, f"Type '{self.selected_disk.path}' to confirm, or 'q' to cancel:", color=1)
+        curses.echo()
+        self.stdscr.move(17, 2)
+        typed = self.stdscr.getstr(17, 2, 40).decode("utf-8", errors="replace").strip()
+        curses.noecho()
+
+        if typed != self.selected_disk.path:
+            self.message(19, "Input did not match. Installation cancelled.", color=3)
+            self.wait_key(21)
             return False
 
         return True
@@ -395,8 +405,11 @@ class InstallerTUI:
         self.wait_key(20, "Press any key to exit the installer.")
 
 
-def run_installer(archive_dir, packages_dir=None):
+def run_installer(archive_dir, packages_dir=None, dry_run=False):
     """Entry point — launch the TUI installer."""
+    if dry_run:
+        disks.set_dry_run(True)
+
     def _main(stdscr):
         tui = InstallerTUI(stdscr, archive_dir, packages_dir)
         tui.run()

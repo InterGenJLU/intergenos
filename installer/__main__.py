@@ -21,6 +21,8 @@ def main():
                         help="Path to .igos.tar.gz package archives")
     parser.add_argument("--packages",
                         help="Path to packages/ directory (for post-install hooks)")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Log all destructive commands without executing them")
     parser.add_argument("--version", action="version",
                         version="Forge 0.1.0 (InterGenOS Installer)")
 
@@ -40,7 +42,8 @@ def main():
         print("  sudo forge --archives /path/to/archives")
         sys.exit(1)
 
-    run_installer(str(archive_dir), str(packages_dir) if packages_dir else None)
+    run_installer(str(archive_dir), str(packages_dir) if packages_dir else None,
+                  dry_run=args.dry_run)
 
 
 if __name__ == "__main__":
