@@ -4,10 +4,7 @@
 # Requires pre-vendored Rust crates (glycin-2.0.8-vendor.tar.gz)
 
 configure() {
-    # Apply XBM/XPM support patch
-    patch -Np1 --forward -i "${IGOS_SOURCES}/glycin-2.0.8-xbm_xpm-1.patch" || true
-
-    # Extract pre-vendored Rust crates (vendored offline)
+    # Extract pre-vendored Rust crates FIRST (patch needs vendor/ directory)
     if [ -f "${IGOS_SOURCES}/glycin-2.0.8-vendor.tar.gz" ]; then
         tar xf "${IGOS_SOURCES}/glycin-2.0.8-vendor.tar.gz"
 
@@ -21,6 +18,10 @@ replace-with = "vendored-sources"
 directory = "vendor"
 CARGOEOF
     fi
+
+    # Apply XBM/XPM support patch AFTER vendor extraction
+    # (patch modifies files in vendor/ directory)
+    patch -Np1 --forward -i "${IGOS_SOURCES}/glycin-2.0.8-xbm_xpm-1.patch" || true
 
     export PATH="/opt/rustc/bin:$PATH"
 
