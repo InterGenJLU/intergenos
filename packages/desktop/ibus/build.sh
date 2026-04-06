@@ -3,6 +3,15 @@
 # BLFS 13.0
 
 configure() {
+    # Install Unicode Character Database if not already present
+    # ibus configure requires UCD files at /usr/share/unicode/ucd/
+    if [ ! -f /usr/share/unicode/ucd/NamesList.txt ]; then
+        if [ -f "${IGOS_SOURCES}/UCD.zip" ]; then
+            mkdir -p /usr/share/unicode/ucd
+            unzip -o "${IGOS_SOURCES}/UCD.zip" -d /usr/share/unicode/ucd
+        fi
+    fi
+
     # BLFS required fixes
     sed '/docs/d;/GTK_DOC/d' -i Makefile.am configure.ac
     # Fix deprecated GSettings schema path
@@ -34,11 +43,5 @@ do_install() {
 }
 
 post_install() {
-    # Install Unicode Character Database if available
-    if [ -f "${IGOS_SOURCES}/UCD.zip" ]; then
-        mkdir -p /usr/share/unicode/ucd
-        unzip -o "${IGOS_SOURCES}/UCD.zip" -d /usr/share/unicode/ucd
-    fi
-
     glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null || true
 }
