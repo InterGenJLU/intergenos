@@ -12,6 +12,7 @@ configure() {
           --prefix=/usr       \
           --libdir=/usr/lib   \
           --buildtype=release \
+          --wrap-mode=nofallback \
           -Dbroadway-backend=true \
           -Dintrospection=enabled \
           -Dvulkan=enabled
