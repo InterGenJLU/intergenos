@@ -103,12 +103,14 @@ Active development. Originally built in 2015-2016 (build_001 through build_003).
 
 - **2015:** build_001 — First LFS attempt
 - **2016:** build_002, build_003 — 83 packages, fully automated
-- **2016-2025:** Project shelved
-- **2026:** Revival — new build system, package manager (pkm), installer (forge), BLFS database, GNOME desktop, AI integration planned
+- **2016-2025:** Life happened. Project shelved.
+- **2026:** Revival. New build system, package manager (pkm), installer (forge), BLFS database, GNOME desktop, and the conviction that a from-source distribution can be both deeply educational and genuinely accessible.
 
 ## Acknowledgments
 
-InterGenOS is built on the foundation of [Linux From Scratch](https://www.linuxfromscratch.org/) (LFS 13.0) and [Beyond Linux From Scratch](https://www.linuxfromscratch.org/blfs/) (BLFS 13.0). See [CREDITS](CREDITS) for full attribution.
+InterGenOS is built on the foundation of [Linux From Scratch](https://www.linuxfromscratch.org/) (LFS 13.0) and [Beyond Linux From Scratch](https://www.linuxfromscratch.org/blfs/) (BLFS 13.0). The LFS project and its contributors have made from-source Linux building accessible and educational for over two decades. This project would not exist without their work.
+
+All included packages carry their own licenses as tracked in their package templates. See [CREDITS](CREDITS) for full attribution.
 
 ## License
 
