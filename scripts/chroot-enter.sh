@@ -39,8 +39,28 @@ fi
 # Number of cores for parallel builds
 JOBS=$(nproc)
 
-# Capture host timezone before entering chroot
-HOST_TZ="$(cat /etc/timezone 2>/dev/null || echo UTC)"
+# Capture host timezone for use inside chroot.
+# The chroot has no zoneinfo database until glibc Ch.8, so Olson names
+# like "America/Chicago" resolve to UTC. Instead, compute a POSIX TZ
+# string (e.g., "CST6CDT") on the host where zoneinfo exists, and pass
+# that in. POSIX TZ strings work without any zoneinfo files.
+HOST_TZ_OLSON="$(cat /etc/timezone 2>/dev/null || echo UTC)"
+HOST_TZ_POSIX="$(TZ="$HOST_TZ_OLSON" date +%Z 2>/dev/null || echo UTC)"
+# Build a POSIX offset string: e.g., CST6CDT or EST5EDT
+# date +%z gives offset like -0500, convert to hours
+HOST_OFFSET="$(TZ="$HOST_TZ_OLSON" date +%z 2>/dev/null || echo +0000)"
+OFFSET_SIGN="${HOST_OFFSET:0:1}"
+OFFSET_HH="${HOST_OFFSET:1:2}"
+# POSIX TZ offsets are inverted: UTC-5 is expressed as XXX5
+# Strip leading zero for POSIX format
+OFFSET_NUM=$((10#$OFFSET_HH))
+if [ "$OFFSET_SIGN" = "-" ]; then
+    POSIX_OFFSET="$OFFSET_NUM"
+else
+    POSIX_OFFSET="-$OFFSET_NUM"
+fi
+# Use the abbreviated zone name with the offset
+HOST_TZ="${HOST_TZ_POSIX}${POSIX_OFFSET}"
 
 # Enter the chroot with a clean environment
 # env -i clears ALL host environment variables
