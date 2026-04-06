@@ -11,7 +11,8 @@ configure() {
           --libdir=/usr/lib   \
           --buildtype=release \
           -Ddocumentation=disabled \
-          -Dman-pages=disabled
+          -Dman-pages=disabled \
+          -Dtests=disabled
 }
 
 build() {
