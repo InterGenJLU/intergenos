@@ -40,12 +40,14 @@ log ""
 
 if ! python3 -c "import yaml" 2>/dev/null; then
     log "  Installing PyYAML..."
-    PYYAML_TAR=$(ls ${IGOS_SOURCES}/pyyaml-*.tar.gz 2>/dev/null | head -1)
+    PYYAML_TAR=$(find ${IGOS_SOURCES} -maxdepth 1 \( -name 'PyYAML-*.tar.gz' -o -name 'pyyaml-*.tar.gz' \) 2>/dev/null | head -1)
     if [ -n "$PYYAML_TAR" ]; then
         TMPDIR=$(mktemp -d)
         tar -xzf "$PYYAML_TAR" -C "$TMPDIR" --strip-components=1
-        cd "$TMPDIR" && python3 setup.py install 2>&1 | tail -3
-        cd / && rm -rf "$TMPDIR"
+        SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
+        cp -r "$TMPDIR/lib/yaml" "$SITE/"
+        cp -r "$TMPDIR/lib/_yaml" "$SITE/" 2>/dev/null || true
+        rm -rf "$TMPDIR"
     fi
 fi
 

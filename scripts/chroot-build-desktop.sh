@@ -50,7 +50,7 @@ else
 
     # Python 3.14 ships without setuptools — bootstrap it first if needed
     if ! python3 -c "import setuptools" 2>/dev/null; then
-        SETUPTOOLS_TAR=$(ls ${IGOS_SOURCES}/setuptools-*.tar.gz 2>/dev/null | head -1)
+        SETUPTOOLS_TAR=$(find ${IGOS_SOURCES} -maxdepth 1 -name 'setuptools-*.tar.gz' 2>/dev/null | head -1)
         if [ -n "$SETUPTOOLS_TAR" ]; then
             log "  Bootstrapping setuptools from $SETUPTOOLS_TAR..."
             SETUPTOOLS_WORK=$(mktemp -d)
@@ -71,7 +71,7 @@ else
         fi
     fi
 
-    PYYAML_TAR=$(ls ${IGOS_SOURCES}/PyYAML-*.tar.gz ${IGOS_SOURCES}/pyyaml-*.tar.gz 2>/dev/null | head -1)
+    PYYAML_TAR=$(find ${IGOS_SOURCES} -maxdepth 1 \( -name 'PyYAML-*.tar.gz' -o -name 'pyyaml-*.tar.gz' \) 2>/dev/null | head -1)
     if [ -z "$PYYAML_TAR" ]; then
         log "ERROR: No PyYAML tarball found in $IGOS_SOURCES"
         exit 1
