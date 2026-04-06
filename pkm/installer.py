@@ -12,8 +12,9 @@ from .database import PackageDB, ARCHIVE_DIR, MANIFEST_DIR, _sha256
 class PackageInstaller:
     """Install packages from pre-built archives."""
 
-    def __init__(self, db: PackageDB):
+    def __init__(self, db: PackageDB, root="/"):
         self.db = db
+        self.root = Path(root)
 
     def install(self, name, archive_path=None):
         """Install a package from its .igos.tar.gz archive.
@@ -66,7 +67,7 @@ class PackageInstaller:
             dangerous = []
             for entry in ("lib", "lib64", "bin", "sbin"):
                 staged = staging / entry
-                root_path = Path("/") / entry
+                root_path = self.root / entry
                 if staged.is_dir() and not staged.is_symlink() and root_path.is_symlink():
                     dangerous.append(entry)
             if dangerous:
@@ -75,9 +76,9 @@ class PackageInstaller:
                     f"collide with root symlinks: {' '.join(dangerous)}"
                 )
 
-            # Deploy to live filesystem
+            # Deploy to target filesystem
             result = subprocess.run(
-                ["tar", "-xzf", str(archive_path), "-C", "/",
+                ["tar", "-xzf", str(archive_path), "-C", str(self.root),
                  "--no-overwrite-dir", "--keep-directory-symlink"],
                 capture_output=True, text=True
             )
@@ -124,12 +125,13 @@ class PackageInstaller:
 
     def _write_manifest(self, name, version, file_list):
         """Write a text manifest alongside the SQLite entry."""
-        MANIFEST_DIR.mkdir(parents=True, exist_ok=True)
-        manifest_path = MANIFEST_DIR / f"{name}-{version}"
+        manifest_dir = self.root / "var" / "lib" / "igos" / "packages"
+        manifest_dir.mkdir(parents=True, exist_ok=True)
+        manifest_path = manifest_dir / f"{name}-{version}"
 
         total_size = sum(
-            os.path.getsize("/" + f) for f in file_list
-            if not f.endswith("/") and os.path.isfile("/" + f)
+            os.path.getsize(str(self.root / f)) for f in file_list
+            if not f.endswith("/") and os.path.isfile(str(self.root / f))
         )
         human_size = f"{total_size / 1024 / 1024:.1f}M" if total_size > 1024*1024 else f"{total_size / 1024:.0f}K"
 
