@@ -80,7 +80,7 @@ else
     TMPDIR=$(mktemp -d)
     tar -xzf "$PYYAML_TAR" -C "$TMPDIR" --strip-components=1
     cd "$TMPDIR"
-    python3 setup.py install 2>&1 | tail -5
+    python3 setup.py install --prefix=/usr 2>&1 || true
     cd /
     rm -rf "$TMPDIR"
 

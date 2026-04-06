@@ -351,9 +351,9 @@ class BuildExecutor(PackageTracker):
                     exit_code = self.run_command(check.script, env, cwd)
 
                     if exit_code != 0:
-                    self.logger.error(f"Validation script exited with code {exit_code}")
-                    if check.fatal:
-                        return False
+                        self.logger.error(f"Validation script exited with code {exit_code}")
+                        if check.fatal:
+                            return False
 
             self.logger.info(f"  Check passed: {check.description}")
 
