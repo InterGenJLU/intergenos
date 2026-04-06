@@ -11,6 +11,7 @@ source:
 - url: https://files.pythonhosted.org/packages/source/a/argcomplete/argcomplete-${version}.tar.gz
   sha256: 62e8ed4fd6a45864acc8235409461b72c9a28ee785a2011cc5eb78318786c89c
 dependencies:
-  build: []
+  build:
+  - hatchling
   host: []
   runtime: []
