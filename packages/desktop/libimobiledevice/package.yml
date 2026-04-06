@@ -11,7 +11,8 @@ source:
 - url: https://github.com/libimobiledevice/libimobiledevice/releases/download/${version}/libimobiledevice-${version}.tar.bz2
   sha256: 23cc0077e221c7d991bd0eb02150a0d49199bcca1ddf059edccee9ffd914939d
 dependencies:
-  build: []
+  build:
+  - libtatsu
   host: []
   runtime:
   - libplist
