@@ -12,6 +12,7 @@ source:
   sha256: c1666ec50561530be25cb88d939c2bcc2af34f01c63b8b16b82b892ee33d7855
 dependencies:
   build:
+  - argcomplete
   - at-spi2-core
   - glycin
   - graphene

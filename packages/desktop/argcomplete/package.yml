@@ -1,0 +1,16 @@
+name: argcomplete
+version: "3.6.3"
+release: 1
+description: Python tab-completion for argparse
+license: Apache-2.0
+homepage: https://github.com/kislyuk/argcomplete
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/a/argcomplete/argcomplete-${version}.tar.gz
+  sha256: 62e8ed4fd6a45864acc8235409461b72c9a28ee785a2011cc5eb78318786c89c
+dependencies:
+  build: []
+  host: []
+  runtime: []
