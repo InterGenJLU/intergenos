@@ -19,6 +19,7 @@ configure() {
           -D platforms=x11,wayland \
           -D gallium-drivers=auto  \
           -D vulkan-drivers=auto   \
+          -D vulkan-rust=false      \
           -D valgrind=disabled     \
           -D video-codecs=all      \
           -D libunwind=disabled
