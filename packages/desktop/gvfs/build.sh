@@ -16,7 +16,8 @@ configure() {
           -Dafc=false \
           -Dmtp=false \
           -Dnfs=false \
-          -Ddnssd=false
+          -Ddnssd=false \
+          -Dgoa=false
 }
 
 build() {
