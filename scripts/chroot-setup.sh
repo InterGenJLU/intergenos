@@ -104,16 +104,35 @@ else
 fi
 
 # --- Timezone: match host ---
+# The chroot has no zoneinfo database until glibc is built in Ch. 8.
+# Without the actual zoneinfo files, TZ=America/Chicago resolves to UTC.
+# Fix: copy the host's zoneinfo tree for the local timezone into the chroot
+# so timestamps are correct from the very first chroot command.
 echo "--- Syncing host timezone into chroot ---"
 if [ -f /etc/localtime ]; then
-    # Copy as a regular file (not symlink) so it works even before
-    # glibc installs /usr/share/zoneinfo/ in the chroot
     cp -fL /etc/localtime $IGOS/etc/localtime
     echo "  Copied host /etc/localtime"
-    # Also store the timezone name so glibc post_install can use it
+
     if [ -f /etc/timezone ]; then
         cp -f /etc/timezone $IGOS/etc/timezone
-        echo "  Copied host /etc/timezone ($(cat /etc/timezone))"
+        HOST_TZ="$(cat /etc/timezone)"
+        echo "  Copied host /etc/timezone ($HOST_TZ)"
+
+        # Copy the specific zoneinfo file so TZ= resolves before glibc Ch.8
+        HOST_ZONEINFO="/usr/share/zoneinfo/$HOST_TZ"
+        if [ -f "$HOST_ZONEINFO" ]; then
+            mkdir -p "$IGOS/usr/share/zoneinfo/$(dirname "$HOST_TZ")"
+            cp -f "$HOST_ZONEINFO" "$IGOS/usr/share/zoneinfo/$HOST_TZ"
+            echo "  Copied $HOST_ZONEINFO into chroot"
+        fi
+
+        # Also copy the UTC/posix fallbacks that date/printf may need
+        for tz_file in UTC posixrules; do
+            src="/usr/share/zoneinfo/$tz_file"
+            if [ -f "$src" ]; then
+                cp -f "$src" "$IGOS/usr/share/zoneinfo/$tz_file"
+            fi
+        done
     fi
 else
     echo "  WARNING: /etc/localtime not found on host, chroot will use UTC"
