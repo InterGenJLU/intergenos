@@ -1,8 +1,8 @@
-"""InterGenOS Installer — Entry point.
+"""Forge — InterGenOS System Installer — Entry point.
 
 Usage:
-    python3 -m installer --archives /var/lib/igos/archives [--packages /path/to/packages]
-    python3 -m installer --help
+    forge --archives /var/lib/igos/archives [--packages /path/to/packages]
+    forge --help
 """
 
 import argparse
@@ -14,15 +14,15 @@ from .frontend.tui import run_installer
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="igos-installer",
-        description="InterGenOS System Installer"
+        prog="forge",
+        description="Forge — InterGenOS System Installer"
     )
     parser.add_argument("--archives", required=True,
                         help="Path to .igos.tar.gz package archives")
     parser.add_argument("--packages",
                         help="Path to packages/ directory (for post-install hooks)")
     parser.add_argument("--version", action="version",
-                        version="InterGenOS Installer 0.1.0")
+                        version="Forge 0.1.0 (InterGenOS Installer)")
 
     args = parser.parse_args()
 
@@ -36,8 +36,8 @@ def main():
     # Must run as root
     import os
     if os.geteuid() != 0:
-        print("ERROR: The installer must be run as root.")
-        print("  sudo python3 -m installer --archives /path/to/archives")
+        print("ERROR: Forge must be run as root.")
+        print("  sudo forge --archives /path/to/archives")
         sys.exit(1)
 
     run_installer(str(archive_dir), str(packages_dir) if packages_dir else None)

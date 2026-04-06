@@ -1,4 +1,4 @@
-"""InterGenOS Installer — Text User Interface (ncurses).
+"""Forge — InterGenOS System Installer — Text User Interface (ncurses).
 
 Phase 1 installer UI. Works over SSH, serial console, or bare TTY.
 Guides the user through: disk selection → configuration → install → done.
@@ -70,7 +70,7 @@ class InstallerTUI:
         h, w = self.stdscr.getmaxyx()
         self.stdscr.attron(curses.color_pair(5))
         self.stdscr.addstr(0, 0, " " * w)
-        header_text = f" InterGenOS Installer — {title}"
+        header_text = f" Forge — {title}"
         self.stdscr.addstr(0, 0, header_text[:w-1])
         self.stdscr.attroff(curses.color_pair(5))
 
@@ -133,7 +133,7 @@ class InstallerTUI:
         """Welcome screen — introduce InterGenOS."""
         self.clear()
         self.header("Welcome")
-        self.message(3, "Welcome to the InterGenOS Installer", color=1)
+        self.message(3, "Welcome to Forge — the InterGenOS Installer", color=1)
         self.message(5, '"A system you understand, can modify, and can trust."')
         self.message(7, "This installer will guide you through setting up InterGenOS")
         self.message(8, "on your computer. The installation process will:")
@@ -380,7 +380,7 @@ class InstallerTUI:
         self.clear()
         self.header("Installation Complete")
 
-        self.message(3, "InterGenOS has been installed successfully!", color=2)
+        self.message(3, "InterGenOS has been forged successfully!", color=2)
         self.message(5, "You can now remove the installation media and reboot.")
         self.message(7, f"  Hostname: {self.hostname}")
         if self.username:

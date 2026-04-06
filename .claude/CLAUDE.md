@@ -71,10 +71,12 @@ and Arch (AUR) separate free from proprietary.
 │   ├── generate-templates.py    # Batch template generator
 │   ├── host-check.py            # Build host validation
 │   └── chroot-*.sh              # Chroot management
+├── pkm/                 # pkm package manager (install, remove, query, verify)
+├── installer/           # Forge installer (TUI + backend, uses pkm engine)
 ├── vm/                  # Cloud-init configs for automated VM setup
 ├── build/               # Sources, patches, logs (not committed)
 ├── docs/                # Vision document
-└── config/              # Kernel configs
+└── config/              # Kernel configs, gsettings overrides
 ```
 
 ## Build VM
