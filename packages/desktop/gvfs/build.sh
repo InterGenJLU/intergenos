@@ -17,7 +17,10 @@ configure() {
           -Dmtp=false \
           -Dnfs=false \
           -Ddnssd=false \
-          -Dgoa=false
+          -Dgoa=false \
+          -Dbluray=false \
+          -Dsmb=false \
+          -Donedrive=false
 }
 
 build() {
