@@ -1,0 +1,317 @@
+Submitted by:            Xi Ruoyao <xry111@xry111.site>
+Date:                    2026-02-01
+Initial Package Version: 2.0.7
+Upstream Status:         Applied for 2.1 beta but not 2.0.x.
+Origin:                  Upstream (see the cherry picked line for SHA),
+                         manually resolved the conflict and removed the
+                         XBM/XPM test because the test image would bloat
+                         this patch too much.
+Description:             Add XBM and XPM support to allow loupe and
+                         gdk-pixbuf (>= 2.44.5) to load XBM and XPM
+                         images.
+
+From 3431a138c0bbe35069981faba69df11ff8addab9 Mon Sep 17 00:00:00 2001
+From: Sophie Herold <sophie@hemio.de>
+Date: Mon, 15 Dec 2025 13:47:12 +0100
+Subject: [PATCH] image-rs: Add XBM and XPM support
+
+Closes #192
+
+(cherry picked from commit e2eb88b7dacf468e8f386718f9b02c7cc5d22d92)
+---
+ .gitlab-ci.yml                                |  8 +++----
+ Cargo.lock                                    | 10 ++++++++
+ Cargo.toml                                    |  7 ++++--
+ docs/website/format-details.yml               | 14 +++++++++++
+ docs/website/list-formats.rs                  |  3 +++
+ glycin-loaders/glycin-image-rs/Cargo.toml     |  1 +
+ .../glycin-image-rs/glycin-image-rs.conf      |  6 +++++
+ glycin-loaders/glycin-image-rs/src/main.rs    | 24 +++++++++++++++++++
+ glycin/src/api_common.rs                      |  5 +++-
+ news.d/2.1.alpha/added-image-rs-xpm-support   |  1 +
+ tests/Cargo.toml                              |  1 -
+ tests/encoding.rs                             |  4 ++--
+ 12 files changed, 74 insertions(+), 10 deletions(-)
+ create mode 100644 news.d/2.1.alpha/added-image-rs-xpm-support
+
+diff --git a/.gitlab-ci.yml b/.gitlab-ci.yml
+index fdcd4b6..75c923a 100644
+--- a/.gitlab-ci.yml
++++ b/.gitlab-ci.yml
+@@ -47,7 +47,7 @@ variables:
+ 
+ build-release-tarball:
+   stage: build
+-  image: rust:1.85-bookworm
++  image: rust:1.89-trixie
+   extends: .install_dependencies
+   script:
+     - apt-get install -y gawk
+@@ -63,7 +63,7 @@ build-release-tarball:
+     - if: $CI_COMMIT_TAG && $CI_COMMIT_REF_PROTECTED
+ 
+ test-x86_64:
+-  image: rust:1.85-bookworm
++  image: rust:1.89-trixie
+   extends: .install_dependencies
+   interruptible: true
+   script:
+@@ -81,7 +81,7 @@ test-x86_64:
+ 
+ test-i386:
+   # Use hash to force i386, lookup "MANIFEST DIGEST" here <https://hub.docker.com/r/i386/rust/tags>
+-  image: rust@sha256:a82436f09b89b68853e3a25c4acfd7b2d11d78be8ef35f5b4a75d3c927f37d7b
++  image: rust@sha256:97eee056216db51d76c0a47fbc9b14a7486d2e8e7e8904fb09969e394dcc5922
+   extends: .install_dependencies
+   interruptible: true
+   # As long as 32-bit CI is so unstable
+@@ -94,7 +94,7 @@ test-i386:
+     - meson test -vC builddir
+ 
+ test-aarch64:
+-  image: rust:1.85-bookworm
++  image: rust:1.89-trixie
+   tags:
+     - asan-aarch64
+   extends: .install_dependencies
+diff --git a/Cargo.lock b/Cargo.lock
+index c192a99..5fa1fde 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -1101,6 +1101,7 @@ dependencies = [
+  "gufo-exif",
+  "gufo-jpeg",
+  "image",
++ "image-extras",
+  "jpeg-encoder",
+  "log",
+  "zune-jpeg",
+@@ -1390,6 +1391,15 @@ dependencies = [
+  "zune-jpeg",
+ ]
+ 
++[[package]]
++name = "image-extras"
++version = "0.1.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "86d29ba92ef6970a2685cc758b455d190842b8b9e96c865ffd31cdb9954b7548"
++dependencies = [
++ "image",
++]
++
+ [[package]]
+ name = "image-webp"
+ version = "0.2.4"
+diff --git a/Cargo.toml b/Cargo.toml
+index 2e3877b..b8404b3 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -6,8 +6,7 @@ license = "MPL-2.0 OR LGPL-2.1-or-later"
+ homepage = "https://gitlab.gnome.org/GNOME/glycin"
+ repository = "https://gitlab.gnome.org/GNOME/glycin"
+ edition = "2021"
+-# Would be 1.83 without moxcms
+-rust-version = "1.85"
++rust-version = "1.89"
+ 
+ [profile.release]
+ lto = true
+@@ -75,6 +74,10 @@ gufo-exif = { version = "0.3.0" }
+ gufo-jpeg = { version = "0.3.0" }
+ half = "2.4.1"
+ image = { version = "0.25.7", default-features = false }
++image-extras = { version = "0.1.0", default-features = false, features = [
++    "xbm",
++    "xpm",
++] }
+ lcms2 = "6.0.3"
+ lcms2-sys = "4.0.4"
+ libc = "0.2.152"
+diff --git a/docs/website/format-details.yml b/docs/website/format-details.yml
+index 63bf020..20f2b05 100644
+--- a/docs/website/format-details.yml
++++ b/docs/website/format-details.yml
+@@ -165,3 +165,17 @@ image/x-win-bitmap:
+   exif: unsupported
+   xmp: unsupported
+   animation: unsupported
++
++image/x-xbitmap:
++  icc: unsupported
++  cicp: unsupported
++  exif: unsupported
++  xmp: unsupported
++  animation: unsupported
++
++image/x-xpixmap:
++  icc: unsupported
++  cicp: unsupported
++  exif: unsupported
++  xmp: unsupported
++  animation: unsupported
+diff --git a/docs/website/list-formats.rs b/docs/website/list-formats.rs
+index 3ff749c..779195b 100755
+--- a/docs/website/list-formats.rs
++++ b/docs/website/list-formats.rs
+@@ -1,5 +1,8 @@
+ #!/usr/bin/env -S cargo +nightly -Zscript
+ ---
++[package]
++edition = "2024"
++
+ [dependencies]
+ glycin = { path = "../../glycin", features = ["unstable-config"] }
+ glib = "0.21"
+diff --git a/glycin-loaders/glycin-image-rs/Cargo.toml b/glycin-loaders/glycin-image-rs/Cargo.toml
+index 8684c14..bded0d3 100644
+--- a/glycin-loaders/glycin-image-rs/Cargo.toml
++++ b/glycin-loaders/glycin-image-rs/Cargo.toml
+@@ -36,3 +36,4 @@ log.workspace = true
+ jpeg-encoder = "0.6.0"
+ # Force newer version for bugfixes
+ zune-jpeg = "0.4.20"
++image-extras.workspace = true
+diff --git a/glycin-loaders/glycin-image-rs/glycin-image-rs.conf b/glycin-loaders/glycin-image-rs/glycin-image-rs.conf
+index 34742b6..0af88a1 100644
+--- a/glycin-loaders/glycin-image-rs/glycin-image-rs.conf
++++ b/glycin-loaders/glycin-image-rs/glycin-image-rs.conf
+@@ -110,3 +110,9 @@ Exec = @EXEC@
+ [editor:image/qoi]
+ Exec = @EXEC@
+ Creator = true
++
++[loader:image/x-xpixmap]
++Exec = @EXEC@
++
++[loader:image/x-xbitmap]
++Exec = @EXEC@
+diff --git a/glycin-loaders/glycin-image-rs/src/main.rs b/glycin-loaders/glycin-image-rs/src/main.rs
+index 3b84134..403aa2e 100644
+--- a/glycin-loaders/glycin-image-rs/src/main.rs
++++ b/glycin-loaders/glycin-image-rs/src/main.rs
+@@ -162,6 +162,8 @@ impl LoaderImplementation for ImgDecoder {
+         mime_type: String,
+         _details: InitializationDetails,
+     ) -> Result<(Self, ImageDetails), ProcessError> {
++        image_extras::register();
++
+         let mut buf = Vec::new();
+         stream.read_to_end(&mut buf).internal_error()?;
+         let data = Cursor::new(buf);
+@@ -262,6 +264,8 @@ pub enum ImageRsDecoder<T: std::io::BufRead + std::io::Seek> {
+     Tga(codecs::tga::TgaDecoder<T>),
+     Tiff(codecs::tiff::TiffDecoder<T>),
+     WebP(codecs::webp::WebPDecoder<T>),
++    Xbm(image_extras::xbm::XbmDecoder<T>),
++    Xpm(image_extras::xpm::XpmDecoder<T>),
+ }
+ 
+ pub struct ImageRsFormat<T: std::io::BufRead + std::io::Seek> {
+@@ -362,6 +366,18 @@ impl ImageRsFormat<Reader> {
+             .format_name("WebP")
+             .default_bit_depth(8)
+             .supports_two_alpha_modes(true),
++            "image/x-xbitmap" => Self::new(ImageRsDecoder::Xbm(
++                image_extras::xbm::XbmDecoder::new(data).expected_error()?,
++            ))
++            .format_name("XBM")
++            .default_bit_depth(8)
++            .supports_two_alpha_modes(false),
++            "image/x-xpixmap" => Self::new(ImageRsDecoder::Xpm(
++                image_extras::xpm::XpmDecoder::new(data).expected_error()?,
++            ))
++            .format_name("XPM")
++            .default_bit_depth(8)
++            .supports_two_alpha_modes(false),
+             mime_type => return Err(ProcessError::UnsupportedImageFormat(mime_type.to_string())),
+         })
+     }
+@@ -414,6 +430,8 @@ impl<'a, T: std::io::BufRead + std::io::Seek + 'a> ImageRsFormat<T> {
+             ImageRsDecoder::Tga(ref mut d) => self.handler.info(d),
+             ImageRsDecoder::Tiff(ref mut d) => self.handler.info(d),
+             ImageRsDecoder::WebP(ref mut d) => self.handler.info(d),
++            ImageRsDecoder::Xbm(ref mut d) => self.handler.info(d),
++            ImageRsDecoder::Xpm(ref mut d) => self.handler.info(d),
+         }
+     }
+ 
+@@ -432,6 +450,8 @@ impl<'a, T: std::io::BufRead + std::io::Seek + 'a> ImageRsFormat<T> {
+             ImageRsDecoder::Tga(d) => self.handler.frame(d),
+             ImageRsDecoder::Tiff(d) => self.handler.frame(d),
+             ImageRsDecoder::WebP(d) => self.handler.frame(d),
++            ImageRsDecoder::Xbm(d) => self.handler.frame(d),
++            ImageRsDecoder::Xpm(d) => self.handler.frame(d),
+         }
+     }
+ 
+@@ -450,6 +470,8 @@ impl<'a, T: std::io::BufRead + std::io::Seek + 'a> ImageRsFormat<T> {
+             ImageRsDecoder::Tga(ref mut d) => self.handler.frame_details(d),
+             ImageRsDecoder::Tiff(ref mut d) => self.handler.frame_details(d),
+             ImageRsDecoder::WebP(ref mut d) => self.handler.frame_details(d),
++            ImageRsDecoder::Xbm(ref mut d) => self.handler.frame_details(d),
++            ImageRsDecoder::Xpm(ref mut d) => self.handler.frame_details(d),
+         }
+     }
+ 
+@@ -470,6 +492,8 @@ impl<'a, T: std::io::BufRead + std::io::Seek + 'a> ImageRsFormat<T> {
+             ImageRsDecoder::Tga(ref mut d) => d.set_limits(limits),
+             ImageRsDecoder::Tiff(ref mut d) => d.set_limits(limits),
+             ImageRsDecoder::WebP(ref mut d) => d.set_limits(limits),
++            ImageRsDecoder::Xbm(ref mut d) => d.set_limits(limits),
++            ImageRsDecoder::Xpm(ref mut d) => d.set_limits(limits),
+         }
+     }
+ }
+diff --git a/glycin/src/api_common.rs b/glycin/src/api_common.rs
+index c904300..2215b52 100644
+--- a/vendor/glycin/src/api_common.rs
++++ b/vendor/glycin/src/api_common.rs
+@@ -315,7 +315,10 @@ pub(crate) async fn guess_mime_type(gfile_worker: &GFileWorker) -> Result<MimeTy
+     // Prefer file extension for gzip since it might be an SVGZ
+     let is_gzip = mime_type.clone().ok() == Some("application/gzip".into());
+ 
+-    if unsure || is_tiff || is_xml || is_gzip {
++    // Prefer file extension for text since it might be an XBM
++    let is_text = mime_type.clone().ok() == Some("text/plain".into());
++
++    if unsure || is_tiff || is_xml || is_gzip || is_text {
+         if let Some(filename) = gfile_worker.file().and_then(|x| x.basename()) {
+             let content_type_fn = gio::content_type_guess(Some(filename), head.as_slice()).0;
+             return gio::content_type_get_mime_type(&content_type_fn)
+diff --git a/news.d/2.1.alpha/added-image-rs-xpm-support b/news.d/2.1.alpha/added-image-rs-xpm-support
+new file mode 100644
+index 0000000..c1053cf
+--- /dev/null
++++ b/news.d/2.1.alpha/added-image-rs-xpm-support
+@@ -0,0 +1 @@
++image-rs: Add XBM and XPM support
+diff --git a/tests/Cargo.toml b/tests/Cargo.toml
+index 0482a0f..e4b1970 100644
+--- a/tests/Cargo.toml
++++ b/tests/Cargo.toml
+@@ -38,7 +38,6 @@ path = "editing.rs"
+ name = "tests"
+ path = "tests.rs"
+ 
+-
+ [[test]]
+ name = "encoding"
+ path = "encoding.rs"
+diff --git a/tests/encoding.rs b/tests/encoding.rs
+index ec70b05..89ddbea 100644
+--- a/tests/encoding.rs
++++ b/tests/encoding.rs
+@@ -258,8 +258,8 @@ fn create_png_compression() {
+ 
+         let size_0 = encoded_image.data_ref().unwrap().len();
+ 
+-        assert!(size_100 < size_50);
+-        assert!(size_50 < size_0);
++        assert!(size_100 < size_50, "{size_100} < {size_50}");
++        assert!(size_50 < size_0, "{size_50} < {size_0}");
+     });
+ }
+ 
+-- 
+2.52.0
+
