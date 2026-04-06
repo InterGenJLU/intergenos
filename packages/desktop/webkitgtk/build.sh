@@ -27,7 +27,11 @@ configure() {
 
 build() {
     cd build
-    ninja -j${IGOS_JOBS}
+    # Limit parallelism — WebCore unified sources each use ~2GB RAM.
+    # 16 parallel jobs on 32GB RAM triggers OOM killer.
+    local jobs=${IGOS_JOBS}
+    [ "$jobs" -gt 8 ] && jobs=8
+    ninja -j${jobs}
 }
 
 do_install() {
