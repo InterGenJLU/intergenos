@@ -89,7 +89,14 @@ class BuildExecutor(PackageTracker):
         env["MAKEFLAGS"] = f"-j{self.jobs}"
         env["LC_ALL"] = "POSIX"
         env["XML_CATALOG_FILES"] = "/etc/xml/catalog"
-        env["PKG_CONFIG_PATH"] = "/usr/lib/pkgconfig:/usr/share/pkgconfig"
+        # PKG_CONFIG_LIBDIR replaces the default search path (unlike
+        # PKG_CONFIG_PATH which augments it). This prevents host .pc files
+        # from leaking into the build and causing non-deterministic results.
+        env["PKG_CONFIG_LIBDIR"] = "/usr/lib/pkgconfig:/usr/share/pkgconfig"
+        env.pop("PKG_CONFIG_PATH", None)  # ensure only LIBDIR is used
+        # GObject Introspection typelib path — needed by g-ir-scanner when
+        # building GTK, GStreamer, and other GI-consuming packages
+        env["GI_TYPELIB_PATH"] = "/usr/lib/girepository-1.0"
         # Include /opt/rustc/bin for Rust toolchain (installed to /opt per BLFS)
         env["PATH"] = f"/opt/rustc/bin:{self.system_root}/tools/bin:" + env.get("PATH", "")
 
@@ -125,7 +132,18 @@ class BuildExecutor(PackageTracker):
                         os.symlink(f"usr/{link}", str(staging / link))
                 env["DESTDIR"] = str(staging)
                 env["PATH"] = f"{staging}/usr/bin:{staging}/usr/sbin:" + env["PATH"]
-                env["PKG_CONFIG_PATH"] = f"{staging}/usr/lib/pkgconfig:{staging}/usr/lib64/pkgconfig:" + env.get("PKG_CONFIG_PATH", "")
+                # PKG_CONFIG_LIBDIR: staging first, then system — replaces
+                # default search entirely so host .pc files cannot leak in
+                env["PKG_CONFIG_LIBDIR"] = (
+                    f"{staging}/usr/lib/pkgconfig:{staging}/usr/lib64/pkgconfig:"
+                    + env["PKG_CONFIG_LIBDIR"]
+                )
+                # GI typelib resolution for staged packages
+                env["GI_TYPELIB_PATH"] = (
+                    f"{staging}/usr/lib/girepository-1.0:"
+                    + env["GI_TYPELIB_PATH"]
+                )
+                # LD_LIBRARY_PATH for runtime lib resolution during build
                 existing_ldpath = env.get("LD_LIBRARY_PATH", "")
                 new_ldpath = f"{staging}/usr/lib:{staging}/usr/lib64"
                 env["LD_LIBRARY_PATH"] = f"{new_ldpath}:{existing_ldpath}" if existing_ldpath else new_ldpath
