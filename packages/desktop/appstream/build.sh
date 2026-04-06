@@ -3,6 +3,13 @@
 # BLFS 13.0
 
 configure() {
+    # Tarball has ./AppStream-X.Y.Z/ prefix; strip-components=1 strips ./
+    # but leaves the directory. Move contents up if needed.
+    if [ -d "AppStream-${PKG_VERSION}" ]; then
+        mv AppStream-${PKG_VERSION}/* .
+        rmdir AppStream-${PKG_VERSION}
+    fi
+
     mkdir build
     cd    build
 
