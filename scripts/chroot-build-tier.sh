@@ -92,27 +92,27 @@ else
 
     # Manual install fallback (required for Python 3.14 where pip is broken)
     if [ "${PIP_BROKEN:-}" = "true" ]; then
-        # Python 3.14 ships without setuptools or distutils — bootstrap setuptools first
+        # Python 3.14 ships without setuptools — full install required
         if ! python3 -c "import setuptools" 2>/dev/null; then
             SETUPTOOLS_TAR=$(find ${IGOS_SOURCES} -maxdepth 1 -name 'setuptools-*.tar.gz' 2>/dev/null | head -1)
             if [ -z "$SETUPTOOLS_TAR" ]; then
                 log "ERROR: No setuptools tarball found in $IGOS_SOURCES"
                 exit 1
             fi
-            log "  Bootstrapping setuptools from $SETUPTOOLS_TAR..."
+            log "  Installing setuptools from $SETUPTOOLS_TAR..."
             SETUPTOOLS_WORK=$(mktemp -d)
             tar -xf "$SETUPTOOLS_TAR" -C "$SETUPTOOLS_WORK" --strip-components=1
             SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
             cp -r "$SETUPTOOLS_WORK/setuptools" "$SITE/"
-            cp -r "$SETUPTOOLS_WORK/_distutils_hack" "$SITE/"
-            if [ -d "$SETUPTOOLS_WORK/setup.cfg" ]; then
-                cp "$SETUPTOOLS_WORK/setup.cfg" "$SITE/"
-            fi
+            cp -r "$SETUPTOOLS_WORK/_distutils_hack" "$SITE/" 2>/dev/null || true
+            cd "$SETUPTOOLS_WORK"
+            python3 setup.py install --prefix=/usr 2>&1 || true
+            cd /
             rm -rf "$SETUPTOOLS_WORK"
             if python3 -c "import setuptools" 2>/dev/null; then
-                log "  setuptools: bootstrapped"
+                log "  setuptools: installed ($(python3 -c 'import setuptools; print(setuptools.__version__)'))"
             else
-                log "ERROR: Failed to bootstrap setuptools"
+                log "ERROR: Failed to install setuptools"
                 exit 1
             fi
         fi

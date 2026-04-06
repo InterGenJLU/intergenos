@@ -48,21 +48,28 @@ if python3 -c "import yaml" 2>/dev/null; then
 else
     log "  PyYAML: not found — installing..."
 
-    # Python 3.14 ships without setuptools — bootstrap it first if needed
+    # Python 3.14 ships without setuptools — full install required.
+    # A bare file copy is insufficient: pip needs setuptools' dist_info
+    # command which is only available after a proper install.
     if ! python3 -c "import setuptools" 2>/dev/null; then
         SETUPTOOLS_TAR=$(find ${IGOS_SOURCES} -maxdepth 1 -name 'setuptools-*.tar.gz' 2>/dev/null | head -1)
         if [ -n "$SETUPTOOLS_TAR" ]; then
-            log "  Bootstrapping setuptools from $SETUPTOOLS_TAR..."
+            log "  Installing setuptools from $SETUPTOOLS_TAR..."
             SETUPTOOLS_WORK=$(mktemp -d)
             tar -xf "$SETUPTOOLS_TAR" -C "$SETUPTOOLS_WORK" --strip-components=1
+            # Step 1: bootstrap by copying the bare package so setup.py can import it
             SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
             cp -r "$SETUPTOOLS_WORK/setuptools" "$SITE/"
             cp -r "$SETUPTOOLS_WORK/_distutils_hack" "$SITE/" 2>/dev/null || true
+            # Step 2: full install to register entry points and commands (dist_info, etc.)
+            cd "$SETUPTOOLS_WORK"
+            python3 setup.py install --prefix=/usr 2>&1 || true
+            cd /
             rm -rf "$SETUPTOOLS_WORK"
             if python3 -c "import setuptools" 2>/dev/null; then
-                log "  setuptools: bootstrapped"
+                log "  setuptools: installed ($(python3 -c 'import setuptools; print(setuptools.__version__)'))"
             else
-                log "ERROR: Failed to bootstrap setuptools"
+                log "ERROR: Failed to install setuptools"
                 exit 1
             fi
         else
