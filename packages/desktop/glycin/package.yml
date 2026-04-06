@@ -15,6 +15,7 @@ dependencies:
   - bubblewrap
   - fontconfig
   - lcms2
+  - libheif
   - libseccomp
   - rust
   - vala

@@ -1,0 +1,19 @@
+name: libheif
+version: "1.21.2"
+release: 1
+description: HEIF and AVIF file format decoder and encoder
+license: LGPL-3.0-or-later
+homepage: https://github.com/strukturag/libheif
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/strukturag/libheif/releases/download/v${version}/libheif-${version}.tar.gz
+  sha256: 75f530b7154bc93e7ecf846edfc0416bf5f490612de8c45983c36385aa742b42
+dependencies:
+  build:
+  - libaom
+  - dav1d
+  - x265
+  host: []
+  runtime: []
