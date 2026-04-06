@@ -60,6 +60,14 @@ else
     pip3 install --no-index --find-links="${IGOS_SOURCES}" \
         --no-cache-dir --no-user setuptools
 
+    # Ensure distutils compatibility shim is active (Python 3.12+ removed
+    # distutils from stdlib; setuptools provides it via _distutils_hack)
+    SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
+    if [ ! -f "$SITE/distutils-precedence.pth" ]; then
+        echo "import _distutils_hack; _distutils_hack.add_shim()" > "$SITE/distutils-precedence.pth"
+        log "  distutils shim: activated"
+    fi
+
     log "  Installing PyYAML from local tarball..."
     pip3 install --no-index --find-links="${IGOS_SOURCES}" \
         --no-cache-dir --no-user PyYAML
