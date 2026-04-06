@@ -16,6 +16,7 @@ dependencies:
   - fontconfig
   - lcms2
   - libheif
+  - librsvg
   - libseccomp
   - rust
   - vala
