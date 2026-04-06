@@ -15,7 +15,7 @@ configure() {
           -Da11y=true \
           -Dgtk3=true \
           -Dgtk4=true \
-          -D_b_lto=false
+          -Db_lto=false
 }
 
 build() {
