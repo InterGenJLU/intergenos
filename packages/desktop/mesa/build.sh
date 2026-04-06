@@ -3,10 +3,8 @@
 # BLFS 13.0
 
 configure() {
-    # Apply xdemos patch if available
-    if [ -f "${IGOS_SOURCES_DIR}/mesa-add_xdemos-4.patch" ]; then
-        patch -Np1 -i "${IGOS_SOURCES_DIR}/mesa-add_xdemos-4.patch"
-    fi
+    # Note: xdemos patch skipped — causes meson "already visited" error
+    # in Mesa 25.x where xdemos are included by default
 
     mkdir build
     cd    build
