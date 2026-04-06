@@ -1,17 +1,24 @@
 #!/bin/bash
 # libbluray 1.4.1 — Blu-ray disc playback library
-# Not in BLFS — standard autotools
+# Not in BLFS — uses meson (switched from autotools in recent versions)
 
 configure() {
-    ./configure --prefix=/usr          \
-                --disable-static       \
-                --disable-bdjava-jar
+    mkdir build
+    cd    build
+
+    meson setup ..            \
+          --prefix=/usr       \
+          --libdir=/usr/lib   \
+          --buildtype=release \
+          -Dbdj_jar=disabled
 }
 
 build() {
-    make -j${IGOS_JOBS}
+    cd build
+    ninja
 }
 
 do_install() {
-    make DESTDIR="$DESTDIR" install
+    cd build
+    DESTDIR="$DESTDIR" ninja install
 }
