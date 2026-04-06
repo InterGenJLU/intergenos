@@ -77,11 +77,13 @@ else
         exit 1
     fi
 
+    # Direct copy — avoids deprecated setup.py which breaks under
+    # set -e / set -o pipefail with Python 3.14 deprecation warnings
     TMPDIR=$(mktemp -d)
     tar -xzf "$PYYAML_TAR" -C "$TMPDIR" --strip-components=1
-    cd "$TMPDIR"
-    python3 setup.py install --prefix=/usr 2>&1 || true
-    cd /
+    SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
+    cp -r "$TMPDIR/lib/yaml" "$SITE/"
+    cp -r "$TMPDIR/lib/_yaml" "$SITE/" 2>/dev/null || true
     rm -rf "$TMPDIR"
 
     if python3 -c "import yaml" 2>/dev/null; then
