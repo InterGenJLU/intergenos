@@ -1,7 +1,9 @@
-name: pyyaml
+name: pyyaml-pass2
 version: "6.0.3"
 release: 1
-description: YAML parser and emitter for Python
+description: "PyYAML (pass 2 — rebuild with Cython/libyaml C extension)"
+direct_install: true
+skip_tracking: true
 license: MIT
 homepage: https://pyyaml.org/
 tier: desktop

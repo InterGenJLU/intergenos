@@ -75,6 +75,9 @@ class Package:
     # Install directly to / instead of DESTDIR staging (for multi-pass builds)
     direct_install: bool = False
 
+    # Skip package tracking (for pass packages that overwrite existing files)
+    skip_tracking: bool = False
+
     # Validation steps
     validation: list[ValidationCheck] = field(default_factory=list)
 
@@ -275,6 +278,7 @@ def parse_template(template_path: Path) -> Package:
         bundled_deps=bundled_deps,
         install_func=raw.get("install_func", "do_install"),
         direct_install=bool(raw.get("direct_install", False)),
+        skip_tracking=bool(raw.get("skip_tracking", False)),
         validation=validation,
         template_path=template_path,
     )

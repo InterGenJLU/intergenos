@@ -441,7 +441,9 @@ class BuildExecutor(PackageTracker):
                 self.logger.end_phase("validate", 0)
 
         # --- Package tracking (manifest, archive, deploy, verify) ---
-        if success and self.tracked:
+        if success and self.tracked and pkg.skip_tracking:
+            self.logger.info(f"Skipping tracking for {pkg.name} (skip_tracking=true)")
+        elif success and self.tracked:
             self.logger.start_phase("track")
 
             if pkg.direct_install:
