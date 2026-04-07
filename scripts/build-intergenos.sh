@@ -47,7 +47,7 @@ PATCHES=/mnt/intergenos/build/patches
 LOGS=/mnt/intergenos/build/logs
 PHASE_FILE="${LOGS}/.build-phase"
 STOP_FILE="${IGOS}/.build-stop"
-CHECKPOINT_DIR="/home"
+CHECKPOINT_DIR="/mnt/intergenos/build/checkpoints"
 BUILD_LOG="${LOGS}/build-intergenos-$(date '+%Y%m%d-%H%M%S').log"
 
 PHASES=(
@@ -162,12 +162,16 @@ log() {
 
 save_checkpoint() {
     local phase="$1"
-    local checkpoint="${CHECKPOINT_DIR}/${BUILD_USER}/intergenos-${phase}-$(date '+%Y%m%d-%H%M%S').tar.gz"
+    local checkpoint="${CHECKPOINT_DIR}/intergenos-${phase}-$(date '+%Y%m%d-%H%M%S').tar.gz"
 
     log ""
     log ">>> Saving checkpoint: $checkpoint"
 
-    mkdir -p "$(dirname "$checkpoint")"
+    mkdir -p "${CHECKPOINT_DIR}"
+
+    # Remove any checkpoint tarballs that landed inside the chroot
+    # (from previous runs with old CHECKPOINT_DIR) so they don't compound
+    rm -f "${IGOS}/home/${BUILD_USER}"/intergenos-*.tar.gz 2>/dev/null || true
 
     # Tear down chroot mounts temporarily for a clean snapshot
     bash "${SCRIPTS}/chroot-teardown.sh" > /dev/null 2>&1 || true
@@ -573,7 +577,7 @@ if [ -n "$STOP_AFTER" ]; then
     log "  Stopping after: $STOP_AFTER"
 fi
 if $CHECKPOINT; then
-    log "  Checkpoints: enabled (saving to ${CHECKPOINT_DIR}/${BUILD_USER}/)"
+    log "  Checkpoints: enabled (saving to ${CHECKPOINT_DIR}/)"
 fi
 log "================================================================"
 
