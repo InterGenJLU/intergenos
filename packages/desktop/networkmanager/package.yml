@@ -19,5 +19,6 @@ dependencies:
   - pygobject3
   - vala
   - wpa_supplicant
+  - newt
   host: []
   runtime: []

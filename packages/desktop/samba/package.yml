@@ -21,5 +21,6 @@ dependencies:
   - rpcsvc-proto
   - fuse3
   - libtirpc
+  - linux-pam
   host: []
   runtime: []

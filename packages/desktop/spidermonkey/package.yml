@@ -18,5 +18,7 @@ dependencies:
   - llvm
   - rust
   - icu
+  - readline
+  - zlib
   host: []
   runtime: []

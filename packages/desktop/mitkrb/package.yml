@@ -15,5 +15,6 @@ patches:
 dependencies:
   build:
   - keyutils
+  - e2fsprogs
   host: []
   runtime: []

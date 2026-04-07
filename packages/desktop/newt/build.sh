@@ -10,7 +10,7 @@ configure() {
         -i Makefile.in
 
     ./configure --prefix=/usr \
-                --with-gpm-support
+                --without-gpm-support
 }
 
 build() {

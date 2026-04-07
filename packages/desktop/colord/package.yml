@@ -17,5 +17,6 @@ dependencies:
   - libgusb
   - polkit
   - vala
+  - systemd
   host: []
   runtime: []

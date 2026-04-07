@@ -16,5 +16,6 @@ dependencies:
   - glib2
   - libxml2
   - vala
+  - gobject-introspection
   host: []
   runtime: []

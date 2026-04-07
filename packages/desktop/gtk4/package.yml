@@ -27,5 +27,7 @@ dependencies:
   - libXi
   - libXrandr
   - libXcursor
+  - vulkan-loader
+  - gobject-introspection
   host: []
   runtime: []

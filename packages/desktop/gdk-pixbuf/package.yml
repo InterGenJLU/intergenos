@@ -17,5 +17,6 @@ dependencies:
   - libpng
   - libtiff
   - giflib
+  - glycin
   host: []
   runtime: []

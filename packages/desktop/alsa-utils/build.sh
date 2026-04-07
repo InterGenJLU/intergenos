@@ -3,8 +3,11 @@
 # BLFS 13.0
 
 configure() {
-    ./configure --prefix=/usr \
-                --disable-alsaconf \
+    ./configure --prefix=/usr         \
+                --disable-alsaconf  \
+                --disable-bat       \
+                --disable-xmlto     \
+                --with-curses=ncursesw \
                 --with-udev-rules-dir=/usr/lib/udev/rules.d
 }
 

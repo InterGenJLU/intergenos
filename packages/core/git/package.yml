@@ -17,5 +17,6 @@ source:
 dependencies:
   build:
     - curl
+    - pcre2
   host: []
   runtime: []

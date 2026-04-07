@@ -20,5 +20,6 @@ dependencies:
   - harfbuzz
   - libX11
   - libXft
+  - gobject-introspection
   host: []
   runtime: []

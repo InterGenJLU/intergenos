@@ -9,6 +9,7 @@ source:
 dependencies:
   build:
     - zlib
+    - readline
   host: []
   runtime: []
 tier: core

@@ -28,5 +28,6 @@ dependencies:
   - x264
   - x265
   - opus
+  - openssl
   host: []
   runtime: []

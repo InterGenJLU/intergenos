@@ -15,5 +15,6 @@ dependencies:
   - colord
   - gtk3
   - gtk4
+  - vala
   host: []
   runtime: []
