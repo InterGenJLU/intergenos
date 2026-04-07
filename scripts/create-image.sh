@@ -124,6 +124,10 @@ tar -C "$CHROOT" --one-file-system -cf - . | tar -C "$MOUNT_POINT" -xf -
 
 log "  Copy complete: $(du -sh "$MOUNT_POINT" | cut -f1)"
 
+# Fix root directory ownership — tar preserves the chroot's ownership
+# which is the build user, not root
+chown root:root "$MOUNT_POINT"
+
 # ============================================================================
 # Step 6: Create /etc/fstab
 # ============================================================================
@@ -249,6 +253,11 @@ if [ -f "${MOUNT_POINT}/usr/lib/systemd/system/gdm.service" ]; then
 fi
 
 # Fix /tmp/.X11-unix ownership (must be root-owned with sticky bit)
+# Create tmpfiles.d config so systemd maintains it across reboots
+mkdir -p "${MOUNT_POINT}/etc/tmpfiles.d"
+cat > "${MOUNT_POINT}/etc/tmpfiles.d/x11.conf" << 'TMPEOF'
+d /tmp/.X11-unix 1777 root root -
+TMPEOF
 mkdir -p "${MOUNT_POINT}/tmp/.X11-unix"
 chown root:root "${MOUNT_POINT}/tmp/.X11-unix"
 chmod 1777 "${MOUNT_POINT}/tmp/.X11-unix"

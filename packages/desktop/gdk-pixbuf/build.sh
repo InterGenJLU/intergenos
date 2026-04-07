@@ -6,16 +6,20 @@ configure() {
     mkdir build
     cd    build
 
+    # BLFS 13.0 disables built-in loaders in favor of glycin, but glycin
+    # only works with GTK4/GNOME apps. GTK3 apps (gnome-terminal, etc.)
+    # still use gdk-pixbuf directly and need the built-in loaders.
+    # Enable PNG at minimum — it's required for icon rendering.
     meson setup ..                \
           --prefix=/usr           \
           --libdir=/usr/lib       \
           --buildtype=release     \
-          -Dpng=disabled          \
-          -Dgif=disabled          \
-          -Djpeg=disabled         \
-          -Dtiff=disabled         \
+          -Dpng=enabled           \
+          -Dgif=enabled           \
+          -Djpeg=enabled          \
+          -Dtiff=enabled          \
           -Dthumbnailer=disabled  \
-          -Dglycin=disabled       \
+          -Dglycin=enabled        \
           --wrap-mode=nofallback
 }
 

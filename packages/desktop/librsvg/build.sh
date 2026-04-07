@@ -15,7 +15,9 @@ configure() {
     cd    build
 
     meson setup --prefix=/usr --buildtype=release \
-          --libdir=/usr/lib   ..
+          --libdir=/usr/lib   \
+          -Dpixbuf-loader=enabled \
+          ..
 }
 
 build() {
