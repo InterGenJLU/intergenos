@@ -116,6 +116,18 @@ Active development. Originally built in 2015-2016 (build_001 through build_003).
 - **2016-2025:** Life happened. Project shelved.
 - **2026:** Revival. New build system, package manager (pkm), installer (forge), BLFS database, GNOME desktop, and the conviction that a from-source distribution can be both deeply educational and genuinely accessible.
 
+## Research
+
+Every major decision is documented. See the [Research Archive](docs/research/INDEX.md) for 65+ documents covering:
+- Why LFS over Gentoo, Buildroot, NixOS
+- Build system design (9 systems evaluated)
+- Package management history and design
+- Kernel config convergence analysis (5 distros)
+- GNOME desktop dependency chain (~370 packages)
+- Application roadmap (Flathub/Snap/Arch data-driven)
+- 4-LLM code review requests and responses
+- FLUX.2 branding pipeline
+
 ## Acknowledgments
 
 InterGenOS is built on the foundation of [Linux From Scratch](https://www.linuxfromscratch.org/) (LFS 13.0) and [Beyond Linux From Scratch](https://www.linuxfromscratch.org/blfs/) (BLFS 13.0). The LFS project and its contributors have made from-source Linux building accessible and educational for over two decades. This project would not exist without their work.

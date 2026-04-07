@@ -1,0 +1,147 @@
+/* InterGenOS Installer Theme - Dark with Green Accents */
+
+window {
+    background-color: #1a1e24;
+}
+
+/* Header styling */
+.header-bar {
+    background-color: #0f1117;
+    border-bottom: 2px solid #4ade80;
+    padding: 12px 24px;
+}
+
+.header-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: #4ade80;
+}
+
+.header-subtitle {
+    font-size: 14px;
+    color: #9ca3af;
+}
+
+/* Content area */
+.content-area {
+    background-color: #1a1e24;
+    padding: 40px 60px;
+}
+
+.screen-title {
+    font-size: 28px;
+    font-weight: bold;
+    color: #ffffff;
+    margin-bottom: 24px;
+}
+
+.screen-description {
+    font-size: 14px;
+    color: #9ca3af;
+    margin-bottom: 32px;
+    line-height: 1.5;
+}
+
+/* Form elements */
+.form-label {
+    color: #e5e7eb;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.form-input {
+    background-color: #2d3748;
+    color: #ffffff;
+    border: 1px solid #4a5568;
+    border-radius: 6px;
+    padding: 10px 12px;
+}
+
+.form-input:focus {
+    border-color: #4ade80;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
+}
+
+/* Buttons */
+.button-primary {
+    background-color: #4ade80;
+    color: #1a1e24;
+    border-radius: 6px;
+    padding: 10px 24px;
+    font-weight: bold;
+    border: none;
+}
+
+.button-primary:hover {
+    background-color: #22c55e;
+}
+
+.button-secondary {
+    background-color: #374151;
+    color: #e5e7eb;
+    border-radius: 6px;
+    padding: 10px 24px;
+    border: none;
+}
+
+.button-secondary:hover {
+    background-color: #4b5563;
+}
+
+/* Disk list */
+.disk-row {
+    background-color: #2d3748;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+}
+
+.disk-row:hover {
+    background-color: #374151;
+}
+
+.disk-row-selected {
+    background-color: #4ade80;
+    color: #1a1e24;
+    border: 2px solid #22c55e;
+}
+
+/* Progress bar */
+.progress-bar {
+    background-color: #374151;
+    border-radius: 4px;
+}
+
+.progress-bar trough {
+    background-color: #2d3748;
+    border-radius: 4px;
+    min-height: 8px;
+}
+
+.progress-bar progress {
+    background-color: #4ade80;
+    border-radius: 4px;
+}
+
+/* Cards and panels */
+.info-card {
+    background-color: #2d3748;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.warning-card {
+    background-color: rgba(245, 158, 11, 0.1);
+    border-left: 4px solid #f59e0b;
+    padding: 12px;
+    margin: 16px 0;
+}
+
+.error-card {
+    background-color: rgba(239, 68, 68, 0.1);
+    border-left: 4px solid #ef4444;
+    padding: 12px;
+    margin: 16px 0;
+}

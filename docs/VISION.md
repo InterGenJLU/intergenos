@@ -29,7 +29,7 @@ Every package compiled from source with deliberate choices. No inherited bloat, 
 - Python 3.14.3
 - 75+ packages, ~603 MB total source download
 
-**Why LFS:** Evaluated Gentoo stage1, Buildroot, Yocto, Alpine, Void, CRUX, T2 SDE, and NixOS. LFS remains the only foundation that provides 100% control and understanding with zero inherited baggage — critical since we're building our own build system and package manager. (Full research: `research/build_systems/lfs_alternatives_2026-03-31.md`)
+**Why LFS:** Evaluated Gentoo stage1, Buildroot, Yocto, Alpine, Void, CRUX, T2 SDE, and NixOS. LFS remains the only foundation that provides 100% control and understanding with zero inherited baggage — critical since we're building our own build system and package manager. (Full research: [LFS Alternatives Assessment](research/build_systems/lfs_alternatives_2026-03-31.md))
 
 ### 2. Custom Build System (igos-build)
 
@@ -42,7 +42,7 @@ Every package compiled from source with deliberate choices. No inherited bloat, 
 - **Build profiles** for flag remixing (minimal, standard, full) — simpler than Gentoo USE flags, still powerful
 - **Binary cache** — build once, install from cache. Never rebuild GCC unnecessarily.
 
-**Why not pure Bash:** The original build_003 proved bash works for building packages, but it's the wrong tool for orchestration, dependency resolution, and metadata management at scale. The Gentoo model (Python orchestrator + bash templates) is proven. (Full research: `research/build_systems/survey_2026-03-31.md`)
+**Why not pure Bash:** The original build_003 proved bash works for building packages, but it's the wrong tool for orchestration, dependency resolution, and metadata management at scale. The Gentoo model (Python orchestrator + bash templates) is proven. (Full research: [Build System Survey](research/build_systems/survey_2026-03-31.md))
 
 **Template example:**
 ```yaml
@@ -78,7 +78,7 @@ configure_flags:
 
 **What it does NOT promise:** NP-complete dependency auto-resolution. The build system handles build ordering; the package manager handles installed-system state.
 
-**Research basis:** Surveyed LFS's seven documented approaches, studied successes (CRUX pkgutils, Slackware pkgtools, Alpine apk, Void XBPS, Nix) and failures (RPM→YUM→DNF trajectory, Corel Linux). (Full research: `research/package_management/pm_history_and_approaches_2026-03-31.md`)
+**Research basis:** Surveyed LFS's seven documented approaches, studied successes (CRUX pkgutils, Slackware pkgtools, Alpine apk, Void XBPS, Nix) and failures (RPM→YUM→DNF trajectory, Corel Linux). (Full research: [Package Management History](research/package_management/pm_history_and_approaches_2026-03-31.md))
 
 ### 4. Switchable Desktop Environments
 
@@ -172,7 +172,7 @@ A polished, modern installation experience that reflects InterGenOS's philosophy
 - Fully scriptable via virt-install + virsh
 - virtiofs for host-guest file sharing
 - qcow2 disk format for snapshots at build milestones
-- **(Full research: `research/virtualization/kvm_decision_2026-03-31.md`)**
+- **(Full research: [KVM Decision](research/virtualization/kvm_decision_2026-03-31.md))**
 
 **Recommended VM configuration:**
 - 16 vCPUs, 32GB RAM (on Ryzen 9 5900X / 64GB host)
@@ -217,7 +217,7 @@ A polished, modern installation experience that reflects InterGenOS's philosophy
 10. **Virtualization** — KVM vs VirtualBox vs VMware. KVM selected for performance, kernel compatibility, and scriptability.
 11. **LFS version pinning** — Evaluated LFS 12.3 through 13.0. Pinned to 13.0 (March 2026 release).
 
-Full research archives in `/mnt/intergenos/research/`
+Full research archives in [docs/research/](research/INDEX.md) (65+ documents)
 
 ---
 

@@ -1,0 +1,127 @@
+# Kernel Configuration Strategy for InterGenOS
+
+**Date:** April 1, 2026
+**Context:** Designing a "boot on anything" kernel config using fragments
+
+---
+
+## Core Insight
+
+You don't need drivers for specific hardware — you need drivers for the standard protocols those devices use. AHCI covers virtually all SATA controllers. NVMe covers all NVMe SSDs. Two drivers, 95% of storage hardware covered.
+
+## How Major Distros Do It
+
+### Debian
+- Philosophy: "Boot on everything"
+- Enable the largest possible number of features and drivers
+- Monolithic config, maintained at salsa.debian.org/kernel-team/linux
+- Trade-off: bloat for universal support
+
+### Fedora
+- Philosophy: "Boot on everything" but organized
+- **Fragment-based configs** — global baseconfig + per-architecture overrides
+- build_configs.sh merges fragments into final .config
+- Maintainable at scale across 5+ architectures
+
+### Arch
+- Philosophy: "Know your hardware"
+- Lean baseline, users customize
+- Smaller kernel, more user responsibility
+
+## InterGenOS Strategy: Fragment-Based
+
+Maintain modular config files per subsystem, merge for each kernel version:
+
+```
+config/kernel/fragments/
+  00-base.config           # Architecture, SMP, preempt
+  01-storage.config        # AHCI, NVMe, SCSI, USB storage (built-in)
+  02-filesystems.config    # ext4, btrfs, vfat, squashfs (built-in)
+  03-uefi.config           # EFI boot support (built-in)
+  10-systemd.config        # DEVTMPFS, CGROUPS, DMIID (built-in)
+  20-network.config        # Intel, Realtek, Broadcom, WiFi (modules)
+  21-gpu.config            # i915, amdgpu, nouveau (modules)
+  22-usb.config            # xHCI, EHCI, HID (modules)
+  23-input.config          # evdev, HID devices (modules)
+  24-sound.config          # ALSA, HDA, USB audio (modules)
+  25-bluetooth.config      # BT stack (modules)
+  30-security.config       # Stack protect, ASLR, seccomp
+  40-kvm-guest.config      # Virtio drivers (modules)
+```
+
+Merge: `scripts/kconfig/merge_config.sh -m fragments/*.config && make olddefconfig`
+
+## Key Rules
+
+### Must be built-in (=y) — needed before root mount
+- Storage controllers (AHCI, NVMe)
+- Root filesystem driver (ext4)
+- CPU/chipset essentials
+- DEVTMPFS (systemd requirement)
+
+### Safe as modules (=m) — loaded by initramfs or after boot
+- Network drivers
+- GPU drivers (KMS)
+- Input devices
+- Sound
+- Exotic/niche hardware
+
+## The Initramfs Question
+
+An initramfs (dracut) is the bridge: it lets us keep most drivers as modules while still booting on any hardware. The initramfs loads the right storage/filesystem modules for THIS specific machine, then hands off to the real root.
+
+Without initramfs: must build ALL storage drivers into kernel (bloat)
+With initramfs: only need initramfs generation tools + module loading logic
+
+LFS does not require initramfs (builds everything in). InterGenOS should use one for hardware portability.
+
+## Hardware Coverage: The 95% List
+
+### Storage
+- CONFIG_SATA_AHCI — virtually all SATA controllers
+- CONFIG_BLK_DEV_NVME — all NVMe SSDs
+- CONFIG_USB_STORAGE — USB drives
+- CONFIG_SCSI — framework needed by above
+
+### Network (wired)
+- CONFIG_E1000E — Intel desktop/laptop NICs
+- CONFIG_IGB — Intel server NICs
+- CONFIG_IGC — Intel 2.5G NICs
+- CONFIG_R8169 — Realtek (extremely common)
+- CONFIG_BNX2X / BNXT_EN — Broadcom
+
+### Network (wireless)
+- CONFIG_IWLWIFI — Intel WiFi (most laptops)
+- CONFIG_ATH9K / ATH10K / ATH11K — Qualcomm/Atheros
+- CONFIG_RTW88 / RTW89 — Realtek WiFi
+- CONFIG_BRCMFMAC — Broadcom WiFi
+
+### GPU
+- CONFIG_DRM_I915 — Intel integrated
+- CONFIG_DRM_AMDGPU — AMD discrete/APU
+- CONFIG_DRM_NOUVEAU — NVIDIA (open source)
+- CONFIG_DRM_SIMPLEDRM — UEFI framebuffer fallback
+
+### USB
+- CONFIG_USB_XHCI_HCD — USB 3.x
+- CONFIG_USB_EHCI_HCD — USB 2.0
+- CONFIG_USB_HID — USB keyboards/mice
+
+### Input
+- CONFIG_INPUT_EVDEV — event device interface
+- CONFIG_HID_GENERIC — generic HID
+
+## Tools
+
+- `make olddefconfig` — update config for new kernel (non-interactive)
+- `make localmodconfig` — trim to running hardware
+- `make listnewconfig` — show new options
+- `scripts/diffconfig` — compare two configs
+- `scripts/kconfig/merge_config.sh` — merge fragments
+
+## Sources
+
+- Debian Kernel Handbook: kernel-team.pages.debian.net/kernel-handbook/
+- Fedora kernel config: src.fedoraproject.org/rpms/kernel
+- Kernel docs: docs.kernel.org/admin-guide/quickly-build-trimmed-linux.html
+- Gentoo wiki: wiki.gentoo.org/wiki/Kernel/Configuration

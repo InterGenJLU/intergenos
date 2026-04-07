@@ -1,0 +1,22 @@
+intergenos-installer-gui/
+├── main.py                 # Application entry point
+├── installer.py            # Backend integration wrapper
+├── intergenos.css          # Branded GTK styling
+├── requirements.txt        # Python dependencies
+├── assets/                 # (Create this folder)
+│   └── placeholder.txt     # Flux.2-generated images go here
+├── screens/
+│   ├── __init__.py
+│   ├── base.py            # Base screen with header/footer
+│   ├── welcome.py
+│   ├── disk.py
+│   ├── user.py
+│   └── progress.py
+└── backend/               # YOUR existing modules (copy here)
+    ├── __init__.py
+    ├── disks.py
+    ├── packages.py
+    ├── config.py
+    ├── users.py
+    ├── bootloader.py
+    └── hooks.py

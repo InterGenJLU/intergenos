@@ -41,7 +41,8 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Research (local reference, not published to public repo)
+# Research working directory (local, may contain sensitive notes)
+# Published research is committed under docs/research/
 research/
 
 # Logs

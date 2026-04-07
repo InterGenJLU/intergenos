@@ -1,0 +1,374 @@
+# InterGenOS Desktop Tier 1b — Python modules, DocBook, Security stack
+# Source: BLFS 13.0
+
+tier: desktop
+
+packages:
+  # --- Python build modules ---
+  - name: editables
+    version: "0.5"
+    url: https://files.pythonhosted.org/packages/source/e/editables/editables-${version}.tar.gz
+    license: MIT
+    description: Python editable installs helper
+    build_style: custom
+
+  - name: pluggy
+    version: "1.5.0"
+    url: https://files.pythonhosted.org/packages/source/p/pluggy/pluggy-${version}.tar.gz
+    license: MIT
+    description: Plugin management framework
+    build_style: custom
+
+  - name: hatchling
+    version: "1.25.0"
+    url: https://files.pythonhosted.org/packages/source/h/hatchling/hatchling-${version}.tar.gz
+    license: MIT
+    description: Python build backend
+    build_style: custom
+    deps:
+      build:
+        - editables
+        - pluggy
+
+  - name: setuptools-scm
+    version: "8.1.0"
+    url: https://files.pythonhosted.org/packages/source/s/setuptools_scm/setuptools_scm-${version}.tar.gz
+    license: MIT
+    description: Setuptools SCM plugin
+    build_style: custom
+
+  - name: pygments
+    version: "2.18.0"
+    url: https://files.pythonhosted.org/packages/source/P/Pygments/pygments-${version}.tar.gz
+    license: BSD-2-Clause
+    description: Syntax highlighting library
+    build_style: custom
+    deps:
+      build:
+        - hatchling
+
+  - name: docutils
+    version: "0.21.2"
+    url: https://files.pythonhosted.org/packages/source/d/docutils/docutils-${version}.tar.gz
+    license: Public-Domain
+    description: Python documentation utilities
+    build_style: custom
+
+  - name: markdown
+    version: "3.7"
+    url: https://files.pythonhosted.org/packages/source/M/Markdown/markdown-${version}.tar.gz
+    license: BSD-3-Clause
+    description: Python Markdown implementation
+    build_style: custom
+
+  - name: Mako
+    version: "1.3.6"
+    url: https://files.pythonhosted.org/packages/source/M/Mako/mako-${version}.tar.gz
+    license: MIT
+    description: Python template library (needed by Mesa)
+    build_style: custom
+
+  - name: cython
+    version: "3.0.11"
+    url: https://files.pythonhosted.org/packages/source/C/Cython/cython-${version}.tar.gz
+    license: Apache-2.0
+    description: C extensions for Python
+    build_style: custom
+
+  - name: lxml
+    version: "5.3.0"
+    url: https://files.pythonhosted.org/packages/source/l/lxml/lxml-${version}.tar.gz
+    license: BSD-3-Clause
+    description: Python XML processing library
+    build_style: custom
+    deps:
+      build:
+        - libxslt
+
+  # --- DocBook/XML infrastructure ---
+  - name: sgml-common
+    version: "0.6.3"
+    url: https://sourceware.org/ftp/docbook-tools/new-trials/SOURCES/sgml-common-${version}.tgz
+    license: GPL-2.0-or-later
+    description: SGML common files
+    build_style: custom
+
+  - name: docbook-xml
+    version: "4.5"
+    url: https://www.docbook.org/xml/${version}/docbook-xml-${version}.zip
+    license: OASIS
+    description: DocBook XML DTD
+    build_style: custom
+
+  - name: docbook-xsl-nons
+    version: "1.79.2"
+    url: https://github.com/docbook/xslt10-stylesheets/releases/download/release%2F${version}/docbook-xsl-nons-${version}.tar.bz2
+    license: MIT
+    description: DocBook XSL stylesheets
+    build_style: custom
+    deps:
+      build:
+        - docbook-xml
+
+  - name: itstool
+    version: "2.0.7"
+    url: https://files.itstool.org/itstool/itstool-${version}.tar.bz2
+    license: GPL-3.0-or-later
+    description: ITS-based XML translation tool
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - docbook-xml
+        - lxml
+
+  - name: xmlto
+    version: "0.0.29"
+    url: https://releases.pagure.org/xmlto/xmlto-${version}.tar.bz2
+    license: GPL-2.0-or-later
+    description: XML-to-format conversion tool
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - docbook-xml
+        - docbook-xsl-nons
+        - libxslt
+
+  # --- Security/GPG stack ---
+  - name: libassuan
+    version: "3.0.1"
+    url: https://www.gnupg.org/ftp/gcrypt/libassuan/libassuan-${version}.tar.bz2
+    license: LGPL-2.1-or-later
+    description: GnuPG IPC library
+    homepage: https://www.gnupg.org/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+    deps:
+      build:
+        - libgpg-error
+
+  - name: libksba
+    version: "1.6.7"
+    url: https://www.gnupg.org/ftp/gcrypt/libksba/libksba-${version}.tar.bz2
+    license: LGPL-2.1-or-later
+    description: X.509 and CMS library
+    homepage: https://www.gnupg.org/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+    deps:
+      build:
+        - libgpg-error
+
+  - name: npth
+    version: "1.7"
+    url: https://www.gnupg.org/ftp/gcrypt/npth/npth-${version}.tar.bz2
+    license: LGPL-2.1-or-later
+    description: New portable threads library
+    homepage: https://www.gnupg.org/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+
+  - name: pinentry
+    version: "1.3.1"
+    url: https://www.gnupg.org/ftp/gcrypt/pinentry/pinentry-${version}.tar.bz2
+    license: GPL-2.0-or-later
+    description: PIN/passphrase entry dialog
+    homepage: https://www.gnupg.org/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--enable-pinentry-tty"
+    deps:
+      build:
+        - libassuan
+        - libgpg-error
+
+  - name: gnupg2
+    version: "2.4.7"
+    url: https://www.gnupg.org/ftp/gcrypt/gnupg/gnupg-${version}.tar.bz2
+    license: GPL-3.0-or-later
+    description: GNU Privacy Guard
+    homepage: https://www.gnupg.org/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--localstatedir=/var"
+      - "--sysconfdir=/etc"
+    deps:
+      build:
+        - libassuan
+        - libgcrypt
+        - libksba
+        - npth
+        - gnutls
+        - pinentry
+
+  - name: gpgme
+    version: "1.24.1"
+    url: https://www.gnupg.org/ftp/gcrypt/gpgme/gpgme-${version}.tar.bz2
+    license: LGPL-2.1-or-later
+    description: GnuPG Made Easy library
+    homepage: https://www.gnupg.org/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+    deps:
+      build:
+        - libassuan
+        - gnupg2
+
+  - name: libpwquality
+    version: "1.4.5"
+    url: https://github.com/libpwquality/libpwquality/releases/download/libpwquality-${version}/libpwquality-${version}.tar.bz2
+    license: GPL-2.0-or-later
+    description: Password quality checking library
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+      - "--with-securedir=/usr/lib/security"
+
+  # --- Misc supporting libs ---
+  - name: libevent
+    version: "2.1.12"
+    url: https://github.com/libevent/libevent/releases/download/release-${version}-stable/libevent-${version}-stable.tar.gz
+    license: BSD-3-Clause
+    description: Event notification library
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+
+  - name: c-ares
+    version: "1.34.4"
+    url: https://github.com/c-ares/c-ares/releases/download/v${version}/c-ares-${version}.tar.gz
+    license: MIT
+    description: Asynchronous DNS resolver library
+    build_style: cmake
+
+  - name: lua
+    version: "5.4.7"
+    url: https://www.lua.org/ftp/lua-${version}.tar.gz
+    license: MIT
+    description: Lightweight scripting language
+    build_style: custom
+
+  - name: slang
+    version: "2.3.3"
+    url: https://www.jedsoft.org/releases/slang/slang-${version}.tar.bz2
+    license: GPL-2.0-or-later
+    description: S-Lang programming library
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--sysconfdir=/etc"
+      - "--with-readline=gnu"
+
+  - name: newt
+    version: "0.52.24"
+    url: https://releases.pagure.org/newt/newt-${version}.tar.gz
+    license: LGPL-2.0-or-later
+    description: Text mode windowing toolkit
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--with-gpm-support"
+    deps:
+      build:
+        - popt
+        - slang
+
+  - name: rpcsvc-proto
+    version: "1.4.4"
+    url: https://github.com/thkukuk/rpcsvc-proto/releases/download/v${version}/rpcsvc-proto-${version}.tar.xz
+    license: BSD-3-Clause
+    description: RPC service protocol definitions
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--sysconfdir=/etc"
+
+  - name: fuse3
+    version: "3.16.2"
+    url: https://github.com/libfuse/libfuse/releases/download/fuse-${version}/fuse-${version}.tar.gz
+    license: GPL-2.0-or-later
+    description: Filesystem in Userspace
+    build_style: meson
+    meson_flags:
+      - "-Dexamples=false"
+      - "-Duseroot=false"
+
+  - name: cracklib
+    version: "2.10.2"
+    url: https://github.com/cracklib/cracklib/releases/download/v${version}/cracklib-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: Password checking library
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+      - "--with-default-dict=/usr/lib/cracklib/pw_dict"
+
+  - name: duktape
+    version: "2.7.0"
+    url: https://duktape.org/duktape-${version}.tar.xz
+    license: MIT
+    description: Embeddable JavaScript engine
+    build_style: custom
+
+  - name: boost
+    version: "1.86.0"
+    url: https://github.com/boostorg/boost/releases/download/boost-${version}/boost-${version}-b2-nodocs.tar.xz
+    license: BSL-1.0
+    description: C++ utility libraries
+    homepage: https://www.boost.org/
+    build_style: custom
+
+  - name: openjpeg2
+    version: "2.5.3"
+    url: https://github.com/uclouvain/openjpeg/archive/v${version}/openjpeg-${version}.tar.gz
+    license: BSD-2-Clause
+    description: JPEG 2000 codec library
+    build_style: cmake
+    cmake_flags:
+      - "CMAKE_INSTALL_PREFIX=/usr"
+      - "BUILD_SHARED_LIBS=ON"
+
+  - name: cdparanoia
+    version: "10.2"
+    url: https://downloads.xiph.org/releases/cdparanoia/cdparanoia-III-${version}.src.tgz
+    license: GPL-2.0-or-later
+    description: CD audio extraction tool
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+
+  - name: mpg123
+    version: "1.32.9"
+    url: https://downloads.sourceforge.net/mpg123/mpg123-${version}.tar.bz2
+    license: LGPL-2.1-or-later
+    description: MPEG audio decoder
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+
+  - name: libexif
+    version: "0.6.24"
+    url: https://github.com/libexif/libexif/releases/download/v${version}/libexif-${version}.tar.bz2
+    license: LGPL-2.1-or-later
+    description: EXIF metadata library
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
