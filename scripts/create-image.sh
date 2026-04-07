@@ -11,7 +11,7 @@
 #   sudo bash /mnt/intergenos/scripts/create-image.sh <output-path> [disk-size]
 #
 # Example:
-#   sudo bash /mnt/intergenos/scripts/create-image.sh /mnt/jarvis-storage/VMs/intergenos.qcow2 500G
+#   sudo bash /mnt/intergenos/scripts/create-image.sh /mnt/intergenos/build/intergenos.qcow2 500G
 
 set -euo pipefail
 
@@ -148,7 +148,7 @@ GRUB_DEFAULT=0
 GRUB_TIMEOUT=5
 GRUB_DISTRIBUTOR="InterGenOS"
 GRUB_CMDLINE_LINUX_DEFAULT=""
-GRUB_CMDLINE_LINUX="root=/dev/vda2 console=tty0 console=ttyS0,115200"
+GRUB_CMDLINE_LINUX="root=/dev/vda3 console=tty0 console=ttyS0,115200"
 GRUB_TERMINAL="console serial"
 GRUB_SERIAL_COMMAND="serial --speed=115200"
 GRUB_DISABLE_OS_PROBER=true
@@ -173,12 +173,23 @@ mount -t sysfs sysfs "${MOUNT_POINT}/sys"
 # Install GRUB for BIOS boot
 chroot "$MOUNT_POINT" grub-install --target=i386-pc "$NBD_DEV"
 
-# Install GRUB for EFI boot
-chroot "$MOUNT_POINT" grub-install --target=x86_64-efi \
-    --efi-directory=/boot/efi --bootloader-id=InterGenOS --removable
+# Install GRUB for EFI boot (skip if x86_64-efi modules not built)
+if [ -d "${MOUNT_POINT}/usr/lib/grub/x86_64-efi" ]; then
+    chroot "$MOUNT_POINT" grub-install --target=x86_64-efi \
+        --efi-directory=/boot/efi --bootloader-id=InterGenOS --removable
+else
+    log "  WARNING: x86_64-efi GRUB modules not found — skipping EFI install"
+fi
 
-# Generate GRUB config
-chroot "$MOUNT_POINT" grub-mkconfig -o /boot/grub/grub.cfg
+# Generate GRUB config.
+# grub-mkconfig runs inside the chroot where root is mounted via NBD,
+# so it detects /dev/nbd0pN as the root device. Override with the
+# actual target device (virtio: /dev/vda3).
+chroot "$MOUNT_POINT" /bin/bash -c \
+    "GRUB_DEVICE=/dev/vda3 grub-mkconfig -o /boot/grub/grub.cfg"
+
+# Belt and suspenders: ensure no NBD references leaked through
+sed -i 's|/dev/nbd[0-9]*p[0-9]*|/dev/vda3|g' "${MOUNT_POINT}/boot/grub/grub.cfg"
 
 # Unmount bind mounts and ESP
 umount "${MOUNT_POINT}/sys"
@@ -228,7 +239,50 @@ fi
 echo "root:${IMAGE_ROOT_PASSWORD}" | chroot "$MOUNT_POINT" chpasswd
 chroot "$MOUNT_POINT" passwd -x 99999 root
 
-log "  Post-deploy fixes applied (serial console, networking, DNS, root password)"
+# Enable GDM and set graphical target for desktop boot
+if [ -f "${MOUNT_POINT}/usr/lib/systemd/system/gdm.service" ]; then
+    chroot "$MOUNT_POINT" /bin/bash -c '
+        systemctl enable gdm
+        systemctl set-default graphical.target
+    '
+    log "  GDM enabled, default target set to graphical"
+fi
+
+# Fix /tmp/.X11-unix ownership (must be root-owned with sticky bit)
+mkdir -p "${MOUNT_POINT}/tmp/.X11-unix"
+chown root:root "${MOUNT_POINT}/tmp/.X11-unix"
+chmod 1777 "${MOUNT_POINT}/tmp/.X11-unix"
+
+# Ensure /tmp itself has correct permissions
+chmod 1777 "${MOUNT_POINT}/tmp"
+
+# Build icon caches, font caches, and compile GSettings schemas
+chroot "$MOUNT_POINT" /bin/bash -c '
+    # GSettings schemas
+    if [ -d /usr/share/glib-2.0/schemas ]; then
+        glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null
+    fi
+
+    # Icon caches
+    for theme_dir in /usr/share/icons/*/; do
+        if [ -f "${theme_dir}index.theme" ]; then
+            gtk-update-icon-cache -q "${theme_dir}" 2>/dev/null || true
+        fi
+    done
+
+    # Font cache
+    if command -v fc-cache >/dev/null 2>&1; then
+        fc-cache -f 2>/dev/null
+    fi
+
+    # GIO module cache
+    if command -v gio-querymodules >/dev/null 2>&1; then
+        gio-querymodules /usr/lib/gio/modules 2>/dev/null || true
+    fi
+' 2>/dev/null
+log "  Caches built (icons, fonts, schemas, GIO modules)"
+
+log "  Post-deploy fixes applied (serial console, networking, DNS, root password, GDM, caches)"
 
 # ============================================================================
 # Step 9: Unmount and disconnect

@@ -519,25 +519,38 @@ phase_image() {
     log "  Tearing down chroot mounts..."
     bash "${SCRIPTS}/chroot-teardown.sh" 2>&1 | tee -a "$BUILD_LOG" || true
 
-    # Clean up build artifacts from the target filesystem
-    # These were placed during setup — the built system doesn't need them
+    # Clean up build artifacts from the target filesystem.
+    # These were placed during setup — the built system doesn't need them.
+    # IMPORTANT: Do NOT remove kernel headers/source — they're needed for
+    # out-of-tree module builds (NVIDIA, VirtualBox, etc.)
     log "  Cleaning build artifacts from target..."
     rm -rf "${IGOS}/mnt/intergenos"
     rm -rf "${IGOS}/sources"
     rm -rf "${IGOS}/tmp"/*
     mkdir -p "${IGOS}/tmp"
     chmod 1777 "${IGOS}/tmp"
+    # Clean build work dirs but preserve kernel source/headers
+    if [ -d "${IGOS}/mnt/intergenos/build/work" ]; then
+        for d in "${IGOS}/mnt/intergenos/build/work"/*/; do
+            case "$(basename "$d")" in
+                linux*|kernel*) log "  Preserving $(basename "$d")" ;;
+                *) rm -rf "$d" ;;
+            esac
+        done
+    fi
     log "  Build artifacts removed"
 
-    # Create the image on VM local storage (fast)
-    local image_path="/home/${BUILD_USER}/intergenos.qcow2"
+    # Create the image — write to virtiofs-shared path so the host
+    # can access it directly without copying through SSH
+    local image_path="/mnt/intergenos/build/intergenos.qcow2"
     bash "${SCRIPTS}/create-image.sh" "$image_path" 500G 2>&1 | tee -a "$BUILD_LOG"
 
     log ""
-    log "  Disk image created at: $image_path (on build VM)"
+    log "  Disk image created at: $image_path"
+    log "  (accessible from host via virtiofs)"
     log ""
-    log "  To use it, copy to the host and create a VM:"
-    log "    scp ${BUILD_USER}@<vm-ip>:${image_path} /mnt/jarvis-storage/VMs/intergenos.qcow2"
+    log "  Create a VM with:"
+    log "    cp ${image_path} /mnt/jarvis-storage/VMs/intergenos.qcow2"
     log "    See create-image.sh output above for virt-install command."
 }
 
