@@ -25,6 +25,10 @@ def main():
     p_install.add_argument("packages", nargs="+", metavar="package")
     p_install.add_argument("--archive", help="Path to .igos.tar.gz archive")
 
+    # -- install-helper --
+    p_helper = sub.add_parser("install-helper", help="Install proprietary software via download helper")
+    p_helper.add_argument("package", help="Package to install (e.g., chrome, vscode, claude-code)")
+
     # -- remove --
     p_remove = sub.add_parser("remove", help="Remove a package")
     p_remove.add_argument("package")
@@ -78,6 +82,8 @@ def main():
     try:
         if args.command == "install":
             cmd_install(db, args)
+        elif args.command == "install-helper":
+            cmd_install_helper(db, args)
         elif args.command == "remove":
             cmd_remove(db, args)
         elif args.command == "list":
@@ -116,6 +122,44 @@ def cmd_install(db, args):
         else:
             print(f"  ERROR: {msg}", file=sys.stderr)
             sys.exit(1)
+
+
+def cmd_install_helper(db, args):
+    installer = PackageInstaller(db)
+    name = args.package
+    helper = installer._find_helper(name)
+    if not helper:
+        # Try common aliases
+        aliases = {
+            "google-chrome": "chrome",
+            "code": "vscode",
+            "vs-code": "vscode",
+            "claude": "claude-code",
+        }
+        alt = aliases.get(name)
+        if alt:
+            helper = installer._find_helper(alt)
+            if helper:
+                name = alt
+
+    if not helper:
+        available = []
+        from pathlib import Path
+        for f in Path("/usr/bin").glob("igos-install-*"):
+            available.append(f.name.replace("igos-install-", ""))
+        if available:
+            print(f"  No install helper found for '{name}'")
+            print(f"  Available helpers: {', '.join(sorted(available))}")
+        else:
+            print(f"  No install helpers found on this system")
+        sys.exit(1)
+
+    ok, msg = installer._run_helper(name, helper)
+    if ok:
+        print(f"  {msg}")
+    else:
+        print(f"  ERROR: {msg}", file=sys.stderr)
+        sys.exit(1)
 
 
 def cmd_remove(db, args):

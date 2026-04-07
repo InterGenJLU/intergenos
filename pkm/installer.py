@@ -35,6 +35,13 @@ class PackageInstaller:
         if not archive_path:
             archive_path = self._find_archive(name)
         if not archive_path:
+            # Suggest install-helper if one exists
+            helper = self._find_helper(name)
+            if helper:
+                return False, (
+                    f"No local archive for '{name}', but an install helper exists.\n"
+                    f"         Run: pkm install-helper {name}"
+                )
             return False, f"No archive found for '{name}' in {ARCHIVE_DIR}"
 
         archive_path = Path(archive_path)
@@ -125,6 +132,48 @@ class PackageInstaller:
         if stem.startswith(f"{name}-"):
             return stem[len(f"{name}-"):]
         return "unknown"
+
+    def _find_helper(self, name):
+        """Check if an install helper script exists for this package.
+
+        Proprietary software (Chrome, VS Code, Claude Code) can't be
+        pre-built into archives. Instead, helper scripts handle the
+        download and installation. pkm runs them transparently so the
+        user doesn't need to remember separate commands.
+        """
+        helper = Path(f"/usr/bin/igos-install-{name}")
+        if helper.exists() and os.access(str(helper), os.X_OK):
+            return helper
+        return None
+
+    def _run_helper(self, name, helper_path):
+        """Run an install helper script with transparent output.
+
+        The user sees exactly what the helper is doing — no hidden steps.
+        """
+        print(f"  No local archive for '{name}' — using install helper")
+        print(f"  Running: {helper_path}")
+        print(f"  {'─' * 50}")
+
+        result = subprocess.run(
+            [str(helper_path)],
+            env=os.environ.copy(),
+        )
+
+        print(f"  {'─' * 50}")
+
+        if result.returncode == 0:
+            # Record in database so pkm knows it's installed
+            self.db.add_installed(
+                name=name,
+                version="latest",
+                install_method="helper",
+                archive_path=str(helper_path),
+            )
+            self.db.log_operation("install", name, new_version="latest", method="helper")
+            return True, f"Installed {name} via helper ({helper_path.name})"
+        else:
+            return False, f"Install helper failed (exit {result.returncode})"
 
     def _write_manifest(self, name, version, file_list):
         """Write a text manifest alongside the SQLite entry."""
