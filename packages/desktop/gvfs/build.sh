@@ -2,8 +2,9 @@
 # gvfs 1.58.2 — GNOME virtual filesystem
 # BLFS 13.0
 #
-# All backends enabled except:
-#   -Dgoogle=false — libgdata deprecated by Google, removed from BLFS (owner approved)
+# First pass: builds before gnome-online-accounts.
+# GOA and OneDrive backends are disabled here and enabled in gvfs-pass2.
+# Google backend disabled permanently (libgdata deprecated, owner approved).
 
 configure() {
     mkdir build
@@ -14,7 +15,9 @@ configure() {
           --libdir=/usr/lib   \
           --buildtype=release \
           -Dman=false \
-          -Dgoogle=false
+          -Dgoogle=false \
+          -Dgoa=false \
+          -Donedrive=false
 }
 
 build() {
