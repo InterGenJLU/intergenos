@@ -3,7 +3,7 @@
 **Created:** March 30, 2026
 **Author:** InterGenJLU
 **Status:** Draft — living document
-**Last Updated:** March 31, 2026
+**Last Updated:** April 7, 2026
 
 ---
 
@@ -66,7 +66,7 @@ configure_flags:
   - --enable-readline
 ```
 
-### 3. Custom Package Manager (name TBD)
+### 3. Custom Package Manager (`pkm`)
 
 **Philosophy:** Honest about trade-offs. Transparency over automation.
 
@@ -157,11 +157,13 @@ A polished, modern installation experience that reflects InterGenOS's philosophy
 - Full logging with timestamps
 - Fatal sanity checks halt build on failure
 
-### Package Management (name TBD)
-- .igos.tar.zst package format with metadata.json
-- Installed package database
+### Package Management (`pkm`)
+- `.igos.tar.gz` package format with Slackware-style text manifests + SQLite database
+- `pkm install-helper` for proprietary software (Chrome, VS Code, Claude Code, Steam, Discord, Spotify) — transparent download via vendor helpers, tracked in pkm database
 - Dependency tracking and reverse-dependency awareness
-- Binary cache integration with build system
+- File ownership queries (`pkm provides /usr/bin/bash`)
+- Package integrity verification (`pkm verify --all`)
+- Operation history logging
 
 ### Virtualization / Development Environment
 - **KVM/QEMU with libvirt** for build and test VMs
@@ -221,18 +223,53 @@ Full research archives in `/mnt/intergenos/research/`
 
 ## Milestones (No Deadlines)
 
-1. ☐ Development environment (KVM setup, build host validation)
-2. ☐ Build system core (igos-build — template parser, dependency graph, build styles)
-3. ☐ First package templates (LFS 13.0 toolchain — binutils, gcc, glibc, linux headers)
-4. ☐ Toolchain build (cross-compilation toolchain via igos-build in KVM)
-5. ☐ Core system build (full LFS 13.0 package set)
-6. ☐ Package manager implementation
-7. ☐ Single DE working (GNOME or KDE on Wayland)
-8. ☐ Multi-DE with config isolation
-9. ☐ AI Tier 1 integration (text-based assistant)
-10. ☐ AI Tier 2 integration (voice)
-11. ☐ Custom installer
-12. ☐ First bootable ISO
+1. ☑ Development environment (KVM setup, build host validation)
+2. ☑ Build system core (igos-build — parser, graph, builder, tracker, styles)
+3. ☑ First package templates (LFS 13.0 toolchain — 28 packages)
+4. ☑ Toolchain build (cross-compilation toolchain in KVM chroot)
+5. ☑ Core system build (full LFS 13.0 Chapter 8 — 106 packages)
+6. ☑ Package manager implementation (`pkm` — install, remove, query, verify, depends, install-helper)
+7. ☑ Single DE working (GNOME 49.4 on Wayland — first boot April 7, 2026)
+8. ☑ BLFS package database + meson feature database
+9. ☑ 5-distro kernel convergence (Ubuntu, Fedora, Arch, Debian, openSUSE)
+10. ☑ 4-LLM code review + 77-issue audit remediation
+11. ☐ Bare metal boot (HP Laptop 14-dq1xxx — kernel config ready, USB image pending)
+12. ☐ Custom installer — GUI (GTK4, DeepSeek proposal reviewed)
+13. ☐ First-boot animation (ECG heartbeat pulse + text sequence, SDL → DRM/KMS)
+14. ☐ FLUX.2-generated branding (logo, GRUB, Plymouth, GDM, wallpaper)
+15. ☐ VPS package mirror (pre-built archives for pkm download)
+16. ☐ Application roadmap Phase 1 (install helpers: Discord, Spotify, Steam, Edge, Brave)
+17. ☐ Application roadmap Phase 2 (LibreOffice, VLC, Thunderbird, GIMP, Inkscape, Firefox)
+18. ☐ Multi-DE with config isolation (KDE Plasma, COSMIC)
+19. ☐ AI Tier 1 integration (text-based assistant)
+20. ☐ AI Tier 2 integration (voice — adapted from JARVIS)
+21. ☐ First public release + community announcement
+
+---
+
+## Development Pipeline (Planned)
+
+### Persistent Build Environment
+Snapshot the build VM after a successful build (`virsh snapshot-create-as igos-build build-ready`). Any time a new package needs to be built, start the VM — the full toolchain and all libraries are ready. No 5-hour rebuild for a single package.
+
+### Package Generator
+A tool that generates package templates from a name + version: detects build system (autotools/meson/cmake), queries BLFS database for dependencies, downloads source, generates `package.yml` + `build.sh`. Turns "add a new package" from a 20-minute research task into a 30-second command.
+
+### Automated Build Testing
+After a successful build, run a scripted test suite inside the booted VM:
+- Verify all systemd services start without errors
+- Verify GNOME session launches and renders
+- Verify gvfs backends load (`/usr/lib/gvfs/`)
+- Verify Vulkan (`vulkaninfo`)
+- Verify GSettings schemas compiled
+- Verify icon/font/pixbuf caches populated
+- Verify pkm can query and install packages
+
+### VPS Package Mirror
+Upload `.igos.tar.gz` archives to the VPS at `origin.intergenstudios.com`. `pkm update` fetches a package index; `pkm install <name>` downloads and installs pre-built binaries. No compilation on the user's machine.
+
+### Universal Kernel Config
+Kernel configuration derived from convergence analysis of 5 major distributions. The baseline covers 3,434 options where 4+ distros agree. InterGenOS-specific overrides add desktop optimizations (PREEMPT, HZ=1000), IoT support, and hardware-specific drivers (HP laptop SOF audio, RTW88 WiFi, LPSS I2C).
 
 ---
 

@@ -4,6 +4,8 @@
 
 InterGenOS puts the user in control of their own machine. Every package is compiled from source with deliberate choices. Every design decision serves one purpose: giving people a system they understand, can modify, and can trust.
 
+![InterGenOS First Boot — GNOME 49 on Wayland](images/FirstBoot_InterGenOS_Revival.png)
+
 ## The Prime Directive
 
 *InterGenOS exists to put the user in control of their own machine. Every design decision, every default, every included component must serve this purpose: giving people a system they understand, can modify, and can trust. Any complexity that doesn't serve the user — or that hides how the system works — is not welcome, regardless of how conventional it may be.*
@@ -15,6 +17,7 @@ InterGenOS puts the user in control of their own machine. Every package is compi
 - **System installer** (`forge`) — TUI-based installer powered by pkm, from partition to bootable desktop
 - **Custom build system** (`igos-build`) — Python orchestrator with YAML templates, dependency resolution, and full build logging
 - **BLFS package database** — 926 packages with 4,679 dependencies queryable via SQL, plus meson feature database (2,558 options across 133 packages)
+- **5-distro kernel convergence** — kernel config derived from Ubuntu, Fedora, Arch, Debian, and openSUSE consensus (3,434 universal options)
 - **GNOME desktop** — Wayland-native with dark theme and InterGenOS branding
 - **Extra tier** — Node.js, Google Chrome, VS Code, and Claude Code (proprietary packages fetched transparently via pkm)
 - **Tiered local AI assistant** — Hardware-detected, fully offline (planned)
@@ -69,9 +72,9 @@ python3 scripts/blfs-query.py meson-impact shaderc
 
 # Package management (on a running InterGenOS system)
 pkm install alsa-utils
-pkm install chrome              # Fetches from Google, installs via pkm
-pkm install vscode              # Fetches from Microsoft, installs via pkm
-pkm install claude-code         # Fetches from Anthropic, installs via pkm
+pkm install-helper chrome       # Fetches from Google, installs via pkm
+pkm install-helper vscode       # Fetches from Microsoft, installs via pkm
+pkm install-helper claude-code  # Fetches from Anthropic, installs via pkm
 pkm remove htop
 pkm list installed
 pkm search audio
@@ -87,7 +90,7 @@ intergenos/
 ├── igos-build/          # Build system (Python — parser, graph, builder, tracker)
 ├── pkm/                 # Package manager (Python — install, remove, query, verify)
 ├── installer/           # Forge installer (Python — TUI + backend)
-├── packages/            # 526 package templates (YAML + build.sh)
+├── packages/            # 530+ package templates (YAML + build.sh)
 │   ├── toolchain/       # LFS Ch. 5-7
 │   ├── core/            # LFS Ch. 8 + TLS/PAM/SSH
 │   ├── base/            # End-user CLI tools
@@ -104,7 +107,7 @@ intergenos/
 
 Active development. Originally built in 2015-2016 (build_001 through build_003). Revived March 2026.
 
-**Current:** 526 packages templated across 5 tiers. Core system proven (boots and runs). Desktop build (GNOME on Wayland, ~368 packages) in progress. Package manager, installer, and meson feature database written. Codebase reviewed by 4 external LLMs with all findings remediated.
+**Current:** 530+ packages across 5 tiers. First successful GNOME desktop boot achieved April 7, 2026 — GNOME 49.4 on Wayland, kernel 6.18.10, 478 packages built from source. Kernel config derived from 5-distro convergence analysis. Codebase reviewed by 4 external LLMs with all 77 audit findings remediated. Targeting HP laptop bare metal test via bootable USB.
 
 ## History
 
