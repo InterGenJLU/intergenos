@@ -70,7 +70,7 @@ configure_flags:
 
 **Philosophy:** Honest about trade-offs. Transparency over automation.
 
-- **Package format:** `.igos.tar.zst` (Zstandard-compressed tarball + metadata.json)
+- **Package format:** `.igos.tar.gz` (Zstandard-compressed tarball + metadata.json)
 - **Dependency tracking:** Explicit, declared in templates, topological sort for resolution
 - **Binary cache:** Build once, install from cache
 - **Atomic operations:** No partial installs (learned from Void's XBPS)
@@ -152,7 +152,7 @@ A polished, modern installation experience that reflects InterGenOS's philosophy
 - Dependency graph → topological sort → build order
 - Build styles handle common patterns (autotools, cmake, meson)
 - Custom build.sh for complex packages (GCC, glibc)
-- Binary cache in .igos.tar.zst format
+- Binary cache in .igos.tar.gz format
 - Two-phase toolchain validation (carried forward from build_003)
 - Full logging with timestamps
 - Fatal sanity checks halt build on failure
