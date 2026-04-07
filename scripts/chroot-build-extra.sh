@@ -35,36 +35,15 @@ log "============================================"
 log ""
 
 # ============================================================================
-# Step 1: Ensure PyYAML is available for igos-build
+# Step 1: Verify Python dependencies for igos-build
 # ============================================================================
+# PyYAML is installed as a Chapter 8 system package (alongside setuptools).
+# If it's missing, the core build is broken — fail hard, don't try to fix it.
 
 if ! python3 -c "import yaml" 2>/dev/null; then
-    log "  PyYAML not found — installing via ensurepip + pip..."
-
-    if ! pip3 --version 2>/dev/null; then
-        python3 -m ensurepip --upgrade
-        log "  pip: $(pip3 --version)"
-    fi
-
-    if ! python3 -c "import setuptools" 2>/dev/null; then
-        pip3 install --no-index --find-links="${IGOS_SOURCES}" \
-            --no-cache-dir --no-user setuptools
-    fi
-
-    # Ensure distutils compatibility shim is active
-    SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
-    if [ ! -f "$SITE/distutils-precedence.pth" ]; then
-        echo "import _distutils_hack; _distutils_hack.add_shim()" > "$SITE/distutils-precedence.pth"
-    fi
-
-    pip3 install --no-index --find-links="${IGOS_SOURCES}" \
-        --no-cache-dir --no-user PyYAML
-
-    if ! python3 -c "import yaml" 2>/dev/null; then
-        log "ERROR: Failed to install PyYAML"
-        exit 1
-    fi
-    log "  PyYAML: installed"
+    log "ERROR: PyYAML missing — Chapter 8 build is incomplete or corrupt"
+    log "       PyYAML must be installed as a core system package."
+    exit 1
 fi
 
 # ============================================================================

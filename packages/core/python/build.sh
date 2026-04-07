@@ -27,7 +27,6 @@ do_install() {
     mkdir -pv "${DESTDIR}/etc"
     cat > "${DESTDIR}/etc/pip.conf" << PIPEOF
 [install]
-root = /usr
 compile = no
 
 [global]

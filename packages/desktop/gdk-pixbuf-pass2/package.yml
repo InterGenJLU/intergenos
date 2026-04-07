@@ -1,12 +1,13 @@
-name: gdk-pixbuf
+name: gdk-pixbuf-pass2
 version: "2.44.5"
 release: 1
-description: Image loading library for GTK
+description: "gdk-pixbuf (pass 2 — rebuild with glycin support for GTK4 image loading)"
 license: LGPL-2.1-or-later
 homepage: https://wiki.gnome.org/Projects/GdkPixbuf
 tier: desktop
 build_style: custom
 install_func: do_install
+direct_install: true
 source:
 - url: https://download.gnome.org/sources/gdk-pixbuf/2.44/gdk-pixbuf-${version}.tar.xz
   sha256: 69b93e09139b80c0ee661503d60deb5a5874a31772b5184b9cd5462a4100ab68
@@ -17,5 +18,6 @@ dependencies:
   - libpng
   - libtiff
   - giflib
+  - glycin
   host: []
   runtime: []

@@ -475,6 +475,10 @@ run_package "setuptools" "setuptools" "82.0.0" \
     "setuptools-82.0.0.tar.gz" \
     "Python package build system"
 
+run_package "pyyaml" "pyyaml" "6.0.3" \
+    "pyyaml-6.0.3.tar.gz" \
+    "YAML parser for Python (required by igos-build)"
+
 run_package "ninja" "ninja" "1.13.2" \
     "ninja-1.13.2.tar.gz" \
     "Small build system with a focus on speed"

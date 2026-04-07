@@ -1,0 +1,17 @@
+name: pyyaml
+version: "6.0.3"
+release: 1
+description: YAML parser and emitter for Python (core — for igos-build)
+license: MIT
+homepage: https://pyyaml.org/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/P/PyYAML/pyyaml-${version}.tar.gz
+  sha256: d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f
+dependencies:
+  build:
+  - setuptools
+  host: []
+  runtime: []
