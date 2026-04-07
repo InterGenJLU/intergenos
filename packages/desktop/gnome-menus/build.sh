@@ -15,3 +15,7 @@ build() {
 do_install() {
     make DESTDIR="$DESTDIR" install
 }
+
+post_install() {
+    glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null || true
+}

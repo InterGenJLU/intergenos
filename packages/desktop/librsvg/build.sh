@@ -34,3 +34,7 @@ do_install() {
     cd build
     DESTDIR="$DESTDIR" ninja install
 }
+
+post_install() {
+    gdk-pixbuf-query-loaders --update-cache
+}

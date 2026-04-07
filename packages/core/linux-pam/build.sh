@@ -61,7 +61,24 @@ EOF
     cat > /etc/pam.d/system-session << "EOF"
 # Begin /etc/pam.d/system-session
 session   required    pam_unix.so
+session   required    pam_loginuid.so
+session   optional    pam_systemd.so
 # End /etc/pam.d/system-session
+EOF
+
+    # systemd user session PAM config (required for GNOME/GDM)
+    cat > /etc/pam.d/systemd-user << "EOF"
+# Begin /etc/pam.d/systemd-user
+account  required    pam_access.so
+account  include     system-account
+session  required    pam_env.so
+session  required    pam_limits.so
+session  required    pam_loginuid.so
+session  optional    pam_keyinit.so force revoke
+session  optional    pam_systemd.so
+auth     required    pam_deny.so
+password required    pam_deny.so
+# End /etc/pam.d/systemd-user
 EOF
 
     cat > /etc/pam.d/system-password << "EOF"

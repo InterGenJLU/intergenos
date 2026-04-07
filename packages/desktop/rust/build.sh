@@ -107,7 +107,10 @@ post_install() {
     cat > /etc/profile.d/rustc.sh << "PROFILE"
 # Begin /etc/profile.d/rustc.sh
 
-pathprepend /opt/rustc/bin           PATH
+case ":${PATH}:" in
+    *:/opt/rustc/bin:*) ;;
+    *) export PATH=/opt/rustc/bin:${PATH} ;;
+esac
 
 # End /etc/profile.d/rustc.sh
 PROFILE

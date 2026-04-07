@@ -1,0 +1,67 @@
+#!/bin/bash
+# Systemd 259.1 — Pass 2 rebuild with PAM support
+# BLFS 13.0
+#
+# LFS builds systemd without PAM (Chapter 8). After linux-pam is
+# installed, systemd must be rebuilt with PAM support so that:
+#   - pam_systemd.so is built and installed
+#   - systemd-logind can create proper user sessions
+#   - GDM and GNOME can register display sessions
+#
+# Without this rebuild, GNOME desktop login fails because
+# systemd --user cannot start (no XDG_RUNTIME_DIR created).
+
+configure() {
+    # Same sed fix as pass 1
+    sed -e 's/GROUP="render"/GROUP="video"/' \
+        -e 's/GROUP="sgx", //'               \
+        -i rules.d/50-udev-default.rules.in
+
+    mkdir -p build
+    cd       build
+
+    meson setup ..                \
+        --prefix=/usr             \
+        --libdir=/usr/lib         \
+        --buildtype=release       \
+        -D default-dnssec=no      \
+        -D firstboot=false        \
+        -D install-tests=false    \
+        -D ldconfig=false         \
+        -D sysusers=false         \
+        -D rpmmacrosdir=no        \
+        -D homed=disabled         \
+        -D man=disabled           \
+        -D mode=release           \
+        -D pam=enabled            \
+        -D pamconfdir=/etc/pam.d  \
+        -D dev-kvm-mode=0660      \
+        -D nobody-group=nogroup   \
+        -D sysupdate=disabled     \
+        -D ukify=disabled         \
+        -D docdir=/usr/share/doc/systemd-259.1
+}
+
+build() {
+    cd build
+    ninja -j${IGOS_JOBS}
+}
+
+do_install() {
+    cd build
+    # Direct install — overwrites pass 1 systemd with PAM-enabled version
+    ninja install
+}
+
+post_install() {
+    # Verify pam_systemd.so was installed
+    if [ -f /usr/lib/security/pam_systemd.so ]; then
+        echo "  pam_systemd.so installed successfully"
+    else
+        echo "  ERROR: pam_systemd.so not found after rebuild!"
+        return 1
+    fi
+
+    # Reload systemd to pick up new binaries
+    systemctl daemon-reexec 2>/dev/null || true
+}

@@ -1,0 +1,19 @@
+name: systemd-pass2
+version: "259.1"
+release: 1
+description: "Systemd (pass 2 — rebuild with PAM support for GNOME/GDM)"
+license: LGPL-2.1-or-later
+homepage: https://www.freedesktop.org/wiki/Software/systemd/
+tier: desktop
+build_style: custom
+install_func: do_install
+direct_install: true
+source:
+- url: https://github.com/systemd/systemd/archive/v${version}/systemd-${version}.tar.gz
+  sha256: 3a07847e09807668ecba756cbb11dcde1e3e498d8c410834d3b44acdd5cba973
+dependencies:
+  build:
+  - linux-pam
+  - polkit
+  host: []
+  runtime: []

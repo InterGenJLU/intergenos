@@ -14,3 +14,7 @@ do_install() {
     # Emoji
     install -v -m644 fonts/NotoColorEmoji/*.ttf            "${DESTDIR}/usr/share/fonts/noto/" 2>/dev/null || true
 }
+
+post_install() {
+    fc-cache -f 2>/dev/null || true
+}

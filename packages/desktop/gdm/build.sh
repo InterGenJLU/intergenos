@@ -30,3 +30,8 @@ do_install() {
     cd build
     DESTDIR="$DESTDIR" ninja install
 }
+
+post_install() {
+    glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null || true
+    update-desktop-database /usr/share/applications 2>/dev/null || true
+}

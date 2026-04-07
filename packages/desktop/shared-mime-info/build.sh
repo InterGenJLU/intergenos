@@ -21,3 +21,7 @@ do_install() {
     cd build
     DESTDIR="$DESTDIR" ninja install
 }
+
+post_install() {
+    update-mime-database /usr/share/mime 2>/dev/null || true
+}
