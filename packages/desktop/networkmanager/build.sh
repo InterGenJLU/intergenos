@@ -36,3 +36,13 @@ do_install() {
     cd build
     DESTDIR="$DESTDIR" ninja install
 }
+
+post_install() {
+    # Enable NetworkManager for GNOME desktop integration
+    # (replaces systemd-networkd which is server-oriented)
+    systemctl enable NetworkManager.service 2>/dev/null || true
+
+    # Disable systemd-networkd if enabled (conflicts with NM)
+    systemctl disable systemd-networkd.service 2>/dev/null || true
+    systemctl disable systemd-networkd-wait-online.service 2>/dev/null || true
+}

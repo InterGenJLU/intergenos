@@ -35,4 +35,15 @@ do_install() {
 
 post_install() {
     echo "ServerName /run/cups/cups.sock" > /etc/cups/client.conf
+
+    # PAM config for CUPS web admin authentication
+    cat > /etc/pam.d/cups << "EOF"
+# Begin /etc/pam.d/cups
+auth    include system-auth
+account include system-account
+session include system-session
+# End /etc/pam.d/cups
+EOF
+
+    systemctl enable cups.service 2>/dev/null || true
 }

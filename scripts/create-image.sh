@@ -288,10 +288,33 @@ chroot "$MOUNT_POINT" /bin/bash -c '
     if command -v gio-querymodules >/dev/null 2>&1; then
         gio-querymodules /usr/lib/gio/modules 2>/dev/null || true
     fi
-' 2>/dev/null
-log "  Caches built (icons, fonts, schemas, GIO modules)"
 
-log "  Post-deploy fixes applied (serial console, networking, DNS, root password, GDM, caches)"
+    # gdk-pixbuf loader cache
+    if command -v gdk-pixbuf-query-loaders >/dev/null 2>&1; then
+        gdk-pixbuf-query-loaders --update-cache 2>/dev/null || true
+    fi
+
+    # MIME database
+    if command -v update-mime-database >/dev/null 2>&1; then
+        update-mime-database /usr/share/mime 2>/dev/null || true
+    fi
+
+    # Desktop database
+    if command -v update-desktop-database >/dev/null 2>&1; then
+        update-desktop-database /usr/share/applications 2>/dev/null || true
+    fi
+
+    # Linker cache — must run after all libraries are installed
+    ldconfig 2>/dev/null
+
+    # Enable essential desktop services
+    systemctl enable avahi-daemon.service 2>/dev/null || true
+    systemctl enable cups.service 2>/dev/null || true
+    systemctl enable bluetooth.service 2>/dev/null || true
+' 2>/dev/null
+log "  Caches built (icons, fonts, schemas, GIO, pixbuf, MIME, desktop, ldconfig)"
+
+log "  Post-deploy fixes applied (serial console, networking, DNS, root password, GDM, services, caches)"
 
 # ============================================================================
 # Step 9: Unmount and disconnect

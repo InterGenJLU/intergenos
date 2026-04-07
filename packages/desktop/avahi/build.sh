@@ -44,4 +44,6 @@ post_install() {
 
     # Create privileged access group for Avahi clients
     groupadd -fg 86 netdev 2>/dev/null || true
+
+    systemctl enable avahi-daemon.service 2>/dev/null || true
 }

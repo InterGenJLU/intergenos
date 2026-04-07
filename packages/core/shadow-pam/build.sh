@@ -70,7 +70,7 @@ account   include     system-account
 
 session   required    pam_env.so
 session   required    pam_limits.so
-session   optional    pam_lastlog.so
+#session   optional    pam_lastlog.so
 session   include     system-session
 session   optional    pam_motd.so
 session   optional    pam_mail.so      dir=/var/mail standard quiet

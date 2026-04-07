@@ -17,7 +17,8 @@ configure() {
           --buildtype=release \
           -Dtests=true \
           -Dman=true \
-          -Dsession_tracking=logind
+          -Dsession_tracking=logind \
+          -Dos_type=lfs
 }
 
 build() {
