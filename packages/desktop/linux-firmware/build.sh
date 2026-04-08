@@ -15,5 +15,10 @@ build() {
 }
 
 do_install() {
-    make DESTDIR="$DESTDIR" FIRMWAREDIR=/usr/lib/firmware install
+    # install-xz compresses firmware blobs (~900MB vs ~2.2GB uncompressed)
+    # Requires CONFIG_FW_LOADER_COMPRESS_XZ=y in the kernel
+    make DESTDIR="$DESTDIR" FIRMWAREDIR=/usr/lib/firmware install-xz
+
+    # De-duplicate identical files with hardlinks
+    make DESTDIR="$DESTDIR" FIRMWAREDIR=/usr/lib/firmware dedup
 }
