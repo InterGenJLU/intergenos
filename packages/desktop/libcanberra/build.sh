@@ -13,5 +13,10 @@ build() {
 }
 
 do_install() {
+    # Remove .la files before install to prevent libtool relink failures.
+    # Libtool relink chokes on GCC 15 when relinking modules during
+    # DESTDIR install (file format not recognized on valid .so files).
+    find . -name "*.la" -delete
+
     make DESTDIR="$DESTDIR" install
 }

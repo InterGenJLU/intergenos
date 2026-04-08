@@ -38,6 +38,7 @@ CARGOEOF
 
     meson setup ..              \
           --prefix=/usr         \
+          --libdir=/usr/lib     \
           --buildtype=release   \
           -D libglycin-gtk4=false \
           -D tests=false
