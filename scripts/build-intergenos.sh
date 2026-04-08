@@ -59,8 +59,9 @@ PHASES=(
     core
     config
     core-extra
-    base
+    kernel
     desktop
+    extra
     image
 )
 
