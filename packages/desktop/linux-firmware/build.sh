@@ -15,10 +15,8 @@ build() {
 }
 
 do_install() {
-    # install-xz compresses firmware blobs (~900MB vs ~2.2GB uncompressed)
-    # Requires CONFIG_FW_LOADER_COMPRESS_XZ=y in the kernel
-    make DESTDIR="$DESTDIR" FIRMWAREDIR=/usr/lib/firmware install-xz
-
-    # De-duplicate identical files with hardlinks
-    make DESTDIR="$DESTDIR" FIRMWAREDIR=/usr/lib/firmware dedup
+    # Use copy-firmware.sh directly (avoids parallel/rdfind deps)
+    # Plain install — firmware blobs uncompressed (~2GB)
+    # Future: add xz compression when parallel is available
+    ./copy-firmware.sh "${DESTDIR}/usr/lib/firmware"
 }
