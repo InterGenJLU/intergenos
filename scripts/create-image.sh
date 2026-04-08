@@ -208,6 +208,12 @@ umount "${MOUNT_POINT}/boot/efi"
 
 log "Applying post-deploy fixes..."
 
+# Fix sudo setuid bit (tar strips setuid during copy)
+if [ -f "${MOUNT_POINT}/usr/bin/sudo" ]; then
+    chmod 4755 "${MOUNT_POINT}/usr/bin/sudo"
+    log "  sudo setuid bit restored"
+fi
+
 # Enable serial console for VM management
 chroot "$MOUNT_POINT" /bin/bash -c '
     ln -sf /usr/lib/systemd/system/serial-getty@.service \
