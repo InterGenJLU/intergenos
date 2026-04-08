@@ -11,6 +11,7 @@ Usage:
     python -m igos-build --sources-dir /sources     Override sources directory
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -38,6 +39,7 @@ def main():
     do_build = "--build" in args
     tracked = "--tracked" in args
     skip_built = "--skip-built" in args
+    json_log = "--json-log" in args or os.environ.get("IGOS_JSON_LOG") == "1"
     only_pkg = None
     tier_filter = None
     sources_dir = SOURCES_DIR
@@ -151,6 +153,7 @@ def main():
             system_root=SYSTEM_ROOT,
             tracked=tracked,
             skip_built=skip_built,
+            json_log=json_log,
         )
 
         success = executor.build_all(order, halt_on_failure=True)

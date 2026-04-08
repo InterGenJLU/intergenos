@@ -49,6 +49,7 @@ class BuildExecutor(PackageTracker):
         jobs: int | None = None,
         tracked: bool = False,
         skip_built: bool = False,
+        json_log: bool = False,
     ):
         self.work_dir = Path(work_dir)
         self.log_dir = Path(log_dir)
@@ -72,8 +73,8 @@ class BuildExecutor(PackageTracker):
         for d in dirs:
             d.mkdir(parents=True, exist_ok=True)
 
-        self.logger = BuildLogger(self.log_dir)
-        self.summary = SummaryLogger()
+        self.logger = BuildLogger(self.log_dir, json_log=json_log)
+        self.summary = SummaryLogger(log_dir=self.log_dir, json_log=json_log)
 
     def build_env(self, pkg: Package) -> dict[str, str]:
         """Build the environment variables dict for a package."""
