@@ -14,5 +14,7 @@ dependencies:
   build:
   - gtk3
   - pygobject3
+  - glib2
+  - libxml2
   host: []
   runtime: []

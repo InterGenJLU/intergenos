@@ -73,9 +73,19 @@ class BuildStyle(ABC):
         ]
 
     def _patch_commands(self, pkg: Package) -> list[str]:
-        """Standard patch application — shared across styles."""
+        """Standard patch application — shared across styles.
+
+        Verifies SHA256 checksum before applying each patch when a
+        checksum is declared in the package template.
+        """
         commands = []
-        for patch_file in pkg.patches:
-            commands.append(f'echo "Applying patch: {patch_file}"')
-            commands.append(f"patch -Np1 -i $IGOS_PATCHES/{patch_file}")
+        for entry in pkg.patches:
+            patch_path = f"$IGOS_PATCHES/{entry.file}"
+            commands.append(f'echo "Applying patch: {entry.file}"')
+            if entry.sha256:
+                commands.append(
+                    f'echo "{entry.sha256}  {patch_path}" | sha256sum -c - '
+                    f'|| {{ echo "FATAL: Checksum mismatch for {entry.file}"; exit 1; }}'
+                )
+            commands.append(f"patch -Np1 -i {patch_path}")
         return commands

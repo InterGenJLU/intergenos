@@ -16,5 +16,7 @@ dependencies:
   - libjpeg-turbo
   - openjpeg2
   - freetype2
+  - curl
+  - xdg-utils
   host: []
   runtime: []

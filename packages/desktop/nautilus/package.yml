@@ -20,5 +20,9 @@ dependencies:
   - gnome-autoar
   - libseccomp
   - tinysparql
+  - desktop-file-utils
+  - glib2
+  - libcloudproviders
+  - localsearch
   host: []
   runtime: []

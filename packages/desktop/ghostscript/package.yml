@@ -20,5 +20,8 @@ dependencies:
   - libpng
   - libtiff
   - openjpeg2
+  - cairo
+  - gtk3
+  - libwebp
   host: []
   runtime: []

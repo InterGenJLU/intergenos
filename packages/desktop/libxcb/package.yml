@@ -15,6 +15,7 @@ dependencies:
   - xcb-proto
   - libXau
   - libXdmcp
+  - libxslt
   host: []
   runtime: []
 configure_flags:

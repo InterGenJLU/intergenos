@@ -18,5 +18,9 @@ dependencies:
   - lcms2
   - libjpeg-turbo
   - libpng
+  - cmake
+  - gdk-pixbuf
+  - libavif
+  - libwebp
   host: []
   runtime: []

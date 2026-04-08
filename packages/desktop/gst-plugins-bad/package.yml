@@ -14,5 +14,34 @@ dependencies:
   build:
   - gst-plugins-base
   - soundtouch
+  - bluez
+  - curl
+  - fdk-aac
+  - gst-plugins-good
+  - gtk3
+  - json-glib
+  - lcms2
+  - libaom
+  - libass
+  - libexif
+  - libgcrypt
+  - librsvg
+  - libsndfile
+  - libssh2
+  - libusb
+  - libva
+  - libwebp
+  - libxkbcommon
+  - libxml2
+  - nettle
+  - openjpeg2
+  - opus
+  - pango
+  - sbc
+  - shaderc
+  - svt-av1
+  - vulkan-loader
+  - wayland
+  - x265
   host: []
   runtime: []

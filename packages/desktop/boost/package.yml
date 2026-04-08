@@ -11,6 +11,8 @@ source:
 - url: https://github.com/boostorg/boost/releases/download/boost-${version}/boost-${version}-b2-nodocs.tar.xz
   sha256: 9e6bee9ab529fb2b0733049692d57d10a72202af085e553539a05b4204211a6f
 dependencies:
-  build: []
+  build:
+  - icu
+  - which
   host: []
   runtime: []

@@ -15,6 +15,7 @@ dependencies:
   - libjpeg-turbo
   - libpng
   - libtiff
+  - giflib
   host: []
   runtime: []
 configure_flags:

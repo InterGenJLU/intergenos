@@ -20,5 +20,8 @@ dependencies:
   - libseccomp
   - rust
   - vala
+  - glib2
+  - gtk4
+  - libjxl
   host: []
   runtime: []

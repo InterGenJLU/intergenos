@@ -17,5 +17,7 @@ dependencies:
   - libpng
   - libtiff
   - giflib
+  - docutils
+  - glib2
   host: []
   runtime: []

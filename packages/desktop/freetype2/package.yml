@@ -15,5 +15,6 @@ dependencies:
   - harfbuzz
   - libpng
   - brotli
+  - which
   host: []
   runtime: []

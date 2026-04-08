@@ -13,5 +13,9 @@ source:
 dependencies:
   build:
   - libxslt
+  - at-spi2-core
+  - docbook-xsl-nons
+  - lynx
+  - pygobject3
   host: []
   runtime: []

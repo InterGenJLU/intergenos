@@ -31,5 +31,7 @@ dependencies:
   - shared-mime-info
   - tecla
   - udisks2
+  - ibus
+  - xwayland
   host: []
   runtime: []

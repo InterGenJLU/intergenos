@@ -13,6 +13,10 @@ source:
 dependencies:
   build:
   - alsa-lib
+  - ffmpeg
+  - libsamplerate
+  - pulseaudio
+  - speex
   host: []
   runtime: []
 configure_flags:

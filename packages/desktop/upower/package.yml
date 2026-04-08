@@ -14,5 +14,6 @@ dependencies:
   build:
   - libgudev
   - libusb
+  - glib2
   host: []
   runtime: []

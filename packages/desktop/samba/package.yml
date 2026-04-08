@@ -22,5 +22,21 @@ dependencies:
   - fuse3
   - libtirpc
   - linux-pam
+  - avahi
+  - cups
+  - cyrus-sasl
+  - git
+  - icu
+  - libaio
+  - libarchive
+  - libgcrypt
+  - libnsl
+  - libtasn1
+  - libxslt
+  - lmdb
+  - markdown
+  - nss
+  - popt
+  - vala
   host: []
   runtime: []

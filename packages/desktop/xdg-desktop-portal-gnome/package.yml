@@ -16,6 +16,7 @@ dependencies:
   - gtk4
   - libadwaita1
   - xdg-desktop-portal
+  - xdg-desktop-portal-gtk
   host: []
   runtime:
   - xdg-desktop-portal-gtk

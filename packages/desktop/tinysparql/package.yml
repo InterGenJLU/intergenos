@@ -17,5 +17,7 @@ dependencies:
   - libsoup3
   - pygobject3
   - vala
+  - avahi
+  - glib2
   host: []
   runtime: []

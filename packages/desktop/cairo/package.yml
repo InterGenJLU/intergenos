@@ -19,5 +19,8 @@ dependencies:
   - libXext
   - libXrender
   - pixman
+  - glib2
+  - libdrm
+  - libxml2
   host: []
   runtime: []

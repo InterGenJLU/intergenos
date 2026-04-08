@@ -13,5 +13,6 @@ source:
 dependencies:
   build:
   - nasm
+  - cmake
   host: []
   runtime: []

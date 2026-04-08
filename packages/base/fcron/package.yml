@@ -13,6 +13,8 @@ source:
     sha256: f4e7fc553cdd70ff4b3b6ac9138b3b7cffab9198b8c266d97af0a87506e0e1b5
 
 dependencies:
-  build: []
+  build:
+  - linux-pam
+  - vim
   host: []
   runtime: []

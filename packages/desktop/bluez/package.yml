@@ -13,6 +13,9 @@ source:
 dependencies:
   build:
   - libical
+  - dbus
+  - docutils
+  - glib2
   host: []
   runtime: []
 configure_flags:

@@ -15,5 +15,6 @@ dependencies:
   - brotli
   - curl
   - inih
+  - cmake
   host: []
   runtime: []

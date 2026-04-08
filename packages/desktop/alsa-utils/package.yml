@@ -13,6 +13,8 @@ source:
 dependencies:
   build:
   - alsa-lib
+  - docutils
+  - libsamplerate
   host: []
   runtime: []
 configure_flags:

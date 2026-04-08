@@ -14,5 +14,7 @@ dependencies:
   build:
   - dav1d
   - svt-av1
+  - gdk-pixbuf
+  - libaom
   host: []
   runtime: []

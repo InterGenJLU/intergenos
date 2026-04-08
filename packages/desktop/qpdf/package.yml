@@ -13,5 +13,8 @@ source:
 dependencies:
   build:
   - libjpeg-turbo
+  - ghostscript
+  - gnutls
+  - libtiff
   host: []
   runtime: []

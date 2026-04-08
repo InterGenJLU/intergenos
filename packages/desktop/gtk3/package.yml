@@ -27,5 +27,13 @@ dependencies:
   - wayland-protocols
   - libxkbcommon
   - iso-codes
+  - colord
+  - cups
+  - docbook-xsl-nons
+  - hicolor-icon-theme
+  - libcloudproviders
+  - libxslt
+  - sassc
+  - tinysparql
   host: []
   runtime: []

@@ -21,4 +21,5 @@ dependencies:
   runtime: []
 
 patches:
-  - glib-2.86.4-upstream_fixes-1.patch
+  - file: glib-2.86.4-upstream_fixes-1.patch
+    sha256: 7014490afacc48ddef1c793041cf6f83cdd45b2ea9465f38c2648d06ac085bc9

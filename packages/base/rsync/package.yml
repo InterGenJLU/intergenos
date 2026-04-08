@@ -19,4 +19,5 @@ dependencies:
   runtime: []
 
 patches:
-  - rsync-3.4.1-security_fix-1.patch
+  - file: rsync-3.4.1-security_fix-1.patch
+    sha256: 79bec5ef5e8113980759f8ecacf12632bee97eb0bcd4622a1b9dc59acd979778

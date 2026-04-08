@@ -13,5 +13,8 @@ source:
 dependencies:
   build:
   - cmake
+  - lcms2
+  - libpng
+  - libtiff
   host: []
   runtime: []

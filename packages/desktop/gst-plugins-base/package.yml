@@ -20,5 +20,15 @@ dependencies:
   - pango
   - libX11
   - libXext
+  - cdparanoia
+  - glib2
+  - graphene
+  - iso-codes
+  - libgudev
+  - libjpeg-turbo
+  - libpng
+  - mesa
+  - opus
+  - wayland-protocols
   host: []
   runtime: []

@@ -22,5 +22,9 @@ dependencies:
   - xkeyboard-config
   - xkbcomp
   - font-util
+  - libei
+  - libgcrypt
+  - libtirpc
+  - nettle
   host: []
   runtime: []

@@ -163,7 +163,7 @@ log() {
 
 save_checkpoint() {
     local phase="$1"
-    local checkpoint="${CHECKPOINT_DIR}/intergenos-${phase}-$(date '+%Y%m%d-%H%M%S').tar.gz"
+    local checkpoint="${CHECKPOINT_DIR}/intergenos-${phase}-$(date '+%Y%m%d-%H%M%S').tar.zst"
 
     log ""
     log ">>> Saving checkpoint: $checkpoint"
@@ -173,18 +173,19 @@ save_checkpoint() {
     # Remove any checkpoint tarballs that landed inside the chroot
     # (from previous runs with old CHECKPOINT_DIR) so they don't compound
     rm -f "${IGOS}/home/${BUILD_USER}"/intergenos-*.tar.gz 2>/dev/null || true
+    rm -f "${IGOS}/home/${BUILD_USER}"/intergenos-*.tar.zst 2>/dev/null || true
 
     # Tear down chroot mounts temporarily for a clean snapshot
     bash "${SCRIPTS}/chroot-teardown.sh" > /dev/null 2>&1 || true
 
     local start_time=$(date +%s)
-    tar -C "$IGOS" --one-file-system -czf "$checkpoint" . 2>&1
+    tar -C "$IGOS" --one-file-system --zstd -cf "$checkpoint" . 2>&1
 
     local elapsed=$(( $(date +%s) - start_time ))
     local size=$(du -h "$checkpoint" | cut -f1)
 
     log ">>> Checkpoint saved: $size in ${elapsed}s"
-    log ">>> Restore with: rm -rf ${IGOS}/* && tar -C ${IGOS} -xzf ${checkpoint}"
+    log ">>> Restore with: rm -rf ${IGOS}/* && tar -C ${IGOS} --zstd -xf ${checkpoint}"
 
     # Re-mount chroot filesystems
     bash "${SCRIPTS}/chroot-setup.sh" > /dev/null 2>&1 || true

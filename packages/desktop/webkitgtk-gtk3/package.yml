@@ -30,5 +30,18 @@ dependencies:
   - libX11
   - wayland
   - icu
+  - cmake
+  - glib2
+  - gtk4
+  - harfbuzz
+  - hicolor-icon-theme
+  - lcms2
+  - libavif
+  - libjxl
+  - libsecret
+  - libtasn1
+  - mesa
+  - which
+  - woff2
   host: []
   runtime: []

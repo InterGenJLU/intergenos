@@ -15,5 +15,8 @@ dependencies:
   - glib2
   - lua
   - pipewire
+  - linux-pam
+  - lxml
+  - systemd
   host: []
   runtime: []

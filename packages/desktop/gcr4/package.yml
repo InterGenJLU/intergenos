@@ -17,5 +17,9 @@ dependencies:
   - p11-kit
   - gtk4
   - vala
+  - glib2
+  - gnutls
+  - libxslt
+  - openssh
   host: []
   runtime: []

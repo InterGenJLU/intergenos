@@ -15,5 +15,7 @@ dependencies:
   - libarchive
   - libgcrypt
   - libxml2
+  - cmake
+  - glib2
   host: []
   runtime: []

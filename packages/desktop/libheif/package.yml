@@ -15,5 +15,15 @@ dependencies:
   - libaom
   - dav1d
   - x265
+  - brotli
+  - ffmpeg
+  - gdk-pixbuf
+  - libjpeg-turbo
+  - libpng
+  - libtiff
+  - libwebp
+  - openjpeg2
+  - svt-av1
+  - x264
   host: []
   runtime: []

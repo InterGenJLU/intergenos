@@ -13,5 +13,7 @@ source:
 dependencies:
   build:
   - glib2
+  - libnsl
+  - rust
   host: []
   runtime: []

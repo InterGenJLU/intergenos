@@ -15,5 +15,7 @@ dependencies:
   - freetype2-pass1
   - graphite2
   - icu
+  - git
+  - glib2
   host: []
   runtime: []

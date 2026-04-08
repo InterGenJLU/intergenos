@@ -11,10 +11,12 @@ source:
 - url: https://www.openldap.org/software/download/OpenLDAP/openldap-release/openldap-${version}.tgz
   sha256: 1716ad779e85d743694c3e3b05277fb71b6a5eadca43c7a958aa62683b22208e
 patches:
-  - openldap-2.6.12-consolidated-1.patch
+  - file: openldap-2.6.12-consolidated-1.patch
+    sha256: a1aee8daf29cbe6de0a41ce8d250d6f9157d581843c92034714cc82ea1cf934f
 dependencies:
   build:
   - cyrus-sasl
   - openssl
+  - gnutls
   host: []
   runtime: []

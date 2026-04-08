@@ -16,5 +16,7 @@ dependencies:
   - gnutls
   - libusb
   - linux-pam
+  - avahi
+  - xdg-utils
   host: []
   runtime: []

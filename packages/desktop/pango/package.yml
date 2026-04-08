@@ -21,5 +21,6 @@ dependencies:
   - libX11
   - libXft
   - gobject-introspection
+  - docutils
   host: []
   runtime: []

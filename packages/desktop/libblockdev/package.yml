@@ -18,5 +18,7 @@ dependencies:
   - libbytesize
   - libnvme
   - lvm2
+  - glib2
+  - json-glib
   host: []
   runtime: []

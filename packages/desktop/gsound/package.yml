@@ -14,5 +14,6 @@ dependencies:
   build:
   - libcanberra
   - vala
+  - glib2
   host: []
   runtime: []

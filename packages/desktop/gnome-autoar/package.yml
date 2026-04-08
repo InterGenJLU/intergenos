@@ -14,5 +14,6 @@ dependencies:
   build:
   - gtk3
   - vala
+  - libarchive
   host: []
   runtime: []

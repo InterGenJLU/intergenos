@@ -11,10 +11,13 @@ source:
 - url: https://kerberos.org/dist/krb5/1.22/krb5-${version}.tar.gz
   sha256: 3243ffbc8ea4d4ac22ddc7dd2a1dc54c57874c40648b60ff97009763554eaf13
 patches:
-  - mitkrb-1.22.2-upstream_fix-1.patch
+  - file: mitkrb-1.22.2-upstream_fix-1.patch
+    sha256: 91bed46e7c59b4bc27df659c13abd4514e456293717720e8545d7f8acad00a97
 dependencies:
   build:
   - keyutils
   - e2fsprogs
+  - cracklib
+  - openldap
   host: []
   runtime: []

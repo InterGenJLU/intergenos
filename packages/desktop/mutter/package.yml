@@ -31,5 +31,11 @@ dependencies:
   - libXcomposite
   - libXdamage
   - libXfixes
+  - desktop-file-utils
+  - docutils
+  - glib2
+  - gnome-settings-daemon
+  - libadwaita1
+  - xwayland
   host: []
   runtime: []

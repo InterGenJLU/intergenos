@@ -32,6 +32,13 @@ class Dependencies:
 
 
 @dataclass
+class PatchEntry:
+    """A patch file with optional integrity verification."""
+    file: str
+    sha256: str | None = None
+
+
+@dataclass
 class ValidationCheck:
     """A post-build validation step."""
     type: str                        # sanity_check, footprint, checksum, test_suite
@@ -62,7 +69,7 @@ class Package:
 
     # Build configuration
     configure_flags: list[str] = field(default_factory=list)
-    patches: list[str] = field(default_factory=list)
+    patches: list[PatchEntry] = field(default_factory=list)
 
     # Toolchain-specific
     target_triple: str | None = None
@@ -165,6 +172,29 @@ def _parse_dependencies(raw: dict | None, path: Path) -> Dependencies:
     )
 
 
+def _parse_patches(raw: list, path: Path) -> list[PatchEntry]:
+    """Parse the patches list, supporting both string and dict formats.
+
+    Accepts:
+      patches:
+        - simple.patch                          # string → PatchEntry(file=..., sha256=None)
+        - file: verified.patch                  # dict   → PatchEntry(file=..., sha256=...)
+          sha256: abc123...
+    """
+    entries = []
+    for i, item in enumerate(raw):
+        if isinstance(item, str):
+            entries.append(PatchEntry(file=item))
+        elif isinstance(item, dict):
+            filename = item.get("file")
+            if not filename:
+                raise TemplateError(path, f"patches[{i}]: dict entry missing 'file' key")
+            entries.append(PatchEntry(file=filename, sha256=item.get("sha256")))
+        else:
+            raise TemplateError(path, f"patches[{i}]: must be a string or mapping")
+    return entries
+
+
 def _parse_validation(raw: list | None, path: Path) -> list[ValidationCheck]:
     """Parse and validate the validation block."""
     if raw is None:
@@ -257,7 +287,7 @@ def parse_template(template_path: Path) -> Package:
 
     # --- Simple optional fields ---
     configure_flags = raw.get("configure_flags", []) or []
-    patches = raw.get("patches", []) or []
+    patches = _parse_patches(raw.get("patches", []) or [], template_path)
     bundled_deps = raw.get("bundled_deps", []) or []
 
     return Package(

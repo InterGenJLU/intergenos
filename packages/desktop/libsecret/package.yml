@@ -16,5 +16,8 @@ dependencies:
   - libgcrypt
   - libxslt
   - vala
+  - docbook-xml
+  - docbook-xsl-nons
+  - gnutls
   host: []
   runtime: []

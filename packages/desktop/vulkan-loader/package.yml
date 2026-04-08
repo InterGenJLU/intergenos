@@ -16,5 +16,7 @@ dependencies:
   - libX11
   - libXrandr
   - wayland
+  - cmake
+  - git
   host: []
   runtime: []

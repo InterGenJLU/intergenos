@@ -18,5 +18,14 @@ dependencies:
   - nss
   - openjpeg2
   - cairo
+  - boost
+  - cmake
+  - curl
+  - gdk-pixbuf
+  - git
+  - glib2
+  - gtk3
+  - lcms2
+  - libtiff
   host: []
   runtime: []

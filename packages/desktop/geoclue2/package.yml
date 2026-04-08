@@ -16,5 +16,7 @@ dependencies:
   - libsoup3
   - libnotify
   - vala
+  - avahi
+  - modemmanager
   host: []
   runtime: []

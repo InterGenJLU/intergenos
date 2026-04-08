@@ -11,7 +11,8 @@ source:
 - url: https://nodejs.org/dist/v${version}/node-v${version}.tar.xz
   sha256: 4c138012bb5352f49822a8f3e6d1db71e00639d0c36d5b6756f91e4c6f30b683
 patches:
-  - node-v22.22.0-python_build_fix-1.patch
+  - file: node-v22.22.0-python_build_fix-1.patch
+    sha256: 2e9bbd25cbf3841907e9d5bb601bf74450e91bc2f833d64340db2683ffa2e1c4
 dependencies:
   build:
   - brotli

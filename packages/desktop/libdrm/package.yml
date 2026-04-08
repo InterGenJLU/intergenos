@@ -13,5 +13,10 @@ source:
 dependencies:
   build:
   - libpciaccess
+  - cmake
+  - docbook-xml
+  - docbook-xsl-nons
+  - docutils
+  - libxslt
   host: []
   runtime: []

@@ -29,5 +29,15 @@ dependencies:
   - libXcursor
   - vulkan-loader
   - gobject-introspection
+  - colord
+  - cups
+  - docutils
+  - gst-plugins-bad
+  - gst-plugins-good
+  - hicolor-icon-theme
+  - libcloudproviders
+  - libvpx
+  - sassc
+  - tinysparql
   host: []
   runtime: []

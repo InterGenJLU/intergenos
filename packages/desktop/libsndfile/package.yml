@@ -15,6 +15,10 @@ dependencies:
   - flac
   - libvorbis
   - opus
+  - alsa-lib
+  - lame
+  - mpg123
+  - speex
   host: []
   runtime: []
 configure_flags:

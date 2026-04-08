@@ -20,5 +20,16 @@ dependencies:
   - vala
   - wpa_supplicant
   - newt
+  - bluez
+  - curl
+  - glib2
+  - gnutls
+  - jansson
+  - libnvme
+  - libpsl
+  - modemmanager
+  - nss
+  - systemd
+  - upower
   host: []
   runtime: []

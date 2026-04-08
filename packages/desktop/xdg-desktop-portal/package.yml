@@ -20,5 +20,9 @@ dependencies:
   - gst-plugins-base
   - json-glib
   - pipewire
+  - dbus
+  - docutils
+  - geoclue2
+  - libportal
   host: []
   runtime: []

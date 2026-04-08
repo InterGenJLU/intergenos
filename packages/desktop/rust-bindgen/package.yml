@@ -15,5 +15,6 @@ source:
 dependencies:
   build:
   - rust
+  - llvm
   host: []
   runtime: []

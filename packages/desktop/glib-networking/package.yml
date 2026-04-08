@@ -14,5 +14,7 @@ dependencies:
   build:
   - gnutls
   - gsettings-desktop-schemas
+  - glib2
+  - make-ca
   host: []
   runtime: []

@@ -15,5 +15,7 @@ dependencies:
   - libevdev
   - libgudev
   - libxml2
+  - git
+  - librsvg
   host: []
   runtime: []

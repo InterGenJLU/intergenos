@@ -15,5 +15,8 @@ dependencies:
   - libX11
   - libXi
   - libXtst
+  - dbus
+  - glib2
+  - gsettings-desktop-schemas
   host: []
   runtime: []

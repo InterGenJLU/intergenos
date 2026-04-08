@@ -16,5 +16,8 @@ dependencies:
   - json-glib
   - mesa
   - upower
+  - docbook-xml
+  - libxslt
+  - systemd
   host: []
   runtime: []

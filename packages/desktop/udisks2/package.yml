@@ -17,6 +17,8 @@ dependencies:
   - libgudev
   - lvm2
   - polkit
+  - glib2
+  - systemd
   host: []
   runtime: []
 configure_flags:

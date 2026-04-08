@@ -18,5 +18,7 @@ dependencies:
   - libadwaita1
   - libsoup3
   - make-ca
+  - glib2
+  - vala
   host: []
   runtime: []

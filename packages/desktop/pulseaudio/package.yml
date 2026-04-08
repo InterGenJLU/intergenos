@@ -15,5 +15,13 @@ dependencies:
   - alsa-lib
   - libsndfile
   - speex
+  - avahi
+  - bluez
+  - dbus
+  - glib2
+  - gst-plugins-base
+  - gtk3
+  - libsamplerate
+  - sbc
   host: []
   runtime: []

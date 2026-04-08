@@ -16,6 +16,7 @@ dependencies:
   - fribidi
   - fontconfig
   - nasm
+  - harfbuzz
   host: []
   runtime: []
 configure_flags:

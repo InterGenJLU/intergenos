@@ -18,5 +18,8 @@ dependencies:
   - vte
   - libadwaita1
   - libhandy1
+  - desktop-file-utils
+  - gnome-shell
+  - nautilus
   host: []
   runtime: []

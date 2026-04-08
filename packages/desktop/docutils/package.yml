@@ -11,6 +11,7 @@ source:
 - url: https://files.pythonhosted.org/packages/source/d/docutils/docutils-${version}.tar.gz
   sha256: 4db53b1fde9abecbb74d91230d32ab626d94f6badfc575d6db9194a49df29968
 dependencies:
-  build: []
+  build:
+  - docbook-xsl-nons
   host: []
   runtime: []

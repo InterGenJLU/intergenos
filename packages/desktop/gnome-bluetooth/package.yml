@@ -11,12 +11,15 @@ source:
 - url: https://download.gnome.org/sources/gnome-bluetooth/47/gnome-bluetooth-${version}.tar.xz
   sha256: 03e3e7403a15108ffc1496210a1da5c2961b2834a5c07eccc7a3f493195daba3
 patches:
-  - gnome-bluetooth-47.1-build_fix-1.patch
+  - file: gnome-bluetooth-47.1-build_fix-1.patch
+    sha256: 8100644af815e6b5a1e4f39cf1c5ed3eddcabe90584f3ef31c5191a94f1b49a6
 dependencies:
   build:
   - gtk4
   - gsound
   - upower
   - libadwaita1
+  - glib2
+  - libnotify
   host: []
   runtime: []

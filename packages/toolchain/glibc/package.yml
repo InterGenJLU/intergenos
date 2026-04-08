@@ -23,8 +23,8 @@ build_style: custom
 install_func: install
 
 patches:
-  - glibc-fhs-1.patch
-
+  - file: glibc-fhs-1.patch
+    sha256: 643552db030e2f2d7ffde4f558e0f5f83d3fabf34a2e0e56ebdb49750ac27b0d
 # Note: configure flags are in build.sh for glibc because the
 # configure invocation has special setup steps (symlinks, configparms).
 # These are kept here for documentation and dry-run visibility.

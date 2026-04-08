@@ -17,5 +17,6 @@ dependencies:
   - libqmi
   - polkit
   - vala
+  - glib2
   host: []
   runtime: []

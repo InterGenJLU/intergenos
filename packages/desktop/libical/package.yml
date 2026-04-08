@@ -17,5 +17,6 @@ dependencies:
   - libxml2
   - vala
   - gobject-introspection
+  - icu
   host: []
   runtime: []

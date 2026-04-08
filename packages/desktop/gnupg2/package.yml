@@ -18,6 +18,10 @@ dependencies:
   - npth
   - gnutls
   - pinentry
+  - curl
+  - fuse3
+  - libusb
+  - openldap
   host: []
   runtime: []
 configure_flags:

@@ -18,5 +18,13 @@ dependencies:
   - lame
   - libpng
   - pulseaudio
+  - gdk-pixbuf
+  - gtk3
+  - libsoup3
+  - libvpx
+  - mpg123
+  - nasm
+  - speex
+  - wayland
   host: []
   runtime: []

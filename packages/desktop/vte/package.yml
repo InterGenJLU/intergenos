@@ -19,5 +19,8 @@ dependencies:
   - fribidi
   - vala
   - libxml2
+  - git
+  - glib2
+  - make-ca
   host: []
   runtime: []

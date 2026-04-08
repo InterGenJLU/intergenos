@@ -14,5 +14,6 @@ dependencies:
   build:
   - spirv-tools
   - spirv-headers
+  - cmake
   host: []
   runtime: []

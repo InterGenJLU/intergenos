@@ -17,5 +17,6 @@ dependencies:
   - libcanberra
   - linux-pam
   - gtk3
+  - keyutils
   host: []
   runtime: []

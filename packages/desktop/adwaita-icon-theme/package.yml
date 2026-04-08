@@ -14,5 +14,6 @@ dependencies:
   build:
   - gtk3
   - librsvg
+  - gtk4
   host: []
   runtime: []

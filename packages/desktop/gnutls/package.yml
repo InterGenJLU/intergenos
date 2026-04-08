@@ -17,6 +17,9 @@ dependencies:
   - make-ca
   - nettle
   - p11-kit
+  - brotli
+  - libidn2
+  - libseccomp
   host: []
   runtime: []
 configure_flags:

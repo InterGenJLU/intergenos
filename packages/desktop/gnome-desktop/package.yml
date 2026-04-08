@@ -18,5 +18,9 @@ dependencies:
   - xkeyboard-config
   - gtk3
   - gtk4
+  - bubblewrap
+  - glib2
+  - itstool
+  - libxkbcommon
   host: []
   runtime: []

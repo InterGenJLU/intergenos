@@ -25,5 +25,19 @@ dependencies:
   - libsecret
   - libusb
   - udisks2
+  - bluez
+  - dbus
+  - fuse3
+  - glib2
+  - gnome-online-accounts
+  - libarchive
+  - libgcrypt
+  - libgudev
+  - libsoup3
+  - libxml2
+  - libxslt
+  - openssh
+  - samba
+  - systemd
   host: []
   runtime: []

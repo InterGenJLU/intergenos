@@ -13,5 +13,6 @@ source:
 dependencies:
   build:
   - pycairo
+  - docbook-xsl-nons
   host: []
   runtime: []

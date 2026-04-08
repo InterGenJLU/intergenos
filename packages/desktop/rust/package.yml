@@ -22,5 +22,6 @@ dependencies:
   - llvm
   - cmake
   - curl
+  - libssh2
   host: []
   runtime: []

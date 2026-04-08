@@ -19,5 +19,7 @@ dependencies:
   - gdk-pixbuf
   - pango
   - vala
+  - dav1d
+  - glib2
   host: []
   runtime: []

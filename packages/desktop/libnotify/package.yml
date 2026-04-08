@@ -14,5 +14,6 @@ dependencies:
   build:
   - gdk-pixbuf
   - gtk4
+  - glib2
   host: []
   runtime: []

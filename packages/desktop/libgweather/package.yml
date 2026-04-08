@@ -11,11 +11,16 @@ source:
 - url: https://download.gnome.org/sources/libgweather/4.4/libgweather-${version}.tar.xz
   sha256: 7017677753cdf7d1fdc355e4bfcdb1eba8369793a8df24d241427a939cbf4283
 patches:
-  - libgweather-4.4.4-upstream_fix-1.patch
+  - file: libgweather-4.4.4-upstream_fix-1.patch
+    sha256: 8edd85a2d662c6a530f5cacd78ebcd4446925c9995c190daee6e7696e2ee1ae5
 dependencies:
   build:
   - geocode-glib
   - libsoup3
   - pygobject3
+  - glib2
+  - libxml2
+  - llvm
+  - vala
   host: []
   runtime: []

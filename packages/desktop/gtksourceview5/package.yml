@@ -13,5 +13,9 @@ source:
 dependencies:
   build:
   - gtk4
+  - glib2
+  - libxml2
+  - vala
+  - vulkan-loader
   host: []
   runtime: []

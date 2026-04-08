@@ -15,5 +15,6 @@ dependencies:
   - json-c
   - lvm2
   - popt
+  - libpwquality
   host: []
   runtime: []

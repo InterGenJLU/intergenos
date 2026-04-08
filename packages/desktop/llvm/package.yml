@@ -22,5 +22,7 @@ source:
 dependencies:
   build:
   - cmake
+  - git
+  - libxml2
   host: []
   runtime: []

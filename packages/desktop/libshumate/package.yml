@@ -15,5 +15,6 @@ dependencies:
   - gtk4
   - libsoup3
   - protobuf-c
+  - glib2
   host: []
   runtime: []

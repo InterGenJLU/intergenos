@@ -13,5 +13,8 @@ source:
 dependencies:
   build:
   - attrs
+  - libevdev
+  - libxkbcommon
+  - libxml2
   host: []
   runtime: []

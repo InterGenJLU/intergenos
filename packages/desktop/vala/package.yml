@@ -11,7 +11,8 @@ source:
 - url: https://download.gnome.org/sources/vala/0.56/vala-${version}.tar.xz
   sha256: f2affe7d40ab63db8e7b9ecc3f6bdc9c2fc7e3134c84ff2d795f482fe926a382
 patches:
-  - vala-0.56.18-graphviz_13_fix-1.patch
+  - file: vala-0.56.18-graphviz_13_fix-1.patch
+    sha256: 1c7ce7cb06c5cb22d6ef94348ac0fe55136910c3632fdfceee17cb8f00534aa5
 dependencies:
   build:
   - glib2

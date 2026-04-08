@@ -20,6 +20,12 @@ dependencies:
   - iso-codes
   - libarchive
   - vala
+  - glib2
+  - gnome-desktop
+  - libnotify
+  - libxkbcommon
+  - pygobject3
+  - wayland
   host: []
   runtime: []
 configure_flags:

@@ -15,5 +15,7 @@ dependencies:
   - json-glib
   - libusb
   - vala
+  - glib2
+  - hwdata
   host: []
   runtime: []

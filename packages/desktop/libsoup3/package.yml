@@ -11,7 +11,8 @@ source:
 - url: https://download.gnome.org/sources/libsoup/3.6/libsoup-${version}.tar.xz
   sha256: 51ed0ae06f9d5a40f401ff459e2e5f652f9a510b7730e1359ee66d14d4872740
 patches:
-  - libsoup-3.6.6-upstream_fixes-1.patch
+  - file: libsoup-3.6.6-upstream_fixes-1.patch
+    sha256: fbb882736209700137e49d6a8d161ffe3b20345da79a9353d9b61fd0cc6ea9bb
 dependencies:
   build:
   - glib-networking
@@ -19,5 +20,8 @@ dependencies:
   - libxml2
   - nghttp2
   - vala
+  - brotli
+  - curl
+  - glib2
   host: []
   runtime: []

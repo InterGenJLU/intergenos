@@ -11,7 +11,8 @@ source:
 - url: https://archive.mozilla.org/pub/firefox/releases/${version}esr/source/firefox-${version}esr.source.tar.xz
   sha256: 57a7f339ef68273f6597d8074a841fa053f63a21d1f609ab0074a26c063282e6
 patches:
-  - spidermonkey-140.8.0-python_3.14_fixes-1.patch
+  - file: spidermonkey-140.8.0-python_3.14_fixes-1.patch
+    sha256: 24183878004982be0d7d87af2daa49a36d327a279b0abcf222c0c99e805e2ed7
 dependencies:
   build:
   - cbindgen

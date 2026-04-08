@@ -11,7 +11,8 @@ source:
 - url: https://downloads.xiph.org/releases/cdparanoia/cdparanoia-III-${version}.src.tgz
   sha256: 005db45ef4ee017f5c32ec124f913a0546e77014266c6a1c50df902a55fe64df
 patches:
-  - cdparanoia-III-10.2-gcc_fixes-1.patch
+  - file: cdparanoia-III-10.2-gcc_fixes-1.patch
+    sha256: 0a0416252c0e0ba9362ca67de75b3bd599c1f8b559c2663328c5f1dbecdc2d90
 dependencies:
   build: []
   host: []

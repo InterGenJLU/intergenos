@@ -11,7 +11,8 @@ source:
 - url: https://github.com/OpenPrinting/cups-filters/releases/download/${version}/cups-filters-${version}.tar.xz
   sha256: 39e71de3ce06762b342749f1dc7cba6817738f7bf4d322c1bb9ab10b8569ab80
 patches:
-  - cups-filters-2.0.1-security_fix-1.patch
+  - file: cups-filters-2.0.1-security_fix-1.patch
+    sha256: 52e73c96d896d18b28eabc6f507eb1011686d9c436c69983ba485312ed3e573b
 dependencies:
   build:
   - libcupsfilters

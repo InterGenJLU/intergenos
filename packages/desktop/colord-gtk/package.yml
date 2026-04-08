@@ -16,5 +16,7 @@ dependencies:
   - gtk3
   - gtk4
   - vala
+  - glib2
+  - libxslt
   host: []
   runtime: []

@@ -11,13 +11,16 @@ source:
 - url: https://0pointer.de/lennart/projects/libcanberra/libcanberra-${version}.tar.xz
   sha256: c2b671e67e0c288a69fc33dc1b6f1b534d07882c2aceed37004bf48c601afa72
 patches:
-  - libcanberra-0.30-wayland-1.patch
+  - file: libcanberra-0.30-wayland-1.patch
+    sha256: e48ce8f952c2b71e38866b95aa21e02437924ed6f9c4409b64e8e4cb392b9013
 dependencies:
   build:
   - libvorbis
   - alsa-lib
   - gtk3
   - sound-theme-freedesktop
+  - gstreamer
+  - pulseaudio
   host: []
   runtime: []
 configure_flags:

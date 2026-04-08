@@ -13,6 +13,21 @@ source:
 dependencies:
   build:
   - alsa-lib
+  - avahi
+  - bluez
+  - fdk-aac
+  - ffmpeg
+  - gst-plugins-base
+  - gstreamer
+  - libcanberra
+  - libdrm
+  - libsndfile
+  - libusb
+  - libxcb
+  - opus
+  - pulseaudio
+  - sbc
+  - vulkan-loader
   host: []
   runtime: []
 configure_flags:

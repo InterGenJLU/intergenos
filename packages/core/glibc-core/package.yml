@@ -11,7 +11,8 @@ source:
 - url: https://ftp.gnu.org/gnu/glibc/glibc-${version}.tar.xz
   sha256: d9c86c6b5dbddb43a3e08270c5844fc5177d19442cf5b8df4be7c07cd5fa3831
 patches:
-- glibc-fhs-1.patch
+- file: glibc-fhs-1.patch
+  sha256: 643552db030e2f2d7ffde4f558e0f5f83d3fabf34a2e0e56ebdb49750ac27b0d
 dependencies:
   build: []
   host: []

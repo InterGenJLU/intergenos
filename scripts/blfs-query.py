@@ -26,6 +26,7 @@ Usage:
     python3 scripts/blfs-query.py meson-flags <package>
     python3 scripts/blfs-query.py meson-audit [--tier desktop]
     python3 scripts/blfs-query.py meson-impact <dep-package>
+    python3 scripts/blfs-query.py dep-audit [--tier desktop] [--packages-dir PATH]
 """
 
 import argparse
@@ -622,6 +623,273 @@ def cmd_meson_impact(conn, dep_name):
         print()
 
 
+# ---------------------------------------------------------------------------
+# Dependency audit — bulk comparison against BLFS
+# ---------------------------------------------------------------------------
+
+# Dependencies that exist solely to generate docs/tests — skipped per policy
+DOC_TEST_ONLY_ANCHORS = {
+    'doxygen', 'texlive', 'gtk-doc', 'gi-docgen', 'lcov', 'valgrind',
+    'python-sphinx', 'sphinx', 'graphviz', 'xmlto', 'asciidoc',
+    'hotdoc', 'pandoc', 'python2',
+}
+
+
+def _resolve_blfs_anchor(conn, igos_name):
+    """Find the BLFS package ID for an InterGenOS package name.
+
+    Checks direct anchor_id match first, then the aliases table.
+    Returns (blfs_id, blfs_name, blfs_version) or None.
+    """
+    row = conn.execute(
+        "SELECT id, name, version FROM packages WHERE anchor_id = ?",
+        (igos_name,)
+    ).fetchone()
+    if row:
+        return row
+
+    alias = conn.execute(
+        "SELECT blfs_anchor FROM aliases WHERE igos_name = ?",
+        (igos_name,)
+    ).fetchone()
+    if alias:
+        row = conn.execute(
+            "SELECT id, name, version FROM packages WHERE anchor_id = ?",
+            (alias[0],)
+        ).fetchone()
+        if row:
+            return row
+
+    return None
+
+
+def _resolve_dep_igos_name(conn, dep_anchor):
+    """Resolve a BLFS dep anchor to its InterGenOS package name.
+
+    Returns (igos_name, tier) or None if not in our tree.
+    """
+    # Direct match
+    igos = conn.execute(
+        "SELECT blfs_anchor, tier FROM igos_status WHERE blfs_anchor = ?",
+        (dep_anchor,)
+    ).fetchone()
+    if igos:
+        return igos
+
+    # Reverse alias: BLFS anchor → our name
+    alias = conn.execute(
+        "SELECT igos_name FROM aliases WHERE blfs_anchor = ?",
+        (dep_anchor,)
+    ).fetchone()
+    if alias:
+        igos = conn.execute(
+            "SELECT blfs_anchor, tier FROM igos_status WHERE blfs_anchor = ?",
+            (alias[0],)
+        ).fetchone()
+        if igos:
+            return igos
+
+    return None
+
+
+def cmd_dep_audit(conn, packages_dir, tier_filter=None):
+    """Audit declared dependencies against BLFS required + recommended + optional.
+
+    Compares each DAG-ordered package's declared build deps (from package.yml)
+    against BLFS deps. Reports missing deps categorized by:
+    - Priority: required > recommended > optional-functional
+    - Scope: intra-tier (affects build ordering) vs cross-tier (informational)
+
+    Policy (decided 2026-04-08):
+    - Required + Recommended: always declare if dep is in our tree
+    - Optional functional: declare if dep is in our tree ("if you have it, use it")
+    - Optional docs/tests only: skip (Doxygen, texlive, gtk-doc, etc.)
+    """
+    import importlib
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    parser_mod = importlib.import_module('igos-build.parser')
+
+    # DAG-ordered tiers only (toolchain + core follow LFS prescribed order)
+    dag_tiers = {'desktop', 'base', 'extra'}
+
+    # Load our declared deps from package.yml
+    our_packages = {}
+    packages_path = Path(packages_dir)
+    for tier in sorted(dag_tiers):
+        tier_dir = packages_path / tier
+        if not tier_dir.exists():
+            continue
+        if tier_filter and tier != tier_filter:
+            continue
+        templates = parser_mod.discover_templates(tier_dir)
+        for t in templates:
+            try:
+                pkg = parser_mod.parse_template(t)
+                our_packages[pkg.name] = pkg
+            except Exception as e:
+                print(f"  WARNING: Failed to parse {t}: {e}", file=sys.stderr)
+
+    # Audit each package
+    results = []
+    unmatched = []
+
+    for name, pkg in sorted(our_packages.items()):
+        # Skip pass packages — they rebuild an existing package
+        if pkg.pass_number and pkg.pass_number > 1:
+            continue
+        if '-pass' in name:
+            continue
+
+        blfs = _resolve_blfs_anchor(conn, name)
+        if not blfs:
+            unmatched.append(name)
+            continue
+
+        blfs_id, blfs_name, blfs_version = blfs
+        our_deps = set(pkg.dependencies.build)
+
+        # Get ALL BLFS deps (required + recommended + optional)
+        blfs_deps = conn.execute(
+            """SELECT dep_anchor, dep_name, dep_version, dep_type, note
+               FROM dependencies WHERE package_id = ?
+               ORDER BY dep_type, dep_name""",
+            (blfs_id,)
+        ).fetchall()
+
+        missing = []
+        skipped_docs = []
+
+        for dep_anchor, dep_name, dep_version, dep_type, note in blfs_deps:
+            # Is this dep in our tree?
+            resolved = _resolve_dep_igos_name(conn, dep_anchor)
+            if not resolved:
+                continue  # Not in our tree — can't declare it
+
+            dep_igos_name, dep_tier = resolved
+
+            # Is it already declared?
+            if dep_igos_name in our_deps:
+                continue
+
+            # Also check if declared under BLFS anchor name directly
+            if dep_anchor in our_deps:
+                continue
+
+            # Filter: skip doc/test-only deps
+            if dep_anchor.lower() in DOC_TEST_ONLY_ANCHORS:
+                skipped_docs.append((dep_anchor, dep_name, dep_type))
+                continue
+
+            # For optional deps, check note for doc/test indicators
+            if dep_type == 'optional' and note:
+                note_lower = note.lower()
+                if any(kw in note_lower for kw in (
+                    'documentation', 'api docs', 'man pages', 'generating docs',
+                    'tests', 'test suite', 'testing', 'building documentation',
+                )):
+                    skipped_docs.append((dep_anchor, dep_name, dep_type))
+                    continue
+
+            # Determine if intra-tier or cross-tier
+            scope = 'intra' if dep_tier == pkg.tier else 'cross'
+
+            missing.append({
+                'dep_anchor': dep_anchor,
+                'dep_igos_name': dep_igos_name,
+                'dep_name': dep_name,
+                'dep_type': dep_type,
+                'dep_tier': dep_tier,
+                'scope': scope,
+                'note': note or '',
+            })
+
+        if missing or skipped_docs:
+            results.append({
+                'name': name,
+                'tier': pkg.tier,
+                'blfs_name': blfs_name,
+                'missing': missing,
+                'skipped_docs': skipped_docs,
+            })
+
+    # --- Output ---
+    type_order = {'required': 0, 'recommended': 1, 'optional': 2}
+    scope_order = {'intra': 0, 'cross': 1}
+
+    # Flatten for counting
+    all_missing = []
+    all_skipped = []
+    for r in results:
+        for m in r['missing']:
+            all_missing.append((r['name'], r['tier'], m))
+        for s in r['skipped_docs']:
+            all_skipped.append((r['name'], s))
+
+    intra_req = [m for _, _, m in all_missing if m['scope'] == 'intra' and m['dep_type'] == 'required']
+    intra_rec = [m for _, _, m in all_missing if m['scope'] == 'intra' and m['dep_type'] == 'recommended']
+    intra_opt = [m for _, _, m in all_missing if m['scope'] == 'intra' and m['dep_type'] == 'optional']
+    cross = [m for _, _, m in all_missing if m['scope'] == 'cross']
+
+    title = "Dependency Audit"
+    if tier_filter:
+        title += f" (tier: {tier_filter})"
+    print(title)
+    print("=" * 70)
+    print(f"  Packages audited:          {len(our_packages)}")
+    print(f"  Packages with gaps:        {len([r for r in results if r['missing']])}")
+    print(f"  Unmatched (no BLFS entry): {len(unmatched)}")
+    print()
+    print(f"  Missing deps (to add):")
+    print(f"    Intra-tier required:     {len(intra_req)}")
+    print(f"    Intra-tier recommended:  {len(intra_rec)}")
+    print(f"    Intra-tier optional:     {len(intra_opt)}")
+    print(f"    Cross-tier (all types):  {len(cross)}")
+    print(f"    TOTAL:                   {len(all_missing)}")
+    print()
+    print(f"  Skipped (docs/tests only): {len(all_skipped)}")
+    print()
+
+    # Group by priority: intra-required first, then intra-recommended, etc.
+    for r in sorted(results, key=lambda r: r['name']):
+        missing_sorted = sorted(
+            r['missing'],
+            key=lambda m: (scope_order.get(m['scope'], 9), type_order.get(m['dep_type'], 9), m['dep_igos_name'])
+        )
+        if not missing_sorted:
+            continue
+
+        print(f"  {r['name']} ({r['tier']}):")
+        for m in missing_sorted:
+            scope_tag = "INTRA" if m['scope'] == 'intra' else "cross"
+            note_str = f"  ({m['note']})" if m['note'] else ""
+            dep_display = m['dep_igos_name']
+            if dep_display != m['dep_anchor']:
+                dep_display += f" (blfs: {m['dep_anchor']})"
+            print(f"    [{m['dep_type']:11s}] [{scope_tag:5s}] {dep_display}{note_str}")
+
+        if r['skipped_docs']:
+            for anchor, dname, dtype in r['skipped_docs']:
+                print(f"    [{dtype:11s}] [SKIP ] {dname} (docs/tests only)")
+
+        print()
+
+    # Known parser artifacts
+    print(f"  NOTE: BLFS groups Python modules on shared pages. Pure Python")
+    print(f"  packages (Mako, docutils, cython, etc.) may show false deps")
+    print(f"  from the page header (PyGObject3, at-spi2-core). Review these")
+    print(f"  manually — they are likely false positives.")
+    print()
+
+    # Unmatched packages
+    if unmatched:
+        print(f"  Unmatched packages (no BLFS anchor or alias):")
+        for name in sorted(unmatched):
+            print(f"    {name}")
+        print()
+        print(f"  These may need alias entries in the database, or they may be")
+        print(f"  InterGenOS-specific packages not in BLFS.")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Query the BLFS package database")
     parser.add_argument('--db', default=str(DB_DEFAULT), help="Database path")
@@ -665,6 +933,11 @@ def main():
     p_mimpact = sub.add_parser('meson-impact', help='What features does a dep enable?')
     p_mimpact.add_argument('package', help='Dependency package name')
 
+    p_depaudit = sub.add_parser('dep-audit', help='Audit declared deps against BLFS')
+    p_depaudit.add_argument('--tier', help='Filter by tier (e.g., desktop, base)')
+    p_depaudit.add_argument('--packages-dir', default=str(Path(__file__).parent.parent / 'packages'),
+                            help='InterGenOS packages directory')
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -696,6 +969,8 @@ def main():
         cmd_meson_audit(conn, args.tier)
     elif args.command == 'meson-impact':
         cmd_meson_impact(conn, args.package)
+    elif args.command == 'dep-audit':
+        cmd_dep_audit(conn, args.packages_dir, args.tier)
 
     conn.close()
 

@@ -11,11 +11,23 @@ source:
 - url: https://download.gnome.org/sources/localsearch/3.10/localsearch-${version}.tar.xz
   sha256: b4dd89c85d76617101bad4ec9a33678f631ec5032e9880eb423dce52e878a285
 patches:
-  - localsearch-3.10.2-security_fixes-1.patch
+  - file: localsearch-3.10.2-security_fixes-1.patch
+    sha256: b59f3b68853c7b4ba16a98f4bd258f049afaae3869b886273bfd690b13def2ce
 dependencies:
   build:
   - gexiv2
   - gst-plugins-base
   - tinysparql
+  - cmake
+  - ffmpeg
+  - giflib
+  - gst-plugins-good
+  - icu
+  - libexif
+  - libseccomp
+  - libwebp
+  - poppler
+  - totem-pl-parser
+  - upower
   host: []
   runtime: []

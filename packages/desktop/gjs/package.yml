@@ -16,5 +16,7 @@ dependencies:
   - gtk3
   - gtk4
   - spidermonkey
+  - dbus
+  - glib2
   host: []
   runtime: []

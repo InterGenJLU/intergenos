@@ -1,0 +1,21 @@
+name: libtiff-pass2
+version: "4.7.1"
+release: 1
+description: "libtiff (pass 2 — rebuild with libwebp support)"
+license: libtiff
+homepage: http://www.libtiff.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+direct_install: true
+skip_tracking: true
+source:
+- url: https://download.osgeo.org/libtiff/tiff-${version}.tar.gz
+  sha256: f698d94f3103da8ca7438d84e0344e453fe0ba3b7486e04c5bf7a9a3fabe9b69
+dependencies:
+  build:
+  - libjpeg-turbo
+  - cmake
+  - libwebp
+  host: []
+  runtime: []

@@ -11,6 +11,7 @@ source:
 - url: https://download.gnome.org/sources/gnome-backgrounds/49/gnome-backgrounds-${version}.tar.xz
   sha256: 01fe260de58ba00e44aba589a998e33e8bc7aecc701df0bee64cf4cfba44f4b5
 dependencies:
-  build: []
+  build:
+  - libjxl
   host: []
   runtime: []

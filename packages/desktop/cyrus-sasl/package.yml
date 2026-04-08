@@ -11,9 +11,11 @@ source:
 - url: https://github.com/cyrusimap/cyrus-sasl/releases/download/cyrus-sasl-${version}/cyrus-sasl-${version}.tar.gz
   sha256: 7ccfc6abd01ed67c1a0924b353e526f1b766b21f42d4562ee635a8ebfc5bb38c
 patches:
-  - cyrus-sasl-2.1.28-gcc15_fixes-1.patch
+  - file: cyrus-sasl-2.1.28-gcc15_fixes-1.patch
+    sha256: 361310425a4a8f19e5f9479f682cc042f191450f2bb6e8bd8d9fb80b6052197e
 dependencies:
   build:
   - lmdb
+  - linux-pam
   host: []
   runtime: []
