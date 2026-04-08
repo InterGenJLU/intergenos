@@ -13,11 +13,13 @@
 configure() {
     make mrproper
 
-    # If a pre-built config exists, use it
-    # Config is at /mnt/intergenos/config/kernel/ inside the chroot
+    # Merge kernel config fragments (baseline + overrides)
+    # Overrides are concatenated AFTER baseline so they win in olddefconfig
     local config_dir="/mnt/intergenos/config/kernel"
-    if [ -f "$config_dir/intergenos.config" ]; then
-        cp -v "$config_dir/intergenos.config" .config
+    local frag_dir="$config_dir/fragments"
+    if [ -d "$frag_dir" ] && ls "$frag_dir"/*.config >/dev/null 2>&1; then
+        echo "  Merging kernel config fragments..."
+        cat "$frag_dir"/*.config > .config
         make olddefconfig
     else
         echo ""
