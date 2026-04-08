@@ -69,9 +69,26 @@ build_package() {
     rm -rf "$workdir"
     mkdir -pv "$workdir"
 
+    # Verify source integrity before extraction
+    local yml="/mnt/intergenos/packages/toolchain/${pkg_name}/package.yml"
+    local expected_sha256
+    expected_sha256=$(grep 'sha256:' "$yml" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'")
+    if [ -n "$expected_sha256" ] && [ "$expected_sha256" != "NEEDS_CHECKSUM" ]; then
+        local actual_sha256
+        actual_sha256=$(sha256sum "$IGOS_SOURCES/$tarball" | cut -d' ' -f1)
+        if [ "$actual_sha256" != "$expected_sha256" ]; then
+            log "FATAL: Checksum mismatch for $tarball"
+            log "  expected: $expected_sha256"
+            log "  actual:   $actual_sha256"
+            return 1
+        fi
+        log "Checksum verified: $tarball"
+    fi
+
     # Extract source
     log "Extracting: $tarball"
-    tar -xf "$IGOS_SOURCES/$tarball" -C "$workdir" --strip-components=1
+    tar -xf "$IGOS_SOURCES/$tarball" -C "$workdir" --strip-components=1 \
+        --no-same-owner --no-same-permissions
 
     cd "$workdir"
 

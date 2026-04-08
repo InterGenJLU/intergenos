@@ -24,6 +24,44 @@ IGOS_PKG_ARCHIVES="/var/lib/igos/archives"
 IGOS_PKG_STAGING="/tmp/igos-staging"
 
 # ============================================================================
+# Source integrity verification
+# ============================================================================
+
+# Verify SHA256 checksum of a file before extraction.
+# Usage: verify_source_checksum <filepath> <expected_sha256>
+# Returns 0 on match, 1 on mismatch. Logs result.
+verify_source_checksum() {
+    local file="$1"
+    local expected="$2"
+
+    if [ -z "$expected" ] || [ "$expected" = "NEEDS_CHECKSUM" ]; then
+        echo "[pkg] WARNING: No checksum for $(basename "$file") — skipping verification"
+        return 0
+    fi
+
+    local actual
+    actual=$(sha256sum "$file" | cut -d' ' -f1)
+
+    if [ "$actual" != "$expected" ]; then
+        echo "[pkg] ERROR: Checksum mismatch for $(basename "$file")"
+        echo "[pkg]   expected: $expected"
+        echo "[pkg]   actual:   $actual"
+        return 1
+    fi
+
+    echo "[pkg] Checksum verified: $(basename "$file")"
+    return 0
+}
+
+# Read SHA256 from a package.yml file.
+# Usage: get_package_sha256 <package_yml_path>
+# Outputs the sha256 value to stdout.
+get_package_sha256() {
+    local yml="$1"
+    grep 'sha256:' "$yml" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'"
+}
+
+# ============================================================================
 # Internal helpers
 # ============================================================================
 

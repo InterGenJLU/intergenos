@@ -81,10 +81,19 @@ build_core_package() {
 
     export PKG_VERSION="$version"
 
+    # Verify source integrity before extraction
+    local expected_sha256
+    expected_sha256=$(get_package_sha256 "${IGOS_PACKAGES}/${pkg_dir}/package.yml")
+    if ! verify_source_checksum "${IGOS_SOURCES}/${tarball}" "$expected_sha256"; then
+        log "FATAL: Source integrity check failed for ${tarball} — aborting"
+        return 1
+    fi
+
     # Clean and extract
     rm -rf "$workdir"
     mkdir -pv "$workdir"
-    tar -xf "${IGOS_SOURCES}/${tarball}" -C "$workdir" --strip-components=1 || {
+    tar -xf "${IGOS_SOURCES}/${tarball}" -C "$workdir" --strip-components=1 \
+        --no-same-owner --no-same-permissions || {
         log "ERROR: Failed to extract ${tarball}"
         return 1
     }
