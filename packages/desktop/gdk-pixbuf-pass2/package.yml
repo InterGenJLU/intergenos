@@ -8,6 +8,7 @@ tier: desktop
 build_style: custom
 install_func: do_install
 direct_install: true
+skip_tracking: true
 source:
 - url: https://download.gnome.org/sources/gdk-pixbuf/2.44/gdk-pixbuf-${version}.tar.xz
   sha256: 69b93e09139b80c0ee661503d60deb5a5874a31772b5184b9cd5462a4100ab68
