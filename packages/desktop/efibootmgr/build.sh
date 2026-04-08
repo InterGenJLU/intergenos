@@ -3,7 +3,9 @@
 # BLFS 13.0
 
 configure() {
-    : # No configure step — uses GNU Make directly
+    # Remove -Werror from Make.defaults (hardcoded, not variable-based)
+    # GCC 15 triggers warnings that -Werror promotes to fatal
+    sed -i 's/-Werror //' Make.defaults
 }
 
 build() {

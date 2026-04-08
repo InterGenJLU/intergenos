@@ -3,14 +3,13 @@
 # BLFS 13.0
 
 configure() {
-    # Fix const qualifier warnings that GCC 15 promotes to errors via -Werror
-    sed -i 's/guid_aliases\[i\]\.name = /*(char **)(\&guid_aliases[i].name) = /' src/guid.c
-    sed -i 's/ret->letter = /*(char **)(\&ret->letter) = /' src/linux.c
-    sed -i 's/ret->letter = /*(char **)(\&ret->letter) = /' src/linux-acpi-root.c
+    : # No configure step — uses GNU Make directly
 }
 
 build() {
-    # Override -Werror (ERRORS variable in defaults.mk)
+    # efivar hardcodes -Werror via ERRORS variable in defaults.mk
+    # GCC 15 triggers new const-qualifier warnings in bsearch/strrchr/strchr
+    # return value assignments. These are harmless — suppress -Werror.
     make ERRORS="" -j${IGOS_JOBS}
 }
 

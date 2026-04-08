@@ -11,7 +11,7 @@ source:
 - url: https://ftp.gnu.org/gnu/parallel/parallel-${version}.tar.bz2
   sha256: 764680e932f4d0d21cf0329bd9f9eed659895de16836001f6491533b822befe0
 dependencies:
-  build:
-  - perl
+  build: []
   host: []
-  runtime: []
+  runtime:
+  - perl-core

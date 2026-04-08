@@ -92,7 +92,7 @@ class BuildExecutor(PackageTracker):
         # PKG_CONFIG_LIBDIR replaces the default search path (unlike
         # PKG_CONFIG_PATH which augments it). This prevents host .pc files
         # from leaking into the build and causing non-deterministic results.
-        env["PKG_CONFIG_LIBDIR"] = "/usr/lib/pkgconfig:/usr/share/pkgconfig"
+        env["PKG_CONFIG_LIBDIR"] = "/usr/lib/pkgconfig:/usr/lib64/pkgconfig:/usr/share/pkgconfig"
         env.pop("PKG_CONFIG_PATH", None)  # ensure only LIBDIR is used
         # GObject Introspection typelib path — needed by g-ir-scanner when
         # building GTK, GStreamer, and other GI-consuming packages

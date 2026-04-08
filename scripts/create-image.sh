@@ -92,7 +92,7 @@ qemu-img create -f "$IMAGE_FORMAT" "$IMAGE" "$DISK_SIZE"
 
 log "Loading nbd module and connecting image..."
 modprobe nbd max_part=8
-qemu-nbd --connect="$NBD_DEV" "$IMAGE"
+qemu-nbd --connect="$NBD_DEV" -f "$IMAGE_FORMAT" "$IMAGE"
 
 # Wait for device to appear
 sleep 1
