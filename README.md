@@ -1,8 +1,10 @@
 # InterGenOS
 
-**A Linux distribution built entirely from source with a custom package manager, system installer, and a tiered local AI assistant.**
+**A Linux distribution built entirely from source with a custom package manager, a tiered local AI assistant, and integrated AI-driven security auditing.**
 
 InterGenOS puts the user in control of their own machine. Every package is compiled from source with deliberate choices. Every design decision serves one purpose: giving people a system they understand, can modify, and can trust.
+
+The local AI assistant doesn't just help you use your system — it helps you understand and secure it. Hardware-detected tiers ensure it runs on everything from a 4GB laptop to a GPU workstation, fully offline. For users who opt in, [Project Glasswing](https://anthropic.com/glasswing) integration brings Anthropic's vulnerability discovery capabilities directly to the desktop — scan, harden, and audit your system with the same AI that found zero-days in OpenBSD and the Linux kernel.
 
 ![InterGenOS First Boot — GNOME 49 on Wayland](images/FirstBoot_InterGenOS_Revival.png)
 
@@ -20,7 +22,8 @@ InterGenOS puts the user in control of their own machine. Every package is compi
 - **5-distro kernel convergence** — kernel config derived from Ubuntu, Fedora, Arch, Debian, and openSUSE consensus (3,434 universal options)
 - **GNOME desktop** — Wayland-native with dark theme and InterGenOS branding
 - **Extra tier** — Node.js, Google Chrome, VS Code, and Claude Code (proprietary packages fetched transparently via pkm)
-- **Tiered local AI assistant** — Hardware-detected, fully offline (planned)
+- **Tiered local AI assistant** — Hardware-detected, fully offline: llama.cpp, whisper.cpp, Piper TTS
+- **Project Glasswing integration** — AI-driven vulnerability scanning, system hardening, and security auditing via Anthropic API (opt-in, runtime-gated)
 
 ## Tools
 
@@ -40,6 +43,7 @@ InterGenOS puts the user in control of their own machine. Every package is compi
 | core | Full system: kernel, shell, coreutils, systemd, GCC, SSH |
 | base | CLI tools: htop, rsync, strace, screen |
 | desktop | GNOME on Wayland: GTK, Mesa, GStreamer, GNOME Shell |
+| ai | Local AI assistant: llama.cpp, whisper.cpp, Piper TTS, InterGen, Glasswing |
 | extra | User applications: Node.js, Google Chrome, VS Code, Claude Code |
 
 ## Build System
