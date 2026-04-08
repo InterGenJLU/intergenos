@@ -101,16 +101,36 @@ Hardware-detected, fully local, no cloud. The AI helps you learn Linux — it do
 
 | Tier | Hardware | STT | LLM | TTS | Capability |
 |------|----------|-----|-----|-----|------------|
-| 1 | 4GB RAM, any CPU | Vosk (50MB) | Qwen3-0.6B Q4 (0.9GB) | Piper | Text + basic voice commands |
-| 2 | 8GB RAM, 4+ cores | Whisper tiny (273MB) | Qwen3-1.7B Q4 (1.6GB) | Piper | Full voice assistant |
-| 3 | 16GB+ RAM, discrete GPU | Whisper fine-tuned | Full LLM (7B-35B) | Kokoro | Full JARVIS-class experience |
+| 1 | 4GB RAM, any CPU | whisper.cpp tiny (75MB) | Qwen3-0.6B Q4 (397MB) | Piper | Text + basic voice commands |
+| 2 | 8GB RAM, 4+ cores | whisper.cpp base (142MB) | Qwen3-1.7B Q4 (1.3GB) | Piper | Full voice assistant |
+| 3 | 16GB+ RAM, discrete GPU | whisper.cpp medium (1.5GB) | Qwen3-8B+ Q4 (4.9GB+) | Kokoro | Full JARVIS-class experience |
 
 **Key design decisions:**
 - Installer detects hardware tier automatically
 - AI is an optional service — power users can disable it entirely
-- Piper TTS for Tier 1-2 (MOS 4.3, runs on RPi), Kokoro for Tier 3
+- whisper.cpp for all tiers (replaces Vosk — better accuracy, same team as llama.cpp, simpler build)
+- Piper TTS for Tier 1-2, Kokoro for Tier 3
 - CPU inference via llama.cpp is the baseline (66% of machines lack discrete GPUs)
 - NPUs are NOT used for LLM inference (CPU outperforms NPU on current hardware)
+
+**AI packages (new "ai" tier):**
+- espeak-ng, llama.cpp, whisper.cpp, piper-tts — built from source
+- InterGen application — D-Bus service with CLI, GNOME Shell extension, hardware detection
+- Model management — automatic tier detection, download from Hugging Face or VPS mirror
+- Full integration plan: [AI Integration Plan](research/ai_integration/intergen-ai-integration-plan-2026-04-08.md)
+
+### 5b. Project Glasswing Integration
+
+Anthropic's [Project Glasswing](https://anthropic.com/glasswing) uses Claude Mythos Preview for AI-driven vulnerability discovery at scale — finding zero-days in OpenBSD, FFmpeg, and Linux kernel that decades of manual review missed.
+
+InterGenOS integrates Glasswing capabilities through the `intergen-glasswing` package:
+- `intergen scan` — scan installed packages for known vulnerabilities
+- `intergen harden` — AI-guided system hardening recommendations
+- `intergen audit` — full security audit of the running system
+
+**How it aligns with the PRIME DIRECTIVE:** The AI doesn't just find vulnerabilities — it explains what they are, why they matter, and how to fix them. Users understand their security posture, not just their system configuration.
+
+**Availability:** The Glasswing module is always installed. Functionality activates at runtime when internet and an Anthropic API key are configured. Systems without an API key operate normally — the local AI assistant works fully offline.
 
 ### 6. The AI Teaches, Not Hides
 
