@@ -153,9 +153,16 @@ if [ -d /etc/profile.d ]; then
   unset script
 fi
 
-alias ls="ls --color=auto"
-alias ll="ls -la"
-alias grep="grep --color=auto"
+# Aliases — carried forward from InterGenOS build_003 (2015)
+alias ls='ls -a --group-directories-first --time-style=+"%d.%m.%Y %H:%M" --color=auto -F'
+alias ll='ls -lah'
+alias grep='grep --color=auto'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ping='ping -c 3'
+
+export EDITOR=nano
+export LC_COLLATE="C"
 
 HISTSIZE=1000
 HISTFILESIZE=2000
