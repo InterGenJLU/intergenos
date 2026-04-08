@@ -1,0 +1,17 @@
+name: efibootmgr
+version: "18"
+release: 1
+description: Tool for managing UEFI boot entries
+license: GPL-2.0-or-later
+homepage: https://github.com/rhboot/efibootmgr
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/rhboot/efibootmgr/archive/${version}/efibootmgr-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build:
+  - efivar
+  host: []
+  runtime: []

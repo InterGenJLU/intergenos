@@ -1,0 +1,16 @@
+name: efivar
+version: "39"
+release: 1
+description: Library and tools for EFI variable management
+license: LGPL-2.1-or-later
+homepage: https://github.com/rhboot/efivar
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/rhboot/efivar/archive/${version}/efivar-${version}.tar.gz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []

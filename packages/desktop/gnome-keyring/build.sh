@@ -28,4 +28,12 @@ do_install() {
 
 post_install() {
     glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null || true
+
+    # PAM config for gnome-keyring auto-unlock on login
+    if [ -d /etc/pam.d ]; then
+        cat > /etc/pam.d/gnome-keyring << "GKPAM"
+auth     optional    pam_gnome_keyring.so
+session  optional    pam_gnome_keyring.so auto_start
+GKPAM
+    fi
 }

@@ -1,17 +1,22 @@
 #!/bin/bash
 # InterGenOS — Package chroot into bootable disk image
 #
-# Takes the completed chroot at /mnt/igos and creates a bootable qcow2
-# disk image suitable for a KVM virtual machine.
+# Takes the completed chroot at /mnt/igos and creates a bootable disk
+# image. Supports both VM (qcow2) and bare metal (raw) targets.
 #
 # Must run on the HOST (not inside the chroot).
-# Requires: qemu-img, qemu-nbd, parted, mkfs.ext4
+# Requires: qemu-img, qemu-nbd, parted, mkfs.ext4, dosfstools (mkfs.fat)
 #
 # Usage:
 #   sudo bash /mnt/intergenos/scripts/create-image.sh <output-path> [disk-size]
 #
-# Example:
+# Examples:
+#   # For VM (qcow2):
 #   sudo bash /mnt/intergenos/scripts/create-image.sh /mnt/intergenos/build/intergenos.qcow2 500G
+#
+#   # For USB/bare metal (raw):
+#   sudo bash /mnt/intergenos/scripts/create-image.sh /mnt/intergenos/build/intergenos.img 64G
+#   dd if=/mnt/intergenos/build/intergenos.img of=/dev/sdX bs=4M status=progress
 
 set -euo pipefail
 
@@ -68,11 +73,18 @@ for tool in qemu-img qemu-nbd parted mkfs.ext4; do
 done
 
 # ============================================================================
-# Step 1: Create qcow2 disk image
+# Step 1: Create disk image (qcow2 for VM, raw for bare metal/USB)
 # ============================================================================
 
-log "Creating ${DISK_SIZE} qcow2 image at ${IMAGE}..."
-qemu-img create -f qcow2 "$IMAGE" "$DISK_SIZE"
+# Detect format from file extension
+case "$IMAGE" in
+    *.qcow2) IMAGE_FORMAT="qcow2" ;;
+    *.img|*.raw) IMAGE_FORMAT="raw" ;;
+    *) IMAGE_FORMAT="qcow2" ;;  # default to qcow2
+esac
+
+log "Creating ${DISK_SIZE} ${IMAGE_FORMAT} image at ${IMAGE}..."
+qemu-img create -f "$IMAGE_FORMAT" "$IMAGE" "$DISK_SIZE"
 
 # ============================================================================
 # Step 2: Connect image as block device
@@ -133,12 +145,17 @@ chown root:root "$MOUNT_POINT"
 # ============================================================================
 
 log "Writing /etc/fstab..."
-cat > "${MOUNT_POINT}/etc/fstab" << 'EOF'
+# Use UUIDs for portability across VM and bare metal
+ROOT_UUID=$(blkid -s UUID -o value "${NBD_DEV}p3")
+ESP_UUID=$(blkid -s UUID -o value "${NBD_DEV}p2")
+cat > "${MOUNT_POINT}/etc/fstab" << FSTABEOF
 # /etc/fstab — InterGenOS
-# <file system>  <mount point>  <type>  <options>              <dump>  <pass>
-/dev/vda3         /              ext4    defaults,noatime       1       1
-/dev/vda2         /boot/efi      vfat    fmask=0077,dmask=0077  0       2
-EOF
+# <file system>                            <mount point>  <type>  <options>              <dump>  <pass>
+UUID=${ROOT_UUID}  /              ext4    defaults,noatime       1       1
+UUID=${ESP_UUID}  /boot/efi      vfat    fmask=0077,dmask=0077  0       2
+FSTABEOF
+log "  Root UUID: ${ROOT_UUID}"
+log "  ESP UUID:  ${ESP_UUID}"
 
 # ============================================================================
 # Step 7: Create /etc/default/grub
@@ -146,17 +163,17 @@ EOF
 
 log "Writing GRUB defaults..."
 mkdir -p "${MOUNT_POINT}/etc/default"
-cat > "${MOUNT_POINT}/etc/default/grub" << 'EOF'
+cat > "${MOUNT_POINT}/etc/default/grub" << GRUBEOF
 # GRUB defaults for InterGenOS
 GRUB_DEFAULT=0
 GRUB_TIMEOUT=5
 GRUB_DISTRIBUTOR="InterGenOS"
 GRUB_CMDLINE_LINUX_DEFAULT=""
-GRUB_CMDLINE_LINUX="root=/dev/vda3 console=tty0 console=ttyS0,115200"
+GRUB_CMDLINE_LINUX="root=UUID=${ROOT_UUID} console=tty0 console=ttyS0,115200"
 GRUB_TERMINAL="console serial"
 GRUB_SERIAL_COMMAND="serial --speed=115200"
 GRUB_DISABLE_OS_PROBER=true
-EOF
+GRUBEOF
 
 # ============================================================================
 # Step 8: Install GRUB bootloader
@@ -187,13 +204,12 @@ fi
 
 # Generate GRUB config.
 # grub-mkconfig runs inside the chroot where root is mounted via NBD,
-# so it detects /dev/nbd0pN as the root device. Override with the
-# actual target device (virtio: /dev/vda3).
+# so it detects /dev/nbd0pN as the root device. Override with UUID.
 chroot "$MOUNT_POINT" /bin/bash -c \
-    "GRUB_DEVICE=/dev/vda3 grub-mkconfig -o /boot/grub/grub.cfg"
+    "GRUB_DEVICE=UUID=${ROOT_UUID} grub-mkconfig -o /boot/grub/grub.cfg"
 
 # Belt and suspenders: ensure no NBD references leaked through
-sed -i 's|/dev/nbd[0-9]*p[0-9]*|/dev/vda3|g' "${MOUNT_POINT}/boot/grub/grub.cfg"
+sed -i "s|/dev/nbd[0-9]*p[0-9]*|UUID=${ROOT_UUID}|g" "${MOUNT_POINT}/boot/grub/grub.cfg"
 
 # Unmount bind mounts and ESP
 umount "${MOUNT_POINT}/sys"
@@ -248,6 +264,20 @@ if [ "$IMAGE_ROOT_PASSWORD" = "intergenos" ]; then
 fi
 echo "root:${IMAGE_ROOT_PASSWORD}" | chroot "$MOUNT_POINT" chpasswd
 chroot "$MOUNT_POINT" passwd -x 99999 root
+
+# Create default user account — override with IMAGE_USER env var
+IMAGE_USER="${IMAGE_USER:-christopher}"
+IMAGE_USER_PASSWORD="${IMAGE_USER_PASSWORD:-intergenos}"
+if ! chroot "$MOUNT_POINT" id "$IMAGE_USER" > /dev/null 2>&1; then
+    chroot "$MOUNT_POINT" useradd -m -G wheel,video,audio,input -s /bin/bash "$IMAGE_USER"
+    echo "${IMAGE_USER}:${IMAGE_USER_PASSWORD}" | chroot "$MOUNT_POINT" chpasswd
+    # Copy skel files
+    if [ -d "${MOUNT_POINT}/etc/skel" ]; then
+        cp -a "${MOUNT_POINT}/etc/skel/." "${MOUNT_POINT}/home/${IMAGE_USER}/"
+        chroot "$MOUNT_POINT" chown -R "${IMAGE_USER}:${IMAGE_USER}" "/home/${IMAGE_USER}"
+    fi
+    log "  User '${IMAGE_USER}' created (groups: wheel,video,audio,input)"
+fi
 
 # Enable GDM and set graphical target for desktop boot
 if [ -f "${MOUNT_POINT}/usr/lib/systemd/system/gdm.service" ]; then
@@ -347,11 +377,24 @@ log "  InterGenOS disk image created"
 log "  Image: $IMAGE"
 log "  Size:  $FINAL_SIZE"
 log "============================================"
+log "  Format: ${IMAGE_FORMAT}"
 log ""
-log "  Create a VM with:"
-log "    virt-install --name intergenos --ram 12288 --vcpus 12 \\"
-log "      --cpu host-passthrough --machine q35 --os-variant linux2022 \\"
-log "      --disk path=$IMAGE,format=qcow2,bus=virtio \\"
-log "      --import --network network=default,model=virtio \\"
-log "      --graphics vnc,listen=0.0.0.0 --video virtio --noautoconsole"
+if [ "$IMAGE_FORMAT" = "qcow2" ]; then
+    log "  Create a VM with:"
+    log "    virt-install --name intergenos --ram 12288 --vcpus 12 \\"
+    log "      --cpu host-passthrough --machine q35 --os-variant linux2022 \\"
+    log "      --disk path=$IMAGE,format=qcow2,bus=virtio \\"
+    log "      --import --network network=default,model=virtio \\"
+    log "      --graphics vnc,listen=0.0.0.0 --video virtio --noautoconsole"
+    log ""
+    log "  Convert to raw for USB:"
+    log "    qemu-img convert -f qcow2 -O raw $IMAGE intergenos.img"
+    log "    sudo dd if=intergenos.img of=/dev/sdX bs=4M status=progress"
+else
+    log "  Write to USB drive:"
+    log "    sudo dd if=$IMAGE of=/dev/sdX bs=4M status=progress"
+    log ""
+    log "  Or create a VM from raw:"
+    log "    qemu-img convert -f raw -O qcow2 $IMAGE intergenos.qcow2"
+fi
 log ""

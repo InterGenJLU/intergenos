@@ -1,0 +1,17 @@
+name: nss-mdns
+version: "0.15.1"
+release: 1
+description: NSS plugin for mDNS hostname resolution (Avahi)
+license: LGPL-2.1-or-later
+homepage: https://github.com/avahi/nss-mdns
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/avahi/nss-mdns/releases/download/v${version}/nss-mdns-${version}.tar.gz
+  sha256: ddf71453d7a7cdc5921fe53ef387b24fd0c3c49f4dcf94a2a437498596761a21
+dependencies:
+  build:
+  - avahi
+  host: []
+  runtime: []

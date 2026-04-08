@@ -153,8 +153,43 @@ if [ -d /etc/profile.d ]; then
   unset script
 fi
 
+alias ls="ls --color=auto"
+alias ll="ls -la"
+alias grep="grep --color=auto"
+
+HISTSIZE=1000
+HISTFILESIZE=2000
+HISTCONTROL=ignoreboth
+shopt -s histappend
+
 # End /etc/bashrc
 EOF
+
+# bash looks for /etc/bash.bashrc for non-login interactive shells
+# (e.g. GNOME Terminal). Symlink so both names work.
+ln -sf /etc/bashrc /etc/bash.bashrc
+
+install_config "/etc/skel" "skeleton files for new user accounts"
+mkdir -p /etc/skel
+cat > /etc/skel/.bashrc << "EOF"
+# ~/.bashrc
+if [ -f /etc/bash.bashrc ]; then
+    . /etc/bash.bashrc
+fi
+EOF
+
+cat > /etc/skel/.bash_profile << "EOF"
+# ~/.bash_profile
+if [ -f ~/.bashrc ]; then
+    . ~/.bashrc
+fi
+EOF
+
+# Root shell configs
+cp /etc/skel/.bashrc /root/.bashrc
+cp /etc/skel/.bash_profile /root/.bash_profile
+log "    /etc/bash.bashrc (symlink)"
+log "    /etc/skel/.bashrc + .bash_profile"
 
 install_config "/etc/profile.d/prompt.sh" "custom PS1 prompts"
 mkdir -p /etc/profile.d

@@ -1,0 +1,16 @@
+name: wireless-regdb
+version: "2024.10.07"
+release: 1
+description: Wireless regulatory database for WiFi compliance
+license: ISC
+homepage: https://www.kernel.org/pub/software/network/wireless-regdb/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.kernel.org/pub/software/network/wireless-regdb/wireless-regdb-${version}.tar.xz
+  sha256: NEEDS_CHECKSUM
+dependencies:
+  build: []
+  host: []
+  runtime: []
