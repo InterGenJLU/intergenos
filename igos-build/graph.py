@@ -90,6 +90,13 @@ class DependencyGraph:
                 self.depends_on[name].add(dep)
                 self.required_by[dep].add(name)
 
+                # Informational: flag cross-tier dependencies
+                dep_pkg = self.packages[dep]
+                if pkg.tier != dep_pkg.tier:
+                    import sys
+                    print(f"  [info] Cross-tier dep: {name} ({pkg.tier}) -> {dep} ({dep_pkg.tier})",
+                          file=sys.stderr)
+
     def build_order(self) -> list[Package]:
         """Compute a valid build order via Kahn's topological sort.
 

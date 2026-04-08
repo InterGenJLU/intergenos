@@ -88,6 +88,18 @@ class BuildExecutor(PackageTracker):
         env["version"] = str(pkg.version)  # convenience for build.sh scripts
         env["MAKEFLAGS"] = f"-j{self.jobs}"
         env["LC_ALL"] = "POSIX"
+        # Reproducible builds: SOURCE_DATE_EPOCH prevents timestamps from
+        # varying between builds. Adopted by Debian, Arch, NixOS.
+        if "SOURCE_DATE_EPOCH" not in env:
+            import subprocess
+            try:
+                epoch = subprocess.check_output(
+                    ["git", "log", "-1", "--format=%ct"],
+                    cwd=str(Path(__file__).parent.parent), text=True, stderr=subprocess.DEVNULL
+                ).strip()
+                env["SOURCE_DATE_EPOCH"] = epoch
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                pass  # not in a git repo or git not available
         env["XML_CATALOG_FILES"] = "/etc/xml/catalog"
         # PKG_CONFIG_LIBDIR replaces the default search path (unlike
         # PKG_CONFIG_PATH which augments it). This prevents host .pc files
