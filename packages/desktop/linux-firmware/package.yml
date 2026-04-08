@@ -11,6 +11,8 @@ source:
 - url: https://www.kernel.org/pub/linux/kernel/firmware/linux-firmware-${version}.tar.xz
   sha256: c74cc6f562b58ad5bc6b2b00a61abc29c9e49e06126e7ba34fbca9928e07a96c
 dependencies:
-  build: []
+  build:
+  - parallel
+  - rdfind
   host: []
   runtime: []

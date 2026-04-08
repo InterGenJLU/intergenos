@@ -8,7 +8,7 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: https://github.com/heftig/rtkit/archive/refs/tags/v${version}.tar.gz
+- url: https://github.com/heftig/rtkit/archive/refs/tags/v${version}/rtkit-${version}.tar.gz
   sha256: 0f9508530868109f0348e044cc1b20893672875467ace6d847ba6364274de003
 dependencies:
   build:

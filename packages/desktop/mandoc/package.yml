@@ -1,0 +1,16 @@
+name: mandoc
+version: "1.14.6"
+release: 1
+description: BSD man page formatter and viewer
+license: ISC
+homepage: https://mandoc.bsd.lv/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://mandoc.bsd.lv/snapshots/mandoc-${version}.tar.gz
+  sha256: 8bf0d570f01e70a6e124884088870cbed7537f36328d512909eb10cd53179d9c
+dependencies:
+  build: []
+  host: []
+  runtime: []

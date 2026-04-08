@@ -1,0 +1,17 @@
+name: rdfind
+version: "1.8.0"
+release: 1
+description: Redundant data finder — deduplicates files with hardlinks
+license: GPL-2.0-or-later
+homepage: https://github.com/pauldreik/rdfind
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/pauldreik/rdfind/releases/download/releases/${version}/rdfind-${version}.tar.gz
+  sha256: 0a2d0d32002cc2dc0134ee7b649bcc811ecfb2f8d9f672aa476a851152e7af35
+dependencies:
+  build:
+  - nettle
+  host: []
+  runtime: []

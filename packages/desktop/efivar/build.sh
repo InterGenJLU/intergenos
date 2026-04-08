@@ -3,14 +3,14 @@
 # BLFS 13.0
 
 configure() {
-    : # No configure step — uses GNU Make directly
+    # Fix const qualifier warnings that GCC 15 promotes to errors via -Werror
+    sed -i 's/guid_aliases\[i\]\.name = /*(char **)(\&guid_aliases[i].name) = /' src/guid.c
+    sed -i 's/ret->letter = /*(char **)(\&ret->letter) = /' src/linux.c
+    sed -i 's/ret->letter = /*(char **)(\&ret->letter) = /' src/linux-acpi-root.c
 }
 
 build() {
-    # efivar hardcodes -Werror via ERRORS variable in defaults.mk
-    # GCC 15 triggers new warnings that break the build. Override.
-    # Set empty SUBDIRS for docs to skip mandoc dependency
-    sed -i 's/SUBDIRS = src docs/SUBDIRS = src/' Makefile
+    # Override -Werror (ERRORS variable in defaults.mk)
     make ERRORS="" -j${IGOS_JOBS}
 }
 

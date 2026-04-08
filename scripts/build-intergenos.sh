@@ -469,12 +469,12 @@ sync_chroot_scripts() {
     # but --start-at skips setup and code changes between restarts aren't
     # reflected. This ensures the chroot always has the latest.
     log "  Syncing scripts into chroot..."
-    rsync -a /mnt/intergenos/scripts/   "$IGOS/mnt/intergenos/scripts/"
+    rsync -a --delete /mnt/intergenos/scripts/   "$IGOS/mnt/intergenos/scripts/"
     rsync -a --delete /mnt/intergenos/packages/  "$IGOS/mnt/intergenos/packages/"
-    rsync -a /mnt/intergenos/config/    "$IGOS/mnt/intergenos/config/" 2>/dev/null || true
+    rsync -a --delete /mnt/intergenos/config/    "$IGOS/mnt/intergenos/config/" 2>/dev/null || true
     # Sync Python builder for desktop tier
     rsync -a /mnt/intergenos/igos-build.py "$IGOS/mnt/intergenos/" 2>/dev/null || true
-    rsync -a /mnt/intergenos/igos-build/   "$IGOS/mnt/intergenos/igos-build/" 2>/dev/null || true
+    rsync -a --delete /mnt/intergenos/igos-build/   "$IGOS/mnt/intergenos/igos-build/" 2>/dev/null || true
 }
 
 phase_core() {
