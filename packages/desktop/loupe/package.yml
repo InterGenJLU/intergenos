@@ -1,0 +1,22 @@
+name: loupe
+version: '49.2'
+release: 1
+description: GNOME image viewer
+license: GPL-3.0-or-later
+homepage: https://gitlab.gnome.org/GNOME/loupe
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/loupe/49/loupe-${version}.tar.xz
+  sha256: 5853e75cceba7fa2bea01be273cd2f0a3061941e7bdfe3a008b233171067142c
+dependencies:
+  build:
+  - lcms2
+  - glycin
+  - libadwaita1
+  - libgweather
+  - libseccomp
+  - rust
+  host: []
+  runtime: []

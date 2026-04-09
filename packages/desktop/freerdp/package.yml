@@ -1,0 +1,26 @@
+name: freerdp
+version: '3.22.0'
+release: 1
+description: Free implementation of the Remote Desktop Protocol
+license: Apache-2.0
+homepage: https://www.freerdp.com/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/freerdp/freerdp/archive/${version}/FreeRDP-${version}.tar.gz
+  sha256: f4af346eb12b5558f7a93e585e55f523a5cbbb53e6e3a0bf3ffed8f293e2a5b8
+dependencies:
+  build:
+  - ffmpeg
+  - icu
+  - cairo
+  - fuse3
+  - json-c
+  - mitkrb
+  - wayland
+  - docbook-xsl-nons
+  - libusb
+  - libxkbcommon
+  host: []
+  runtime: []

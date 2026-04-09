@@ -1,0 +1,26 @@
+name: seahorse
+version: 47.0.1
+release: 1
+description: GNOME password and encryption key manager
+license: GPL-2.0-or-later
+homepage: https://wiki.gnome.org/Apps/Seahorse
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/seahorse/47/seahorse-${version}.tar.xz
+  sha256: 9c1917e4a61f7febb787849ce36ce717fce706c346880b991d056d54dadbcacc
+dependencies:
+  build:
+  - gcr
+  - gnupg2
+  - vala
+  - gpgme
+  - itstool
+  - libhandy1
+  - libpwquality
+  - libsecret
+  - openssh
+  - libsoup3
+  host: []
+  runtime: []

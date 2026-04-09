@@ -1,0 +1,23 @@
+name: gnome-calculator
+version: '49.2'
+release: 1
+description: GNOME calculator application
+license: GPL-3.0-or-later
+homepage: https://wiki.gnome.org/Apps/Calculator
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-calculator/49/gnome-calculator-${version}.tar.xz
+  sha256: ddf4cd2edda135c41c8af68f9c0cdcd9d9a9163cb9f7f8e28ca2c8e81fd87657
+dependencies:
+  build:
+  - blueprint-compiler
+  - gtksourceview5
+  - itstool
+  - libadwaita1
+  - libgee
+  - libsoup3
+  - vala
+  host: []
+  runtime: []

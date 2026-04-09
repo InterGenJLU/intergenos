@@ -1,0 +1,18 @@
+name: gtkmm4
+version: 4.20.0
+release: 1
+description: C++ bindings for GTK4
+license: LGPL-2.1-or-later
+homepage: https://www.gtkmm.org/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gtkmm/4.20/gtkmm-${version}.tar.xz
+  sha256: daad9bf9b70f90975f91781fc7a656c923a91374261f576c883cd3aebd59c833
+dependencies:
+  build:
+  - gtk4
+  - pangomm
+  host: []
+  runtime: []

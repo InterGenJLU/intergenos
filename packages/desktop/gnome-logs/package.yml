@@ -1,0 +1,20 @@
+name: gnome-logs
+version: '45.0'
+release: 1
+description: GNOME system log viewer
+license: GPL-3.0-or-later
+homepage: https://wiki.gnome.org/Apps/Logs
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-logs/45/gnome-logs-${version}.tar.xz
+  sha256: b28a06ea5c98bd17f2873b507f085b0ca0de9810136611f4f2eeb098614ece52
+dependencies:
+  build:
+  - gtk4
+  - gsettings-desktop-schemas
+  - itstool
+  - libadwaita1
+  host: []
+  runtime: []

@@ -1,0 +1,23 @@
+name: gnome-disk-utility
+version: '46.1'
+release: 1
+description: GNOME disk management utility
+license: GPL-2.0-or-later
+homepage: https://wiki.gnome.org/Apps/Disks
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-disk-utility/46/gnome-disk-utility-${version}.tar.xz
+  sha256: c24e9439a04d70bcfae349ca134c7005435fe2b6f452114df878bff0b89bbffe
+dependencies:
+  build:
+  - udisks2
+  - gnome-settings-daemon
+  - itstool
+  - libdvdread
+  - libhandy1
+  - libpwquality
+  - libsecret
+  host: []
+  runtime: []

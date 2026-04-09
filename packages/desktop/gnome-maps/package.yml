@@ -1,0 +1,25 @@
+name: gnome-maps
+version: '49.4'
+release: 1
+description: GNOME maps application
+license: GPL-2.0-or-later
+homepage: https://wiki.gnome.org/Apps/Maps
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-maps/49/gnome-maps-${version}.tar.xz
+  sha256: 86faaf58d40d6ae0f2f5f37c9c0dd312c3ee2aa4e5125b1f4a31efe4a9f804b0
+dependencies:
+  build:
+  - geoclue2
+  - gjs
+  - desktop-file-utils
+  - geocode-glib
+  - libadwaita1
+  - libgweather
+  - libportal
+  - librest
+  - libshumate
+  host: []
+  runtime: []

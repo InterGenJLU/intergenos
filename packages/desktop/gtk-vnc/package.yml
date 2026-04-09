@@ -1,0 +1,22 @@
+name: gtk-vnc
+version: '1.5.0'
+release: 1
+description: VNC viewer widget for GTK
+license: LGPL-2.1-or-later
+homepage: https://wiki.gnome.org/Projects/gtk-vnc
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gtk-vnc/1.5/gtk-vnc-${version}.tar.xz
+  sha256: c0beb4747528ad931da43acc567c6a0190f7fc624465571ed9ccece02c34dd23
+dependencies:
+  build:
+  - gtk3
+  - gnutls
+  - libgcrypt
+  - glib2
+  - vala
+  - cyrus-sasl
+  host: []
+  runtime: []

@@ -1,0 +1,22 @@
+name: gnome-system-monitor
+version: '49.1'
+release: 1
+description: GNOME system monitor
+license: GPL-2.0-or-later
+homepage: https://wiki.gnome.org/Apps/SystemMonitor
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-system-monitor/49/gnome-system-monitor-${version}.tar.xz
+  sha256: 915b6a321ada12eba7bf578c20c9fe5e41f55d532847cbd124bbddaaec11d70f
+dependencies:
+  build:
+  - gtkmm4
+  - adwaita-icon-theme
+  - itstool
+  - libadwaita1
+  - libgtop
+  - librsvg
+  host: []
+  runtime: []

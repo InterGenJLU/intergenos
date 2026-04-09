@@ -1,0 +1,21 @@
+name: baobab
+version: '49.1'
+release: 1
+description: GNOME disk usage analyzer
+license: GPL-2.0-or-later
+homepage: https://wiki.gnome.org/Apps/DiskUsageAnalyzer
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/baobab/49/baobab-${version}.tar.xz
+  sha256: 6243c92002be7e91f5decd249612face2a4a12d3742afd88b086a94b875dffe0
+dependencies:
+  build:
+  - gtk4
+  - vala
+  - adwaita-icon-theme
+  - itstool
+  - libadwaita1
+  host: []
+  runtime: []

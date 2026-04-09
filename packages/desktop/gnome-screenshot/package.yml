@@ -1,0 +1,19 @@
+name: gnome-screenshot
+version: '41.0'
+release: 1
+description: GNOME screenshot utility
+license: GPL-2.0-or-later
+homepage: https://wiki.gnome.org/Apps/Screenshot
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-screenshot/41/gnome-screenshot-${version}.tar.xz
+  sha256: 4adb7dec926428f74263d5796673cf142e4720b6e768f5468a8d0933f98c9597
+dependencies:
+  build:
+  - gtk3
+  - libcanberra
+  - libhandy1
+  host: []
+  runtime: []

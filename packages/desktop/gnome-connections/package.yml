@@ -1,0 +1,23 @@
+name: gnome-connections
+version: '49.0'
+release: 1
+description: GNOME remote desktop client (VNC and RDP)
+license: GPL-3.0-or-later
+homepage: https://gitlab.gnome.org/GNOME/connections
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-connections/49/gnome-connections-${version}.tar.xz
+  sha256: 3a1f9466ba54914747235fae21ec6ea326c97f6f8d0090cb99cfb0a2b24c739e
+dependencies:
+  build:
+  - appstream
+  - freerdp
+  - vala
+  - gtk-vnc
+  - itstool
+  - libhandy1
+  - libsecret
+  host: []
+  runtime: []
