@@ -281,10 +281,11 @@ chroot "$MOUNT_POINT" /bin/bash -c 'ssh-keygen -A 2>/dev/null'
 log "  SSH host keys generated"
 
 # Initialize CA certificates (HTTPS/TLS requires this)
+# make-ca needs network to download certdata.txt — may fail in chroot without
+# network access. This is non-fatal; certs can be initialized on first boot.
 if [ -x "${MOUNT_POINT}/usr/sbin/make-ca" ]; then
-    # make-ca needs network or a local cert bundle — use the one from the build
-    chroot "$MOUNT_POINT" /bin/bash -c '/usr/sbin/make-ca -g 2>/dev/null'
-    log "  CA certificates initialized"
+    chroot "$MOUNT_POINT" /bin/bash -c '/usr/sbin/make-ca -g 2>/dev/null' || \
+        log "  CA certificates: make-ca failed (no network) — will initialize on first boot"
 fi
 
 # Generate Intel CPU microcode early-load image
