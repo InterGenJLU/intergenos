@@ -1,0 +1,20 @@
+name: folks
+version: 0.15.12
+release: 1
+description: People aggregation library
+license: LGPL-2.1-or-later
+homepage: https://wiki.gnome.org/Projects/Folks
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/folks/0.15/folks-${version}.tar.xz
+  sha256: 21f44e2bdabb1ee7f8e41bb996d10ac7daf35c78c498177db0c00f580a20a914
+dependencies:
+  build:
+  - evolution-data-server
+  - glib2
+  - libgee
+  - vala
+  host: []
+  runtime: []

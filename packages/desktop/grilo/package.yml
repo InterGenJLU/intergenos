@@ -1,0 +1,21 @@
+name: grilo
+version: 0.3.19
+release: 1
+description: Media discovery framework
+license: LGPL-2.1-or-later
+homepage: https://wiki.gnome.org/Projects/Grilo
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/grilo/0.3/grilo-${version}.tar.xz
+  sha256: 0869c81d19ab139c667d79567c14ddcb6cb5cbfc0108d04cade287eb29536706
+dependencies:
+  build:
+  - glib2
+  - libxml2
+  - libsoup3
+  - totem-pl-parser
+  - vala
+  host: []
+  runtime: []

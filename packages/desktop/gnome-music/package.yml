@@ -1,0 +1,26 @@
+name: gnome-music
+version: '49.1'
+release: 1
+description: GNOME music player
+license: GPL-2.0-or-later
+homepage: https://apps.gnome.org/Music/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-music/49/gnome-music-${version}.tar.xz
+  sha256: ba881ae0b55e34e6269fd2d3df8d8bfa3c5ec7e37bac8945aec78b7ff207bc67
+dependencies:
+  build:
+  - gtk4
+  - libadwaita1
+  - tinysparql
+  - pygobject3
+  - pango
+  - libsoup3
+  - grilo
+  - grilo-plugins
+  - libmediaart
+  - gstreamer
+  host: []
+  runtime: []

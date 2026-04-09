@@ -1,0 +1,19 @@
+name: libspelling
+version: 0.4.10
+release: 1
+description: Spellcheck library for GTK 4
+license: LGPL-2.1-or-later
+homepage: https://gitlab.gnome.org/GNOME/libspelling
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/libspelling/0.4/libspelling-${version}.tar.xz
+  sha256: 56e3f01a3a18b575beea4c34349f99cdaba316e1f7c271b1231f7bcf5d9af73b
+dependencies:
+  build:
+  - gtk4
+  - gtksourceview5
+  - enchant
+  host: []
+  runtime: []

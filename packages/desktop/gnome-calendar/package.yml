@@ -1,0 +1,24 @@
+name: gnome-calendar
+version: '50.0'
+release: 1
+description: GNOME calendar application
+license: GPL-3.0-or-later
+homepage: https://apps.gnome.org/Calendar/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-calendar/50/gnome-calendar-${version}.tar.xz
+  sha256: 4b75df071a52d98fb35e647d018030129d24d9007790d02457746c98617aeab0
+dependencies:
+  build:
+  - gtk4
+  - libadwaita1
+  - evolution-data-server
+  - libgweather
+  - geoclue2
+  - libsoup3
+  - fribidi
+  - itstool
+  host: []
+  runtime: []

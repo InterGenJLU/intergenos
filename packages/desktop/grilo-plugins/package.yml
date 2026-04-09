@@ -1,0 +1,21 @@
+name: grilo-plugins
+version: 0.3.18
+release: 1
+description: Plugins for the Grilo media discovery framework
+license: LGPL-2.1-or-later
+homepage: https://wiki.gnome.org/Projects/Grilo
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/grilo-plugins/0.3/grilo-plugins-${version}.tar.xz
+  sha256: 8e3ce74ee717c3c322d0cb0f8df26bb0914028a5d016e28055ffb49cc9a46c5e
+dependencies:
+  build:
+  - grilo
+  - glib2
+  - libsoup3
+  - totem-pl-parser
+  - libxml2
+  host: []
+  runtime: []

@@ -1,0 +1,16 @@
+name: libqrencode
+version: 4.1.1
+release: 1
+description: QR code encoding library
+license: LGPL-2.1-or-later
+homepage: https://github.com/fukuchi/libqrencode
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://github.com/fukuchi/libqrencode/archive/v${version}/libqrencode-${version}.tar.gz
+  sha256: 5385bc1b8c2f20f3b91d258bf8ccc8cf62023935df2d2676b5b67049f31a049c
+dependencies:
+  build: []
+  host: []
+  runtime: []

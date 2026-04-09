@@ -1,0 +1,21 @@
+name: gnome-text-editor
+version: '50.0'
+release: 1
+description: GNOME text editor
+license: GPL-3.0-or-later
+homepage: https://apps.gnome.org/TextEditor/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-text-editor/50/gnome-text-editor-${version}.tar.xz
+  sha256: 9dc299da4daa085423b5d48db59f0021ad55e74143a5cb8ab2e5ffe17967f45b
+dependencies:
+  build:
+  - gtk4
+  - gtksourceview5
+  - libadwaita1
+  - libspelling
+  - itstool
+  host: []
+  runtime: []

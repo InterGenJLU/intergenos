@@ -1,0 +1,27 @@
+name: gnome-contacts
+version: '50.0'
+release: 1
+description: GNOME contacts manager
+license: GPL-2.0-or-later
+homepage: https://apps.gnome.org/Contacts/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-contacts/50/gnome-contacts-${version}.tar.xz
+  sha256: 2a3bea343171be244f12b7c21a40ca38e9a92dea9890393af5e8ac139bc0dab3
+dependencies:
+  build:
+  - gtk4
+  - libadwaita1
+  - folks
+  - evolution-data-server
+  - glycin
+  - libgee
+  - libportal
+  - libqrencode
+  - gstreamer
+  - vala
+  - blueprint-compiler
+  host: []
+  runtime: []

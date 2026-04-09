@@ -1,0 +1,24 @@
+name: snapshot
+version: '50.0'
+release: 1
+description: GNOME camera application
+license: GPL-3.0-or-later
+homepage: https://apps.gnome.org/Snapshot/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/snapshot/50/snapshot-${version}.tar.xz
+  sha256: ec9daf9883eb90330911bb51e6b69eed8c9dbdd5438e864adc90ee55a5fe9eed
+dependencies:
+  build:
+  - gtk4
+  - libadwaita1
+  - glycin
+  - gstreamer
+  - gst-plugins-base
+  - lcms2
+  - libseccomp
+  - rust
+  host: []
+  runtime: []
