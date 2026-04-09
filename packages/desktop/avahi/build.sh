@@ -23,6 +23,8 @@ return; \
                 --disable-qt3        \
                 --disable-qt4        \
                 --disable-qt5        \
+                --disable-gtk        \
+                --disable-gtk3       \
                 --enable-core-docs   \
                 --with-distro=none   \
                 --with-dbus-system-address='unix:path=/run/dbus/system_bus_socket'

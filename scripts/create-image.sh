@@ -240,11 +240,16 @@ fi
 # Also fix other setuid binaries that tar strips
 for suid_bin in /usr/bin/passwd /usr/bin/chsh /usr/bin/chfn /usr/bin/newgrp \
                 /usr/bin/su /usr/bin/mount /usr/bin/umount /usr/bin/chage \
-                /usr/bin/expiry /usr/libexec/polkit-agent-helper-1; do
+                /usr/bin/expiry /usr/bin/fusermount3 /usr/bin/pkexec \
+                /usr/libexec/polkit-agent-helper-1; do
     if [ -f "${MOUNT_POINT}${suid_bin}" ]; then
         chmod 4755 "${MOUNT_POINT}${suid_bin}"
     fi
 done
+# polkit-agent-helper-1 uses 4711 (execute only, not read)
+if [ -f "${MOUNT_POINT}/usr/libexec/polkit-agent-helper-1" ]; then
+    chmod 4711 "${MOUNT_POINT}/usr/libexec/polkit-agent-helper-1"
+fi
 log "  setuid bits restored for all critical binaries"
 
 # Generate SSH host keys (sshd won't start without them)
@@ -263,6 +268,39 @@ KERNEL=$(ls "${MOUNT_POINT}/boot"/vmlinuz-* 2>/dev/null | head -1)
 if [ -n "$KERNEL" ] && [ ! -L "${MOUNT_POINT}/boot/vmlinuz" ]; then
     ln -sf "$(basename "$KERNEL")" "${MOUNT_POINT}/boot/vmlinuz"
     log "  Kernel symlink: /boot/vmlinuz -> $(basename "$KERNEL")"
+fi
+
+# Disable mDNS in systemd-resolved (Avahi is the sole mDNS handler)
+mkdir -p "${MOUNT_POINT}/etc/systemd/resolved.conf.d"
+cat > "${MOUNT_POINT}/etc/systemd/resolved.conf.d/no-mdns.conf" << 'MDNSEOF'
+[Resolve]
+MulticastDNS=no
+MDNSEOF
+log "  mDNS disabled in systemd-resolved (Avahi handles mDNS)"
+
+# WirePlumber startup delay (race condition: starts before PipeWire registers factories)
+mkdir -p "${MOUNT_POINT}/etc/systemd/user/wireplumber.service.d"
+cat > "${MOUNT_POINT}/etc/systemd/user/wireplumber.service.d/restart.conf" << 'WPEOF'
+[Service]
+ExecStartPre=/bin/sleep 1
+WPEOF
+log "  WirePlumber startup delay configured"
+
+# Create XDG user directories for the default user
+IMAGE_USER="${IMAGE_USER:-christopher}"
+if chroot "$MOUNT_POINT" id "$IMAGE_USER" > /dev/null 2>&1; then
+    chroot "$MOUNT_POINT" su - "$IMAGE_USER" -c 'xdg-user-dirs-update 2>/dev/null' || true
+    log "  XDG user directories created for ${IMAGE_USER}"
+fi
+
+# Create swapfile (2GB)
+if [ ! -f "${MOUNT_POINT}/swapfile" ]; then
+    fallocate -l 2G "${MOUNT_POINT}/swapfile" 2>/dev/null || \
+        dd if=/dev/zero of="${MOUNT_POINT}/swapfile" bs=1M count=2048 2>/dev/null
+    chmod 600 "${MOUNT_POINT}/swapfile"
+    mkswap "${MOUNT_POINT}/swapfile" > /dev/null
+    echo '/swapfile none swap sw 0 0' >> "${MOUNT_POINT}/etc/fstab"
+    log "  2GB swapfile created"
 fi
 
 # Enable serial console for VM management
