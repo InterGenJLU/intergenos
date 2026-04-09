@@ -1,0 +1,14 @@
+name: spotify-helper
+version: "1.0"
+release: 1
+description: Helper to download and install Spotify
+license: GPL-3.0-or-later
+homepage: https://www.spotify.com/
+tier: extra
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime: []

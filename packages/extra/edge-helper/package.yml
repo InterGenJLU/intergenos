@@ -1,0 +1,14 @@
+name: edge-helper
+version: "1.0"
+release: 1
+description: Helper to download and install Microsoft Edge
+license: GPL-3.0-or-later
+homepage: https://www.microsoft.com/edge
+tier: extra
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime: []
