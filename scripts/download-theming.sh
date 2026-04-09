@@ -14,7 +14,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-CACHE_DIR="${PROJECT_DIR}/build/theming"
+CACHE_DIR="${PROJECT_DIR}/assets/theming"
 
 mkdir -p "${CACHE_DIR}/extensions"
 mkdir -p "${CACHE_DIR}/gtk-themes"

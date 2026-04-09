@@ -454,7 +454,7 @@ log "  Post-deploy fixes applied (serial console, networking, DNS, root password
 # Step 8c: Install theming (extensions, themes, icons, cursors, configs)
 # ============================================================================
 
-if [ -d "/mnt/intergenos/build/theming" ]; then
+if [ -d "/mnt/intergenos/assets/theming" ]; then
     log "Installing theming assets..."
     # Re-mount bind mounts for chroot execution
     mount --bind /dev "${MOUNT_POINT}/dev"
@@ -469,8 +469,8 @@ if [ -d "/mnt/intergenos/build/theming" ]; then
     umount "${MOUNT_POINT}/dev/pts"
     umount "${MOUNT_POINT}/dev"
 else
-    log "  No theming cache found at /mnt/intergenos/build/theming/"
-    log "  Run scripts/download-theming.sh first to include themes in the image"
+    log "  No theming assets found at /mnt/intergenos/assets/theming/"
+    log "  Run scripts/download-theming.sh to populate, then commit"
 fi
 
 # Apply Burn My Windows profile for the default user

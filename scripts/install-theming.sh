@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-CACHE_DIR="/mnt/intergenos/build/theming"
+CACHE_DIR="/mnt/intergenos/assets/theming"
 WORK_DIR="/tmp/theming-work"
 
 log() { echo "[THEMING] $*"; }
