@@ -37,6 +37,19 @@ The most impactful contributions are package templates. Each package needs:
 
 Follow the BLFS 13.0 book for build instructions. Use `DESTDIR="$DESTDIR"` for all installs.
 
+### Security Standards
+
+InterGenOS participates in Anthropic's [Project Glasswing](https://anthropic.com/glasswing) for AI-driven vulnerability discovery and security analysis. All contributions are subject to automated security review.
+
+Contributions that introduce any of the following will not be accepted:
+
+- **Known vulnerabilities** — code patterns flagged by static analysis, dependency chains with published CVEs, or configurations that weaken the security posture of the system
+- **Supply chain risks** — unverified source tarballs, missing or incorrect SHA256 checksums, dependencies fetched from untrusted origins
+- **Privilege escalation vectors** — improper setuid usage, world-writable files in privileged paths, or unsafe default permissions
+- **Feature regressions disguised as fixes** — disabling functionality or removing dependencies to work around build failures rather than resolving the root cause
+
+If Glasswing flags an issue in your contribution, we will work with you to resolve it before merging. Security is not negotiable.
+
 ### What We Value
 
 - **Research before implementing** — check the LFS/BLFS book, check how other distros handle it
