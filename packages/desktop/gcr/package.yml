@@ -18,6 +18,7 @@ dependencies:
   - libsecret
   - vala
   - glib2
+  - gnupg2
   - libxslt
   host: []
   runtime: []

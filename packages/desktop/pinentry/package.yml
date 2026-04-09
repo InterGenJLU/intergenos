@@ -14,8 +14,6 @@ dependencies:
   build:
   - libassuan
   - libgpg-error
-  - gcr
-  - gcr4
   - libsecret
   host: []
   runtime: []
