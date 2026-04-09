@@ -451,6 +451,40 @@ log "  Caches built (icons, fonts, schemas, GIO, pixbuf, MIME, desktop, ldconfig
 log "  Post-deploy fixes applied (serial console, networking, DNS, root password, GDM, services, caches)"
 
 # ============================================================================
+# Step 8c: Install theming (extensions, themes, icons, cursors, configs)
+# ============================================================================
+
+if [ -d "/mnt/intergenos/build/theming" ]; then
+    log "Installing theming assets..."
+    # Re-mount bind mounts for chroot execution
+    mount --bind /dev "${MOUNT_POINT}/dev"
+    mount --bind /dev/pts "${MOUNT_POINT}/dev/pts"
+    mount -t proc proc "${MOUNT_POINT}/proc"
+    mount -t sysfs sysfs "${MOUNT_POINT}/sys"
+
+    chroot "$MOUNT_POINT" /bin/bash /mnt/intergenos/scripts/install-theming.sh
+
+    umount "${MOUNT_POINT}/sys"
+    umount "${MOUNT_POINT}/proc"
+    umount "${MOUNT_POINT}/dev/pts"
+    umount "${MOUNT_POINT}/dev"
+else
+    log "  No theming cache found at /mnt/intergenos/build/theming/"
+    log "  Run scripts/download-theming.sh first to include themes in the image"
+fi
+
+# Apply Burn My Windows profile for the default user
+IMAGE_USER="${IMAGE_USER:-christopher}"
+if [ -d "${MOUNT_POINT}/etc/skel/.config/burn-my-windows" ] && \
+   chroot "$MOUNT_POINT" id "$IMAGE_USER" > /dev/null 2>&1; then
+    mkdir -p "${MOUNT_POINT}/home/${IMAGE_USER}/.config/burn-my-windows/profiles"
+    cp "${MOUNT_POINT}/etc/skel/.config/burn-my-windows/profiles/default.conf" \
+       "${MOUNT_POINT}/home/${IMAGE_USER}/.config/burn-my-windows/profiles/default.conf"
+    chroot "$MOUNT_POINT" chown -R "${IMAGE_USER}:${IMAGE_USER}" "/home/${IMAGE_USER}/.config/burn-my-windows"
+    log "  Burn My Windows profile applied for ${IMAGE_USER}"
+fi
+
+# ============================================================================
 # Step 9: Unmount and disconnect
 # ============================================================================
 
