@@ -1,0 +1,21 @@
+[Unit]
+Description=InterGenOS First Boot Animation
+After=systemd-vconsole-setup.service
+After=systemd-tmpfiles-setup.service
+ConditionPathExists=!/var/lib/intergen/.firstboot-done
+DefaultDependencies=no
+Conflicts=getty@tty1.service
+
+[Service]
+Type=idle
+ExecStart=/usr/bin/intergen-firstboot
+ExecStartPost=/usr/bin/touch /var/lib/intergen/.firstboot-done
+StandardInput=tty
+StandardOutput=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+
+[Install]
+WantedBy=multi-user.target
