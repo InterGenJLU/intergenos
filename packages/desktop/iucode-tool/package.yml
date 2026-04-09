@@ -1,0 +1,18 @@
+name: iucode-tool
+version: 2.3.1
+release: 1
+description: Intel processor microcode management tool
+license: GPL-2.0-or-later
+homepage: https://gitlab.com/iucode-tool/iucode-tool
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://gitlab.com/iucode-tool/iucode-tool/-/archive/v${version}/iucode-tool-v${version}.tar.gz
+  sha256: e24951098b5753293e43689bd8e0a61c4fd2e68870672d20bb89b093dfd8b255
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr

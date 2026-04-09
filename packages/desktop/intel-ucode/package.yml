@@ -1,0 +1,17 @@
+name: intel-ucode
+version: '20250211'
+release: 1
+description: Intel CPU microcode firmware
+license: Intel-Microcode-License
+homepage: https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/archive/refs/tags/microcode-${version}.tar.gz
+  sha256: 1da88b51953c9da2e20b5c94b3d7270cf87ea5babcaa56e3d6a5c9eaf11694b3
+dependencies:
+  build:
+  - iucode-tool
+  host: []
+  runtime: []
