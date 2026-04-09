@@ -388,6 +388,17 @@ chroot "$MOUNT_POINT" /bin/bash -c '
     fi
     systemctl enable bluetooth.service 2>/dev/null || true
     systemctl enable sshd.service 2>/dev/null || true
+
+    # Disable NetworkManager-wait-online — it blocks boot indefinitely
+    # when no network interface is immediately available (USB NIC unplugged,
+    # WiFi not configured). NetworkManager still manages interfaces
+    # asynchronously without this service.
+    systemctl disable NetworkManager-wait-online.service 2>/dev/null || true
+
+    # Disable remote-fs.target and machines.target — not needed for desktop,
+    # can cause boot hangs waiting for network mounts
+    rm -f /etc/systemd/system/multi-user.target.wants/remote-fs.target 2>/dev/null || true
+    rm -f /etc/systemd/system/multi-user.target.wants/machines.target 2>/dev/null || true
 ' 2>/dev/null
 log "  Caches built (icons, fonts, schemas, GIO, pixbuf, MIME, desktop, ldconfig)"
 
