@@ -39,7 +39,7 @@ Follow the BLFS 13.0 book for build instructions. Use `DESTDIR="$DESTDIR"` for a
 
 ### Security Standards
 
-InterGenOS participates in Anthropic's [Project Glasswing](https://anthropic.com/glasswing) for AI-driven vulnerability discovery and security analysis. All contributions are subject to automated security review.
+InterGenOS is built to meet the security standards required by Anthropic's [Project Glasswing](https://anthropic.com/glasswing) AI-driven vulnerability discovery program. All contributions are subject to security review consistent with those standards.
 
 Contributions that introduce any of the following will not be accepted:
 
