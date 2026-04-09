@@ -424,6 +424,18 @@ SCRIPT
 chmod 755 /usr/bin/lsb_release
 
 # ============================================================================
+# 9.X — Disable unneeded systemd targets
+# ============================================================================
+
+# machines.target and remote-fs.target are enabled by systemd defaults but
+# not needed for a desktop system. They can cause boot hangs waiting for
+# network mounts or container services that don't exist.
+log "--- Disabling unneeded systemd targets ---"
+rm -f /etc/systemd/system/multi-user.target.wants/remote-fs.target 2>/dev/null || true
+rm -f /etc/systemd/system/multi-user.target.wants/machines.target 2>/dev/null || true
+log "  remote-fs.target and machines.target removed from multi-user.target.wants"
+
+# ============================================================================
 # Summary
 # ============================================================================
 
@@ -451,6 +463,10 @@ log "    /etc/igos-release"
 log "    /usr/bin/lsb_release"
 log "    /etc/systemd/system/getty@tty1.service.d/noclear.conf"
 log "    /etc/systemd/coredump.conf.d/maxuse.conf"
+log ""
+log "  Disabled targets:"
+log "    remote-fs.target — not needed for desktop"
+log "    machines.target — not needed for desktop"
 log ""
 log "  Not created (by design):"
 log "    /etc/resolv.conf — managed by systemd-resolved"

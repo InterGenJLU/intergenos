@@ -21,6 +21,10 @@ check() {
 
 do_install() {
     make DESTDIR="$DESTDIR" install
+
+    # Set setuid bit — sudo must run as root to escalate privileges.
+    # Must be set here because tar-based deployment strips setuid bits.
+    chmod 4755 "${DESTDIR}/usr/bin/sudo"
 }
 
 post_install() {

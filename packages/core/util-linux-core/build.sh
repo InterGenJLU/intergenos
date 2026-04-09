@@ -37,4 +37,9 @@ check() {
 
 do_install() {
     make DESTDIR="$DESTDIR" install
+
+    # Set setuid bits — mount/umount need setuid for non-root user mounts.
+    # Must be set here because tar-based deployment strips setuid bits.
+    chmod 4755 "${DESTDIR}/usr/bin/mount"
+    chmod 4755 "${DESTDIR}/usr/bin/umount"
 }

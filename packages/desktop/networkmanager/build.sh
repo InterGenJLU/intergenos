@@ -45,4 +45,9 @@ post_install() {
     # Disable systemd-networkd if enabled (conflicts with NM)
     systemctl disable systemd-networkd.service 2>/dev/null || true
     systemctl disable systemd-networkd-wait-online.service 2>/dev/null || true
+
+    # Disable NetworkManager-wait-online — blocks boot indefinitely when no
+    # network interface is immediately available (USB NIC unplugged, WiFi not
+    # configured). NM still manages interfaces asynchronously without it.
+    systemctl disable NetworkManager-wait-online.service 2>/dev/null || true
 }

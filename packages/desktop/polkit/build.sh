@@ -29,4 +29,11 @@ build() {
 do_install() {
     cd build
     DESTDIR="$DESTDIR" ninja install
+
+    # Set setuid bits — pkexec and polkit-agent-helper-1 need setuid for
+    # privilege escalation. Must be set here because tar-based deployment
+    # strips setuid bits.
+    chmod 4755 "${DESTDIR}/usr/bin/pkexec"
+    # polkit-agent-helper-1 uses 4711 (execute-only, not readable)
+    chmod 4711 "${DESTDIR}/usr/libexec/polkit-agent-helper-1"
 }

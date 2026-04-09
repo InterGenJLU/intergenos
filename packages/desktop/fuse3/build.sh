@@ -24,4 +24,8 @@ build() {
 do_install() {
     cd build
     DESTDIR="$DESTDIR" ninja install
+
+    # Set setuid bit — fusermount3 needs setuid for non-root FUSE mounts.
+    # Must be set here because tar-based deployment strips setuid bits.
+    chmod 4755 "${DESTDIR}/usr/bin/fusermount3"
 }

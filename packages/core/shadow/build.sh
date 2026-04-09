@@ -39,6 +39,17 @@ do_install() {
 
     # Create default directory for useradd config
     mkdir -pv "${DESTDIR}/etc/default"
+
+    # Set setuid bits — required for non-root users to change passwords,
+    # switch users, etc. Must be set here because tar-based deployment
+    # strips setuid bits during extraction.
+    chmod 4755 "${DESTDIR}/usr/bin/passwd"
+    chmod 4755 "${DESTDIR}/usr/bin/su"
+    chmod 4755 "${DESTDIR}/usr/bin/chage"
+    chmod 4755 "${DESTDIR}/usr/bin/chfn"
+    chmod 4755 "${DESTDIR}/usr/bin/chsh"
+    chmod 4755 "${DESTDIR}/usr/bin/newgrp"
+    chmod 4755 "${DESTDIR}/usr/bin/expiry"
 }
 
 # Post-install: runs on the live system AFTER deploy

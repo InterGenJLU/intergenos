@@ -48,7 +48,12 @@ chown -R root:root $IGOS/{usr,var,etc,tools} 2>/dev/null || true
 case $(uname -m) in
     x86_64) chown -R root:root $IGOS/lib64 2>/dev/null || true ;;
 esac
-echo "  Done"
+# Fix root directory ownership — the setup phase creates /mnt/igos owned by
+# the build user (needed for unprivileged toolchain). From chroot-prep onward
+# everything runs as root, so fix it now. Without this, systemd-tmpfiles
+# refuses to create /tmp/.X11-unix (unsafe path transition) causing GDM auth loop.
+chown root:root $IGOS
+echo "  Done (including chroot root directory)"
 
 # --- 7.3: Preparing Virtual Kernel File Systems ---
 echo "--- Creating virtual filesystem mount points ---"
