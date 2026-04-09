@@ -1,0 +1,19 @@
+name: gpgmepp
+version: "2.0.0"
+release: 1
+description: C++ wrapper for GPGME
+license: LGPL-2.1-or-later
+homepage: https://www.gnupg.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.gnupg.org/ftp/gcrypt/gpgmepp/gpgmepp-${version}.tar.xz
+  sha256: FIXME
+dependencies:
+  build:
+  - gpgme
+  - cmake
+  host: []
+  runtime:
+  - gpgme

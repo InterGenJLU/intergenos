@@ -1,0 +1,19 @@
+name: gtkmm3
+version: "3.24.10"
+release: 1
+description: C++ interface to GTK3
+license: LGPL-2.1-or-later
+homepage: https://www.gtkmm.org/
+tier: extra
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gtkmm/3.24/gtkmm-${version}.tar.xz
+  sha256: FIXME
+dependencies:
+  build:
+  - atkmm
+  - gtk3
+  - pangomm
+  host: []
+  runtime: []

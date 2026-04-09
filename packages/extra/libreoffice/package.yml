@@ -1,0 +1,50 @@
+name: libreoffice
+version: "26.2.1.2"
+release: 1
+description: Full-featured office productivity suite
+license: MPL-2.0
+homepage: https://www.libreoffice.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.documentfoundation.org/libreoffice/src/26.2.1/libreoffice-${version}.tar.xz
+  sha256: FIXME
+patches:
+  - file: libreoffice-26.2.1.2-poppler_26.02-1.patch
+    sha256: FIXME
+dependencies:
+  build:
+  - boost
+  - clucene
+  - curl
+  - glm
+  - glu
+  - gpgmepp
+  - harfbuzz
+  - icu
+  - lcms2
+  - libatomic_ops
+  - libtiff
+  - libwebp
+  - libxml2
+  - libxslt
+  - nss
+  - openssl
+  - poppler
+  - redland
+  - unixodbc
+  - zip
+  - which
+  - wget
+  - libarchive
+  - perl-archive-zip
+  - libcdr
+  - libvisio
+  - libwpg
+  - libwpd
+  - librevenge
+  - zlib
+  - zstd
+  host: []
+  runtime: []

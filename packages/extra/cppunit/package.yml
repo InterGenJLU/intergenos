@@ -1,0 +1,16 @@
+name: cppunit
+version: "1.15.1"
+release: 1
+description: C++ unit testing framework
+license: LGPL-2.1-or-later
+homepage: https://freedesktop.org/wiki/Software/cppunit/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://dev-www.libreoffice.org/src/cppunit-${version}.tar.gz
+  sha256: FIXME
+dependencies:
+  build: []
+  host: []
+  runtime: []

@@ -1,0 +1,45 @@
+name: gimp
+version: "3.0.6"
+release: 1
+description: GNU Image Manipulation Program — advanced image editor
+license: GPL-3.0-or-later
+homepage: https://www.gimp.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gimp.org/gimp/v3.0/gimp-${version}.tar.xz
+  sha256: FIXME
+patches:
+  - file: gimp-3.0.6-security_fixes-1.patch
+    sha256: FIXME
+dependencies:
+  build:
+  - appstream-glib
+  - gegl
+  - gexiv2
+  - glib-networking
+  - gtk3
+  - harfbuzz
+  - libmypaint
+  - mypaint-brushes
+  - librsvg
+  - libtiff
+  - libxml2
+  - lcms2
+  - poppler
+  - graphviz
+  - iso-codes
+  - libgudev
+  - pygobject3
+  - xdg-utils
+  - aalib
+  - alsa-lib
+  - gjs
+  - libheif
+  - libunwind
+  - libwebp
+  - lua
+  - openjpeg
+  host: []
+  runtime: []

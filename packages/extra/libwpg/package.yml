@@ -1,0 +1,18 @@
+name: libwpg
+version: "0.3.4"
+release: 1
+description: WordPerfect Graphics import library
+license: LGPL-2.1-or-later
+homepage: https://libwpg.sourceforge.net/
+tier: extra
+build_style: autotools
+install_func: do_install
+source:
+- url: https://sourceforge.net/projects/libwpg/files/libwpg/libwpg-${version}/libwpg-${version}.tar.xz
+  sha256: FIXME
+dependencies:
+  build:
+  - librevenge
+  - libwpd
+  host: []
+  runtime: []

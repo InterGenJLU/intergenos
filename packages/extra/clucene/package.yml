@@ -1,0 +1,21 @@
+name: clucene
+version: "2.3.3.4"
+release: 1
+description: C++ port of Lucene high performance text search engine
+license: LGPL-2.1-or-later OR Apache-2.0
+homepage: https://clucene.sourceforge.net/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://downloads.sourceforge.net/clucene/clucene-core-${version}.tar.gz
+  sha256: FIXME
+patches:
+  - file: clucene-2.3.3.4-contribs_lib-1.patch
+    sha256: FIXME
+dependencies:
+  build:
+  - cmake
+  - boost
+  host: []
+  runtime: []

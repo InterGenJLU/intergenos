@@ -1,0 +1,16 @@
+name: libatomic_ops
+version: "7.10.0"
+release: 1
+description: Atomic memory update operations library
+license: MIT
+homepage: https://github.com/bdwgc/libatomic_ops
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/bdwgc/libatomic_ops/releases/download/v${version}/libatomic_ops-${version}.tar.gz
+  sha256: FIXME
+dependencies:
+  build: []
+  host: []
+  runtime: []

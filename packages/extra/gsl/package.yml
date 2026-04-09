@@ -1,0 +1,16 @@
+name: gsl
+version: "2.8"
+release: 1
+description: GNU Scientific Library — numerical library for C and C++
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/gsl/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://ftpmirror.gnu.org/gsl/gsl-${version}.tar.gz
+  sha256: FIXME
+dependencies:
+  build: []
+  host: []
+  runtime: []

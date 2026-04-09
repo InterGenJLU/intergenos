@@ -1,0 +1,33 @@
+name: inkscape
+version: "1.4.3"
+release: 1
+description: Vector graphics editor with SVG support
+license: GPL-2.0-or-later
+homepage: https://inkscape.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://inkscape.org/gallery/item/58914/inkscape-${version}.tar.xz
+  sha256: FIXME
+patches:
+  - file: inkscape-1.4.3-poppler_26.02-1.patch
+    sha256: FIXME
+dependencies:
+  build:
+  - boost
+  - double-conversion
+  - gc
+  - gsl
+  - gtkmm3
+  - libxslt
+  - poppler
+  - popt
+  - potrace
+  - imagemagick
+  - lcms2
+  - libcanberra
+  - gspell
+  - numpy
+  host: []
+  runtime: []

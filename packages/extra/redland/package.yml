@@ -1,0 +1,17 @@
+name: redland
+version: "1.0.17"
+release: 1
+description: RDF metadata library
+license: LGPL-2.1-or-later
+homepage: https://librdf.org/
+tier: extra
+build_style: autotools
+install_func: do_install
+source:
+- url: https://download.librdf.org/source/redland-${version}.tar.gz
+  sha256: FIXME
+dependencies:
+  build:
+  - rasqal
+  host: []
+  runtime: []

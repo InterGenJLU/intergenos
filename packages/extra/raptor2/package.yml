@@ -1,0 +1,20 @@
+name: raptor2
+version: "2.0.16"
+release: 1
+description: RDF parser and serializer library
+license: LGPL-2.1-or-later OR Apache-2.0
+homepage: https://librdf.org/raptor/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.librdf.org/source/raptor2-${version}.tar.gz
+  sha256: FIXME
+dependencies:
+  build:
+  - curl
+  - libxslt
+  host: []
+  runtime:
+  - curl
+  - libxslt

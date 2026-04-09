@@ -1,0 +1,20 @@
+name: libvisio
+version: "0.1.10"
+release: 1
+description: Microsoft Visio document import library
+license: MPL-2.0
+homepage: https://wiki.documentfoundation.org/DLP/Libraries/libvisio
+tier: extra
+build_style: autotools
+install_func: do_install
+source:
+- url: https://dev-www.libreoffice.org/src/libvisio/libvisio-${version}.tar.xz
+  sha256: FIXME
+dependencies:
+  build:
+  - librevenge
+  - icu
+  - libxml2
+  - boost
+  host: []
+  runtime: []

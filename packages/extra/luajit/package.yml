@@ -1,0 +1,16 @@
+name: luajit
+version: "20260213"
+release: 1
+description: Just-In-Time compiler for Lua
+license: MIT
+homepage: https://luajit.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://anduin.linuxfromscratch.org/BLFS/luajit/luajit-${version}.tar.xz
+  sha256: FIXME
+dependencies:
+  build: []
+  host: []
+  runtime: []

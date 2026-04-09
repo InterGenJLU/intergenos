@@ -1,0 +1,17 @@
+name: meson_python
+version: "0.19.0"
+release: 1
+description: Python build backend (PEP 517) for Meson projects
+license: MIT
+homepage: https://pypi.org/project/meson-python/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/m/meson_python/meson_python-${version}.tar.gz
+  sha256: FIXME
+dependencies:
+  build:
+  - pyproject-metadata
+  host: []
+  runtime: []

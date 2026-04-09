@@ -1,0 +1,20 @@
+name: libcdr
+version: "0.1.8"
+release: 1
+description: CorelDRAW document import library
+license: MPL-2.0
+homepage: https://wiki.documentfoundation.org/DLP/Libraries/libcdr
+tier: extra
+build_style: autotools
+install_func: do_install
+source:
+- url: https://dev-www.libreoffice.org/src/libcdr/libcdr-${version}.tar.xz
+  sha256: FIXME
+dependencies:
+  build:
+  - librevenge
+  - icu
+  - lcms2
+  - boost
+  host: []
+  runtime: []

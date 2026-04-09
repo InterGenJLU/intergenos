@@ -1,0 +1,21 @@
+name: imagemagick
+version: "7.1.2-13"
+release: 1
+description: Image processing and conversion suite
+license: ImageMagick
+homepage: https://imagemagick.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.imagemagick.org/archive/releases/ImageMagick-${version}.tar.xz
+  sha256: FIXME
+dependencies:
+  build:
+  - freetype2
+  - libjpeg-turbo
+  - libpng
+  - libtiff
+  - libwebp
+  host: []
+  runtime: []

@@ -1,0 +1,22 @@
+name: gegl
+version: "0.4.66"
+release: 1
+description: GEneric Graphics Library — graph-based image processing framework
+license: LGPL-3.0-or-later
+homepage: https://gegl.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gimp.org/pub/gegl/0.4/gegl-${version}.tar.xz
+  sha256: FIXME
+dependencies:
+  build:
+  - babl
+  - json-glib
+  - glib2
+  - graphviz
+  - pygments
+  - pygobject3
+  host: []
+  runtime: []

@@ -1,0 +1,16 @@
+name: gc
+version: "8.2.12"
+release: 1
+description: Boehm-Demers-Weiser conservative garbage collector
+license: MIT-style
+homepage: https://www.hboehm.info/gc/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/bdwgc/bdwgc/releases/download/v${version}/gc-${version}.tar.gz
+  sha256: FIXME
+dependencies:
+  build: []
+  host: []
+  runtime: []

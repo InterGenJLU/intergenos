@@ -1,0 +1,16 @@
+name: zip
+version: "3.0"
+release: 1
+description: Info-ZIP archiver for creating ZIP archives
+license: Info-ZIP
+homepage: http://infozip.sourceforge.net/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://downloads.sourceforge.net/infozip/zip30.tar.gz
+  sha256: FIXME
+dependencies:
+  build: []
+  host: []
+  runtime: []

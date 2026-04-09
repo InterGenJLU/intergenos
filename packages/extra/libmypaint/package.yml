@@ -1,0 +1,19 @@
+name: libmypaint
+version: "1.6.1"
+release: 1
+description: Brush engine library for MyPaint and GIMP
+license: ISC
+homepage: https://github.com/mypaint/libmypaint
+tier: extra
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/mypaint/libmypaint/releases/download/v${version}/libmypaint-${version}.tar.xz
+  sha256: FIXME
+dependencies:
+  build:
+  - json-c
+  - glib2
+  host: []
+  runtime:
+  - json-c

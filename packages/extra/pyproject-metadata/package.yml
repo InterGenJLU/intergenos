@@ -1,0 +1,16 @@
+name: pyproject-metadata
+version: "0.11.0"
+release: 1
+description: PEP 621 metadata class with core metadata generation
+license: MIT
+homepage: https://pypi.org/project/pyproject-metadata/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/p/pyproject-metadata/pyproject_metadata-${version}.tar.gz
+  sha256: FIXME
+dependencies:
+  build: []
+  host: []
+  runtime: []

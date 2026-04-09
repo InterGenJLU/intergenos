@@ -1,0 +1,17 @@
+name: potrace
+version: "1.16"
+release: 1
+description: Bitmap to vector graphics conversion tool and library
+license: GPL-2.0-or-later
+homepage: https://potrace.sourceforge.net/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://downloads.sourceforge.net/potrace/potrace-${version}.tar.gz
+  sha256: FIXME
+dependencies:
+  build:
+  - llvm
+  host: []
+  runtime: []

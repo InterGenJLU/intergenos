@@ -1,0 +1,17 @@
+name: libwpd
+version: "0.10.3"
+release: 1
+description: WordPerfect Document import/export library
+license: LGPL-2.1-or-later
+homepage: https://libwpd.sourceforge.net/
+tier: extra
+build_style: autotools
+install_func: do_install
+source:
+- url: https://sourceforge.net/projects/libwpd/files/libwpd/libwpd-${version}/libwpd-${version}.tar.xz
+  sha256: FIXME
+dependencies:
+  build:
+  - librevenge
+  host: []
+  runtime: []

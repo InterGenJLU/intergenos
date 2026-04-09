@@ -1,0 +1,19 @@
+name: libplacebo
+version: "7.360.0"
+release: 1
+description: GPU-accelerated image and video processing library
+license: LGPL-2.1-or-later
+homepage: https://code.videolan.org/videolan/libplacebo
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/haasn/libplacebo/archive/v${version}/libplacebo-${version}.tar.gz
+  sha256: FIXME
+dependencies:
+  build:
+  - glad
+  - glslang
+  - vulkan-loader
+  host: []
+  runtime: []

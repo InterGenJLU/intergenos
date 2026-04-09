@@ -1,0 +1,22 @@
+name: appstream-glib
+version: "0.8.3"
+release: 1
+description: AppStream metadata reading and writing library
+license: LGPL-2.1-or-later
+homepage: https://people.freedesktop.org/~hughsient/appstream-glib/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: http://people.freedesktop.org/~hughsient/appstream-glib/releases/appstream-glib-${version}.tar.xz
+  sha256: FIXME
+dependencies:
+  build:
+  - curl
+  - gdk-pixbuf
+  - gtk3
+  - json-glib
+  - libarchive
+  - libyaml
+  host: []
+  runtime: []

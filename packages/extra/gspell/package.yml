@@ -1,0 +1,19 @@
+name: gspell
+version: "1.14.2"
+release: 1
+description: Spell checking library for GTK applications
+license: LGPL-2.1-or-later
+homepage: https://gitlab.gnome.org/GNOME/gspell
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gspell/1.14/gspell-${version}.tar.xz
+  sha256: FIXME
+dependencies:
+  build:
+  - enchant
+  - icu
+  - gtk3
+  host: []
+  runtime: []
