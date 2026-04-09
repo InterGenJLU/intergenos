@@ -145,17 +145,22 @@ chown root:root "$MOUNT_POINT"
 # ============================================================================
 
 log "Writing /etc/fstab..."
-# Use UUIDs for portability across VM and bare metal
+# Use PARTUUIDs for portability across VM and bare metal.
+# Filesystem UUIDs (blkid UUID=) fail on some hardware at early boot;
+# GPT PARTUUIDs are resolved by the kernel directly from the partition table.
 ROOT_UUID=$(blkid -s UUID -o value "${NBD_DEV}p3")
+ROOT_PARTUUID=$(blkid -s PARTUUID -o value "${NBD_DEV}p3")
 ESP_UUID=$(blkid -s UUID -o value "${NBD_DEV}p2")
+ESP_PARTUUID=$(blkid -s PARTUUID -o value "${NBD_DEV}p2")
 cat > "${MOUNT_POINT}/etc/fstab" << FSTABEOF
 # /etc/fstab — InterGenOS
 # <file system>                            <mount point>  <type>  <options>              <dump>  <pass>
 UUID=${ROOT_UUID}  /              ext4    defaults,noatime       1       1
 UUID=${ESP_UUID}  /boot/efi      vfat    fmask=0077,dmask=0077  0       2
 FSTABEOF
-log "  Root UUID: ${ROOT_UUID}"
-log "  ESP UUID:  ${ESP_UUID}"
+log "  Root UUID:     ${ROOT_UUID}"
+log "  Root PARTUUID: ${ROOT_PARTUUID}"
+log "  ESP UUID:      ${ESP_UUID}"
 
 # ============================================================================
 # Step 7: Create /etc/default/grub
@@ -169,7 +174,7 @@ GRUB_DEFAULT=0
 GRUB_TIMEOUT=5
 GRUB_DISTRIBUTOR="InterGenOS"
 GRUB_CMDLINE_LINUX_DEFAULT=""
-GRUB_CMDLINE_LINUX="root=UUID=${ROOT_UUID} console=tty0 console=ttyS0,115200"
+GRUB_CMDLINE_LINUX="root=PARTUUID=${ROOT_PARTUUID} rootwait console=tty0 console=ttyS0,115200"
 GRUB_TERMINAL="console serial"
 GRUB_SERIAL_COMMAND="serial --speed=115200"
 GRUB_DISABLE_OS_PROBER=true
@@ -204,12 +209,14 @@ fi
 
 # Generate GRUB config.
 # grub-mkconfig runs inside the chroot where root is mounted via NBD,
-# so it detects /dev/nbd0pN as the root device. Override with UUID.
+# so it detects /dev/nbd0pN as the root device. Override with PARTUUID.
 chroot "$MOUNT_POINT" /bin/bash -c \
-    "GRUB_DEVICE=UUID=${ROOT_UUID} grub-mkconfig -o /boot/grub/grub.cfg"
+    "GRUB_DEVICE=PARTUUID=${ROOT_PARTUUID} grub-mkconfig -o /boot/grub/grub.cfg"
 
 # Belt and suspenders: ensure no NBD references leaked through
-sed -i "s|/dev/nbd[0-9]*p[0-9]*|UUID=${ROOT_UUID}|g" "${MOUNT_POINT}/boot/grub/grub.cfg"
+sed -i "s|/dev/nbd[0-9]*p[0-9]*|PARTUUID=${ROOT_PARTUUID}|g" "${MOUNT_POINT}/boot/grub/grub.cfg"
+# Also replace any filesystem UUID references with PARTUUID
+sed -i "s|root=UUID=${ROOT_UUID}|root=PARTUUID=${ROOT_PARTUUID} rootwait|g" "${MOUNT_POINT}/boot/grub/grub.cfg"
 
 # Unmount bind mounts and ESP
 umount "${MOUNT_POINT}/sys"
@@ -228,6 +235,34 @@ log "Applying post-deploy fixes..."
 if [ -f "${MOUNT_POINT}/usr/bin/sudo" ]; then
     chmod 4755 "${MOUNT_POINT}/usr/bin/sudo"
     log "  sudo setuid bit restored"
+fi
+
+# Also fix other setuid binaries that tar strips
+for suid_bin in /usr/bin/passwd /usr/bin/chsh /usr/bin/chfn /usr/bin/newgrp \
+                /usr/bin/su /usr/bin/mount /usr/bin/umount /usr/bin/chage \
+                /usr/bin/expiry /usr/libexec/polkit-agent-helper-1; do
+    if [ -f "${MOUNT_POINT}${suid_bin}" ]; then
+        chmod 4755 "${MOUNT_POINT}${suid_bin}"
+    fi
+done
+log "  setuid bits restored for all critical binaries"
+
+# Generate SSH host keys (sshd won't start without them)
+chroot "$MOUNT_POINT" /bin/bash -c 'ssh-keygen -A 2>/dev/null'
+log "  SSH host keys generated"
+
+# Initialize CA certificates (HTTPS/TLS requires this)
+if [ -x "${MOUNT_POINT}/usr/sbin/make-ca" ]; then
+    # make-ca needs network or a local cert bundle — use the one from the build
+    chroot "$MOUNT_POINT" /bin/bash -c '/usr/sbin/make-ca -g 2>/dev/null'
+    log "  CA certificates initialized"
+fi
+
+# Create kernel symlink (GRUB expects /boot/vmlinuz)
+KERNEL=$(ls "${MOUNT_POINT}/boot"/vmlinuz-* 2>/dev/null | head -1)
+if [ -n "$KERNEL" ] && [ ! -L "${MOUNT_POINT}/boot/vmlinuz" ]; then
+    ln -sf "$(basename "$KERNEL")" "${MOUNT_POINT}/boot/vmlinuz"
+    log "  Kernel symlink: /boot/vmlinuz -> $(basename "$KERNEL")"
 fi
 
 # Enable serial console for VM management
@@ -345,8 +380,14 @@ chroot "$MOUNT_POINT" /bin/bash -c '
 
     # Enable essential desktop services
     systemctl enable avahi-daemon.service 2>/dev/null || true
-    systemctl enable cups.service 2>/dev/null || true
+    # Only enable CUPS if cupsd binary actually exists
+    if [ -x /usr/sbin/cupsd ] || [ -x /usr/bin/cupsd ]; then
+        systemctl enable cups.service 2>/dev/null || true
+    else
+        systemctl disable cups.service cups.socket cups.path 2>/dev/null || true
+    fi
     systemctl enable bluetooth.service 2>/dev/null || true
+    systemctl enable sshd.service 2>/dev/null || true
 ' 2>/dev/null
 log "  Caches built (icons, fonts, schemas, GIO, pixbuf, MIME, desktop, ldconfig)"
 
