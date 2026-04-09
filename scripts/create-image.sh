@@ -225,6 +225,15 @@ sed -i -E \
 sed -i -E 's/[[:space:]]+/ /g' "${MOUNT_POINT}/boot/grub/grub.cfg"
 log "  GRUB config: all root= replaced with PARTUUID=${ROOT_PARTUUID}"
 
+# Add Intel microcode early-load initrd if the image exists
+if [ -f "${MOUNT_POINT}/boot/intel-ucode.img" ]; then
+    # Insert initrd /boot/intel-ucode.img on lines that have linux but no existing initrd
+    # grub-mkconfig may not know about the microcode image
+    sed -i '/^[[:space:]]*linux /a\\tinitrd /boot/intel-ucode.img' \
+        "${MOUNT_POINT}/boot/grub/grub.cfg"
+    log "  GRUB config: Intel microcode early-load initrd added"
+fi
+
 # Unmount bind mounts and ESP
 umount "${MOUNT_POINT}/sys"
 umount "${MOUNT_POINT}/proc"
@@ -276,6 +285,20 @@ if [ -x "${MOUNT_POINT}/usr/sbin/make-ca" ]; then
     # make-ca needs network or a local cert bundle — use the one from the build
     chroot "$MOUNT_POINT" /bin/bash -c '/usr/sbin/make-ca -g 2>/dev/null'
     log "  CA certificates initialized"
+fi
+
+# Generate Intel CPU microcode early-load image
+if [ -x "${MOUNT_POINT}/usr/bin/iucode_tool" ] && \
+   [ -d "${MOUNT_POINT}/lib/firmware/intel-ucode" ]; then
+    chroot "$MOUNT_POINT" /bin/bash -c \
+        'iucode_tool -S /lib/firmware/intel-ucode/ --write-earlyfw=/boot/intel-ucode.img 2>/dev/null'
+    if [ -f "${MOUNT_POINT}/boot/intel-ucode.img" ]; then
+        log "  Intel microcode image generated (/boot/intel-ucode.img)"
+    else
+        log "  Intel microcode: iucode_tool ran but no matching CPU signatures found (non-Intel CPU?)"
+    fi
+else
+    log "  Intel microcode: iucode_tool or firmware not installed — skipping"
 fi
 
 # Create kernel symlink (GRUB expects /boot/vmlinuz)
@@ -467,7 +490,33 @@ log "  Caches built (icons, fonts, schemas, GIO, pixbuf, MIME, desktop, ldconfig
 log "  Post-deploy fixes applied (serial console, networking, DNS, root password, GDM, services, caches)"
 
 # ============================================================================
-# Step 8c: Install theming (extensions, themes, icons, cursors, configs)
+# Step 8c: Install pkm package manager
+# ============================================================================
+
+log "Installing pkm package manager..."
+if [ -d "/mnt/intergenos/pkm" ]; then
+    mkdir -p "${MOUNT_POINT}/usr/lib/pkm"
+    cp /mnt/intergenos/pkm/*.py "${MOUNT_POINT}/usr/lib/pkm/"
+
+    # Create /usr/bin/pkm wrapper
+    cat > "${MOUNT_POINT}/usr/bin/pkm" << 'PKMEOF'
+#!/bin/bash
+exec /usr/bin/python3 -m pkm "$@"
+PKMEOF
+    chmod 755 "${MOUNT_POINT}/usr/bin/pkm"
+
+    # Create pkm data directories
+    mkdir -p "${MOUNT_POINT}/var/lib/pkm/packages"
+    mkdir -p "${MOUNT_POINT}/var/cache/pkm/packages"
+    mkdir -p "${MOUNT_POINT}/etc/pkm"
+
+    log "  pkm installed to /usr/lib/pkm, wrapper at /usr/bin/pkm"
+else
+    log "  pkm source not found — skipping"
+fi
+
+# ============================================================================
+# Step 8d: Install theming (extensions, themes, icons, cursors, configs)
 # ============================================================================
 
 if [ -d "/mnt/intergenos/assets/theming" ]; then
