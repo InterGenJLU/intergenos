@@ -119,7 +119,7 @@ class DependencyGraph:
 
         # Stable sort: within each "wave" of zero-degree packages,
         # sort by tier priority then alphabetically
-        tier_priority = {"toolchain": 0, "core": 1, "base": 2, "desktop": 3}
+        tier_priority = {"toolchain": 0, "core": 1, "base": 2, "desktop": 3, "ai": 4, "extra": 5}
 
         def sort_key(name: str) -> tuple:
             pkg = self.packages[name]

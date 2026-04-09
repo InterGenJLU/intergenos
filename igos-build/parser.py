@@ -97,7 +97,7 @@ class Package:
 # ---------------------------------------------------------------------------
 
 VALID_BUILD_STYLES = {"autotools", "cmake", "meson", "make", "custom"}
-VALID_TIERS = {"toolchain", "core", "base", "desktop", "extra"}
+VALID_TIERS = {"toolchain", "core", "base", "desktop", "ai", "extra"}
 
 REQUIRED_FIELDS = {"name", "version", "release", "description", "license",
                    "source", "build_style"}

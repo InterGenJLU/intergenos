@@ -1,0 +1,17 @@
+name: llama-cpp
+version: "b5545"
+release: 1
+description: LLM inference engine — server, CLI, and shared libraries
+license: MIT
+homepage: https://github.com/ggml-org/llama.cpp
+tier: ai
+build_style: cmake
+source:
+- url: https://github.com/ggml-org/llama.cpp/archive/refs/tags/b5545.tar.gz
+  sha256: FIXME
+dependencies:
+  build:
+  - cmake
+  - curl
+  host: []
+  runtime: []

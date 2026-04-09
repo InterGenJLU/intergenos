@@ -61,6 +61,7 @@ PHASES=(
     core-extra
     kernel
     desktop
+    ai
     extra
     image
 )
@@ -290,7 +291,7 @@ run_phase() {
     # Save checkpoint after significant phases
     if $CHECKPOINT; then
         case "$phase" in
-            toolchain|core|kernel|desktop)
+            toolchain|core|kernel|desktop|ai)
                 save_checkpoint "$phase"
                 ;;
         esac
@@ -512,6 +513,12 @@ phase_desktop() {
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-desktop.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
+phase_ai() {
+    sync_chroot_scripts
+    log "Building AI tier packages in chroot (InterGen assistant)..."
+    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-ai.sh" 2>&1 | tee -a "$BUILD_LOG"
+}
+
 phase_extra() {
     sync_chroot_scripts
     log "Building extra tier packages in chroot (user applications)..."
@@ -593,6 +600,7 @@ run_phase "config"       "System configuration (Ch 9)"         phase_config
 run_phase "core-extra"   "Build extra core packages (BLFS)"    phase_core_extra
 run_phase "kernel"       "Build kernel (Ch 10)"                phase_kernel
 run_phase "desktop"     "Build desktop (GNOME on Wayland)"    phase_desktop
+run_phase "ai"          "Build AI tier (InterGen assistant)"  phase_ai
 run_phase "extra"       "Build extra tier (applications)"     phase_extra
 run_phase "image"       "Package bootable disk image"         phase_image
 
