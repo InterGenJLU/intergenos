@@ -43,6 +43,161 @@ BLFS projects for fixing build issues and security vulnerabilities.
 Every package built by InterGenOS is the work of its respective authors and
 communities. See individual package licenses in packages/*/package.yml.
 
+## GNOME Shell Extensions
+
+All extensions downloaded from extensions.gnome.org (GNOME 49 compatible).
+
+### Default-Enabled Extensions
+
+    User Themes — gnome-shell-extensions (GNOME Project)
+    License: GPL-2.0-or-later
+    https://gitlab.gnome.org/GNOME/gnome-shell-extensions
+
+    AppIndicator/KStatusNotifierItem Support — rgcjonas (Jonas Kümmerlin)
+    License: GPL-2.0-or-later
+    https://github.com/ubuntu/gnome-shell-extension-appindicator
+
+    Coverflow Alt-Tab — dsheeler (Dan Sheeler) / palatis
+    License: GPL-2.0-or-later
+    https://github.com/dsheeler/CoverflowAltTab
+
+    Blur my Shell — aunetx (Aurélien Hamy)
+    License: GPL-3.0
+    https://github.com/aunetx/blur-my-shell
+
+    Bluetooth Quick Connect — bjarosze (Bartosz Jaroszewski)
+    License: GPL-3.0
+    https://github.com/bjarosze/gnome-bluetooth-quick-connect
+
+    Burn My Windows — schneegans (Simon Schneegans)
+    License: GPL-3.0
+    https://github.com/Schneegans/Burn-My-Windows
+
+### Pre-Installed Extensions (user-enabled)
+
+    Dash to Dock — micxgx (Michele Gaio)
+    License: GPL-2.0 | https://github.com/micheleg/dash-to-dock
+
+    Dash to Panel — jderose9 (Jared DeRose)
+    License: GPL-2.0 | https://github.com/home-sweet-gnome/dash-to-panel
+
+    ArcMenu — arcmenu (Andrew Zaech / LinxGem33)
+    License: GPL-2.0 | https://github.com/ArcMenu/ArcMenu
+
+    GSConnect — andyholmes (Andy Holmes)
+    License: GPL-2.0 | https://github.com/GSConnect/gnome-shell-extension-gsconnect
+
+    Caffeine — patapon (Jean-Philippe Braun)
+    License: GPL-2.0 | https://github.com/eonpatapon/gnome-shell-extension-caffeine
+
+    Vitals — CoreCoding (Chris Rogers)
+    License: GPL-2.0 | https://github.com/corecoding/Vitals
+
+    Clipboard Indicator — tudmotu (Tudmotu)
+    License: MIT | https://github.com/Tudmotu/gnome-shell-extension-clipboard-indicator
+
+    Just Perfection — just-perfection (Javad Rahmatzadeh)
+    License: GPL-3.0 | https://github.com/just-perfection/just-perfection-gnome-shell-desktop
+
+    Desktop Icons NG (DING) — rastersoft (Sergio Costas / Raster Software)
+    License: GPL-3.0 | https://gitlab.com/rastersoft/desktop-icons-ng
+
+    Tiling Shell — ferrarodomenico (Domenico Ferraro)
+    License: GPL-2.0 | https://github.com/domferr/tilingshell
+
+    Forge — jmmaranan (JM Maranan)
+    License: GPL-3.0 | https://github.com/forge-ext/forge
+
+    Media Controls — cliffniff (Cliffniff)
+    License: GPL-3.0 | https://github.com/cliffniff/gnome-shell-extension-mediacontrols
+
+    Desktop Cube — schneegans (Simon Schneegans)
+    License: GPL-3.0 | https://github.com/Schneegans/Desktop-Cube
+
+    Alphabetical App Grid — stuarthayhurst (Stuart Hayhurst)
+    License: GPL-2.0 | https://github.com/stuarthayhurst/alphabetical-grid-extension
+
+    ddterm — amezin (Aleksandr Mezin)
+    License: GPL-3.0 | https://github.com/ddterm/gnome-shell-extension-ddterm
+
+    Night Theme Switcher — romainvigier (Romain Vigier)
+    License: GPL-2.0 | https://gitlab.com/rmnvgr/nightthemeswitcher-gnome-shell-extension
+
+    Show Desktop Button — amivaleo (Amivaleo)
+    License: GPL-2.0 | https://github.com/amivaleo/show-desktop-button
+
+    Rounded Window Corners Reborn — fxgn (fxgn)
+    License: GPL-3.0 | https://github.com/flexagoon/rounded-window-corners
+
+## GTK / GNOME Shell Themes
+
+    WhiteSur GTK Theme — vinceliuice (Vince Liuice)
+    License: MIT | https://github.com/vinceliuice/WhiteSur-gtk-theme
+
+    Orchis Theme — vinceliuice (Vince Liuice)
+    License: GPL-3.0 | https://github.com/vinceliuice/Orchis-theme
+
+    Nordic Theme — EliverLara (Eliver Lara)
+    License: GPL-3.0 | https://github.com/EliverLara/Nordic
+
+    adw-gtk3 — lassekongo83 (Lasse Rønne)
+    License: LGPL-2.1 | https://github.com/lassekongo83/adw-gtk3
+
+    Sweet Theme — EliverLara (Eliver Lara)
+    License: GPL-3.0 | https://github.com/EliverLara/Sweet
+
+    Graphite GTK Theme — vinceliuice (Vince Liuice)
+    License: GPL-3.0 | https://github.com/vinceliuice/Graphite-gtk-theme
+
+    Colloid GTK Theme — vinceliuice (Vince Liuice)
+    License: GPL-3.0 | https://github.com/vinceliuice/Colloid-gtk-theme
+
+    Fluent GTK Theme — vinceliuice (Vince Liuice)
+    License: GPL-3.0 | https://github.com/vinceliuice/Fluent-gtk-theme
+
+    Dracula GTK Theme — Dracula Theme (Zeno Rocha et al.)
+    License: GPL-3.0 | https://github.com/dracula/gtk
+
+    Catppuccin GTK Theme — Catppuccin Org
+    License: GPL-3.0 | https://github.com/catppuccin/gtk
+
+## Icon Themes
+
+    Papirus Icon Theme — PapirusDevelopmentTeam (Alexey Varfolomeev et al.)
+    License: GPL-3.0 | https://github.com/PapirusDevelopmentTeam/papirus-icon-theme
+
+    WhiteSur Icon Theme — vinceliuice (Vince Liuice)
+    License: GPL-3.0 | https://github.com/vinceliuice/WhiteSur-icon-theme
+
+    Tela Icon Theme — vinceliuice (Vince Liuice)
+    License: GPL-3.0 | https://github.com/vinceliuice/Tela-icon-theme
+
+    Colloid Icon Theme — vinceliuice (Vince Liuice)
+    License: GPL-3.0 | https://github.com/vinceliuice/Colloid-icon-theme
+
+    Qogir Icon Theme — vinceliuice (Vince Liuice)
+    License: GPL-3.0 | https://github.com/vinceliuice/Qogir-icon-theme
+
+    Kora Icon Theme — bikass (Bikass)
+    License: GPL-3.0 | https://github.com/bikass/kora
+
+    Fluent Icon Theme — vinceliuice (Vince Liuice)
+    License: GPL-3.0 | https://github.com/vinceliuice/Fluent-icon-theme
+
+## Cursor Themes
+
+    Bibata Cursor — ful1e5 (Kaiz Khatri)
+    License: GPL-3.0 | https://github.com/ful1e5/Bibata_Cursor
+
+    Apple Cursor (macOS Monterey) — ful1e5 (Kaiz Khatri)
+    License: GPL-3.0 | https://github.com/ful1e5/apple_cursor
+
+    Phinger Cursors — phisch (Phil Schaffner)
+    License: CC-BY-SA-4.0 | https://github.com/phisch/phinger-cursors
+
+    WhiteSur Cursors — vinceliuice (Vince Liuice)
+    License: GPL-3.0 | https://github.com/vinceliuice/WhiteSur-cursors
+
 ## InterGenOS
 
     InterGenOS — AI-Integrated Linux Distribution

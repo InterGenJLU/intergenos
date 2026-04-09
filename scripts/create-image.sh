@@ -231,6 +231,14 @@ umount "${MOUNT_POINT}/boot/efi"
 
 log "Applying post-deploy fixes..."
 
+# Install all gsettings overrides from the repo
+for override in /mnt/intergenos/config/gsettings/*.gschema.override; do
+    if [ -f "$override" ]; then
+        cp "$override" "${MOUNT_POINT}/usr/share/glib-2.0/schemas/"
+        log "  Installed $(basename "$override")"
+    fi
+done
+
 # Fix sudo setuid bit (tar strips setuid during copy)
 if [ -f "${MOUNT_POINT}/usr/bin/sudo" ]; then
     chmod 4755 "${MOUNT_POINT}/usr/bin/sudo"

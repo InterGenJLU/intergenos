@@ -121,13 +121,15 @@ fi
 log ""
 log "--- Applying InterGenOS desktop branding ---"
 
-# Install gsettings override for GNOME defaults (dark theme, fonts, colors)
-if [ -f /mnt/intergenos/config/gsettings/90_intergenos.gschema.override ]; then
-    install -v -m644 /mnt/intergenos/config/gsettings/90_intergenos.gschema.override \
-        /usr/share/glib-2.0/schemas/
-    glib-compile-schemas /usr/share/glib-2.0/schemas/
-    log "  gsettings overrides installed (dark theme, fonts, branding)"
-fi
+# Install all gsettings overrides (theme, extensions, branding)
+for override in /mnt/intergenos/config/gsettings/*.gschema.override; do
+    if [ -f "$override" ]; then
+        install -v -m644 "$override" /usr/share/glib-2.0/schemas/
+        log "  installed $(basename "$override")"
+    fi
+done
+glib-compile-schemas /usr/share/glib-2.0/schemas/
+log "  gsettings overrides compiled (theme, extensions, branding)"
 
 # ============================================================================
 # Summary

@@ -1,0 +1,13 @@
+# InterGenOS GNOME Shell Extensions
+#
+# Default-enabled extensions for all new users.
+# 24 extensions installed system-wide (6 default-on, 18 pre-installed).
+# Users can enable/disable via Extensions app or the first-boot greeter.
+#
+# To apply: glib-compile-schemas /usr/share/glib-2.0/schemas/
+
+[org.gnome.shell]
+enabled-extensions=['user-theme@gnome-shell-extensions.gcampax.github.com', 'appindicatorsupport@rgcjonas.gmail.com', 'CoverflowAltTab@palatis.blogspot.com', 'blur-my-shell@aunetx', 'bluetooth-quick-connect@bjarosze.gmail.com', 'burn-my-windows@schneegans.github.com']
+
+[org.gnome.shell.extensions.user-theme]
+name='Orchis-Dark'

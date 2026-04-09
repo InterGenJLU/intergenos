@@ -9,6 +9,10 @@
 [org.gnome.desktop.interface]
 # Default to dark theme — modern, easier on the eyes
 color-scheme='prefer-dark'
+# Theme selections — curated defaults, user can change via Settings or greeter
+gtk-theme='adw-gtk3-dark'
+icon-theme='Papirus-Dark'
+cursor-theme='Bibata-Modern-Classic'
 # Font defaults
 font-name='DejaVu Sans 11'
 monospace-font-name='DejaVu Sans Mono 11'
@@ -23,10 +27,13 @@ button-layout='close,minimize,maximize:'
 favorite-apps=['org.gnome.Settings.desktop', 'org.gnome.tweaks.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.Epiphany.desktop', 'org.gnome.TextEditor.desktop']
 
 [org.gnome.Terminal.Legacy.Profile]
-# White on black, Linux console palette
+# White on black, green cursor, generous scrollback
 use-theme-colors=false
 foreground-color='rgb(255,255,255)'
 background-color='rgb(0,0,0)'
+cursor-foreground-color='rgb(0,255,0)'
+cursor-background-color='rgb(0,255,0)'
+scrollback-lines=10000
 palette=['rgb(0,0,0)', 'rgb(170,0,0)', 'rgb(0,170,0)', 'rgb(170,85,0)', 'rgb(0,0,170)', 'rgb(170,0,170)', 'rgb(0,170,170)', 'rgb(170,170,170)', 'rgb(85,85,85)', 'rgb(255,85,85)', 'rgb(85,255,85)', 'rgb(255,255,85)', 'rgb(85,85,255)', 'rgb(255,85,255)', 'rgb(85,255,255)', 'rgb(255,255,255)']
 
 [org.gnome.desktop.background]
