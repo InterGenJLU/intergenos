@@ -213,10 +213,17 @@ fi
 chroot "$MOUNT_POINT" /bin/bash -c \
     "GRUB_DEVICE=PARTUUID=${ROOT_PARTUUID} grub-mkconfig -o /boot/grub/grub.cfg"
 
-# Belt and suspenders: ensure no NBD references leaked through
-sed -i "s|/dev/nbd[0-9]*p[0-9]*|PARTUUID=${ROOT_PARTUUID}|g" "${MOUNT_POINT}/boot/grub/grub.cfg"
-# Also replace any filesystem UUID references with PARTUUID
-sed -i "s|root=UUID=${ROOT_UUID}|root=PARTUUID=${ROOT_PARTUUID} rootwait|g" "${MOUNT_POINT}/boot/grub/grub.cfg"
+# Belt and suspenders: ensure no NBD or UUID root= references leaked through.
+# Multi-pass sed: strip any existing root= or PARTUUID= params, then insert
+# the correct PARTUUID on all linux command lines.
+sed -i -E \
+    -e 's/\broot=[^[:space:]]+//g' \
+    -e 's/\bPARTUUID=[^[:space:]]+//g' \
+    -e "/^[[:space:]]*linux/ s|$| root=PARTUUID=${ROOT_PARTUUID} rootwait|" \
+    "${MOUNT_POINT}/boot/grub/grub.cfg"
+# Clean up any double spaces left by the removal passes
+sed -i -E 's/[[:space:]]+/ /g' "${MOUNT_POINT}/boot/grub/grub.cfg"
+log "  GRUB config: all root= replaced with PARTUUID=${ROOT_PARTUUID}"
 
 # Unmount bind mounts and ESP
 umount "${MOUNT_POINT}/sys"
@@ -344,7 +351,11 @@ if [ "$IMAGE_ROOT_PASSWORD" = "intergenos" ]; then
     log "  WARNING: Using default root password — set ROOT_PASSWORD env var for production"
 fi
 echo "root:${IMAGE_ROOT_PASSWORD}" | chroot "$MOUNT_POINT" chpasswd
-chroot "$MOUNT_POINT" passwd -x 99999 root
+# Force password change on first login if using default password
+if [ "$IMAGE_ROOT_PASSWORD" = "intergenos" ]; then
+    chroot "$MOUNT_POINT" passwd --expire root
+    log "  Root password set to expire on first login"
+fi
 
 # Create default user account — override with IMAGE_USER env var
 IMAGE_USER="${IMAGE_USER:-christopher}"
@@ -352,6 +363,11 @@ IMAGE_USER_PASSWORD="${IMAGE_USER_PASSWORD:-intergenos}"
 if ! chroot "$MOUNT_POINT" id "$IMAGE_USER" > /dev/null 2>&1; then
     chroot "$MOUNT_POINT" useradd -m -G wheel,video,audio,input -s /bin/bash "$IMAGE_USER"
     echo "${IMAGE_USER}:${IMAGE_USER_PASSWORD}" | chroot "$MOUNT_POINT" chpasswd
+    # Force password change on first login if using default password
+    if [ "$IMAGE_USER_PASSWORD" = "intergenos" ]; then
+        chroot "$MOUNT_POINT" passwd --expire "$IMAGE_USER"
+        log "  User password set to expire on first login"
+    fi
     # Copy skel files
     if [ -d "${MOUNT_POINT}/etc/skel" ]; then
         cp -a "${MOUNT_POINT}/etc/skel/." "${MOUNT_POINT}/home/${IMAGE_USER}/"

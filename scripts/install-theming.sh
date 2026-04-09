@@ -24,6 +24,20 @@ fi
 
 mkdir -p "$WORK_DIR"
 
+# Verify SHA256 checksums of all pre-downloaded assets
+if [ -f "${CACHE_DIR}/SHA256SUMS" ]; then
+    log "Verifying asset checksums..."
+    if (cd "$CACHE_DIR" && sha256sum -c SHA256SUMS --quiet 2>/dev/null); then
+        log "  All checksums verified"
+    else
+        warn "Checksum verification failed — assets may be corrupted or tampered with"
+        warn "Re-run scripts/download-theming.sh and regenerate SHA256SUMS"
+        exit 1
+    fi
+else
+    warn "No SHA256SUMS file found — skipping checksum verification"
+fi
+
 # ============================================================================
 # GNOME Shell Extensions (24)
 # ============================================================================
@@ -62,30 +76,49 @@ chmod -R a+rX /usr/share/gnome-shell/extensions/
 log "  Extensions: ${ext_ok} installed, ${ext_fail} failed"
 
 # ============================================================================
-# Helper: install a theme from tarball using its install.sh
+# Helpers: install themes from tarballs (no eval — safe dispatch)
 # ============================================================================
 
-install_theme_tarball() {
+# Extract a tarball to WORK_DIR, return path in THEME_SRC
+extract_theme() {
     local tarball="$1"
     local name="$2"
-    local install_cmd="$3"
 
     [ -f "$tarball" ] || { warn "Not found: $tarball"; return 1; }
 
-    local src="${WORK_DIR}/$(basename "$tarball" .tar.gz)"
-    rm -rf "$src"
-    mkdir -p "$src"
+    THEME_SRC="${WORK_DIR}/$(basename "$tarball" .tar.gz)"
+    rm -rf "$THEME_SRC"
+    mkdir -p "$THEME_SRC"
 
-    tar -xf "$tarball" -C "$src" --strip-components=1 2>/dev/null || {
+    tar -xf "$tarball" -C "$THEME_SRC" --strip-components=1 2>/dev/null || {
         warn "Failed to extract $name"
         return 1
     }
+}
 
-    (cd "$src" && eval "$install_cmd") 2>/dev/null || {
+# Install a theme that has an install.sh script
+install_with_script() {
+    local tarball="$1"
+    local name="$2"
+    local dest_flag="$3"  # e.g., "/usr/share/themes" or "/usr/share/icons"
+
+    extract_theme "$tarball" "$name" || return 1
+    (cd "$THEME_SRC" && bash install.sh -d "$dest_flag") 2>/dev/null || {
         warn "Failed to install $name"
         return 1
     }
+    log "  Installed: $name"
+}
 
+# Install a theme by direct copy
+install_with_copy() {
+    local tarball="$1"
+    local name="$2"
+    local dest_dir="$3"  # e.g., "/usr/share/themes/Nordic"
+
+    extract_theme "$tarball" "$name" || return 1
+    mkdir -p "$dest_dir"
+    cp -r "$THEME_SRC"/. "$dest_dir/"
     log "  Installed: $name"
 }
 
@@ -96,29 +129,14 @@ install_theme_tarball() {
 log ""
 log "=== Installing GTK / Shell Themes ==="
 
-install_theme_tarball "${CACHE_DIR}/gtk-themes/Orchis-theme.tar.gz" "Orchis" \
-    "bash install.sh -d /usr/share/themes"
-
-install_theme_tarball "${CACHE_DIR}/gtk-themes/WhiteSur-gtk-theme.tar.gz" "WhiteSur GTK" \
-    "bash install.sh -d /usr/share/themes"
-
-install_theme_tarball "${CACHE_DIR}/gtk-themes/Nordic.tar.gz" "Nordic" \
-    "mkdir -p /usr/share/themes/Nordic && cp -r . /usr/share/themes/Nordic/"
-
-install_theme_tarball "${CACHE_DIR}/gtk-themes/Sweet.tar.gz" "Sweet" \
-    "mkdir -p /usr/share/themes/Sweet && cp -r . /usr/share/themes/Sweet/"
-
-install_theme_tarball "${CACHE_DIR}/gtk-themes/Graphite-gtk-theme.tar.gz" "Graphite" \
-    "bash install.sh -d /usr/share/themes"
-
-install_theme_tarball "${CACHE_DIR}/gtk-themes/Colloid-gtk-theme.tar.gz" "Colloid GTK" \
-    "bash install.sh -d /usr/share/themes"
-
-install_theme_tarball "${CACHE_DIR}/gtk-themes/Fluent-gtk-theme.tar.gz" "Fluent GTK" \
-    "bash install.sh -d /usr/share/themes"
-
-install_theme_tarball "${CACHE_DIR}/gtk-themes/Dracula.tar.gz" "Dracula" \
-    "mkdir -p /usr/share/themes/Dracula && cp -r . /usr/share/themes/Dracula/"
+install_with_script "${CACHE_DIR}/gtk-themes/Orchis-theme.tar.gz" "Orchis" /usr/share/themes
+install_with_script "${CACHE_DIR}/gtk-themes/WhiteSur-gtk-theme.tar.gz" "WhiteSur GTK" /usr/share/themes
+install_with_copy "${CACHE_DIR}/gtk-themes/Nordic.tar.gz" "Nordic" /usr/share/themes/Nordic
+install_with_copy "${CACHE_DIR}/gtk-themes/Sweet.tar.gz" "Sweet" /usr/share/themes/Sweet
+install_with_script "${CACHE_DIR}/gtk-themes/Graphite-gtk-theme.tar.gz" "Graphite" /usr/share/themes
+install_with_script "${CACHE_DIR}/gtk-themes/Colloid-gtk-theme.tar.gz" "Colloid GTK" /usr/share/themes
+install_with_script "${CACHE_DIR}/gtk-themes/Fluent-gtk-theme.tar.gz" "Fluent GTK" /usr/share/themes
+install_with_copy "${CACHE_DIR}/gtk-themes/Dracula.tar.gz" "Dracula" /usr/share/themes/Dracula
 
 # adw-gtk3 — pre-built, just extract to themes dir
 if [ -f "${CACHE_DIR}/gtk-themes/adw-gtk3.tar.xz" ]; then
@@ -139,26 +157,19 @@ fi
 log ""
 log "=== Installing Icon Themes ==="
 
-install_theme_tarball "${CACHE_DIR}/icon-themes/papirus-icon-theme.tar.gz" "Papirus" \
-    "bash install.sh -d /usr/share/icons || { cp -r Papirus* /usr/share/icons/; }"
+install_with_script "${CACHE_DIR}/icon-themes/papirus-icon-theme.tar.gz" "Papirus" /usr/share/icons
+install_with_script "${CACHE_DIR}/icon-themes/WhiteSur-icon-theme.tar.gz" "WhiteSur Icons" /usr/share/icons
+install_with_script "${CACHE_DIR}/icon-themes/Tela-icon-theme.tar.gz" "Tela Icons" /usr/share/icons
+install_with_script "${CACHE_DIR}/icon-themes/Colloid-icon-theme.tar.gz" "Colloid Icons" /usr/share/icons
+install_with_script "${CACHE_DIR}/icon-themes/Qogir-icon-theme.tar.gz" "Qogir Icons" /usr/share/icons
 
-install_theme_tarball "${CACHE_DIR}/icon-themes/WhiteSur-icon-theme.tar.gz" "WhiteSur Icons" \
-    "bash install.sh -d /usr/share/icons"
+# Kora has no install.sh — direct copy
+extract_theme "${CACHE_DIR}/icon-themes/kora.tar.gz" "Kora Icons" && {
+    cp -r "$THEME_SRC"/kora "$THEME_SRC"/kora-pgrey /usr/share/icons/ 2>/dev/null || true
+    log "  Installed: Kora Icons"
+}
 
-install_theme_tarball "${CACHE_DIR}/icon-themes/Tela-icon-theme.tar.gz" "Tela Icons" \
-    "bash install.sh -d /usr/share/icons"
-
-install_theme_tarball "${CACHE_DIR}/icon-themes/Colloid-icon-theme.tar.gz" "Colloid Icons" \
-    "bash install.sh -d /usr/share/icons"
-
-install_theme_tarball "${CACHE_DIR}/icon-themes/Qogir-icon-theme.tar.gz" "Qogir Icons" \
-    "bash install.sh -d /usr/share/icons"
-
-install_theme_tarball "${CACHE_DIR}/icon-themes/kora.tar.gz" "Kora Icons" \
-    "cp -r kora kora-pgrey /usr/share/icons/ 2>/dev/null || true"
-
-install_theme_tarball "${CACHE_DIR}/icon-themes/Fluent-icon-theme.tar.gz" "Fluent Icons" \
-    "bash install.sh -d /usr/share/icons"
+install_with_script "${CACHE_DIR}/icon-themes/Fluent-icon-theme.tar.gz" "Fluent Icons" /usr/share/icons
 
 # ============================================================================
 # Cursor Themes (4 families)
@@ -189,8 +200,14 @@ if [ -f "${CACHE_DIR}/cursor-themes/phinger-cursors.tar.bz2" ]; then
 fi
 
 # WhiteSur cursors
-install_theme_tarball "${CACHE_DIR}/cursor-themes/WhiteSur-cursors.tar.gz" "WhiteSur Cursors" \
-    "bash install.sh 2>/dev/null || { mkdir -p /usr/share/icons/WhiteSur-cursors && cp -r dist/* /usr/share/icons/WhiteSur-cursors/; }"
+# WhiteSur cursors — try install.sh, fall back to direct copy
+extract_theme "${CACHE_DIR}/cursor-themes/WhiteSur-cursors.tar.gz" "WhiteSur Cursors" && {
+    (cd "$THEME_SRC" && bash install.sh 2>/dev/null) || {
+        mkdir -p /usr/share/icons/WhiteSur-cursors
+        cp -r "$THEME_SRC"/dist/* /usr/share/icons/WhiteSur-cursors/ 2>/dev/null || true
+    }
+    log "  Installed: WhiteSur Cursors"
+}
 
 # ============================================================================
 # Fix permissions
@@ -275,24 +292,31 @@ table inet filter {
         # Loopback
         iif "lo" accept
 
+        # Drop invalid connections early
+        ct state invalid drop
+
         # Established/related connections
         ct state established,related accept
 
-        # ICMP (ping)
+        # ICMP — rate-limited to prevent ping floods
+        ip protocol icmp icmp type echo-request limit rate 10/second accept
         ip protocol icmp accept
-        ip6 nexthdr ipv6-icmp accept
+        ip6 nexthdr ipv6-icmp icmpv6 type { echo-request } limit rate 10/second accept
+        ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, nd-router-solicit, nd-router-advert } accept
 
-        # SSH
-        tcp dport 22 accept
+        # SSH — rate-limited to prevent brute force
+        # To disable SSH access, comment out or remove this rule
+        tcp dport 22 ct state new limit rate 15/minute burst 5 accept
 
-        # mDNS (Avahi)
+        # mDNS (Avahi zero-conf)
         udp dport 5353 accept
 
         # DHCP client
         udp sport 67 udp dport 68 accept
 
-        # Log and drop everything else
-        log prefix "nftables-drop: " counter drop
+        # Log and drop — rate-limited to prevent log flooding
+        limit rate 10/minute burst 5 log prefix "nftables-drop: "
+        drop
     }
 
     chain forward {
