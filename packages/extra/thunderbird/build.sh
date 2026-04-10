@@ -6,8 +6,8 @@
 # Ensure /dev/shm is mounted if building in chroot.
 
 configure() {
-    # Fix building with Python 3.14
-    patch -Np1 -i "${IGOS_SOURCES}/thunderbird-140.8.0esr-python_3.14_fixes-1.patch"
+    # Patches applied by builder PATCH phase (package.yml) with SHA256 validation.
+    # Post-patch fixups only below.
 
     # Remove checksums from cargo crates for files that don't exist
     for crate in {minimal-lexical,lmdb-rkv,cubeb-sys,wasi,glslopt,sfv}; do
@@ -16,13 +16,11 @@ configure() {
             -i comm/third_party/rust/$crate/.cargo-checksum.json
     done
 
-    # Fix building with glibc-2.43 and adapt checksums
+    # Update cargo checksum for glibc-2.43 patched file
     GLSL_PTHREAD="comm/third_party/rust/glslopt/glsl-optimizer/include/c11/threads_posix.h"
-    OLDSHA=$(sha256sum $GLSL_PTHREAD | awk '{ print $1 }')
-    patch -Np1 -i "${IGOS_SOURCES}/thunderbird-140.8.0esr-glibc-2.43.patch"
     NEWSHA=$(sha256sum $GLSL_PTHREAD | awk '{ print $1 }')
-    sed "s/$OLDSHA/$NEWSHA/" \
-        -i comm/third_party/rust/glslopt/.cargo-checksum.json
+    sed -i "s|threads_posix.h\":\"[a-f0-9]*\"|threads_posix.h\":\"$NEWSHA\"|" \
+        comm/third_party/rust/glslopt/.cargo-checksum.json
 
     # Create mozconfig
     cat > mozconfig << "MOZEOF"
@@ -71,6 +69,9 @@ MOZEOF
 build() {
     export MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=none
     export MOZBUILD_STATE_PATH=$(pwd)/mozbuild
+
+    # GCC detection handled system-wide by /etc/clang/clang.cfg
+    # (--gcc-triple=x86_64-igos-linux-gnu)
     ./mach build
 }
 

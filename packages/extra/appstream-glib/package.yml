@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: http://people.freedesktop.org/~hughsient/appstream-glib/releases/appstream-glib-${version}.tar.xz
-  sha256: FIXME
+  sha256: 84754064c560fca6e1ab151dc64354fc235a5798f016b91b38c9617253a8cf11
 dependencies:
   build:
   - curl

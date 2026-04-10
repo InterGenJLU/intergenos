@@ -8,6 +8,7 @@ configure() {
 
     meson setup ..              \
           --prefix=/usr         \
+          --libdir=/usr/lib     \
           --buildtype=release   \
           -D gl_provider=gl     \
           -D default_library=shared

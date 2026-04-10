@@ -8,7 +8,9 @@ configure() {
 
     meson setup ..            \
           --prefix=/usr       \
-          -D release=true
+          --libdir=/usr/lib   \
+          -D release=true     \
+          -D docs=false
 }
 
 build() {

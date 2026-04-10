@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://dev-www.libreoffice.org/src/libvisio/libvisio-${version}.tar.xz
-  sha256: FIXME
+  sha256: 9e9eff75112d4d92d92262ad7fc2599c21e26f8fc5ba54900efdc83c0501e472
 dependencies:
   build:
   - librevenge

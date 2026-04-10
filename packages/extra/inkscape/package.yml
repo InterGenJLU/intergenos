@@ -9,10 +9,10 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://inkscape.org/gallery/item/58914/inkscape-${version}.tar.xz
-  sha256: FIXME
+  sha256: e83a2c3db570b6c5a1ff0fccfe7098837b3f6bd74b133567937c8a91710ed1d1
 patches:
   - file: inkscape-1.4.3-poppler_26.02-1.patch
-    sha256: FIXME
+    sha256: e7e9c70addce0ffc0d3019868eb3bf96fe4cf0fa1b43b34542d9ef94765267b4
 dependencies:
   build:
   - boost

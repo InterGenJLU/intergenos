@@ -338,6 +338,9 @@ HOME_URL="https://github.com/InterGenJLU/intergenos"
 BUG_REPORT_URL="https://github.com/InterGenJLU/intergenos/issues"
 EOF
 
+# LSB expects /usr/lib/lsb/ directory — some third-party software checks for it
+mkdir -pv /usr/lib/lsb
+
 install_config "/etc/lsb-release" "LSB compatibility identification"
 cat > /etc/lsb-release << "EOF"
 DISTRIB_ID="InterGenOS"

@@ -3,6 +3,8 @@
 # BLFS 13.0
 
 configure() {
+    # APNG patch applied by builder PATCH phase (package.yml) with SHA256 validation.
+
     ./configure --prefix=/usr \
                 --disable-static
 }

@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://anduin.linuxfromscratch.org/BLFS/luajit/luajit-${version}.tar.xz
-  sha256: FIXME
+  sha256: fb81576bb22649178e6c31eff041acb5ba60e408d39b01df483f39d304c95009
 dependencies:
   build: []
   host: []

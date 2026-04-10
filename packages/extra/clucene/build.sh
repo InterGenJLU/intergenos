@@ -3,8 +3,7 @@
 # BLFS 13.0
 
 configure() {
-    # BLFS: apply contribs library patch
-    patch -Np1 -i "${IGOS_SOURCES}/clucene-2.3.3.4-contribs_lib-1.patch"
+    # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
 
     # BLFS: fix missing ctime include
     sed -i '/Misc.h/a #include <ctime>' src/core/CLucene/document/DateTools.cpp

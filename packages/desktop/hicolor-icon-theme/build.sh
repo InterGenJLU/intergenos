@@ -5,7 +5,7 @@
 configure() {
     mkdir build
     cd    build
-    meson setup .. --prefix=/usr
+    meson setup .. --prefix=/usr --libdir=/usr/lib
 }
 
 build() {

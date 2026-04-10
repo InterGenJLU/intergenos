@@ -5,8 +5,7 @@
 # Note: The tarball extracts to inkscape-1.4.3_2025-12-25_0d15f75042/
 
 configure() {
-    # Fix build failures with poppler-26.02.0
-    patch -Np1 -i "${IGOS_SOURCES}/inkscape-1.4.3-poppler_26.02-1.patch"
+    # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
 
     # Fix build failures with poppler-26.01.0
     sed -i 's/gfree/g_free/' src/extension/internal/pdfinput/pdf-input.cpp

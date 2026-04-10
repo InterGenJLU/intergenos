@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://github.com/google/double-conversion/archive/v${version}/double-conversion-${version}.tar.gz
-  sha256: FIXME
+  sha256: 42fd4d980ea86426e457b24bdfa835a6f5ad9517ddb01cdb42b99ab9c8dd5dc9
 dependencies:
   build:
   - cmake

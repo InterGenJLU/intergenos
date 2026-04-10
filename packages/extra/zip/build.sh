@@ -9,7 +9,8 @@ configure() {
 
 build() {
     # BLFS: CC="gcc -std=gnu89" required — Zip uses pre-C99 constructs
-    make -f unix/Makefile generic_gcc \
+    # Use 'generic' target (not generic_gcc) per BLFS 13.0
+    make -f unix/Makefile generic \
         CC="gcc -std=gnu89"
 }
 

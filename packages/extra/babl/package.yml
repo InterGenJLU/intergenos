@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gimp.org/pub/babl/0.1/babl-${version}.tar.xz
-  sha256: FIXME
+  sha256: 6851f705cda38f2df08a4ba8618279ce30d0a46f957fe6aa325b7b7de297bed2
 dependencies:
   build:
   - glib2

@@ -3,7 +3,7 @@
 # BLFS 13.0
 
 configure() {
-    ./configure --prefix=/usr                                    \
+    CC=gcc ./configure --prefix=/usr                             \
                 --disable-static                                 \
                 --docdir=/usr/share/doc/potrace-${PKG_VERSION}   \
                 --enable-a4                                      \

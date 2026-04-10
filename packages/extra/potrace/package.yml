@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://downloads.sourceforge.net/potrace/potrace-${version}.tar.gz
-  sha256: FIXME
+  sha256: be8248a17dedd6ccbaab2fcc45835bb0502d062e40fbded3bc56028ce5eb7acc
 dependencies:
   build:
   - llvm

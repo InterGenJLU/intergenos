@@ -1,0 +1,17 @@
+name: perl-archive-zip
+version: "1.68"
+release: 1
+description: Perl module for reading and writing Zip archive files
+license: Artistic-2.0
+homepage: https://metacpan.org/pod/Archive::Zip
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://cpan.metacpan.org/authors/id/P/PH/PHRED/Archive-Zip-${version}.tar.gz
+  sha256: 984e185d785baf6129c6e75f8eb44411745ac00bf6122fb1c8e822a3861ec650
+dependencies:
+  build:
+  - perl-core
+  host: []
+  runtime: []

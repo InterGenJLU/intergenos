@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://sourceforge.net/projects/libwpg/files/libwpg/libwpg-${version}/libwpg-${version}.tar.xz
-  sha256: FIXME
+  sha256: b55fda9440d1e070630eb2487d8b8697cf412c214a27caee9df69cec7c004de3
 dependencies:
   build:
   - librevenge

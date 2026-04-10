@@ -1,0 +1,16 @@
+name: libsigcpp2
+version: "2.12.1"
+release: 1
+description: Type-safe callback system for C++ (sigc++-2.0, GTK3 compatibility)
+license: LGPL-2.1-or-later
+homepage: https://libsigcplusplus.github.io/libsigcplusplus/
+tier: extra
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/libsigc++/2.12/libsigc++-${version}.tar.xz
+  sha256: a9dbee323351d109b7aee074a9cb89ca3e7bcf8ad8edef1851f4cf359bd50843
+dependencies:
+  build: []
+  host: []
+  runtime: []

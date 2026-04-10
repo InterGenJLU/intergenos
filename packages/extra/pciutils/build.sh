@@ -16,9 +16,10 @@ build() {
 }
 
 do_install() {
-    make PREFIX="$DESTDIR/usr"                \
-         SHAREDIR="$DESTDIR/usr/share/hwdata" \
-         SHARED=yes                           \
+    make DESTDIR="$DESTDIR"              \
+         PREFIX=/usr                     \
+         SHAREDIR=/usr/share/hwdata      \
+         SHARED=yes                      \
          install install-lib
 
     # BLFS: Ensure shared library has correct permissions

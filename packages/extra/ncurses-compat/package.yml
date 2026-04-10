@@ -1,0 +1,17 @@
+name: ncurses-compat
+version: "6.6"
+release: 1
+description: LSB compatibility — libncurses.so.5 and libncursesw.so.5 (ABI 5)
+license: MIT
+homepage: https://invisible-island.net/ncurses/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://invisible-mirror.net/archives/ncurses/ncurses-${version}.tar.gz
+  sha256: 355b4cbbed880b0381a04c46617b7656e362585d52e9cf84a67e2009b749ff11
+dependencies:
+  build:
+  - ncurses
+  host: []
+  runtime: []

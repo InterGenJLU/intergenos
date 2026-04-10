@@ -9,7 +9,7 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://github.com/mpv-player/mpv/archive/v${version}/mpv-${version}.tar.gz
-  sha256: FIXME
+  sha256: ee21092a5ee427353392360929dc64645c54479aefdb5babc5cfbb5fad626209
 dependencies:
   build:
   - ffmpeg

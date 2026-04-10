@@ -3,8 +3,7 @@
 # BLFS 13.0
 
 configure() {
-    # Apply Python 3.14 build fix
-    patch -Np1 -i "${IGOS_SOURCES}/node-v22.22.0-python_build_fix-1.patch"
+    # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
 
     # Use system libraries instead of bundled copies
     ./configure --prefix=/usr          \

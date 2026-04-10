@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://github.com/mypaint/libmypaint/releases/download/v${version}/libmypaint-${version}.tar.xz
-  sha256: FIXME
+  sha256: 741754f293f6b7668f941506da07cd7725629a793108bb31633fb6c3eae5315f
 dependencies:
   build:
   - json-c

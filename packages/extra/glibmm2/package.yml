@@ -1,0 +1,18 @@
+name: glibmm2
+version: "2.66.7"
+release: 1
+description: C++ bindings for GLib (API version 2.4, GTK3 compatibility)
+license: LGPL-2.1-or-later
+homepage: https://www.gtkmm.org/
+tier: extra
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/glibmm/2.66/glibmm-${version}.tar.xz
+  sha256: fe02c1e5f5825940d82b56b6ec31a12c06c05c1583cfe62f934d0763e1e542b3
+dependencies:
+  build:
+  - glib2
+  - libsigcpp2
+  host: []
+  runtime: []

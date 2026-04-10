@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://github.com/g-truc/glm/archive/${version}/glm-${version}.tar.gz
-  sha256: FIXME
+  sha256: 6775e47231a446fd086d660ecc18bcd076531cfedd912fbd66e576b118607001
 dependencies:
   build:
   - cmake

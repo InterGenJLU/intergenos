@@ -8,6 +8,7 @@ configure() {
 
     meson setup ..              \
           --prefix=/usr         \
+          --libdir=/usr/lib     \
           --buildtype=release
 }
 
@@ -24,4 +25,5 @@ check() {
 do_install() {
     cd build
     DESTDIR="$DESTDIR" ninja install
+
 }

@@ -9,12 +9,12 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://archive.mozilla.org/pub/thunderbird/releases/${version}/source/thunderbird-${version}.source.tar.xz
-  sha256: FIXME
+  sha256: b18f42db8aa35c1ef4b6eeb01771d0ec47ceca053bbb7a04aac7afc5f294b2e8
 patches:
   - file: thunderbird-140.8.0esr-python_3.14_fixes-1.patch
-    sha256: FIXME
+    sha256: 24183878004982be0d7d87af2daa49a36d327a279b0abcf222c0c99e805e2ed7
   - file: thunderbird-140.8.0esr-glibc-2.43.patch
-    sha256: FIXME
+    sha256: 6f89e294b8d41aa667f60faa0d93cc048fc4de74bffc8a96dbb235914218e050
 dependencies:
   build:
   - cbindgen

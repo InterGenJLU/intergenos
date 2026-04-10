@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://github.com/lurcher/unixODBC/archive/v${version}/unixODBC-${version}.tar.gz
-  sha256: FIXME
+  sha256: 3bd23171aca274820ef5cb4961b191adf2cf98509bea4d1b1b0a8630359ee2fb
 dependencies:
   build: []
   host: []

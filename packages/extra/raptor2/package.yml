@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://download.librdf.org/source/raptor2-${version}.tar.gz
-  sha256: FIXME
+  sha256: 089db78d7ac982354bdbf39d973baf09581e6904ac4c92a98c5caadb3de44680
 dependencies:
   build:
   - curl

@@ -77,6 +77,10 @@ class BuildStyle(ABC):
 
         Verifies SHA256 checksum before applying each patch when a
         checksum is declared in the package template.
+
+        Supports compressed patches: .gz files are decompressed via zcat
+        before piping to patch. SHA256 is verified on the compressed file
+        (matches what's on disk).
         """
         commands = []
         for entry in pkg.patches:
@@ -87,5 +91,12 @@ class BuildStyle(ABC):
                     f'echo "{entry.sha256}  {patch_path}" | sha256sum -c - '
                     f'|| {{ echo "FATAL: Checksum mismatch for {entry.file}"; exit 1; }}'
                 )
-            commands.append(f"patch -Np1 -i {patch_path}")
+            if entry.file.endswith('.gz'):
+                commands.append(f"zcat {patch_path} | patch -Np1")
+            elif entry.file.endswith('.bz2'):
+                commands.append(f"bzcat {patch_path} | patch -Np1")
+            elif entry.file.endswith('.xz'):
+                commands.append(f"xzcat {patch_path} | patch -Np1")
+            else:
+                commands.append(f"patch -Np1 -i {patch_path}")
         return commands

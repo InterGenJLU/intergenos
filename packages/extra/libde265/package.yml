@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://github.com/strukturag/libde265/releases/download/v${version}/libde265-${version}.tar.gz
-  sha256: FIXME
+  sha256: b92beb6b53c346db9a8fae968d686ab706240099cdd5aff87777362d668b0de7
 dependencies:
   build: []
   host: []

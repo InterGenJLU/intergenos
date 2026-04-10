@@ -1,4 +1,4 @@
-name: pangomm
+name: pangomm1
 version: "2.46.4"
 release: 1
 description: C++ interface to the Pango text rendering library (GTK3 version)
@@ -9,11 +9,11 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/pangomm/2.46/pangomm-${version}.tar.xz
-  sha256: FIXME
+  sha256: b92016661526424de4b9377f1512f59781f41fb16c9c0267d6133ba1cd68db22
 dependencies:
   build:
   - pango
-  - cairomm
-  - glibmm
+  - cairomm1
+  - glibmm2
   host: []
   runtime: []

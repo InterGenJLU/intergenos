@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://sourceforge.net/projects/libwpd/files/libwpd/libwpd-${version}/libwpd-${version}.tar.xz
-  sha256: FIXME
+  sha256: 2465b0b662fdc5d4e3bebcdc9a79027713fb629ca2bff04a3c9251fdec42dd09
 dependencies:
   build:
   - librevenge

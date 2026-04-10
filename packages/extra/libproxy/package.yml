@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://github.com/libproxy/libproxy/archive/${version}/libproxy-${version}.tar.gz
-  sha256: FIXME
+  sha256: a1fa55991998b80a567450a9e84382421a7176a84446c95caaa8b72cf09fa86f
 dependencies:
   build:
   - curl

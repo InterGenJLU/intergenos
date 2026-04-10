@@ -9,10 +9,10 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://download.documentfoundation.org/libreoffice/src/26.2.1/libreoffice-${version}.tar.xz
-  sha256: FIXME
+  sha256: 18ce225f73fb2a37710b3ce2246a6fab9fb25ef10bc6960ac57b594bf5e8fc28
 patches:
   - file: libreoffice-26.2.1.2-poppler_26.02-1.patch
-    sha256: FIXME
+    sha256: 1762197bf017b17e3afea076f6ddbad50ac74ab42ed1a09d07c3cdd0301b1f5e
 dependencies:
   build:
   - boost

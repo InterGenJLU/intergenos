@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://github.com/haasn/libplacebo/archive/v${version}/libplacebo-${version}.tar.gz
-  sha256: FIXME
+  sha256: c4c70d430083915a157cb790660749649f58fee1e946c0a6e554fd1cba5a2e8f
 dependencies:
   build:
   - glad

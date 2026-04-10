@@ -9,10 +9,10 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://download.gimp.org/gimp/v3.0/gimp-${version}.tar.xz
-  sha256: FIXME
+  sha256: 246c225383c72ef9f0dc7703b7d707084bbf177bd2900e94ce466a62862e296b
 patches:
   - file: gimp-3.0.6-security_fixes-1.patch
-    sha256: FIXME
+    sha256: e2c35c2206869c44e5e290b990b61df25eef01f32eae4997495395f4593ba097
 dependencies:
   build:
   - appstream-glib
@@ -33,13 +33,11 @@ dependencies:
   - libgudev
   - pygobject3
   - xdg-utils
-  - aalib
   - alsa-lib
   - gjs
   - libheif
-  - libunwind
   - libwebp
   - lua
-  - openjpeg
+  - openjpeg2
   host: []
   runtime: []

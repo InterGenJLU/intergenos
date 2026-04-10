@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://github.com/Dav1dde/glad/archive/v${version}/glad-${version}.tar.gz
-  sha256: FIXME
+  sha256: 44f06f9195427c7017f5028d0894f57eb216b0a8f7c4eda7ce883732aeb2d0fc
 dependencies:
   build: []
   host: []

@@ -6,8 +6,7 @@
 # Post-install: nsswitch.conf, ld.so.conf, timezone, locales.
 
 configure() {
-    # FHS compliance patch
-    patch -Np1 -i ${IGOS_PATCHES}/glibc-fhs-1.patch
+    # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
 
     mkdir -v build
     cd       build

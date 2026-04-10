@@ -3,8 +3,7 @@
 # BLFS 13.0
 
 configure() {
-    # Apply IPv6 race condition fix (BLFS required patch)
-    patch -Np1 -i ../avahi-0.8-ipv6_race_condition_fix-1.patch
+    # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
 
     # Fix security vulnerability in avahi-daemon (BLFS)
     sed -i '426a if (events & AVAHI_WATCH_HUP) { \

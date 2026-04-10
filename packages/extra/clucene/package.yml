@@ -9,10 +9,10 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://downloads.sourceforge.net/clucene/clucene-core-${version}.tar.gz
-  sha256: FIXME
+  sha256: ddfdc433dd8ad31b5c5819cc4404a8d2127472a3b720d3e744e8c51d79732eab
 patches:
   - file: clucene-2.3.3.4-contribs_lib-1.patch
-    sha256: FIXME
+    sha256: a0751acfa848ec96ee5755d970fe0812651650c99e3fd0c8e7a85bc1e9e9677f
 dependencies:
   build:
   - cmake

@@ -4,8 +4,7 @@
 # Note: does NOT support parallel build (make -j1)
 
 configure() {
-    # Apply GCC 15 fixes patch
-    patch -Np1 -i "${IGOS_SOURCES}/cyrus-sasl-2.1.28-gcc15_fixes-1.patch"
+    # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
 
     # Additional fixes for gcc-14+
     sed '/saslint/a #include <time.h>'       -i lib/saslutil.c

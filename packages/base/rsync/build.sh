@@ -3,8 +3,7 @@
 # BLFS 13.0
 
 configure() {
-    # Apply security fix (required)
-    patch -Np1 -i "${IGOS_SOURCES}/rsync-3.4.1-security_fix-1.patch"
+    # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
 
     ./configure --prefix=/usr    \
                 --disable-xxhash \

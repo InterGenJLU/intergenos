@@ -3,8 +3,7 @@
 # BLFS 13.0 — Full server installation
 
 configure() {
-    # Apply consolidated patch
-    patch -Np1 -i "${IGOS_SOURCES}/openldap-2.6.12-consolidated-1.patch"
+    # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
     autoconf
 
     ./configure --prefix=/usr         \

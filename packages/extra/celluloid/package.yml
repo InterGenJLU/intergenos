@@ -9,12 +9,12 @@ build_style: meson
 install_func: do_install
 source:
 - url: https://github.com/celluloid-player/celluloid/releases/download/v${version}/celluloid-${version}.tar.xz
-  sha256: FIXME
+  sha256: 216656c4495bb3ca02dc4ad9cf3da8e8f15c8f80e870eeac8eb1eedab4c3788b
 dependencies:
   build:
   - mpv
   - gtk4
-  - libadwaita
+  - libadwaita1
   - glib2
   host: []
   runtime: []

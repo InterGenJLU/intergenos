@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://mj.ucw.cz/download/linux/pci/pciutils-${version}.tar.gz
-  sha256: FIXME
+  sha256: e31c79722dbbe9d2906b92996ce295268e54d4342fefe3ff476caa613e51be2a
 dependencies:
   build: []
   host: []

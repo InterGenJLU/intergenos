@@ -13,8 +13,9 @@ build() {
 }
 
 do_install() {
-    # BLFS: copy headers directly
-    cp -r glm "${DESTDIR}/usr/include/"
+    # BLFS: install headers into glm/ subdirectory (consumers expect <glm/glm.hpp>)
+    mkdir -p "${DESTDIR}/usr/include/glm"
+    cp -r glm/* "${DESTDIR}/usr/include/glm/"
 
     # Install documentation
     install -v -d -m755 "${DESTDIR}/usr/share/doc/glm-${PKG_VERSION}"

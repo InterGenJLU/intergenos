@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://www.imagemagick.org/archive/releases/ImageMagick-${version}.tar.xz
-  sha256: FIXME
+  sha256: 968e022c8c7ee620680bac658628ef0f582be7b8aa71b386a9a9d068ec17dbd2
 dependencies:
   build:
   - freetype2

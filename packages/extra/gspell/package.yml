@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: https://download.gnome.org/sources/gspell/1.14/gspell-${version}.tar.xz
-  sha256: FIXME
+  sha256: 4ec7e5accc9013281bacd6bbc00006be733818b81ba3fe332c1e876c7e1e1477
 dependencies:
   build:
   - enchant

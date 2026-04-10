@@ -1,0 +1,16 @@
+name: poppler-data
+version: "0.4.12"
+release: 1
+description: Encoding data for poppler PDF rendering (CJK and Cyrillic)
+license: BSD-3-Clause AND GPL-2.0-or-later
+homepage: https://poppler.freedesktop.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://poppler.freedesktop.org/poppler-data-${version}.tar.gz
+  sha256: c835b640a40ce357e1b83666aabd95edffa24ddddd49b8daff63adb851cdab74
+dependencies:
+  build: []
+  host: []
+  runtime: []

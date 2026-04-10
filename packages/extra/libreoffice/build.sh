@@ -3,12 +3,14 @@
 # BLFS 13.0
 #
 # WARNING: This is the LARGEST build (~21 SBU with parallelism=8, 11 GB disk).
-# An Internet connection is required — ~80 small tarballs are downloaded during build.
 # Built WITHOUT Java.
+#
+# External dependencies (~80 tarballs) are pre-downloaded to
+# /sources/libreoffice-externals/ and loaded via --with-external-tar.
+# Network access is NOT required at build time.
 
 configure() {
-    # Fix build failures with poppler-26.02.0
-    patch -Np1 -i "${IGOS_SOURCES}/libreoffice-26.2.1.2-poppler_26.02-1.patch"
+    # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
 
     # Fix zlib linking bug, install failure, and prevent man page compression
     sed -i '/icuuc \\/a zlib\\'           writerperfect/Library_wpftdraw.mk
@@ -17,7 +19,7 @@ configure() {
         -e "s|.1.gz|.1|g" \
         -i bin/distro-install-desktop-integration
 
-    # Link dictionaries and help tarballs if downloaded separately
+    # Link companion tarballs and pre-downloaded externals
     install -dm755 external/tarballs
     for f in libreoffice-dictionaries-26.2.1.2.tar.xz \
              libreoffice-help-26.2.1.2.tar.xz         \
@@ -27,13 +29,27 @@ configure() {
         fi
     done
 
-    # Create symlinks for unpacked content
-    for d in helpcontent2:libreoffice-help-26.2.1.2 \
-             dictionaries:libreoffice-dictionaries-26.2.1.2 \
-             translations:libreoffice-translations-26.2.1.2; do
-        target="${d%%:*}"
-        srcdir="${d##*:}"
-        [ -d "src/$srcdir/$target" ] && ln -svf "src/$srcdir/$target/" . || true
+    # Link all pre-downloaded external tarballs so LO finds them
+    if [ -d "${IGOS_SOURCES}/libreoffice-externals" ]; then
+        for f in "${IGOS_SOURCES}"/libreoffice-externals/*; do
+            [ -f "$f" ] && ln -svf "$f" external/tarballs/ 2>/dev/null
+        done
+    fi
+
+    # Pre-extract companion tarballs.
+    # With --disable-fetch-external, the build system won't extract these
+    # automatically. The companion tarballs share the same top-level directory
+    # name (libreoffice-26.2.1.2/) as the main source — they're designed to
+    # be extracted alongside it and merge into the same tree. Since the builder
+    # already stripped that level with --strip-components=1, we do the same
+    # here so dictionaries/, helpcontent2/, and translations/ land directly
+    # in the CWD (the source root).
+    for f in libreoffice-dictionaries-26.2.1.2.tar.xz \
+             libreoffice-help-26.2.1.2.tar.xz         \
+             libreoffice-translations-26.2.1.2.tar.xz; do
+        if [ -f "external/tarballs/$f" ]; then
+            tar -xf "external/tarballs/$f" --strip-components=1
+        fi
     done
 
     export LO_PREFIX=/usr
@@ -50,6 +66,9 @@ configure() {
                  --disable-dconf              \
                  --disable-odk               \
                  --disable-mariadb-sdbc       \
+                 --disable-online-update      \
+                 --disable-fetch-external     \
+                 --with-external-tar="$(pwd)/external/tarballs" \
                  --enable-release-build=yes   \
                  --enable-python=system       \
                  --with-system-boost          \
@@ -79,6 +98,14 @@ configure() {
 }
 
 build() {
+    # LibreOffice refuses to build as root — bypass the check since
+    # we're building in a controlled chroot environment.
+    sed -i "s/test ! \`uname\` = 'Haiku' -a \`id -u\` = 0/false/" Makefile
+
+    # Unset DESTDIR during build — LibreOffice's build target runs
+    # install-gdb-printers which uses DESTDIR, causing double-nested paths.
+    # DESTDIR is only needed for the install phase (do_install).
+    unset DESTDIR
     make build
 }
 
