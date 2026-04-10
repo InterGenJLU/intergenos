@@ -382,11 +382,9 @@ if [ "$IMAGE_ROOT_PASSWORD" = "intergenos" ]; then
     log "  WARNING: Using default root password — set ROOT_PASSWORD env var for production"
 fi
 echo "root:${IMAGE_ROOT_PASSWORD}" | chroot "$MOUNT_POINT" chpasswd
-# Force password change on first login if using default password
-if [ "$IMAGE_ROOT_PASSWORD" = "intergenos" ]; then
-    chroot "$MOUNT_POINT" passwd --expire root
-    log "  Root password set to expire on first login"
-fi
+# Note: passwd --expire is NOT used here because GDM cannot handle
+# forced password changes at the login screen — it just fails.
+# Password change will be handled by the welcome greeter on first boot.
 
 # Create default user account — override with IMAGE_USER env var
 IMAGE_USER="${IMAGE_USER:-christopher}"
@@ -394,11 +392,6 @@ IMAGE_USER_PASSWORD="${IMAGE_USER_PASSWORD:-intergenos}"
 if ! chroot "$MOUNT_POINT" id "$IMAGE_USER" > /dev/null 2>&1; then
     chroot "$MOUNT_POINT" useradd -m -G wheel,video,audio,input -s /bin/bash "$IMAGE_USER"
     echo "${IMAGE_USER}:${IMAGE_USER_PASSWORD}" | chroot "$MOUNT_POINT" chpasswd
-    # Force password change on first login if using default password
-    if [ "$IMAGE_USER_PASSWORD" = "intergenos" ]; then
-        chroot "$MOUNT_POINT" passwd --expire "$IMAGE_USER"
-        log "  User password set to expire on first login"
-    fi
     # Copy skel files
     if [ -d "${MOUNT_POINT}/etc/skel" ]; then
         cp -a "${MOUNT_POINT}/etc/skel/." "${MOUNT_POINT}/home/${IMAGE_USER}/"

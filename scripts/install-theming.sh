@@ -2,10 +2,13 @@
 # InterGenOS — Install GNOME themes, extensions, icons, cursors, and configs
 #
 # Runs INSIDE the chroot (or mounted image). Installs from pre-downloaded
-# cache at /mnt/intergenos/build/theming/ — NO network required.
+# assets at /mnt/intergenos/assets/theming/ — NO network required.
+#
+# GLASSWING: No third-party install.sh scripts are executed. All themes
+# are installed by direct file extraction and copy. This eliminates the
+# risk of running unaudited code from theme authors with root privileges.
 #
 # Pre-requisite: run download-theming.sh on the host first.
-#
 # Called by create-image.sh or can be run standalone inside the chroot.
 
 set -euo pipefail
@@ -38,6 +41,18 @@ else
     warn "No SHA256SUMS file found — skipping checksum verification"
 fi
 
+# Helper: extract a tarball, strip top-level directory
+extract_to() {
+    local tarball="$1"
+    local dest="$2"
+    [ -f "$tarball" ] || { warn "Not found: $tarball"; return 1; }
+    mkdir -p "$dest"
+    tar -xf "$tarball" -C "$dest" --strip-components=1 2>/dev/null || {
+        warn "Failed to extract $(basename "$tarball")"
+        return 1
+    }
+}
+
 # ============================================================================
 # GNOME Shell Extensions (24)
 # ============================================================================
@@ -59,7 +74,6 @@ for zipfile in "${CACHE_DIR}"/extensions/*.zip; do
 
     mkdir -p "$dest"
     if unzip -qo "$zipfile" -d "$dest" 2>/dev/null; then
-        # Compile per-extension schemas if present
         if ls "$dest"/schemas/*.xml >/dev/null 2>&1; then
             glib-compile-schemas "$dest/schemas/" 2>/dev/null || true
             cp "$dest"/schemas/*.xml /usr/share/glib-2.0/schemas/ 2>/dev/null || true
@@ -76,113 +90,199 @@ chmod -R a+rX /usr/share/gnome-shell/extensions/
 log "  Extensions: ${ext_ok} installed, ${ext_fail} failed"
 
 # ============================================================================
-# Helpers: install themes from tarballs (no eval — safe dispatch)
-# ============================================================================
-
-# Extract a tarball to WORK_DIR, return path in THEME_SRC
-extract_theme() {
-    local tarball="$1"
-    local name="$2"
-
-    [ -f "$tarball" ] || { warn "Not found: $tarball"; return 1; }
-
-    THEME_SRC="${WORK_DIR}/$(basename "$tarball" .tar.gz)"
-    rm -rf "$THEME_SRC"
-    mkdir -p "$THEME_SRC"
-
-    tar -xf "$tarball" -C "$THEME_SRC" --strip-components=1 2>/dev/null || {
-        warn "Failed to extract $name"
-        return 1
-    }
-}
-
-# Install a theme that has an install.sh script
-install_with_script() {
-    local tarball="$1"
-    local name="$2"
-    local dest_flag="$3"  # e.g., "/usr/share/themes" or "/usr/share/icons"
-
-    extract_theme "$tarball" "$name" || return 1
-    (cd "$THEME_SRC" && bash install.sh -d "$dest_flag") 2>/dev/null || {
-        warn "Failed to install $name"
-        return 1
-    }
-    log "  Installed: $name"
-}
-
-# Install a theme by direct copy
-install_with_copy() {
-    local tarball="$1"
-    local name="$2"
-    local dest_dir="$3"  # e.g., "/usr/share/themes/Nordic"
-
-    extract_theme "$tarball" "$name" || return 1
-    mkdir -p "$dest_dir"
-    cp -r "$THEME_SRC"/. "$dest_dir/"
-    log "  Installed: $name"
-}
-
-# ============================================================================
-# GTK / Shell Themes (10)
+# GTK / Shell Themes
+# Direct extraction only — NO install.sh scripts executed.
+# Themes with release/ dirs: extract pre-built tarballs from release/
+# Themes without: copy theme directory directly to /usr/share/themes/
 # ============================================================================
 
 log ""
 log "=== Installing GTK / Shell Themes ==="
+gtk_ok=0
 
-install_with_script "${CACHE_DIR}/gtk-themes/Orchis-theme.tar.gz" "Orchis" /usr/share/themes
-install_with_script "${CACHE_DIR}/gtk-themes/WhiteSur-gtk-theme.tar.gz" "WhiteSur GTK" /usr/share/themes
-install_with_copy "${CACHE_DIR}/gtk-themes/Nordic.tar.gz" "Nordic" /usr/share/themes/Nordic
-install_with_copy "${CACHE_DIR}/gtk-themes/Sweet.tar.gz" "Sweet" /usr/share/themes/Sweet
-install_with_script "${CACHE_DIR}/gtk-themes/Graphite-gtk-theme.tar.gz" "Graphite" /usr/share/themes
-install_with_script "${CACHE_DIR}/gtk-themes/Colloid-gtk-theme.tar.gz" "Colloid GTK" /usr/share/themes
-install_with_script "${CACHE_DIR}/gtk-themes/Fluent-gtk-theme.tar.gz" "Fluent GTK" /usr/share/themes
-install_with_copy "${CACHE_DIR}/gtk-themes/Dracula.tar.gz" "Dracula" /usr/share/themes/Dracula
+# Orchis — has pre-built release tarballs
+extract_to "${CACHE_DIR}/gtk-themes/Orchis-theme.tar.gz" "${WORK_DIR}/orchis" && {
+    for f in "${WORK_DIR}"/orchis/release/Orchis*.tar.xz; do
+        [ -f "$f" ] && tar -xJf "$f" -C /usr/share/themes/ 2>/dev/null
+    done
+    gtk_ok=$((gtk_ok + 1))
+    log "  Installed: Orchis"
+} || warn "Failed: Orchis"
 
-# adw-gtk3 — pre-built, just extract to themes dir
+# WhiteSur — has pre-built release tarballs
+extract_to "${CACHE_DIR}/gtk-themes/WhiteSur-gtk-theme.tar.gz" "${WORK_DIR}/whitesur-gtk" && {
+    for f in "${WORK_DIR}"/whitesur-gtk/release/WhiteSur-*.tar.xz; do
+        [ -f "$f" ] && tar -xJf "$f" -C /usr/share/themes/ 2>/dev/null
+    done
+    gtk_ok=$((gtk_ok + 1))
+    log "  Installed: WhiteSur GTK"
+} || warn "Failed: WhiteSur GTK"
+
+# Graphite — has pre-built release tarballs
+extract_to "${CACHE_DIR}/gtk-themes/Graphite-gtk-theme.tar.gz" "${WORK_DIR}/graphite" && {
+    for f in "${WORK_DIR}"/graphite/release/Graphite*.tar.xz; do
+        [ -f "$f" ] && tar -xJf "$f" -C /usr/share/themes/ 2>/dev/null
+    done
+    gtk_ok=$((gtk_ok + 1))
+    log "  Installed: Graphite"
+} || warn "Failed: Graphite"
+
+# Colloid — has pre-built release tarballs
+extract_to "${CACHE_DIR}/gtk-themes/Colloid-gtk-theme.tar.gz" "${WORK_DIR}/colloid-gtk" && {
+    for f in "${WORK_DIR}"/colloid-gtk/release/Colloid*.tar.xz; do
+        [ -f "$f" ] && tar -xJf "$f" -C /usr/share/themes/ 2>/dev/null
+    done
+    gtk_ok=$((gtk_ok + 1))
+    log "  Installed: Colloid GTK"
+} || warn "Failed: Colloid GTK"
+
+# Fluent — has pre-built release tarballs
+extract_to "${CACHE_DIR}/gtk-themes/Fluent-gtk-theme.tar.gz" "${WORK_DIR}/fluent-gtk" && {
+    for f in "${WORK_DIR}"/fluent-gtk/release/Fluent*.tar.xz; do
+        [ -f "$f" ] && tar -xJf "$f" -C /usr/share/themes/ 2>/dev/null
+    done
+    gtk_ok=$((gtk_ok + 1))
+    log "  Installed: Fluent GTK"
+} || warn "Failed: Fluent GTK"
+
+# Nordic — ready-to-copy (no install.sh, no release dir)
+extract_to "${CACHE_DIR}/gtk-themes/Nordic.tar.gz" "/usr/share/themes/Nordic" && {
+    gtk_ok=$((gtk_ok + 1))
+    log "  Installed: Nordic"
+} || warn "Failed: Nordic"
+
+# Sweet — ready-to-copy
+extract_to "${CACHE_DIR}/gtk-themes/Sweet.tar.gz" "/usr/share/themes/Sweet" && {
+    gtk_ok=$((gtk_ok + 1))
+    log "  Installed: Sweet"
+} || warn "Failed: Sweet"
+
+# Dracula — ready-to-copy
+extract_to "${CACHE_DIR}/gtk-themes/Dracula.tar.gz" "/usr/share/themes/Dracula" && {
+    gtk_ok=$((gtk_ok + 1))
+    log "  Installed: Dracula"
+} || warn "Failed: Dracula"
+
+# adw-gtk3 — pre-built, extract directly
 if [ -f "${CACHE_DIR}/gtk-themes/adw-gtk3.tar.xz" ]; then
     tar -xJf "${CACHE_DIR}/gtk-themes/adw-gtk3.tar.xz" -C /usr/share/themes/ 2>/dev/null
+    gtk_ok=$((gtk_ok + 1))
     log "  Installed: adw-gtk3"
 fi
 
 # Catppuccin — pre-built zip
 if [ -f "${CACHE_DIR}/gtk-themes/catppuccin-mocha-blue.zip" ]; then
     unzip -qo "${CACHE_DIR}/gtk-themes/catppuccin-mocha-blue.zip" -d /usr/share/themes/ 2>/dev/null || true
+    gtk_ok=$((gtk_ok + 1))
     log "  Installed: Catppuccin GTK (Mocha Blue)"
 fi
 
+# InterGenOS Shell Theme — our custom GNOME Shell theme
+if [ -d /mnt/intergenos/assets/intergen-shell-theme ]; then
+    mkdir -p /usr/share/themes/InterGenOS
+    cp -r /mnt/intergenos/assets/intergen-shell-theme/* /usr/share/themes/InterGenOS/
+    gtk_ok=$((gtk_ok + 1))
+    log "  Installed: InterGenOS Shell Theme"
+fi
+
+log "  GTK themes: ${gtk_ok} installed"
+
 # ============================================================================
-# Icon Themes (7)
+# Icon Themes
+# Direct copy — all icon themes have ready-to-use directories in their tarballs.
+# NO install.sh scripts executed.
 # ============================================================================
 
 log ""
 log "=== Installing Icon Themes ==="
+icon_ok=0
 
-install_with_script "${CACHE_DIR}/icon-themes/papirus-icon-theme.tar.gz" "Papirus" /usr/share/icons
-install_with_script "${CACHE_DIR}/icon-themes/WhiteSur-icon-theme.tar.gz" "WhiteSur Icons" /usr/share/icons
-install_with_script "${CACHE_DIR}/icon-themes/Tela-icon-theme.tar.gz" "Tela Icons" /usr/share/icons
-install_with_script "${CACHE_DIR}/icon-themes/Colloid-icon-theme.tar.gz" "Colloid Icons" /usr/share/icons
-install_with_script "${CACHE_DIR}/icon-themes/Qogir-icon-theme.tar.gz" "Qogir Icons" /usr/share/icons
+# Papirus — contains Papirus/, Papirus-Dark/, Papirus-Light/ at top level
+extract_to "${CACHE_DIR}/icon-themes/papirus-icon-theme.tar.gz" "${WORK_DIR}/papirus" && {
+    cp -r "${WORK_DIR}"/papirus/Papirus* /usr/share/icons/ 2>/dev/null
+    cp -r "${WORK_DIR}"/papirus/ePapirus* /usr/share/icons/ 2>/dev/null || true
+    icon_ok=$((icon_ok + 1))
+    log "  Installed: Papirus"
+} || warn "Failed: Papirus"
 
-# Kora has no install.sh — direct copy
-extract_theme "${CACHE_DIR}/icon-themes/kora.tar.gz" "Kora Icons" && {
-    cp -r "$THEME_SRC"/kora "$THEME_SRC"/kora-pgrey /usr/share/icons/ 2>/dev/null || true
+# WhiteSur icons — contains src/. We need the links/ or pre-built dirs
+extract_to "${CACHE_DIR}/icon-themes/WhiteSur-icon-theme.tar.gz" "${WORK_DIR}/whitesur-icons" && {
+    if [ -d "${WORK_DIR}/whitesur-icons/src" ]; then
+        for d in "${WORK_DIR}"/whitesur-icons/src/*/; do
+            name=$(basename "$d")
+            if [ -f "$d/index.theme" ]; then
+                cp -r "$d" "/usr/share/icons/$name"
+            fi
+        done
+    fi
+    # Also check for pre-built links/ or release/ dirs
+    for d in "${WORK_DIR}"/whitesur-icons/links/*/; do
+        [ -d "$d" ] && cp -r "$d" /usr/share/icons/ 2>/dev/null
+    done
+    icon_ok=$((icon_ok + 1))
+    log "  Installed: WhiteSur Icons"
+} || warn "Failed: WhiteSur Icons"
+
+# Tela — contains src/ with index.theme per variant
+extract_to "${CACHE_DIR}/icon-themes/Tela-icon-theme.tar.gz" "${WORK_DIR}/tela" && {
+    for d in "${WORK_DIR}"/tela/src/*/; do
+        [ -f "$d/index.theme" ] && cp -r "$d" /usr/share/icons/ 2>/dev/null
+    done
+    icon_ok=$((icon_ok + 1))
+    log "  Installed: Tela Icons"
+} || warn "Failed: Tela Icons"
+
+# Colloid icons
+extract_to "${CACHE_DIR}/icon-themes/Colloid-icon-theme.tar.gz" "${WORK_DIR}/colloid-icons" && {
+    for d in "${WORK_DIR}"/colloid-icons/src/*/; do
+        [ -f "$d/index.theme" ] && cp -r "$d" /usr/share/icons/ 2>/dev/null
+    done
+    icon_ok=$((icon_ok + 1))
+    log "  Installed: Colloid Icons"
+} || warn "Failed: Colloid Icons"
+
+# Qogir icons
+extract_to "${CACHE_DIR}/icon-themes/Qogir-icon-theme.tar.gz" "${WORK_DIR}/qogir-icons" && {
+    for d in "${WORK_DIR}"/qogir-icons/src/*/; do
+        [ -f "$d/index.theme" ] && cp -r "$d" /usr/share/icons/ 2>/dev/null
+    done
+    icon_ok=$((icon_ok + 1))
+    log "  Installed: Qogir Icons"
+} || warn "Failed: Qogir Icons"
+
+# Kora — contains kora/ and kora-pgrey/ directories
+extract_to "${CACHE_DIR}/icon-themes/kora.tar.gz" "${WORK_DIR}/kora" && {
+    cp -r "${WORK_DIR}"/kora/kora /usr/share/icons/ 2>/dev/null || true
+    cp -r "${WORK_DIR}"/kora/kora-pgrey /usr/share/icons/ 2>/dev/null || true
+    icon_ok=$((icon_ok + 1))
     log "  Installed: Kora Icons"
-}
+} || warn "Failed: Kora Icons"
 
-install_with_script "${CACHE_DIR}/icon-themes/Fluent-icon-theme.tar.gz" "Fluent Icons" /usr/share/icons
+# Fluent icons
+extract_to "${CACHE_DIR}/icon-themes/Fluent-icon-theme.tar.gz" "${WORK_DIR}/fluent-icons" && {
+    for d in "${WORK_DIR}"/fluent-icons/src/*/; do
+        [ -f "$d/index.theme" ] && cp -r "$d" /usr/share/icons/ 2>/dev/null
+    done
+    icon_ok=$((icon_ok + 1))
+    log "  Installed: Fluent Icons"
+} || warn "Failed: Fluent Icons"
+
+log "  Icon themes: ${icon_ok} installed"
 
 # ============================================================================
-# Cursor Themes (4 families)
+# Cursor Themes — all are pre-built, just extract to /usr/share/icons/
 # ============================================================================
 
 log ""
 log "=== Installing Cursor Themes ==="
+cursor_ok=0
 
 # Bibata variants
 for variant in Modern-Classic Modern-Ice Modern-Amber Original-Classic; do
     f="${CACHE_DIR}/cursor-themes/Bibata-${variant}.tar.xz"
     if [ -f "$f" ]; then
         tar -xJf "$f" -C /usr/share/icons/ 2>/dev/null
+        cursor_ok=$((cursor_ok + 1))
         log "  Installed: Bibata ${variant}"
     fi
 done
@@ -190,44 +290,46 @@ done
 # macOS cursors
 if [ -f "${CACHE_DIR}/cursor-themes/macOS-cursor.tar.xz" ]; then
     tar -xJf "${CACHE_DIR}/cursor-themes/macOS-cursor.tar.xz" -C /usr/share/icons/ 2>/dev/null
+    cursor_ok=$((cursor_ok + 1))
     log "  Installed: macOS cursors"
 fi
 
 # Phinger cursors
 if [ -f "${CACHE_DIR}/cursor-themes/phinger-cursors.tar.bz2" ]; then
     tar -xjf "${CACHE_DIR}/cursor-themes/phinger-cursors.tar.bz2" -C /usr/share/icons/ 2>/dev/null
+    cursor_ok=$((cursor_ok + 1))
     log "  Installed: Phinger cursors"
 fi
 
-# WhiteSur cursors
-# WhiteSur cursors — try install.sh, fall back to direct copy
-extract_theme "${CACHE_DIR}/cursor-themes/WhiteSur-cursors.tar.gz" "WhiteSur Cursors" && {
-    (cd "$THEME_SRC" && bash install.sh 2>/dev/null) || {
-        mkdir -p /usr/share/icons/WhiteSur-cursors
-        cp -r "$THEME_SRC"/dist/* /usr/share/icons/WhiteSur-cursors/ 2>/dev/null || true
-    }
+# WhiteSur cursors — extract and copy dist/ contents
+extract_to "${CACHE_DIR}/cursor-themes/WhiteSur-cursors.tar.gz" "${WORK_DIR}/whitesur-cursors" && {
+    if [ -d "${WORK_DIR}/whitesur-cursors/dist" ]; then
+        cp -r "${WORK_DIR}"/whitesur-cursors/dist/* /usr/share/icons/ 2>/dev/null
+    fi
+    cursor_ok=$((cursor_ok + 1))
     log "  Installed: WhiteSur Cursors"
-}
+} || warn "Failed: WhiteSur Cursors"
+
+log "  Cursor themes: ${cursor_ok} installed"
 
 # ============================================================================
-# Fix permissions
+# Fix permissions and rebuild caches
 # ============================================================================
 
 log ""
-log "=== Fixing permissions ==="
+log "=== Fixing permissions and rebuilding caches ==="
 chmod -R a+rX /usr/share/themes/ 2>/dev/null || true
 chmod -R a+rX /usr/share/icons/ 2>/dev/null || true
 chmod -R a+rX /usr/share/gnome-shell/extensions/ 2>/dev/null || true
 
-# Rebuild icon caches
 for theme_dir in /usr/share/icons/*/; do
     if [ -f "${theme_dir}index.theme" ]; then
         gtk-update-icon-cache -q "${theme_dir}" 2>/dev/null || true
     fi
 done
 
-# Recompile global schemas
 glib-compile-schemas /usr/share/glib-2.0/schemas/ 2>/dev/null || true
+log "  Done"
 
 # ============================================================================
 # Welcome greeter autostart
@@ -247,9 +349,10 @@ if [ -f /mnt/intergenos/assets/intergen-welcome/intergen-welcome.py ]; then
 Type=Application
 Name=InterGenOS Welcome
 Comment=First-boot setup and customization
-Exec=/usr/bin/python3 /usr/share/intergen-welcome/intergen-welcome.py
+Exec=sh -c 'sleep 3 && /usr/bin/python3 /usr/share/intergen-welcome/intergen-welcome.py'
 Icon=preferences-system
-X-GNOME-Autostart-Phase=Application
+X-GNOME-Autostart-Phase=Applications
+X-GNOME-Autostart-Delay=3
 OnlyShowIn=GNOME;
 DESKEOF
     log "  Welcome greeter installed with autostart"
@@ -263,7 +366,6 @@ fi
 
 log ""
 log "=== Configuring Burn My Windows ==="
-# Default profile applied per-user — create in /etc/skel so every new user gets it
 mkdir -p /etc/skel/.config/burn-my-windows/profiles
 cat > /etc/skel/.config/burn-my-windows/profiles/default.conf << 'BMWEOF'
 [burn-my-windows-profile]
@@ -305,7 +407,6 @@ table inet filter {
         ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, nd-router-solicit, nd-router-advert } accept
 
         # SSH — rate-limited to prevent brute force
-        # To disable SSH access, comment out or remove this rule
         tcp dport 22 ct state new limit rate 15/minute burst 5 accept
 
         # mDNS (Avahi zero-conf)
@@ -330,7 +431,6 @@ table inet filter {
 NFTEOF
 chmod 644 /etc/nftables.conf
 
-# Create systemd service
 cat > /usr/lib/systemd/system/nftables.service << 'SVCEOF'
 [Unit]
 Description=nftables firewall
@@ -368,8 +468,10 @@ log ""
 log "============================================"
 log "  Theming installation complete"
 log "  Extensions: ${ext_ok} installed, ${ext_fail} failed"
-log "  Themes, icons, cursors: installed from cache"
-log "  Welcome greeter: autostart configured"
+log "  GTK themes: ${gtk_ok} installed"
+log "  Icon themes: ${icon_ok} installed"
+log "  Cursor themes: ${cursor_ok} installed"
+log "  Welcome greeter: configured"
 log "  Burn My Windows: TV effect default"
 log "  Firewall: nftables enabled"
 log "============================================"

@@ -12,7 +12,7 @@ color-scheme='prefer-dark'
 # Theme selections — curated defaults, user can change via Settings or greeter
 gtk-theme='adw-gtk3-dark'
 icon-theme='Papirus-Dark'
-cursor-theme='Bibata-Modern-Classic'
+cursor-theme='Adwaita'
 # Font defaults
 font-name='DejaVu Sans 11'
 monospace-font-name='DejaVu Sans Mono 11'
