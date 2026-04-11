@@ -488,6 +488,28 @@ chroot "$MOUNT_POINT" /bin/bash -c '
 ' 2>/dev/null
 log "  Caches built (icons, fonts, schemas, GIO, pixbuf, MIME, desktop, ldconfig)"
 
+# Locale — en_US.UTF-8 as build default. Forge installer will override
+# with the user's choice. Without this, LANG is empty and many programs
+# fall back to POSIX/C locale (broken sorting, missing translations).
+echo 'LANG=en_US.UTF-8' > "${MOUNT_POINT}/etc/locale.conf"
+log "  Locale set to en_US.UTF-8 (Forge placeholder)"
+
+# Timezone — UTC is the correct default for a distribution image.
+# Forge installer will set the user's actual timezone.
+ln -sf /usr/share/zoneinfo/UTC "${MOUNT_POINT}/etc/localtime"
+log "  Timezone set to UTC (Forge placeholder)"
+
+# Rust toolchain PATH — rustc is installed to /opt/rustc/bin
+mkdir -p "${MOUNT_POINT}/etc/profile.d"
+cat > "${MOUNT_POINT}/etc/profile.d/rustc.sh" << 'RUSTEOF'
+# Rust toolchain installed to /opt/rustc
+if [ -d /opt/rustc/bin ]; then
+    export PATH="/opt/rustc/bin:$PATH"
+fi
+RUSTEOF
+chmod 644 "${MOUNT_POINT}/etc/profile.d/rustc.sh"
+log "  Rust toolchain PATH configured (/opt/rustc/bin)"
+
 log "  Post-deploy fixes applied (serial console, networking, DNS, root password, GDM, services, caches)"
 
 # ============================================================================

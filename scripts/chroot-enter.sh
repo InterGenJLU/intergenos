@@ -71,6 +71,8 @@ chroot "$IGOS" /usr/bin/env -i               \
     TZ="$HOST_TZ"                            \
     PS1='\[\e[1;34m\][\[\e[m\]\[\e[1;31m\](igos-chroot)\[\e[m\]\[\e[1;34m\]]\[\e[m\]\[\e[1;34m\][\[\e[m\]\[\e[1;37m\]<\[\e[m\]\[\e[1;32m\]\w\[\e[m\]\[\e[1;37m\]>\[\e[m\]\[\e[1;34m\]]\[\e[m\]\[\e[1;37m\]:\[\e[m\]\[\e[1;31m\]#\[\e[m\] ' \
     PATH=/usr/bin:/usr/sbin:/bin:/sbin        \
+    CFLAGS="-march=x86-64-v2 -mtune=generic -O2 -pipe" \
+    CXXFLAGS="-march=x86-64-v2 -mtune=generic -O2 -pipe" \
     MAKEFLAGS="-j${JOBS}"                    \
     TESTSUITEFLAGS="-j${JOBS}"               \
     IGOS_JOBS="${JOBS}"                       \

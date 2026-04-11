@@ -88,6 +88,12 @@ class BuildExecutor(PackageTracker):
         env["PKG_VERSION"] = str(pkg.version)
         env["version"] = str(pkg.version)  # convenience for build.sh scripts
         env["MAKEFLAGS"] = f"-j{self.jobs}"
+        # Target x86-64-v2 (2009+ CPUs: Nehalem, Sandy Bridge, Ivy Bridge, all Zen).
+        # Without this, GCC on the build host (Ryzen 9 5900X, x86-64-v3) emits
+        # AVX2/FMA3 instructions that crash on older hardware (libffi invalid
+        # opcode on Ivy Bridge i5-3570). Matches Fedora 40, RHEL 9, SUSE 15.
+        env.setdefault("CFLAGS", "-march=x86-64-v2 -mtune=generic -O2 -pipe")
+        env.setdefault("CXXFLAGS", "-march=x86-64-v2 -mtune=generic -O2 -pipe")
         env["LC_ALL"] = "POSIX"
         # Reproducible builds: SOURCE_DATE_EPOCH prevents timestamps from
         # varying between builds. Adopted by Debian, Arch, NixOS.
