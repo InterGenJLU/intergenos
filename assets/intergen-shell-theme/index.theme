@@ -5,8 +5,8 @@ Comment=InterGenOS Shell Theme — ECG blue on deep navy
 Encoding=UTF-8
 
 [X-GNOME-Metatheme]
-GtkTheme=adw-gtk3-dark
-MetacityTheme=adw-gtk3-dark
+GtkTheme=InterGenOS
+MetacityTheme=InterGenOS
 IconTheme=Papirus-Dark
 CursorTheme=Bibata-Modern-Classic
 ButtonLayout=appmenu:minimize,maximize,close
