@@ -1,0 +1,14 @@
+[Unit]
+Description=InterGen AI Assistant
+Documentation=https://github.com/InterGenJLU/intergenos
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -m intergen.dbus_daemon
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONPATH=/usr/lib/intergen
+
+[Install]
+WantedBy=default.target

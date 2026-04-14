@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=com.intergenos.InterGen
+Exec=/usr/bin/python3 -m intergen.dbus_daemon
