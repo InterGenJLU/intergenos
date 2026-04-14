@@ -69,6 +69,7 @@ class WebSearchTool(BaseTool):
         """Execute the web search."""
         query = arguments.get("query", "").strip()
         num_results = min(arguments.get("num_results", 5), 10)
+        log.info("Web search: %s (max %d results)", query, num_results)
 
         if not query:
             return ToolResult(

@@ -166,7 +166,10 @@ class RunCommandTool(BaseTool):
             )
 
         safety = self.classify_safety(arguments)
+        log.info("Command classified: %s → %s", command, safety.value)
+
         if safety == SafetyTier.BLOCKED:
+            log.warning("Blocked dangerous command: %s", command)
             return ToolResult(
                 call_id="",
                 name=self.name,
@@ -175,6 +178,7 @@ class RunCommandTool(BaseTool):
             )
 
         try:
+            log.debug("Executing: %s (timeout=%ds)", command, timeout)
             result = subprocess.run(
                 command,
                 shell=True,
@@ -201,6 +205,11 @@ class RunCommandTool(BaseTool):
 
             content = "\n".join(output_parts) if output_parts else "(no output)"
 
+            if result.returncode == 0:
+                log.info("Command succeeded: %s", command)
+            else:
+                log.warning("Command failed (exit %d): %s", result.returncode, command)
+
             return ToolResult(
                 call_id="",
                 name=self.name,
@@ -209,6 +218,7 @@ class RunCommandTool(BaseTool):
             )
 
         except subprocess.TimeoutExpired:
+            log.warning("Command timed out after %ds: %s", timeout, command)
             return ToolResult(
                 call_id="",
                 name=self.name,
@@ -216,6 +226,7 @@ class RunCommandTool(BaseTool):
                 success=False,
             )
         except OSError as e:
+            log.error("Command execution error: %s — %s", command, e)
             return ToolResult(
                 call_id="",
                 name=self.name,

@@ -102,9 +102,11 @@ class ReadFileTool(BaseTool):
             )
 
         # Read
+        log.info("Reading %s (%d bytes)", path, size)
         try:
             text = path.read_text(errors="replace")
         except OSError as e:
+            log.error("Cannot read %s: %s", path, e)
             return ToolResult(
                 call_id="", name=self.name,
                 content=f"Cannot read file: {e}", success=False,

@@ -133,6 +133,7 @@ class OpenApplicationTool(BaseTool):
             )
 
         display_name, desktop_file = match
+        log.info("Launching application: %s (%s)", display_name, desktop_file.name)
 
         # Launch via gio
         try:

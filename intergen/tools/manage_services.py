@@ -113,6 +113,10 @@ class ManageServicesTool(BaseTool):
         if service:
             cmd.append(service)
 
+        log.info("Service operation: %s %s%s",
+                 action, service or "(all)",
+                 " (user mode)" if user_mode else "")
+
         # State-changing actions on system services need sudo
         if action in CONFIRM_ACTIONS and not user_mode:
             cmd = ["sudo"] + cmd

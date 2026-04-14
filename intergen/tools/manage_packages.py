@@ -91,6 +91,7 @@ class ManagePackagesTool(BaseTool):
         """Execute the package management action."""
         action = arguments.get("action", "")
         package = arguments.get("package", "")
+        log.info("Package operation: %s %s", action, package or "(all)")
         query = arguments.get("query", "")
 
         # Check if pkm is available
