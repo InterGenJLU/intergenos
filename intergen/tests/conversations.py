@@ -704,6 +704,41 @@ FILE_COMPREHENSION = [
 ]
 
 
+# ============================================================
+# Session awareness conversations
+# ============================================================
+
+SESSION_AWARENESS = [
+    Conversation(
+        id="session_welcome_back",
+        name="Welcome back after prior session",
+        category="session_awareness",
+        turns=[
+            Turn(
+                user="Hi",
+                assertions=[
+                    Assertion("not_contains", "error", "Should greet, not error"),
+                    Assertion("not_contains", "How can I help you today", "No generic bot greeting"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="session_what_were_we_doing",
+        name="Ask about last session",
+        category="session_awareness",
+        turns=[
+            Turn(
+                user="What were we working on last time?",
+                assertions=[
+                    Assertion("not_contains", "I don't have access", "Should have session memory"),
+                ],
+            ),
+        ],
+    ),
+]
+
+
 def get_all_conversations() -> list[Conversation]:
     """Return all test conversations."""
     return (
@@ -718,6 +753,7 @@ def get_all_conversations() -> list[Conversation]:
         + COMPOUND
         + MEMORY
         + FILE_COMPREHENSION
+        + SESSION_AWARENESS
     )
 
 
