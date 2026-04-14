@@ -59,6 +59,9 @@ class ConversationRouter(RouterInterface):
         if self._metrics:
             self._metrics.increment("requests")
 
+        # Normalize input once — all downstream methods get clean text
+        user_input = self._semantic._normalize_input(user_input)
+
         # P1: Keyword/regex match
         result = self._try_keyword_match(user_input)
         if result.handled:
