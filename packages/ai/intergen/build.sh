@@ -42,9 +42,8 @@ do_install() {
     install -Dm755 /dev/stdin "${DESTDIR}/usr/bin/intergen" << 'WRAPPER'
 #!/usr/bin/env python3
 """InterGen CLI — command-line interface to the InterGen AI assistant."""
-import sys
-from intergen.__main__ import main
-sys.exit(main())
+from intergen.cli import main
+main()
 WRAPPER
 
     # Default configuration
