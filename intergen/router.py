@@ -5,6 +5,7 @@ Simplified from 18 priorities to 8. No voice, no conversation windows,
 no multi-user, no task planner. Text-only, system-focused.
 
 Priority chain:
+  P0: Compound query detection → tier-aware decomposition
   P1: Keyword/regex match → direct tool dispatch
   P2: Semantic embedding match → tool dispatch
   P3: LLM tool calling → tool dispatch + synthesis
@@ -17,9 +18,10 @@ import logging
 import time
 from typing import Any
 
+from intergen.decomposer import analyze_query, DecomposedQuery
 from intergen.interfaces.router import RouterInterface
 from intergen.interfaces.types import (
-    Message, MessageRole, RouteResult, ToolCall, ToolResult,
+    HardwareTierLevel, Message, MessageRole, RouteResult, ToolCall, ToolResult,
 )
 from intergen.llm import LLMRouter
 from intergen.metrics import EventLogger, MetricsTracker
@@ -38,12 +40,14 @@ class ConversationRouter(RouterInterface):
                  semantic_matcher: SemanticMatcher,
                  llm: LLMRouter,
                  event_logger: EventLogger | None = None,
-                 metrics: MetricsTracker | None = None):
+                 metrics: MetricsTracker | None = None,
+                 hardware_tier: HardwareTierLevel = HardwareTierLevel.TIER_2):
         self._tools = tool_registry
         self._semantic = semantic_matcher
         self._llm = llm
         self._events = event_logger
         self._metrics = metrics
+        self._hardware_tier = hardware_tier
         self._conversation_history: list[Message] = []
         self._max_history = 20
 
@@ -61,6 +65,14 @@ class ConversationRouter(RouterInterface):
 
         # Normalize input once — all downstream methods get clean text
         user_input = self._semantic._normalize_input(user_input)
+
+        # P0: Compound query detection — decompose if above tier threshold
+        decomposition = analyze_query(user_input, self._hardware_tier)
+        if decomposition.needs_decomposition:
+            result = self._handle_compound(user_input, decomposition)
+            if result.handled:
+                self._record(result, t0, "decomposed")
+                return result
 
         # P1: Keyword/regex match
         result = self._try_keyword_match(user_input)
@@ -84,6 +96,44 @@ class ConversationRouter(RouterInterface):
         result = self._try_llm_freeform(user_input)
         self._record(result, t0, "llm_freeform")
         return result
+
+    def _handle_compound(self, user_input: str,
+                         decomposition: DecomposedQuery) -> RouteResult:
+        """P0: Handle compound queries by executing sub-queries sequentially."""
+        results_text = [decomposition.response_prefix, ""]
+        all_tool_calls = []
+        all_tool_results = []
+        used_llm = False
+
+        for i, sub_query in enumerate(decomposition.sub_queries, 1):
+            sub_result = self._route_single(sub_query)
+            results_text.append(f"**{i}.** {sub_result.text}")
+            all_tool_calls.extend(sub_result.tool_calls)
+            all_tool_results.extend(sub_result.tool_results)
+            if sub_result.used_llm:
+                used_llm = True
+
+        return RouteResult(
+            text="\n\n".join(results_text),
+            source="decomposed",
+            handled=True,
+            tool_calls=all_tool_calls,
+            tool_results=all_tool_results,
+            used_llm=used_llm,
+        )
+
+    def _route_single(self, user_input: str) -> RouteResult:
+        """Route a single (non-compound) query through P1→P4."""
+        result = self._try_keyword_match(user_input)
+        if result.handled:
+            return result
+        result = self._try_semantic_match(user_input)
+        if result.handled:
+            return result
+        result = self._try_llm_tools(user_input)
+        if result.handled:
+            return result
+        return self._try_llm_freeform(user_input)
 
     def _try_keyword_match(self, user_input: str) -> RouteResult:
         """P1: regex/keyword matching via semantic matcher Layer 1.
