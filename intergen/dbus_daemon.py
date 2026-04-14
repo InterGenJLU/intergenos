@@ -135,6 +135,7 @@ class InterGenDaemon(InterGenDBusInterface):
                 "router": self._router is not None,
                 "semantic_matcher": self._matcher is not None,
                 "tools": self._tools is not None,
+                "memory": self._memory is not None,
                 "watchdog": self._watchdog is not None and self._watchdog.is_running,
             },
         }
@@ -281,23 +282,41 @@ class InterGenDaemon(InterGenDBusInterface):
         except Exception as e:
             log.warning("LLM router init failed: %s", e)
 
-        # Step 8: Initialize conversation router (the orchestrator)
+        # Step 8: Initialize memory manager
+        self._memory = None
+        try:
+            from intergen.memory import MemoryManager
+            db_path = self._config.get("memory.db_path",
+                                        "/var/lib/intergen/data/memory.db")
+            self._memory = MemoryManager(db_path)
+            log.info("Memory manager initialized (%d facts stored)",
+                     self._memory.count)
+        except Exception as e:
+            log.warning("Memory manager init failed: %s", e)
+
+        # Step 9: Initialize conversation router (the orchestrator)
         if self._tools and self._matcher and self._llm:
             try:
                 from intergen.router import ConversationRouter
+                from intergen.interfaces.types import HardwareTierLevel
+                hw_tier = HardwareTierLevel(
+                    self._hardware_tier.get("level", 2)
+                ) if self._hardware_tier else HardwareTierLevel.TIER_2
                 self._router = ConversationRouter(
                     tool_registry=self._tools,
                     semantic_matcher=self._matcher,
                     llm=self._llm,
                     event_logger=self._events,
                     metrics=self._metrics,
+                    hardware_tier=hw_tier,
+                    memory=self._memory,
                 )
                 log.info("Conversation router initialized")
             except Exception as e:
                 log.warning("Router init failed: %s", e)
                 self._last_error = f"Router init failed: {e}"
 
-        # Step 9: Start watchdog (monitors llama-server health)
+        # Step 10: Start watchdog (monitors llama-server health)
         if self._llama:
             try:
                 from intergen.watchdog import Watchdog
@@ -312,10 +331,10 @@ class InterGenDaemon(InterGenDBusInterface):
             except Exception as e:
                 log.warning("Watchdog init failed: %s", e)
 
-        # Step 10: D-Bus export
+        # Step 11: D-Bus export
         self._export_dbus()
 
-        # Step 11: Signal ready
+        # Step 12: Signal ready
         self._running = True
         log.info("InterGen daemon ready (router=%s, tools=%d, llm=%s)",
                  self._router is not None,
