@@ -165,6 +165,10 @@ class InterGenDaemon(InterGenDBusInterface):
         """
         log.info("InterGen daemon starting...")
 
+        # Load configuration
+        from intergen.config import Config
+        self._config = Config()
+
         # Step 1: Hardware detection
         try:
             from intergen.hardware import HardwareDetector
@@ -205,7 +209,13 @@ class InterGenDaemon(InterGenDBusInterface):
             try:
                 from intergen.llama_manager import LlamaManager
                 self._llama = LlamaManager()
-                started = self._llama.start(model_path)
+                started = self._llama.start(
+                    model_path,
+                    port=self._config.get("llama_server.port", 8080),
+                    context_size=self._config.get("llm.context_size", 8192),
+                    gpu_layers=self._config.get("llama_server.gpu_layers", 999),
+                    jinja=self._config.get("llama_server.jinja", True),
+                )
                 if started:
                     log.info("llama-server started")
                 else:
@@ -235,7 +245,9 @@ class InterGenDaemon(InterGenDBusInterface):
         # Step 6: Initialize semantic matcher and register intents
         try:
             from intergen.semantic import SemanticMatcher
-            self._matcher = SemanticMatcher(device="cpu")
+            self._matcher = SemanticMatcher(
+                device=self._config.get("models.embedding_device", "cpu"),
+            )
             from intergen.intents import register_all_intents
             register_all_intents(self._matcher)
             log.info("Semantic matcher: %d intents registered",
@@ -253,9 +265,15 @@ class InterGenDaemon(InterGenDBusInterface):
         # Step 7: Initialize LLM router
         try:
             from intergen.llm import LLMRouter
+            port = self._config.get("llama_server.port", 8080)
             llm_config = {
-                "endpoint": "http://127.0.0.1:8080/v1/chat/completions",
+                "endpoint": f"http://127.0.0.1:{port}/v1/chat/completions",
                 "tool_calling": self._llama is not None,
+                "temperature": self._config.get("llm.temperature", 0.6),
+                "top_p": self._config.get("llm.top_p", 0.8),
+                "top_k": self._config.get("llm.top_k", 20),
+                "max_tokens": self._config.get("llm.max_tokens", 4096),
+                "presence_penalty": self._config.get("llm.presence_penalty", 1.5),
             }
             self._llm = LLMRouter(llm_config)
             log.info("LLM router initialized (tool_calling=%s)",
