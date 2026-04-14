@@ -74,16 +74,9 @@ class ConversationRouter(RouterInterface):
         # Normalize input once — all downstream methods get clean text
         user_input = self._semantic._normalize_input(user_input)
 
-        # Welcome back on first interaction
-        if self._first_interaction and self._memory:
+        # Track first interaction (for session awareness on demand)
+        if self._first_interaction:
             self._first_interaction = False
-            welcome = self._memory.format_welcome_back()
-            if welcome and not MemoryManager.is_remember_request(user_input):
-                # Prepend welcome context, then process the actual query
-                result = self._route_single(user_input)
-                result.text = welcome + "\n\n" + result.text
-                self._record(result, t0, result.source)
-                return result
 
         # Memory operations — before all routing priorities
         if self._memory:
@@ -124,7 +117,22 @@ class ConversationRouter(RouterInterface):
         return result
 
     def _try_memory(self, user_input: str) -> RouteResult:
-        """Handle memory operations: remember, recall, forget."""
+        """Handle memory operations: remember, recall, forget, session recall."""
+        # Session recall: "what were we working on?" / "what did we do last time?"
+        lower = user_input.lower()
+        if any(p in lower for p in [
+            "what were we", "what did we do", "last time", "last session",
+            "where did we leave off", "what was I working on",
+            "pick up where we left off", "continue where we",
+        ]):
+            welcome = self._memory.format_welcome_back()
+            if welcome:
+                return RouteResult(text=welcome, source="memory", handled=True)
+            return RouteResult(
+                text="I don't have any record of a previous session.",
+                source="memory", handled=True,
+            )
+
         # Transparency: "what do you know about me?"
         if MemoryManager.is_transparency_request(user_input):
             response = self._memory.format_transparency_response()
