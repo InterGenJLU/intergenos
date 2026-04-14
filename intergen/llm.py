@@ -13,9 +13,9 @@ import json
 import logging
 import re
 import time
+import urllib.error
+import urllib.request
 from typing import Any, Iterator
-
-import requests
 
 from intergen.interfaces.llm import LLMInterface
 from intergen.interfaces.types import (
@@ -125,12 +125,13 @@ class LLMRouter(LLMInterface):
         }
 
         try:
-            response = requests.post(
-                self._endpoint, json=payload,
-                timeout=60, stream=True,
+            req = urllib.request.Request(
+                self._endpoint,
+                data=json.dumps(payload).encode(),
+                headers={"Content-Type": "application/json"},
             )
-            response.raise_for_status()
-        except requests.RequestException as e:
+            response = urllib.request.urlopen(req, timeout=60)
+        except Exception as e:
             logger.error("Local LLM request failed: %s", e)
             return
 
@@ -183,27 +184,30 @@ class LLMRouter(LLMInterface):
             payload["presence_penalty"] = self._presence_penalty
 
         try:
-            response = requests.post(
-                self._endpoint, json=payload,
-                timeout=60, stream=True,
+            req = urllib.request.Request(
+                self._endpoint,
+                data=json.dumps(payload).encode(),
+                headers={"Content-Type": "application/json"},
             )
-        except requests.RequestException as e:
-            logger.error("Local LLM tool request failed: %s", e)
-            return
-
-        if response.status_code == 400:
-            self._handle_context_overflow(response, payload)
-            try:
-                response = requests.post(
-                    self._endpoint, json=payload,
-                    timeout=60, stream=True,
-                )
-            except requests.RequestException as e:
-                logger.error("Retry after context overflow failed: %s", e)
+            response = urllib.request.urlopen(req, timeout=60)
+        except urllib.error.HTTPError as e:
+            if e.code == 400:
+                self._handle_context_overflow(e, payload)
+                try:
+                    req = urllib.request.Request(
+                        self._endpoint,
+                        data=json.dumps(payload).encode(),
+                        headers={"Content-Type": "application/json"},
+                    )
+                    response = urllib.request.urlopen(req, timeout=60)
+                except Exception as e2:
+                    logger.error("Retry after context overflow failed: %s", e2)
+                    return
+            else:
+                logger.error("LLM returned status %d", e.code)
                 return
-
-        if response.status_code != 200:
-            logger.error("LLM returned status %d", response.status_code)
+        except Exception as e:
+            logger.error("Local LLM tool request failed: %s", e)
             return
 
         tool_call_id = ""
@@ -213,10 +217,10 @@ class LLMRouter(LLMInterface):
         input_tokens = 0
         output_tokens = 0
 
-        for line in response.iter_lines():
-            if not line:
+        for raw_line in response:
+            if not raw_line:
                 continue
-            line_str = line.decode("utf-8")
+            line_str = raw_line.decode("utf-8").strip()
             if not line_str.startswith("data: "):
                 continue
             data = line_str[6:]
@@ -422,7 +426,7 @@ class LLMRouter(LLMInterface):
 
     # ── Internal helpers ──
 
-    def _parse_sse_stream(self, response: requests.Response) -> Iterator[str]:
+    def _parse_sse_stream(self, response: Any) -> Iterator[str]:
         """Parse SSE stream and yield text tokens.
 
         Qwen3.5 is a reasoning model: chain-of-thought goes into
@@ -431,10 +435,10 @@ class LLMRouter(LLMInterface):
         finishes with content empty but reasoning_content populated,
         it likely ran out of tokens mid-thought.
         """
-        for line in response.iter_lines():
-            if not line:
+        for raw_line in response:
+            if not raw_line:
                 continue
-            line_str = line.decode("utf-8")
+            line_str = raw_line.decode("utf-8").strip()
             if not line_str.startswith("data: "):
                 continue
             data = line_str[6:]
@@ -449,11 +453,12 @@ class LLMRouter(LLMInterface):
             except (json.JSONDecodeError, KeyError, IndexError):
                 continue
 
-    def _handle_context_overflow(self, response: requests.Response,
+    def _handle_context_overflow(self, error_response: Any,
                                  payload: dict) -> None:
         """Trim messages on context overflow (400 error)."""
         try:
-            err = response.json().get("error", {})
+            body = error_response.read().decode("utf-8")
+            err = json.loads(body).get("error", {})
         except Exception:
             return
         if err.get("type") == "exceed_context_size_error":
