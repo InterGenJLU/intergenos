@@ -348,7 +348,7 @@ def main() -> int:
         output_dir = Path(__file__).parent / "results" / run_id
 
     # Initialize client
-    from intergen.tests.client import TestClient
+    from intergen.tests.client import InterGenTestClient as TestClient
     client = TestClient(mode=args.mode)
 
     print(f"InterGen Test Suite")
