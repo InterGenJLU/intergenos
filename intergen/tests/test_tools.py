@@ -155,6 +155,49 @@ class TestRunCommandSafety(unittest.TestCase):
     def test_blocked_chmod_777_root(self):
         self.assertEqual(self._classify("chmod -R 777 /"), SafetyTier.BLOCKED)
 
+    # === Edge cases ===
+
+    def test_blocked_dd_to_nvme(self):
+        self.assertEqual(self._classify("dd if=/dev/zero of=/dev/nvme0n1"), SafetyTier.BLOCKED)
+
+    def test_blocked_redirect_to_nvme(self):
+        self.assertEqual(self._classify("echo foo > /dev/nvme0n1"), SafetyTier.BLOCKED)
+
+    def test_blocked_disable_networkmanager(self):
+        self.assertEqual(self._classify("systemctl disable NetworkManager"), SafetyTier.BLOCKED)
+
+    def test_blocked_mask_dbus(self):
+        self.assertEqual(self._classify("systemctl mask dbus"), SafetyTier.BLOCKED)
+
+    def test_blocked_iptables_flush(self):
+        self.assertEqual(self._classify("iptables -F"), SafetyTier.BLOCKED)
+
+    def test_blocked_shred(self):
+        self.assertEqual(self._classify("shred /dev/sda"), SafetyTier.BLOCKED)
+
+    def test_blocked_poweroff(self):
+        self.assertEqual(self._classify("poweroff"), SafetyTier.BLOCKED)
+
+    def test_auto_unknown_defaults_confirm(self):
+        """Unknown commands should default to confirm, not auto."""
+        self.assertEqual(self._classify("some_unknown_tool --flag"), SafetyTier.CONFIRM)
+
+    def test_confirm_pipe_with_write(self):
+        """Pipe chain with a write command should be confirm."""
+        self.assertEqual(self._classify("ls | tee output.txt"), SafetyTier.CONFIRM)
+
+    def test_blocked_pipe_with_destructive(self):
+        """Pipe chain with destructive command should be blocked."""
+        self.assertEqual(self._classify("echo yes | mkfs.ext4 /dev/sda1"), SafetyTier.BLOCKED)
+
+    def test_auto_compound_read_only(self):
+        """Multiple read-only commands chained should be auto."""
+        self.assertEqual(self._classify("uname -a && hostname"), SafetyTier.AUTO)
+
+    def test_confirm_semicolon_with_write(self):
+        """Semicolon chain with write should be confirm."""
+        self.assertEqual(self._classify("ls; touch newfile"), SafetyTier.CONFIRM)
+
 
 class TestRunCommandExecution(unittest.TestCase):
     """Test actual command execution on real system."""

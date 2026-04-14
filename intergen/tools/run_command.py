@@ -52,11 +52,18 @@ BLOCKED_PATTERNS = [
     re.compile(r"\brm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?/\s*$"),  # rm -rf /
     re.compile(r"\brm\s+-[a-zA-Z]*r[a-zA-Z]*f"),              # rm -rf (any path)
     re.compile(r"\bdd\s+.*if=/dev/(zero|urandom|random)"),     # dd wipe
+    re.compile(r"\bdd\s+.*of=/dev/[a-z]"),                     # dd write to any device
     re.compile(r"\b:\s*\(\)\s*\{\s*:\s*\|\s*:"),               # fork bomb
     re.compile(r"\bmkfs\b"),                                    # filesystem format
     re.compile(r">\s*/dev/sd[a-z]"),                            # redirect to disk
+    re.compile(r">\s*/dev/nvme"),                               # redirect to NVMe
     re.compile(r"\bchmod\s+.*-R\s+777\s+/\s*$"),               # chmod 777 /
     re.compile(r"\bchown\s+.*-R\s+.*\s+/\s*$"),                # chown -R ... /
+    re.compile(r"\bswapon\s+/dev/"),                            # swapon device
+    re.compile(r"\bmount\s+.*-o\s+.*remount.*\s+/\s*$"),       # remount root
+    re.compile(r"\biptables\s+-F"),                             # flush firewall
+    re.compile(r"\bnftables\s+flush\s+ruleset"),                # flush nftables
+    re.compile(r"\bsystemctl\s+(mask|disable)\s+(NetworkManager|dbus|systemd)"),  # disable critical services
 ]
 
 # Commands that modify state (need confirmation)
