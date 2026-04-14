@@ -1,1 +1,1 @@
-"""InterGen core tools — auto-discovered by ToolRegistry."""
+"""InterGen core tools — each implements BaseTool."""
