@@ -119,25 +119,37 @@ class ConversationRouter(RouterInterface):
         return RouteResult(handled=False)
 
     def _try_semantic_match(self, user_input: str) -> RouteResult:
-        """P2: embedding similarity matching."""
+        """P2: embedding similarity matching.
+
+        Uses template synthesis first (instant), LLM fallback for complex output.
+        Same pattern as P1 — no reason to call the LLM to format 'intergenos'
+        into 'Your hostname is intergenos' when a template does it in 0ms.
+        """
         match = self._semantic._match_embeddings(user_input)
-        if match.intent_id is None or match.score < 0.90:
+        if match.intent_id is None or match.score < 0.85:
             return RouteResult(handled=False)
 
         if match.tool_name:
             tool_result = self._execute_tool_for_intent(
                 match.tool_name, user_input
             )
-            if tool_result:
-                synthesis = self._synthesize_tool_result(
-                    user_input, match.tool_name, tool_result.content
+            if tool_result and tool_result.success:
+                response = self._template_synthesis(
+                    user_input, tool_result.content
                 )
+                used_llm = False
+                if response is None:
+                    response = self._synthesize_tool_result(
+                        user_input, match.tool_name, tool_result.content
+                    )
+                    used_llm = True
                 return RouteResult(
-                    text=synthesis,
+                    text=response,
                     source="semantic",
                     handled=True,
                     tool_results=[tool_result],
                     confidence=match.score,
+                    used_llm=used_llm,
                 )
 
         return RouteResult(handled=False)
