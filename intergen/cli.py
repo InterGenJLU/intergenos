@@ -25,6 +25,8 @@ def print_usage() -> None:
     print("  tier             Show hardware tier info")
     print("  tools            List available tools")
     print("  test             Run self-test (hardware + tools)")
+    print("  setup            Download and verify LLM model")
+    print("  daemon           Start the InterGen daemon")
     print()
     print("InterGen — AI assistant for InterGenOS")
 
@@ -189,6 +191,12 @@ def main() -> None:
         cmd_tools()
     elif command == "test":
         cmd_test()
+    elif command == "setup":
+        from intergen.setup import run_setup
+        run_setup(auto_yes="--yes" in sys.argv)
+    elif command == "daemon":
+        from intergen.dbus_daemon import main as daemon_main
+        daemon_main()
     elif command in ("help", "--help", "-h"):
         print_usage()
     else:
