@@ -92,12 +92,16 @@ class ConversationRouter(RouterInterface):
             tool_result = self._execute_tool_for_intent(
                 match.tool_name, user_input
             )
-            if tool_result:
+            if tool_result and tool_result.success:
+                synthesis = self._synthesize_tool_result(
+                    user_input, match.tool_name, tool_result.content
+                )
                 return RouteResult(
-                    text=tool_result.content,
+                    text=synthesis,
                     source="keyword",
                     handled=True,
                     tool_results=[tool_result],
+                    used_llm=True,
                 )
 
         return RouteResult(handled=False)
@@ -218,6 +222,9 @@ class ConversationRouter(RouterInterface):
         Complex argument extraction is deferred to LLM tool calling (P3).
         """
         if tool_name == "run_command":
+            cmd = self._natural_language_to_command(user_input)
+            if cmd:
+                return {"command": cmd}
             return {"command": user_input}
         if tool_name == "read_file":
             return {"path": user_input.split()[-1] if user_input.split() else ""}
@@ -244,6 +251,51 @@ class ConversationRouter(RouterInterface):
             return {"name": user_input}
 
         return {"query": user_input}
+
+    @staticmethod
+    def _natural_language_to_command(user_input: str) -> str | None:
+        """Map common natural language system queries to shell commands.
+
+        Returns the command string, or None if the input doesn't map
+        to a known query (falls through to LLM for complex cases).
+        """
+        lower = user_input.lower().strip()
+
+        _QUERY_MAP = {
+            "hostname": "hostname",
+            "host name": "hostname",
+            "my hostname": "hostname",
+            "kernel": "uname -r",
+            "kernel version": "uname -r",
+            "what kernel": "uname -r",
+            "ip address": "ip -brief addr show",
+            "my ip": "ip -brief addr show",
+            "network interfaces": "ip -brief addr show",
+            "disk space": "df -h",
+            "disk usage": "df -h",
+            "storage": "df -h",
+            "memory": "free -h",
+            "ram": "free -h",
+            "memory usage": "free -h",
+            "cpu": "lscpu | head -20",
+            "cpu info": "lscpu | head -20",
+            "uptime": "uptime",
+            "os version": "cat /etc/os-release",
+            "operating system": "cat /etc/os-release",
+            "what os": "cat /etc/os-release",
+            "gpu": "lspci | grep -i vga",
+            "usb devices": "lsusb",
+            "block devices": "lsblk",
+            "system info": "uname -a && free -h && df -h",
+            "system status": "uptime && free -h && df -h",
+            "system health": "uptime && free -h && df -h",
+        }
+
+        for phrase, cmd in _QUERY_MAP.items():
+            if phrase in lower:
+                return cmd
+
+        return None
 
     def _synthesize_tool_result(self, user_input: str, tool_name: str,
                                 tool_output: str) -> str:
