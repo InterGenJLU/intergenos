@@ -294,7 +294,18 @@ class InterGenDaemon(InterGenDBusInterface):
         except Exception as e:
             log.warning("Memory manager init failed: %s", e)
 
-        # Step 9: Initialize conversation router (the orchestrator)
+        # Step 9: Start system state cache
+        self._state_cache = None
+        try:
+            from intergen.state_cache import StateCache
+            self._state_cache = StateCache()
+            self._state_cache.start()
+            log.info("State cache started (%d entries)",
+                     self._state_cache.entry_count)
+        except Exception as e:
+            log.warning("State cache init failed: %s", e)
+
+        # Step 10: Initialize conversation router (the orchestrator)
         if self._tools and self._matcher and self._llm:
             try:
                 from intergen.router import ConversationRouter
@@ -310,6 +321,7 @@ class InterGenDaemon(InterGenDBusInterface):
                     metrics=self._metrics,
                     hardware_tier=hw_tier,
                     memory=self._memory,
+                    state_cache=self._state_cache,
                 )
                 log.info("Conversation router initialized")
             except Exception as e:
@@ -346,6 +358,8 @@ class InterGenDaemon(InterGenDBusInterface):
         log.info("InterGen daemon stopping...")
         self._running = False
 
+        if self._state_cache:
+            self._state_cache.stop()
         if self._watchdog:
             self._watchdog.stop()
         if self._llama:

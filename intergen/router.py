@@ -21,6 +21,7 @@ from typing import Any
 from intergen.decomposer import analyze_query, DecomposedQuery
 from intergen.memory import MemoryManager
 from intergen.interfaces.router import RouterInterface
+from intergen.state_cache import StateCache
 from intergen.interfaces.types import (
     HardwareTierLevel, Message, MessageRole, RouteResult, ToolCall, ToolResult,
 )
@@ -43,7 +44,8 @@ class ConversationRouter(RouterInterface):
                  event_logger: EventLogger | None = None,
                  metrics: MetricsTracker | None = None,
                  hardware_tier: HardwareTierLevel = HardwareTierLevel.TIER_2,
-                 memory: MemoryManager | None = None):
+                 memory: MemoryManager | None = None,
+                 state_cache: StateCache | None = None):
         self._tools = tool_registry
         self._semantic = semantic_matcher
         self._llm = llm
@@ -51,6 +53,7 @@ class ConversationRouter(RouterInterface):
         self._metrics = metrics
         self._hardware_tier = hardware_tier
         self._memory = memory
+        self._state_cache = state_cache
         self._conversation_history: list[Message] = []
         self._max_history = 20
         self._first_interaction = True
@@ -77,6 +80,20 @@ class ConversationRouter(RouterInterface):
         # Track first interaction (for session awareness on demand)
         if self._first_interaction:
             self._first_interaction = False
+
+        # Cache hit — instant response from pre-polled system state (0ms)
+        if self._state_cache:
+            cached = self._state_cache.lookup_for_query(user_input)
+            if cached:
+                response = self._template_synthesis(user_input, cached)
+                if response:
+                    self._record(
+                        RouteResult(text=response, source="cache", handled=True),
+                        t0, "cache",
+                    )
+                    return RouteResult(
+                        text=response, source="cache", handled=True,
+                    )
 
         # Self-identification — instant, no LLM needed
         lower_input = user_input.lower().strip()
