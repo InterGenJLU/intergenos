@@ -14,9 +14,15 @@ build() {
     pip3 install --target="${DESTDIR}/usr/lib/python3.14/site-packages" \
         --no-cache-dir \
         numpy \
-        "torch --index-url https://download.pytorch.org/whl/cpu" \
         sentence-transformers \
         huggingface-hub \
+        2>&1 | tail -5
+
+    # Torch CPU-only requires separate index URL
+    pip3 install --target="${DESTDIR}/usr/lib/python3.14/site-packages" \
+        --no-cache-dir \
+        --index-url https://download.pytorch.org/whl/cpu \
+        torch \
         2>&1 | tail -5
 }
 
