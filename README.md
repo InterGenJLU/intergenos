@@ -8,6 +8,19 @@ The local AI assistant doesn't just help you use your system — it helps you un
 
 ![InterGenOS First Boot — GNOME 49 on Wayland](images/FirstBoot_InterGenOS_Revival.png)
 
+## Screenshots
+
+GNOME 49.4 on Wayland with the InterGenOS shell theme.
+
+| | |
+|---|---|
+| ![Activities Overview](images/screenshots/activities_overview.png) | ![App Grid](images/screenshots/app_grid.png) |
+| ![Quick Settings](images/screenshots/quick_settings.png) | ![Calendar](images/screenshots/calendar.png) |
+
+![Settings](images/screenshots/settings_app.png)
+
+Desktop shown with [Cybernetic icon theme](https://github.com/SethStormR/Cybernetic) by SethStormR.
+
 ## The Prime Directive
 
 *InterGenOS exists to put the user in control of their own machine. Every design decision, every default, every included component must serve this purpose: giving people a system they understand, can modify, and can trust. Any complexity that doesn't serve the user — or that hides how the system works — is not welcome, regardless of how conventional it may be.*
