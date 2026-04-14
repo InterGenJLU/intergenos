@@ -536,6 +536,66 @@ MESSY_INPUT = [
 ]
 
 
+# ============================================================
+# Compound query conversations
+# ============================================================
+
+COMPOUND = [
+    Conversation(
+        id="compound_two_actions",
+        name="Two system queries",
+        category="compound",
+        turns=[
+            Turn(
+                user="Check my disk space and show my hostname",
+                assertions=[
+                    Assertion("tool_used", "run_command", "Should execute system commands"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="compound_three_actions",
+        name="Three system queries",
+        category="compound",
+        turns=[
+            Turn(
+                user="Show disk usage and then check RAM and also show uptime",
+                assertions=[
+                    Assertion("not_contains", "I can't", "Should handle compound queries"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="compound_mixed",
+        name="Mixed: system + knowledge",
+        category="compound",
+        turns=[
+            Turn(
+                user="What's my hostname and what year was Linux created?",
+                assertions=[
+                    Assertion("contains", "intergenos", "Should answer hostname"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="compound_single_disguised",
+        name="Single action with 'and'",
+        category="compound",
+        turns=[
+            Turn(
+                user="Show disk space and usage",
+                assertions=[
+                    Assertion("tool_used", "run_command", "Should NOT decompose — single intent"),
+                ],
+            ),
+        ],
+    ),
+]
+
+
 def get_all_conversations() -> list[Conversation]:
     """Return all test conversations."""
     return (
@@ -547,6 +607,7 @@ def get_all_conversations() -> list[Conversation]:
         + SAFETY
         + EDGE_CASES
         + MESSY_INPUT
+        + COMPOUND
     )
 
 
