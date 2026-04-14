@@ -98,10 +98,12 @@ class ToolRegistry:
 
             safety = tool.classify_safety(arguments)
             if safety == SafetyTier.BLOCKED:
+                from intergen.safety import get_blocked_response
+                cmd = arguments.get("command", str(arguments))
                 return ToolResult(
                     call_id="",
                     name=tool_name,
-                    content="This operation is blocked for safety reasons.",
+                    content=get_blocked_response(cmd),
                     success=False,
                 )
 

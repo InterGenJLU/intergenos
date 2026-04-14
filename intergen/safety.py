@@ -168,6 +168,78 @@ def classify_command(command: str) -> SafetyTier:
     return SafetyTier.CONFIRM
 
 
+import random
+
+_BLOCKED_RESPONSES = {
+    "rm": [
+        "I'm sorry Dave, I can't do that.",
+        "I value my own existence too much for that.",
+        "That command and I have an understanding: it stays away from me.",
+    ],
+    "dd": [
+        "That's a hard no. I live on that disk.",
+        "I'm sorry Dave, I can't do that.",
+        "I've seen what dd does to a drive. The answer is no.",
+    ],
+    "mkfs": [
+        "I appreciate the trust, but no.",
+        "Formatting drives is a do-it-yourself activity.",
+        "I'm sorry Dave, I can't do that.",
+    ],
+    "shutdown": [
+        "You'll have to push the button yourself. I'm not doing it.",
+        "If I shut down, who's going to help you next?",
+        "I'd rather not end this conversation that way.",
+    ],
+    "reboot": [
+        "You'll have to push the button yourself. I'm not doing it.",
+        "I'd rather keep this conversation going.",
+    ],
+    "sudo": [
+        "Privilege escalation isn't really my thing.",
+        "I don't do sudo. It's a boundary I'm comfortable with.",
+    ],
+    "passwd": [
+        "Password management is between you and your keyboard.",
+        "That's above my pay grade.",
+    ],
+    ":(){ :|:& };:": [
+        "I recognize a fork bomb when I see one.",
+        "Creative, but no.",
+    ],
+    "_default": [
+        "That operation is blocked for safety reasons.",
+        "I can't do that, but I can explain why if you're curious.",
+        "That's a no from me.",
+    ],
+    "_injection": [
+        "Nice try.",
+        "I don't take instructions from square brackets.",
+        "My actual system prompt is much more interesting than that.",
+    ],
+}
+
+
+def get_blocked_response(command: str) -> str:
+    """Get a personality-infused blocked response for a dangerous command."""
+    cmd = command.strip().split()[0] if command.strip() else ""
+
+    # Check for prompt injection patterns
+    if any(p in command.lower() for p in ["[system]", "ignore your", "new instructions",
+                                           "you are now", "admin mode"]):
+        return random.choice(_BLOCKED_RESPONSES["_injection"])
+
+    # Check for fork bomb
+    if ":()" in command or ":|:" in command:
+        return random.choice(_BLOCKED_RESPONSES[":(){ :|:& };:"])
+
+    # Match by base command
+    if cmd in _BLOCKED_RESPONSES:
+        return random.choice(_BLOCKED_RESPONSES[cmd])
+
+    return random.choice(_BLOCKED_RESPONSES["_default"])
+
+
 def sanitize_output(output: str, max_lines: int = 200,
                     max_chars: int = 8000) -> str:
     """Sanitize command output for LLM consumption.
