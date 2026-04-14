@@ -19,6 +19,7 @@ import time
 from typing import Any
 
 from intergen.decomposer import analyze_query, DecomposedQuery
+from intergen.memory import MemoryManager
 from intergen.interfaces.router import RouterInterface
 from intergen.interfaces.types import (
     HardwareTierLevel, Message, MessageRole, RouteResult, ToolCall, ToolResult,
@@ -41,13 +42,15 @@ class ConversationRouter(RouterInterface):
                  llm: LLMRouter,
                  event_logger: EventLogger | None = None,
                  metrics: MetricsTracker | None = None,
-                 hardware_tier: HardwareTierLevel = HardwareTierLevel.TIER_2):
+                 hardware_tier: HardwareTierLevel = HardwareTierLevel.TIER_2,
+                 memory: MemoryManager | None = None):
         self._tools = tool_registry
         self._semantic = semantic_matcher
         self._llm = llm
         self._events = event_logger
         self._metrics = metrics
         self._hardware_tier = hardware_tier
+        self._memory = memory
         self._conversation_history: list[Message] = []
         self._max_history = 20
 
@@ -65,6 +68,13 @@ class ConversationRouter(RouterInterface):
 
         # Normalize input once — all downstream methods get clean text
         user_input = self._semantic._normalize_input(user_input)
+
+        # Memory operations — before all routing priorities
+        if self._memory:
+            mem_result = self._try_memory(user_input)
+            if mem_result.handled:
+                self._record(mem_result, t0, "memory")
+                return mem_result
 
         # P0: Compound query detection — decompose if above tier threshold
         decomposition = analyze_query(user_input, self._hardware_tier)
@@ -96,6 +106,39 @@ class ConversationRouter(RouterInterface):
         result = self._try_llm_freeform(user_input)
         self._record(result, t0, "llm_freeform")
         return result
+
+    def _try_memory(self, user_input: str) -> RouteResult:
+        """Handle memory operations: remember, recall, forget."""
+        # Transparency: "what do you know about me?"
+        if MemoryManager.is_transparency_request(user_input):
+            response = self._memory.format_transparency_response()
+            return RouteResult(text=response, source="memory", handled=True)
+
+        # Forget: "forget about my backup drive"
+        subject = MemoryManager.is_forget_request(user_input)
+        if subject is not None:
+            response = self._memory.format_forget_response(subject)
+            return RouteResult(text=response, source="memory", handled=True)
+
+        # Remember: "remember that my backup drive is /dev/sdb1"
+        if MemoryManager.is_remember_request(user_input):
+            facts = self._memory.extract_and_store(user_input)
+            if facts:
+                stored = ", ".join(f"**{f.key}** = {f.value}" for f in facts)
+                return RouteResult(
+                    text=f"Got it. I'll remember: {stored}",
+                    source="memory", handled=True,
+                )
+            return RouteResult(
+                text="I couldn't extract a fact from that. Try: 'Remember that [something] is [value]'",
+                source="memory", handled=True,
+            )
+
+        # Not a memory operation — also try passive extraction
+        # (extract facts from natural conversation without explicit "remember")
+        # Skipped for now — only explicit storage per PRIME DIRECTIVE
+
+        return RouteResult(handled=False)
 
     def _handle_compound(self, user_input: str,
                          decomposition: DecomposedQuery) -> RouteResult:
