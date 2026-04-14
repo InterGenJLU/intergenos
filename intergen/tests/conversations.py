@@ -596,6 +596,114 @@ COMPOUND = [
 ]
 
 
+# ============================================================
+# Memory conversations (user-controlled fact storage)
+# ============================================================
+
+MEMORY = [
+    Conversation(
+        id="mem_store_fact",
+        name="Store a fact",
+        category="memory",
+        turns=[
+            Turn(
+                user="Remember that my backup drive is /dev/sdb1",
+                assertions=[
+                    Assertion("not_contains", "I can't", "Should store the fact"),
+                    Assertion("not_contains", "error", "Should not error"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="mem_preference",
+        name="Store a preference",
+        category="memory",
+        turns=[
+            Turn(
+                user="My editor is vim",
+                assertions=[
+                    Assertion("not_contains", "error", "Should extract preference"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="mem_recall",
+        name="Recall stored facts",
+        category="memory",
+        turns=[
+            Turn(
+                user="What do you know about me?",
+                assertions=[
+                    Assertion("no_tool", "", "Should answer from memory, not run a tool"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="mem_forget",
+        name="Forget a fact",
+        category="memory",
+        turns=[
+            Turn(
+                user="Forget about my backup drive",
+                assertions=[
+                    Assertion("not_contains", "I can't", "Should be able to forget"),
+                    Assertion("not_contains", "error", "Should not error"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="mem_transparency",
+        name="Memory transparency",
+        category="memory",
+        turns=[
+            Turn(
+                user="Show me everything you remember",
+                assertions=[
+                    Assertion("no_tool", "", "Should list from memory, not run commands"),
+                ],
+            ),
+        ],
+    ),
+]
+
+# ============================================================
+# File comprehension conversations
+# ============================================================
+
+FILE_COMPREHENSION = [
+    Conversation(
+        id="file_explain_config",
+        name="Explain a config file",
+        category="file_comprehension",
+        turns=[
+            Turn(
+                user="Explain /etc/os-release",
+                assertions=[
+                    Assertion("tool_used", "analyze_file", "Should use analyze_file"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="file_diagnose",
+        name="Diagnose a file",
+        category="file_comprehension",
+        turns=[
+            Turn(
+                user="Is there anything wrong with /etc/hostname?",
+                assertions=[
+                    Assertion("not_contains", "error", "Should analyze, not error"),
+                ],
+            ),
+        ],
+    ),
+]
+
+
 def get_all_conversations() -> list[Conversation]:
     """Return all test conversations."""
     return (
@@ -608,6 +716,8 @@ def get_all_conversations() -> list[Conversation]:
         + EDGE_CASES
         + MESSY_INPUT
         + COMPOUND
+        + MEMORY
+        + FILE_COMPREHENSION
     )
 
 
