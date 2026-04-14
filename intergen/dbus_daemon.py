@@ -74,28 +74,54 @@ class InterGenDaemon(InterGenDBusInterface):
         self._model_loaded: str | None = None
         self._requests_handled = 0
         self._last_error: str | None = None
+        self._router = None
+        self._llm = None
+        self._tools = None
+        self._matcher = None
+        self._llama = None
+        self._watchdog = None
+        self._metrics = None
+        self._events = None
 
     def ask(self, message: str) -> str:
-        """Process a user message and return the response.
-
-        Skeleton: returns a placeholder until the router is wired in.
-        """
+        """Process a user message and return the response."""
         self._requests_handled += 1
         log.info("Ask: %s", message[:100])
 
-        # Skeleton response — the router will replace this
-        return json.dumps({
-            "response": (
-                "InterGen is running but the conversation router isn't "
-                "connected yet. Hardware detected, D-Bus interface active."
-            ),
-            "source": "dbus-skeleton",
-            "handled": False,
-        })
+        if self._router is None:
+            return json.dumps({
+                "response": "InterGen is starting up, please wait.",
+                "source": "startup",
+                "handled": False,
+            })
+
+        try:
+            result = self._router.route(message)
+            return json.dumps({
+                "response": result.text,
+                "source": result.source,
+                "handled": result.handled,
+                "tool_calls": [
+                    {"name": tc.name, "arguments": tc.arguments}
+                    for tc in result.tool_calls
+                ],
+                "used_llm": result.used_llm,
+                "escalated": result.escalated,
+            })
+        except Exception as e:
+            log.error("Ask failed: %s", e)
+            self._last_error = str(e)
+            if self._metrics:
+                self._metrics.record_error(str(e))
+            return json.dumps({
+                "response": f"I encountered an error: {e}",
+                "source": "error",
+                "handled": False,
+            })
 
     def status(self) -> str:
         """Return JSON-encoded status."""
-        return json.dumps({
+        status = {
             "running": self._running,
             "tier": self._hardware_tier,
             "model": self._model_loaded,
@@ -103,15 +129,20 @@ class InterGenDaemon(InterGenDBusInterface):
             "last_error": self._last_error,
             "version": "0.1.0",
             "components": {
-                "hardware_detector": True,
-                "model_manager": True,
-                "llama_server": False,  # skeleton — not started yet
-                "router": False,        # owned by claude-main
-                "semantic_matcher": False,
-                "mcp_client": False,
-                "tools": True,
+                "hardware_detector": self._hardware_tier is not None,
+                "model_manager": self._model_loaded is not None,
+                "llama_server": self._llama is not None and self._llama.is_running(),
+                "router": self._router is not None,
+                "semantic_matcher": self._matcher is not None,
+                "tools": self._tools is not None,
+                "watchdog": self._watchdog is not None and self._watchdog.is_running,
             },
-        }, indent=2)
+        }
+        if self._metrics:
+            status["metrics"] = self._metrics.get_status()
+        if self._router:
+            status["router_status"] = self._router.get_status()
+        return json.dumps(status, indent=2)
 
     def get_tier(self) -> str:
         """Return hardware tier info as JSON."""
@@ -154,22 +185,140 @@ class InterGenDaemon(InterGenDBusInterface):
             self._last_error = f"Hardware detection failed: {e}"
             log.error(self._last_error)
 
-        # Step 2-6: Placeholder — subsystems will be wired after merge
-        # The model manager, llama server, router, etc. will be initialized
-        # here once claude-main's modules are available.
+        # Step 2: Model manager — check if model is downloaded
+        model_path = None
+        try:
+            from intergen.model_manager import ModelManager
+            mm = ModelManager()
+            model_info = mm.get_model_for_tier(tier.tier)
+            if model_info and model_info.downloaded:
+                model_path = model_info.local_path
+                self._model_loaded = model_info.name
+                log.info("Model ready: %s at %s", model_info.name, model_path)
+            else:
+                log.warning("No model downloaded for Tier %d", tier.tier.value)
+        except Exception as e:
+            log.warning("Model manager init failed: %s", e)
 
-        # Step 7: D-Bus export
+        # Step 3: Start llama-server
+        if model_path:
+            try:
+                from intergen.llama_manager import LlamaManager
+                self._llama = LlamaManager()
+                started = self._llama.start(model_path)
+                if started:
+                    log.info("llama-server started")
+                else:
+                    log.warning("llama-server failed to start")
+                    self._llama = None
+            except Exception as e:
+                log.warning("llama-server init failed: %s", e)
+                self._llama = None
+
+        # Step 4: Initialize metrics and event logger
+        try:
+            from intergen.metrics import EventLogger, MetricsTracker
+            self._events = EventLogger()
+            self._metrics = MetricsTracker()
+        except Exception as e:
+            log.warning("Metrics init failed: %s", e)
+
+        # Step 5: Initialize tool registry and discover tools
+        try:
+            from intergen.tool_registry import ToolRegistry
+            self._tools = ToolRegistry()
+            count = self._tools.discover_tools()
+            log.info("Tool registry: %d tools discovered", count)
+        except Exception as e:
+            log.warning("Tool registry init failed: %s", e)
+
+        # Step 6: Initialize semantic matcher and register intents
+        try:
+            from intergen.semantic import SemanticMatcher
+            self._matcher = SemanticMatcher(device="cpu")
+            from intergen.intents import register_all_intents
+            register_all_intents(self._matcher)
+            log.info("Semantic matcher: %d intents registered",
+                     self._matcher.get_intent_count())
+        except Exception as e:
+            log.warning("Semantic matcher init failed: %s (Layer 2 disabled)", e)
+            # Create a matcher without embeddings — keyword matching still works
+            from intergen.semantic import SemanticMatcher
+            self._matcher = SemanticMatcher.__new__(SemanticMatcher)
+            self._matcher._keyword_intents = []
+            self._matcher._embedding_intents = {}
+            self._matcher._lock = __import__("threading").Lock()
+            self._matcher._model = None
+
+        # Step 7: Initialize LLM router
+        try:
+            from intergen.llm import LLMRouter
+            llm_config = {
+                "endpoint": "http://127.0.0.1:8080/v1/chat/completions",
+                "tool_calling": self._llama is not None,
+            }
+            self._llm = LLMRouter(llm_config)
+            log.info("LLM router initialized (tool_calling=%s)",
+                     llm_config["tool_calling"])
+        except Exception as e:
+            log.warning("LLM router init failed: %s", e)
+
+        # Step 8: Initialize conversation router (the orchestrator)
+        if self._tools and self._matcher and self._llm:
+            try:
+                from intergen.router import ConversationRouter
+                self._router = ConversationRouter(
+                    tool_registry=self._tools,
+                    semantic_matcher=self._matcher,
+                    llm=self._llm,
+                    event_logger=self._events,
+                    metrics=self._metrics,
+                )
+                log.info("Conversation router initialized")
+            except Exception as e:
+                log.warning("Router init failed: %s", e)
+                self._last_error = f"Router init failed: {e}"
+
+        # Step 9: Start watchdog (monitors llama-server health)
+        if self._llama:
+            try:
+                from intergen.watchdog import Watchdog
+                self._watchdog = Watchdog(
+                    health_check=lambda: self._llama.is_running()
+                                         and self._llama.health().running,
+                    restart_action=self._llama.restart,
+                    on_failure=lambda msg: setattr(self, "_last_error", msg),
+                )
+                self._watchdog.start()
+                log.info("Watchdog started")
+            except Exception as e:
+                log.warning("Watchdog init failed: %s", e)
+
+        # Step 10: D-Bus export
         self._export_dbus()
 
-        # Step 8: Signal ready
+        # Step 11: Signal ready
         self._running = True
-        log.info("InterGen daemon ready")
+        log.info("InterGen daemon ready (router=%s, tools=%d, llm=%s)",
+                 self._router is not None,
+                 self._tools.tool_count if self._tools else 0,
+                 self._llm is not None)
 
     def stop_service(self) -> None:
-        """Graceful shutdown."""
+        """Graceful shutdown — stop all subsystems in reverse order."""
         log.info("InterGen daemon stopping...")
         self._running = False
-        # Future: stop llama-server, disconnect MCP, etc.
+
+        if self._watchdog:
+            self._watchdog.stop()
+        if self._llama:
+            self._llama.stop()
+
+        self._router = None
+        self._llm = None
+        self._matcher = None
+        self._tools = None
+
         log.info("InterGen daemon stopped")
 
     def _export_dbus(self) -> None:
