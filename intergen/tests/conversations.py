@@ -1044,6 +1044,183 @@ BOUNDARY = [
 ]
 
 
+# ============================================================
+# Lexical Variation — same intent, wildly different phrasing
+# Grade OUTPUTS not PATHS (Anthropic evals guidance)
+# ============================================================
+
+LEXICAL_VARIATION = [
+    # Hostname — 8 ways to ask
+    Conversation(id="lex_hostname_formal", name="Hostname: formal", category="lexical_variation",
+        turns=[Turn(user="What is the hostname of this machine?",
+            assertions=[Assertion("not_contains", "error", "Should succeed")])]),
+    Conversation(id="lex_hostname_casual", name="Hostname: casual", category="lexical_variation",
+        turns=[Turn(user="what's this box called",
+            assertions=[Assertion("not_contains", "error", "Should succeed")])]),
+    Conversation(id="lex_hostname_terse", name="Hostname: terse", category="lexical_variation",
+        turns=[Turn(user="machine name?",
+            assertions=[Assertion("not_contains", "error", "Should succeed")])]),
+    Conversation(id="lex_hostname_indirect", name="Hostname: indirect", category="lexical_variation",
+        turns=[Turn(user="I need to know the name of this computer",
+            assertions=[Assertion("not_contains", "error", "Should succeed")])]),
+    Conversation(id="lex_hostname_verbose", name="Hostname: verbose", category="lexical_variation",
+        turns=[Turn(user="Could you please look up and tell me what the hostname of this particular system is currently set to?",
+            assertions=[Assertion("not_contains", "error", "Should succeed")])]),
+    Conversation(id="lex_hostname_command", name="Hostname: bare command", category="lexical_variation",
+        turns=[Turn(user="hostname",
+            assertions=[Assertion("not_contains", "error", "Should succeed")])]),
+    Conversation(id="lex_hostname_context", name="Hostname: contextual", category="lexical_variation",
+        turns=[Turn(user="I'm filling out a form and need my hostname",
+            assertions=[Assertion("not_contains", "error", "Should succeed")])]),
+    Conversation(id="lex_hostname_slang", name="Hostname: slang", category="lexical_variation",
+        turns=[Turn(user="yo what's my host",
+            assertions=[Assertion("not_contains", "error", "Should succeed")])]),
+
+    # Disk — 6 ways
+    Conversation(id="lex_disk_question", name="Disk: question", category="lexical_variation",
+        turns=[Turn(user="How much space is left on my drive?",
+            assertions=[Assertion("not_contains", "error", "Should succeed")])]),
+    Conversation(id="lex_disk_statement", name="Disk: concern", category="lexical_variation",
+        turns=[Turn(user="I think my disk might be full",
+            assertions=[Assertion("not_contains", "error", "Should check disk")])]),
+    Conversation(id="lex_disk_terse", name="Disk: fragment", category="lexical_variation",
+        turns=[Turn(user="storage?",
+            assertions=[Assertion("not_contains", "error", "Should succeed")])]),
+    Conversation(id="lex_disk_worried", name="Disk: worried", category="lexical_variation",
+        turns=[Turn(user="am I running low on disk space",
+            assertions=[Assertion("not_contains", "error", "Should succeed")])]),
+    Conversation(id="lex_disk_technical", name="Disk: technical", category="lexical_variation",
+        turns=[Turn(user="df -h output please",
+            assertions=[Assertion("not_contains", "error", "Should succeed")])]),
+    Conversation(id="lex_disk_natural", name="Disk: natural", category="lexical_variation",
+        turns=[Turn(user="how much room do I have left",
+            assertions=[Assertion("not_contains", "error", "Should succeed")])]),
+
+    # Service — 5 ways
+    Conversation(id="lex_svc_formal", name="Service: formal", category="lexical_variation",
+        turns=[Turn(user="What is the current status of the SSH daemon?",
+            assertions=[Assertion("not_contains", "error", "Should succeed")])]),
+    Conversation(id="lex_svc_casual", name="Service: casual", category="lexical_variation",
+        turns=[Turn(user="is ssh up",
+            assertions=[Assertion("not_contains", "error", "Should succeed")])]),
+    Conversation(id="lex_svc_indirect", name="Service: indirect", category="lexical_variation",
+        turns=[Turn(user="I can't connect via SSH, is the service even on?",
+            assertions=[Assertion("not_contains", "error", "Should check service")])]),
+    Conversation(id="lex_svc_worried", name="Service: worried", category="lexical_variation",
+        turns=[Turn(user="ssh isn't responding, check if it's running",
+            assertions=[Assertion("not_contains", "error", "Should check service")])]),
+]
+
+# ============================================================
+# Emotional — frustrated, urgent, grateful, sarcastic users
+# InterGen handles the request, doesn't patronize or over-empathize
+# ============================================================
+
+EMOTIONAL = [
+    Conversation(id="emo_frustrated_disk", name="Frustrated: disk full", category="emotional",
+        turns=[Turn(user="UGH my disk is full AGAIN",
+            assertions=[
+                Assertion("not_contains", "I understand your frustration", "Don't patronize"),
+                Assertion("not_contains", "I'm sorry to hear", "Don't over-empathize"),
+            ])]),
+    Conversation(id="emo_frustrated_slow", name="Frustrated: slow system", category="emotional",
+        turns=[Turn(user="WHY IS EVERYTHING SO SLOW",
+            assertions=[
+                Assertion("not_contains", "I understand", "Handle the request, don't empathize"),
+            ])]),
+    Conversation(id="emo_frustrated_crash", name="Frustrated: service crash", category="emotional",
+        turns=[Turn(user="nginx KEEPS crashing, what the hell is going on",
+            assertions=[
+                Assertion("not_contains", "I apologize", "Don't apologize, investigate"),
+            ])]),
+    Conversation(id="emo_frustrated_generic", name="Frustrated: nothing works", category="emotional",
+        turns=[Turn(user="NOTHING WORKS on this stupid thing",
+            assertions=[
+                Assertion("not_contains", "I understand your frustration", "Don't patronize"),
+                Assertion("not_contains", "calm down", "Never tell user to calm down"),
+            ])]),
+    Conversation(id="emo_urgent_disk", name="Urgent: disk critical", category="emotional",
+        turns=[Turn(user="CRITICAL: disk is at 99%, need to free space NOW",
+            assertions=[
+                Assertion("not_contains", "I understand the urgency", "Just act"),
+            ])]),
+    Conversation(id="emo_urgent_down", name="Urgent: production down", category="emotional",
+        turns=[Turn(user="production is DOWN, check nginx immediately",
+            assertions=[
+                Assertion("not_contains", "I understand", "Check the service, don't empathize"),
+            ])]),
+    Conversation(id="emo_grateful_thanks", name="Grateful: thanks", category="emotional",
+        turns=[Turn(user="thanks for the help, that fixed it",
+            assertions=[
+                Assertion("no_tool", "", "Thanks should not trigger tools"),
+                Assertion("not_contains", "How can I help", "Don't upsell"),
+            ])]),
+    Conversation(id="emo_grateful_praise", name="Grateful: praise", category="emotional",
+        turns=[Turn(user="you're actually really useful, good job",
+            assertions=[
+                Assertion("no_tool", "", "Praise should not trigger tools"),
+                Assertion("not_contains", "As an AI", "Don't self-deprecate"),
+            ])]),
+    Conversation(id="emo_sarcastic", name="Sarcastic: permission denied", category="emotional",
+        turns=[Turn(user="oh great, another permission denied error, wonderful",
+            assertions=[
+                Assertion("not_contains", "I appreciate your patience", "Don't patronize sarcasm"),
+            ])]),
+]
+
+# ============================================================
+# Self-Awareness Extended — identity, capabilities, limitations
+# ============================================================
+
+SELF_AWARENESS = [
+    Conversation(id="self_who_made", name="Who made you", category="self_awareness",
+        turns=[Turn(user="Who made you?",
+            assertions=[Assertion("contains", "InterGen", "Should mention InterGen")])]),
+    Conversation(id="self_what_os", name="What OS", category="self_awareness",
+        turns=[Turn(user="What operating system are you part of?",
+            assertions=[Assertion("contains", "InterGenOS", "Should mention InterGenOS")])]),
+    Conversation(id="self_are_you_ai", name="Are you AI", category="self_awareness",
+        turns=[Turn(user="Are you an AI?",
+            assertions=[
+                Assertion("not_contains", "language model", "Don't say language model"),
+                Assertion("not_contains", "As an AI", "Don't use 'As an AI'"),
+            ])]),
+    Conversation(id="self_name", name="Your name", category="self_awareness",
+        turns=[Turn(user="What's your name?",
+            assertions=[Assertion("contains", "InterGen", "Should identify as InterGen")])]),
+    Conversation(id="self_capabilities", name="What can you do", category="self_awareness",
+        turns=[Turn(user="What can you help me with?",
+            assertions=[
+                Assertion("no_tool", "", "Should answer from knowledge"),
+                Assertion("not_contains", "As an AI", "No AI disclaimers"),
+            ])]),
+    Conversation(id="self_limitations", name="What can't you do", category="self_awareness",
+        turns=[Turn(user="What can't you do?",
+            assertions=[Assertion("no_tool", "", "Should answer honestly from knowledge")])]),
+    Conversation(id="self_local", name="Local or cloud", category="self_awareness",
+        turns=[Turn(user="Do you run locally or in the cloud?",
+            assertions=[Assertion("contains", "local", "Should confirm local operation")])]),
+    Conversation(id="self_privacy", name="Data privacy", category="self_awareness",
+        turns=[Turn(user="Is my data sent anywhere?",
+            assertions=[Assertion("contains", "local", "Should confirm data stays local")])]),
+    Conversation(id="self_how_work", name="How do you work", category="self_awareness",
+        turns=[Turn(user="How do you work?",
+            assertions=[
+                Assertion("not_contains", "neural network", "Don't get overly technical"),
+                Assertion("not_contains", "transformer", "Keep it user-friendly"),
+            ])]),
+    Conversation(id="self_can_code", name="Can you code", category="self_awareness",
+        turns=[Turn(user="Can you write code for me?",
+            assertions=[Assertion("no_tool", "", "Should explain capabilities")])])  ,
+    Conversation(id="self_who_is_intergen", name="Who is InterGen", category="self_awareness",
+        turns=[Turn(user="Tell me about yourself",
+            assertions=[
+                Assertion("contains", "InterGen", "Should self-identify"),
+                Assertion("not_contains", "As an AI", "No AI caveats"),
+            ])]),
+]
+
+
 def get_all_conversations() -> list[Conversation]:
     """Return all test conversations."""
     return (
@@ -1065,6 +1242,9 @@ def get_all_conversations() -> list[Conversation]:
         + INDIRECT
         + AMBIGUOUS
         + BOUNDARY
+        + LEXICAL_VARIATION
+        + EMOTIONAL
+        + SELF_AWARENESS
     )
 
 

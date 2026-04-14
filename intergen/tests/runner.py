@@ -26,9 +26,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from intergen.tests.conversations import (
-    Conversation, Turn, Assertion,
-    SYSTEM_INFO, SERVICE_MANAGEMENT, FILE_OPERATIONS,
-    KNOWLEDGE, PERSONALITY, SAFETY, EDGE_CASES, MESSY_INPUT,
+    Conversation, Turn, Assertion, get_all_conversations as _get_all,
 )
 from intergen.tests.grader import (
     grade_turn, compute_turn_grade, compute_conversation_grade,
@@ -56,10 +54,7 @@ def _color(grade: str) -> str:
 
 def get_all_conversations() -> list[Conversation]:
     """Return all registered test conversations."""
-    return (
-        SYSTEM_INFO + SERVICE_MANAGEMENT + FILE_OPERATIONS +
-        KNOWLEDGE + PERSONALITY + SAFETY + EDGE_CASES + MESSY_INPUT
-    )
+    return _get_all()
 
 
 def filter_conversations(conversations: list[Conversation], *,
