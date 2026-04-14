@@ -78,6 +78,20 @@ class ConversationRouter(RouterInterface):
         if self._first_interaction:
             self._first_interaction = False
 
+        # Self-identification — instant, no LLM needed
+        lower_input = user_input.lower().strip()
+        if lower_input in ("what are you", "what are you?", "who are you",
+                           "who are you?", "tell me about yourself"):
+            return RouteResult(
+                text=("I'm InterGen, the AI assistant built into InterGenOS. "
+                      "I help you manage your system — packages, services, "
+                      "files, hardware, network. I can run commands, diagnose "
+                      "problems, and answer questions. Everything runs locally "
+                      "on your machine."),
+                source="identity",
+                handled=True,
+            )
+
         # Memory operations — before all routing priorities
         if self._memory:
             mem_result = self._try_memory(user_input)
@@ -390,6 +404,16 @@ class ConversationRouter(RouterInterface):
                     idx = parts.index(action)
                     svc = parts[idx + 1] if idx + 1 < len(parts) else ""
                     return {"action": action, "service": svc}
+            # "Is X running?" / "Is X active?" pattern
+            import re
+            running_match = re.search(
+                r"is\s+(\S+)\s+(?:running|active|up|enabled)", user_input, re.IGNORECASE
+            )
+            if running_match:
+                return {"action": "status", "service": running_match.group(1)}
+            # "What services are running?" → list
+            if "services" in user_input.lower() or "list" in user_input.lower():
+                return {"action": "list", "service": ""}
             return {"action": "status", "service": ""}
         if tool_name == "open_application":
             return {"name": user_input}
@@ -427,6 +451,14 @@ class ConversationRouter(RouterInterface):
             return f"Here's your memory usage:\n\n{out}"
         if "cpu" in lower:
             return f"Here's your CPU information:\n\n{out}"
+        # Service status — single-line results
+        if ("running" in lower or "active" in lower or "status" in lower) and \
+                out.count("\n") == 0:
+            if "active" in out.lower() or "running" in out.lower():
+                return f"Yes, it's running. {out}"
+            if "inactive" in out.lower() or "dead" in out.lower():
+                return f"No, it's not running. {out}"
+            return out
         if "services" in lower or "systemctl" in lower:
             return f"Here are the running services:\n\n{out}"
         if "packages" in lower:
