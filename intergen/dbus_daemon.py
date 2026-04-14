@@ -173,44 +173,68 @@ class InterGenDaemon(InterGenDBusInterface):
         log.info("InterGen daemon stopped")
 
     def _export_dbus(self) -> None:
-        """Export the D-Bus interface.
+        """Export the D-Bus interface via GLib/Gio.
 
-        Tries dasbus first (modern, pure Python), falls back to
-        dbus-python if available. If neither is installed, logs a
-        warning and runs without D-Bus.
+        Uses PyGObject (gi.repository.Gio) — already installed as part
+        of the GNOME desktop stack. This is the native GNOME approach,
+        no extra pip packages needed.
         """
-        if self._try_dasbus():
-            return
-        if self._try_dbus_python():
-            return
-        log.warning(
-            "No D-Bus library available (tried dasbus, dbus-python). "
-            "InterGen will run without D-Bus integration. "
-            "Install dasbus: pip install dasbus"
-        )
-
-    def _try_dasbus(self) -> bool:
-        """Try to export via dasbus."""
         try:
-            from dasbus.connection import SessionMessageBus
-            from dasbus.server.interface import dbus_interface
-            from dasbus.typing import Str
-            log.info("Using dasbus for D-Bus integration")
-            # Actual registration would happen here
-            # For the skeleton, we just confirm the library is available
-            return True
-        except ImportError:
-            return False
+            import gi
+            gi.require_version("Gio", "2.0")
+            from gi.repository import Gio, GLib
 
-    def _try_dbus_python(self) -> bool:
-        """Try to export via dbus-python."""
-        try:
-            import dbus
-            import dbus.service
-            log.info("Using dbus-python for D-Bus integration")
-            return True
-        except ImportError:
-            return False
+            self._bus = Gio.bus_get_sync(Gio.BusType.SESSION)
+            self._node_info = Gio.DBusNodeInfo.new_for_xml(INTROSPECTION_XML)
+
+            def on_method_call(connection, sender, object_path, interface_name,
+                               method_name, parameters, invocation):
+                """Handle incoming D-Bus method calls."""
+                try:
+                    if method_name == "Ask":
+                        message = parameters.unpack()[0]
+                        response = self.ask(message)
+                        invocation.return_value(GLib.Variant("(s)", (response,)))
+                    elif method_name == "Status":
+                        response = self.status()
+                        invocation.return_value(GLib.Variant("(s)", (response,)))
+                    elif method_name == "GetTier":
+                        response = self.get_tier()
+                        invocation.return_value(GLib.Variant("(s)", (response,)))
+                    else:
+                        invocation.return_dbus_error(
+                            "com.intergenos.InterGen.Error",
+                            f"Unknown method: {method_name}",
+                        )
+                except Exception as e:
+                    log.error("D-Bus method call error: %s", e)
+                    invocation.return_dbus_error(
+                        "com.intergenos.InterGen.Error", str(e),
+                    )
+
+            self._reg_id = self._bus.register_object(
+                OBJECT_PATH,
+                self._node_info.interfaces[0],
+                on_method_call,
+                None,  # get_property
+                None,  # set_property
+            )
+
+            # Own the bus name
+            self._owner_id = Gio.bus_own_name_on_connection(
+                self._bus,
+                SERVICE_NAME,
+                Gio.BusNameOwnerFlags.NONE,
+                None,  # name_acquired
+                None,  # name_lost
+            )
+
+            log.info("D-Bus interface exported: %s at %s (via Gio)",
+                     SERVICE_NAME, OBJECT_PATH)
+
+        except Exception as e:
+            log.warning("D-Bus export failed: %s. Running without D-Bus.", e)
+            self._bus = None
 
 
 def main() -> None:
