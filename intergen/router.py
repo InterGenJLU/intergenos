@@ -53,6 +53,11 @@ class ConversationRouter(RouterInterface):
         self._memory = memory
         self._conversation_history: list[Message] = []
         self._max_history = 20
+        self._first_interaction = True
+
+        # Start a new session if memory is available
+        if self._memory:
+            self._memory.start_session()
 
     def route(self, user_input: str, *,
               conversation_active: bool = False) -> RouteResult:
@@ -68,6 +73,17 @@ class ConversationRouter(RouterInterface):
 
         # Normalize input once — all downstream methods get clean text
         user_input = self._semantic._normalize_input(user_input)
+
+        # Welcome back on first interaction
+        if self._first_interaction and self._memory:
+            self._first_interaction = False
+            welcome = self._memory.format_welcome_back()
+            if welcome and not MemoryManager.is_remember_request(user_input):
+                # Prepend welcome context, then process the actual query
+                result = self._route_single(user_input)
+                result.text = welcome + "\n\n" + result.text
+                self._record(result, t0, result.source)
+                return result
 
         # Memory operations — before all routing priorities
         if self._memory:
@@ -511,6 +527,11 @@ class ConversationRouter(RouterInterface):
     def _record(self, result: RouteResult, t0: float, source: str) -> None:
         """Record routing decision for metrics and logging."""
         elapsed_ms = (time.monotonic() - t0) * 1000
+
+        # Track turn for session awareness
+        if self._memory and result.handled:
+            tool_names = [tr.name for tr in result.tool_results]
+            self._memory.record_turn(result.text[:200], tool_names or None)
         logger.info("Routed via %s in %.0fms (tools=%d, llm=%s)",
                      source, elapsed_ms,
                      len(result.tool_results),

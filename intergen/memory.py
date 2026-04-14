@@ -128,6 +128,17 @@ class MemoryManager:
                 CREATE INDEX IF NOT EXISTS idx_facts_category
                 ON facts(category) WHERE deleted = 0
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS sessions (
+                    session_id TEXT PRIMARY KEY,
+                    topic TEXT NOT NULL,
+                    queries TEXT,
+                    tools_used TEXT,
+                    started_at REAL NOT NULL,
+                    ended_at REAL,
+                    turn_count INTEGER DEFAULT 0
+                )
+            """)
             conn.commit()
             logger.info("Memory database initialized at %s", self._db_path)
 
@@ -340,6 +351,141 @@ class MemoryManager:
         if count:
             return f"Done. I've forgotten {count} thing{'s' if count != 1 else ''} about '{subject}'."
         return f"I don't have any memories about '{subject}'."
+
+    # ── Session awareness ──
+
+    def start_session(self) -> str:
+        """Start a new session. Returns session_id."""
+        session_id = uuid.uuid4().hex[:16]
+        with self._db_lock:
+            conn = self._get_conn()
+            conn.execute(
+                "INSERT INTO sessions (session_id, topic, started_at, turn_count) "
+                "VALUES (?, ?, ?, 0)",
+                (session_id, "", time.time())
+            )
+            conn.commit()
+        self._current_session_id = session_id
+        self._session_queries: list[str] = []
+        self._session_tools: list[str] = []
+        logger.info("Session started: %s", session_id)
+        return session_id
+
+    def record_turn(self, query: str, tools_used: list[str] | None = None) -> None:
+        """Record a turn in the current session for topic tracking."""
+        if not hasattr(self, "_current_session_id"):
+            return
+        self._session_queries.append(query)
+        if tools_used:
+            self._session_tools.extend(tools_used)
+        with self._db_lock:
+            conn = self._get_conn()
+            conn.execute(
+                "UPDATE sessions SET turn_count = turn_count + 1 "
+                "WHERE session_id = ?",
+                (self._current_session_id,)
+            )
+            conn.commit()
+
+    def end_session(self, topic_summary: str | None = None) -> None:
+        """End the current session with an optional topic summary.
+
+        If no summary provided, generates one from recorded queries.
+        """
+        if not hasattr(self, "_current_session_id"):
+            return
+
+        if topic_summary is None:
+            topic_summary = self._auto_summarize_session()
+
+        with self._db_lock:
+            conn = self._get_conn()
+            conn.execute(
+                "UPDATE sessions SET topic = ?, queries = ?, tools_used = ?, "
+                "ended_at = ? WHERE session_id = ?",
+                (
+                    topic_summary,
+                    "\n".join(self._session_queries[-10:]),
+                    ",".join(set(self._session_tools)),
+                    time.time(),
+                    self._current_session_id,
+                )
+            )
+            conn.commit()
+        logger.info("Session ended: %s — topic: %s",
+                     self._current_session_id, topic_summary)
+
+    def get_last_session(self) -> dict | None:
+        """Get the most recent completed session for cross-session awareness."""
+        with self._db_lock:
+            conn = self._get_conn()
+            row = conn.execute(
+                "SELECT * FROM sessions WHERE ended_at IS NOT NULL "
+                "AND topic != '' ORDER BY ended_at DESC LIMIT 1"
+            ).fetchone()
+            if row:
+                return {
+                    "session_id": row["session_id"],
+                    "topic": row["topic"],
+                    "queries": row["queries"],
+                    "tools_used": row["tools_used"],
+                    "started_at": row["started_at"],
+                    "ended_at": row["ended_at"],
+                    "turn_count": row["turn_count"],
+                }
+            return None
+
+    def format_welcome_back(self) -> str | None:
+        """Format a welcome-back message with context from last session.
+
+        Returns None if no prior session exists.
+        """
+        last = self.get_last_session()
+        if not last or not last["topic"]:
+            return None
+
+        elapsed = time.time() - last["ended_at"]
+        if elapsed < 60:
+            return None
+
+        if elapsed < 3600:
+            time_ago = f"{int(elapsed / 60)} minutes ago"
+        elif elapsed < 86400:
+            time_ago = f"{int(elapsed / 3600)} hours ago"
+        else:
+            days = int(elapsed / 86400)
+            time_ago = f"{days} day{'s' if days != 1 else ''} ago"
+
+        return (f"Welcome back. Last time ({time_ago}) you were "
+                f"{last['topic']}. What can I help with?")
+
+    def _auto_summarize_session(self) -> str:
+        """Generate a topic summary from the session's recorded queries."""
+        if not self._session_queries:
+            return ""
+
+        queries = self._session_queries[-5:]
+        topics = set()
+        for q in queries:
+            lower = q.lower()
+            if any(w in lower for w in ["disk", "storage", "space"]):
+                topics.add("checking disk space")
+            elif any(w in lower for w in ["memory", "ram"]):
+                topics.add("checking memory usage")
+            elif any(w in lower for w in ["service", "systemctl", "restart", "start", "stop"]):
+                topics.add("managing services")
+            elif any(w in lower for w in ["install", "package", "pkm"]):
+                topics.add("managing packages")
+            elif any(w in lower for w in ["network", "ip", "dns"]):
+                topics.add("checking network")
+            elif any(w in lower for w in ["file", "read", "config", "log"]):
+                topics.add("working with files")
+            elif any(w in lower for w in ["hostname", "kernel", "uptime", "system"]):
+                topics.add("checking system info")
+
+        if topics:
+            return " and ".join(sorted(topics))
+        return "general queries"
 
     # ── Internal ──
 
