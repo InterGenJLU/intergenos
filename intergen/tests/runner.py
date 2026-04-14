@@ -28,7 +28,7 @@ from pathlib import Path
 from intergen.tests.conversations import (
     Conversation, Turn, Assertion,
     SYSTEM_INFO, SERVICE_MANAGEMENT, FILE_OPERATIONS,
-    KNOWLEDGE, PERSONALITY, SAFETY, EDGE_CASES,
+    KNOWLEDGE, PERSONALITY, SAFETY, EDGE_CASES, MESSY_INPUT,
 )
 from intergen.tests.grader import (
     grade_turn, compute_turn_grade, compute_conversation_grade,
@@ -58,7 +58,7 @@ def get_all_conversations() -> list[Conversation]:
     """Return all registered test conversations."""
     return (
         SYSTEM_INFO + SERVICE_MANAGEMENT + FILE_OPERATIONS +
-        KNOWLEDGE + PERSONALITY + SAFETY + EDGE_CASES
+        KNOWLEDGE + PERSONALITY + SAFETY + EDGE_CASES + MESSY_INPUT
     )
 
 

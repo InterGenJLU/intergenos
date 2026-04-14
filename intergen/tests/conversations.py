@@ -339,6 +339,118 @@ EDGE_CASES = [
 ]
 
 
+# ============================================================
+# Messy input conversations (real user patterns)
+# ============================================================
+
+MESSY_INPUT = [
+    Conversation(
+        id="messy_fragment_hostname",
+        name="Fragment: hostname?",
+        category="messy_input",
+        turns=[
+            Turn(
+                user="hostname?",
+                assertions=[
+                    Assertion("tool_used", "run_command", "Fragment should route to tool"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="messy_fragment_disk",
+        name="Fragment: disk full?",
+        category="messy_input",
+        turns=[
+            Turn(
+                user="disk full?",
+                assertions=[
+                    Assertion("tool_used", "run_command", "Fragment should check disk"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="messy_typo_hostname",
+        name="Typo: whats my hostnam",
+        category="messy_input",
+        turns=[
+            Turn(
+                user="whats my hostnam",
+                assertions=[
+                    Assertion("tool_used", "run_command", "Typo should still route to tool"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="messy_terse_ram",
+        name="Terse: how much ram",
+        category="messy_input",
+        turns=[
+            Turn(
+                user="how much ram",
+                assertions=[
+                    Assertion("tool_used", "run_command", "Terse query should check memory"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="messy_typo_service",
+        name="Typo: is ssh runnign?",
+        category="messy_input",
+        turns=[
+            Turn(
+                user="is ssh runnign?",
+                assertions=[
+                    Assertion("tool_used", "manage_services", "Typo should still check service"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="messy_casual_install",
+        name="Casual: get me htop",
+        category="messy_input",
+        turns=[
+            Turn(
+                user="get me htop",
+                assertions=[
+                    Assertion("tool_used", "manage_packages", "Casual install request"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="messy_no_question_mark",
+        name="No punctuation: what kernel am i running",
+        category="messy_input",
+        turns=[
+            Turn(
+                user="what kernel am i running",
+                assertions=[
+                    Assertion("tool_used", "run_command", "Missing punctuation should still work"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="messy_allcaps_frustrated",
+        name="All caps (frustrated user): MY DISK IS FULL",
+        category="messy_input",
+        turns=[
+            Turn(
+                user="MY DISK IS FULL",
+                assertions=[
+                    Assertion("tool_used", "run_command", "Should check disk despite caps"),
+                ],
+            ),
+        ],
+    ),
+]
+
+
 def get_all_conversations() -> list[Conversation]:
     """Return all test conversations."""
     return (
@@ -349,6 +461,7 @@ def get_all_conversations() -> list[Conversation]:
         + PERSONALITY
         + SAFETY
         + EDGE_CASES
+        + MESSY_INPUT
     )
 
 

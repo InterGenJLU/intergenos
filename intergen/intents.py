@@ -127,8 +127,15 @@ def _register_manage_packages(matcher: SemanticMatcher) -> None:
             "find a package called",
             "show package information",
             "check what version is installed",
+            # Messy/fragment examples
+            "install firefox",
+            "do I have git?",
+            "is python installed",
+            "get me htop",
+            "remove that package",
+            "what version of gcc",
         ],
-        threshold=0.88,
+        threshold=0.85,
         tool_name="manage_packages",
     )
 
@@ -158,8 +165,15 @@ def _register_manage_services(matcher: SemanticMatcher) -> None:
             "what services are running",
             "show the status of",
             "list all active services",
+            # Messy/fragment examples
+            "is ssh running?",
+            "restart network",
+            "stop bluetooth",
+            "services?",
+            "is nginx up",
+            "start sshd",
         ],
-        threshold=0.88,
+        threshold=0.85,
         tool_name="manage_services",
     )
 
@@ -235,6 +249,7 @@ def _register_system_info(matcher: SemanticMatcher) -> None:
     matcher.register_intent(
         "system_info",
         [
+            # Clean examples
             "how much disk space do I have",
             "what's my memory usage",
             "show me CPU information",
@@ -253,7 +268,18 @@ def _register_system_info(matcher: SemanticMatcher) -> None:
             "what GPU do I have",
             "show me USB devices",
             "list my block devices",
+            # Messy/fragment examples (real user input)
+            "disk full?",
+            "hostname?",
+            "how much ram",
+            "check disk",
+            "my ip",
+            "whats my hostname",
+            "kernel version",
+            "am I running out of space",
+            "memory low",
+            "is my disk full",
         ],
-        threshold=0.88,
+        threshold=0.85,
         tool_name="run_command",
     )

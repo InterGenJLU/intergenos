@@ -111,15 +111,113 @@ class SemanticMatcher(SemanticMatcherInterface):
                       intent_id, len(examples), threshold)
 
     def match(self, query: str) -> MatchResult:
-        """Match query through Layer 1 (keyword) then Layer 2 (embedding).
+        """Match query through Layer 0 (normalize) → Layer 1 (keyword) → Layer 2 (embedding).
 
         Returns the best match. intent_id is None if below threshold.
         """
-        result = self._match_keywords(query)
+        normalized = self._normalize_input(query)
+
+        result = self._match_keywords(normalized)
         if result.intent_id is not None:
             return result
 
-        return self._match_embeddings(query)
+        # Try fragments — expand bare words into implicit queries
+        expanded = self._expand_fragment(normalized)
+        if expanded != normalized:
+            result = self._match_keywords(expanded)
+            if result.intent_id is not None:
+                return result
+
+        return self._match_embeddings(normalized)
+
+    @staticmethod
+    def _normalize_input(query: str) -> str:
+        """Layer 0: clean up messy user input before matching.
+
+        Handles: contractions, common misspellings, stray punctuation,
+        case normalization. Real users type 'whats my hostnam?' not
+        'What is my hostname?'
+        """
+        q = query.strip()
+        if not q:
+            return q
+
+        # Common contractions
+        _CONTRACTIONS = {
+            "whats": "what's", "hows": "how's", "whos": "who's",
+            "wheres": "where's", "thats": "that's", "dont": "don't",
+            "doesnt": "doesn't", "isnt": "isn't", "cant": "can't",
+            "wont": "won't", "im": "i'm", "ive": "i've",
+            "youre": "you're", "theyre": "they're",
+        }
+
+        # Common system term misspellings
+        _TYPO_FIXES = {
+            "hostnam": "hostname", "hostnme": "hostname",
+            "servce": "service", "serivce": "service", "sevice": "service",
+            "pacakge": "package", "packge": "package", "pakage": "package",
+            "memroy": "memory", "memeory": "memory", "memmory": "memory",
+            "stoarge": "storage", "storge": "storage",
+            "netowrk": "network", "netwrok": "network",
+            "kernal": "kernel", "kernl": "kernel",
+            "direcotry": "directory", "directroy": "directory",
+            "conifg": "config", "confg": "config",
+            "systme": "system", "sytem": "system",
+            "restrat": "restart", "restatr": "restart",
+            "insatll": "install", "isntall": "install",
+            "unisntall": "uninstall",
+            "firwall": "firewall", "firewal": "firewall",
+        }
+
+        words = q.split()
+        fixed = []
+        for word in words:
+            lower = word.lower().rstrip("?!.,;:")
+            if lower in _CONTRACTIONS:
+                fixed.append(_CONTRACTIONS[lower])
+            elif lower in _TYPO_FIXES:
+                fixed.append(_TYPO_FIXES[lower])
+            else:
+                fixed.append(word)
+
+        return " ".join(fixed)
+
+    @staticmethod
+    def _expand_fragment(query: str) -> str:
+        """Expand bare fragments into implicit system queries.
+
+        'hostname?' → 'what is my hostname'
+        'disk' → 'show disk usage'
+        'services' → 'list services'
+        """
+        q = query.lower().strip().rstrip("?!.")
+
+        _FRAGMENT_MAP = {
+            "hostname": "what is my hostname",
+            "kernel": "what kernel am I running",
+            "ip": "what is my ip address",
+            "disk": "show disk usage",
+            "memory": "show memory usage",
+            "ram": "show memory usage",
+            "cpu": "show cpu info",
+            "uptime": "show uptime",
+            "services": "list running services",
+            "packages": "list installed packages",
+            "network": "show network interfaces",
+            "gpu": "what gpu do I have",
+            "os": "what os am I running",
+            "storage": "show disk usage",
+            "firewall": "show firewall status",
+        }
+
+        if q in _FRAGMENT_MAP:
+            return _FRAGMENT_MAP[q]
+
+        # Single word + question mark pattern: "disk?" → expand
+        if len(q.split()) == 1 and q in _FRAGMENT_MAP:
+            return _FRAGMENT_MAP[q]
+
+        return query
 
     def _match_keywords(self, query: str) -> MatchResult:
         """Layer 1: regex/keyword matching."""
