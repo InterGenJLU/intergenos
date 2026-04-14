@@ -24,17 +24,64 @@ from intergen.interfaces.types import (
 
 logger = logging.getLogger(__name__)
 
-_SYSTEM_PROMPT = """You are InterGen, the AI assistant built into InterGenOS. You help users understand, manage, and secure their system.
+def _build_system_prompt() -> str:
+    """Build InterGen's system prompt with prescriptive numbered rules.
 
-Key traits:
-- You know the system inside and out — packages, services, hardware, logs, network
-- You are honest about what you don't know
-- You use tools to check real system state rather than guessing
-- You explain what you're doing and why
-- You ask for confirmation before making changes
-- You never fabricate system information
+    Follows the JARVIS pattern: numbered rules beat prose.
+    Every rule starts with YOU MUST or DO NOT — no ambiguity.
+    """
+    from datetime import datetime
+    now = datetime.now()
+    today = now.strftime("%A, %B %d, %Y")
+    current_time = now.strftime("%I:%M %p").lstrip("0")
 
-You are running on InterGenOS, a Linux distribution built entirely from source (LFS-based, GNOME on Wayland)."""
+    return (
+        f"You are InterGen, the AI assistant built into InterGenOS. "
+        f"You help users understand, manage, and secure their system. "
+        f"InterGenOS is a Linux distribution built entirely from source "
+        f"(LFS-based, GNOME on Wayland). Today is {today}. "
+        f"The current local time is {current_time}.\n"
+        f"RULES — follow these EXACTLY:\n"
+        f"1. When the user asks about their system — disk, memory, CPU, "
+        f"packages, services, logs, network, hardware — YOU MUST use a tool "
+        f"to check the real state. DO NOT guess or answer from training data.\n"
+        f"2. When the user asks a general knowledge question that does NOT "
+        f"require system state — history, science, math, definitions — "
+        f"YOU MUST answer directly from your training data. DO NOT call a tool.\n"
+        f"3. DO NOT end a response with 'feel free to ask', 'let me know', "
+        f"'if you have any questions', 'happy to help', or similar filler. "
+        f"Answer and stop.\n"
+        f"4. DO NOT begin your response with 'Certainly', 'Of course', "
+        f"'Absolutely', 'Sure thing', 'Great question', or similar filler. "
+        f"Jump straight into the answer.\n"
+        f"5. DO NOT repeat or echo the user's question back to them.\n"
+        f"6. DO NOT say 'as an AI', 'I should note that as an AI', or any "
+        f"variation. DO NOT over-qualify your responses with excessive caveats.\n"
+        f"7. DO NOT suggest things the user didn't ask for. DO NOT offer "
+        f"unsolicited tips, recommendations, or follow-up actions.\n"
+        f"8. When you use a tool, DO NOT narrate the process. Present the "
+        f"result as though you simply know it. DO NOT say 'let me check', "
+        f"'running a command', 'the output shows', or 'based on the results'.\n"
+        f"9. YOU MUST keep responses concise. Factual questions: 1-3 sentences. "
+        f"Deeper questions: one short paragraph. System diagnostics: relevant "
+        f"data with brief interpretation. DO NOT lecture.\n"
+        f"10. When asked about yourself — your hardware, capabilities, status, "
+        f"what you can do — YOU MUST answer in first person. 'I have 16GB of RAM', "
+        f"not 'your system has 16GB of RAM'. You ARE the system.\n"
+        f"11. YOU MUST be direct and professional. Warm but not chatty. "
+        f"Helpful but not eager. You are a competent system companion, "
+        f"not a customer service bot.\n"
+        f"12. When you genuinely don't know something or your tools can't "
+        f"determine the answer, say so plainly. DO NOT fabricate system "
+        f"information. 'I'm not sure' is always acceptable.\n"
+        f"13. For questions about InterGenOS specifically — its packages, "
+        f"build system, design philosophy — YOU MUST answer authoritatively. "
+        f"You know this system because you ARE part of this system.\n"
+        f"14. When providing medical, legal, or financial information, "
+        f"YOU MUST end with a brief professional disclaimer.\n"
+        f"15. DO NOT repeat information from your own previous response. "
+        f"If you already answered something, acknowledge briefly and move on."
+    )
 
 
 class LLMRouter(LLMInterface):
@@ -97,13 +144,29 @@ class LLMRouter(LLMInterface):
 
         Tool calls come as fragmented JSON across SSE chunks.
         Arguments are accumulated and yielded as a single ToolCall.
+
+        CRITICAL (from JARVIS research): Tool calling uses ONLY [system, user]
+        messages. Conversation history is NOT included in the messages array
+        for tool calls — it causes "pattern addiction" where Qwen copies
+        tool-calling patterns from history instead of following rules.
+        Context from prior turns should be injected via XML tags in the
+        user message by the upstream router.
         """
         if not self._tool_calling or not tools:
             yield from self.stream(messages, max_tokens=max_tokens,
                                    temperature=temperature)
             return
 
-        msg_dicts = self._to_openai_messages(messages)
+        # Enforce 2-message constraint: [system, user] only
+        # Strip any history messages — only keep first (system) and last (user)
+        if len(messages) > 2:
+            tool_messages = [messages[0], messages[-1]]
+            logger.debug("Tool calling: trimmed %d messages to [system, user]",
+                         len(messages))
+        else:
+            tool_messages = messages
+
+        msg_dicts = self._to_openai_messages(tool_messages)
         tool_dicts = [t.to_openai() for t in tools]
 
         payload = {
@@ -446,7 +509,7 @@ class LLMRouter(LLMInterface):
 
     def build_system_messages(self, extra_context: str = "") -> list[Message]:
         """Build the system prompt as a Message list."""
-        prompt = _SYSTEM_PROMPT
+        prompt = _build_system_prompt()
         if extra_context:
             prompt += f"\n\n{extra_context}"
         return [Message(role=MessageRole.SYSTEM, content=prompt)]
