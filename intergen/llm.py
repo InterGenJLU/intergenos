@@ -251,8 +251,6 @@ class LLMRouter(LLMInterface):
                         tool_call_args += func["arguments"]
                     continue
 
-                # Qwen3.5 reasoning: skip reasoning_content tokens,
-                # only yield final content to user
                 token = delta.get("content", "")
                 if token:
                     yield token
@@ -304,22 +302,20 @@ class LLMRouter(LLMInterface):
                 model="local", local=True,
             )
 
-        # Qwen3.5 reasoning: if content is empty, the model may have spent
-        # all tokens on chain-of-thought. Retry with /no_think tag or
-        # higher max_tokens.
+        # Empty response: model may have timed out or failed to generate.
+        # Retry with higher max_tokens to give it more room.
         if quality_issue == "empty":
-            logger.warning("Empty response — may be reasoning model token "
-                           "exhaustion. Retrying with higher max_tokens.")
+            logger.warning("Empty response from local model. "
+                           "Retrying with higher max_tokens.")
             max_tok = min(max_tok * 2, 8192)
 
         logger.warning("Local LLM quality issue (%s) — retrying", quality_issue)
 
-        # Attempt 2: retry with nudge
+        # Attempt 2: retry with simplified prompt
         nudged = list(messages)
         nudged.append(Message(
             role=MessageRole.USER,
-            content=(f"{user_msg}\n\nPlease provide a direct, helpful answer. "
-                     "Do not use extended reasoning — answer concisely."),
+            content=f"{user_msg}\n\nPlease provide a direct, helpful answer.",
         ))
         t0 = time.monotonic()
         tokens = list(self.stream(nudged, max_tokens=max_tok,
