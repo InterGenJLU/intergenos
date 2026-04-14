@@ -83,7 +83,11 @@ class ConversationRouter(RouterInterface):
         return result
 
     def _try_keyword_match(self, user_input: str) -> RouteResult:
-        """P1: regex/keyword matching via semantic matcher Layer 1."""
+        """P1: regex/keyword matching via semantic matcher Layer 1.
+
+        Uses template synthesis for known query types (instant, no LLM).
+        Falls back to LLM synthesis only for unexpected output.
+        """
         match = self._semantic._match_keywords(user_input)
         if match.intent_id is None:
             return RouteResult(handled=False)
@@ -93,15 +97,23 @@ class ConversationRouter(RouterInterface):
                 match.tool_name, user_input
             )
             if tool_result and tool_result.success:
-                synthesis = self._synthesize_tool_result(
-                    user_input, match.tool_name, tool_result.content
+                # Try template synthesis first (instant, no LLM)
+                response = self._template_synthesis(
+                    user_input, tool_result.content
                 )
+                used_llm = False
+                if response is None:
+                    # Fall back to LLM synthesis for complex output
+                    response = self._synthesize_tool_result(
+                        user_input, match.tool_name, tool_result.content
+                    )
+                    used_llm = True
                 return RouteResult(
-                    text=synthesis,
+                    text=response,
                     source="keyword",
                     handled=True,
                     tool_results=[tool_result],
-                    used_llm=True,
+                    used_llm=used_llm,
                 )
 
         return RouteResult(handled=False)
@@ -251,6 +263,55 @@ class ConversationRouter(RouterInterface):
             return {"name": user_input}
 
         return {"query": user_input}
+
+    @staticmethod
+    def _template_synthesis(user_input: str, output: str) -> str | None:
+        """Template-based synthesis for P1 matches — instant, no LLM.
+
+        Maps known query patterns to natural language templates.
+        Returns None if no template matches (triggers LLM fallback).
+        """
+        lower = user_input.lower().strip()
+        out = output.strip()
+
+        if not out:
+            return None
+
+        # Single-line output templates (most system info queries)
+        if out.count("\n") == 0 and len(out) < 200:
+            if "hostname" in lower:
+                return f"Your hostname is {out}."
+            if "kernel" in lower:
+                return f"You're running kernel {out}."
+            if "uptime" in lower:
+                return f"System uptime: {out}"
+            if "ip" in lower and "addr" not in out:
+                return f"Your IP address is {out}."
+
+        # Multi-line output — present as-is with a brief intro
+        if "disk" in lower or "storage" in lower or "df" in lower:
+            return f"Here's your disk usage:\n\n{out}"
+        if "memory" in lower or "ram" in lower or "free" in lower:
+            return f"Here's your memory usage:\n\n{out}"
+        if "cpu" in lower:
+            return f"Here's your CPU information:\n\n{out}"
+        if "services" in lower or "systemctl" in lower:
+            return f"Here are the running services:\n\n{out}"
+        if "packages" in lower:
+            return f"Here are your packages:\n\n{out}"
+        if "os" in lower or "operating system" in lower:
+            return f"Here's your OS information:\n\n{out}"
+        if "gpu" in lower or "vga" in lower:
+            return f"Here's your GPU information:\n\n{out}"
+        if "usb" in lower:
+            return f"Here are your USB devices:\n\n{out}"
+        if "block" in lower or "lsblk" in lower:
+            return f"Here are your block devices:\n\n{out}"
+        if "network" in lower:
+            return f"Here are your network interfaces:\n\n{out}"
+
+        # No template matched — LLM will handle it
+        return None
 
     @staticmethod
     def _natural_language_to_command(user_input: str) -> str | None:
