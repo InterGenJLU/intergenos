@@ -21,6 +21,7 @@ def register_all_intents(matcher: SemanticMatcher) -> None:
     _register_web_search(matcher)
     _register_open_application(matcher)
     _register_system_info(matcher)
+    _register_analyze_file(matcher)
 
 
 def _register_run_command(matcher: SemanticMatcher) -> None:
@@ -282,4 +283,33 @@ def _register_system_info(matcher: SemanticMatcher) -> None:
         ],
         threshold=0.85,
         tool_name="run_command",
+    )
+
+
+def _register_analyze_file(matcher: SemanticMatcher) -> None:
+    matcher.register_keyword_pattern(
+        "analyze_file",
+        [
+            r"^(?:explain|analyze|diagnose|summarize|describe)\s+(?:this\s+)?(?:file\s+|config\s+|log\s+)?/",
+            r"^what does\s+/\S+\s+do",
+            r"^(?:is there (?:anything|something) wrong with|check)\s+/",
+        ],
+        tool_name="analyze_file",
+    )
+    matcher.register_intent(
+        "analyze_file",
+        [
+            "explain this config file",
+            "what does this configuration do",
+            "analyze this log file for errors",
+            "summarize this script",
+            "is there anything wrong with this config",
+            "diagnose this systemd unit",
+            "what's this file for",
+            "explain what this service does",
+            "check this config for problems",
+            "help me understand this file",
+        ],
+        threshold=0.88,
+        tool_name="analyze_file",
     )
