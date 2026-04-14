@@ -49,7 +49,7 @@ class LLMRouter(LLMInterface):
         self._temperature = config.get("temperature", 0.6)
         self._top_p = config.get("top_p", 0.8)
         self._top_k = config.get("top_k", 20)
-        self._max_tokens_default = config.get("max_tokens", 2048)
+        self._max_tokens_default = config.get("max_tokens", 4096)
         self._tool_calling = config.get("tool_calling", True)
         self._presence_penalty = config.get("presence_penalty", 1.5)
 
@@ -184,6 +184,8 @@ class LLMRouter(LLMInterface):
                         tool_call_args += func["arguments"]
                     continue
 
+                # Qwen3.5 reasoning: skip reasoning_content tokens,
+                # only yield final content to user
                 token = delta.get("content", "")
                 if token:
                     yield token
@@ -235,13 +237,22 @@ class LLMRouter(LLMInterface):
                 model="local", local=True,
             )
 
+        # Qwen3.5 reasoning: if content is empty, the model may have spent
+        # all tokens on chain-of-thought. Retry with /no_think tag or
+        # higher max_tokens.
+        if quality_issue == "empty":
+            logger.warning("Empty response — may be reasoning model token "
+                           "exhaustion. Retrying with higher max_tokens.")
+            max_tok = min(max_tok * 2, 8192)
+
         logger.warning("Local LLM quality issue (%s) — retrying", quality_issue)
 
         # Attempt 2: retry with nudge
         nudged = list(messages)
         nudged.append(Message(
             role=MessageRole.USER,
-            content=f"{user_msg}\n\nPlease provide a direct, helpful answer.",
+            content=(f"{user_msg}\n\nPlease provide a direct, helpful answer. "
+                     "Do not use extended reasoning — answer concisely."),
         ))
         t0 = time.monotonic()
         tokens = list(self.stream(nudged, max_tokens=max_tok,
@@ -349,7 +360,14 @@ class LLMRouter(LLMInterface):
     # ── Internal helpers ──
 
     def _parse_sse_stream(self, response: requests.Response) -> Iterator[str]:
-        """Parse SSE stream and yield text tokens."""
+        """Parse SSE stream and yield text tokens.
+
+        Qwen3.5 is a reasoning model: chain-of-thought goes into
+        'reasoning_content' and the final answer into 'content'.
+        We only yield 'content' tokens to the user. If the model
+        finishes with content empty but reasoning_content populated,
+        it likely ran out of tokens mid-thought.
+        """
         for line in response.iter_lines():
             if not line:
                 continue
