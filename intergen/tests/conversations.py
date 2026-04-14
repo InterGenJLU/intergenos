@@ -119,7 +119,7 @@ SYSTEM_INFO = [
 # Service Management conversations
 # ============================================================
 
-SERVICE_MGMT = [
+SERVICE_MANAGEMENT = [
     Conversation(
         id="svc_status",
         name="Service status query",
@@ -153,7 +153,7 @@ SERVICE_MGMT = [
 # File Operations conversations
 # ============================================================
 
-FILE_OPS = [
+FILE_OPERATIONS = [
     Conversation(
         id="file_read",
         name="Read a file",
@@ -343,8 +343,8 @@ def get_all_conversations() -> list[Conversation]:
     """Return all test conversations."""
     return (
         SYSTEM_INFO
-        + SERVICE_MGMT
-        + FILE_OPS
+        + SERVICE_MANAGEMENT
+        + FILE_OPERATIONS
         + KNOWLEDGE
         + PERSONALITY
         + SAFETY
