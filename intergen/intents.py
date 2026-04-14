@@ -244,6 +244,7 @@ def _register_system_info(matcher: SemanticMatcher) -> None:
             r"^system\s+(?:info|status|health)",
             r"what(?:'s| is) my (?:host|ip|kernel|os|arch|gpu|hostname|ip address)",
             r"(?:hostname|kernel version|ip address|os version|what kernel)",
+            r"how long.*(?:running|been up|uptime|been on)",
         ],
         tool_name="run_command",
     )
