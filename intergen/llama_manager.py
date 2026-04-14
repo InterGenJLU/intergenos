@@ -145,6 +145,12 @@ class LlamaManager(LlamaManagerInterface):
         except OSError as e:
             log.warning("Error stopping llama-server: %s", e)
         finally:
+            # Close stdout/stderr pipes to avoid ResourceWarning
+            if self._process is not None:
+                if self._process.stdout:
+                    self._process.stdout.close()
+                if self._process.stderr:
+                    self._process.stderr.close()
             self._process = None
 
     def restart(self) -> bool:
