@@ -150,6 +150,19 @@ class MemoryManager:
 
     # ── Extraction ──
 
+    @staticmethod
+    def _shift_perspective(text: str) -> str:
+        """Shift first-person to second-person for stored facts.
+
+        'my backup drive' → 'your backup drive'
+        """
+        import re
+        text = re.sub(r'\bmy\b', 'your', text, flags=re.IGNORECASE)
+        text = re.sub(r'\bI am\b', 'you are', text, flags=re.IGNORECASE)
+        text = re.sub(r'\bI\b', 'you', text, flags=re.IGNORECASE)
+        text = re.sub(r'\bme\b', 'you', text, flags=re.IGNORECASE)
+        return text
+
     def extract_and_store(self, message: str) -> list[Fact]:
         """Extract facts from user message and store them.
 
@@ -162,6 +175,7 @@ class MemoryManager:
             if match:
                 key, value = extractor(match)
                 if key and value and len(key) < 200 and len(value) < 500:
+                    key = self._shift_perspective(key)
                     fact = self.store(key, value)
                     if fact:
                         facts.append(fact)

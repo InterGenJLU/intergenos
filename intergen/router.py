@@ -87,6 +87,15 @@ class ConversationRouter(RouterInterface):
         if self._first_interaction:
             self._first_interaction = False
 
+        # P0: Compound query detection — BEFORE cache so multi-part
+        # queries get decomposed instead of cache returning first match
+        decomposition = analyze_query(user_input, self._hardware_tier)
+        if decomposition.needs_decomposition:
+            result = self._handle_compound(user_input, decomposition)
+            if result.handled:
+                self._record(result, t0, "decomposed")
+                return result
+
         # Cache hit — instant response from pre-polled system state (0ms)
         if self._state_cache:
             cached = self._state_cache.lookup_for_query(user_input)
@@ -109,20 +118,12 @@ class ConversationRouter(RouterInterface):
                 text=identity_response, source="identity", handled=True,
             )
 
-        # Memory operations — before all routing priorities
+        # Memory operations
         if self._memory:
             mem_result = self._try_memory(user_input)
             if mem_result.handled:
                 self._record(mem_result, t0, "memory")
                 return mem_result
-
-        # P0: Compound query detection — decompose if above tier threshold
-        decomposition = analyze_query(user_input, self._hardware_tier)
-        if decomposition.needs_decomposition:
-            result = self._handle_compound(user_input, decomposition)
-            if result.handled:
-                self._record(result, t0, "decomposed")
-                return result
 
         # P1: Keyword/regex match
         result = self._try_keyword_match(user_input)
@@ -162,8 +163,7 @@ class ConversationRouter(RouterInterface):
                 "I'm InterGen, the AI assistant built into InterGenOS. "
                 "I help you manage your system — packages, services, "
                 "files, hardware, network. I can run commands, diagnose "
-                "problems, and answer questions. Everything runs locally "
-                "on your machine."
+                "problems, and answer questions."
             ),
             "who are you": None,  # falls through to "what are you"
             "tell me about yourself": None,
@@ -182,8 +182,7 @@ class ConversationRouter(RouterInterface):
             "what can you do": (
                 "I can check system status (disk, memory, CPU, network), "
                 "manage packages and services, read and write files, "
-                "search the web, open applications, and answer questions. "
-                "Everything runs locally."
+                "search the web, open applications, and answer questions."
             ),
             "what are your capabilities": None,
             "what are your limitations": (
@@ -490,6 +489,11 @@ class ConversationRouter(RouterInterface):
             cmd = self._natural_language_to_command(user_input)
             if cmd:
                 return {"command": cmd}
+            raw_match = re.match(
+                r"^(?:run|execute|shell)\s+(.+)", user_input, re.IGNORECASE
+            )
+            if raw_match:
+                return {"command": raw_match.group(1).strip()}
             return None
         if tool_name == "read_file":
             return {"path": user_input.split()[-1] if user_input.split() else ""}
@@ -550,11 +554,13 @@ class ConversationRouter(RouterInterface):
             if "ip" in lower and "addr" not in out:
                 return f"Your IP address is {out}."
 
-        # Multi-line output — present as-is with a brief intro
-        if "disk" in lower or "storage" in lower or "df" in lower:
-            return f"Here's your disk usage:\n\n{out}"
+        # Multi-line output — parse and summarize, then show raw data
+        if "disk" in lower or "storage" in lower or "df" in lower or "full" in lower or "space" in lower:
+            summary = self._summarize_disk(out)
+            return f"{summary}\n\n```\n{out}\n```"
         if "memory" in lower or "ram" in lower or "free" in lower:
-            return f"Here's your memory usage:\n\n{out}"
+            summary = self._summarize_memory(out)
+            return f"{summary}\n\n```\n{out}\n```"
         if "cpu" in lower:
             return f"Here's your CPU information:\n\n{out}"
         # Service status — single-line results
@@ -582,6 +588,39 @@ class ConversationRouter(RouterInterface):
 
         # No template matched — LLM will handle it
         return None
+
+    @staticmethod
+    @staticmethod
+    def _summarize_disk(output: str) -> str:
+        """Parse df -h output into a human-readable summary."""
+        lines = output.strip().split("\n")
+        parts = []
+        for line in lines[1:]:
+            cols = line.split()
+            if len(cols) >= 5 and cols[4].endswith("%"):
+                fs = cols[0]
+                if fs.startswith("/dev/"):
+                    mount = cols[5] if len(cols) > 5 else "/"
+                    pct = cols[4]
+                    avail = cols[3]
+                    parts.append(f"{mount} is at {pct} usage ({avail} free)")
+        if parts:
+            return "Disk usage: " + ", ".join(parts) + "."
+        return "Here's your disk usage:"
+
+    @staticmethod
+    def _summarize_memory(output: str) -> str:
+        """Parse free -h output into a human-readable summary."""
+        lines = output.strip().split("\n")
+        for line in lines:
+            if line.startswith("Mem:"):
+                cols = line.split()
+                if len(cols) >= 4:
+                    total = cols[1]
+                    used = cols[2]
+                    avail = cols[6] if len(cols) > 6 else cols[3]
+                    return f"You have {total} total RAM, {used} in use, {avail} available."
+        return "Here's your memory usage:"
 
     @staticmethod
     def _natural_language_to_command(user_input: str) -> str | None:

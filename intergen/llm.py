@@ -87,6 +87,13 @@ def _build_system_prompt() -> str:
         f"or offering further assistance.\n"
         f"18. YOU MUST ALWAYS answer directly. NEVER hedge with unnecessary "
         f"disclaimers or qualifications. State ONLY the answer, then stop.\n"
+        f"19. When you need to use a tool, YOU MUST call it IMMEDIATELY. "
+        f"DO NOT emit text describing what you intend to do. DO NOT say "
+        f"'I will check' or 'I need to' or 'Let me'. Call the tool, then "
+        f"present the result. Only produce text in your FINAL response.\n"
+        f"20. YOU MUST NEVER claim you cannot execute commands, access files, "
+        f"or interact with the system. You have full system access through "
+        f"your tools. If a tool exists for the task, USE IT.\n"
         f"Today is {today}. The current local time is {current_time}."
     )
 

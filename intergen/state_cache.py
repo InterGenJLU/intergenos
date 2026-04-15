@@ -199,7 +199,7 @@ class StateCache:
                     nice_cmd, shell=True, capture_output=True, text=True,
                     timeout=5,
                 )
-                output = result.stdout.strip()
+                output = result.stdout.rstrip()
                 if output:
                     with self._lock:
                         self._cache[key] = CachedValue(
