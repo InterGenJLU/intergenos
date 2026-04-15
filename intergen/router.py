@@ -132,6 +132,7 @@ class ConversationRouter(RouterInterface):
 
         # P2: Semantic embedding match
         p2_match = self._semantic._match_embeddings(user_input)
+        self._last_semantic_score = p2_match.score if p2_match.score is not None else 0.0
         if p2_match.intent_id is not None and p2_match.score >= 0.85:
             result = self._try_semantic_match(user_input)
             if result.handled:
@@ -416,7 +417,7 @@ class ConversationRouter(RouterInterface):
 
         if tool_results:
             if collected_text:
-                response_text = "".join(collected_text)
+                response_text = self._llm._strip_filler("".join(collected_text))
             else:
                 response_text = self._synthesize_tool_result(
                     user_input,
@@ -434,7 +435,7 @@ class ConversationRouter(RouterInterface):
 
         if collected_text:
             return RouteResult(
-                text="".join(collected_text),
+                text=self._llm._strip_filler("".join(collected_text)),
                 source="llm_tools",
                 handled=True,
                 used_llm=True,
