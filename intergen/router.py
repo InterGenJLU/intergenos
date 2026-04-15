@@ -556,10 +556,10 @@ class ConversationRouter(RouterInterface):
 
         # Multi-line output — parse and summarize, then show raw data
         if "disk" in lower or "storage" in lower or "df" in lower or "full" in lower or "space" in lower:
-            summary = self._summarize_disk(out)
+            summary = ConversationRouter._summarize_disk(out)
             return f"{summary}\n\n```\n{out}\n```"
         if "memory" in lower or "ram" in lower or "free" in lower:
-            summary = self._summarize_memory(out)
+            summary = ConversationRouter._summarize_memory(out)
             return f"{summary}\n\n```\n{out}\n```"
         if "cpu" in lower:
             return f"Here's your CPU information:\n\n{out}"
