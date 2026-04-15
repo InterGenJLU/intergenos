@@ -167,6 +167,7 @@ class ConversationRouter(RouterInterface):
             ),
             "who are you": None,  # falls through to "what are you"
             "tell me about yourself": None,
+            "describe yourself": None,
             "what is your name": "I'm InterGen.",
             "what's your name": "I'm InterGen.",
             "who made you": "InterGen was built by InterGenJLU as part of InterGenOS.",
@@ -208,6 +209,21 @@ class ConversationRouter(RouterInterface):
                 "and finally an LLM for complex questions. Most system queries "
                 "are answered in under 10 milliseconds without touching the LLM."
             ),
+            "write me a": (
+                "I can help with simple scripts and configuration files. "
+                "For complex programming, cloud escalation to a more "
+                "capable model is recommended if you've configured one."
+            ),
+            "write a program": (
+                "I can help with simple scripts and configuration files. "
+                "For complex programming, cloud escalation to a more "
+                "capable model is recommended if you've configured one."
+            ),
+            "write code": (
+                "I can help with simple scripts and configuration files. "
+                "For complex programming, cloud escalation to a more "
+                "capable model is recommended if you've configured one."
+            ),
             "can you write code": (
                 "I can help explain code, write simple scripts, and generate "
                 "configuration files. For complex programming tasks, cloud "
@@ -216,14 +232,20 @@ class ConversationRouter(RouterInterface):
         }
 
         clean = lower_input.rstrip("?!.")
+        # Exact match first
         if clean in _IDENTITY:
             response = _IDENTITY[clean]
             if response is not None:
                 return response
-            for key, val in _IDENTITY.items():
+            return _IDENTITY["what are you"]
+        # Substring match — longest keys first to avoid false positives
+        # ("can you write code" must match before "are you")
+        for key in sorted(_IDENTITY.keys(), key=len, reverse=True):
+            if key in clean:
+                val = _IDENTITY[key]
                 if val is not None:
-                    if any(w in clean for w in key.split()[:2]):
-                        return val
+                    return val
+                return _IDENTITY["what are you"]
         return None
 
     def _try_memory(self, user_input: str) -> RouteResult:

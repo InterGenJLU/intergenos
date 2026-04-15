@@ -36,7 +36,8 @@ def _build_system_prompt() -> str:
     current_time = now.strftime("%I:%M %p").lstrip("0")
 
     return (
-        f"You are InterGen, the AI assistant built into InterGenOS. "
+        f"Your name is InterGen. You are the AI assistant built into InterGenOS. "
+        f"InterGen is YOUR name — InterGenOS is the operating system you serve. "
         f"You help users understand, manage, and secure their system. "
         f"InterGenOS is a Linux distribution built entirely from source "
         f"(LFS-based, GNOME on Wayland). Today is {today}. "
@@ -579,7 +580,9 @@ class LLMRouter(LLMInterface):
             r"(?:Please )?[Ll]et me know|[Ii]f you (?:have|need)|"
             r"I(?:'m| am) here|[Hh]appy to help|[Ii]s there anything|"
             r"(?:Do you )?[Nn]eed (?:anything|something) else|"
-            r"[Ww]hat else (?:can|may|would) (?:I|you)).*$",
+            r"[Ww]hat else (?:can|may|would) (?:I|you)|"
+            r"[Ff]eel free to reach out|"
+            r"[Hh]ow (?:can|may) I (?:assist|help) you (?:further|more)).*$",
         ]
         for pattern in filler:
             text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL)
