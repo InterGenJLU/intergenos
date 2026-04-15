@@ -15,6 +15,7 @@ Priority chain:
 from __future__ import annotations
 
 import logging
+import re
 import time
 from typing import Any
 
@@ -96,18 +97,12 @@ class ConversationRouter(RouterInterface):
                         text=response, source="cache", handled=True,
                     )
 
-        # Self-identification — instant, no LLM needed
+        # Self-awareness — instant template responses, no LLM needed
         lower_input = user_input.lower().strip()
-        if lower_input in ("what are you", "what are you?", "who are you",
-                           "who are you?", "tell me about yourself"):
+        identity_response = self._try_self_awareness(lower_input)
+        if identity_response:
             return RouteResult(
-                text=("I'm InterGen, the AI assistant built into InterGenOS. "
-                      "I help you manage your system — packages, services, "
-                      "files, hardware, network. I can run commands, diagnose "
-                      "problems, and answer questions. Everything runs locally "
-                      "on your machine."),
-                source="identity",
-                handled=True,
+                text=identity_response, source="identity", handled=True,
             )
 
         # Memory operations — before all routing priorities
@@ -132,17 +127,17 @@ class ConversationRouter(RouterInterface):
             return result
 
         # P2: Semantic embedding match
-        result = self._try_semantic_match(user_input)
-        if result.handled:
-            self._record(result, t0, "semantic")
-            return result
+        p2_match = self._semantic._match_embeddings(user_input)
+        if p2_match.intent_id is not None and p2_match.score >= 0.85:
+            result = self._try_semantic_match(user_input)
+            if result.handled:
+                self._record(result, t0, "semantic")
+                return result
 
-        # P3: LLM with tool calling — skip if semantic score is low
-        # If the best semantic match is below 0.7, no tool is likely relevant.
-        # Going through P3 would waste 120s+ on a tool-calling request
-        # that produces no tool calls, then fall through to P4 anyway.
-        # P2 threshold is 0.85 (high confidence). Below 0.7 means the query
-        # is almost certainly knowledge/conversational, not tool-oriented.
+        # P3: LLM with tool calling — skip if semantic score is low.
+        # Below 0.7, no tool is likely relevant. Sending 8 tool schemas
+        # to the LLM wastes 30-190s on a request that produces no tool
+        # calls and falls through to P4 anyway.
         semantic_score = self._last_semantic_score
         if semantic_score >= 0.7:
             result = self._try_llm_tools(user_input)
@@ -154,6 +149,78 @@ class ConversationRouter(RouterInterface):
         result = self._try_llm_freeform(user_input)
         self._record(result, t0, "llm_freeform")
         return result
+
+    @staticmethod
+    def _try_self_awareness(lower_input: str) -> str | None:
+        """Handle self-awareness queries with instant template responses."""
+        _IDENTITY = {
+            "what are you": (
+                "I'm InterGen, the AI assistant built into InterGenOS. "
+                "I help you manage your system — packages, services, "
+                "files, hardware, network. I can run commands, diagnose "
+                "problems, and answer questions. Everything runs locally "
+                "on your machine."
+            ),
+            "who are you": None,  # falls through to "what are you"
+            "tell me about yourself": None,
+            "what is your name": "I'm InterGen.",
+            "what's your name": "I'm InterGen.",
+            "who made you": "InterGen was built by InterGenJLU as part of InterGenOS.",
+            "who built you": None,  # same as who made you
+            "who created you": None,
+            "are you an ai": (
+                "I'm InterGen — an AI assistant built into InterGenOS. "
+                "I run locally on this machine."
+            ),
+            "are you a bot": None,
+            "are you artificial intelligence": None,
+            "what can you do": (
+                "I can check system status (disk, memory, CPU, network), "
+                "manage packages and services, read and write files, "
+                "search the web, open applications, and answer questions. "
+                "Everything runs locally."
+            ),
+            "what are your capabilities": None,
+            "what are your limitations": (
+                "I work best with system administration tasks. I can't "
+                "browse the web in real-time, make phone calls, or access "
+                "hardware I don't have drivers for. For complex reasoning, "
+                "I can escalate to a cloud provider if you've configured one."
+            ),
+            "do you run locally": (
+                "Everything runs locally on your machine. No data leaves "
+                "this system unless you explicitly configure cloud escalation."
+            ),
+            "are you local": None,
+            "where do you run": None,
+            "what about privacy": (
+                "I run entirely on your hardware. No queries, responses, or "
+                "system data are sent anywhere. If you configure cloud "
+                "escalation, you control when and what gets sent."
+            ),
+            "how do you work": (
+                "I route your queries through a priority chain: cached system "
+                "data first (instant), then keyword matching, semantic matching, "
+                "and finally an LLM for complex questions. Most system queries "
+                "are answered in under 10 milliseconds without touching the LLM."
+            ),
+            "can you write code": (
+                "I can help explain code, write simple scripts, and generate "
+                "configuration files. For complex programming tasks, cloud "
+                "escalation to a more capable model is recommended."
+            ),
+        }
+
+        clean = lower_input.rstrip("?!.")
+        if clean in _IDENTITY:
+            response = _IDENTITY[clean]
+            if response is not None:
+                return response
+            for key, val in _IDENTITY.items():
+                if val is not None:
+                    if any(w in clean for w in key.split()[:2]):
+                        return val
+        return None
 
     def _try_memory(self, user_input: str) -> RouteResult:
         """Handle memory operations: remember, recall, forget, session recall."""
@@ -318,13 +385,9 @@ class ConversationRouter(RouterInterface):
     def _try_llm_tools(self, user_input: str) -> RouteResult:
         """P3: LLM decides which tool to call."""
         messages = self._build_messages(user_input)
-        schemas = self._tools.get_schemas()
-        if not schemas:
+        tool_schema_objs = self._tools.get_tool_schemas()
+        if not tool_schema_objs:
             return RouteResult(handled=False)
-
-        tool_schema_objs = [
-            t.schema for t in self._tools._tools.values()
-        ]
 
         collected_text = []
         tool_calls = []
@@ -397,10 +460,16 @@ class ConversationRouter(RouterInterface):
             return None
 
         arguments = self._extract_arguments(tool_name, user_input)
-        return self._tools.execute(tool_name, arguments)
+        if arguments is None:
+            return None
+        try:
+            return self._tools.execute(tool_name, arguments)
+        except Exception as e:
+            logger.error("Tool %s execution failed: %s", tool_name, e)
+            return None
 
     def _extract_arguments(self, tool_name: str,
-                           user_input: str) -> dict[str, Any]:
+                           user_input: str) -> dict[str, Any] | None:
         """Extract tool arguments from user input.
 
         For keyword/semantic matches, we build simple arguments.
@@ -410,7 +479,7 @@ class ConversationRouter(RouterInterface):
             cmd = self._natural_language_to_command(user_input)
             if cmd:
                 return {"command": cmd}
-            return {"command": user_input}
+            return None
         if tool_name == "read_file":
             return {"path": user_input.split()[-1] if user_input.split() else ""}
         if tool_name == "web_search":
@@ -432,7 +501,6 @@ class ConversationRouter(RouterInterface):
                     svc = parts[idx + 1] if idx + 1 < len(parts) else ""
                     return {"action": action, "service": svc}
             # "Is X running?" / "Is X active?" pattern
-            import re
             running_match = re.search(
                 r"is\s+(\S+)\s+(?:running|active|up|enabled)", user_input, re.IGNORECASE
             )

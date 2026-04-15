@@ -29,7 +29,8 @@ _DEFAULTS = {
         "max_tokens": 4096,
         "tool_calling": True,
         "presence_penalty": 1.5,
-        "context_size": 8192,
+        "context_size": 16384,
+        "request_timeout": 120,
     },
     "escalation": {
         "mode": "ask",

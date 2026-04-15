@@ -60,7 +60,7 @@ class LlamaManagerInterface(ABC):
     @abstractmethod
     def start(self, model_path: str, *,
               port: int = 8080,
-              context_size: int = 8192,
+              context_size: int = 16384,
               gpu_layers: int = 999,
               jinja: bool = True) -> bool:
         """Start llama-server with the given model.

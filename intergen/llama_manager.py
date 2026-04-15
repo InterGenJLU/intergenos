@@ -57,7 +57,7 @@ class LlamaManager(LlamaManagerInterface):
 
     def start(self, model_path: str, *,
               port: int = 8080,
-              context_size: int = 8192,
+              context_size: int = 16384,
               gpu_layers: int = 999,
               parallel: int = 1,
               jinja: bool = True,

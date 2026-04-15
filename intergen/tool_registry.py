@@ -159,6 +159,14 @@ class ToolRegistry:
                 schemas.append(tool.schema.to_openai())
         return schemas
 
+    def get_tool_schemas(self, names: set[str] | None = None) -> list[ToolSchema]:
+        """Get ToolSchema objects for the given tools (or all)."""
+        schemas = []
+        for tool in self._tools.values():
+            if names is None or tool.name in names:
+                schemas.append(tool.schema)
+        return schemas
+
     def get_all_names(self) -> list[str]:
         """Return all registered tool names."""
         return list(self._tools.keys()) + list(self._external_handlers.keys())

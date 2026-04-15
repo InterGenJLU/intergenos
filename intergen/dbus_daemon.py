@@ -227,7 +227,7 @@ class InterGenDaemon(InterGenDBusInterface):
                 started = self._llama.start(
                     model_path,
                     port=self._config.get("llama_server.port", 8080),
-                    context_size=self._config.get("llm.context_size", 8192),
+                    context_size=self._config.get("llm.context_size", 16384),
                     gpu_layers=self._config.get("llama_server.gpu_layers", 999),
                     parallel=self._config.get("llama_server.parallel", 1),
                     jinja=self._config.get("llama_server.jinja", True),

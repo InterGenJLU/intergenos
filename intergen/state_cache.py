@@ -17,11 +17,11 @@ a question, not watching a real-time dashboard.
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 import threading
 import time
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +150,7 @@ class StateCache:
             "load_average": ["load", "load average"],
             "block_devices": ["block device", "lsblk", "drives", "partitions"],
             "usb_devices": ["usb"],
-            "network_interfaces": ["network interface", "interfaces", "ip addr", "ip address", "ip link"],
+            "network_interfaces": ["network interface", "interfaces", "ip addr", "ip address", "ip link", "show network"],
             "service_list": ["services", "running services", "systemctl"],
         }
 
@@ -180,7 +180,6 @@ class StateCache:
         """
         # Skip if system is under heavy load
         try:
-            import os
             load_1min = os.getloadavg()[0]
             cpu_count = os.cpu_count() or 1
             if load_1min > cpu_count * 0.8:

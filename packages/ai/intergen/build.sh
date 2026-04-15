@@ -59,7 +59,7 @@ llm:
   max_tokens: 4096
   tool_calling: true
   presence_penalty: 1.5
-  context_size: 8192
+  context_size: 16384
 
 escalation:
   mode: "ask"
@@ -73,6 +73,8 @@ llama_server:
   port: 8080
   gpu_layers: 999
   jinja: true
+  parallel: 1
+  reasoning: "off"
 
 logging:
   level: "INFO"

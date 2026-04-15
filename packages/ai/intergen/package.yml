@@ -5,7 +5,7 @@ description: InterGen AI assistant — system-aware, local-first, hardware-adapt
 license: GPL-3.0-or-later
 homepage: https://github.com/InterGenJLU/intergenos
 tier: ai
-build_style: python
+build_style: custom
 source: []
 dependencies:
   build: []

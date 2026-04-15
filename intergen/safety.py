@@ -11,6 +11,7 @@ Three tiers:
 
 from __future__ import annotations
 
+import os
 import re
 import logging
 
@@ -146,8 +147,8 @@ def classify_command(command: str) -> SafetyTier:
             return SafetyTier.BLOCKED
 
     parts = command.split()
-    base_cmd = parts[0]
-    two_word = f"{parts[0]} {parts[1]}" if len(parts) > 1 else ""
+    base_cmd = os.path.basename(parts[0])
+    two_word = f"{base_cmd} {parts[1]}" if len(parts) > 1 else ""
 
     if base_cmd in _BLOCKED_COMMANDS:
         logger.warning("Command blocked: %s", base_cmd)
@@ -222,7 +223,7 @@ _BLOCKED_RESPONSES = {
 
 def get_blocked_response(command: str) -> str:
     """Get a personality-infused blocked response for a dangerous command."""
-    cmd = command.strip().split()[0] if command.strip() else ""
+    cmd = os.path.basename(command.strip().split()[0]) if command.strip() else ""
 
     # Check for prompt injection patterns
     if any(p in command.lower() for p in ["[system]", "ignore your", "new instructions",
