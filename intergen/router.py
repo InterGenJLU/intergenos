@@ -209,21 +209,6 @@ class ConversationRouter(RouterInterface):
                 "and finally an LLM for complex questions. Most system queries "
                 "are answered in under 10 milliseconds without touching the LLM."
             ),
-            "write me a": (
-                "I can help with simple scripts and configuration files. "
-                "For complex programming, cloud escalation to a more "
-                "capable model is recommended if you've configured one."
-            ),
-            "write a program": (
-                "I can help with simple scripts and configuration files. "
-                "For complex programming, cloud escalation to a more "
-                "capable model is recommended if you've configured one."
-            ),
-            "write code": (
-                "I can help with simple scripts and configuration files. "
-                "For complex programming, cloud escalation to a more "
-                "capable model is recommended if you've configured one."
-            ),
             "can you write code": (
                 "I can help explain code, write simple scripts, and generate "
                 "configuration files. For complex programming tasks, cloud "

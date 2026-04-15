@@ -55,7 +55,7 @@ def _build_system_prompt() -> str:
         f"acknowledgment before the answer.\n"
         f"5. DO NOT repeat or echo the user's question back to them.\n"
         f"6. NEVER qualify your responses with references to your nature. "
-        f"Your role is to assist the user in the administration of this machine. "
+        f"Your role is to assist the user. "
         f"YOU MUST always respond accordingly.\n"
         f"7. DO NOT suggest things the user didn't ask for. DO NOT offer "
         f"unsolicited tips, recommendations, or follow-up actions.\n"
@@ -338,14 +338,9 @@ class LLMRouter(LLMInterface):
 
         logger.warning("Local LLM quality issue (%s) — retrying", quality_issue)
 
-        # Attempt 2: retry with simplified prompt
-        nudged = list(messages)
-        nudged.append(Message(
-            role=MessageRole.USER,
-            content=f"{user_msg}\n\nPlease provide a direct, helpful answer.",
-        ))
+        # Attempt 2: retry with higher token budget, same messages
         t0 = time.monotonic()
-        tokens = list(self.stream(nudged, max_tokens=max_tok,
+        tokens = list(self.stream(messages, max_tokens=max_tok,
                                   temperature=temperature))
         response_text = "".join(tokens)
 
@@ -382,9 +377,6 @@ class LLMRouter(LLMInterface):
             return "empty"
 
         text = response.strip()
-        if len(text) < 3:
-            return "too_short"
-
         words = text.lower().split()
         if len(words) >= 10:
             unique_ratio = len(set(words)) / len(words)
@@ -538,14 +530,9 @@ class LLMRouter(LLMInterface):
         """
         q = query.strip().lower()
 
-        short_signals = [
-            "thanks", "thank you", "goodbye", "good morning",
-            "good night", "never mind", "cancel", "stop",
-            "yes", "no", "ok",
-        ]
-        for signal in short_signals:
-            if signal in q:
-                return 150
+        # Check longest/most-specific signals first to prevent
+        # keyword collisions ("thanks, write me a script" must
+        # match "write" at 1500, not "thanks" at 150).
 
         extended_signals = [
             "write ", "create ", "generate ", "script", "config",
@@ -569,6 +556,15 @@ class LLMRouter(LLMInterface):
 
         if len(q.split()) > 15:
             return 400
+
+        short_signals = [
+            "thanks", "thank you", "goodbye", "good morning",
+            "good night", "never mind", "cancel", "stop",
+            "yes", "no", "ok",
+        ]
+        for signal in short_signals:
+            if signal in q:
+                return 150
 
         return 250
 
