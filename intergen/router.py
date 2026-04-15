@@ -71,7 +71,11 @@ class ConversationRouter(RouterInterface):
         user_input = user_input.strip()
 
         if not user_input:
-            return RouteResult(text="", handled=False)
+            return RouteResult(
+                text="What can I help with?",
+                source="empty_input",
+                handled=True,
+            )
 
         if self._metrics:
             self._metrics.increment("requests")
