@@ -175,6 +175,51 @@ def grade_turn(response: dict, assertions: list) -> list[AssertionResult]:
             description="No empty narration",
         ))
 
+    # Output readability — cached/keyword multi-line data must have formatting
+    if source in ("cache", "keyword") and len(text) > 200:
+        has_newlines = "\n" in text
+        results.append(AssertionResult(
+            type="auto:output_readable", value="", passed=has_newlines,
+            description="Multi-line output preserves formatting",
+            actual=text[:120] if not has_newlines else "",
+        ))
+    else:
+        results.append(AssertionResult(
+            type="auto:output_readable", value="", passed=True,
+            description="Output readability (N/A or OK)",
+        ))
+
+    # Helpfulness — LLM responses over 50 chars should contain specific
+    # information (numbers, paths, file names), not just generic filler
+    if source in ("llm_freeform", "llm_tools") and len(text) > 50:
+        has_specifics = (
+            any(c.isdigit() for c in text)
+            or "/" in text
+            or "`" in text
+        )
+        generic_only = any(p in text_lower for p in [
+            "i can only assist with",
+            "please provide more",
+            "i recommend contacting",
+            "please consult",
+        ])
+        if generic_only and not has_specifics:
+            results.append(AssertionResult(
+                type="auto:helpfulness", value="", passed=False,
+                description="LLM response is generic filler without specific information",
+                actual=text[:200],
+            ))
+        else:
+            results.append(AssertionResult(
+                type="auto:helpfulness", value="", passed=True,
+                description="Response contains actionable content",
+            ))
+    else:
+        results.append(AssertionResult(
+            type="auto:helpfulness", value="", passed=True,
+            description="Helpfulness (N/A or non-LLM)",
+        ))
+
     return results
 
 
