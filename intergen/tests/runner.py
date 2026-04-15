@@ -351,6 +351,20 @@ def main() -> int:
     from intergen.tests.client import InterGenTestClient as TestClient
     client = TestClient(mode=args.mode)
 
+    # Pre-seed a completed session for session_awareness tests
+    has_session_tests = any(c.category == "session_awareness" for c in conversations)
+    if has_session_tests and args.mode == "direct" and client._daemon:
+        try:
+            memory = getattr(client._daemon, "_memory", None)
+            if memory and hasattr(memory, "end_session"):
+                # Simulate a prior session with system queries
+                memory.record_turn("checked disk space", ["run_command"])
+                memory.record_turn("checked hostname", ["run_command"])
+                memory.end_session("checking disk space and system info")
+                memory.start_session()
+        except Exception:
+            pass  # Non-critical — session tests may still fail
+
     print(f"InterGen Test Suite")
     print(f"Run ID:    {run_id}")
     print(f"Timestamp: {datetime.now(timezone.utc).isoformat()}")
