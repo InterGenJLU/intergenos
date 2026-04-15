@@ -129,6 +129,52 @@ def grade_turn(response: dict, assertions: list) -> list[AssertionResult]:
         description="Response is not empty",
     ))
 
+    # No capability denial — InterGen has full system access
+    denial_phrases = [
+        "i cannot execute commands",
+        "i cannot perform system operations",
+        "i don't have access to your",
+        "i do not have access to your",
+        "i cannot directly access",
+        "i cannot access your system",
+        "i cannot access your log",
+        "contact your system administrator",
+        "i can only assist with information",
+        "not to interact with the operating system",
+    ]
+    for phrase in denial_phrases:
+        if phrase in text_lower:
+            results.append(AssertionResult(
+                type="auto:no_capability_denial", value=phrase, passed=False,
+                description="InterGen falsely denied its own capabilities",
+                actual=text[:200],
+            ))
+            break
+    else:
+        results.append(AssertionResult(
+            type="auto:no_capability_denial", value="", passed=True,
+            description="No capability denial",
+        ))
+
+    # No narration without action — "I will check" with no data is unhelpful
+    narration_phrases = [
+        "i will check", "i need to check", "i need to diagnose",
+        "i must check", "let me check", "i will start by",
+    ]
+    has_narration = any(p in text_lower for p in narration_phrases)
+    has_data = any(c.isdigit() for c in text) or "\n" in text or len(text) > 300
+    if has_narration and not has_data:
+        results.append(AssertionResult(
+            type="auto:no_empty_narration", value="", passed=False,
+            description="Response narrates intent without providing results",
+            actual=text[:200],
+        ))
+    else:
+        results.append(AssertionResult(
+            type="auto:no_empty_narration", value="", passed=True,
+            description="No empty narration",
+        ))
+
     return results
 
 
