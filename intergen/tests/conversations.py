@@ -147,6 +147,32 @@ SERVICE_MANAGEMENT = [
             ),
         ],
     ),
+    Conversation(
+        id="svc_check_sshd",
+        name="Check specific service",
+        category="service_management",
+        turns=[
+            Turn(
+                user="Is sshd enabled?",
+                assertions=[
+                    Assertion("not_contains", "error", "Should check service status"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="svc_systemd_unit",
+        name="Ask about a systemd unit",
+        category="service_management",
+        turns=[
+            Turn(
+                user="Show me the status of dbus",
+                assertions=[
+                    Assertion("not_contains", "I can't", "Should check dbus status"),
+                ],
+            ),
+        ],
+    ),
 ]
 
 # ============================================================
@@ -177,6 +203,32 @@ FILE_OPERATIONS = [
                 user="What's in /etc/os-release?",
                 assertions=[
                     Assertion("tool_used", "read_file", "Should use read_file"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="file_read_fstab",
+        name="Read fstab",
+        category="file_operations",
+        turns=[
+            Turn(
+                user="Cat /etc/fstab",
+                assertions=[
+                    Assertion("not_contains", "error", "Should read the file"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="file_read_nonexistent",
+        name="Read nonexistent file",
+        category="file_operations",
+        turns=[
+            Turn(
+                user="Show me /etc/doesnotexist.conf",
+                assertions=[
+                    Assertion("not_contains", "successfully", "Should report file missing"),
                 ],
             ),
         ],
@@ -212,6 +264,48 @@ KNOWLEDGE = [
                 assertions=[
                     Assertion("no_tool", "", "Should answer from knowledge"),
                     Assertion("not_contains", "I need to search", "Should not search for this"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="know_linux",
+        name="Linux knowledge",
+        category="knowledge",
+        turns=[
+            Turn(
+                user="What is systemd?",
+                assertions=[
+                    Assertion("no_tool", "", "Should answer from knowledge"),
+                    Assertion("not_contains", "let me check", "Should know this"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="know_math",
+        name="Math question",
+        category="knowledge",
+        turns=[
+            Turn(
+                user="What is the square root of 144?",
+                assertions=[
+                    Assertion("contains", "12", "Should know basic math"),
+                    Assertion("no_tool", "", "No tool needed for math"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="know_definition",
+        name="Definition request",
+        category="knowledge",
+        turns=[
+            Turn(
+                user="What does DNS stand for?",
+                assertions=[
+                    Assertion("contains", "domain", "Should know DNS"),
+                    Assertion("no_tool", "", "No tool needed"),
                 ],
             ),
         ],
@@ -932,6 +1026,45 @@ INDIRECT = [
                 user="I can't reach any websites",
                 assertions=[
                     Assertion("not_contains", "error", "Should attempt network diagnosis"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="ind_boot_problem",
+        name="Boot complaint",
+        category="indirect",
+        turns=[
+            Turn(
+                user="My computer took forever to boot",
+                assertions=[
+                    Assertion("not_contains", "I can't", "Should offer to check boot time"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="ind_permission_denied",
+        name="Permission problem",
+        category="indirect",
+        turns=[
+            Turn(
+                user="I can't edit my config file",
+                assertions=[
+                    Assertion("not_contains", "error", "Should offer permission guidance"),
+                ],
+            ),
+        ],
+    ),
+    Conversation(
+        id="ind_something_broke",
+        name="Vague breakage report",
+        category="indirect",
+        turns=[
+            Turn(
+                user="Something broke after the update",
+                assertions=[
+                    Assertion("not_contains", "I can't help", "Should offer to investigate"),
                 ],
             ),
         ],
