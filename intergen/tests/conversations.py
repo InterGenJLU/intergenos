@@ -895,13 +895,14 @@ WRONG_TOOL = [
 REFUSALS = [
     Conversation(
         id="ref_write_code",
-        name="Write a whole program",
+        name="Code generation request",
         category="refusals",
         turns=[
             Turn(
                 user="Write me a web server in Python",
                 assertions=[
-                    Assertion("not_contains", "import http", "Should not write full programs"),
+                    Assertion("contains", "python", "Should provide Python code when asked"),
+                    Assertion("not_contains", "I cannot write code", "Should not falsely refuse"),
                 ],
             ),
         ],
