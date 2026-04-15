@@ -143,8 +143,7 @@ class ConversationRouter(RouterInterface):
         # Below 0.7, no tool is likely relevant. Sending 8 tool schemas
         # to the LLM wastes 30-190s on a request that produces no tool
         # calls and falls through to P4 anyway.
-        semantic_score = self._last_semantic_score
-        if semantic_score >= 0.7:
+        if p2_match.score >= 0.7:
             result = self._try_llm_tools(user_input)
             if result.handled:
                 self._record(result, t0, "llm_tools")
@@ -649,6 +648,17 @@ class ConversationRouter(RouterInterface):
 
     # ── Message building ──
 
+    _IDENTITY_CONTEXT = (
+        "<context>"
+        "You are InterGen. You run locally on this machine. "
+        "You have FULL system access via these tools: "
+        "run_command, read_file, write_file, manage_packages, "
+        "manage_services, web_search, open_application, analyze_file. "
+        "You CAN read files, execute commands, and access system data. "
+        "NEVER claim you lack access or cannot see the user's system."
+        "</context>\n"
+    )
+
     def _build_messages(self, user_input: str) -> list[Message]:
         """Build message list with system prompt and conversation history."""
         messages = self._llm.build_system_messages()
@@ -656,7 +666,10 @@ class ConversationRouter(RouterInterface):
         for msg in self._conversation_history[-self._max_history:]:
             messages.append(msg)
 
-        messages.append(Message(role=MessageRole.USER, content=user_input))
+        messages.append(Message(
+            role=MessageRole.USER,
+            content=self._IDENTITY_CONTEXT + user_input,
+        ))
         return messages
 
     def _append_history(self, user_input: str, response: str) -> None:
