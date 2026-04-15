@@ -109,6 +109,7 @@ def _register_manage_packages(matcher: SemanticMatcher) -> None:
         [
             r"^pkm\s+",
             r"^(?:install|remove|uninstall|search|update)\s+(?:package\s+)?",
+            r"^(?:get|grab|fetch|give)\s+(?:me\s+)?(?:the\s+)?\w+",
             r"^what packages?\s+",
             r"^list\s+(?:installed\s+)?packages?",
             r"^is\s+\w+\s+installed",

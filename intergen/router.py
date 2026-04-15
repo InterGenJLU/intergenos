@@ -666,10 +666,11 @@ class ConversationRouter(RouterInterface):
         for msg in self._conversation_history[-self._max_history:]:
             messages.append(msg)
 
-        messages.append(Message(
-            role=MessageRole.USER,
-            content=self._IDENTITY_CONTEXT + user_input,
-        ))
+        content = user_input
+        if len(user_input.split()) > 4:
+            content = self._IDENTITY_CONTEXT + user_input
+
+        messages.append(Message(role=MessageRole.USER, content=content))
         return messages
 
     def _append_history(self, user_input: str, response: str) -> None:
