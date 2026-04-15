@@ -392,12 +392,12 @@ class TestHardwareDetector(unittest.TestCase):
         detector = HardwareDetector()
         tier = detector.detect()
 
-        # This laptop: 15.3 GB RAM, Intel iGPU
+        # This laptop: 15.3 GB RAM, Intel iGPU (CPU-only Tier 2 → 2B)
         self.assertGreater(tier.ram_gb, 10.0)
         self.assertLess(tier.ram_gb, 20.0)
         self.assertEqual(tier.gpu_vendor, "intel")
         self.assertEqual(tier.tier, HardwareTierLevel.TIER_2)
-        self.assertEqual(tier.recommended_model, "Qwen3.5-9B")
+        self.assertEqual(tier.recommended_model, "Qwen3.5-2B")
 
     def test_caching(self):
         from intergen.hardware import HardwareDetector

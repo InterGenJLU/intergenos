@@ -29,6 +29,9 @@ GPU_VENDORS = {
 }
 
 # Model recommendations per tier
+# Tier 2 has two variants: CPU-only gets 2B (17s/query), GPU-accelerated gets 9B.
+# Data: 9B on CPU-only = 50s/query (prompt caching only 27% effective).
+#        2B on CPU-only = 17s/query. Both with --reasoning off.
 TIER_MODELS = {
     HardwareTierLevel.TIER_1: {
         "name": "Qwen3.5-2B",
@@ -47,6 +50,15 @@ TIER_MODELS = {
     },
 }
 
+# CPU-only override: Tier 2 without discrete GPU uses 2B for usable latency
+TIER_MODELS_CPU_ONLY = {
+    HardwareTierLevel.TIER_2: {
+        "name": "Qwen3.5-2B",
+        "quant": "Q4_K_M",
+        "size_gb": 1.5,
+    },
+}
+
 
 class HardwareDetector(HardwareDetectorInterface):
     """Detects system hardware and assigns an LLM tier."""
@@ -59,7 +71,12 @@ class HardwareDetector(HardwareDetectorInterface):
         ram_gb = self._detect_ram()
         gpu_vendor, gpu_model, gpu_vram = self._detect_gpu()
         tier = self._assign_tier(ram_gb, gpu_vendor)
-        model_info = TIER_MODELS[tier]
+        has_discrete = gpu_vendor in ("nvidia", "amd")
+        # CPU-only Tier 2 uses 2B for usable latency (17s vs 50s for 9B)
+        if not has_discrete and tier in TIER_MODELS_CPU_ONLY:
+            model_info = TIER_MODELS_CPU_ONLY[tier]
+        else:
+            model_info = TIER_MODELS[tier]
 
         result = HardwareTier(
             ram_gb=ram_gb,
