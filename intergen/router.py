@@ -57,6 +57,7 @@ class ConversationRouter(RouterInterface):
         self._conversation_history: list[Message] = []
         self._max_history = 20
         self._first_interaction = True
+        self._last_semantic_score = 0.0
 
         # Start a new session if memory is available
         if self._memory:
@@ -136,11 +137,18 @@ class ConversationRouter(RouterInterface):
             self._record(result, t0, "semantic")
             return result
 
-        # P3: LLM with tool calling
-        result = self._try_llm_tools(user_input)
-        if result.handled:
-            self._record(result, t0, "llm_tools")
-            return result
+        # P3: LLM with tool calling — skip if semantic score is low
+        # If the best semantic match is below 0.7, no tool is likely relevant.
+        # Going through P3 would waste 120s+ on a tool-calling request
+        # that produces no tool calls, then fall through to P4 anyway.
+        # P2 threshold is 0.85 (high confidence). Below 0.7 means the query
+        # is almost certainly knowledge/conversational, not tool-oriented.
+        semantic_score = self._last_semantic_score
+        if semantic_score >= 0.7:
+            result = self._try_llm_tools(user_input)
+            if result.handled:
+                self._record(result, t0, "llm_tools")
+                return result
 
         # P4: LLM free response (fallback)
         result = self._try_llm_freeform(user_input)
@@ -277,6 +285,8 @@ class ConversationRouter(RouterInterface):
         into 'Your hostname is intergenos' when a template does it in 0ms.
         """
         match = self._semantic._match_embeddings(user_input)
+        # Store score for P3 skip decision
+        self._last_semantic_score = match.score if match.score is not None else 0.0
         if match.intent_id is None or match.score < 0.85:
             return RouteResult(handled=False)
 

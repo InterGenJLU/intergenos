@@ -79,6 +79,18 @@ def run_turn(client, user_input: str) -> dict:
         except json.JSONDecodeError:
             return {"text": response, "source": "raw", "tool_calls": [],
                     "handled": True}
+    # TestResponse dataclass — convert to dict
+    if hasattr(response, "text"):
+        return {
+            "text": response.text,
+            "response": response.text,
+            "source": response.source,
+            "handled": response.handled,
+            "tool_calls": response.tool_calls,
+            "tool_results": getattr(response, "tool_results", []),
+            "used_llm": response.used_llm,
+            "escalated": getattr(response, "escalated", False),
+        }
     return response
 
 

@@ -150,7 +150,7 @@ class StateCache:
             "load_average": ["load", "load average"],
             "block_devices": ["block device", "lsblk", "drives", "partitions"],
             "usb_devices": ["usb"],
-            "network_interfaces": ["network", "interfaces", "ip addr", "ip address"],
+            "network_interfaces": ["network interface", "interfaces", "ip addr", "ip address", "ip link"],
             "service_list": ["services", "running services", "systemctl"],
         }
 

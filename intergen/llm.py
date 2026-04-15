@@ -141,7 +141,7 @@ class LLMRouter(LLMInterface):
                 data=json.dumps(payload).encode(),
                 headers={"Content-Type": "application/json"},
             )
-            response = urllib.request.urlopen(req, timeout=60)
+            response = urllib.request.urlopen(req, timeout=120)
         except Exception as e:
             logger.error("Local LLM request failed: %s", e)
             return
@@ -200,7 +200,7 @@ class LLMRouter(LLMInterface):
                 data=json.dumps(payload).encode(),
                 headers={"Content-Type": "application/json"},
             )
-            response = urllib.request.urlopen(req, timeout=60)
+            response = urllib.request.urlopen(req, timeout=120)
         except urllib.error.HTTPError as e:
             if e.code == 400:
                 self._handle_context_overflow(e, payload)
@@ -210,7 +210,7 @@ class LLMRouter(LLMInterface):
                         data=json.dumps(payload).encode(),
                         headers={"Content-Type": "application/json"},
                     )
-                    response = urllib.request.urlopen(req, timeout=60)
+                    response = urllib.request.urlopen(req, timeout=120)
                 except Exception as e2:
                     logger.error("Retry after context overflow failed: %s", e2)
                     return

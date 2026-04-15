@@ -39,7 +39,9 @@ class ServerConfig:
     port: int
     context_size: int
     gpu_layers: int
+    parallel: int
     jinja: bool
+    reasoning: str
 
 
 class LlamaManager(LlamaManagerInterface):
@@ -57,7 +59,9 @@ class LlamaManager(LlamaManagerInterface):
               port: int = 8080,
               context_size: int = 8192,
               gpu_layers: int = 999,
-              jinja: bool = True) -> bool:
+              parallel: int = 1,
+              jinja: bool = True,
+              reasoning: str = "off") -> bool:
         """Start llama-server with the given model."""
         # Verify the model file exists
         if not Path(model_path).exists():
@@ -84,6 +88,8 @@ class LlamaManager(LlamaManagerInterface):
             "--port", str(port),
             "--ctx-size", str(context_size),
             "--n-gpu-layers", str(gpu_layers),
+            "--parallel", str(parallel),
+            "--reasoning", reasoning,
         ]
         if jinja:
             cmd.append("--jinja")
@@ -94,7 +100,9 @@ class LlamaManager(LlamaManagerInterface):
             port=port,
             context_size=context_size,
             gpu_layers=gpu_layers,
+            parallel=parallel,
             jinja=jinja,
+            reasoning=reasoning,
         )
 
         log.info("Starting llama-server: %s", " ".join(cmd))
@@ -177,7 +185,9 @@ class LlamaManager(LlamaManagerInterface):
             port=self._config.port,
             context_size=self._config.context_size,
             gpu_layers=self._config.gpu_layers,
+            parallel=self._config.parallel,
             jinja=self._config.jinja,
+            reasoning=self._config.reasoning,
         )
 
     def health(self) -> ServerHealth:

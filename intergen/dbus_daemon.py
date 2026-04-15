@@ -191,19 +191,33 @@ class InterGenDaemon(InterGenDBusInterface):
             log.error(self._last_error)
 
         # Step 2: Model manager — check if model is downloaded
-        model_path = None
-        try:
-            from intergen.model_manager import ModelManager
-            mm = ModelManager()
-            model_info = mm.get_model_for_tier(tier.tier)
-            if model_info and model_info.downloaded:
-                model_path = model_info.local_path
-                self._model_loaded = model_info.name
-                log.info("Model ready: %s at %s", model_info.name, model_path)
+        # Environment override: INTERGEN_MODEL_PATH forces a specific model
+        # (useful for testing with a different model than tier-recommended)
+        import os
+        model_path = os.environ.get("INTERGEN_MODEL_PATH")
+        if model_path:
+            from pathlib import Path
+            if Path(model_path).exists():
+                self._model_loaded = Path(model_path).stem
+                log.info("Model override: %s", model_path)
             else:
-                log.warning("No model downloaded for Tier %d", tier.tier.value)
-        except Exception as e:
-            log.warning("Model manager init failed: %s", e)
+                log.error("INTERGEN_MODEL_PATH set but file not found: %s",
+                          model_path)
+                model_path = None
+
+        if not model_path:
+            try:
+                from intergen.model_manager import ModelManager
+                mm = ModelManager()
+                model_info = mm.get_model_for_tier(tier.tier)
+                if model_info and model_info.downloaded:
+                    model_path = model_info.local_path
+                    self._model_loaded = model_info.name
+                    log.info("Model ready: %s at %s", model_info.name, model_path)
+                else:
+                    log.warning("No model downloaded for Tier %d", tier.tier.value)
+            except Exception as e:
+                log.warning("Model manager init failed: %s", e)
 
         # Step 3: Start llama-server
         if model_path:
@@ -215,7 +229,9 @@ class InterGenDaemon(InterGenDBusInterface):
                     port=self._config.get("llama_server.port", 8080),
                     context_size=self._config.get("llm.context_size", 8192),
                     gpu_layers=self._config.get("llama_server.gpu_layers", 999),
+                    parallel=self._config.get("llama_server.parallel", 1),
                     jinja=self._config.get("llama_server.jinja", True),
+                    reasoning=self._config.get("llama_server.reasoning", "off"),
                 )
                 if started:
                     log.info("llama-server started")
