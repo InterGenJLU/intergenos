@@ -142,6 +142,17 @@ class ModelManager(ModelManagerInterface):
                 local_path.unlink()
             return False
 
+    def get_model_by_name(self, name: str) -> ModelInfo | None:
+        """Find a model by name across all tiers."""
+        for model in MODEL_CATALOG.values():
+            if model.name == name:
+                local_path = self._model_dir / model.filename
+                if local_path.exists():
+                    model.local_path = str(local_path)
+                    model.downloaded = True
+                return model
+        return None
+
     def get_model_for_tier(self, tier: HardwareTierLevel) -> ModelInfo:
         """Return the recommended model for a hardware tier."""
         model = MODEL_CATALOG[tier]

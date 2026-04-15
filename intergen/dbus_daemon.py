@@ -209,7 +209,12 @@ class InterGenDaemon(InterGenDBusInterface):
             try:
                 from intergen.model_manager import ModelManager
                 mm = ModelManager()
-                model_info = mm.get_model_for_tier(tier.tier)
+                # Use the hardware detector's recommendation (accounts for
+                # CPU-only vs GPU-accelerated within the same tier)
+                model_info = mm.get_model_by_name(tier.recommended_model)
+                if model_info is None:
+                    # Fallback to tier-based lookup
+                    model_info = mm.get_model_for_tier(tier.tier)
                 if model_info and model_info.downloaded:
                     model_path = model_info.local_path
                     self._model_loaded = model_info.name
