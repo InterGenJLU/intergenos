@@ -424,15 +424,14 @@ class ConversationRouter(RouterInterface):
                 collected_text.append(chunk)
 
         if tool_results:
-            synthesis = self._llm.continue_after_tool_call(
-                messages,
-                tool_calls[0],
-                tool_results[0].content,
-            )
-            response_text = synthesis.text
-
-            self._append_history(user_input, response_text)
-
+            if collected_text:
+                response_text = self._llm._strip_filler("".join(collected_text))
+            else:
+                response_text = self._synthesize_tool_result(
+                    user_input,
+                    tool_results[0].name,
+                    tool_results[0].content,
+                )
             return RouteResult(
                 text=response_text,
                 source="llm_tools",
@@ -440,8 +439,8 @@ class ConversationRouter(RouterInterface):
                 tool_calls=tool_calls,
                 tool_results=tool_results,
                 used_llm=True,
-                tokens_prompt=synthesis.tokens_prompt,
-                tokens_completion=synthesis.tokens_completion,
+                tokens_prompt=getattr(self._llm, '_last_prompt_tokens', 0),
+                tokens_completion=getattr(self._llm, '_last_completion_tokens', 0),
             )
 
         if collected_text:
