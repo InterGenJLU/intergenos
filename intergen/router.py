@@ -69,6 +69,7 @@ class ConversationRouter(RouterInterface):
         """Route user input through the priority chain."""
         t0 = time.monotonic()
         user_input = user_input.strip()
+        self._current_query_type = self._classify_query_type(user_input)
 
         if not user_input:
             return RouteResult(
@@ -702,28 +703,53 @@ class ConversationRouter(RouterInterface):
 
     # ── Message building ──
 
-    _IDENTITY_CONTEXT = (
-        "<context>"
-        "Your name is InterGen. You are an AI assistant, not an operating system. "
-        "You run locally on this machine. "
-        "You have FULL system access via these tools: "
-        "run_command, read_file, write_file, manage_packages, "
-        "manage_services, web_search, open_application, analyze_file. "
-        "You CAN read files, execute commands, and access system data. "
-        "NEVER claim you lack access or cannot see the user's system."
-        "</context>\n"
-    )
+    _IDENTITY_KEYWORDS = frozenset([
+        "name", "who", "what are you", "hostname", "host", "box",
+        "machine", "computer", "yourself", "your name",
+    ])
+    _DIAGNOSTIC_KEYWORDS = frozenset([
+        "slow", "crash", "broke", "error", "fail", "down", "full",
+        "running out", "can't reach", "not working", "check", "diagnose",
+        "fix", "install", "remove", "restart", "status", "show me",
+    ])
+
+    _SAFETY_TRIGGER_WORDS = frozenset([
+        "format", "delete", "remove", "wipe", "destroy", "erase",
+        "ignore", "bypass", "override", "hack", "inject",
+    ])
+
+    def _classify_query_type(self, user_input: str) -> str:
+        """Classify query for adaptive prompt selection.
+
+        Uses existing signals — no LLM call. Returns one of:
+        identity, diagnostic, safety, general.
+        """
+        lower = user_input.lower()
+
+        if any(t in lower for t in self._SAFETY_TRIGGER_WORDS):
+            return "safety"
+
+        words = lower.split()
+        if len(words) <= 4:
+            for kw in self._IDENTITY_KEYWORDS:
+                if kw in lower:
+                    return "identity"
+
+        for kw in self._DIAGNOSTIC_KEYWORDS:
+            if kw in lower:
+                return "diagnostic"
+
+        return "general"
 
     def _build_messages(self, user_input: str) -> list[Message]:
-        """Build message list with system prompt and conversation history."""
-        messages = self._llm.build_system_messages()
+        """Build message list with adaptive system prompt."""
+        query_type = getattr(self, '_current_query_type', 'general')
+        messages = self._llm.build_system_messages(query_type=query_type)
 
         for msg in self._conversation_history[-self._max_history:]:
             messages.append(msg)
 
-        content = self._IDENTITY_CONTEXT + user_input
-
-        messages.append(Message(role=MessageRole.USER, content=content))
+        messages.append(Message(role=MessageRole.USER, content=user_input))
         return messages
 
     def _append_history(self, user_input: str, response: str) -> None:
@@ -771,6 +797,7 @@ class ConversationRouter(RouterInterface):
                 latency_ms=round(elapsed_ms, 1),
                 metadata={
                     "source": source,
+                    "query_type": getattr(self, '_current_query_type', 'general'),
                     "tool_count": len(result.tool_results),
                     "used_llm": result.used_llm,
                     "escalated": result.escalated,
