@@ -292,6 +292,8 @@ class LLMRouter(LLMInterface):
             return LLMResponse(
                 text=self._strip_filler(response_text),
                 model="local", local=True,
+                tokens_prompt=self._last_prompt_tokens,
+                tokens_completion=self._last_completion_tokens,
             )
 
         # Empty response: model may have timed out or failed to generate.
@@ -314,6 +316,8 @@ class LLMRouter(LLMInterface):
             return LLMResponse(
                 text=self._strip_filler(response_text),
                 model="local", local=True, quality_passed=True,
+                tokens_prompt=self._last_prompt_tokens,
+                tokens_completion=self._last_completion_tokens,
             )
 
         logger.warning("Local LLM failed twice (%s)", quality_issue)
@@ -323,6 +327,8 @@ class LLMRouter(LLMInterface):
             return LLMResponse(
                 text=response_text or "",
                 model="local", local=True, quality_passed=False,
+                tokens_prompt=self._last_prompt_tokens,
+                tokens_completion=self._last_completion_tokens,
             )
 
         cloud_response = self._escalate_to_cloud(messages, max_tokens=max_tok)
@@ -332,6 +338,8 @@ class LLMRouter(LLMInterface):
         return LLMResponse(
             text=response_text or "",
             model="local", local=True, quality_passed=False,
+            tokens_prompt=self._last_prompt_tokens,
+            tokens_completion=self._last_completion_tokens,
         )
 
     # ── Quality gate ──
@@ -414,7 +422,12 @@ class LLMRouter(LLMInterface):
         We only yield 'content' tokens to the user. If the model
         finishes with content empty but reasoning_content populated,
         it likely ran out of tokens mid-thought.
+
+        Token counts from timings are stored on self._last_prompt_tokens
+        and self._last_completion_tokens for the caller to read.
         """
+        self._last_prompt_tokens = 0
+        self._last_completion_tokens = 0
         for raw_line in response:
             if not raw_line:
                 continue
@@ -426,6 +439,10 @@ class LLMRouter(LLMInterface):
                 break
             try:
                 chunk = json.loads(data)
+                timings = chunk.get("timings")
+                if timings:
+                    self._last_prompt_tokens = timings.get("prompt_n", 0)
+                    self._last_completion_tokens = timings.get("predicted_n", 0)
                 delta = chunk["choices"][0].get("delta", {})
                 token = delta.get("content", "")
                 if token:

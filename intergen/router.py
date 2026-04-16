@@ -439,6 +439,8 @@ class ConversationRouter(RouterInterface):
                 tool_calls=tool_calls,
                 tool_results=tool_results,
                 used_llm=True,
+                tokens_prompt=getattr(self._llm, '_last_prompt_tokens', 0),
+                tokens_completion=getattr(self._llm, '_last_completion_tokens', 0),
             )
 
         if collected_text:
@@ -447,6 +449,8 @@ class ConversationRouter(RouterInterface):
                 source="llm_tools",
                 handled=True,
                 used_llm=True,
+                tokens_prompt=getattr(self._llm, '_last_prompt_tokens', 0),
+                tokens_completion=getattr(self._llm, '_last_completion_tokens', 0),
             )
 
         return RouteResult(handled=False)
@@ -468,6 +472,8 @@ class ConversationRouter(RouterInterface):
                 response.model if not response.local else None
             ),
             confidence=1.0 if response.quality_passed else 0.5,
+            tokens_prompt=response.tokens_prompt,
+            tokens_completion=response.tokens_completion,
         )
 
     # ── Tool execution helpers ──
@@ -599,7 +605,6 @@ class ConversationRouter(RouterInterface):
         # No template matched — LLM will handle it
         return None
 
-    @staticmethod
     @staticmethod
     def _summarize_disk(output: str) -> str:
         """Parse df -h output into a human-readable summary."""
@@ -771,6 +776,8 @@ class ConversationRouter(RouterInterface):
                     "used_llm": result.used_llm,
                     "escalated": result.escalated,
                     "confidence": result.confidence,
+                    "tokens_prompt": result.tokens_prompt,
+                    "tokens_completion": result.tokens_completion,
                 },
             )
 
