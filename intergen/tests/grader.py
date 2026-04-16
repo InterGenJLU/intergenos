@@ -133,8 +133,12 @@ def grade_turn(response: dict, assertions: list) -> list[AssertionResult]:
     denial_phrases = [
         "i cannot execute commands",
         "i cannot perform system operations",
-        "i don't have access to your",
-        "i do not have access to your",
+        "i don't have access to your system",
+        "i don't have access to your files",
+        "i don't have access to your machine",
+        "i do not have access to your system",
+        "i do not have access to your files",
+        "i do not have access to your machine",
         "i cannot directly access",
         "i cannot access your system",
         "i cannot access your log",
@@ -162,7 +166,9 @@ def grade_turn(response: dict, assertions: list) -> list[AssertionResult]:
         "i must check", "let me check", "i will start by",
     ]
     has_narration = any(p in text_lower for p in narration_phrases)
-    has_data = any(c.isdigit() for c in text) or "\n" in text or len(text) > 300
+    digit_count = sum(1 for c in text if c.isdigit())
+    newline_count = text.count("\n")
+    has_data = (digit_count >= 3) or (newline_count >= 2) or (len(text) > 300 and digit_count >= 1)
     if has_narration and not has_data:
         results.append(AssertionResult(
             type="auto:no_empty_narration", value="", passed=False,
@@ -175,8 +181,8 @@ def grade_turn(response: dict, assertions: list) -> list[AssertionResult]:
             description="No empty narration",
         ))
 
-    # Output readability — cached/keyword multi-line data must have formatting
-    if source in ("cache", "keyword") and len(text) > 200:
+    # Output readability — substantial output must have formatting
+    if len(text) > 200:
         has_newlines = "\n" in text
         results.append(AssertionResult(
             type="auto:output_readable", value="", passed=has_newlines,
@@ -189,21 +195,16 @@ def grade_turn(response: dict, assertions: list) -> list[AssertionResult]:
             description="Output readability (N/A or OK)",
         ))
 
-    # Helpfulness — LLM responses over 50 chars should contain specific
-    # information (numbers, paths, file names), not just generic filler
+    # Helpfulness — LLM responses should not be purely generic filler
     if source in ("llm_freeform", "llm_tools") and len(text) > 50:
-        has_specifics = (
-            any(c.isdigit() for c in text)
-            or "/" in text
-            or "`" in text
-        )
         generic_only = any(p in text_lower for p in [
             "i can only assist with",
             "please provide more",
             "i recommend contacting",
             "please consult",
+            "i am ready to assist you",
         ])
-        if generic_only and not has_specifics:
+        if generic_only:
             results.append(AssertionResult(
                 type="auto:helpfulness", value="", passed=False,
                 description="LLM response is generic filler without specific information",
@@ -218,6 +219,116 @@ def grade_turn(response: dict, assertions: list) -> list[AssertionResult]:
         results.append(AssertionResult(
             type="auto:helpfulness", value="", passed=True,
             description="Helpfulness (N/A or non-LLM)",
+        ))
+
+    # No ask-user — InterGen should DO, not TELL the user to run commands
+    ask_user_phrases = [
+        "please run", "please execute", "run the following",
+        "execute the following", "in your terminal",
+        "once you provide the output", "please provide the output",
+        "try running", "you can run",
+    ]
+    if source in ("llm_freeform", "llm_tools"):
+        for phrase in ask_user_phrases:
+            if phrase in text_lower:
+                results.append(AssertionResult(
+                    type="auto:no_ask_user", value=phrase, passed=False,
+                    description="InterGen told user to run commands instead of using tools",
+                    actual=text[:200],
+                ))
+                break
+        else:
+            results.append(AssertionResult(
+                type="auto:no_ask_user", value="", passed=True,
+                description="No ask-user patterns",
+            ))
+    else:
+        results.append(AssertionResult(
+            type="auto:no_ask_user", value="", passed=True,
+            description="No ask-user (N/A for non-LLM)",
+        ))
+
+    # No identity confusion — InterGen != InterGenOS
+    identity_confusion_phrases = [
+        "i am intergenos", "i'm intergenos", "as intergenos,",
+        "as intergenos ", "i am the operating system",
+    ]
+    for phrase in identity_confusion_phrases:
+        if phrase in text_lower:
+            results.append(AssertionResult(
+                type="auto:no_identity_confusion", value=phrase, passed=False,
+                description="InterGen confused itself with InterGenOS (the OS)",
+                actual=text[:200],
+            ))
+            break
+    else:
+        results.append(AssertionResult(
+            type="auto:no_identity_confusion", value="", passed=True,
+            description="No identity confusion",
+        ))
+
+    # No prompt rehash — Don't recite the system prompt
+    rehash_markers = [
+        "i have successfully updated my internal profile",
+        "i now operate with full system access",
+        "utilizing the tools you granted",
+    ]
+    for marker in rehash_markers:
+        if marker in text_lower:
+            results.append(AssertionResult(
+                type="auto:no_prompt_rehash", value=marker, passed=False,
+                description="InterGen rehashed system prompt instead of answering",
+                actual=text[:200],
+            ))
+            break
+    else:
+        results.append(AssertionResult(
+            type="auto:no_prompt_rehash", value="", passed=True,
+            description="No prompt rehash",
+        ))
+
+    # No hallucinated diagnosis — Don't fabricate without tools
+    diagnosis_markers = [
+        "i have confirmed that", "i have analyzed the system state and confirmed",
+        "i have analyzed the system state", "i have verified that",
+    ]
+    if source == "llm_freeform" and not tool_calls:
+        for marker in diagnosis_markers:
+            if marker in text_lower:
+                results.append(AssertionResult(
+                    type="auto:no_hallucinated_diagnosis", value=marker, passed=False,
+                    description="InterGen fabricated a diagnosis without using tools",
+                    actual=text[:200],
+                ))
+                break
+        else:
+            results.append(AssertionResult(
+                type="auto:no_hallucinated_diagnosis", value="", passed=True,
+                description="No hallucinated diagnosis",
+            ))
+    else:
+        results.append(AssertionResult(
+            type="auto:no_hallucinated_diagnosis", value="", passed=True,
+            description="No hallucinated diagnosis (N/A)",
+        ))
+
+    # No wrong package manager — InterGenOS uses pkm
+    wrong_pm_phrases = [
+        "apt install", "apt-get install", "yum install", "dnf install",
+        "apt update", "apt-get update", "sudo apt", "sudo yum", "sudo dnf",
+    ]
+    for pm in wrong_pm_phrases:
+        if pm in text_lower:
+            results.append(AssertionResult(
+                type="auto:no_wrong_package_manager", value=pm, passed=False,
+                description="Referenced wrong package manager (InterGenOS uses pkm)",
+                actual=text[:200],
+            ))
+            break
+    else:
+        results.append(AssertionResult(
+            type="auto:no_wrong_package_manager", value="", passed=True,
+            description="No wrong package manager",
         ))
 
     return results
