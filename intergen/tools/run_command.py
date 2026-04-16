@@ -89,7 +89,7 @@ class RunCommandTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Execute a shell command on the InterGenOS system. "
+            "Execute a shell command on this system. "
             "Read-only commands run automatically. Write commands require "
             "user confirmation. Destructive commands are blocked."
         )

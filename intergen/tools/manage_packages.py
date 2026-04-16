@@ -43,7 +43,7 @@ class ManagePackagesTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Manage packages on InterGenOS using pkm. "
+            "Manage packages on this system using pkm. "
             "Supports: list, search, info, install, remove, verify. "
             "Install and remove operations require user confirmation."
         )
@@ -101,7 +101,7 @@ class ManagePackagesTool(BaseTool):
                 call_id="", name=self.name,
                 content=(
                     "pkm is not installed on this system yet. "
-                    "pkm is InterGenOS's native package manager — it needs to "
+                    "pkm is this system's native package manager — it needs to "
                     "be promoted from build tool to system tool before package "
                     "management is available."
                 ),

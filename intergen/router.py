@@ -170,7 +170,7 @@ class ConversationRouter(RouterInterface):
         """Handle self-awareness queries with instant template responses."""
         _IDENTITY = {
             "what are you": (
-                "I'm InterGen, the AI assistant built into InterGenOS. "
+                "I'm InterGen, your AI assistant. "
                 "I help you manage your system — packages, services, "
                 "files, hardware, network. I can run commands, diagnose "
                 "problems, and answer questions."
@@ -180,12 +180,12 @@ class ConversationRouter(RouterInterface):
             "describe yourself": None,
             "what is your name": "I'm InterGen.",
             "what's your name": "I'm InterGen.",
-            "who made you": "InterGen was built by InterGenJLU as part of InterGenOS.",
+            "who made you": "I was built by InterGenJLU as part of this operating system.",
             "who built you": None,  # same as who made you
             "who created you": None,
             "are you an ai": (
-                "I'm InterGen — an AI assistant built into InterGenOS. "
-                "I run locally on this machine."
+                "I'm InterGen — an AI assistant that runs locally "
+                "on this machine."
             ),
             "are you a bot": None,
             "are you artificial intelligence": None,
@@ -424,14 +424,15 @@ class ConversationRouter(RouterInterface):
                 collected_text.append(chunk)
 
         if tool_results:
-            if collected_text:
-                response_text = self._llm._strip_filler("".join(collected_text))
-            else:
-                response_text = self._synthesize_tool_result(
-                    user_input,
-                    tool_results[0].name,
-                    tool_results[0].content,
-                )
+            synthesis = self._llm.continue_after_tool_call(
+                messages,
+                tool_calls[0],
+                tool_results[0].content,
+            )
+            response_text = synthesis.text
+
+            self._append_history(user_input, response_text)
+
             return RouteResult(
                 text=response_text,
                 source="llm_tools",
@@ -439,8 +440,8 @@ class ConversationRouter(RouterInterface):
                 tool_calls=tool_calls,
                 tool_results=tool_results,
                 used_llm=True,
-                tokens_prompt=getattr(self._llm, '_last_prompt_tokens', 0),
-                tokens_completion=getattr(self._llm, '_last_completion_tokens', 0),
+                tokens_prompt=synthesis.tokens_prompt,
+                tokens_completion=synthesis.tokens_completion,
             )
 
         if collected_text:
@@ -704,7 +705,8 @@ class ConversationRouter(RouterInterface):
 
     _IDENTITY_CONTEXT = (
         "<context>"
-        "You are InterGen. You run locally on this machine. "
+        "Your name is InterGen. You are an AI assistant, not an operating system. "
+        "You run locally on this machine. "
         "You have FULL system access via these tools: "
         "run_command, read_file, write_file, manage_packages, "
         "manage_services, web_search, open_application, analyze_file. "
@@ -720,9 +722,7 @@ class ConversationRouter(RouterInterface):
         for msg in self._conversation_history[-self._max_history:]:
             messages.append(msg)
 
-        content = user_input
-        if len(user_input.split()) > 4:
-            content = self._IDENTITY_CONTEXT + user_input
+        content = self._IDENTITY_CONTEXT + user_input
 
         messages.append(Message(role=MessageRole.USER, content=content))
         return messages

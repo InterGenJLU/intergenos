@@ -198,7 +198,7 @@ class AnalyzeFileTool(BaseTool):
                 "model": "local",
                 "messages": [
                     {"role": "system", "content": (
-                        "You are InterGen, analyzing a file on InterGenOS. "
+                        "You are InterGen, analyzing a file on this system. "
                         "Be concise and technical. No filler."
                     )},
                     {"role": "user", "content": prompt},
