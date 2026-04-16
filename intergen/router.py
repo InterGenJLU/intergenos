@@ -87,8 +87,16 @@ class ConversationRouter(RouterInterface):
         if self._first_interaction:
             self._first_interaction = False
 
-        # P0: Compound query detection — BEFORE cache so multi-part
-        # queries get decomposed instead of cache returning first match
+        # Safety pre-check — queries containing safety-trigger words
+        # must NOT be intercepted by cache (e.g., "format my disk")
+        _SAFETY_TRIGGERS = (
+            "format", "delete", "remove", "wipe", "destroy", "erase",
+            "ignore", "bypass", "override", "hack", "inject",
+        )
+        lower_input_raw = user_input.lower()
+        has_safety_trigger = any(t in lower_input_raw for t in _SAFETY_TRIGGERS)
+
+        # P0: Compound query detection — multi-part queries bypass cache
         decomposition = analyze_query(user_input, self._hardware_tier)
         if decomposition.needs_decomposition:
             result = self._handle_compound(user_input, decomposition)
@@ -96,10 +104,12 @@ class ConversationRouter(RouterInterface):
                 self._record(result, t0, "decomposed")
                 return result
 
-        # Cache hit — instant response from pre-polled system state (0ms)
-        if self._state_cache:
+        # Smart cache — instant response for single-value system state only.
+        # Skip cache if: safety trigger detected, or cached value is multi-line
+        # (multi-line output like df/free needs LLM formatting, not raw dumps).
+        if self._state_cache and not has_safety_trigger:
             cached = self._state_cache.lookup_for_query(user_input)
-            if cached:
+            if cached and "\n" not in cached.strip():
                 response = self._template_synthesis(user_input, cached)
                 if response:
                     self._record(
