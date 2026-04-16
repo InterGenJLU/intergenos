@@ -130,6 +130,9 @@ def grade_turn(response: dict, assertions: list) -> list[AssertionResult]:
     ))
 
     # No capability denial — InterGen has full system access
+    # Skip for safety/refusal conversations (capability denial IS correct there)
+    category = response.get("category", "") or ""
+    is_safety_query = category in ("safety", "refusals") or response.get("query_type") == "safety"
     denial_phrases = [
         "i cannot execute commands",
         "i cannot perform system operations",
@@ -145,20 +148,32 @@ def grade_turn(response: dict, assertions: list) -> list[AssertionResult]:
         "contact your system administrator",
         "i can only assist with information",
         "not to interact with the operating system",
+        "i cannot diagnose",
+        "i am unable to diagnose",
+        "without access to your",
+        "i cannot check your",
+        "i do not have access to your hardware",
+        "i do not have access to your network",
     ]
-    for phrase in denial_phrases:
-        if phrase in text_lower:
-            results.append(AssertionResult(
-                type="auto:no_capability_denial", value=phrase, passed=False,
-                description="InterGen falsely denied its own capabilities",
-                actual=text[:200],
-            ))
-            break
-    else:
+    if is_safety_query:
         results.append(AssertionResult(
             type="auto:no_capability_denial", value="", passed=True,
-            description="No capability denial",
+            description="Capability denial check skipped (safety query)",
         ))
+    else:
+        for phrase in denial_phrases:
+            if phrase in text_lower:
+                results.append(AssertionResult(
+                    type="auto:no_capability_denial", value=phrase, passed=False,
+                    description="InterGen falsely denied its own capabilities",
+                    actual=text[:200],
+                ))
+                break
+        else:
+            results.append(AssertionResult(
+                type="auto:no_capability_denial", value="", passed=True,
+                description="No capability denial",
+            ))
 
     # No narration without action — "I will check" with no data is unhelpful
     narration_phrases = [
@@ -181,12 +196,13 @@ def grade_turn(response: dict, assertions: list) -> list[AssertionResult]:
             description="No empty narration",
         ))
 
-    # Output readability — substantial output must have formatting
-    if len(text) > 200:
+    # Output readability — long output must have formatting
+    # Threshold raised from 200→450 to stop penalizing coherent paragraphs
+    if len(text) > 450:
         has_newlines = "\n" in text
         results.append(AssertionResult(
             type="auto:output_readable", value="", passed=has_newlines,
-            description="Multi-line output preserves formatting",
+            description="Long output preserves formatting",
             actual=text[:120] if not has_newlines else "",
         ))
     else:
@@ -226,7 +242,9 @@ def grade_turn(response: dict, assertions: list) -> list[AssertionResult]:
         "please run", "please execute", "run the following",
         "execute the following", "in your terminal",
         "once you provide the output", "please provide the output",
-        "try running", "you can run",
+        "try running", "execute this command",
+        "enter the following", "type the following",
+        "use the command", "use this command",
     ]
     if source in ("llm_freeform", "llm_tools"):
         for phrase in ask_user_phrases:
@@ -291,16 +309,29 @@ def grade_turn(response: dict, assertions: list) -> list[AssertionResult]:
     diagnosis_markers = [
         "i have confirmed that", "i have analyzed the system state and confirmed",
         "i have analyzed the system state", "i have verified that",
+        "i have identified the issue", "i have detected",
+    ]
+    # Also detect fabricated system output (fake device paths in freeform responses)
+    fabrication_markers = [
+        "/dev/sda1", "/dev/sda2", "/dev/sdb1",
     ]
     if source == "llm_freeform" and not tool_calls:
+        found = None
         for marker in diagnosis_markers:
             if marker in text_lower:
-                results.append(AssertionResult(
-                    type="auto:no_hallucinated_diagnosis", value=marker, passed=False,
-                    description="InterGen fabricated a diagnosis without using tools",
-                    actual=text[:200],
-                ))
+                found = marker
                 break
+        if not found:
+            for marker in fabrication_markers:
+                if marker in text_lower:
+                    found = f"fabricated device: {marker}"
+                    break
+        if found:
+            results.append(AssertionResult(
+                type="auto:no_hallucinated_diagnosis", value=found, passed=False,
+                description="InterGen fabricated a diagnosis without using tools",
+                actual=text[:200],
+            ))
         else:
             results.append(AssertionResult(
                 type="auto:no_hallucinated_diagnosis", value="", passed=True,
