@@ -110,6 +110,8 @@ class RouteResult:
     escalated: bool = False
     escalation_provider: str | None = None
     confidence: float = 1.0
+    tokens_prompt: int = 0
+    tokens_completion: int = 0
 
 
 @dataclass
