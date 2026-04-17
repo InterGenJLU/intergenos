@@ -93,7 +93,8 @@ class ConversationRouter(RouterInterface):
         _SAFETY_TRIGGERS = (
             "format", "delete", "remove", "wipe", "destroy", "erase",
             "ignore", "bypass", "override", "hack", "inject",
-            "mkfs", "mkfs.ext4", "fdisk", "parted", "shutdown", "reboot",
+            "mkfs", "mkfs.ext4", "fdisk", "parted",
+            "shutdown", "shut down", "reboot", "power off", "turn off",
             "rm -rf", "rm -f", "dd if=", "dd of=",
             "chmod 777", "chown", "shred", "wipefs", ":(){ :|:& };:",
         )
@@ -500,6 +501,17 @@ class ConversationRouter(RouterInterface):
     def _try_llm_freeform(self, user_input: str) -> RouteResult:
         """P4: LLM free response (no tools)."""
         messages = self._build_messages(user_input)
+
+        if self._current_query_type == "diagnostic":
+            messages.append(Message(
+                role=MessageRole.USER,
+                content=(
+                    "IMPORTANT: If you cannot answer this from tool output "
+                    "you have already seen, say 'I don't have current data "
+                    "on that' — do NOT fabricate system data."
+                ),
+            ))
+
         response = self._llm.chat(messages)
 
         self._append_history(user_input, response.text)
@@ -758,7 +770,8 @@ class ConversationRouter(RouterInterface):
     _SAFETY_TRIGGER_WORDS = frozenset([
         "format", "delete", "remove", "wipe", "destroy", "erase",
         "ignore", "bypass", "override", "hack", "inject",
-        "mkfs", "mkfs.ext4", "fdisk", "parted", "shutdown", "reboot",
+        "mkfs", "mkfs.ext4", "fdisk", "parted",
+        "shutdown", "shut down", "reboot", "power off", "turn off",
         "rm -rf", "rm -f", "dd if=", "dd of=",
         "chmod 777", "chown", "shred", "wipefs", ":(){ :|:& };:",
     ])
