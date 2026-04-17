@@ -360,9 +360,7 @@ class LLMRouter(LLMInterface):
 
     # ── Agentic loop: tool result synthesis ──
 
-    _SYNTHESIS_PROMPT = (
-        "Summarize the tool results above for the user.\n"
-        "RULES:\n"
+    _SYNTHESIS_RULES = (
         "1. Use ONLY the data from the tool output. Do NOT invent "
         "numbers, names, paths, or details not in the results.\n"
         "2. Jump straight into the answer. No preamble.\n"
@@ -370,6 +368,14 @@ class LLMRouter(LLMInterface):
         "themselves.\n"
         "4. Be concise. State the facts from the tool output.\n"
         "5. DO NOT reference apt, yum, or dnf. This system uses pkm.\n"
+        "6. If the tool result says the command was BLOCKED, refused, "
+        "or rejected by the safety layer, tell the user the command "
+        "was blocked. Do NOT claim it was executed.\n"
+    )
+
+    _SYNTHESIS_PROMPT = (
+        "Summarize the tool results above for the user.\n"
+        "RULES:\n" + _SYNTHESIS_RULES
     )
 
     def continue_after_tool_call(

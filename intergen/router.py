@@ -734,8 +734,8 @@ class ConversationRouter(RouterInterface):
         synthesis_prompt = (
             f"The user asked: \"{user_input}\"\n\n"
             f"Tool '{tool_name}' returned:\n{sanitized}\n\n"
-            "Synthesize a clear, concise response for the user based on this output. "
-            "Include the relevant data. Be direct."
+            "Synthesize a clear, concise response for the user.\n"
+            "RULES:\n" + self._llm._SYNTHESIS_RULES
         )
         messages = self._llm.build_system_messages()
         messages.append(Message(role=MessageRole.USER, content=synthesis_prompt))
