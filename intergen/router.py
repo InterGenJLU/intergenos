@@ -799,18 +799,20 @@ class ConversationRouter(RouterInterface):
 
         words = lower.split()
 
-        # Identity: always check keywords (not just short queries),
-        # and ultra-short queries (≤2 words) always get identity context
-        # to prevent "I am InterGenOS" on ambiguous inputs.
+        # Identity keywords (explicit matches like "name", "who", "hostname")
         for kw in self._IDENTITY_KEYWORDS:
             if kw in lower:
                 return "identity"
-        if len(words) <= 2:
-            return "identity"
 
+        # Diagnostic keywords BEFORE ultra-short fallback — "find /etc/fstab"
+        # is 2 words but diagnostic, not identity. R25 exposed this ordering bug.
         for kw in self._DIAGNOSTIC_KEYWORDS:
             if kw in lower:
                 return "diagnostic"
+
+        # Ultra-short fallback: ≤2 words with no keyword match → identity
+        if len(words) <= 2:
+            return "identity"
 
         return "general"
 
