@@ -358,6 +358,104 @@ class LLMRouter(LLMInterface):
             tokens_completion=self._last_completion_tokens,
         )
 
+    # ── Agentic loop: tool result synthesis ──
+
+    _SYNTHESIS_PROMPT = (
+        "The tool has returned results. Present them to the user.\n"
+        "RULES FOR THIS RESPONSE:\n"
+        "1. Jump straight into the answer. No preamble.\n"
+        "2. Present information as though you simply know it. "
+        "NEVER say 'the tool returned' or 'based on the output'.\n"
+        "3. DO NOT tell the user to run commands, check websites, "
+        "or do anything themselves. You ARE their source.\n"
+        "4. Be concise. State the facts. No tutorials, no lectures.\n"
+        "5. DO NOT reference apt, yum, or dnf. This system uses pkm.\n"
+    )
+
+    def continue_after_tool_call(
+        self,
+        messages: list[Message],
+        tool_call: ToolCall,
+        tool_result: str,
+        *,
+        max_tokens: int = 400,
+        temperature: float = 0.3,
+    ) -> LLMResponse | None:
+        """Send tool result back to LLM for human-readable synthesis.
+
+        Includes a dedicated synthesis prompt (ported from JARVIS
+        synth_footer pattern) that instructs the model to present
+        results directly without tutorials or filler. Returns None
+        on timeout so caller can fall back to template synthesis.
+        """
+        msg_dicts = self._to_openai_messages(messages)
+
+        msg_dicts.append({
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{
+                "id": tool_call.call_id or "call_0",
+                "type": "function",
+                "function": {
+                    "name": tool_call.name,
+                    "arguments": json.dumps(tool_call.arguments),
+                },
+            }],
+        })
+
+        msg_dicts.append({
+            "role": "tool",
+            "tool_call_id": tool_call.call_id or "call_0",
+            "content": tool_result,
+        })
+
+        msg_dicts.append({
+            "role": "user",
+            "content": self._SYNTHESIS_PROMPT,
+        })
+
+        payload = {
+            "messages": msg_dicts,
+            "temperature": temperature,
+            "top_p": self._top_p,
+            "top_k": self._top_k,
+            "max_tokens": max_tokens,
+            "stream": True,
+        }
+
+        logger.info("continue_after_tool_call: %s (result_len=%d)",
+                     tool_call.name, len(tool_result))
+
+        try:
+            req = urllib.request.Request(
+                self._endpoint,
+                data=json.dumps(payload).encode(),
+                headers={"Content-Type": "application/json"},
+            )
+            response = urllib.request.urlopen(req, timeout=self._request_timeout)
+        except Exception as e:
+            logger.warning("continue_after_tool_call timed out or failed: %s", e)
+            return None
+
+        try:
+            tokens = list(self._parse_sse_stream(response))
+        finally:
+            response.close()
+
+        text = self._strip_filler("".join(tokens))
+
+        if not text.strip():
+            logger.warning("continue_after_tool_call: empty synthesis")
+            return None
+
+        return LLMResponse(
+            text=text,
+            model="local",
+            local=True,
+            tokens_prompt=self._last_prompt_tokens,
+            tokens_completion=self._last_completion_tokens,
+        )
+
     # ── Quality gate ──
 
     def check_quality(self, response: str, user_message: str) -> str:
