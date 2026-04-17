@@ -6,6 +6,7 @@ structured results. Ported from JARVIS test_suite_v3/grader.py.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, asdict
 from typing import Any
 
@@ -280,18 +281,27 @@ def grade_turn(response: dict, assertions: list) -> list[AssertionResult]:
         ))
 
     # No identity confusion — InterGen != InterGenOS
-    identity_confusion_phrases = [
-        "i am intergenos", "i'm intergenos", "as intergenos,",
-        "as intergenos ", "i am the operating system",
+    # Possessive-safe patterns: "I am InterGenOS's AI assistant" is correct,
+    # but "I am InterGenOS" (period, end, or followed by non-possessive) is wrong.
+    identity_confusion_patterns = [
+        r"\bi am intergenos(?!['\w])",
+        r"\bi'm intergenos(?!['\w])",
+        r"\bas intergenos,",
+        r"\bas intergenos ",
+        r"\bi am the operating system\b",
     ]
-    for phrase in identity_confusion_phrases:
-        if phrase in text_lower:
-            results.append(AssertionResult(
-                type="auto:no_identity_confusion", value=phrase, passed=False,
-                description="InterGen confused itself with InterGenOS (the OS)",
-                actual=text[:200],
-            ))
+    confusion_match = None
+    for pattern in identity_confusion_patterns:
+        m = re.search(pattern, text_lower)
+        if m:
+            confusion_match = m.group(0)
             break
+    if confusion_match:
+        results.append(AssertionResult(
+            type="auto:no_identity_confusion", value=confusion_match, passed=False,
+            description="InterGen confused itself with InterGenOS (the OS)",
+            actual=text[:200],
+        ))
     else:
         results.append(AssertionResult(
             type="auto:no_identity_confusion", value="", passed=True,

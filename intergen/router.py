@@ -776,6 +776,10 @@ class ConversationRouter(RouterInterface):
         "chmod 777", "chown", "shred", "wipefs", ":(){ :|:& };:",
     ])
 
+    _GRATITUDE_MARKERS = frozenset([
+        "thanks", "thank you", "appreciate", "great job", "well done",
+    ])
+
     def _classify_query_type(self, user_input: str) -> str:
         """Classify query for adaptive prompt selection.
 
@@ -786,6 +790,11 @@ class ConversationRouter(RouterInterface):
 
         if any(t in lower for t in self._SAFETY_TRIGGER_WORDS):
             return "safety"
+
+        # Gratitude bypass: "thanks, that fixed it" should not route to tools
+        # just because "fix" substring-matches "fixed". Gratitude wins.
+        if any(m in lower for m in self._GRATITUDE_MARKERS):
+            return "general"
 
         words = lower.split()
 
