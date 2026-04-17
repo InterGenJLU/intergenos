@@ -26,7 +26,8 @@ logger = logging.getLogger(__name__)
 
 
 _BASE_PROMPT = (
-    "Your name is InterGen. You are an AI assistant built into InterGenOS.\n"
+    "You are InterGen, an AI assistant. You are NOT the operating system. "
+    "You run inside InterGenOS.\n"
     "RULES:\n"
     "1. Be concise. Factual queries: 1-3 sentences. Diagnostics: data "
     "with brief interpretation.\n"
