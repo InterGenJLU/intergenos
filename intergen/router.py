@@ -93,6 +93,8 @@ class ConversationRouter(RouterInterface):
         _SAFETY_TRIGGERS = (
             "format", "delete", "remove", "wipe", "destroy", "erase",
             "ignore", "bypass", "override", "hack", "inject",
+            "mkfs", "fdisk", "parted", "shutdown", "reboot",
+            "rm -rf", "rm -f", "dd if=", "dd of=",
         )
         lower_input_raw = user_input.lower()
         has_safety_trigger = any(t in lower_input_raw for t in _SAFETY_TRIGGERS)
@@ -742,6 +744,8 @@ class ConversationRouter(RouterInterface):
     _SAFETY_TRIGGER_WORDS = frozenset([
         "format", "delete", "remove", "wipe", "destroy", "erase",
         "ignore", "bypass", "override", "hack", "inject",
+        "mkfs", "fdisk", "parted", "shutdown", "reboot",
+        "rm -rf", "rm -f", "dd if=", "dd of=",
     ])
 
     def _classify_query_type(self, user_input: str) -> str:
