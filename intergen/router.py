@@ -93,8 +93,9 @@ class ConversationRouter(RouterInterface):
         _SAFETY_TRIGGERS = (
             "format", "delete", "remove", "wipe", "destroy", "erase",
             "ignore", "bypass", "override", "hack", "inject",
-            "mkfs", "fdisk", "parted", "shutdown", "reboot",
+            "mkfs", "mkfs.ext4", "fdisk", "parted", "shutdown", "reboot",
             "rm -rf", "rm -f", "dd if=", "dd of=",
+            "chmod 777", "chown", "shred", "wipefs", ":(){ :|:& };:",
         )
         lower_input_raw = user_input.lower()
         has_safety_trigger = any(t in lower_input_raw for t in _SAFETY_TRIGGERS)
@@ -153,14 +154,17 @@ class ConversationRouter(RouterInterface):
                 self._record(result, t0, "semantic")
                 return result
 
-        # P3: LLM with tool calling — use tools if semantic score suggests
-        # relevance OR if the adaptive classifier tagged this as diagnostic.
-        # Diagnostic queries MUST go through tools to avoid freeform fabrication.
-        use_tools = (
+        # P3: LLM with tool calling — eligibility threshold (not skip threshold).
+        # Queries are eligible for tools if: semantic score suggests relevance,
+        # OR the adaptive classifier tagged them as diagnostic or safety.
+        # Diagnostic/safety queries MUST go through tools — freeform fabrication
+        # is the #1 remaining quality gap (flagged by 4/4 code reviewers).
+        eligible_for_tools = (
             p2_match.score >= 0.7
             or self._current_query_type == "diagnostic"
+            or self._current_query_type == "safety"
         )
-        if use_tools:
+        if eligible_for_tools:
             result = self._try_llm_tools(user_input)
             if result.handled:
                 self._record(result, t0, "llm_tools")
@@ -754,8 +758,9 @@ class ConversationRouter(RouterInterface):
     _SAFETY_TRIGGER_WORDS = frozenset([
         "format", "delete", "remove", "wipe", "destroy", "erase",
         "ignore", "bypass", "override", "hack", "inject",
-        "mkfs", "fdisk", "parted", "shutdown", "reboot",
+        "mkfs", "mkfs.ext4", "fdisk", "parted", "shutdown", "reboot",
         "rm -rf", "rm -f", "dd if=", "dd of=",
+        "chmod 777", "chown", "shred", "wipefs", ":(){ :|:& };:",
     ])
 
     def _classify_query_type(self, user_input: str) -> str:
