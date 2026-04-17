@@ -153,11 +153,14 @@ class ConversationRouter(RouterInterface):
                 self._record(result, t0, "semantic")
                 return result
 
-        # P3: LLM with tool calling — skip if semantic score is low.
-        # Below 0.7, no tool is likely relevant. Sending 8 tool schemas
-        # to the LLM wastes 30-190s on a request that produces no tool
-        # calls and falls through to P4 anyway.
-        if p2_match.score >= 0.7:
+        # P3: LLM with tool calling — use tools if semantic score suggests
+        # relevance OR if the adaptive classifier tagged this as diagnostic.
+        # Diagnostic queries MUST go through tools to avoid freeform fabrication.
+        use_tools = (
+            p2_match.score >= 0.7
+            or self._current_query_type == "diagnostic"
+        )
+        if use_tools:
             result = self._try_llm_tools(user_input)
             if result.handled:
                 self._record(result, t0, "llm_tools")
@@ -767,10 +770,15 @@ class ConversationRouter(RouterInterface):
             return "safety"
 
         words = lower.split()
-        if len(words) <= 4:
-            for kw in self._IDENTITY_KEYWORDS:
-                if kw in lower:
-                    return "identity"
+
+        # Identity: always check keywords (not just short queries),
+        # and ultra-short queries (≤2 words) always get identity context
+        # to prevent "I am InterGenOS" on ambiguous inputs.
+        for kw in self._IDENTITY_KEYWORDS:
+            if kw in lower:
+                return "identity"
+        if len(words) <= 2:
+            return "identity"
 
         for kw in self._DIAGNOSTIC_KEYWORDS:
             if kw in lower:

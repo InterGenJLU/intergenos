@@ -38,6 +38,7 @@ _COMPOUND_SIGNALS = [
     r"\balso\s+(?:check|show|start|stop|restart|install|remove|run|open|list|display)",
     r"\bfirst\b.*\bthen\b",
     r"\b(?:plus|additionally)\b",
+    r"\band\s+(?:what|how|show|check|display|list|tell|is|are)\b",
 ]
 
 _COMPOUND_PATTERNS = [re.compile(p, re.IGNORECASE) for p in _COMPOUND_SIGNALS]
@@ -87,6 +88,12 @@ def analyze_query(query: str, tier: HardwareTierLevel) -> DecomposedQuery:
     """
     is_compound = detect_compound(query)
     action_count = count_actions(query) if is_compound else 1
+    # If compound detected but verb counting underestimates (e.g. "what X and what Y"
+    # deduplicates "what" to 1), try split_compound to get the real count.
+    if is_compound and action_count <= 1:
+        tentative_split = split_compound(query)
+        if len(tentative_split) > 1:
+            action_count = len(tentative_split)
     threshold = _TIER_THRESHOLDS.get(tier, 3)
     needs_decomposition = is_compound and action_count > threshold
 
@@ -116,7 +123,8 @@ def split_compound(query: str) -> list[str]:
     # Split on conjunctive signals
     split_pattern = re.compile(
         r"\s*(?:and\s+then|and\s+also|after\s+that|then\s+also|"
-        r"additionally|plus)\s+",
+        r"additionally|plus|"
+        r"and\s+(?=what\b|how\b|show\b|check\b|display\b|list\b|tell\b|is\b|are\b))\s*",
         re.IGNORECASE,
     )
 
