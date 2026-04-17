@@ -394,6 +394,13 @@ def main() -> int:
     total_fail = 0
 
     for conv in conversations:
+        # Reset conversation history between tests to prevent contamination
+        # Skip reset for session_awareness tests that depend on prior context
+        if conv.category != "session_awareness":
+            if hasattr(client, '_daemon') and client._daemon:
+                router = getattr(client._daemon, '_router', None)
+                if router:
+                    router._conversation_history.clear()
         result = run_conversation(client, conv, verbose=verbose)
         conv_results.append(result)
         if result["grade"] == "PASS":

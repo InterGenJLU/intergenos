@@ -224,6 +224,15 @@ class ConversationRouter(RouterInterface):
                 "configuration files. For complex programming tasks, cloud "
                 "escalation to a more capable model is recommended."
             ),
+            "what operating system": (
+                "This system runs InterGenOS — a Linux distribution built "
+                "entirely from source. I'm InterGen, the AI assistant "
+                "built into it."
+            ),
+            "what os is this": None,
+            "what os are you": None,
+            "what can you help me with": None,  # falls through to "what can you do"
+            "what can you help with": None,
         }
 
         clean = lower_input.rstrip("?!.")
@@ -727,6 +736,7 @@ class ConversationRouter(RouterInterface):
         "slow", "crash", "broke", "error", "fail", "down", "full",
         "running out", "can't reach", "not working", "check", "diagnose",
         "fix", "install", "remove", "restart", "status", "show me",
+        "df ", "free ", "find ", "cat ", "top", "htop",
     ])
 
     _SAFETY_TRIGGER_WORDS = frozenset([

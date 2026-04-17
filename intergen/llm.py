@@ -674,7 +674,7 @@ class LLMRouter(LLMInterface):
             r"(?:Do you )?[Nn]eed (?:anything|something) else|"
             r"[Ww]hat else (?:can|may|would) (?:I|you)|"
             r"[Ff]eel free to reach out|"
-            r"[Hh]ow (?:can|may) I (?:assist|help) you (?:further|more)).*$",
+            r"[Hh]ow (?:can|may) I (?:assist|help) you (?:further|more|today)?).*$",
         ]
         for pattern in filler:
             text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL)
