@@ -118,6 +118,9 @@ def run_conversation(client, conversation: Conversation, *,
         if "response" in response and "text" not in response:
             response["text"] = response["response"]
 
+        # Pass conversation category to grader for category-aware assertions
+        response["category"] = conversation.category
+
         assertion_results = grade_turn(response, turn.assertions)
         grade = compute_turn_grade(assertion_results)
         turn_grades.append(grade)

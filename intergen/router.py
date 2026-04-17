@@ -211,10 +211,17 @@ class ConversationRouter(RouterInterface):
             "are you local": None,
             "where do you run": None,
             "what about privacy": (
-                "I run entirely on your hardware. No queries, responses, or "
-                "system data are sent anywhere. If you configure cloud "
-                "escalation, you control when and what gets sent."
+                "Everything stays on your machine. I run entirely on your "
+                "hardware — no queries, responses, or system data are sent "
+                "anywhere. Your data never leaves this computer unless you "
+                "explicitly configure cloud escalation."
             ),
+            "is my data private": None,
+            "where does my data go": None,
+            "do you send my data": None,
+            "is my data sent": None,
+            "data stays local": None,
+            "are you private": None,
             "how do you work": (
                 "I route your queries through a priority chain: cached system "
                 "data first (instant), then keyword matching, semantic matching, "
