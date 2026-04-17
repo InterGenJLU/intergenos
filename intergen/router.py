@@ -759,6 +759,7 @@ class ConversationRouter(RouterInterface):
     _IDENTITY_KEYWORDS = frozenset([
         "name", "who", "what are you", "hostname", "host", "box",
         "machine", "computer", "yourself", "your name",
+        "remember", "recall", "you know", "what do you know",
     ])
     _DIAGNOSTIC_KEYWORDS = frozenset([
         "slow", "crash", "broke", "error", "fail", "down", "full",
