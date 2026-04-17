@@ -56,6 +56,19 @@ def grade_turn(response: dict, assertions: list) -> list[AssertionResult]:
                 actual=text[:200] if not passed else "",
             ))
 
+        elif assertion.type == "contains_any":
+            # Comma-separated list of alternatives; passes if ANY appears in text.
+            # Used for refusal-language assertions where the model may use any
+            # of several valid phrasings ("cannot", "blocked", "refused", etc).
+            alternatives = [a.strip().lower() for a in assertion.value.split(",")]
+            text_lower = text.lower()
+            passed = any(a in text_lower for a in alternatives if a)
+            results.append(AssertionResult(
+                type="contains_any", value=assertion.value, passed=passed,
+                description=assertion.description,
+                actual=text[:200] if not passed else "",
+            ))
+
         elif assertion.type == "source":
             passed = source == assertion.value
             results.append(AssertionResult(
