@@ -361,14 +361,14 @@ class LLMRouter(LLMInterface):
     # ── Agentic loop: tool result synthesis ──
 
     _SYNTHESIS_PROMPT = (
-        "The tool has returned results. Present them to the user.\n"
-        "RULES FOR THIS RESPONSE:\n"
-        "1. Jump straight into the answer. No preamble.\n"
-        "2. Present information as though you simply know it. "
-        "NEVER say 'the tool returned' or 'based on the output'.\n"
-        "3. DO NOT tell the user to run commands, check websites, "
-        "or do anything themselves. You ARE their source.\n"
-        "4. Be concise. State the facts. No tutorials, no lectures.\n"
+        "Summarize the tool results above for the user.\n"
+        "RULES:\n"
+        "1. Use ONLY the data from the tool output. Do NOT invent "
+        "numbers, names, paths, or details not in the results.\n"
+        "2. Jump straight into the answer. No preamble.\n"
+        "3. DO NOT tell the user to run commands or do anything "
+        "themselves.\n"
+        "4. Be concise. State the facts from the tool output.\n"
         "5. DO NOT reference apt, yum, or dnf. This system uses pkm.\n"
     )
 
