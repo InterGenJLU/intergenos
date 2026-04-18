@@ -24,12 +24,14 @@ def generate_fstab(target, partitions):
         lines.append(f"{partitions['root']}  /              ext4    defaults          1       1")
 
     # EFI System Partition
+    # umask=0077 hides ESP contents from non-root users (HG: signing keys
+    # may be staged here transiently during signed-boot updates)
     if partitions.get("efi") and partitions.get("esp"):
         esp_uuid = _get_uuid(partitions["esp"])
         if esp_uuid:
-            lines.append(f"UUID={esp_uuid}  /boot/efi      vfat    defaults          0       2")
+            lines.append(f"UUID={esp_uuid}  /boot/efi      vfat    umask=0077        0       2")
         else:
-            lines.append(f"{partitions['esp']}  /boot/efi      vfat    defaults          0       2")
+            lines.append(f"{partitions['esp']}  /boot/efi      vfat    umask=0077        0       2")
 
     fstab_path.write_text("\n".join(lines) + "\n")
 
@@ -152,6 +154,9 @@ def generate_grub_defaults(target, partitions):
     root_uuid = _get_uuid(partitions["root"])
     root_arg = f"root=UUID={root_uuid}" if root_uuid else f"root={partitions['root']}"
 
+    # OS_PROBER=false so other OSes (Windows alongside install, other Linux
+    # distros on additional partitions) get menu entries automatically.
+    # Required for the dual-boot Monday install path.
     (etc_default / "grub").write_text(
         "# GRUB defaults for InterGenOS\n"
         "GRUB_DEFAULT=0\n"
@@ -159,7 +164,7 @@ def generate_grub_defaults(target, partitions):
         'GRUB_DISTRIBUTOR="InterGenOS"\n'
         'GRUB_CMDLINE_LINUX_DEFAULT=""\n'
         f'GRUB_CMDLINE_LINUX="{root_arg}"\n'
-        "GRUB_DISABLE_OS_PROBER=true\n"
+        "GRUB_DISABLE_OS_PROBER=false\n"
     )
 
 

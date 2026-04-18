@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from installer.backend import disks, packages, config, bootloader, hooks, users
+from installer.backend import disks, packages, config, bootloader, hooks, users, mok
 
 
 class InstallerTUI:
@@ -35,6 +35,15 @@ class InstallerTUI:
         self.selected_groups = ["core", "base", "desktop-gnome"]
         self.target = "/mnt/target"
 
+        # Secure Boot / MOK
+        self.mok_password = ""        # one-time enrollment password
+        self.mok_keypair = None       # populated during install (mok.generate_mok_keypair result)
+
+        # Install mode (fresh disk wipe vs. alongside existing OS)
+        self.install_mode = disks.InstallMode.FRESH
+        self.alongside_ntfs = None    # Partition object to shrink (alongside mode)
+        self.alongside_free_bytes = 0 # bytes available after shrink
+
         # Curses setup
         curses.curs_set(0)
         curses.init_pair(1, curses.COLOR_CYAN, curses.COLOR_BLACK)
@@ -53,6 +62,10 @@ class InstallerTUI:
             return
         if not self.screen_groups():
             return
+        # MOK setup only on EFI installs (BIOS legacy has no Secure Boot)
+        if disks.is_efi():
+            if not self.screen_mok_setup():
+                return
         if not self.screen_confirm():
             return
         self.screen_install()
@@ -149,7 +162,7 @@ class InstallerTUI:
         return key != ord('q')
 
     def screen_disk(self):
-        """Disk selection screen."""
+        """Disk selection screen + install mode chooser."""
         self.clear()
         self.header("Disk Selection")
 
@@ -165,6 +178,13 @@ class InstallerTUI:
             label = f"  {i+1}. {disk.path} — {disk.size_human} — {disk.model}"
             if disk.removable:
                 label += " [removable]"
+            # Annotate disks that contain something (existing OS / data)
+            if disk.partitions:
+                fstypes = [p.fstype for p in disk.partitions if p.fstype]
+                if "ntfs" in fstypes:
+                    label += " [contains Windows]"
+                elif fstypes:
+                    label += f" [contains {', '.join(set(fstypes))}]"
             self.message(row, label)
             row += 1
 
@@ -183,17 +203,96 @@ class InstallerTUI:
             self.wait_key(row + 3)
             return False
 
-        row += 2
+        # Detect if this disk has a Windows install we could share with
+        existing_esp = disks.detect_existing_esp(self.selected_disk)
+        ntfs_part, free_bytes = disks.detect_shrinkable_ntfs(self.selected_disk)
+        bitlocker_parts = disks.detect_bitlocker_partitions(self.selected_disk)
+
+        return self._screen_install_mode(existing_esp, ntfs_part, free_bytes, bitlocker_parts)
+
+    def _screen_install_mode(self, existing_esp, ntfs_part, free_bytes, bitlocker_parts):
+        """Sub-screen: choose fresh vs. alongside install mode."""
+        self.clear()
+        self.header("Install Mode")
+
         efi = disks.is_efi()
         mode = "EFI" if efi else "BIOS"
-        self.message(row, f"Boot mode: {mode}", color=2)
-        row += 1
+        self.message(3, f"Selected disk: {self.selected_disk.path} ({self.selected_disk.size_human})", color=1)
+        self.message(4, f"Boot mode: {mode}", color=2)
+
+        row = 6
+
+        # BitLocker block: if we found encrypted NTFS, surface clearly first
+        if bitlocker_parts:
+            self.message(row, "BITLOCKER-ENCRYPTED PARTITION(S) DETECTED:", color=3); row += 1
+            for p in bitlocker_parts:
+                self.message(row, f"  {p.path} ({p.size_human})"); row += 1
+            row += 1
+            self.message(row, "Alongside install CANNOT shrink BitLocker volumes safely.", color=3); row += 1
+            self.message(row, "Options:", color=1); row += 1
+            self.message(row, "  - Boot Windows, disable BitLocker on this drive, re-run Forge"); row += 1
+            self.message(row, "  - OR proceed with FRESH install (DESTROYS Windows)", color=3); row += 2
+            if not self.yes_no(row, "Proceed with FRESH install (destroys all data)?", default=False):
+                return False
+            self.install_mode = disks.InstallMode.FRESH
+            return True
+
+        if existing_esp and ntfs_part and efi:
+            # Both an ESP and a shrinkable NTFS — alongside is possible
+            free_human = self._human_size_local(free_bytes)
+            self.message(row, "Existing Windows install detected.", color=4); row += 1
+            self.message(row, f"  ESP: {existing_esp.path} ({existing_esp.size_human})"); row += 1
+            self.message(row, f"  Windows: {ntfs_part.path} ({ntfs_part.size_human})"); row += 1
+            self.message(row, f"  Free space available after shrink: {free_human}"); row += 2
+
+            self.message(row, "Choose install mode:", color=1); row += 1
+            self.message(row, "  1. ALONGSIDE — keep Windows, shrink it, dual-boot"); row += 1
+            self.message(row, "  2. FRESH — erase entire disk, InterGenOS only", color=3); row += 2
+
+            choice = self.prompt(row, "Select mode (1 or 2)", "1")
+            if choice.strip() == "2":
+                self.install_mode = disks.InstallMode.FRESH
+                return self._confirm_fresh_wipe(row + 2)
+            else:
+                self.install_mode = disks.InstallMode.ALONGSIDE
+                self.alongside_ntfs = ntfs_part
+                self.alongside_free_bytes = free_bytes
+                return self._confirm_alongside(row + 2, ntfs_part, free_bytes)
+
+        elif existing_esp and not ntfs_part:
+            # Has an ESP but no shrinkable NTFS — only fresh available
+            self.message(row, "Existing EFI partition detected, but no shrinkable", color=4); row += 1
+            self.message(row, "NTFS partition found (or not enough free space).", color=4); row += 1
+            self.message(row, "Only FRESH install available — entire disk will be erased.", color=3); row += 2
+            self.install_mode = disks.InstallMode.FRESH
+            return self._confirm_fresh_wipe(row)
+
+        else:
+            # Empty disk or no usable existing OS — fresh install only
+            self.install_mode = disks.InstallMode.FRESH
+            return self._confirm_fresh_wipe(row)
+
+    def _confirm_fresh_wipe(self, row):
+        """Final confirmation for fresh-disk install (data loss warning)."""
         self.message(row, f"WARNING: ALL data on {self.selected_disk.path} will be erased!", color=3)
         row += 1
-        if not self.yes_no(row, "Proceed with partitioning?", default=False):
-            return False
+        return self.yes_no(row, "Proceed with FRESH install?", default=False)
 
-        return True
+    def _confirm_alongside(self, row, ntfs_part, free_bytes):
+        """Final confirmation for alongside install (NTFS shrink warning)."""
+        free_human = self._human_size_local(free_bytes)
+        self.message(row, f"NTFS partition {ntfs_part.path} will be shrunk.", color=3); row += 1
+        self.message(row, f"Windows data is preserved; {free_human} freed for InterGenOS.", color=4); row += 1
+        self.message(row, "Recommend: back up Windows before proceeding.", color=3); row += 2
+        return self.yes_no(row, "Proceed with ALONGSIDE install?", default=False)
+
+    def _human_size_local(self, bytes_val):
+        """Local human-size formatter (avoid coupling to disks._human_size)."""
+        for unit in ("B", "KB", "MB", "GB", "TB"):
+            if bytes_val < 1024:
+                return f"{bytes_val:.1f} {unit}"
+            bytes_val /= 1024
+        return f"{bytes_val:.1f} PB"
 
     def screen_config(self):
         """System configuration screen."""
@@ -252,6 +351,46 @@ class InstallerTUI:
         key = self.stdscr.getch()
         return True
 
+    def screen_mok_setup(self):
+        """MOK enrollment setup screen (EFI installs only).
+
+        Generates the one-time enrollment password and explains the
+        first-boot MokManager flow. The actual keypair generation happens
+        during the install step (needs the target chroot mounted).
+        """
+        self.clear()
+        self.header("Secure Boot — Machine Owner Key")
+
+        self.message(3, "InterGenOS uses Secure Boot to protect your system.", color=1)
+        self.message(5, "During install, we generate a Machine Owner Key (MOK) unique")
+        self.message(6, "to this machine. The public half gets enrolled in your UEFI")
+        self.message(7, "firmware so signed kernel modules (e.g. NVIDIA drivers built")
+        self.message(8, "via DKMS) can load on your system.")
+
+        self.message(10, "On first boot, you will see a blue MokManager screen:", color=4)
+        self.message(11, "  1. Press a key within 10 seconds when prompted")
+        self.message(12, "  2. Choose 'Enroll MOK'")
+        self.message(13, "  3. Enter the password shown below")
+        self.message(14, "  4. Reboot — the MOK is now trusted")
+
+        # Generate the one-time password and display it prominently
+        self.mok_password = mok.generate_enrollment_password()
+
+        self.message(16, "ONE-TIME ENROLLMENT PASSWORD (write this down NOW):", color=3)
+        self.message(17, f"  {self.mok_password}", color=2)
+        self.message(18, "(You only need this once, at the next reboot.)", color=4)
+
+        self.message(20, "Press ENTER when you have written the password down,", color=1)
+        self.message(21, "or 'q' to cancel installation.", color=1)
+        self.stdscr.refresh()
+
+        while True:
+            key = self.stdscr.getch()
+            if key == ord('q') or key == ord('Q'):
+                return False
+            if key in (curses.KEY_ENTER, 10, 13):
+                return True
+
     def screen_confirm(self):
         """Confirmation screen before installation."""
         self.clear()
@@ -290,18 +429,51 @@ class InstallerTUI:
 
         row = 3
 
-        # Step 1: Partition
-        self.message(row, "Partitioning disk...", color=4)
-        self.stdscr.refresh()
-        try:
-            efi = disks.is_efi()
-            self.partitions = disks.partition_disk(self.selected_disk.path, efi=efi)
-            self.message(row, "Partitioning disk... done", color=2)
-        except Exception as e:
-            self.message(row, f"Partitioning failed: {e}", color=3)
-            self.wait_key(row + 2)
-            return
-        row += 1
+        # Step 1: Partition (branch on install mode)
+        if self.install_mode == disks.InstallMode.ALONGSIDE:
+            self.message(row, f"Shrinking {self.alongside_ntfs.path}...", color=4)
+            self.stdscr.refresh()
+            try:
+                # Shrink NTFS to its current used size + 5GB safety margin
+                # (alongside_free_bytes is what we'll get back)
+                new_size = self.alongside_ntfs.size_bytes - self.alongside_free_bytes
+                disks.shrink_ntfs(self.alongside_ntfs.path, new_size)
+                self.message(row, f"Shrinking {self.alongside_ntfs.path}... done", color=2)
+            except Exception as e:
+                self.message(row, f"NTFS shrink failed: {e}", color=3)
+                self.wait_key(row + 2)
+                return
+            row += 1
+
+            self.message(row, "Creating InterGenOS partition in freed space...", color=4)
+            self.stdscr.refresh()
+            try:
+                free_start_mb = (
+                    (self.alongside_ntfs.size_bytes - self.alongside_free_bytes)
+                    // (1024 * 1024)
+                )
+                self.partitions = disks.partition_disk_alongside(
+                    self.selected_disk, self.alongside_ntfs, free_start_mb
+                )
+                self.message(row, "Creating InterGenOS partition in freed space... done", color=2)
+            except Exception as e:
+                self.message(row, f"Alongside partitioning failed: {e}", color=3)
+                self.wait_key(row + 2)
+                return
+            row += 1
+        else:
+            # Fresh wipe + clean GPT layout
+            self.message(row, "Partitioning disk...", color=4)
+            self.stdscr.refresh()
+            try:
+                efi = disks.is_efi()
+                self.partitions = disks.partition_disk(self.selected_disk.path, efi=efi)
+                self.message(row, "Partitioning disk... done", color=2)
+            except Exception as e:
+                self.message(row, f"Partitioning failed: {e}", color=3)
+                self.wait_key(row + 2)
+                return
+            row += 1
 
         # Step 2: Mount
         self.message(row, "Mounting filesystems...", color=4)
@@ -365,12 +537,33 @@ class InstallerTUI:
         self.message(row, "Setting up user accounts... done", color=2)
         row += 1
 
-        # Step 7: Bootloader
-        self.message(row, "Installing GRUB bootloader...", color=4)
+        # Step 7a: MOK keypair generation + enrollment queue (EFI only)
+        if self.partitions.get("efi") and self.mok_password:
+            self.message(row, "Generating Machine Owner Key (MOK)...", color=4)
+            self.stdscr.refresh()
+            try:
+                self.mok_keypair = mok.generate_mok_keypair(self.target)
+                mok.queue_mok_enrollment(
+                    self.target,
+                    self.mok_keypair["der_path"],
+                    self.mok_password,
+                )
+                self.message(row, "Generating Machine Owner Key (MOK)... done", color=2)
+            except Exception as e:
+                self.message(row, f"MOK setup failed: {e}", color=3)
+                self.wait_key(row + 2)
+                return
+            row += 1
+
+        # Step 7b: Bootloader (signed boot chain on EFI, plain GRUB on BIOS)
+        self.message(row, "Installing bootloader...", color=4)
         self.stdscr.refresh()
         try:
-            bootloader.install_grub(self.target, self.selected_disk.path, self.partitions)
-            self.message(row, "Installing GRUB bootloader... done", color=2)
+            bootloader.install_bootloader(
+                self.target, self.selected_disk.path, self.partitions,
+                mok_keypair=self.mok_keypair,
+            )
+            self.message(row, "Installing bootloader... done", color=2)
         except Exception as e:
             self.message(row, f"Bootloader installation failed: {e}", color=3)
         row += 1
@@ -396,13 +589,32 @@ class InstallerTUI:
         if self.username:
             self.message(8, f"  User:     {self.username}")
         self.message(9, f"  SSH:      Enabled (port 22)")
-        self.message(11, "On first boot:")
-        self.message(12, "  - Log in as root or your user account")
-        self.message(13, "  - Run 'sudo igos-install-chrome' for Google Chrome")
-        self.message(14, "  - Run 'sudo igos-install-vscode' for VS Code")
-        self.message(15, "  - Run 'igos-install-claude-code' for Claude Code")
-        self.message(17, '"A system you understand, can modify, and can trust."', color=1)
-        self.wait_key(20, "Press any key to exit the installer.")
+
+        row = 11
+        # MOK enrollment reminder if EFI install
+        if self.mok_keypair and self.mok_password:
+            self.message(row, "AT FIRST BOOT — MOK ENROLLMENT (one time):", color=3)
+            row += 1
+            self.message(row, "  - Blue MokManager screen appears for 10 seconds")
+            row += 1
+            self.message(row, "  - Press any key, choose 'Enroll MOK' -> 'Continue'")
+            row += 1
+            self.message(row, f"  - Enter password: {self.mok_password}", color=2)
+            row += 1
+            self.message(row, "  - Reboot when MokManager finishes")
+            row += 2
+
+        self.message(row, "After login:")
+        row += 1
+        self.message(row, "  - Run 'sudo igos-install-chrome' for Google Chrome")
+        row += 1
+        self.message(row, "  - Run 'sudo igos-install-vscode' for VS Code")
+        row += 1
+        self.message(row, "  - Run 'igos-install-claude-code' for Claude Code")
+        row += 2
+
+        self.message(row, '"A system you understand, can modify, and can trust."', color=1)
+        self.wait_key(row + 3, "Press any key to exit the installer.")
 
 
 def run_installer(archive_dir, packages_dir=None, dry_run=False):
