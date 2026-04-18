@@ -1,7 +1,7 @@
 name: iptables
 version: "1.8.12"
-release: 1
-description: Linux kernel packet filtering framework
+release: 2
+description: iptables CLI compat shim — translates iptables syntax to nftables rules
 license: GPL-2.0-or-later
 homepage: https://www.netfilter.org/
 tier: desktop
@@ -13,9 +13,15 @@ source:
 dependencies:
   build:
   - libpcap
+  - libnftnl
+  - libmnl
   host: []
   runtime: []
+# InterGenOS uses nftables exclusively. This package is built as the
+# iptables-nft compat shim only — the userspace iptables CLI translates
+# rules to nftables under the hood. The iptables-LEGACY backend is NOT
+# built because the kernel disables CONFIG_NETFILTER_XTABLES_LEGACY.
+# See: docs/research/networking/nftables_only_decision.md
 configure_flags:
 - --prefix=/usr
-- --disable-nftables
-- --enable-libipq
+- --enable-nftables
