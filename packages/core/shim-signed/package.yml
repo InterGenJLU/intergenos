@@ -23,9 +23,9 @@ install_func: do_install
 # mmx64.efi (MokManager), and bootx64.efi from the RPM payload and
 # install them under /usr/share/shim-signed/ for Forge to copy to ESP.
 source:
-- url: https://intergenstudios.com/intergenos/sources/current/shim-x64-${version}-1.fc41.x86_64.rpm
-  fallback_url: https://kojipkgs.fedoraproject.org/packages/shim/${version}/1.fc41/x86_64/shim-x64-${version}-1.fc41.x86_64.rpm
-  sha256: VERIFY_ON_FIRST_BUILD
+- url: https://intergenstudios.com/intergenos/sources/current/shim-x64-${version}-2.x86_64.rpm
+  fallback_url: https://kojipkgs.fedoraproject.org/packages/shim/${version}/2/x86_64/shim-x64-${version}-2.x86_64.rpm
+  sha256: 1662629916cf2322ff8e6333439643bca63e6e6327d2e6089bf66cb7a8c5dc4b
 dependencies:
   build:
   - cpio

@@ -10,7 +10,7 @@ configure() {
 
 build() {
     # Extract RPM payload
-    rpm2cpio shim-x64-${PKG_VERSION}-1.fc41.x86_64.rpm | cpio -idmv
+    rpm2cpio shim-x64-${PKG_VERSION}-2.x86_64.rpm | cpio -idmv
 
     # Verify the binaries we expect are present
     test -f boot/efi/EFI/fedora/shimx64.efi || {
