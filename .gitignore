@@ -44,6 +44,7 @@ Thumbs.db
 # Research working directory (local, may contain sensitive notes)
 # Published research is committed under docs/research/
 research/
+!docs/research/
 
 # Logs
 *.log
