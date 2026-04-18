@@ -1,0 +1,16 @@
+name: editorconfig-core-c
+version: 0.12.9
+release: 1
+description: EditorConfig core library — consistent coding styles across editors and IDEs
+license: BSD-2-Clause
+homepage: https://editorconfig.org/
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://github.com/editorconfig/editorconfig-core-c/archive/refs/tags/v${version}.tar.gz
+  sha256: VERIFY_ON_FIRST_BUILD
+dependencies:
+  build: []
+  host: []
+  runtime: []

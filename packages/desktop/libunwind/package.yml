@@ -1,0 +1,16 @@
+name: libunwind
+version: 1.8.1
+release: 1
+description: Portable and efficient C programming interface to determine the call-chain of a program
+license: MIT
+homepage: https://www.nongnu.org/libunwind/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/libunwind/libunwind/releases/download/v${version}/libunwind-${version}.tar.gz
+  sha256: dbb1a0895d21d5d9bcec28e76d6e3f8ea12e73574be8a06d7c3c028daa36c01a
+dependencies:
+  build: []
+  host: []
+  runtime: []

@@ -3,13 +3,17 @@
 # BLFS 13.0
 
 configure() {
+    # meson 1.10+ disallows add_global_arguments after build targets
+    sed -i 's/  add_global_arguments/  # add_global_arguments/' meson.build
+
     mkdir build
     cd    build
 
     meson setup ..            \
           --prefix=/usr       \
           --libdir=/usr/lib   \
-          --buildtype=release 
+          --buildtype=release \
+          -Ddocs=false
 }
 
 build() {
