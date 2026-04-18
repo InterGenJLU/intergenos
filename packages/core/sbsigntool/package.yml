@@ -1,0 +1,23 @@
+name: sbsigntool
+version: "0.9.5"
+release: 1
+description: Tools for signing and verifying EFI binaries with Secure Boot keys
+license: GPL-3.0-or-later
+homepage: https://git.kernel.org/pub/scm/linux/kernel/git/jejb/sbsigntools.git
+tier: core
+build_style: autotools
+install_func: do_install
+source:
+- url: https://git.kernel.org/pub/scm/linux/kernel/git/jejb/sbsigntools.git/snapshot/sbsigntools-${version}.tar.gz
+  sha256: VERIFY_ON_FIRST_BUILD
+dependencies:
+  build:
+  - openssl
+  - gnu-efi
+  - efitools
+  - help2man
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --sysconfdir=/etc

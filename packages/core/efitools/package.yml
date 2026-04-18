@@ -1,0 +1,19 @@
+name: efitools
+version: "1.9.2"
+release: 1
+description: Tools for manipulating UEFI Secure Boot variables and keys
+license: GPL-2.0-only
+homepage: https://git.kernel.org/pub/scm/linux/kernel/git/jejb/efitools.git
+tier: core
+build_style: makefile
+install_func: do_install
+source:
+- url: https://git.kernel.org/pub/scm/linux/kernel/git/jejb/efitools.git/snapshot/efitools-${version}.tar.gz
+  sha256: VERIFY_ON_FIRST_BUILD
+dependencies:
+  build:
+  - openssl
+  - gnu-efi
+  - help2man
+  host: []
+  runtime: []

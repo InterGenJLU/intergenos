@@ -1,0 +1,22 @@
+name: mokutil
+version: "0.7.2"
+release: 1
+description: Tool for managing Machine Owner Keys (MOK) for Secure Boot
+license: GPL-3.0-or-later
+homepage: https://github.com/lcp/mokutil
+tier: core
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/lcp/mokutil/releases/download/${version}/mokutil-${version}.tar.gz
+  sha256: VERIFY_ON_FIRST_BUILD
+dependencies:
+  build:
+  - efivar
+  - openssl
+  - keyutils
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --sysconfdir=/etc
