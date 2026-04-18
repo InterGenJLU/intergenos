@@ -1,6 +1,10 @@
 # InterGenOS — AI-Integrated Linux Distribution
 
-**For:** AI Assistants (Claude, etc.) | **Created:** March 30, 2026 | **Updated:** April 2, 2026
+**For:** AI Assistants (Claude, etc.) | **Created:** March 30, 2026 | **Updated:** April 18, 2026
+
+## THE HOLY GRAIL — Security-Only Alignment
+
+**READ FIRST.** Anthropic's Claude Mythos Preview finds and exploits vulnerabilities at superhuman scale — 181 working exploits where Opus 4.6 managed 2. Found thousands of high-severity vulns in every major OS and browser. These capabilities WILL proliferate. We build assuming adversaries have superhuman vulnerability discovery. Security is not first — it is ONLY. No trade-offs for convenience. Secure Boot mandatory. Every package decision is a security decision. See full document: `/home/christopher/.claude/projects/-mnt-intergenos/memory/holy_grail_security_alignment.md`
 
 ## What Is This Project?
 
@@ -13,6 +17,8 @@
 ## The PRIME DIRECTIVE
 
 *InterGenOS exists to put the user in control of their own machine. Every design decision, every default, every included component must serve this purpose: giving people a system they understand, can modify, and can trust. Any complexity that doesn't serve the user — or that hides how the system works — is not welcome, regardless of how conventional it may be.*
+
+**The PRIME DIRECTIVE and the HOLY GRAIL are complementary: a machine the user cannot trust is a machine they do not control.**
 
 **Apply the PRIME DIRECTIVE to every decision.** It hasn't steered us wrong yet.
 
