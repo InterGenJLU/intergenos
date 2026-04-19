@@ -129,6 +129,25 @@ def _install_signed_efi_chain(target, partitions, mok_keypair):
     if rc != 0:
         raise RuntimeError(f"shim staging to ESP failed: {stderr}")
 
+    # Sign every /boot/vmlinuz-* kernel image with the MOK. This closes
+    # the middle link in the v2 playbook's 3-check signature chain:
+    #   shim → GRUB (signed above)
+    #   GRUB → kernel (signed here)
+    #   kernel → modules (MODULE_SIG_FORCE ephemeral sig at build time)
+    # Without this, GRUB with check_signatures=enforce refuses to load
+    # the kernel. Even with check_signatures=off, leaving the kernel
+    # unsigned means we don't detect tampered kernel images.
+    rc, _, stderr = run_chroot(target,
+        f"for k in /boot/vmlinuz-*; do "
+        f"  [ -f \"$k\" ] || continue; "
+        f"  sbsign --key {mok_keypair['key_path']} "
+        f"--cert {mok_keypair['cert_path']} "
+        f"--output \"$k\" \"$k\" || exit 1; "
+        f"done"
+    )
+    if rc != 0:
+        raise RuntimeError(f"kernel image signing failed: {stderr}")
+
     # Register shim as the primary UEFI boot entry via efibootmgr
     # The disk + partition number come from partitions['esp']
     esp_dev = partitions.get("esp", "")

@@ -119,9 +119,8 @@ def partition_disk(disk_path, efi=False):
 
     Returns dict with partition paths.
     """
-    # Wipe existing partition table
-    subprocess.run(["wipefs", "-a", disk_path], check=True,
-                   capture_output=True)
+    # Wipe existing partition table (routed through _run so dry_run is honored)
+    _run(["wipefs", "-a", disk_path])
 
     if efi:
         # GPT + EFI System Partition + root
@@ -293,6 +292,14 @@ def partition_disk_alongside(disk, ntfs_partition, free_start_mb):
 
     # Create the InterGenOS root partition in the free space
     _run(f"parted -s {disk.path} mkpart root ext4 {free_start_mb}MiB 100%")
+
+    # Kernel partition table re-read + udev settle before re-detecting.
+    # Without these, detect_disks() can race against the new partition's
+    # /dev/ node appearing and either miss the partition ("Disk disappeared")
+    # or pick a stale partition number. Both are catastrophic since we'd
+    # then format the wrong partition.
+    _run(f"partprobe {disk.path}")
+    _run("udevadm settle")
 
     # Find the new partition's path (it'll be the highest-numbered partition)
     # Re-detect to get the new partition number after parted creates it
