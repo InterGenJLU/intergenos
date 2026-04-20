@@ -10,12 +10,24 @@ Runs build phases for each package in dependency order. Handles:
 """
 
 import os
+import shlex
 import shutil
 import subprocess
 import time
 from pathlib import Path
+from urllib.parse import urlparse
 
 from .parser import Package
+
+
+def _url_basename(url: str) -> str:
+    """Return the filename portion of a URL, stripping any ?query or #fragment.
+
+    Robust against CDN/token-bearing source URLs like
+    'https://foo.com/pkg-1.0.tar.gz?token=xyz' which would otherwise
+    yield 'pkg-1.0.tar.gz?token=xyz' as the cached filename.
+    """
+    return urlparse(url).path.rsplit("/", 1)[-1]
 from .styles import get_style
 from .log import BuildLogger, SummaryLogger
 from .tracker import PackageTracker
@@ -217,7 +229,7 @@ class BuildExecutor(PackageTracker):
             return pkg_work_dir
 
         primary = pkg.source[0]
-        tarball_name = primary.filename or primary.url.split("/")[-1]
+        tarball_name = primary.filename or _url_basename(primary.url)
         tarball_path = self.sources_dir / tarball_name
 
         if not tarball_path.exists():
@@ -242,7 +254,9 @@ class BuildExecutor(PackageTracker):
                 capture_output=True, text=True,
             )
             actual = result.stdout.split()[0] if result.stdout else ""
-            if actual != primary.sha256:
+            # Normalize case — sha256sum outputs lowercase, but hashes
+            # from some upstreams are published uppercase. Hex is case-insensitive.
+            if actual.lower() != primary.sha256.lower():
                 self.logger.error(
                     f"Checksum mismatch for {tarball_name}:\n"
                     f"  expected: {primary.sha256}\n"
@@ -289,10 +303,10 @@ class BuildExecutor(PackageTracker):
                 self.logger.error(traceback.format_exc())
                 exit_code = 1
         elif str(tarball_path).endswith('.lz'):
-            extract_cmd = f'tar --lzip -xf "{tarball_path}" -C "{src_dir}" --strip-components=1 {TAR_SAFETY}'
+            extract_cmd = f'tar --lzip -xf {shlex.quote(str(tarball_path))} -C {shlex.quote(str(src_dir))} --strip-components=1 {TAR_SAFETY}'
             exit_code = self.run_command(extract_cmd, env=os.environ.copy(), cwd=pkg_work_dir)
         else:
-            extract_cmd = f'tar -xf "{tarball_path}" -C "{src_dir}" --strip-components=1 {TAR_SAFETY}'
+            extract_cmd = f'tar -xf {shlex.quote(str(tarball_path))} -C {shlex.quote(str(src_dir))} --strip-components=1 {TAR_SAFETY}'
             exit_code = self.run_command(extract_cmd, env=os.environ.copy(), cwd=pkg_work_dir)
         if exit_code != 0:
             self.logger.error(f"Failed to extract {tarball_name}")
@@ -305,7 +319,7 @@ class BuildExecutor(PackageTracker):
                 dep_tarball = None
                 for s in pkg.source[1:]:
                     if dep_name in s.url:
-                        dep_tarball = self.sources_dir / s.url.split("/")[-1]
+                        dep_tarball = self.sources_dir / _url_basename(s.url)
                         break
 
                 if dep_tarball and dep_tarball.exists():
@@ -313,7 +327,7 @@ class BuildExecutor(PackageTracker):
                     dest.mkdir(parents=True, exist_ok=True)
                     self.logger.info(f"Extracting bundled dep: {dep_name} -> {dest}")
                     exit_code = self.run_command(
-                        f'tar -xf "{dep_tarball}" -C "{dest}" --strip-components=1 {TAR_SAFETY}',
+                        f'tar -xf {shlex.quote(str(dep_tarball))} -C {shlex.quote(str(dest))} --strip-components=1 {TAR_SAFETY}',
                         env=os.environ.copy(),
                         cwd=pkg_work_dir,
                     )

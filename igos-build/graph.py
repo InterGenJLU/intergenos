@@ -16,12 +16,22 @@ from .parser import Package
 # ---------------------------------------------------------------------------
 
 class CycleError(Exception):
-    """Raised when a dependency cycle is detected."""
+    """Raised when one or more dependency cycles are detected."""
 
-    def __init__(self, cycle: list[str]):
-        self.cycle = cycle
-        path = " -> ".join(cycle)
-        super().__init__(f"dependency cycle detected: {path}")
+    def __init__(self, cycles: list[list[str]]):
+        self.cycles = cycles
+        # Preserve the legacy .cycle attribute (first cycle) so any existing
+        # consumer reading `.cycle` keeps working without surprise.
+        self.cycle = cycles[0] if cycles else []
+        if len(cycles) == 1:
+            msg = f"dependency cycle detected: {' -> '.join(cycles[0])}"
+        else:
+            lines = [f"  {i+1}. {' -> '.join(c)}" for i, c in enumerate(cycles)]
+            msg = (
+                f"{len(cycles)} dependency cycles detected:\n"
+                + "\n".join(lines)
+            )
+        super().__init__(msg)
 
 
 class MissingDependencyError(Exception):
@@ -146,11 +156,13 @@ class DependencyGraph:
             for n in sorted(next_batch, key=sort_key):
                 queue.append(n)
 
-        # If we didn't process every package, there's a cycle
+        # If we didn't process every package, there's at least one cycle.
+        # Report ALL distinct cycles so the user can fix them in one pass
+        # rather than discovering them iteratively.
         if len(order) != len(self.packages):
             remaining = set(self.packages.keys()) - set(order)
-            cycle = _find_cycle(remaining, self.depends_on)
-            raise CycleError(cycle)
+            cycles = _find_all_cycles(remaining, self.depends_on)
+            raise CycleError(cycles)
 
         return [self.packages[name] for name in order]
 
@@ -171,40 +183,59 @@ class DependencyGraph:
 # Cycle detection helper
 # ---------------------------------------------------------------------------
 
-def _find_cycle(nodes: set[str], depends_on: dict[str, set[str]]) -> list[str]:
-    """Find and return one cycle from the remaining unprocessed nodes."""
-    visited = set()
+def _find_all_cycles(nodes: set[str], depends_on: dict[str, set[str]]) -> list[list[str]]:
+    """Find and return ALL distinct cycles among the remaining unprocessed nodes.
+
+    Two cycles are considered the same if their node-set and rotation match,
+    so [A,B,C,A] and [B,C,A,B] deduplicate to a single cycle. Each returned
+    cycle is a list where the first node is repeated at the end
+    (e.g., ["A", "B", "C", "A"]).
+    """
+    found: list[list[str]] = []
+    seen_keys: set[tuple[str, ...]] = set()
+
+    def cycle_key(cycle: list[str]) -> tuple[str, ...]:
+        # Canonical form: rotate so the lexicographically smallest node
+        # is first (ignoring the repeated-at-end node).
+        core = cycle[:-1]  # drop the repeated last
+        if not core:
+            return tuple(cycle)
+        i = core.index(min(core))
+        rotated = core[i:] + core[:i]
+        return tuple(rotated)
 
     for start in nodes:
-        path = []
-        path_set = set()
+        path: list[str] = []
+        path_set: set[str] = set()
 
-        def dfs(node: str) -> list[str] | None:
+        def dfs(node: str) -> None:
             if node in path_set:
                 cycle_start = path.index(node)
-                return path[cycle_start:] + [node]
-            if node in visited:
-                return None
+                cycle = path[cycle_start:] + [node]
+                key = cycle_key(cycle)
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    found.append(cycle)
+                return
 
-            visited.add(node)
             path.append(node)
             path_set.add(node)
 
             for dep in depends_on.get(node, set()):
                 if dep in nodes:
-                    result = dfs(dep)
-                    if result:
-                        return result
+                    dfs(dep)
 
             path.pop()
             path_set.discard(node)
-            return None
 
-        cycle = dfs(start)
-        if cycle:
-            return cycle
+        dfs(start)
 
-    return list(nodes)[:5] + ["..."]
+    # Fallback: if the topological sort failed but we couldn't walk to a
+    # cycle (shouldn't happen, but safety net), report the stuck nodes.
+    if not found:
+        return [list(nodes)[:5] + ["..."]]
+
+    return found
 
 
 # ---------------------------------------------------------------------------

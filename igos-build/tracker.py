@@ -104,8 +104,14 @@ class PackageTracker:
     def pkg_deploy(self, pkg: Package, staging_dir: Path) -> bool:
         """Deploy staged files to the live filesystem using tar.
 
-        Safety: pre-checks for top-level entries that would collide with
-        root-level symlinks (lib -> usr/lib, bin -> usr/bin, etc.).
+        Safety:
+          - Pre-checks for top-level entries that would collide with
+            root-level symlinks (lib -> usr/lib, bin -> usr/bin, etc.).
+          - Pre-checks that the live filesystem has enough free space to
+            accommodate the staged content + 10% headroom; refuses to start
+            rather than leaving a partial extraction on disk-full.
+          - On extract failure, logs the archive path so the user has a
+            durable recovery artifact to re-deploy from or inspect.
         """
         dangerous = []
         for entry in ("lib", "lib64", "bin", "sbin"):
@@ -122,12 +128,38 @@ class PackageTracker:
             )
             return False
 
+        # Pre-check free space. A mid-deploy ENOSPC crash leaves the live
+        # filesystem with partial files — better to refuse than to partially
+        # deploy.
+        staging_bytes = 0
+        for root, _dirs, files in os.walk(staging_dir):
+            for f in files:
+                try:
+                    staging_bytes += (Path(root) / f).stat().st_size
+                except OSError:
+                    pass
+        required_bytes = int(staging_bytes * 1.1)
+        free_bytes = shutil.disk_usage("/").free
+        if free_bytes < required_bytes:
+            self.logger.error(
+                f"Insufficient free space for {pkg.name}-{pkg.version} deploy:\n"
+                f"  required (+10% headroom): {required_bytes:,} bytes\n"
+                f"  free on /: {free_bytes:,} bytes"
+            )
+            return False
+
+        archive_path = self.pkg_archives / f"{pkg.name}-{pkg.version}.igos.tar.gz"
+
         result = subprocess.run(
             ["tar", "-C", str(staging_dir), "-cf", "-", "."],
             capture_output=True,
         )
         if result.returncode != 0:
-            self.logger.error(f"Deploy tar-create failed: {result.stderr.decode()}")
+            self.logger.error(
+                f"Deploy tar-create failed: {result.stderr.decode()}\n"
+                f"  Staging dir: {staging_dir}\n"
+                f"  Archive for manual recovery: {archive_path}"
+            )
             return False
 
         result2 = subprocess.run(
@@ -137,7 +169,13 @@ class PackageTracker:
             capture_output=True,
         )
         if result2.returncode != 0:
-            self.logger.error(f"Deploy tar-extract failed: {result2.stderr.decode()}")
+            self.logger.error(
+                f"Deploy tar-extract failed: {result2.stderr.decode()}\n"
+                f"  Partial files may exist on live filesystem.\n"
+                f"  Archive for manual recovery / re-deploy: {archive_path}\n"
+                f"  To retry the deploy manually:\n"
+                f"    sudo tar -C / -xf {archive_path} --no-overwrite-dir --keep-directory-symlink"
+            )
             return False
 
         self.logger.info(f"Deployed {pkg.name}-{pkg.version} to live filesystem")
