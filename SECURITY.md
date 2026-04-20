@@ -12,7 +12,7 @@ InterGenOS takes security seriously. This document describes how to report vulne
 
 Anonymous reports accepted. We will never retaliate against good-faith reporters.
 
-For encrypted submissions, our PGP key fingerprint is published on our [signing key page](https://intergenstudios.com/signing-key) (available post-launch).
+Plain email is fine for initial contact until v1.0. We will publish a PGP fingerprint for encrypted submissions alongside the v1.0 signing-key ceremony; if you need an encrypted channel before then, say so in your first email and we will arrange one out-of-band.
 
 ---
 
