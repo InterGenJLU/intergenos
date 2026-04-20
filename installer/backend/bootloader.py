@@ -18,11 +18,14 @@ Shim is registered as the primary UEFI boot entry. On boot:
   -> kernel boots, MODULE_SIG_FORCE=y rejects unsigned modules
 """
 
+import logging
 import subprocess
 from pathlib import Path
 
 from .hooks import mount_virtual_fs, unmount_virtual_fs, run_chroot
 from .mok import sign_efi_binary
+
+logger = logging.getLogger(__name__)
 
 
 # Where shim-signed package installs its artifacts (provided by the package)
@@ -129,6 +132,19 @@ def _install_signed_efi_chain(target, partitions, mok_keypair):
     if rc != 0:
         raise RuntimeError(f"shim staging to ESP failed: {stderr}")
 
+    # Fallback auto-discovery path: some older UEFI firmware only looks at
+    # /EFI/BOOT/bootx64.efi when no matching UEFI boot variable is registered.
+    # Mirror the MS-signed shim and the MOK-signed GRUB there so the chain
+    # is self-contained — shim stays signed by MS so SecureBoot validation
+    # passes, and it will find grubx64.efi in the same directory.
+    rc, _, stderr = run_chroot(target,
+        f"mkdir -p /boot/efi/EFI/BOOT && "
+        f"cp {ESP_BOOT_DIR}/{SHIM_BINARY} /boot/efi/EFI/BOOT/bootx64.efi && "
+        f"cp {ESP_BOOT_DIR}/{GRUB_BINARY} /boot/efi/EFI/BOOT/{GRUB_BINARY}"
+    )
+    if rc != 0:
+        raise RuntimeError(f"EFI/BOOT fallback staging failed: {stderr}")
+
     # Sign every /boot/vmlinuz-* kernel image with the MOK. This closes
     # the middle link in the v2 playbook's 3-check signature chain:
     #   shim → GRUB (signed above)
@@ -165,16 +181,22 @@ def _install_signed_efi_chain(target, partitions, mok_keypair):
         # it for this call. When run from a build VM with no UEFI firmware,
         # efivars doesn't exist anywhere and registration must defer to first boot.
         #
-        # Current strategy: soft-fail here. Either:
-        #   (a) the user's BIOS auto-discovers /EFI/intergenos/shimx64.efi and
-        #       registers it via the EFI fallback path, OR
+        # Current strategy: soft-fail with a logged warning. Either:
+        #   (a) the user's BIOS auto-discovers /EFI/intergenos/shimx64.efi or
+        #       the /EFI/BOOT/bootx64.efi fallback staged above, OR
         #   (b) the user runs efibootmgr manually post-first-boot.
         #
-        # TODO: surface to TUI as warning so user knows to verify on first boot
         # TODO: claude-laptop test harness Class 2 should check 'did UEFI boot
         # order include InterGenOS entry post-reboot?'
         # TODO: consider bind-mounting efivars into chroot when host is EFI
-        pass
+        logger.warning(
+            "efibootmgr registration failed (rc=%d): %s. "
+            "UEFI boot order NOT updated by installer. The EFI/BOOT/bootx64.efi "
+            "fallback still allows auto-discovery on next boot. "
+            "To register manually post-install: sudo efibootmgr --create "
+            "--disk %s --part %d --label '%s' --loader '\\EFI\\intergenos\\%s'",
+            rc, stderr.strip(), disk_dev, part_num, BOOTLOADER_ID, SHIM_BINARY,
+        )
 
 
 def _install_bios_grub(target, disk):
