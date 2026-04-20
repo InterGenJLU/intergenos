@@ -31,6 +31,45 @@ def unmount_virtual_fs(target):
                        capture_output=True)
 
 
+def mount_efivars(target):
+    """Bind-mount host /sys/firmware/efi/efivars into chroot if host is EFI.
+
+    Needed so efibootmgr can update the firmware boot order from inside
+    the chroot. Returns True if the mount succeeded (or was already there),
+    False otherwise — callers use this to decide whether efibootmgr can
+    succeed or must defer to first boot.
+    """
+    target = str(target)
+    host_path = "/sys/firmware/efi/efivars"
+    if not os.path.isdir(host_path):
+        return False
+
+    chroot_path = f"{target}{host_path}"
+    os.makedirs(chroot_path, exist_ok=True)
+
+    # Already mounted? Idempotent.
+    check = subprocess.run(
+        ["mountpoint", "-q", chroot_path], capture_output=True
+    )
+    if check.returncode == 0:
+        return True
+
+    result = subprocess.run(
+        ["mount", "--bind", host_path, chroot_path],
+        capture_output=True,
+    )
+    return result.returncode == 0
+
+
+def unmount_efivars(target):
+    """Unmount efivars bind from chroot; no-op if not mounted."""
+    target = str(target)
+    subprocess.run(
+        ["umount", f"{target}/sys/firmware/efi/efivars"],
+        capture_output=True,
+    )
+
+
 def run_chroot(target, command):
     """Run a command inside a chroot of the target filesystem."""
     result = subprocess.run(

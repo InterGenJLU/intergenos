@@ -22,7 +22,13 @@ import logging
 import subprocess
 from pathlib import Path
 
-from .hooks import mount_virtual_fs, unmount_virtual_fs, run_chroot
+from .hooks import (
+    mount_virtual_fs,
+    unmount_virtual_fs,
+    run_chroot,
+    mount_efivars,
+    unmount_efivars,
+)
 from .mok import sign_efi_binary
 
 logger = logging.getLogger(__name__)
@@ -153,49 +159,78 @@ def _install_signed_efi_chain(target, partitions, mok_keypair):
     # Without this, GRUB with check_signatures=enforce refuses to load
     # the kernel. Even with check_signatures=off, leaving the kernel
     # unsigned means we don't detect tampered kernel images.
+    #
+    # Safety notes:
+    #   - sbverify --list pre-check makes the loop idempotent on install
+    #     retry — already-signed kernels are skipped rather than re-signed
+    #     (behavior of re-signing varies across sbsigntools versions:
+    #     some replace the signature, some append, some refuse).
+    #   - sbsign writes to $k.new then renames — explicit atomicity
+    #     regardless of sbsigntools version. A crash mid-write leaves
+    #     the pre-signed kernel intact, not a truncated binary.
     rc, _, stderr = run_chroot(target,
         f"for k in /boot/vmlinuz-*; do "
         f"  [ -f \"$k\" ] || continue; "
+        f"  if sbverify --cert {mok_keypair['cert_path']} \"$k\" >/dev/null 2>&1; then "
+        f"    echo \"skipping $k (already signed with MOK)\"; "
+        f"    continue; "
+        f"  fi; "
         f"  sbsign --key {mok_keypair['key_path']} "
         f"--cert {mok_keypair['cert_path']} "
-        f"--output \"$k\" \"$k\" || exit 1; "
+        f"--output \"$k.new\" \"$k\" || exit 1; "
+        f"  mv \"$k.new\" \"$k\" || exit 1; "
         f"done"
     )
     if rc != 0:
         raise RuntimeError(f"kernel image signing failed: {stderr}")
 
-    # Register shim as the primary UEFI boot entry via efibootmgr
-    # The disk + partition number come from partitions['esp']
+    # Register shim as the primary UEFI boot entry via efibootmgr.
+    # The disk + partition number come from partitions['esp'].
+    #
+    # efibootmgr requires /sys/firmware/efi/efivars inside the chroot to
+    # write firmware boot variables. The host-booted-EFI case (USB installer)
+    # has efivars available; bind-mount it in. The build-VM case (no UEFI
+    # firmware) falls back to the soft-warn path with user-recovery guidance.
     esp_dev = partitions.get("esp", "")
     disk_dev, part_num = _split_partition(esp_dev)
 
-    rc, _, stderr = run_chroot(target,
-        f"efibootmgr --create --disk {disk_dev} --part {part_num} "
-        f"--label '{BOOTLOADER_ID}' "
-        f"--loader '\\EFI\\intergenos\\{SHIM_BINARY}'"
-    )
+    efivars_ok = mount_efivars(target)
+    try:
+        rc, _, stderr = run_chroot(target,
+            f"efibootmgr --create --disk {disk_dev} --part {part_num} "
+            f"--label '{BOOTLOADER_ID}' "
+            f"--loader '\\EFI\\intergenos\\{SHIM_BINARY}'"
+        )
+    finally:
+        if efivars_ok:
+            unmount_efivars(target)
+
     if rc != 0:
-        # Known issue: efivars (/sys/firmware/efi/efivars) is not bind-mounted
-        # into the chroot by mount_virtual_fs(). When run from a USB installer
-        # booted in EFI mode, efivars exists on the host — we could bind-mount
-        # it for this call. When run from a build VM with no UEFI firmware,
-        # efivars doesn't exist anywhere and registration must defer to first boot.
+        # Two legitimate failure modes here:
+        #   (1) Host has no EFI firmware (build VM). efivars_ok is False above;
+        #       user must rely on /EFI/BOOT/bootx64.efi auto-discovery.
+        #   (2) Host IS EFI but efibootmgr still failed (read-only efivars,
+        #       firmware bug, etc.). User can retry manually post-boot.
         #
-        # Current strategy: soft-fail with a logged warning. Either:
-        #   (a) the user's BIOS auto-discovers /EFI/intergenos/shimx64.efi or
-        #       the /EFI/BOOT/bootx64.efi fallback staged above, OR
-        #   (b) the user runs efibootmgr manually post-first-boot.
+        # Fallback path: /EFI/BOOT/bootx64.efi auto-discovery works on most
+        # firmware. On older/custom firmware that doesn't auto-discover,
+        # the logged command below lets the user register by hand.
         #
         # TODO: claude-laptop test harness Class 2 should check 'did UEFI boot
         # order include InterGenOS entry post-reboot?'
-        # TODO: consider bind-mounting efivars into chroot when host is EFI
+        host_efi_note = (
+            "host has no EFI firmware — expected in build VM"
+            if not efivars_ok
+            else "host is EFI but efibootmgr still failed"
+        )
         logger.warning(
-            "efibootmgr registration failed (rc=%d): %s. "
+            "efibootmgr registration failed (rc=%d, %s): %s. "
             "UEFI boot order NOT updated by installer. The EFI/BOOT/bootx64.efi "
             "fallback still allows auto-discovery on next boot. "
             "To register manually post-install: sudo efibootmgr --create "
             "--disk %s --part %d --label '%s' --loader '\\EFI\\intergenos\\%s'",
-            rc, stderr.strip(), disk_dev, part_num, BOOTLOADER_ID, SHIM_BINARY,
+            rc, host_efi_note, stderr.strip(),
+            disk_dev, part_num, BOOTLOADER_ID, SHIM_BINARY,
         )
 
 
