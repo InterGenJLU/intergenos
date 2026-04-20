@@ -17,7 +17,7 @@ Before generating any images, we need a consistent visual language.
 
 **Color palette:**
 - Primary: Deep blue-black (#0f1117) — the void, control, trust
-- Accent: Green (#4ade80) — growth, system health, terminal aesthetic
+- Accent: ECG Blue (#0099FF) — the heartbeat pulse, intelligence, clarity
 - Secondary: Cool gray (#9ca3af) — neutral surfaces
 - Warning: Amber (#f59e0b)
 - Error: Red (#ef4444)
@@ -43,7 +43,7 @@ Before generating any images, we need a consistent visual language.
 ```
 A minimalist geometric logo mark for a Linux operating system called InterGenOS. 
 Abstract interlocking hexagonal shapes suggesting interconnected generations of 
-technology. Deep blue-black background with glowing green (#4ade80) accent lines. 
+technology. Deep blue-black background with glowing blue (#0099FF) accent lines. 
 Clean vector-style rendering, no text, no gradients, sharp edges, symmetric design. 
 Professional software company logo, icon only.
 ```
@@ -62,7 +62,7 @@ Professional software company logo, icon only.
 ```
 Dark futuristic desktop wallpaper for a Linux bootloader screen. Deep blue-black 
 background (#0f1117) with subtle geometric circuit board patterns fading into the 
-edges. Faint green (#4ade80) accent lines tracing minimal pathways across the lower 
+edges. Faint blue (#0099FF) accent lines tracing minimal pathways across the lower 
 third. Extremely minimal, almost entirely dark with sparse detail. No text, no 
 logos. Professional, clean, understated. 8K quality render.
 ```
@@ -81,7 +81,7 @@ logos. Professional, clean, understated. 8K quality render.
 ```
 Ultra-dark minimal boot splash background for a Linux operating system. Nearly 
 pure black center with very subtle dark blue (#0f1117) geometric patterns radiating 
-outward from center. Faint green (#4ade80) particle traces at extreme edges only. 
+outward from center. Faint blue (#0099FF) particle traces at extreme edges only. 
 The center 40% must be almost completely black for logo overlay. Cinematic, 
 professional. No text, no logos. 8K render.
 ```
@@ -100,7 +100,7 @@ professional. No text, no logos. 8K render.
 ```
 Sophisticated dark wallpaper for a Linux login screen. Abstract landscape of 
 geometric mountain-like formations rendered in dark blue-gray tones against a 
-near-black sky. Single thin green (#4ade80) horizon line. Atmospheric, moody, 
+near-black sky. Single thin blue (#0099FF) horizon line. Atmospheric, moody, 
 minimal. Suggests depth and stability. No stars, no text, no logos. Professional 
 quality, photorealistic lighting on abstract geometry.
 ```
@@ -118,7 +118,7 @@ quality, photorealistic lighting on abstract geometry.
 **Prompt v1 (Abstract):**
 ```
 Abstract desktop wallpaper for a dark-themed Linux desktop. Flowing organic 
-curves in deep navy and charcoal, with subtle green (#4ade80) bioluminescent 
+curves in deep navy and charcoal, with subtle blue (#0099FF) bioluminescent 
 accents. Feels like deep ocean or deep space. Smooth gradients, no hard edges. 
 Calm, professional, beautiful. No text, no logos. 8K photorealistic render.
 ```
@@ -126,8 +126,8 @@ Calm, professional, beautiful. No text, no logos. 8K photorealistic render.
 **Prompt v2 (Geometric):**
 ```
 Geometric desktop wallpaper for a Linux operating system. Isometric grid of 
-translucent dark hexagons receding into depth, lit from below by diffuse green 
-(#4ade80) light. Dark blue-black (#0f1117) background. Clean, architectural, 
+translucent dark hexagons receding into depth, lit from below by diffuse blue 
+(#0099FF) light. Dark blue-black (#0f1117) background. Clean, architectural, 
 precise. Suggests structure and transparency. No text, no logos. 8K quality.
 ```
 
@@ -145,7 +145,7 @@ precise. Suggests structure and transparency. No text, no logos. 8K quality.
 ```
 Extremely minimal dark background for a UEFI boot manager. Near-black (#0a0c10) 
 with barely visible diagonal line pattern suggesting brushed metal. Single very 
-faint green (#4ade80) horizontal rule across the lower quarter. Nothing else. 
+faint blue (#0099FF) horizontal rule across the lower quarter. Nothing else. 
 Ultra-clean, ultra-dark, professional. No text, no logos.
 ```
 
@@ -180,7 +180,7 @@ precision and careful planning. No text, no logos. 8K quality.
 
 **Prompt:**
 ```
-A simple, bold icon for a Linux operating system. Glowing green (#4ade80) 
+A simple, bold icon for a Linux operating system. Glowing blue (#0099FF) 
 interlocking geometric shape on pure black background. Must be instantly 
 recognizable at 32x32 pixels. Think app icon — simple, bold, one shape. 
 No text, no gradients, flat design with subtle glow. Clean vector style.

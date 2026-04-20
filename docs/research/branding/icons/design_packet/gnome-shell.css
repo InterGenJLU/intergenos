@@ -1,0 +1,1420 @@
+/*
+ * InterGenOS GNOME Shell Theme — BOLD Edition
+ *
+ * Design philosophy: LIGHT EMERGING FROM DARK
+ *   The darkness isn't empty — it's the canvas.
+ *   The blue isn't decoration — it's energy.
+ *   Every interactive element responds with light.
+ *   Touching the UI activates it — glow responds to input.
+ *
+ * Visual DNA:
+ *   - Boot animation ECG pulse (#0099FF cutting through #0a0a0a)
+ *   - JARVIS console (HUD aesthetic — holographic, illuminated)
+ *   - Deep space black with electric blue energy traces
+ *
+ * Designed FOR Blur My Shell integration — transparency is the foundation.
+ * Without blur: slightly more opaque fallbacks. With blur: glass and light.
+ *
+ * Color system:
+ *   --bg-void:    #050810       (the deepest dark — near-black with blue DNA)
+ *   --bg-surface: #0a0e1a       (elevated surface — navy-black)
+ *   --bg-card:    #0f1525       (card/panel surface)
+ *   --accent:     #0099FF       (primary — ECG blue)
+ *   --accent-bright: #33b1ff    (hover/active intensification)
+ *   --accent-glow: rgba(0,153,255,0.4)  (the light behind elements)
+ *   --text:       #e2e8f0       (primary text — cool white)
+ *   --text-dim:   #7a8ba8       (secondary text — slate)
+ *   --text-ghost: #3d4f6a       (ghost text — barely there)
+ *   --border:     rgba(0,153,255,0.08)  (structural — almost invisible)
+ *   --border-glow: rgba(0,153,255,0.25) (interactive borders)
+ *
+ * Copyright (C) 2026 InterGenOS — GPL-3.0-or-later
+ */
+
+/* ================================================================== */
+/* Stage — Global defaults                                             */
+/* ================================================================== */
+
+stage {
+    font-family: 'Inter', 'Cantarell', sans-serif;
+    font-size: 11pt;
+    color: #e2e8f0;
+}
+
+/* ================================================================== */
+/* Top Panel — Near-invisible glass, blue energy on interaction        */
+/* ================================================================== */
+
+#panel {
+    background-color: rgba(5, 8, 16, 0.12);
+    background-gradient-direction: vertical;
+    background-gradient-start: rgba(5, 8, 16, 0.15);
+    background-gradient-end: rgba(5, 8, 16, 0.05);
+    height: 2.2em;
+    font-weight: 500;
+    color: rgba(226, 232, 240, 0.92);
+    border-bottom: 1px solid rgba(0, 153, 255, 0.05);
+    transition-duration: 400ms;
+}
+
+/* Solid panel — window touching: darken and illuminate bottom edge */
+#panel.solid {
+    background-color: rgba(5, 8, 16, 0.92);
+    border-bottom: 1px solid rgba(0, 153, 255, 0.2);
+    box-shadow: 0 1px 12px rgba(0, 153, 255, 0.12),
+                0 0 20px rgba(0, 153, 255, 0.04);
+}
+
+/* Panel on lock/login — fully transparent */
+#panel.unlock-screen,
+#panel.login-screen {
+    background-color: transparent;
+    border-bottom-color: transparent;
+    box-shadow: none;
+}
+
+/* Panel buttons — glow on interaction, not tint */
+#panel .panel-button {
+    color: rgba(226, 232, 240, 0.8);
+    -natural-hpadding: 10px;
+    -minimum-hpadding: 6px;
+    font-weight: 500;
+    transition-duration: 250ms;
+    border-radius: 8px;
+    border: 1px solid transparent;
+}
+
+#panel .panel-button:hover {
+    color: #ffffff;
+    background-color: rgba(0, 153, 255, 0.08);
+    border: 1px solid rgba(0, 153, 255, 0.15);
+    box-shadow: none;
+}
+
+#panel .panel-button:active,
+#panel .panel-button:overview,
+#panel .panel-button:focus,
+#panel .panel-button:checked {
+    color: #ffffff;
+    background-color: rgba(0, 153, 255, 0.14);
+    border: 1px solid rgba(0, 153, 255, 0.3);
+    box-shadow: none;
+}
+
+/* Activities button */
+#panel .panel-button#panelActivities {
+    -natural-hpadding: 12px;
+}
+
+/* Clock — the brightest persistent element */
+#panel .panel-button .clock-display .clock {
+    color: #e2e8f0;
+    font-weight: 600;
+}
+
+/* System indicators */
+#panel .panel-status-indicators-box,
+#panel .panel-status-menu-box {
+    spacing: 4px;
+}
+
+.panel-left { spacing: 4px; }
+.panel-center { spacing: 4px; }
+.panel-right { spacing: 4px; }
+
+/* ================================================================== */
+/* Overview                                                            */
+/* ================================================================== */
+
+#overview {
+    spacing: 24px;
+}
+
+.overview-controls {
+    padding-bottom: 32px;
+}
+
+/* Search entry — command-line DNA with rounded pill shape to match UI */
+.search-entry {
+    background-color: rgba(5, 8, 16, 0.35);
+    border: 1px solid rgba(0, 153, 255, 0.12);
+    border-bottom: 2px solid rgba(0, 153, 255, 0.3);
+    border-radius: 14px;
+    color: #e2e8f0;
+    padding: 10px 18px;
+    font-size: 12pt;
+    caret-color: #0099FF;
+    selection-background-color: rgba(0, 153, 255, 0.35);
+    transition-duration: 300ms;
+}
+
+.search-entry:hover {
+    border-color: rgba(0, 153, 255, 0.2);
+    border-bottom-color: rgba(0, 153, 255, 0.5);
+}
+
+.search-entry:focus {
+    border-color: rgba(0, 153, 255, 0.3);
+    border-bottom-color: #0099FF;
+    background-color: rgba(5, 8, 16, 0.5);
+}
+
+.search-entry .search-entry-icon {
+    color: rgba(0, 153, 255, 0.5);
+}
+
+.search-entry:focus .search-entry-icon {
+    color: #0099FF;
+}
+
+/* Search results */
+.search-section .search-section-content {
+    background-color: rgba(10, 14, 26, 0.55);
+    border-radius: 16px;
+    border: 1px solid rgba(0, 153, 255, 0.06);
+    padding: 8px;
+}
+
+.search-provider-icon .list-search-provider-content .list-search-provider-details {
+    color: #7a8ba8;
+}
+
+/* ================================================================== */
+/* Workspace thumbnails — electric circuit traces                      */
+/* ================================================================== */
+
+.workspace-thumbnails {
+    spacing: 8px;
+    padding: 8px;
+}
+
+.workspace-thumbnail-indicator {
+    border: 2px solid rgba(0, 153, 255, 0.5);
+    border-radius: 8px;
+    box-shadow: 0 0 12px rgba(0, 153, 255, 0.2),
+                inset 0 0 8px rgba(0, 153, 255, 0.05);
+}
+
+/* ================================================================== */
+/* App Grid                                                            */
+/* ================================================================== */
+
+.icon-grid {
+    spacing: 8px;
+    -shell-grid-horizontal-item-size: 136px;
+    -shell-grid-vertical-item-size: 136px;
+}
+
+.app-well-app .overview-icon {
+    color: #e2e8f0;
+    font-size: 9pt;
+}
+
+.app-well-app:hover .overview-icon {
+    background-color: rgba(0, 153, 255, 0.06);
+    border-radius: 14px;
+    box-shadow: 0 0 16px rgba(0, 153, 255, 0.12);
+    transition-duration: 200ms;
+}
+
+.app-well-app:active .overview-icon,
+.app-well-app:checked .overview-icon {
+    background-color: rgba(0, 153, 255, 0.12);
+    box-shadow: 0 0 20px rgba(0, 153, 255, 0.2);
+}
+
+/* App folders */
+.app-folder-dialog {
+    background-color: rgba(10, 14, 26, 0.80);
+    border: 1px solid rgba(0, 153, 255, 0.12);
+    border-radius: 20px;
+    padding: 12px;
+    box-shadow: 0 0 30px rgba(0, 153, 255, 0.08);
+}
+
+.app-folder-dialog .folder-name-entry {
+    background-color: rgba(5, 8, 16, 0.6);
+    border: 1px solid rgba(0, 153, 255, 0.15);
+    border-radius: 8px;
+    color: #e2e8f0;
+    padding: 4px 12px;
+}
+
+/* Page indicators — blue energy dots */
+.page-indicator .page-indicator-icon {
+    background-color: rgba(0, 153, 255, 0.2);
+    border-radius: 50%;
+    width: 10px;
+    height: 10px;
+    box-shadow: 0 0 6px rgba(0, 153, 255, 0.1);
+}
+
+.page-indicator:checked .page-indicator-icon,
+.page-indicator:hover .page-indicator-icon {
+    background-color: #0099FF;
+    box-shadow: 0 0 10px rgba(0, 153, 255, 0.5);
+}
+
+/* ================================================================== */
+/* Dash — floating on nothing, shadow beneath                          */
+/* ================================================================== */
+
+/* Dash outer — completely transparent so only the inner pill renders */
+#dash,
+.dash,
+.overview-dash {
+    background-color: transparent;
+    background: none;
+    border: none;
+    padding: 0;
+    margin-bottom: 14px;
+    box-shadow: none;
+}
+
+/* The actual visible dash pill — pronounced blue accent, strong presence */
+.dash-background {
+    background-gradient-direction: vertical;
+    background-gradient-start: rgba(10, 18, 38, 0.55);
+    background-gradient-end: rgba(5, 8, 16, 0.45);
+    background-color: rgba(5, 8, 16, 0.45);
+    border: 1px solid rgba(0, 153, 255, 0.5);
+    border-radius: 26px;
+    padding: 10px 16px;
+    box-shadow: 0 14px 52px rgba(0, 0, 0, 0.55);
+}
+
+#dash .dash-item-container .app-well-app {
+    padding: 6px;
+}
+
+#dash .dash-item-container .app-well-app:hover .overview-icon {
+    background-color: rgba(0, 153, 255, 0.10);
+    border-radius: 14px;
+    box-shadow: 0 0 20px rgba(0, 153, 255, 0.2),
+                inset 0 0 12px rgba(0, 153, 255, 0.04);
+}
+
+#dash .dash-item-container .app-well-app:active .overview-icon,
+#dash .dash-item-container .app-well-app:checked .overview-icon {
+    background-color: rgba(0, 153, 255, 0.18);
+    box-shadow: 0 0 26px rgba(0, 153, 255, 0.28),
+                inset 0 0 14px rgba(0, 153, 255, 0.06);
+}
+
+/* Running app indicator dot — blue pulse beneath running apps */
+#dash .dash-item-container .app-well-app.running .overview-icon {
+    box-shadow: 0 4px 0 -2px #0099FF,
+                0 8px 12px -4px rgba(0, 153, 255, 0.5);
+}
+
+/* Separator — dim blue pulse line */
+.dash-separator {
+    background-color: rgba(0, 153, 255, 0.35);
+    width: 1px;
+    margin: 8px 2px;
+    box-shadow: 0 0 8px rgba(0, 153, 255, 0.25);
+}
+
+/* Show apps button */
+.show-apps .overview-icon {
+    color: #7a8ba8;
+    background-color: transparent;
+    border-radius: 12px;
+    padding: 8px;
+}
+
+.show-apps:hover .overview-icon {
+    background-color: rgba(0, 153, 255, 0.06);
+    box-shadow: 0 0 12px rgba(0, 153, 255, 0.12);
+    color: #e2e8f0;
+}
+
+.show-apps:checked .overview-icon,
+.show-apps:active .overview-icon {
+    background-color: rgba(0, 153, 255, 0.12);
+    box-shadow: 0 0 18px rgba(0, 153, 255, 0.2);
+    color: #ffffff;
+}
+
+/* ================================================================== */
+/* Quick Settings — frosted glass with blue energy on active           */
+/* ================================================================== */
+
+.quick-settings {
+    background-color: rgba(10, 14, 26, 0.75);
+    border: 1px solid rgba(0, 153, 255, 0.08);
+    border-radius: 18px;
+    padding: 16px;
+    margin: 8px;
+    box-shadow: 0 16px 50px rgba(0, 0, 0, 0.55);
+}
+
+/* Base quick toggle (simple on/off) — no border-radius here,
+   it gets set by specific rules below to avoid cascade conflicts */
+.quick-toggle {
+    background-color: rgba(15, 21, 37, 0.5);
+    border: 1px solid rgba(0, 153, 255, 0.05);
+    border-radius: 12px;
+    padding: 0 12px;
+    min-height: 44px;
+    color: #e2e8f0;
+    transition-duration: 200ms;
+}
+
+/* Simple quick toggle (without attached menu): full pill shape */
+.quick-toggle:last-child,
+.quick-settings > .quick-toggle,
+.popup-menu .quick-toggle:not(.quick-toggle-has-menu .quick-toggle) {
+    border-radius: 12px !important;
+}
+
+.quick-toggle:hover {
+    background-color: rgba(15, 21, 37, 0.7);
+    border-color: rgba(0, 153, 255, 0.15);
+}
+
+.quick-toggle:checked {
+    background-color: rgba(0, 153, 255, 0.12);
+    border-color: rgba(0, 153, 255, 0.3);
+    color: #ffffff;
+}
+
+.quick-toggle:checked:hover {
+    background-color: rgba(0, 153, 255, 0.18);
+}
+
+/* Quick Toggle with attached menu arrow — REAL class names:
+   .quick-toggle-has-menu is the container
+   .quick-toggle-menu-button is the arrow button
+
+   Using shorthand border-radius (TL TR BR BL) because GJS's CSS parser
+   is less reliable with longhand + !important. */
+
+/* Main toggle: flat right side when inside a has-menu container */
+.quick-toggle-has-menu .quick-toggle,
+.quick-toggle-has-menu .quick-toggle:ltr,
+.quick-toggle-has-menu > .quick-toggle,
+.quick-toggle-has-menu > .quick-toggle:ltr,
+.popup-menu .quick-toggle-has-menu .quick-toggle {
+    border-radius: 12px 0 0 12px !important;
+    border-right-width: 0;
+    margin-right: 0;
+    padding-right: 6px;
+}
+
+.quick-toggle-has-menu .quick-toggle:rtl,
+.quick-toggle-has-menu > .quick-toggle:rtl {
+    border-radius: 0 12px 12px 0 !important;
+    border-left-width: 0;
+    margin-left: 0;
+    padding-left: 6px;
+}
+
+/* The arrow "menu button" — attached to the right of the main toggle */
+.quick-toggle-menu-button,
+.quick-toggle-has-menu .quick-toggle-menu-button,
+.quick-toggle-has-menu > .quick-toggle-menu-button,
+.popup-menu .quick-toggle-has-menu .quick-toggle-menu-button {
+    background-color: rgba(15, 21, 37, 0.5) !important;
+    border: 1px solid rgba(0, 153, 255, 0.05) !important;
+    border-left: 1px solid rgba(0, 153, 255, 0.2) !important;
+    border-radius: 0 12px 12px 0 !important;
+    min-height: 44px;
+    min-width: 32px;
+    padding: 0 10px !important;
+    margin-left: 0;
+    color: #e2e8f0 !important;
+    transition-duration: 200ms;
+    box-shadow: none;
+}
+
+.quick-toggle-has-menu .quick-toggle-menu-button:ltr,
+.quick-toggle-has-menu > .quick-toggle-menu-button:ltr {
+    border-radius: 0 12px 12px 0 !important;
+}
+
+.quick-toggle-has-menu .quick-toggle-menu-button:rtl,
+.quick-toggle-has-menu > .quick-toggle-menu-button:rtl {
+    border-radius: 12px 0 0 12px !important;
+    border-left: 1px solid rgba(0, 153, 255, 0.05) !important;
+    border-right: 1px solid rgba(0, 153, 255, 0.2) !important;
+}
+
+.quick-toggle-menu-button:hover,
+.quick-toggle-has-menu .quick-toggle-menu-button:hover {
+    background-color: rgba(15, 21, 37, 0.75) !important;
+    border-color: rgba(0, 153, 255, 0.2) !important;
+    border-left-color: rgba(0, 153, 255, 0.28) !important;
+}
+
+.quick-toggle-menu-button:checked,
+.quick-toggle-has-menu .quick-toggle-menu-button:checked,
+.quick-toggle-menu-button:active,
+.quick-toggle-has-menu .quick-toggle-menu-button:active {
+    background-color: rgba(0, 153, 255, 0.14) !important;
+    border-color: rgba(0, 153, 255, 0.3) !important;
+    border-left-color: rgba(0, 153, 255, 0.35) !important;
+    color: #ffffff !important;
+}
+
+.quick-toggle .quick-toggle-title {
+    font-weight: 600;
+    font-size: 9pt;
+}
+
+.quick-toggle .quick-toggle-subtitle {
+    color: #7a8ba8;
+    font-size: 8pt;
+}
+
+.quick-toggle:checked .quick-toggle-subtitle {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.quick-toggle-arrow {
+    color: #7a8ba8;
+}
+
+.quick-toggle:checked .quick-toggle-arrow {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Sliders — blue energy bar */
+.quick-slider .slider {
+    -slider-height: 6px;
+    -slider-background-color: rgba(15, 21, 37, 0.8);
+    -slider-active-background-color: #0099FF;
+    -slider-handle-border-color: transparent;
+    color: #0099FF;
+    height: 20px;
+    border-radius: 10px;
+}
+
+/* System item header (power, lock, settings, battery icons row at top) */
+.quick-settings-system-item {
+    background-color: transparent;
+    border-bottom: 1px solid rgba(0, 153, 255, 0.08);
+    padding-bottom: 12px;
+    margin-bottom: 8px;
+}
+
+/* Icon buttons inside quick-settings-system-item (power, lock, settings) */
+.quick-settings-system-item .icon-button,
+.quick-settings-system-item button,
+.quick-settings-system-item .button {
+    background-color: rgba(15, 21, 37, 0.5);
+    border: 1px solid rgba(0, 153, 255, 0.08);
+    border-radius: 50%;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 6px;
+    color: #e2e8f0;
+    transition-duration: 200ms;
+}
+
+.quick-settings-system-item .icon-button:hover,
+.quick-settings-system-item button:hover,
+.quick-settings-system-item .button:hover {
+    background-color: rgba(0, 153, 255, 0.12);
+    border-color: rgba(0, 153, 255, 0.25);
+    color: #ffffff;
+}
+
+/* Power Off submenu — uses real class .quick-toggle-menu from GNOME 49 */
+.quick-toggle-menu {
+    background-color: rgba(8, 12, 22, 0.75) !important;
+    border: 1px solid rgba(0, 153, 255, 0.12) !important;
+    border-radius: 18px !important;
+    padding: 8px !important;
+    margin: 12px 18px 0 !important;
+    color: #e2e8f0;
+    box-shadow: none;
+}
+
+.quick-toggle-menu:hover,
+.quick-toggle-menu:focus,
+.quick-toggle-menu:active {
+    background-color: rgba(8, 12, 22, 0.75) !important;
+    border-color: rgba(0, 153, 255, 0.15) !important;
+}
+
+/* The "Power Off" header row inside the submenu */
+.quick-toggle-menu .header {
+    spacing-rows: 3px;
+    spacing-columns: 12px;
+    padding-bottom: 12px;
+    color: #e2e8f0;
+}
+
+.quick-toggle-menu .header .icon {
+    icon-size: 1.6365em;
+    border-radius: 999px;
+    padding: 10px;
+    background-color: rgba(0, 153, 255, 0.15) !important;
+    color: #0099FF;
+    border: 1px solid rgba(0, 153, 255, 0.3);
+}
+
+.quick-toggle-menu .header .icon.active {
+    background-color: rgba(0, 153, 255, 0.35) !important;
+    color: #ffffff;
+    border-color: rgba(0, 153, 255, 0.6);
+}
+
+.quick-toggle-menu .header .title {
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 1.364em;
+}
+
+.quick-toggle-menu .header .subtitle {
+    color: #7a8ba8;
+    font-size: 0.95em;
+}
+
+/* Items inside the submenu (Suspend, Restart, Power Off, Log Out) */
+.quick-toggle-menu .popup-menu-item {
+    background-color: transparent;
+    color: #e2e8f0 !important;
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin: 2px 0;
+    font-weight: 500;
+    min-height: 32px;
+    transition-duration: 150ms;
+}
+
+.quick-toggle-menu .popup-menu-item:hover,
+.quick-toggle-menu .popup-menu-item:focus {
+    background-color: rgba(0, 153, 255, 0.12) !important;
+    color: #ffffff !important;
+}
+
+.quick-toggle-menu .popup-menu-item:active,
+.quick-toggle-menu .popup-menu-item:selected {
+    background-color: rgba(0, 153, 255, 0.2) !important;
+    color: #ffffff !important;
+}
+
+.quick-toggle-menu .popup-menu-item > StIcon {
+    -st-icon-style: symbolic;
+    icon-size: 1.091em;
+    color: #94a3b8;
+}
+
+.quick-toggle-menu .popup-menu-item:hover > StIcon,
+.quick-toggle-menu .popup-menu-item:focus > StIcon {
+    color: #ffffff;
+}
+
+/* Separator between item groups (e.g., before "Log Out") */
+.quick-toggle-menu .popup-separator-menu-item .popup-separator-menu-item-separator {
+    background-color: rgba(0, 153, 255, 0.1);
+    margin: 6px 8px;
+}
+
+/* Also catch generic popup-sub-menu cases as fallback */
+.popup-sub-menu,
+.quick-settings .popup-sub-menu {
+    background-color: rgba(8, 12, 22, 0.6);
+    border: 1px solid rgba(0, 153, 255, 0.1);
+    border-radius: 14px;
+    padding: 4px;
+}
+
+.popup-sub-menu .popup-menu-item {
+    color: #e2e8f0;
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin: 2px 0;
+    font-weight: 500;
+    min-height: 32px;
+}
+
+.popup-sub-menu .popup-menu-item:hover,
+.popup-sub-menu .popup-menu-item:focus {
+    background-color: rgba(0, 153, 255, 0.12);
+    color: #ffffff;
+}
+
+.popup-sub-menu .popup-menu-item:active {
+    background-color: rgba(0, 153, 255, 0.2);
+}
+
+/* Quick settings rows (generic fallback) */
+.quick-settings-row {
+    background-color: transparent;
+    color: #e2e8f0;
+    padding: 10px 14px;
+    border-radius: 10px;
+    transition-duration: 150ms;
+}
+
+.quick-settings-row:hover {
+    background-color: rgba(0, 153, 255, 0.08);
+}
+
+.quick-settings-row:active {
+    background-color: rgba(0, 153, 255, 0.15);
+}
+
+/* ================================================================== */
+/* Popup Menu Boxpointer + Popup Menu — OUTER containers for popups    */
+/* Make everything transparent except the innermost .popup-menu-content */
+/* which is the ONLY element that renders a visible rounded surface.    */
+/* ================================================================== */
+
+.popup-menu-boxpointer {
+    -arrow-background-color: transparent;
+    -arrow-border-color: transparent;
+    -arrow-border-width: 0;
+    -arrow-base: 0;
+    -arrow-rise: 0;
+    -boxpointer-gap: 4px;
+    background: none;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+/* The .popup-menu StBoxLayout inside the boxpointer — also transparent */
+.popup-menu {
+    min-width: 10em;
+    color: #e2e8f0;
+    background: none;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+/* The ONLY visible surface — rounded, blue-edged, with one clean shadow */
+.popup-menu .popup-menu-content,
+.popup-menu-content {
+    background-color: rgba(8, 12, 22, 0.92);
+    border: 1px solid rgba(0, 153, 255, 0.12);
+    border-radius: 18px;
+    padding: 8px;
+    margin: 0 4px 12px;
+    box-shadow: 0 16px 52px rgba(0, 0, 0, 0.6);
+}
+
+/* ================================================================== */
+/* Date menu — single unified container for calendar/messages/media    */
+/* ================================================================== */
+
+.datemenu-popover .popup-menu-content,
+.datemenu-menu .popup-menu-content,
+.calendar-popover .popup-menu-content {
+    background-color: rgba(8, 12, 22, 0.92);
+    border: 1px solid rgba(0, 153, 255, 0.12);
+    border-radius: 20px;
+    padding: 4px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+.datemenu-displays-box,
+.datemenu-calendar-column {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 4px;
+}
+
+.datemenu-displays-section {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+/* Separator between message list and calendar column */
+.datemenu-popover separator,
+.datemenu-menu separator {
+    background-color: rgba(0, 153, 255, 0.08);
+    width: 1px;
+    margin: 0 8px;
+}
+
+/* ================================================================== */
+/* Notifications / Calendar / Message Tray — emerge from the dark      */
+/* ================================================================== */
+
+.message-list {
+    background-color: transparent;
+    border: none;
+    border-radius: 18px;
+    padding: 8px;
+    color: #e2e8f0;
+    box-shadow: none;
+}
+
+.message-list-placeholder {
+    color: #3d4f6a;
+}
+
+.message {
+    background-color: rgba(15, 21, 37, 0.4);
+    border: 1px solid rgba(0, 153, 255, 0.04);
+    border-radius: 12px;
+    padding: 8px 12px;
+    margin: 4px 0;
+    transition-duration: 200ms;
+}
+
+.message:hover {
+    background-color: rgba(15, 21, 37, 0.6);
+    border-color: rgba(0, 153, 255, 0.15);
+    box-shadow: 0 0 14px rgba(0, 153, 255, 0.08);
+}
+
+.message .message-title {
+    color: #e2e8f0;
+    font-weight: 600;
+}
+
+.message .message-body {
+    color: #7a8ba8;
+}
+
+.message .message-close-button {
+    color: #7a8ba8;
+    border-radius: 50%;
+    padding: 2px;
+}
+
+.message .message-close-button:hover {
+    background-color: rgba(0, 153, 255, 0.12);
+    box-shadow: 0 0 8px rgba(0, 153, 255, 0.15);
+    color: #e2e8f0;
+}
+
+/* Calendar — blue accents on dates */
+.calendar {
+    background-color: transparent;
+    border: none;
+    border-radius: 18px;
+    padding: 12px;
+    color: #e2e8f0;
+    box-shadow: none;
+}
+
+.calendar .calendar-month-label {
+    color: #e2e8f0;
+    font-weight: 700;
+    font-size: 10pt;
+}
+
+.calendar .calendar-change-month-back,
+.calendar .calendar-change-month-forward {
+    color: #7a8ba8;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+}
+
+.calendar .calendar-change-month-back:hover,
+.calendar .calendar-change-month-forward:hover {
+    background-color: rgba(0, 153, 255, 0.1);
+    box-shadow: 0 0 8px rgba(0, 153, 255, 0.12);
+    color: #e2e8f0;
+}
+
+.calendar .calendar-day-heading {
+    color: rgba(0, 153, 255, 0.5);
+    font-size: 8pt;
+    font-weight: 600;
+}
+
+.calendar .calendar-day-base {
+    color: #7a8ba8;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    font-size: 9pt;
+    text-align: center;
+    transition-duration: 150ms;
+}
+
+.calendar .calendar-day-base:hover {
+    background-color: rgba(0, 153, 255, 0.08);
+    box-shadow: 0 0 8px rgba(0, 153, 255, 0.1);
+    color: #e2e8f0;
+}
+
+.calendar .calendar-day-base.calendar-day-today {
+    background-color: #0099FF;
+    color: #ffffff;
+    font-weight: 700;
+    box-shadow: 0 0 14px rgba(0, 153, 255, 0.4);
+}
+
+.calendar .calendar-day-base.calendar-day-today:hover {
+    background-color: #33b1ff;
+    box-shadow: 0 0 18px rgba(0, 153, 255, 0.5);
+}
+
+.calendar .calendar-day-base.calendar-other-month-day {
+    color: #1e2a42;
+}
+
+/* ================================================================== */
+/* OSD (On-Screen Display — volume, brightness)                        */
+/* ================================================================== */
+
+.osd-window {
+    background-color: rgba(10, 14, 26, 0.80);
+    border: 1px solid rgba(0, 153, 255, 0.12);
+    border-radius: 18px;
+    padding: 16px 24px;
+    margin-bottom: 32px;
+    color: #e2e8f0;
+    box-shadow: 0 14px 42px rgba(0, 0, 0, 0.55);
+}
+
+.osd-window .osd-monitor-label {
+    font-size: 32pt;
+    font-weight: 700;
+    color: #e2e8f0;
+}
+
+.osd-window .level {
+    -slider-height: 6px;
+    -slider-background-color: rgba(15, 21, 37, 0.8);
+    -slider-active-background-color: #0099FF;
+    border-radius: 4px;
+    height: 6px;
+    color: #0099FF;
+}
+
+/* ================================================================== */
+/* Window Switcher (Alt-Tab) — holographic selection                    */
+/* ================================================================== */
+
+.switcher-popup {
+    padding: 8px;
+}
+
+.switcher-list {
+    background-color: rgba(10, 14, 26, 0.80);
+    border: 1px solid rgba(0, 153, 255, 0.10);
+    border-radius: 18px;
+    padding: 12px;
+    box-shadow: 0 16px 52px rgba(0, 0, 0, 0.6);
+}
+
+.switcher-list .item-box {
+    padding: 8px;
+    border-radius: 12px;
+    transition-duration: 150ms;
+}
+
+.switcher-list .item-box:outlined {
+    background-color: rgba(0, 153, 255, 0.08);
+    border: 2px solid rgba(0, 153, 255, 0.3);
+    box-shadow: 0 0 12px rgba(0, 153, 255, 0.1);
+}
+
+.switcher-list .item-box:selected {
+    background-color: rgba(0, 153, 255, 0.12);
+    border: 2px solid rgba(0, 153, 255, 0.6);
+    box-shadow: 0 0 20px rgba(0, 153, 255, 0.2),
+                inset 0 0 10px rgba(0, 153, 255, 0.05);
+}
+
+.switcher-list .thumbnail {
+    border-radius: 8px;
+}
+
+.switcher-arrow {
+    color: #7a8ba8;
+}
+
+/* ================================================================== */
+/* Modal Dialogs — holographic projections with blue border glow       */
+/* ================================================================== */
+
+.modal-dialog {
+    background-color: rgba(10, 14, 26, 0.90);
+    border: 1px solid rgba(0, 153, 255, 0.15);
+    border-radius: 22px;
+    padding: 24px;
+    color: #e2e8f0;
+    box-shadow: 0 22px 64px rgba(0, 0, 0, 0.6);
+}
+
+.modal-dialog .modal-dialog-content-box {
+    margin-bottom: 24px;
+}
+
+.modal-dialog .modal-dialog-button-box {
+    spacing: 12px;
+}
+
+.modal-dialog .modal-dialog-button-box .modal-dialog-button {
+    background-color: rgba(15, 21, 37, 0.6);
+    border: 1px solid rgba(0, 153, 255, 0.1);
+    border-radius: 10px;
+    padding: 8px 24px;
+    color: #e2e8f0;
+    font-weight: 600;
+    transition-duration: 200ms;
+}
+
+.modal-dialog .modal-dialog-button-box .modal-dialog-button:hover {
+    background-color: rgba(15, 21, 37, 0.85);
+    border-color: rgba(0, 153, 255, 0.25);
+    box-shadow: 0 0 12px rgba(0, 153, 255, 0.1);
+}
+
+/* Default action button — glowing blue aura */
+.modal-dialog .modal-dialog-button-box .modal-dialog-button:default {
+    background-color: rgba(0, 153, 255, 0.2);
+    border: 1px solid rgba(0, 153, 255, 0.5);
+    color: #ffffff;
+    box-shadow: 0 0 18px rgba(0, 153, 255, 0.2),
+                0 0 4px rgba(0, 153, 255, 0.3);
+}
+
+.modal-dialog .modal-dialog-button-box .modal-dialog-button:default:hover {
+    background-color: rgba(0, 153, 255, 0.3);
+    border-color: rgba(0, 153, 255, 0.7);
+    box-shadow: 0 0 24px rgba(0, 153, 255, 0.3),
+                0 0 6px rgba(0, 153, 255, 0.4);
+}
+
+/* ================================================================== */
+/* Lock Screen                                                         */
+/* ================================================================== */
+
+.unlock-dialog {
+    background-color: rgba(5, 8, 16, 0.75);
+    border: 1px solid rgba(0, 153, 255, 0.10);
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: 0 22px 64px rgba(0, 0, 0, 0.6);
+}
+
+.unlock-dialog .unlock-dialog-clock-time {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 56pt;
+    color: #ffffff;
+    text-shadow: 0 0 30px rgba(0, 153, 255, 0.2),
+                 0 2px 12px rgba(0, 0, 0, 0.4);
+}
+
+.unlock-dialog .unlock-dialog-clock-date {
+    font-size: 14pt;
+    color: #7a8ba8;
+}
+
+.unlock-dialog .unlock-dialog-clock-hint {
+    color: #3d4f6a;
+    font-size: 10pt;
+}
+
+.unlock-dialog .login-dialog-prompt-entry {
+    background-color: rgba(10, 14, 26, 0.6);
+    border: 1px solid rgba(0, 153, 255, 0.15);
+    border-bottom: 2px solid rgba(0, 153, 255, 0.3);
+    border-radius: 12px;
+    color: #e2e8f0;
+    padding: 8px 16px;
+    caret-color: #0099FF;
+}
+
+.unlock-dialog .login-dialog-prompt-entry:focus {
+    border-color: rgba(0, 153, 255, 0.3);
+    border-bottom-color: #0099FF;
+    box-shadow: 0 2px 16px rgba(0, 153, 255, 0.15),
+                0 0 30px rgba(0, 153, 255, 0.05);
+}
+
+/* ================================================================== */
+/* Login Screen (GDM) — holographic login                              */
+/* ================================================================== */
+
+.login-dialog {
+    background-color: rgba(5, 8, 16, 0.82);
+    border: 1px solid rgba(0, 153, 255, 0.10);
+    border-radius: 24px;
+    padding: 32px;
+    box-shadow: 0 22px 64px rgba(0, 0, 0, 0.55);
+}
+
+.login-dialog .login-dialog-banner {
+    color: #7a8ba8;
+    font-size: 10pt;
+}
+
+.login-dialog .login-dialog-user-list .login-dialog-user-list-item {
+    border-radius: 12px;
+    padding: 8px 12px;
+    color: #e2e8f0;
+    transition-duration: 200ms;
+}
+
+.login-dialog .login-dialog-user-list .login-dialog-user-list-item:hover {
+    background-color: rgba(0, 153, 255, 0.06);
+    box-shadow: 0 0 12px rgba(0, 153, 255, 0.08);
+}
+
+.login-dialog .login-dialog-user-list .login-dialog-user-list-item:focus,
+.login-dialog .login-dialog-user-list .login-dialog-user-list-item:logged-in {
+    background-color: rgba(0, 153, 255, 0.10);
+    border: 1px solid rgba(0, 153, 255, 0.25);
+    box-shadow: 0 0 16px rgba(0, 153, 255, 0.1);
+}
+
+.login-dialog .login-dialog-prompt-entry {
+    background-color: rgba(10, 14, 26, 0.6);
+    border: 1px solid rgba(0, 153, 255, 0.12);
+    border-bottom: 2px solid rgba(0, 153, 255, 0.3);
+    border-radius: 12px;
+    color: #e2e8f0;
+    padding: 8px 16px;
+    caret-color: #0099FF;
+}
+
+.login-dialog .login-dialog-prompt-entry:focus {
+    border-color: rgba(0, 153, 255, 0.2);
+    border-bottom-color: #0099FF;
+    box-shadow: 0 2px 16px rgba(0, 153, 255, 0.15);
+}
+
+.login-dialog .login-dialog-prompt-label {
+    color: #7a8ba8;
+    font-size: 10pt;
+}
+
+/* Login button — glowing call to action */
+.login-dialog .login-dialog-button {
+    background-color: rgba(0, 153, 255, 0.2);
+    border: 1px solid rgba(0, 153, 255, 0.4);
+    border-radius: 10px;
+    color: #ffffff;
+    font-weight: 600;
+    padding: 8px 24px;
+    box-shadow: 0 0 14px rgba(0, 153, 255, 0.15);
+}
+
+.login-dialog .login-dialog-button:hover {
+    background-color: rgba(0, 153, 255, 0.3);
+    border-color: rgba(0, 153, 255, 0.6);
+    box-shadow: 0 0 22px rgba(0, 153, 255, 0.25);
+}
+
+/* ================================================================== */
+/* Tooltips — minimal, glowing                                         */
+/* ================================================================== */
+
+.tooltip {
+    background-color: rgba(10, 14, 26, 0.90);
+    border: 1px solid rgba(0, 153, 255, 0.12);
+    border-radius: 8px;
+    padding: 6px 12px;
+    color: #e2e8f0;
+    font-size: 9pt;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5),
+                0 0 8px rgba(0, 153, 255, 0.06);
+}
+
+/* ================================================================== */
+/* Popup Menus — deep glass with glow hover                            */
+/* ================================================================== */
+
+.popup-menu {
+    color: #e2e8f0;
+}
+
+.popup-menu-content {
+    background-color: rgba(10, 14, 26, 0.80);
+    border: 1px solid rgba(0, 153, 255, 0.10);
+    border-radius: 16px;
+    padding: 8px;
+    box-shadow: 0 16px 50px rgba(0, 0, 0, 0.55);
+}
+
+.popup-menu-item {
+    color: #e2e8f0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    spacing: 8px;
+    transition-duration: 150ms;
+}
+
+.popup-menu-item:hover,
+.popup-menu-item:focus {
+    background-color: rgba(0, 153, 255, 0.08);
+    box-shadow: 0 0 10px rgba(0, 153, 255, 0.08);
+    color: #ffffff;
+}
+
+.popup-menu-item:active {
+    background-color: rgba(0, 153, 255, 0.15);
+    box-shadow: 0 0 14px rgba(0, 153, 255, 0.12);
+}
+
+.popup-separator-menu-item .popup-separator-menu-item-separator {
+    background-color: rgba(0, 153, 255, 0.08);
+    height: 1px;
+}
+
+.popup-sub-menu {
+    background-color: rgba(5, 8, 16, 0.4);
+    border-radius: 8px;
+}
+
+.popup-menu-ornament {
+    width: 1.2em;
+    text-align: right;
+}
+
+/* ================================================================== */
+/* Sliders — blue energy bar                                           */
+/* ================================================================== */
+
+.slider {
+    -slider-height: 6px;
+    -slider-background-color: rgba(15, 21, 37, 0.8);
+    -slider-active-background-color: #0099FF;
+    -slider-handle-border-width: 0;
+    -slider-handle-border-color: transparent;
+    height: 20px;
+    min-width: 200px;
+    border-radius: 10px;
+    color: #0099FF;
+}
+
+/* ================================================================== */
+/* Switches / Toggles                                                  */
+/* ================================================================== */
+
+.toggle-switch {
+    width: 40px;
+    height: 20px;
+}
+
+/* ================================================================== */
+/* Scrollbars — subtle blue energy                                     */
+/* ================================================================== */
+
+StScrollBar StBin#trough {
+    background-color: rgba(0, 153, 255, 0.04);
+    border-radius: 4px;
+}
+
+StScrollBar StButton#vhandle,
+StScrollBar StButton#hhandle {
+    background-color: rgba(0, 153, 255, 0.2);
+    border-radius: 4px;
+    min-width: 6px;
+    min-height: 6px;
+}
+
+StScrollBar StButton#vhandle:hover,
+StScrollBar StButton#hhandle:hover {
+    background-color: rgba(0, 153, 255, 0.4);
+    box-shadow: 0 0 6px rgba(0, 153, 255, 0.15);
+}
+
+/* ================================================================== */
+/* Entries (text input) — command-line DNA, bottom-border focus         */
+/* ================================================================== */
+
+StEntry {
+    background-color: rgba(10, 14, 26, 0.5);
+    border: 1px solid rgba(0, 153, 255, 0.06);
+    border-bottom: 2px solid rgba(0, 153, 255, 0.15);
+    border-radius: 10px;
+    color: #e2e8f0;
+    padding: 6px 12px;
+    caret-color: #0099FF;
+    selection-background-color: rgba(0, 153, 255, 0.35);
+    transition-duration: 250ms;
+}
+
+StEntry:hover {
+    border-color: rgba(0, 153, 255, 0.12);
+    border-bottom-color: rgba(0, 153, 255, 0.3);
+}
+
+StEntry:focus {
+    border-color: rgba(0, 153, 255, 0.15);
+    border-bottom-color: #0099FF;
+    box-shadow: 0 2px 12px rgba(0, 153, 255, 0.12);
+}
+
+StEntry:insensitive {
+    color: #3d4f6a;
+    border-color: rgba(0, 153, 255, 0.03);
+    border-bottom-color: rgba(0, 153, 255, 0.05);
+}
+
+/* ================================================================== */
+/* Buttons — glass with glow response                                  */
+/* ================================================================== */
+
+.button {
+    background-color: rgba(15, 21, 37, 0.5);
+    border: 1px solid rgba(0, 153, 255, 0.08);
+    border-radius: 10px;
+    color: #e2e8f0;
+    padding: 6px 16px;
+    font-weight: 600;
+    transition-duration: 200ms;
+}
+
+.button:hover {
+    background-color: rgba(15, 21, 37, 0.7);
+    border-color: rgba(0, 153, 255, 0.2);
+    box-shadow: 0 0 12px rgba(0, 153, 255, 0.08);
+}
+
+.button:active {
+    background-color: rgba(0, 153, 255, 0.12);
+    box-shadow: 0 0 16px rgba(0, 153, 255, 0.15);
+}
+
+/* Default/primary button — glowing blue aura */
+.button:default {
+    background-color: rgba(0, 153, 255, 0.18);
+    border: 1px solid rgba(0, 153, 255, 0.4);
+    color: #ffffff;
+    box-shadow: 0 0 14px rgba(0, 153, 255, 0.15),
+                0 0 4px rgba(0, 153, 255, 0.2);
+}
+
+.button:default:hover {
+    background-color: rgba(0, 153, 255, 0.28);
+    border-color: rgba(0, 153, 255, 0.6);
+    box-shadow: 0 0 22px rgba(0, 153, 255, 0.25),
+                0 0 6px rgba(0, 153, 255, 0.3);
+}
+
+.button:insensitive {
+    color: #3d4f6a;
+    background-color: rgba(15, 21, 37, 0.2);
+    border-color: rgba(0, 153, 255, 0.03);
+}
+
+/* ================================================================== */
+/* World Clocks / Weather — blue-tinted labels                         */
+/* ================================================================== */
+
+.world-clocks-header,
+.weather-header {
+    color: rgba(0, 153, 255, 0.6);
+    font-weight: 600;
+    font-size: 9pt;
+}
+
+.world-clocks-city {
+    color: #e2e8f0;
+}
+
+.world-clocks-time {
+    color: #7a8ba8;
+}
+
+/* ================================================================== */
+/* Screenshot UI                                                       */
+/* ================================================================== */
+
+.screenshot-ui-window-selector .screenshot-ui-window-border {
+    border: 3px solid rgba(0, 153, 255, 0.6);
+    border-radius: 8px;
+    box-shadow: 0 0 16px rgba(0, 153, 255, 0.2);
+}
+
+.screenshot-ui-shot-cast-button:checked {
+    background-color: rgba(0, 153, 255, 0.2);
+    color: #ffffff;
+    border-color: rgba(0, 153, 255, 0.5);
+    box-shadow: 0 0 12px rgba(0, 153, 255, 0.15);
+}
+
+/* ================================================================== */
+/* End-session dialog                                                  */
+/* ================================================================== */
+
+.end-session-dialog {
+    background-color: rgba(10, 14, 26, 0.92);
+    border: 1px solid rgba(0, 153, 255, 0.12);
+    border-radius: 22px;
+    padding: 24px;
+    color: #e2e8f0;
+    max-width: 500px;
+    box-shadow: 0 22px 64px rgba(0, 0, 0, 0.6);
+}
+
+.end-session-dialog .end-session-dialog-description {
+    color: #7a8ba8;
+    font-size: 10pt;
+}
+
+.end-session-dialog .end-session-dialog-warning {
+    color: #fbbf24;
+    font-weight: 600;
+}
+
+/* ================================================================== */
+/* Ripple effect — blue energy pulse                                   */
+/* ================================================================== */
+
+.ripple-box {
+    background-color: rgba(0, 153, 255, 0.12);
+    border-radius: 50%;
+    box-shadow: 0 0 20px rgba(0, 153, 255, 0.15);
+}
+
+/* ================================================================== */
+/* Looking Glass (developer console)                                   */
+/* ================================================================== */
+
+#LookingGlassDialog {
+    background-color: rgba(5, 8, 16, 0.92);
+    border: 1px solid rgba(0, 153, 255, 0.15);
+    border-radius: 16px;
+    padding: 12px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6),
+                0 0 20px rgba(0, 153, 255, 0.05);
+    color: #e2e8f0;
+}
+
+/* ================================================================== */
+/* Window close / maximize / minimize buttons in overview              */
+/* ================================================================== */
+
+.window-close {
+    background-color: rgba(239, 68, 68, 0.8);
+    border-radius: 50%;
+    height: 24px;
+    width: 24px;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
+}
+
+.window-close:hover {
+    background-color: #ef4444;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.5);
+}
+
+/* ================================================================== */
+/* Keyboard layout / input-source indicator                            */
+/* ================================================================== */
+
+.input-source-switcher-symbol {
+    font-size: 28pt;
+    font-weight: 200;
+    width: 96px;
+    height: 96px;
+    color: #e2e8f0;
+}
+
+/* ================================================================== */
+/* Screencast indicator                                                */
+/* ================================================================== */
+
+.screencast-indicator {
+    color: #ef4444;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
+}

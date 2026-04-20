@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<rect width="256" height="256" fill="#000000"/>
+
+<!-- Back panel with tab -->
+<path d="M 55 75 L 55 60 Q 55 52 63 52 L 105 52 Q 113 52 116 60 L 120 68
+         Q 123 75 130 75 L 193 75 Q 201 75 201 83 L 201 195 Q 201 203 193 203
+         L 63 203 Q 55 203 55 195 Z"
+      fill="none" stroke="#e2e8f0" stroke-width="3" stroke-opacity="0.3"
+      stroke-linejoin="round"/>
+
+<!-- Front panel -->
+<path d="M 55 105 L 201 105 L 201 195 Q 201 203 193 203
+         L 63 203 Q 55 203 55 195 Z"
+      fill="none" stroke="#e2e8f0" stroke-width="3" stroke-opacity="0.5"
+      stroke-linejoin="round"/>
+
+<!-- Accent: the crease where front meets back (blue glow) -->
+<line x1="58" y1="105" x2="198" y2="105"
+      stroke="#0099FF" stroke-width="2" stroke-opacity="0.6"/>
+
+<!-- Accent: tab bottom edge -->
+<path d="M 55 75 L 130 75" stroke="#0099FF" stroke-width="1.5" stroke-opacity="0.4"/>
+
+</svg>

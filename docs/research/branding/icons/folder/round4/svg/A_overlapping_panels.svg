@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<defs>
+  <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+    <feGaussianBlur stdDeviation="4"/></filter>
+  <filter id="shadow" x="-10%" y="-5%" width="120%" height="130%">
+    <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.5"/></filter>
+
+  <linearGradient id="backA" x1="0.3" y1="0" x2="0.7" y2="1">
+    <stop offset="0%" stop-color="#0e1628"/>
+    <stop offset="100%" stop-color="#070b14"/></linearGradient>
+  <linearGradient id="frontA" x1="0.2" y1="0" x2="0.8" y2="1">
+    <stop offset="0%" stop-color="#151e36"/>
+    <stop offset="5%" stop-color="#121a2e"/>
+    <stop offset="100%" stop-color="#0a1020"/></linearGradient>
+  <linearGradient id="highlightA" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.06"/>
+    <stop offset="40%" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+</defs>
+<rect width="256" height="256" fill="#000000"/>
+
+<!-- Back panel — peeks out at top and left -->
+<rect x="38" y="64" width="172" height="138" rx="16"
+      fill="url(#backA)" filter="url(#shadow)"/>
+
+<!-- Blue energy in the gap between panels -->
+<rect x="40" y="98" width="168" height="10" rx="3"
+      fill="#0099FF" opacity="0.2"/>
+<line x1="48" y1="104" x2="200" y2="104"
+      stroke="#0099FF" stroke-width="1.5" stroke-opacity="0.5"
+      filter="url(#glow)"/>
+
+<!-- Front panel — overlaps, slightly smaller, offset down-right -->
+<rect x="44" y="108" width="172" height="100" rx="14"
+      fill="url(#frontA)"/>
+<!-- Front highlight -->
+<rect x="44" y="108" width="172" height="40" rx="14"
+      fill="url(#highlightA)"/>
+
+<!-- Subtle edge accent on front panel -->
+<rect x="44" y="108" width="172" height="100" rx="14"
+      fill="none" stroke="#0099FF" stroke-width="0.75" stroke-opacity="0.1"/>
+
+<!-- Back panel top-left exposure — the "tab" via negative space -->
+<rect x="38" y="64" width="100" height="44" rx="16"
+      fill="none" stroke="#0099FF" stroke-width="0.5" stroke-opacity="0.12"/>
+</svg>

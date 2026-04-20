@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<defs>
+  <!-- Reusable glow filter -->
+  <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+    <feGaussianBlur stdDeviation="3" result="blur"/>
+    <feMerge>
+      <feMergeNode in="blur"/>
+      <feMergeNode in="SourceGraphic"/>
+    </feMerge>
+  </filter>
+  <filter id="softglow" x="-30%" y="-30%" width="160%" height="160%">
+    <feGaussianBlur stdDeviation="6" result="blur"/>
+    <feMerge>
+      <feMergeNode in="blur"/>
+      <feMergeNode in="SourceGraphic"/>
+    </feMerge>
+  </filter>
+
+  <!-- Back panel gradient (top lighter, bottom darker) -->
+  <linearGradient id="backGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#0c1220"/>
+    <stop offset="100%" stop-color="#070a14"/>
+  </linearGradient>
+
+  <!-- Front panel gradient (slightly lighter than back) -->
+  <linearGradient id="frontGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#141c30"/>
+    <stop offset="100%" stop-color="#0e1422"/>
+  </linearGradient>
+
+  <!-- Front panel with blue top-edge glow -->
+  <linearGradient id="frontGlowGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#0e1a30"/>
+    <stop offset="8%" stop-color="#111828"/>
+    <stop offset="100%" stop-color="#0c1220"/>
+  </linearGradient>
+
+  <!-- Tab gradient -->
+  <linearGradient id="tabGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#101828"/>
+    <stop offset="100%" stop-color="#0a0e1a"/>
+  </linearGradient>
+
+  <!-- Blue accent gradient for tab fill -->
+  <linearGradient id="blueTabGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#0099FF" stop-opacity="0.25"/>
+    <stop offset="100%" stop-color="#0099FF" stop-opacity="0.08"/>
+  </linearGradient>
+
+  <!-- Thickness edge gradient -->
+  <linearGradient id="edgeGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#0a0e1a"/>
+    <stop offset="100%" stop-color="#050810"/>
+  </linearGradient>
+</defs>
+<rect width="256" height="256" fill="#000000"/>
+
+<!-- Back panel -->
+<path d="M 56 90 L 56 78 C 56 68, 62 62, 72 60 L 104 60 C 114 60, 120 66, 124 76 C 128 86, 132 90, 140 90 L 200 90 C 206 90, 208 94, 208 100 L 208 190 C 208 196, 204 198, 200 198 L 56 198 C 52 198, 48 196, 48 190 L 48 100 C 48 94, 50 90, 56 90 Z" fill="url(#backGrad)"/>
+
+<!-- Tab with blue gradient fill -->
+<path d="M 56 90 L 56 78 C 56 68, 62 62, 72 60 L 104 60 C 114 60, 120 66, 124 76 C 128 86, 132 90, 140 90 L 56 90 Z" fill="url(#blueTabGrad)"/>
+
+<!-- Front panel -->
+<path d="M 48 120 L 208 120 L 208 190 C 208 196, 204 198, 200 198 L 56 198 C 52 198, 48 196, 48 190 Z" fill="url(#frontGrad)"/>
+
+<!-- Thickness edge -->
+<path d="M 52 198 L 52 204 C 52 207, 55 209, 58 209 L 202 209 C 205 209, 208 207, 208 204 L 208 198 " fill="url(#edgeGrad)"/>
+
+<!-- Structural border -->
+<path d="M 56 90 L 56 78 C 56 68, 62 62, 72 60 L 104 60 C 114 60, 120 66, 124 76 C 128 86, 132 90, 140 90 L 200 90 C 206 90, 208 94, 208 100 L 208 190 C 208 196, 204 198, 200 198 L 56 198 C 52 198, 48 196, 48 190 L 48 100 C 48 94, 50 90, 56 90 Z" fill="none"
+      stroke="#0099FF" stroke-width="0.75" stroke-opacity="0.1"/>
+
+<!-- Tab edge accent -->
+<path d="M 58 78 C 58 68, 64 63, 73 61 L 103 61 C 113 61, 119 67, 123 76"
+      fill="none" stroke="#0099FF" stroke-width="1.5" stroke-opacity="0.4"
+      stroke-linecap="round"/>
+
+<!-- Subtle crease -->
+<path d="M 48 120 L 208 120" fill="none"
+      stroke="#0099FF" stroke-width="1" stroke-opacity="0.2"/>
+
+</svg>

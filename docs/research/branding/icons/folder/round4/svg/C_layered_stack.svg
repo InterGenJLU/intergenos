@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<defs>
+  <filter id="glow" x="-25%" y="-25%" width="150%" height="150%">
+    <feGaussianBlur stdDeviation="5"/></filter>
+  <filter id="shadow" x="-10%" y="-5%" width="120%" height="130%">
+    <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#000" flood-opacity="0.45"/></filter>
+
+  <linearGradient id="backC" x1="0.2" y1="0" x2="0.8" y2="1">
+    <stop offset="0%" stop-color="#0e1628"/>
+    <stop offset="100%" stop-color="#080c16"/></linearGradient>
+  <linearGradient id="frontC" x1="0.2" y1="0" x2="0.8" y2="1">
+    <stop offset="0%" stop-color="#161f38"/>
+    <stop offset="8%" stop-color="#121a2e"/>
+    <stop offset="100%" stop-color="#0b1222"/></linearGradient>
+  <linearGradient id="highlightC" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.06"/>
+    <stop offset="35%" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+</defs>
+<rect width="256" height="256" fill="#000000"/>
+
+<!-- Back sheet — slightly larger, offset up-left -->
+<rect x="36" y="60" width="176" height="130" rx="16"
+      fill="url(#backC)" filter="url(#shadow)"/>
+
+<!-- Blue energy between the layers -->
+<rect x="44" y="110" width="164" height="14" rx="4"
+      fill="#0099FF" opacity="0.08" filter="url(#glow)"/>
+<line x1="50" y1="116" x2="202" y2="116"
+      stroke="#0099FF" stroke-width="1.5" stroke-opacity="0.45"
+      filter="url(#glow)"/>
+
+<!-- Front sheet — slightly smaller, offset down-right -->
+<rect x="44" y="98" width="176" height="112" rx="14"
+      fill="url(#frontC)" filter="url(#shadow)"/>
+
+<!-- Front sheet highlight -->
+<rect x="44" y="98" width="176" height="36" rx="14"
+      fill="url(#highlightC)"/>
+
+<!-- Front sheet subtle border -->
+<rect x="44" y="98" width="176" height="112" rx="14"
+      fill="none" stroke="#0099FF" stroke-width="0.75" stroke-opacity="0.12"/>
+
+<!-- Back sheet top-left exposure (visible "behind" the front) -->
+<path d="M 52 60 L 196 60 C 206 60, 212 66, 212 76 L 212 98"
+      fill="none" stroke="#0099FF" stroke-width="0.5" stroke-opacity="0.15"
+      stroke-linecap="round"/>
+</svg>

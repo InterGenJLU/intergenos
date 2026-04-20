@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<defs>
+  <linearGradient id="backC" x1="0.2" y1="0" x2="0.8" y2="1">
+    <stop offset="0%" stop-color="#0077cc"/>
+    <stop offset="100%" stop-color="#004488"/>
+  </linearGradient>
+
+  <linearGradient id="frontC" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#0099FF" stop-opacity="0.85"/>
+    <stop offset="0.5" stop-color="#0088ee" stop-opacity="0.9"/>
+    <stop offset="1" stop-color="#0070cc" stop-opacity="0.85"/>
+  </linearGradient>
+
+  <linearGradient id="shineC" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18"/>
+    <stop offset="50%" stop-color="#ffffff" stop-opacity="0.04"/>
+    <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+  </linearGradient>
+
+  <linearGradient id="edgeC" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#33bbff" stop-opacity="0.6"/>
+    <stop offset="50%" stop-color="#66ddff" stop-opacity="0.8"/>
+    <stop offset="100%" stop-color="#33bbff" stop-opacity="0.6"/>
+  </linearGradient>
+
+  <filter id="shadow">
+    <feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#002244" flood-opacity="0.6"/>
+  </filter>
+  <filter id="glow" x="-10%" y="-10%" width="120%" height="120%">
+    <feGaussianBlur stdDeviation="2"/>
+  </filter>
+</defs>
+<rect width="256" height="256" fill="#000000"/>
+
+<!-- Back panel -->
+<path d="M 48 72 C 48 64, 54 58, 62 58
+         L 112 58 C 118 58, 122 60, 126 66
+         L 132 78 C 136 84, 140 86, 148 86
+         L 198 86 C 206 86, 212 92, 212 100
+         L 212 192 C 212 200, 206 206, 198 206
+         L 58 206 C 50 206, 44 200, 44 192
+         L 44 100 C 44 92, 50 86, 54 86 Z"
+      fill="url(#backC)" filter="url(#shadow)"/>
+
+<!-- Crease highlight band -->
+<path d="M 44 115 L 212 115 L 212 121 L 44 121 Z"
+      fill="url(#edgeC)"/>
+
+<!-- Crease glow -->
+<line x1="60" y1="118" x2="196" y2="118"
+      stroke="#66ddff" stroke-width="1" stroke-opacity="0.4"
+      filter="url(#glow)"/>
+
+<!-- Front panel -->
+<path d="M 44 120 L 212 120
+         L 212 192 C 212 200, 206 206, 198 206
+         L 58 206 C 50 206, 44 200, 44 192 Z"
+      fill="url(#frontC)"/>
+
+<!-- Front panel top shine -->
+<path d="M 44 120 L 212 120 L 212 155 L 44 155 Z"
+      fill="url(#shineC)"/>
+
+<!-- Diagonal light ray -->
+<path d="M 44 120 L 120 120 L 44 175 Z"
+      fill="#ffffff" opacity="0.06"/>
+<path d="M 60 120 L 145 120 L 60 182 Z"
+      fill="#ffffff" opacity="0.03"/>
+
+<!-- Spine depth (left edge darker) -->
+<path d="M 44 100 L 48 100 L 48 192 C 48 198, 52 204, 58 206
+         L 44 206 L 44 192 L 44 100 Z"
+      fill="#003366" opacity="0.5"/>
+</svg>

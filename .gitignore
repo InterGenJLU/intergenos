@@ -51,3 +51,7 @@ research/
 
 # Temporary
 tmp/
+
+# External icon-pack binary archives — reference material, not research
+docs/research/**/*.tar.xz
+docs/research/**/*.tar.gz

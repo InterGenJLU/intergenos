@@ -1,0 +1,1375 @@
+/*
+ * InterGenOS GTK4 / libadwaita Theme — BOLD Edition
+ *
+ * Design philosophy: LIGHT EMERGING FROM DARK
+ *   Every application surface is the void — deep, near-black with blue DNA.
+ *   Interactive elements GLOW, they don't tint.
+ *   Headers, sidebars, and cards float on shadow.
+ *   The blue isn't decoration — it's the energy of the system.
+ *
+ * Applies to: Files, Settings, Text Editor, Calculator, Weather,
+ *             Calendar, Clocks, Contacts, Music, and all libadwaita apps.
+ *
+ * Copyright (C) 2026 InterGenOS — GPL-3.0-or-later
+ */
+
+/* ================================================================== */
+/* libadwaita Color Palette Override                                   */
+/* Semantic colors flow through every widget automatically              */
+/* ================================================================== */
+
+@define-color accent_color                 #0099FF;
+@define-color accent_bg_color              #0099FF;
+@define-color accent_fg_color              #ffffff;
+
+@define-color destructive_color            #ef4444;
+@define-color destructive_bg_color         #dc2626;
+@define-color destructive_fg_color         #ffffff;
+
+@define-color success_color                #10b981;
+@define-color success_bg_color             #059669;
+@define-color success_fg_color             #ffffff;
+
+@define-color warning_color                #f59e0b;
+@define-color warning_bg_color             #d97706;
+@define-color warning_fg_color             #ffffff;
+
+@define-color error_color                  #ef4444;
+@define-color error_bg_color               #dc2626;
+@define-color error_fg_color               #ffffff;
+
+@define-color window_bg_color              #050810;
+@define-color window_fg_color              #e2e8f0;
+
+@define-color view_bg_color                #080c18;
+@define-color view_fg_color                #e2e8f0;
+
+@define-color headerbar_bg_color           #050810;
+@define-color headerbar_fg_color           #e2e8f0;
+@define-color headerbar_border_color       rgba(0, 153, 255, 0.12);
+@define-color headerbar_backdrop_color     #030609;
+@define-color headerbar_shade_color        rgba(0, 0, 0, 0.5);
+@define-color headerbar_darker_shade_color rgba(0, 0, 0, 0.7);
+
+@define-color sidebar_bg_color             #030609;
+@define-color sidebar_fg_color             #e2e8f0;
+@define-color sidebar_backdrop_color       #020408;
+@define-color sidebar_border_color         rgba(0, 153, 255, 0.10);
+@define-color sidebar_shade_color          rgba(0, 0, 0, 0.4);
+
+@define-color secondary_sidebar_bg_color       #050810;
+@define-color secondary_sidebar_fg_color       #e2e8f0;
+@define-color secondary_sidebar_backdrop_color #030609;
+@define-color secondary_sidebar_border_color   rgba(0, 153, 255, 0.08);
+@define-color secondary_sidebar_shade_color    rgba(0, 0, 0, 0.3);
+
+@define-color card_bg_color                rgba(15, 21, 37, 0.5);
+@define-color card_fg_color                #e2e8f0;
+@define-color card_shade_color             rgba(0, 153, 255, 0.05);
+
+@define-color dialog_bg_color              #0a0e1a;
+@define-color dialog_fg_color              #e2e8f0;
+
+@define-color popover_bg_color             rgba(10, 14, 26, 0.92);
+@define-color popover_fg_color             #e2e8f0;
+@define-color popover_shade_color          rgba(0, 153, 255, 0.10);
+
+@define-color shade_color                  rgba(0, 0, 0, 0.4);
+@define-color scrollbar_outline_color      rgba(0, 153, 255, 0.10);
+
+@define-color thumbnail_bg_color           #0a0e1a;
+@define-color thumbnail_fg_color           #e2e8f0;
+
+/* ================================================================== */
+/* Window — the void as canvas                                         */
+/* ================================================================== */
+
+window {
+    background-color: #050810;
+    color: #e2e8f0;
+}
+
+window.background,
+window.csd {
+    background-color: #050810;
+}
+
+/* ================================================================== */
+/* Headerbar — translucent top with blue edge accent                   */
+/* ================================================================== */
+
+headerbar,
+.titlebar,
+headerbar.default-decoration {
+    background: linear-gradient(to bottom,
+                                rgba(10, 14, 26, 0.75),
+                                rgba(5, 8, 16, 0.65));
+    border-bottom: 1px solid rgba(0, 153, 255, 0.15);
+    box-shadow: 0 1px 0 rgba(0, 153, 255, 0.08),
+                0 2px 12px rgba(0, 153, 255, 0.04);
+    color: #e2e8f0;
+    min-height: 44px;
+    padding: 0 6px;
+}
+
+headerbar:backdrop,
+.titlebar:backdrop {
+    background: rgba(3, 6, 9, 0.85);
+    border-bottom-color: rgba(0, 153, 255, 0.06);
+    box-shadow: none;
+    color: #7a8ba8;
+}
+
+headerbar .title,
+.titlebar .title {
+    color: #e2e8f0;
+    font-weight: 700;
+}
+
+headerbar .subtitle,
+.titlebar .subtitle {
+    color: #7a8ba8;
+    font-size: smaller;
+}
+
+/* Window controls — image-as-entire-button pattern.
+   Confirmed by Gemini/ChatGPT/DeepSeek reviews: GTK4's layout engine
+   constrains the button's geometry via parent container negotiation in
+   Nautilus, and CSS cannot override that (no max-width, no aspect-ratio,
+   no all:unset). The only CSS-only fix: make the button an invisible
+   wrapper and render the entire visible circle on the IMAGE child, which
+   is a leaf widget whose explicit dimensions GTK honors directly.
+   No !important — GJS parser quirks with it on certain properties. */
+
+/* Button must be invisible in EVERY state — clear hover/focus/active/checked
+   too, otherwise libadwaita's default background bleeds through as an oval */
+windowcontrols button,
+windowcontrols button:hover,
+windowcontrols button:active,
+windowcontrols button:focus,
+windowcontrols button:checked,
+windowcontrols button:focus-visible,
+headerbar windowcontrols button,
+headerbar windowcontrols button:hover,
+headerbar windowcontrols button:active,
+headerbar windowcontrols button:focus,
+headerbar windowcontrols button:checked {
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    min-height: 0;
+    background: none;
+    background-color: transparent;
+    background-image: none;
+    border: none;
+    box-shadow: none;
+    outline: none;
+    outline-width: 0;
+    color: #c4cfe0;
+}
+
+/* Image as a leaf widget with explicit dimensions — no padding, no margin
+   relying on natural sizing. min-width == min-height forces square. */
+windowcontrols button > image,
+windowcontrols button:hover > image,
+windowcontrols button:active > image,
+windowcontrols button:focus > image,
+windowcontrols button:checked > image,
+headerbar windowcontrols button > image {
+    min-width: 28px;
+    min-height: 28px;
+    padding: 0;
+    margin: 4px 3px;
+    border-radius: 999px;
+    border: 1px solid rgba(0, 153, 255, 0.18);
+    box-shadow: none;
+    outline: none;
+    color: inherit;
+    -gtk-icon-size: 14px;
+}
+
+/* Default state — opaque enough to actually be visible */
+windowcontrols button > image {
+    background-color: rgba(15, 21, 37, 0.75);
+    color: #c4cfe0;
+}
+
+windowcontrols button:hover > image {
+    background-color: rgba(0, 153, 255, 0.4);
+    border-color: rgba(0, 153, 255, 0.6);
+    color: #ffffff;
+}
+
+windowcontrols button:active > image {
+    background-color: rgba(0, 153, 255, 0.55);
+    border-color: rgba(0, 153, 255, 0.75);
+    color: #ffffff;
+}
+
+windowcontrols button.close > image {
+    background-color: rgba(239, 68, 68, 0.45);
+    border-color: rgba(239, 68, 68, 0.6);
+    color: #ffffff;
+}
+
+windowcontrols button.close:hover > image {
+    background-color: rgba(239, 68, 68, 0.7);
+    border-color: rgba(239, 68, 68, 0.9);
+    color: #ffffff;
+}
+
+/* ================================================================== */
+/* Sidebar — deeper void with blue separator line                      */
+/* ================================================================== */
+
+.sidebar,
+.sidebar listview,
+.navigation-sidebar,
+leaflet > box > widget.sidebar,
+navigationview > stack > widget.sidebar {
+    background-color: rgba(3, 6, 9, 0.85);
+    color: #e2e8f0;
+    border-right: 1px solid rgba(0, 153, 255, 0.10);
+    box-shadow: 1px 0 8px rgba(0, 153, 255, 0.04);
+}
+
+.sidebar row,
+.navigation-sidebar row {
+    background: transparent;
+    border-radius: 10px;
+    margin: 2px 14px 2px 6px;
+    padding: 8px 12px;
+    min-height: 32px;
+    color: #c4cfe0;
+    transition: all 180ms ease-out;
+}
+
+.sidebar row:hover,
+.navigation-sidebar row:hover {
+    background-color: rgba(0, 153, 255, 0.08);
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(0, 153, 255, 0.10);
+}
+
+.sidebar row:selected,
+.navigation-sidebar row:selected {
+    background-color: rgba(0, 153, 255, 0.15);
+    color: #ffffff;
+    box-shadow: 0 0 18px rgba(0, 153, 255, 0.18),
+                inset 2px 0 0 0 #0099FF;
+    font-weight: 600;
+}
+
+.sidebar row:selected:hover,
+.navigation-sidebar row:selected:hover {
+    background-color: rgba(0, 153, 255, 0.22);
+    box-shadow: 0 0 22px rgba(0, 153, 255, 0.25),
+                inset 2px 0 0 0 #0099FF;
+}
+
+/* Sidebar section headers */
+.sidebar > separator {
+    background: rgba(0, 153, 255, 0.08);
+    min-height: 1px;
+    margin: 8px 12px;
+}
+
+/* ================================================================== */
+/* Content views (view_bg_color) — files area, main content           */
+/* ================================================================== */
+
+.view,
+textview text,
+treeview,
+listview,
+gridview,
+columnview {
+    background-color: #080c18;
+    color: #e2e8f0;
+}
+
+.view:selected,
+textview text:selected,
+row:selected {
+    background-color: rgba(0, 153, 255, 0.20);
+    color: #ffffff;
+}
+
+/* ================================================================== */
+/* Buttons — glass with glow response                                  */
+/* ================================================================== */
+
+button,
+.button {
+    background: linear-gradient(to bottom,
+                                rgba(15, 21, 37, 0.8),
+                                rgba(10, 14, 26, 0.7));
+    border: 1px solid rgba(0, 153, 255, 0.10);
+    border-radius: 10px;
+    color: #e2e8f0;
+    padding: 6px 16px;
+    font-weight: 600;
+    box-shadow: none;
+    transition: all 200ms ease-out;
+    min-height: 28px;
+    min-width: 28px;
+}
+
+button:hover {
+    background: linear-gradient(to bottom,
+                                rgba(20, 28, 48, 0.9),
+                                rgba(15, 21, 37, 0.8));
+    border-color: rgba(0, 153, 255, 0.22);
+    color: #ffffff;
+    box-shadow: none;
+}
+
+button:active,
+button:checked {
+    background: rgba(0, 153, 255, 0.14);
+    border-color: rgba(0, 153, 255, 0.35);
+    color: #ffffff;
+    box-shadow: none;
+}
+
+button:disabled,
+button.flat:disabled {
+    background: rgba(15, 21, 37, 0.3);
+    color: #3d4f6a;
+    border-color: rgba(0, 153, 255, 0.04);
+    box-shadow: none;
+}
+
+/* Flat buttons — invisible until hovered */
+button.flat {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+button.flat:hover {
+    background-color: rgba(0, 153, 255, 0.08);
+    border-color: transparent;
+    box-shadow: none;
+}
+
+button.flat:active,
+button.flat:checked {
+    background-color: rgba(0, 153, 255, 0.15);
+    border-color: transparent;
+    box-shadow: none;
+}
+
+/* Suggested (primary) action button — solid, confident, no bleed */
+button.suggested-action {
+    background: linear-gradient(to bottom,
+                                rgba(0, 153, 255, 0.45),
+                                rgba(0, 128, 220, 0.38));
+    border: 1px solid rgba(0, 153, 255, 0.65);
+    color: #ffffff;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    font-weight: 700;
+}
+
+button.suggested-action:hover {
+    background: linear-gradient(to bottom,
+                                rgba(0, 168, 255, 0.55),
+                                rgba(0, 140, 240, 0.48));
+    border-color: rgba(0, 153, 255, 0.85);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+button.suggested-action:active {
+    background: rgba(0, 153, 255, 0.55);
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+/* Destructive action button — solid red, no bleed */
+button.destructive-action {
+    background: linear-gradient(to bottom,
+                                rgba(239, 68, 68, 0.5),
+                                rgba(220, 38, 38, 0.42));
+    border: 1px solid rgba(239, 68, 68, 0.6);
+    color: #ffffff;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    font-weight: 700;
+}
+
+button.destructive-action:hover {
+    background: linear-gradient(to bottom,
+                                rgba(239, 68, 68, 0.6),
+                                rgba(220, 38, 38, 0.5));
+    border-color: rgba(239, 68, 68, 0.8);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* Pill buttons */
+button.pill {
+    border-radius: 9999px;
+    padding: 10px 28px;
+}
+
+/* Circular buttons (icon only) */
+button.circular,
+button.image-button {
+    border-radius: 50%;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0;
+}
+
+/* Link buttons */
+button.link {
+    background: transparent;
+    border: none;
+    color: #0099FF;
+    box-shadow: none;
+}
+
+button.link:hover {
+    color: #33b1ff;
+    background: transparent;
+    text-shadow: 0 0 8px rgba(0, 153, 255, 0.4);
+    box-shadow: none;
+}
+
+/* ================================================================== */
+/* Text entries — command-line DNA, blue bottom border glow            */
+/* ================================================================== */
+
+entry,
+.entry,
+spinbutton {
+    background: rgba(5, 8, 16, 0.65);
+    border: 1px solid rgba(0, 153, 255, 0.08);
+    border-bottom: 2px solid rgba(0, 153, 255, 0.22);
+    border-radius: 10px;
+    color: #e2e8f0;
+    padding: 8px 12px;
+    caret-color: #0099FF;
+    min-height: 30px;
+    transition: all 250ms ease-out;
+    box-shadow: none;
+}
+
+entry:hover,
+spinbutton:hover {
+    border-color: rgba(0, 153, 255, 0.15);
+    border-bottom-color: rgba(0, 153, 255, 0.4);
+    background: rgba(5, 8, 16, 0.75);
+}
+
+entry:focus,
+spinbutton:focus {
+    border-color: rgba(0, 153, 255, 0.25);
+    border-bottom-color: #0099FF;
+    background: rgba(5, 8, 16, 0.85);
+    box-shadow: 0 2px 16px rgba(0, 153, 255, 0.15),
+                0 0 40px rgba(0, 153, 255, 0.05);
+}
+
+entry:disabled {
+    color: #3d4f6a;
+    background: rgba(5, 8, 16, 0.3);
+    border-color: rgba(0, 153, 255, 0.03);
+}
+
+entry selection {
+    background-color: rgba(0, 153, 255, 0.35);
+    color: #ffffff;
+}
+
+entry image {
+    color: #7a8ba8;
+}
+
+entry:focus image {
+    color: #0099FF;
+}
+
+/* Search entry */
+entry.search,
+searchentry {
+    border-radius: 10px;
+    padding: 8px 14px;
+}
+
+searchbar {
+    background: rgba(5, 8, 16, 0.8);
+    border-bottom: 1px solid rgba(0, 153, 255, 0.1);
+    padding: 8px 12px;
+}
+
+/* ================================================================== */
+/* Cards — frosted glass surfaces                                      */
+/* ================================================================== */
+
+.card,
+.activatable.card {
+    background: rgba(15, 21, 37, 0.45);
+    border: 1px solid rgba(0, 153, 255, 0.08);
+    border-radius: 14px;
+    color: #e2e8f0;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+    transition: all 200ms ease-out;
+    padding: 2px;
+}
+
+.card:hover {
+    background: rgba(20, 28, 48, 0.55);
+    border-color: rgba(0, 153, 255, 0.18);
+    box-shadow: 0 0 18px rgba(0, 153, 255, 0.08),
+                0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.activatable.card:active,
+.activatable.card:selected {
+    background: rgba(0, 153, 255, 0.12);
+    border-color: rgba(0, 153, 255, 0.35);
+    box-shadow: 0 0 22px rgba(0, 153, 255, 0.15),
+                inset 0 0 12px rgba(0, 153, 255, 0.05);
+}
+
+/* ================================================================== */
+/* List rows (AdwActionRow, AdwExpanderRow, etc.)                      */
+/* ================================================================== */
+
+row,
+.list row {
+    background: transparent;
+    color: #e2e8f0;
+    padding: 10px 14px;
+    border-radius: 10px;
+    transition: all 180ms ease-out;
+}
+
+row:hover,
+.list row:hover {
+    background-color: rgba(0, 153, 255, 0.06);
+    box-shadow: 0 0 14px rgba(0, 153, 255, 0.08);
+}
+
+row:selected,
+.list row:selected {
+    background-color: rgba(0, 153, 255, 0.14);
+    color: #ffffff;
+    box-shadow: 0 0 18px rgba(0, 153, 255, 0.15);
+}
+
+row:active {
+    background-color: rgba(0, 153, 255, 0.2);
+}
+
+row.activatable:hover {
+    background-color: rgba(0, 153, 255, 0.08);
+}
+
+row > box > label {
+    color: #e2e8f0;
+}
+
+row > box > label.dim-label,
+row subtitle,
+.subtitle {
+    color: #7a8ba8;
+}
+
+/* Boxed list (cards of rows) */
+list.boxed-list,
+listbox.boxed-list {
+    background: rgba(15, 21, 37, 0.45);
+    border: 1px solid rgba(0, 153, 255, 0.08);
+    border-radius: 14px;
+    padding: 4px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+}
+
+list.boxed-list > row,
+listbox.boxed-list > row {
+    background: transparent;
+    border-radius: 10px;
+    margin: 1px;
+}
+
+/* ================================================================== */
+/* Popovers — frosted glass with glow                                  */
+/* ================================================================== */
+
+popover,
+popover.menu,
+popover > contents,
+popover.menu > contents {
+    background-color: rgba(10, 14, 26, 0.92);
+    border: 1px solid rgba(0, 153, 255, 0.15);
+    border-radius: 16px;
+    color: #e2e8f0;
+    padding: 8px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5),
+                0 0 24px rgba(0, 153, 255, 0.08),
+                0 0 1px rgba(0, 153, 255, 0.2);
+}
+
+popover > arrow {
+    background: rgba(10, 14, 26, 0.92);
+    border: 1px solid rgba(0, 153, 255, 0.15);
+}
+
+popover modelbutton,
+popover button.model {
+    background: transparent;
+    color: #e2e8f0;
+    border-radius: 8px;
+    border: none;
+    padding: 8px 12px;
+    box-shadow: none;
+    font-weight: 500;
+}
+
+popover modelbutton:hover,
+popover button.model:hover {
+    background-color: rgba(0, 153, 255, 0.10);
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(0, 153, 255, 0.1);
+}
+
+popover modelbutton:active,
+popover button.model:active {
+    background-color: rgba(0, 153, 255, 0.18);
+    box-shadow: 0 0 14px rgba(0, 153, 255, 0.15);
+}
+
+popover separator {
+    background: rgba(0, 153, 255, 0.08);
+    min-height: 1px;
+    margin: 4px 2px;
+}
+
+/* ================================================================== */
+/* Dialogs — holographic projections                                   */
+/* ================================================================== */
+
+dialog,
+messagedialog,
+window.dialog {
+    background-color: #0a0e1a;
+    color: #e2e8f0;
+    border-radius: 16px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7),
+                0 0 40px rgba(0, 153, 255, 0.08);
+}
+
+messagedialog .titlebar {
+    background: transparent;
+    border-bottom: none;
+}
+
+messagedialog .dialog-vbox label {
+    color: #e2e8f0;
+}
+
+/* AdwDialog (new-style dialogs) */
+adw-dialog {
+    background-color: #0a0e1a;
+    border-radius: 16px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7),
+                0 0 40px rgba(0, 153, 255, 0.08);
+}
+
+/* ================================================================== */
+/* Menubar                                                             */
+/* ================================================================== */
+
+menubar {
+    background-color: rgba(5, 8, 16, 0.9);
+    color: #e2e8f0;
+    border-bottom: 1px solid rgba(0, 153, 255, 0.08);
+}
+
+menubar > item {
+    padding: 6px 10px;
+    color: #e2e8f0;
+    border-radius: 6px;
+}
+
+menubar > item:hover {
+    background-color: rgba(0, 153, 255, 0.10);
+    box-shadow: 0 0 10px rgba(0, 153, 255, 0.1);
+}
+
+/* ================================================================== */
+/* Notebook tabs                                                       */
+/* ================================================================== */
+
+notebook header {
+    background: rgba(5, 8, 16, 0.6);
+    border-bottom: 1px solid rgba(0, 153, 255, 0.10);
+}
+
+notebook tab {
+    background: transparent;
+    padding: 8px 16px;
+    color: #7a8ba8;
+    border: none;
+    border-bottom: 2px solid transparent;
+    transition: all 200ms ease-out;
+}
+
+notebook tab:hover {
+    color: #e2e8f0;
+    background-color: rgba(0, 153, 255, 0.06);
+}
+
+notebook tab:checked {
+    color: #ffffff;
+    background-color: rgba(0, 153, 255, 0.08);
+    border-bottom-color: #0099FF;
+    box-shadow: 0 2px 12px rgba(0, 153, 255, 0.15),
+                inset 0 -4px 8px rgba(0, 153, 255, 0.04);
+}
+
+/* AdwTabView / tab bar */
+tabbar {
+    background: rgba(5, 8, 16, 0.8);
+    border-bottom: 1px solid rgba(0, 153, 255, 0.1);
+}
+
+tabbar tab {
+    background: transparent;
+    color: #7a8ba8;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px 8px 0 0;
+}
+
+tabbar tab:checked {
+    background: rgba(0, 153, 255, 0.08);
+    color: #ffffff;
+    box-shadow: inset 0 -2px 0 #0099FF,
+                0 0 12px rgba(0, 153, 255, 0.1);
+}
+
+tabbar tab:hover {
+    background: rgba(0, 153, 255, 0.04);
+    color: #e2e8f0;
+}
+
+/* ================================================================== */
+/* Switches — blue energy when active                                  */
+/* ================================================================== */
+
+switch {
+    background: rgba(15, 21, 37, 0.8);
+    border: 1px solid rgba(0, 153, 255, 0.1);
+    border-radius: 9999px;
+    min-height: 22px;
+    min-width: 40px;
+    padding: 0;
+    transition: all 250ms ease-out;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+switch:hover {
+    border-color: rgba(0, 153, 255, 0.25);
+}
+
+switch:checked {
+    background: rgba(0, 153, 255, 0.85);
+    border-color: rgba(0, 153, 255, 1);
+    box-shadow: 0 0 14px rgba(0, 153, 255, 0.3),
+                inset 0 0 6px rgba(0, 153, 255, 0.5);
+}
+
+switch:checked:hover {
+    background: #0099FF;
+    box-shadow: 0 0 20px rgba(0, 153, 255, 0.45),
+                inset 0 0 8px rgba(255, 255, 255, 0.1);
+}
+
+switch slider {
+    background: #e2e8f0;
+    border: none;
+    border-radius: 50%;
+    min-width: 18px;
+    min-height: 18px;
+    margin: 2px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+switch:checked slider {
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5),
+                0 0 8px rgba(0, 153, 255, 0.4);
+}
+
+/* ================================================================== */
+/* Check buttons & Radio buttons                                       */
+/* ================================================================== */
+
+check,
+radio,
+checkbutton check,
+radiobutton radio {
+    background: rgba(15, 21, 37, 0.8);
+    border: 1.5px solid rgba(0, 153, 255, 0.2);
+    min-width: 18px;
+    min-height: 18px;
+    padding: 0;
+    box-shadow: none;
+    transition: all 200ms ease-out;
+}
+
+check {
+    border-radius: 5px;
+}
+
+radio {
+    border-radius: 50%;
+}
+
+check:hover,
+radio:hover {
+    border-color: rgba(0, 153, 255, 0.4);
+    box-shadow: 0 0 8px rgba(0, 153, 255, 0.15);
+}
+
+check:checked,
+check:indeterminate,
+radio:checked {
+    background: #0099FF;
+    border-color: #0099FF;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(0, 153, 255, 0.4);
+}
+
+/* ================================================================== */
+/* Progress bars — blue energy flow                                    */
+/* ================================================================== */
+
+progressbar trough,
+levelbar trough {
+    background-color: rgba(15, 21, 37, 0.8);
+    border: 1px solid rgba(0, 153, 255, 0.1);
+    border-radius: 9999px;
+    min-height: 6px;
+}
+
+progressbar progress,
+levelbar block.filled {
+    background: linear-gradient(to right, #0099FF, #33b1ff);
+    border: none;
+    border-radius: 9999px;
+    box-shadow: 0 0 12px rgba(0, 153, 255, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    min-height: 6px;
+}
+
+/* ================================================================== */
+/* Scales / Sliders                                                    */
+/* ================================================================== */
+
+scale trough {
+    background: rgba(15, 21, 37, 0.8);
+    border: 1px solid rgba(0, 153, 255, 0.1);
+    border-radius: 9999px;
+    min-height: 6px;
+}
+
+scale highlight {
+    background: linear-gradient(to right, #0099FF, #33b1ff);
+    border-radius: 9999px;
+    box-shadow: 0 0 10px rgba(0, 153, 255, 0.3);
+}
+
+scale slider {
+    background: #ffffff;
+    border: none;
+    border-radius: 50%;
+    min-width: 18px;
+    min-height: 18px;
+    margin: -6px;
+    box-shadow: 0 0 12px rgba(0, 153, 255, 0.4),
+                0 2px 6px rgba(0, 0, 0, 0.5);
+    transition: all 200ms ease-out;
+}
+
+scale slider:hover {
+    background: #33b1ff;
+    box-shadow: 0 0 16px rgba(0, 153, 255, 0.6),
+                0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+/* ================================================================== */
+/* Scrollbars — minimal blue energy                                    */
+/* ================================================================== */
+
+scrollbar {
+    background: transparent;
+    border: none;
+}
+
+scrollbar trough {
+    background: rgba(0, 153, 255, 0.03);
+    border-radius: 9999px;
+    margin: 4px;
+}
+
+scrollbar slider {
+    background: rgba(0, 153, 255, 0.2);
+    border-radius: 9999px;
+    min-width: 6px;
+    min-height: 40px;
+    margin: 0;
+    border: 2px solid transparent;
+    transition: all 200ms ease-out;
+}
+
+scrollbar slider:hover {
+    background: rgba(0, 153, 255, 0.4);
+    box-shadow: 0 0 8px rgba(0, 153, 255, 0.2);
+}
+
+scrollbar slider:active {
+    background: #0099FF;
+    box-shadow: 0 0 12px rgba(0, 153, 255, 0.3);
+}
+
+/* ================================================================== */
+/* Statusbar                                                           */
+/* ================================================================== */
+
+statusbar {
+    background-color: rgba(5, 8, 16, 0.85);
+    border-top: 1px solid rgba(0, 153, 255, 0.08);
+    color: #7a8ba8;
+    padding: 4px 8px;
+}
+
+/* ================================================================== */
+/* Tooltips                                                            */
+/* ================================================================== */
+
+tooltip,
+tooltip.background {
+    background-color: rgba(10, 14, 26, 0.95);
+    border: 1px solid rgba(0, 153, 255, 0.15);
+    border-radius: 8px;
+    color: #e2e8f0;
+    padding: 6px 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6),
+                0 0 12px rgba(0, 153, 255, 0.08);
+}
+
+tooltip label {
+    color: #e2e8f0;
+}
+
+/* ================================================================== */
+/* Separators                                                          */
+/* ================================================================== */
+
+separator {
+    background-color: rgba(0, 153, 255, 0.08);
+    min-width: 1px;
+    min-height: 1px;
+}
+
+/* ================================================================== */
+/* Links                                                               */
+/* ================================================================== */
+
+link,
+*:link {
+    color: #0099FF;
+}
+
+link:hover,
+*:link:hover {
+    color: #33b1ff;
+    text-shadow: 0 0 8px rgba(0, 153, 255, 0.4);
+}
+
+/* ================================================================== */
+/* Accent labels / dim labels                                          */
+/* ================================================================== */
+
+.dim-label,
+label.dim-label {
+    color: #7a8ba8;
+}
+
+.accent {
+    color: #0099FF;
+}
+
+/* ================================================================== */
+/* Selection                                                           */
+/* ================================================================== */
+
+*:selected,
+*:selected:focus {
+    background-color: rgba(0, 153, 255, 0.25);
+    color: #ffffff;
+}
+
+/* ================================================================== */
+/* Toasts (AdwToast)                                                   */
+/* ================================================================== */
+
+toast {
+    background: rgba(10, 14, 26, 0.95);
+    border: 1px solid rgba(0, 153, 255, 0.2);
+    border-radius: 14px;
+    color: #e2e8f0;
+    padding: 10px 16px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6),
+                0 0 20px rgba(0, 153, 255, 0.1);
+}
+
+/* ================================================================== */
+/* AdwStatusPage (empty states, welcome screens)                       */
+/* ================================================================== */
+
+statuspage {
+    background: transparent;
+    color: #e2e8f0;
+}
+
+statuspage > scrolledwindow > viewport > box {
+    color: #e2e8f0;
+}
+
+statuspage > scrolledwindow > viewport > box > clamp > box > image {
+    color: rgba(0, 153, 255, 0.5);
+}
+
+statuspage > scrolledwindow > viewport > box > clamp > box > label.title {
+    color: #e2e8f0;
+    font-weight: 700;
+}
+
+statuspage > scrolledwindow > viewport > box > clamp > box > label.description {
+    color: #7a8ba8;
+}
+
+/* ================================================================== */
+/* AdwViewSwitcher (top tab bar in apps like Clocks)                   */
+/* ================================================================== */
+
+viewswitcher {
+    background: transparent;
+}
+
+viewswitcher button {
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 18px;
+    color: #7a8ba8;
+    font-weight: 600;
+    box-shadow: none;
+}
+
+viewswitcher button:hover {
+    background-color: rgba(0, 153, 255, 0.06);
+    color: #e2e8f0;
+    box-shadow: 0 0 10px rgba(0, 153, 255, 0.08);
+}
+
+viewswitcher button:checked {
+    background-color: rgba(0, 153, 255, 0.12);
+    color: #ffffff;
+    box-shadow: 0 0 16px rgba(0, 153, 255, 0.15),
+                inset 0 -2px 0 #0099FF;
+}
+
+/* AdwViewSwitcherBar (bottom) */
+viewswitcherbar > actionbar {
+    background-color: rgba(5, 8, 16, 0.85);
+    border-top: 1px solid rgba(0, 153, 255, 0.10);
+}
+
+/* ================================================================== */
+/* Spinbutton specific                                                 */
+/* ================================================================== */
+
+spinbutton button {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    color: #7a8ba8;
+    box-shadow: none;
+}
+
+spinbutton button:hover {
+    background: rgba(0, 153, 255, 0.08);
+    color: #e2e8f0;
+    box-shadow: none;
+}
+
+/* ================================================================== */
+/* Calendar widget                                                     */
+/* ================================================================== */
+
+calendar {
+    background: rgba(5, 8, 16, 0.6);
+    border: 1px solid rgba(0, 153, 255, 0.08);
+    border-radius: 12px;
+    color: #e2e8f0;
+    padding: 8px;
+}
+
+calendar > header {
+    color: #e2e8f0;
+    border-bottom: 1px solid rgba(0, 153, 255, 0.08);
+}
+
+calendar > grid > label {
+    color: #7a8ba8;
+    padding: 6px;
+    border-radius: 50%;
+    min-width: 24px;
+    min-height: 24px;
+}
+
+calendar > grid > label:hover {
+    background: rgba(0, 153, 255, 0.08);
+    color: #e2e8f0;
+    box-shadow: 0 0 8px rgba(0, 153, 255, 0.1);
+}
+
+calendar > grid > label:selected {
+    background: #0099FF;
+    color: #ffffff;
+    font-weight: 700;
+    box-shadow: 0 0 12px rgba(0, 153, 255, 0.4);
+}
+
+/* ================================================================== */
+/* File chooser                                                        */
+/* ================================================================== */
+
+filechooser,
+.filechooser {
+    background-color: #050810;
+    color: #e2e8f0;
+}
+
+filechooser placessidebar,
+filechooser placesview {
+    background-color: rgba(3, 6, 9, 0.9);
+    border-right: 1px solid rgba(0, 153, 255, 0.10);
+}
+
+/* ================================================================== */
+/* Nautilus (Files) specific selectors                                 */
+/* ================================================================== */
+
+.nautilus-window {
+    background-color: #050810;
+}
+
+.nautilus-window .view {
+    background-color: #080c18;
+}
+
+.nautilus-window placessidebar {
+    background-color: rgba(3, 6, 9, 0.9);
+    border-right: 1px solid rgba(0, 153, 255, 0.10);
+    box-shadow: 1px 0 8px rgba(0, 153, 255, 0.04);
+}
+
+.nautilus-window placessidebar row {
+    color: #c4cfe0;
+}
+
+.nautilus-window placessidebar row:selected {
+    background-color: rgba(0, 153, 255, 0.15);
+    color: #ffffff;
+    box-shadow: 0 0 16px rgba(0, 153, 255, 0.15),
+                inset 2px 0 0 #0099FF;
+}
+
+.nautilus-window placessidebar row:hover {
+    background-color: rgba(0, 153, 255, 0.08);
+    box-shadow: 0 0 12px rgba(0, 153, 255, 0.08);
+}
+
+.nautilus-canvas-item {
+    color: #e2e8f0;
+}
+
+.nautilus-canvas-item:selected {
+    background-color: rgba(0, 153, 255, 0.2);
+    border-radius: 10px;
+    box-shadow: 0 0 14px rgba(0, 153, 255, 0.2);
+}
+
+/* Pathbar (the breadcrumb row at the top of Files) */
+.pathbar button,
+.nautilus-path-bar button {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: #c4cfe0;
+    padding: 6px 12px;
+    box-shadow: none;
+}
+
+.pathbar button:hover,
+.nautilus-path-bar button:hover {
+    background-color: rgba(0, 153, 255, 0.08);
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(0, 153, 255, 0.1);
+}
+
+.pathbar button:checked,
+.nautilus-path-bar button:checked {
+    background-color: rgba(0, 153, 255, 0.14);
+    color: #ffffff;
+    box-shadow: 0 0 14px rgba(0, 153, 255, 0.15),
+                inset 0 -2px 0 #0099FF;
+}
+
+/* ================================================================== */
+/* gnome-control-center (Settings)                                     */
+/* ================================================================== */
+
+.cc-panel-background {
+    background-color: #050810;
+}
+
+.cc-panel-list-row {
+    background: transparent;
+    border-radius: 10px;
+}
+
+.cc-panel-list-row:selected {
+    background-color: rgba(0, 153, 255, 0.15);
+    color: #ffffff;
+    box-shadow: 0 0 16px rgba(0, 153, 255, 0.15),
+                inset 2px 0 0 #0099FF;
+}
+
+/* Panels sidebar in Settings */
+.cc-panel-list {
+    background-color: rgba(3, 6, 9, 0.9);
+    border-right: 1px solid rgba(0, 153, 255, 0.10);
+}
+
+/* ================================================================== */
+/* OSD (overlays, zoom controls)                                       */
+/* ================================================================== */
+
+.osd {
+    background-color: rgba(10, 14, 26, 0.92);
+    border: 1px solid rgba(0, 153, 255, 0.15);
+    color: #e2e8f0;
+    border-radius: 14px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6),
+                0 0 20px rgba(0, 153, 255, 0.08);
+}
+
+.osd button {
+    background: rgba(15, 21, 37, 0.6);
+    border-color: rgba(0, 153, 255, 0.12);
+    color: #e2e8f0;
+}
+
+/* ================================================================== */
+/* Selection mode bar                                                  */
+/* ================================================================== */
+
+actionbar,
+.selection-mode-bar {
+    background-color: rgba(5, 8, 16, 0.9);
+    border-top: 1px solid rgba(0, 153, 255, 0.10);
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.3);
+    padding: 8px;
+}
+
+/* ================================================================== */
+/* Frames                                                              */
+/* ================================================================== */
+
+frame,
+.frame {
+    border: 1px solid rgba(0, 153, 255, 0.08);
+    border-radius: 10px;
+}
+
+/* ================================================================== */
+/* Sidebar shortcut banner                                             */
+/* ================================================================== */
+
+banner revealer box {
+    background: linear-gradient(to right,
+                                rgba(0, 153, 255, 0.15),
+                                rgba(0, 153, 255, 0.08));
+    border-bottom: 1px solid rgba(0, 153, 255, 0.25);
+    box-shadow: 0 2px 12px rgba(0, 153, 255, 0.08);
+    color: #e2e8f0;
+    padding: 12px 16px;
+}
+
+/* ================================================================== */
+/* Scrolled window border                                              */
+/* ================================================================== */
+
+scrolledwindow undershoot.top {
+    background: linear-gradient(to bottom,
+                                rgba(0, 0, 0, 0.3),
+                                transparent);
+}
+
+scrolledwindow undershoot.bottom {
+    background: linear-gradient(to top,
+                                rgba(0, 0, 0, 0.3),
+                                transparent);
+}
+
+/* ================================================================== */
+/* Infobar (inline notifications)                                      */
+/* ================================================================== */
+
+infobar {
+    background-color: rgba(10, 14, 26, 0.85);
+    border: 1px solid rgba(0, 153, 255, 0.2);
+    border-radius: 10px;
+    color: #e2e8f0;
+    padding: 8px 12px;
+}
+
+infobar.info {
+    border-color: rgba(0, 153, 255, 0.3);
+    box-shadow: 0 0 14px rgba(0, 153, 255, 0.1);
+}
+
+infobar.warning {
+    border-color: rgba(245, 158, 11, 0.3);
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.1);
+}
+
+infobar.error {
+    border-color: rgba(239, 68, 68, 0.3);
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.1);
+}
+
+/* ================================================================== */
+/* Preferences (Settings-style app)                                    */
+/* ================================================================== */
+
+preferencespage,
+preferencesgroup {
+    background: transparent;
+    color: #e2e8f0;
+}
+
+preferencesgroup > box > label.heading {
+    color: #e2e8f0;
+    font-weight: 700;
+    font-size: 14pt;
+}
+
+preferencesgroup > box > label.description {
+    color: #7a8ba8;
+}
