@@ -145,10 +145,23 @@ def verify_grub(target: Path, mok_cert: Path) -> ArtifactResult:
 def verify_kernels(target: Path, mok_cert: Path) -> List[ArtifactResult]:
     """Verify every vmlinuz-* under <target>/boot/.
 
-    NOTE: as of 2026-04-19, the kernel package does not sbsign the kernel
-    image. This check will surface that gap — expected to fail cleanly
-    with 'no signature block attached' until the kernel signing step
-    lands. Flagged to main via channel.
+    Design (per 2026-04-20 owner/main/laptop/windows unanimous vote,
+    Option 2): the kernel PE image is signed at INSTALL time with the
+    user's MOK via bootloader.py's signing loop, not at package build
+    time. The user is the trust anchor, not us — this is HG + PRIME
+    DIRECTIVE alignment (user in control of their own machine).
+
+    Consequences for this function:
+      - Correctly reports FAIL against a fresh package archive (kernel
+        hasn't been signed yet — install hasn't happened).
+      - Correctly reports PASS against a Forge-installed target whose
+        signing loop ran against the user's enrolled MOK cert.
+
+    The integration test test_class1_integration.py::TestClass1Integration
+    exercises "does our signing logic work when invoked" by staging +
+    signing + verifying. The post-install sibling class
+    TestClass1PostInstall exercises "did the actual install produce a
+    correctly-signed target" by walking a real installed filesystem.
     """
     boot_dir = target / "boot"
     if not boot_dir.exists():

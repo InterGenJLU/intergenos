@@ -192,5 +192,78 @@ class TestClass1Integration(unittest.TestCase):
         self.assertEqual(len(reloaded["results"]), 3)  # shim + grub + kernel
 
 
+# --- Post-install Class 1 verification -----------------------------------
+
+
+# Points at the root of an installed InterGenOS target. Defaults to "/" so
+# the tests auto-activate when this suite is run from inside a Forge-
+# installed system. On build hosts / dev laptops that aren't InterGenOS
+# targets, the class-level skip-gate (MOK cert presence) fires cleanly.
+POST_INSTALL_TARGET = Path(os.environ.get(
+    "CLASS1_POST_INSTALL_TARGET", "/",
+))
+POST_INSTALL_MOK_CERT = POST_INSTALL_TARGET / "var/lib/intergen/mok/mok.crt"
+
+
+def _is_forge_installed_target(target: Path, mok_cert: Path) -> tuple[bool, str]:
+    """Return (looks-installed, reason-if-not).
+
+    Authoritative signal: presence of the MOK cert at the conventional
+    path under the target. The cert is written by bootloader.py at
+    install time, so its existence implies the signing loop ran.
+    """
+    if not shutil.which("sbverify"):
+        return False, "sbverify not in PATH"
+    if not mok_cert.exists():
+        return False, f"MOK cert {mok_cert} not found (not a Forge-installed target)"
+    if not (target / "boot").is_dir():
+        return False, f"{target}/boot missing"
+    return True, ""
+
+
+_post_install_ok, _post_install_reason = _is_forge_installed_target(
+    POST_INSTALL_TARGET, POST_INSTALL_MOK_CERT,
+)
+
+
+@unittest.skipUnless(
+    _post_install_ok,
+    f"post-install prerequisites missing: {_post_install_reason}",
+)
+class TestClass1PostInstall(unittest.TestCase):
+    """Exercises Class 1 against a real Forge-installed target.
+
+    Complements TestClass1Integration: the integration class STAGES a
+    signed target (proves our signing logic works in isolation); this
+    class walks an ACTUALLY-INSTALLED target (proves the install did
+    the right thing in production).
+
+    Point at a different target via:
+        CLASS1_POST_INSTALL_TARGET=/mnt/some-target \\
+            python3 -m unittest installer.tests.test_class1_integration \\
+                                 -k TestClass1PostInstall -v
+
+    Phase A-2 note: when the SecBoot VM profile gains a "mount
+    installed disk image, treat as target" helper, this class will be
+    the VM-side consumer — same assertions, different target path.
+    """
+
+    def test_installed_chain_all_required_pass(self):
+        """Installed target's grub + kernel verify against the on-disk MOK."""
+        report = c1.run(POST_INSTALL_TARGET, POST_INSTALL_MOK_CERT)
+        self.assertTrue(
+            report.all_required_pass(),
+            f"installed target failed Class 1 verification: {report.to_dict()}",
+        )
+        # Sanity: shim was skipped (Fedora/MS, not ours), grub + at least
+        # one kernel must be present and verified.
+        kernel_rs = [r for r in report.results if r.stage == "kernel"]
+        self.assertGreaterEqual(len(kernel_rs), 1,
+                                "expected at least one vmlinuz-* in target/boot")
+        for kr in kernel_rs:
+            self.assertTrue(kr.verified,
+                            f"kernel {kr.path} did not verify: {kr.detail}")
+
+
 if __name__ == "__main__":
     unittest.main()

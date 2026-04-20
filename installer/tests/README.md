@@ -89,17 +89,21 @@ a contract.
 
 | Host | Tests | Passed | Skipped | Notes |
 |------|-------|--------|---------|-------|
-| Typical dev laptop (no `sbsign`, no libvirtd) | 54 | 47 | 7 | Class 1 integration + Phase A VM tier skip |
-| ubuntu2404 build host (`sbsign` + OVMF available, libvirtd may be inactive) | 54 | 51 | 3 | Only Phase A VM tier skips when libvirtd is stopped |
-| ubuntu2404 with libvirtd active + disk image staged | 54 | 52-54 | 0-2 | Depends on Phase A-2 plumbing state |
+| Typical dev laptop (no `sbsign`, no libvirtd) | 55 | 47 | 8 | Class 1 integration + post-install + Phase A VM tier skip |
+| ubuntu2404 build host (`sbsign` + OVMF available, libvirtd may be inactive) | 55 | 51 | 4 | Phase A VM tier skips when libvirtd stopped; post-install skips absent a real installed target |
+| Inside a Forge-installed InterGenOS target (`/var/lib/intergen/mok/mok.crt` present) | 55 | up to 52 | 3+ | `TestClass1PostInstall` activates and walks the real target |
+
+### Class 1 post-install verification
+
+Ships alongside Class 1 integration. The design question both answer:
+
+* `TestClass1Integration` — "does our signing *logic* work when invoked?" Stages a target, signs it with a test MOK, walks the chain.
+* `TestClass1PostInstall` — "did the actual install produce a correctly-signed target?" Walks a real installed filesystem. Skip-gates on `<target>/var/lib/intergen/mok/mok.crt` existing, which is the authoritative "this is a Forge install" signal.
+
+Point at a different target via `CLASS1_POST_INSTALL_TARGET=/path/to/mount/point`.
 
 ## Upcoming
 
-* **Class 1 kernel stage re-gate to post-install** (2026-04-20 owner/main poll:
-  Option 2). The packaged kernel is signed at install time with the user's MOK,
-  not at package build time. The current Class 1 integration test exercises
-  "does our signing *work* when we do it" correctly; a new `TestClass1PostInstall`
-  class will exercise "did the install produce a correctly-signed target."
 * **Class 2** — post-reboot UEFI boot-order + runtime SB-state verification.
   Consumes `installer/backend/bootloader.py:189` TODO ("did UEFI boot order
   include InterGenOS entry post-reboot?"). Host-testable via `/sys/firmware/efi/efivars`
