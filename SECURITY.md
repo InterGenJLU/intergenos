@@ -10,6 +10,8 @@ InterGenOS takes security seriously. This document describes how to report vulne
 
 **Alternative:** Open a [private security advisory](https://github.com/InterGenJLU/intergenos/security/advisories/new) on GitHub.
 
+Machine-readable contact info also published at [https://intergenstudios.com/.well-known/security.txt](https://intergenstudios.com/.well-known/security.txt) per RFC 9116.
+
 Anonymous reports accepted. We will never retaliate against good-faith reporters.
 
 Plain email is fine for initial contact until v1.0. We will publish a PGP fingerprint for encrypted submissions alongside the v1.0 signing-key ceremony; if you need an encrypted channel before then, say so in your first email and we will arrange one out-of-band.
@@ -91,7 +93,7 @@ Mere claims route to the standard 48-hour triage and are likely closed without a
 
 **Rejected reports:** default to anonymity. If a reporter wishes to be publicly credited for a rejected or duplicate report, they may request it.
 
-**Hall of Fame:** [https://intergenstudios.com/security-hall-of-fame](https://intergenstudios.com/security-hall-of-fame) *(page available post-launch)* lists researchers who have responsibly disclosed vulnerabilities to us.
+**Hall of Fame:** we will publish a researcher-acknowledgment page alongside the v1.0 launch, listing researchers who have responsibly disclosed vulnerabilities to us (with the option to remain anonymous).
 
 ---
 
@@ -115,4 +117,4 @@ Out of scope:
 
 ---
 
-*Last updated: 2026-04-19*
+*Last updated: 2026-04-20*
