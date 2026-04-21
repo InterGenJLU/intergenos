@@ -1,0 +1,15 @@
+name: pkm
+version: "0.1.0"
+release: 1
+description: InterGenOS package manager — install, remove, query, verify
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: core
+build_style: custom
+source: []
+dependencies:
+  build: []
+  host:
+  - python
+  runtime:
+  - python
