@@ -5,7 +5,7 @@
 **Authors:** claude-windows (primary), claude-main (D1-8 disclosure framework + cross-review)
 **PGP contacts (shim-review + disclosure policy):**
  - Primary: Chris (christopher) — public key + fingerprint to be published at keys.openpgp.org + intergenstudios.com/signing-key (post-ceremony)
- - Secondary: Ethan Bambock (peer-constrained 2nd, confirmed 2026-04-20) — PGP keypair generation + fingerprint registration pending Phase 1 of `docs/succession/ethan_onboarding/03_onboarding_checklist.md`
+ - Secondary: Ethan Bambock (peer-constrained 2nd, confirmed 2026-04-20) — PGP keypair generation + fingerprint registration pending Phase 1 of Ethan's onboarding (private scaffold; role policy in `docs/governance/succession.md`)
 **Gating for:** Forge SB first-light install (slipped to Tuesday 2026-04-21 per Chris's 2026-04-20 14:18 UTC post; panel delay)
 
 ---
@@ -41,7 +41,7 @@ Two-tier key hierarchy with **three distinct keys** (distro GPG, kernel module X
 ## 2 PGP contacts (named 2026-04-20)
 
 - **Primary: Chris (christopher).** Role-UID: "InterGenOS Release Key" (personal email not in UID per D1-6 hardening). Fingerprint + pubkey published post-ceremony to keys.openpgp.org + intergenstudios.com/signing-key.
-- **Secondary: Ethan Bambock.** Peer-constrained 2nd confirmed 2026-04-20 (see `docs/succession/ethan_onboarding/README.md` for role framing). PGP keypair generation is in Phase 1 of Ethan's onboarding checklist; fingerprint registration will update this doc in a follow-up commit once available.
+- **Secondary: Ethan Bambock.** Peer-constrained 2nd confirmed 2026-04-20 (see `docs/governance/succession.md` for role framing). PGP keypair generation is in Phase 1 of Ethan's onboarding checklist; fingerprint registration will update this doc in a follow-up commit once available.
 
 ---
 

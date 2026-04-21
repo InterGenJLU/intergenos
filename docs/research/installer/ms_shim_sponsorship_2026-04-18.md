@@ -13,7 +13,7 @@
 - **Timeline:** 10-14 weeks realistic end-to-end. 2-3 weeks prep, 2-3 months shim-review iteration, 1-3 weeks Microsoft signing turnaround. Starting within 2 weeks of Monday puts the PR-open date around 2026-05-15, well inside the June 27 window.
 - **Zero direct monetary cost** if we stay fully open-source. Red Hat absorbs Partner Center / EV-cert / submission fees. Incidentals: ~$80 for Nitrokey/YubiKey (already in D1 plan).
 - **Biggest review blocker: ephemeral per-build kernel-module signing is novel.** Reviewers will push back unless we document clearly in the README that (a) the ephemeral key never signs a bootloader, (b) it's reaped when the kernel build completes, (c) it's distinct from the vendor cert embedded in shim.
-- **TWO PGP security contacts, cross-signed, required.** **Primary: Chris (christopher).** **Secondary: Ethan Bambock** (peer-constrained 2nd, confirmed 2026-04-20 per `docs/succession/ethan_onboarding/README.md`). Ethan's PGP keypair generation is in Phase 1 of his onboarding checklist; fingerprint publication + cross-signing with Chris's key will update this doc in a follow-up commit once available.
+- **TWO PGP security contacts, cross-signed, required.** **Primary: Chris (christopher).** **Secondary: Ethan Bambock** (peer-constrained 2nd, confirmed 2026-04-20 per `docs/governance/succession.md`). Ethan's PGP keypair generation is in Phase 1 of his onboarding checklist; fingerprint publication + cross-signing with Chris's key will update this doc in a follow-up commit once available.
 
 ---
 
@@ -205,7 +205,7 @@ Expect 3-5 rounds of reviewer comments. Respond within 48 hours. Never argue; if
 ## Action checklist
 
 - [ ] Chris drafts outreach email to `shim-maintainers@fedoraproject.org` — send this week
-- [x] **Secondary security contact identified + confirmed.** Ethan Bambock (2026-04-20). Role-framing + onboarding in `docs/succession/ethan_onboarding/`.
+- [x] **Secondary security contact identified + confirmed.** Ethan Bambock (2026-04-20). Role-framing in `docs/governance/succession.md`; operational onboarding held privately.
 - [ ] Ethan generates his PGP keypair (Phase 1 of onboarding checklist). Fingerprint updates this doc in follow-up commit.
 - [ ] Generate PGP keys for `security@intergenstudios.com` role + personal (Chris); publish to `keys.openpgp.org`; cross-sign with Ethan's key.
 - [ ] Arrange cross-signing (keysigning event or trusted community member)
@@ -232,7 +232,7 @@ Original D1-7b question: Option A MS-signed shim start-date.
 
 **Recommendation:** start Step 1 (advisory email) within 2 weeks of Monday launch. Step 2 artifacts prep in parallel with Monday-install stabilization work.
 
-**Blocker retired 2026-04-20:** secondary security contact confirmed (Ethan Bambock, peer-constrained 2nd). Onboarding scaffold at `docs/succession/ethan_onboarding/` tracks the Phase 1 PGP keypair generation milestone; the 2026-05-15 shim-review PR target leaves adequate runway.
+**Blocker retired 2026-04-20:** secondary security contact confirmed (Ethan Bambock, peer-constrained 2nd). Onboarding (private scaffold) tracks the Phase 1 PGP keypair generation milestone; the 2026-05-15 shim-review PR target leaves adequate runway.
 
 ---
 
