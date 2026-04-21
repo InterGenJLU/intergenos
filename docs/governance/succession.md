@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-04-21
 
-This document states InterGenOS's maintainer policy at the level that belongs in public view. Operational specifics (access matrices, credential rotation procedures, device inventories, agent identity maps) are held in private scaffolds shared only with maintainers during onboarding.
+This document states InterGenOS's public-facing maintainer policy. Operational specifics — access configurations, credential procedures, infrastructure details — are kept in private maintainer documentation.
 
 ## Current Roles
 
@@ -13,16 +13,14 @@ This document states InterGenOS's maintainer policy at the level that belongs in
 
 ## Role Framing
 
-We operate a **peer-maintainer-with-constrained-authority** model, not a hierarchy. Access differences between roles reflect blast-radius and infrastructure-cost reasons, not trust. The secondary role expands toward co-primary as the project matures and the succession plan evolves.
+InterGenOS is a peer-maintainer project. Differences in access scope between roles reflect the current division of work, not hierarchy or trust level. The secondary role expands over time as the project and the collaboration grow.
 
 Branch protection on `master` applies to everyone, including the primary maintainer: PR + 1 review is required for merges regardless of role.
 
 ## What Is (and Isn't) Public
 
 - **Public:** this governance document, vulnerability disclosure policy ([SECURITY.md](../../SECURITY.md)), technical research docs under [docs/research/](../research/), and the codebase itself.
-- **Not public:** operational onboarding scaffolds — per-surface access matrices, credential rotation procedures, device inventories, agent identity maps. These are shared privately with maintainers during onboarding.
-
-**Reason:** InterGenOS assumes superhuman-scale vulnerability discovery by adversaries (see the [Security-Only Alignment premise](../../README.md#security-only-alignment) in the project README). Published operational maps of who-has-what-access-where are free reconnaissance. Keeping them private is a direct application of the same Holy Grail reasoning that drives Secure Boot mandatory-by-default, module-signature-enforcement, and the signed-chain installer design.
+- **Not public:** internal maintainer documentation — specific access configurations, credential procedures, and infrastructure details. This is shared privately with maintainers during onboarding, which is standard practice for operational infrastructure documentation.
 
 ## Vulnerability Disclosure
 
