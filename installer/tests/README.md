@@ -32,7 +32,7 @@ concrete files in this directory; the others are the planned shape.
 | 2b | Did the installer register an InterGenOS entry in the UEFI boot order? | **Shipped** (`class2b_boot_order.py` + test module) |
 | 3 | Shim-specific (signed by Fedora/MS, not us) | Deferred |
 | 4 | (reserved) | Deferred |
-| 5 | Kernel module signatures (`MODULE_SIG`, not PE/COFF) | Planned |
+| 5 | Kernel module signatures (`MODULE_SIG`, not PE/COFF) | **Shipped** (`class5_module_sigs.py` + test module) |
 | 6 | (reserved) | Deferred |
 | 7 | (reserved) | Deferred |
 
@@ -109,6 +109,37 @@ Files: `class2b_boot_order.py` (module + CLI) +
 
 Label override via `--label` for forks / rebranded installs.
 
+### Class 5 — kernel module signature enforcement
+
+Post-boot probe that the running kernel enforces module signatures +
+carries a usable trust anchor. Distinct from Class 1 (PE/COFF chain):
+module signatures are PKCS#7-formatted `MODULE_SIG` blocks appended to
+`.ko` files, verified by the kernel against its keyring rather than via
+`sbverify`.
+
+Three probes, all checked via `/proc`:
+
+* **module_sig_enforce** (required): `/proc/sys/kernel/module_sig_enforce`
+  reads as `"1"`. Absent file means `CONFIG_MODULE_SIG_FORCE=n` — the
+  kernel will load unsigned modules. On the integration tier this is
+  the first probe to fail on stock Ubuntu / Fedora builds that don't
+  compile with the force flag.
+* **signing_keyring** (required): `/proc/keys` contains at least one of
+  `.secondary_trusted_keys`, `.machine`, or `.platform`. Any one is
+  sufficient; `.machine` holds MOK-enrolled keys on shim-aware kernels.
+* **sampled_module_signed** (required when modules loaded; skip-clean
+  when empty): the first module from `/proc/modules` has a PKCS#7
+  signature visible in `modinfo` output (fields `signer:`, `sig_id:`,
+  `sig_hashalgo:` all present). A monolithic kernel (`/proc/modules`
+  empty) is the most-secure posture and passes cleanly with a note.
+
+Override the sampled module via `--sample-module NAME` (useful for
+pinning a module known to be signed/unsigned during targeted checks).
+
+Files: `class5_module_sigs.py` (module + CLI) +
+`test_class5_module_sigs.py` (26 unit tests; mocks `shutil.which` and
+`subprocess.run` for modinfo, temp-dir proc paths for everything else).
+
 ### Phase A — GRUB `check_signatures=enforce` empirical
 
 In flight. Answers: does `enforce` refuse our PE/COFF sbsigned kernel (main's
@@ -152,9 +183,9 @@ a contract.
 
 | Host | Tests | Passed | Skipped | Notes |
 |------|-------|--------|---------|-------|
-| Typical dev laptop (no `sbsign`, no libvirtd) | 97 | 89 | 8 | Class 1 integration + post-install + Phase A VM tier skip; Class 2 + 2b unit tests fully mocked, run anywhere |
-| ubuntu2404 build host (`sbsign` + OVMF available, libvirtd may be inactive) | 97 | 93 | 4 | Phase A VM tier skips when libvirtd stopped; post-install skips absent a real installed target |
-| Inside a Forge-installed InterGenOS target (`/var/lib/intergen/mok/mok.crt` present) | 97 | up to 94 | 3+ | `TestClass1PostInstall` activates and walks the real target |
+| Typical dev laptop (no `sbsign`, no libvirtd) | 123 | 115 | 8 | Class 1 integration + post-install + Phase A VM tier skip; Classes 2 / 2b / 5 unit tests fully mocked, run anywhere |
+| ubuntu2404 build host (`sbsign` + OVMF available, libvirtd may be inactive) | 123 | 119 | 4 | Phase A VM tier skips when libvirtd stopped; post-install skips absent a real installed target |
+| Inside a Forge-installed InterGenOS target (`/var/lib/intergen/mok/mok.crt` present) | 123 | up to 120 | 3+ | `TestClass1PostInstall` activates and walks the real target |
 
 ### Class 1 post-install verification
 
@@ -167,10 +198,18 @@ Point at a different target via `CLASS1_POST_INSTALL_TARGET=/path/to/mount/point
 
 ## Upcoming
 
-* **Class 5** — kernel module signatures (`MODULE_SIG`, not the PE/COFF
-  path Class 1 walks). Host-testable via `modinfo` + the kernel's own
-  `/proc/keys` + `/proc/sys/kernel/module_sig_enforce`. Post-install
-  sibling test class would walk installed modules under `/lib/modules/`.
+* **Post-install integration tier for Classes 2 / 2b / 5.** Class 1
+  already has the split (`TestClass1PostInstall` activates inside a
+  Forge-installed target and walks the real chain). The equivalent
+  siblings for Classes 2 / 2b / 5 — probing `/sys/firmware/efi/efivars`,
+  `efibootmgr -v`, and `/proc/sys/kernel/module_sig_enforce` against a
+  live InterGenOS system rather than mocks — are the next natural
+  expansion. Ships as three new test classes (one per existing module)
+  gated on Forge-install detection.
+* **Phase A-2 plumbing for `test_grub_check_signatures`** — see the
+  Phase A section above. Ships when libvirtd is active on ubuntu2404
+  + an installed InterGenOS disk image exists (scheduled
+  Monday/Tuesday install window).
 
 See each test module's top docstring for design rationale and the specific
 failure modes it catches.
