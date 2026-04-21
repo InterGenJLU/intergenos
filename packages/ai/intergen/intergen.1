@@ -1,0 +1,152 @@
+.TH INTERGEN 1 "2026-04-21" "intergen 0.1.0" "InterGenOS System Administration"
+.SH NAME
+intergen \- AI assistant for InterGenOS
+.SH SYNOPSIS
+.B intergen
+.I command
+[\fIargs\fR]
+.SH DESCRIPTION
+.B intergen
+is the command-line interface to the InterGen AI assistant. It connects
+to a running InterGen daemon over D-Bus when one is available and falls
+back to an in-process direct session otherwise (useful for development
+and first-run scenarios).
+.PP
+InterGen selects an LLM and quantisation appropriate to the local
+hardware by detecting the system's CPU, RAM, and GPU at
+.B intergen setup
+time. The recommended model + quantisation and the hardware tier are
+shown by
+.BR "intergen tier" .
+.PP
+InterGen runs as a per-user systemd user service
+.RB ( intergen.service )
+with D-Bus activation on the session bus. The daemon starts
+automatically when the first tool call arrives; it can also be started
+explicitly with
+.BR "intergen daemon" .
+.SH COMMANDS
+.TP
+.BR ask " \fIMESSAGE\fR"
+Ask InterGen a question or issue a natural-language instruction.
+Returns the response on stdout. If no daemon is running a direct
+session is started for the duration of the call.
+.TP
+.B status
+Show daemon status: whether it is running, version, hardware tier,
+number of requests handled, last error, and which internal components
+are ready.
+.TP
+.B tier
+Show hardware-tier detection results: tier level, RAM, GPU vendor and
+model, recommended model and quantisation, and estimated model size on
+disk.
+.TP
+.B tools
+List the tools InterGen can invoke on the user's behalf, together with
+their safety tier. Tools are scoped by the MCP permission configuration
+in
+.IR /etc/intergen/mcp.yml
+and
+.IR /etc/intergen/mcp.d/ .
+.TP
+.B test
+Run the in-tree self-test (hardware detection + tool subsystem) and
+exit with status 0 on success or 1 on failure. Primarily useful after
+a configuration change or an upgrade.
+.TP
+.BR setup " [\fB\-\-yes\fR]"
+Download and verify the recommended LLM model for the detected tier and
+the embedding model. With
+.B \-\-yes
+runs non-interactively. Models are stored under
+.IR /var/lib/intergen/models/ .
+.TP
+.B daemon
+Start the InterGen daemon in the foreground. Normally run by the
+systemd user service, not directly.
+.TP
+.BR help ", " \-\-help ", " \-h
+Print usage.
+.SH FILES
+.TP
+.I /etc/intergen/config.yml
+System-wide configuration: LLM endpoint, sampling parameters, logging,
+memory DB path, security policy location.
+.TP
+.I ~/.config/intergen/config.yml
+Per-user overrides applied on top of the system-wide configuration.
+.TP
+.I /etc/intergen/mcp.yml
+Top-level MCP configuration: which tools are enabled, their safety
+tier, and their default invocation policy.
+.TP
+.I /etc/intergen/mcp.d/
+Drop-in directory for MCP permission overrides. Files are applied
+lexicographically.
+.TP
+.I /var/lib/intergen/models/
+Local LLM and embedding models. Populated by
+.BR "intergen setup" .
+.TP
+.I /var/lib/intergen/data/memory.db
+InterGen's persistent memory/context database.
+.TP
+.I /var/log/intergen/intergen.log
+Main log. See
+.I /var/log/intergen/events.jsonl
+for the structured event log and
+.I /var/log/intergen/mcp-audit.log
+for the MCP tool-call audit trail.
+.SH EXAMPLES
+Ask a question:
+.PP
+.RS
+.B intergen ask "What desktop packages are installed?"
+.RE
+.PP
+Check that the daemon is running and healthy:
+.PP
+.RS
+.B intergen status
+.RE
+.PP
+Confirm the hardware tier InterGen detected:
+.PP
+.RS
+.B intergen tier
+.RE
+.PP
+Download the recommended model non-interactively:
+.PP
+.RS
+.B intergen setup \-\-yes
+.RE
+.PP
+List callable tools and their safety tiers:
+.PP
+.RS
+.B intergen tools
+.RE
+.SH SECURITY
+InterGen treats every tool call as a privileged action. The default
+escalation mode is
+.BR ask ,
+requiring user confirmation for any tool invocation that modifies
+system state. Safety tiers and per-tool policies are configured in
+.I /etc/intergen/mcp.yml
+and
+.IR /etc/intergen/mcp.d/ ;
+a stored schema pin at
+.I /var/lib/intergen/mcp-pins/
+prevents silent tool-signature drift between upgrades.
+.SH SEE ALSO
+.BR pkm (1),
+.BR systemctl (1),
+.BR journalctl (1)
+.SH AUTHOR
+InterGenOS project.
+.br
+<https://github.com/InterGenJLU/intergenos>
+.SH LICENSE
+GPL-3.0-or-later.

@@ -54,6 +54,10 @@ REPOS
     # schema bootstrap is required at install time.
     install -dm755 "${DESTDIR}/var/lib/igos/packages"
     install -dm755 "${DESTDIR}/var/lib/igos/archives"
+
+    # Man page
+    install -Dm644 /mnt/intergenos/packages/core/pkm/pkm.1 \
+        "${DESTDIR}/usr/share/man/man1/pkm.1"
 }
 
 post_install() {

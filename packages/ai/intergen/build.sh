@@ -126,6 +126,10 @@ DBUS
     install -dm755 "${DESTDIR}/var/lib/intergen/mcp-pins"
     install -dm755 "${DESTDIR}/var/log/intergen"
     install -dm755 "${DESTDIR}/etc/intergen/mcp.d"
+
+    # Man page
+    install -Dm644 /mnt/intergenos/packages/ai/intergen/intergen.1 \
+        "${DESTDIR}/usr/share/man/man1/intergen.1"
 }
 
 post_install() {

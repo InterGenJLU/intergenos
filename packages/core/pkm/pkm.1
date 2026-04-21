@@ -1,0 +1,189 @@
+.TH PKM 1 "2026-04-21" "pkm 0.1.0" "InterGenOS System Administration"
+.SH NAME
+pkm \- InterGenOS package manager
+.SH SYNOPSIS
+.B pkm
+[\fB\-\-version\fR]
+[\fB\-\-db\fR \fIPATH\fR]
+.I command
+[\fIargs\fR]
+.SH DESCRIPTION
+.B pkm
+is the InterGenOS package manager. It installs, removes, queries, and
+verifies packages built from InterGenOS's tiered source tree. Packages
+are distributed as
+.B .igos.tar.gz
+archives with accompanying metadata and are tracked in a local SQLite
+database at
+.IR /var/lib/igos/pkm.db .
+.PP
+Repository configuration lives in
+.IR /etc/pkm/repos.conf .
+The default shipped repository is the official InterGenOS mirror. GPG
+verification becomes available once the signing-key ceremony completes;
+until then the trust model is TLS + repository-URL pinning.
+.SH COMMANDS
+.TP
+.BR install " \fIPACKAGE\fR [\fIPACKAGE...\fR] [\fB\-\-archive\fR \fIPATH\fR]"
+Install one or more packages. If no local archive is supplied, packages
+are fetched from configured repositories and dependencies are resolved
+automatically.
+.TP
+.BR install-helper " \fIPACKAGE\fR"
+Install proprietary or third-party software via a named download helper
+(for example,
+.BR chrome ,
+.BR vscode ,
+.BR claude-code ).
+Helpers are installed at
+.IR /usr/bin/igos-install-* .
+This exists so the user-facing interface is one command regardless of
+whether a package is source-built or vendor-supplied.
+.TP
+.BR remove " \fIPACKAGE\fR [\fB\-\-force\fR]"
+Remove an installed package.
+.B \-\-force
+permits removal even when other packages still depend on it.
+.TP
+.BR list " [" installed | available | upgradable "] [" \-\-tier " \fITIER\fR]"
+List packages. The default view is
+.BR installed .
+Restrict to a tier with
+.B \-\-tier
+.RI ( toolchain ,
+.IR core ,
+.IR base ,
+.IR desktop ,
+.IR extra ,
+.IR ai ).
+.TP
+.B update
+Sync package indexes from every enabled repository.
+.TP
+.BR upgrade " [\fIPACKAGE...\fR]"
+Upgrade installed packages to the latest versions available in the
+configured repositories. With no arguments, every installed package is
+considered.
+.TP
+.BR search " \fITERM\fR"
+Search local and remote indexes for packages matching
+.IR TERM .
+Installed matches are labelled inline.
+.TP
+.BR info " \fIPACKAGE\fR"
+Show package details: version, tier, description, license, build and
+install dates, install method, dependencies, and reverse dependencies.
+.TP
+.BR files " \fIPACKAGE\fR"
+List files owned by an installed package.
+.TP
+.BR provides " \fIFILE\fR"
+Report which installed package owns a given file.
+.TP
+.BR verify " [\fIPACKAGE\fR] [\fB\-\-all\fR]"
+Verify package integrity against recorded file hashes. With
+.B \-\-all
+every installed package is verified and a summary is printed.
+.TP
+.BR depends " \fIPACKAGE\fR [\fB\-\-reverse\fR]"
+Show the dependencies of a package. With
+.B \-\-reverse
+show which installed packages depend on it.
+.TP
+.BR history " [\fIPACKAGE\fR]"
+Show operation history (install/remove/upgrade). An optional
+.I PACKAGE
+argument filters to a single package.
+.TP
+.B import
+Import pre-existing text-manifest records into the SQLite database.
+Used when migrating from the legacy pkm text-manifest format.
+.SH OPTIONS
+.TP
+.B \-\-version
+Print version and exit.
+.TP
+.BR \-\-db " \fIPATH\fR"
+Override the default database path
+.RI ( /var/lib/igos/pkm.db ).
+Primarily useful in tests and rescue scenarios.
+.SH FILES
+.TP
+.I /etc/pkm/repos.conf
+Repository configuration. Each stanza defines a named repository with a
+base URL and optional trust settings.
+.TP
+.I /var/lib/igos/pkm.db
+SQLite database tracking installed packages, files, and history. Self-
+initialises on first invocation.
+.TP
+.I /var/lib/igos/packages/
+Per-package metadata directories.
+.TP
+.I /var/lib/igos/archives/
+Cached
+.B .igos.tar.gz
+archives.
+.SH EXAMPLES
+Install a single package from the default repository:
+.PP
+.RS
+.B pkm install htop
+.RE
+.PP
+Install several packages in one operation; dependencies resolve
+automatically:
+.PP
+.RS
+.B pkm install vim tmux ripgrep
+.RE
+.PP
+Install from a local archive when offline:
+.PP
+.RS
+.B pkm install vim \-\-archive /path/to/vim-9.1.1.igos.tar.gz
+.RE
+.PP
+Install proprietary software via a download helper:
+.PP
+.RS
+.B pkm install-helper vscode
+.RE
+.PP
+Show what a package installed, along with its version and tier:
+.PP
+.RS
+.B pkm info htop
+.RE
+.PP
+List every file owned by a package:
+.PP
+.RS
+.B pkm files htop
+.RE
+.PP
+Find the owning package for a file on disk:
+.PP
+.RS
+.B pkm provides /usr/bin/nano
+.RE
+.PP
+Verify the integrity of every installed package:
+.PP
+.RS
+.B pkm verify \-\-all
+.RE
+.PP
+List everything in the desktop tier:
+.PP
+.RS
+.B pkm list installed \-\-tier desktop
+.RE
+.SH SEE ALSO
+.BR forge (1)
+.SH AUTHOR
+InterGenOS project.
+.br
+<https://github.com/InterGenJLU/intergenos>
+.SH LICENSE
+GPL-3.0-or-later.
