@@ -10,7 +10,6 @@ This document states InterGenOS's maintainer policy at the level that belongs in
 |---|---|---|
 | **Primary maintainer** | Christopher Cork (GitHub: `InterGenJLU`) | Full project ownership: code, infrastructure, external representation, release signing |
 | **Secondary maintainer (peer-constrained)** | Ethan Bambock | Co-contribution under GitHub-Member access; 2nd PGP contact for vulnerability disclosure; onboarded 2026-04 |
-| **Senior advisor** | Ryan Moon | Periodic guidance on security direction; no operational access |
 
 ## Role Framing
 
