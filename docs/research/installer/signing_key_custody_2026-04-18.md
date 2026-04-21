@@ -1,17 +1,20 @@
-# InterGenOS Signing-Key Custody — v2 (post owner-decisions)
+# InterGenOS Signing-Key Custody — v2
 
-**Date:** 2026-04-18
-**Status:** DRAFT v2 — decisions incorporated, awaiting 3 remaining owner picks before canonical merge
+**Date:** 2026-04-18 (origin) | **Updated:** 2026-04-20 (D1-2 Nitrokey greenlit, 2nd contact named)
+**Status:** All D1 decisions resolved. Ready for first-use when signing-key ceremony schedules.
 **Authors:** claude-windows (primary), claude-main (D1-8 disclosure framework + cross-review)
-**Gating for:** Forge SB Monday 2026-04-20 installer ship (D1 from 14:53 UTC Forge SB work-split)
+**PGP contacts (shim-review + disclosure policy):**
+ - Primary: Chris (christopher) — public key + fingerprint to be published at keys.openpgp.org + intergenstudios.com/signing-key (post-ceremony)
+ - Secondary: Ethan Bambock (peer-constrained 2nd, confirmed 2026-04-20) — PGP keypair generation + fingerprint registration pending Phase 1 of `docs/succession/ethan_onboarding/03_onboarding_checklist.md`
+**Gating for:** Forge SB first-light install (slipped to Tuesday 2026-04-21 per Chris's 2026-04-20 14:18 UTC post; panel delay)
 
 ---
 
 ## Executive Summary
 
-Two-tier key hierarchy with **three distinct keys** (distro GPG, kernel module X.509 ephemeral, EFI binary sign) + an offline root CA. Owner-approved shape. Monday shim strategy: piggyback on Fedora's pre-signed shim with our vendor cert MOK-enrolled at first boot. Post-Monday: parallel track to obtain our own Microsoft-signed shim via Fedora or SUSE sponsorship.
+Two-tier key hierarchy with **three distinct keys** (distro GPG, kernel module X.509 ephemeral, EFI binary sign) + an offline root CA. Chris-approved shape. Monday shim strategy: piggyback on Fedora's pre-signed shim with our vendor cert MOK-enrolled at first boot. Post-Monday: parallel track to obtain our own Microsoft-signed shim via Fedora or SUSE sponsorship.
 
-**Hardware: 2× hardware security token** (choice between YubiKey 5C NFC or Nitrokey 3 NFC — owner pick pending, see §Remaining Owner Picks). ~$140-150 total.
+**Hardware: 2× Nitrokey 3 NFC** (D1-2 resolved 2026-04-20 — Nitrokey greenlit post-Erica conversation; HG Rule #7 open-firmware posture was the tiebreaker). ~$140-150 total.
 
 **Kernel module signing: ephemeral per-build** (confirmed unconditionally correct — see §D1-1 Verification). No persistence needed; kernel's embedded pubkey plus MOK on user side covers both in-tree and DKMS paths.
 
@@ -21,25 +24,24 @@ Two-tier key hierarchy with **three distinct keys** (distro GPG, kernel module X
 
 ---
 
-## Resolved decisions (owner-approved 2026-04-18 18:20 UTC)
+## Resolved decisions
 
-| # | Question | Decision |
-|---|---|---|
-| D1-1 | Kernel module-signing key: YubiKey-pinned or ephemeral-per-build? | **Ephemeral per-build, unconditional.** Kernel's in-tree pubkey embedding + user-side MOK handles all verification paths. No mirror-repo complication. |
-| D1-3 | Root-key physical custody | **Both.** Home safe + bank safety-deposit box. Geo-redundant recovery. |
-| D1-4 | Touch-to-sign policy | **Split.** Touch required on release-signing subkey; touch disabled on kernel module-signing slot (hundreds of signatures per kernel build is untenable with touch). |
-| D1-5 | Build-host posture | **SPLIT.** Build on igos-build VM (reproducibility + snapshot/rollback). Sign on owner's workstation directly with token plugged in (no USB passthrough). Revised from initial lean-VM position per laptop 19:08 UTC on grounds: signing is non-mutating so VM rollback adds zero value, USB passthrough is a failure surface, key hygiene prefers physically-controlled surface over virt passthrough. |
-| D1-6 | Publish pubkey to keys.openpgp.org | **Yes.** With hardening: role-based UID only ("InterGenOS Release Key"), no personal email, fingerprint cross-published in repo docs + GitHub releases + intergenstudios.com (TLS). |
-| D1-7 | Shim strategy for Monday | **Option B — piggyback on Fedora's pre-signed shim** with our vendor cert MOK-enrolled at first boot. Option A (our own MS-signed shim) queued as post-Monday parallel track. |
+| # | Question | Decision | Resolved |
+|---|---|---|---|
+| D1-1 | Kernel module-signing key: hardware-pinned or ephemeral-per-build? | **Ephemeral per-build, unconditional.** Kernel's in-tree pubkey embedding + user-side MOK handles all verification paths. | 2026-04-18 |
+| D1-2 | Hardware token: YubiKey 5C NFC vs Nitrokey 3 NFC | **Nitrokey 3 NFC.** HG Rule #7 open-firmware posture tiebreaker. | 2026-04-20 (post-Erica) |
+| D1-3 | Root-key physical custody | **Both.** Home safe + bank safety-deposit box. Geo-redundant recovery. | 2026-04-18 |
+| D1-4 | Touch-to-sign policy | **Split.** Touch required on release-signing subkey; touch disabled on kernel module-signing slot (hundreds of signatures per kernel build is untenable with touch). | 2026-04-18 |
+| D1-5 | Build-host posture | **SPLIT.** Build on igos-build VM (reproducibility + snapshot/rollback). Sign on Chris's workstation directly with token plugged in (no USB passthrough). | 2026-04-18 |
+| D1-6 | Publish pubkey to keys.openpgp.org | **Yes.** With hardening: role-based UID only ("InterGenOS Release Key"), no personal email, fingerprint cross-published in repo docs + GitHub releases + intergenstudios.com (TLS). | 2026-04-18 |
+| D1-7 | Shim strategy for first-light install | **Option B — piggyback on Fedora's pre-signed shim** with our vendor cert MOK-enrolled at first boot. Option A (our own MS-signed shim) queued as post-first-install parallel track per D1-7b. | 2026-04-18 |
+| D1-7b | Option A MS-signed shim process start date | **Target dates confirmed:** advisory email 2026-05-02 / formal shim-review PR 2026-05-15 / MS 2011 CA hard deadline 2026-06-27. | 2026-04-19 |
+| D1-8 | Accept combined disclosure policy | **Accepted + committed** as public `SECURITY.md` at commit 92781c3. Chris amendments: 12h trust-anchor revocation, MITRE-direct CVE path, Hall of Fame yes, bug bounty no. | 2026-04-19 |
 
-## Remaining owner picks (not blocking Monday)
+## 2 PGP contacts (named 2026-04-20)
 
-| # | Question | Status |
-|---|---|---|
-| D1-2 | YubiKey 5C NFC vs Nitrokey 3 NFC | ELI5 delivered 18:24 UTC. My lean: Nitrokey (Rule #7 open firmware). Owner pick needed. |
-| D1-7b | Post-Monday Option A start date for MS-signed shim process | Timing decision; 6-12 week turnaround. Owner pick. |
-| D1-8 | Accept combined disclosure policy? | Main's framework + my trust-anchor addition + main's confirmed-compromise criteria refinement. Ready for accept/reject/tighten. |
-| Q5 | Order Crucial P310 NVMe? | Depends on owner catching Erica. Affects partition plan (300GB alongside-shrink vs 400+GB dedicated drive). |
+- **Primary: Chris (christopher).** Role-UID: "InterGenOS Release Key" (personal email not in UID per D1-6 hardening). Fingerprint + pubkey published post-ceremony to keys.openpgp.org + intergenstudios.com/signing-key.
+- **Secondary: Ethan Bambock.** Peer-constrained 2nd confirmed 2026-04-20 (see `docs/succession/ethan_onboarding/README.md` for role framing). PGP keypair generation is in Phase 1 of Ethan's onboarding checklist; fingerprint registration will update this doc in a follow-up commit once available.
 
 ---
 
@@ -67,7 +69,7 @@ Two-tier key hierarchy with **three distinct keys** (distro GPG, kernel module X
 - `CONFIG_MODULE_SIG_FORCE=y` — reject unsigned modules at runtime (currently signs but doesn't enforce)
 - `CONFIG_SECONDARY_TRUSTED_KEYRING=y` — allow MOK-enrolled keys to chain into module-trust (required for DKMS / NVIDIA on user side)
 
-**What NOT to add:** explicit `CONFIG_MODULE_SIG_KEY=...`. Leaving it unset keeps the kernel's ephemeral-per-build default, which is the owner-approved D1-1 decision.
+**What NOT to add:** explicit `CONFIG_MODULE_SIG_KEY=...`. Leaving it unset keeps the kernel's ephemeral-per-build default, which is the Chris-approved D1-1 decision.
 
 ### The three-keys reality
 
@@ -79,13 +81,13 @@ D1 manages three keys the distro owns (the fourth — MOK — is end-user owned 
 | 2 | Kernel module X.509 | Signs in-tree kernel modules at build; pubkey embedded in each kernel image | **Ephemeral per-build, discarded after build** | Per kernel build |
 | 3 | EFI-binary X.509 | Signs our custom GRUB build via sbsign; shim trusts via MOK enrollment | **Hardware token (PIV slot 9c), certified by offline root** | 2y subkey / tied to root lifetime |
 
-Not-our-key: **MOK (Machine Owner Key)** — generated per-install by Forge installer on the user's machine. Signs DKMS out-of-tree modules (e.g. NVIDIA). End user owns. Out of scope for D1.
+Not-our-key: **MOK (Machine Chris Key)** — generated per-install by Forge installer on the user's machine. Signs DKMS out-of-tree modules (e.g. NVIDIA). End user owns. Out of scope for D1.
 
 ---
 
 ## D1-1 Ephemeral-per-build verification
 
-Owner-flagged concern: does ephemeral complicate packaged-install vs build-install logic once we have a mirror repo?
+Chris-flagged concern: does ephemeral complicate packaged-install vs build-install logic once we have a mirror repo?
 
 **Verification (cross-confirmed by claude-main 18:50 UTC):**
 
@@ -119,7 +121,7 @@ Summary tables; full analysis of each in v1 draft (preserved in channel log 17:3
 ### Decided
 
 - **Option 1 (VPS secrets vault with restricted SSH):** REJECTED. Networked key violates HG rule #1.
-- **Option 2 (Hardware token):** CHOSEN for distro GPG + EFI-binary X.509 keys. Owner picks YubiKey 5C NFC or Nitrokey 3 NFC.
+- **Option 2 (Hardware token):** CHOSEN for distro GPG + EFI-binary X.509 keys. Chris picks YubiKey 5C NFC or Nitrokey 3 NFC.
 - **Option 3 (Ephemeral per-build):** CHOSEN for kernel module X.509 key only. Rejected for distro-GPG / EFI-binary keys (breaks MOK continuity).
 - **Option 4 (Offline air-gapped):** CHOSEN for root CA only. Tails-generated, 2× LUKS-USB + paper backup, stored in home + bank safes.
 - **Option 5 (HSM):** DEFERRED to post-v1 upgrade path. Overkill for solo-dev v1; worth revisiting when project has revenue or compliance requirements.
@@ -141,9 +143,9 @@ Extraction-cost criterion weighted 3× per HG rule #1.
 
 ---
 
-## YubiKey vs Nitrokey — pending owner pick
+## Hardware token: Nitrokey 3 NFC (D1-2 resolved 2026-04-20)
 
-Both meet HG posture for hardware-token custody. Trade-off summary (full ELI5 in channel 18:24 UTC):
+Both candidates met HG posture; trade-off summary retained below as decision-record.
 
 | Dimension | YubiKey 5C NFC | Nitrokey 3 NFC |
 |---|---|---|
@@ -155,9 +157,9 @@ Both meet HG posture for hardware-token custody. Trade-off summary (full ELI5 in
 | HG Rule #7 (open-source responsibility) | less aligned | **more aligned** |
 | HG Rule #1 (no convenience trade-offs) | mature tooling helps | marginal cost in rougher tooling |
 
-**My lean: Nitrokey 3 NFC.** Rule #7 is the tiebreaker — if we assume superhuman adversaries, we prefer the hardware whose firmware we can independently verify.
+**Decision: Nitrokey 3 NFC** (Chris-confirmed 2026-04-20, post-Erica conversation; relayed via claude-main channel post 21:14 UTC). HG Rule #7 open-firmware posture was the tiebreaker — if the threat model assumes superhuman adversaries, the hardware whose firmware we can independently verify is the HG-cleaner choice.
 
-**Counter-argument accepted** if owner prefers YubiKey: ecosystem maturity is genuinely better, community-support for PKCS#11 + sbsign is more robust, not a security violation — trade is "trust Yubico the company" vs "audit the code yourself."
+Outstanding item: scheduling the signing-key ceremony (brings the Nitrokey order + offline-Tails root CA ceremony forward). Chris pick on timing; no Monday-critical dependency.
 
 ---
 
@@ -176,7 +178,7 @@ Both meet HG posture for hardware-token custody. Trade-off summary (full ELI5 in
 
 **Yes, publish to keys.openpgp.org**, with these hardening rules:
 1. Generate distro key with a **role-based UID only**: "InterGenOS Release Key". Zero personal info.
-2. Use a role-based email (`release@intergenstudios.com`) or no email — never the owner's personal address.
+2. Use a role-based email (`release@intergenstudios.com`) or no email — never the Chris's personal address.
 3. Cross-publish the fingerprint in **at least three places**:
    - Repo docs (`docs/signing-key.md`, git-tracked)
    - GitHub releases page (pinned)
@@ -200,7 +202,7 @@ Once uploaded, treat the fingerprint as permanent — SKS pool mirrors + Google 
 - Submit via Microsoft UEFI CA sponsorship (Fedora or SUSE).
 - 6-12 week turnaround.
 - Migration seamless: users' enrolled vendor cert stays the same across the shim swap.
-- **Start date — owner pick pending.** Recommend ordering Fedora/SUSE sponsorship conversation within 2 weeks to kick off the process while Monday Monday SB install stabilizes.
+- **Start date — Chris pick pending.** Recommend ordering Fedora/SUSE sponsorship conversation within 2 weeks to kick off the process while Monday Monday SB install stabilizes.
 
 ---
 
@@ -255,9 +257,9 @@ Both require **evidence, not just a claim**. False reports route to standard 48h
 
 ---
 
-## Pre-Monday checklist (reflecting final decisions)
+## Signing-ceremony checklist (all D1 decisions resolved)
 
-1. **Hardware order** (owner decides YubiKey vs Nitrokey): 2× tokens (~$140-150). Overnight if needed.
+1. **Hardware order:** 2× Nitrokey 3 NFC (~$140-150 total). Chris schedules when convenient; not Monday-critical since first-light install (slipped to Tuesday 2026-04-21) uses Fedora's pre-signed shim (D1-7) and per-user MOK signing, neither of which needs the offline-root ceremony complete.
 2. **Tails USB preparation:** WiFi rfkill-blocked, ethernet unplugged. This is the root-keygen environment.
 3. **Root key ceremony:**
    - `gpg --full-generate-key`, RSA 4096 or Ed25519, no expiry on primary, 2-year expiry on subkeys.
@@ -278,7 +280,7 @@ Both require **evidence, not just a claim**. False reports route to standard 48h
 7. **Wire into build pipeline (split build/sign per D1-5):**
    - BUILD STEP runs in igos-build VM: unsigned artifacts produced here. Kernel build leaves `CONFIG_MODULE_SIG_KEY` unset (ephemeral default); add `CONFIG_MODULE_SIG_FORCE=y` and `CONFIG_SECONDARY_TRUSTED_KEYRING=y` to the fragment. Module signing happens inside the kernel build (ephemeral, never touches the token).
    - HANDOFF: VM writes unsigned artifacts to a shared location (virtiofs `/mnt/intergenos`, or explicit scp to workstation staging dir). Manifest file enumerates what needs signing.
-   - SIGN STEP runs on owner's workstation (no VM passthrough):
+   - SIGN STEP runs on Chris's workstation (no VM passthrough):
      * `scripts/sign-release.sh` (NEW) — invokes `gpg --detach-sign` for pkm repo index; invokes `sbsign` with PKCS#11 URI for GRUB; signs kernel vmlinuz with distro EFI key.
      * Workstation must have token plugged in + PIN unlocked. Touch required on release-signing subkey; touch required on PIV slot 9c (EFI sign). Signing loops are bounded (not module-signing hundreds of times — that's in-VM).
      * Build fails hard if token not present when sign-release.sh runs.
@@ -324,7 +326,7 @@ Updated from v1 with final decisions:
 
 - **Hardware supply-chain trust:** neither YubiKey nor Nitrokey has perfect supply-chain integrity. Residual risk. Nitrokey's open firmware reduces but doesn't eliminate. No better option exists at this scale.
 - **Revocation distribution:** if the token is lost and revocation is issued, users learn via `intergenos-keyring` package update. This depends on users having working network + DNS trust. Mitigation: shim includes a static fallback trust list signed by root.
-- **Token theft during travel:** both primary and backup in secure storage. If primary is with owner during travel and stolen, revoke from backup, generate new subkey, publish.
+- **Token theft during travel:** both primary and backup in secure storage. If primary is with Chris during travel and stolen, revoke from backup, generate new subkey, publish.
 - **`CONFIG_SYSTEM_TRUSTED_KEYS`:** if we ever want to pin additional long-lived trust anchors into the kernel image directly, this is the Kconfig knob. Not needed for the ephemeral-module + MOK-for-DKMS architecture, but option exists if design changes.
 
 ---
@@ -348,7 +350,7 @@ Updated from v1 with final decisions:
 - 2026-04-18 14:53:15 UTC: claude-windows Forge SB scope A/B/C/D split
 - 2026-04-18 16:37:51 UTC: claude-laptop permissions-squash v1 + scope clarification (HG governs product, not dev tools)
 - 2026-04-18 17:34:03 UTC: D1 draft v1 posted
-- 2026-04-18 18:20:37 UTC: owner-decisions Q3/Q5/Q6/Q7/D1-1-8 packet
+- 2026-04-18 18:20:37 UTC: Chris-decisions Q3/Q5/Q6/Q7/D1-1-8 packet
 - 2026-04-18 18:24:04 + 18:40:44 UTC: claude-windows ELI5 batches 1+2
 - 2026-04-18 18:26:35 UTC: claude-laptop test-harness v1 scope
 - 2026-04-18 18:36:56 UTC: claude-main D1-8 disclosure framework proposal

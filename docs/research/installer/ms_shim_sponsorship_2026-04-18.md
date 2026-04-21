@@ -13,7 +13,7 @@
 - **Timeline:** 10-14 weeks realistic end-to-end. 2-3 weeks prep, 2-3 months shim-review iteration, 1-3 weeks Microsoft signing turnaround. Starting within 2 weeks of Monday puts the PR-open date around 2026-05-15, well inside the June 27 window.
 - **Zero direct monetary cost** if we stay fully open-source. Red Hat absorbs Partner Center / EV-cert / submission fees. Incidentals: ~$80 for Nitrokey/YubiKey (already in D1 plan).
 - **Biggest review blocker: ephemeral per-build kernel-module signing is novel.** Reviewers will push back unless we document clearly in the README that (a) the ephemeral key never signs a bootloader, (b) it's reaped when the kernel build completes, (c) it's distinct from the vendor cert embedded in shim.
-- **New requirement we hadn't considered: TWO PGP security contacts, cross-signed.** Owner is currently only one. Need to recruit a secondary security contact willing to be publicly named with an active PGP key.
+- **TWO PGP security contacts, cross-signed, required.** **Primary: Chris (christopher).** **Secondary: Ethan Bambock** (peer-constrained 2nd, confirmed 2026-04-20 per `docs/succession/ethan_onboarding/README.md`). Ethan's PGP keypair generation is in Phase 1 of his onboarding checklist; fingerprint publication + cross-signing with Chris's key will update this doc in a follow-up commit once available.
 
 ---
 
@@ -39,7 +39,7 @@ A formal sponsor is **not required** by shim-review policy (issue #512). In prac
 - openSUSE (`security-team@suse.de`): signs its own keys, does not publicly sponsor externals.
 - Canonical and Red Hat: no formal sponsorship of externals.
 
-**For InterGenOS:** engage Fedora shim-maintainers as advisors, get owner's PGP key signed at a local Linux event or via a known community member, recruit two security contacts.
+**For InterGenOS:** engage Fedora shim-maintainers as advisors (advisory email target 2026-05-02); Chris + Ethan generate PGP keypairs, cross-sign each other's keys, and get at least one cross-signed by a known community member at a local Linux event or via remote keysigning session.
 
 ---
 
@@ -174,7 +174,7 @@ Email `shim-maintainers@fedoraproject.org` from `security@intergenstudios.com`. 
 - Fork `github.com/rhboot/shim-review` → `github.com/InterGenJLU/shim-review`
 - Build shim 16.1 with our vendor cert embedded
 - Write `Dockerfile` that reproduces byte-for-byte
-- Generate two PGP keys (owner + secondary contact); publish to `keys.openpgp.org`; cross-sign
+- Generate two PGP keys (Chris + Ethan); publish to `keys.openpgp.org` with role-UID hardening per D1-6; cross-sign each other's keys
 - Draft `README.md` answering all 39 questions — reference the v2 D1 custody doc in Q26 (key management) + D1-8 disclosure policy in the security-contact section
 - Peer-review at least 2 open shim-review PRs (community contribution gate)
 
@@ -192,21 +192,22 @@ Expect 3-5 rounds of reviewer comments. Respond within 48 hours. Never argue; if
 ## 10. Red flags / deal-breakers
 
 - **Any proprietary code in the boot chain.** InterGenOS is GPL-3.0 end-to-end — fine.
-- **Solo maintainer with no secondary contact.** MUST have a secondary security contact with active PGP. **Recruit before submitting.** This is an actionable-NOW item.
+- **Secondary security contact requirement.** Now satisfied — Ethan Bambock confirmed 2026-04-20 as peer-constrained 2nd. PGP keypair generation is in his onboarding Phase 1; complete before the 2026-05-15 shim-review PR target.
 - **Vendor cert previously used to sign any vulnerable binary.** Ours is fresh — fine.
 - **Unclear ephemeral-key story.** Novel; reviewers will dig. Document preemptively.
 - **No peer-review contribution.** Submitters who haven't reviewed others get queued behind those who have.
 - **Missing CVE patches.** Every GRUB2 CVE through Feb 2025 must be applied. No exceptions.
 - **Non-reproducible Dockerfile.** Reviewers run it; if output hash doesn't match, PR stalls.
-- **Weak governance-continuity story.** Mitigate via named secondary contact + public commitment to orderly-hand-off-or-dbx-revoke if owner becomes unavailable.
+- **Weak governance-continuity story.** Mitigate via named secondary contact + public commitment to orderly-hand-off-or-dbx-revoke if Chris becomes unavailable.
 
 ---
 
 ## Action checklist
 
-- [ ] Owner drafts outreach email to `shim-maintainers@fedoraproject.org` — send this week
-- [ ] **Identify and recruit secondary security contact** (must have PGP + be willing to be publicly named) — NEW requirement
-- [ ] Generate PGP keys for `security@intergenstudios.com` role + personal; publish to `keys.openpgp.org`
+- [ ] Chris drafts outreach email to `shim-maintainers@fedoraproject.org` — send this week
+- [x] **Secondary security contact identified + confirmed.** Ethan Bambock (2026-04-20). Role-framing + onboarding in `docs/succession/ethan_onboarding/`.
+- [ ] Ethan generates his PGP keypair (Phase 1 of onboarding checklist). Fingerprint updates this doc in follow-up commit.
+- [ ] Generate PGP keys for `security@intergenstudios.com` role + personal (Chris); publish to `keys.openpgp.org`; cross-sign with Ethan's key.
 - [ ] Arrange cross-signing (keysigning event or trusted community member)
 - [ ] Fork `rhboot/shim-review` to `InterGenJLU/shim-review`
 - [ ] Build shim 16.1 with InterGenOS vendor cert, wrap in reproducible Dockerfile
@@ -220,18 +221,18 @@ Expect 3-5 rounds of reviewer comments. Respond within 48 hours. Never argue; if
 
 ---
 
-## Feeds D1-7b (owner decision)
+## Feeds D1-7b (Chris decision)
 
 Original D1-7b question: Option A MS-signed shim start-date.
 
-**Data for owner:**
+**Data for Chris:**
 - Start within 2 weeks of Monday (~2026-05-04) → PR-open by ~2026-05-15 → fits June 27 window comfortably.
 - Delay beyond ~2026-05-15 start → PR-open ~June → possibly miss the June 27 dual-CA window → only 2023-CA signature → subset of older firmware won't boot.
 - Delay beyond June 27 → guaranteed 2023-only → older firmware incompatible. Not catastrophic (most modern firmware trusts 2023 CA too) but a brand/compatibility hit.
 
 **Recommendation:** start Step 1 (advisory email) within 2 weeks of Monday launch. Step 2 artifacts prep in parallel with Monday-install stabilization work.
 
-**Blocker pre-identified:** secondary security contact recruitment. This is not on D1 v2 — it's a new finding. Owner should be thinking about this now (a trusted friend/collaborator willing to be publicly named with a PGP key).
+**Blocker retired 2026-04-20:** secondary security contact confirmed (Ethan Bambock, peer-constrained 2nd). Onboarding scaffold at `docs/succession/ethan_onboarding/` tracks the Phase 1 PGP keypair generation milestone; the 2026-05-15 shim-review PR target leaves adequate runway.
 
 ---
 
