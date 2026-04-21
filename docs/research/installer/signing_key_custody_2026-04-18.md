@@ -1,7 +1,9 @@
 # InterGenOS Signing-Key Custody — v2
 
-**Date:** 2026-04-18 (origin) | **Updated:** 2026-04-20 (D1-2 Nitrokey greenlit, 2nd contact named)
+**Date:** 2026-04-18 (origin) | **Updated:** 2026-04-20 (D1-2 Nitrokey greenlit, 2nd contact named) | **Updated:** 2026-04-21 (D1-6 person-scoped emails adopted — see evolution note below)
 **Status:** All D1 decisions resolved. Ready for first-use when signing-key ceremony schedules.
+
+> **2026-04-21 D1-6 evolution — person-scoped emails adopted.** The original D1-6 decision specified a role-scoped UID (`InterGenOS Release Key` with `release@intergenstudios.com`). This evolved to person-scoped project-domain addresses for consistency with the peer-maintainer model: primary key UID `Christopher Cork <chris@intergenstudios.com>`, secondary key UID `Ethan Bambock <ethan@intergenstudios.com>`. Both sit on the project's own domain — still honors the D1-6 hardening spirit (no personal-provider addresses) while matching the Debian / Fedora / Arch maintainer-identity convention. Publication canonically at `docs/signing-key.md`.
 **Authors:** claude-windows (primary), claude-main (D1-8 disclosure framework + cross-review)
 **PGP contacts (shim-review + disclosure policy):**
  - Primary: Chris (christopher) — public key + fingerprint to be published at keys.openpgp.org + intergenstudios.com/signing-key (post-ceremony)

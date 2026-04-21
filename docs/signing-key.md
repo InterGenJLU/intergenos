@@ -13,10 +13,12 @@ This page is the **canonical fingerprint publication** for the release signing k
 
 | Field | Value |
 |---|---|
-| Role UID | `InterGenOS Release Key` |
+| Primary key UID | `Christopher Cork <chris@intergenstudios.com>` |
+| Secondary key UID | `Ethan Bambock <ethan@intergenstudios.com>` |
 | Algorithm | *(to be published post-ceremony — RSA 4096 or Ed25519)* |
 | Primary fingerprint | *`PENDING — ceremony scheduled for the week of 2026-04-28`* |
-| Release-signing subkey fingerprint | *`PENDING`* |
+| Secondary fingerprint | *`PENDING — Ethan's Phase 1 generation`* |
+| Release-signing subkey fingerprint (primary) | *`PENDING`* |
 | EFI-binary signing cert CN | `InterGenOS Secure Boot CA` |
 | EFI-binary signing key fingerprint | *`PENDING`* |
 | Hardware | Nitrokey 3 NFC (2 units — primary + backup) |
@@ -78,7 +80,7 @@ Once generated, the release key is published to:
 4. **intergenstudios.com** — TLS-served, maintainer-operated domain.
 5. **Signed announcement** — fingerprint announcement signed by the offline root.
 
-The role UID is `InterGenOS Release Key` with `release@intergenstudios.com`. The primary maintainer's personal email does not appear in the UID.
+The primary key UID is `Christopher Cork <chris@intergenstudios.com>`; the secondary key UID is `Ethan Bambock <ethan@intergenstudios.com>`. Person-scoped addresses on the project's own domain — not personal provider addresses (gmail, yahoo, etc.). Matches the Debian / Fedora / Arch maintainer convention.
 
 ## Rollover
 
