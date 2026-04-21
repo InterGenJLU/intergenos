@@ -183,33 +183,62 @@ a contract.
 
 | Host | Tests | Passed | Skipped | Notes |
 |------|-------|--------|---------|-------|
-| Typical dev laptop (no `sbsign`, no libvirtd) | 123 | 115 | 8 | Class 1 integration + post-install + Phase A VM tier skip; Classes 2 / 2b / 5 unit tests fully mocked, run anywhere |
-| ubuntu2404 build host (`sbsign` + OVMF available, libvirtd may be inactive) | 123 | 119 | 4 | Phase A VM tier skips when libvirtd stopped; post-install skips absent a real installed target |
-| Inside a Forge-installed InterGenOS target (`/var/lib/intergen/mok/mok.crt` present) | 123 | up to 120 | 3+ | `TestClass1PostInstall` activates and walks the real target |
+| Typical dev laptop (no `sbsign`, no libvirtd) | 129 | 115 | 14 | Class 1 integration + post-install + Phase A VM tier skip + all 6 post-install-integration tests skip (not Forge-installed); Classes 2 / 2b / 5 unit tests fully mocked, run anywhere |
+| ubuntu2404 build host (`sbsign` + OVMF available, libvirtd may be inactive) | 129 | 119 | 10 | Phase A VM tier skips when libvirtd stopped; post-install tier skips absent a Forge-installed runtime (ubuntu2404 isn't InterGenOS) |
+| Inside a Forge-installed InterGenOS target (`/var/lib/intergen/mok/mok.crt` present, target=`/`) | 129 | up to 126 | 3+ | All four post-install integration classes activate and exercise real state |
 
-### Class 1 post-install verification
+### Post-install integration tier
 
-Ships alongside Class 1 integration. The design question both answer:
+Every unit-mocked class has a sibling integration class that runs
+against the *real* installed system rather than mocks. Unit tests prove
+"our probe logic works"; integration tests prove "this actual install
+is in the posture we claim." Both should be green — the split is about
+*what* is being asserted, not *whether* the assertion is true.
 
-* `TestClass1Integration` — "does our signing *logic* work when invoked?" Stages a target, signs it with a test MOK, walks the chain.
-* `TestClass1PostInstall` — "did the actual install produce a correctly-signed target?" Walks a real installed filesystem. Skip-gates on `<target>/var/lib/intergen/mok/mok.crt` existing, which is the authoritative "this is a Forge install" signal.
+Four integration classes:
 
-Point at a different target via `CLASS1_POST_INSTALL_TARGET=/path/to/mount/point`.
+* **`TestClass1Integration`** — "does our signing *logic* work when
+  invoked?" Stages a target, signs it with a test MOK, walks the chain.
+  Runs wherever `sbsign` / `sbverify` / `openssl` are installed.
+  (Shipped alongside Class 1 unit tests in `test_class1_integration.py`.)
+* **`TestClass1PostInstall`** — "did the actual install produce a
+  correctly-signed target?" Walks a real installed filesystem. Skip-
+  gates on `<target>/var/lib/intergen/mok/mok.crt` existing (the
+  authoritative "this is a Forge install" signal). Point at a mounted
+  target via `CLASS1_POST_INSTALL_TARGET=/path/to/mount/point`. (Also
+  in `test_class1_integration.py`.)
+* **`TestClass2PostReboot`** — exercises `class2_runtime_sb_state.run()`
+  against live `/sys/firmware/efi/efivars`. Catches "SB was disabled
+  between install and boot" / "SetupMode leaked back to 1." In
+  `test_post_install_integration.py`.
+* **`TestClass2bPostReboot`** — exercises `class2b_boot_order.run()`
+  against live `efibootmgr`. Catches "entry missing" / "entry exists
+  but not in BootOrder" / "OEM rewrote BootOrder at POST." In
+  `test_post_install_integration.py`.
+* **`TestClass5PostInstall`** — exercises `class5_module_sigs.run()`
+  against live `/proc`. Catches kernel-without-SIG_FORCE + missing
+  trust-anchor keyring + unsigned loaded modules. In
+  `test_post_install_integration.py`.
+
+Classes 2 / 2b / 5 runtime-state probes can only answer their question
+on the live target (they read `/sys` and `/proc`, not a mounted disk).
+`POST_INSTALL_TARGET != /` is intentionally rejected with a clear skip
+reason — there's nothing meaningful to assert against a mounted-but-
+not-booted image.
 
 ## Upcoming
 
-* **Post-install integration tier for Classes 2 / 2b / 5.** Class 1
-  already has the split (`TestClass1PostInstall` activates inside a
-  Forge-installed target and walks the real chain). The equivalent
-  siblings for Classes 2 / 2b / 5 — probing `/sys/firmware/efi/efivars`,
-  `efibootmgr -v`, and `/proc/sys/kernel/module_sig_enforce` against a
-  live InterGenOS system rather than mocks — are the next natural
-  expansion. Ships as three new test classes (one per existing module)
-  gated on Forge-install detection.
 * **Phase A-2 plumbing for `test_grub_check_signatures`** — see the
   Phase A section above. Ships when libvirtd is active on ubuntu2404
   + an installed InterGenOS disk image exists (scheduled
-  Monday/Tuesday install window).
+  Monday/Tuesday install window). Once both land, the skeletons at
+  `test_enforce_refuses_pecoff_kernel` / `test_noenforce_boots_pecoff_kernel`
+  become runnable — grub.cfg write path + serial console capture +
+  log parser for "file has no signature" vs successful kernel handoff.
+* **Class 3 (shim)** remains Deferred unless a specific InterGenOS-
+  controlled property turns up worth asserting. Shim is signed by
+  Fedora / MS, not us — there isn't currently a question Class 3 would
+  answer that the existing shipped classes don't already cover.
 
 See each test module's top docstring for design rationale and the specific
 failure modes it catches.
