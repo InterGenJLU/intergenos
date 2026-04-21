@@ -140,6 +140,40 @@ Files: `class5_module_sigs.py` (module + CLI) +
 `test_class5_module_sigs.py` (26 unit tests; mocks `shutil.which` and
 `subprocess.run` for modinfo, temp-dir proc paths for everything else).
 
+### Phase A-2 — GRUB boot-output parser
+
+Pure text-in, dict-out classifier for grub + early-kernel serial
+captures. Decoupled from VM execution so the failure modes that matter
+most to Phase A (did GRUB refuse the kernel, or did it load?) are
+fixture-testable independently of libvirtd / qemu / swtpm.
+
+Five outcome categories:
+
+* **kernel_loaded** — kernel's own banner (`[    0.000000] Linux
+  version X.Y.Z`) appeared, handoff complete. Even if earlier grub
+  output had warnings, banner presence is proof.
+* **signature_missing** — GRUB's enforce path refused because no
+  signature was attached. The failure mode main's 2026-04-20
+  hypothesis predicts for our PE/COFF-sbsigned kernels under
+  `check_signatures=enforce`.
+* **signature_verify_failed** — signature present but cryptographic
+  verification rejected it (bad sig / invalid / public key not in any
+  loaded keyring).
+* **file_not_found** — GRUB couldn't locate the kernel/initrd at the
+  configured path.
+* **unknown** — no recognized pattern. Returned instead of raising so
+  the caller can capture the raw tail and triage.
+
+Patterns are case-insensitive and intentionally loose — real grub
+output varies across versions. When Phase A-2 empirical runs land, any
+captured output that classifies as `unknown` should be added as a
+fixture under the right outcome to tighten the patterns.
+
+Files: `grub_output_parser.py` (parser; pure stdlib `re` +
+`dataclasses`) + `test_grub_output_parser.py` (17 fixture-driven
+tests). No imports of `subprocess`, `libvirt`, or VM utilities — the
+parser knows nothing about how the text got captured.
+
 ### Phase A — GRUB `check_signatures=enforce` empirical
 
 In flight. Answers: does `enforce` refuse our PE/COFF sbsigned kernel (main's
@@ -183,9 +217,9 @@ a contract.
 
 | Host | Tests | Passed | Skipped | Notes |
 |------|-------|--------|---------|-------|
-| Typical dev laptop (no `sbsign`, no libvirtd) | 129 | 115 | 14 | Class 1 integration + post-install + Phase A VM tier skip + all 6 post-install-integration tests skip (not Forge-installed); Classes 2 / 2b / 5 unit tests fully mocked, run anywhere |
-| ubuntu2404 build host (`sbsign` + OVMF available, libvirtd may be inactive) | 129 | 119 | 10 | Phase A VM tier skips when libvirtd stopped; post-install tier skips absent a Forge-installed runtime (ubuntu2404 isn't InterGenOS) |
-| Inside a Forge-installed InterGenOS target (`/var/lib/intergen/mok/mok.crt` present, target=`/`) | 129 | up to 126 | 3+ | All four post-install integration classes activate and exercise real state |
+| Typical dev laptop (no `sbsign`, no libvirtd) | 146 | 132 | 14 | Class 1 integration + post-install + Phase A VM tier skip + all 6 post-install-integration tests skip (not Forge-installed); Classes 2 / 2b / 5 unit tests + Phase A-2 parser tests fully mocked, run anywhere |
+| ubuntu2404 build host (`sbsign` + OVMF available, libvirtd may drift inactive) | 146 | 136 | 10 | Phase A VM tier skips when libvirtd stopped; post-install tier skips absent a Forge-installed runtime |
+| Inside a Forge-installed InterGenOS target (`/var/lib/intergen/mok/mok.crt` present, target=`/`) | 146 | up to 143 | 3+ | All four post-install integration classes activate and exercise real state |
 
 ### Post-install integration tier
 
