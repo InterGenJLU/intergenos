@@ -28,7 +28,7 @@ concrete files in this directory; the others are the planned shape.
 | Class | Question answered | Status |
 |-------|-------------------|--------|
 | 1 | Does our signing chain (MOK -> grub -> kernel) verify end-to-end against the MOK cert? | **Shipped** (`class1_chain_verify.py` + two test modules) |
-| 2 | Post-reboot: is Secure Boot actually enabled, and did our UEFI BOOT entry register? | Planned (consumes `bootloader.py:189` TODO) |
+| 2 | Post-reboot: is Secure Boot actually enabled + PK-enrolled (not Setup Mode)? | **Shipped** (`class2_runtime_sb_state.py` + test module); boot-order sub-probe still planned |
 | 3 | Shim-specific (signed by Fedora/MS, not us) | Deferred |
 | 4 | (reserved) | Deferred |
 | 5 | Kernel module signatures (`MODULE_SIG`, not PE/COFF) | Planned |
@@ -45,6 +45,32 @@ concrete files in this directory; the others are the planned shape.
 * `test_class1_integration.py` — 4 integration tests; real `openssl` +
   `sbsign` + `sbverify` against a staged target root. Skip-gates on the tools
   being installed and on the `TEST_EFI_BINARY` fixture being readable.
+
+### Class 2 — runtime Secure Boot state
+
+Asserts the running system is in the locked-down posture the signing chain
+claimed. Two required probes + one supplementary:
+
+* **SecureBoot** EFI variable must equal `1` (SB enforcement on).
+* **SetupMode** EFI variable must equal `0` (PK enrolled; firmware not
+  accepting new platform keys). `SetupMode=1` means SB is nominally on but
+  the firmware is unlocked, so it would silently accept a new PK — which
+  defeats tamper resistance.
+* `mokutil --sb-state` — supplementary user-space cross-check; may disagree
+  with the EFI variable if the shim/MOK database has desynced from the
+  firmware. Skips cleanly when `mokutil` isn't installed.
+
+Files: `class2_runtime_sb_state.py` (module with CLI) +
+`test_class2_runtime_sb_state.py` (19 unit tests; mocks efivars via temp
+dir + `ATTR_HEADER` + 1 byte payload, mocks `mokutil` via `subprocess.run`).
+
+Reading a real efivars variable normally requires root. The CLI returns a
+clean "permission denied" result rather than raising, so a non-root dev
+can still run shape-tests. Point at a mock efivars tree via:
+
+```bash
+python3 -m installer.tests.class2_runtime_sb_state --efivars-dir /tmp/mock
+```
 
 ### Phase A — GRUB `check_signatures=enforce` empirical
 
@@ -89,9 +115,9 @@ a contract.
 
 | Host | Tests | Passed | Skipped | Notes |
 |------|-------|--------|---------|-------|
-| Typical dev laptop (no `sbsign`, no libvirtd) | 55 | 47 | 8 | Class 1 integration + post-install + Phase A VM tier skip |
-| ubuntu2404 build host (`sbsign` + OVMF available, libvirtd may be inactive) | 55 | 51 | 4 | Phase A VM tier skips when libvirtd stopped; post-install skips absent a real installed target |
-| Inside a Forge-installed InterGenOS target (`/var/lib/intergen/mok/mok.crt` present) | 55 | up to 52 | 3+ | `TestClass1PostInstall` activates and walks the real target |
+| Typical dev laptop (no `sbsign`, no libvirtd) | 74 | 66 | 8 | Class 1 integration + post-install + Phase A VM tier skip; Class 2 unit tests fully mocked, run anywhere |
+| ubuntu2404 build host (`sbsign` + OVMF available, libvirtd may be inactive) | 74 | 70 | 4 | Phase A VM tier skips when libvirtd stopped; post-install skips absent a real installed target |
+| Inside a Forge-installed InterGenOS target (`/var/lib/intergen/mok/mok.crt` present) | 74 | up to 71 | 3+ | `TestClass1PostInstall` activates and walks the real target |
 
 ### Class 1 post-install verification
 
@@ -104,12 +130,13 @@ Point at a different target via `CLASS1_POST_INSTALL_TARGET=/path/to/mount/point
 
 ## Upcoming
 
-* **Class 2** — post-reboot UEFI boot-order + runtime SB-state verification.
-  Consumes `installer/backend/bootloader.py:189` TODO ("did UEFI boot order
-  include InterGenOS entry post-reboot?"). Host-testable via `/sys/firmware/efi/efivars`
-  + `mokutil --sb-state`.
+* **Class 2b — UEFI boot-order verification** (originally bundled with
+  Class 2, now split). Consumes `installer/backend/bootloader.py:189`
+  TODO: "did the installer actually register an InterGenOS entry in the
+  UEFI boot order?" Implementation probes via `efibootmgr` output parsing
+  + cross-check against `Boot####` EFI variables.
 * **Class 5** — kernel module signatures (`MODULE_SIG`, not the PE/COFF path
-  Class 1 walks). Deferred until Class 2 ships.
+  Class 1 walks). Deferred until Class 2b ships.
 
 See each test module's top docstring for design rationale and the specific
 failure modes it catches.
