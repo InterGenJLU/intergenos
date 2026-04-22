@@ -4,7 +4,7 @@
 
 InterGenOS puts the user in control of their own machine. Every package is compiled from source with deliberate choices. Every design decision serves one purpose: giving people a system they understand, can modify, and can trust.
 
-The local AI assistant doesn't just help you use your system — it helps you understand and secure it. Hardware-detected tiers ensure it runs on everything from a 4GB laptop to a GPU workstation, fully offline. For users who opt in, [Project Glasswing](https://anthropic.com/glasswing) integration brings Anthropic's vulnerability discovery capabilities directly to the desktop — scan, harden, and audit your system with the same AI that found zero-days in OpenBSD and the Linux kernel.
+**InterGen**, the local AI assistant, doesn't just help you use your system — it helps you understand and secure it. Hardware-detected tiers run it on everything from a 4 GB laptop to a GPU workstation, fully offline. For users who opt in, [Project Glasswing](https://anthropic.com/glasswing) integration brings Anthropic's vulnerability discovery capabilities directly to the desktop — scan, harden, and audit your system with the same AI that found zero-days in OpenBSD and the Linux kernel.
 
 ![InterGenOS First Boot — GNOME 49 on Wayland](images/FirstBoot_InterGenOS_Revival.png)
 
@@ -45,8 +45,18 @@ The Prime Directive and the security-only alignment above are complementary: a m
 - **Forge Secure Boot chain** — signed shim → MOK-signed GRUB → MOK-signed kernel → `MODULE_SIG_FORCE=y` modules. The user's own MOK key is the trust anchor; the installer generates it per machine. See [SECURITY.md](SECURITY.md).
 - **Test harness** — 74 tests in `installer/tests/` covering installer backend, MOK validation, and Class 1 signing-chain verification; Phase A scaffold for GRUB `check_signatures=enforce` empirical validation.
 - **Extra tier** — Node.js, Google Chrome, VS Code, and Claude Code (proprietary packages fetched transparently via pkm)
-- **Tiered local AI assistant** — Hardware-detected, fully offline: llama.cpp, whisper.cpp, Piper TTS
+- **InterGen** — tiered local AI assistant with permission-gated tool calling, D-Bus activation, and a local LLM/voice stack (llama.cpp, whisper.cpp, Piper TTS). Hardware-detected, fully offline.
 - **Project Glasswing integration** — AI-driven vulnerability scanning, system hardening, and security auditing via Anthropic API (opt-in, runtime-gated)
+
+## Meet InterGen
+
+**Meet InterGen — your onboard AI assistant.** Fully offline, hardware-aware, and built to understand the specific machine it's running on. At `intergen setup` time, InterGen detects your CPU, RAM, and GPU, then picks an LLM and quantization appropriate to the machine — from a 4 GB laptop on up to a GPU workstation. No cloud, no accounts, no round-trip latency.
+
+What separates InterGen from a generic local-LLM wrapper is the permission model. Every tool call is treated as privileged: the default escalation mode is `ask`, requiring user confirmation before any action that modifies system state. Tool signatures are pinned against drift between upgrades. A separate audit log captures every tool invocation for after-the-fact review. The AI is a system component, not a hole in it.
+
+For users who opt in, [Project Glasswing](https://anthropic.com/glasswing) integration brings Anthropic's vulnerability discovery capabilities to the desktop — scan, harden, and audit your system with the same AI that found zero-days in OpenBSD and the Linux kernel. Glasswing is the one place InterGen reaches across the network; everything else stays local by default.
+
+See `intergen(1)` for the full command surface and `/etc/intergen/config.yml` for the default configuration.
 
 ## Tools
 
@@ -54,6 +64,7 @@ The Prime Directive and the security-only alignment above are complementary: a m
 |------|---------|
 | `pkm` | Package manager — install, remove, search, verify, depends |
 | `forge` | System installer — partition, deploy archives, configure, boot |
+| `intergen` | Natural-language CLI to the InterGen AI assistant daemon |
 | `igos-build` | Build system — source to archives with dependency resolution |
 | `blfs-query` | BLFS database query tool — deps, gaps, chain-cost, versions, meson-flags, meson-audit |
 | `populate-meson-db` | Meson feature database populator — parses options from source tarballs |
@@ -153,6 +164,7 @@ Items actively in flight or planned before v1.0:
 - **35B AI tier scoping** — evaluating the 35-billion-parameter local-assistant tier for high-end hardware.
 - **NVIDIA driver-open packaging** — fetch-helper approach for the GPL-compliant NVIDIA open modules.
 - **Dual-boot Zephyrus playbook** — tested alongside-Windows install flow on shared hardware.
+- **Switchable desktop environments** — v1 ships GNOME on Wayland; KDE Plasma, XFCE, and other Wayland-capable desktops planned post-v1, with the per-tier architecture already supporting the split.
 - **Security Hall of Fame** — researcher acknowledgment page paired with the signing-key publication.
 
 ## History
