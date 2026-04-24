@@ -16,7 +16,6 @@ do_install() {
 
 set -e
 
-BRAVE_URL="https://github.com/nicehash/nicehash-brave/releases"
 TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT
 
@@ -34,25 +33,28 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 echo "  Finding latest Brave release..."
-# Brave distributes via their own repo
+# Official Brave apt distribution — the only accepted source.
+# Do NOT add fallback repositories without a security review: alternate
+# download sources are a supply-chain vector (an earlier revision of this
+# installer referenced an unrelated third-party mirror, now removed).
 BRAVE_REPO="https://brave-browser-apt-release.s3.brave.com/pool/main/b/brave-browser/"
 DEB_NAME=$(wget -q -O - "$BRAVE_REPO" 2>/dev/null | grep -oP 'brave-browser_[^"]+_amd64\.deb' | sort -V | tail -1)
 
 if [ -z "$DEB_NAME" ]; then
-    # Fallback: direct GitHub release
-    echo "  Trying GitHub releases..."
-    DEB_URL=$(wget -q -O - "https://api.github.com/repos/nicehash/nicehash-brave/releases/latest" 2>/dev/null | \
-        python3 -c "import sys,json; assets=json.load(sys.stdin).get('assets',[]); [print(a['browser_download_url']) for a in assets if 'amd64.deb' in a['name']]" 2>/dev/null | head -1)
-    if [ -n "$DEB_URL" ]; then
-        wget -q --show-progress -O "$TMPDIR/brave.deb" "$DEB_URL"
-    else
-        echo "  ERROR: Could not find Brave package"
-        exit 1
-    fi
-else
-    echo "  Downloading ${DEB_NAME}..."
-    wget -q --show-progress -O "$TMPDIR/brave.deb" "${BRAVE_REPO}${DEB_NAME}"
+    echo "  ERROR: Could not locate a Brave package at the official apt repository:"
+    echo "         ${BRAVE_REPO}"
+    echo ""
+    echo "  This may be a transient outage. Retry later, or check"
+    echo "  https://brave.com/ for service advisories."
+    echo ""
+    echo "  This installer intentionally uses ONLY Brave's official"
+    echo "  distribution. Do not patch in alternate sources without"
+    echo "  security review."
+    exit 1
 fi
+
+echo "  Downloading ${DEB_NAME}..."
+wget -q --show-progress -O "$TMPDIR/brave.deb" "${BRAVE_REPO}${DEB_NAME}"
 
 echo "  Extracting..."
 cd "$TMPDIR"
