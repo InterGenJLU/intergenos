@@ -660,4 +660,68 @@ drift begins.
 
 ---
 
+## 16. Off-system asset class — fleet-bot avatars (scoped exception)
+
+The visual language defined in sections 1-15 governs every asset that
+ships *with* InterGenOS or appears on systems running it. A small
+number of assets exist outside this scope and are permitted to relax
+specific rules.
+
+### Scope
+
+This exception applies only to **avatars for fleet-bot GitHub
+accounts** (accounts in the `intergenos-<llm>` namespace, used so
+AI contributors render with profile-link attribution on commits — see
+canonical 09 for the trailer-format and account-naming convention).
+These avatars live on github.com profile pages, not on InterGenOS
+systems, and are therefore an off-system asset class.
+
+### What's permitted
+
+A fleet-bot avatar may incorporate a stylized vendor-symbolic motif
+(the visual icon associated with the LLM the bot represents) — for
+example, the DeepSeek whale on the `intergenos-deepseek` avatar — even
+though section 13 forbids copying and mascots in on-system assets.
+
+### What's required
+
+The vendor motif must be embedded inside an InterGen-anchored
+composition, specifically the **IGS favicon ring**: a thick bright
+ECG-blue (`#0099FF`) circular ring framing a deep dark inner disk.
+The vendor motif appears as an off-white silhouette inside the dark
+disk. Background outside the ring is the void (`#050810`).
+
+This anchors the asset to InterGenOS's identity even while it carries
+vendor recognition for attribution clarity.
+
+### What still applies
+
+- ECG-blue ring color (sections 4 and 8)
+- Off-white treatment for the vendor motif
+- No 3D, no photorealism, no gradients on the silhouette itself
+- No text or letters
+- The mark must read cleanly at GitHub avatar display sizes (40-80px)
+
+### What does not apply
+
+- The pulse motif requirement (the ring composition substitutes for
+  the pulse as the identity anchor in this asset class)
+- The "no mascots" taboo (a stylized whale or other vendor icon is
+  permitted as the centerpiece)
+- The icon system's stroke-vs-fill rules (silhouettes are filled by
+  necessity)
+
+### Catalog
+
+| GitHub account          | Vendor motif                | First registered |
+|-------------------------|-----------------------------|------------------|
+| `intergenos-deepseek`   | DeepSeek's whale silhouette | 2026-04-28       |
+
+Future fleet-bot avatars added to this catalog must follow the same
+ring-composition pattern. If a future LLM has no recognizable vendor
+icon, fall back to a generic InterGen-anchored mark (the favicon
+itself with no centerpiece).
+
+---
+
 *The pulse is the signal. The signal is the system. The system is yours.*
