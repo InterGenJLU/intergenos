@@ -32,7 +32,7 @@
 #define DEFAULT_H   720
 #define TARGET_FPS  60
 
-#define FONT_PATH   "/home/christopher/.local/share/fonts/Inter-Bold.otf"
+#define FONT_PATH   "/usr/share/fonts/inter/Inter-Bold.otf"
 
 /* Glow vertical extent in pixels (at 1080p) — scales with resolution */
 #define GLOW_RADIUS_1080 14
