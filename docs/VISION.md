@@ -97,40 +97,44 @@ Pick your experience at login. Not a dropdown afterthought — a first-class fea
 
 ### 5. Tiered Local AI Assistant
 
-Hardware-detected, fully local, no cloud. The AI helps you learn Linux — it doesn't hide it from you.
+Hardware-detected, fully local, no cloud. Text-only by design — the AI helps you learn Linux, it doesn't hide it from you.
 
-| Tier | Hardware | STT | LLM | TTS | Capability |
-|------|----------|-----|-----|-----|------------|
-| 1 | 4GB RAM, any CPU | whisper.cpp tiny (75MB) | Qwen3-0.6B Q4 (397MB) | Piper | Text + basic voice commands |
-| 2 | 8GB RAM, 4+ cores | whisper.cpp base (142MB) | Qwen3-1.7B Q4 (1.3GB) | Piper | Full voice assistant |
-| 3 | 16GB+ RAM, discrete GPU | whisper.cpp medium (1.5GB) | Qwen3-8B+ Q4 (4.9GB+) | Kokoro | Full JARVIS-class experience |
+| Tier | Hardware | LLM | Capability |
+|------|----------|-----|------------|
+| 1 | 4GB RAM, any CPU | Qwen3-0.6B Q4 (397MB) | Lightweight assistant — answers, simple commands |
+| 2 | 8-15GB RAM, 4+ cores | Qwen3-1.7B Q4 (1.3GB) on CPU; Qwen3-9B Q4 with discrete GPU | Multi-turn reasoning, file analysis, package management |
+| 3 | 16GB+ RAM, discrete GPU | Qwen3-9B+ Q4 (4.9GB+) | Full local-AI capabilities — long-context reasoning, complex orchestration |
 
 **Key design decisions:**
 - Installer detects hardware tier automatically
 - AI is an optional service — power users can disable it entirely
-- whisper.cpp for all tiers (replaces Vosk — better accuracy, same team as llama.cpp, simpler build)
-- Piper TTS for Tier 1-2, Kokoro for Tier 3
 - CPU inference via llama.cpp is the baseline (66% of machines lack discrete GPUs)
 - NPUs are NOT used for LLM inference (CPU outperforms NPU on current hardware)
+- Text interaction only — voice was evaluated and dropped to keep the assistant simple and predictable
 
 **AI packages (new "ai" tier):**
-- espeak-ng, llama.cpp, whisper.cpp, piper-tts — built from source
+- llama.cpp — built from source
 - InterGen application — D-Bus service with CLI, GNOME Shell extension, hardware detection
-- Model management — automatic tier detection, download from Hugging Face or VPS mirror
-- Full integration plan: [AI Integration Plan](research/ai_integration/intergen-ai-integration-plan-2026-04-08.md)
+- Model management — automatic tier detection, download from Hugging Face or source mirror
 
-### 5b. Project Glasswing Integration
+### 5b. InterGen Sentinel — Pluggable Security Scanning
 
-Anthropic's [Project Glasswing](https://anthropic.com/glasswing) uses Claude Mythos Preview for AI-driven vulnerability discovery at scale — finding zero-days in OpenBSD, FFmpeg, and Linux kernel that decades of manual review missed.
+InterGen Sentinel is the security-scanning layer for the local assistant: a vendor-neutral, pluggable provider chain that classifies installed packages, configurations, and runtime activity for known and emerging risks.
 
-InterGenOS integrates Glasswing capabilities through the `intergen-glasswing` package:
-- `intergen scan` — scan installed packages for known vulnerabilities
-- `intergen harden` — AI-guided system hardening recommendations
+**Default chain (always available, fully local):**
+- `Local-Rules` — rule-based classifier (CVE feeds, known-bad-pattern matchers, supply-chain checks)
+- `Local-Qwen` — local-LLM-backed safety review using the same tier model already loaded for the AI assistant
+
+**Optional cloud providers (opt-in, off by default):** Glasswing-Anthropic, Gemini-Google, CoPilot-Microsoft, ChatGPT-OpenAI, Grok-xAI, DeepSeek. Each provider is a discrete plug-in; users select zero or more, and credentials are stored in GNOME Keyring (libsecret) — never plaintext.
+
+**Commands:**
+- `intergen scan` — scan installed packages for known vulnerabilities (default chain)
+- `intergen harden` — AI-guided system hardening recommendations (default chain plus any opt-in providers)
 - `intergen audit` — full security audit of the running system
 
-**How it aligns with the PRIME DIRECTIVE:** The AI doesn't just find vulnerabilities — it explains what they are, why they matter, and how to fix them. Users understand their security posture, not just their system configuration.
+**Design rationale:** The assistant doesn't just find vulnerabilities — it explains what they are, why they matter, and how to fix them. Users understand their security posture, not just their system configuration. The vendor-neutral provider chain means the project doesn't bind itself to any single security ecosystem; users keep control of where their data flows.
 
-**Availability:** The Glasswing module is always installed. Functionality activates at runtime when internet and an Anthropic API key are configured. Systems without an API key operate normally — the local AI assistant works fully offline.
+**Availability:** The Sentinel module is always installed. The default Local-Rules + Local-Qwen chain works fully offline. Cloud providers activate only when explicitly opted in and credentials are configured.
 
 ### 6. The AI Teaches, Not Hides
 
@@ -219,7 +223,7 @@ A polished, modern installation experience that reflects InterGenOS's philosophy
 - **Build/test:** KVM VMs with qcow2 snapshots
 - **Development drive:** `/mnt/intergenos` (466GB ext4)
 - **Future:** Dedicated NVMe over USB (1TB, ordered)
-- **Version control:** Git (github.com/InterGenOS)
+- **Version control:** Git (github.com/InterGenJLU)
 
 ---
 
@@ -254,7 +258,7 @@ Full research archives in [docs/research/](research/INDEX.md) (65+ documents)
 9. ☑ 5-distro kernel convergence (Ubuntu, Fedora, Arch, Debian, openSUSE)
 10. ☑ 4-LLM code review + 77-issue audit remediation
 11. ☐ Bare metal boot (HP Laptop 14-dq1xxx — kernel config ready, USB image pending)
-12. ☐ Custom installer — GUI (GTK4, DeepSeek proposal reviewed)
+12. ☐ Custom installer — GUI (GTK4 + libadwaita)
 13. ☐ First-boot animation (ECG heartbeat pulse + text sequence, SDL → DRM/KMS)
 14. ☐ FLUX.2-generated branding (logo, GRUB, Plymouth, GDM, wallpaper)
 15. ☐ VPS package mirror (pre-built archives for pkm download)
@@ -262,7 +266,7 @@ Full research archives in [docs/research/](research/INDEX.md) (65+ documents)
 17. ☐ Application roadmap Phase 2 (LibreOffice, VLC, Thunderbird, GIMP, Inkscape, Firefox)
 18. ☐ Multi-DE with config isolation (KDE Plasma, COSMIC)
 19. ☐ AI Tier 1 integration (text-based assistant)
-20. ☐ AI Tier 2 integration (voice — adapted from JARVIS)
+20. ☐ InterGen Sentinel security scanning (Local-Rules + Local-Qwen default; opt-in cloud providers)
 21. ☐ First public release + community announcement
 
 ---

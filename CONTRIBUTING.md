@@ -39,7 +39,7 @@ Follow the BLFS 13.0 book for build instructions. Use `DESTDIR="$DESTDIR"` for a
 
 ### Security Standards
 
-InterGenOS is built to meet the security standards required by Anthropic's [Project Glasswing](https://anthropic.com/glasswing) AI-driven vulnerability discovery program. All contributions are subject to security review consistent with those standards.
+InterGenOS is built for hostile-network resilience: the project assumes adversaries have superhuman vulnerability-discovery capability and treats every package, configuration, and code change as potentially within their reach. All contributions are reviewed against current best-practice vulnerability-discovery tooling before merging.
 
 Contributions that introduce any of the following will not be accepted:
 
@@ -48,7 +48,7 @@ Contributions that introduce any of the following will not be accepted:
 - **Privilege escalation vectors** — improper setuid usage, world-writable files in privileged paths, or unsafe default permissions
 - **Feature regressions disguised as fixes** — disabling functionality or removing dependencies to work around build failures rather than resolving the root cause
 
-If Glasswing flags an issue in your contribution, we will work with you to resolve it before merging. Security is not negotiable.
+If our review surfaces an issue in your contribution, we will work with you to resolve it before merging. Security is not negotiable.
 
 ### What We Value
 
