@@ -51,10 +51,10 @@ research/
 # Temporary
 tmp/
 
-# DeepSeek agent persistence (repo-local)
+# AI assistant configuration and editor plugin runtime
+# Host-local developer tooling, not part of distro source
+.claude/
 .deepseek/
-
-# Kilo plugin runtime (host-local development tooling — fleet-tooling moved to ~/intergenos/fleet-tooling/kilo/)
 .kilo/
 .kilocode/
 kilo.json.fragment
