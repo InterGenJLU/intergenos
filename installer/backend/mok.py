@@ -5,7 +5,7 @@ provides EFI binary signing via sbsign. The MOK is the user's own key —
 distinct from the InterGenOS distro signing key (which signs the repo
 index and lives on hardware tokens, never installed on user machines).
 
-Per signing_key_custody_2026-04-18.md:
+MOK enrollment lifecycle:
 - Each install generates a fresh MOK keypair stored under /var/lib/intergen/mok/.
 - Public cert is queued for enrollment via `mokutil --import`.
 - Enrollment completes at first boot when the user runs MokManager

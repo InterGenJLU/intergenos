@@ -392,7 +392,7 @@ class TestHardwareDetector(unittest.TestCase):
         detector = HardwareDetector()
         tier = detector.detect()
 
-        # This laptop: 15.3 GB RAM, Intel iGPU (CPU-only Tier 2 → 2B)
+        # expected on tier-2 hardware (~15GB RAM, integrated graphics, CPU-only inference); adjust ranges for your host
         self.assertGreater(tier.ram_gb, 10.0)
         self.assertLess(tier.ram_gb, 20.0)
         self.assertEqual(tier.gpu_vendor, "intel")

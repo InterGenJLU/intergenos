@@ -1,4 +1,4 @@
-"""InterGen test client — replaces JARVIS WebSocket client.
+"""InterGen test client — replaces a prior WebSocket-based client implementation.
 
 Sends messages to InterGen via D-Bus (Ask method) or direct Python
 call (for testing without D-Bus daemon running). Returns structured

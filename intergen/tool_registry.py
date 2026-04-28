@@ -1,6 +1,6 @@
 """InterGen tool registry — discovers, registers, and executes tools.
 
-Ported from JARVIS core/tool_registry.py. Simplified: tools are class-based
+Ported from a prior internal AI assistant project. Simplified: tools are class-based
 (BaseTool subclasses) rather than module-based, and safety classification
 is built into each tool.
 """

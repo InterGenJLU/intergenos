@@ -14,8 +14,8 @@ sbverify can verify against — exercising the full signing path without
 requiring a live Forge install or a VM boot.
 
 When the host lacks the tools, every test in this module is skipped (not
-failed) so the same suite runs cleanly on laptop + ubuntu2404. Run on
-ubuntu2404 (has sbsign + refind) for actual coverage:
+failed) so the same suite runs cleanly across host classes. Run on hosts
+with sbsign + refind for actual coverage:
 
     python3 -m unittest installer.tests.test_class1_integration -v
 """
@@ -32,7 +32,7 @@ from pathlib import Path
 from installer.tests import class1_chain_verify as c1
 
 
-# Default stand-in PE binary — small, world-readable on ubuntu2404 out of box
+# Default stand-in PE binary — small, world-readable on hosts where /sys is world-readable out of box
 DEFAULT_TEST_EFI = Path("/usr/share/refind/refind/drivers_x64/ext4_x64.efi")
 TEST_EFI = Path(os.environ.get("TEST_EFI_BINARY", str(DEFAULT_TEST_EFI)))
 

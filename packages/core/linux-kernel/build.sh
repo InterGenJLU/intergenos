@@ -8,7 +8,8 @@
 # IMPORTANT: Kernel configuration requires a .config file.
 # Use 'make menuconfig' or copy a known-good config to .config
 # before building. The build system does NOT provide a default
-# kernel config — this is deliberate per the PRIME DIRECTIVE.
+# kernel config — this is deliberate; the kernel config is a
+# user-owned decision.
 
 configure() {
     make mrproper

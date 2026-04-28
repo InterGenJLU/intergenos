@@ -12,7 +12,7 @@
 #   - Build logs written to /mnt/intergenos/build/logs/
 #
 # Usage:
-#   From the host: ssh christopher@192.168.122.69 'bash /mnt/intergenos/scripts/toolchain-build.sh'
+#   From the host: ssh <user>@<build-vm> 'bash /mnt/intergenos/scripts/toolchain-build.sh'
 #   Or inside VM:  bash /mnt/intergenos/scripts/toolchain-build.sh
 
 # NOTE: Do NOT use 'set -e' — it interacts badly with piping and

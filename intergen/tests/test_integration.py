@@ -192,7 +192,7 @@ class TestDBusDaemon(unittest.TestCase):
         status = json.loads(daemon.status())
         self.assertTrue(status["running"])
         self.assertIsNotNone(status["tier"])
-        self.assertEqual(status["tier"]["level"], 2)  # This laptop
+        self.assertEqual(status["tier"]["level"], 2)  # expected on a typical 16GB-class development host
 
         tier_info = json.loads(daemon.get_tier())
         self.assertIn("level", tier_info)
@@ -210,30 +210,33 @@ class TestCLI(unittest.TestCase):
 
     def test_status(self):
         import subprocess
+        repo_root = Path(__file__).resolve().parents[2]
         result = subprocess.run(
             [sys.executable, "-m", "intergen.cli", "status"],
             capture_output=True, text=True, timeout=10,
-            cwd="/home/christopher/intergenos",
+            cwd=str(repo_root),
         )
         self.assertEqual(result.returncode, 0)
         self.assertIn("InterGen Status", result.stdout)
 
     def test_tier(self):
         import subprocess
+        repo_root = Path(__file__).resolve().parents[2]
         result = subprocess.run(
             [sys.executable, "-m", "intergen.cli", "tier"],
             capture_output=True, text=True, timeout=10,
-            cwd="/home/christopher/intergenos",
+            cwd=str(repo_root),
         )
         self.assertEqual(result.returncode, 0)
         self.assertIn("Hardware Tier", result.stdout)
 
     def test_tools(self):
         import subprocess
+        repo_root = Path(__file__).resolve().parents[2]
         result = subprocess.run(
             [sys.executable, "-m", "intergen.cli", "tools"],
             capture_output=True, text=True, timeout=10,
-            cwd="/home/christopher/intergenos",
+            cwd=str(repo_root),
         )
         self.assertEqual(result.returncode, 0)
         self.assertIn("run_command", result.stdout)

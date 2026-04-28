@@ -1,7 +1,7 @@
 """InterGen MCP client — bridges external MCP servers into the tool pipeline.
 
-Ported from JARVIS core/mcp_client.py. Connects to MCP servers via
-subprocess, discovers tools, validates with Glasswing security, and
+Ported from a prior internal AI assistant project. Connects to MCP servers via
+subprocess, discovers tools, validates with Sentinel security, and
 registers with the tool registry.
 """
 
@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from intergen.interfaces.mcp import (
-    GlasswingGuardInterface, MCPClientInterface, MCPServerConfig,
+    SentinelGuardInterface, MCPClientInterface, MCPServerConfig,
     MCPToolInfo, MCPTrustTier,
 )
 from intergen.interfaces.types import ToolResult, ToolSchema, SafetyTier
@@ -32,9 +32,9 @@ class MCPClient(MCPClientInterface):
     """Connects to MCP servers and bridges their tools into InterGen."""
 
     def __init__(self, tool_registry: ToolRegistry,
-                 guard: GlasswingGuard | None = None):
+                 guard: SentinelGuard | None = None):
         self._registry = tool_registry
-        self._guard = guard or GlasswingGuard()
+        self._guard = guard or SentinelGuard()
         self._servers: dict[str, _MCPServerConnection] = {}
 
     def start(self, servers: dict[str, MCPServerConfig]) -> None:
@@ -215,7 +215,7 @@ class _MCPServerConnection:
         return self._process is not None and self._process.poll() is None
 
 
-class GlasswingGuard(GlasswingGuardInterface):
+class SentinelGuard(SentinelGuardInterface):
     """Security layer for MCP interactions.
 
     Implements OWASP MCP Top 10 mitigations:

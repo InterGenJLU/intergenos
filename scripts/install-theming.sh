@@ -4,9 +4,9 @@
 # Runs INSIDE the chroot (or mounted image). Installs from pre-downloaded
 # assets at /mnt/intergenos/assets/theming/ — NO network required.
 #
-# GLASSWING: No third-party install.sh scripts are executed. All themes
-# are installed by direct file extraction and copy. This eliminates the
-# risk of running unaudited code from theme authors with root privileges.
+# Security: no third-party install.sh scripts are executed. All themes are
+# installed by direct file extraction and copy. This eliminates the risk of
+# running unaudited code from theme authors with root privileges.
 #
 # Pre-requisite: run download-theming.sh on the host first.
 # Called by create-image.sh or can be run standalone inside the chroot.

@@ -1,7 +1,7 @@
 """InterGen test grader — assertion evaluation engine.
 
 Evaluates test assertions against actual responses and produces
-structured results. Ported from JARVIS test_suite_v3/grader.py.
+structured results. Ported from a prior internal AI assistant project.
 """
 
 from __future__ import annotations

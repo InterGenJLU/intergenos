@@ -6,7 +6,7 @@ Every run produces a timestamped output directory:
     log.jsonl     — per-turn structured logs with assertions
     summary.txt   — human-readable report
 
-Ported from JARVIS test_suite_v3/runner.py. Adapted for D-Bus/direct mode.
+Ported from a prior internal AI assistant project. Adapted for D-Bus/direct mode.
 
 Usage:
     python3 -m intergen.tests.runner --mode direct

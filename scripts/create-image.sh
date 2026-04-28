@@ -333,7 +333,7 @@ WPEOF
 log "  WirePlumber startup delay configured"
 
 # Create XDG user directories for the default user
-IMAGE_USER="${IMAGE_USER:-christopher}"
+IMAGE_USER="${IMAGE_USER:-intergenos}"
 if chroot "$MOUNT_POINT" id "$IMAGE_USER" > /dev/null 2>&1; then
     chroot "$MOUNT_POINT" su - "$IMAGE_USER" -c 'xdg-user-dirs-update 2>/dev/null' || true
     log "  XDG user directories created for ${IMAGE_USER}"
@@ -387,7 +387,7 @@ echo "root:${IMAGE_ROOT_PASSWORD}" | chroot "$MOUNT_POINT" chpasswd
 # Password change will be handled by the welcome greeter on first boot.
 
 # Create default user account — override with IMAGE_USER env var
-IMAGE_USER="${IMAGE_USER:-christopher}"
+IMAGE_USER="${IMAGE_USER:-intergenos}"
 IMAGE_USER_PASSWORD="${IMAGE_USER_PASSWORD:-intergenos}"
 if ! chroot "$MOUNT_POINT" id "$IMAGE_USER" > /dev/null 2>&1; then
     chroot "$MOUNT_POINT" useradd -m -G wheel,video,audio,input -s /bin/bash "$IMAGE_USER"
@@ -562,7 +562,7 @@ else
 fi
 
 # Apply Burn My Windows profile for the default user
-IMAGE_USER="${IMAGE_USER:-christopher}"
+IMAGE_USER="${IMAGE_USER:-intergenos}"
 if [ -d "${MOUNT_POINT}/etc/skel/.config/burn-my-windows" ] && \
    chroot "$MOUNT_POINT" id "$IMAGE_USER" > /dev/null 2>&1; then
     mkdir -p "${MOUNT_POINT}/home/${IMAGE_USER}/.config/burn-my-windows/profiles"

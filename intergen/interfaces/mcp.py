@@ -1,4 +1,4 @@
-"""MCP (Model Context Protocol) client interface + Glasswing security."""
+"""MCP (Model Context Protocol) client interface + Sentinel security."""
 
 from __future__ import annotations
 from abc import ABC, abstractmethod
@@ -73,7 +73,7 @@ class MCPClientInterface(ABC):
         """Return status of all MCP servers (connected, tool count, etc.)."""
 
 
-class GlasswingGuardInterface(ABC):
+class SentinelGuardInterface(ABC):
     """Security layer for MCP interactions.
 
     Validates tool descriptions (OWASP MCP02 injection scanning),

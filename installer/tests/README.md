@@ -153,8 +153,8 @@ Five outcome categories:
   version X.Y.Z`) appeared, handoff complete. Even if earlier grub
   output had warnings, banner presence is proof.
 * **signature_missing** — GRUB's enforce path refused because no
-  signature was attached. The failure mode main's 2026-04-20
-  hypothesis predicts for our PE/COFF-sbsigned kernels under
+  signature was attached. The failure mode the hypothesis under test
+  predicts for our PE/COFF-sbsigned kernels under
   `check_signatures=enforce`.
 * **signature_verify_failed** — signature present but cryptographic
   verification rejected it (bad sig / invalid / public key not in any
@@ -176,8 +176,8 @@ parser knows nothing about how the text got captured.
 
 ### Phase A — GRUB `check_signatures=enforce` empirical
 
-In flight. Answers: does `enforce` refuse our PE/COFF sbsigned kernel (main's
-2026-04-20 hypothesis)?
+In flight. Answers: does `enforce` refuse our PE/COFF sbsigned kernel (the
+hypothesis under test)?
 
 * `secboot_vm_profile.py` — throwaway libvirt/QEMU VM helper (OVMF
   secboot + MS VARS + swtpm TPM2 + SMM + q35). CLI: `--check-only`, `--destroy`,
@@ -194,7 +194,7 @@ exists to boot.
 ### Other modules present
 
 * `test_mok.py` — 16 tests for `mok.py` common-name regex + password ASCII
-  guards (M1 + M2 from the 2026-04-20 hardening bundle).
+  guards (M1 + M2 from the security-hardening pass).
 
 ## Skip-gate conventions
 
@@ -217,8 +217,8 @@ a contract.
 
 | Host | Tests | Passed | Skipped | Notes |
 |------|-------|--------|---------|-------|
-| Typical dev laptop (no `sbsign`, no libvirtd) | 146 | 132 | 14 | Class 1 integration + post-install + Phase A VM tier skip + all 6 post-install-integration tests skip (not Forge-installed); Classes 2 / 2b / 5 unit tests + Phase A-2 parser tests fully mocked, run anywhere |
-| ubuntu2404 build host (`sbsign` + OVMF available, libvirtd may drift inactive) | 146 | 136 | 10 | Phase A VM tier skips when libvirtd stopped; post-install tier skips absent a Forge-installed runtime |
+| Host class A (no `sbsign`, no libvirtd) | 146 | 132 | 14 | Class 1 integration + post-install + Phase A VM tier skip + all 6 post-install-integration tests skip (not Forge-installed); Classes 2 / 2b / 5 unit tests + Phase A-2 parser tests fully mocked, run anywhere |
+| Host class B (full libvirtd + OVMF + swtpm stack with `sbsign`; libvirtd may drift inactive) | 146 | 136 | 10 | Phase A VM tier skips when libvirtd stopped; post-install tier skips absent a Forge-installed runtime |
 | Inside a Forge-installed InterGenOS target (`/var/lib/intergen/mok/mok.crt` present, target=`/`) | 146 | up to 143 | 3+ | All four post-install integration classes activate and exercise real state |
 
 ### Post-install integration tier
@@ -263,9 +263,9 @@ not-booted image.
 ## Upcoming
 
 * **Phase A-2 plumbing for `test_grub_check_signatures`** — see the
-  Phase A section above. Ships when libvirtd is active on ubuntu2404
-  + an installed InterGenOS disk image exists (scheduled
-  Monday/Tuesday install window). Once both land, the skeletons at
+  Phase A section above. Ships when libvirtd is active on the build
+  host and an installed InterGenOS disk image exists. Once both land,
+  the skeletons at
   `test_enforce_refuses_pecoff_kernel` / `test_noenforce_boots_pecoff_kernel`
   become runnable — grub.cfg write path + serial console capture +
   log parser for "file has no signature" vs successful kernel handoff.

@@ -28,8 +28,8 @@ exec /usr/bin/python3 -m pkm "$@"
 SHIM
 
     # Default repo configuration — points at the bootstrapped VPS mirror
-    # (Component 1). Components 2 and 3 are tracked under
-    # project_vps_mirror_tracking.md for post-v1.0.
+    # (Component 1). Components 2 and 3 of the source-mirror buildout are
+    # tracked for post-v1.0.
     install -Dm644 /dev/stdin "${DESTDIR}/etc/pkm/repos.conf" << 'REPOS'
 # InterGenOS package-manager repository configuration.
 #

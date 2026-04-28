@@ -284,7 +284,12 @@ def check_library_consistency(remote: Optional[str] = None) -> tuple[bool, str]:
 def main():
     remote = None
     if "--remote" in sys.argv:
-        remote = "christopher@192.168.122.69"
+        idx = sys.argv.index("--remote")
+        # Accept "--remote user@host" form; otherwise fall back to env var
+        if idx + 1 < len(sys.argv) and not sys.argv[idx + 1].startswith("-"):
+            remote = sys.argv[idx + 1]
+        else:
+            remote = os.environ.get("INTERGENOS_REMOTE")
 
     target = f"remote ({remote})" if remote else "local system"
 

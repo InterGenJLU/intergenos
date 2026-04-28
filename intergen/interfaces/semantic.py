@@ -15,14 +15,14 @@ class MatchResult:
 
 
 class SemanticMatcherInterface(ABC):
-    """4-layer semantic matching (ported from JARVIS).
+    """4-layer semantic matching (ported from a prior internal AI assistant project).
 
     Layer 1: Regex/keyword (<1ms) — catches 70-80% deterministically
     Layer 2: Embedding similarity (10-50ms) — nomic-embed-text-v1.5
     Layer 3: LLM tool calling (1-5s) — semantically pruned tool set
     Layer 4: LLM free response (1-3s) — quality gates + fallback
 
-    Thresholds are higher than JARVIS (0.85-0.95 vs 0.55-0.85)
+    Thresholds are higher than the prior implementation (0.85-0.95 vs 0.55-0.85)
     because system commands are dangerous.
     """
 

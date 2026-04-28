@@ -1,6 +1,6 @@
 """InterGen memory manager — user-controlled persistent fact storage.
 
-Ported from JARVIS core/memory_manager.py (Phases 1 + 6 only).
+Ported from a prior internal AI assistant project (Phases 1 + 6 only).
 Deliberately simple: explicit pattern extraction, text search,
 full user transparency, soft deletes. No FAISS, no batch LLM
 extraction, no proactive surfacing.
@@ -10,8 +10,8 @@ The user controls what InterGen remembers:
   "What do you know about me?"
   "Forget about my backup drive"
 
-PRIME DIRECTIVE: the user owns the memory. Transparent, inspectable,
-deletable. No silent profiling.
+Design principle: the user owns the memory — transparent, inspectable,
+deletable, with no silent profiling.
 """
 
 from __future__ import annotations

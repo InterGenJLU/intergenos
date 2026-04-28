@@ -8,7 +8,6 @@ an isolated environment before Monday/Tuesday hardware install.
 Load-bearing question this profile is built to answer:
   Does GRUB `check_signatures=enforce` refuse our PE/COFF sbsigned kernel
   because `enforce` targets GRUB's PGP scheme, not PE-verification?
-  (Hypothesis per claude-main 2026-04-20 16:02Z.)
 
 Scope (what this file provides):
   - check_prerequisites(): host-level precheck for libvirtd/virt-install/OVMF/swtpm
@@ -28,8 +27,8 @@ Prerequisites (check_prerequisites() enforces):
   - /usr/share/OVMF/OVMF_VARS_4M.ms.fd (MS KEK/db populated — we want the
     real MS-signed VARS so we can test against realistic SB policy)
 
-Skip-gate verified: laptop (no libvirtd) -> clean skip; ubuntu2404 (full
-stack: libvirtd active, OVMF secboot + swtpm 0.7.3 + qemu 8.2.2) -> run.
+Skip-gate verified: hosts without libvirtd -> clean skip; hosts with full
+libvirtd+OVMF+swtpm stack -> run.
 
 Usage (standalone CLI for Phase A manual spin-up):
     python3 -m installer.tests.secboot_vm_profile --check-only

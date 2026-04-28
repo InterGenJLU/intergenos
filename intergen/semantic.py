@@ -1,7 +1,7 @@
 """InterGen semantic matcher — 4-layer intent resolution.
 
-Ported from JARVIS core/semantic_matcher.py. Enhanced with:
-- Layer 1: regex/keyword matching (new, not in JARVIS)
+Ported from a prior internal AI assistant project. Enhanced with:
+- Layer 1: regex/keyword matching (new in this implementation)
 - Higher default thresholds (0.90 vs 0.85 — system commands are dangerous)
 - Thread-safe registration via lock
 """

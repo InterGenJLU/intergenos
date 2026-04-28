@@ -1,6 +1,6 @@
 """InterGen event logger and metrics tracker.
 
-Simplified from JARVIS core/event_logger.py. Provides structured event
+Simplified from a prior internal AI assistant project. Provides structured event
 logging to file and in-memory metrics tracking for status reporting.
 """
 

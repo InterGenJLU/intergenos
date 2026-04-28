@@ -12,8 +12,8 @@ Methods:
   Status() -> str (JSON)
   GetTier() -> str (JSON)
 
-This is the skeleton — claude-main will wire it to the conversation
-router once both branches are merged.
+Skeleton — the conversation router wires into this once router work
+lands.
 
 Runs as: systemd user service (intergen.service)
 Requires: dbus-python (or pydbus/dasbus)

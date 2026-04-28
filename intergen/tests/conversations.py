@@ -1,7 +1,7 @@
 """InterGen test conversations — behavioral specifications.
 
 Each conversation is a sequence of turns with assertions.
-Ported concept from JARVIS test_suite_v3/conversations.py.
+Ported concept from a prior internal AI assistant project.
 
 Categories:
   - system_info: hardware, disk, memory, CPU queries

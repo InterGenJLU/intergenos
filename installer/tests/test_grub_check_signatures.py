@@ -1,6 +1,6 @@
 """Empirical test: GRUB `check_signatures=enforce` against PE/COFF sbsigned chain.
 
-Load-bearing question (claude-main 2026-04-20 16:02Z hypothesis):
+Load-bearing question:
   Does GRUB `check_signatures=enforce` refuse to load our PE/COFF
   sbsigned kernel? `enforce` targets GRUB's PGP verifier, which expects
   detached `.sig` companion files — NOT the CMS blocks that sbsign

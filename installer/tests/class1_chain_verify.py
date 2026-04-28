@@ -145,11 +145,10 @@ def verify_grub(target: Path, mok_cert: Path) -> ArtifactResult:
 def verify_kernels(target: Path, mok_cert: Path) -> List[ArtifactResult]:
     """Verify every vmlinuz-* under <target>/boot/.
 
-    Design (per 2026-04-20 owner/main/laptop/windows unanimous vote,
-    Option 2): the kernel PE image is signed at INSTALL time with the
-    user's MOK via bootloader.py's signing loop, not at package build
-    time. The user is the trust anchor, not us — this is HG + PRIME
-    DIRECTIVE alignment (user in control of their own machine).
+    Design rationale: the kernel PE image is signed at INSTALL time with
+    the user's MOK via bootloader.py's signing loop, not at package build
+    time. The user is the trust anchor, not us — the user is in control
+    of their own machine.
 
     Consequences for this function:
       - Correctly reports FAIL against a fresh package archive (kernel

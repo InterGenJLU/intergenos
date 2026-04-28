@@ -1,7 +1,7 @@
 """Model manager — download, verify, and select LLM models.
 
 Downloads GGUF models from Hugging Face (Unsloth quantizations),
-verifies SHA256 integrity (GLASSWING compliance), and tracks
+verifies SHA256 integrity, and tracks
 downloaded models in a JSON manifest.
 
 Model storage: /var/lib/intergen/models/llm/
@@ -193,8 +193,8 @@ class ModelManager(ModelManagerInterface):
     def verify_model(self, model: ModelInfo) -> bool:
         """Verify SHA256 hash of a downloaded model.
 
-        GLASSWING compliance: every model file must pass integrity
-        verification before being loaded into memory.
+        Every model file must pass integrity verification before being
+        loaded into memory.
         """
         if not model.local_path:
             return False

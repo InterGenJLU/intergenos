@@ -1,6 +1,6 @@
 """InterGen safety classifier — command safety tier classification.
 
-Ported from JARVIS skills/system/developer_tools/_safety.py.
+Ported from a prior internal AI assistant project.
 Adapted for InterGenOS system context with stricter defaults.
 
 Three tiers:

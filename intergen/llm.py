@@ -1,6 +1,6 @@
 """InterGen LLM router — local llama.cpp + cloud escalation.
 
-Ported from JARVIS core/llm_router.py. Key differences:
+Ported from a prior internal AI assistant project. Key differences:
 - Uses llama-server HTTP API (not llama-cli binary)
 - Cloud escalation is provider-agnostic (not Anthropic-only)
 - Quality gate integrated into chat() flow
@@ -60,8 +60,8 @@ def build_system_prompt(query_type: str = "general") -> str:
 
     Base prompt (~100 tokens) + one modifier (~30-50 tokens) selected
     by query type. Prior art: classify-then-compose pattern (Rasa CALM,
-    LangChain LLMRouterChain, JARVIS _get_domain_rules). Validated by
-    12 rounds of InterGen testing — irrelevant rules hurt small models.
+    LangChain LLMRouterChain). Validated by 12 rounds of InterGen
+    testing — irrelevant rules hurt small models.
     """
     from datetime import datetime
     now = datetime.now()
@@ -139,7 +139,7 @@ class LLMRouter(LLMInterface):
         Tool calls come as fragmented JSON across SSE chunks.
         Arguments are accumulated and yielded as a single ToolCall.
 
-        CRITICAL (from JARVIS research): Tool calling uses ONLY [system, user]
+        CRITICAL (empirically validated): Tool calling uses ONLY [system, user]
         messages. Conversation history is NOT included in the messages array
         for tool calls — it causes "pattern addiction" where Qwen copies
         tool-calling patterns from history instead of following rules.
@@ -390,7 +390,7 @@ class LLMRouter(LLMInterface):
     ) -> LLMResponse | None:
         """Send tool result back to LLM for human-readable synthesis.
 
-        Includes a dedicated synthesis prompt (ported from JARVIS
+        Includes a dedicated synthesis prompt (ported from a prior
         synth_footer pattern) that instructs the model to present
         results directly without tutorials or filler. Returns None
         on timeout so caller can fall back to template synthesis.

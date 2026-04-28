@@ -7,17 +7,17 @@ homepage: https://github.com/rhboot/shim
 tier: core
 build_style: custom
 install_func: do_install
-# PER signing_key_custody_2026-04-18.md D1-7:
-# We piggyback on Fedora's MS-signed shim for Monday minimum-viable SB.
-# The Fedora shim accepts our MOK at first-boot enrollment via MokManager.
-# Post-Monday parallel track: get our own MS-signed shim through the
-# Microsoft UEFI CA sponsorship process (6-12 weeks; sponsor required).
+# Vendor-pinned shim from Fedora, signed by Microsoft. We piggyback on
+# Fedora's MS-signed shim as a minimum-viable Secure Boot path, since the
+# Fedora shim accepts our MOK at first-boot enrollment via MokManager.
+# A parallel track gets our own MS-signed shim through the Microsoft
+# UEFI CA sponsorship process (typically 6-12 weeks; sponsor required).
 #
-# VENDORED per WC's HG #4+#9 review (channel 21:20):
-# Primary URL is our source mirror (controlled, verified, sha256-locked).
-# Fallback URL is upstream Fedora kojipkgs (used only if mirror is down,
-# emits a build warning if used). Vendoring breaks the dependency on
-# Fedora infrastructure being reachable at build time.
+# Source vendoring rationale: the primary URL is our own source mirror
+# (controlled, verified, sha256-locked). The fallback URL is upstream
+# Fedora kojipkgs and is used only when the mirror is unreachable; using
+# the fallback emits a build warning. Vendoring removes the build-time
+# dependency on Fedora infrastructure being reachable.
 #
 # Source: Fedora's shim-x64 RPM, repackaged. We extract shimx64.efi,
 # mmx64.efi (MokManager), and bootx64.efi from the RPM payload and

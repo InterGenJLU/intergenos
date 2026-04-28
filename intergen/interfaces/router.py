@@ -15,7 +15,7 @@ class RouterInterface(ABC):
     3. LLM tool calling → tool call
     4. LLM free response → text response
 
-    Priority chain (simplified from JARVIS's 18 to 8):
+    Priority chain (simplified from 18 to 8):
     P1: System commands (shutdown, reboot — safety gated)
     P2: Package management (install, remove, search)
     P3: Service management (start, stop, status)

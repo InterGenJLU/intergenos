@@ -1,8 +1,8 @@
 """InterGen compound query decomposer — tier-aware task splitting.
 
 Detects multi-action queries and decomposes them based on hardware tier.
-Ported from JARVIS core/task_planner.py compound detection, enhanced
-with tier-aware thresholds from ADaPT and DAAO research.
+Ported from a prior internal AI assistant project's compound detection,
+enhanced with tier-aware thresholds from ADaPT and DAAO research.
 
 Design:
   - Fast compound detection (regex, no LLM, microseconds)
@@ -29,7 +29,7 @@ _TIER_THRESHOLDS = {
     HardwareTierLevel.TIER_3: 5,   # 35B model: up to 5 compound actions
 }
 
-# Conjunctive phrases that signal compound requests (from JARVIS TaskPlanner)
+# Conjunctive phrases that signal compound requests (from a prior TaskPlanner implementation)
 _COMPOUND_SIGNALS = [
     r"\band\s+then\b",
     r"\band\s+also\b",

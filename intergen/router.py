@@ -1,6 +1,6 @@
 """InterGen conversation router — routes user input to handlers.
 
-Ported from JARVIS core/conversation_router.py (3,782 lines → ~250 lines).
+Ported from a prior internal AI assistant project (3,782 lines simplified to ~250).
 Simplified from 18 priorities to 8. No voice, no conversation windows,
 no multi-user, no task planner. Text-only, system-focused.
 
@@ -313,7 +313,8 @@ class ConversationRouter(RouterInterface):
 
         # Not a memory operation — also try passive extraction
         # (extract facts from natural conversation without explicit "remember")
-        # Skipped for now — only explicit storage per PRIME DIRECTIVE
+        # Skipped for now — explicit-storage-only by design (the user owns
+        # memory; passive extraction is out of scope)
 
         return RouteResult(handled=False)
 

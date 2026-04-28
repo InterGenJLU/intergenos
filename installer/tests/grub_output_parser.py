@@ -18,7 +18,7 @@ Why a standalone parser module:
 Output categories (`boot_outcome` values):
   - `kernel_loaded`: kernel's own banner appeared, handoff complete
   - `signature_missing`: GRUB's enforce path refused due to absent sig
-    (this is the failure mode main's 2026-04-20 hypothesis predicts
+    (this is the failure mode the hypothesis under test predicts
     for PE/COFF-sbsigned kernels under check_signatures=enforce)
   - `signature_verify_failed`: signature present but cryptographic
     verification failed (wrong key, corruption, etc.)

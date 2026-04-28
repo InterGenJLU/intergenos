@@ -6,7 +6,7 @@
 # $IGOS_TARGET for $LFS_TGT). No deviations from the book for temp tools.
 #
 # Usage:
-#   ssh christopher@192.168.122.69 'nohup bash /mnt/intergenos/scripts/temp-tools-build.sh > /mnt/intergenos/build/logs/temp-tools-stdout.log 2>&1 &'
+#   ssh <user>@<build-vm> 'nohup bash /mnt/intergenos/scripts/temp-tools-build.sh > /mnt/intergenos/build/logs/temp-tools-stdout.log 2>&1 &'
 
 # Disable bash hash
 set +h
