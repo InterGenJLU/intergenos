@@ -6,14 +6,13 @@ build/work/
 build/system/
 build/packages/
 build/logs/
-build/sources/*.tar.*
-build/sources/*.tgz
-build/sources/*.zip
-build/sources/*-Cargo.lock
+build/checkpoints/
+build/sources/
 build/*.db
 *.iso
 *.img
 *.img.gz
+*.qcow2
 
 # KVM virtual machines
 vm/*.qcow2
@@ -51,6 +50,14 @@ research/
 
 # Temporary
 tmp/
+
+# DeepSeek agent persistence (repo-local)
+.deepseek/
+
+# Kilo plugin runtime (host-local development tooling — fleet-tooling moved to ~/intergenos/fleet-tooling/kilo/)
+.kilo/
+.kilocode/
+kilo.json.fragment
 
 # External icon-pack binary archives — reference material, not research
 docs/research/**/*.tar.xz
