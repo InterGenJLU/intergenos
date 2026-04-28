@@ -152,8 +152,6 @@ Active development, pre-1.0. Originally built 2015-2016 (build_001 through build
 
 Targeting first bare-metal hardware install on an HP laptop and a dual-boot install on a Zephyrus M16.
 
-**Live development tracker:** [`development-status/TRACKER.md`](development-status/TRACKER.md) — fleet-wide picture of in-flight work, drift findings, owner-architect decisions, and hard-date calendar. Updated continuously as work progresses.
-
 ## Upcoming
 
 Items actively in flight or planned before v1.0:
