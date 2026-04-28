@@ -7,7 +7,7 @@
 ### Why Hybrid?
 - GNOME Shell extension: panel indicator, keyboard shortcuts, always-on-top, blur
 - GTK4/libadwaita app: rich text, code blocks, proper scrolling, theme inheritance
-- D-Bus connects them (proven pattern from ddterm and JARVIS desktop bridge)
+- D-Bus connects them (proven pattern from ddterm and the prior assistant's desktop bridge)
 
 ### Why NOT pure extension?
 - St widgets can't render code blocks, markdown, or rich text
@@ -79,7 +79,7 @@ InterGen GTK4 Chat Panel (standalone app)
         │
         ▼
 InterGen Daemon (Python, systemd user service)
-├── Conversation Router (from JARVIS)
+├── Conversation Router (from prior assistant)
 ├── Semantic Matcher (embeddings)
 ├── LLM Interface (llama.cpp)
 ├── Tool Registry (built-in + MCP)
@@ -97,7 +97,7 @@ InterGen Daemon (Python, systemd user service)
 ## Prior Art Referenced
 - ddterm: hybrid extension + GTK app pattern (most popular GNOME terminal)
 - Floating Mini Panel: draggable panel via Clutter events
-- JARVIS desktop bridge: D-Bus extension pattern
-- JARVIS web UI CSS: color scheme and message styling
+- Prior assistant's desktop bridge: D-Bus extension pattern
+- Prior assistant's web UI CSS: color scheme and message styling
 - Newelle: GTK4/libadwaita AI chat app for GNOME
 - Windows Copilot: sidebar + floating panel dual-mode

@@ -4,7 +4,7 @@
 
 A full systems audit was performed on April 8, 2026 (12,370 lines across 5 parts) and reviewed by ChatGPT. The review identified 4 critical, 4 high-priority, and 3 medium-priority findings. After careful evaluation against the actual codebase, some findings are fully valid, some partially valid, and some don't apply to our architecture. This plan addresses everything that's genuinely actionable.
 
-The driving motivation: InterGenOS currently operates on **implicit correctness** — builds succeed because we happen to run things in the right order, not because the system enforces it. Project Glasswing integration demands **enforced correctness**.
+The driving motivation: InterGenOS currently operates on **implicit correctness** — builds succeed because we happen to run things in the right order, not because the system enforces it. __PROJECT_Sentinel__ integration demands **enforced correctness**.
 
 ---
 
@@ -184,6 +184,6 @@ After each phase:
 
 ---
 
-## Relationship to Glasswing
+## Relationship to Sentinel
 
-Phases 1-3 are prerequisites for submitting InterGenOS to the Claude for Open Source program for Glasswing security scanning. The audit document (384KB, 12,370 lines) provides the baseline. These remediation steps move us from "implicit correctness" to "enforced correctness" — the minimum bar for a Glasswing-class analysis to produce meaningful results rather than flagging known gaps.
+Phases 1-3 are prerequisites for submitting InterGenOS to the Claude for Open Source program for Sentinel security scanning. The audit document (384KB, 12,370 lines) provides the baseline. These remediation steps move us from "implicit correctness" to "enforced correctness" — the minimum bar for a __Sentinel_CLASS__ analysis to produce meaningful results rather than flagging known gaps.

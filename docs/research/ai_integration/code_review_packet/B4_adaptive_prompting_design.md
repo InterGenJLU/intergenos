@@ -65,7 +65,7 @@ optimization — commit d8e0c82).
 
 - **Rasa CALM** — dialog policies selected by intent classification.
 - **LangChain LLMRouterChain** — same pattern: cheap classifier → prompt selection.
-- **JARVIS `_get_domain_rules()`** — our previous project used the same approach
+- **Prior assistant's `_get_domain_rules()`** — a prior internal AI assistant project used the same approach
   for domain rules.
 - **RAG-MCP** — reported 3.2× accuracy improvement when only-relevant tools are
   surfaced. The principle generalizes to rules.

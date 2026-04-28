@@ -101,7 +101,7 @@ No existing installer handles all of these:
 
 1. AI tier detection — hardware profiling → automatic tier recommendation
 2. DE selection as first-class feature — previews, resource estimates, isolated configs
-3. Educational transparency — every step explains what and why (PRIME DIRECTIVE)
+3. Educational transparency — every step explains what and why (Prime Directive)
 4. rEFInd + GRUB + Plymouth — full boot chain branding
 5. Custom package manager integration (igos-pkg, not pacman/apt/dnf)
 6. Future: aarch64 support (Pi and ARM, x86-64 first)

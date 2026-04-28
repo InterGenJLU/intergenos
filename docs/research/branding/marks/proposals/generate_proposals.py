@@ -27,7 +27,7 @@ import cairosvg
 from pathlib import Path
 import shutil
 
-ROOT = Path("/home/christopher/intergenos/research/branding/marks/proposals")
+ROOT = Path("docs/research/branding/marks/proposals")
 
 BG = "#000000"
 BLUE = "#0099FF"
@@ -185,4 +185,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    print("\nThree proposals in /home/christopher/intergenos/research/branding/marks/proposals/")
+    print("\nThree proposals in docs/research/branding/marks/proposals/")

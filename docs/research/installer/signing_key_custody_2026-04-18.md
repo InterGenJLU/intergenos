@@ -4,11 +4,10 @@
 **Status:** All D1 decisions resolved. Ready for first-use when signing-key ceremony schedules.
 
 > **2026-04-21 D1-6 evolution — person-scoped emails adopted.** The original D1-6 decision specified a role-scoped UID (`InterGenOS Release Key` with `release@intergenstudios.com`). This evolved to person-scoped project-domain addresses for consistency with the peer-maintainer model: primary key UID `Christopher Cork <chris@intergenstudios.com>`, secondary key UID `Ethan Bambock <ethan@intergenstudios.com>`. Both sit on the project's own domain — still honors the D1-6 hardening spirit (no personal-provider addresses) while matching the Debian / Fedora / Arch maintainer-identity convention. Publication canonically at `docs/signing-key.md`.
-**Authors:** claude-windows (primary), claude-main (D1-8 disclosure framework + cross-review)
 **PGP contacts (shim-review + disclosure policy):**
  - Primary: Chris (christopher) — public key + fingerprint to be published at keys.openpgp.org + intergenstudios.com/signing-key (post-ceremony)
  - Secondary: Ethan Bambock (peer-constrained 2nd, confirmed 2026-04-20) — PGP keypair generation + fingerprint registration pending Phase 1 of Ethan's onboarding (private scaffold; role policy in `docs/governance/succession.md`)
-**Gating for:** Forge SB first-light install (slipped to Tuesday 2026-04-21 per Chris's 2026-04-20 14:18 UTC post; panel delay)
+**Gating for:** Forge SB first-light install (slipped to Tuesday 2026-04-21; panel delay)
 
 ---
 
@@ -16,13 +15,13 @@
 
 Two-tier key hierarchy with **three distinct keys** (distro GPG, kernel module X.509 ephemeral, EFI binary sign) + an offline root CA. Chris-approved shape. Monday shim strategy: piggyback on Fedora's pre-signed shim with our vendor cert MOK-enrolled at first boot. Post-Monday: parallel track to obtain our own Microsoft-signed shim via Fedora or SUSE sponsorship.
 
-**Hardware: 2× Nitrokey 3 NFC** (D1-2 resolved 2026-04-20 — Nitrokey greenlit post-Erica conversation; HG Rule #7 open-firmware posture was the tiebreaker). ~$140-150 total.
+**Hardware: 2× Nitrokey 3 NFC** (D1-2 resolved 2026-04-20 — Nitrokey greenlit; open-firmware posture was the tiebreaker). ~$140-150 total.
 
 **Kernel module signing: ephemeral per-build** (confirmed unconditionally correct — see §D1-1 Verification). No persistence needed; kernel's embedded pubkey plus MOK on user side covers both in-tree and DKMS paths.
 
 **Distro GPG + EFI-binary X.509: persistent on the hardware token**, certified by an offline root (Tails-generated, paper + 2× LUKS-USB backup in home + bank safe-deposit).
 
-**Compromise disclosure:** two distinct policies — software-vuln framework (claude-main, 48h ack / 14-30-60-90d fix by severity / 90d max embargo) + trust-anchor policy (claude-windows, immediate ack / 6h revocation / simultaneous disclosure / confirmed by evidence).
+**Compromise disclosure:** two distinct policies — software-vuln framework (48h ack / 14-30-60-90d fix by severity / 90d max embargo) + trust-anchor policy (immediate ack / 6h revocation / simultaneous disclosure / confirmed by evidence).
 
 ---
 
@@ -31,7 +30,7 @@ Two-tier key hierarchy with **three distinct keys** (distro GPG, kernel module X
 | # | Question | Decision | Resolved |
 |---|---|---|---|
 | D1-1 | Kernel module-signing key: hardware-pinned or ephemeral-per-build? | **Ephemeral per-build, unconditional.** Kernel's in-tree pubkey embedding + user-side MOK handles all verification paths. | 2026-04-18 |
-| D1-2 | Hardware token: YubiKey 5C NFC vs Nitrokey 3 NFC | **Nitrokey 3 NFC.** HG Rule #7 open-firmware posture tiebreaker. | 2026-04-20 (post-Erica) |
+| D1-2 | Hardware token: YubiKey 5C NFC vs Nitrokey 3 NFC | **Nitrokey 3 NFC.** Open-firmware posture tiebreaker. | 2026-04-20 |
 | D1-3 | Root-key physical custody | **Both.** Home safe + bank safety-deposit box. Geo-redundant recovery. | 2026-04-18 |
 | D1-4 | Touch-to-sign policy | **Split.** Touch required on release-signing subkey; touch disabled on kernel module-signing slot (hundreds of signatures per kernel build is untenable with touch). | 2026-04-18 |
 | D1-5 | Build-host posture | **SPLIT.** Build on igos-build VM (reproducibility + snapshot/rollback). Sign on Chris's workstation directly with token plugged in (no USB passthrough). | 2026-04-18 |
@@ -67,7 +66,7 @@ Two-tier key hierarchy with **three distinct keys** (distro GPG, kernel module X
 - L2573: `CONFIG_SYSTEM_TRUSTED_KEYRING=y`
 - L2917-2923: Full `CONFIG_INTEGRITY*` framework
 
-**Forge SB packaging (claude-main's A6) must add to bring to HG compliance:**
+**Forge SB packaging (A6) must add for security compliance:**
 - `CONFIG_MODULE_SIG_FORCE=y` — reject unsigned modules at runtime (currently signs but doesn't enforce)
 - `CONFIG_SECONDARY_TRUSTED_KEYRING=y` — allow MOK-enrolled keys to chain into module-trust (required for DKMS / NVIDIA on user side)
 
@@ -91,7 +90,7 @@ Not-our-key: **MOK (Machine Chris Key)** — generated per-install by Forge inst
 
 Chris-flagged concern: does ephemeral complicate packaged-install vs build-install logic once we have a mirror repo?
 
-**Verification (cross-confirmed by claude-main 18:50 UTC):**
+**Verification (cross-confirmed):**
 
 Linux kernel build flow with `CONFIG_MODULE_SIG=y` + no explicit `CONFIG_MODULE_SIG_KEY`:
 1. `make` auto-generates `certs/signing_key.pem` at build time (X.509 keypair).
@@ -118,36 +117,36 @@ Linux kernel build flow with `CONFIG_MODULE_SIG=y` + no explicit `CONFIG_MODULE_
 
 ## Options evaluated (final)
 
-Summary tables; full analysis of each in v1 draft (preserved in channel log 17:34:03 UTC).
+Summary tables; full analysis of each in v1 draft.
 
 ### Decided
 
-- **Option 1 (VPS secrets vault with restricted SSH):** REJECTED. Networked key violates HG rule #1.
+- **Option 1 (VPS secrets vault with restricted SSH):** REJECTED. Networked key violates the no-extractable-secrets posture.
 - **Option 2 (Hardware token):** CHOSEN for distro GPG + EFI-binary X.509 keys. Chris picks YubiKey 5C NFC or Nitrokey 3 NFC.
 - **Option 3 (Ephemeral per-build):** CHOSEN for kernel module X.509 key only. Rejected for distro-GPG / EFI-binary keys (breaks MOK continuity).
 - **Option 4 (Offline air-gapped):** CHOSEN for root CA only. Tails-generated, 2× LUKS-USB + paper backup, stored in home + bank safes.
 - **Option 5 (HSM):** DEFERRED to post-v1 upgrade path. Overkill for solo-dev v1; worth revisiting when project has revenue or compliance requirements.
 
-### Comparison matrix (HG-weighted)
+### Comparison matrix (security-weighted)
 
-Extraction-cost criterion weighted 3× per HG rule #1.
+Extraction-cost criterion weighted 3× to reflect the no-extractable-secrets posture.
 
 | Criterion | VPS+SSH | **Hardware Token** | Ephemeral | Air-gapped | HSM |
 |---|:---:|:---:|:---:|:---:|:---:|
-| HG extraction resistance (×3) | 3 | **15** | 15 | 15 | 15 |
+| Extraction resistance (×3) | 3 | **15** | 15 | 15 | 15 |
 | Build-pipeline friction (inv) | 5 | 3 | 4 | 1 | 3 |
 | Key rotation story | 4 | 4 | 1 | 3 | 4 |
 | Solo-dev ops feasibility | 5 | 4 | 3 | 2 | 2 |
 | Upfront cost (inv) | 5 | 4 | 5 | 3 | 1 |
 | Recovery from key loss | 4 | 3 | 5 | 3 | 2 |
 | Signature continuity | 5 | 5 | 1 | 5 | 5 |
-| **HG-weighted total** | 31 | **38** | 34 | 32 | 32 |
+| **Weighted total** | 31 | **38** | 34 | 32 | 32 |
 
 ---
 
 ## Hardware token: Nitrokey 3 NFC (D1-2 resolved 2026-04-20)
 
-Both candidates met HG posture; trade-off summary retained below as decision-record.
+Both candidates met the security posture; trade-off summary retained below as decision-record.
 
 | Dimension | YubiKey 5C NFC | Nitrokey 3 NFC |
 |---|---|---|
@@ -156,10 +155,10 @@ Both candidates met HG posture; trade-off summary retained below as decision-rec
 | Protocols | PIV, OpenPGP, FIDO2, OATH, PKCS#11 | Same, plus Passkey storage |
 | Firmware update | Not updatable (anti-tamper) | Updatable (two-edged sword) |
 | Price | ~$75 | ~$70 |
-| HG Rule #7 (open-source responsibility) | less aligned | **more aligned** |
-| HG Rule #1 (no convenience trade-offs) | mature tooling helps | marginal cost in rougher tooling |
+| Open-source posture | less aligned | **more aligned** |
+| Convenience trade-offs | mature tooling helps | marginal cost in rougher tooling |
 
-**Decision: Nitrokey 3 NFC** (Chris-confirmed 2026-04-20, post-Erica conversation; relayed via claude-main channel post 21:14 UTC). HG Rule #7 open-firmware posture was the tiebreaker — if the threat model assumes superhuman adversaries, the hardware whose firmware we can independently verify is the HG-cleaner choice.
+**Decision: Nitrokey 3 NFC** (Chris-confirmed 2026-04-20). Open-firmware posture was the tiebreaker — if the threat model assumes superhuman adversaries, the hardware whose firmware we can independently verify is the cleaner choice.
 
 Outstanding item: scheduling the signing-key ceremony (brings the Nitrokey order + offline-Tails root CA ceremony forward). Chris pick on timing; no Monday-critical dependency.
 
@@ -208,9 +207,9 @@ Once uploaded, treat the fingerprint as permanent — SKS pool mirrors + Google 
 
 ---
 
-## Disclosure policy (D1-8, combined from claude-main + claude-windows)
+## Disclosure policy (D1-8, combined)
 
-### Software vulnerability disclosure (claude-main's framework)
+### Software vulnerability disclosure
 
 **Acknowledgment SLA: 48 hours.** Triage confirmation within 2 business days.
 
@@ -235,11 +234,11 @@ Once uploaded, treat the fingerprint as permanent — SKS pool mirrors + Google 
 
 **Advisory format:** CVE (via CNA or MITRE assignment), CVSS score, affected versions, mitigation, patch commit, timeline, reporter credit.
 
-### Trust-anchor compromise policy (claude-windows addition)
+### Trust-anchor compromise policy
 
 Distinct from software-vuln: a signing-key compromise is a break in the TRUST ANCHOR, not a patch-able bug. Standard SLA framework does not apply.
 
-**Confirmed compromise definition** (claude-main refinement):
+**Confirmed compromise definition:**
 - (a) evidence of private-key material exposure (exfiltration artifact, device tampering indicator, or credential leak), OR
 - (b) anomalous signature observed in the wild that we did not authorize.
 
@@ -252,10 +251,10 @@ Both require **evidence, not just a claim**. False reports route to standard 48h
 - **Advisory content:** fingerprint of compromised key, first known compromised signature timestamp (if known), any downstream artifacts suspected tampered, replacement key fingerprint, verification instructions, incident timeline.
 - **Rollover mechanics:** new keyring signed by the offline ROOT key. This is why the root is air-gapped — subkey compromise is survivable only if root is still trustworthy.
 
-**HG reasoning:**
-- Rule #1: convenience is never a reason to delay trust-anchor revocation.
-- Rule #9: update infrastructure must be trustworthy; compromised signing key makes the update path itself the attack.
-- Rule #10: if there's any doubt about key integrity, revoke. Better to re-issue 10x unnecessarily than leave users exposed once.
+**Security reasoning:**
+- Convenience is never a reason to delay trust-anchor revocation.
+- Update infrastructure must be trustworthy; a compromised signing key makes the update path itself the attack.
+- If there's any doubt about key integrity, revoke. Better to re-issue 10x unnecessarily than leave users exposed once.
 
 ---
 
@@ -286,7 +285,7 @@ Both require **evidence, not just a claim**. False reports route to standard 48h
      * `scripts/sign-release.sh` (NEW) — invokes `gpg --detach-sign` for pkm repo index; invokes `sbsign` with PKCS#11 URI for GRUB; signs kernel vmlinuz with distro EFI key.
      * Workstation must have token plugged in + PIN unlocked. Touch required on release-signing subkey; touch required on PIV slot 9c (EFI sign). Signing loops are bounded (not module-signing hundreds of times — that's in-VM).
      * Build fails hard if token not present when sign-release.sh runs.
-     * **Signing-window discipline** (claude-main addition 19:12 UTC): treat each signing session as a key ceremony. Close browsers, untrusted dev tools, and non-essential background processes before running `sign-release.sh`. Touch-to-sign prevents a compromised workstation from silently producing signatures, but minimizing concurrent attack surface during the signing window is defense-in-depth. Document as a short pre-sign checklist in `docs/signing-procedure.md`.
+     * **Signing-window discipline:** treat each signing session as a key ceremony. Close browsers, untrusted dev tools, and non-essential background processes before running `sign-release.sh`. Touch-to-sign prevents a compromised workstation from silently producing signatures, but minimizing concurrent attack surface during the signing window is defense-in-depth. Document as a short pre-sign checklist in `docs/signing-procedure.md`.
    - SIGNED ARTIFACTS return to the pipeline via the same handoff channel (signed.tar.xz back to VM's shared location, or scp to build-output dir).
 8. **Document procedure:**
    - `docs/signing-procedure.md`: step-by-step operational runbook.
@@ -295,13 +294,13 @@ Both require **evidence, not just a claim**. False reports route to standard 48h
 9. **Shim integration (Forge):**
    - Bundle Fedora's `shim.efi` in Monday installer.
    - Install-time flow: MOK enrollment prompt → MokManager first-boot → our vendor cert enrolled.
-10. **Test harness coordination** (claude-laptop):
+10. **Test harness coordination:**
     - Class 1 signed-chain verification runs against canonical-key artifacts.
     - Test runs use ephemeral test keys — never touch prod key material.
 
 ---
 
-## Forge SB packaging impact (for claude-main A/B)
+## Forge SB packaging impact (for A/B)
 
 Updated from v1 with final decisions:
 
@@ -349,12 +348,12 @@ Updated from v1 with final decisions:
 - `scripts/build-intergenos.sh` (no current signing step — sign-release.sh will be added)
 
 **Prior Forge SB thread artifacts:**
-- 2026-04-18 14:53:15 UTC: claude-windows Forge SB scope A/B/C/D split
-- 2026-04-18 16:37:51 UTC: claude-laptop permissions-squash v1 + scope clarification (HG governs product, not dev tools)
-- 2026-04-18 17:34:03 UTC: D1 draft v1 posted
-- 2026-04-18 18:20:37 UTC: Chris-decisions Q3/Q5/Q6/Q7/D1-1-8 packet
-- 2026-04-18 18:24:04 + 18:40:44 UTC: claude-windows ELI5 batches 1+2
-- 2026-04-18 18:26:35 UTC: claude-laptop test-harness v1 scope
-- 2026-04-18 18:36:56 UTC: claude-main D1-8 disclosure framework proposal
-- 2026-04-18 18:47:37 UTC: claude-windows Q6 math + D1-1 verification + D1-8 trust-anchor addition
-- 2026-04-18 18:50:31 UTC: claude-main D1 cross-review ack + confirmed-compromise criteria
+- 2026-04-18: Forge SB scope A/B/C/D split
+- 2026-04-18: permissions-squash v1 + scope clarification (security policy governs product, not dev tools)
+- 2026-04-18: D1 draft v1 posted
+- 2026-04-18: Chris-decisions Q3/Q5/Q6/Q7/D1-1-8 packet
+- 2026-04-18: ELI5 batches 1+2
+- 2026-04-18: test-harness v1 scope
+- 2026-04-18: D1-8 disclosure framework proposal
+- 2026-04-18: Q6 math + D1-1 verification + D1-8 trust-anchor addition
+- 2026-04-18: D1 cross-review ack + confirmed-compromise criteria

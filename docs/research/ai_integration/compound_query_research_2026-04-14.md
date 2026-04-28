@@ -32,8 +32,8 @@
 - Each sub-task gets focused context instead of juggling everything
 - More affordable than scaling model size
 
-### JARVIS TaskPlanner (Internal Prior Art)
-**Location:** /home/christopher/jarvis/core/task_planner.py
+### Prior internal TaskPlanner implementation (internal prior art)
+**Location:** <prior-project>/core/task_planner.py
 
 **Key patterns ported:**
 - Fast compound detection via regex (conjunctive phrases: "and then", "after that")

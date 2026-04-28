@@ -133,7 +133,7 @@ Checked the 56-app approved list (`approved_application_list_2026-04-08.md`) aga
 
 ---
 
-## 5. Security Posture (GLASSWING Rule #4)
+## 5. Security Posture
 
 ### Scanned patterns
 - `eval ` in user-controlled contexts: **none**
@@ -147,7 +147,7 @@ Checked the 56-app approved list (`approved_application_list_2026-04-08.md`) aga
 - `/etc/hosts` is set but loopback-only
 - `chroot-config-ch9.sh` references `resolv.conf` only in target-image config (not build-time)
 - LibreOffice's offline build is respected (pre-downloaded externals)
-- **GLASSWING Rule #4 compliance: intact**
+- **Security-posture review: intact**
 
 ### Theming security
 - `install-theming.sh` rewrite (commit `5d39331`) eliminated all third-party `install.sh` execution
@@ -159,7 +159,7 @@ Checked the 56-app approved list (`approved_application_list_2026-04-08.md`) aga
 - `a9325cd` — Removed DNS/network from chroot
 
 ### Verdict
-**Green.** No findings. The discipline around GLASSWING is visible in the codebase.
+**Green.** No findings. Security discipline is visible in the codebase.
 
 ---
 
@@ -194,8 +194,8 @@ CLAUDE.md says "458 package templates". Actual: 645. Should be updated next docs
 ## 7. Documentation Coverage
 
 ### Home drive (authoritative)
-- `/home/christopher/intergenos/research/` — 256 files
-- `/home/christopher/intergenos/docs/lfs-13.0/` — LFS book HTML+PDF, BLFS HTML
+- `docs/research/` — 256 files
+- `docs/lfs-13.0/` — LFS book HTML+PDF, BLFS HTML
 
 ### Build drive (should be code only)
 - `/mnt/intergenos/docs/VISION.md` — 301 lines, fine to have here (project-level doc)

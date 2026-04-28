@@ -8,11 +8,11 @@
 
 ## Guiding Decisions
 
-1. **No Snaps or Flatpaks.** InterGenOS builds from source. We don't have the version mismatch problem they solve. They add bloat, duplicate libraries, and hide how the system works — violates PRIME DIRECTIVE.
+1. **No Snaps or Flatpaks.** InterGenOS builds from source. We don't have the version mismatch problem they solve. They add bloat, duplicate libraries, and hide how the system works — violates Prime Directive.
 
 2. **Proprietary apps via install helpers.** `pkm install-helper <name>` downloads vendor binaries. No proprietary code in our tree.
 
-3. **Ship everything a user needs on day one.** Mint/Pop!_OS model, not Arch model. The PRIME DIRECTIVE says the system should work without hunting for basic tools.
+3. **Ship everything a user needs on day one.** Mint/Pop!_OS model, not Arch model. The Prime Directive says the system should work without hunting for basic tools.
 
 4. **AI tier is the differentiator.** No other distro ships local AI. This is why someone chooses InterGenOS over Mint.
 
@@ -59,7 +59,7 @@ Data: 3-4 independent sources agree, or fills obvious gap
 
 | # | Application | Category | Evidence |
 |---|-------------|----------|----------|
-| 19 | Timeshift | System snapshots | Default in Mint, PRIME DIRECTIVE: recover from mistakes |
+| 19 | Timeshift | System snapshots | Default in Mint, Prime Directive: recover from mistakes |
 | 20 | GParted | Partition editor | Universal utility |
 | 21 | htop | System monitor (CLI) | Universal utility |
 | 22 | Remmina | Remote desktop | Default in Ubuntu |
@@ -73,7 +73,7 @@ Data: 3-4 independent sources agree, or fills obvious gap
 | 25 | whisper.cpp | Speech-to-text | Voice input |
 | 26 | espeak-ng | Text-to-speech | Voice output (fallback) |
 | 27 | piper-tts | Text-to-speech | Voice output (natural) |
-| 28 | intergen app | AI assistant | InterGen assistant + Glasswing module |
+| 28 | intergen app | AI assistant | InterGen assistant + Sentinel module |
 
 ## GNOME Core Apps (build from source — non-negotiable)
 

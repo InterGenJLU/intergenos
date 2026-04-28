@@ -9,7 +9,7 @@
 | Date | Document | Purpose |
 |------|----------|---------|
 | Apr 9 | `live_session_and_installer_architecture_2026-04-09.md` | Original research (8 open questions) |
-| Apr 10 | `live_session_architecture_review_2026-04-10.md` | Ubuntu-Claude's review (all 8 answered, 2 pushbacks) |
+| Apr 10 | `live_session_architecture_review_2026-04-10.md` | Architecture review (all 8 answered, 2 pushbacks) |
 | Apr 10 | **This document** | Finalized architecture with all decisions incorporated |
 
 ---
@@ -84,10 +84,10 @@ All questions from the original research have been answered. These are **final d
 
 | Item | Decision | Rationale |
 |------|----------|-----------|
-| Initramfs approach | **Custom /init script** | LFS way. ~100 lines of shell + busybox. No casper, no dracut, no mkinitcpio. PRIME DIRECTIVE: transparent, auditable. |
+| Initramfs approach | **Custom /init script** | LFS way. ~100 lines of shell + busybox. No casper, no dracut, no mkinitcpio. Prime Directive: transparent, auditable. |
 | Install method | **Hybrid: unsquashfs + pkm registration** | unsquashfs for speed (~2x faster than rsync), pkm registration for package tracking. |
-| Squashfs source | **Clean deployed image, NOT raw build chroot** | Build chroot contains sources, artifacts, infrastructure. Squash from create-image.sh output or add dedicated `phase_iso` to orchestrator. (Ubuntu-Claude pushback — accepted) |
-| Squashfs integrity | **SHA256 verification in initramfs before mount** | GLASSWING: tampered USB must be caught before user sees a desktop. SHA256 for Phase 1, GPG-signed or dm-verity for later. (Ubuntu-Claude pushback — accepted) |
+| Squashfs source | **Clean deployed image, NOT raw build chroot** | Build chroot contains sources, artifacts, infrastructure. Squash from create-image.sh output or add dedicated `phase_iso` to orchestrator. |
+| Squashfs integrity | **SHA256 verification in initramfs before mount** | Security: tampered USB must be caught before user sees a desktop. SHA256 for Phase 1, GPG-signed or dm-verity for later. |
 
 ---
 
@@ -145,7 +145,7 @@ BIOS/UEFI
         1. Mount /proc, /sys, /dev
         2. Load kernel modules (squashfs, overlay, loop, storage drivers)
         3. Search block devices for /LiveOS/filesystem.squashfs
-        4. Verify SHA256 checksum (GLASSWING)
+        4. Verify SHA256 checksum (security check)
         5. Mount squashfs read-only
         6. Create tmpfs for writes
         7. Mount overlayfs (lower=squashfs, upper=tmpfs)
@@ -167,7 +167,7 @@ No casper. No dracut. No mkinitcpio. A custom `/init` script — the LFS way.
 - Complete control, no external dependencies or framework assumptions
 - Tiny: busybox (static) + ~100-line shell script
 - Transparent: auditable in 5 minutes
-- PRIME DIRECTIVE: no hidden magic
+- Prime Directive: no hidden magic
 
 ### Initramfs Contents
 ```
@@ -194,11 +194,11 @@ initramfs-live.img (cpio.gz)
 └── /etc/                          # Minimal config
 ```
 
-### Init Script (with GLASSWING integrity check)
+### Init Script (with integrity check)
 ```bash
 #!/bin/sh
 # InterGenOS Live Boot Init
-# PRIME DIRECTIVE: transparent, auditable, no hidden magic
+# Prime Directive: transparent, auditable, no hidden magic
 
 # Essential filesystems
 mount -t proc none /proc
@@ -235,7 +235,7 @@ for dev in /dev/sd[a-z]* /dev/sr[0-9]* /dev/nvme[0-9]*p[0-9]*; do
 done
 [ "$LIVE_FOUND" = "1" ] || rescue "Could not find InterGenOS live media"
 
-# GLASSWING: Verify squashfs integrity before mounting
+# Security: Verify squashfs integrity before mounting
 if [ -f /mnt/media/LiveOS/filesystem.sha256 ]; then
     echo "Verifying installation media integrity..."
     EXPECTED=$(cat /mnt/media/LiveOS/filesystem.sha256)
@@ -318,7 +318,7 @@ The pipeline must **enforce** cleanliness, not rely on manual cleanup.
 - Development tools not needed at runtime
 - The build chroot's `/boot` (kernel/initramfs are separate on the ISO)
 
-### Integrity Verification (GLASSWING)
+### Integrity Verification (Security)
 
 At ISO build time:
 ```bash
@@ -714,7 +714,7 @@ This produces a **hybrid ISO** bootable from:
 
 ### Phase B: ISO Infrastructure
 7. Compile busybox (static) — for initramfs
-8. Write the init script (with GLASSWING integrity check)
+8. Write the init script (with integrity check)
 9. Build the initramfs assembly script
 10. Write the ISO assembly script (create-iso.sh or phase_iso in orchestrator)
 11. Create the GRUB theme for ISO boot menu
@@ -769,7 +769,7 @@ This produces a **hybrid ISO** bootable from:
 | **packages.py extension** | Small | A | Post-unsquashfs pkm registration |
 | **Live session cleanup logic** | Small | A | Remove liveuser, installer launcher, auto-login |
 | **Busybox (static)** | Small | B | For the initramfs |
-| **Custom init script** | Small | B | ~100 lines with GLASSWING integrity check |
+| **Custom init script** | Small | B | ~100 lines with integrity check |
 | **Initramfs build script** | Small | B | Assembles cpio.gz from components |
 | **ISO assembly script** | Medium | B | xorriso + directory layout + GRUB images |
 | **GRUB theme for ISO** | Small | B | Branded boot menu |

@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-08
 **Status:** SDL2 real-time prototype complete and approved
-**Location:** `/home/christopher/intergenos/assets/intergen-firstboot/`
+**Location:** `/mnt/intergenos/assets/intergen-firstboot/`
 
 ---
 

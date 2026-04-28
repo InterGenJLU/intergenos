@@ -131,7 +131,7 @@ DISTRIB_DESCRIPTION="InterGen OS"
 - **Kernel naming:** `vmlinuz-3.19-intergen-003-systemd`
 - **Version scheme:** `.003SD` (SD = systemd)
 - **ID string:** `igos`
-- **Copyright:** `Christopher 'InterGen' Cork  InterGenStudios`
+- **DISTRIB_DESCRIPTION example:** `InterGenOS 1.0`
 - **URLs:** `http://intergenstudios.com/intergen_os/` and `https://intergenstudios.com`
 - **GitHub org:** `https://github.com/InterGenOS`
 

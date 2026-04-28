@@ -1,7 +1,7 @@
 # llm.py Walkthrough — LLMRouter & Adaptive Prompting
 
 **File:** `intergen/llm.py` (693 lines)
-**Ported from:** JARVIS `core/llm_router.py` (2,083 lines)
+**Ported from:** a prior internal AI assistant project's `core/llm_router.py` (2,083 lines)
 **Reduction:** 67% — removed multi-provider streaming, voice synthesis hooks, conversation window management
 
 ---
@@ -30,7 +30,7 @@ Three rules. That's it. The previous system used 20 rules and produced worse res
 - Rasa CALM: context-dependent action language models
 - LangChain LLMRouterChain: classify-then-route to specialized prompts
 - RAG-MCP paper: 3.2x accuracy improvement with context-appropriate prompting
-- JARVIS `_get_domain_rules()`: per-skill rule injection
+- Prior assistant's `_get_domain_rules()`: per-skill rule injection
 
 ### Modifiers (~30-50 tokens each, lines 38-54)
 
@@ -97,7 +97,7 @@ The most complex method. Handles Qwen3.5's native tool calling via llama-server'
 if len(messages) > 2:
     tool_messages = [messages[0], messages[-1]]
 ```
-Only `[system, user]` messages go to the LLM for tool calls. This is a JARVIS research finding — Qwen3.5 copies tool-calling patterns from conversation history instead of following the current system prompt. Stripping history eliminated a class of "pattern addiction" bugs.
+Only `[system, user]` messages go to the LLM for tool calls. This is a prior-project research finding — Qwen3.5 copies tool-calling patterns from conversation history instead of following the current system prompt. Stripping history eliminated a class of "pattern addiction" bugs.
 
 **2. Context overflow recovery (lines 186-198):**
 On HTTP 400 (context too large), the method trims messages and retries. This handles edge cases where conversation history + tool schemas exceed the 16K context window.

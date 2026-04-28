@@ -1,7 +1,7 @@
 # InterGen Code Review Packet — Introduction
 
 **Date:** April 17, 2026
-**Author:** InterGenJLU + Claude (claude-main)
+**Author:** InterGenJLU + Claude
 **Commit:** 72c041c (master)
 **Project:** InterGenOS — AI-Integrated Linux Distribution
 
@@ -54,10 +54,10 @@ Every behavioral issue we attributed to the 2B model traced back to our code or 
 2. **01_architecture.md** — full pipeline diagram, design rationale, data flow
 3. **02_router_walkthrough.md** — router.py line-by-line with design decisions
 4. **03_llm_walkthrough.md** — llm.py: adaptive prompting, agentic loop, quality gate
-5. **04_test_methodology.md** — test suite design, grader calibration *(InterGenOS-Claude)*
-6. **05_variance_band.md** — R17–R20 data, honest vs. headline scores *(InterGenOS-Claude)*
-7. **06_adaptive_prompting_design.md** — prior art, data-backed rationale *(InterGenOS-Claude)*
-8. **07_known_issues.md** — remaining issues with root cause analysis *(InterGenOS-Claude)*
+5. **04_test_methodology.md** — test suite design, grader calibration
+6. **05_variance_band.md** — R17–R20 data, honest vs. headline scores
+7. **06_adaptive_prompting_design.md** — prior art, data-backed rationale
+8. **07_known_issues.md** — remaining issues with root cause analysis
 
 ## Questions for Reviewers
 
@@ -72,5 +72,5 @@ Every behavioral issue we attributed to the 2B model traced back to our code or 
 
 - **CPU-only on Tier 1** — no GPU assumed. Response time budget: <15s per query.
 - **No external dependencies at runtime** — llama-server is the only subprocess. No LangChain, no vector DB, no embedding service.
-- **PRIME DIRECTIVE** — "InterGenOS exists to put the user in control of their own machine." Every design decision serves user transparency and control.
+- **Prime Directive** — "InterGenOS exists to put the user in control of their own machine." Every design decision serves user transparency and control.
 - **Local first** — cloud escalation exists but is opt-in and off by default.

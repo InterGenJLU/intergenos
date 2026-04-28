@@ -7,8 +7,8 @@ Iterating on #05 (perspective) with deeper S dip.
 import cairosvg
 from pathlib import Path
 
-OUT_SVG = Path("/home/christopher/intergenos/research/branding/marks/round2/svg")
-OUT_PNG = Path("/home/christopher/intergenos/research/branding/marks/round2/png")
+OUT_SVG = Path("docs/research/branding/marks/round2/svg")
+OUT_PNG = Path("docs/research/branding/marks/round2/png")
 
 BG_DARK = "#0a0e1a"
 BLUE = "#0099FF"

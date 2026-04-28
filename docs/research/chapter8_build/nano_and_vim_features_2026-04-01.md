@@ -68,7 +68,7 @@ Improved from LFS default to include:
 - Centralized swap files in `~/.vim/swap//` (safety without clutter)
 - Mouse disabled by default (terminal paste works correctly)
 - Dark background for xterm/256color terminals
-- Every setting commented for transparency (PRIME DIRECTIVE)
+- Every setting commented for transparency (Prime Directive)
 - All settings overridable via `~/.vimrc`
 
 ### Sources

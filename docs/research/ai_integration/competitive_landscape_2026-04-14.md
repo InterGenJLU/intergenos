@@ -43,13 +43,13 @@
 2. Hardware-aware tiering (auto model selection)
 3. Sub-10ms routing via 4-layer semantic matching + template synthesis
 4. Tier-aware compound query decomposition
-5. Glasswing MCP security (schema pinning, injection scanning)
+5. Sentinel MCP security (schema pinning, injection scanning)
 6. "Phone a Friend" with user-chosen provider
-7. PRIME DIRECTIVE as design filter
+7. Prime Directive as design filter
 
 ## What Others Have That We Should Consider
 1. Long-term memory — IMPLEMENTED (user-controlled)
 2. File comprehension — IMPLEMENTED (analyze_file tool)
-3. Learning from traces — DEFERRED (complex, PRIME DIRECTIVE concerns)
-4. Voice — SKIPPED (VOQR covers this)
+3. Learning from traces — DEFERRED (complex, Prime Directive concerns)
+4. Voice — SKIPPED
 5. 230 operations — SELECTIVE (add based on user need, not feature parity)

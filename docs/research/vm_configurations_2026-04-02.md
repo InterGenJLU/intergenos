@@ -7,7 +7,7 @@ Captured before wiping `intergenos` VM. Use this to recreate VMs.
 ## VM: `intergenos` (target system — TO BE WIPED)
 
 - **Purpose:** Running InterGenOS system (LFS-built)
-- **Disk image:** `/mnt/jarvis-storage/VMs/intergenos.qcow2`
+- **Disk image:** `/mnt/intergenos/vm/intergenos.qcow2`
 - **Disk format:** qcow2
 - **Virtual size:** 500 GiB
 - **Actual size:** 6.75 GiB
@@ -68,7 +68,7 @@ Captured before wiping `intergenos` VM. Use this to recreate VMs.
 | Purpose | Target OS | Build host |
 | vCPUs | 12 | 16 |
 | Memory | 12 GB | 32 GB |
-| Disk location | /mnt/jarvis-storage/VMs/ | /mnt/intergenos/vm/ |
+| Disk location | /mnt/intergenos/vm/ | /mnt/intergenos/vm/ |
 | virtiofs | None | /mnt/intergenos → intergenos |
 | Graphics | VNC | SPICE |
 | Audio | None | ich9/SPICE |
@@ -97,7 +97,7 @@ Captured before wiping `intergenos` VM. Use this to recreate VMs.
 
 1. Create disk:
    ```bash
-   qemu-img create -f qcow2 /mnt/jarvis-storage/VMs/intergenos.qcow2 500G
+   qemu-img create -f qcow2 /mnt/intergenos/vm/intergenos.qcow2 500G
    ```
 
 2. Use virt-install or virt-manager with:

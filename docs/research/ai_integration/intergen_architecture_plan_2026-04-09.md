@@ -2,9 +2,9 @@
 
 ## Context
 
-InterGen is the defining feature of InterGenOS — a system-focused AI assistant that lives in the GNOME panel. It knows the system inside and out, can diagnose problems, install packages, convert files, search the web, and assist with any operation. Text-based (no voice). Local LLM first, cloud fallback optional. 70% of the core engine is ported from JARVIS (66,000 lines, 100% tool calling accuracy across 1,200+ trials).
+InterGen is the defining feature of InterGenOS — a system-focused AI assistant that lives in the GNOME panel. It knows the system inside and out, can diagnose problems, install packages, convert files, search the web, and assist with any operation. Text-based (no voice). Local LLM first, cloud fallback optional. 70% of the core engine is ported from a prior internal AI assistant project (66,000 lines, 100% tool calling accuracy across 1,200+ trials).
 
-All research completed: semantic matching, JARVIS capability inventory, LLM landscape (April 2026), MCP + Glasswing security, panel UI design. Research docs at `/home/christopher/intergenos/research/ai_integration/`.
+All research completed: semantic matching, prior-assistant capability inventory, LLM landscape (April 2026), MCP + Sentinel security, panel UI design. Research docs at `docs/research/ai_integration/`.
 
 ---
 
@@ -18,12 +18,12 @@ GTK4 Chat Panel (frameless, draggable, dockable to any edge)
     │ D-Bus: com.intergenos.InterGen
     ▼
 InterGen Daemon (Python, systemd user service)
-  ├── ConversationRouter (8-priority, ported from JARVIS 18-priority)
+  ├── ConversationRouter (8-priority, ported from prior assistant's 18-priority)
   ├── LLMRouter (llama.cpp + quality gates + Claude fallback)
   ├── SemanticMatcher (4-layer: regex → keyword → embedding → LLM)
   ├── ToolRegistry (7 core tools, auto-discovered + MCP)
-  ├── MCPBridge (ported from JARVIS, subprocess MCP servers)
-  ├── GlasswingGuard (MCP security: schema pinning, audit, sandboxing)
+  ├── MCPBridge (ported from prior assistant, subprocess MCP servers)
+  ├── SentinelGuard (MCP security: schema pinning, audit, sandboxing)
   ├── HardwareDetector (tier 1/2/3 from RAM+GPU)
   ├── ModelManager (download, SHA256 verify, tier selection)
   ├── LlamaServerManager (subprocess lifecycle, health, auto-restart)
@@ -54,14 +54,14 @@ InterGen Daemon (Python, systemd user service)
 | web_search | auto | Serper API + DuckDuckGo fallback |
 | open_application | auto | Launch desktop apps via gio |
 
-## Semantic Matching (4-layer, ported from JARVIS)
+## Semantic Matching (4-layer, ported from prior assistant)
 
 1. **Regex/keyword** (<1ms) — catches 70-80% deterministically
 2. **Embedding similarity** (10-50ms) — nomic-embed-text-v1.5, pre-computed cache
 3. **LLM tool calling** (1-5s) — semantically pruned tool set
 4. **LLM free response** (1-3s) — quality gates + fallback
 
-Thresholds: 0.85-0.95 (higher than JARVIS's 0.55-0.85 — system commands are dangerous)
+Thresholds: 0.85-0.95 (higher than the prior assistant's 0.55-0.85 — system commands are dangerous)
 
 ## "Phone a Friend" — Claude API Escalation
 
@@ -70,13 +70,13 @@ InterGen knows his limits. When the local model can't deliver, he escalates to C
 **When InterGen escalates:**
 - Quality gate failure (local model garbage after retry)
 - Complex reasoning beyond local model's capability
-- Glasswing security scanning (always Claude — that's the point)
+- Sentinel security scanning (always Claude — that's the point)
 - Web research synthesis (10+ pages, Tier 1/2 can't handle)
 - Complex code generation / review
 - Agentic multi-step tasks where local model loses coherence
 
 **User-controlled escalation modes:**
-| Mode | Behavior | PRIME DIRECTIVE |
+| Mode | Behavior | Prime Directive |
 |------|----------|-----------------|
 | `never` | Fully offline, no API calls ever | Maximum control |
 | `fallback` | Only when local fails quality gate | Transparent — user sees indicator |
@@ -137,7 +137,7 @@ User: "Sure"
   [Save]
 ```
 
-## MCP + Glasswing Security
+## MCP + Sentinel Security
 
 - 4-tier trust: system → verified → community → untrusted
 - Permission manifests in `/etc/intergen/mcp.d/*.yml`
@@ -157,7 +157,7 @@ User: "Sure"
 
 **Colors:** brand navy (#1a1a2e, #16213e), accent sky blue (#38bdf8), Orchis-Dark compatible
 
-## What We Port from JARVIS
+## What We Port from the Prior Assistant
 
 **Direct port (minimal changes):** tool_registry, semantic_matcher, mcp_client, event_logger, metrics_tracker, trace_context, conversation_state, tool_gate, base_skill, safety classifier
 
@@ -178,11 +178,11 @@ User: "Sure"
 | Phase | What | Effort | Depends On |
 |-------|------|--------|------------|
 | 1 | Build infra + llama-cpp | 3 days | — |
-| 2 | Core engine (port from JARVIS) | 8 days | Phase 1 |
+| 2 | Core engine (port from prior assistant) | 8 days | Phase 1 |
 | 3 | D-Bus daemon + model management | 4 days | Phase 2 |
 | 4 | GTK4 chat panel | 5 days | Phase 3 |
 | 5 | GNOME Shell extension | 3 days | Phase 4 |
-| 6 | MCP + Glasswing security | 3 days | Phase 3 |
+| 6 | MCP + Sentinel security | 3 days | Phase 3 |
 | 7 | Testing + polish | 3 days | All |
 | **Total** | | **29 days** | |
 
@@ -190,7 +190,7 @@ Phases 4+5 can overlap. Phase 6 can start after Phase 3.
 
 ## Key Files
 
-| Purpose | JARVIS Source | InterGen Target |
+| Purpose | Prior-Assistant Source | InterGen Target |
 |---------|-------------|-----------------|
 | Router | `core/conversation_router.py` | `intergen/router.py` |
 | LLM | `core/llm_router.py` | `intergen/llm.py` |
@@ -217,5 +217,5 @@ Phases 4+5 can overlap. Phase 6 can start after Phase 3.
 3. 50-query semantic matching test suite → 100% routing accuracy
 4. Safety gate: 20 read-only (auto), 10 destructive (confirm), 10 blocked (reject)
 5. Dock panel right → desktop adjusts → drag away → floats → snap left → adjusts
-6. MCP: connect test server → auto-discover → tool call → Glasswing audit logged
+6. MCP: connect test server → auto-discover → tool call → Sentinel audit logged
 7. Kill llama-server → watchdog restarts → next query works

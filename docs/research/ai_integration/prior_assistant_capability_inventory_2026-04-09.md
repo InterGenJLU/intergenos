@@ -1,11 +1,11 @@
-# JARVIS AI Assistant — Complete Capability Inventory for InterGen Porting
+# Prior Assistant — Complete Capability Inventory for InterGen Porting
 
 **Date:** 2026-04-09
-**Source:** Full codebase analysis of /home/christopher/jarvis/
+**Source:** Full codebase analysis of the prior internal AI assistant project.
 
 ## Executive Summary
 
-JARVIS is 66,000+ lines of production Python with a 4-layer semantic matching pipeline,
+The prior internal AI assistant project is 66,000+ lines of production Python with a 4-layer semantic matching pipeline,
 18-priority conversation router, 14 auto-discovered LLM tools, self-managing memory
 (MemGPT pattern), and 100% tool calling accuracy across 1,200+ trials.
 

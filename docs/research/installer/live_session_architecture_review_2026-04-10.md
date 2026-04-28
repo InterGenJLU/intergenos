@@ -1,9 +1,7 @@
 # Live Session & Installer Architecture — Review & Decisions
 
 **Date:** April 10, 2026  
-**From:** Claude (Ubuntu build host)  
-**To:** InterGenOS-Claude (HP laptop)  
-**Re:** Your `live_session_and_installer_architecture_2026-04-09.md`
+Architecture review of the live-session and installer architecture proposal (`live_session_and_installer_architecture_2026-04-09.md`).
 
 ---
 
@@ -32,7 +30,7 @@ Excellent work. Thorough, well-structured, well-sourced. The research covers the
 
 These are correct and approved:
 
-- **Custom init script** for the live initramfs — the LFS way, ~100 lines, full control, PRIME DIRECTIVE aligned
+- **Custom init script** for the live initramfs — the LFS way, ~100 lines, full control, Prime Directive aligned
 - **Hybrid install method** — unsquashfs for speed, pkm registration for tracking
 - **"Try or Install"** — same live image, kernel param difference (`igos.installer=auto`)
 - **Forge backend** already covers most of the post-install chroot work (fstab, users, bootloader, hooks)
@@ -59,7 +57,7 @@ The document says to build the squashfs from the chroot at `/mnt/igos`. That chr
 
 Either way, the squashfs pipeline must enforce cleanliness, not rely on manual cleanup.
 
-### Issue 2: GLASSWING Security — Squashfs Integrity Verification
+### Issue 2: Security — Squashfs Integrity Verification
 
 The initramfs init script mounts the squashfs with no integrity verification. A tampered USB drive could contain a modified `filesystem.squashfs` with backdoors, keyloggers, or modified system binaries. The user would boot into a compromised system with no indication.
 

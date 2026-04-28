@@ -1,7 +1,7 @@
 # InterGenOS Desktop Tier 2a — Xorg Foundation + Individual Libraries
 # Expanded from BLFS xorg7-lib meta-package into individual packages.
 # Build order is critical — later libraries depend on earlier ones.
-# Source: BLFS 13.0 + /home/christopher/intergenos/research/xorg_packages_expanded_2026-04-02.md
+# Source: BLFS 13.0 + docs/research/xorg_packages_expanded_2026-04-02.md
 
 tier: desktop
 

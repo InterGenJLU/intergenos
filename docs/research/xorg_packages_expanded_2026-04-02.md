@@ -1,7 +1,7 @@
 # BLFS 13.0 Xorg Meta-Package Expansion
 
 **Date:** 2026-04-02
-**Source:** BLFS 13.0 systemd book (`/home/christopher/intergenos/docs/lfs-13.0/BLFS-BOOK-13.0-systemd.html`)
+**Source:** BLFS 13.0 systemd book (`docs/lfs-13.0/BLFS-BOOK-13.0-systemd.html`)
 **Purpose:** Expand every BLFS Xorg meta-package into individual components for InterGenOS package definitions
 
 ---

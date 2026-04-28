@@ -1,4 +1,4 @@
-# Round 13 PASS Audit — claude-laptop
+# Round 13 PASS Audit (independent reviewer)
 **92 PASS conversations checked for false positives**
 
 ## Summary

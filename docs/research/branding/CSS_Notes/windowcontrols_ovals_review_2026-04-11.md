@@ -381,7 +381,7 @@ Theories I've considered:
 
 ---
 
-## PRIME DIRECTIVE Context
+## Prime Directive Context
 
 InterGenOS is a passion project LFS-based distribution built from source. The GNOME Shell theme is a custom "InterGenOS" theme designed around deep navy backgrounds with ECG-blue (`#0099FF`) accents. The rest of the theme is complete and working — this Nautilus window controls issue is the **only** visible flaw. The project philosophy values transparency, understanding the system, and avoiding hacks. So the preferred solution is one that:
 

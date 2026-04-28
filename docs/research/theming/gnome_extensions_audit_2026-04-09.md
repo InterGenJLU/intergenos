@@ -49,4 +49,4 @@ All extensions verified for GNOME Shell 49 compatibility.
 
 - CoverflowAltTab GitHub release (v77) only declared shell-version 46-47
 - EGO version (v83) declares 44-49 — used the EGO version instead
-- Glasswing policy: don't patch metadata.json to override version checks, don't disable version validation globally
+- Sentinel policy: don't patch metadata.json to override version checks, don't disable version validation globally

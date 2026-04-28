@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-16
 **Commit:** a85ad60 (adaptive prompting)
-**Sources:** MIXED audit (claude-main agent), PASS audit (claude-main agent), PASS spot-check (claude-laptop)
+**Sources:** MIXED audit + PASS audit + PASS spot-check (independent reviewers)
 
 ## Executive Summary
 

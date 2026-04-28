@@ -52,7 +52,7 @@ The language toolchain strategy means `igr/core` at ~600-650 packages provides *
 **Quality guarantees:**
 - Every package built from source by our build system
 - SHA256-verified source tarballs
-- GLASSWING security review on all patches
+- Security review on all patches
 - Pre-built binary archives (.igos.tar.gz), signed with InterGenOS GPG key
 - Security updates tracked and pushed via CI/CD pipeline
 - pkm manifests included — full package tracking from install
@@ -66,7 +66,7 @@ The language toolchain strategy means `igr/core` at ~600-650 packages provides *
 **Content:** Package templates (package.yml + build.sh) — the same format as our build system. Two files per package, submitted via pull request to the `igr-community` GitHub repository.
 
 **Quality guarantees:**
-- Templates reviewed by maintainers before merge (correctness + GLASSWING security)
+- Templates reviewed by maintainers before merge (correctness + security)
 - SHA256 checksums on source URLs required
 - Build tested on at least one InterGenOS system before merge (CI)
 - **No guarantee of runtime behavior** — "builds successfully" is the bar, not "works perfectly for every use case"
@@ -77,7 +77,7 @@ The language toolchain strategy means `igr/core` at ~600-650 packages provides *
 1. User creates package.yml + build.sh (or InterGen generates them)
 2. User submits PR to igr-community repo
 3. CI runs: template validation + test build on InterGenOS
-4. Maintainer reviews: correctness, security (GLASSWING), licensing
+4. Maintainer reviews: correctness, security, licensing
 5. Merge → template available via `pkm search` and InterGen
 ```
 
@@ -186,7 +186,7 @@ pkm verify                      # verify installed package integrity
 
 ## 5. Security Model
 
-### GLASSWING Compliance
+### Security Compliance
 
 | Layer | Protection |
 |-------|-----------|
@@ -204,7 +204,7 @@ pkm verify                      # verify installed package integrity
 - **User trust:** Public key ships on the ISO at `/etc/pkm/trusted.d/`
 - **Key rotation:** Subkeys rotated annually, master key kept offline
 
-### Community Template Review (GLASSWING filter)
+### Community Template Review (security filter)
 
 Before any community template is merged:
 1. **Source URL must be HTTPS** from a recognized upstream (no random mirrors)

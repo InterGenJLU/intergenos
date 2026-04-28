@@ -12,7 +12,7 @@ A full audit of 163 built desktop packages against BLFS 13.0 revealed systemic i
 
 Two rogue sessions introduced unauthorized changes and template errors. Combined with the systemic dead code and lib64 issues, the entire build from toolchain forward needs to be audited, corrected, and rebuilt from scratch.
 
-**The PRIME DIRECTIVE demands it:** *"InterGenOS exists to put the user in control of their own machine. Every design decision, every default, every included component must serve this purpose: giving people a system they understand, can modify, and can trust."*
+**The Prime Directive demands it:** *"InterGenOS exists to put the user in control of their own machine. Every design decision, every default, every included component must serve this purpose: giving people a system they understand, can modify, and can trust."*
 
 **Key architectural decision:** The temporary Python built in LFS Chapter 7 (toolchain phase) is available inside the chroot before Chapter 8 begins. By pre-installing PyYAML, the Python builder can orchestrate the ENTIRE Chapter 8 build — eliminating the duplicate bash builder and unifying the pipeline under one orchestrator from Chapter 8 through desktop.
 
@@ -107,7 +107,7 @@ Run `python3 -m igos-build --tier core --dry-run` inside the chroot to verify al
 
 ## Phase 3: Audit Toolchain (28 packages — LFS Ch. 5-7)
 
-**Reference:** `/home/christopher/intergenos/docs/lfs-13.0/LFS-BOOK-13.0-SYSD.html` (Chapters 5-7)
+**Reference:** `docs/lfs-13.0/LFS-BOOK-13.0-SYSD.html` (Chapters 5-7)
 
 **Note:** Toolchain runs OUTSIDE the chroot on the host, before Python exists. These packages use bash scripts and the existing toolchain build mechanism. They are NOT affected by the builder refactoring.
 
@@ -124,7 +124,7 @@ Launch parallel agents (2 batches of 14) to verify against LFS 13.0 Ch. 5-7:
 
 ### 3.3 Document findings
 
-Output: `/home/christopher/intergenos/research/build_system/toolchain_audit_2026-04-04.md`
+Output: `docs/research/build_system/toolchain_audit_2026-04-04.md`
 
 ---
 
@@ -150,7 +150,7 @@ This tier is the foundation — get it right.
 
 ### 4.3 Document findings
 
-Output: `/home/christopher/intergenos/research/build_system/core_audit_2026-04-04.md`
+Output: `docs/research/build_system/core_audit_2026-04-04.md`
 
 ---
 
@@ -170,13 +170,13 @@ Single agent — small tier. Verify against BLFS 13.0:
 
 ### 5.3 Document findings
 
-Output: `/home/christopher/intergenos/research/build_system/base_audit_2026-04-04.md`
+Output: `docs/research/build_system/base_audit_2026-04-04.md`
 
 ---
 
 ## Phase 6: Fix Built Desktop Packages (163 packages)
 
-Audit already completed: `/home/christopher/intergenos/research/build_system/desktop_audit_full_2026-04-04.md`
+Audit already completed: `docs/research/build_system/desktop_audit_full_2026-04-04.md`
 
 ### 6.1 Fix 11 critical build-breaking issues
 
@@ -236,7 +236,7 @@ New templates, build.sh corrections, dep additions, flag corrections, source URL
 
 ### 7.3 Document findings
 
-Output: `/home/christopher/intergenos/research/build_system/desktop_audit_unbuilt_2026-04-04.md`
+Output: `docs/research/build_system/desktop_audit_unbuilt_2026-04-04.md`
 
 ---
 
@@ -329,15 +329,15 @@ With thorough auditing, failures should be minimal.
 - `/mnt/intergenos/packages/desktop/` — 343 packages
 
 ### Reference Docs
-- `/home/christopher/intergenos/docs/lfs-13.0/LFS-BOOK-13.0-SYSD.html`
-- `/home/christopher/intergenos/docs/lfs-13.0/BLFS-BOOK-13.0-systemd.html`
+- `docs/lfs-13.0/LFS-BOOK-13.0-SYSD.html`
+- `docs/lfs-13.0/BLFS-BOOK-13.0-systemd.html`
 
 ### Research Output
-- `/home/christopher/intergenos/research/build_system/desktop_audit_full_2026-04-04.md` — done
-- `/home/christopher/intergenos/research/build_system/toolchain_audit_2026-04-04.md` — Phase 3
-- `/home/christopher/intergenos/research/build_system/core_audit_2026-04-04.md` — Phase 4
-- `/home/christopher/intergenos/research/build_system/base_audit_2026-04-04.md` — Phase 5
-- `/home/christopher/intergenos/research/build_system/desktop_audit_unbuilt_2026-04-04.md` — Phase 7
+- `docs/research/build_system/desktop_audit_full_2026-04-04.md` — done
+- `docs/research/build_system/toolchain_audit_2026-04-04.md` — Phase 3
+- `docs/research/build_system/core_audit_2026-04-04.md` — Phase 4
+- `docs/research/build_system/base_audit_2026-04-04.md` — Phase 5
+- `docs/research/build_system/desktop_audit_unbuilt_2026-04-04.md` — Phase 7
 
 ## Verification
 

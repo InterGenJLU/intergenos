@@ -1,7 +1,7 @@
 # LFS Alternatives Assessment
 
 **Date:** March 31, 2026
-**Decision:** Stick with LFS as the base — no alternative provides better alignment with the PRIME DIRECTIVE
+**Decision:** Stick with LFS as the base — no alternative provides better alignment with the Prime Directive
 
 ---
 
@@ -49,7 +49,7 @@
 ## Why LFS Remains the Right Choice
 
 1. **Building our own build system and package manager** — inheriting someone else's is counterproductive
-2. **PRIME DIRECTIVE demands full understanding** — LFS is the only path where you built everything
+2. **Prime Directive demands full understanding** — LFS is the only path where you built everything
 3. **Educational value is a feature** — InterGenOS teaches users; must understand the system fully
 4. **Zero inherited baggage** — every decision is ours
 5. **Proven path:** Milis Linux (Turkey) took exact same path: LFS → custom PM → daily-driver

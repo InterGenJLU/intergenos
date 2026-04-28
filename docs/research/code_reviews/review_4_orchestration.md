@@ -556,7 +556,7 @@ phase_image() {
     log "  Disk image created at: $image_path (on build VM)"
     log ""
     log "  To use it, copy to the host and create a VM:"
-    log "    scp ${BUILD_USER}@<vm-ip>:${image_path} /mnt/jarvis-storage/VMs/intergenos.qcow2"
+    log "    scp ${BUILD_USER}@<vm-ip>:${image_path} /mnt/intergenos/vm/intergenos.qcow2"
     log "    See create-image.sh output above for virt-install command."
 }
 
@@ -2737,7 +2737,7 @@ log "============================================"
 #   sudo bash /mnt/intergenos/scripts/create-image.sh <output-path> [disk-size]
 #
 # Example:
-#   sudo bash /mnt/intergenos/scripts/create-image.sh /mnt/jarvis-storage/VMs/intergenos.qcow2 500G
+#   sudo bash /mnt/intergenos/scripts/create-image.sh /mnt/intergenos/vm/intergenos.qcow2 500G
 
 set -euo pipefail
 

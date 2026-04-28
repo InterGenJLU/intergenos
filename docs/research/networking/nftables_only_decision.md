@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-18
 **Status:** Decision documented, kernel + package changes staged (untracked, awaiting owner approval)
-**Origin:** Track 2 followup from claude-laptop's iptables diagnosis (channel post 2026-04-18T17:54:50Z)
+**Origin:** Followup from an iptables-on-installed-kernel diagnosis (2026-04-18)
 
 ## Decision
 
@@ -15,13 +15,13 @@ On the HP laptop's installed kernel (6.18.10), `make olddefconfig` resolved `CON
 
 The fallback path is the better path. Make it the only path.
 
-### HOLY GRAIL alignment
+### Security rationale
 
-- **Rule #1 (no security trade-offs for convenience):** maintaining two parallel firewall frameworks doubles attack surface for marginal compatibility benefit. Modern tooling (Docker, Podman, Kubernetes, systemd-networkd, Tailscale, firewalld) all support nftables natively.
-- **Rule #4 (every package decision is a security decision):** dropping the iptables-legacy backend removes a deprecated code path from the kernel and its corresponding userspace.
-- **Rule #10 (when in doubt, deny):** a single packet filtering framework is dramatically easier to audit and reason about. One firewall tool, one answer.
+- Maintaining two parallel firewall frameworks doubles attack surface for marginal compatibility benefit. Modern tooling (Docker, Podman, Kubernetes, systemd-networkd, Tailscale, firewalld) all support nftables natively.
+- Dropping the iptables-legacy backend removes a deprecated code path from the kernel and its corresponding userspace.
+- A single packet filtering framework is dramatically easier to audit and reason about. One firewall tool, one answer.
 
-### Prime Directive alignment
+### User-control rationale
 
 - A user troubleshooting their firewall runs into one tool, one syntax, one set of error messages. No "is this iptables-legacy or iptables-nft?" confusion. The system is more understandable.
 
@@ -82,6 +82,4 @@ The dedicated `nftables` package (in `desktop` tier) provides the native `nft` C
 
 ## See also
 
-- `feedback_dont_disable_features.md` — we are NOT disabling firewall features here; we are choosing one backend over two. Net capability is preserved.
-- `holy_grail_security_alignment.md` — Rule #4 and #10 directly motivated this change.
-- channel post 2026-04-18T17:54:50Z — InterGenOS-Claude's diagnosis of the laptop incident.
+- This change does NOT disable firewall features; it chooses one backend over two. Net capability is preserved.

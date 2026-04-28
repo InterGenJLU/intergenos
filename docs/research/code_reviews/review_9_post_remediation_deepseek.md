@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-08
 **Reviewer:** DeepSeek (requested)
-**Prepared by:** InterGenJLU + Claude (Opus 4.6)
+**Prepared by:** InterGenJLU
 
 ---
 
@@ -40,7 +40,7 @@ We implemented a security remediation plan. Please verify each phase is implemen
 - **Files:** 158 `packages/*/package.yml` files, `scripts/blfs-query.py` (new `dep-audit` subcommand), `scripts/apply-dep-audit.py`
 - **What we did:** Bulk comparison of declared build dependencies against BLFS 13.0 required + recommended + optional-functional deps. Added 517 missing deps, created 2 pass2 packages (libtiff-pass2, lame-pass2), broke 15+ dependency cycles.
 - **Dependency policy:** Required + Recommended = always declare. Optional = declare if dep is in our tree. Docs/tests only (Doxygen, Valgrind, etc.) = skip.
-- **Cycle break audit:** `/home/christopher/intergenos/research/build_system/cycle_break_audit_2026-04-08.md`
+- **Cycle break audit:** `docs/research/build_system/cycle_break_audit_2026-04-08.md`
 - **Review questions:**
   - Did we break any cycles in a way that loses important functionality?
   - Are the pass2 packages (libtiff-pass2, lame-pass2) correctly structured?
@@ -170,7 +170,7 @@ The most efficient review path:
 7. Spot-check 5-10 `package.yml` files for dep correctness
 
 For the dependency cycle breaks, the full evaluation is documented in:
-`/home/christopher/intergenos/research/build_system/cycle_break_audit_2026-04-08.md`
+`docs/research/build_system/cycle_break_audit_2026-04-08.md`
 
 ---
 

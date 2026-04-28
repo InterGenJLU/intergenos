@@ -118,7 +118,7 @@ They do **NOT** see the shim-review README, source tree, or build logs — all p
 
 Ref: `github.com/rhboot/shim/issues/679`.
 
-### Empirical note (2026-04-18, claude-main 23:11 UTC)
+### Empirical note (2026-04-18)
 
 Fedora's current `shim-x64-16.1-2.x86_64.rpm` shipped with **MS 2011 CA signature ONLY** — not dual-signed with 2023 CA. Verified via `sbverify --list shimx64.efi`:
 - Signature 1 of 1

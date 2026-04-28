@@ -7,8 +7,8 @@ Explores the ECG-pulse-as-logo concept across simple variations.
 import cairosvg
 from pathlib import Path
 
-OUT_SVG = Path("/home/christopher/intergenos/research/branding/marks/round1/svg")
-OUT_PNG = Path("/home/christopher/intergenos/research/branding/marks/round1/png")
+OUT_SVG = Path("docs/research/branding/marks/round1/svg")
+OUT_PNG = Path("docs/research/branding/marks/round1/png")
 
 # Brand colors
 BG_DARK = "#0a0e1a"

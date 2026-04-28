@@ -4,7 +4,7 @@
 import cairosvg
 from pathlib import Path
 
-OUT = Path("/home/christopher/intergenos/research/branding/marks/final/test_small")
+OUT = Path("docs/research/branding/marks/final/test_small")
 OUT.mkdir(parents=True, exist_ok=True)
 
 BG = "#000000"

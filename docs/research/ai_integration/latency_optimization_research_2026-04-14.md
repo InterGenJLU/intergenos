@@ -66,5 +66,5 @@ process list, network connections, log tail, file contents
 ### Pattern
 Background thread → run commands → store in dict → template synthesis reads from cache → 0ms response from data ≤60s old
 
-### JARVIS precedent
+### Prior-art precedent
 Filesystem metadata caching on polling cycle — proven pattern, directly applicable

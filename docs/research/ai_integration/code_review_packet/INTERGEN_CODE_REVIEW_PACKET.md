@@ -13,7 +13,7 @@ We've reached a stable behavioral plateau on the 2B tier (Qwen3.5-2B-Q4_K_M) aft
 20 rounds of iteration on routing and prompting. We're asking a third-party reviewer
 to audit the two files that dominate response quality — **router.py** and **llm.py** —
 before we commit to the next round of architectural changes (9B retest, streaming
-synthesis, JARVIS ports).
+synthesis, prior-assistant ports).
 
 The plateau is `97–102 PASS / 10–15 MIXED / 0 FAIL` across rounds R17–R20 on a
 112-conversation / ~1500-assertion suite. We believe the remaining gap is split
@@ -129,7 +129,7 @@ Before R20, queries like "why is my disk full?" could fall through to P4 (freefo
 
 ### Why strip conversation history from tool-calling messages?
 
-JARVIS research finding: Qwen3.5 exhibits "pattern addiction" when conversation history is included in tool-calling messages. It copies tool-calling patterns from previous turns instead of following the current system prompt. The fix is `[system, user]` only for tool calls (llm.py:155-160).
+Prior-project research finding: Qwen3.5 exhibits "pattern addiction" when conversation history is included in tool-calling messages. It copies tool-calling patterns from previous turns instead of following the current system prompt. The fix is `[system, user]` only for tool calls (llm.py:155-160).
 
 ### Why single-line-only cache?
 
@@ -287,13 +287,13 @@ When cache hits, response goes through `_template_synthesis()` for natural langu
 37 identity patterns with fallthrough aliases. "Who are you?" → "What are you?" → hardcoded response. No LLM call, 0ms.
 
 **Step 6: Memory operations** (lines 135-139)
-Handles "remember that...", "what were we working on?", "forget about...". Explicit storage only — no passive fact extraction (per PRIME DIRECTIVE: user controls what's stored).
+Handles "remember that...", "what were we working on?", "forget about...". Explicit storage only — no passive fact extraction (per Prime Directive: user controls what's stored).
 
 **Step 7: P1 keyword match** (lines 142-145)
 Deterministic regex/keyword matching via semantic matcher Layer 1. Maps known phrases to tool calls. Template synthesis first, LLM fallback for complex output.
 
 **Step 8: P2 semantic match** (lines 148-154)
-Embedding similarity via nomic-embed-text-v1.5. Threshold 0.85 (higher than JARVIS's 0.55-0.85 because system commands are dangerous — false positives could execute destructive operations).
+Embedding similarity via nomic-embed-text-v1.5. Threshold 0.85 (higher than the prior assistant's 0.55-0.85 because system commands are dangerous — false positives could execute destructive operations).
 
 **Step 9: P3 LLM tool calling** (lines 158-165)
 ```python
@@ -435,7 +435,7 @@ Three rules. That's it. The previous system used 20 rules and produced worse res
 - Rasa CALM: context-dependent action language models
 - LangChain LLMRouterChain: classify-then-route to specialized prompts
 - RAG-MCP paper: 3.2x accuracy improvement with context-appropriate prompting
-- JARVIS `_get_domain_rules()`: per-skill rule injection
+- Prior assistant's `_get_domain_rules()`: per-skill rule injection
 
 ### Modifiers (~30-50 tokens each, lines 38-54)
 
@@ -500,7 +500,7 @@ The most complex method. Handles Qwen3.5's native tool calling via llama-server'
 if len(messages) > 2:
     tool_messages = [messages[0], messages[-1]]
 ```
-Only `[system, user]` messages go to the LLM for tool calls. This is a JARVIS research finding — Qwen3.5 copies tool-calling patterns from conversation history instead of following the current system prompt. Stripping history eliminated a class of "pattern addiction" bugs.
+Only `[system, user]` messages go to the LLM for tool calls. This is a prior-project research finding — Qwen3.5 copies tool-calling patterns from conversation history instead of following the current system prompt. Stripping history eliminated a class of "pattern addiction" bugs.
 
 **2. Context overflow recovery (lines 186-198):**
 On HTTP 400 (context too large), the method trims messages and retries. This handles edge cases where conversation history + tool schemas exceed the 16K context window.
@@ -666,7 +666,7 @@ Every behavioral issue we attributed to the 2B model traced back to our code or 
 
 - **CPU-only on Tier 1** — no GPU assumed. Response time budget: <15s per query.
 - **No external dependencies at runtime** — llama-server is the only subprocess. No LangChain, no vector DB, no embedding service.
-- **PRIME DIRECTIVE** — "InterGenOS exists to put the user in control of their own machine." Every design decision serves user transparency and control.
+- **Prime Directive** — "InterGenOS exists to put the user in control of their own machine." Every design decision serves user transparency and control.
 - **Local first** — cloud escalation exists but is opt-in and off by default.
 
 ---
@@ -876,7 +876,7 @@ always-on set to 3 and moved the conditional rules into per-query modifiers.
 ## The 20-rule baseline (pre-R10)
 
 The original prompt was 20 numbered rules, each beginning with `YOU MUST`
-or `DO NOT`. Inherited from JARVIS's "prescriptive numbered rules beat prose" pattern.
+or `DO NOT`. Inherited from a prior assistant's "prescriptive numbered rules beat prose" pattern.
 Reasonable on a frontier model. On Qwen3.5-2B-Q4_K_M it produced failures *caused by*
 the rules:
 
@@ -1031,7 +1031,7 @@ prefix stays stable and llama-server's KV cache hits across queries.
 
 - **Rasa CALM** — dialog policies selected by intent classification.
 - **LangChain LLMRouterChain** — same pattern: cheap classifier → prompt selection.
-- **JARVIS `_get_domain_rules()`** — our previous project used the same approach
+- **Prior assistant's `_get_domain_rules()`** — a prior internal AI assistant project used the same approach
   for domain rules.
 - **RAG-MCP** — reported 3.2× accuracy improvement when only-relevant tools are
   surfaced. The principle generalizes to rules.
@@ -1240,7 +1240,7 @@ freeform grounding prompt on `query_type == "diagnostic"`?
 ```python
 """InterGen conversation router — routes user input to handlers.
 
-Ported from JARVIS core/conversation_router.py (3,782 lines → ~250 lines).
+Ported from a prior internal AI assistant project's core/conversation_router.py (3,782 lines → ~250 lines).
 Simplified from 18 priorities to 8. No voice, no conversation windows,
 no multi-user, no task planner. Text-only, system-focused.
 
@@ -1548,7 +1548,7 @@ class ConversationRouter(RouterInterface):
 
         # Not a memory operation — also try passive extraction
         # (extract facts from natural conversation without explicit "remember")
-        # Skipped for now — only explicit storage per PRIME DIRECTIVE
+        # Skipped for now — only explicit storage per Prime Directive
 
         return RouteResult(handled=False)
 
@@ -2114,7 +2114,7 @@ class ConversationRouter(RouterInterface):
 ```python
 """InterGen LLM router — local llama.cpp + cloud escalation.
 
-Ported from JARVIS core/llm_router.py. Key differences:
+Ported from a prior internal AI assistant project's core/llm_router.py. Key differences:
 - Uses llama-server HTTP API (not llama-cli binary)
 - Cloud escalation is provider-agnostic (not Anthropic-only)
 - Quality gate integrated into chat() flow
@@ -2173,7 +2173,7 @@ def build_system_prompt(query_type: str = "general") -> str:
 
     Base prompt (~100 tokens) + one modifier (~30-50 tokens) selected
     by query type. Prior art: classify-then-compose pattern (Rasa CALM,
-    LangChain LLMRouterChain, JARVIS _get_domain_rules). Validated by
+    LangChain LLMRouterChain, prior-assistant _get_domain_rules). Validated by
     12 rounds of InterGen testing — irrelevant rules hurt small models.
     """
     from datetime import datetime
@@ -2252,7 +2252,7 @@ class LLMRouter(LLMInterface):
         Tool calls come as fragmented JSON across SSE chunks.
         Arguments are accumulated and yielded as a single ToolCall.
 
-        CRITICAL (from JARVIS research): Tool calling uses ONLY [system, user]
+        CRITICAL (from prior-project research): Tool calling uses ONLY [system, user]
         messages. Conversation history is NOT included in the messages array
         for tool calls — it causes "pattern addiction" where Qwen copies
         tool-calling patterns from history instead of following rules.
@@ -2497,7 +2497,7 @@ class LLMRouter(LLMInterface):
     ) -> LLMResponse | None:
         """Send tool result back to LLM for human-readable synthesis.
 
-        Includes a dedicated synthesis prompt (ported from JARVIS
+        Includes a dedicated synthesis prompt (ported from a prior internal AI assistant project
         synth_footer pattern) that instructs the model to present
         results directly without tutorials or filler. Returns None
         on timeout so caller can fall back to template synthesis.
@@ -2815,7 +2815,7 @@ class LLMRouter(LLMInterface):
 """InterGen test grader — assertion evaluation engine.
 
 Evaluates test assertions against actual responses and produces
-structured results. Ported from JARVIS test_suite_v3/grader.py.
+structured results. Ported from a prior internal AI assistant project's test_suite_v3/grader.py.
 """
 
 from __future__ import annotations

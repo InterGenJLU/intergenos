@@ -2,7 +2,7 @@
 
 ## Context
 
-InterGenOS VISION.md defines a tiered local AI assistant but no implementation exists yet. The owner read Anthropic's Project Glasswing announcement (Claude Mythos Preview for cybersecurity) and wants AI integration prioritized. This plan maps out every package, dependency, and application component needed to go from zero to a working AI assistant in the InterGenOS build.
+InterGenOS VISION.md defines a tiered local AI assistant but no implementation exists yet. The owner read Anthropic's __PROJECT_Sentinel__ announcement (Claude Mythos Preview for cybersecurity) and wants AI integration prioritized. This plan maps out every package, dependency, and application component needed to go from zero to a working AI assistant in the InterGenOS build.
 
 ---
 
@@ -20,7 +20,7 @@ Keeps AI packages separate from desktop infrastructure. Optional — systems bui
 ### 4. Kokoro TTS (Tier 3) is Python + ONNX, not a C++ build
 Installed via pip helper, not built from source. Same pattern as claude-code-helper.
 
-### 5. Glasswing is a pure Python module (always installed, runtime-gated)
+### 5. Sentinel is a pure Python module (always installed, runtime-gated)
 Anthropic SDK via pip. No C/C++ build. Package is always included in the ai tier. Functionality activates at runtime only when internet + API key are configured.
 
 ---
@@ -124,7 +124,7 @@ InterGen Daemon (Python, systemd user service)
   ├── CLI Interface    — intergen ask/chat/explain/log/status/model
   ├── D-Bus Service    — Ask(), StartListening(), GetStatus(), ExplainCommand()
   ├── System Integration — journalctl, config reader, pkm queries
-  └── [Optional] Glasswing — Anthropic API for security scanning
+  └── [Optional] Sentinel — Anthropic API for security scanning
 ```
 
 **Tier detection logic:**
@@ -201,7 +201,7 @@ intergen model list                # show available
 - D-Bus service
 - Test: speak → transcribe → LLM → speak response
 
-### Phase 5: GNOME integration + Glasswing
+### Phase 5: GNOME integration + Sentinel
 - Shell extension (panel indicator, popup chat)
 - First-boot model download notification
 - Anthropic API client for security scanning (`intergen scan`, `intergen harden`, `intergen audit`)

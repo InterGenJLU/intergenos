@@ -28,7 +28,7 @@ Log of all package fixes required during desktop tier builds.
 | samba (3) | jansson not found | --without-json | No — fixed by adding jansson |
 | samba (4) | ADS not found | --without-ads | No — needs LDAP, now have it |
 | samba (final) | All deps added | Removed all --without flags except --without-ad-dc | Yes |
-| gexiv2 | Python gi module not found | Added pygobject3 as dependency (not disable!) | Per PRIME DIRECTIVE |
+| gexiv2 | Python gi module not found | Added pygobject3 as dependency (not disable!) | Per Prime Directive |
 | cargo-c (1) | cargo not found | Added /opt/rustc/bin to builder PATH | BLFS assumes profile.d sourced |
 | cargo-c (2) | DESTDIR/usr/bin/ missing | Added mkdir -p | N/A |
 | rust-bindgen | DESTDIR/usr/bin/ missing | Added mkdir -p | N/A |

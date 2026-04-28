@@ -137,7 +137,7 @@ Write our own `/init` script for the live initramfs. This is what LFS-derived di
 - Complete control, no external dependencies
 - Tiny — just busybox + a shell script
 - No framework assumptions (no casper, no dracut, no mkinitcpio)
-- Aligns with PRIME DIRECTIVE: transparent, understandable, no hidden magic
+- Aligns with Prime Directive: transparent, understandable, no hidden magic
 - ~50-100 lines of shell for the core logic
 
 **Cons:**

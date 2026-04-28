@@ -9,8 +9,8 @@ Result: Q↔T and R↔S are true geometric mirrors.
 import cairosvg
 from pathlib import Path
 
-OUT_SVG = Path("/home/christopher/intergenos/research/branding/marks/round9/svg")
-OUT_PNG = Path("/home/christopher/intergenos/research/branding/marks/round9/png")
+OUT_SVG = Path("docs/research/branding/marks/round9/svg")
+OUT_PNG = Path("docs/research/branding/marks/round9/png")
 
 BG_DARK = "#0a0e1a"
 BLUE = "#0099FF"

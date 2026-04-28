@@ -612,7 +612,7 @@ phase_image() {
     log "  (accessible from host via virtiofs)"
     log ""
     log "  Create a VM with:"
-    log "    cp ${image_path} /mnt/jarvis-storage/VMs/intergenos.qcow2"
+    log "    cp ${image_path} /mnt/intergenos/vm/intergenos.qcow2"
     log "    See create-image.sh output above for virt-install command."
 }
 

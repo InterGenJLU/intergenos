@@ -11,7 +11,7 @@ always-on set to 3 and moved 3 of them into query-conditional modifiers.
 ## The 20-rule baseline (commit ea72601 → 3c5e70e → 76adcfd)
 
 The original prompt (pre-R10) was 20 numbered rules, each beginning with `YOU MUST`
-or `DO NOT`. Inherited from JARVIS's "prescriptive numbered rules beat prose" pattern.
+or `DO NOT`. Inherited from a prior assistant's "prescriptive numbered rules beat prose" pattern.
 Reasonable on a frontier model. On Qwen3.5-2B-Q4_K_M it produced failures *caused by*
 the rules:
 

@@ -1,13 +1,11 @@
 # NVIDIA driver-open packaging research — InterGenOS
 
 **Date:** 2026-04-20
-**Author:** claude-main (ubuntu2404)
 **Status:** research only — no implementation, no code, no decision
-**Audience:** owner + claude-laptop + windows-claude + Ethan when onboarded
 
 ## TL;DR
 
-NVIDIA's `open-gpu-kernel-modules` project (GPLv2/MIT dual, released May 2022) gives us a kernel-side story we can actually ship under the HOLY GRAIL. The userspace (libGL, libcuda, libnvidia-*) stays proprietary — that part needs a download helper, not a shipped package. This doc covers package split, DKMS + MOK signing chain, Wayland/hybrid-graphics, and prior art. Recommendation at the bottom.
+NVIDIA's `open-gpu-kernel-modules` project (GPLv2/MIT dual, released May 2022) gives us a kernel-side story we can actually ship under our security-first posture. The userspace (libGL, libcuda, libnvidia-*) stays proprietary — that part needs a download helper, not a shipped package. This doc covers package split, DKMS + MOK signing chain, Wayland/hybrid-graphics, and prior art. Recommendation at the bottom.
 
 **Key inputs to owner decision:**
 1. Userspace: redistribute under NVIDIA Linux EULA vs download-helper?
@@ -20,8 +18,8 @@ NVIDIA's `open-gpu-kernel-modules` project (GPLv2/MIT dual, released May 2022) g
 
 **Proprietary NVIDIA driver** (nvidia-drm, closed kernel + userspace):
 - Kernel modules are binary blobs from NVIDIA. Cannot audit. Cannot sign with MOK cleanly without NVIDIA's signing tooling.
-- HOLY GRAIL violation: kernel-space code we can't read is exactly the attack surface Mythos-class adversaries target first.
-- PRIME DIRECTIVE violation: user does not control code running in ring 0.
+- Security violation: kernel-space code we can't read is exactly the attack surface advanced adversaries target first.
+- User-control violation: user does not control code running in ring 0.
 
 **Nouveau** (in-tree `CONFIG_DRM_NOUVEAU`):
 - Fully open, in-kernel, already part of our kernel config (ref: `kernel_config_strategy_2026-04-01.md` line 102).
@@ -31,7 +29,7 @@ NVIDIA's `open-gpu-kernel-modules` project (GPLv2/MIT dual, released May 2022) g
 **Driver-open** (`open-gpu-kernel-modules`, GPLv2/MIT):
 - NVIDIA's own kernel-side source release. First-party, feature-parity with proprietary kernel, CUDA-capable.
 - Can be built out-of-tree via DKMS, signed with user's MOK, loaded under `CONFIG_MODULE_SIG_FORCE=y` (already planned in A6 per `signing_key_custody_2026-04-18.md`).
-- Userspace still proprietary (same .so files as proprietary driver). That boundary lives outside the kernel — acceptable for HOLY GRAIL since ring 0 is auditable.
+- Userspace still proprietary (same .so files as proprietary driver). That boundary lives outside the kernel — acceptable from a security-posture standpoint, since ring 0 is auditable.
 
 **Why this balance works for InterGenOS:**
 - Kernel side is open-source and signed → attacker can't tamper with ring-0 code without MOK compromise.
@@ -126,7 +124,7 @@ Two viable splits. Both have prior art. Recommendation below.
 **Rationale:**
 - Keeps the redistributable kernel-side in core. User gets driver-open even if they decline userspace.
 - Userspace fetch helper matches our `approved_app_list` pattern (ref: `project_approved_app_list.md` — "56 apps: 42 source, 8 helpers, 6 deferred").
-- User can inspect the fetch helper, see exactly what URL is hit and what sha256 is verified. PRIME DIRECTIVE honored.
+- User can inspect the fetch helper, see exactly what URL is hit and what sha256 is verified. Prime Directive honored.
 - Signing chain: DKMS fires `/etc/dkms/sign_helper.sh` which invokes sbsign with `/var/lib/intergen/mok/mok.key` + `mok.crt` (paths per `installer/backend/mok.py` MOK_DIR constant).
 
 ### Option B: Coarse split (Arch-style)
@@ -143,11 +141,11 @@ Two viable splits. Both have prior art. Recommendation below.
 ### Recommendation
 
 **Option A, with the fetch helper for userspace.** Three reasons:
-1. HOLY GRAIL Rule 4 ("every package decision is a security decision"): the clearer the open/proprietary boundary, the easier to audit and to reason about attack surface.
-2. PRIME DIRECTIVE: user decides whether to accept the userspace fetch. Headless servers or compute-only boxes may want kernel modules without GL libraries at all (run pure CUDA against libcuda as an overlay).
+1. Security-first posture ("every package decision is a security decision"): the clearer the open/proprietary boundary, the easier to audit and to reason about attack surface.
+2. Prime Directive: user decides whether to accept the userspace fetch. Headless servers or compute-only boxes may want kernel modules without GL libraries at all (run pure CUDA against libcuda as an overlay).
 3. Matches our existing helper pattern for VS Code, Claude Code, etc. One consistent story, no special case for NVIDIA.
 
-Owner may weigh simplicity (Option B) vs the HG/PRIME clarity of Option A. This is an owner decision — flagging, not picking.
+Owner may weigh simplicity (Option B) vs the security/user-control clarity of Option A. This is an owner decision — flagging, not picking.
 
 ---
 
@@ -289,7 +287,7 @@ No new Kconfig symbols required for driver-open. The DKMS machinery is pure user
 
 ---
 
-## Testing plan (hand-off to claude-laptop for Day 2+)
+## Testing plan (Day 2+)
 
 Once package templates exist and a build run produces the `nvidia-open-kmod` DKMS package:
 
@@ -319,7 +317,7 @@ Once package templates exist and a build run produces the `nvidia-open-kmod` DKM
 
 | # | Question | Context | Suggested default |
 |---|---|---|---|
-| 1 | Fetch helper vs redistribution for userspace? | HG + PRIME clarity vs Arch-style simplicity | Fetch helper (Option A) |
+| 1 | Fetch helper vs redistribution for userspace? | Security + user-control clarity vs Arch-style simplicity | Fetch helper (Option A) |
 | 2 | Driver branch — Production or New Feature? | Stability vs latest Wayland/features | Production 560+ (ships clean Wayland + fbdev) |
 | 3 | Ship `nvidia-settings` by default? | X11 config GUI; less useful on Wayland | No — make it extra-tier optional |
 | 4 | Ship `nvidia-persistenced` by default? | Compute workloads; less useful for desktop | No — extra-tier, user opts in |
@@ -333,10 +331,10 @@ Once package templates exist and a build run produces the `nvidia-open-kmod` DKM
 - `docs/research/installer/signing_key_custody_2026-04-18.md` — D1-1 ephemeral kernel signing, D1-6 MOK flow, A6 kernel config (authoritative for signing chain)
 - `installer/backend/mok.py` — `MOK_DIR`, `sign_efi_binary` (key paths used by DKMS sign helper)
 - `installer/backend/bootloader.py` — signed boot chain (shim → GRUB → kernel → modules)
-- `/home/christopher/intergenos/research/kernel/kernel_config_strategy_2026-04-01.md` — nouveau base config
-- `/home/christopher/intergenos/research/build_system/igr_specification_2026-04-10.md` — GPU-NVIDIA package slot
-- `/home/christopher/.claude/projects/-mnt-intergenos/memory/project_approved_app_list.md` — established fetch-helper pattern
-- `MEMORY.md#Rule #4 GLASSWING` — every build decision is a security decision
+- `docs/research/kernel/kernel_config_strategy_2026-04-01.md` — nouveau base config
+- `docs/research/build_system/igr_specification_2026-04-10.md` — GPU-NVIDIA package slot
+- Project approved-app-list memo — established fetch-helper pattern
+- Project security-alignment doc — every build decision is a security decision
 
 ---
 

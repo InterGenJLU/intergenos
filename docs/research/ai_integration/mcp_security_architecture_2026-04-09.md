@@ -1,17 +1,17 @@
-# InterGen — MCP Architecture & Glasswing Security Model
+# InterGen — MCP Architecture & Sentinel Security Model
 
 **Date:** 2026-04-09
 
-## JARVIS MCP Implementation (Proven, Portable)
+## Prior-Assistant MCP Implementation (Proven, Portable)
 
-JARVIS has bidirectional MCP:
+The prior internal AI assistant project has bidirectional MCP:
 
-**Outbound (JARVIS as MCP server):** `mcp_server.py` (265 lines)
+**Outbound (prior assistant as MCP server):** `mcp_server.py` (265 lines)
 - FastMCP on stdio transport, exposes 7 tools
 - Security: explicitly blocks run_command and confirm_pending from external callers
 - WAL mode SQLite sharing with running instance
 
-**Inbound (JARVIS consuming MCP servers):** `mcp_client.py` (297 lines)
+**Inbound (prior assistant consuming MCP servers):** `mcp_client.py` (297 lines)
 - MCPBridge class with dedicated async thread
 - Subprocess lifecycle via AsyncExitStack
 - Auto-discovery: list_tools() → convert to OpenAI schema → register in tool_registry
@@ -84,9 +84,9 @@ mcp_server:
 6. Cross-server namespace isolation
 7. User approval flow with plain-language permission display
 
-## Glasswing Integration Points
+## Sentinel Integration Points
 
-Glasswing/Mythos is not publicly available. InterGen implements equivalent
+__Sentinel_MYTHOS__ is not publicly available. InterGen implements equivalent
 security using available tools:
 - Claude API for tool description injection scanning
 - Static analysis of MCP server code before approval

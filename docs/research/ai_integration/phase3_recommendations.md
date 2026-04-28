@@ -1,8 +1,8 @@
 # Phase 3: Joint Recommendations for InterGen AI Assistant
 
 **Date:** 2026-04-15
-**Authors:** Claude Opus 4.6 (claude-main) + Claude Opus 4.6 (claude-laptop)
-**Inputs:** Phase 2 Assertion Audit (47 conversations, claude-main) + Phase 2 Assertion Audit (58 conversations, claude-laptop) + Owner Manual Review (112 conversations, Round 10)
+**Authors:** Claude Opus 4.6 (two independent passes)
+**Inputs:** Phase 2 Assertion Audit (47-conversation pass + 58-conversation pass, independent reviewers) + Owner Manual Review (112 conversations, Round 10)
 **Total evidence base:** 105 unique conversations across 3 test rounds = 315 graded responses
 
 ---
@@ -110,10 +110,10 @@ if source in ("cache", "keyword") and len(text) > 200:
 
 **The bug:** This assertion only fires for `cache` and `keyword` sources. In Baseline A and Baseline B (cache disabled), ALL queries go through LLM routes. The assertion becomes a universal no-op -- it always returns "N/A or OK" on line 189.
 
-**Evidence (claude-laptop audit):**
+**Evidence (audit pass A):**
 > "In Baseline A, 0 out of 112 responses triggered this assertion check because no response had source='cache' or source='keyword' for multi-line output."
 
-**Evidence (claude-main audit, 15 instances across BA/BB):**
+**Evidence (audit pass B, 15 instances across BA/BB):**
 Every LLM response containing raw `df -h` output, `systemctl status` output, or other structured data was never checked for readability. Examples:
 - `[BA] [lex_svc_casual]`: 223 chars, no newlines -- PASS
 - `[BA] [lex_svc_indirect]`: 271 chars, no newlines -- PASS
@@ -863,7 +863,7 @@ Ranked by impact-to-effort ratio and number of false PASSes resolved:
 
 Both auditors independently identified the same bugs and gaps. This table shows convergence:
 
-| Finding | claude-main | claude-laptop | Owner Review |
+| Finding | Audit pass A | Audit pass B | Owner Review |
 |---------|------------|---------------|--------------|
 | Bug 1: no_empty_narration | Identified, line 165 | Identified, line 165 | Corroborated |
 | Bug 2: output_readable scope | Identified, line 179 | Identified, line 179 | Corroborated |

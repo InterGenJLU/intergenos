@@ -115,7 +115,7 @@ windowcontrols button.close:hover > image {
 
 ## Alternative (if CSS truly cannot solve it)
 
-- **Patch Nautilus's `.ui` file** to set `hexpand="False"` on the windowcontrols box (requires building Nautilus from source — not aligned with PRIME DIRECTIVE of avoiding hacks)
+- **Patch Nautilus's `.ui` file** to set `hexpand="False"` on the windowcontrols box (requires building Nautilus from source — not aligned with Prime Directive of avoiding hacks)
 - **Accept the ~5px oval** as a Nautilus-specific layout quirk
 
 ---

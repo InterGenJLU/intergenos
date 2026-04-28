@@ -81,7 +81,7 @@ Before R20, queries like "why is my disk full?" could fall through to P4 (freefo
 
 ### Why strip conversation history from tool-calling messages?
 
-JARVIS research finding: Qwen3.5 exhibits "pattern addiction" when conversation history is included in tool-calling messages. It copies tool-calling patterns from previous turns instead of following the current system prompt. The fix is `[system, user]` only for tool calls (llm.py:155-160).
+Prior-project research finding: Qwen3.5 exhibits "pattern addiction" when conversation history is included in tool-calling messages. It copies tool-calling patterns from previous turns instead of following the current system prompt. The fix is `[system, user]` only for tool calls (llm.py:155-160).
 
 ### Why single-line-only cache?
 

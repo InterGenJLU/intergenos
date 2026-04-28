@@ -1,5 +1,5 @@
 # BLFS 13.0 Package Reference for InterGenOS
-# Extracted from /home/christopher/intergenos/docs/lfs-13.0/BLFS-BOOK-13.0-systemd.html
+# Extracted from docs/lfs-13.0/BLFS-BOOK-13.0-systemd.html
 # Date: 2026-04-01
 
 ---

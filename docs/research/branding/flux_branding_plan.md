@@ -2,12 +2,12 @@
 
 ## Context
 
-Every visual element from power-on to desktop should be deliberately designed, not stock art. FLUX.2-klein-4B runs locally on the RX 7900 XT via the JARVIS GPU swap system. All imagery is generated on our hardware — no licensed assets, no stock photos.
+Every visual element from power-on to desktop should be deliberately designed, not stock art. FLUX.2-klein-4B runs locally on the RX 7900 XT. All imagery is generated on our hardware — no licensed assets, no stock photos.
 
 **FLUX Server:** `uvicorn services.flux_server:app --host 127.0.0.1 --port 8190`
 **API:** POST `http://127.0.0.1:8190/generate` with `{prompt, width, height, steps, seed}`
-**Model:** `/mnt/jarvis-storage/jarvis/models/flux/FLUX.2-klein-4B/`
-**Output:** `/home/christopher/jarvis/generated_images/`
+**Model:** `/mnt/<flux-storage>/models/flux/FLUX.2-klein-4B/`
+**Output:** `~/<flux-output-dir>/`
 
 ---
 
@@ -350,6 +350,6 @@ done
 
 - FLUX.2-klein-4B max resolution is ~2048x2048. Larger sizes need upscaling (Real-ESRGAN or similar).
 - The RX 7900 XT has 20GB VRAM — sufficient for 2048x2048 at BF16.
-- GPU swap: FLUX server must be running (llama-server stopped). JARVIS handles this automatically.
+- GPU swap: FLUX server must be running (llama-server stopped). The local FLUX server handles this automatically.
 - Expect ~15-30 seconds per image at 1024x1024 with 25 steps.
-- All generated images go to `/home/christopher/intergenos/research/branding/` for review, not directly into the repo.
+- All generated images go to `docs/research/branding/` for review, not directly into the repo.

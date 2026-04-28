@@ -29,7 +29,7 @@ import cairosvg
 import shutil
 from pathlib import Path
 
-ROOT = Path("/home/christopher/intergenos/research/branding/marks/final")
+ROOT = Path("docs/research/branding/marks/final")
 SVG_DIR = ROOT / "svg"
 PNG_DIR = ROOT / "png"
 

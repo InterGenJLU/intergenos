@@ -17,7 +17,7 @@
 +
 +        After the router executes a tool, this method appends the tool call
 +        and result to the conversation, then asks the LLM to synthesize a
-+        direct answer. Ported from JARVIS llm_router.py:1716.
++        direct answer. Ported from a prior internal AI assistant project
 +
 +        Uses lower temperature (0.3) for factual synthesis.
 +        """

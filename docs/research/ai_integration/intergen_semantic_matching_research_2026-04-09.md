@@ -1,13 +1,13 @@
 # InterGen AI Assistant — Semantic Matching & Architecture Research
 
 **Date:** 2026-04-09
-**Sources:** JARVIS codebase analysis + web research (2025-2026 state of the art)
+**Sources:** prior internal AI assistant codebase analysis + web research (2025-2026 state of the art)
 
 ## Executive Summary
 
 InterGen's architecture should follow a **4-layer hybrid routing pipeline** combining
 deterministic pattern matching, embedding-based semantic routing, LLM tool calling,
-and LLM free response. This is the proven pattern from JARVIS, validated by current
+and LLM free response. This is the proven pattern from a prior internal AI assistant project, validated by current
 industry best practices (Semantic Router, vLLM Router, Red Hat sysadmin agents).
 
 The key insight: **semantic matching isn't used for ALL routing — it's the fallback for
@@ -49,11 +49,11 @@ User Query
 | LLM | Qwen3-8B Q4_K_M via llama.cpp | Best tool calling at size, native llama.cpp support |
 | Vector storage | sqlite-vec | Zero dependencies, pure C, SQLite-native |
 | Tool calling | OpenAI-compatible via llama.cpp --jinja | Standard protocol, proven |
-| Skill system | YAML metadata + Python handlers | Proven JARVIS pattern |
+| Skill system | YAML metadata + Python handlers | Proven prior-assistant pattern |
 
 ---
 
-## JARVIS Patterns to Carry Forward
+## Prior-Assistant Patterns to Carry Forward
 
 1. Pre-computed embedding cache (encode examples once at startup)
 2. Hybrid 4-layer routing (pattern → keyword → semantic → LLM)
@@ -87,7 +87,7 @@ User Query
 - Formalized embedding-based routing into a library
 - MIT licensed, pip installable
 - HuggingFaceEncoder for local execution
-- Reference implementation of the pattern JARVIS uses
+- Reference implementation of the pattern the prior assistant uses
 
 ### sqlite-vec
 - Pure C SQLite extension for vector search
@@ -119,7 +119,7 @@ User Query
 ### System Expert (core)
 - Diagnose problems (logs, services, processes, network, disk)
 - Package management via pkm
-- Security auditing via Glasswing (Claude API)
+- Security auditing via Sentinel (Claude API)
 - Explain configs, commands, error messages
 - Performance analysis
 

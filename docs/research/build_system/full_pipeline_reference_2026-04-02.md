@@ -36,7 +36,7 @@ The VM provides a known-good environment with all LFS prerequisites installed.
 ### Inputs
 - Ubuntu 24.04 cloud image (or server ISO)
 - cloud-init configuration (user-data, meta-data)
-- VM spec from `/home/christopher/intergenos/research/vm_configurations_2026-04-02.md`
+- VM spec from `docs/research/vm_configurations_2026-04-02.md`
 
 ### Outputs
 - Running `igos-build` VM with:
@@ -456,7 +456,7 @@ qcow2 disk image that can be used to create the target KVM virtual machine.
 #### Step 1: Create a raw disk image
 ```bash
 # Create a 500G sparse qcow2 image
-qemu-img create -f qcow2 /mnt/jarvis-storage/VMs/intergenos.qcow2 500G
+qemu-img create -f qcow2 /mnt/intergenos/vm/intergenos.qcow2 500G
 ```
 
 #### Step 2: Connect the image as a block device
@@ -465,7 +465,7 @@ qemu-img create -f qcow2 /mnt/jarvis-storage/VMs/intergenos.qcow2 500G
 modprobe nbd max_part=8
 
 # Connect the qcow2 image to /dev/nbd0
-qemu-nbd --connect=/dev/nbd0 /mnt/jarvis-storage/VMs/intergenos.qcow2
+qemu-nbd --connect=/dev/nbd0 /mnt/intergenos/vm/intergenos.qcow2
 ```
 
 #### Step 3: Partition the disk
@@ -571,7 +571,7 @@ qemu-nbd --disconnect /dev/nbd0
 - Completed chroot at `/mnt/igos` (with kernel, GRUB, all packages installed)
 
 ### Outputs
-- Bootable qcow2 image at `/mnt/jarvis-storage/VMs/intergenos.qcow2`
+- Bootable qcow2 image at `/mnt/intergenos/vm/intergenos.qcow2`
 
 ### Known Issues / Considerations
 | Issue | Details |
@@ -619,7 +619,7 @@ virt-install \
     --cpu host-passthrough \
     --machine q35 \
     --os-variant generic \
-    --disk /mnt/jarvis-storage/VMs/intergenos.qcow2,bus=virtio \
+    --disk /mnt/intergenos/vm/intergenos.qcow2,bus=virtio \
     --network network=default,model=virtio \
     --graphics vnc,listen=0.0.0.0 \
     --video virtio \
@@ -634,7 +634,7 @@ The `--import` flag tells virt-install to use the existing disk image (no instal
 | Setting | Value |
 |---------|-------|
 | Name | intergenos |
-| Disk | `/mnt/jarvis-storage/VMs/intergenos.qcow2` |
+| Disk | `/mnt/intergenos/vm/intergenos.qcow2` |
 | vCPUs | 12 |
 | Memory | 12 GB |
 | CPU | host-passthrough |

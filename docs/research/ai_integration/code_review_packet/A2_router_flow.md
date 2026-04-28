@@ -1,7 +1,7 @@
 # router.py Walkthrough — ConversationRouter
 
 **File:** `intergen/router.py` (868 lines)
-**Ported from:** JARVIS `core/conversation_router.py` (3,782 lines)
+**Ported from:** a prior internal AI assistant project's `core/conversation_router.py` (3,782 lines)
 **Reduction:** 79% — removed voice, multi-user, conversation windows, task planner
 
 ---
@@ -60,13 +60,13 @@ When cache hits, response goes through `_template_synthesis()` for natural langu
 37 identity patterns with fallthrough aliases. "Who are you?" → "What are you?" → hardcoded response. No LLM call, 0ms.
 
 **Step 6: Memory operations** (lines 135-139)
-Handles "remember that...", "what were we working on?", "forget about...". Explicit storage only — no passive fact extraction (per PRIME DIRECTIVE: user controls what's stored).
+Handles "remember that...", "what were we working on?", "forget about...". Explicit storage only — no passive fact extraction (per Prime Directive: user controls what's stored).
 
 **Step 7: P1 keyword match** (lines 142-145)
 Deterministic regex/keyword matching via semantic matcher Layer 1. Maps known phrases to tool calls. Template synthesis first, LLM fallback for complex output.
 
 **Step 8: P2 semantic match** (lines 148-154)
-Embedding similarity via nomic-embed-text-v1.5. Threshold 0.85 (higher than JARVIS's 0.55-0.85 because system commands are dangerous — false positives could execute destructive operations).
+Embedding similarity via nomic-embed-text-v1.5. Threshold 0.85 (higher than the prior assistant's 0.55-0.85 because system commands are dangerous — false positives could execute destructive operations).
 
 **Step 9: P3 LLM tool calling** (lines 158-165)
 ```python

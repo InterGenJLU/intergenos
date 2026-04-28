@@ -459,7 +459,7 @@ def render_folder(output_path, energy_level=1, pulse_core=False,
 
 
 if __name__ == "__main__":
-    out = Path("/home/christopher/intergenos/research/branding/icons/renderer/output")
+    out = Path("docs/research/branding/icons/renderer/output")
 
     print("Rendering Edge-Lit folder (Level 1)...")
     render_folder(out / "folder-edge-lit.png", energy_level=1)

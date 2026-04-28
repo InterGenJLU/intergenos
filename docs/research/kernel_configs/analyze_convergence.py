@@ -14,7 +14,7 @@ import sys
 from collections import defaultdict, Counter
 from pathlib import Path
 
-CONFIG_DIR = Path("/home/christopher/intergenos/research/kernel_configs")
+CONFIG_DIR = Path("docs/research/kernel_configs")
 
 # ── Subsystem classification ──────────────────────────────────────────
 

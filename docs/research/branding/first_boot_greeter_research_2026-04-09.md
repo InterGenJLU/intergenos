@@ -41,7 +41,7 @@ No distro ships a native libadwaita app that:
 Built from scratch in Python + GTK4 + libadwaita.
 NOT forked from Vanilla OS or Manjaro Hello.
 
-**Reasoning (Glasswing):**
+**Reasoning (Sentinel):**
 - Forking = inheriting code, dependencies, attack surface, update cadence
 - A page-based wizard with gsettings toggles is not complex engineering
 - Own your code, own your attack surface

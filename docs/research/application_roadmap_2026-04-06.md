@@ -7,7 +7,7 @@
 
 ## Guiding Principle
 
-The PRIME DIRECTIVE applies to application selection: if a user expects it to be there, it should be there. A system the user can trust doesn't make them hunt for basic tools.
+The Prime Directive applies to application selection: if a user expects it to be there, it should be there. A system the user can trust doesn't make them hunt for basic tools.
 
 ---
 
@@ -65,7 +65,7 @@ These are FOSS applications that 5/6 major distros either ship by default or tha
 |-------------|--------------|------------|
 | **Audacity** | Audio editor, owner uses it, universal recommendation | Low-Medium |
 | **Transmission** | BitTorrent client, default in Mint, lightweight | Low |
-| **Timeshift** | System snapshots/backup, default in Mint, AUR favorite. PRIME DIRECTIVE: users should be able to recover from their own mistakes. | Low-Medium |
+| **Timeshift** | System snapshots/backup, default in Mint, AUR favorite. Prime Directive: users should be able to recover from their own mistakes. | Low-Medium |
 | **Remmina** | Remote desktop client, default in Ubuntu, owner uses it | Medium |
 | **Docker** | Containerization, owner uses it. Consider Podman (daemonless, rootless) as alternative. | Medium |
 | **OBS Studio** | Screen recording/streaming, top Flathub, on owner's machine | Medium |
@@ -136,4 +136,4 @@ These are small GNOME apps that round out the desktop experience. Many are alrea
 - DistroWatch rankings (top 10 distributions)
 - Default app analysis: Ubuntu, Mint, Fedora, MX Linux, Pop!_OS, Zorin OS
 - Owner's personal daily-use application list
-- Full research report: `/home/christopher/intergenos/research/essential_desktop_apps_research_2026-04-06.md`
+- Full research report: `docs/research/essential_desktop_apps_research_2026-04-06.md`
