@@ -1,6 +1,6 @@
 # InterGenOS — AI-Integrated Linux Distribution
 
-**For:** AI Assistants (Claude, etc.) | **Created:** March 30, 2026 | **Updated:** April 18, 2026
+**For:** AI Assistants (Claude, etc.) | **Created:** March 30, 2026 | **Updated:** April 23, 2026
 
 ## THE HOLY GRAIL — Security-Only Alignment
 
@@ -41,47 +41,61 @@ Build VM (Ubuntu 24.04) → chroot at /mnt/igos → build everything → bootabl
 
 **Master orchestrator:** `scripts/build-intergenos.sh`
 - Single entry point for the entire build
-- Phases: validate → setup → toolchain → chroot-prep → chroot-tools → core → config → core-extra → base → desktop → extra → image
+- Phases: validate → setup → toolchain → chroot-prep → chroot-tools → core → config → core-extra → kernel → desktop → extra → image
 - Controls: `--user`, `--start-at`, `--stop-after`, `.build-stop` file, Ctrl+C
 
 **Self-contained chroot** (build_003 approach): sources and scripts are copied onto the target filesystem. No bind mounts for content. The chroot is transparent and inspectable.
 
 ## Package Tiers
 
-| Tier | Purpose |
-|------|---------|
-| toolchain | Cross-compilation (LFS Ch. 5-7) |
-| core | Full system (LFS Ch. 8 + TLS chain, PAM, glib2, curl/wget/git, cmake) |
-| base | End-user CLI tools (htop, rsync, strace, screen, etc.) |
-| desktop | GNOME on Wayland (X11 libs, GTK, Mesa, GStreamer, GNOME Shell) |
-| extra | User-facing applications (Code-OSS, Node.js, etc.) |
+| Tier | Purpose | Count (2026-04-23) |
+|------|---------|-------------------:|
+| toolchain | Cross-compilation (LFS Ch. 5-7) | 28 |
+| core | Full system (LFS Ch. 8 + TLS chain, PAM, glib2, curl/wget/git, cmake, kernel, pkm) | 112 |
+| base | End-user CLI tools (htop, rsync, strace, screen, etc.) | 20 |
+| desktop | GNOME 49 on Wayland (X11 libs, GTK, Mesa, GStreamer, GNOME Shell) | 431 |
+| extra | User-facing applications (Code-OSS, Node.js, etc.) | 61 |
+| ai | InterGen AI assistant + local LLM stack (llama.cpp) | 2 |
+
+**Total: 654 packages across 6 tiers.**
 
 The `extra` tier follows the Arch Linux convention — optional packages that extend the
-system beyond the base desktop. Proprietary software (VS Code, Claude Code) is handled
-via download helpers, not bundled — consistent with how Debian (non-free), Void (nonfree),
-and Arch (AUR) separate free from proprietary.
+system beyond the base desktop. Proprietary software (VS Code, Claude Code, Chrome) is
+handled via download helpers, not bundled — consistent with how Debian (non-free),
+Void (nonfree), and Arch (AUR) separate free from proprietary.
+
+The `ai` tier is v1-default; InterGen is the named AI assistant (see Related Projects).
 
 ## Repository Structure
 
 ```
 /mnt/intergenos/
 ├── igos-build/          # Python build system (parser, graph, builder, styles)
-├── packages/            # 458 package templates (YAML + build.sh)
-│   ├── toolchain/       # LFS Ch. 5-7
-│   ├── core/            # LFS Ch. 8 + extras
-│   ├── base/            # End-user CLI tools
-│   ├── desktop/         # GNOME desktop stack
-│   └── extra/           # User-facing applications
+├── packages/            # 654 package templates across 6 tiers (YAML + build.sh)
+│   ├── toolchain/       # LFS Ch. 5-7 (28)
+│   ├── core/            # LFS Ch. 8 + kernel + pkm + core libs (112)
+│   ├── base/            # End-user CLI tools (20)
+│   ├── desktop/         # GNOME 49 on Wayland (431)
+│   ├── extra/           # User-facing apps + download-helper targets (61)
+│   └── ai/              # InterGen AI assistant + local LLM stack (2)
 ├── scripts/             # Build orchestrator, chroot scripts, tools
 │   ├── build-intergenos.sh      # Master orchestrator
 │   ├── generate-templates.py    # Batch template generator
 │   ├── host-check.py            # Build host validation
+│   ├── sign-release.sh          # Release-signing entrypoint (GPG + sbsign)
 │   └── chroot-*.sh              # Chroot management
-├── pkm/                 # pkm package manager (install, remove, query, verify)
-├── installer/           # Forge installer (TUI + backend, uses pkm engine)
+├── pkm/                 # pkm package manager source (install/remove/query/verify)
+├── installer/           # Forge installer (TUI + backend + Forge SB chain)
+├── intergen/            # InterGen AI assistant source (D-Bus daemon, CLI, MCP tools)
 ├── vm/                  # Cloud-init configs for automated VM setup
 ├── build/               # Sources, patches, logs (not committed)
-├── docs/                # Vision document
+├── docs/                # VISION + VISUAL_LANGUAGE
+│   ├── governance/      # succession.md (public role policy)
+│   ├── research/        # 181 research docs across 24 topical subdirs
+│   ├── signing-procedure.md    # Release-signing operational runbook
+│   ├── signing-key.md          # Canonical fingerprint publication page
+│   ├── ephemeral-module-signing.md  # Novel kernel-module-signing writeup
+│   └── grub2-cve-audit.md      # Reviewer-facing CVE audit for shim-review
 └── config/              # Kernel configs, gsettings overrides
 ```
 
@@ -95,7 +109,7 @@ and Arch (AUR) separate free from proprietary.
 
 ## Related Projects
 
-- **JARVIS** (`/home/christopher/jarvis`) — AI assistant to be adapted for InterGenOS
+- **JARVIS** (`/home/christopher/jarvis`) — separate personal AI-assistant project owned by the owner. Pieces of JARVIS's code were *ported* to create **InterGen** (`packages/ai/intergen/`) as the starting point for InterGenOS's local AI assistant. JARVIS continues to exist and run independently; it is NOT merging into InterGenOS, and its credentials/API keys/memory stay scoped to JARVIS.
 - **Original InterGenOS** (`github.com/InterGenOS/build_003`) — 2015-2016 LFS builds (study for approach, not code)
 
 ## Critical Rules

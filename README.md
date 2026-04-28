@@ -4,7 +4,7 @@
 
 InterGenOS puts the user in control of their own machine. Every package is compiled from source with deliberate choices. Every design decision serves one purpose: giving people a system they understand, can modify, and can trust.
 
-**InterGen**, the local AI assistant, doesn't just help you use your system — it helps you understand and secure it. Hardware-detected tiers run it on everything from a 4 GB laptop to a GPU workstation, fully offline. For users who opt in, [Project Glasswing](https://anthropic.com/glasswing) integration brings Anthropic's vulnerability discovery capabilities directly to the desktop — scan, harden, and audit your system with the same AI that found zero-days in OpenBSD and the Linux kernel.
+**InterGen**, the local AI assistant, doesn't just help you use your system — it helps you understand and secure it. Hardware-detected tiers run it on everything from a 4 GB laptop to a GPU workstation, fully offline. **InterGen Sentinel** — its pluggable security-scanner architecture — routes MCP traffic through your choice of scanner before it reaches a tool. A local-only default (`Local-Rules` rule-based + `Local-Qwen` InterGen-LLM-backed via your local Qwen model) ships ready to go. Six cloud providers are opt-in: Glasswing-Anthropic — which brings [Anthropic's vulnerability-discovery capability](https://anthropic.com/glasswing), the same AI that found zero-days in OpenBSD and the Linux kernel — Gemini-Google, CoPilot-Microsoft, ChatGPT-OpenAI, Grok-xAI, and DeepSeek. The user picks which (if any) reaches across the network.
 
 ![InterGenOS First Boot — GNOME 49 on Wayland](images/FirstBoot_InterGenOS_Revival.png)
 
@@ -45,8 +45,8 @@ The Prime Directive and the security-only alignment above are complementary: a m
 - **Forge Secure Boot chain** — signed shim → MOK-signed GRUB → MOK-signed kernel → `MODULE_SIG_FORCE=y` modules. The user's own MOK key is the trust anchor; the installer generates it per machine. See [SECURITY.md](SECURITY.md).
 - **Test harness** — 74 tests in `installer/tests/` covering installer backend, MOK validation, and Class 1 signing-chain verification; Phase A scaffold for GRUB `check_signatures=enforce` empirical validation.
 - **Extra tier** — Node.js, Google Chrome, VS Code, and Claude Code (proprietary packages fetched transparently via pkm)
-- **InterGen** — tiered local AI assistant with permission-gated tool calling, D-Bus activation, and a local LLM/voice stack (llama.cpp, whisper.cpp, Piper TTS). Hardware-detected, fully offline.
-- **Project Glasswing integration** — AI-driven vulnerability scanning, system hardening, and security auditing via Anthropic API (opt-in, runtime-gated)
+- **InterGen** — tiered local AI assistant with permission-gated tool calling, D-Bus activation, and a local LLM stack (llama.cpp). Hardware-detected, fully offline. Text-only by design.
+- **InterGen Sentinel** — Pluggable security-scanner architecture. `Local-Rules` (rule-based, deterministic) + `Local-Qwen` (InterGen-LLM-backed via your local Qwen model) ship by default, fully offline. Six cloud providers are opt-in: Glasswing-Anthropic, Gemini-Google, CoPilot-Microsoft, ChatGPT-OpenAI, Grok-xAI, DeepSeek. Schema-pinning, audit logging, and sandbox enforcement are vendor-neutral local plumbing — they apply regardless of which scanner is active.
 
 ## Meet InterGen
 
@@ -54,7 +54,7 @@ The Prime Directive and the security-only alignment above are complementary: a m
 
 What separates InterGen from a generic local-LLM wrapper is the permission model. Every tool call is treated as privileged: the default escalation mode is `ask`, requiring user confirmation before any action that modifies system state. Tool signatures are pinned against drift between upgrades. A separate audit log captures every tool invocation for after-the-fact review. The AI is a system component, not a hole in it.
 
-For users who opt in, [Project Glasswing](https://anthropic.com/glasswing) integration brings Anthropic's vulnerability discovery capabilities to the desktop — scan, harden, and audit your system with the same AI that found zero-days in OpenBSD and the Linux kernel. Glasswing is the one place InterGen reaches across the network; everything else stays local by default.
+**InterGen Sentinel** routes every MCP tool call through a security scanner of your choice before it executes. The default is local-only: `Local-Rules` (rule-based, deterministic) and `Local-Qwen` (your local Qwen model reviewing the call). For richer review, opt into any of six cloud providers: Glasswing-Anthropic for [Anthropic's vulnerability-discovery capability](https://anthropic.com/glasswing) (the AI that found zero-days in OpenBSD and the Linux kernel), plus Gemini-Google, CoPilot-Microsoft, ChatGPT-OpenAI, Grok-xAI, and DeepSeek. The user picks which (if any) reaches across the network; everything else stays on the box.
 
 See `intergen(1)` for the full command surface and `/etc/intergen/config.yml` for the default configuration.
 
@@ -77,7 +77,7 @@ See `intergen(1)` for the full command surface and `/etc/intergen/config.yml` fo
 | core | Full system: kernel, shell, coreutils, systemd, GCC, SSH |
 | base | CLI tools: htop, rsync, strace, screen |
 | desktop | GNOME on Wayland: GTK, Mesa, GStreamer, GNOME Shell |
-| ai | Local AI assistant: llama.cpp, whisper.cpp, Piper TTS, InterGen, Glasswing |
+| ai | Local AI assistant: llama.cpp, InterGen, InterGen Sentinel |
 | extra | User applications: Node.js, Google Chrome, VS Code, Claude Code |
 
 ## Build System
@@ -151,6 +151,8 @@ Active development, pre-1.0. Originally built 2015-2016 (build_001 through build
 **External reviews:** Full codebase reviewed by four external LLMs (ChatGPT, DeepSeek, Gemini, Grok) across build system, installer, orchestration, and package management. Initial audit findings all remediated; follow-on hardening continues as new edge cases surface.
 
 Targeting first bare-metal hardware install on an HP laptop and a dual-boot install on a Zephyrus M16.
+
+**Live development tracker:** [`development-status/TRACKER.md`](development-status/TRACKER.md) — fleet-wide picture of in-flight work, drift findings, owner-architect decisions, and hard-date calendar. Updated continuously as work progresses.
 
 ## Upcoming
 
