@@ -1,0 +1,2 @@
+The config file is at /home/christopher/.config/intergenos/config.yml
+Build scripts may reference /home/christopher/intergenos as a source path.

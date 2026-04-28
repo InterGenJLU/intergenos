@@ -23,11 +23,9 @@ From `src/stage0` in `rustc-1.93.1-src.tar.xz`:
 
 Files needed (x86_64-unknown-linux-gnu):
 
-| File | SHA256 |
-|------|--------|
-| `rustc-1.92.0-x86_64-unknown-linux-gnu.tar.xz` | `78b2dd9c6b1fcd2621fa81c611cf5e2d6950690775038b585c64f364422886e0` |
-| `cargo-1.92.0-x86_64-unknown-linux-gnu.tar.xz` | `e5e12be2c7126a7036c8adf573078a28b92611f5767cc9bd0a6f7c83081df103` |
-| `rust-std-1.92.0-x86_64-unknown-linux-gnu.tar.xz` | `5f106805ed86ebf8df287039e53a45cf974391ef4d088c2760776b05b8e48b5d` |
+- `rustc-1.92.0-x86_64-unknown-linux-gnu.tar.xz` — sha256: `78b2dd9c6b1fcd2621fa81c611cf5e2d6950690775038b585c64f364422886e0`
+- `cargo-1.92.0-x86_64-unknown-linux-gnu.tar.xz` — sha256: `e5e12be2c7126a7036c8adf573078a28b92611f5767cc9bd0a6f7c83081df103`
+- `rust-std-1.92.0-x86_64-unknown-linux-gnu.tar.xz` — sha256: `5f106805ed86ebf8df287039e53a45cf974391ef4d088c2760776b05b8e48b5d`
 
 ### Offline Strategy
 

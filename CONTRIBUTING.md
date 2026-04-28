@@ -50,6 +50,16 @@ Contributions that introduce any of the following will not be accepted:
 
 If our review surfaces an issue in your contribution, we will work with you to resolve it before merging. Security is not negotiable.
 
+#### Public Content Audit
+
+All pull requests to `master` are scanned by an automated public-content audit
+(`.github/workflows/public-content-audit.yml`). This check ensures that
+internal development artifacts — agent attribution names, developer-host paths,
+memory-file references, and credential-like strings — do not enter the public
+repository. If the audit fails on your PR, amend the flagged files and push
+again. Intentional uses of flagged terms that are legitimate public content can
+be added to `scripts/check-public-content.allowlist`.
+
 ### What We Value
 
 - **Research before implementing** — check the LFS/BLFS book, check how other distros handle it

@@ -1,0 +1,33 @@
+# Public Content Audit Allowlist
+#
+# Literal patterns (one per line). Lines matching any pattern are exempt
+# from ALL block and warn checks. Lines starting with # are comments.
+# Case-insensitive matching.
+
+# --- Glasswing proper names (Anthropic's program) ---
+Project Glasswing
+Glasswing-Anthropic
+Glasswing-class
+Glasswing/Mythos
+
+# --- NVIDIA technology ---
+Optimus PRIME
+PRIME render-offload
+
+# --- Stanford research ---
+openjarvis
+
+# --- Owner-allowed names in maintainer/attribution contexts ---
+Christopher Cork
+Chris Cork
+InterGenJLU
+Ethan Bambock
+
+# --- PGP UID format ---
+chris@intergenstudios.com
+
+# --- Legitimate all-caps uses in public docs ---
+# CONTRIBUTING.md section header for Prime Directive
+PRIME DIRECTIVE
+# References to this audit script itself
+check-public-content

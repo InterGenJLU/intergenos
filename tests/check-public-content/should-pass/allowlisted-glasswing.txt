@@ -1,0 +1,3 @@
+InterGen Sentinel supports Project Glasswing as one of its cloud providers.
+The Glasswing-Anthropic connector provides Anthropic-backed security scanning.
+Glasswing-class and Glasswing/Mythos are Anthropic's own designations.

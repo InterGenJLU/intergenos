@@ -123,7 +123,7 @@ Two viable splits. Both have prior art. Recommendation below.
 
 **Rationale:**
 - Keeps the redistributable kernel-side in core. User gets driver-open even if they decline userspace.
-- Userspace fetch helper matches our `approved_app_list` pattern (ref: `project_approved_app_list.md` — "56 apps: 42 source, 8 helpers, 6 deferred").
+- Userspace fetch helper matches our approved application helper pattern (56 apps: 42 source-build, 8 fetch helpers, 6 deferred).
 - User can inspect the fetch helper, see exactly what URL is hit and what sha256 is verified. Prime Directive honored.
 - Signing chain: DKMS fires `/etc/dkms/sign_helper.sh` which invokes sbsign with `/var/lib/intergen/mok/mok.key` + `mok.crt` (paths per `installer/backend/mok.py` MOK_DIR constant).
 

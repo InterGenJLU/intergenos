@@ -1,0 +1,3 @@
+The PRIME DIRECTIVE requires that we handle this carefully.
+We must enforce the HOLY GRAIL security standards.
+GLASSWING scanning should run before commit.

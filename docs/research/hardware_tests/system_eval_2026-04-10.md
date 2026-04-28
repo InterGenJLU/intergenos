@@ -186,8 +186,8 @@ Checked the 56-app approved list (`approved_application_list_2026-04-08.md`) aga
 ### CLAUDE.md drift
 CLAUDE.md says "458 package templates". Actual: 645. Should be updated next docs pass.
 
-### Memory drift
-`project_vm_deployment.md` is marked OUTDATED (VM wiped 2026-04-02). Still in MEMORY.md index. Either refresh or prune.
+### Stale internal notes
+An internal tracking note for the disposed VM (wiped 2026-04-02) is marked OUTDATED. Refresh or prune in the next docs pass.
 
 ---
 
@@ -248,7 +248,7 @@ The FLUX branding plan on the home drive includes logo, boot splash, greeter bac
 ### Long-term (before opening to contributors)
 12. Apply the 5 deferred hardening items (SHA256 case, URL params, shell injection, atomic deploy, cycle reporting)
 13. GitHub security tab triage
-14. Refresh or prune stale memory entries (`project_vm_deployment.md`)
+14. Refresh or prune stale memory entries for disposed VMs and stale notes
 
 ### Optional / low-priority
 15. Fill in the 5 strong apps (Transmission, Kdenlive, OBS, Audacity, Rhythmbox)
