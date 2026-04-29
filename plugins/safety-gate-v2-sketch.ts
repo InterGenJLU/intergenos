@@ -11,7 +11,9 @@ const EMERGENCY_OVERRIDE_PATH = resolve(homedir(), '.kilo', 'plugin', 'safety-ga
 interface FleetRoster {
     version: string;
     agents: {
+        agent_id: string;
         branch_prefix: string;
+        legacy_prefix?: string;
         active: boolean;
         force_push_allowed?: boolean;
     }[];
@@ -36,9 +38,14 @@ function getAllowedPrefixes(): string[] {
     }
     if (rosterCache) {
         if (rosterCache.version.startsWith("1.")) {
-            return rosterCache.agents
+            const allowed = new Set<string>();
+            rosterCache.agents
                 .filter(a => a.active && (a.force_push_allowed !== false))
-                .map(a => a.branch_prefix);
+                .forEach(a => {
+                    if (a.branch_prefix) allowed.add(a.branch_prefix);
+                    if (a.legacy_prefix) allowed.add(a.legacy_prefix);
+                });
+            return Array.from(allowed);
         } else {
             console.error(`safety-gate: Unsupported roster schema version ${rosterCache.version}. Falling back.`);
         }
@@ -79,52 +86,63 @@ const RULES: [RegExp, string][] = [
 
 // --- v2 Modification: `checkForcePush` uses dynamic roster ---
 function checkForcePush(command: string): string | null {
-    const forcePushPattern = /git\s+push\s+.*(--force|-f|--force-with-lease)/;
+    const forcePushPattern = /git\s+push\s+(.*(?:--force|-f|--force-with-lease).*)/;
     if (!forcePushPattern.test(command)) return null;
 
     const allowedPrefixes = getAllowedPrefixes();
     if (allowedPrefixes.length === 0) {
-        // This is now the primary fail-closed path.
-        return "blocked: force push check failed because no allowed agent prefixes could be determined."
+        return "blocked: force push check failed because no allowed agent prefixes could be determined.";
     }
-    const allowedPrefixPattern = new RegExp(
-        `(?:origin\\s+)?(?:${allowedPrefixes.join("|")})\\/\\S+`
-    );
 
     const subCommands = command.split(/\s*(?:&&|;|\|\|)\s*/);
     for (const subCmd of subCommands) {
         const trimmed = subCmd.trim();
         if (!trimmed || !forcePushPattern.test(trimmed)) continue;
 
-        if (allowedPrefixPattern.test(trimmed)) {
-            const refspecMatch = trimmed.match(/(?:origin\s+)?\+?(\S+)$/m);
-            if (refspecMatch) {
-                const refspec = refspecMatch[1];
-                const colonIdx = refspec.indexOf(':');
-                if (colonIdx !== -1) {
-                    const dest = refspec.slice(colonIdx + 1);
-                    if (dest === "master" || dest === "main" || dest.startsWith("master/") || dest.startsWith("main/")) {
-                        return "blocked: git push --force refspec destination targets master/main";
-                    }
-                }
-            }
-            continue; // Allowed
-        }
-
-        // --- Existing checks (Unchanged) ---
-        if (/origin\s+HEAD\b/.test(trimmed)) continue;
+        // Basic sanity checks
+        if (/origin\s+HEAD\b/.test(trimmed)) continue; // Allow pushing HEAD explicitly
         if (/origin\s+(?:master|main)\b/.test(trimmed)) {
             return "blocked: git push --force to origin master/main";
         }
         if (/--(?:all|mirror)/.test(trimmed)) {
             return "blocked: git push --force with --all or --mirror is unsafe regardless of branch";
         }
-        if (!/origin\s+\S/.test(trimmed)) {
-            return "blocked: git push --force without explicit target branch — specify origin <branch>";
+
+        // Extract tokens ignoring 'git', 'push', and flags
+        const tokens = trimmed.split(/\s+/);
+        let pushIndex = tokens.indexOf("push");
+        if (pushIndex === -1) continue;
+
+        const positionalArgs = tokens.slice(pushIndex + 1).filter(t => !t.startsWith("-"));
+        
+        // positionalArgs should be ['origin', 'branch'] or ['origin', 'local:remote']
+        if (positionalArgs.length < 2) {
+             return "blocked: git push --force without explicit target branch — specify origin <branch>";
         }
 
-        const prefixes = allowedPrefixes.map(p => `\`${p}/*\``).join(', ');
-        return `blocked: git push --force to non-approved branch. Pre-merge force is only allowed on branches matching: ${prefixes}`;
+        // Check all specified refspecs (everything after 'origin')
+        const refspecs = positionalArgs.slice(1);
+        for (const refspec of refspecs) {
+            let destBranch = refspec;
+            
+            // Handle local:remote syntax
+            const colonIdx = refspec.indexOf(':');
+            if (colonIdx !== -1) {
+                destBranch = refspec.slice(colonIdx + 1);
+            } else if (refspec.startsWith('+')) {
+                destBranch = refspec.slice(1);
+            }
+
+            if (destBranch === "master" || destBranch === "main" || destBranch.startsWith("master/") || destBranch.startsWith("main/")) {
+                return "blocked: git push --force refspec destination targets master/main";
+            }
+
+            const hasAllowedPrefix = allowedPrefixes.some(prefix => destBranch.startsWith(`${prefix}/`));
+            if (!hasAllowedPrefix) {
+                const prefixes = allowedPrefixes.map(p => `\`${p}/*\``).join(', ');
+                return `blocked: git push --force to non-approved branch '${destBranch}'. Pre-merge force is only allowed on branches matching: ${prefixes}`;
+            }
+        }
     }
 
     return null;

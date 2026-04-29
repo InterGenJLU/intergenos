@@ -36,6 +36,7 @@ The `fleet_agents.json` file is a JSON object containing metadata and a list of 
 
 -   **`agent_id`** (string, required): The unique, canonical identifier for the agent (e.g., `chris-windows-codium-gemini_pro`).
 -   **`branch_prefix`** (string, required): The designated Git branch prefix for the agent. The safety-gate plugin will allow force-pushes to branches that match `<prefix>/*`.
+-   **`legacy_prefix`** (string, optional, migration-only): An abbreviated prefix from the pre-amendment Canonical 09 convention. Recognized by the safety-gate plugin during the migration window. Drops when the last branch under `legacy_prefix` closes.
 -   **`host`** (string, required): An identifier for the host machine where the agent primarily operates (e.g., `windows`, `ubuntu2404`). This is for informational and audit purposes.
 -   **`active`** (boolean, required): A flag indicating if the agent is currently active in the fleet. Inactive agents may still be listed for historical reasons but will be ignored by consumers.
 -   **`force_push_allowed`** (boolean, recommended, default: `true`): An explicit flag to control force-push permissions. This field was adopted from Main's proposal (`10:43:58Z`) to provide more granular control. An agent can be `active` for other tasks but disallowed from force-pushing (e.g., a read-only audit agent). If omitted, consumers should default to `true` for active agents to maintain backward compatibility.
@@ -65,7 +66,7 @@ The `safety-gate.ts` plugin consumes this roster via a local cache to ensure hig
 
 1.  **Fetch on Init**: The plugin fetches the roster from its HTTPS endpoint **once** during Kilo session initialization.
 2.  **Local Disk Cache**: The fetched roster is written to a local cache file at `~/.kilo/plugin/fleet_agents.cache.json`.
-3.  **Runtime Read**: The safety-gate logic **synchronously** reads from the local disk cache.
+3.  **Runtime Read**: The safety-gate logic **synchronously** reads from the local disk cache. The plugin's `getAllowedPrefixes()` function returns both `branch_prefix` and `legacy_prefix` (when present and non-empty) for any active agent during the migration window.
 4.  **Refresh Cadence**: The cache is refreshed automatically on the next Kilo reload. For long-running sessions (>24 hours), a soft warning may be logged to recommend a restart to refresh the roster, but the stale cache will continue to be used otherwise.
 
 ## 6. Failure Modes
@@ -90,17 +91,19 @@ The emergency override file is a simple JSON object specifying an array of allow
 
 ## 7. Initial Roster
 
-The following agents constitute the initial fleet roster.
+The following agents constitute the initial fleet roster, including `legacy_prefix` mappings active during the Canonical 09 migration window.
 
 -   **`chris-ubuntu-code-claude`** (SPOC)
-    -   `branch_prefix`: `main-claude` (Owner decision needed)
+    -   `branch_prefix`: `chris-ubuntu-code-claude`
 -   **`chris-intergenos-code-claude`** (Laptop)
-    -   `branch_prefix`: `laptop-claude` (Owner decision needed)
+    -   `branch_prefix`: `chris-intergenos-code-claude`
 -   **`chris-windows-code-claude`** (Zephyrus Pair)
-    -   `branch_prefix`: `windows-claude`
+    -   `branch_prefix`: `chris-windows-code-claude`
 -   **`chris-ubuntu-codium-deepseek`**
-    -   `branch_prefix`: `deepseek`
+    -   `branch_prefix`: `chris-ubuntu-codium-deepseek`
+    -   `legacy_prefix`: `deepseek`
 -   **`chris-windows-codium-gemini_pro`**
-    -   `branch_prefix`: `gemini-pro`
+    -   `branch_prefix`: `chris-windows-codium-gemini_pro`
+    -   `legacy_prefix`: `gemini-pro`
 
 *Note: `chris-ios-app-claude` is excluded by design as this slot is for owner-relay interaction only and does not perform Git operations.*
