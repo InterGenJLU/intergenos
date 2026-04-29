@@ -19,7 +19,21 @@
   /usr/bin/pkm r,
   
   # Allow reading and modifying the entire filesystem (it's a package manager)
-  /** rwklx,
+  /usr/ rwl,
+  /usr/** rwlk,
+  /etc/ r,
+  /etc/** rwk,
+  /var/lib/pkm/ rw,
+  /var/lib/pkm/** rwk,
+  /var/cache/pkm/ rw,
+  /var/cache/pkm/** rwk,
+  /etc/pkm/keys/ r,
+  /etc/pkm/keys/** r,
+  /tmp/pkm-*/ rw,
+  /tmp/pkm-*/** rwk,
+  /usr/bin/gpg ix,
+  /usr/bin/tar ix,
+  /usr/bin/sha256sum ix,
   
   # Trust anchors and GPG verification
   /etc/pkm/keys/ r,

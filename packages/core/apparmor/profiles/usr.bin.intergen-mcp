@@ -19,8 +19,8 @@
   owner /etc/intergencomms/** rw,
   
   # Memory files (read/write to local memory namespace)
-  owner @{HOME}/intergenos/** rw,
-  owner /mnt/intergenos/** rw,
+  owner @{HOME}/.local/share/intergen-mcp/ rw,
+  owner @{HOME}/.local/share/intergen-mcp/** rw,
   
   # Allow execution of common tools used by agents
   /usr/bin/git ix,

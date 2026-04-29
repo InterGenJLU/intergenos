@@ -12,14 +12,12 @@ build() {
 
 do_install() {
     # 1. Install Debian 12 (bookworm) substrate profiles from source tarball
-    # (Extracts and installs the relevant profiles from apparmor and apparmor-profiles-extra)
-    # The actual implementation of pulling the Debian tarballs will be added here
-    # or performed at ISO build time via igos-build depending on network access rules.
-    # For now, we mock the directory creation to hold our custom profiles.
-    
     install -vdm 755 "$DESTDIR/etc/apparmor.d/"
     install -vdm 755 "$DESTDIR/etc/apparmor.d/disable/"
     install -vdm 755 "$DESTDIR/etc/apparmor.d/local/"
+    
+    cp -rv apparmor-3.0.8/profiles/apparmor.d/* "$DESTDIR/etc/apparmor.d/"
+    cp -rv apparmor-profiles-extra-1.35/work/profiles/* "$DESTDIR/etc/apparmor.d/"
     
     # 2. Install InterGenOS-specific custom profiles
     install -vm 644 profiles/usr.bin.intergen-mcp "$DESTDIR/etc/apparmor.d/"
