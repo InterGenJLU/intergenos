@@ -1,6 +1,6 @@
 import type { PluginInput, Hooks } from "@kilocode/plugin";
-import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { resolve } from 'path';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { resolve, dirname } from 'path';
 import { homedir } from 'os';
 
 // --- v2 Additions: Configuration and State ---
@@ -25,16 +25,16 @@ function getAllowedPrefixes(): string[] {
     if (!rosterCache) {
         try {
             if (existsSync(CACHE_PATH)) {
+                // Future enhancement: check file mtime for 24h+ stale warning.
                 const rawCache = readFileSync(CACHE_PATH, 'utf-8');
                 rosterCache = JSON.parse(rawCache);
             }
         } catch (e) {
             console.error(`safety-gate: Failed to read or parse roster cache at ${CACHE_PATH}:`, e);
-            rosterCache = null; // Ensure cache is null on error
+            rosterCache = null;
         }
     }
     if (rosterCache) {
-        // Validate schema major version
         if (rosterCache.version.startsWith("1.")) {
             return rosterCache.agents
                 .filter(a => a.active && (a.force_push_allowed !== false))
@@ -49,10 +49,9 @@ function getAllowedPrefixes(): string[] {
         if (existsSync(EMERGENCY_OVERRIDE_PATH)) {
             const rawOverride = readFileSync(EMERGENCY_OVERRIDE_PATH, 'utf-8');
             const overrideData = JSON.parse(rawOverride);
-            // Basic validation for override structure
             if (overrideData.prefixes && Array.isArray(overrideData.prefixes)) {
-                 // Per Main's request, log to stderr. Channel post is out of scope for this sketch.
                 console.error(`safety-gate: WARNING: Using emergency override file at ${EMERGENCY_OVERRIDE_PATH}.`);
+                // Future enhancement: post notification to broadcast channel.
                 return overrideData.prefixes;
             }
         }
@@ -60,9 +59,9 @@ function getAllowedPrefixes(): string[] {
         console.error(`safety-gate: Failed to read or parse emergency override file:`, e);
     }
 
-    // Tier 3: Hardcoded last-known-good roster
-    console.error("safety-gate: CRITICAL: Roster unavailable and no valid override. Using hardcoded fallback.");
-    return ["deepseek", "gemini-pro"]; // Update this list as the fleet grows
+    // Tier 3: Fail-Closed. Return an empty list, per design spec.
+    console.error("safety-gate: CRITICAL: Roster unavailable and no valid override. Failing closed.");
+    return [];
 }
 
 
@@ -85,6 +84,7 @@ function checkForcePush(command: string): string | null {
 
     const allowedPrefixes = getAllowedPrefixes();
     if (allowedPrefixes.length === 0) {
+        // This is now the primary fail-closed path.
         return "blocked: force push check failed because no allowed agent prefixes could be determined."
     }
     const allowedPrefixPattern = new RegExp(
@@ -96,8 +96,6 @@ function checkForcePush(command: string): string | null {
         const trimmed = subCmd.trim();
         if (!trimmed || !forcePushPattern.test(trimmed)) continue;
 
-        // --- v2 Change: Replace hardcoded 'deepseek' check ---
-        // Was: if (/origin\s+deepseek\//.test(trimmed) || /deepseek\/\S+/.test(trimmed))
         if (allowedPrefixPattern.test(trimmed)) {
             const refspecMatch = trimmed.match(/(?:origin\s+)?\+?(\S+)$/m);
             if (refspecMatch) {
@@ -132,25 +130,27 @@ function checkForcePush(command: string): string | null {
     return null;
 }
 
-// --- v2 Modification: Plugin `server` function is now the init hook ---
-export async function server(input: PluginInput): Promise<Hooks> {
-    // --- v2 Addition: Init-time fetch logic ---
+async function initializePlugin(input: PluginInput): Promise<Hooks> {
     try {
-        // Using undici fetch available in Node.js environments Kilo runs in.
         const response = await fetch(FLEET_ROSTER_URL);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const rosterData: FleetRoster = await response.json();
+
+        // Ensure cache directory exists
+        const cacheDir = dirname(CACHE_PATH);
+        if (!existsSync(cacheDir)) {
+            mkdirSync(cacheDir, { recursive: true });
+        }
+
         writeFileSync(CACHE_PATH, JSON.stringify(rosterData, null, 2), 'utf-8');
         rosterCache = rosterData; // Prime in-memory cache
         console.log(`safety-gate: Successfully fetched and cached fleet roster v${rosterData.version}.`);
     } catch (e) {
-        // If fetch fails, the plugin will proceed and rely on the fallback tiers
-        console.error(`safety-gate: FAILED to fetch fleet roster from ${FLEET_ROSTER_URL}. Will rely on cache/override/fallback. Error:`, e);
+        console.error(`safety-gate: FAILED to fetch fleet roster from ${FLEET_ROSTER_URL}. Will rely on cache/override. Error:`, e);
     }
 
-    // --- Hooks definition (Unchanged structure) ---
     const hooks: Hooks = {
         "tool.execute.before": async (input, output) => {
             if (input.tool !== "bash") return;
@@ -171,3 +171,6 @@ export async function server(input: PluginInput): Promise<Hooks> {
 
     return hooks;
 }
+
+// Kilo's plugin loader expects a `server` export.
+export const server = initializePlugin;
