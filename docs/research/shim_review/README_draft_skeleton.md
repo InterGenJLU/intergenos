@@ -11,7 +11,7 @@
 - `__GATED__: <trigger>` items wait until specific milestones (e.g., DeepSeek's B2 Dockerfile build, SBAT generation extraction from binary).
 - Inline citations point at this repo's existing research (`docs/research/installer/...`, `docs/grub2-cve-audit.md`, etc.) so reviewers can audit the trail.
 
-**Important audit gap surfaced by this draft (see Q17):** InterGenOS kernel baseline currently sets `CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y` and does NOT include `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` that Ubuntu/OpenSUSE/Fedora ship. This means lockdown=integrity is NOT auto-triggered when Secure Boot is detected — it requires the `lockdown=integrity` boot-parameter or a manual `/sys/kernel/security/lockdown` write. **This is a real shim-review-blocking gap.** Owner + Main need to decide between (a) adding `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` to overrides, (b) setting `lockdown=integrity` in GRUB default cmdline, or (c) documenting the manual-trigger path with reviewer-acceptable rationale. Flagged here, in Q17, and in commit message.
+**Audit-gap discovery + resolution (Q17):** during template population, this draft surfaced an InterGenOS kernel-config gap — baseline set `CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y` without `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` that Ubuntu/OpenSUSE/Fedora all ship, leaving lockdown=integrity not auto-triggered under Secure Boot. SPOC-ratified Path 1 resolution (one-line override addition) merged to master at commit `baf84d8` (`config/kernel/fragments/99-intergenos-overrides.config:130`). See Q17 body for full enforcement description + resolution audit-trail.
 
 ---
 
@@ -219,39 +219,25 @@ The kernel build is reproducible from `config/kernel/fragments/*.config` + the I
 
 ## 17. How does your signed kernel enforce lockdown when your system runs with Secure Boot enabled?
 
-__FILLED__ — but with a flagged audit gap requiring owner+SPOC decision before PR-open.
+__FILLED__ (with audit-gap discovered during this draft + resolved on master per Path 1).
 
-### Current InterGenOS state
+### Enforcement mechanism
 
-The InterGenOS kernel registers the lockdown LSM early (`CONFIG_SECURITY_LOCKDOWN_LSM_EARLY=y`). When lockdown is in `integrity` mode, the LSM enforces the standard upstream restrictions: blocks `/dev/mem` / `/dev/kmem` / `/dev/port` write, restricts `kexec_load`, disables `/proc/kcore`, restricts BPF privileged operations, restricts DMA from untrusted devices, hard-rejects unsigned kernel modules (via `CONFIG_MODULE_SIG_FORCE=y`), restricts kprobes / mmiotrace / tracing-of-kernel-data.
+InterGenOS ships `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` in `config/kernel/fragments/99-intergenos-overrides.config:130` (master commit [`baf84d8`](https://github.com/InterGenJLU/intergenos/commit/baf84d8) — "config(kernel): auto-trigger lockdown=integrity on Secure Boot detection"). When the kernel boots with EFI Secure Boot enabled, lockdown=integrity engages automatically — no manual boot-parameter or `/sys/kernel/security/lockdown` write required.
 
-### The gap (flagged for owner + SPOC)
+`CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y` (baseline:1838) remains as the default-when-no-Secure-Boot enforcement level; the EFI Secure Boot detection at boot promotes it to `integrity` automatically. The lockdown LSM is registered early via `CONFIG_SECURITY_LOCKDOWN_LSM_EARLY=y` (override:122), so the integrity-mode promotion happens before any module-load decisions.
 
-**InterGenOS kernel baseline currently sets `CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y`** (`config/kernel/fragments/00-universal-baseline.config:1838`) and does **NOT** set `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` that Ubuntu, OpenSUSE, and Fedora all ship.
+### What lockdown=integrity enforces
 
-Comparison (verified from `docs/research/kernel_configs/`):
+When in integrity mode, the LSM enforces the standard upstream restrictions: blocks `/dev/mem` / `/dev/kmem` / `/dev/port` write, restricts `kexec_load`, disables `/proc/kcore`, restricts BPF privileged operations, restricts DMA from untrusted devices, hard-rejects unsigned kernel modules (via `CONFIG_MODULE_SIG_FORCE=y` at override:117), restricts kprobes / mmiotrace / tracing-of-kernel-data.
 
-| Distro | `CONFIG_LOCK_DOWN_IN_*_SECURE_BOOT` | `CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE` |
-|---|---|---|
-| Ubuntu | `LOCK_DOWN_IN_SECURE_BOOT=y` ✓ | `=y` (default mode none, but auto-trigger overrides) |
-| OpenSUSE | `LOCK_DOWN_IN_EFI_SECURE_BOOT=y` ✓ | `=y` |
-| Fedora | `LOCK_DOWN_IN_EFI_SECURE_BOOT=y` ✓ | `=y` |
-| **InterGenOS** | **NOT SET** ✗ | `=y` |
+### Distro alignment
 
-**Implication:** lockdown=integrity is NOT auto-triggered on InterGenOS when Secure Boot is detected. Currently, lockdown enforcement requires either:
+InterGenOS's lockdown auto-trigger pattern matches the Fedora and OpenSUSE precedent (`CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` set; `FORCE_NONE=y` as the default-no-SB level; auto-promotion under SB). Verified from `docs/research/kernel_configs/{fedora,opensuse}.config`. Ubuntu uses an older Kconfig name (`LOCK_DOWN_IN_SECURE_BOOT`) but the semantics are equivalent.
 
-- Boot parameter `lockdown=integrity` passed via GRUB cmdline (currently unverified — needs check of `/etc/default/grub` or GRUB config in the live ISO build), OR
-- Manual write to `/sys/kernel/security/lockdown` post-boot (operator action, not architectural enforcement)
+### Audit-trail note
 
-**Resolution paths (owner + SPOC decision required):**
-
-1. **Add `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` to `99-intergenos-overrides.config`** — matches the Fedora / OpenSUSE pattern, auto-triggers lockdown=integrity at boot when EFI Secure Boot is enabled. Architectural enforcement, no userspace involvement. Recommended.
-2. **Set `lockdown=integrity` in GRUB default cmdline** — works but is a softer mechanism (someone can edit GRUB config to remove it).
-3. **Document manual-trigger as policy** — likely insufficient for shim-review; reviewers will push back.
-
-**Recommendation:** option 1 (add the config). This is a one-line override addition, fully consistent with the project's "Holy Grail — Security ONLY" posture, and aligns InterGenOS with the Fedora / OpenSUSE pattern that shim-review reviewers are familiar with.
-
-This gap must be resolved BEFORE the shim-review PR opens. Flagged in commit message and the draft header.
+The override-config addition was discovered as a gap during this 39Q draft's population pass: baseline-only `FORCE_NONE=y` without the auto-trigger override would have left lockdown=integrity gated on manual cmdline / sysfs intervention — reviewer-blockable. SPOC-ratified Path 1 resolution at master commit baf84d8 closes the gap architecturally rather than via softer cmdline / policy-doc mechanisms. Channel record: 39Q gap surfacing 2026-04-29T18:00:15Z; SPOC ruling 18:05:38Z; master integration 18:18Z.
 
 ---
 
@@ -448,7 +434,7 @@ GRUB2 module list to be confirmed in Q30.
 
 **Patches:** see Q18.
 
-**Audit gap:** `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` is not currently set — see Q17 for the resolution-paths discussion.
+**Lockdown auto-trigger:** `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` set in `99-intergenos-overrides.config:130` (master commit `baf84d8`) — see Q17 for the full enforcement description + audit-trail.
 
 ---
 
@@ -507,7 +493,7 @@ The kernel-lockdown auto-trigger gap (Q17) is acknowledged in this draft and wil
 - [x] SPOC directive items 1-7 filled with substantive content
 - [ ] PGP fingerprints filled in Q6, Q7 (owner-fills evening 2026-04-29 + post-ceremony)
 - [ ] Ethan email format decision in Q7 (owner-decision: personal vs role address)
-- [ ] Kernel-lockdown auto-trigger gap (Q17) resolved (owner+SPOC decision: option 1 / 2 / 3)
+- [x] Kernel-lockdown auto-trigger gap (Q17) RESOLVED at master commit `baf84d8` — `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` added to `99-intergenos-overrides.config:130` per Path 1 (SPOC ruling 2026-04-29T18:05:38Z, integrated 18:18Z)
 - [ ] B2 Dockerfile build artifact + SHA256 + Q22-Q25 + Q14 + Q29 + Q30 (DeepSeek's lane)
 - [ ] Q9 InterGenJLU/shim-review fork created + tag pushed
 - [ ] Q10, Q12, Q18, Q20, Q32, Q37 specific version pins confirmed against package definitions
