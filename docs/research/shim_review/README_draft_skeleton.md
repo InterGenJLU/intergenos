@@ -1,8 +1,6 @@
 # rhboot/shim-review submission — InterGenOS shim-x64-20260515 (DRAFT)
 
-**Status:** DRAFT skeleton populating per SPOC's directive 2026-04-29T17:31:35Z. Pre-PR work for the rhboot/shim-review queue. Target PR-open: 2026-05-15. Hard external deadline: 2026-06-27 (Microsoft 2011 UEFI CA expiration → 2023-CA only after that date).
-
-**Branch:** `chris-windows-code-claude/shim-review-39q-fill`
+**Status:** DRAFT skeleton populating in pre-PR work for the rhboot/shim-review queue. Target PR-open: 2026-05-15. Hard external deadline: 2026-06-27 (Microsoft 2011 UEFI CA expiration → 2023-CA only after that date).
 
 **Conventions used in this draft:**
 
@@ -49,7 +47,7 @@ References:
 
 ## 3. What product or service is this for?
 
-**InterGenOS** is an end-user-facing Linux distribution built from source via the InterGenOS Forge build system. It is intended for general-purpose desktop and server use with a strong emphasis on Secure Boot + signed-only module loading + hardened-by-default posture (the project's "Holy Grail — Security ONLY, not Security First" architectural posture, encoded across the kernel-config baseline and the Forge build pipeline).
+**InterGenOS** is an end-user-facing Linux distribution built from source via the InterGenOS Forge build system. It is intended for general-purpose desktop and server use with a strong emphasis on Secure Boot + signed-only module loading + hardened-by-default posture, encoded across the kernel-config baseline and the Forge build pipeline.
 
 - License: GPL-3.0 end-to-end across the boot chain
 - Distribution model: ISO + live-installer ("Forge SB" installer, packaged via `pkm` package manager)
@@ -66,7 +64,7 @@ InterGenOS ships as an end-user-installable bootable Linux distribution targetin
 
 The two paths that avoid MS-signed shim are not viable for InterGenOS:
 
-- **Disable Secure Boot:** contradicts the project's hardened-by-default and "no security trade-offs for convenience" Holy Grail posture.
+- **Disable Secure Boot:** contradicts the project's hardened-by-default posture and its no-security-trade-offs-for-convenience principle.
 - **Enroll user-generated MOK keys:** requires every InterGenOS user to perform manual enrollment per-machine — a UX failure that conflicts with the "put the user in control of their own machine" Prime Directive (control should not require fighting the firmware on every install).
 
 Therefore InterGenOS requires its own MS-signed shim to deliver Secure Boot-trusted boot to end users on commodity hardware out of the box.
@@ -113,7 +111,7 @@ Therefore InterGenOS requires its own shim binary signed by Microsoft with the I
 
 __GATED__: <Trigger: DeepSeek's B2 Dockerfile build complete + binary produced>
 
-Plan: Yes. Build is rooted at `rhboot/shim` git tag `dad4f207` (shim 16.1 release), per the Dockerfile pinned in `deepseek/main` (B2 lane). The Dockerfile uses `FROM debian:bookworm-slim@sha256:...` for reproducibility and pulls the shim source tarball directly from the upstream tag. Reviewer can verify by running `docker build .` and comparing the produced `shimx64.efi` SHA256 against the value in Q25.
+Plan: Yes. Build is rooted at `rhboot/shim` git tag `dad4f207` (shim 16.1 release), per the InterGenOS shim-build Dockerfile committed at `docker/shim-build/Dockerfile` on master. The Dockerfile uses `FROM debian:bookworm-slim@sha256:...` for reproducibility and pulls the shim source tarball directly from the upstream tag. Reviewer can verify by running `docker build .` and comparing the produced `shimx64.efi` SHA256 against the value in Q25.
 
 ---
 
@@ -166,7 +164,7 @@ Default expectation: GRUB2 v2.12+ with the standard shim-lock validation flow. M
 
 __FILLED__ (per SPOC directive 2026-04-29T17:31:35Z item 4).
 
-**Yes.** Comprehensive GRUB2 CVE audit committed at `docs/grub2-cve-audit.md` (live on master via the `gemini-pro/grub2-cve-audit` polish — Gemini-Pro's v2 audit, peer-reviewed PASS by SPOC + Windows-Claude). The audit covers:
+**Yes.** Comprehensive GRUB2 CVE audit committed at `docs/grub2-cve-audit.md` (live on master). The audit covers:
 
 - 32 unique CVEs verified in the GRUB2 v2.12..v2.14 range (the version range encompassing InterGenOS's GRUB2 build + all upstream patches applied)
 - Per-CVE upstream-commit citations (commit sha + author + date)
@@ -178,7 +176,7 @@ The audit document is the primary citation source for this question. Reviewers c
 References:
 
 - Audit document: `docs/grub2-cve-audit.md` (live on master, sha256 to be recorded post-final-merge)
-- Audit prep doc: `docs/research/shim_review/grub2_cve_audit_2026-04-29.md` (on `gemini-pro/grub2-cve-audit` branch, pending owner-merge)
+- Audit prep doc: `docs/research/shim_review/grub2_cve_audit_2026-04-29.md` (on master post-merge)
 
 ---
 
@@ -332,7 +330,7 @@ The signing ceremony scheduled for 2026-04-30 covers steps 2-5 of the checklist 
 References:
 
 - `docs/research/installer/signing_key_custody_2026-04-18.md` (canonical key-custody plan)
-- Holy Grail rule 8: "Credential handling is sacred — GNOME Keyring, never plaintext"
+- Project policy: credential handling is sacred — GNOME Keyring, never plaintext.
 
 ---
 
