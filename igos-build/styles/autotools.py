@@ -41,7 +41,7 @@ class AutotoolsStyle(BuildStyle):
     def check(self, pkg: Package) -> BuildPhase:
         return BuildPhase(
             name="check",
-            commands=["make check || true"],
+            commands=["make check"],
         )
 
     def install(self, pkg: Package) -> BuildPhase:

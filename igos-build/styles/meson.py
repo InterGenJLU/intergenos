@@ -40,7 +40,7 @@ class MesonStyle(BuildStyle):
     def check(self, pkg: Package) -> BuildPhase:
         return BuildPhase(
             name="check",
-            commands=["ninja -C build test || true"],
+            commands=["ninja -C build test"],
         )
 
     def install(self, pkg: Package) -> BuildPhase:
