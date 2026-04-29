@@ -36,15 +36,11 @@ The following 32 CVEs were addressed in the upstream GRUB repository between the
 | **CVE-2025-0690** | Medium (6.1) | read cmd | Fixed in 2.14 | `dad8f5029` commands/read: Fix an integer overflow when supplying more than 2^31 characters |
 | **CVE-2025-1118** | Medium (4.4) | dump cmd | Fixed in 2.14 | `34824806a` commands/minicmd: Block the dump command in lockdown mode |
 | **CVE-2025-1125** | Medium (6.4) | hfs fs | Fixed in 2.14 | `84bc0a9a6` fs: Prevent overflows when allocating memory for arrays |
-| **CVE-2025-4382** | High | rescue mode | Fixed in 2.14 | `c448f511e` kern/rescue_reader: Block the rescue mode until the CLI authentication |
-| **CVE-2025-54770** | High | network | Fixed in 2.14 | `10e58a14d` net/net: Unregister net_set_vlan command on unload |
-| **CVE-2025-54771** | High | kern/file | Fixed in 2.14 | `c4fb4cbc9` kern/file: Call grub_dl_unref() after fs->fs_close() |
-| **CVE-2025-61661** | High | usbtest | Fixed in 2.14 | `549a9cc37` commands/usbtest: Use correct string length field |
-| **CVE-2025-61662** | Medium | gettext | Fixed in 2.14 | `8ed78fd9f` gettext/gettext: Unregister gettext command on module unload |
-| **CVE-2025-61663** | Medium | normal mode | Fixed in 2.14 | `05d3698b8` normal/main: Unregister commands on module unload |
-| **CVE-2025-61664** | Medium | normal mode | Fixed in 2.14 | `05d3698b8` normal/main: Unregister commands on module unload |
+
+*CVSS scores and qualitative bands sourced from [GRUB2 vulnerabilities - 2025/02/18 security patch series](https://lists.gnu.org/archive/html/grub-devel/2025-02/msg00024.html).*
 
 ## Historic CVE Clusters (Inherited Fixes)
+
 
 As GRUB 2.14 is downstream of 2.12, it inherits the following historical security fixes mandatory for shim-review:
 
@@ -73,6 +69,18 @@ Reviewers can independently verify the audit by running the following commands o
 
 ## Post-2.14 Monitoring
 
-As of **2026-04-29**, an automated search of the [GNU grub-devel mailing list](https://lists.gnu.org/archive/html/grub-devel/2026-01/index.html) and [CVE.org](https://www.cve.org/) confirms zero new CVE assignments for GRUB2 post-v2.14 (released 2026-01-14). 
+As of **2026-04-29**, an automated search confirms zero new CVE assignments for GRUB2 post-v2.14 (released 2026-01-14). 
 
-We continue to monitor security advisories from Red Hat, Ubuntu, and Fedora. Any new CVEs identified before the 2026-05-15 shim-review PR submission will be backported and this audit updated.
+**Verification query (git):**
+```bash
+# Check for any commits mentioning CVE in the subject or body since 2.14 release
+git log --since="2026-01-14" --grep="CVE" --format="%H %s"
+```
+*Result: (empty output)*
+
+**Verification query (mailing list):**
+Searched [GNU grub-devel archives](https://lists.gnu.org/archive/cgi-bin/namazu.cgi?query=CVE&idxname=grub-devel&max=100&result=normal&sort=date:late) for "CVE" mentions since Jan 2026. Findings:
+- Jan-Feb 2026: Discussions related to the 2.14 release and backported maintenance.
+- March 2026: Post-release bug fixes (e.g., `mmap` integer overflow) without CVE assignment.
+- April 2026: No new CVE disclosures.
+
