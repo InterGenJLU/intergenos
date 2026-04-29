@@ -29,14 +29,22 @@ IGOS_PKG_STAGING="/tmp/igos-staging"
 
 # Verify SHA256 checksum of a file before extraction.
 # Usage: verify_source_checksum <filepath> <expected_sha256>
-# Returns 0 on match, 1 on mismatch. Logs result.
+# Returns 0 on match, 1 on mismatch / missing / malformed checksum.
+#
+# Strict-type+length: expected MUST be exactly 64 lowercase hex characters.
+# Empty / "NEEDS_CHECKSUM" placeholder / wrong-length / non-hex all FAIL.
+# This matches the same-shape fix DeepSeek applied for pkm H1 in
+# pkm/repo.py:_verify_checksum at master 2eee235. Audit finding S3 in
+# docs/research/code_audits/scripts_audit_2026-04-29_spoc.md.
 verify_source_checksum() {
     local file="$1"
     local expected="$2"
 
-    if [ -z "$expected" ] || [ "$expected" = "NEEDS_CHECKSUM" ]; then
-        echo "[pkg] WARNING: No checksum for $(basename "$file") — skipping verification"
-        return 0
+    if [[ ! "$expected" =~ ^[a-f0-9]{64}$ ]]; then
+        echo "[pkg] ERROR: $(basename "$file") has no valid sha256 checksum"
+        echo "[pkg]   got: '${expected:0:32}...'"
+        echo "[pkg]   expected: 64 lowercase hex chars (sha256 hex digest)"
+        return 1
     fi
 
     local actual
