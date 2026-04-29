@@ -172,16 +172,28 @@ class RepoManager:
                 db_path = REPO_DB_CACHE / f"{name}.db"
                 sig_path = REPO_DB_CACHE / f"{name}.db.sig"
 
-                self._download(db_url, db_path)
-                self._download(sig_url, sig_path)
+                try:
+                    self._download(db_url, db_path)
+                    self._download(sig_url, sig_path)
+                except Exception:
+                    # Cleanup orphan .db on partial download (C1.2)
+                    db_path.unlink(missing_ok=True)
+                    sig_path.unlink(missing_ok=True)
+                    raise
 
-                # Verify GPG signature
-                if GPG_KEYRING.exists():
-                    if not self._verify_signature(db_path, sig_path):
-                        results.append((name, False, "GPG signature verification FAILED"))
-                        db_path.unlink(missing_ok=True)
-                        sig_path.unlink(missing_ok=True)
-                        continue
+                # Verify GPG signature — fail closed if keyring missing (C1.1)
+                if not GPG_KEYRING.exists():
+                    db_path.unlink(missing_ok=True)
+                    sig_path.unlink(missing_ok=True)
+                    results.append((name, False,
+                        "GPG keyring not found — cannot verify index"))
+                    continue
+                if not self._verify_signature(db_path, sig_path):
+                    results.append((name, False,
+                        "GPG signature verification FAILED"))
+                    db_path.unlink(missing_ok=True)
+                    sig_path.unlink(missing_ok=True)
+                    continue
 
                 # Parse index
                 index = self._parse_index(name, config["url"], db_path)
@@ -194,8 +206,12 @@ class RepoManager:
 
             except urllib.error.URLError as e:
                 results.append((name, False, f"network error: {e.reason}"))
+                db_path.unlink(missing_ok=True)
+                sig_path.unlink(missing_ok=True)
             except Exception as e:
                 results.append((name, False, f"error: {e}"))
+                db_path.unlink(missing_ok=True)
+                sig_path.unlink(missing_ok=True)
 
         return results
 
@@ -267,19 +283,27 @@ class RepoManager:
         return sorted(results, key=lambda x: x["name"])
 
     def _ensure_synced(self):
-        """Load cached indexes if not already in memory."""
+        """Load cached indexes if not already in memory.
+        Re-verifies GPG signature before trusting cached index. (C1.1)
+        """
         if self.indexes:
             return
 
         for name, config in self.repos.items():
             db_path = REPO_DB_CACHE / f"{name}.db"
-            if db_path.exists():
-                try:
-                    self.indexes[name] = self._parse_index(
-                        name, config["url"], db_path
-                    )
-                except Exception:
-                    pass
+            sig_path = REPO_DB_CACHE / f"{name}.db.sig"
+            if db_path.exists() and sig_path.exists():
+                if GPG_KEYRING.exists() and self._verify_signature(db_path, sig_path):
+                    try:
+                        self.indexes[name] = self._parse_index(
+                            name, config["url"], db_path
+                        )
+                    except Exception:
+                        pass
+                else:
+                    # Cached index can't be verified — delete it
+                    db_path.unlink(missing_ok=True)
+                    sig_path.unlink(missing_ok=True)
 
     # ----- Download -----
 
