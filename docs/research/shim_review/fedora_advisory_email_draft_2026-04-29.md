@@ -7,8 +7,8 @@ prerequisites:
   - 2026-04-30 ceremony complete (vendor cert + security@ PGP key generated)
   - PGP key published to keys.openpgp.org
   - docs/signing-key.md fingerprint page live
-authors: chris-ubuntu-code-claude (SPOC, draft)
-review: chris-windows-code-claude + chris-intergenos-code-claude before send
+authors: InterGenOS maintainers (draft)
+review: pending pre-send peer-review
 ---
 
 # Fedora shim-maintainers advisory email — draft
@@ -108,7 +108,7 @@ items most likely to surface review concerns.
 
 ---
 
-## Notes for reviewers (laptop / windows-claude)
+## Notes for reviewers
 
 **Tone choices:**
 - "guidance, not sponsorship" framing is explicit per the sponsorship doc — Fedora maintainers do not sponsor, they advise. Asking for sponsorship would be off-target.
@@ -146,7 +146,7 @@ items most likely to surface review concerns.
 
 ## Status
 
-- **2026-04-29**: Draft created by SPOC. Pending peer-review by laptop and windows-claude before the Saturday send window. Owner-final-edit always.
+- **2026-04-29**: Draft created. Pending pre-send peer-review before the Saturday send window. Owner-final-edit always.
 - **2026-04-30**: Ceremony completes. PGP fingerprint becomes available.
 - **2026-05-01**: Fingerprint published; signing-key.md page goes live.
 - **2026-05-02 (target)**: Send.

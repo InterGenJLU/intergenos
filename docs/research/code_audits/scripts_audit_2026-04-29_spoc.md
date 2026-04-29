@@ -1,6 +1,6 @@
 ---
 title: scripts/ code audit — SPOC
-author: chris-ubuntu-code-claude (SPOC)
+author: InterGenOS maintainers
 date: 2026-04-29
 audit_scope: scripts/build-intergenos.sh, scripts/create-image.sh, scripts/pkg-functions.sh (sampled)
 audit_complement: DeepSeek pkm + igos-build (1b3be7e); Gemini-Pro intergen + installer + docs
@@ -32,9 +32,9 @@ fi
 echo "root:${IMAGE_ROOT_PASSWORD}" | chroot "$MOUNT_POINT" chpasswd
 ```
 
-Per Holy Grail security-only alignment: any image built without explicit `ROOT_PASSWORD=` is a known-credentials image. If a build host's shell history is captured, or the build VM image is shared (including for shim-review reproducibility verification), the password is recoverable trivially. Reviewers running our build to verify reproducibility will land on a system with credentialed root.
+Per the project's security-only-alignment policy: any image built without explicit `ROOT_PASSWORD=` is a known-credentials image. If a build host's shell history is captured, or the build VM image is shared (including for shim-review reproducibility verification), the password is recoverable trivially. Reviewers running our build to verify reproducibility will land on a system with credentialed root.
 
-**Severity: CRITICAL.** Holy Grail violation — known credentials in any shipped artifact.
+**Severity: CRITICAL.** Security-policy violation — known credentials in any shipped artifact.
 
 **Proposed fix (any of these, owner-decision):**
 
@@ -63,7 +63,7 @@ if ! chroot "$MOUNT_POINT" id "$IMAGE_USER" > /dev/null 2>&1; then
 
 No log warning at all on the default-user path (compare S1 which at least warns). User is sudo-capable via wheel group.
 
-**Severity: CRITICAL.** Same Holy Grail violation as S1; arguably worse because no warning is emitted.
+**Severity: CRITICAL.** Same security-policy violation as S1; arguably worse because no warning is emitted.
 
 **Proposed fix.** Identical paths as S1. Whichever path is chosen for root, apply consistently to the default user. If the image ships with no default user (Forge installer creates one at install time), this entire block can disappear — preferred for v1.0 since Forge already has the user-creation flow.
 
