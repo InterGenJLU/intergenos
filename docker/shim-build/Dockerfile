@@ -82,24 +82,19 @@ RUN apt-get update \
 # --depth 1 keeps the layer small; tag is verified by checkout.
 # -----------------------------------------------------------------------------
 WORKDIR /build
-RUN git clone --depth 1 --branch 16.1 https://github.com/rhboot/shim.git /build/shim \
+RUN git clone --depth 1 --branch 16.1 --recurse-submodules --shallow-submodules \
+    https://github.com/rhboot/shim.git /build/shim \
  && git -C /build/shim rev-parse HEAD > /build/SHIM_COMMIT_SHA
 
 # -----------------------------------------------------------------------------
-# Generate placeholder vendor certificate (deterministic subject)
-# Set a fixed serial number so intermediate output is reproducible.
-# Real cert replaces this file before docker build via --build-arg plumbing
-# or a COPY --from mount of the ceremony output.
+# Vendor certificate — fixed test keypair for pre-ceremony reproducibility.
+# Source: tests/fixtures/shim-build/test-vendor-{cert,key}.pem
+# WARNING: TEST ONLY. NEVER use for production signing.
+# Post-ceremony: real vendor cert replaces these files via build arg or COPY.
 # -----------------------------------------------------------------------------
-RUN openssl req -new -x509 -newkey rsa:2048 \
-    -subj "${VENDOR_CERT_SUBJECT}" \
-    -days "${VENDOR_CERT_DAYS}" \
-    -nodes \
-    -text \
-    -set_serial 0x01 \
-    -keyout /build/vendor_key.pem \
-    -out /build/vendor_cert.pem \
- && openssl x509 -in /build/vendor_cert.pem -outform DER -out /build/vendor_cert.der
+COPY docker/shim-build/test-vendor-key.pem /build/vendor_key.pem
+COPY docker/shim-build/test-vendor-cert.pem /build/vendor_cert.pem
+COPY docker/shim-build/test-vendor-cert.der /build/vendor_cert.der
 
 # -----------------------------------------------------------------------------
 # Build shim with embedded vendor certificate
