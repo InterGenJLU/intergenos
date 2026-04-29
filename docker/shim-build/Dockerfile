@@ -92,9 +92,9 @@ RUN git clone --depth 1 --branch 16.1 --recurse-submodules --shallow-submodules 
 # WARNING: TEST ONLY. NEVER use for production signing.
 # Post-ceremony: real vendor cert replaces these files via build arg or COPY.
 # -----------------------------------------------------------------------------
-COPY docker/shim-build/test-vendor-key.pem /build/vendor_key.pem
-COPY docker/shim-build/test-vendor-cert.pem /build/vendor_cert.pem
-COPY docker/shim-build/test-vendor-cert.der /build/vendor_cert.der
+COPY tests/fixtures/shim-build/test-vendor-key.pem /build/vendor_key.pem
+COPY tests/fixtures/shim-build/test-vendor-cert.pem /build/vendor_cert.pem
+COPY tests/fixtures/shim-build/test-vendor-cert.der /build/vendor_cert.der
 
 # -----------------------------------------------------------------------------
 # Build shim with embedded vendor certificate
