@@ -1,0 +1,43 @@
+[Unit]
+Description=InterGenOS First-Boot Password Greeter
+Documentation=man:systemd.unit(5)
+
+# Order after the DRM brand animation completes so the user sees the
+# welcome animation before the password prompts. Both services use
+# tty1 and Conflicts=getty@tty1.service to lock the TTY.
+After=systemd-vconsole-setup.service
+After=systemd-tmpfiles-setup.service
+After=intergen-firstboot.service
+
+# Idempotency: do nothing on subsequent boots once the flag is written.
+ConditionPathExists=!/etc/intergenos/first-boot-completed
+
+DefaultDependencies=no
+Conflicts=getty@tty1.service
+Before=getty@tty1.service
+
+# If the greeter ever fails, fall through to getty rather than blocking
+# boot indefinitely. Path 4 ensured the image has builder-set passwords
+# as the safety net — getty is reachable with those if the greeter is
+# bypassed (next boot will retry the greeter).
+OnFailure=getty@tty1.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/intergenos/first-boot-greeter
+RemainAfterExit=no
+
+# Block the TTY for our prompts.
+StandardInput=tty
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+
+# No timeout — user may take their time choosing passwords.
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
