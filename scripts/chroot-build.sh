@@ -9,6 +9,7 @@
 #   sudo bash /mnt/intergenos/scripts/chroot-enter.sh /mnt/intergenos/scripts/chroot-build.sh
 
 set +h
+set -euo pipefail
 umask 022
 
 IGOS_SOURCES=/sources
