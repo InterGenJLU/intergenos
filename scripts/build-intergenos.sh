@@ -421,7 +421,9 @@ phase_toolchain() {
     # Only HOME, TERM, and PATH survive — prevents host CFLAGS, LD_LIBRARY_PATH, etc.
     # from contaminating the cross-compilation
     log "Running cross-toolchain build as $BUILD_USER (Ch 5)..."
-    su - "$BUILD_USER" -c "env -i HOME=/home/${BUILD_USER} TERM=${TERM} bash ${SCRIPTS}/toolchain-build.sh" 2>&1 | tee -a "$BUILD_LOG"
+    # ${TERM@Q} (bash 4.4+) literal-quotes the value so any command-substitution
+    # syntax inside $TERM does not re-evaluate when su's shell parses the -c arg.
+    su - "$BUILD_USER" -c "env -i HOME=/home/${BUILD_USER} TERM=${TERM@Q} bash ${SCRIPTS}/toolchain-build.sh" 2>&1 | tee -a "$BUILD_LOG"
     # Check if toolchain produced the expected output
     if [ ! -x "${IGOS}/tools/bin/${IGOS_TARGET}-gcc" ]; then
         log "ERROR: Toolchain build did not produce ${IGOS_TARGET}-gcc"
@@ -431,7 +433,7 @@ phase_toolchain() {
 
     # Temp tools (Ch 6) — cross-compiled utilities needed inside the chroot
     log "Running temp-tools build as $BUILD_USER (Ch 6)..."
-    su - "$BUILD_USER" -c "env -i HOME=/home/${BUILD_USER} TERM=${TERM} bash ${SCRIPTS}/temp-tools-build.sh" 2>&1 | tee -a "$BUILD_LOG"
+    su - "$BUILD_USER" -c "env -i HOME=/home/${BUILD_USER} TERM=${TERM@Q} bash ${SCRIPTS}/temp-tools-build.sh" 2>&1 | tee -a "$BUILD_LOG"
     # Verify coreutils installed (env is needed for chroot entry)
     if [ ! -x "${IGOS}/usr/bin/env" ]; then
         log "ERROR: Temp-tools build did not produce /usr/bin/env (coreutils)"
