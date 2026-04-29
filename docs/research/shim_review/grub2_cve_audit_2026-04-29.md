@@ -5,6 +5,19 @@
 **Audit Scope:** Every GRUB2 CVE fixed between v2.12 and v2.14 release (v2.12..v2.14).
 **Verdict:** **COMPLIANT.** GRUB 2.14 incorporates 32 unique CVE fixes identified in the upstream git log since v2.12.
 
+## Our GRUB Build
+
+| Field | Value |
+|---|---|
+| Package | `packages/core/grub/` |
+| Version | **GRUB 2.14** |
+| Source | `grub-2.14.tar.xz`, upstream GNU FTP mirror |
+| Platforms built | BIOS (`i386-pc`) and EFI (`x86_64-efi`) |
+| Source SHA-256 | `bc8d3c73535b8838d8c8e2654d73edc4e6ae8c8acdb45d5df5dc9a1547446d43` |
+| Local patches | **None** security-related. One non-security `sed` in `configure()` works around a linker-option bug introduced in 2.14 itself. |
+
+GRUB 2.14 was released on 2026-01-14 ([upstream release announcement](https://lists.gnu.org/archive/html/grub-devel/2026-01/msg00029.html)).
+
 ## Audit Table (v2.12..v2.14)
 
 The following 32 CVEs were addressed in the upstream GRUB repository between the v2.12 and v2.14 tags.
@@ -92,3 +105,30 @@ Searched [GNU grub-devel archives](https://lists.gnu.org/archive/cgi-bin/namazu.
 
 **Notable Non-CVE Security-Adjacent Commits Post-2.14:**
 - `170221b35` mmap/mmap: Fix integer overflow in binary search (Prevents infinite loop lockup via crafted `badram` command; mitigated by lockdown).
+
+## Residual Risk
+
+- **Possible CVEs assigned between 2.14 release (2026-01-14) and this audit (2026-04-21)** that have not yet reached public tracking. Mitigation: cross-check with Red Hat, Ubuntu, Fedora, and SUSE GRUB2 security pages immediately before PR-open.
+- **Non-CVE security-relevant findings** (static-analysis Coverity fixes bundled into 2.14 without CVE assignment). Covered implicitly by our 2.14 baseline but not individually enumerated here.
+
+## Maintenance Commitment
+
+For the lifetime of the shim-review submission, any new GRUB2 CVE affecting our shipped version triggers:
+
+1. Upstream patch review within 48 hours of public disclosure.
+2. Backport to our 2.14 package (or version bump if 2.14 remains the latest branch).
+3. New release artifact with SBAT generation incremented as required.
+4. This audit updated with the new CVE entry and coverage status.
+
+See [SECURITY.md](../SECURITY.md) for the full disclosure policy (48h acknowledgment, 14-day fix target for CRITICAL severity which includes Secure Boot chain breaks).
+
+## References
+
+- [GRUB 2.14 release announcement](https://lists.gnu.org/archive/html/grub-devel/2026-01/msg00029.html) - GNU grub-devel mailing list, 2026-01-14
+- [GRUB2 vulnerabilities - 2025/02/18 patch set](https://lists.gnu.org/archive/html/grub-devel/2025-02/msg00024.html) - GNU grub-devel mailing list
+- [GRUB2 vulnerabilities - 2021/03/02 patch bundle](https://lists.gnu.org/archive/html/grub-devel/2021-03/msg00007.html) - GNU grub-devel mailing list
+- [GRUB2 NTFS driver vulnerabilities - 2023/10/03](https://lists.gnu.org/archive/html/grub-devel/2023-10/msg00028.html) - GNU grub-devel mailing list
+- [Red Hat: BootHole Vulnerability (CVE-2020-10713)](https://access.redhat.com/security/vulnerabilities/grub2bootloader)
+- [Red Hat: RHSB-2021-003 - ACPI Secure Boot bypass](https://access.redhat.com/security/vulnerabilities/RHSB-2021-003)
+- [Ubuntu Security Team: GRUB2 Secure Boot Bypass 2021](https://wiki.ubuntu.com/SecurityTeam/KnowledgeBase/GRUB2SecureBootBypass2021)
+- [CVE Details - GNU GRUB2 vulnerability list](https://www.cvedetails.com/vulnerability-list/vendor_id-72/product_id-32736/GNU-Grub2.html)
