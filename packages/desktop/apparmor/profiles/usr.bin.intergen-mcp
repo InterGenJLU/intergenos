@@ -1,0 +1,38 @@
+#include <tunables/global>
+
+/usr/bin/intergen-mcp flags=(complain) {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+  #include <abstractions/python>
+  #include <abstractions/ssl_certs>
+
+  # Main executable
+  /usr/bin/intergen-mcp r,
+  /usr/lib/python3.[0-9]*/site-packages/intergen/** r,
+
+  # Configuration and state
+  owner @{HOME}/.config/intergen-mcp/ r,
+  owner @{HOME}/.config/intergen-mcp/** rw,
+  
+  # MCP tokens and secrets
+  owner /etc/intergencomms/ r,
+  owner /etc/intergencomms/** rw,
+  
+  # Memory files (read/write to local memory namespace)
+  owner @{HOME}/intergenos/** rw,
+  owner /mnt/intergenos/** rw,
+  
+  # Allow execution of common tools used by agents
+  /usr/bin/git ix,
+  /usr/bin/bash ix,
+  /usr/bin/cat ix,
+  /usr/bin/ls ix,
+  /usr/bin/python3* ix,
+  
+  # DBus interaction
+  #include <abstractions/dbus-session-strict>
+  dbus send
+       bus=session
+       path=/com/intergenos/InterGen
+       interface=com.intergenos.InterGen,
+}

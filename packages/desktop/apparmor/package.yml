@@ -1,0 +1,13 @@
+name: apparmor
+version: "3.0.8"
+release: 1
+description: AppArmor profile set for InterGenOS (base + custom profiles)
+license: GPL-2.0-only
+homepage: https://gitlab.com/apparmor/apparmor
+tier: desktop
+build_style: custom
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime: []
