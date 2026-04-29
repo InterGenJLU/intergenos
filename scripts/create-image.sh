@@ -376,19 +376,32 @@ NETEOF
 # Set up DNS resolution via systemd-resolved
 ln -sf /run/systemd/resolve/stub-resolv.conf "${MOUNT_POINT}/etc/resolv.conf"
 
-# Set root password — override with ROOT_PASSWORD env var
-IMAGE_ROOT_PASSWORD="${ROOT_PASSWORD:-intergenos}"
-if [ "$IMAGE_ROOT_PASSWORD" = "intergenos" ]; then
-    log "  WARNING: Using default root password — set ROOT_PASSWORD env var for production"
+# Set root password — REQUIRED via ROOT_PASSWORD env var. No default.
+# Path 4 (S1/S2 fleet vote A 2026-04-29): the literal "intergenos" default
+# has been retired permanently. build-intergenos.sh requires
+# --root-password to be provided and exports ROOT_PASSWORD before invoking
+# this script. Path 3's first-boot greeter overwrites this on the end
+# user's first boot — the value here is a brief-window fallback nobody
+# normally encounters.
+if [ -z "${ROOT_PASSWORD:-}" ]; then
+    err "ROOT_PASSWORD env var is required (no default permitted)"
+    err "  Invoke via build-intergenos.sh --root-password <value> ..."
+    err "  Or set ROOT_PASSWORD=<value> in the environment if calling this script directly."
+    exit 1
 fi
-echo "root:${IMAGE_ROOT_PASSWORD}" | chroot "$MOUNT_POINT" chpasswd
-# Note: passwd --expire is NOT used here because GDM cannot handle
-# forced password changes at the login screen — it just fails.
-# Password change will be handled by the welcome greeter on first boot.
+echo "root:${ROOT_PASSWORD}" | chroot "$MOUNT_POINT" chpasswd
+# Note: passwd --expire is NOT used here. GDM cannot handle forced
+# password changes at the login screen — it just fails. Path 3
+# first-boot greeter (systemd unit + tty prompt) handles the user-side
+# change on first boot.
 
-# Create default user account — override with IMAGE_USER env var
+# Create default user account — IMAGE_USER name can default; password CANNOT.
 IMAGE_USER="${IMAGE_USER:-intergenos}"
-IMAGE_USER_PASSWORD="${IMAGE_USER_PASSWORD:-intergenos}"
+if [ -z "${IMAGE_USER_PASSWORD:-}" ]; then
+    err "IMAGE_USER_PASSWORD env var is required (no default permitted)"
+    err "  Invoke via build-intergenos.sh --user-password <value> ..."
+    exit 1
+fi
 if ! chroot "$MOUNT_POINT" id "$IMAGE_USER" > /dev/null 2>&1; then
     chroot "$MOUNT_POINT" useradd -m -G wheel,video,audio,input -s /bin/bash "$IMAGE_USER"
     echo "${IMAGE_USER}:${IMAGE_USER_PASSWORD}" | chroot "$MOUNT_POINT" chpasswd

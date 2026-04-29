@@ -74,6 +74,9 @@ BUILD_USER=""
 START_AT=""
 STOP_AFTER=""
 CHECKPOINT=false
+ROOT_PASSWORD_ARG=""
+USER_PASSWORD_ARG=""
+IMAGE_USER_NAME="intergenos"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -93,13 +96,25 @@ while [[ $# -gt 0 ]]; do
             CHECKPOINT=true
             shift
             ;;
+        --root-password)
+            ROOT_PASSWORD_ARG="$2"
+            shift 2
+            ;;
+        --user-password)
+            USER_PASSWORD_ARG="$2"
+            shift 2
+            ;;
+        --image-user)
+            IMAGE_USER_NAME="$2"
+            shift 2
+            ;;
         -h|--help)
             head -30 "$0" | grep '^#' | sed 's/^# \?//'
             exit 0
             ;;
         *)
             echo "Unknown argument: $1"
-            echo "Usage: sudo bash $0 --user <username> [--start-at <phase>] [--stop-after <phase>]"
+            echo "Usage: sudo bash $0 --user <username> --root-password <pw> --user-password <pw> [--image-user <name>] [--start-at <phase>] [--stop-after <phase>]"
             exit 1
             ;;
     esac
@@ -107,9 +122,30 @@ done
 
 if [ -z "$BUILD_USER" ]; then
     echo "Error: --user <username> is required"
-    echo "Usage: sudo bash $0 --user <username> [--start-at <phase>] [--stop-after <phase>]"
+    echo "Usage: sudo bash $0 --user <username> --root-password <pw> --user-password <pw> [--image-user <name>] [--start-at <phase>] [--stop-after <phase>]"
     exit 1
 fi
+
+# Path 4: image credentials must be explicit. No defaults — the literal
+# "intergenos" default has been retired (S1/S2 fleet vote A 2026-04-29).
+# Path 3's first-boot greeter will overwrite these on the user's first
+# boot, but the build-time creds must still be the builder's choice
+# rather than a guessable shared default.
+if [ -z "$ROOT_PASSWORD_ARG" ]; then
+    echo "Error: --root-password <value> is required (no default permitted)"
+    echo "       Path 3 first-boot greeter will prompt the end user to set their own"
+    echo "       password on first boot; this build-time value is the brief-window"
+    echo "       fallback that nobody normally encounters."
+    echo "       Generate a strong one with e.g. 'pwgen -s 20 1' if unsure."
+    exit 1
+fi
+if [ -z "$USER_PASSWORD_ARG" ]; then
+    echo "Error: --user-password <value> is required (no default permitted)"
+    exit 1
+fi
+export ROOT_PASSWORD="$ROOT_PASSWORD_ARG"
+export IMAGE_USER_PASSWORD="$USER_PASSWORD_ARG"
+export IMAGE_USER="$IMAGE_USER_NAME"
 
 # Verify running as root (needed for chroot phases)
 if [ "$(id -u)" -ne 0 ]; then
