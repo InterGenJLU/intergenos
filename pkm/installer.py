@@ -89,7 +89,8 @@ class PackageInstaller:
             # Deploy to target filesystem
             result = subprocess.run(
                 ["tar", "-xzf", str(archive_path), "-C", str(self.root),
-                 "--no-overwrite-dir", "--keep-directory-symlink"],
+                 "--no-overwrite-dir", "--keep-directory-symlink",
+                 "--no-same-owner", "--no-same-permissions"],
                 capture_output=True, text=True
             )
             if result.returncode != 0:

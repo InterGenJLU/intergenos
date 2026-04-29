@@ -132,6 +132,32 @@ def cmd_install(db, args):
         archive = args.archive if len(args.packages) == 1 else None
 
         # Try local archive first
+        if archive:
+            # Warn that --archive bypasses repo verification (H3)
+            import hashlib
+            try:
+                sha = hashlib.sha256()
+                with open(archive, "rb") as f:
+                    for chunk in iter(lambda: f.read(8192), b""):
+                        sha.update(chunk)
+                archive_sha = sha.hexdigest()
+                print(f"  WARNING: installing from local archive without repo verification.")
+                print(f"  Archive: {archive}")
+                print(f"  SHA256:  {archive_sha}")
+                # Cross-check against repo index if repo is synced
+                try:
+                    repo_pkg = repo.get_package(pkg_name)
+                    if repo_pkg and repo_pkg.get("sha256"):
+                        if repo_pkg["sha256"] == archive_sha:
+                            print(f"  Trust:   SHA256 matches repository index for {pkg_name} {repo_pkg.get('version','?')}")
+                        else:
+                            print(f"  MISMATCH: archive SHA256 does not match repository index!")
+                            print(f"    archive: {archive_sha}")
+                            print(f"    repo:    {repo_pkg['sha256']}")
+                except Exception:
+                    pass
+            except Exception:
+                pass
         ok, msg = installer.install(pkg_name, archive_path=archive)
         if ok:
             print(f"  {msg}")

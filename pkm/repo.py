@@ -331,7 +331,7 @@ class RepoManager:
             if self._verify_checksum(local_path, pkg.get("sha256")):
                 return True, str(local_path)
             else:
-                local_path.unlink()  # Stale/corrupt cache
+                local_path.unlink()  # Stale/corrupt cache or missing sha256
 
         try:
             self._download(url, local_path)
@@ -340,16 +340,21 @@ class RepoManager:
 
         # Verify checksum
         expected = pkg.get("sha256")
-        if expected and not self._verify_checksum(local_path, expected):
+        if not self._verify_checksum(local_path, expected):
             local_path.unlink(missing_ok=True)
             return False, f"SHA256 verification FAILED for {filename}"
 
         return True, str(local_path)
 
     def _verify_checksum(self, path, expected):
-        """Verify SHA256 checksum of a file."""
-        if not expected:
-            return True  # No checksum to verify
+        """Verify SHA256 checksum of a file.
+        Requires exactly 64 lowercase hex characters (SHA256 hex digest).
+        Rejects None, empty string, wrong-length, non-hex values. (H1)
+        """
+        if not isinstance(expected, str) or len(expected) != 64:
+            return False
+        if not all(c in "0123456789abcdef" for c in expected):
+            return False
 
         sha = hashlib.sha256()
         with open(path, "rb") as f:

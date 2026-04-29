@@ -34,7 +34,10 @@
 #                     Defaults to $INTERGENOS_GPG_KEY_ID env var.
 #   --pkcs11-uri      PKCS#11 URI for the sbsign key on PIV slot 9c.
 #                     Defaults to $INTERGENOS_PKCS11_URI env var.
-#   --strict          Fail if any expected artifact is missing.
+#   --vendor-cert FILE X.509 certificate matching the PKCS#11 key.
+#                     Defaults to /etc/intergenos/signing/vendor-cert.pem
+#                     (pre-positioned on signing workstation, not transported
+#                     with unsigned artifacts). (SR3)
 #
 # Exit codes:
 #   0   all signing steps succeeded (or were skipped non-strict)
@@ -59,6 +62,7 @@ ARTIFACTS=""
 OUTPUT=""
 GPG_KEY_ID="${INTERGENOS_GPG_KEY_ID:-}"
 PKCS11_URI="${INTERGENOS_PKCS11_URI:-}"
+VENDOR_CERT="${INTERGENOS_VENDOR_CERT:-/etc/intergenos/signing/vendor-cert.pem}"
 STRICT=0
 
 # -------- arg parsing --------
@@ -68,6 +72,7 @@ while [[ $# -gt 0 ]]; do
         --output)      OUTPUT="$2"; shift 2 ;;
         --gpg-key-id)  GPG_KEY_ID="$2"; shift 2 ;;
         --pkcs11-uri)  PKCS11_URI="$2"; shift 2 ;;
+        --vendor-cert) VENDOR_CERT="$2"; shift 2 ;;
         --strict)      STRICT=1; shift ;;
         -h|--help)
             sed -n '2,45p' "$0"
@@ -86,6 +91,16 @@ die() { echo "error: $*" >&2; exit "${2:-3}"; }
 [[ -n "$OUTPUT"    ]] || die "--output required"    2
 [[ -d "$ARTIFACTS" ]] || die "artifacts dir not found: $ARTIFACTS" 2
 mkdir -p "$OUTPUT"
+
+# -------- staging for atomic sign (SR1) --------
+OUTPUT_STAGING="$OUTPUT/.signing-$$"
+mkdir -p "$OUTPUT_STAGING"
+trap 'rm -rf "$OUTPUT_STAGING"' EXIT
+
+# -------- cert pre-positioning check (SR3) --------
+if [[ -f "$ARTIFACTS/vmlinuz-"* ]] || [[ -f "$ARTIFACTS/grubx64.efi" ]]; then
+    [[ -f "$VENDOR_CERT" ]] || die "vendor cert not found: $VENDOR_CERT" 2
+fi
 
 # -------- token presence check --------
 # GPG side: gpg --card-status lists the token if connected + readable.
@@ -118,10 +133,13 @@ if [[ -f "$INDEX" ]]; then
     gpg --batch --yes \
         --local-user "$GPG_KEY_ID" \
         --detach-sign --armor \
-        --output "$OUTPUT/InterGenOS.db.sig" \
+        --output "$OUTPUT_STAGING/InterGenOS.db.sig" \
         "$INDEX"
-    cp "$INDEX" "$OUTPUT/InterGenOS.db"
-    echo "    -> $OUTPUT/InterGenOS.db.sig"
+    cp "$INDEX" "$OUTPUT_STAGING/InterGenOS.db"
+    # SR2: verify signature
+    gpg --verify "$OUTPUT_STAGING/InterGenOS.db.sig" "$OUTPUT_STAGING/InterGenOS.db" \
+        || die "GPG signature verification failed" 3
+    echo "    -> $OUTPUT_STAGING/InterGenOS.db.sig"
 elif [[ "$STRICT" == "1" ]]; then
     die "strict: missing $INDEX" 4
 else
@@ -140,10 +158,13 @@ if [[ ${#kernels[@]} -gt 0 ]]; then
         echo "[*] sbsigning kernel: $kname"
         sbsign --engine pkcs11 \
                --key "$PKCS11_URI" \
-               --cert "$ARTIFACTS/vendor-cert.pem" \
-               --output "$OUTPUT/$kname" \
+               --cert "$VENDOR_CERT" \
+               --output "$OUTPUT_STAGING/$kname" \
                "$kern"
-        echo "    -> $OUTPUT/$kname"
+        # SR2: verify signature
+        sbverify --cert "$VENDOR_CERT" "$OUTPUT_STAGING/$kname" \
+            || die "sbsign verification failed for $kname" 3
+        echo "    -> $OUTPUT_STAGING/$kname"
     done
 elif [[ "$STRICT" == "1" ]]; then
     die "strict: no vmlinuz-* in $ARTIFACTS" 4
@@ -159,15 +180,23 @@ if [[ -f "$GRUB" ]]; then
     echo "[*] sbsigning GRUB: $GRUB"
     sbsign --engine pkcs11 \
            --key "$PKCS11_URI" \
-           --cert "$ARTIFACTS/vendor-cert.pem" \
-           --output "$OUTPUT/grubx64.efi" \
+           --cert "$VENDOR_CERT" \
+           --output "$OUTPUT_STAGING/grubx64.efi" \
            "$GRUB"
-    echo "    -> $OUTPUT/grubx64.efi"
+    # SR2: verify signature
+    sbverify --cert "$VENDOR_CERT" "$OUTPUT_STAGING/grubx64.efi" \
+        || die "sbsign verification failed for grubx64.efi" 3
+    echo "    -> $OUTPUT_STAGING/grubx64.efi"
 elif [[ "$STRICT" == "1" ]]; then
     die "strict: missing $GRUB" 4
 else
     echo "[-] skipping GRUB (not present)"
 fi
+
+# -------- atomic promotion (SR1) --------
+mv "$OUTPUT_STAGING"/* "$OUTPUT/" 2>/dev/null || true
+rmdir "$OUTPUT_STAGING" 2>/dev/null || true
+trap - EXIT
 
 # -------- done --------
 echo
@@ -177,5 +206,5 @@ echo
 echo "Next: hand signed artifacts back to the build orchestrator for"
 echo "      image-creation phase. Verify with:"
 echo "        gpg --verify $OUTPUT/InterGenOS.db.sig $OUTPUT/InterGenOS.db"
-echo "        sbverify --cert $ARTIFACTS/vendor-cert.pem $OUTPUT/vmlinuz-*"
-echo "        sbverify --cert $ARTIFACTS/vendor-cert.pem $OUTPUT/grubx64.efi"
+echo "        sbverify --cert $VENDOR_CERT $OUTPUT/vmlinuz-*"
+echo "        sbverify --cert $VENDOR_CERT $OUTPUT/grubx64.efi"
