@@ -404,12 +404,10 @@ class BuildExecutor(PackageTracker):
             self.logger.info(f"  Check: {check.description} [{check.type}]")
 
             if check.script:
-                # B10: quote script to prevent shell injection
-                quoted_script = shlex.quote(check.script) if check.script else ""
                 if check.expect_contains:
                     # Run once with output capture for content check
                     result = subprocess.run(
-                        quoted_script,
+                        check.script,
                         shell=True, executable="/bin/bash",
                         capture_output=True, text=True,
                         env=env, cwd=str(cwd),

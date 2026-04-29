@@ -117,4 +117,14 @@ Out of scope:
 
 ---
 
-*Last updated: 2026-04-20*
+## Advisories
+
+Known vulnerabilities and our response. InterGenOS ships with mitigations pre-applied.
+
+| Advisory | CVE | Severity | Mitigated |
+|----------|-----|----------|-----------|
+| [Copy Fail](docs/security/advisories/CVE-2026-31431-copy-fail.md) | CVE-2026-31431 | HIGH (7.8) | 2026-04-29 |
+
+---
+
+*Last updated: 2026-04-29*
