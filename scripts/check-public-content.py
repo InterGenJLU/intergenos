@@ -45,6 +45,11 @@ SKIP_PATHS = {
     "scripts/check-public-content.py",
     "scripts/check-public-content.allowlist",
     "tests/check-public-content/",
+    # docs/research/fleet_tooling/ — fleet schema docs intrinsically enumerate
+    # the roster (fleet_agents.json shape spec). Path-excepted by design;
+    # rosters are load-bearing for the safety-gate plugin's getAllowedPrefixes()
+    # lookup in plugins/safety-gate-v2-sketch.ts.
+    "docs/research/fleet_tooling/",
 }
 
 AGENT_NAMES = [
