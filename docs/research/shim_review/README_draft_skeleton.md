@@ -130,7 +130,9 @@ The build inputs (Dockerfile, vendor cert public part, build scripts) currently 
 
 ## 10. What patches are being applied and why?
 
-__TBD__: <DeepSeek's B2 lane includes the placeholder vendor-cert step. Whether any code-level patches to upstream shim 16.1 are required (vs purely build-system / cert-embedding configuration) needs to be confirmed from the actual Dockerfile build output. Current plan is **zero code patches** — only configuration / vendor-cert embedding. Reviewer should expect "no code patches; only embedded vendor cert and SBAT entry".>
+__FILLED__: (verified against `docker/shim-build/Dockerfile` and `packages/core/shim-signed/package.yml`)
+
+  **Zero code patches.** The build uses the upstream `rhboot/shim` repository at tag `16.1` (commit `afc49558b34548644c1cd0ad1b6526a9470182ed`) without any code-level modifications. The only configuration applied during the build is embedding the InterGenOS vendor certificate (`VENDOR_CERT_FILE`) and specifying the default loader (`DEFAULT_LOADER="\grubx64.efi"`).
 
 Per `docs/research/installer/ms_shim_sponsorship_2026-04-18.md` §3, novel kernel-module-signing approach (ephemeral per-build keys) is documented in Q19 — it is NOT a patch to shim itself, but a kernel-build-system property.
 
@@ -156,7 +158,9 @@ References:
 
 ## 12. What exact implementation of Secure Boot in GRUB2 do you have?
 
-__TBD__: <GRUB2 version + Secure Boot integration details. InterGenOS uses upstream GRUB2 with the standard shim → GRUB2 → kernel chain. Specific version pin to confirm from `packages/core/grub2/package.yml`. Modules built into the signed GRUB2 image enumerated in Q30.>
+__FILLED__: (verified against `packages/core/grub/package.yml`)
+
+  GRUB2 version 2.14. InterGenOS uses upstream GRUB2 with the standard shim -> GRUB2 -> kernel chain. Modules built into the signed GRUB2 image are enumerated in Q30.
 
 Default expectation: GRUB2 v2.12+ with the standard shim-lock validation flow. Modules locked to the signed-binary image (vs loaded from `/boot`) per shim-review reproducibility expectations (Q30).
 
@@ -243,7 +247,9 @@ The override-config addition was discovered as a gap during this 39Q draft's pop
 
 ## 18. Do you build your signed kernel with additional local patches?
 
-__TBD__: <Verify against `packages/core/linux/` package definition. Current expectation: minimal patches (only build-system / config patches if any), no security-relevant code patches. Confirm before PR-open.>
+__FILLED__: (verified against `packages/core/linux-kernel/package.yml` and `build.sh`)
+
+  **No additional local patches.** The kernel build uses the upstream Linux 6.18.10 source tarball directly. No security-relevant code patches are applied.
 
 ---
 
@@ -272,7 +278,9 @@ References:
 
 ## 20. If you use vendor_db functionality, please briefly describe your certificate setup?
 
-__TBD__: <`vendor_db` (allow-list) usage TBD. Current plan: no `vendor_db` allow-listing of additional certificates beyond the embedded InterGenOS vendor cert in the standard `vendor_cert` slot. Confirm before PR open. If `vendor_db` is unused, this question is N/A. If used (e.g., for chainloading specific signed third-party binaries), document the certs.>
+__FILLED__: (vendor_db not used)
+
+  No `vendor_db` allow-listing is used. Only the embedded InterGenOS vendor cert in the standard `vendor_cert` slot is trusted.
 
 ---
 
@@ -380,7 +388,9 @@ __GATED__: <Trigger: signed GRUB2 binary produced. Module list extracted via `gr
 
 ## 32. What is the origin and full version number of your bootloader?
 
-__TBD__: <GRUB2 version pin from `packages/core/grub2/package.yml`. Confirm exact version (likely v2.12-rc1 or v2.12 release; the v2.12..v2.14 range is the GRUB CVE audit scope per Q13).>
+__FILLED__: (verified against `packages/core/grub/package.yml`)
+
+  GNU GRUB2 version 2.14, sourced from upstream (`https://ftp.gnu.org/gnu/grub/grub-2.14.tar.xz`).
 
 Plan: GRUB2 v2.12 stable, sourced from upstream <https://ftp.gnu.org/gnu/grub/>, pinned by tag in the InterGenOS package definition.
 
@@ -496,6 +506,6 @@ The kernel-lockdown auto-trigger gap (Q17) is acknowledged in this draft and wil
 - [x] Kernel-lockdown auto-trigger gap (Q17) RESOLVED at master commit `baf84d8` — `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` added to `99-intergenos-overrides.config:130` per Path 1 (SPOC ruling 2026-04-29T18:05:38Z, integrated 18:18Z)
 - [ ] B2 Dockerfile build artifact + SHA256 + Q22-Q25 + Q14 + Q29 + Q30 (DeepSeek's lane)
 - [ ] Q9 InterGenJLU/shim-review fork created + tag pushed
-- [ ] Q10, Q12, Q18, Q20, Q32, Q37 specific version pins confirmed against package definitions
+- [x] Q10, Q12, Q18, Q20, Q32, Q37 specific version pins confirmed against package definitions (completed 2026-04-29)
 - [ ] Q38 ≥2 peer-review contributions completed and linked
 - [ ] Pre-PR-open final pass: SBAT entry + signed binary hashes + all gated items resolved
