@@ -103,6 +103,133 @@ If the token is lost, stolen, or believed compromised:
 - Issue a new subkey signed by the offline root.
 - Push a keyring update via `pkm` so users rotate before the dbx update path takes effect.
 
+## Appendix B — Nitrokey 3 NFC First-Touch Checklist
+
+This appendix covers the steps that run the **first time** a fresh-from-box Nitrokey 3 NFC is plugged into the signing workstation — before the key-generation ceremony itself. It takes a Nitrokey from factory-out-of-box state to ceremony-ready state. Run it once per device, on each of the Nitrokeys planned for production use.
+
+The signing-ceremony procedure documented in `docs/research/installer/signing_key_custody_2026-04-18.md` assumes the cards are already in this ceremony-ready state; this appendix fills the gap.
+
+### Scope notation
+
+The release plan uses four physical Nitrokeys:
+
+- **#1** — primary daily-driver (lives with the maintainer)
+- **#2** — home-safe backup
+- **#3** — bank safety-deposit-box backup
+- **#4** — spare / test card
+
+This checklist runs on each of the four. The test-cert dry-run in step 7 runs **only on #4** before any real ceremony key material exists on any device, so a flow that fails leaves no key material at risk.
+
+### Steps
+
+1. **Visual + packaging inspection.** Tamper-evident packaging intact. Serial visible on the unit through the window or on the back of the device matches the carrier's manifest. No signs of prior opening, label-shift, or shrinkwrap reseal. If anything looks off, do not use the device — surface to the security contact and request a replacement through the original purchase channel.
+
+2. **Plug + enumerate.** Insert the Nitrokey into a USB-A port directly on the workstation (avoid hubs for the first-touch). Confirm the device enumerates cleanly:
+
+    ```
+    lsusb | grep -i nitrokey       # Vendor 20a0, product 42b1 expected for Nitrokey 3 NFC
+    dmesg | tail -20               # Clean USB enumeration; no error lines
+    ```
+
+    If `lsusb` does not show the device or `dmesg` shows enumeration errors, replug into a different port and retry. Persistent failure is a defect; do not use the device.
+
+3. **Factory-PIN verification.** Confirm the device responds to factory-default PINs on both applets it ships with:
+
+    ```
+    # OpenPGP applet — factory user PIN 123456, admin PIN 12345678
+    gpg --card-status
+
+    # PIV applet — factory user PIN 123456, PUK 12345678
+    pkcs11-tool --module /usr/lib/opensc-pkcs11.so --list-slots
+    pkcs11-tool --module /usr/lib/opensc-pkcs11.so --login --pin 123456 --list-objects
+    ```
+
+    Both applets must respond. If either fails to respond to its factory PIN, the device may be pre-personalised or defective — do not use it.
+
+4. **Set new PINs.** Replace all factory PINs with new values picked by the maintainer. Record each PIN on paper at the time it is set; do not store electronically. Run on each applet:
+
+    ```
+    # OpenPGP applet — change user PIN, then admin PIN
+    gpg --card-edit
+    > admin
+    > passwd
+    # menu: 1 (user PIN), 3 (admin PIN), 0 (quit)
+
+    # PIV applet — change user PIN
+    pkcs11-tool --module /usr/lib/opensc-pkcs11.so \
+        --login --pin 123456 --change-pin --new-pin <new-user-pin>
+
+    # PIV applet — change PUK (use opensc utility variant for the PIN unblock key)
+    yubico-piv-tool --action change-puk --pin <new-user-pin> \
+        --current-puk 12345678 --new-puk <new-puk>
+    ```
+
+    PIN selection guidance: 6-8 digit PINs. Avoid birthdays, sequences, or repeats. Different values per applet.
+
+5. **Touch-policy verification.** Confirm the device requires physical touch on the operations that matter:
+
+    ```
+    # OpenPGP signing slot [S] — Nitrokey 3 default = touch-required for sign
+    gpg --card-edit
+    > admin
+    > uif S on               # Confirms or sets touch-required for signing operations
+
+    # PIV slot 9c — touch-policy "always" or "cached" for signing
+    yubico-piv-tool --action read-object --slot 9c --hex
+    # If the slot reports touch_policy = NEVER, set it to CACHED or ALWAYS:
+    yubico-piv-tool --action change-touch-policy --slot 9c --touch-policy=cached
+    ```
+
+    Touch-required protects against a compromised host silently signing without the maintainer present. This is non-negotiable for ceremony devices.
+
+6. **Card-identity recording.** Each of the four physical Nitrokeys is treated as distinct hardware. Record both the OpenPGP Application ID and the PIV token serial for each device:
+
+    ```
+    gpg --card-status                              # Application ID line
+    pkcs11-tool --module /usr/lib/opensc-pkcs11.so --list-slots
+    ```
+
+    Label the device on the back with a Sharpie matching its assigned slot (1, 2, 3, or 4 per the scope notation above). Record the Application ID + token serial in the maintainer's offline log alongside the slot number. This makes any later "which card am I holding" question a one-glance answer.
+
+7. **Test-cert dry-run on Nitrokey #4 only.** Validate the full PIV slot-9c PKCS#11 write-and-verify flow on the test card before any real ceremony key material exists. The PIV PIN-Always policy can defeat sessions that do not re-issue VERIFY immediately before a write; better to surface that on the test card:
+
+    ```
+    # On Nitrokey #4 only — generate a throwaway test keypair in slot 9c,
+    # write a self-signed test cert, verify the read-back round-trip
+    yubico-piv-tool --action generate --slot 9c --algorithm RSA2048 \
+        --output /tmp/test-9c-pubkey.pem
+    yubico-piv-tool --action verify-pin --pin <new-user-pin> \
+        --action selfsign-certificate --slot 9c \
+        --subject "/CN=intergen-test-9c-throwaway" \
+        --input /tmp/test-9c-pubkey.pem --output /tmp/test-9c-cert.pem
+    yubico-piv-tool --action read-certificate --slot 9c
+
+    # Confirm the read-back cert matches what was just written
+    diff /tmp/test-9c-cert.pem <(yubico-piv-tool --action read-certificate --slot 9c)
+
+    # Factory-reset slot 9c to clear the test material before ceremony
+    yubico-piv-tool --action reset --slot 9c
+    rm -f /tmp/test-9c-*.pem
+    ```
+
+    If any step fails, surface to the security contact and resolve the underlying issue (typically PIN-Always policy interaction with the chosen tooling) before running the real ceremony. If all steps pass, Nitrokey #4 is now back to a clean post-test state and can rejoin the spare-pool.
+
+8. **Pre-ceremony resting state.** Each Nitrokey is now ready to enter the signing ceremony:
+
+    - [ ] Device is back in its packaging or a labeled pouch, slot-number visible.
+    - [ ] New PINs are written on paper, stored separately from the device.
+    - [ ] Application ID + token serial recorded in the maintainer's offline log against the slot number.
+    - [ ] Touch-policy verified for both OpenPGP `[S]` and PIV slot 9c.
+    - [ ] Test-cert dry-run completed on Nitrokey #4 (this step runs once globally, not per-device).
+
+When all four Nitrokeys reach this state, the ceremony procedure in `signing_key_custody_2026-04-18.md` can run.
+
+### References
+
+- Nitrokey 3 PIV documentation: <https://docs.nitrokey.com/nitrokeys/features/piv/certificate_management>
+- Nitrokey 3 OpenPGP documentation: <https://docs.nitrokey.com/nitrokeys/features/openpgp>
+- `yubico-piv-tool` is the de-facto cross-vendor CLI for PIV slot operations on PKCS#11-compatible devices including Nitrokey 3 NFC. Equivalent operations are available via `nitropy nk3 piv` for the Nitrokey-native tooling path.
+
 ## See Also
 
 - [SECURITY.md](../SECURITY.md) — disclosure policy, trust-anchor compromise response, security contacts.
