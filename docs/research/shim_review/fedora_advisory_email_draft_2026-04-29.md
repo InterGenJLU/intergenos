@@ -66,7 +66,7 @@ items most likely to surface review concerns.
 >
 > 2. **Ephemeral per-build kernel-module-signing key posture.** Our
 >    kernel build generates a fresh module-signing key per build,
->    signs all in-tree modules, and reaps the private key when the
+>    signs all in-tree modules, and discards the private key when the
 >    build completes. The matching public key is embedded in the kernel
 >    via `CONFIG_SYSTEM_TRUSTED_KEYS` only for that build. The vendor
 >    cert that signs shim is distinct and never participates in module
