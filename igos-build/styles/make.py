@@ -1,27 +1,27 @@
 """Plain Makefile build style — no configure step, just make."""
- 
+
 import shlex
 
 from ..parser import Package
 from .base import BuildStyle, BuildPhase
- 
- 
+
+
 class MakeStyle(BuildStyle):
     """Plain Makefile projects with no configure script."""
- 
+
     def patch(self, pkg: Package) -> BuildPhase:
         return BuildPhase(
             name="patch",
             commands=self._patch_commands(pkg),
         )
- 
+
     def configure(self, pkg: Package) -> BuildPhase:
         # No configure step — flags become make variables
         return BuildPhase(
             name="configure",
             commands=[],
         )
- 
+
     def build(self, pkg: Package) -> BuildPhase:
         flags = " ".join(shlex.quote(f) for f in pkg.configure_flags)
         if flags:

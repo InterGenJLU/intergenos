@@ -1,5 +1,5 @@
 """Build executor for igos-build.
- 
+
 Runs build phases for each package in dependency order. Handles:
   - Source extraction
   - Patch application
@@ -8,7 +8,7 @@ Runs build phases for each package in dependency order. Handles:
   - Full logging of every command and its output
   - Fatal error handling (halt on failure)
 """
- 
+
 import os
 import shlex
 import shutil
@@ -17,7 +17,7 @@ import tarfile
 import time
 from pathlib import Path
 from urllib.parse import urlparse
- 
+
 from .parser import Package
 
 

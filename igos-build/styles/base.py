@@ -10,7 +10,7 @@ Every build style produces shell commands for five phases:
 Each phase returns a list of shell command strings. The build executor
 runs them sequentially in the package's build directory.
 """
- 
+
 import shlex
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
