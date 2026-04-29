@@ -33,7 +33,7 @@ concrete files in this directory; the others are the planned shape.
 | 3 | Shim-specific (signed by Fedora/MS, not us) | Deferred |
 | 4 | (reserved) | Deferred |
 | 5 | Kernel module signatures (`MODULE_SIG`, not PE/COFF) | **Shipped** (`class5_module_sigs.py` + test module) |
-| 6 | (reserved) | Deferred |
+| 6 | Userspace MAC enforcement (AppArmor LSM live + service active + profiles loaded) | **Shipped** (`class6_apparmor_state.py` + test module) |
 | 7 | (reserved) | Deferred |
 
 ### Class 1 — signed-chain verification
@@ -140,6 +140,46 @@ Files: `class5_module_sigs.py` (module + CLI) +
 `test_class5_module_sigs.py` (26 unit tests; mocks `shutil.which` and
 `subprocess.run` for modinfo, temp-dir proc paths for everything else).
 
+### Class 6 — AppArmor MAC enforcement state
+
+Post-boot probe that the running userspace MAC layer is live. AppArmor
+sits *above* the boot-chain integrity stack that Classes 1/2/2b/5
+protect — profiles activate at userspace init time, after the signed
+chain + lockdown=integrity has already handed off. Boot-chain failures
+surface in Classes 1-5; userspace MAC failures surface here.
+
+Per fleet vote 4-0 unanimous A on 2026-04-29: v1.0 ships AppArmor with
+profiles in `complain` mode by default (logging-only enforcement during
+rollout, graduating per-profile to `enforce` as confidence builds).
+Both `enforce` and `complain` are passing states for the sampled-profile
+probe; `unconfined` (loaded-but-not-enforcing) is a failing state.
+
+Four probes:
+
+* **apparmor_enabled** (required): `/sys/module/apparmor/parameters/
+  enabled` reads as `"Y"`. Absent file means `CONFIG_SECURITY_APPARMOR=n`
+  in the booted kernel; `"N"` means LSM compiled in but disabled at
+  runtime (e.g., `apparmor=0` boot-param).
+* **apparmor_service_active** (required): `systemctl is-active
+  apparmor.service` returns `active`. The service reads
+  `/etc/apparmor.d/` and pushes profiles into the kernel; without it
+  running, profiles drift between disk and kernel state.
+* **profiles_loaded** (required): `/sys/kernel/security/apparmor/
+  profiles` contains at least one entry. Threshold tunable via
+  `--minimum-profiles N` for stricter post-install assertions.
+* **sampled_profile_mode** (required when profiles loaded; skip-clean
+  when none): the first loaded profile is in `enforce`, `complain`, or
+  `kill` mode. `unconfined` is a posture defect — represents a profile
+  that loaded into the kernel without effective rules.
+
+Override the sampled profile via `--sample-profile NAME` for pinning a
+known-critical profile during targeted checks.
+
+Files: `class6_apparmor_state.py` (module + CLI) +
+`test_class6_apparmor_state.py` (37 unit tests; mocks `shutil.which`
+and `subprocess.run` for systemctl, temp-dir sysfs paths for the
+enabled-file + profiles-file inputs).
+
 ### Phase A-2 — GRUB boot-output parser
 
 Pure text-in, dict-out classifier for grub + early-kernel serial
@@ -217,9 +257,9 @@ a contract.
 
 | Host | Tests | Passed | Skipped | Notes |
 |------|-------|--------|---------|-------|
-| Host class A (no `sbsign`, no libvirtd) | 146 | 132 | 14 | Class 1 integration + post-install + Phase A VM tier skip + all 6 post-install-integration tests skip (not Forge-installed); Classes 2 / 2b / 5 unit tests + Phase A-2 parser tests fully mocked, run anywhere |
-| Host class B (full libvirtd + OVMF + swtpm stack with `sbsign`; libvirtd may drift inactive) | 146 | 136 | 10 | Phase A VM tier skips when libvirtd stopped; post-install tier skips absent a Forge-installed runtime |
-| Inside a Forge-installed InterGenOS target (`/var/lib/intergen/mok/mok.crt` present, target=`/`) | 146 | up to 143 | 3+ | All four post-install integration classes activate and exercise real state |
+| Host class A (no `sbsign`, no libvirtd) | 186 | 169 | 17 | Class 1 integration + post-install + Phase A VM tier skip + all 9 post-install-integration tests skip (not Forge-installed); Classes 2 / 2b / 5 / 6 unit tests + Phase A-2 parser tests fully mocked, run anywhere |
+| Host class B (full libvirtd + OVMF + swtpm stack with `sbsign`; libvirtd may drift inactive) | 186 | 173 | 13 | Phase A VM tier skips when libvirtd stopped; post-install tier skips absent a Forge-installed runtime |
+| Inside a Forge-installed InterGenOS target (`/var/lib/intergen/mok/mok.crt` present, target=`/`) | 186 | up to 183 | 3+ | All five post-install integration classes activate and exercise real state |
 
 ### Post-install integration tier
 
@@ -229,7 +269,7 @@ against the *real* installed system rather than mocks. Unit tests prove
 is in the posture we claim." Both should be green — the split is about
 *what* is being asserted, not *whether* the assertion is true.
 
-Four integration classes:
+Five integration classes:
 
 * **`TestClass1Integration`** — "does our signing *logic* work when
   invoked?" Stages a target, signs it with a test MOK, walks the chain.
@@ -253,12 +293,17 @@ Four integration classes:
   against live `/proc`. Catches kernel-without-SIG_FORCE + missing
   trust-anchor keyring + unsigned loaded modules. In
   `test_post_install_integration.py`.
+* **`TestClass6PostInstall`** — exercises `class6_apparmor_state.run()`
+  against live `/sys/module/apparmor/` + `systemctl is-active`. Catches
+  CONFIG_SECURITY_APPARMOR=n in booted kernel + apparmor.service masked
+  or failed + missing profile package + loaded-but-unconfined profiles.
+  In `test_post_install_integration.py`.
 
-Classes 2 / 2b / 5 runtime-state probes can only answer their question
-on the live target (they read `/sys` and `/proc`, not a mounted disk).
-`POST_INSTALL_TARGET != /` is intentionally rejected with a clear skip
-reason — there's nothing meaningful to assert against a mounted-but-
-not-booted image.
+Classes 2 / 2b / 5 / 6 runtime-state probes can only answer their
+question on the live target (they read `/sys` and `/proc`, not a
+mounted disk). `POST_INSTALL_TARGET != /` is intentionally rejected
+with a clear skip reason — there's nothing meaningful to assert
+against a mounted-but-not-booted image.
 
 ## Upcoming
 

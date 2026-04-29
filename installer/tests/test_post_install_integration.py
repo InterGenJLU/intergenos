@@ -1,25 +1,26 @@
-"""Post-install integration tests for Classes 2 / 2b / 5.
+"""Post-install integration tests for Classes 2 / 2b / 5 / 6.
 
 Complement to the unit-mocked test modules: these classes exercise the
 probe modules (`class2_runtime_sb_state`, `class2b_boot_order`,
-`class5_module_sigs`) against REAL firmware / efibootmgr / `/proc`
-state, rather than mocks.
+`class5_module_sigs`, `class6_apparmor_state`) against REAL firmware /
+efibootmgr / `/proc` / `/sys` state, rather than mocks.
 
 Runtime-state probes can only answer their question when executed on
 the live target system. A mounted-but-not-booted disk image has no
 `/sys/firmware/efi/efivars`, no running kernel's `/proc`, no UEFI boot
-state — so unlike Class 1 post-install (which can walk a mounted tree
-via CLASS1_POST_INSTALL_TARGET), these three classes gate strictly on
-`POST_INSTALL_TARGET == /` plus the MOK cert existing at its
-conventional path (the authoritative "this was Forge-installed"
-signal).
+state, no AppArmor securityfs — so unlike Class 1 post-install (which
+can walk a mounted tree via CLASS1_POST_INSTALL_TARGET), these four
+classes gate strictly on `POST_INSTALL_TARGET == /` plus the MOK cert
+existing at its conventional path (the authoritative "this was
+Forge-installed" signal).
 
 Additional per-class gates:
   - TestClass2PostReboot:   `/sys/firmware/efi/efivars` mounted
   - TestClass2bPostReboot:  `efibootmgr` in PATH
   - TestClass5PostInstall:  `/proc/sys/kernel/module_sig_enforce` present
+  - TestClass6PostInstall:  `/sys/module/apparmor/parameters/enabled` present
 
-On any dev / build host, all three skip cleanly with a human-readable
+On any dev / build host, all four skip cleanly with a human-readable
 reason. On a booted Forge-installed InterGenOS target with the right
 tools, they activate and assert `all_required_pass()` on their report.
 
@@ -40,6 +41,7 @@ from pathlib import Path
 from installer.tests import class2_runtime_sb_state as c2
 from installer.tests import class2b_boot_order as c2b
 from installer.tests import class5_module_sigs as c5
+from installer.tests import class6_apparmor_state as c6
 
 
 # Shared config. POST_INSTALL_TARGET is also read by test_class1_integration
@@ -107,9 +109,22 @@ def _class5_prereqs() -> tuple[bool, str]:
     return True, ""
 
 
+def _class6_prereqs() -> tuple[bool, str]:
+    ok, reason = _common_prereqs()
+    if not ok:
+        return False, reason
+    if not Path("/sys/module/apparmor/parameters/enabled").exists():
+        return False, (
+            "/sys/module/apparmor/parameters/enabled not present "
+            "(CONFIG_SECURITY_APPARMOR=n or LSM disabled at boot)"
+        )
+    return True, ""
+
+
 _c2_ok, _c2_reason = _class2_prereqs()
 _c2b_ok, _c2b_reason = _class2b_prereqs()
 _c5_ok, _c5_reason = _class5_prereqs()
+_c6_ok, _c6_reason = _class6_prereqs()
 
 
 # --- Class 2 post-reboot ---------------------------------------------------
@@ -216,6 +231,60 @@ class TestClass5PostInstall(unittest.TestCase):
             enforce.passed,
             f"module_sig_enforce probe failed: observed={enforce.observed} "
             f"detail={enforce.detail}",
+        )
+
+
+# --- Class 6 post-install --------------------------------------------------
+
+
+@unittest.skipUnless(_c6_ok, f"Class 6 post-install: {_c6_reason}")
+class TestClass6PostInstall(unittest.TestCase):
+    """Exercises `class6_apparmor_state.run()` against live AppArmor.
+
+    AppArmor activates at userspace init time, after the boot-chain
+    integrity stack handed off (Classes 1/2/2b/5 protect that earlier
+    layer). Failure here means the running target has no live MAC
+    enforcement — possible causes: CONFIG_SECURITY_APPARMOR=n in the
+    booted kernel, `apparmor=0` boot-param override, apparmor.service
+    masked or failed, or the profile package didn't ship into
+    /etc/apparmor.d/.
+
+    Per fleet vote 4-0 unanimous A on 2026-04-29: v1.0 ships AppArmor
+    with profiles in `complain` mode by default. `complain` is a passing
+    state for this probe. `unconfined` (loaded-but-not-enforcing) is a
+    failing state — represents a profile that loaded into the kernel
+    without effective rules.
+    """
+
+    def test_apparmor_state_all_required_pass(self):
+        report = c6.run()
+        self.assertTrue(
+            report.all_required_pass(),
+            f"AppArmor state verification failed: {report.to_dict()}",
+        )
+
+    def test_apparmor_module_enabled(self):
+        """Name the probe that catches CONFIG_SECURITY_APPARMOR=n."""
+        report = c6.run()
+        enabled = next(
+            r for r in report.results if r.probe == "apparmor_enabled"
+        )
+        self.assertTrue(
+            enabled.passed,
+            f"apparmor_enabled probe failed: observed={enabled.observed} "
+            f"detail={enabled.detail}",
+        )
+
+    def test_at_least_one_profile_loaded(self):
+        """Name the probe that catches missing profile package."""
+        report = c6.run()
+        loaded = next(
+            r for r in report.results if r.probe == "profiles_loaded"
+        )
+        self.assertTrue(
+            loaded.passed,
+            f"profiles_loaded probe failed: observed={loaded.observed} "
+            f"detail={loaded.detail}",
         )
 
 
