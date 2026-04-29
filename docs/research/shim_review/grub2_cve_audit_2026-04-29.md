@@ -1,8 +1,8 @@
-# GRUB2 CVE Audit (2026-04-29) - v2
+# GRUB2 CVE Audit (2026-04-29)
 
-**Package:** `packages/core/grub/`  
-**Version:** GRUB 2.14  
-**Audit Scope:** Every GRUB2 CVE fixed between v2.12 and v2.14 release (v2.12..v2.14).  
+**Package:** `packages/core/grub/`
+**Version:** GRUB 2.14
+**Audit Scope:** Every GRUB2 CVE fixed between v2.12 and v2.14 release (v2.12..v2.14).
 **Verdict:** **COMPLIANT.** GRUB 2.14 incorporates 32 unique CVE fixes identified in the upstream git log since v2.12.
 
 ## Audit Table (v2.12..v2.14)
@@ -36,11 +36,17 @@ The following 32 CVEs were addressed in the upstream GRUB repository between the
 | **CVE-2025-0690** | Medium (6.1) | read cmd | Fixed in 2.14 | `dad8f5029` commands/read: Fix an integer overflow when supplying more than 2^31 characters |
 | **CVE-2025-1118** | Medium (4.4) | dump cmd | Fixed in 2.14 | `34824806a` commands/minicmd: Block the dump command in lockdown mode |
 | **CVE-2025-1125** | Medium (6.4) | hfs fs | Fixed in 2.14 | `84bc0a9a6` fs: Prevent overflows when allocating memory for arrays |
+| **CVE-2025-4382** | Medium (6.4) | rescue | Fixed in 2.14 | `c448f511e` kern/rescue_reader: Block the rescue mode until the CLI authentication |
+| **CVE-2025-54770** | Low (4.1) | net | Fixed in 2.14 | `10e58a14d` net/net: Unregister net_set_vlan command on unload |
+| **CVE-2025-54771** | Medium (5.2) | file | Fixed in 2.14 | `c4fb4cbc9` kern/file: Call grub_dl_unref() after fs->fs_close() |
+| **CVE-2025-61661** | High (6.7) | usb | Fixed in 2.14 | `549a9cc37` commands/usbtest: Use correct string length field |
+| **CVE-2025-61662** | Low (4.1) | gettext | Fixed in 2.14 | `8ed78fd9f` gettext/gettext: Unregister gettext command on module unload |
+| **CVE-2025-61663** | Low (4.1) | normal | Fixed in 2.14 | `05d3698b8` normal/main: Unregister commands on module unload |
+| **CVE-2025-61664** | Low (4.1) | normal | Fixed in 2.14 | `05d3698b8` normal/main: Unregister commands on module unload |
 
 *CVSS scores and qualitative bands sourced from [GRUB2 vulnerabilities - 2025/02/18 security patch series](https://lists.gnu.org/archive/html/grub-devel/2025-02/msg00024.html).*
 
 ## Historic CVE Clusters (Inherited Fixes)
-
 
 As GRUB 2.14 is downstream of 2.12, it inherits the following historical security fixes mandatory for shim-review:
 
@@ -84,3 +90,5 @@ Searched [GNU grub-devel archives](https://lists.gnu.org/archive/cgi-bin/namazu.
 - March 2026: Post-release bug fixes (e.g., `mmap` integer overflow) without CVE assignment.
 - April 2026: No new CVE disclosures.
 
+**Notable Non-CVE Security-Adjacent Commits Post-2.14:**
+- `170221b35` mmap/mmap: Fix integer overflow in binary search (Prevents infinite loop lockup via crafted `badram` command; mitigated by lockdown).
