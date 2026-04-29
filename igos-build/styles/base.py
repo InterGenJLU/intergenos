@@ -10,7 +10,8 @@ Every build style produces shell commands for five phases:
 Each phase returns a list of shell command strings. The build executor
 runs them sequentially in the package's build directory.
 """
-
+ 
+import shlex
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
@@ -84,12 +85,12 @@ class BuildStyle(ABC):
         """
         commands = []
         for entry in pkg.patches:
-            patch_path = f"$IGOS_PATCHES/{entry.file}"
-            commands.append(f'echo "Applying patch: {entry.file}"')
+            patch_path = f"$IGOS_PATCHES/{shlex.quote(entry.file)}"
+            commands.append(f'echo "Applying patch: {shlex.quote(entry.file)}"')
             if entry.sha256:
                 commands.append(
-                    f'echo "{entry.sha256}  {patch_path}" | sha256sum -c - '
-                    f'|| {{ echo "FATAL: Checksum mismatch for {entry.file}"; exit 1; }}'
+                    f'echo "{shlex.quote(entry.sha256)}  {patch_path}" | sha256sum -c - '
+                    f'|| {{ echo "FATAL: Checksum mismatch for {shlex.quote(entry.file)}"; exit 1; }}'
                 )
             if entry.file.endswith('.gz'):
                 commands.append(f"zcat {patch_path} | patch -Np1")

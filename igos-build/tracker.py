@@ -150,6 +150,19 @@ class PackageTracker:
 
         archive_path = self.pkg_archives / f"{pkg.name}-{pkg.version}.igos.tar.gz"
 
+        # B4: validate staging directory — reject any path that escapes staging
+        # before archiving for deployment to / (root filesystem)
+        staging_root = staging_dir.resolve()
+        for root, dirs, files in os.walk(str(staging_dir)):
+            for name in files + dirs:
+                resolved = (Path(root) / name).resolve()
+                if not str(resolved).startswith(str(staging_root)):
+                    self.logger.error(
+                        f"SECURITY: staging path '{resolved}' escapes staging "
+                        f"root '{staging_root}' — rejecting package deployment"
+                    )
+                    return False
+
         result = subprocess.run(
             ["tar", "-C", str(staging_dir), "-cf", "-", "."],
             capture_output=True,

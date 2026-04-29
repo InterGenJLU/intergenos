@@ -1,5 +1,5 @@
 """Build executor for igos-build.
-
+ 
 Runs build phases for each package in dependency order. Handles:
   - Source extraction
   - Patch application
@@ -8,15 +8,16 @@ Runs build phases for each package in dependency order. Handles:
   - Full logging of every command and its output
   - Fatal error handling (halt on failure)
 """
-
+ 
 import os
 import shlex
 import shutil
 import subprocess
+import tarfile
 import time
 from pathlib import Path
 from urllib.parse import urlparse
-
+ 
 from .parser import Package
 
 
@@ -31,6 +32,30 @@ def _url_basename(url: str) -> str:
 from .styles import get_style
 from .log import BuildLogger, SummaryLogger
 from .tracker import PackageTracker
+
+
+def _validate_tar_members(tarball_path: Path, dest_dir: Path, logger) -> bool:
+    """Pre-inspect tar archive members for path-traversal attacks. (B3/B8)
+
+    Rejects any archive containing '..' components or absolute paths
+    that would escape the extraction destination.
+    Returns True if all members pass, False if any fail.
+    """
+    dest = dest_dir.resolve()
+    try:
+        with tarfile.open(str(tarball_path)) as tf:
+            for member in tf.getmembers():
+                resolved = (dest / member.name).resolve()
+                if not str(resolved).startswith(str(dest)):
+                    logger.error(
+                        f"SECURITY: tar member '{member.name}' escapes "
+                        f"extraction root '{dest}' — rejecting archive"
+                    )
+                    return False
+    except tarfile.TarError as e:
+        logger.error(f"Failed to inspect tar archive: {e}")
+        return False
+    return True
 
 
 class BuildExecutor(PackageTracker):
@@ -303,9 +328,13 @@ class BuildExecutor(PackageTracker):
                 self.logger.error(traceback.format_exc())
                 exit_code = 1
         elif str(tarball_path).endswith('.lz'):
+            if not _validate_tar_members(tarball_path, src_dir, self.logger):
+                return None
             extract_cmd = f'tar --lzip -xf {shlex.quote(str(tarball_path))} -C {shlex.quote(str(src_dir))} --strip-components=1 {TAR_SAFETY}'
             exit_code = self.run_command(extract_cmd, env=os.environ.copy(), cwd=pkg_work_dir)
         else:
+            if not _validate_tar_members(tarball_path, src_dir, self.logger):
+                return None
             extract_cmd = f'tar -xf {shlex.quote(str(tarball_path))} -C {shlex.quote(str(src_dir))} --strip-components=1 {TAR_SAFETY}'
             exit_code = self.run_command(extract_cmd, env=os.environ.copy(), cwd=pkg_work_dir)
         if exit_code != 0:
@@ -324,8 +353,19 @@ class BuildExecutor(PackageTracker):
 
                 if dep_tarball and dep_tarball.exists():
                     dest = src_dir / dest_rel.replace("${version}", pkg.version)
+                    # B8: reject bundled dep destinations that escape source tree
+                    if not str(dest.resolve()).startswith(str(src_dir.resolve())):
+                        self.logger.error(
+                            f"SECURITY: bundled dep destination '{dest_rel}' "
+                            f"escapes source tree — rejecting"
+                        )
+                        return None
                     dest.mkdir(parents=True, exist_ok=True)
                     self.logger.info(f"Extracting bundled dep: {dep_name} -> {dest}")
+                    # B3: validate tar members before extraction
+                    if not _validate_tar_members(dep_tarball, dest, self.logger):
+                        self.logger.error(f"Rejected bundled dep tarball: {dep_name}")
+                        return None
                     exit_code = self.run_command(
                         f'tar -xf {shlex.quote(str(dep_tarball))} -C {shlex.quote(str(dest))} --strip-components=1 {TAR_SAFETY}',
                         env=os.environ.copy(),
