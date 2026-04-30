@@ -413,6 +413,44 @@ if ! chroot "$MOUNT_POINT" id "$IMAGE_USER" > /dev/null 2>&1; then
     log "  User '${IMAGE_USER}' created (groups: wheel,video,audio,input)"
 fi
 
+# Install first-boot password greeter (Path 3 of S1/S2 fleet vote A 2026-04-29).
+# The systemd unit + tty prompt script combine with Path 4 (build-time required
+# credentials, already enforced above) to give zero guessable defaults at any
+# point: builder picks at build, end-user picks on first boot. The greeter
+# overwrites both the root and the IMAGE_USER passwords with the user's own
+# choices, then writes /etc/intergenos/first-boot-completed so subsequent boots
+# skip past the greeter and proceed to login normally.
+GREETER_SRC="/mnt/intergenos/installer/data"
+if [ -f "${GREETER_SRC}/intergenos-first-boot-greeter.service" ] && \
+   [ -f "${GREETER_SRC}/first-boot-greeter" ]; then
+    log "Installing first-boot password greeter (Path 3)..."
+    install -d -m 0755 "${MOUNT_POINT}/usr/libexec/intergenos"
+    install -m 0755 "${GREETER_SRC}/first-boot-greeter" \
+        "${MOUNT_POINT}/usr/libexec/intergenos/first-boot-greeter"
+    install -m 0644 "${GREETER_SRC}/intergenos-first-boot-greeter.service" \
+        "${MOUNT_POINT}/etc/systemd/system/intergenos-first-boot-greeter.service"
+    install -d -m 0755 "${MOUNT_POINT}/etc/intergenos"
+    # Pass the IMAGE_USER name through via a drop-in so the greeter
+    # prompts for the account the build actually created (rather than
+    # hardcoding "intergenos" in the script).
+    install -d -m 0755 "${MOUNT_POINT}/etc/systemd/system/intergenos-first-boot-greeter.service.d"
+    cat > "${MOUNT_POINT}/etc/systemd/system/intergenos-first-boot-greeter.service.d/intergenos-user.conf" << EOF
+[Service]
+Environment=INTERGENOS_USER=${IMAGE_USER}
+EOF
+    chroot "$MOUNT_POINT" systemctl enable intergenos-first-boot-greeter.service
+    # Belt-and-suspenders: ensure the done flag does NOT exist in the image
+    # (it would short-circuit the greeter and ship the image with builder
+    # credentials as the live ones — exactly what Path 3 prevents).
+    rm -f "${MOUNT_POINT}/etc/intergenos/first-boot-completed"
+    log "  First-boot greeter installed and enabled (account: ${IMAGE_USER})"
+else
+    err "First-boot greeter assets missing at ${GREETER_SRC}/ — image will"
+    err "  ship with builder-set credentials only. Path 3 is REQUIRED per"
+    err "  S1/S2 fleet vote 2026-04-29; this is a build inconsistency."
+    exit 1
+fi
+
 # Enable GDM and set graphical target for desktop boot
 if [ -f "${MOUNT_POINT}/usr/lib/systemd/system/gdm.service" ]; then
     chroot "$MOUNT_POINT" /bin/bash -c '

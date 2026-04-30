@@ -1,0 +1,153 @@
+#!/bin/bash
+# InterGenOS first-boot password greeter.
+#
+# Path 3 of the S1/S2 default-credentials remediation per fleet vote
+# 4-0 unanimous A on 2026-04-29. Prompts the booting user to set
+# passwords for both the root account and the default user account on
+# first boot, then writes a flag file so subsequent boots skip past
+# this step and proceed straight to getty / GDM.
+#
+# Path 4 (build-script flags) ensured the image already has passwords
+# set at build time — those are the fallback if this greeter fails to
+# run for any reason (the systemd unit's OnFailure=getty@tty1.service
+# routes around a stuck greeter, and the image is still loginable
+# with the builder-set credentials).
+#
+# Invariants:
+#   * Runs under the systemd unit installer/data/intergenos-first-boot-greeter.service
+#   * Bound to /dev/tty1; getty@tty1.service is held off via Conflicts
+#   * Idempotent — exits early if the flag file already exists
+#   * Never logs entered passwords to journal or stdout
+#   * Writes /etc/intergenos/first-boot-completed on success only
+
+set -uo pipefail
+
+FLAG_PATH="/etc/intergenos/first-boot-completed"
+USER_NAME="${INTERGENOS_USER:-}"
+
+err()    { printf "ERROR: %s\n" "$*" >&2; }
+info()   { printf "%s\n" "$*"; }
+prompt() { printf "%s" "$*"; }
+
+# Read a secret without echo. Returns the secret on stdout. Blank
+# lines are NOT accepted as the empty secret — caller handles retry.
+read_secret() {
+    local label="$1"
+    local val
+    prompt "  ${label}: "
+    IFS= read -rs val
+    printf "\n"
+    printf "%s" "$val"
+}
+
+# Loop until the user enters a non-empty password and confirms it.
+# Calls chpasswd to commit; loops on chpasswd failure too. Never
+# echoes the password back; never prints it to stderr.
+set_password_for_account() {
+    local account="$1"
+    local first second
+    while :; do
+        first=$(read_secret "Enter new password for ${account}")
+        if [ -z "$first" ]; then
+            err "Password cannot be empty. Try again."
+            continue
+        fi
+        second=$(read_secret "Confirm password for ${account}")
+        if [ "$first" != "$second" ]; then
+            err "Passwords do not match. Try again."
+            unset first second
+            continue
+        fi
+        # Pipe to chpasswd via process substitution to avoid putting
+        # the secret on a command line. Do NOT redirect chpasswd's
+        # stderr — PAM password-policy modules surface rejection
+        # reasons there (cracklib / pwquality / etc.) and the user
+        # needs to see them to pick a compliant password.
+        if printf "%s:%s\n" "$account" "$first" | chpasswd; then
+            info "  Password set for ${account}."
+            unset first second
+            return 0
+        fi
+        err "chpasswd failed for ${account}. Try again."
+        unset first second
+    done
+}
+
+main() {
+    # Idempotency belt-and-suspenders: the systemd unit
+    # ConditionPathExists already guards this, but if the script is
+    # invoked manually we still want to no-op when the flag exists.
+    if [ -f "$FLAG_PATH" ]; then
+        info "First-boot greeter already completed at $(cat "$FLAG_PATH" 2>/dev/null || echo "an earlier boot"). Exiting."
+        return 0
+    fi
+
+    if [ -z "$USER_NAME" ]; then
+        err "INTERGENOS_USER not set — drop-in missing or broken (build inconsistency)."
+        err "Falling through to getty with builder-set credentials."
+        return 4
+    fi
+
+    info ""
+    info "================================================================"
+    info "  Welcome to InterGenOS"
+    info "================================================================"
+    info ""
+    info "  This is the first boot of this InterGenOS install. Before"
+    info "  you can log in, please choose passwords for the two accounts"
+    info "  that ship with the image:"
+    info ""
+    info "    * root              — system administration"
+    info "    * ${USER_NAME}             — your everyday user account"
+    info ""
+    info "  Passwords are set locally on this system only. They are not"
+    info "  transmitted, logged, or stored anywhere outside the standard"
+    info "  Linux user database. You can change them later with passwd."
+    info ""
+
+    if ! command -v chpasswd >/dev/null 2>&1; then
+        err "chpasswd is not in PATH; cannot set passwords."
+        err "Build-time passwords (Path 4) are still in effect — login"
+        err "with those for now and report this issue to the InterGenOS"
+        err "maintainers."
+        return 2
+    fi
+
+    if ! getent passwd "$USER_NAME" >/dev/null 2>&1; then
+        err "User account '${USER_NAME}' does not exist on this image."
+        err "Image build may be inconsistent — falling through to login"
+        err "with the build-time root credential."
+        return 3
+    fi
+
+    info "1) Set the root password."
+    set_password_for_account "root"
+    info ""
+    info "2) Set the password for ${USER_NAME}."
+    set_password_for_account "$USER_NAME"
+    info ""
+
+    # Write the success flag. Use a temp + atomic rename so a yanked
+    # power cord mid-write doesn't leave a half-written flag.
+    local tmp
+    tmp=$(mktemp "${FLAG_PATH}.XXXXXX")
+    {
+        printf "completed_at=%s\n" "$(date -u +%FT%TZ 2>/dev/null || echo "unknown")"
+        printf "user=%s\n" "$USER_NAME"
+        printf "greeter_version=1\n"
+    } > "$tmp"
+    chmod 0644 "$tmp"
+    mkdir -p "$(dirname "$FLAG_PATH")"
+    mv "$tmp" "$FLAG_PATH"
+
+    info "================================================================"
+    info "  Setup complete. Continuing to login..."
+    info "================================================================"
+    info ""
+
+    # Brief pause so the user can read the message before the screen
+    # clears for the login prompt.
+    sleep 2
+}
+
+main "$@"
