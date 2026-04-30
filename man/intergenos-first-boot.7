@@ -29,14 +29,30 @@ If the two entries do not match, or either is empty, the greeter rejects
 the input and re-prompts. There is no retry limit. The system does not
 proceed to the graphical login screen until a valid password is chosen.
 .PP
-On successful completion, the greeter writes a flag file marking the
-system as
-.BR "first-boot complete" .
-The unit
-.RB ( ConditionPathExists )
-is gated on the absence of this flag, so subsequent boots skip the
-greeter without invoking it.
-.\" TBD post-merge: insert exact unit name + flag file path. Read from f7bf19f after merge.
+On successful completion, the greeter writes
+.I /etc/intergenos/first-boot-completed
+marking the system as first-boot complete. The unit
+.RB ( intergenos-first-boot-greeter.service )
+is gated on the absence of this flag via
+.BR ConditionPathExists ,
+so subsequent boots skip the greeter without invoking it.
+.PP
+The greeter prompts for two passwords in order: first the
+.B root
+account password, then the password for the user account named by the
+.B INTERGENOS_USER
+environment variable (set by a drop-in installed alongside the unit).
+Both prompts must complete successfully for the unit to write the flag.
+.PP
+Beyond rejecting empty entries and mismatched confirmations, the
+greeter does not impose its own length or character-class rules. It
+hands the password to
+.BR chpasswd (8),
+which honors whatever password-policy rules the system's PAM stack is
+configured with. Rejection messages from PAM modules
+.RB ( pam_pwquality ", " pam_cracklib )
+are printed on the same tty so the user sees the reason and can pick
+a password the policy accepts.
 .SH RECOVERY
 .TP
 .B Power-cycle mid-prompt
@@ -45,10 +61,33 @@ succeed. An interrupted run leaves the flag absent, and the greeter
 re-fires on the next boot.
 .TP
 .B Greeter unit fails to start
-.\" TBD post-merge: document the OnFailure= fallback target wired into the systemd unit.
+The unit declares
+.B OnFailure=getty@tty1.service
+so any non-zero exit (missing
+.BR chpasswd ,
+missing user account, missing
+.B INTERGENOS_USER
+drop-in, or other script error) routes systemd to a normal text-mode
+login on the same tty. The user can log in with the build-time
+credentials and run
+.BR passwd (1)
+to set new ones.
 .TP
 .B Headless or SSH-only first boot
-.\" TBD post-merge: confirm behavior when no tty1 console is available.
+The greeter is bound to
+.IR /dev/tty1 .
+On a system with no usable tty1 (serial-console-only servers,
+appliances) the
+.B OnFailure
+fallback also requires tty1, so the local console is unreachable;
+SSH access (if installed) works using the build-time credentials.
+Serial-console fallback is out of scope for v1, which is desktop-first.
+The supported recovery is to log in via SSH with the build-time
+credentials, run
+.BR passwd (1),
+then
+.B touch /etc/intergenos/first-boot-completed
+so the greeter does not gate subsequent boots.
 .TP
 .B Forgotten password after first boot
 First-boot only sets the password the first time. Subsequent password
@@ -65,17 +104,48 @@ or to create an additional user with
 .BR useradd (8)
 after first login.
 .SH FILES
-.\" TBD post-merge: populate this list with exact paths from f7bf19f.
 .TP
-.I <unit file path>
+.I /etc/systemd/system/intergenos-first-boot-greeter.service
 systemd unit definition for the greeter
 .TP
-.I <greeter script path>
+.I /etc/systemd/system/intergenos-first-boot-greeter.service.d/intergenos-user.conf
+drop-in installed by
+.BR create-image (8)
+setting
+.B Environment=INTERGENOS_USER=<account>
+so the greeter knows which account to prompt for
+.TP
+.I /usr/libexec/intergenos/first-boot-greeter
 bash script that prompts and pipes the password to
 .BR chpasswd (8)
 .TP
-.I <flag file path>
+.I /etc/intergenos/first-boot-completed
 written after successful first boot; gates re-invocation
+.SH EXIT STATUS
+.TP
+.B 0
+both passwords set successfully; flag file written; unit completes
+cleanly
+.TP
+.B 2
+.BR chpasswd (8)
+binary not found in the image
+.TP
+.B 3
+the user account named by
+.B INTERGENOS_USER
+does not exist
+.TP
+.B 4
+.B INTERGENOS_USER
+environment variable empty or not set (service drop-in missing or
+malformed)
+.PP
+Any non-zero exit triggers
+.B OnFailure=getty@tty1.service
+so the user always reaches a usable prompt; the codes are a forensic
+aid for diagnosing why the greeter dropped through, not a
+UX-affecting branch.
 .SH SECURITY
 The two-layer posture (build-time required arguments + first-boot
 overwrite) ensures no shared default credential exists at any point in
