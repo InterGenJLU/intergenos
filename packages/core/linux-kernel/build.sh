@@ -14,6 +14,19 @@
 configure() {
     make mrproper
 
+    # Apply kernel patches (e.g., CVE mitigations)
+    local patch_dir="/mnt/intergenos/packages/core/linux-kernel/patches"
+    if [ -d "$patch_dir" ] && ls "$patch_dir"/*.patch >/dev/null 2>&1; then
+        echo "  Applying kernel patches..."
+        for patch in "$patch_dir"/*.patch; do
+            echo "    $(basename "$patch")"
+            patch -Np1 < "$patch" || {
+                echo "  ERROR: failed to apply $(basename "$patch")"
+                return 1
+            }
+        done
+    fi
+
     # Merge kernel config fragments (baseline + overrides)
     # Overrides are concatenated AFTER baseline so they win in olddefconfig
     local config_dir="/mnt/intergenos/config/kernel"

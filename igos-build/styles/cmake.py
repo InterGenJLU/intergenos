@@ -38,7 +38,7 @@ class CMakeStyle(BuildStyle):
     def check(self, pkg: Package) -> BuildPhase:
         return BuildPhase(
             name="check",
-            commands=["cmake --build build --target test || true"],
+            commands=["cmake --build build --target test"],
         )
 
     def install(self, pkg: Package) -> BuildPhase:

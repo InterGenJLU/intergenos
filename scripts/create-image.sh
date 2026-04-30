@@ -501,6 +501,12 @@ chroot "$MOUNT_POINT" /bin/bash -c '
 ' 2>/dev/null
 log "  Caches built (icons, fonts, schemas, GIO, pixbuf, MIME, desktop, ldconfig)"
 
+# Disable Copy Fail (CVE-2026-31431) — blacklist algif_aead module
+# LPE via AF_ALG splice() page-cache write. See https://copy.fail
+mkdir -p "${MOUNT_POINT}/etc/modprobe.d"
+echo "install algif_aead /bin/false" > "${MOUNT_POINT}/etc/modprobe.d/disable-algif.conf"
+log "  algif_aead kernel module blacklisted (CVE-2026-31431)"
+
 # Locale — en_US.UTF-8 as build default. Forge installer will override
 # with the user's choice. Without this, LANG is empty and many programs
 # fall back to POSIX/C locale (broken sorting, missing translations).

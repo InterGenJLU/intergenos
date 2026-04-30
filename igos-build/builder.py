@@ -390,6 +390,14 @@ class BuildExecutor(PackageTracker):
         if not pkg.validation:
             return True
 
+        # B5: warn when no fatal check exists (all checks can be bypassed)
+        fatal_count = sum(1 for c in pkg.validation if c.fatal)
+        if fatal_count == 0 and len(pkg.validation) > 0:
+            self.logger.warning(
+                f"All {len(pkg.validation)} validation checks for "
+                f"{pkg.name} have fatal=false — none will halt the build on failure"
+            )
+
         self.logger.info("Running validation checks...")
 
         for check in pkg.validation:
@@ -449,6 +457,16 @@ class BuildExecutor(PackageTracker):
 
         env = self.build_env(pkg)
         success = True
+
+        # B9: reject direct_install + skip_tracking (untraceable root writes)
+        if pkg.direct_install and pkg.skip_tracking:
+            self.logger.error(
+                f"SECURITY: refusing to build {pkg.name} with "
+                f"direct_install=true and skip_tracking=true. "
+                f"This combination installs directly to the live filesystem "
+                f"with zero audit trail. Remove one flag or both."
+            )
+            return False
 
         # Snapshot filesystem before build (for direct_install diff tracking)
         fs_before = None
