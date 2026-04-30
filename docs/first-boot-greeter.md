@@ -33,12 +33,12 @@ Retype new password:
 
 There is no graphical interface. There is no progress bar. There is no theme. This is deliberate — a tty prompt is the most reliable way to ask for a password on a brand-new system, and it does not depend on the graphical stack working correctly. (See [Security model](#security-model) for why this matters.)
 
-You will be asked for:
+You will be asked, in order, for:
 
-1. A password for the user account that the image was built for.
-2. <!-- TBD post-merge: confirm whether the greeter also re-prompts for root-password, or whether the build-time root password remains and is documented as separately changeable via `passwd` after first login. Read from f7bf19f after merge. -->
+1. A new password for the root account (used for system administration — `su`, single-user mode, recovery boot).
+2. A new password for the user account the image was built for (your everyday login).
 
-After both prompts succeed, the greeter prints a brief confirmation, and the system continues booting into the graphical login screen.
+Both prompts are required. The system will not finish booting until both passwords are set. After both prompts succeed, the greeter prints a brief confirmation, and the system continues booting into the graphical login screen.
 
 ## Setting your password
 
@@ -52,7 +52,7 @@ Recommendations:
 
 If you mistype the password (the two entries do not match, or the password is empty), the greeter will reject the entry and ask again. There is no retry limit; you can take as many attempts as you need. The system will not boot past the prompt until both entries match a non-empty value.
 
-<!-- TBD post-merge: confirm exact validation rules from the greeter script in f7bf19f — minimum length (if any), allowed character set (if restricted), maximum length (if any), behavior on whitespace-only entries. Read from installer/data/first-boot-greeter after merge. -->
+Beyond empty/mismatch rejection, the greeter does not impose its own length or character-class rules. It hands the password to `chpasswd`, which honors whatever password-policy rules the system's PAM stack is configured with — typically `pam_pwquality` or `pam_cracklib` checking for minimum length, dictionary words, repeated characters, and similar weakness patterns. If your password is rejected by PAM, the rejection message (for example, "Password is too short" or "Password is based on a dictionary word") is printed on the same tty so you can see the reason and pick something the policy accepts.
 
 ## Setting your username
 
@@ -69,9 +69,9 @@ The greeter is designed to fail safe, not to leave you locked out. If something 
 
 **Power-cycled mid-prompt.** Nothing was committed; the flag file that marks first-boot as complete is only written after both prompts succeed. The greeter will run again on the next boot.
 
-**Greeter unit fails to start.** <!-- TBD post-merge: document the OnFailure= fallback target wired into the systemd unit. Read from installer/data/intergenos-first-boot-greeter.service after merge. -->
+**Greeter unit fails to start.** The unit's `OnFailure=getty@tty1.service` directive routes systemd to a normal text-mode login prompt on the same tty if the greeter cannot run for any reason — a missing `chpasswd` binary, a missing user account, an `INTERGENOS_USER` environment variable that was not propagated from the build, or a script exit through any of its non-zero exit codes. The login prompt accepts the credentials the image was built with — those are the brief-window fallback that the greeter would normally have overwritten. Once you can log in, run `passwd` (and `sudo passwd root`) to set credentials of your own choosing.
 
-**Booted into an SSH-only or headless environment.** <!-- TBD post-merge: confirm behavior when no tty1 console is available — does the greeter run on the serial console, fall through, or require manual intervention via SSH with the build-time fallback credentials? Read from f7bf19f and verify with IGOSC. -->
+**Booted into an SSH-only or headless environment.** The greeter is bound to `/dev/tty1`. On a system with no usable tty1 — for example, a serial-console-only server or a headless appliance — the unit's `OnFailure` routes to `getty@tty1.service`, which also requires tty1 and therefore also cannot serve a prompt. The system will boot to multi-user state but the local console will be unreachable; SSH access (if installed) works using the build-time credentials. Serial-console fallback is out of scope for v1, which is desktop-first; if you need to install InterGenOS on hardware without tty1, the supported path is to log in via SSH with the build-time credentials, run `passwd` (and `sudo passwd root`), and then `touch /etc/intergenos/first-boot-completed` to mark first boot as done so the greeter does not block subsequent boots.
 
 **Forgotten password after first boot.** First-boot only sets the password the first time. After that, recovering a lost password is the same as on any Linux distribution — boot to single-user mode or a recovery image, mount the root filesystem, and run `passwd <user>`. There is nothing InterGenOS-specific about that path.
 
@@ -83,9 +83,10 @@ This section is for new maintainers and reviewers who want to understand the imp
 
 | Path | Purpose |
 |---|---|
-| <!-- TBD post-merge: unit file path --> | systemd unit definition that runs the greeter on first boot |
-| <!-- TBD post-merge: greeter script path --> | bash script that prompts for the password and writes it via `chpasswd` |
-| <!-- TBD post-merge: flag file path --> | flag file written after a successful first boot; gates the unit's `ConditionPathExists` |
+| `/etc/systemd/system/intergenos-first-boot-greeter.service` | systemd unit definition that runs the greeter on first boot |
+| `/etc/systemd/system/intergenos-first-boot-greeter.service.d/intergenos-user.conf` | drop-in installed by `create-image.sh` setting `Environment=INTERGENOS_USER=<account>` so the greeter knows which account to prompt for |
+| `/usr/libexec/intergenos/first-boot-greeter` | bash script that prompts for the password and writes it via `chpasswd` |
+| `/etc/intergenos/first-boot-completed` | flag file written after a successful first boot; gates the unit's `ConditionPathExists` |
 
 ### Idempotency contract
 
@@ -95,7 +96,20 @@ The flag file is written atomically — temp-file plus `mv` — so a crash durin
 
 ### Ordering
 
-The unit is ordered <!-- TBD post-merge: After= chain — confirm whether it sits after the boot animation but before getty/GDM. Read from f7bf19f. --> so that the prompt only appears once any branding-stage UI has finished, and so that getty/GDM does not race the prompt.
+The unit is ordered `After=systemd-vconsole-setup.service systemd-tmpfiles-setup.service intergen-firstboot.service` so the console font and tmpfiles state are settled and the boot-animation stage has finished before the prompt appears. It also declares `Conflicts=getty@tty1.service` so that systemd takes tty1 from getty for the duration of the greeter, then hands tty1 back to getty (or whatever the graphical target activates) once the unit completes.
+
+### Exit codes
+
+The greeter script exits with a small ladder of distinct codes so the systemd journal makes failures diagnosable:
+
+| Exit code | Meaning |
+|---|---|
+| `0` | Both passwords set successfully; flag file written; unit completes cleanly |
+| `2` | `chpasswd` binary not found in the chroot — install hook is broken |
+| `3` | The user account named by `INTERGENOS_USER` does not exist in `/etc/passwd` — `useradd` step in `create-image.sh` failed silently |
+| `4` | `INTERGENOS_USER` environment variable empty or not set — service drop-in (`intergenos-user.conf`) missing or malformed |
+
+Any non-zero exit triggers `OnFailure=getty@tty1.service`, so the user always reaches a usable prompt — the codes are a forensic aid for diagnosing why the greeter dropped through, not a UX-affecting branch.
 
 ### Password channel
 
