@@ -1,0 +1,61 @@
+#include <tunables/global>
+
+/usr/bin/forge flags=(complain) {
+  #include <abstractions/base>
+  #include <abstractions/python>
+  #include <abstractions/bash>
+
+  capability sys_admin,
+  capability dac_override,
+  capability mac_admin,
+  capability sys_rawio,
+  capability chown,
+  capability fowner,
+  capability fsetid,
+
+  # Executables
+  /usr/bin/forge r,
+  /usr/bin/mokutil ix,
+  /usr/sbin/grub-install ix,
+  /usr/sbin/grub-mkconfig ix,
+  /sbin/sgdisk ix,
+  /sbin/mkfs.* ix,
+  /sbin/cryptsetup ix,
+  /usr/bin/mount ix,
+  /usr/bin/umount ix,
+  /usr/bin/tar ix,
+  /usr/bin/cp ix,
+
+  # Network access for archive fetch
+  network inet stream,
+  network inet6 stream,
+
+  # Forge specific directories
+  /usr/lib/forge/ r,
+  /usr/lib/forge/** r,
+  /etc/forge/ rw,
+  /etc/forge/** rw,
+  /var/lib/forge/ rw,
+  /var/lib/forge/** rw,
+
+  # MOK and EFI
+  /sys/firmware/efi/efivars/ rw,
+  /sys/firmware/efi/efivars/** rw,
+  
+  # Device discovery and access
+  /dev/sd* rw,
+  /dev/nvme* rw,
+  /dev/disk/by-* r,
+  /dev/mapper/ rw,
+  /dev/mapper/* rw,
+  /sys/class/block/ r,
+  /sys/class/block/** r,
+
+  # Target install root (parameterized mount points usually under /mnt)
+  /mnt/ rw,
+  /mnt/** rwklx,
+
+  # System configuration
+  /etc/ r,
+  /etc/** r,
+}

@@ -20,7 +20,8 @@ We ship custom, minimal profiles for InterGenOS-specific services that lack upst
 
 - `usr.bin.intergen-mcp`: The local AI assistant daemon (runs as user service).
 - `usr.bin.pkm`: The InterGenOS package manager (runs privileged at install time).
-- `usr.bin.forge-sb-installer`: The Forge Secure Boot installer and MOK enrollment flow.
+- `usr.bin.forge`: The Forge Secure Boot installer and MOK enrollment flow.
+- `usr.libexec.intergenos.first-boot-greeter`: The first-boot prompt ensuring zero default credentials.
 
 ## Disabling Profiles (User Control)
 
