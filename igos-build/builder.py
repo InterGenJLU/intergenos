@@ -208,11 +208,14 @@ class BuildExecutor(PackageTracker):
 
         return env
 
-    def run_command(self, cmd: str, env: dict, cwd: Path) -> int:
+    def run_command(self, cmd, env: dict, cwd: Path) -> int:
         """Run a shell command with full output capture and logging.
 
         Output is streamed line-by-line to both console and log file.
         Nothing is buffered, nothing is truncated.
+
+        Accepts both str (shell=True) and list (shell=False) to support
+        the shell injection hardening migration. (B10)
 
         Returns:
             The command's exit code.
@@ -222,8 +225,8 @@ class BuildExecutor(PackageTracker):
         try:
             proc = subprocess.Popen(
                 cmd,
-                shell=True,
-                executable="/bin/bash",
+                shell=isinstance(cmd, str),
+                executable="/bin/bash" if isinstance(cmd, str) else None,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 env=env,
@@ -405,10 +408,11 @@ class BuildExecutor(PackageTracker):
 
             if check.script:
                 if check.expect_contains:
-                    # Run once with output capture for content check
+                    # Run once with output capture for content check.
+                    # shell=False + ["/bin/bash", "-c", script] eliminates
+                    # injection risks while preserving bash semantics. (B10)
                     result = subprocess.run(
-                        check.script,
-                        shell=True, executable="/bin/bash",
+                        ["/bin/bash", "-c", check.script],
                         capture_output=True, text=True,
                         env=env, cwd=str(cwd),
                     )
@@ -428,8 +432,9 @@ class BuildExecutor(PackageTracker):
                         if check.fatal:
                             return False
                 else:
-                    # No content check needed — just run and check exit code
-                    exit_code = self.run_command(check.script, env, cwd)
+                    # No content check needed — just run and check exit code.
+                    # Shell=False via list preserves streaming logging in run_command. (B10)
+                    exit_code = self.run_command(["/bin/bash", "-c", check.script], env, cwd)
 
                     if exit_code != 0:
                         self.logger.error(f"Validation script exited with code {exit_code}")
