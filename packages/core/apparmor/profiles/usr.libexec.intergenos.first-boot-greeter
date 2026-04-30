@@ -1,0 +1,32 @@
+#include <tunables/global>
+
+/usr/libexec/intergenos/first-boot-greeter flags=(complain) {
+  #include <abstractions/base>
+  #include <abstractions/bash>
+
+  capability dac_override,
+
+  # Executable
+  /usr/libexec/intergenos/first-boot-greeter r,
+  
+  # Standard utilities required by the script
+  /usr/bin/mktemp ix,
+  /usr/bin/chmod ix,
+  /usr/bin/mv ix,
+  /usr/bin/mkdir ix,
+  /usr/bin/getent ix,
+  /usr/bin/cat ix,
+  /usr/bin/date ix,
+  /usr/bin/dirname ix,
+  /usr/bin/sleep ix,
+  /usr/sbin/chpasswd ix,
+  
+  # System state read access
+  /etc/passwd r,
+  /etc/intergenos/first-boot-completed r,
+  
+  # Idempotency flag write access (atomic mv pattern)
+  /etc/intergenos/ rw,
+  /etc/intergenos/first-boot-completed w,
+  /etc/intergenos/first-boot-completed.* w,
+}

@@ -22,7 +22,8 @@ do_install() {
     # 2. Install InterGenOS-specific custom profiles
     install -vm 644 profiles/usr.bin.intergen-mcp "$DESTDIR/etc/apparmor.d/"
     install -vm 644 profiles/usr.bin.pkm "$DESTDIR/etc/apparmor.d/"
-    install -vm 644 profiles/usr.bin.forge-sb-installer "$DESTDIR/etc/apparmor.d/"
+    install -vm 644 profiles/usr.bin.forge "$DESTDIR/etc/apparmor.d/"
+    install -vm 644 profiles/usr.libexec.intergenos.first-boot-greeter "$DESTDIR/etc/apparmor.d/"
     
     # 3. Set to complain mode by default per Prime Directive
     # This creates a marker file that the init script or orchestrator checks
