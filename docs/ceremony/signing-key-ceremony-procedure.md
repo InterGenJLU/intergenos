@@ -85,6 +85,22 @@ Out of scope for this ceremony:
 
 This is the Phase 2 test-boot procedure expanded into ceremony-day form. Run it once. If you already completed a Phase 2 test boot on a separate Tails session, you'll repeat these steps for the actual ceremony — the test boot is amnesic, nothing carries over.
 
+### USB topology reference
+
+The HP laptop has **2 × USB-A + 1 × USB-C** ports total. Drives are USB-A; Nitrokey 3C NFC tokens are USB-C native. Peak occupancy is 3 devices: 2 drives in the A ports + 1 Nitrokey in the C port. **No hubs, no adapters.** Drive #2 ejects mid-ceremony to free its slot for Drive #3.
+
+| Step range | USB-A port #1 | USB-A port #2 | USB-C port |
+|---|---|---|---|
+| 2.1–2.3 (Tails boot) | Drive #1 | empty | empty |
+| 2.4–2.5 (offline-debs install) | Drive #1 | Drive #2 | empty |
+| 2.6 (Nitrokey #4 sanity) | Drive #1 | Drive #2 | Nitrokey #4 |
+| 2.7 (Drive #2 eject, Drive #3 plug) | Drive #1 | Drive #3 | empty |
+| C2 (master keypair) | Drive #1 | Drive #3 | empty |
+| C3 (signing subkeys) | Drive #1 | Drive #3 | Nitrokey #1 → #2 → #3 (one at a time) |
+| C6 (PIV slot 9c keypair) | Drive #1 | Drive #3 | Nitrokey #1 |
+
+Drive #1 (Tails OS) stays in USB-A port #1 for the entire session. Drive #3 stays in USB-A port #2 from Step 2.7 onward. Nitrokeys rotate through the USB-C port one at a time per chapter.
+
 ### Step 2.1 — Plug Drive #1 only, reboot the laptop
 
 **Air-gap state:** Drives #2, #3, #4 stay out. Nitrokeys all stay out. The ceremony laptop reboots into Tails clean.
@@ -202,7 +218,7 @@ This is the Phase 2 test-boot procedure expanded into ceremony-day form. Run it 
 
 This is the test card from Phase 1 first-touch. We poke it once to confirm the smart-card stack is alive, then unplug it. **Nitrokeys #1, #2, #3 stay out for now** — they get plugged at the chapter that uses them.
 
-1. Plug Nitrokey #4 into a free USB-A port.
+1. Plug Nitrokey #4 into the laptop's USB-C port (Nitrokey 3C NFC is USB-C native; no adapter needed).
 
    ```
    lsusb | grep -i nitrokey
@@ -225,7 +241,21 @@ This is the test card from Phase 1 first-touch. We poke it once to confirm the s
 
 3. Unplug Nitrokey #4. Set it aside in its labeled pouch.
 
-> **State at end of Part 2:** Tails is up, offline-mode confirmed, smart-card stack working, opensc/paperkey installed, Drive #2 still mounted. **Plug Drive #3 into a free port now** — it will receive the Output artifacts as the ceremony progresses. **Nitrokeys #1/#2/#3 still in their labeled pouches.** Ready for Chapter C2.
+### Step 2.7 — Eject Drive #2, plug Drive #3
+
+Drive #2's job is done — `dpkg -i` ran in Step 2.5, and the installed tools (`paperkey`, `opensc`, `pcscd`, etc.) live in the running Tails system memory now. Drive #2 doesn't need to stay plugged. The laptop has only 2 × USB-A ports, so Drive #2 yields its slot to Drive #3 (which receives the Output artifacts in C2 onward).
+
+1. **Eject Drive #2.** In the Files app, right-click `OFFLINEDEBS` → Eject. Wait for the activity LED on the drive to stop.
+2. **Unplug Drive #2.** Set it aside near the workstation in case offline-debs SHA256SUMS need re-verification later (very rare; keeps Drive #2 reachable without touching the air-gap laptop).
+3. **Plug Drive #3** (CEREMONY) into the now-free USB-A port.
+
+**Expected:** GNOME auto-mounts Drive #3 at `/media/amnesia/CEREMONY`. `ls /media/amnesia/CEREMONY/` shows the empty fresh-FAT32 drive (no files yet — those land during C2/C3/C6).
+
+**Failure modes:**
+- *Drive #2 won't eject ("device is busy").* A terminal may still have `cd /media/amnesia/OFFLINEDEBS/...` as its working directory. `cd ~` in any open terminals, then retry the Files-app eject.
+- *Drive #3 doesn't auto-mount.* Check `lsblk` for the drive node; mount manually with `udisksctl mount -b /dev/sdX1` if needed.
+
+> **State at end of Part 2:** Tails is up, offline-mode confirmed, smart-card stack working, opensc/paperkey installed, Drive #2 ejected, Drive #3 plugged at USB-A port #2 and auto-mounted at `/media/amnesia/CEREMONY`. **Nitrokeys #1/#2/#3 still in their labeled pouches.** Ready for Chapter C2.
 
 ---
 
@@ -428,7 +458,7 @@ This chapter generates three signing subkeys ([S1], [S2], [S3]) — one per back
 
 ### Step C3.1 — Plug Nitrokey #1 (primary)
 
-Plug Nitrokey #1 into a free USB-A port.
+Plug Nitrokey #1 into the laptop's USB-C port (Nitrokey 3C NFC is USB-C native).
 
 ```
 gpg --card-status
@@ -526,7 +556,7 @@ echo "ceremony test sign" | gpg --clearsign --local-user <subkey-S1-fingerprint>
 
 Unplug Nitrokey #1, set aside in its pouch labeled #1.
 
-Plug Nitrokey #2.
+Plug Nitrokey #2 into the USB-C port (same slot Nitrokey #1 just vacated).
 
 ```
 gpg --card-status
@@ -540,7 +570,7 @@ Repeat Steps C3.2 + C3.3 + C3.4, generating subkey [S2] and `keytocard`-ing it t
 
 Unplug Nitrokey #2, set aside in its pouch labeled #2.
 
-Plug Nitrokey #3. Same sequence.
+Plug Nitrokey #3 into the USB-C port. Same sequence.
 
 ### Step C3.7 — End-of-C3 sanity check
 
@@ -593,7 +623,7 @@ This chapter generates the EFI-binary X.509 signing keypair **on Nitrokey #1's P
 
 ### Step C6.1 — Plug Nitrokey #1, verify PIV applet
 
-Plug Nitrokey #1 into a free USB-A port.
+Plug Nitrokey #1 into the laptop's USB-C port.
 
 ```
 pkcs11-tool --module /usr/lib/opensc-pkcs11.so --list-slots
