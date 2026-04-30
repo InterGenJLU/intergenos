@@ -1,0 +1,113 @@
+.TH INTERGENOS-FIRST-BOOT 7 "2026-04-30" "InterGenOS v1.0" "InterGenOS System Administration"
+.SH NAME
+intergenos-first-boot \- InterGenOS first-boot password greeter
+.SH DESCRIPTION
+The first time an InterGenOS image boots, the system pauses before the
+graphical login screen and prompts for a new user password on a text-mode
+terminal. This is the
+.B first-boot greeter
+\(em a one-shot service whose only job is to make sure the person at the
+console picks the password they will actually use, before the system is
+admitted to multi-user state.
+.PP
+InterGenOS ships
+.B no default passwords.
+The build script that produces an image refuses to run without explicit
+.B \-\-root\-password
+and
+.B \-\-user\-password
+arguments, and whatever values the builder supplied are immediately
+overwritten by the first-boot greeter the first time the image boots. A
+fresh image is bootable but not loggable-in-to until the prompt is
+completed.
+.SH FIRST-BOOT BEHAVIOR
+After the boot animation finishes, the screen clears and a plain text
+prompt appears, asking for a new password and a confirmation. Typing is
+silent (no echo, no asterisks); this is intentional.
+.PP
+If the two entries do not match, or either is empty, the greeter rejects
+the input and re-prompts. There is no retry limit. The system does not
+proceed to the graphical login screen until a valid password is chosen.
+.PP
+On successful completion, the greeter writes a flag file marking the
+system as
+.BR "first-boot complete" .
+The unit
+.RB ( ConditionPathExists )
+is gated on the absence of this flag, so subsequent boots skip the
+greeter without invoking it.
+.\" TBD post-merge: insert exact unit name + flag file path. Read from f7bf19f after merge.
+.SH RECOVERY
+.TP
+.B Power-cycle mid-prompt
+The flag file is written atomically only after both password entries
+succeed. An interrupted run leaves the flag absent, and the greeter
+re-fires on the next boot.
+.TP
+.B Greeter unit fails to start
+.\" TBD post-merge: document the OnFailure= fallback target wired into the systemd unit.
+.TP
+.B Headless or SSH-only first boot
+.\" TBD post-merge: confirm behavior when no tty1 console is available.
+.TP
+.B Forgotten password after first boot
+First-boot only sets the password the first time. Subsequent password
+recovery is identical to any Linux distribution: boot a recovery image,
+mount the root filesystem, run
+.BR passwd (1).
+.SH USERNAME
+The username for the user account is set at image build time, not at
+first boot. Changing it on a running system requires more than a
+directory rename because file ownership is baked in across the system.
+The supported path for a different username is to rebuild with
+.B "build-intergenos.sh \-\-image-user " \fINAME\fR
+or to create an additional user with
+.BR useradd (8)
+after first login.
+.SH FILES
+.\" TBD post-merge: populate this list with exact paths from f7bf19f.
+.TP
+.I <unit file path>
+systemd unit definition for the greeter
+.TP
+.I <greeter script path>
+bash script that prompts and pipes the password to
+.BR chpasswd (8)
+.TP
+.I <flag file path>
+written after successful first boot; gates re-invocation
+.SH SECURITY
+The two-layer posture (build-time required arguments + first-boot
+overwrite) ensures no shared default credential exists at any point in
+the lifecycle of an InterGenOS image. The build script refuses to
+produce an image with a literal default; the first-boot greeter
+overwrites whatever the builder supplied with a value chosen by the
+person at the console.
+.PP
+The greeter runs on a tty rather than through Plymouth or a graphical
+prompt because a tty is the most reliable way to ask for a password on
+a system whose graphical stack has not yet been exercised. A failure of
+the graphical stack does not lock the user out of completing first boot.
+.PP
+The greeter pipes the chosen password to
+.BR chpasswd (8)
+via stdin. The password never appears on a command line, in a file on
+disk between input and the
+.B chpasswd
+invocation, or in the systemd journal beyond a generic completion
+indicator.
+.SH SEE ALSO
+.BR chpasswd (8),
+.BR passwd (1),
+.BR systemd.unit (5),
+.BR useradd (8)
+.PP
+.IR docs/first-boot-greeter.md
+\(em the long-form companion document, including the build-time half of
+the credential posture and the rationale behind the two-layer design.
+.PP
+.IR docs/ephemeral-module-signing.md
+\(em the kernel-module signing trust chain (separate from the user
+password set here).
+.SH AUTHORS
+The InterGenOS maintainers.
