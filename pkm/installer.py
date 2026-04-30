@@ -1,8 +1,11 @@
 """pkm installer — Archive extraction and file deployment."""
 
 import os
+import stat
 import shutil
 import subprocess
+import sys
+import tarfile
 import tempfile
 from pathlib import Path
 
@@ -95,6 +98,23 @@ class PackageInstaller:
             )
             if result.returncode != 0:
                 return False, f"Failed to deploy: {result.stderr}"
+
+            try:
+                with tarfile.open(str(archive_path)) as tf:
+                    for member in tf.getmembers():
+                        if not member.isfile():
+                            continue
+                        if member.mode & (stat.S_ISUID | stat.S_ISGID | stat.S_ISVTX):
+                            deployed = (self.root / member.name.lstrip("/")).resolve()
+                            # Path-traversal guard: reject member paths that escape install root
+                            try:
+                                deployed.relative_to(self.root.resolve())
+                            except ValueError:
+                                continue  # path escapes install root
+                            if deployed.exists():
+                                deployed.chmod(member.mode)
+            except (OSError, tarfile.TarError) as e:
+                print(f"  WARNING: setuid restore failed for {name}: {e}", file=sys.stderr)
 
             # Parse version from archive name
             version = self._version_from_archive(name, archive_path.name)

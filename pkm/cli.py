@@ -25,6 +25,9 @@ def main():
     p_install = sub.add_parser("install", help="Install a package")
     p_install.add_argument("packages", nargs="+", metavar="package")
     p_install.add_argument("--archive", help="Path to .igos.tar.gz archive")
+    p_install.add_argument("--archive-trust", choices=["strict","loose","repo-only"],
+                           default="strict",
+                           help="Trust mode for --archive installs (default: strict)")
 
     # -- install-helper --
     p_helper = sub.add_parser("install-helper", help="Install proprietary software via download helper")
@@ -133,7 +136,9 @@ def cmd_install(db, args):
 
         # Try local archive first
         if archive:
-            # Warn that --archive bypasses repo verification (H3)
+            trust_mode = getattr(args, "archive_trust", "strict")
+
+            # Compute SHA256 for all modes (used for display + matching)
             import hashlib
             try:
                 sha = hashlib.sha256()
@@ -141,23 +146,41 @@ def cmd_install(db, args):
                     for chunk in iter(lambda: f.read(8192), b""):
                         sha.update(chunk)
                 archive_sha = sha.hexdigest()
-                print(f"  WARNING: installing from local archive without repo verification.")
-                print(f"  Archive: {archive}")
-                print(f"  SHA256:  {archive_sha}")
-                # Cross-check against repo index if repo is synced
-                try:
-                    repo_pkg = repo.get_package(pkg_name)
-                    if repo_pkg and repo_pkg.get("sha256"):
-                        if repo_pkg["sha256"] == archive_sha:
-                            print(f"  Trust:   SHA256 matches repository index for {pkg_name} {repo_pkg.get('version','?')}")
-                        else:
-                            print(f"  MISMATCH: archive SHA256 does not match repository index!")
-                            print(f"    archive: {archive_sha}")
-                            print(f"    repo:    {repo_pkg['sha256']}")
-                except Exception:
-                    pass
             except Exception:
-                pass
+                print(f"  ERROR: cannot read archive: {archive}")
+                continue
+
+            print(f"  Archive: {archive}")
+            print(f"  SHA256:  {archive_sha}")
+
+            # Cross-check against repo index
+            repo_match = False
+            repo_pkg = None
+            try:
+                repo_pkg = repo.get_package(pkg_name)
+                if repo_pkg and repo_pkg.get("sha256") == archive_sha:
+                    repo_match = True
+                    print(f"  Trust:   SHA256 matches repository index for {pkg_name} {repo_pkg.get('version','?')}")
+            except Exception:
+                repo_pkg = None
+
+            if not repo_match and repo_pkg and repo_pkg.get("sha256"):
+                print(f"  MISMATCH: archive SHA256 does not match repository index!")
+                print(f"    archive: {archive_sha}")
+                print(f"    repo:    {repo_pkg['sha256']}")
+
+            # Trust gate (H3)
+            if trust_mode == "repo-only" and not repo_match:
+                print(f"  REJECTED: --archive-trust=repo-only requires archive SHA256")
+                print(f"  to match the repository index. Use --archive-trust=loose to override.")
+                continue
+            elif trust_mode == "strict" and not repo_match:
+                print(f"  REJECTED: --archive-trust=strict requires SHA256 match against")
+                print(f"  repository index. Use --archive-trust=loose to override.")
+                continue
+            elif trust_mode == "loose":
+                print(f"  WARNING: --archive-trust=loose — skipping repo verification.")
+                print(f"  Verify SHA256 independently before trusting this archive.")
         ok, msg = installer.install(pkg_name, archive_path=archive)
         if ok:
             print(f"  {msg}")
