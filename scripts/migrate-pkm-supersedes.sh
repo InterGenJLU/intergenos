@@ -32,12 +32,9 @@ log "Step 1/5: Verifying prerequisites..."
 
 [[ -d "${CHROOT}/usr" ]]      || fail "chroot not found at ${CHROOT}"
 [[ -f "${DB_PATH}" ]]         || fail "pkm DB not found at ${DB_PATH}"
-[[ -f "${CHROOT}/usr/bin/pkm" ]] || fail "pkm not installed in chroot"
 
-PKM_VERSION=$("${CHROOT}"/usr/bin/pkm --version 2>/dev/null || echo "unknown")
 log "  chroot: ${CHROOT}"
 log "  pkm DB: ${DB_PATH}"
-log "  pkm version: ${PKM_VERSION}"
 
 # ----------------------------------------------------------------------
 # Step 2: Import manifests → SQLite (idempotent)
