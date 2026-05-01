@@ -473,11 +473,21 @@ class BuildExecutor(PackageTracker):
             )
             return False
 
-        # Snapshot filesystem before build (for direct_install diff tracking)
+        # Snapshot filesystem before build (for direct_install diff tracking).
+        # If the package declares supersedes, exclude the supersedee's tracked
+        # paths from the snapshot so writes that overlap appear net-new (per
+        # RFC §3a — supersedes-aware snapshot exclusion).
         fs_before = None
+        build_start_time = time.time()  # used downstream for overwrite detection
         if self.tracked and pkg.direct_install:
             self.logger.info("Taking pre-build filesystem snapshot...")
-            fs_before = self.fs_snapshot()
+            exclude_paths = self._get_supersedee_paths(pkg) if pkg.supersedes else None
+            if exclude_paths:
+                self.logger.info(
+                    f"  excluding {len(exclude_paths)} supersedee paths "
+                    f"({', '.join(pkg.supersedes)})"
+                )
+            fs_before = self.fs_snapshot(exclude_paths=exclude_paths)
 
         # --- Extract source ---
         self.logger.start_phase("extract")
@@ -548,7 +558,8 @@ class BuildExecutor(PackageTracker):
                 fs_after = self.fs_snapshot()
                 new_files = sorted(fs_after - fs_before)
 
-                if not self.pkg_manifest_from_diff(pkg, fs_before, fs_after):
+                if not self.pkg_manifest_from_diff(pkg, fs_before, fs_after,
+                                                    build_start_time=build_start_time):
                     success = False
                     self.logger.end_phase("track", 1)
                 elif not self.pkg_archive_from_files(pkg, new_files):

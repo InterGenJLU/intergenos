@@ -2,16 +2,28 @@
 
 Extracted from builder.py to reduce the BuildExecutor class size.
 These methods handle everything after a successful build:
-  1. Generate Slackware-style text manifest
+  1. Generate Slackware-style text manifest with per-file SHA-256
   2. Create .igos.tar.gz archive
   3. Deploy staged files to the live filesystem
   4. Verify deployment against manifest
+  5. Populate pkm SQLite database (durable hash record at build time)
+
+Supersedes-aware (RFC v1, ratified 2026-05-01): when a package declares
+`supersedes:`, the pre-build snapshot excludes the supersedee's tracked
+paths so FS-diff sees writes that overlap as net-new. The manifest then
+claims only paths the package actually writes — paths the supersedee
+owned but the new package didn't touch stay retired with the supersedee.
 """
 
 import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
+
+# Reuse pkm's hash function to guarantee tracker/verifier parity
+# (GP review nit, RFC ratification 2026-05-01).
+from pkm.database import _sha256, PackageDB
 
 from .parser import Package
 
@@ -27,10 +39,15 @@ class PackageTracker:
         """Generate a Slackware-style manifest from staged files.
 
         Writes: /var/lib/igos/packages/<name>-<version>
+        Also populates pkm SQLite (RFC §3d) with the package record + per-file
+        SHA-256 hashes computed from staging, so the database is durable at
+        build time rather than deferred to first install. Supersede semantics
+        are wired via SUPERSEDES: header and atomic ownership transfer.
         """
         manifest_path = self.pkg_db / f"{pkg.name}-{pkg.version}"
 
-        file_list = []
+        file_list = []  # path strings (with trailing / for dirs); manifest format
+        file_paths = []  # path strings for files only; used for hashing + DB
         for root, dirs, files in os.walk(staging_dir):
             for d in sorted(dirs):
                 rel = os.path.relpath(os.path.join(root, d), staging_dir)
@@ -38,6 +55,7 @@ class PackageTracker:
             for f in sorted(files):
                 rel = os.path.relpath(os.path.join(root, f), staging_dir)
                 file_list.append(rel)
+                file_paths.append(rel)
 
         if not file_list:
             self.logger.error(f"Staging produced no files for {pkg.name}-{pkg.version}")
@@ -63,6 +81,14 @@ class PackageTracker:
                     hasher.update(tpl_file.read_bytes())
             template_hash = hasher.hexdigest()[:16]
 
+        # Per-file SHA-256 from staging contents (RFC §3c). Same _sha256 as
+        # pkm/verifier — imported at module top for byte-exact parity.
+        file_hashes = self._compute_file_hashes(file_paths, staging_root=staging_dir)
+
+        supersedes_header = ""
+        if pkg.supersedes:
+            supersedes_header = "SUPERSEDES: " + ", ".join(pkg.supersedes) + "\n"
+
         manifest_content = (
             f"PACKAGE NAME: {pkg.name}-{pkg.version}\n"
             f"PACKAGE VERSION: {pkg.version}\n"
@@ -70,15 +96,35 @@ class PackageTracker:
             f"BUILD DATE: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}\n"
             f"BUILD SYSTEM: InterGenOS igos-build\n"
             f"TEMPLATE_HASH: {template_hash}\n"
+            f"{supersedes_header}"
             f"DESCRIPTION:\n"
             f"{pkg.name}: {pkg.description}\n"
             f"\n"
             f"FILE LIST:\n"
         )
-        manifest_content += "\n".join(file_list) + "\n"
+        # Render each entry; files get sha256 annotation, dirs do not.
+        rendered_lines = []
+        for entry in file_list:
+            if entry.endswith("/"):
+                rendered_lines.append(entry)
+            else:
+                h = file_hashes.get(entry)
+                rendered_lines.append(f"{entry} sha256:{h}" if h else entry)
+        manifest_content += "\n".join(rendered_lines) + "\n"
 
         manifest_path.write_text(manifest_content)
-        self.logger.info(f"Manifest: {manifest_path} ({len(file_list)} entries)")
+        self.logger.info(
+            f"Manifest: {manifest_path} ({len(file_list)} entries, "
+            f"{len(file_hashes)} hashed)"
+        )
+
+        # pkm SQLite write-through (RFC §3d). Paths are relative; the DB
+        # stores them without leading /. For supersede packages, the
+        # ownership transfer + retire-marker happen atomically here so
+        # the chroot's pkm.db reflects the supersede state when packaged.
+        if not self._write_pkm_db(pkg, file_paths, file_hashes):
+            return False
+
         return True
 
     def pkg_archive(self, pkg: Package, staging_dir: Path) -> bool:
@@ -233,10 +279,25 @@ class PackageTracker:
     # Direct install tracking (filesystem diff)
     # ------------------------------------------------------------------
 
-    def fs_snapshot(self, dirs: list[str] | None = None) -> set[str]:
-        """Snapshot all files and symlinks under key system directories."""
+    def fs_snapshot(self, dirs: list[str] | None = None,
+                    exclude_paths: set[str] | None = None) -> set[str]:
+        """Snapshot all files and symlinks under key system directories.
+
+        Args:
+            dirs: directories to walk. Defaults to a baseline system set.
+            exclude_paths: absolute paths to remove from the snapshot. Used
+                to support supersedes semantics — when package P declares
+                supersedes for predecessor Q, Q's tracked paths are excluded
+                so FS-diff treats P's writes over those paths as net-new.
+
+        Returns:
+            Set of absolute paths to regular files and symlinked directories.
+        """
+        # Default also includes /boot since kernel packages install vmlinuz
+        # + System.map there; without it, the supersedes-aware diff misses
+        # the kernel artifacts entirely.
         if dirs is None:
-            dirs = ["/usr", "/etc", "/opt", "/var/lib", "/lib"]
+            dirs = ["/usr", "/etc", "/opt", "/var/lib", "/lib", "/boot"]
         snapshot = set()
         for d in dirs:
             if not os.path.isdir(d):
@@ -248,11 +309,121 @@ class PackageTracker:
                     path = os.path.join(root, dn)
                     if os.path.islink(path):
                         snapshot.add(path)
+        if exclude_paths:
+            snapshot -= exclude_paths
         return snapshot
 
-    def pkg_manifest_from_diff(self, pkg: Package, before: set[str], after: set[str]) -> bool:
-        """Generate manifest from filesystem diff (for direct_install packages)."""
-        new_files = sorted(after - before)
+    def _get_supersedee_paths(self, pkg: Package) -> set[str]:
+        """Read tracked paths from each supersedee's text manifest.
+
+        Used to drive snapshot-exclusion (RFC §3a). Returns absolute paths
+        from every package this one declares as superseded. Missing
+        manifests are silently skipped — corresponds to the
+        missing-supersedee allow-with-warn case (RFC §11).
+        """
+        if not pkg.supersedes:
+            return set()
+        paths: set[str] = set()
+        for predecessor_name in pkg.supersedes:
+            for manifest_file in sorted(self.pkg_db.iterdir()) if self.pkg_db.exists() else []:
+                if not manifest_file.is_file():
+                    continue
+                if not manifest_file.name.startswith(f"{predecessor_name}-"):
+                    continue
+                paths.update(self._parse_manifest_paths(manifest_file))
+        return paths
+
+    @staticmethod
+    def _parse_manifest_paths(manifest_file: Path) -> set[str]:
+        """Extract absolute file paths from a text manifest's FILE LIST.
+
+        Tolerates both the original format and the supersedes-extended
+        format (entries may carry an "<path> sha256:<hex>" annotation).
+        Directory entries (trailing slash) are excluded.
+        """
+        paths: set[str] = set()
+        in_files = False
+        try:
+            content = manifest_file.read_text()
+        except (OSError, UnicodeDecodeError):
+            return paths
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped == "FILE LIST:":
+                in_files = True
+                continue
+            if not in_files or not stripped:
+                continue
+            entry = stripped.split(None, 1)[0]
+            if entry.endswith("/"):
+                continue
+            paths.add("/" + entry.lstrip("/"))
+        return paths
+
+    def _detect_overwrites(self, pkg: Package, build_start_time: float) -> set[str]:
+        """Identify supersedee paths the build modified during this run.
+
+        Per DS critique on RFC §3b: pass2's manifest must include only paths
+        pass2 actually wrote, never paths the supersedee owned that pass2
+        didn't touch. mtime change vs build_start_time is the signal — files
+        modules_install / cp / etc. all bump mtime past the build start.
+
+        Returns: subset of supersedee_paths whose mtime is at or after the
+        build started (i.e. were rewritten during this build).
+        """
+        overwrites: set[str] = set()
+        for path in self._get_supersedee_paths(pkg):
+            try:
+                if os.path.lexists(path) and os.path.getmtime(path) >= build_start_time:
+                    overwrites.add(path)
+            except OSError:
+                continue
+        return overwrites
+
+    @staticmethod
+    def _compute_file_hashes(paths: list[str], staging_root: Path | None = None) -> dict[str, str]:
+        """Compute SHA-256 for each file path. Returns {relpath: hex_digest}.
+
+        If staging_root is given, paths are interpreted relative to it
+        (DESTDIR-staged install). Otherwise paths are absolute (direct
+        install on the live filesystem).
+        """
+        hashes: dict[str, str] = {}
+        for path in paths:
+            try:
+                if staging_root is not None:
+                    abs_path = staging_root / path
+                else:
+                    abs_path = Path(path)
+                if abs_path.is_file() and not abs_path.is_symlink():
+                    rel = path if staging_root is None else str(path)
+                    hashes[rel] = _sha256(str(abs_path))
+            except (OSError, PermissionError):
+                continue
+        return hashes
+
+    def pkg_manifest_from_diff(self, pkg: Package, before: set[str], after: set[str],
+                                build_start_time: float | None = None) -> bool:
+        """Generate manifest from filesystem diff (for direct_install packages).
+
+        With supersedes semantics (RFC §3a-§3b):
+          - net-new = paths present in `after` but not in `before` — caller
+            already excluded supersedee paths from `before` so writes that
+            overlap appear net-new.
+          - overwrites = subset of supersedee paths whose mtime is at or
+            after build_start_time (i.e. the build modified them). DS critique
+            tightening: pass2's manifest claims only paths pass2 actually
+            wrote. Paths the supersedee owned but pass2 didn't touch stay
+            retired with the supersedee.
+
+        Per-file SHA-256 is computed from the live filesystem and written
+        to both the text manifest and pkm SQLite (RFC §3c-§3d).
+        """
+        net_new = set(after) - set(before)
+        overwrites: set[str] = set()
+        if pkg.supersedes and build_start_time is not None:
+            overwrites = self._detect_overwrites(pkg, build_start_time)
+        new_files = sorted(net_new | overwrites)
 
         if not new_files:
             self.logger.error(f"No new files detected for {pkg.name}-{pkg.version}")
@@ -278,7 +449,20 @@ class PackageTracker:
         )
         human_size = f"{total_size / 1024 / 1024:.1f}M" if total_size > 1024*1024 else f"{total_size / 1024:.0f}K"
 
+        # Compute hashes from live filesystem (direct_install already deployed)
+        file_hashes: dict[str, str] = {}
+        for abs_path in new_files:
+            try:
+                if os.path.isfile(abs_path) and not os.path.islink(abs_path):
+                    file_hashes[abs_path.lstrip("/")] = _sha256(abs_path)
+            except (OSError, PermissionError):
+                continue
+
         from datetime import datetime, timezone
+        supersedes_header = ""
+        if pkg.supersedes:
+            supersedes_header = "SUPERSEDES: " + ", ".join(pkg.supersedes) + "\n"
+
         manifest_content = (
             f"PACKAGE NAME: {pkg.name}-{pkg.version}\n"
             f"PACKAGE VERSION: {pkg.version}\n"
@@ -286,16 +470,108 @@ class PackageTracker:
             f"BUILD DATE: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}\n"
             f"BUILD SYSTEM: InterGenOS igos-build\n"
             f"INSTALL MODE: direct (filesystem diff)\n"
+            f"{supersedes_header}"
             f"DESCRIPTION:\n"
             f"{pkg.name}: {pkg.description}\n"
             f"\n"
             f"FILE LIST:\n"
         )
-        manifest_content += "\n".join(file_list) + "\n"
+        rendered_lines = []
+        for entry in file_list:
+            if entry.endswith("/"):
+                rendered_lines.append(entry)
+            else:
+                h = file_hashes.get(entry)
+                rendered_lines.append(f"{entry} sha256:{h}" if h else entry)
+        manifest_content += "\n".join(rendered_lines) + "\n"
 
         manifest_path.write_text(manifest_content)
-        self.logger.info(f"Manifest (diff): {manifest_path} ({len(new_files)} files, {len(dirs_seen)} dirs)")
+        self.logger.info(
+            f"Manifest (diff): {manifest_path} "
+            f"({len(new_files)} files, {len(dirs_seen)} dirs, "
+            f"{len(overwrites)} overwrites of supersedee, "
+            f"{len(file_hashes)} hashed)"
+        )
+
+        # pkm SQLite write-through (RFC §3d). file_paths here are relative
+        # (no leading /), matching pkm DB convention.
+        rel_paths = [p.lstrip("/") for p in new_files]
+        if not self._write_pkm_db(pkg, rel_paths, file_hashes):
+            return False
+
         return True
+
+    def _write_pkm_db(self, pkg: Package, rel_paths: list[str],
+                       file_hashes: dict[str, str]) -> bool:
+        """Populate pkm SQLite with this package's record + files (RFC §3d).
+
+        For supersede packages, also runs the atomic ownership transfer
+        and predecessor retirement inside a single SQLite transaction.
+        Caller should treat False as a hard failure — the package is on
+        disk but pkm cannot account for it.
+        """
+        try:
+            db = PackageDB()
+        except Exception as e:
+            self.logger.error(f"pkm DB open failed: {e}")
+            return False
+
+        try:
+            pkg_id = db.add_installed(
+                name=pkg.name,
+                version=pkg.version,
+                release=pkg.release,
+                tier=pkg.tier,
+                description=pkg.description,
+                license_=pkg.license,
+                install_method="source-build",
+            )
+            db.add_files(pkg_id, rel_paths)
+
+            # Supersede transition: transfer ownership of overlap paths from
+            # each predecessor to this package, then mark each predecessor as
+            # superseded. Caller-managed transaction wraps this so a failure
+            # rolls the whole thing back without leaving pkm in a half-state.
+            if pkg.supersedes:
+                db.conn.execute("BEGIN")
+                try:
+                    pkg_set = set(rel_paths)
+                    for predecessor_name in pkg.supersedes:
+                        pred = db.get_installed(predecessor_name)
+                        if pred is None:
+                            self.logger.info(
+                                f"  supersedes target '{predecessor_name}' not "
+                                f"in pkm DB — supersede is a no-op (RFC §11)"
+                            )
+                            continue
+                        pred_paths = {
+                            f["path"] for f in db.get_files(predecessor_name)
+                        }
+                        overlap = pred_paths & pkg_set
+                        if overlap:
+                            overlap_hashes = {
+                                p: file_hashes.get(p) for p in overlap
+                            }
+                            db.transfer_file_ownership(
+                                predecessor_name, pkg_id,
+                                list(overlap), overlap_hashes
+                            )
+                        db.mark_superseded(predecessor_name, pkg.name)
+                        self.logger.info(
+                            f"  superseded '{predecessor_name}' "
+                            f"({len(overlap)} overlap paths transferred)"
+                        )
+                    db.conn.execute("COMMIT")
+                except Exception:
+                    db.conn.execute("ROLLBACK")
+                    raise
+
+            return True
+        except Exception as e:
+            self.logger.error(f"pkm DB write failed for {pkg.name}-{pkg.version}: {e}")
+            return False
+        finally:
+            db.close()
 
     def pkg_archive_from_files(self, pkg: Package, new_files: list[str]) -> bool:
         """Create .igos.tar.gz archive from a list of files on the live filesystem."""
