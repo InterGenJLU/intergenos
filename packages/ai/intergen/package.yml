@@ -10,8 +10,8 @@ source: []
 dependencies:
   build: []
   host:
-  - python3
+  - python
   runtime:
-  - python3
+  - python
   - llama-cpp
   - pyyaml
