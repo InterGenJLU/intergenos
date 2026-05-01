@@ -1,0 +1,19 @@
+name: rpm
+version: "4.18.2"
+release: 1
+description: RPM package manager — provides rpm2cpio utility for extracting Fedora's MS-signed shim binary during the InterGenOS boot chain build (per shim-signed package dependency)
+license: GPL-2.0-or-later
+homepage: https://rpm.org/
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://ftp.osuosl.org/pub/rpm/releases/rpm-${version}.x/rpm-${version}.tar.bz2
+    sha256: VERIFY_ON_FIRST_BUILD
+
+dependencies:
+  build:
+    - popt
+  host: []
+  runtime: []

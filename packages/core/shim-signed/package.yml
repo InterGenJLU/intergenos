@@ -29,6 +29,6 @@ source:
 dependencies:
   build:
   - cpio
-  - rpm2cpio
+  - rpm
   host: []
   runtime: []
