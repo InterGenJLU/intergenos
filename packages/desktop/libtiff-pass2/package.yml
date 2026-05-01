@@ -17,3 +17,6 @@ dependencies:
   - libwebp
   host: []
   runtime: []
+
+supersedes:
+  - libtiff

@@ -23,3 +23,6 @@ dependencies:
   - libXext
   host: []
   runtime: []
+
+supersedes:
+  - gst-plugins-base

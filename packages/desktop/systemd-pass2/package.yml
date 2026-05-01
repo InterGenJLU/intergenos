@@ -17,3 +17,6 @@ dependencies:
   - polkit
   host: []
   runtime: []
+
+supersedes:
+  - systemd

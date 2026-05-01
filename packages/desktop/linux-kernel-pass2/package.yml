@@ -16,3 +16,6 @@ dependencies:
   - linux-firmware
   host: []
   runtime: []
+
+supersedes:
+  - linux-kernel
