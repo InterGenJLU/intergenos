@@ -143,8 +143,14 @@ class PackageDB:
 
     def add_installed(self, name, version, release=1, tier=None, description=None,
                       license_=None, build_date=None, install_method="archive",
-                      archive_path=None, uncompressed_size=0, compressed_size=0):
-        """Register a package as installed."""
+                      archive_path=None, uncompressed_size=0, compressed_size=0,
+                      commit=True):
+        """Register a package as installed.
+
+        commit: when True (default), commit immediately. Set to False when
+        called inside an outer transaction (e.g. atomic supersede in the
+        installer), so the caller manages BEGIN/COMMIT/ROLLBACK.
+        """
         now = datetime.now(timezone.utc).isoformat()
         self.conn.execute(
             """INSERT OR REPLACE INTO installed
@@ -156,7 +162,8 @@ class PackageDB:
              build_date, now, install_method, archive_path,
              uncompressed_size, compressed_size)
         )
-        self.conn.commit()
+        if commit:
+            self.conn.commit()
         return self.conn.execute("SELECT last_insert_rowid()").fetchone()[0]
 
     def remove_installed(self, name):
@@ -173,16 +180,22 @@ class PackageDB:
     # File ownership
     # ------------------------------------------------------------------
 
-    def add_files(self, package_id, file_list):
+    def add_files(self, package_id, file_list, hashes=None, commit=True):
         """Register files owned by a package.
 
         file_list: list of relative paths (e.g., "usr/bin/bash")
+        hashes: optional dict mapping path → sha256 hex. When provided, used
+                as the authoritative checksum (e.g., from the package's
+                manifest); otherwise, computed from the live filesystem
+                if the file exists at install time.
+        commit: when True (default), commit immediately. Set to False when
+                called inside an outer transaction.
         """
         for path in file_list:
             is_dir = path.endswith("/")
             is_config = path.startswith("etc/") and not is_dir
-            checksum = None
-            if not is_dir and not is_config:
+            checksum = (hashes or {}).get(path)
+            if not is_dir and not is_config and checksum is None:
                 abs_path = "/" + path
                 if os.path.isfile(abs_path):
                     try:
@@ -198,18 +211,22 @@ class PackageDB:
                 )
             except sqlite3.IntegrityError:
                 pass
-        self.conn.commit()
+        if commit:
+            self.conn.commit()
 
         # Track config files separately for protection
         config_paths = [p for p in file_list if p.startswith("etc/") and not p.endswith("/")]
         for cp in config_paths:
             abs_path = "/" + cp
-            checksum = _sha256(abs_path) if os.path.isfile(abs_path) else None
+            checksum = (hashes or {}).get(cp)
+            if checksum is None and os.path.isfile(abs_path):
+                checksum = _sha256(abs_path)
             self.conn.execute(
                 "INSERT OR REPLACE INTO config_files (path, package_id, original_checksum) VALUES (?, ?, ?)",
                 (cp, package_id, checksum)
             )
-        self.conn.commit()
+        if commit:
+            self.conn.commit()
 
     def get_files(self, name):
         """Get all files owned by a package."""
