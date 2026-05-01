@@ -41,8 +41,23 @@ def sha256_file(path: str) -> str:
 
 
 def resolve_url(url: str, name: str, version: str) -> str:
-    """Replace ${version} and ${name} in URL templates."""
-    return url.replace("${version}", version).replace("${name}", name)
+    """Replace ${version}, ${name}, and computed variables in URL templates.
+
+    Computed variables (mirror the parser's _resolve_variables logic):
+    - ${version_major}: first dot-separated component of version
+    - ${version_major_minor}: first two dot-separated components
+    These let URLs reference upstream-mirror directory schemes that
+    organize releases by major.minor series (e.g. rpm.org's
+    /releases/rpm-4.18.x/) without hardcoding the version.
+    """
+    parts = version.split(".")
+    major = parts[0] if parts else ""
+    major_minor = ".".join(parts[:2]) if len(parts) >= 2 else version
+    return (url
+            .replace("${version_major_minor}", major_minor)
+            .replace("${version_major}", major)
+            .replace("${version}", version)
+            .replace("${name}", name))
 
 
 def validate_download(dest: str) -> bool:
@@ -96,7 +111,7 @@ def download_file(url: str, dest: str, timeout: int = 300, expected_sha256: str 
         if result.returncode == 0 and os.path.exists(dest) and os.path.getsize(dest) > 0:
             if validate_download(dest):
                 # Verify checksum if expected value is available
-                if expected_sha256 and not expected_sha256.startswith(("NEEDS_CHECKSUM", "placeholder")):
+                if expected_sha256 and not expected_sha256.startswith(("NEEDS_CHECKSUM", "placeholder", "VERIFY_ON_FIRST_BUILD")):
                     actual = sha256_file(dest)
                     if actual != expected_sha256:
                         print(f"    CHECKSUM MISMATCH: expected {expected_sha256[:16]}... got {actual[:16]}...", flush=True)
@@ -116,7 +131,7 @@ def download_file(url: str, dest: str, timeout: int = 300, expected_sha256: str 
         if result.returncode == 0 and os.path.exists(dest) and os.path.getsize(dest) > 0:
             if validate_download(dest):
                 # Verify checksum if expected
-                if expected_sha256 and not expected_sha256.startswith(("NEEDS_CHECKSUM", "placeholder")):
+                if expected_sha256 and not expected_sha256.startswith(("NEEDS_CHECKSUM", "placeholder", "VERIFY_ON_FIRST_BUILD")):
                     actual = sha256_file(dest)
                     if actual != expected_sha256:
                         print(f"    CHECKSUM MISMATCH: expected {expected_sha256[:16]}... got {actual[:16]}...", flush=True)
@@ -165,7 +180,14 @@ def get_source_info(pkg: dict) -> list[dict]:
         # Determine local filename
         filename = src.get("filename")
         if filename:
-            filename = filename.replace("${version}", version).replace("${name}", name)
+            parts = version.split(".")
+            _major = parts[0] if parts else ""
+            _major_minor = ".".join(parts[:2]) if len(parts) >= 2 else version
+            filename = (filename
+                        .replace("${version_major_minor}", _major_minor)
+                        .replace("${version_major}", _major)
+                        .replace("${version}", version)
+                        .replace("${name}", name))
         else:
             filename = url.split("/")[-1]
 
@@ -173,7 +195,7 @@ def get_source_info(pkg: dict) -> list[dict]:
             "url": url,
             "filename": filename,
             "sha256": sha256,
-            "needs_checksum": sha256 == "NEEDS_CHECKSUM",
+            "needs_checksum": sha256 in ("NEEDS_CHECKSUM", "VERIFY_ON_FIRST_BUILD") or sha256.startswith("placeholder"),
         })
     return sources
 
@@ -256,6 +278,34 @@ def cmd_download(tiers: list[str], update_checksums: bool = False, dry_run: bool
                     update_package_checksum(pkg["_path"], src["url"], sha)
                     print(f"    SHA256: {sha[:16]}... (updated)", flush=True)
                     checksummed += 1
+
+                # Late-added-source chroot sync. The build framework uses
+                # TWO source dirs that don't auto-sync after chroot-prep:
+                #   /mnt/intergenos/build/sources/  (host master, this dest)
+                #   /mnt/igos/sources/              (chroot view, what build reads)
+                # If invoked from the build VM (where /mnt/igos is local),
+                # auto-copy. If invoked from host (typical case, /mnt/igos
+                # only exists on the VM), print a SSH-copy instruction so
+                # the user can sync manually if mid-build.
+                chroot_sources = "/mnt/igos/sources"
+                if os.path.isdir(chroot_sources) and os.access(chroot_sources, os.W_OK):
+                    chroot_dest = os.path.join(chroot_sources, src["filename"])
+                    try:
+                        import shutil
+                        shutil.copy2(str(dest), chroot_dest)
+                        print(f"    SYNC: copied to {chroot_dest}", flush=True)
+                    except (PermissionError, OSError) as e:
+                        print(f"    WARN: could not sync to chroot ({e}); manual cp needed", flush=True)
+                elif not os.path.isdir(chroot_sources):
+                    # Common case: running on host, chroot is on VM.
+                    # Only print the instruction if a build-in-progress is detected
+                    # via the existence of /mnt/intergenos/build/logs/.build-phase
+                    # to avoid noisy output during pre-build source population.
+                    if os.path.exists("/mnt/intergenos/build/logs/.build-phase"):
+                        fname = src["filename"]
+                        print(f"    HINT: chroot dir {chroot_sources} not on this host (typical when run from host).", flush=True)
+                        print(f"          If a build is in progress and chroot needs this source, sync via:", flush=True)
+                        print(f"          ssh <build-vm> 'sudo cp /mnt/intergenos/build/sources/{fname} {chroot_sources}/{fname}'", flush=True)
             else:
                 print(f"    FAILED: {src['url']}", flush=True)
                 # Remove empty/partial file from failed download
@@ -291,7 +341,7 @@ def update_package_checksum(pkg_path: Path, url: str, sha256: str):
             found_url = True
             continue
         if found_url and "sha256:" in stripped:
-            if "NEEDS_CHECKSUM" in stripped:
+            if "NEEDS_CHECKSUM" in stripped or "VERIFY_ON_FIRST_BUILD" in stripped:
                 indent = len(line) - len(line.lstrip())
                 lines[i] = " " * indent + f"sha256: {sha256}"
                 found_url = False

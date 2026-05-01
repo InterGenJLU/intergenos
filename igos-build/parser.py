@@ -271,9 +271,15 @@ def parse_template(template_path: Path) -> Package:
         )
 
     # --- Variable resolution context ---
+    # Computed variables for URL path templating (avoids hardcoding when
+    # upstream mirrors organize releases by major.minor series, e.g.
+    # rpm.org's /releases/rpm-4.18.x/ directory layout).
+    version_parts = version.split(".")
     variables = {
         "name": name,
         "version": version,
+        "version_major": version_parts[0] if version_parts else "",
+        "version_major_minor": ".".join(version_parts[:2]) if len(version_parts) >= 2 else version,
     }
 
     # --- Parse complex fields ---

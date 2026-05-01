@@ -9,8 +9,8 @@ build_style: custom
 install_func: do_install
 
 source:
-  - url: https://ftp.osuosl.org/pub/rpm/releases/rpm-${version}.x/rpm-${version}.tar.bz2
-    sha256: VERIFY_ON_FIRST_BUILD
+  - url: https://ftp.osuosl.org/pub/rpm/releases/rpm-${version_major_minor}.x/rpm-${version}.tar.bz2
+    sha256: ba7eee1bc2c6f83be73c0a40d159c625cbaed976b3ac044233404fb25ae1b979
 
 dependencies:
   build:

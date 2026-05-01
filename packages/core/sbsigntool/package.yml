@@ -9,7 +9,7 @@ build_style: autotools
 install_func: do_install
 source:
 - url: https://git.kernel.org/pub/scm/linux/kernel/git/jejb/sbsigntools.git/snapshot/sbsigntools-${version}.tar.gz
-  sha256: VERIFY_ON_FIRST_BUILD
+  sha256: a2323e54be6d17f50ceb3253ca6ed063171a5bcb7079bfa594008cd2aeb7fdea
 dependencies:
   build:
   - openssl

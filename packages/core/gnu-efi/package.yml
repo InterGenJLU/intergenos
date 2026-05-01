@@ -10,7 +10,7 @@ install_func: do_install
 
 source:
   - url: https://sourceforge.net/projects/gnu-efi/files/gnu-efi-${version}.tar.bz2
-    sha256: VERIFY_ON_FIRST_BUILD
+    sha256: 7f212c96ee66547eeefb531267b641e5473d7d8529f0bd8ccdefd33cf7413f5c
 
 dependencies:
   build: []
