@@ -205,6 +205,7 @@ class PackageInstaller:
 
                 self.db.log_operation(
                     "install", name, new_version=version, method="archive",
+                    commit=False,
                 )
                 self.db.conn.execute("COMMIT")
             except Exception as e:
@@ -261,7 +262,8 @@ class PackageInstaller:
         for line in content.splitlines():
             if line.startswith("SUPERSEDES:"):
                 value = line.split(":", 1)[1].strip()
-                supersedes = [s.strip() for s in value.split(",") if s.strip()]
+                parsed = [s.strip() for s in value.split(",") if s.strip()]
+                supersedes = parsed if parsed else None
             elif line.strip() == "FILE LIST:":
                 in_files = True
             elif in_files and line.strip():
