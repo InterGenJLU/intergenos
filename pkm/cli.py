@@ -70,6 +70,16 @@ def main():
     p_verify = sub.add_parser("verify", help="Verify package integrity")
     p_verify.add_argument("package", nargs="?")
     p_verify.add_argument("--all", action="store_true", dest="verify_all")
+    p_verify_mode = p_verify.add_mutually_exclusive_group()
+    p_verify_mode.add_argument(
+        "--strict", action="store_const", const="strict", dest="verify_mode",
+        help="Existence + SHA-256 content hash (default)",
+    )
+    p_verify_mode.add_argument(
+        "--fast", action="store_const", const="fast", dest="verify_mode",
+        help="Existence (lexists) only — sub-second per package",
+    )
+    p_verify.set_defaults(verify_mode="strict")
 
     # -- depends --
     p_depends = sub.add_parser("depends", help="Show dependencies")
@@ -433,12 +443,13 @@ def cmd_provides(db, args):
 
 def cmd_verify(db, args):
     verifier = PackageVerifier(db)
+    mode = getattr(args, "verify_mode", "strict")
 
     if args.verify_all or not args.package:
         if not args.verify_all and not args.package:
             print("  Usage: pkm verify <package> or pkm verify --all")
             return
-        results = verifier.verify_all()
+        results = verifier.verify_all(mode=mode)
         ok_count = 0
         problem_count = 0
         for name, version, result in results:
@@ -447,25 +458,30 @@ def cmd_verify(db, args):
                 print(f"  PROBLEM: {name} {version} — {len(result['missing'])} missing, {len(result['modified'])} modified")
             else:
                 ok_count += 1
-        print(f"\n  Verified: {ok_count} OK, {problem_count} with issues")
-    else:
-        result = verifier.verify(args.package)
-        if result is None:
-            print(f"  Package '{args.package}' is not installed")
-            return
-        if not result["missing"] and not result["modified"]:
-            print(f"  {args.package}: OK ({result['total']} files verified)")
-        else:
-            if result["missing"]:
-                print(f"  MISSING ({len(result['missing'])}):")
-                for f in result["missing"][:20]:
-                    print(f"    /{f}")
-                if len(result["missing"]) > 20:
-                    print(f"    ... and {len(result['missing']) - 20} more")
-            if result["modified"]:
-                print(f"  MODIFIED ({len(result['modified'])}):")
-                for f in result["modified"][:20]:
-                    print(f"    /{f}")
+        print(f"\n  Verified ({mode}): {ok_count} OK, {problem_count} with issues")
+        return
+
+    result = verifier.verify(args.package, mode=mode)
+    if result is None:
+        print(f"  Package '{args.package}' is not installed")
+        return
+    if result.get("superseded_by"):
+        print(f"  {result['message']}")
+        return
+    if not result["missing"] and not result["modified"]:
+        suffix = "files verified" if mode == "strict" else "files present (existence-only)"
+        print(f"  {args.package}: OK ({result['total']} {suffix})")
+        return
+    if result["missing"]:
+        print(f"  MISSING ({len(result['missing'])}):")
+        for f in result["missing"][:20]:
+            print(f"    /{f}")
+        if len(result["missing"]) > 20:
+            print(f"    ... and {len(result['missing']) - 20} more")
+    if result["modified"]:
+        print(f"  MODIFIED ({len(result['modified'])}):")
+        for f in result["modified"][:20]:
+            print(f"    /{f}")
 
 
 def cmd_depends(db, args):
