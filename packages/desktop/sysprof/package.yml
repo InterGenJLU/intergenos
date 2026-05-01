@@ -14,5 +14,6 @@ dependencies:
   build:
   - glib2
   - libunwind
+  - libdex
   host: []
   runtime: []

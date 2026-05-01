@@ -1,0 +1,17 @@
+name: libdex
+version: "1.1.0"
+release: 1
+description: Library for deferred execution and async/await primitives — GNOME async helper, required by sysprof and other desktop-tier profiling/IO consumers
+license: LGPL-2.1-or-later
+homepage: https://gitlab.gnome.org/GNOME/libdex
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/libdex/1.1/libdex-${version}.tar.xz
+  sha256: a9e04c8abee01c9a7cf1148c5b7aa66ba377efe6af6d83801d4fd1aa55219aaa
+dependencies:
+  build:
+  - glib2
+  host: []
+  runtime: []
