@@ -211,6 +211,24 @@ __FILLED__ (per SPOC directive 2026-04-29T17:31:35Z item 6 — kernel-lockdown a
   - The static lockdown LSM addition: [PATCH V40 03/29] security: Add a static lockdown policy LSM (`<https://lore.kernel.org/lkml/20190820001805.241928-4-matthewgarrett@google.com/>`)
   - Lockdown enforcement points throughout kernel subsystems (kexec, /dev/mem, /dev/kmem, BPF, kprobes, /proc/kcore, mmiotrace, DMA, module signing, tracing, etc. — 25 follow-on commits in the V40 series)
 
+**Specific upstream commits called out by rhboot/shim-review template (verification):**
+
+The shim-review submission template explicitly requires confirmation that 3 specific lockdown commits are applied. All 3 are mainline-merged in the Linux 5.4-5.6 era and are transitively included in InterGenOS's pinned Linux 6.18.10:
+
+| Commit SHA | Title | Author | Files modified | Status in InterGenOS Linux 6.18.10 |
+|---|---|---|---|---|
+| [`1957a85b`](https://github.com/torvalds/linux/commit/1957a85b0032a81e6482ca4aab883643b8dae06e) | efi: Restrict efivar_ssdt_load when the kernel is locked down | Matthew Garrett `<mjg59@google.com>` | `drivers/firmware/efi/efi.c` | ✓ included (mainline-merged via James Morris in the Linux 5.4 lockdown LSM patchset) |
+| [`75b0cea7`](https://github.com/torvalds/linux/commit/75b0cea7bf307f362057cc778efe89af4c615354) | ACPI: configfs: Disallow loading ACPI tables when locked down | Jason A. Donenfeld `<Jason@zx2c4.com>` | `drivers/acpi/acpi_configfs.c` | ✓ included (mainline-merged via Rafael J. Wysocki; commit message includes `Cc: 5.4+` for stable backport) |
+| [`eadb2f47`](https://github.com/torvalds/linux/commit/eadb2f47a3ced5c64b23b90fd2a3463f63726066) | lockdown: also lock down previous kgdb use | Daniel Thompson `<daniel.thompson@linaro.org>` | `include/linux/security.h`, `kernel/debug/debug_core.c`, `kernel/debug/kdb/kdb_main.c`, `security/security.c` | ✓ included (mainline-merged via Linus Torvalds) |
+
+Each commit can be independently verified against the InterGenOS-built kernel by:
+
+1. Cloning the upstream Linux source tree at the InterGenOS-pinned tag (`v6.18.10`)
+2. Running `git log <sha>^..<sha> -- <files>` to confirm the commit is in the tree
+3. Cross-checking against the InterGenOS kernel source tarball SHA256 (per `packages/core/linux-kernel/package.yml` source URL + checksum)
+
+The 3 commits collectively lock down EFI variable SSDT loading, ACPI configfs table loading, and kgdb-mediated kernel memory access — all of which would otherwise allow ring-0 code execution bypassing Secure Boot's trust chain.
+
 **InterGenOS kernel verification:**
 
 - `CONFIG_SECURITY_LOCKDOWN_LSM=y` — set in baseline at `config/kernel/fragments/00-universal-baseline.config:2936`
