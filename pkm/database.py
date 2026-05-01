@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS installed (
     archive_path TEXT,
     uncompressed_size INTEGER,
     compressed_size INTEGER,
+    superseded_by TEXT,
+    superseded_at TEXT,
     UNIQUE(name)
 );
 
@@ -96,6 +98,18 @@ class PackageDB:
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.execute("PRAGMA journal_mode = WAL")
         self.conn.executescript(SCHEMA)
+        self._migrate_supersedes_columns()
+
+    def _migrate_supersedes_columns(self):
+        """Idempotent migration: add superseded_by + superseded_at columns
+        to pre-existing `installed` tables that predate the supersedes RFC."""
+        for col in ("superseded_by", "superseded_at"):
+            try:
+                self.conn.execute(f"ALTER TABLE installed ADD COLUMN {col} TEXT")
+            except sqlite3.OperationalError as e:
+                if "duplicate column" not in str(e):
+                    raise
+        self.conn.commit()
 
     def close(self):
         self.conn.close()
@@ -208,19 +222,89 @@ class PackageDB:
         ).fetchall()
         return [{"path": r[0], "is_dir": bool(r[1])} for r in rows]
 
-    def find_owner(self, filepath):
-        """Find which package owns a file path."""
-        # Normalize: strip leading /
+    def find_owner(self, filepath, include_superseded=False):
+        """Find which package owns a file path.
+
+        By default, returns only the active (non-superseded) owner. Set
+        include_superseded=True to also see retired records (e.g., to
+        audit the chain of supersedes for a path).
+        """
         path = filepath.lstrip("/")
-        row = self.conn.execute(
-            """SELECT i.name, i.version, f.path
-               FROM files f JOIN installed i ON f.package_id = i.id
-               WHERE f.path = ?""",
-            (path,)
-        ).fetchone()
+        if include_superseded:
+            sql = """SELECT i.name, i.version, f.path, i.superseded_by
+                     FROM files f JOIN installed i ON f.package_id = i.id
+                     WHERE f.path = ?"""
+        else:
+            sql = """SELECT i.name, i.version, f.path, i.superseded_by
+                     FROM files f JOIN installed i ON f.package_id = i.id
+                     WHERE f.path = ? AND i.superseded_by IS NULL"""
+        row = self.conn.execute(sql, (path,)).fetchone()
         if row:
-            return {"name": row[0], "version": row[1], "path": row[2]}
+            return {
+                "name": row[0],
+                "version": row[1],
+                "path": row[2],
+                "superseded_by": row[3],
+            }
         return None
+
+    # ------------------------------------------------------------------
+    # Supersedes
+    # ------------------------------------------------------------------
+
+    def mark_superseded(self, predecessor_name, successor_name):
+        """Mark predecessor as superseded by successor; record timestamp.
+
+        The predecessor's `installed` record is preserved (audit trail);
+        ownership of overlapping file paths is transferred separately via
+        transfer_file_ownership(). Both operations should run inside the
+        same SQLite transaction at the supersede gate (RFC §4b).
+        """
+        now = datetime.now(timezone.utc).isoformat()
+        self.conn.execute(
+            "UPDATE installed SET superseded_by = ?, superseded_at = ? WHERE name = ?",
+            (successor_name, now, predecessor_name),
+        )
+
+    def is_superseded(self, name):
+        """Return successor name if package was superseded, else None."""
+        row = self.conn.execute(
+            "SELECT superseded_by FROM installed WHERE name = ?", (name,)
+        ).fetchone()
+        return row[0] if row and row[0] else None
+
+    def transfer_file_ownership(self, predecessor_name, successor_id, paths, hashes=None):
+        """Transfer file records from predecessor to successor for given paths.
+
+        Used during atomic supersede: paths the successor wrote that overlap
+        the predecessor's manifest get re-pointed to the successor's package_id
+        (with the successor's content hash). Paths the predecessor owned but
+        the successor did not touch remain with the predecessor — they are
+        retired alongside the predecessor's marker record but do not move.
+
+        hashes: optional dict mapping path → sha256 hex; updates checksum column.
+        """
+        pred = self.get_installed(predecessor_name)
+        if not pred:
+            return 0
+        normalized = [p.lstrip("/") for p in paths]
+        moved = 0
+        for path in normalized:
+            new_checksum = (hashes or {}).get(path)
+            if new_checksum is not None:
+                self.conn.execute(
+                    """UPDATE files SET package_id = ?, checksum = ?
+                       WHERE package_id = ? AND path = ?""",
+                    (successor_id, new_checksum, pred["id"], path),
+                )
+            else:
+                self.conn.execute(
+                    """UPDATE files SET package_id = ?
+                       WHERE package_id = ? AND path = ?""",
+                    (successor_id, pred["id"], path),
+                )
+            moved += self.conn.total_changes
+        return moved
 
     # ------------------------------------------------------------------
     # Dependencies
@@ -353,14 +437,33 @@ class PackageDB:
     # Verify
     # ------------------------------------------------------------------
 
-    def verify_package(self, name):
+    def verify_package(self, name, strict=True):
         """Verify all files for a package exist on the filesystem.
 
-        Returns: (total_files, missing_files, modified_files)
+        Args:
+            name: Package name.
+            strict: If True (default), check both file existence AND content
+                    hash (SHA-256). If False, check existence only — faster
+                    but cannot detect tampering or stale content.
+
+        Returns:
+            None if package not installed.
+            Otherwise dict with:
+              - total: file count
+              - missing: paths that don't exist on FS
+              - modified: paths whose content differs from manifest hash
+                          (always empty when strict=False)
+              - superseded_by: name of successor if this package was
+                               superseded; None otherwise
         """
         pkg = self.get_installed(name)
         if not pkg:
             return None
+
+        # When superseded, the predecessor's file records were transferred
+        # to the successor at supersede time. Surface that explicitly so
+        # callers can route queries to the active owner.
+        superseded_by = pkg.get("superseded_by")
 
         rows = self.conn.execute(
             "SELECT path, is_dir, checksum FROM files WHERE package_id = ? AND is_dir = 0",
@@ -375,7 +478,7 @@ class PackageDB:
             abs_path = "/" + path
             if not os.path.lexists(abs_path):
                 missing.append(path)
-            elif expected_checksum:
+            elif strict and expected_checksum:
                 try:
                     actual = _sha256(abs_path)
                     if actual != expected_checksum:
@@ -383,7 +486,12 @@ class PackageDB:
                 except (OSError, PermissionError):
                     pass
 
-        return {"total": total, "missing": missing, "modified": modified}
+        return {
+            "total": total,
+            "missing": missing,
+            "modified": modified,
+            "superseded_by": superseded_by,
+        }
 
 
 # ------------------------------------------------------------------
@@ -400,9 +508,25 @@ def _sha256(filepath):
 
 
 def _parse_manifest(content):
-    """Parse a text manifest into a dict."""
+    """Parse a text manifest into a dict.
+
+    Tolerates both the original format (path-only file entries) and the
+    extended format introduced with the supersedes RFC:
+
+      - Optional "SUPERSEDES: <name>-<version>" header (this package
+        replaces another at install time)
+      - Optional "SUPERSEDED_BY: <name>-<version>" header (this package
+        was retired in favor of another)
+      - Optional "<path><SP>sha256:<hex>" file entries
+
+    Old manifests without these fields parse cleanly and return
+    file_hashes={}. The hashes here serve as redundant verification —
+    pkm's SQLite `files.checksum` column is the authoritative source,
+    populated from the live filesystem at install time.
+    """
     meta = {}
     files = []
+    file_hashes = {}
     in_files = False
 
     for line in content.splitlines():
@@ -424,6 +548,10 @@ def _parse_manifest(content):
                 meta["size"] = int(m.group(1))
         elif line.startswith("BUILD DATE:"):
             meta["build_date"] = line.split(":", 1)[1].strip()
+        elif line.startswith("SUPERSEDES:"):
+            meta["supersedes"] = line.split(":", 1)[1].strip()
+        elif line.startswith("SUPERSEDED_BY:"):
+            meta["superseded_by"] = line.split(":", 1)[1].strip()
         elif line.startswith("DESCRIPTION:"):
             pass  # Next line has the description
         elif ":" in line and not in_files and line.strip().startswith(meta.get("name", "\x00")):
@@ -432,7 +560,14 @@ def _parse_manifest(content):
         elif line.strip() == "FILE LIST:":
             in_files = True
         elif in_files and line.strip():
-            files.append(line.strip())
+            # Each file entry is "<path>" or "<path> sha256:<hex>". Whitespace
+            # split on first space gives path + optional hash annotation.
+            parts = line.strip().split(None, 1)
+            path = parts[0]
+            files.append(path)
+            if len(parts) > 1 and parts[1].startswith("sha256:"):
+                file_hashes[path] = parts[1][len("sha256:"):]
 
     meta["files"] = files
+    meta["file_hashes"] = file_hashes
     return meta if "name" in meta else None

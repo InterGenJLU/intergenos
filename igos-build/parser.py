@@ -85,6 +85,15 @@ class Package:
     # Skip package tracking (for pass packages that overwrite existing files)
     skip_tracking: bool = False
 
+    # Names of packages this one supersedes at install time. Each name must
+    # match another package's `name` field. The supersedes relationship
+    # transfers file ownership atomically when this package's deploy succeeds
+    # (per RFC §4 — gate-3 retirement). Used by pass1/pass2 cycle-break and
+    # cross-tier rebuild patterns where the successor overwrites the
+    # predecessor's installed paths with content built against
+    # later-available dependencies.
+    supersedes: list[str] = field(default_factory=list)
+
     # Validation steps
     validation: list[ValidationCheck] = field(default_factory=list)
 
@@ -296,6 +305,18 @@ def parse_template(template_path: Path) -> Package:
     patches = _parse_patches(raw.get("patches", []) or [], template_path)
     bundled_deps = raw.get("bundled_deps", []) or []
 
+    # supersedes — list of package names this one replaces at install time
+    supersedes_raw = raw.get("supersedes", []) or []
+    if not isinstance(supersedes_raw, list):
+        raise TemplateError(template_path, "supersedes: must be a list of package names")
+    supersedes = []
+    for i, entry in enumerate(supersedes_raw):
+        if not isinstance(entry, str):
+            raise TemplateError(template_path, f"supersedes[{i}]: must be a string (package name)")
+        if entry == name:
+            raise TemplateError(template_path, f"supersedes[{i}]: '{entry}' — a package cannot supersede itself")
+        supersedes.append(entry)
+
     return Package(
         name=name,
         version=version,
@@ -315,6 +336,7 @@ def parse_template(template_path: Path) -> Package:
         install_func=raw.get("install_func", "do_install"),
         direct_install=bool(raw.get("direct_install", False)),
         skip_tracking=bool(raw.get("skip_tracking", False)),
+        supersedes=supersedes,
         validation=validation,
         template_path=template_path,
     )
@@ -333,6 +355,60 @@ def discover_templates(packages_dir: Path) -> list[Path]:
     return sorted(packages_dir.rglob("package.yml"))
 
 
+def _validate_supersedes_no_cycles(packages: list[Package]) -> None:
+    """Ensure no cycles exist in the supersedes relation graph.
+
+    Three-color DFS over the directed graph where an edge A → B means A
+    declares `supersedes: [B]`. Cycles include direct (A→B, B→A), indirect
+    (A→B→C→A), or any longer chain that closes back on itself. Self-edges
+    (A→A) are rejected at parse_template time.
+    """
+    by_name = {pkg.name: pkg for pkg in packages}
+    WHITE, GRAY, BLACK = 0, 1, 2
+    color = {pkg.name: WHITE for pkg in packages}
+
+    def visit(name: str, stack: list[str]) -> None:
+        if color.get(name) == GRAY:
+            cycle = stack[stack.index(name):] + [name]
+            raise TemplateError(
+                by_name[name].template_path,
+                f"supersedes cycle detected: {' → '.join(cycle)}"
+            )
+        if color.get(name) == BLACK:
+            return
+        color[name] = GRAY
+        stack.append(name)
+        pkg = by_name.get(name)
+        if pkg:
+            for target in pkg.supersedes:
+                if target in by_name:
+                    visit(target, stack)
+        stack.pop()
+        color[name] = BLACK
+
+    for pkg in packages:
+        if color[pkg.name] == WHITE:
+            visit(pkg.name, [])
+
+
+def _warn_missing_supersedees(packages: list[Package]) -> list[str]:
+    """Return warnings for any supersedes targets that don't match a known package.
+
+    Per RFC §11: missing supersedee is allowed (the supersede becomes a no-op
+    at install time) but worth surfacing so a typo doesn't silently degrade.
+    """
+    by_name = {pkg.name: pkg for pkg in packages}
+    warnings = []
+    for pkg in packages:
+        for target in pkg.supersedes:
+            if target not in by_name:
+                warnings.append(
+                    f"{pkg.template_path}: supersedes '{target}' — no package "
+                    f"with this name exists; supersede will be a no-op at install"
+                )
+    return warnings
+
+
 def load_all_packages(packages_dir: Path) -> list[Package]:
     """Discover and parse all package templates.
 
@@ -343,10 +419,17 @@ def load_all_packages(packages_dir: Path) -> list[Package]:
         List of validated Package objects.
 
     Raises:
-        TemplateError: If any template fails validation.
+        TemplateError: If any template fails validation, including supersedes
+                       cycle detection across the entire package set.
     """
     templates = discover_templates(packages_dir)
     packages = []
     for path in templates:
         packages.append(parse_template(path))
+    _validate_supersedes_no_cycles(packages)
+    warnings = _warn_missing_supersedees(packages)
+    if warnings:
+        import sys
+        for w in warnings:
+            print(f"WARNING: {w}", file=sys.stderr)
     return packages
