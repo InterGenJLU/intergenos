@@ -1,7 +1,7 @@
 # InterGenOS Release Signing Key
 
-**Last updated:** 2026-04-21
-**Status:** Placeholder — key ceremony pending hardware arrival (Nitrokey 3 NFC, in transit from Nitrokey GmbH, ETA 2026-04-28 – 2026-05-02).
+**Last updated:** 2026-05-01
+**Status:** Master keypair + signing subkeys [S1] [S2] LIVE on hardware tokens (ceremony 2026-04-30). EFI vendor cert (PIV slot 9c) deferred — Nitrokey 3 PIV toolchain ecosystem gap; follow-up air-gap session pending. Secondary contact's keypair (Ethan) pending his Phase 1 onboarding.
 
 ## Summary
 
@@ -13,17 +13,18 @@ This page is the **canonical fingerprint publication** for the release signing k
 
 | Field | Value |
 |---|---|
-| Primary key UID | `Christopher Cork <chris@intergenstudios.com>` |
-| Secondary key UID | `Ethan Bambock <ethan@intergenstudios.com>` |
-| Algorithm | *(to be published post-ceremony — RSA 4096 or Ed25519)* |
-| Primary fingerprint | *`PENDING — ceremony scheduled for the week of 2026-04-28`* |
+| Primary key UID | `InterGenOS Project Signing Key (primary) <intergenos-primary@intergenstudios.com>` |
+| Secondary key UID | *`PENDING — Ethan's Phase 1 generation; planned UID will follow project-role-identity convention`* |
+| Algorithm | RSA 4096 (master + subkeys), no expiry on master, 2-year expiry on subkeys |
+| Primary fingerprint | `46DD 1029 F98F D453 1D44  99C3 A2AF 3A36 C5CE F2C3` |
 | Secondary fingerprint | *`PENDING — Ethan's Phase 1 generation`* |
-| Release-signing subkey fingerprint (primary) | *`PENDING`* |
+| Release-signing subkey [S1] | `6451 D186 F997 5781 A145  1DE6 7E65 89C3 954F 031F` (Nitrokey 3 NFC, serial `B9753481`; daily-driver token. Touch-policy enablement deferred to post-ceremony hardening pass — recoverable via `gpg --card-edit` without re-keytocarding.) |
+| Release-signing subkey [S2] | `AB6C 6EA3 EDE8 4067 9044  EE5E 237E 35D9 6422 136B` (Nitrokey 3 NFC, serial `43D33126`; redundancy token in local SDB. Touch-policy: same status as [S1].) |
 | EFI-binary signing cert CN | `InterGenOS Secure Boot CA` |
-| EFI-binary signing key fingerprint | *`PENDING`* |
-| Hardware | Nitrokey 3 NFC (2 units — primary + backup) |
-| Root custody | Offline, Tails-generated, paper + 2× LUKS USB (home safe + bank SDB) |
-| Primary expiry | None on root; 2 years on subkeys |
+| EFI-binary signing key fingerprint | *`PENDING — PIV slot 9c keypair deferred per Nitrokey 3 PIV toolchain ecosystem gap; follow-up air-gap session in flight`* |
+| Hardware | Nitrokey 3 NFC × 4 (Nitrokey #1 daily-driver, #2 local SDB, #3 secondary maintainer's, #4 spare) |
+| Root custody | Master keypair generated air-gapped on Tails 7.7; LUKS-encrypted backup on dedicated USB drive; paperkey × 2 printed (one home safe + one offsite); revocation cert on backup |
+| Primary expiry | None on master; 2 years on subkeys |
 
 ## Verification
 
@@ -66,8 +67,8 @@ Three distro keys, one not-our-key, covered here for context. Detailed design ra
 | Key | Purpose | Lifetime | Custody |
 |---|---|---|---|
 | Distro GPG root | Certifies the signing subkey, signs rollover announcements | 5 years | Offline, air-gapped (Tails generation + paper + LUKS USB x2) |
-| Distro GPG signing subkey | Signs `pkm` repo indexes and release artifacts | 2 years | Hardware token (primary + backup), touch required |
-| EFI-binary X.509 (PIV 9c) | Signs kernel vmlinuz and custom GRUB | 2 years | Same hardware token (PIV slot 9c), touch required |
+| Distro GPG signing subkey | Signs `pkm` repo indexes and release artifacts | 2 years | Hardware token (primary + backup); touch-policy enablement is a post-ceremony hardening item (recoverable in-place via `gpg --card-edit`) |
+| EFI-binary X.509 (PIV 9c) | Signs kernel vmlinuz and custom GRUB | 2 years | Same hardware token (PIV slot 9c); touch-policy enablement planned during the C6 follow-up air-gap session |
 | Machine Owner Key (MOK) | Signs DKMS / out-of-tree modules on the end-user machine | Per-install | **End user** — generated at first-boot by Forge installer; not distro-held |
 
 ## Publication
@@ -80,7 +81,7 @@ Once generated, the release key is published to:
 4. **intergenstudios.com** — TLS-served, maintainer-operated domain.
 5. **Signed announcement** — fingerprint announcement signed by the offline root.
 
-The primary key UID is `Christopher Cork <chris@intergenstudios.com>`; the secondary key UID is `Ethan Bambock <ethan@intergenstudios.com>`. Person-scoped addresses on the project's own domain — not personal provider addresses (gmail, yahoo, etc.). Matches the Debian / Fedora / Arch maintainer convention.
+The primary key UID is `InterGenOS Project Signing Key (primary) <intergenos-primary@intergenstudios.com>` — a project-role identity, not personally-named, on the project's own domain. The secondary key (Ethan's Phase 1 keypair, pending generation) will follow the same project-role-identity convention. Matches the big-distro convention of separating project-signing identity from any individual maintainer's personal correspondence channels.
 
 ## Rollover
 

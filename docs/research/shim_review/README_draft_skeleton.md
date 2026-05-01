@@ -91,8 +91,10 @@ Therefore InterGenOS requires its own shim binary signed by Microsoft with the I
 - **Name:** Christopher Cork
 - **Role:** Founder, primary maintainer
 - **Email:** `security@intergenstudios.com` (role address; mail routed to founder; published in `/.well-known/security.txt` and in the project's `SECURITY.md`)
-- **PGP fingerprint:** __TBD__: <owner-fills evening 2026-04-29 post-PGP-keygen — generated during 2026-04-30 Tails ceremony per `docs/research/installer/signing_key_custody_2026-04-18.md` §"Signing-ceremony checklist">
-- **Key publication:** keys.openpgp.org (target: post-ceremony, before PR open)
+- **PGP key (master):** `46DD 1029 F98F D453 1D44 99C3 A2AF 3A36 C5CE F2C3` (RSA-4096; project-role UID `InterGenOS Project Signing Key (primary) <intergenos-primary@intergenstudios.com>`; generated air-gapped on Tails 7.7 during ceremony 2026-04-30; no expiry on master)
+- **Release-signing subkey [S1]:** `6451 D186 F997 5781 A145 1DE6 7E65 89C3 954F 031F` (Nitrokey 3 NFC, serial `B9753481`; daily-driver release-signing token; 2-year expiry. Touch-policy enablement deferred to post-ceremony hardening pass — recoverable in-place via `gpg --card-edit` without re-keytocarding the subkey; PIN-on-every-use remains active.)
+- **Release-signing subkey [S2]:** `AB6C 6EA3 EDE8 4067 9044 EE5E 237E 35D9 6422 136B` (Nitrokey 3 NFC, serial `43D33126`; redundancy token held in local SDB; 2-year expiry. Touch-policy: same status as [S1].)
+- **Key publication:** Cross-published in this submission and in `docs/signing-key.md` (canonical fingerprint page). Keyserver upload to `keys.openpgp.org` is part of the post-ceremony online-side workflow (target: pre-PR-open).
 
 ---
 
@@ -101,8 +103,8 @@ Therefore InterGenOS requires its own shim binary signed by Microsoft with the I
 - **Name:** Ethan Bambock
 - **Role:** Secondary maintainer (peer-constrained; co-contribution under GitHub-Member access; second PGP contact for vulnerability disclosure)
 - **Confirmed:** 2026-04-20 (per `docs/governance/succession.md`)
-- **Email:** __TBD__: <owner-confirms whether to publish (a) Ethan's personal email, or (b) shared role address `security@intergenstudios.com` with PGP routing to Ethan's key. The privacy-for-solo-dev pattern in `docs/research/installer/ms_shim_sponsorship_2026-04-18.md` §5 supports option (b); shim-review precedent (Debian, Rocky, openSUSE) typically uses personal emails. Owner-decision required before PR open.>
-- **PGP fingerprint:** __TBD__: <Ethan generates Phase 1 of his onboarding checklist; cross-signs with Chris's key per `ms_shim_sponsorship_2026-04-18.md` §2; owner-fills evening 2026-04-29 or following day>
+- **Email:** `security@intergenstudios.com` — shared role address (PGP-signed mail with Ethan's key routes to him for secondary-contact correspondence). Privacy-for-solo-dev pattern per `docs/research/installer/ms_shim_sponsorship_2026-04-18.md` §5; preserves Ethan's individual email from public PR indexing while maintaining external-verifiable secondary-contact channel. The personal address `ethan@intergenstudios.com` is provisioned at the project domain for secondary-maintainer organizational visibility (any direct correspondence routes to Ethan); reviewers are encouraged to use the shared `security@` address for vulnerability disclosure.
+- **PGP fingerprint:** __TBD__: <Ethan generates Phase 1 of his onboarding checklist; cross-signs with Chris's key per `ms_shim_sponsorship_2026-04-18.md` §2; owner-fills post-Phase-1>
 - **Key publication:** keys.openpgp.org (target: pre-PR-open with cross-signature established)
 
 ---
@@ -324,16 +326,16 @@ __GATED__: <Trigger: DeepSeek's B2 build artifact produced. Recorded as `sha256s
 
 Per `docs/research/installer/signing_key_custody_2026-04-18.md` (Section "Signing-ceremony checklist"):
 
-- **Root CA private key (master keypair):** generated air-gapped on a Tails 6.x boot from amnesic USB. Stored only as:
-  - LUKS-encrypted backup on USB drive #1 → home safe
-  - LUKS-encrypted backup on USB drive #2 → bank safety-deposit box (geo-redundancy per D1-3)
-  - Paperkey printout (paperkey CLI tool output) → home safe (alongside LUKS USB #1)
+- **Root CA private key (master keypair):** generated air-gapped on a Tails 7.7 boot from amnesic USB on 2026-04-30. RSA-4096, no expiry on master. UID `InterGenOS Project Signing Key (primary) <intergenos-primary@intergenstudios.com>` (project-role identity). Stored only as:
+  - LUKS-encrypted backup on dedicated USB drive (Drive #3); revocation cert co-resident
+  - Paperkey printout × 2 (one home safe, one offsite via secondary maintainer's location)
   - Never present on any networked machine
-- **Vendor cert subkeys:** generated as subkeys of the root CA, written onto a Nitrokey 3 NFC hardware token. The Nitrokey is the only artifact that travels with the founder and signs day-to-day artifacts. The root key never leaves the air-gapped Tails session.
+- **Release-signing subkeys [S1] and [S2]:** generated as subkeys of the master, keytocarded to two Nitrokey 3 NFC hardware tokens during the same air-gapped session (S1 → Nitrokey #1 daily-driver, S2 → Nitrokey #2 redundancy in local SDB). The Nitrokeys are the only artifacts that travel with the founder; the root key never leaves the air-gapped session.
+- **EFI-binary signing keypair (PIV slot 9c on Nitrokey #1):** **DEFERRED.** Toolchain ecosystem gap with the Nitrokey 3 PIV applet on Tails 7.7 (`yubico-piv-tool` fails firmware fingerprinting on non-Yubico cards; `pkcs11-tool --keypairgen` mechanism not exposed by the opensc PKCS#11 module for Nitrokey PIV). Follow-up air-gap session in flight; pre-validation work on a research-confirmed alternate toolchain is the gating step. Until C6 lands, the EFI signing chain is incomplete (this is the primary remaining blocker for end-to-end Secure Boot trust).
 - **Key-storage policy:** GNOME Keyring / libsecret on operator hosts (where applicable); never plaintext on disk; never embedded in source code or commit messages.
 - **Ephemeral kernel-module signing keys:** see Q19 — these are NOT stored. Auto-generated per kernel build and reaped at build-completion.
 
-The signing ceremony scheduled for 2026-04-30 covers steps 2-5 of the checklist (Tails USB prep, root keygen, subkeys onto Nitrokey, vendor cert into PIV slot 9c, LUKS backups + paperkey).
+The signing ceremony of 2026-04-30 completed steps 2-5 of the checklist (Tails USB prep, root keygen, subkeys [S1]+[S2] onto Nitrokeys, LUKS backups, paperkeys × 2). Step 5b (PIV slot 9c vendor cert) deferred per the toolchain ecosystem gap noted above.
 
 References:
 
@@ -357,12 +359,12 @@ The InterGenOS shim-review path is Path B (community-reviewed → Red Hat batche
 CA properties:
 
 - **CN:** `InterGenOS Secure Boot CA`
-- **Type:** RSA-4096 (key length to confirm post-ceremony)
-- **Generated:** during the 2026-04-30 air-gapped Tails ceremony (per Q26)
-- **Lifetime:** plan is multi-year (5+ years) with documented rotation strategy if compromised or transitioned (per Q21 strategy when first rotation occurs)
+- **Type:** RSA-4096 (planned key length; on-card generation in the PIV slot 9c follow-up session)
+- **Generation status:** **DEFERRED** — the PIV slot 9c keypair generation was NOT completed in the 2026-04-30 ceremony due to a Nitrokey 3 PIV toolchain ecosystem gap on Tails 7.7 (see Q26 for full detail). Follow-up air-gap session in flight on a research-validated alternate toolchain (`piv-tool` from opensc as the candidate primary path, `nitropy nk3 piv` as fallback).
+- **Lifetime:** plan is multi-year (2-5 years) with documented rotation strategy if compromised or transitioned (per Q21 strategy when first rotation occurs)
 - **Use:** signs the InterGenOS-built signed GRUB2 binary AND the InterGenOS-built signed kernel image. Does NOT sign kernel modules (those use ephemeral per-build keys, see Q19).
 
-The CA private key never leaves the air-gapped Tails session (per Q26 custody architecture).
+The CA private key, once generated in the PIV slot 9c follow-up session, will never leave the Nitrokey hardware token (per Q26 custody architecture; on-card generation guarantees private material is hardware-bound from inception).
 
 ---
 
