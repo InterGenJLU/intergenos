@@ -539,6 +539,33 @@ class InstallerTUI:
 
         # Step 7a: MOK keypair generation + enrollment queue (EFI only)
         if self.partitions.get("efi") and self.mok_password:
+            self.message(row, "Validating kernel config for MOK enrollment...", color=4)
+            self.stdscr.refresh()
+            import subprocess
+            # verify keyring-chain Kconfig is intact (C2)
+            # without SECONDARY_TRUSTED_KEYRING + INTEGRITY_MACHINE_KEYRING,
+            # MOK-enrolled keys won't reach the module verification path
+            required = [
+                "CONFIG_SECONDARY_TRUSTED_KEYRING=y",
+                "CONFIG_INTEGRITY_MACHINE_KEYRING=y",
+                "CONFIG_SYSTEM_TRUSTED_KEYRING=y",
+            ]
+            try:
+                with open(f"{self.target}/boot/config-{os.uname().release}", "r") as f:
+                    running_config = f.read()
+            except FileNotFoundError:
+                running_config = ""
+            missing = [k for k in required if k not in running_config]
+            if missing:
+                self.message(row,
+                    f"MOK enrollment cannot proceed: installed kernel is missing "
+                    f"required keyring-chain settings ({', '.join(missing)}). "
+                    f"DKMS modules would silently fail to load after Secure Boot enrollment.",
+                    color=3)
+                self.wait_key(row + 2)
+                return
+            self.message(row, "Validating kernel config for MOK enrollment... ok", color=2)
+
             self.message(row, "Generating Machine Owner Key (MOK)...", color=4)
             self.stdscr.refresh()
             try:

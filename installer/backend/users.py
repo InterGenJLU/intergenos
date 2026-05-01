@@ -1,5 +1,6 @@
 """User account creation for InterGenOS installer."""
 
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -38,7 +39,7 @@ def create_user(target, username, password, groups=None):
         # Create user with home directory
         group_str = ",".join(groups)
         rc, stdout, stderr = run_chroot(target,
-            f"useradd -m -G {group_str} -s /bin/bash {username}"
+            f"useradd -m -G {shlex.quote(group_str)} -s /bin/bash {shlex.quote(username)}"
         )
         if rc != 0 and "already exists" not in stderr:
             raise RuntimeError(f"Failed to create user {username}: {stderr}")
