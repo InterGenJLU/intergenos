@@ -11,7 +11,7 @@
 # snapshot-diff manifest tracking — a no-op build means zero new files,
 # which the tracker correctly rejects ("No new files detected"). The
 # skip-logic also produced installs without manifests, breaking the
-# audit trail required by HOLY GRAIL. Removed in favor of always-rebuild
+# audit trail required by the project's security-only alignment. Removed in favor of always-rebuild
 # semantics (16-min cost per build cycle, predictable manifest output).
 
 FRAG_DIR="/mnt/intergenos/config/kernel/fragments"
