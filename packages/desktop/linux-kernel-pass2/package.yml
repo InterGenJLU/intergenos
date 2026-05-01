@@ -8,7 +8,6 @@ tier: desktop
 build_style: custom
 install_func: do_install
 direct_install: true
-skip_tracking: true
 source:
 - url: https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${version}.tar.xz
   sha256: d6d377161741ada2fab28eed69143277634a2aeb5e3883e50c031588ede48ede
