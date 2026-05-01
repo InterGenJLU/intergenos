@@ -21,7 +21,14 @@ import secrets
 import subprocess
 from pathlib import Path
 
-from .hooks import mount_virtual_fs, unmount_virtual_fs, run_chroot, run_chroot_stdin
+from .hooks import (
+    mount_virtual_fs,
+    unmount_virtual_fs,
+    mount_efivars,
+    unmount_efivars,   # batch 1 fix: C1 efivars mount around mokutil
+    run_chroot,
+    run_chroot_stdin,
+)
 
 
 MOK_DIR = "/var/lib/intergen/mok"
@@ -138,7 +145,17 @@ def queue_mok_enrollment(target, der_path, password):
     cmd = f"mokutil --import {der_path}"
     stdin_data = f"{password}\n{password}\n"
 
-    rc, stdout, stderr = run_chroot_stdin(str(target), cmd, stdin_data)
+    # Mount efivars so mokutil can write EFI variables (C1).
+    # same pattern as bootloader.py:197 — the chroot needs
+    # /sys/firmware/efi/efivars accessible to stage the MOK
+    # enrollment for next boot.
+    mount_efivars(target)
+
+    try:
+        rc, stdout, stderr = run_chroot_stdin(str(target), cmd, stdin_data)
+    finally:
+        unmount_efivars(target)
+
     if rc != 0:
         raise RuntimeError(f"mokutil --import failed: {stderr}")
 
