@@ -553,7 +553,9 @@ class BuildExecutor(PackageTracker):
             self.logger.start_phase("track")
 
             if pkg.direct_install:
-                # Diff-based tracking: compare before/after filesystem snapshots
+                # Diff-based tracking: compare before/after filesystem snapshots.
+                # Files are already on /. pkm SQLite registration runs at
+                # gate-3 (post-verify) per RFC §4a — same gate as staged.
                 self.logger.info("Taking post-build filesystem snapshot...")
                 fs_after = self.fs_snapshot()
                 new_files = sorted(fs_after - fs_before)
@@ -568,10 +570,16 @@ class BuildExecutor(PackageTracker):
                 elif not self.pkg_verify(pkg):
                     success = False
                     self.logger.end_phase("track", 1)
+                elif not self.pkg_register_pkm_db(pkg):
+                    success = False
+                    self.logger.end_phase("track", 1)
                 else:
                     self.logger.end_phase("track", 0)
             else:
-                # DESTDIR staging: manifest, archive, deploy, verify
+                # DESTDIR staging: manifest, archive, deploy, verify, register.
+                # pkm SQLite write-through happens at gate-3 (after deploy
+                # succeeds) so a deploy failure cannot leave pkm with a
+                # record for an undeployed package (RFC §4a).
                 staging_dir = self.pkg_staging / f"{pkg.name}-{pkg.version}"
 
                 if not self.pkg_manifest(pkg, staging_dir):
@@ -584,6 +592,9 @@ class BuildExecutor(PackageTracker):
                     success = False
                     self.logger.end_phase("track", 1)
                 elif not self.pkg_verify(pkg):
+                    success = False
+                    self.logger.end_phase("track", 1)
+                elif not self.pkg_register_pkm_db(pkg):
                     success = False
                     self.logger.end_phase("track", 1)
                 else:

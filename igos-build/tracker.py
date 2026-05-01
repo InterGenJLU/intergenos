@@ -118,12 +118,12 @@ class PackageTracker:
             f"{len(file_hashes)} hashed)"
         )
 
-        # pkm SQLite write-through (RFC §3d). Paths are relative; the DB
-        # stores them without leading /. For supersede packages, the
-        # ownership transfer + retire-marker happen atomically here so
-        # the chroot's pkm.db reflects the supersede state when packaged.
-        if not self._write_pkm_db(pkg, file_paths, file_hashes):
-            return False
+        # Stash for pkg_register_pkm_db, which the builder calls at gate-3
+        # (after pkg_deploy succeeds). Writing the DB here would violate
+        # RFC §4a — a deploy failure would leave pkm with a record for an
+        # undeployed package.
+        self._pending_pkm_paths = file_paths
+        self._pending_pkm_hashes = file_hashes
 
         return True
 
@@ -493,13 +493,45 @@ class PackageTracker:
             f"{len(file_hashes)} hashed)"
         )
 
-        # pkm SQLite write-through (RFC §3d). file_paths here are relative
-        # (no leading /), matching pkm DB convention.
+        # Stash for pkg_register_pkm_db. For direct_install packages the
+        # install already happened (gate-3 effectively), so registration
+        # could run here — but builder calls pkg_register_pkm_db
+        # uniformly for both flows so reviewers see one gate.
         rel_paths = [p.lstrip("/") for p in new_files]
-        if not self._write_pkm_db(pkg, rel_paths, file_hashes):
-            return False
+        self._pending_pkm_paths = rel_paths
+        self._pending_pkm_hashes = file_hashes
 
         return True
+
+    def pkg_register_pkm_db(self, pkg: Package) -> bool:
+        """Final TRACK-phase step: write pkm SQLite at gate-3 (post-deploy).
+
+        Reads file paths + per-file SHA-256 hashes that pkg_manifest /
+        pkg_manifest_from_diff stashed on the executor. Per RFC §4a, this
+        runs ONLY after the deploy step has succeeded — a deploy failure
+        leaves pkm DB untouched, so the package state is honest: no
+        record claims files that aren't on disk.
+
+        For supersede packages, runs the atomic ownership transfer and
+        predecessor retirement inside a single SQLite transaction. A
+        failure here rolls the entire supersede back and surfaces an
+        error; the deployed files are on disk but pkm has not yet
+        accounted for them, so a re-run can complete the registration
+        cleanly.
+        """
+        rel_paths = getattr(self, "_pending_pkm_paths", None)
+        file_hashes = getattr(self, "_pending_pkm_hashes", None)
+        if rel_paths is None or file_hashes is None:
+            self.logger.error(
+                f"pkg_register_pkm_db called without pending paths/hashes — "
+                f"pkg_manifest or pkg_manifest_from_diff must run first"
+            )
+            return False
+        result = self._write_pkm_db(pkg, rel_paths, file_hashes)
+        # Clear the stash so a subsequent package can't accidentally inherit
+        self._pending_pkm_paths = None
+        self._pending_pkm_hashes = None
+        return result
 
     def _write_pkm_db(self, pkg: Package, rel_paths: list[str],
                        file_hashes: dict[str, str]) -> bool:
