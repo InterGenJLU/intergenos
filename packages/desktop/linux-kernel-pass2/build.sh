@@ -5,33 +5,18 @@
 # This pass rebuilds with all fragments merged, ensuring USB_STORAGE=y,
 # RTW88 bus parents, RTW89, and all overrides are applied.
 #
-# SKIP LOGIC: Only rebuilds if the config fragments have changed since
-# the last successful build. A 16-minute kernel rebuild that produces
-# an identical kernel wastes the user's time.
+# Note on the previously-removed SKIP-LOGIC: an earlier optimization
+# checked a checksum of the config fragments and short-circuited the
+# build if unchanged. That collided with the framework's filesystem-
+# snapshot-diff manifest tracking — a no-op build means zero new files,
+# which the tracker correctly rejects ("No new files detected"). The
+# skip-logic also produced installs without manifests, breaking the
+# audit trail required by HOLY GRAIL. Removed in favor of always-rebuild
+# semantics (16-min cost per build cycle, predictable manifest output).
 
 FRAG_DIR="/mnt/intergenos/config/kernel/fragments"
-CHECKSUM_FILE="/var/lib/igos/.kernel-pass2-config-checksum"
 
 configure() {
-    # Check if config fragments changed since last successful build
-    local current_checksum
-    current_checksum=$(cat "$FRAG_DIR"/*.config | sha256sum | cut -d' ' -f1)
-
-    if [ -f "$CHECKSUM_FILE" ]; then
-        local stored_checksum
-        stored_checksum=$(cat "$CHECKSUM_FILE")
-        if [ "$current_checksum" = "$stored_checksum" ]; then
-            echo "  Kernel config fragments unchanged — skipping rebuild"
-            echo "  (stored: ${stored_checksum:0:16}... current: ${current_checksum:0:16}...)"
-            # Signal to build/install that we should skip
-            touch /tmp/.kernel-pass2-skip
-            return 0
-        fi
-    fi
-
-    echo "  Config fragments changed — rebuilding kernel"
-    rm -f /tmp/.kernel-pass2-skip
-
     make mrproper
 
     # Merge ALL config fragments (baseline + overrides)
@@ -45,14 +30,14 @@ configure() {
 }
 
 build() {
-    [ -f /tmp/.kernel-pass2-skip ] && return 0
     make -j${IGOS_JOBS}
 }
 
 do_install() {
-    [ -f /tmp/.kernel-pass2-skip ] && return 0
-
-    # Overwrite pass 1 kernel and modules
+    # Overwrite pass 1 kernel and modules. Direct-install package
+    # (per package.yml direct_install: true) — files land in /boot
+    # and /lib/modules; framework's FS-snapshot-diff generates the
+    # manifest from observed new files.
     make modules_install
 
     install -vm755 -d /boot
@@ -61,7 +46,4 @@ do_install() {
     cp -v .config /boot/config-6.18.10
 
     depmod 6.18.10
-
-    # Store checksum so next run knows nothing changed
-    cat "$FRAG_DIR"/*.config | sha256sum | cut -d' ' -f1 > "$CHECKSUM_FILE"
 }
