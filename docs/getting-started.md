@@ -43,10 +43,10 @@ We recommend using [Rufus](https://rufus.ie) or [balenaEtcher](https://balena.io
 
 1.  Insert the USB drive and boot your machine.
 2.  Enter your UEFI/BIOS boot menu (often F12, F11, or F8) and select the USB drive.
-3.  Secure Boot should be **enabled**. The InterGenOS bootloader is signed by Microsoft and will boot cleanly.
+3.  Secure Boot should be **enabled**. InterGenOS uses a Microsoft-signed shim to anchor the trust chain through to the InterGenOS-signed bootloader and kernel; no manual key enrollment required for in-tree modules.
 4.  The system will boot into the **Forge Installer** TUI (Text User Interface).
 5.  Follow the prompts to partition your disk, set your hostname, and create your user account.
-6.  **MOK Enrollment:** During installation, Forge will prompt you to enroll the InterGenOS Machine Owner Key (MOK). This is required to trust the InterGenOS kernel. You must accept this enrollment and follow the on-screen instructions.
+6.  **MOK Enrollment:** During installation, Forge will prompt you to enroll the InterGenOS Machine Owner Key (MOK). This is required if you plan to use DKMS or build out-of-tree kernel modules. You must accept this enrollment and follow the on-screen instructions.
 
 *(For a detailed walkthrough of the installation process, see [docs/install-guide.md](install-guide.md) - coming soon).*
 
