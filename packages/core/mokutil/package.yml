@@ -8,8 +8,9 @@ tier: core
 build_style: autotools
 install_func: do_install
 source:
-- url: https://github.com/lcp/mokutil/releases/download/${version}/mokutil-${version}.tar.gz
-  sha256: VERIFY_ON_FIRST_BUILD
+- url: https://github.com/lcp/mokutil/archive/refs/tags/${version}.tar.gz
+  filename: mokutil-${version}.tar.gz
+  sha256: 839d677c4fc9805f1565703ca32863e4652692c53da66a88ae9b9e30676f9e17
 dependencies:
   build:
   - efivar

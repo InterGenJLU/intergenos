@@ -1,16 +1,16 @@
 name: apparmor
-version: "3.0.8"
-release: 2
+version: "3.1.7"
+release: 1
 description: AppArmor profile set for InterGenOS (base + custom profiles)
 license: GPL-2.0-only
 homepage: https://gitlab.com/apparmor/apparmor
 tier: core
 build_style: custom
 source:
-- url: http://deb.debian.org/debian/pool/main/a/apparmor/apparmor_3.0.8-3.orig.tar.gz
-  sha256: e8eb1077e0892cdd74d53866f20b332b0dd89bc9f53e3cb8e30f1d07c087cfc1
-- url: http://deb.debian.org/debian/pool/main/a/apparmor-profiles-extra/apparmor-profiles-extra_1.35.tar.xz
-  sha256: d187b5a8e0fba2cbb8dfed8ecb5afcdfc15a452ef4efbca63fcf12e026e84d41
+- url: https://gitlab.com/apparmor/apparmor/-/archive/v${version}/apparmor-v${version}.tar.gz
+  sha256: 64494bd99fa6547a9cbdb4fc6bc732451a02dd19e6eb70eab977b239632151eb
+- url: https://deb.debian.org/debian/pool/main/a/apparmor-profiles-extra/apparmor-profiles-extra_1.35.tar.xz
+  sha256: 31d0a65d2c1c0c8dc91d87437020bf4341b6bb1c8d324944628d6fc629039165
 dependencies:
   build: []
   host: []
