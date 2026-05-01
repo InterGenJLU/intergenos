@@ -7,8 +7,6 @@ homepage: https://lame.sourceforge.io/
 tier: desktop
 build_style: custom
 install_func: do_install
-direct_install: true
-skip_tracking: true
 source:
 - url: https://downloads.sourceforge.net/lame/lame-${version}.tar.gz
   sha256: ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e
