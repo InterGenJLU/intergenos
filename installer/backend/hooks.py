@@ -156,10 +156,11 @@ def run_post_install_hooks(target, packages_dir, progress_callback=None):
                 progress_callback(i, total, hook["name"])
 
             # Build the chroot command
-            pkg_path = f"/tmp/installer-packages/{hook['tier']}/{hook['name']}/build.sh"
+            import shlex
+            pkg_path = f"/tmp/installer-packages/{shlex.quote(hook['tier'])}/{shlex.quote(hook['name'])}/build.sh"
             cmd = (
-                f"export PKG_VERSION='{hook['version']}' && "
-                f"export version='{hook['version']}' && "
+                f"export PKG_VERSION={shlex.quote(hook['version'])} && "
+                f"export version={shlex.quote(hook['version'])} && "
                 f"source {pkg_path} && "
                 f"post_install"
             )
