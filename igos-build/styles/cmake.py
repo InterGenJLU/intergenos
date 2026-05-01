@@ -17,7 +17,13 @@ class CMakeStyle(BuildStyle):
 
     def configure(self, pkg: Package) -> BuildPhase:
         flags = " \\\n    ".join(shlex.quote(f) for f in pkg.configure_flags) if pkg.configure_flags else ""
-        base = "cmake -B build -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release"
+        # CMake 4.x removed compatibility with cmake_minimum_required(VERSION <3.5).
+        # Auto-inject CMAKE_POLICY_VERSION_MINIMUM=3.5 so older CMakeLists.txt
+        # files (libqrencode etc.) configure cleanly without per-package patches.
+        # Per CMake's own error-message workaround. Safe to set globally because
+        # it only affects packages whose minimum version is below 3.5; modern
+        # packages ignore it.
+        base = "cmake -B build -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release"
 
         if flags:
             cmd = f"{base} \\\n    {flags}"
