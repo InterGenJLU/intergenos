@@ -7,6 +7,7 @@
 - `__FILLED__` items have substantive content per SPOC directive items 1-7.
 - `__TBD__: <reason>` items need owner-fill or follow-up work (e.g., PGP fingerprints, Ethan's email format choice).
 - `__GATED__: <trigger>` items wait until specific milestones (e.g., DeepSeek's B2 Dockerfile build, SBAT generation extraction from binary).
+- **Kernel-config fragment terms:** `00-universal-baseline.config` is the cross-distro convergence baseline (Ubuntu/Arch/Fedora/Debian/openSUSE intersection of recommended hardening), applied first. `99-intergenos-overrides.config` is applied second and takes precedence — concatenation order in `packages/core/linux-kernel/build.sh:36` followed by `make olddefconfig`. Per-line citations like `99-intergenos-overrides.config:122` reference the exact line in the override fragment where each setting is defined; the final compiled kernel `.config` is the merged result.
 - Inline citations point at this repo's existing research (`docs/research/installer/...`, `docs/grub2-cve-audit.md`, etc.) so reviewers can audit the trail.
 
 **Audit-gap discovery + resolution (Q17):** during template population, this draft surfaced an InterGenOS kernel-config gap — baseline set `CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y` without `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` that Ubuntu/OpenSUSE/Fedora all ship, leaving lockdown=integrity not auto-triggered under Secure Boot. SPOC-ratified Path 1 resolution (one-line override addition) merged to master at commit `baf84d8` (`config/kernel/fragments/99-intergenos-overrides.config:130`). See Q17 body for full enforcement description + resolution audit-trail.
@@ -265,6 +266,13 @@ Per `docs/ephemeral-module-signing.md` (referenced in `99-intergenos-overrides.c
 - **The ephemeral key is reaped at end of kernel build.** The build script generates the keypair, signs modules, embeds the pubkey in `vmlinuz`, and unlinks the private-key file before the build artifact (kernel image + module set) is packaged. The ephemeral key has no on-disk persistence past the build.
 - **The ephemeral key is distinct from the vendor cert embedded in shim.** The vendor cert in shim is the long-lived InterGenOS Secure Boot CA; the ephemeral module key is a per-build, per-kernel-image short-lived cert chained to the kernel image's public-key certificate (not to the vendor cert).
 - **Module signature validation:** the kernel image's built-in keyring contains the matching pubkey. `CONFIG_MODULE_SIG_FORCE=y` (`99-intergenos-overrides.config:117`) ensures unsigned-module load is HARD-rejected (not warn-and-load).
+- **The kernel image (`vmlinuz`) itself is signed by the InterGenOS vendor cert** — the same X.509 cert embedded in shim's `vendor_cert` slot. This anchors the trust chain end-to-end:
+  1. **shim** verifies **GRUB2** via the embedded `vendor_cert` (Secure Boot signature on `grubx64.efi`).
+  2. **GRUB2** verifies **`vmlinuz`** against the same vendor-cert chain (Secure Boot signature on the kernel EFI binary, applied via `sbsign` at release time per `docs/signing-procedure.md`).
+  3. **`vmlinuz`** contains the per-build ephemeral module-signing pubkey in its `.builtin_trusted_keys` keyring.
+  4. **kernel modules** are verified at load time against that embedded pubkey under `CONFIG_MODULE_SIG_FORCE=y`.
+
+  The ephemeral pubkey inherits its trust by being embedded in a vendor-cert-signed kernel image — not from a separate MOK enrollment, not from a `db` entry. **No MOK enrollment is required for InterGenOS in-tree modules to load** under Secure Boot. (For DKMS / out-of-tree modules, the user-side MOK chain via `CONFIG_SECONDARY_TRUSTED_KEYRING=y` applies; see `docs/ephemeral-module-signing.md` "User-Side DKMS / Out-of-Tree Modules".)
 - **`CONFIG_MODULE_SIG_KEY` is intentionally unset** (`99-intergenos-overrides.config:118`). This forces the kernel build process to auto-generate the ephemeral keypair on every build, rather than reusing a long-lived signing key.
 
 **Why this matters for shim-review:** the ephemeral approach eliminates a long-lived module-signing key as a leak surface. There is no key file to leak because there is no persistent module-signing key. Per-build keys are the strongest available posture for module-signing trust, at the cost of preventing post-build module sideloading (which InterGenOS rejects anyway via `MODULE_SIG_FORCE=y`).
