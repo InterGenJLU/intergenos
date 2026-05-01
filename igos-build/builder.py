@@ -473,11 +473,21 @@ class BuildExecutor(PackageTracker):
             )
             return False
 
-        # Snapshot filesystem before build (for direct_install diff tracking)
+        # Snapshot filesystem before build (for direct_install diff tracking).
+        # If the package declares supersedes, exclude the supersedee's tracked
+        # paths from the snapshot so writes that overlap appear net-new (per
+        # RFC §3a — supersedes-aware snapshot exclusion).
         fs_before = None
+        build_start_time = time.time()  # used downstream for overwrite detection
         if self.tracked and pkg.direct_install:
             self.logger.info("Taking pre-build filesystem snapshot...")
-            fs_before = self.fs_snapshot()
+            exclude_paths = self._get_supersedee_paths(pkg) if pkg.supersedes else None
+            if exclude_paths:
+                self.logger.info(
+                    f"  excluding {len(exclude_paths)} supersedee paths "
+                    f"({', '.join(pkg.supersedes)})"
+                )
+            fs_before = self.fs_snapshot(exclude_paths=exclude_paths)
 
         # --- Extract source ---
         self.logger.start_phase("extract")
@@ -543,12 +553,15 @@ class BuildExecutor(PackageTracker):
             self.logger.start_phase("track")
 
             if pkg.direct_install:
-                # Diff-based tracking: compare before/after filesystem snapshots
+                # Diff-based tracking: compare before/after filesystem snapshots.
+                # Files are already on /. pkm SQLite registration runs at
+                # gate-3 (post-verify) per RFC §4a — same gate as staged.
                 self.logger.info("Taking post-build filesystem snapshot...")
                 fs_after = self.fs_snapshot()
                 new_files = sorted(fs_after - fs_before)
 
-                if not self.pkg_manifest_from_diff(pkg, fs_before, fs_after):
+                if not self.pkg_manifest_from_diff(pkg, fs_before, fs_after,
+                                                    build_start_time=build_start_time):
                     success = False
                     self.logger.end_phase("track", 1)
                 elif not self.pkg_archive_from_files(pkg, new_files):
@@ -557,10 +570,16 @@ class BuildExecutor(PackageTracker):
                 elif not self.pkg_verify(pkg):
                     success = False
                     self.logger.end_phase("track", 1)
+                elif not self.pkg_register_pkm_db(pkg):
+                    success = False
+                    self.logger.end_phase("track", 1)
                 else:
                     self.logger.end_phase("track", 0)
             else:
-                # DESTDIR staging: manifest, archive, deploy, verify
+                # DESTDIR staging: manifest, archive, deploy, verify, register.
+                # pkm SQLite write-through happens at gate-3 (after deploy
+                # succeeds) so a deploy failure cannot leave pkm with a
+                # record for an undeployed package (RFC §4a).
                 staging_dir = self.pkg_staging / f"{pkg.name}-{pkg.version}"
 
                 if not self.pkg_manifest(pkg, staging_dir):
@@ -573,6 +592,9 @@ class BuildExecutor(PackageTracker):
                     success = False
                     self.logger.end_phase("track", 1)
                 elif not self.pkg_verify(pkg):
+                    success = False
+                    self.logger.end_phase("track", 1)
+                elif not self.pkg_register_pkm_db(pkg):
                     success = False
                     self.logger.end_phase("track", 1)
                 else:
