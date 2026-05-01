@@ -17,3 +17,6 @@ dependencies:
   - libyaml
   host: []
   runtime: []
+
+supersedes:
+  - pyyaml

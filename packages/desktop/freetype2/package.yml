@@ -18,3 +18,11 @@ dependencies:
   - which
   host: []
   runtime: []
+
+# Reversed-naming case: this package is the SUCCESSOR (the version with
+# HarfBuzz support); the predecessor is freetype2-pass1 (the minimal
+# version built early to break the freetype2 ↔ harfbuzz cycle). Other
+# pass1/pass2 pairs put the successor under "-pass2" — freetype2 keeps
+# the canonical short name on the successor side.
+supersedes:
+  - freetype2-pass1

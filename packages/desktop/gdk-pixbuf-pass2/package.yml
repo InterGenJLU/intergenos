@@ -21,3 +21,6 @@ dependencies:
   - glycin
   host: []
   runtime: []
+
+supersedes:
+  - gdk-pixbuf
