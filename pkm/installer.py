@@ -122,7 +122,7 @@ class PackageInstaller:
             )
             if predecessors_to_supersede is None:
                 return False, (
-                    f"Install-order invariant violated: {name} declares "
+                    f"install-order invariant violated: {name} declares "
                     f"supersedes for a predecessor that is later in the install "
                     f"queue. Reorder the queue so the predecessor installs first."
                 )
@@ -280,8 +280,9 @@ class PackageInstaller:
         Returns:
             list of installed-record dicts for predecessors to supersede, OR
             None if the install-order invariant was violated (predecessor
-            named, not yet installed, but appears LATER than this package
-            in the install queue — manifest inversion would result).
+            named appears LATER than this package in the install queue —
+            manifest inversion would result, regardless of whether the
+            predecessor is currently installed from a prior batch).
 
         Missing-predecessor and already-superseded predecessor cases
         surface warnings on stderr and are skipped (RFC §11).
@@ -290,25 +291,25 @@ class PackageInstaller:
         queue_list = list(queue) if queue is not None else None
 
         for pred_name in supersedes_decl:
+            if (
+                queue_list is not None
+                and name in queue_list
+                and pred_name in queue_list
+            ):
+                my_pos = queue_list.index(name)
+                pred_pos = queue_list.index(pred_name)
+                if pred_pos > my_pos:
+                    return None
+
             pred = self.db.get_installed(pred_name)
             if pred is None:
                 if queue_list is not None and pred_name in queue_list:
-                    try:
-                        my_pos = queue_list.index(name)
-                        pred_pos = queue_list.index(pred_name)
-                        if pred_pos > my_pos:
-                            return None
-                        # Predecessor earlier in queue but not yet installed —
-                        # likely a build-dep miss or skipped predecessor;
-                        # warn but allow.
-                        print(
-                            f"  WARNING: {pred_name} is earlier in install queue "
-                            f"than {name} but is not yet registered. Proceeding "
-                            f"with missing-supersedee semantics for this entry.",
-                            file=sys.stderr,
-                        )
-                    except ValueError:
-                        pass
+                    print(
+                        f"  WARNING: {pred_name} is earlier in install queue "
+                        f"than {name} but is not yet registered. Proceeding "
+                        f"with missing-supersedee semantics for this entry.",
+                        file=sys.stderr,
+                    )
                 else:
                     print(
                         f"  WARNING: {name} declares supersedes:[{pred_name}] but "
