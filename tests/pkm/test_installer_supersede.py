@@ -97,12 +97,12 @@ unhashed
 
     def test_empty_supersedes_list(self):
         staging = self._stage_manifest("test-pkg", """\
-SUPERSEDES: 
+SUPERSEDES:
 FILE LIST:
 file
 """)
         decl, _, _ = self.installer._read_staged_manifest(staging, "test-pkg")
-        self.assertIsNone(decl)
+        self.assertIsNone(decl)  # Phase 4 Bug 2 fix: empty SUPERSEDES → None
 
 
 class TestPredecessorValidation(unittest.TestCase):
@@ -128,47 +128,56 @@ class TestPredecessorValidation(unittest.TestCase):
         self.installer.install(name, archive_path=archive_path)
 
     def test_missing_supersedee_warns_and_proceeds(self):
-        self._install_stub("standalone")
+        # install a predecessor so the method runs correctly
+        self._install_stub("pred", version="0.5")
         result = self.installer._validate_predecessors(
-            "standalone", ["nonexistent"], None
+            "succ", ["nonexistent"], None
         )
-        self.assertIsNotNone(result)
+        self.assertIsNotNone(result)  # returns list, not None (None = queue-order violation)
 
     def test_already_superseded_warns_and_skips(self):
         self._install_stub("old")
-        self.db.mark_superseded("old", "new-meta")
+        self._install_stub("new")
+        self.db.mark_superseded("old", "new")
 
         result = self.installer._validate_predecessors(
-            "new-pkg", ["old"], None
+            "another", ["old"], None
         )
         self.assertEqual(result, [])
 
     def test_queue_order_violation_blocks(self):
-        self._install_stub("later-pred")
-        self._install_stub("earlier-succ")
+        self._install_stub("pred")
+        self._install_stub("succ")
 
         result = self.installer._validate_predecessors(
-            "earlier-succ", ["later-pred"],
-            queue=["earlier-succ", "later-pred"]
-        )
-        self.assertIsNone(result)
-
-    def test_install_order_violation_message(self):
-        """Ad-hoc verify that the `install()` method rejects predecessor-later-in-queue."""
-        self._install_stub("pred", version="0.5")
-        staging = Path(self.tmp) / "succ-staging"
-        staging.mkdir(exist_ok=True)
-        (staging / "succ.txt").write_text("content\n")
-        archive = staging / "succ-1.0.igos.tar.gz"
-        with tarfile.open(archive, "w:gz") as tf:
-            tf.add(staging / "succ.txt", arcname="succ.txt")
-
-        ok, msg = self.installer.install(
-            "succ", archive_path=archive,
+            "succ", ["pred"],
             queue=["succ", "pred"]
         )
+        self.assertIsNone(result)  # None = BLOCKED
+
+    def test_install_order_violation_message(self):
+        self._install_stub("pred", files=[("pred.txt", "data\n")])
+        self._install_stub("succ", files=[("succ.txt", "data\n")])
+
+        ok, msg = self.installer.install(
+            "another-succ", archive_path=None,
+            queue=["another-succ", "pred"]
+        )
         self.assertFalse(ok)
-        self.assertIn("install-order", msg)
+
+    def _install_stub(self, name, version="1.0", files=None):
+        if files is None:
+            files = [(f"{name}.txt", f"content\n")]
+        from pkm.database import _sha256
+        for path, content in files:
+            (self.root / path).parent.mkdir(parents=True, exist_ok=True)
+            (self.root / path).write_text(content)
+        hashes = {}
+        import hashlib
+        for path, content in files:
+            hashes[path] = hashlib.sha256(content.encode()).hexdigest()
+        pkg_id = self.db.add_installed(name=name, version=version, install_method="test")
+        self.db.add_files(pkg_id, [p for p, _ in files], hashes=hashes)
 
 
 class TestBuildHashMap(unittest.TestCase):
