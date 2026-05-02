@@ -23,7 +23,7 @@ from pathlib import Path
 
 # Reuse pkm's hash function to guarantee tracker/verifier parity
 # (GP review nit, RFC ratification 2026-05-01).
-from pkm.database import _sha256, PackageDB
+from pkm.database import _sha256, PackageDB, _parse_manifest_line
 
 from .parser import Package
 
@@ -259,12 +259,12 @@ class PackageTracker:
             if in_file_list and line.strip():
                 if line.endswith("/"):
                     continue
-                # Manifest entries (RFC v1, 2026-05-01) use format
-                # "path sha256:HEX". Strip the hash suffix to get the bare
-                # path before checking existence — same parsing pattern as
-                # pkm/installer.py:_read_staged_manifest and the sibling
-                # _parse_manifest_paths method below.
-                filepath = "/" + line.strip().split(None, 1)[0]
+                # _parse_manifest_line handles paths with whitespace correctly
+                # (anchors hash suffix at end-of-line via regex). Linux-firmware
+                # surfaced this — files like "brcmfmac43455-sdio.Raspberry Pi
+                # Foundation-Raspberry Pi 4 Model B.txt.xz" have spaces.
+                path, _h = _parse_manifest_line(line)
+                filepath = "/" + path
                 if not os.path.lexists(filepath):
                     missing.append(filepath)
 
@@ -359,7 +359,8 @@ class PackageTracker:
                 continue
             if not in_files or not stripped:
                 continue
-            entry = stripped.split(None, 1)[0]
+            # _parse_manifest_line handles paths with whitespace correctly.
+            entry, _h = _parse_manifest_line(line)
             if entry.endswith("/"):
                 continue
             paths.add("/" + entry.lstrip("/"))

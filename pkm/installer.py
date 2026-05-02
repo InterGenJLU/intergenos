@@ -32,7 +32,13 @@ import tarfile
 import tempfile
 from pathlib import Path
 
-from .database import PackageDB, ARCHIVE_DIR, MANIFEST_DIR, _sha256
+from .database import (
+    PackageDB,
+    ARCHIVE_DIR,
+    MANIFEST_DIR,
+    _sha256,
+    _parse_manifest_line,
+)
 
 
 class PackageInstaller:
@@ -267,11 +273,12 @@ class PackageInstaller:
             elif line.strip() == "FILE LIST:":
                 in_files = True
             elif in_files and line.strip():
-                parts = line.strip().split(None, 1)
-                path = parts[0]
+                # _parse_manifest_line handles paths with whitespace correctly
+                # (anchors hash suffix at end-of-line via regex).
+                path, h = _parse_manifest_line(line)
                 files.append(path)
-                if len(parts) > 1 and parts[1].startswith("sha256:"):
-                    hashes[path.rstrip("/")] = parts[1][len("sha256:"):]
+                if h is not None:
+                    hashes[path.rstrip("/")] = h
         return supersedes, files, hashes
 
     def _validate_predecessors(self, name, supersedes_decl, queue):

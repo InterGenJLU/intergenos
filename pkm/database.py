@@ -15,6 +15,32 @@ DB_PATH = Path("/var/lib/igos/pkm.db")
 MANIFEST_DIR = Path("/var/lib/igos/packages")
 ARCHIVE_DIR = Path("/var/lib/igos/archives")
 
+
+# Regex for sha256 suffix in manifest FILE LIST entries (RFC v1, 2026-05-01).
+# Anchored at end-of-line with a leading space + literal "sha256:" + 64 hex
+# chars. This handles paths containing whitespace correctly (e.g.,
+# linux-firmware files like "brcmfmac43455-sdio.Raspberry Pi Foundation-...txt.xz")
+# where naive whitespace-split parsers truncate the path.
+_SHA256_SUFFIX_RE = re.compile(r' sha256:([0-9a-f]{64})$')
+
+
+def _parse_manifest_line(line):
+    """Parse a manifest FILE LIST entry into (path, sha256_or_none).
+
+    Manifest format (RFC v1, 2026-05-01):
+      "path/"           → directory entry, no hash
+      "path"            → file entry without hash (typically symlink)
+      "path sha256:HEX" → file entry with sha256 hash (HEX is 64 hex chars)
+
+    Paths may contain whitespace; anchoring the hash suffix at end-of-line
+    via regex is correct, splitting on first whitespace is not.
+    """
+    line = line.rstrip("\n")
+    m = _SHA256_SUFFIX_RE.search(line)
+    if m:
+        return line[:m.start()], m.group(1)
+    return line, None
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS installed (
     id INTEGER PRIMARY KEY,
@@ -583,13 +609,13 @@ def _parse_manifest(content):
         elif line.strip() == "FILE LIST:":
             in_files = True
         elif in_files and line.strip():
-            # Each file entry is "<path>" or "<path> sha256:<hex>". Whitespace
-            # split on first space gives path + optional hash annotation.
-            parts = line.strip().split(None, 1)
-            path = parts[0]
+            # Each file entry is "<path>", "<path>/", or "<path> sha256:<hex>".
+            # _parse_manifest_line anchors the hash suffix at end-of-line so
+            # paths containing whitespace parse correctly.
+            path, h = _parse_manifest_line(line)
             files.append(path)
-            if len(parts) > 1 and parts[1].startswith("sha256:"):
-                file_hashes[path] = parts[1][len("sha256:"):]
+            if h is not None:
+                file_hashes[path] = h
 
     meta["files"] = files
     meta["file_hashes"] = file_hashes
