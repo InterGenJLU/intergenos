@@ -380,8 +380,13 @@ class PackageDB:
     # ------------------------------------------------------------------
 
     def log_operation(self, operation, package_name, old_version=None,
-                      new_version=None, method=None, success=True):
-        """Log a package operation."""
+                      new_version=None, method=None, success=True, commit=True):
+        """Log a package operation.
+
+        commit: when True (default), commit immediately. Set to False when
+        called inside an outer transaction (e.g. atomic supersede in the
+        installer), so the caller manages BEGIN/COMMIT/ROLLBACK.
+        """
         now = datetime.now(timezone.utc).isoformat()
         self.conn.execute(
             """INSERT INTO history
@@ -389,7 +394,8 @@ class PackageDB:
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (now, operation, package_name, old_version, new_version, method, success)
         )
-        self.conn.commit()
+        if commit:
+            self.conn.commit()
 
     def get_history(self, package_name=None, limit=50):
         """Get operation history."""
