@@ -259,7 +259,12 @@ class PackageTracker:
             if in_file_list and line.strip():
                 if line.endswith("/"):
                     continue
-                filepath = "/" + line
+                # Manifest entries (RFC v1, 2026-05-01) use format
+                # "path sha256:HEX". Strip the hash suffix to get the bare
+                # path before checking existence — same parsing pattern as
+                # pkm/installer.py:_read_staged_manifest and the sibling
+                # _parse_manifest_paths method below.
+                filepath = "/" + line.strip().split(None, 1)[0]
                 if not os.path.lexists(filepath):
                     missing.append(filepath)
 
