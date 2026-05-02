@@ -273,16 +273,16 @@ run_package "openssh" "openssh" "10.2p1" \
 #   glib2-bootstrap (no introspection) → gobject-introspection → glib2 (full)
 # Each is a standard DESTDIR build. No hacks needed.
 
-run_package "glib2-bootstrap" "glib2-bootstrap" "2.86.4" \
-    "glib-2.86.4.tar.xz" \
+run_package "glib2-bootstrap" "glib2-bootstrap" "2.88.1" \
+    "glib-2.88.1.tar.xz" \
     "GLib core library (bootstrap — without introspection)"
 
 run_package "gobject-introspection" "gobject-introspection" "1.86.0" \
     "gobject-introspection-1.86.0.tar.xz" \
     "GObject type introspection framework"
 
-run_package "glib2" "glib2" "2.86.4" \
-    "glib-2.86.4.tar.xz" \
+run_package "glib2" "glib2" "2.88.1" \
+    "glib-2.88.1.tar.xz" \
     "GLib core library (full — with introspection)"
 
 # --- Group A: TLS chain (deps on libtasn1, libunistring) ---
