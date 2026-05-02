@@ -1,12 +1,12 @@
 #!/bin/bash
-# glib2 2.86.4 — GLib with introspection enabled
+# glib2 2.88.1 — GLib with introspection enabled
 # Final pass of bootstrap: glib-bootstrap → gobject-introspection → glib (full)
 # gobject-introspection is already installed, so this is a clean single-pass build.
-# BLFS 13.0
+# Note: glib 2.79+ moved libgirepository into glib (soname bumped 1.0 -> 2.0);
+# the gobject-introspection package still provides g-ir-scanner / g-ir-compiler
+# tools needed at build time. BLFS 13.0.
 
 configure() {
-    # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
-
     mkdir build
     cd    build
 

@@ -1,11 +1,9 @@
 #!/bin/bash
-# glib2-bootstrap 2.86.4 — GLib without introspection
+# glib2-bootstrap 2.88.1 — GLib without introspection
 # First pass of bootstrap: glib-bootstrap → gobject-introspection → glib (full)
 # BLFS 13.0
 
 configure() {
-    # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
-
     mkdir build
     cd    build
 
