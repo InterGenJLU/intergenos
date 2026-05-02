@@ -444,6 +444,11 @@ phase_setup() {
     cp -a /mnt/intergenos/scripts    "$IGOS/mnt/intergenos/"
     cp -a /mnt/intergenos/packages   "$IGOS/mnt/intergenos/"
     cp -a /mnt/intergenos/igos-build "$IGOS/mnt/intergenos/"
+    # pkm is a runtime dependency of igos-build/tracker.py (per RFC v1
+    # 2026-05-01: tracker imports pkm.database._sha256 for tracker/verifier
+    # parity). Without this sync, desktop-phase Python orchestrator fails
+    # with ModuleNotFoundError on import.
+    cp -a /mnt/intergenos/pkm        "$IGOS/mnt/intergenos/"
     cp    /mnt/intergenos/igos-build.py "$IGOS/mnt/intergenos/" 2>/dev/null || true
     log "  Build infrastructure placed on target filesystem"
 
@@ -513,9 +518,11 @@ sync_chroot_scripts() {
     rsync -a --delete /mnt/intergenos/scripts/   "$IGOS/mnt/intergenos/scripts/"
     rsync -a --delete /mnt/intergenos/packages/  "$IGOS/mnt/intergenos/packages/"
     rsync -a --delete /mnt/intergenos/config/    "$IGOS/mnt/intergenos/config/" 2>/dev/null || true
-    # Sync Python builder for desktop tier
+    # Sync Python builder for desktop tier (igos-build + its pkm dependency
+    # per RFC v1 tracker/verifier parity)
     rsync -a /mnt/intergenos/igos-build.py "$IGOS/mnt/intergenos/" 2>/dev/null || true
     rsync -a --delete /mnt/intergenos/igos-build/   "$IGOS/mnt/intergenos/igos-build/" 2>/dev/null || true
+    rsync -a --delete /mnt/intergenos/pkm/          "$IGOS/mnt/intergenos/pkm/"        2>/dev/null || true
 }
 
 phase_core() {
