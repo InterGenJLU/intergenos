@@ -4,7 +4,7 @@ release: 1
 description: Tools for manipulating UEFI Secure Boot variables and keys
 license: GPL-2.0-only
 homepage: https://git.kernel.org/pub/scm/linux/kernel/git/jejb/efitools.git
-tier: core
+tier: desktop
 build_style: make
 install_func: do_install
 source:

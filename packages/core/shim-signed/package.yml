@@ -4,7 +4,7 @@ release: 1
 description: Microsoft-signed UEFI shim bootloader (piggyback from Fedora until our own MS-signed shim ships)
 license: BSD-2-Clause-Patent
 homepage: https://github.com/rhboot/shim
-tier: core
+tier: desktop
 build_style: custom
 install_func: do_install
 # Vendor-pinned shim from Fedora, signed by Microsoft. We piggyback on
