@@ -35,6 +35,26 @@ class PackageTracker:
     to be set by the host class (BuildExecutor).
     """
 
+    def _compute_template_hash(self, pkg: Package) -> str:
+        """Compute the 16-char hex hash of pkg's package.yml + build.sh.
+
+        Used by both manifest paths (regular DESTDIR and direct-install/
+        filesystem-diff). The hash is embedded in the manifest as
+        TEMPLATE_HASH: <hex> and read back by builder.py's skip-built check
+        to detect when a package's recipe has changed since last build.
+
+        Returns empty string if pkg has no template_path (in which case
+        the skip-built check defaults to skip — same as today).
+        """
+        if not pkg.template_path:
+            return ""
+        import hashlib
+        hasher = hashlib.sha256()
+        for tpl_file in [pkg.template_path, pkg.template_path.parent / "build.sh"]:
+            if tpl_file.exists():
+                hasher.update(tpl_file.read_bytes())
+        return hasher.hexdigest()[:16]
+
     def pkg_manifest(self, pkg: Package, staging_dir: Path) -> bool:
         """Generate a Slackware-style manifest from staged files.
 
@@ -71,15 +91,7 @@ class PackageTracker:
         human_size = f"{total_size / 1024 / 1024:.1f}M" if total_size > 1024*1024 else f"{total_size / 1024:.0f}K"
 
         from datetime import datetime, timezone
-        # Compute template hash for skip-built change detection
-        template_hash = ""
-        if pkg.template_path:
-            import hashlib
-            hasher = hashlib.sha256()
-            for tpl_file in [pkg.template_path, pkg.template_path.parent / "build.sh"]:
-                if tpl_file.exists():
-                    hasher.update(tpl_file.read_bytes())
-            template_hash = hasher.hexdigest()[:16]
+        template_hash = self._compute_template_hash(pkg)
 
         # Per-file SHA-256 from staging contents (RFC §3c). Same _sha256 as
         # pkm/verifier — imported at module top for byte-exact parity.
@@ -552,6 +564,8 @@ class PackageTracker:
                 continue
 
         from datetime import datetime, timezone
+        template_hash = self._compute_template_hash(pkg)
+
         supersedes_header = ""
         if pkg.supersedes:
             supersedes_header = "SUPERSEDES: " + ", ".join(pkg.supersedes) + "\n"
@@ -563,6 +577,7 @@ class PackageTracker:
             f"BUILD DATE: {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}\n"
             f"BUILD SYSTEM: InterGenOS igos-build\n"
             f"INSTALL MODE: direct (filesystem diff)\n"
+            f"TEMPLATE_HASH: {template_hash}\n"
             f"{supersedes_header}"
             f"DESCRIPTION:\n"
             f"{pkg.name}: {pkg.description}\n"
