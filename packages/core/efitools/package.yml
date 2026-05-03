@@ -17,3 +17,17 @@ dependencies:
   - help2man
   host: []
   runtime: []
+patches:
+  # Sourced from Debian efitools 1.9.2-5. Apply order matches Debian's
+  # series file: FTBFS first (removes EFI-specific CFLAGS, fixes
+  # __STDC_VERSION__ redefines, replaces unsafe mktemp/sscanf, adds
+  # _XOPEN_SOURCE=700 for strptime), then stack-protector (re-adds
+  # -fno-stack-protector for the EFI-binary subset, since freestanding
+  # mode requires it), then gcc15 (C23 'bool' keyword conflict in
+  # lib/asn1/typedefs.h).
+  - file: efitools-1.9.2-fix-ftbfs-1.patch
+    sha256: 1ee79172543b8e387e32568cd4320eb7d72a1f818b79b9c75c2f90f4769e6398
+  - file: efitools-1.9.2-stack-protector-1.patch
+    sha256: 2d073659da3be06b0a186c53395858cdbdc21e2d844d03369f9101485c87668c
+  - file: efitools-1.9.2-gcc15-1.patch
+    sha256: de2e78f43c157ec0133b2264f074499e05713dcf3012e9fc488475028eecd8ac

@@ -1,0 +1,29 @@
+Description: Make sure stack-protector is disabled, it breaks builds
+
+cc  -o cert-to-efi-sig-list cert-to-efi-sig-list.o -g -O3 -Werror=implicit-function-declaration -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -ffile-prefix-map=/efitools-1.9.2=. -flto=auto -ffat-lto-objects -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -fdebug-prefix-map=/efitools-1.9.2=/usr/src/efitools-1.9.2-3.3ubuntu5 -Wl,-Bsymbolic-functions -flto=auto -ffat-lto-objects -Wl,-z,relro -Wl,-z,now lib/lib.a -lcrypto
+# check we have no undefined symbols
+nm -D HelloWorld.so | grep ' U ' && exit 1 || exit 0
+                 U __stack_chk_fail
+make[1]: *** [Make.rules:79: HelloWorld.so] Error 1
+rm KeyTool.o DB1.crt ShimReplace.o ReadVars.o SetNull.o HelloWorld.o UpdateVars.o HashTool.o Loader.o DB2.crt
+make[1]: Leaving directory '/efitools-1.9.2'
+dh_auto_build: error: make -j4 "INSTALL=install --strip-program=true" returned exit code 2
+make: *** [debian/rules:13: binary] Error 2
+dpkg-buildpackage: error: debian/rules binary subprocess returned exit status 2
+root@Unimatrix04-Noble:/efitools-1.9.2# nm -D HelloWorld.so | grep ' U ' 
+                 U __stack_chk_fail
+
+Author: Gianfranco Costamagna <locutusofborg@debian.org>
+Last-Update: 2025-03-12
+
+--- efitools-1.9.2.orig/Make.rules
++++ efitools-1.9.2/Make.rules
+@@ -19,7 +19,7 @@ $(error unknown architecture $(ARCH))
+ endif
+ INCDIR	   = -I$(TOPDIR)include/ -I/usr/include/efi -I/usr/include/efi/$(ARCH) -I/usr/include/efi/protocol
+ CPPFLAGS   = -DCONFIG_$(ARCH)
+-CFLAGS	   = -O2 -g $(ARCH3264) -fpic -Wall -fshort-wchar -fno-strict-aliasing -fno-merge-constants -D_XOPEN_SOURCE=700
++CFLAGS	   = -O2 -g $(ARCH3264) -fno-stack-protector -fpic -Wall -fshort-wchar -fno-strict-aliasing -fno-merge-constants -D_XOPEN_SOURCE=700
+ LDFLAGS	   = -nostdlib
+ CRTOBJ		= crt0-efi-$(ARCH).o
+ CRTPATHS	= /lib /lib64 /lib/efi /lib64/efi /usr/lib /usr/lib64 /usr/lib/efi /usr/lib64/efi /usr/lib/gnuefi /usr/lib64/gnuefi
