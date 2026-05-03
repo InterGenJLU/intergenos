@@ -11,12 +11,13 @@ configure() {
     mkdir build
     cd    build
 
-    meson setup ..            \
-          --prefix=/usr       \
-          --libdir=/usr/lib   \
-          --buildtype=release \
-          -Dtests=true \
-          -Dman=true \
+    meson setup ..                  \
+          --prefix=/usr             \
+          --libdir=/usr/lib         \
+          --libexecdir=/usr/libexec \
+          --buildtype=release       \
+          -Dtests=true              \
+          -Dman=true                \
           -Dsession_tracking=logind \
           -Dos_type=lfs
 }
