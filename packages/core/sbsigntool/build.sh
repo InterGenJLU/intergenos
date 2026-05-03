@@ -28,6 +28,18 @@ configure() {
         cd ../..
     fi
 
+    # create-ccan-tree calls modfiles with the relative module_dir
+    # ("ccan/talloc" etc.) rather than the full $srcdir/$module_dir
+    # path. modfiles' path_canon() then fails because cwd is the
+    # sbsigntool source root, not lib/ccan.git/. Result: empty
+    # libccan_a_SOURCES, automake rejects with "trailing backslash on
+    # last line". Sed-patch the script to pass module_srcdir (full
+    # path) instead — output filenames are unchanged because modfiles
+    # default emits f->name (module-relative) regardless of how the
+    # input path is given.
+    sed -i 's|"$modfiles" $MODULES_ARGS --no-license --git-only "$module_dir"|"$modfiles" $MODULES_ARGS --no-license --git-only "$module_srcdir"|' \
+        lib/ccan.git/tools/create-ccan-tree
+
     ./autogen.sh 2>/dev/null || autoreconf -fiv
     ./configure --prefix=/usr --sysconfdir=/etc --disable-static
 }
