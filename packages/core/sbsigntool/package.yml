@@ -8,8 +8,16 @@ tier: desktop
 build_style: autotools
 install_func: do_install
 source:
+# Primary: sbsigntool source (cgit snapshot lacks submodule contents)
 - url: https://git.kernel.org/pub/scm/linux/kernel/git/jejb/sbsigntools.git/snapshot/sbsigntools-${version}.tar.gz
   sha256: a2323e54be6d17f50ceb3253ca6ed063171a5bcb7079bfa594008cd2aeb7fdea
+# Bundled dep: ccan submodule. autogen.sh expects lib/ccan.git/Makefile
+# to exist (otherwise it tries `git submodule init+update` which won't
+# work in our offline chroot). Pinned to ccan upstream HEAD as of
+# 2026-05-03; ccan has no tagged releases (rolling tip).
+- url: https://git.ozlabs.org/?p=ccan;a=snapshot;h=b35fabb6d5c45fef2c4000ad6f78bb21d58b2a54;sf=tgz
+  filename: ccan-b35fabb.tar.gz
+  sha256: 9a6985e9ba96c4ce928d9a11e5f59af982d45c7018373898fe856af3747e2345
 dependencies:
   build:
   - openssl
@@ -18,6 +26,8 @@ dependencies:
   - help2man
   host: []
   runtime: []
+bundled_deps:
+- ccan-b35fabb -> lib/ccan.git
 configure_flags:
 - --prefix=/usr
 - --sysconfdir=/etc
