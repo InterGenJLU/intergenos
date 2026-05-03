@@ -31,3 +31,9 @@ patches:
     sha256: 2d073659da3be06b0a186c53395858cdbdc21e2d844d03369f9101485c87668c
   - file: efitools-1.9.2-gcc15-1.patch
     sha256: de2e78f43c157ec0133b2264f074499e05713dcf3012e9fc488475028eecd8ac
+  # Debian Bug #1122408. binutils 2.40+ split objcopy's --target into
+  # --input-target / --output-target; bare --target is now ambiguous and
+  # produces "file format not recognized" on the .so→.efi conversion.
+  # Same root cause as gnu-efi's apps/ failure earlier tonight.
+  - file: efitools-1.9.2-objcopy-target-1.patch
+    sha256: 3bfdb13801e3744c054fa04cda3d0035bab1f8668bec030fbe43916b6fccc3bf
