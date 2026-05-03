@@ -1,0 +1,41 @@
+name: rhythmbox
+version: "3.4.9"
+release: 1
+description: GNOME music player and library manager (GTK3 + GStreamer)
+license: GPL-2.0-or-later
+homepage: https://wiki.gnome.org/Apps/Rhythmbox
+tier: extra
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/rhythmbox/3.4/rhythmbox-${version}.tar.xz
+  sha256: e42291a18df7a21ffe6b352bf73f05d7e298bb4e05bce5967f98ee8cee4408f1
+dependencies:
+  build:
+  # Required (per upstream README + meson.build "required: true")
+  - gtk3
+  - glib2
+  - libsoup3
+  - gstreamer
+  - gst-plugins-base
+  - gst-plugins-good
+  - gst-plugins-bad
+  - totem-pl-parser
+  - libpeas
+  - json-glib
+  - libxml2
+  - gettext
+  - gobject-introspection
+  - itstool
+  - desktop-file-utils
+  - appstream
+  # Recommended (auto-detected, present in tree — feature: auto)
+  - libgudev
+  - libnotify
+  - libsecret
+  - grilo
+  - python
+  - pygobject3
+  - vala
+  host: []
+  runtime: []
