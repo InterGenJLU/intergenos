@@ -1,0 +1,18 @@
+name: gst-libav
+version: "1.28.1"
+release: 1
+description: GStreamer FFmpeg-backed broad codec coverage
+license: LGPL-2.0-or-later
+homepage: https://gstreamer.freedesktop.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://gstreamer.freedesktop.org/src/gst-libav/gst-libav-${version}.tar.xz
+  sha256: bfa91aaca38d0fd8addcdd559e35b7541e3f32a5f410194ec4ba18040defee9b
+dependencies:
+  build:
+  - gst-plugins-base
+  - ffmpeg
+  host: []
+  runtime: []
