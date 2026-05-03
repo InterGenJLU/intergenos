@@ -432,8 +432,13 @@ phase_setup() {
     log "  Copying sources to $IGOS/sources/..."
     mkdir -pv "$IGOS/sources"
     chmod -v a+wt "$IGOS/sources"
-    cp -n "${SOURCES}"/* "$IGOS/sources/" 2>/dev/null || true
-    cp -n "${PATCHES}"/* "$IGOS/sources/" 2>/dev/null || true
+    # -a (archive mode) recurses into directories and preserves attrs.
+    # Without it, prior `cp -n` silently dropped directory-shaped sources
+    # (e.g., libreoffice-externals/), surfaced as build halts much later.
+    # 2>/dev/null was suppressing the "-r not specified; omitting directory"
+    # warning that would have caught this; drop it so real errors stay visible.
+    cp -an "${SOURCES}"/* "$IGOS/sources/" || true
+    cp -an "${PATCHES}"/* "$IGOS/sources/" || true
     local placed=$(ls "$IGOS/sources" | wc -l)
     log "  Placed $placed files in $IGOS/sources/"
 
