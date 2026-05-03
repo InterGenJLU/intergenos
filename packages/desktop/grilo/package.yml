@@ -13,6 +13,7 @@ source:
 dependencies:
   build:
   - glib2
+  - gtk3
   - libxml2
   - libsoup3
   - totem-pl-parser
