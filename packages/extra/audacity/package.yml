@@ -1,0 +1,50 @@
+name: audacity
+version: "3.7.7"
+release: 1
+description: Multi-track audio editor and recorder (wxWidgets GUI, source-built, no telemetry)
+# Upstream license note: Audacity has been GPL-2.0+ historically. After Muse Group's
+# 2021 CLA controversy and 2022 telemetry-walkback, the project committed to keeping
+# the codebase GPL-licensed. The 3.x source distribution ships both LICENSE-GPLv2.txt
+# and LICENSE-GPLv3.txt; the configured-default behavior is "bundle GPLv3" via
+# `audacity_bundle_gplv3=On`. We accept the GPLv3 default. Effective license of the
+# linked product is GPL-3.0-or-later because wxWidgets is LGPL-2.0+ with the
+# WxWindows exception (compatible) and the included GPLv3 text governs the binary.
+license: GPL-3.0-or-later
+homepage: https://www.audacityteam.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/audacity/audacity/releases/download/Audacity-${version}/audacity-sources-${version}.tar.gz
+  sha256: 1574688e54009b40faeffe5752b5f822ff251e2d4228e8ec60ec0f99f3423cda
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - pkgconf
+  - python
+  - util-linux-core      # provides libuuid (REQUIRED on Linux per AudacityDependencies.cmake)
+  - wxwidgets            # GUI toolkit, REQUIRED, version 3.2.x (gating dep)
+  - portaudio            # cross-platform audio I/O, REQUIRED
+  - libsndfile           # audio file I/O (FLAC/OGG/Vorbis/Opus/etc. multiplex), optional
+  - soundtouch           # time-stretch/pitch-shift, addlib optional (system pref)
+  - lame                 # MP3 encoder (libmp3lame), REQUIRED for MP3 export
+  - libid3tag            # ID3 tag reader, optional
+  - mpg123               # libmpg123, MP3 decoder, optional
+  - twolame              # MP2 encoder, addlib optional (system pref)
+  - ffmpeg               # multi-format codec library, dynamically loaded
+  - libogg               # Ogg container, optional
+  - libvorbis            # Vorbis codec, optional
+  - flac                 # FLAC codec, optional
+  - opus                 # Opus codec, optional
+  - opusfile             # Opus container/decoder, optional
+  - ladspa-sdk           # LADSPA plugin headers, enables LADSPA host
+  - lv2                  # LV2 plugin headers (host runtime via lilv NOT yet packaged - see build.sh)
+  - expat                # XML parser, REQUIRED
+  - sqlite               # SQLite 3, REQUIRED for project file format
+  - zlib                 # compression, REQUIRED
+  - rapidjson            # header-only JSON library, REQUIRED (no fallback with conan disabled)
+  - alsa-lib             # ALSA backend for PortAudio
+  - gtk3                 # native file dialogs (wx-GTK3 backend)
+  host: []
+  runtime: []
