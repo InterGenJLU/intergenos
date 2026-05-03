@@ -6,10 +6,14 @@ configure() {
     mkdir build
     cd    build
 
-    meson setup ..            \
-          --prefix=/usr       \
-          --libdir=/usr/lib   \
-          --buildtype=release 
+    # Telepathy backend disabled: Telepathy is upstream-abandoned (BLFS 13.0 dropped
+    # it entirely; folks meson.build:86 carries an upstream FIXME to drop dbus-glib).
+    # Owner-approved 2026-05-03 per feedback_never_disable_features.md exception clause.
+    meson setup ..                       \
+          --prefix=/usr                  \
+          --libdir=/usr/lib              \
+          --buildtype=release            \
+          -Dtelepathy_backend=false
 }
 
 build() {
