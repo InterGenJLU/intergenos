@@ -1,0 +1,32 @@
+name: transmission
+version: "4.1.1"
+release: 1
+description: Fast, easy, free BitTorrent client (daemon, CLI utils, GTK4 GUI)
+license: GPL-3.0-or-later
+homepage: https://transmissionbt.com/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/transmission/transmission/releases/download/${version}/transmission-${version}.tar.xz
+  sha256: e743283ee03a42c4d0b08fed2bd52b554aa6c9f65b4d4d45b795c32d98762a79
+dependencies:
+  build:
+  - cmake
+  - pkgconf
+  - gettext
+  - intltool
+  - openssl
+  - curl
+  - libevent
+  - libpsl
+  - glib2
+  - glibmm
+  - gtk4
+  - gtkmm4
+  - pangomm
+  - libnotify
+  - systemd
+  - dbus
+  host: []
+  runtime: []
