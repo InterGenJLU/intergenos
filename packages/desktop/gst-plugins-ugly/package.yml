@@ -1,0 +1,21 @@
+name: gst-plugins-ugly
+version: "1.28.1"
+release: 1
+description: GStreamer ugly plugins (MP3 + patent-encumbered codecs)
+license: LGPL-2.0-or-later
+homepage: https://gstreamer.freedesktop.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://gstreamer.freedesktop.org/src/gst-plugins-ugly/gst-plugins-ugly-${version}.tar.xz
+  sha256: 4082f3cb063fccc3ffc04e5ab0854bafde82d1b373eb3c9eaa28115dd3f95a78
+dependencies:
+  build:
+  - gst-plugins-base
+  - gst-plugins-good
+  - x264
+  - libdvdread
+  - libcdio
+  host: []
+  runtime: []
