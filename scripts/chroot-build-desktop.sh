@@ -65,7 +65,9 @@ cd /mnt/intergenos
 
 # These base packages are build dependencies for desktop packages
 # but aren't part of the desktop tier. Build them first.
-BASE_DEPS="libtirpc popt which"
+# cpio: required by shim-signed for `rpm2cpio | cpio -idmv` extraction
+# of Fedora's MS-signed shim binary.
+BASE_DEPS="cpio libtirpc popt which"
 
 for dep in $BASE_DEPS; do
     if [ -f "/var/lib/igos/packages/${dep}-"* ] 2>/dev/null; then
