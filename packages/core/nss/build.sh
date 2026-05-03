@@ -35,7 +35,22 @@ do_install() {
     install -v -m755 Linux*/bin/{certutil,nss-config,pk12util} "${DESTDIR}/usr/bin"
 
     install -v -m755 -d "${DESTDIR}/usr/lib/pkgconfig"
-    install -v -m644 Linux*/lib/pkgconfig/nss.pc  "${DESTDIR}/usr/lib/pkgconfig"
+
+    # Generate nss.pc from upstream template. NSS's Makefiles do not
+    # process pkg/pkg-config/nss.pc.in themselves — the BLFS recipe's
+    # `install Linux*/lib/pkgconfig/nss.pc` assumes a file that never
+    # actually gets generated. Substitute the standard placeholders
+    # against /usr install paths and our NSS+NSPR versions, then drop
+    # the result into pkgconfig directly.
+    sed -e 's|%prefix%|/usr|g'                       \
+        -e 's|%exec_prefix%|${prefix}|g'             \
+        -e 's|%libdir%|${prefix}/lib|g'              \
+        -e 's|%includedir%|${prefix}/include/nss|g'  \
+        -e "s|%NSS_VERSION%|${PKG_VERSION}|g"        \
+        -e 's|%NSPR_VERSION%|4.38.2|g'               \
+        ../nss/pkg/pkg-config/nss.pc.in              \
+        > "${DESTDIR}/usr/lib/pkgconfig/nss.pc"
+    chmod 644 "${DESTDIR}/usr/lib/pkgconfig/nss.pc"
 
     # p11-kit trust module symlink
     ln -sfv ./pkcs11/p11-kit-trust.so "${DESTDIR}/usr/lib/libnssckbi.so"
