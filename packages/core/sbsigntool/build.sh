@@ -40,6 +40,13 @@ configure() {
     sed -i 's|"$modfiles" $MODULES_ARGS --no-license --git-only "$module_dir"|"$modfiles" $MODULES_ARGS --no-license --git-only "$module_srcdir"|' \
         lib/ccan.git/tools/create-ccan-tree
 
+    # autogen.sh's ccan_modules list is incomplete — sbkeysync.c
+    # #includes <ccan/list/list.h> but `list` isn't in the modules
+    # list, and isn't pulled in as a transitive dep of the listed 5.
+    # Add it to the list. (Upstream sbsigntool 0.9.5 bug.)
+    sed -i 's|^ccan_modules="talloc read_write_all build_assert array_size endian"$|ccan_modules="talloc read_write_all build_assert array_size endian list"|' \
+        autogen.sh
+
     ./autogen.sh 2>/dev/null || autoreconf -fiv
     ./configure --prefix=/usr --sysconfdir=/etc --disable-static
 }
