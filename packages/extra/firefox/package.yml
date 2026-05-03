@@ -1,0 +1,45 @@
+name: firefox
+version: "140.9.0esr"
+release: 1
+description: Mozilla Firefox web browser
+license: MPL-2.0
+homepage: https://www.mozilla.org/firefox/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://archive.mozilla.org/pub/firefox/releases/${version}/source/firefox-${version}.source.tar.xz
+  sha256: b972b2a4c17244d51c10123cbd6c936e2cf26ebc29eb724570d285c283e9e92c
+patches:
+  - file: firefox-140.9.0esr-python_3.14_fixes-1.patch
+    sha256: 24183878004982be0d7d87af2daa49a36d327a279b0abcf222c0c99e805e2ed7
+  - file: firefox-140.9.0esr-glibc-2.43.patch
+    sha256: 703e5605a7aeffb45d73884b59488afa30ceea7ef65a8c401c428f8102123fb1
+  - file: firefox-140.9.0esr-ffmpeg-8.0.patch
+    sha256: cb452bdd6026a15b44f5d41f3c21d153c2c8f92478072d4d768d90421f2b8e79
+  - file: firefox-140.9.0esr-llvm_22-1.patch
+    sha256: b3b608772ed7f256b4c06e5a94af38bf3c6bdfc14f66776f662db693add077e6
+dependencies:
+  build:
+  - cbindgen
+  - gtk3
+  - libnotify
+  - libarchive
+  - llvm
+  - nodejs
+  - pulseaudio
+  - startup-notification
+  - dav1d
+  - icu
+  - libaom
+  - libevent
+  - libvpx
+  - libwebp
+  - nasm
+  - nspr
+  - nss
+  - ffmpeg
+  - libproxy
+  - pciutils
+  host: []
+  runtime: []
