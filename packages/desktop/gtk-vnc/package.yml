@@ -16,6 +16,7 @@ dependencies:
   - gnutls
   - libgcrypt
   - glib2
+  - pulseaudio
   - vala
   - cyrus-sasl
   host: []
