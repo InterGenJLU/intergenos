@@ -9,18 +9,26 @@ configure() {
     # $(DESTDIR), which the build framework already exports — so we let
     # the env value drive staging instead of overriding PREFIX with a
     # DESTDIR-prefixed path (which doubles the staging path).
-    :
+    #
+    # Skip apps/ at file level: apps/ contains example EFI binaries
+    # (HelloWorld.efi, t.efi, etc.) — demos, not features consumed by
+    # efitools/sbsigntool/mokutil/shim-signed. On gnu-efi 3.0.18 +
+    # binutils 2.46, objcopy fails "file format not recognized" on the
+    # .so→.efi conversions in apps/, while lib/, gnuefi/, inc/ build
+    # cleanly. Per feedback_dependency_policy.md: examples-only = SKIP.
+    #
+    # We patch the Makefile rather than passing SUBDIRS= on the make
+    # command line: command-line make variables propagate to all
+    # sub-makes, and lib/Makefile defines its own SUBDIRS (per-arch
+    # build-tree dir list including runtime/, x86_64/). An overriding
+    # top-level SUBDIRS= clobbers lib's, breaking its libsubdirs
+    # mkdir-p step and yielding "can't create runtime/X.o: No such
+    # file or directory" failures.
+    sed -i 's/^SUBDIRS = lib gnuefi inc apps$/SUBDIRS = lib gnuefi inc/' Makefile
 }
 
 build() {
-    # SUBDIRS override: skip apps/ which builds example EFI binaries
-    # (HelloWorld.efi, t.efi, etc. — demos for using the library, not
-    # consumed by efitools/sbsigntool/mokutil/shim-signed). On gnu-efi
-    # 3.0.18 with binutils 2.46, objcopy fails with "file format not
-    # recognized" on those .so→.efi conversions, while the library
-    # outputs (libefi.a, libgnuefi.a, crt0-efi-x86_64.o) build cleanly.
-    # Per feedback_dependency_policy.md: examples-only subset = SKIP.
-    make -j${IGOS_JOBS} SUBDIRS="lib gnuefi inc"
+    make -j${IGOS_JOBS}
 }
 
 check() {
@@ -32,6 +40,7 @@ do_install() {
     # PREFIX = in-system prefix (/usr); LIBDIR = where libs land within
     # PREFIX. DESTDIR (exported by build framework as $PKG_DEST) is
     # picked up by INSTALLROOT in Make.defaults — do not duplicate it
-    # in PREFIX. SUBDIRS override matches build() — skip apps/.
-    make install PREFIX=/usr LIBDIR=/usr/lib SUBDIRS="lib gnuefi inc"
+    # in PREFIX. SUBDIRS override happens in configure() via sed-patch,
+    # so make install iterates only lib/gnuefi/inc.
+    make install PREFIX=/usr LIBDIR=/usr/lib
 }
