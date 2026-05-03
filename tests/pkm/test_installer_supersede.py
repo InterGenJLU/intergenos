@@ -41,16 +41,20 @@ class TestReadStagedManifest(unittest.TestCase):
         return staging
 
     def test_supersedes_parsed(self):
-        staging = self._stage_manifest("test-pkg", """\
+        # Real manifests carry 64-char sha256 hashes; the parser regex anchors
+        # on that length to disambiguate from paths-with-whitespace. Fixture
+        # hashes must be 64 hex chars to exercise the production code path.
+        sha = "a" * 64
+        staging = self._stage_manifest("test-pkg", f"""\
 SUPERSEDES: old-pkg
 FILE LIST:
-fileA sha256:abcd1234
+fileA sha256:{sha}
 fileB
 """)
         decl, files, hashes = self.installer._read_staged_manifest(staging, "test-pkg")
         self.assertEqual(decl, ["old-pkg"])
         self.assertEqual(files, ["fileA", "fileB"])
-        self.assertEqual(hashes, {"fileA": "abcd1234"})
+        self.assertEqual(hashes, {"fileA": sha})
 
     def test_multiple_supersedes(self):
         staging = self._stage_manifest("test-pkg", """\
@@ -87,13 +91,16 @@ plain-file
         self.assertEqual(hashes, {})
 
     def test_mixed_hashes(self):
-        staging = self._stage_manifest("test-pkg", """\
+        # Production sha256 hashes are 64 hex chars; the parser regex enforces
+        # that length to keep paths-with-whitespace from being mis-split.
+        sha = "f" * 64
+        staging = self._stage_manifest("test-pkg", f"""\
 FILE LIST:
-hashed sha256:ffff
+hashed sha256:{sha}
 unhashed
 """)
         _, _, hashes = self.installer._read_staged_manifest(staging, "test-pkg")
-        self.assertEqual(hashes, {"hashed": "ffff"})
+        self.assertEqual(hashes, {"hashed": sha})
 
     def test_empty_supersedes_list(self):
         staging = self._stage_manifest("test-pkg", """\
