@@ -37,3 +37,14 @@ patches:
   # Same root cause as gnu-efi's apps/ failure earlier tonight.
   - file: efitools-1.9.2-objcopy-target-1.patch
     sha256: 3bfdb13801e3744c054fa04cda3d0035bab1f8668bec030fbe43916b6fccc3bf
+  # InterGenOS-vendored: skip building EFISIGNED (*-signed.efi). These
+  # are test fixtures signed with auto-generated ephemeral PK/KEK/DB
+  # keys created by openssl-req at build time — random per build, no
+  # user value. Their build invokes sbsign from sbsigntool, but
+  # sbsigntool depends on efitools, creating a cyclic dep. Replacing
+  # $(EFISIGNED) with $(EFIFILES) in all: builds the unsigned EFI
+  # binaries (which the install rule actually ships) without needing
+  # sbsign. Per Prime Directive: throwaway-keyed signed binaries are
+  # complexity that doesn't serve the user.
+  - file: efitools-1.9.2-skip-efisigned-1.patch
+    sha256: fa45e413d25828e4fd08afe62f8f5c855e338a7f7488fec2cd5c59cc9a138164

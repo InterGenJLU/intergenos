@@ -1,0 +1,30 @@
+Description: Skip signed-EFI build artifacts
+ efitools' Makefile builds EFISIGNED = $(patsubst %.efi,%-signed.efi,$(EFIFILES))
+ by invoking sbsign on each unsigned %.efi. sbsign comes from sbsigntool,
+ which declares efitools as a build dep — creating a cyclic dep when
+ efitools is built first.
+ .
+ The signed EFI binaries are test fixtures: signed with auto-generated
+ ephemeral PK/KEK/DB keys (created by openssl req at build time, random
+ per build). Users can't use them — the signing keys are throwaway. Per
+ the Prime Directive, shipping fixtures with no user value is complexity
+ that doesn't serve the user.
+ .
+ Replace $(EFISIGNED) with $(EFIFILES) in the all: target. The install:
+ rule already only ships $(EFIFILES) (unsigned); the *-signed.efi were
+ never going to be installed anyway. This breaks the dep cycle without
+ reordering the graph or introducing pre-built sbsign into the chroot.
+Author: chris-ubuntu-code-claude (SPOC) for InterGenOS, 2026-05-03
+Origin: vendor (InterGenOS)
+
+--- a/Makefile
++++ b/Makefile
+@@ -27,7 +27,7 @@ EXTERNALKEYS = ms-uefi ms-kek
+
+ EFISIGNED = $(patsubst %.efi,%-signed.efi,$(EFIFILES))
+
+-all: $(EFISIGNED) $(BINARIES) $(MANPAGES) noPK.auth $(KEYAUTH) \
++all: $(EFIFILES) $(BINARIES) $(MANPAGES) noPK.auth $(KEYAUTH) \
+ 	$(KEYUPDATEAUTH) $(KEYBLACKLISTAUTH) $(KEYHASHBLACKLISTAUTH)
+
+
