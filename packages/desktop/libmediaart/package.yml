@@ -14,5 +14,6 @@ dependencies:
   build:
   - gdk-pixbuf
   - glib2
+  - vala
   host: []
   runtime: []
