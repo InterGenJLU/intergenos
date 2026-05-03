@@ -16,7 +16,7 @@ configure() {
                 --without-acl
 }
 
-compile() {
+build() {
     make -j${IGOS_JOBS}
 }
 

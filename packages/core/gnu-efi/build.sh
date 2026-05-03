@@ -4,13 +4,15 @@
 # Upstream: https://sourceforge.net/projects/gnu-efi/
 
 configure() {
-    # gnu-efi uses a plain Makefile, no autotools.
-    # The Makefile.defaults sets reasonable defaults for x86_64.
-    # Override PREFIX to install into the staging tree.
+    # gnu-efi uses a plain Makefile, no autotools. Make.defaults sets
+    # reasonable defaults for x86_64 detection. INSTALLROOT defaults to
+    # $(DESTDIR), which the build framework already exports — so we let
+    # the env value drive staging instead of overriding PREFIX with a
+    # DESTDIR-prefixed path (which doubles the staging path).
     :
 }
 
-compile() {
+build() {
     make -j${IGOS_JOBS}
 }
 
@@ -20,5 +22,9 @@ check() {
 }
 
 do_install() {
-    make install PREFIX="${DESTDIR}/usr"
+    # PREFIX = in-system prefix (/usr); LIBDIR = where libs land within
+    # PREFIX. DESTDIR (exported by build framework as $PKG_DEST) is
+    # picked up by INSTALLROOT in Make.defaults — do not duplicate it
+    # in PREFIX.
+    make install PREFIX=/usr LIBDIR=/usr/lib
 }
