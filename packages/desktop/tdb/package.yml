@@ -1,0 +1,18 @@
+name: tdb
+version: "1.4.15"
+release: 1
+description: Trivial Database — small, fast, simple key/value store from the Samba project
+license: LGPL-3.0-or-later
+homepage: https://tdb.samba.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.samba.org/ftp/tdb/tdb-${version}.tar.gz
+  sha256: fba09d8df1f1b9072aeae8e78b2bd43c5afef20b2f6deefa633aa14a377a8dd2
+dependencies:
+  build:
+  - python
+  - pkgconf
+  host: []
+  runtime: []
