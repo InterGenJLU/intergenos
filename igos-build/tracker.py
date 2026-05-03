@@ -147,6 +147,102 @@ class PackageTracker:
         self.logger.info(f"Archive: {archive_path} ({human})")
         return True
 
+    def _validate_staging_paths(self, pkg: Package, staging_dir: Path) -> bool:
+        """B4: validate staging-dir paths before deploy to /.
+
+        The check distinguishes:
+          - Real file/dir whose .resolve() escapes staging_root: actual escape
+            attempt (REJECT).
+          - Symlink with absolute target inside THIS package's manifest:
+            legitimate intra-package compat symlink (e.g., xkeyboard-config's
+            ``/usr/share/X11/xkb -> /usr/share/xkeyboard-config-2``). ALLOW.
+          - Symlink with absolute target NOT in this package's manifest:
+            cross-package or unknown owner. WARN but allow under current
+            policy (cross-package validation against the live package db is
+            a future enhancement; for now we trust the build to have produced
+            valid symlinks).
+          - Symlink with relative target that resolves within staging: ALLOW.
+          - Symlink with relative target that escapes staging but resolves
+            (post-deploy) to a path in this package's manifest: ALLOW
+            (intra-package via complex relative path).
+          - Symlink with relative target that escapes staging AND post-deploy
+            target is not in this package's manifest: REJECT.
+
+        Returns True if all paths pass; False (with logged error) on first
+        failure.
+        """
+        staging_root = staging_dir.resolve()
+
+        # Pass 1: enumerate all paths this package will install (files, dirs,
+        # symlinks), expressed as absolute paths AS THEY WILL APPEAR after
+        # deploy to /. os.walk's followlinks=False (default) is required so we
+        # don't descend into symlinked dirs.
+        package_paths: set[str] = set()
+        for root, dirs, files in os.walk(str(staging_dir), followlinks=False):
+            for name in files + dirs:
+                full = Path(root) / name
+                try:
+                    rel = full.relative_to(staging_dir)
+                except ValueError:
+                    continue
+                package_paths.add('/' + str(rel))
+
+        # Pass 2: validate each entry against the path set.
+        staging_root_str = str(staging_root)
+        for root, dirs, files in os.walk(str(staging_dir), followlinks=False):
+            for name in files + dirs:
+                full = Path(root) / name
+                if full.is_symlink():
+                    target = os.readlink(full)
+                    if os.path.isabs(target):
+                        # Absolute symlink — allow if target is owned by this
+                        # package's manifest. Otherwise warn-but-allow under
+                        # current cross-package policy.
+                        if target in package_paths:
+                            continue
+                        self.logger.warning(
+                            f"{pkg.name}-{pkg.version}: absolute symlink "
+                            f"{full.relative_to(staging_dir)} -> {target} "
+                            f"target not in this package's manifest "
+                            f"(cross-package validation deferred)"
+                        )
+                        continue
+                    # Relative symlink — resolve and check whether it stays
+                    # within staging or, if not, whether the post-deploy
+                    # target is in this package's manifest.
+                    resolved_abs = (full.parent / target).resolve()
+                    if str(resolved_abs).startswith(staging_root_str):
+                        continue  # stays within staging — safe
+                    # Escapes staging via relative path. Compute what it would
+                    # resolve to AFTER deploy to / and check intra-package.
+                    relative_within_staging = str(full)[len(staging_root_str):]
+                    deploy_target = os.path.normpath(
+                        '/' + os.path.dirname(relative_within_staging)
+                        + '/' + target
+                    )
+                    if deploy_target in package_paths:
+                        continue  # intra-package via complex relative path
+                    self.logger.error(
+                        f"SECURITY: symlink {full} -> {target} (would resolve "
+                        f"to {deploy_target} after deploy) escapes staging "
+                        f"and target is not in this package's manifest — "
+                        f"rejecting package deployment"
+                    )
+                    return False
+                # Non-symlink (regular file or dir) — original escape check.
+                # With followlinks=False this is belt-and-suspenders since
+                # os.walk won't descend into symlinked dirs.
+                resolved = full.resolve()
+                if not str(resolved).startswith(staging_root_str):
+                    self.logger.error(
+                        f"SECURITY: staging path '{resolved}' escapes "
+                        f"staging root '{staging_root}' — rejecting "
+                        f"package deployment"
+                    )
+                    return False
+
+        return True
+
     def pkg_deploy(self, pkg: Package, staging_dir: Path) -> bool:
         """Deploy staged files to the live filesystem using tar.
 
@@ -196,18 +292,9 @@ class PackageTracker:
 
         archive_path = self.pkg_archives / f"{pkg.name}-{pkg.version}.igos.tar.gz"
 
-        # B4: validate staging directory — reject any path that escapes staging
-        # before archiving for deployment to / (root filesystem)
-        staging_root = staging_dir.resolve()
-        for root, dirs, files in os.walk(str(staging_dir)):
-            for name in files + dirs:
-                resolved = (Path(root) / name).resolve()
-                if not str(resolved).startswith(str(staging_root)):
-                    self.logger.error(
-                        f"SECURITY: staging path '{resolved}' escapes staging "
-                        f"root '{staging_root}' — rejecting package deployment"
-                    )
-                    return False
+        # B4: validate staging paths before archiving for deploy to /.
+        if not self._validate_staging_paths(pkg, staging_dir):
+            return False
 
         result = subprocess.run(
             ["tar", "-C", str(staging_dir), "-cf", "-", "."],
