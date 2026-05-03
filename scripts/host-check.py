@@ -177,6 +177,37 @@ REQUIREMENTS = [
         command="xz --version | head -1",
         version_regex=r"(\d+\.\d+\.\d+)",
     ),
+    # Image-creation prereqs (used by scripts/create-image.sh during phase_image).
+    # Without these, a 12+ hour build can complete only to fail at the final
+    # image-packaging step. Catching here saves the cycle.
+    Requirement(
+        name="qemu-img",
+        min_version="0",
+        command="qemu-img --version | head -1",
+        version_regex=r"version (\d+\.\d+(?:\.\d+)?)",
+        notes="qemu-utils package — required to format the qcow2 image",
+    ),
+    Requirement(
+        name="qemu-nbd",
+        min_version="0",
+        command="qemu-nbd --version | head -1",
+        version_regex=r"version (\d+\.\d+(?:\.\d+)?)",
+        notes="qemu-utils package — required to attach the qcow2 for partitioning",
+    ),
+    Requirement(
+        name="parted",
+        min_version="0",
+        command="parted --version | head -1",
+        version_regex=r"(\d+\.\d+(?:\.\d+)?)",
+        notes="parted package — required to write the GPT partition table",
+    ),
+    Requirement(
+        name="mkfs.ext4",
+        min_version="0",
+        command="mkfs.ext4 -V 2>&1 | head -1",
+        version_regex=r"(\d+\.\d+(?:\.\d+)?)",
+        notes="e2fsprogs package — required to format the root filesystem",
+    ),
 ]
 
 
