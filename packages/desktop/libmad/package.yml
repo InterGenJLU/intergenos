@@ -1,0 +1,22 @@
+name: libmad
+version: '0.15.1b'
+release: 1
+description: High-quality MPEG audio decoder (24-bit output)
+license: GPL-2.0-or-later
+homepage: https://sourceforge.net/projects/mad/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://downloads.sourceforge.net/mad/libmad-${version}.tar.gz
+  sha256: bbfac3ed6bfbc2823d3775ebb931087371e142bb0e9bb1bee51a76a6e0078690
+patches:
+  - file: libmad-0.15.1b-fixes-1.patch
+    sha256: 94d488d8288f557de45f0e83e90320c5127cf67a0d6a4f4a67b41b2517d58445
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

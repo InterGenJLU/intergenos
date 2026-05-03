@@ -1,0 +1,17 @@
+name: taglib
+version: '2.2'
+release: 1
+description: Library for reading and editing audio file metadata tags
+license: LGPL-2.1-or-later AND MPL-1.1
+homepage: https://taglib.org/
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://taglib.org/releases/taglib-${version}.tar.gz
+  sha256: c89e7ebd450535e77c9230fac3985fcdce7bee05e06c9cd0bc36d50184e9c9dd
+dependencies:
+  build:
+  - cmake
+  host: []
+  runtime: []
