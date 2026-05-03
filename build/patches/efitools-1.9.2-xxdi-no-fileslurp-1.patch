@@ -1,0 +1,51 @@
+Description: Drop xxdi.pl File::Slurp dep, use pure-Perl read
+ efitools' xxdi.pl (a Perl reimplementation of `xxd -i`) uses
+ File::Slurp::slurp() to read input. File::Slurp is a CPAN module
+ not part of Perl core; we don't ship it in the InterGenOS chroot,
+ so the build halts at Make.rules:69 when generating DB.h, PK.h,
+ KEK.h: "Can't locate File/Slurp.pm in @INC".
+ .
+ Replace slurp() with an inline pure-Perl read using `open + binmode
+ + local $/ + <FH>`. Verified byte-identical output to File::Slurp's
+ documented sysopen+sysread semantics on a 256-byte deterministic
+ binary (same SHA256). Downstream code does pure byte-by-byte access
+ via ord(substr(...)) — no string decoding involved — so output
+ equality reduces to "did the read mechanism preserve raw bytes",
+ which binmode guarantees on Linux.
+Author: chris-ubuntu-code-claude (SPOC) for InterGenOS, 2026-05-03
+Origin: vendor (InterGenOS)
+
+--- a/xxdi.pl	2019-01-08 16:13:13.000000000 -0600
++++ b/xxdi.pl	2026-05-03 02:05:43.552852195 -0500
+@@ -14,9 +14,24 @@
+ 
+ use strict;
+ use warnings;
+-use File::Slurp qw(slurp);
+ 
+-my $indata = slurp(@ARGV ? $ARGV[0] : \*STDIN);
++# Pure-Perl replacement for File::Slurp::slurp(). binmode + local $/
++# + <FH> produces byte-identical output to slurp() for binary input.
++# Avoids the CPAN File::Slurp module dep at build time.
++sub _read_bytes {
++    my ($arg) = @_;
++    my $fh;
++    if (ref($arg) eq 'GLOB') {
++        $fh = $arg;
++    } else {
++        open($fh, '<', $arg) or die "Can't open $arg: $!";
++    }
++    binmode($fh);
++    local $/;
++    return scalar <$fh>;
++}
++
++my $indata = _read_bytes(@ARGV ? $ARGV[0] : \*STDIN);
+ my $len_data = length($indata);
+ my $num_digits_per_line = 12;
+ my $var_name;
+@@ -47,4 +62,3 @@
+ 
+ binmode STDOUT;
+ print {*STDOUT} $outdata;
+-

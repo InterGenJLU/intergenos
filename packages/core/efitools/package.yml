@@ -48,3 +48,11 @@ patches:
   # complexity that doesn't serve the user.
   - file: efitools-1.9.2-skip-efisigned-1.patch
     sha256: fa45e413d25828e4fd08afe62f8f5c855e338a7f7488fec2cd5c59cc9a138164
+  # InterGenOS-vendored: xxdi.pl uses File::Slurp (CPAN, not in Perl
+  # core) to slurp binary inputs (PK.crt etc.) for embedding into
+  # generated headers (DB.h, PK.h, KEK.h). File::Slurp isn't in our
+  # chroot. Replace with pure-Perl `open + binmode + local $/ + <FH>` —
+  # verified byte-identical output to slurp() against an emulation of
+  # File::Slurp's documented sysopen+sysread semantics (same SHA256).
+  - file: efitools-1.9.2-xxdi-no-fileslurp-1.patch
+    sha256: c9de00ec5791b76d13a0b65499f47a9bc2ca78060290976ec6a3f09354c86fab
