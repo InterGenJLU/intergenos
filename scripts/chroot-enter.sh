@@ -81,4 +81,5 @@ chroot "$IGOS" /usr/bin/env -i               \
     IGOS_LOGS=/mnt/intergenos/build/logs            \
     PKG_VERSION=""                           \
     IGOS_START_AT="${IGOS_START_AT:-}"       \
+    IGOS_STOP_AFTER="${IGOS_STOP_AFTER:-}"   \
     $CHROOT_CMD

@@ -21,6 +21,14 @@
 # To resume after a failure, set IGOS_START_AT=<package-name>:
 #   IGOS_START_AT=gcc-core sudo bash /mnt/intergenos/scripts/chroot-enter.sh \
 #        /mnt/intergenos/scripts/chroot-build-ch8.sh
+#
+# To stop after a specific package (e.g., to surgically rebuild only one
+# package without continuing through the rest of the phase), also set
+# IGOS_STOP_AFTER=<package-name>. Both vars accept the same name forms
+# (canonical name or pkg_dir name). Combine with --stop-after on the
+# orchestrator to also prevent the next phase from running:
+#   IGOS_START_AT=nss IGOS_STOP_AFTER=nss \\
+#       sudo bash build-intergenos.sh ... --start-at core --stop-after core
 
 set +h
 set -e
@@ -37,6 +45,7 @@ IGOS_LOGS=/mnt/intergenos/build/logs
 IGOS_JOBS=$(nproc)
 IGOS_PACKAGES=/mnt/intergenos/packages/core
 IGOS_START_AT="${IGOS_START_AT:-}"
+IGOS_STOP_AFTER="${IGOS_STOP_AFTER:-}"
 
 export IGOS_SOURCES IGOS_PATCHES IGOS_LOGS IGOS_JOBS
 
@@ -226,6 +235,13 @@ run_package() {
         log ""
         exit 1
     }
+
+    if [ -n "$IGOS_STOP_AFTER" ] && { [ "$name" = "$IGOS_STOP_AFTER" ] || [ "$pkg_dir" = "$IGOS_STOP_AFTER" ]; }; then
+        log ""
+        log ">>> Stopping after: $name (IGOS_STOP_AFTER)"
+        log ""
+        exit 0
+    fi
 }
 
 # ============================================================================

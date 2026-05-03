@@ -14,6 +14,11 @@
 # To resume after a failure:
 #   IGOS_START_AT=<name> sudo bash /mnt/intergenos/scripts/chroot-enter.sh \
 #        /mnt/intergenos/scripts/chroot-build-base.sh
+#
+# To rebuild only one package (surgical, no continuation), combine with
+# IGOS_STOP_AFTER=<name>:
+#   IGOS_START_AT=htop IGOS_STOP_AFTER=htop sudo bash chroot-enter.sh \
+#        /mnt/intergenos/scripts/chroot-build-base.sh
 
 set +h
 set -e
@@ -30,6 +35,7 @@ IGOS_LOGS=/mnt/intergenos/build/logs
 IGOS_JOBS=$(nproc)
 IGOS_PACKAGES=/mnt/intergenos/packages/base
 IGOS_START_AT="${IGOS_START_AT:-}"
+IGOS_STOP_AFTER="${IGOS_STOP_AFTER:-}"
 
 export IGOS_SOURCES IGOS_PATCHES IGOS_LOGS IGOS_JOBS
 
@@ -195,6 +201,13 @@ run_package() {
         log ""
         exit 1
     }
+
+    if [ -n "$IGOS_STOP_AFTER" ] && { [ "$name" = "$IGOS_STOP_AFTER" ] || [ "$pkg_dir" = "$IGOS_STOP_AFTER" ]; }; then
+        log ""
+        log ">>> Stopping after: $name (IGOS_STOP_AFTER)"
+        log ""
+        exit 0
+    fi
 }
 
 # ============================================================================
