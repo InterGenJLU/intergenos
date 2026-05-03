@@ -1,0 +1,30 @@
+name: wxwidgets
+version: "3.2.10"
+release: 1
+description: Cross-platform C++ GUI toolkit (GTK 3 backend, Audacity gating dep)
+# Upstream license: wxWindows Library Licence, Version 3.1 — a derivative of
+# LGPL-2.0+ with an additional clause exempting binary distributors from the
+# obligation to distribute source code of works that link against the library.
+# SPDX expresses this as "LGPL-2.0-or-later WITH WxWindows-exception-3.1";
+# upstream license file is docs/licence.txt in the source tarball.
+license: LGPL-2.0-or-later WITH WxWindows-exception-3.1
+homepage: https://www.wxwidgets.org/
+tier: extra
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/wxWidgets/wxWidgets/releases/download/v${version}/wxWidgets-${version}.tar.bz2
+  sha256: d66e929569947a4a5920699539089a9bda83a93e5f4917fb313a61f0c344b896
+dependencies:
+  build:
+  - pkgconf
+  - gtk3
+  - libpng
+  - libjpeg-turbo
+  - libtiff
+  - zlib
+  - expat
+  - mesa
+  - glib2
+  host: []
+  runtime: []
