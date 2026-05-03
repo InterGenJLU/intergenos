@@ -8,10 +8,16 @@ configure() {
     # workaround per CMake's own error message is to set the policy
     # version explicitly. Tracked as candidate for framework-level
     # auto-injection if more packages hit the same compat removal.
+    # CMAKE_POSITION_INDEPENDENT_CODE=ON: build static lib with -fPIC so
+    # consumers like gst-plugins-bad's libgstqroverlay.so can link
+    # libqrencode.a into shared objects. Without it, ld fails with
+    # "relocation R_X86_64_PC32 against symbol QRinput_anTable can not
+    # be used when making a shared object".
     cmake -B build                              \
           -DCMAKE_POLICY_VERSION_MINIMUM=3.5    \
           -DCMAKE_INSTALL_PREFIX=/usr           \
           -DCMAKE_BUILD_TYPE=Release            \
+          -DCMAKE_POSITION_INDEPENDENT_CODE=ON  \
           -DBUILD_TOOLS=OFF
 }
 
