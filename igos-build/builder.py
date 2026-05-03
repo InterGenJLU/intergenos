@@ -361,9 +361,14 @@ class BuildExecutor(PackageTracker):
             if " -> " in bundled:
                 dep_name, dest_rel = bundled.split(" -> ", 1)
                 dep_tarball = None
+                # Match dep_name against URL substring OR explicit filename.
+                # Some upstream snapshot URLs (e.g., cgit ?p=...;sf=tgz) don't
+                # contain the dep_name as a substring; the filename: field
+                # provides a stable local name that does.
                 for s in pkg.source[1:]:
-                    if dep_name in s.url:
-                        dep_tarball = self.sources_dir / _url_basename(s.url)
+                    candidate_name = s.filename or _url_basename(s.url)
+                    if dep_name in s.url or dep_name in candidate_name:
+                        dep_tarball = self.sources_dir / candidate_name
                         break
 
                 if dep_tarball and dep_tarball.exists():
