@@ -335,6 +335,18 @@ class BuildExecutor(PackageTracker):
                 return None
             extract_cmd = f'tar --lzip -xf {shlex.quote(str(tarball_path))} -C {shlex.quote(str(src_dir))} --strip-components=1 {TAR_SAFETY}'
             exit_code = self.run_command(extract_cmd, env=os.environ.copy(), cwd=pkg_work_dir)
+        elif str(tarball_path).endswith('.rpm'):
+            # RPMs are not tar archives — copy the file raw into src_dir for
+            # the package's build.sh to handle (typically via rpm2cpio | cpio).
+            # Used by piggyback packages like shim-signed that consume a
+            # binary RPM rather than building from source.
+            import shutil
+            try:
+                shutil.copy2(str(tarball_path), str(src_dir / tarball_name))
+                exit_code = 0
+            except Exception as e:
+                self.logger.error(f"Failed to copy RPM source into src_dir: {e}")
+                exit_code = 1
         else:
             if not _validate_tar_members(tarball_path, src_dir, self.logger):
                 return None
