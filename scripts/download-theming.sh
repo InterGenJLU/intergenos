@@ -244,6 +244,15 @@ download_github_release "bikass/kora" \
 download_github_release "vinceliuice/Fluent-icon-theme" \
     "${CACHE_DIR}/icon-themes/Fluent-icon-theme.tar.gz"
 
+# Cybernetic — InterGenOS canonical icon theme (per README screenshots).
+# Author: SethStormR (alias SStorm666). The pre-staged tarball at
+# icon-themes/Cybernetic.tar.gz was pulled from the working IGOS laptop's
+# /usr/share/icons/Cybernetic - Blue. download_github_release falls back to
+# master branch tarball if no release exists; the existing staged file
+# remains canonical until validated against a fresh download.
+download_github_release "SethStormR/Cybernetic" \
+    "${CACHE_DIR}/icon-themes/Cybernetic.tar.gz"
+
 # ============================================================================
 # Cursor Themes (4 families)
 # ============================================================================

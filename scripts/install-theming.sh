@@ -267,6 +267,17 @@ extract_to "${CACHE_DIR}/icon-themes/Fluent-icon-theme.tar.gz" "${WORK_DIR}/flue
     log "  Installed: Fluent Icons"
 } || warn "Failed: Fluent Icons"
 
+# Cybernetic — InterGenOS canonical icon theme (per README screenshots).
+# Tarball ships with top-level "Cybernetic - Blue/" directory containing the
+# theme. Author: SethStormR (https://github.com/SethStormR/Cybernetic).
+extract_to "${CACHE_DIR}/icon-themes/Cybernetic.tar.gz" "${WORK_DIR}/cybernetic" && {
+    for d in "${WORK_DIR}"/cybernetic/*/; do
+        [ -f "$d/index.theme" ] && cp -r "$d" /usr/share/icons/ 2>/dev/null
+    done
+    icon_ok=$((icon_ok + 1))
+    log "  Installed: Cybernetic (InterGenOS canonical icon theme)"
+} || warn "Failed: Cybernetic"
+
 log "  Icon themes: ${icon_ok} installed"
 
 # ============================================================================
@@ -330,6 +341,52 @@ done
 
 glib-compile-schemas /usr/share/glib-2.0/schemas/ 2>/dev/null || true
 log "  Done"
+
+# ============================================================================
+# System-wide theming defaults (dconf + libadwaita override for /etc/skel)
+#
+# Without this, themes/icons are *available* but GNOME falls back to the
+# gsettings-schema baseline (Adwaita/adw-gtk3-dark). Lock in the canonical
+# InterGenOS look as the system default for every new user.
+#
+# libadwaita apps (gnome-control-center, etc.) ignore gtk-theme by default;
+# they read ~/.config/gtk-4.0/gtk.css instead. Putting the InterGenOS gtk-4.0
+# stylesheet into /etc/skel/.config makes new users automatically inherit it.
+# ============================================================================
+
+log ""
+log "=== Configuring system-wide theming defaults ==="
+
+# 1. dconf profile + system-wide defaults
+mkdir -p /etc/dconf/profile /etc/dconf/db/local.d
+cat > /etc/dconf/profile/user << 'DCONFPROF'
+user-db:user
+system-db:local
+DCONFPROF
+
+cat > /etc/dconf/db/local.d/00-intergenos-defaults << 'DCONFDEF'
+[org/gnome/desktop/interface]
+gtk-theme='InterGenOS'
+icon-theme='Cybernetic - Blue'
+cursor-theme='Bibata-Modern-Classic'
+color-scheme='prefer-dark'
+
+[org/gnome/shell/extensions/user-theme]
+name='InterGenOS'
+DCONFDEF
+
+dconf update 2>/dev/null || true
+log "  dconf defaults written: gtk=InterGenOS, icons=Cybernetic - Blue, cursor=Bibata-Modern-Classic"
+
+# 2. libadwaita override for new users (gnome-control-center, etc.)
+if [ -f /usr/share/themes/InterGenOS/gtk-4.0/gtk.css ]; then
+    mkdir -p /etc/skel/.config/gtk-4.0
+    cp /usr/share/themes/InterGenOS/gtk-4.0/gtk.css \
+       /etc/skel/.config/gtk-4.0/gtk.css
+    log "  libadwaita override staged in /etc/skel/.config/gtk-4.0/gtk.css"
+else
+    warn "  /usr/share/themes/InterGenOS/gtk-4.0/gtk.css missing — libadwaita override skipped"
+fi
 
 # ============================================================================
 # Welcome greeter autostart
