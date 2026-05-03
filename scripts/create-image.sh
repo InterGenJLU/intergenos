@@ -616,9 +616,17 @@ if [ -d "/mnt/intergenos/assets/theming" ]; then
     mount --bind /dev/pts "${MOUNT_POINT}/dev/pts"
     mount -t proc proc "${MOUNT_POINT}/proc"
     mount -t sysfs sysfs "${MOUNT_POINT}/sys"
+    # /mnt/intergenos must be visible inside the chroot — install-theming.sh
+    # lives at /mnt/intergenos/scripts/ and pulls assets from
+    # /mnt/intergenos/assets/{theming,intergen-shell-theme,intergen-welcome}/.
+    # Without this bind-mount, the chroot call dies with "No such file or
+    # directory" (image phase failed this way 2026-05-03).
+    mkdir -p "${MOUNT_POINT}/mnt/intergenos"
+    mount --bind /mnt/intergenos "${MOUNT_POINT}/mnt/intergenos"
 
     chroot "$MOUNT_POINT" /bin/bash /mnt/intergenos/scripts/install-theming.sh
 
+    umount "${MOUNT_POINT}/mnt/intergenos"
     umount "${MOUNT_POINT}/sys"
     umount "${MOUNT_POINT}/proc"
     umount "${MOUNT_POINT}/dev/pts"
