@@ -1,5 +1,7 @@
 name: gnome-contacts
-version: '50.0'
+# GNOME 49 stack alignment: 50.0 added a glycin-gtk4-2 pkg-config dep
+# (GNOME 50). 49.0 only needs libadwaita-1 >= 1.8.alpha which we have.
+version: '49.0'
 release: 1
 description: GNOME contacts manager
 license: GPL-2.0-or-later
@@ -8,8 +10,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/gnome-contacts/50/gnome-contacts-${version}.tar.xz
-  sha256: 2a3bea343171be244f12b7c21a40ca38e9a92dea9890393af5e8ac139bc0dab3
+- url: https://download.gnome.org/sources/gnome-contacts/49/gnome-contacts-${version}.tar.xz
+  sha256: 25f21c67bc29d77def2d9cd3e22d28460d12b47ff248a2017731b54db485e4af
 dependencies:
   build:
   - gtk4

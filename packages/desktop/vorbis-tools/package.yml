@@ -1,0 +1,21 @@
+name: vorbis-tools
+version: '1.4.3'
+release: 1
+description: Command-line tools (oggenc, oggdec, ogginfo, etc.) for the Vorbis audio codec
+license: GPL-2.0-or-later
+homepage: https://xiph.org/vorbis/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://downloads.xiph.org/releases/vorbis/vorbis-tools-${version}.tar.gz
+  sha256: a1fe3ddc6777bdcebf6b797e7edfe0437954b24756ffcc8c6b816b63e0460dde
+dependencies:
+  build:
+  - libogg
+  - libvorbis
+  - flac
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr

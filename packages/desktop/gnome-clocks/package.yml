@@ -19,6 +19,7 @@ dependencies:
   - geocode-glib
   - icu
   - vala
+  - vorbis-tools
   - itstool
   host: []
   runtime: []
