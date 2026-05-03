@@ -1,0 +1,21 @@
+name: rapidjson
+# Master snapshot version, not the v1.1.0 tag. Rationale documented in build.sh.
+# Format: 0.0.0+master.YYYYMMDD where YYYYMMDD is the upstream commit's commit-date.
+# Upstream commit: 24b5e7a8b27f42fa16b96fc70aade9106cf7102f (2025-02-05)
+version: "0.0.0+master.20250205"
+release: 1
+description: Fast JSON parser/generator for C++ with both SAX/DOM style API (header-only)
+license: MIT
+homepage: https://rapidjson.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/Tencent/rapidjson/archive/24b5e7a8b27f42fa16b96fc70aade9106cf7102f.tar.gz
+  sha256: 2d2601a82d2d3b7e143a3c8d43ef616671391034bc46891a9816b79cf2d3e7a8
+dependencies:
+  build:
+  - cmake
+  - pkgconf
+  host: []
+  runtime: []
