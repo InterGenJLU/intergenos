@@ -65,9 +65,20 @@ do_install() {
 }
 
 post_install() {
-    # Create clang SSP configuration files
+    # Create clang configuration files combining:
+    #   --gcc-triple   — tell clang's GCCInstallationDetector about our custom
+    #                    triple x86_64-igos-linux-gnu (not in clang's hardcoded
+    #                    list). Without it, clang can't find <cstddef>, crtbeginS.o,
+    #                    libgcc_s. See research/build_system/clang_custom_triple_2026-04-10.md.
+    #   -fstack-protector-strong — BLFS SSP hardening (BLFS LLVM § Configuration).
+    # Both flags are needed; previous version used `>` (overwrite) and the SSP
+    # write clobbered the gcc-triple line written at image creation, breaking
+    # in-chroot rebuilds of clang-using packages (thunderbird hit this 2026-05-03).
     mkdir -pv /etc/clang
     for i in clang clang++; do
-        echo -fstack-protector-strong > /etc/clang/$i.cfg
+        cat > /etc/clang/$i.cfg <<'EOF'
+--gcc-triple=x86_64-igos-linux-gnu
+-fstack-protector-strong
+EOF
     done
 }

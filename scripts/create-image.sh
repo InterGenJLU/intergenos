@@ -309,12 +309,22 @@ if [ -n "$KERNEL" ] && [ ! -L "${MOUNT_POINT}/boot/vmlinuz" ]; then
     log "  Kernel symlink: /boot/vmlinuz -> $(basename "$KERNEL")"
 fi
 
-# Clang GCC detection — our custom triple (x86_64-igos-linux-gnu) isn't in
-# clang's hardcoded search list. These config files tell clang where to find it.
+# Clang config files combining:
+#   --gcc-triple — clang's GCCInstallationDetector doesn't know our custom
+#                  triple x86_64-igos-linux-gnu; without this, clang can't
+#                  find <cstddef>, crtbeginS.o, libgcc_s. See
+#                  research/build_system/clang_custom_triple_2026-04-10.md.
+#   -fstack-protector-strong — BLFS SSP hardening (BLFS LLVM § Configuration).
+# Both lines must be present; using `>` (overwrite) on either alone clobbers
+# the other (in-chroot llvm post_install vs image-time write race).
 mkdir -p "${MOUNT_POINT}/etc/clang"
-echo '--gcc-triple=x86_64-igos-linux-gnu' > "${MOUNT_POINT}/etc/clang/clang.cfg"
-echo '--gcc-triple=x86_64-igos-linux-gnu' > "${MOUNT_POINT}/etc/clang/clang++.cfg"
-log "  Clang GCC detection configured for x86_64-igos-linux-gnu"
+for i in clang clang++; do
+    cat > "${MOUNT_POINT}/etc/clang/$i.cfg" <<'CLANGCFG'
+--gcc-triple=x86_64-igos-linux-gnu
+-fstack-protector-strong
+CLANGCFG
+done
+log "  Clang GCC detection + SSP hardening configured (x86_64-igos-linux-gnu)"
 
 # Disable mDNS in systemd-resolved (Avahi is the sole mDNS handler)
 mkdir -p "${MOUNT_POINT}/etc/systemd/resolved.conf.d"
