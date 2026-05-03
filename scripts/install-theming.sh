@@ -461,7 +461,10 @@ table inet filter {
         ip protocol icmp icmp type echo-request limit rate 10/second accept
         ip protocol icmp accept
         ip6 nexthdr ipv6-icmp icmpv6 type { echo-request } limit rate 10/second accept
-        ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, nd-router-solicit, nd-router-advert } accept
+        ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, nd-router-solicit, nd-router-advert, mld-listener-query, mld-listener-report, mld-listener-done, mld2-listener-report } accept
+
+        # IPv4 multicast group membership (IGMP) — required for mDNS/SSDP/etc. group joins
+        ip protocol igmp accept
 
         # SSH — rate-limited to prevent brute force
         tcp dport 22 ct state new limit rate 15/minute burst 5 accept
@@ -469,8 +472,9 @@ table inet filter {
         # mDNS (Avahi zero-conf)
         udp dport 5353 accept
 
-        # DHCP client
+        # DHCP client (IPv4 + IPv6)
         udp sport 67 udp dport 68 accept
+        udp sport 547 udp dport 546 accept
 
         # Log and drop — rate-limited to prevent log flooding
         limit rate 10/minute burst 5 log prefix "nftables-drop: "
