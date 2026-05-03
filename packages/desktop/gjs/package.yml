@@ -20,3 +20,11 @@ dependencies:
   - glib2
   host: []
   runtime: []
+patches:
+  # gjs 1.86.0 has a void** vs void* type mismatch in
+  # gi/info.h:887's closure_native_address() declaration vs the
+  # underlying gobject-introspection function. Upstream fix is MR
+  # !1057 (post-1.86.0); this is a minimal subset (info.h only) that
+  # avoids the cosmetic closure() -> get_func_ptr() rename.
+  - file: gjs-1.86.0-info-h-void-ptr-1.patch
+    sha256: 217c8ee02c8e7506b686fa935066944ad18a85233607d7f0ded354aa35242f9e
