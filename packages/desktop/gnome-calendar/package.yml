@@ -1,5 +1,5 @@
 name: gnome-calendar
-version: '50.0'
+version: '49.1'
 release: 1
 description: GNOME calendar application
 license: GPL-3.0-or-later
@@ -8,8 +8,8 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: https://download.gnome.org/sources/gnome-calendar/50/gnome-calendar-${version}.tar.xz
-  sha256: 4b75df071a52d98fb35e647d018030129d24d9007790d02457746c98617aeab0
+- url: https://download.gnome.org/sources/gnome-calendar/49/gnome-calendar-${version}.tar.xz
+  sha256: 0c1115ab294d532c4c19f56ce0d7aee53f8ea32b1430209dd1d9eda47a83d2c2
 dependencies:
   build:
   - gtk4
