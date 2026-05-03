@@ -1,0 +1,18 @@
+name: ladspa-sdk
+version: "1.17"
+release: 1
+description: LADSPA audio plugin SDK — headers, example plugins, host-side analysis tools
+license: LGPL-2.1-only
+homepage: https://www.ladspa.org/
+tier: desktop
+build_style: make
+install_func: do_install
+source:
+- url: https://www.ladspa.org/download/ladspa_sdk_${version}.tgz
+  sha256: 27d24f279e4b81bd17ecbdcc38e4c42991bb388826c0b200067ce0eb59d3da5b
+dependencies:
+  build:
+  - libsndfile
+  host: []
+  runtime:
+  - libsndfile
