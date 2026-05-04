@@ -22,7 +22,7 @@ do_install() {
     DESTDIR="$DESTDIR" ninja -C build install
 }
 
-do_test() {
+check() {
     # sord ships an offline unit-test suite (test/) gated by the `tests`
     # feature (default auto/enabled). Tests exercise libsord internals
     # against bundled fixtures — no network access required.

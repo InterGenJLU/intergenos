@@ -246,6 +246,6 @@ post_install() {
 #     3. The build itself is the verification: a successful link of audacity,
 #        the lib-* shared objects, and the mod-* modules covers virtually all
 #        of the project's compilable surface.
-do_test() {
+check() {
     return 0
 }

@@ -140,6 +140,6 @@ DESKTOP_EOF
 #   the relevant test binaries from the build graph entirely. Smoke testing
 #   is performed at first-boot via the launcher (icon + desktop file).
 #   See: BLFS xsoft/firefox.html "Testing Firefox" section.
-do_test() {
+check() {
     return 0
 }

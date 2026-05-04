@@ -82,6 +82,6 @@ post_install() {
 #   are treated as build failures (tests are truth, per project rule).
 #   Some tests open loopback sockets (announcer-udp, dns, lpd, net) — these
 #   work inside the chroot since the loopback interface is always present.
-do_test() {
+check() {
     ctest --test-dir build --output-on-failure -j${IGOS_JOBS}
 }

@@ -24,7 +24,7 @@ do_install() {
     DESTDIR="$DESTDIR" ninja -C build install
 }
 
-do_test() {
+check() {
     # sratom ships an offline atom-roundtrip test suite (test/) gated by
     # the `tests` feature (default auto/enabled). Uses bundled fixtures;
     # no network access required.

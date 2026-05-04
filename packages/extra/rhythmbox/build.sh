@@ -106,6 +106,6 @@ post_install() {
 #   subdir from the build graph; `meson test` would have nothing to run.
 #   Smoke testing happens at first launch (desktop entry + icon).
 #   Re-evaluate when libcheck lands.
-do_test() {
+check() {
     return 0
 }

@@ -20,7 +20,7 @@ do_install() {
     DESTDIR="$DESTDIR" ninja -C build install
 }
 
-do_test() {
+check() {
     # serd ships a comprehensive offline RDF round-trip test suite (test/)
     # gated by the `tests` feature (default auto/enabled). All fixtures
     # are bundled in the tarball; no network access required.

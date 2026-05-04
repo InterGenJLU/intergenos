@@ -102,6 +102,6 @@ do_install() {
 #   wx-config is a strong signal of a correct build, and Audacity's own
 #   test suite (when we package Audacity) exercises the wxWidgets API
 #   surface that actually matters to InterGenOS users.
-do_test() {
+check() {
     return 0
 }
