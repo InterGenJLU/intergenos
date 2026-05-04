@@ -1,0 +1,19 @@
+name: suil
+version: "0.10.26"
+release: 1
+description: LV2 plugin UI loader — wraps native plugin GUIs for host toolkits
+license: ISC
+homepage: https://gitlab.com/lv2/suil
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.drobilla.net/suil-${version}.tar.xz
+  sha256: 62808916602c47d201a1ec2d246323a8048243f2bf972f859f0db1db4662ee43
+dependencies:
+  build:
+  - lv2
+  - lilv
+  - gtk3
+  host: []
+  runtime: []
