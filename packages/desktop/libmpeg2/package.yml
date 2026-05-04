@@ -1,0 +1,20 @@
+name: libmpeg2
+version: '0.5.1'
+release: 1
+description: Library for decoding MPEG-1 and MPEG-2 video streams
+license: GPL-2.0-or-later
+homepage: https://libmpeg2.sourceforge.io/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://download.videolan.org/contrib/libmpeg2/libmpeg2-${version}.tar.gz
+  sha256: dee22e893cb5fc2b2b6ebd60b88478ab8556cb3b93f9a0d7ce8f3b61851871d4
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --enable-shared
+- --disable-static

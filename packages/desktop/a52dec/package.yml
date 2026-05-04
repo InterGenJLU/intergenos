@@ -1,0 +1,21 @@
+name: a52dec
+version: '0.8.0'
+release: 1
+description: Library for decoding ATSC A/52 (AC-3 / Dolby Digital) audio streams
+license: GPL-2.0-or-later
+homepage: https://git.adelielinux.org/community/a52dec/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://distfiles.adelielinux.org/source/a52dec/a52dec-${version}.tar.gz
+  sha256: 03c181ce9c3fe0d2f5130de18dab9bd8bc63c354071515aa56983c74a9cffcc9
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --mandir=/usr/share/man
+- --enable-shared
+- --disable-static
