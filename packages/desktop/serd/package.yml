@@ -1,0 +1,19 @@
+name: serd
+version: "0.32.8"
+release: 1
+description: Lightweight C library for RDF syntax (Turtle/NTriples/NQuads/TriG) — drobilla
+license: ISC
+homepage: https://drobilla.net/software/serd/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.drobilla.net/serd-${version}.tar.xz
+  sha256: f47259bc38ba553b0deb8b6dab6b5b73d3630469a7c9439ccdca80e06d7c1ece
+dependencies:
+  build:
+  - meson
+  - ninja
+  - pkgconf
+  host: []
+  runtime: []

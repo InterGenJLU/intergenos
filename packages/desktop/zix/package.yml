@@ -1,0 +1,19 @@
+name: zix
+version: "0.8.0"
+release: 1
+description: Lightweight C library of portability wrappers and data structures (drobilla)
+license: ISC
+homepage: https://gitlab.com/drobilla/zix/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.drobilla.net/zix-${version}.tar.xz
+  sha256: e9b6fe3ede984fa53f2edcebdabb35fb99ace807722772156aea49c079cad191
+dependencies:
+  build:
+  - meson
+  - ninja
+  - pkgconf
+  host: []
+  runtime: []

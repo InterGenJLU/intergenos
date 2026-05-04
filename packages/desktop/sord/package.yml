@@ -1,0 +1,24 @@
+name: sord
+version: "0.16.22"
+release: 1
+description: In-memory RDF store with triple-pattern lookup (drobilla)
+license: ISC
+homepage: https://drobilla.net/software/sord/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.drobilla.net/sord-${version}.tar.xz
+  sha256: bb23b34b216579136795d518cffa73d91cf205594ce9accebfd408afb839173f
+dependencies:
+  build:
+  - meson
+  - ninja
+  - pkgconf
+  - zix
+  - serd
+  - pcre2
+  host: []
+  runtime:
+  - zix
+  - serd
