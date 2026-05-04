@@ -14,7 +14,7 @@
 #
 # Audacity's upstream build system ships with Conan 2 enabled by default and
 # expects to download pre-built dependency binaries from `center.conan.io`.
-# This conflicts with the Holy Grail (no opaque network downloads of binaries
+# This conflicts with the security-only alignment (no opaque network downloads of binaries
 # we cannot audit) and with the Prime Directive (the user must understand and
 # trust every component on their machine).
 #

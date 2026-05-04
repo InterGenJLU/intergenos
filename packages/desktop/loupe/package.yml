@@ -11,7 +11,7 @@ source:
 - url: https://download.gnome.org/sources/loupe/49/loupe-${version}.tar.xz
   sha256: 5853e75cceba7fa2bea01be273cd2f0a3061941e7bdfe3a008b233171067142c
 # Pre-vendored Cargo crate dependencies. The chroot has no network
-# access (Holy Grail Rule #4), so cargo can't fetch from
+# access by security design, so cargo can't fetch from
 # index.crates.io at build time. Generated via `cargo vendor` against
 # loupe-49.2's Cargo.lock on the build VM (rustup cargo 1.95).
 - url: https://intergenstudios.com/intergenos/sources/current/loupe-${version}-vendor.tar.gz

@@ -12,7 +12,7 @@ Description: Drop xxdi.pl File::Slurp dep, use pure-Perl read
  via ord(substr(...)) — no string decoding involved — so output
  equality reduces to "did the read mechanism preserve raw bytes",
  which binmode guarantees on Linux.
-Author: chris-ubuntu-code-claude (SPOC) for InterGenOS, 2026-05-03
+Author: InterGenOS project, 2026-05-03
 Origin: vendor (InterGenOS)
 
 --- a/xxdi.pl	2019-01-08 16:13:13.000000000 -0600

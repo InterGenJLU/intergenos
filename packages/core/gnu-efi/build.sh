@@ -15,7 +15,7 @@ configure() {
     # efitools/sbsigntool/mokutil/shim-signed. On gnu-efi 3.0.18 +
     # binutils 2.46, objcopy fails "file format not recognized" on the
     # .so→.efi conversions in apps/, while lib/, gnuefi/, inc/ build
-    # cleanly. Per feedback_dependency_policy.md: examples-only = SKIP.
+    # cleanly. Per the project's dependency-enablement policy: examples-only = SKIP.
     #
     # We patch the Makefile rather than passing SUBDIRS= on the make
     # command line: command-line make variables propagate to all

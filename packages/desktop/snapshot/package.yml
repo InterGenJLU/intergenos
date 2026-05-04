@@ -12,7 +12,7 @@ install_func: do_install
 source:
 - url: https://download.gnome.org/sources/snapshot/49/snapshot-${version}.tar.xz
   sha256: 3558f6f8e0d38b2950b6bad9b9eec238249bedfedce70fb58a28cad6945e6ce9
-# Pre-vendored Cargo crates (offline chroot, Holy Grail #4). Generated
+# Pre-vendored Cargo crates (offline chroot, by security design). Generated
 # via `cargo vendor` on build VM with rustup cargo 1.95.
 - url: https://intergenstudios.com/intergenos/sources/current/snapshot-${version}-vendor.tar.gz
   sha256: 5b3b6ae56d10370fadca8e7d02e723bf526263c9705ac2d97d81cc4e164402db

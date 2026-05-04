@@ -14,7 +14,7 @@ Description: Skip signed-EFI build artifacts
  rule already only ships $(EFIFILES) (unsigned); the *-signed.efi were
  never going to be installed anyway. This breaks the dep cycle without
  reordering the graph or introducing pre-built sbsign into the chroot.
-Author: chris-ubuntu-code-claude (SPOC) for InterGenOS, 2026-05-03
+Author: InterGenOS project, 2026-05-03
 Origin: vendor (InterGenOS)
 
 --- a/Makefile

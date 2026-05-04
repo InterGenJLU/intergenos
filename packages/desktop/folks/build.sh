@@ -8,7 +8,7 @@ configure() {
 
     # Telepathy backend disabled: Telepathy is upstream-abandoned (BLFS 13.0 dropped
     # it entirely; folks meson.build:86 carries an upstream FIXME to drop dbus-glib).
-    # Owner-approved 2026-05-03 per feedback_never_disable_features.md exception clause.
+    # Owner-approved 2026-05-03 as policy exception (telepathy backend is upstream-abandoned).
     #
     # Tests disabled: meson.build:117 hard-requires python-dbusmock for the BlueZ
     # test suite. python-dbusmock is a tests-only dep — falls in the

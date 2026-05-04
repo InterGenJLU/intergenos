@@ -17,7 +17,7 @@ build() {
 check() {
     cd build
     # Skip giomm_tls_client_test: it does DNS resolution to www.gnome.org. The
-    # chroot has no network by Rule #4 GLASSWING design. Upstream's own test
+    # chroot has no network by security design. Upstream's own test
     # source acknowledges the offline-incompatibility with an unfinished TODO:
     #   tests/giomm_tls_client/main.cc:54-58
     #     "This happens if it could not resolve the name, for instance if we

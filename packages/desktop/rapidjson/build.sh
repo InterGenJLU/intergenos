@@ -6,14 +6,14 @@
 #   also a common dep in the C++ ecosystem (CGAL, ROS bindings, various media
 #   tools) so we tier it under desktop rather than co-locating with audacity.
 #
-# Why master snapshot instead of the v1.1.0 release tag (Holy Grail / "latest stable"):
+# Why master snapshot instead of the v1.1.0 release tag (security-first / "latest stable"):
 #   The official tagged release v1.1.0 dates from 2016-08-25 — over nine years
 #   of accumulated bug and security fixes sit on master without ever being cut
 #   into a tagged release. Both Debian (1.1.0+dfsg2-7.6) and Arch (1.1.0-6)
 #   work around this by patching v1.1.0 with a stack of upstream cherry-picks,
 #   including CVE-2024-38517.
 #
-#   Per the HOLY GRAIL (security-only alignment) and the project's "ALWAYS latest
+#   Per the security-only alignment and the project's "ALWAYS latest
 #   stable versions" rule, we instead pin the master tip at upstream commit
 #   24b5e7a8b27f42fa16b96fc70aade9106cf7102f (committed 2025-02-05, "Fix out of
 #   bounds read with kParseValidateEncodingFlag"). That commit:
