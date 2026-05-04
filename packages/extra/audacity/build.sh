@@ -69,17 +69,17 @@
 #   format and is required for compatibility with the existing plugin
 #   ecosystem. Configure-default is on; we set it explicitly.
 #
-# LV2 (audacity_use_lv2=off)
-#   LV2 host support requires lilv + suil + serd + sord + sratom (the drobilla
-#   RDF library family) at runtime. We ship desktop/lv2 (1.18.10) for the
-#   headers/specification, but the host stack (lilv et al.) is not yet
-#   packaged. Per the use-if-have dependency policy
-#   (memory/feedback_dependency_policy.md): an OPTIONAL upstream feature whose
-#   dependency we don't have is permitted to be configured-off — this is NOT
-#   a feature-disable in the policy sense, and is distinct from the never-
-#   disable rule.
-#   TODO: once lilv/suil/serd/sord/sratom land in the desktop tier, switch to
-#   `audacity_use_lv2=system` and drop this comment.
+# LV2 (audacity_use_lv2=system)
+#   LV2 host support enabled. Full stack now in tree:
+#     lv2 (1.18.10)        — spec/headers
+#     zix (0.8.0)          — RDF/util
+#     serd (0.32.8)        — RDF I/O
+#     sord (0.16.22)       — RDF triple-store
+#     sratom (0.6.22)      — RDF↔LV2-Atom serialization
+#     lilv (0.26.4)        — plugin host runtime
+#     suil (0.10.26)       — UI loader (gtk3 + x11)
+#   Plus ladspa-sdk (1.17), swh-plugins (0.4.17) for LADSPA support, and
+#   fftw (3.3.11) for spectral effects in swh-plugins.
 #
 # VST3 (audacity_has_vst3=Off)
 #   VST3 SDK requires Steinberg's VST3 GPLv3-compatible SDK. Our tree does
@@ -194,7 +194,7 @@ configure() {
         -Daudacity_use_ffmpeg=loaded                                          \
                                                                               \
         -Daudacity_use_ladspa=on                                              \
-        -Daudacity_use_lv2=off                                                \
+        -Daudacity_use_lv2=system                                             \
         -Daudacity_use_vamp=off                                               \
         -Daudacity_use_vst=Off                                                \
                                                                               \

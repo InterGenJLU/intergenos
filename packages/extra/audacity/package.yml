@@ -39,7 +39,10 @@ dependencies:
   - opus                 # Opus codec, optional
   - opusfile             # Opus container/decoder, optional
   - ladspa-sdk           # LADSPA plugin headers, enables LADSPA host
-  - lv2                  # LV2 plugin headers (host runtime via lilv NOT yet packaged - see build.sh)
+  - lv2                  # LV2 plugin spec/headers
+  - lilv                 # LV2 plugin host runtime (depends on zix, serd, sord, sratom)
+  - suil                 # LV2 plugin UI loader (gtk3 + x11)
+  - swh-plugins          # standard LADSPA effects (~100 plugins)
   - expat                # XML parser, REQUIRED
   - sqlite               # SQLite 3, REQUIRED for project file format
   - zlib                 # compression, REQUIRED
