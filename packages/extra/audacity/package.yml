@@ -39,14 +39,17 @@ dependencies:
   - opus                 # Opus codec, optional
   - opusfile             # Opus container/decoder, optional
   - ladspa-sdk           # LADSPA plugin headers, enables LADSPA host
-  - lv2                  # LV2 plugin spec/headers
-  - lilv                 # LV2 plugin host runtime (depends on zix, serd, sord, sratom)
-  - suil                 # LV2 plugin UI loader (gtk3 + x11)
-  - swh-plugins          # standard LADSPA effects (~100 plugins)
+  # LV2 + Vamp note: Audacity 3.7.7 BUNDLES its own host stacks in lib-src/lv2/ and
+  # lib-src/libvamp/ — no system find_package() call. The system lv2/lilv/suil/serd/
+  # sord/sratom packages we have are useful for OTHER LV2 hosts (Ardour, Carla, etc.)
+  # but NOT consumed by this Audacity build. Likewise swh-plugins is a runtime LADSPA
+  # plugin collection, not a build dep — any LADSPA-aware app can load it at runtime.
   - expat                # XML parser, REQUIRED
   - sqlite               # SQLite 3, REQUIRED for project file format
   - zlib                 # compression, REQUIRED
   - rapidjson            # header-only JSON library, REQUIRED (no fallback with conan disabled)
+  - wavpack              # lossless+lossy audio codec (audacity_use_wavpack=system)
+  - portmidi             # MIDI device I/O for hardware playback (audacity_use_midi=system)
   - alsa-lib             # ALSA backend for PortAudio
   - gtk3                 # native file dialogs (wx-GTK3 backend)
   host: []

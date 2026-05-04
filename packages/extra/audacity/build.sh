@@ -69,17 +69,14 @@
 #   format and is required for compatibility with the existing plugin
 #   ecosystem. Configure-default is on; we set it explicitly.
 #
-# LV2 (audacity_use_lv2=system)
-#   LV2 host support enabled. Full stack now in tree:
-#     lv2 (1.18.10)        — spec/headers
-#     zix (0.8.0)          — RDF/util
-#     serd (0.32.8)        — RDF I/O
-#     sord (0.16.22)       — RDF triple-store
-#     sratom (0.6.22)      — RDF↔LV2-Atom serialization
-#     lilv (0.26.4)        — plugin host runtime
-#     suil (0.10.26)       — UI loader (gtk3 + x11)
-#   Plus ladspa-sdk (1.17), swh-plugins (0.4.17) for LADSPA support, and
-#   fftw (3.3.11) for spectral effects in swh-plugins.
+# LV2 (audacity_use_lv2=on)
+#   LV2 plugin host enabled. Audacity 3.7.7 BUNDLES its own LV2 host stack
+#   in lib-src/lv2/ (with its own configure script + waf-based build that
+#   builds zix/serd/sord/sratom/lilv/suil from drobilla source). The flag
+#   is a simple boolean — there is no `=system` mode in Audacity for LV2,
+#   so the system lv2/lilv/suil packages we have in /desktop/ are NOT
+#   consumed by this build. They remain useful for any future LV2 host
+#   package (Ardour, Carla, Qtractor, etc.) that does use system find_package.
 #
 # VST3 (audacity_has_vst3=Off)
 #   VST3 SDK requires Steinberg's VST3 GPLv3-compatible SDK. Our tree does
@@ -92,9 +89,10 @@
 #   We force Off to avoid both the legal exposure and a missing-header build
 #   failure.
 #
-# Vamp (audacity_use_vamp=off)
-#   Vamp host SDK is not yet packaged (it lives in the same drobilla-adjacent
-#   ecosystem as LV2). Use-if-have policy applies.
+# Vamp (audacity_use_vamp=on)
+#   Vamp plugin host enabled. Like LV2, Audacity bundles its own libvamp at
+#   lib-src/libvamp/ — no system dep needed. Earlier "deferred" framing was
+#   wrong; Vamp support is free with the bundled source.
 #
 # Audio Units, ASIO: macOS/Windows only, not relevant on Linux.
 #
@@ -194,9 +192,11 @@ configure() {
         -Daudacity_use_ffmpeg=loaded                                          \
                                                                               \
         -Daudacity_use_ladspa=on                                              \
-        -Daudacity_use_lv2=system                                             \
-        -Daudacity_use_vamp=off                                               \
+        -Daudacity_use_lv2=on                                                 \
+        -Daudacity_use_vamp=on                                                \
         -Daudacity_use_vst=Off                                                \
+        -Daudacity_use_wavpack=system                                         \
+        -Daudacity_use_midi=system                                            \
                                                                               \
         -Daudacity_use_soundtouch=system                                      \
         -Daudacity_use_twolame=system                                         \

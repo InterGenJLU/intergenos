@@ -42,7 +42,18 @@ configure() {
     #   - apidoc=false         — gi-docgen optional, skip API docs
     #
     # Auto-detected (left at default 'auto'): libnotify, libsecret,
-    # grilo, gudev, fm_radio, plugins_python, plugins_vala
+    # grilo, gudev, fm_radio, plugins_vala
+    #
+    # plugins_python=disabled — Rhythmbox 3.4.9 errors at meson configure
+    # when pygobject >= 3.53 is paired with libpeas <= 1.36 (girepository
+    # 1.0/2.0 ABI clash; meson check at meson.build:155-159 fires).
+    # Our pygobject3 is 3.54.5 and libpeas is 1.36.0 (the LAST 1.x release
+    # — upstream went 1.36.0 → 2.0 directly), so we hit the guard.
+    # Per use-if-have policy (feedback_dependency_policy.md) this is a
+    # permitted configure-off: the dep stack genuinely doesn't compose at
+    # the ABI level. Trade-off: no Rhythmbox Python plugins (LastFM
+    # scrobbler, Magnatune, Jamendo). Revisit when Rhythmbox 4.x lands
+    # with libpeas 2.0 support.
     meson setup ..                       \
           --prefix=/usr                  \
           --libdir=/usr/lib              \
@@ -55,7 +66,8 @@ configure() {
           -Ddaap=disabled                \
           -Dsample-plugins=false         \
           -Dhelp=true                    \
-          -Dapidoc=false
+          -Dapidoc=false                 \
+          -Dplugins_python=disabled
 }
 
 build() {
