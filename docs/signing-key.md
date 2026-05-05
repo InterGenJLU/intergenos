@@ -1,11 +1,11 @@
 # InterGenOS Release Signing Key
 
-**Last updated:** 2026-05-01
-**Status:** Master keypair + signing subkeys [S1] [S2] LIVE on hardware tokens (ceremony 2026-04-30). EFI vendor cert (PIV slot 9c) deferred — Nitrokey 3 PIV toolchain ecosystem gap; follow-up air-gap session pending. Secondary contact's keypair (Ethan) pending his Phase 1 onboarding.
+**Last updated:** 2026-05-05
+**Status:** LIVE. Master pubkey published to `keys.openpgp.org` (verified by email). All four hardware tokens carry signing subkeys, UIF touch-policy on. PIV vendor cert (NK#1 slot 9c) generated and rotated. Drive #3 master backup secured.
 
 ## Summary
 
-InterGenOS release artifacts are signed with a PGP key that chains to an offline root. Verifying the key before trusting it on your machine protects you from man-in-the-middle tampering during package download.
+InterGenOS release artifacts are signed with a PGP key whose master is generated and held offline. Verifying the key fingerprint against this page **and** at least one other independent source before trusting it on your machine protects you from MITM tampering during package download.
 
 This page is the **canonical fingerprint publication** for the release signing key. Cross-publication locations are listed below; every copy of the fingerprint on the internet should match the value here. If they don't, do not trust the mismatched source.
 
@@ -14,32 +14,45 @@ This page is the **canonical fingerprint publication** for the release signing k
 | Field | Value |
 |---|---|
 | Primary key UID | `InterGenOS Project Signing Key (primary) <intergenos-primary@intergenstudios.com>` |
-| Secondary key UID | *`PENDING — Ethan's Phase 1 generation; planned UID will follow project-role-identity convention`* |
-| Algorithm | RSA 4096 (master + subkeys), no expiry on master, 2-year expiry on subkeys |
-| Primary fingerprint | `46DD 1029 F98F D453 1D44  99C3 A2AF 3A36 C5CE F2C3` |
-| Secondary fingerprint | *`PENDING — Ethan's Phase 1 generation`* |
-| Release-signing subkey [S1] | `6451 D186 F997 5781 A145  1DE6 7E65 89C3 954F 031F` (Nitrokey 3 NFC, serial `B9753481`; daily-driver token. Touch-policy enablement deferred to post-ceremony hardening pass — recoverable via `gpg --card-edit` without re-keytocarding.) |
-| Release-signing subkey [S2] | `AB6C 6EA3 EDE8 4067 9044  EE5E 237E 35D9 6422 136B` (Nitrokey 3 NFC, serial `43D33126`; redundancy token in local SDB. Touch-policy: same status as [S1].) |
-| EFI-binary signing cert CN | `InterGenOS Secure Boot CA` |
-| EFI-binary signing key fingerprint | *`PENDING — PIV slot 9c keypair deferred per Nitrokey 3 PIV toolchain ecosystem gap; follow-up air-gap session in flight`* |
-| Hardware | Nitrokey 3 NFC × 4 (Nitrokey #1 daily-driver, #2 local SDB, #3 secondary maintainer's, #4 spare) |
-| Root custody | Master keypair generated air-gapped on Tails 7.7; LUKS-encrypted backup on dedicated USB drive; paperkey × 2 printed (one home safe + one offsite); revocation cert on backup |
-| Primary expiry | None on master; 2 years on subkeys |
+| Algorithm | RSA-4096 master + 1 enc sub + 4 sign subs (one per Nitrokey) |
+| Master fingerprint | `5597 A3E0 587B 2530 06D0  DD7B 8C50 8261 8208 3050` |
+| Encryption subkey fingerprint | `62C7 E2C3 0908 823D AF5E  4EBF 917B 649E 00F2 868C` |
+| Signing subkey [NK#1] | `D7AA 641D 81AC D690 C5AD  865E 7276 E14D D888 6BFE` (Nitrokey 3 NFC, OpenPGP serial `B9753481`; project daily-driver, also holds the EFI vendor cert in PIV slot 9c) |
+| Signing subkey [NK#2] | `81DD 223F 9BA9 B3F2 AFBF  FC5A FA24 B042 975F 775E` (Nitrokey 3 NFC, OpenPGP serial `43D33126`; local backup token) |
+| Signing subkey [NK#3] | `B34D 3D3F B5EA DFC4 80ED  BDB0 D3C5 DF2C C73B 67ED` (Nitrokey 3 NFC, OpenPGP serial `730D5185`; secondary maintainer's daily-driver) |
+| Signing subkey [NK#4] | `99B3 E755 5064 180D C9CE  3284 32AE E441 15DE AAED` (Nitrokey 3 NFC, OpenPGP serial `CC1D07E3`; secondary maintainer's backup) |
+| EFI-binary signing cert | CN `InterGenOS Secure Boot CA`, on Nitrokey #1 PIV slot 9c |
+| EFI cert SHA-256 | `8ce749e7e77169205e4761d82b48a4333f48cdec2ee0f711b8cff560fe150514` |
+| Master expiry | None (revocation cert held in LUKS backup) |
+| Subkey expiry | 2 years from issue (2028-05-04) |
+| UIF (touch-to-sign) | Enabled on signing slot of all four NKs |
+| Hardware | Nitrokey 3 NFC × 4 |
+| Root custody | Air-gapped Tails 7.7 generation; LUKS-encrypted master-secret backup on Drive #3 (offline, in physical safe); base16 paperkey backup; revocation cert in same LUKS volume |
 
 ## Verification
 
-Once the ceremony is complete and fingerprints are populated above:
-
-### Fetch from keys.openpgp.org
+### Fetch from `keys.openpgp.org`
 
 ```
-gpg --keyserver keys.openpgp.org --recv-keys <FINGERPRINT>
+gpg --keyserver keys.openpgp.org --recv-keys 5597A3E0587B253006D0DD7B8C50826182083050
+gpg --fingerprint 5597A3E0587B253006D0DD7B8C50826182083050
+```
+
+The cards' on-card URL is `https://keys.openpgp.org/vks/v1/by-fingerprint/5597A3E0587B253006D0DD7B8C50826182083050` — `gpg --card-status` will auto-fetch when online.
+
+### Fetch from this repo
+
+The pubkey is committed alongside this page as [`signing-key.asc`](signing-key.asc):
+
+```
+gpg --import signing-key.asc
+gpg --fingerprint 5597A3E0587B253006D0DD7B8C50826182083050
 ```
 
 ### Verify a release artifact
 
 ```
-# Repository index
+# Repository index or release tarball
 gpg --verify InterGenOS.db.sig InterGenOS.db
 
 # Kernel / GRUB EFI binary (uses the EFI cert, not the PGP key)
@@ -51,49 +64,51 @@ sbverify --cert intergenos-vendor-cert.pem grubx64.efi
 
 ### Cross-check the fingerprint
 
-Before you trust the keyserver response, confirm the fingerprint appears identically in **at least three** of the locations below:
+Before you trust a keyserver response, confirm the fingerprint appears identically in **at least three** of the locations below:
 
 - This page (`docs/signing-key.md` in the InterGenOS repo, git-tracked)
-- The pinned fingerprint announcement on [InterGenOS GitHub releases](https://github.com/InterGenJLU/intergenos/releases)
-- `https://intergenstudios.com/signing-key` (TLS, maintainer-operated)
-- The signed fingerprint announcement (offline-root signed — published alongside the subkey rollover)
+- The committed pubkey at `docs/signing-key.asc` (git-tracked, same repo)
+- The keyserver response from `keys.openpgp.org`
+- The pinned fingerprint announcement on the [InterGenOS GitHub releases page](https://github.com/InterGenJLU/intergenos/releases)
+- (Future) `https://intergenstudios.com/signing-key` (TLS, maintainer-operated)
+- (Future) The signed fingerprint announcement (offline-root signed — published alongside subkey rollover)
 
 If any two sources disagree on the fingerprint, assume your network path is compromised and do not trust the key.
 
 ## Key Hierarchy
 
-Three distro keys, one not-our-key, covered here for context. Detailed design rationale in `docs/research/installer/signing_key_custody_2026-04-18.md`.
-
 | Key | Purpose | Lifetime | Custody |
 |---|---|---|---|
-| Distro GPG root | Certifies the signing subkey, signs rollover announcements | 5 years | Offline, air-gapped (Tails generation + paper + LUKS USB x2) |
-| Distro GPG signing subkey | Signs `pkm` repo indexes and release artifacts | 2 years | Hardware token (primary + backup); touch-policy enablement is a post-ceremony hardening item (recoverable in-place via `gpg --card-edit`) |
-| EFI-binary X.509 (PIV 9c) | Signs kernel vmlinuz and custom GRUB | 2 years | Same hardware token (PIV slot 9c); touch-policy enablement planned during the C6 follow-up air-gap session |
+| GPG master (RSA-4096) | Certifies the signing subkeys, signs rollover announcements | No expiry | Offline, air-gapped — generated on Tails 7.7; LUKS USB backup; base16 paperkey; revocation cert |
+| GPG signing subkeys × 4 (RSA-4096) | Sign `pkm` repo indexes and release artifacts | 2 years (2026-05-05 → 2028-05-04) | Hardware tokens (Nitrokey 3 NFC); touch-to-sign UIF enabled |
+| GPG encryption subkey (RSA-4096) | Receive encrypted bug reports / responsible-disclosure submissions | None (rotates with master) | Disk-only on the offline keyring (not card-bound) |
+| EFI-binary X.509 (PIV slot 9c on NK#1) | Signs kernel vmlinuz and custom GRUB | 2 years | Hardware token (NK#1 PIV applet); rotated AES-256 management key |
 | Machine Owner Key (MOK) | Signs DKMS / out-of-tree modules on the end-user machine | Per-install | **End user** — generated at first-boot by Forge installer; not distro-held |
+
+Detailed design rationale in `docs/research/installer/signing_key_custody_2026-04-18.md`.
 
 ## Publication
 
-Once generated, the release key is published to:
+The release key is published at:
 
-1. **`keys.openpgp.org`** — role-UID only, no personal email in the UID (D1-6 hardening).
-2. **This doc** — repo-tracked, git-signed.
-3. **GitHub releases page** — pinned announcement referencing the fingerprint.
-4. **intergenstudios.com** — TLS-served, maintainer-operated domain.
-5. **Signed announcement** — fingerprint announcement signed by the offline root.
-
-The primary key UID is `InterGenOS Project Signing Key (primary) <intergenos-primary@intergenstudios.com>` — a project-role identity, not personally-named, on the project's own domain. The secondary key (Ethan's Phase 1 keypair, pending generation) will follow the same project-role-identity convention. Matches the big-distro convention of separating project-signing identity from any individual maintainer's personal correspondence channels.
+1. **`keys.openpgp.org`** — published 2026-05-05, email-verified. Searchable by fingerprint; searchable by email after the verification click. The role UID `intergenos-primary@intergenstudios.com` is a project-role identity, not personal.
+2. **This repo** — `docs/signing-key.md` (this page) and `docs/signing-key.asc` (the armored pubkey), git-tracked.
+3. **(Future) GitHub releases page** — pinned announcement referencing the fingerprint.
+4. **(Future) `intergenstudios.com`** — TLS-served, maintainer-operated.
+5. **(Future) Signed-by-master fingerprint announcement** — published alongside subkey rollover.
 
 ## Rollover
 
-Subkeys rotate on a 2-year cadence. Rollover flow:
+Subkeys rotate on a 2-year cadence; next rotation 2028-05-04.
 
-1. Generate a fresh signing subkey from the offline root.
-2. Publish the new subkey signed by the old one + by the root.
-3. Cross-publish the new fingerprint via every channel listed above.
-4. Continue signing releases with the old subkey for a 30-day overlap window so `pkm update` clients pick up the new keyring before the old subkey is revoked.
-5. Revoke the old subkey.
+1. Generate a fresh signing subkey from the offline master on a fresh Tails 7.7 air-gapped session.
+2. `keytocard` the new sub to the same physical NK that held the previous one.
+3. Publish the new subkey signed by the old one + by the master.
+4. Cross-publish the new fingerprint via every channel above.
+5. Continue signing releases with the old subkey for a 30-day overlap window so `pkm update` clients pick up the new keyring before the old subkey is revoked.
+6. Revoke the old subkey.
 
-Emergency rollover (compromise): see the trust-anchor compromise policy in [SECURITY.md](../SECURITY.md). The 6-hour-to-revocation SLA applies; the orderly 30-day overlap does not.
+Emergency rollover (compromise): see the trust-anchor compromise policy in [SECURITY.md](../SECURITY.md). 6-hour-to-revocation SLA applies; the orderly 30-day overlap does not.
 
 ## Contact
 
