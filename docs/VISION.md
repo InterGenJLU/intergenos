@@ -283,12 +283,12 @@ Full research archives in [docs/research/](research/INDEX.md) (180+ documents ac
 
 ### v1.0 application + experience layer
 
-25. ☐ Bare metal boot validation (HP laptop targets — kernel ready, ISO infrastructure pending)
+25. ☑ Bare metal first-light boot — HP laptop running active InterGenOS install. Pending: HP dw0037wm second-target deploy + end-to-end ISO-installer-path validation.
 26. ☐ Live ISO infrastructure (custom initramfs + squashfs builder + 3-entry GRUB menu: Try / Install GUI / Install TUI-Builder)
 27. ☐ Forge GUI frontend (GTK4 + libadwaita; 4–6 screen flow; Welcome → Disk → User → Install → Done)
-28. ☐ First-boot animation (ECG heartbeat pulse + text sequence, SDL → DRM/KMS)
+28. ☑ First-boot animation — Phase 2 SDL backend complete (~800 lines at `assets/intergen-firstboot/`). Phase 3 (DRM/KMS direct framebuffer) is post-v1.0 polish.
 29. ☑ FLUX-generated branding (theming canonical assets — logo, icon theme, cursor; GRUB / Plymouth / GDM polish pending)
-30. ☐ Application roadmap Phase 1 — 7 install-helpers shipping (Brave, Chrome, Claude Code, Discord, Edge, Spotify, VS Code); Steam deferred to Phase 3 (x86 binary compat)
+30. ☑ Application roadmap Phase 1 — 7 install-helpers shipping (Brave, Chrome, Claude Code, Discord, Edge, Spotify, VS Code). Steam deferred to Phase 3 (x86 binary compatibility).
 31. ☑ Application roadmap Phase 2 partial — Firefox 140.9.0esr, Audacity 3.7.7, Transmission 4.1.1, Rhythmbox 3.4.9 + LV2 plugin host stack landed; LibreOffice / VLC / Thunderbird / GIMP / Inkscape pending
 32. ☐ Multi-DE with config isolation (KDE Plasma, COSMIC)
 33. ☐ AI Tier 1 integration (intergen-console + intergen-daemon; opt-in LLM endpoint)
