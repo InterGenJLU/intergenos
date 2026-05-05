@@ -40,6 +40,15 @@ gpg --fingerprint 5597A3E0587B253006D0DD7B8C50826182083050
 
 The cards' on-card URL is `https://keys.openpgp.org/vks/v1/by-fingerprint/5597A3E0587B253006D0DD7B8C50826182083050` — `gpg --card-status` will auto-fetch when online.
 
+### Fetch from `keyserver.ubuntu.com`
+
+```
+gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys 5597A3E0587B253006D0DD7B8C50826182083050
+gpg --fingerprint 5597A3E0587B253006D0DD7B8C50826182083050
+```
+
+This is the SKS-style keyserver Debian/Ubuntu workflows hit by default; useful when `keys.openpgp.org` is blocked or unreachable.
+
 ### Fetch from this repo
 
 The pubkey is committed alongside this page as [`signing-key.asc`](signing-key.asc):
@@ -69,6 +78,7 @@ Before you trust a keyserver response, confirm the fingerprint appears identical
 - This page (`docs/signing-key.md` in the InterGenOS repo, git-tracked)
 - The committed pubkey at `docs/signing-key.asc` (git-tracked, same repo)
 - The keyserver response from `keys.openpgp.org`
+- The keyserver response from `keyserver.ubuntu.com`
 - The pinned fingerprint announcement on the [InterGenOS GitHub releases page](https://github.com/InterGenJLU/intergenos/releases)
 - (Future) `https://intergenstudios.com/signing-key` (TLS, maintainer-operated)
 - (Future) The signed fingerprint announcement (offline-root signed — published alongside subkey rollover)
@@ -92,10 +102,11 @@ Detailed design rationale in `docs/research/installer/signing_key_custody_2026-0
 The release key is published at:
 
 1. **`keys.openpgp.org`** — published 2026-05-05, email-verified. Searchable by fingerprint; searchable by email after the verification click. The role UID `intergenos-primary@intergenstudios.com` is a project-role identity, not personal.
-2. **This repo** — `docs/signing-key.md` (this page) and `docs/signing-key.asc` (the armored pubkey), git-tracked.
-3. **(Future) GitHub releases page** — pinned announcement referencing the fingerprint.
-4. **(Future) `intergenstudios.com`** — TLS-served, maintainer-operated.
-5. **(Future) Signed-by-master fingerprint announcement** — published alongside subkey rollover.
+2. **`keyserver.ubuntu.com`** — published 2026-05-05 (SKS-style; not email-verified, accepts the key as-is). Default target for `apt-key adv --keyserver` and many Debian/Ubuntu signing-key workflows.
+3. **This repo** — `docs/signing-key.md` (this page) and `docs/signing-key.asc` (the armored pubkey), git-tracked.
+4. **(Future) GitHub releases page** — pinned announcement referencing the fingerprint.
+5. **(Future) `intergenstudios.com`** — TLS-served, maintainer-operated.
+6. **(Future) Signed-by-master fingerprint announcement** — published alongside subkey rollover.
 
 ## Rollover
 
