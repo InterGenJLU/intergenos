@@ -122,12 +122,12 @@ docker run --rm -v $(pwd)/build-output:/output intergenos-shim-build cp /workspa
 ./scripts/verify-b2-reproducibility.sh /path/to/host-A/shimx64.efi /path/to/host-B/shimx64.efi
 ```
 
-Expected output: 6/6 PASS (per DS's harness design). The 6 checks per DS deliverable: tarball sha256, shim binary, vendor cert, commit SHA, SBAT, PE metadata.
+Expected output: 6/6 PASS (per the audit lane's harness design). The 6 checks per the audit deliverable: tarball sha256, shim binary, vendor cert, commit SHA, SBAT, PE metadata.
 
-**Verification (Q22 fill):** if 6/6 PASS, Q22 answer becomes "Yes — bit-for-bit reproducible across N independent hosts; harness output sha256 matches across hosts." If <6/6 PASS, identify which check fails and apply DS's reproducibility-leak fixes (L1 thread-race + L2 apt versions are the highest-impact per DS's earlier deliverable).
+**Verification (Q22 fill):** if 6/6 PASS, Q22 answer becomes "Yes — bit-for-bit reproducible across N independent hosts; harness output sha256 matches across hosts." If <6/6 PASS, identify which check fails and apply DS's reproducibility-leak fixes (L1 thread-race + L2 apt versions are the highest-impact per the audit lane's earlier deliverable).
 
 **Updates to repo:**
-- `docs/research/shim_review/README_draft_skeleton.md` Q14, Q22, Q23, Q25, Q29, Q30 fill from GP's paste-ready templates (per 17:23:55Z deliverable §1) using actual harness outputs
+- `docs/research/shim_review/README_draft_skeleton.md` Q14, Q22, Q23, Q25, Q29, Q30 fill from the documentation lane's paste-ready templates (per 17:23:55Z deliverable §1) using actual harness outputs
 - `logs/build_<timestamp>.log` (in the InterGenJLU/shim-review fork, gated on Step 5)
 
 ### Step 5: Q9 InterGenJLU/shim-review fork creation
@@ -187,7 +187,7 @@ Final mechanical move:
 
 | Q | Status (master tip 2531520) | Step | Notes |
 |---|---|---|---|
-| Q1-Q5 | FILLED | n/a | Intro + identity sections; Q5 references Q19 (already filled with WC trust-chain bullet) |
+| Q1-Q5 | FILLED | n/a | Intro + identity sections; Q5 references Q19 (already filled with the trust-chain bullet) |
 | Q6 | FILLED | n/a | Master + S1 + S2 fingerprints landed via post-ceremony fill commits |
 | Q7 | TBD (PGP fingerprint) | Step 6 | Email-format decision RESOLVED to shared `security@` address; PGP fingerprint pending Ethan Phase 1 |
 | Q8 | GATED on B2 | Step 3 | Trivial fill: "Yes, built from rhboot/shim tag 16.1 (`afc49558...`) per Dockerfile" |

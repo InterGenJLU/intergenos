@@ -1,7 +1,7 @@
 #!/bin/bash
 # InterGenOS first-boot password greeter.
 #
-# Path 3 of the S1/S2 default-credentials remediation per fleet vote
+# Path 3 of the S1/S2 default-credentials remediation per design decision
 # 4-0 unanimous A on 2026-04-29. Prompts the booting user to set
 # passwords for both the root account and the default user account on
 # first boot, then writes a flag file so subsequent boots skip past

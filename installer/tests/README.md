@@ -148,7 +148,7 @@ protect — profiles activate at userspace init time, after the signed
 chain + lockdown=integrity has already handed off. Boot-chain failures
 surface in Classes 1-5; userspace MAC failures surface here.
 
-Per fleet vote 4-0 unanimous A on 2026-04-29: v1.0 ships AppArmor with
+Per design decision 4-0 unanimous A on 2026-04-29: v1.0 ships AppArmor with
 profiles in `complain` mode by default (logging-only enforcement during
 rollout, graduating per-profile to `enforce` as confidence builds).
 Both `enforce` and `complain` are passing states for the sampled-profile

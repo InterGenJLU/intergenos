@@ -4,7 +4,7 @@
 
 InterGenOS puts the user in control of their own machine. Every package is compiled from source with deliberate choices. Every design decision serves one purpose: giving people a system they understand, can modify, and can trust.
 
-**InterGen**, the local AI assistant, doesn't just help you use your system — it helps you understand and secure it. Hardware-detected tiers run it on everything from a 4 GB laptop to a GPU workstation, fully offline. **InterGen Sentinel** — its pluggable security-scanner architecture — routes MCP traffic through your choice of scanner before it reaches a tool. A local-only default (`Local-Rules` rule-based + `Local-Qwen` InterGen-LLM-backed via your local Qwen model) ships ready to go. Six cloud providers are opt-in: Glasswing-Anthropic — which brings [Anthropic's vulnerability-discovery capability](https://anthropic.com/glasswing), the same AI that found zero-days in OpenBSD and the Linux kernel — Gemini-Google, CoPilot-Microsoft, ChatGPT-OpenAI, Grok-xAI, and DeepSeek. The user picks which (if any) reaches across the network.
+**InterGen**, the local AI assistant, doesn't just help you use your system — it helps you understand and secure it. Hardware-detected tiers run it on everything from a 4 GB laptop to a GPU workstation, fully offline. **InterGen Sentinel** — its pluggable security-scanner architecture — routes MCP traffic through your choice of scanner before it reaches a tool. A local-only default (`Local-Rules` rule-based + `Local-Qwen` InterGen-LLM-backed via your local Qwen model) ships ready to go. Six cloud providers are opt-in: Glasswing-Anthropic, Gemini-Google, CoPilot-Microsoft, ChatGPT-OpenAI, Grok-xAI, and DeepSeek. Frontier AI models in 2026 routinely surface security-relevant findings at scale — pluggable cloud routing lets users opt into that capability through whichever vendor they trust. The user picks which (if any) reaches across the network.
 
 ![InterGenOS First Boot — GNOME 49 on Wayland](images/FirstBoot_InterGenOS_Revival.png)
 
@@ -23,7 +23,7 @@ Desktop shown with [Cybernetic icon theme](https://github.com/SethStormR/Cyberne
 
 ## Security-Only Alignment
 
-**InterGenOS is built for a world where AI-assisted vulnerability discovery is a foregone conclusion, not a theoretical threat.** Anthropic's Claude Mythos preview produced 181 working exploits where the previous generation managed 2 — and that capability will proliferate. We build this distribution assuming adversaries have superhuman vulnerability discovery and make every design decision with that in mind. Secure Boot is mandatory. Every package choice is a security choice. Nothing that hides how the system works gets shipped.
+**InterGenOS is built for a world where AI-assisted vulnerability discovery is a foregone conclusion, not a theoretical threat.** Recent frontier-AI evaluations have demonstrated working-exploit yields two orders of magnitude above the previous generation, with broad benchmark coverage across major operating systems and browsers — and that capability will proliferate. We build this distribution assuming adversaries have superhuman vulnerability discovery and make every design decision with that in mind. Secure Boot is mandatory. Every package choice is a security choice. Nothing that hides how the system works gets shipped.
 
 Security is not first. It is **only**.
 
@@ -43,8 +43,8 @@ The Prime Directive and the security-only alignment above are complementary: a m
 - **5-distro kernel convergence** — kernel config derived from Ubuntu, Fedora, Arch, Debian, and openSUSE consensus (3,434 universal options)
 - **GNOME desktop** — Wayland-native with dark theme and InterGenOS branding
 - **Forge Secure Boot chain** — signed shim → MOK-signed GRUB → MOK-signed kernel → `MODULE_SIG_FORCE=y` modules. The user's own MOK key is the trust anchor; the installer generates it per machine. See [SECURITY.md](SECURITY.md).
-- **Test harness** — 74 tests in `installer/tests/` covering installer backend, MOK validation, and Class 1 signing-chain verification; Phase A scaffold for GRUB `check_signatures=enforce` empirical validation.
-- **Extra tier** — Node.js, Google Chrome, VS Code, and Claude Code (proprietary packages fetched transparently via pkm)
+- **Test harness** — 186 tests in `installer/tests/` covering installer backend, MOK validation, and Class 1 signing-chain verification; Phase A scaffold for GRUB `check_signatures=enforce` empirical validation.
+- **Extra tier** — Node.js plus seven install-helpers for proprietary apps (Brave, Chrome, Claude Code, Discord, Edge, Spotify, VS Code) — proprietary packages fetched transparently via pkm
 - **InterGen** — tiered local AI assistant with permission-gated tool calling, D-Bus activation, and a local LLM stack (llama.cpp). Hardware-detected, fully offline. Text-only by design.
 - **InterGen Sentinel** — Pluggable security-scanner architecture. `Local-Rules` (rule-based, deterministic) + `Local-Qwen` (InterGen-LLM-backed via your local Qwen model) ship by default, fully offline. Six cloud providers are opt-in: Glasswing-Anthropic, Gemini-Google, CoPilot-Microsoft, ChatGPT-OpenAI, Grok-xAI, DeepSeek. Schema-pinning, audit logging, and sandbox enforcement are vendor-neutral local plumbing — they apply regardless of which scanner is active.
 
@@ -128,13 +128,13 @@ intergenos/
 ├── igos-build/          # Build system (Python — parser, graph, builder, tracker)
 ├── pkm/                 # Package manager (Python — install, remove, query, verify)
 ├── installer/           # Forge installer (Python — TUI + backend)
-├── packages/            # 654 package templates (YAML + build.sh)
+├── packages/            # 688 package templates (YAML + build.sh)
 │   ├── toolchain/       # LFS Ch. 5-7 (28 packages)
-│   ├── core/            # LFS Ch. 8 + TLS/PAM/SSH + forge SB primitives (112 packages)
+│   ├── core/            # LFS Ch. 8 + TLS/PAM/SSH + forge SB primitives (115 packages)
 │   ├── base/            # End-user CLI tools (20 packages)
-│   ├── desktop/         # GNOME desktop stack (431 packages)
+│   ├── desktop/         # GNOME desktop stack (457 packages)
 │   ├── ai/              # Local AI assistant stack (2 packages)
-│   └── extra/           # User-facing applications (61 packages)
+│   └── extra/           # User-facing applications (66 packages)
 ├── scripts/             # Build orchestrator, chroot scripts, BLFS tools
 ├── data/                # Curated metadata (meson option-to-dep mappings)
 ├── config/              # Kernel config, systemd units, gsettings overrides
@@ -146,7 +146,7 @@ intergenos/
 
 Active development, pre-1.0. Originally built 2015-2016 (build_001 through build_003 on GitHub). Revived March 2026.
 
-**Now:** 654 package templates across six tiers. First successful GNOME 49.4 desktop boot on Wayland achieved April 7, 2026 — kernel 6.18.10 with config converged from 5-distro analysis, 478 packages built from source. Installer (`forge`) now handles partition → signed boot chain → image deploy → post-install hooks. Test harness covers 74 tests across installer backend, MOK validation, and Class 1 signing-chain verification.
+**Now:** 688 package templates across six tiers. First successful GNOME 49.4 desktop boot on Wayland achieved April 7, 2026 — kernel 6.18.10 with config converged from 5-distro analysis, 478 packages built from source. Installer (`forge`) now handles partition → signed boot chain → image deploy → post-install hooks. Test harness covers 186 tests across installer backend, MOK validation, and Class 1 signing-chain verification.
 
 **External reviews:** Full codebase reviewed by four external LLMs (ChatGPT, DeepSeek, Gemini, Grok) across build system, installer, orchestration, and package management. Initial audit findings all remediated; follow-on hardening continues as new edge cases surface.
 

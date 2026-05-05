@@ -4,7 +4,7 @@
 
 **Conventions used in this draft:**
 
-- `__FILLED__` items have substantive content per SPOC directive items 1-7.
+- `__FILLED__` items have substantive content per project-lead directive items 1-7.
 - `__TBD__: <reason>` items need owner-fill or follow-up work (e.g., PGP fingerprints, Ethan's email format choice).
 - `__GATED__: <trigger>` items wait until specific milestones (e.g., DeepSeek's B2 Dockerfile build, SBAT generation extraction from binary).
 - **Kernel-config fragment terms:** `00-universal-baseline.config` is the cross-distro convergence baseline (Ubuntu/Arch/Fedora/Debian/openSUSE intersection of recommended hardening), applied first. `99-intergenos-overrides.config` is applied second and takes precedence — concatenation order in `packages/core/linux-kernel/build.sh:36` followed by `make olddefconfig`. Per-line citations like `99-intergenos-overrides.config:122` reference the exact line in the override fragment where each setting is defined; the final compiled kernel `.config` is the merged result.
@@ -141,7 +141,7 @@ Per `docs/research/installer/ms_shim_sponsorship_2026-04-18.md` §3, novel kerne
 
 ## 11. Do you have the NX bit set in your shim?
 
-__FILLED__ (per SPOC directive 2026-04-29T17:31:35Z item 7).
+__FILLED__ (per project-lead directive 2026-04-29T17:31:35Z item 7).
 
 **Yes.** The shim binary is built with the no-execute-stack property enforced at link time:
 
@@ -169,7 +169,7 @@ Default expectation: GRUB2 v2.12+ with the standard shim-lock validation flow. M
 
 ## 13. Do you have fixes for all the following GRUB2 CVEs applied?
 
-__FILLED__ (per SPOC directive 2026-04-29T17:31:35Z item 4).
+__FILLED__ (per project-lead directive 2026-04-29T17:31:35Z item 4).
 
 **Yes.** Comprehensive GRUB2 CVE audit committed at `docs/grub2-cve-audit.md` (live on master). The audit covers:
 
@@ -201,7 +201,7 @@ __GATED__: <Trigger: DeepSeek's B2 Dockerfile build complete + signed GRUB2 bina
 
 ## 16. If your boot chain of trust includes a Linux kernel, are specific upstream commits applied?
 
-__FILLED__ (per SPOC directive 2026-04-29T17:31:35Z item 6 — kernel-lockdown audit).
+__FILLED__ (per project-lead directive 2026-04-29T17:31:35Z item 6 — kernel-lockdown audit).
 
 **Yes.** The InterGenOS kernel includes the full upstream lockdown-as-LSM patchset as merged into Linux 5.4. Kernel-lockdown lineage citations:
 
@@ -324,7 +324,7 @@ __GATED__: <Trigger: DeepSeek's B2 Dockerfile build complete + reproducibility v
 
 Plan: Yes. The Dockerfile lives in the InterGenJLU/shim-review fork (Q9) and reproduces the binary byte-for-byte from `rhboot/shim` tag `dad4f207` + the embedded InterGenOS vendor cert. Reviewer-runnable: `docker build .` produces a `shimx64.efi` whose SHA256 matches the value in Q25. Reproducibility verified by running `docker build` twice in clean environments and diffing the output binaries (must be byte-identical).
 
-DeepSeek's B2 lane (per SPOC directive 2026-04-29T17:30:27Z to DeepSeek) covers this build verification.
+DeepSeek's B2 lane (per project-lead directive 2026-04-29T17:30:27Z to DeepSeek) covers this build verification.
 
 ---
 
@@ -476,7 +476,7 @@ GRUB2 module list to be confirmed in Q30.
 
 ## 38. What contributions have you made to help us review the applications of other applicants?
 
-__FILLED__ (per SPOC directive 2026-04-29T17:31:35Z item 5).
+__FILLED__ (per project-lead directive 2026-04-29T17:31:35Z item 5).
 
 **Plan: peer-review at least 2 open shim-review PRs starting 2026-05-04**, ahead of our 2026-05-15 PR-open target. Specific PR selections will be recorded in the commit log of this branch as reviews are completed; we treat the peer-review-contribution gate as a queue-priority factor and an acknowledgement that the shim-review process scales by mutual review.
 

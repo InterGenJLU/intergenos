@@ -80,6 +80,19 @@ INTERNAL_FILES = [
     ("INTERNAL-FILE", r"\bfeedback_[a-z0-9_]+\.md\b"),
     ("INTERNAL-FILE", r"\bproject_[a-z0-9_]+\.md\b"),
     ("INTERNAL-FILE", r"\breference_[a-z0-9_]+\.md\b"),
+    ("INTERNAL-FILE", r"\bcontext_carryover_[a-z0-9_]+\.md\b"),
+]
+
+# Agent abbreviations in contextual usage. Standalone "DS" / "WC" can be
+# legitimate non-agent acronyms (Direct Sound, water closet, etc.), so we
+# anchor on patterns that only the fleet uses: action-verb-prepositions
+# ("per SPOC", "by IGOSC", "from DS"); possessive ("DS's directive",
+# "SPOC's lane") followed by work-product nouns; or fleet-process phrases
+# ("fleet vote", "fleet dispatch", "fleet-wide RFC").
+AGENT_ABBREV = [
+    ("AGENT-ABBREV", r"\b(?:per|by|from|via|with|told|asked|dispatched)\s+(?:SPOC|IGOSC|WC|DS|GP)\b"),
+    ("AGENT-ABBREV", r"\b(?:SPOC|IGOSC|WC|DS|GP)'s\s+(?:lane|directive|dispatch|broadcast|review|note|prior|design|proposal|draft|plan|doc|document|branch|commit|sketch|critique)\b"),
+    ("INTERNAL-VOCAB", r"\bfleet[-\s]+(?:vote|review|dispatch|broadcast|protocol|bus|wide|tooling|agents)\b"),
 ]
 
 HEX_SECRETS = [
@@ -91,7 +104,7 @@ WARN_PATTERNS = [
     ("WARN-VOCAB", r"(?i)\bHoly\s+Grail\b"),
 ]
 
-BLOCK_PATTERNS = AGENT_NAMES + INTERNAL_VOCAB + OTHER_PROJECTS + HOME_PATH + INTERNAL_FILES + HEX_SECRETS
+BLOCK_PATTERNS = AGENT_NAMES + AGENT_ABBREV + INTERNAL_VOCAB + OTHER_PROJECTS + HOME_PATH + INTERNAL_FILES + HEX_SECRETS
 
 
 def load_allowlist(path):

@@ -30,7 +30,7 @@ Scope (Class 6 — "is the running userspace MAC enforcement live?"):
 
 Zero-profiles-loaded vs one-or-more: zero is a hard fail (no MAC).
 Non-zero is the threshold; v1.0 ships with `complain` as default per
-fleet vote 4-0 unanimous A on 2026-04-29.
+design decision 4-0 unanimous A on 2026-04-29.
 
 Usage:
     python3 -m installer.tests.class6_apparmor_state [--sample-profile NAME]
@@ -64,7 +64,7 @@ DEFAULT_PROFILES_PATH = Path("/sys/kernel/security/apparmor/profiles")
 DEFAULT_SERVICE_NAME = "apparmor.service"
 
 # Profile modes considered "live" for v1.0.
-# `complain` is the v1.0 default per fleet vote 2026-04-29 (logging-only
+# `complain` is the v1.0 default per design decision 2026-04-29 (logging-only
 # enforcement during rollout). `enforce` graduates per-profile as
 # confidence builds. `kill` is rare and acceptable. `unconfined` is a
 # no-op and FAILS this probe — a profile that's loaded-but-unconfined

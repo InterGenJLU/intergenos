@@ -32,7 +32,7 @@ Walk this list once **before** you boot Tails. Every item is either ready or sur
 
 ### 1.1 Hardware kit
 
-- [ ] **4× SanDisk Ultra 32GB USB drives**, sharpie-labeled #1 / #2 / #3 / #4. Staged by IGOSC on 2026-04-29.
+- [ ] **4× SanDisk Ultra 32GB USB drives**, sharpie-labeled #1 / #2 / #3 / #4. Staged on 2026-04-29.
   - Drive #1 = Tails 7.7 boot media (sha256 round-trip verified)
   - Drive #2 = OFFLINEDEBS dual-flavor (`/debian12/` + `/debian13/`)
   - Drive #3 = CEREMONY (fresh FAT32, label `CEREMONY`, UUID `E9B6-B5DC`) — will hold the Output artifacts AND act as LUKS backup #1

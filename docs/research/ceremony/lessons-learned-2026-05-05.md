@@ -60,7 +60,7 @@ This document is a record of what worked, what bit us repeatedly, and what the v
 
 ## 3. Bug catalogue
 
-The full chronological catalogue is in the carryovers (`context_carryover_20260505_ceremony_stage7_recovery.md` etc.) — this is the deduplicated lesson list.
+The full chronological catalogue is in the maintainer's private session notes — this is the deduplicated lesson list.
 
 ### Category A — pcscd/scdaemon stack flakiness
 
@@ -267,9 +267,7 @@ Not everything needs rewriting. These worked first-time-correct and should survi
 
 ## 8. Pointers for the future maintainer
 
-- The carryover documents in `~/.claude/projects/-mnt-intergenos/memory/context_carryover_*.md` have full-fidelity per-session details. Specifically:
-  - `context_carryover_20260505_ceremony_stage7_recovery.md` — Day-3 → Day-5 detailed trace, the substring-match bug, the dead-ref cleanup, validate.py parser fix.
-  - Earlier carryovers cover Days 1–4.
+- Private maintainer session notes hold full-fidelity per-session details across all five days, including the Day 5 substring-match bug, the dead-ref cleanup, and the validate.py parser fix. Those notes are not in this repo (project policy keeps in-flight ceremony notes off the public tree); ask the maintainer if you need to consult them during a future ceremony.
 - The runbook `~/intergenos/research/ceremony/runbook_v2_validated_2026-05-04.md` (1668 lines) was the v2.3 plan that this ceremony executed against. Keep it as the v3 starting structure.
 - The script source as it stood at 0-failures is in two places: the home-drive canonical at `~/intergenos/research/ceremony/c6-offlinedebs/scripts/ceremony.py`, and the Drive #2 copy that got shipped to Ethan. The home-drive copy is authoritative.
 - All paper records (master FP, master pass, LUKS pass, 16 PINs, vendor cert SHA, new PIV mgmt key) are owner-only. The succession plan (`docs/governance/succession.md`) covers handoff in the loss-of-owner case.

@@ -127,7 +127,7 @@ if [ -z "$BUILD_USER" ]; then
 fi
 
 # Path 4: image credentials must be explicit. No defaults — the literal
-# "intergenos" default has been retired (S1/S2 fleet vote A 2026-04-29).
+# "intergenos" default has been retired (S1/S2 design decision A 2026-04-29).
 # Path 3's first-boot greeter will overwrite these on the user's first
 # boot, but the build-time creds must still be the builder's choice
 # rather than a guessable shared default.

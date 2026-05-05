@@ -30,7 +30,7 @@ PROFILES_FILE_REALISTIC = textwrap.dedent("""\
     /usr/lib/cups/backend/cups-pdf (enforce)
     """)
 
-# All profiles in complain mode — v1.0 default per fleet vote 2026-04-29.
+# All profiles in complain mode — v1.0 default per design decision 2026-04-29.
 PROFILES_FILE_ALL_COMPLAIN = textwrap.dedent("""\
     /usr/bin/firefox (complain)
     /usr/bin/man (complain)
@@ -266,7 +266,7 @@ class TestProbeSampledProfileMode(unittest.TestCase):
         self.assertIn("(enforce)", r.observed)
 
     def test_complain_mode_passes(self):
-        # v1.0 default per fleet vote — complain is acceptable.
+        # v1.0 default per design decision — complain is acceptable.
         with tempfile.TemporaryDirectory() as td:
             path = _write_profiles(Path(td), PROFILES_FILE_ALL_COMPLAIN)
             r = c6.probe_sampled_profile_mode("/usr/bin/firefox", path)

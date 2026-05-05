@@ -387,7 +387,7 @@ NETEOF
 ln -sf /run/systemd/resolve/stub-resolv.conf "${MOUNT_POINT}/etc/resolv.conf"
 
 # Set root password — REQUIRED via ROOT_PASSWORD env var. No default.
-# Path 4 (S1/S2 fleet vote A 2026-04-29): the literal "intergenos" default
+# Path 4 (S1/S2 design decision A 2026-04-29): the literal "intergenos" default
 # has been retired permanently. build-intergenos.sh requires
 # --root-password to be provided and exports ROOT_PASSWORD before invoking
 # this script. Path 3's first-boot greeter overwrites this on the end
@@ -423,7 +423,7 @@ if ! chroot "$MOUNT_POINT" id "$IMAGE_USER" > /dev/null 2>&1; then
     log "  User '${IMAGE_USER}' created (groups: wheel,video,audio,input)"
 fi
 
-# Install first-boot password greeter (Path 3 of S1/S2 fleet vote A 2026-04-29).
+# Install first-boot password greeter (Path 3 of S1/S2 design decision A 2026-04-29).
 # The systemd unit + tty prompt script combine with Path 4 (build-time required
 # credentials, already enforced above) to give zero guessable defaults at any
 # point: builder picks at build, end-user picks on first boot. The greeter
@@ -457,7 +457,7 @@ EOF
 else
     err "First-boot greeter assets missing at ${GREETER_SRC}/ — image will"
     err "  ship with builder-set credentials only. Path 3 is REQUIRED per"
-    err "  S1/S2 fleet vote 2026-04-29; this is a build inconsistency."
+    err "  S1/S2 design decision 2026-04-29; this is a build inconsistency."
     exit 1
 fi
 

@@ -249,7 +249,7 @@ class TestClass6PostInstall(unittest.TestCase):
     masked or failed, or the profile package didn't ship into
     /etc/apparmor.d/.
 
-    Per fleet vote 4-0 unanimous A on 2026-04-29: v1.0 ships AppArmor
+    Per design decision 4-0 unanimous A on 2026-04-29: v1.0 ships AppArmor
     with profiles in `complain` mode by default. `complain` is a passing
     state for this probe. `unconfined` (loaded-but-not-enforcing) is a
     failing state — represents a profile that loaded into the kernel
