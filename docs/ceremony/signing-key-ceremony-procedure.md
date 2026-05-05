@@ -99,13 +99,13 @@ The day-of ceremony is driven by automation, not by hand-typed commands. The cho
 
 ### 2.1 Automation artifact
 
-The driver is `ceremony.py` (~2,150 lines), accompanied by `validate.py` (the ship gate) and `bootstrap.sh` (entry point). All live at:
+The driver is `ceremony.py` (~2,200 lines), accompanied by `validate.py` (the ship gate) and `bootstrap.sh` (entry point). All three are published in-repo at:
 
 ```
-~/intergenos/research/ceremony/c6-offlinedebs/scripts/
+scripts/ceremony/
 ```
 
-(home-drive on the maintainer's workstation; copied to Drive #2's `OFFLINEDEBS/scripts/` for the air-gapped run).
+See [`scripts/ceremony/README.md`](../../scripts/ceremony/README.md) for the directory's reference-implementation framing and "do not run this on your own machine" warning. For the air-gapped run, the same files are copied onto Drive #2's `OFFLINEDEBS/scripts/`.
 
 `ceremony.py` is structured as a sequence of named stages, each idempotent and resumable via `--from-stage N`:
 
@@ -151,13 +151,7 @@ Practical reading: the master is real once `luks_backup` (stage 5) completes. Ea
 
 ### 2.4 Operational runbook (private maintainer reference)
 
-The full operational detail — Tails GRUB cmdline, per-step screenshots, expected output blocks for cross-check, sub-second timing for blink-touch — lives in the private maintainer runbook at:
-
-```
-~/intergenos/research/ceremony/runbook_v2_validated_2026-05-04.md
-```
-
-This is the v2.3-validated runbook owner-reviewed pre-ceremony; not in the public repo because it contains operational specifics that aren't reviewer-relevant.
+The full operational detail — Tails GRUB cmdline, per-step screenshots, expected output blocks for cross-check, sub-second timing for blink-touch — lives in a private maintainer runbook on the home drive. It is not in the public repo because it contains operational specifics that aren't reviewer-relevant; the reviewer-relevant abstractions are in this document and in [`scripts/ceremony/`](../../scripts/ceremony/).
 
 ### 2.5 Why automation, not manual
 
@@ -172,7 +166,7 @@ The doc you are reading exists for reviewers. The operational truth is in the sc
 
 ### 2.6 Development methodology
 
-The automation was not developed on the air-gapped target. It was developed in a Docker container of Tails on the maintainer workstation, with the four production Nitrokeys connected for live validation. Each stage was iterated, debugged, and validated against real hardware in that container until `validate.py` returned the 0-failures verdict. Only then was the validated script transferred to Drive #2 and run inside the actual air-gapped Tails session.
+The automation was not developed on the air-gapped target. It was developed in a Docker container of Tails on the maintainer workstation, with the four production Nitrokeys connected for live validation. Each stage was iterated, debugged, and validated against real hardware in that container until `validate.py` returned the 0-failures verdict. Only then was the validated script transferred to Drive #2 and run inside the actual air-gapped Tails session. The scripts themselves are published at [`scripts/ceremony/`](../../scripts/ceremony/) — readers can audit the same code that produced the trust-anchor keys.
 
 This approach minimizes the risk window during the live ceremony in two ways. First, the air-gapped session is not where bugs get discovered — bugs get discovered in the dev container, in advance, where iteration is cheap. Second, the live ceremony is correspondingly short: the air-gap window only needs to cover the actual key-generating run plus validation, not the multi-hour debugging that necessarily attends a first-time procedure. Outside-contamination exposure scales with time-on-air-gap; the dev-container-first methodology shrinks the time-on-air-gap variable directly.
 
