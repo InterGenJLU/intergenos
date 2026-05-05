@@ -170,6 +170,16 @@ The ceremony is not a procedure for arbitrary maintainers — it is a procedure 
 
 The doc you are reading exists for reviewers. The operational truth is in the script. Both are kept consistent through the lessons-learned post-mortem; the v3 refactor of `ceremony.py` is scheduled for the next subkey rotation (2028-05-04 or earlier on compromise).
 
+### 2.6 Development methodology
+
+The automation was not developed on the air-gapped target. It was developed in a Docker container of Tails on the maintainer workstation, with the four production Nitrokeys connected for live validation. Each stage was iterated, debugged, and validated against real hardware in that container until `validate.py` returned the 0-failures verdict. Only then was the validated script transferred to Drive #2 and run inside the actual air-gapped Tails session.
+
+This approach minimizes the risk window during the live ceremony in two ways. First, the air-gapped session is not where bugs get discovered — bugs get discovered in the dev container, in advance, where iteration is cheap. Second, the live ceremony is correspondingly short: the air-gap window only needs to cover the actual key-generating run plus validation, not the multi-hour debugging that necessarily attends a first-time procedure. Outside-contamination exposure scales with time-on-air-gap; the dev-container-first methodology shrinks the time-on-air-gap variable directly.
+
+The motivating context: an initial manual attempt absorbed roughly eight hours of operator time before halting, with the irreversibility of `keytocard` operations meaning each fat-fingered command had a non-trivial recovery cost. The dev container moves the surface where mistakes happen out of the irreversible side of the air-gap boundary and into a reversible side where they cost only iteration cycles.
+
+The development environment itself is not part of the trust-anchor chain — it never holds production keys, only ephemeral dev-Nitrokey state used to validate the script's logic. The trust-anchor chain begins in the air-gapped Tails session running `ceremony.py` against the production Nitrokeys, and is rooted in the master keypair generated there.
+
 ---
 
 ## Part 3 — Post-ceremony (online side)
