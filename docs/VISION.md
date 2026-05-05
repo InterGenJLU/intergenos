@@ -3,7 +3,7 @@
 **Created:** March 30, 2026
 **Author:** InterGenJLU
 **Status:** Draft — living document
-**Last Updated:** April 7, 2026
+**Last Updated:** 2026-05-05
 
 ---
 
@@ -140,7 +140,7 @@ InterGen Sentinel is the security-scanning layer for the local assistant: a vend
 
 When the AI runs a command, it explains what it's doing. When it configures something, it shows you the config file and what changed. The goal is a user who understands their system better after every interaction — not one who depends on the AI more.
 
-### 7. Custom Installer
+### 7. Custom Installer (Forge)
 
 A polished, modern installation experience that reflects InterGenOS's philosophy of transparency and user control.
 
@@ -149,8 +149,9 @@ A polished, modern installation experience that reflects InterGenOS's philosophy
 - **Transparency:** Every installation step is explained — what's happening and why
 - **Partitioning:** Guided and manual options
 - **Post-install:** System validation, first-boot configuration, AI assistant introduction
+- **Secure Boot enrollment:** MOK key generation per-machine; signed-chain verification; user is the trust anchor
 
-*(Installer architecture and technology stack to be determined through research.)*
+**Implementation status:** Backend modules complete (disks / packages / config / users / hooks / mok / bootloader / extract / live-cleanup — ~2,000 lines, 186 unit tests). Forge TUI frontend complete (656 lines). Forge GUI (GTK4 + libadwaita) and the live-ISO infrastructure (custom initramfs, squashfs builder, 3-entry GRUB menu — Try / Install GUI / Install TUI-Builder) are in design — see milestones below.
 
 ---
 
@@ -241,33 +242,62 @@ A polished, modern installation experience that reflects InterGenOS's philosophy
 10. **Virtualization** — KVM vs VirtualBox vs VMware. KVM selected for performance, kernel compatibility, and scriptability.
 11. **LFS version pinning** — Evaluated LFS 12.3 through 13.0. Pinned to 13.0 (March 2026 release).
 
-Full research archives in [docs/research/](research/INDEX.md) (65+ documents)
+Full research archives in [docs/research/](research/INDEX.md) (180+ documents across 24 topical subdirectories — including post-mortems on the signing ceremony, pkm migration design lessons, code audit deliverables, and shim-review preparation)
 
 ---
 
 ## Milestones (No Deadlines)
 
+### Foundation
+
 1. ☑ Development environment (KVM setup, build host validation)
 2. ☑ Build system core (igos-build — parser, graph, builder, tracker, styles)
 3. ☑ First package templates (LFS 13.0 toolchain — 28 packages)
 4. ☑ Toolchain build (cross-compilation toolchain in KVM chroot)
-5. ☑ Core system build (full LFS 13.0 Chapter 8 — 106 packages)
+5. ☑ Core system build (full LFS 13.0 Chapter 8 — 115 packages)
 6. ☑ Package manager implementation (`pkm` — install, remove, query, verify, depends, install-helper)
 7. ☑ Single DE working (GNOME 49.4 on Wayland — first boot April 7, 2026)
 8. ☑ BLFS package database + meson feature database
 9. ☑ 5-distro kernel convergence (Ubuntu, Fedora, Arch, Debian, openSUSE)
 10. ☑ 4-LLM code review + 77-issue audit remediation
-11. ☐ Bare metal boot (HP Laptop 14-dq1xxx — kernel config ready, USB image pending)
-12. ☐ Custom installer — GUI (GTK4 + libadwaita)
-13. ☐ First-boot animation (ECG heartbeat pulse + text sequence, SDL → DRM/KMS)
-14. ☐ FLUX.2-generated branding (logo, GRUB, Plymouth, GDM, wallpaper)
-15. ☐ VPS package mirror (pre-built archives for pkm download)
-16. ☐ Application roadmap Phase 1 (install helpers: Discord, Spotify, Steam, Edge, Brave)
-17. ☐ Application roadmap Phase 2 (LibreOffice, VLC, Thunderbird, GIMP, Inkscape, Firefox)
-18. ☐ Multi-DE with config isolation (KDE Plasma, COSMIC)
-19. ☐ AI Tier 1 integration (text-based assistant)
-20. ☐ InterGen Sentinel security scanning (Local-Rules + Local-Qwen default; opt-in cloud providers)
-21. ☐ First public release + community announcement
+
+### Build system maturity (April–May 2026)
+
+11. ☑ Forge installer backend (~2,000 lines across 9 modules — disks/packages/config/users/hooks/mok/bootloader/extract/live-cleanup)
+12. ☑ Forge installer TUI frontend (656 lines)
+13. ☑ Test harness (186 unit + integration tests covering installer backend, MOK validation, Class 1 signing-chain verification, supersedes parser/db/verifier)
+14. ☑ AppArmor LSM (apparmor 3.0.8 + starter profiles, default-on for v1.0)
+15. ☑ Supersedes RFC v1 (parser supersedes field, pkm DB columns, atomic supersede transaction, content-hash verifier, Phase 7 unit tests)
+16. ☑ Theming canonical (InterGenOS GTK + Shell themes, Cybernetic-Blue icon theme, Bibata-Modern-Classic cursor, dark scheme)
+17. ☑ First themed qcow2 image build (May 3, 2026 — kernel 6.18.10, GNOME 49 on Wayland, 478 packages, full theming applied)
+
+### Signing chain + secure boot (May 2026)
+
+18. ☑ Signing-key ceremony (Tails 7.7 air-gap; RSA-4096 master + 4 signing subkeys + encryption sub; LUKS-encrypted master backup; base16 paperkey × 2; revocation cert)
+19. ☑ Hardware token chain (Nitrokey 3 NFC × 4; signing subs keytocard'd to all 4; UIF touch-policy enabled; 2-year expiry 2028-05-04)
+20. ☑ EFI vendor cert (Nitrokey #1 PIV slot 9c; 2-year cert; rotated AES-256 management key)
+21. ☑ Master pubkey published (`keys.openpgp.org` email-verified + `keyserver.ubuntu.com` SKS index; `docs/signing-key.asc` committed)
+22. ☑ Forge Secure Boot toolchain (gnu-efi + rpm + shim-signed + efitools + mokutil + sbsigntool all built from source)
+23. ☐ Shim-review submission (rhboot/shim-review PR — target ~2026-05-15; replaces piggyback path)
+24. ☐ Microsoft 2011 CA migration (own MS-signed shim before 2026-06-27 cutoff)
+
+### v1.0 application + experience layer
+
+25. ☐ Bare metal boot validation (HP laptop targets — kernel ready, ISO infrastructure pending)
+26. ☐ Live ISO infrastructure (custom initramfs + squashfs builder + 3-entry GRUB menu: Try / Install GUI / Install TUI-Builder)
+27. ☐ Forge GUI frontend (GTK4 + libadwaita; 4–6 screen flow; Welcome → Disk → User → Install → Done)
+28. ☐ First-boot animation (ECG heartbeat pulse + text sequence, SDL → DRM/KMS)
+29. ☑ FLUX-generated branding (theming canonical assets — logo, icon theme, cursor; GRUB / Plymouth / GDM polish pending)
+30. ☐ Application roadmap Phase 1 — 7 install-helpers shipping (Brave, Chrome, Claude Code, Discord, Edge, Spotify, VS Code); Steam deferred to Phase 3 (x86 binary compat)
+31. ☑ Application roadmap Phase 2 partial — Firefox 140.9.0esr, Audacity 3.7.7, Transmission 4.1.1, Rhythmbox 3.4.9 + LV2 plugin host stack landed; LibreOffice / VLC / Thunderbird / GIMP / Inkscape pending
+32. ☐ Multi-DE with config isolation (KDE Plasma, COSMIC)
+33. ☐ AI Tier 1 integration (intergen-console + intergen-daemon; opt-in LLM endpoint)
+34. ☐ InterGen Sentinel security scanning (Local-Rules + Local-Qwen default; opt-in cloud providers)
+35. ☐ VPS package mirror + ISO download infrastructure (`origin.intergenstudios.com`)
+
+### Release
+
+36. ☐ First public v1.0 release + community announcement
 
 ---
 

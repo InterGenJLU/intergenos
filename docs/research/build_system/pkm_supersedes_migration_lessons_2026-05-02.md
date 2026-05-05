@@ -113,7 +113,7 @@ For future reference, the v5 final-form script's behavior, in case the next sche
 | 4 | For each known supersede pair (hardcoded list of 8 pairs covering pass1/pass2 cycles): inside a SQLite `BEGIN TRANSACTION` block, transfer file ownership from pass1's `package_id` to pass2's `package_id` for any path overlap, then `UPDATE installed SET superseded_by=?, superseded_at=? WHERE id=?` for pass1's row. |
 | 5 | For each manifest without `sha256:` entries, regenerate the file-list section from DB rows so manifest matches DB content. |
 
-Code source: never landed on master; lived on `chris-ubuntu-codium-deepseek/supersedes-rfc-phase5-migration` until that branch was retired 2026-05-05. If a future migration needs the SQL transaction shape or the manifest-parsing helpers, reach via `git log --all` history from that period.
+Code source: never landed on master; lived on a working branch (retired 2026-05-05). If a future migration needs the SQL transaction shape or the manifest-parsing helpers, reach via `git log --all` history from the May 1–5 window.
 
 ---
 
