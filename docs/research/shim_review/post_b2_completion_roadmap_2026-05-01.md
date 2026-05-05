@@ -176,10 +176,12 @@ Per Q38's already-written plan: WC or DS picks ≥2 open shim-review PRs, posts 
 
 Final mechanical move:
 1. `git mv docs/research/shim_review/README_draft_skeleton.md docs/shim-review-submission.md`
-2. SPOC review of complete document end-to-end
+2. Internal review of complete document end-to-end
 3. Owner final-review
 4. Open the shim-review PR in `InterGenJLU/shim-review` against `rhboot/shim-review` upstream
 5. Submit per shim-review process
+
+**RFC v1 incorporation note:** RFC v1 (supersedes primitive + per-file content-hash manifest) implementation landed at master commit `c9534f7` on 2026-05-01, ahead of the 2026-05-15 PR-open target. Step 8's mechanical move therefore incorporates Q22 + Q25 content-hash strengthening language per the now-attestable trust chain (per-file SHA-256 in pkm repository index, transitively GPG-signed by [S1]). Cross-reference: `docs/ceremony/signing-key-ceremony-procedure.md` Part 1.5 (Trust chain context) for the full chain description; the Q22/Q25 strengthening itself is in `docs/research/shim_review/README_draft_skeleton.md`.
 
 ---
 

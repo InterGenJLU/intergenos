@@ -7,6 +7,16 @@ This is the operational runbook for signing an InterGenOS release. It covers the
 
 For the decisions and rationale behind this architecture, see `docs/research/installer/signing_key_custody_2026-04-18.md`.
 
+## Trust Chain Attestation
+
+Each signature this procedure produces attests to one layer of the InterGenOS trust chain:
+
+- **`InterGenOS.db.sig`** (distro GPG subkey [S1] on Nitrokey #1) — signs the pkm repository index. The index records per-file SHA-256 for every file in every package, so signing the index is a transitive attestation of every file in the distribution. Recipients verifying the index signature can subsequently run `pkm verify --strict <package>` to re-check any installed file against its signed hash. (Index format extended for per-file content-hash at commit `c9534f7`.)
+- **`vmlinuz-<version>-intergenos.sig`** (PIV slot 9c X.509 via `sbsign`) — signs the kernel EFI binary. shim verifies this signature against the embedded vendor cert when Secure Boot is active.
+- **`grubx64.efi.sig`** (PIV slot 9c X.509 via `sbsign`) — signs the GRUB EFI binary. Same shim verification path.
+
+The kernel-module signing key (ephemeral, per-build) and end-user MOK enrollments are orthogonal to this procedure — they live inside the kernel build and per-install respectively, not at release-signing time.
+
 ## When This Procedure Runs
 
 - Every tagged release of InterGenOS.

@@ -79,6 +79,22 @@ Out of scope for this ceremony:
 - **Kernel module-signing key** — ephemeral per-build, generated and discarded inside the kernel build. Doesn't touch any of these tokens.
 - **Machine Owner Key (MOK)** — generated per-install on the end-user machine by the Forge installer. Not distro-held.
 
+### 1.5 Trust chain context
+
+The keys generated today are the trust anchors for InterGenOS's release-signing posture. They sit at the top of an end-to-end attestable chain:
+
+1. **Ceremony output** — distro GPG master + signing subkeys ([S1]/[S2]/[S3] on Nitrokeys #1/#2/#3) + EFI X.509 vendor cert (Nitrokey #1, PIV slot 9c). All private material is hardware-bound or paperkey-only; the master never persists on a network-connected machine. This is the hardware-rooted-key custody policy referenced in `docs/research/installer/signing_key_custody_2026-04-18.md`.
+
+2. **Distribution-time signatures** — at every release, [S1] signs the pkm repository index (`InterGenOS.db`); PIV slot 9c signs each `vmlinuz-*-intergenos` and `grubx64.efi`. Both kinds of signature are touch-required on the physical Nitrokey.
+
+3. **Per-file content-hash attestation** — the pkm repository index records per-file SHA-256 for every artifact in every package. Because the index is GPG-signed, its content-hash claims are themselves transitively attested. (Mechanism: pkm + igos-build supersedes primitive + content-hash manifest, landed at master commit `c9534f7`.)
+
+4. **Install-time + on-demand verification** — `pkm verify --strict <package>` re-validates each installed file against its recorded hash. Tampering with an on-disk file is detectable without re-downloading from the repo.
+
+End-to-end: a user holding the published master fingerprint can verify the repo-index signature, walk to any package's per-file SHA-256, and confirm any file on disk against an attestation chain rooted in the ceremony keys generated today.
+
+The ephemeral per-build kernel-module signing keys (out of scope, see Part 1.4) and end-user MOK enrollments (per-install, not distro-held) are orthogonal layers above this chain.
+
 ---
 
 ## Part 2 — Boot Tails + offline-debs install

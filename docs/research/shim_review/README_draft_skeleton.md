@@ -324,6 +324,8 @@ __GATED__: <Trigger: DeepSeek's B2 Dockerfile build complete + reproducibility v
 
 Plan: Yes. The Dockerfile lives in the InterGenJLU/shim-review fork (Q9) and reproduces the binary byte-for-byte from `rhboot/shim` tag `dad4f207` + the embedded InterGenOS vendor cert. Reviewer-runnable: `docker build .` produces a `shimx64.efi` whose SHA256 matches the value in Q25. Reproducibility verified by running `docker build` twice in clean environments and diffing the output binaries (must be byte-identical).
 
+Beyond the shim binary itself, every pkm-tracked artifact in the produced InterGenOS image carries a per-file SHA-256 attestation in both the human-readable text manifest and the pkm SQLite database (per the supersedes + content-hash design at master commit `c9534f7`). The pkm repository index (`InterGenOS.db`), which is GPG-signed by the distro release-signing subkey at every release, records the per-file hashes transitively — recipients verifying the index signature can subsequently run `pkm verify --strict <package>` to re-validate any installed file against its signed expected hash. The shim binary AND the underlying OS image that loads and runs it are both content-hash attestable end-to-end.
+
 DeepSeek's B2 lane (per project-lead directive 2026-04-29T17:30:27Z to DeepSeek) covers this build verification.
 
 ---
@@ -343,6 +345,8 @@ __GATED__: <Trigger: DeepSeek's B2 build complete. Build logs (Docker buildkit o
 ## 25. What is the SHA256 hash of your final shim binary?
 
 __GATED__: <Trigger: DeepSeek's B2 build artifact produced. Recorded as `sha256sum shimx64.efi` output. Pinned in this README and in the submission tag commit message.>
+
+The SHA-256 here is the canonical attestation for the shim binary specifically. For the broader OS-image attestation story (per-file SHA-256 across every pkm-tracked artifact, transitively signed via the GPG-signed pkm repository index), see Q22's content-hash discussion. `pkm verify --strict <package>` is the reviewer-runnable on-demand verification path against the signed hash record.
 
 ---
 
