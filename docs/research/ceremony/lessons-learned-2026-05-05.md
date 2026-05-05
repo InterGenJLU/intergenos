@@ -214,11 +214,11 @@ DS reviewed the in-flight `cleanup_dead_card_refs` function and flagged the tran
 
 ### 5.3 Don't edit working scripts mid-operation
 
-Owner ratified this as a power rule (`feedback_no_edits_mid_operation.md`) after I offered to add log-persistence-to-USB to ceremony.py during a paused session. The paused script was working; adding "small improvements" mid-flight is exactly when you introduce regressions in critical-path code. Edits go to the post-op backlog.
+Owner ratified this as a hard rule after I offered to add log-persistence-to-USB to ceremony.py during a paused session. The paused script was working; adding "small improvements" mid-flight is exactly when you introduce regressions in critical-path code. Edits go to the post-op backlog.
 
 ### 5.4 Manual fallback is never an option
 
-Owner ratified this as a power rule (`feedback_no_manual_ceremony_steps.md`) after I suggested manual `gpg --card-edit` as a contingency. The fat-finger problem is what the script exists to prevent — a 16-PIN multi-card ceremony with manual typing has a ~100% latent failure rate. Contingencies for ceremony failures must always be: patch + retry, refactor from known-good, or narrower automated wrapper. Never "owner runs each step by hand."
+Owner ratified this as a hard rule after I suggested manual `gpg --card-edit` as a contingency. The fat-finger problem is what the script exists to prevent — a 16-PIN multi-card ceremony with manual typing has a ~100% latent failure rate. Contingencies for ceremony failures must always be: patch + retry, refactor from known-good, or narrower automated wrapper. Never "owner runs each step by hand."
 
 ### 5.5 Validate the validator
 
