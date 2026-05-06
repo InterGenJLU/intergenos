@@ -1,0 +1,15 @@
+name: go-md2man
+version: "2.0.7"
+release: 1
+description: Convert Markdown to man pages (roff)
+license: MIT
+homepage: https://github.com/cpuguy83/go-md2man
+tier: extra
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build:
+    - go
+  host: []
+  runtime: []

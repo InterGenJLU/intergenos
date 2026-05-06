@@ -1,0 +1,16 @@
+name: containers-common
+version: "0.64.1"
+release: 1
+description: Common configuration files for container tools (Podman, Buildah, Skopeo)
+license: Apache-2.0
+homepage: https://github.com/containers/common
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/containers/common/archive/refs/tags/v${version}.tar.gz
+    sha256: 414def665a172a4d79366dc594e5313d43d672ba19009aa2a3dd78272e277506
+dependencies:
+  build: []
+  host: []
+  runtime: []
