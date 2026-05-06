@@ -12,6 +12,7 @@ dependencies:
     - ninja
   host:
   - jinja2
+  - pyelftools
   - util-linux-core
   - kmod
   - libcap

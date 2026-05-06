@@ -14,6 +14,15 @@ configure() {
     mkdir -p build
     cd       build
 
+    # `bootloader=enabled` is explicit on purpose. The default `auto` resolves
+    # via meson's feature.require() against pyelftools-found + EFI-enabled +
+    # x86_64-EFI-arch (per src/systemd/meson.build:1925-1928). When pyelftools
+    # is missing, `auto` SILENTLY disables the bootloader and linuxx64.efi.stub
+    # never gets built — surfacing later as opaque "STUB not found" from
+    # scripts/build-uki.sh. Forcing `enabled` flips silent-disable to loud-
+    # error per Holy Grail (explicit > implicit) + Prime Directive (don't
+    # hide things). pyelftools is now in our host-deps to satisfy the require
+    # condition under all build environments.
     meson setup ..                \
         --prefix=/usr             \
         --libdir=/usr/lib         \
@@ -32,6 +41,7 @@ configure() {
         -D nobody-group=nogroup   \
         -D sysupdate=disabled     \
         -D ukify=disabled         \
+        -D bootloader=enabled     \
         -D docdir=/usr/share/doc/systemd-259.1
 }
 
