@@ -1,8 +1,37 @@
 # 39Q Post-B2 Completion Roadmap
 
-**Last updated:** 2026-05-01
+**Last updated:** 2026-05-05 (status-update section); roadmap body 2026-05-01.
 **Status:** Internal roadmap (NOT reviewer-facing)
 **Purpose:** Sequence the work between "B2 docker build is runnable" and "39Q skeleton ready for shim-review PR-open at 2026-05-15."
+
+---
+
+## Status update — 2026-05-05
+
+The roadmap body below was authored 2026-05-01 anchored on the C6 PIV-toolchain question. **C6 is now complete via the validated ceremony of 2026-05-05**, which means several sections of the roadmap (§1 dependency chain, §2 Steps 1+2, §3 Q26/Q28 status rows, §4 R1+R2 risks) describe state that has since been resolved. The body is preserved as historical record because the sequencing logic is still useful context; the items called out in this status update reflect the live work shape now.
+
+**What's done since 2026-05-01:**
+- Ceremony executed via automation (`scripts/ceremony/ceremony.py`) on air-gapped Tails 7.7. Master FP `5597A3E0587B253006D0DD7B8C50826182083050` LIVE on `keys.openpgp.org` (email-verified) + `keyserver.ubuntu.com`.
+- Four sign subkeys [S1]/[S2]/[S3]/[S4] keytocarded to NK#1/#2/#3/#4 with UIF=on, 2-year expiry to 2028-05-04. Symmetric custody across primary + secondary maintainer.
+- EFI vendor cert minted on NK#1 PIV slot 9c via `nitropy nk3 piv --experimental`. SHA-256 `8ce749e7e77169205e4761d82b48a4333f48cdec2ee0f711b8cff560fe150514`. PIV management key rotated to fresh AES-256.
+- `validate.py` ship gate reports 0 failures across all 5 validation sections.
+- 39Q README (Q6, Q26, Q28, Q37) updated to reflect post-ceremony actuals; Q18 corrected to disclose the CVE-2026-31431 kernel-patch backport (per shim-review audit findings 2026-05-05).
+
+**Live work shape now:**
+- B2 (Dockerfile reproducibility build) is the sole remaining gating chain for the 5/15 PR-open.
+- Q22/Q25 already include the per-file content-hash trust-chain language (landed via `fda778d`).
+- Q7 (secondary maintainer Phase 1 PGP cross-sign) remains an async parallel item — does not gate PR-open.
+
+**Risks resolved since 2026-05-01:**
+- R1 (NK#4 smoke-test fails) — resolved 2026-05-02 via `nitropy nk3 piv --experimental change-admin-key` full rotate cycle PASS.
+- R2 (C6 air-gap re-attempt itself fails) — resolved 2026-05-05 via successful end-to-end ceremony.
+
+**What stays current in the body below:**
+- §2 Step 8 (Pre-PR-open final pass + graduation) — mechanical move once B2 lands.
+- §3 Per-question completion mapping — most rows still accurate; Q6/Q18/Q26/Q28/Q37 rows now reflect FILLED state per 2026-05-05 README pass.
+- §4 R3 (B2 reproducibility build encounters version conflict) — still a real risk on B2 timeline.
+
+---
 
 **Sources surveyed during drafting:**
 - `docs/research/shim_review/README_draft_skeleton.md` (current 39Q state at master tip)

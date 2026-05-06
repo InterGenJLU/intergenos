@@ -92,10 +92,13 @@ Therefore InterGenOS requires its own shim binary signed by Microsoft with the I
 - **Name:** Christopher Cork
 - **Role:** Founder, primary maintainer
 - **Email:** `security@intergenstudios.com` (role address; mail routed to founder; published in `/.well-known/security.txt` and in the project's `SECURITY.md`)
-- **PGP key (master):** `46DD 1029 F98F D453 1D44 99C3 A2AF 3A36 C5CE F2C3` (RSA-4096; project-role UID `InterGenOS Project Signing Key (primary) <intergenos-primary@intergenstudios.com>`; generated air-gapped on Tails 7.7 during ceremony 2026-04-30; no expiry on master)
-- **Release-signing subkey [S1]:** `6451 D186 F997 5781 A145 1DE6 7E65 89C3 954F 031F` (Nitrokey 3 NFC, serial `B9753481`; daily-driver release-signing token; 2-year expiry. Touch-policy enablement deferred to post-ceremony hardening pass — recoverable in-place via `gpg --card-edit` without re-keytocarding the subkey; PIN-on-every-use remains active.)
-- **Release-signing subkey [S2]:** `AB6C 6EA3 EDE8 4067 9044 EE5E 237E 35D9 6422 136B` (Nitrokey 3 NFC, serial `43D33126`; redundancy token held in local SDB; 2-year expiry. Touch-policy: same status as [S1].)
-- **Key publication:** Cross-published in this submission and in `docs/signing-key.md` (canonical fingerprint page). Keyserver upload to `keys.openpgp.org` is part of the post-ceremony online-side workflow (target: pre-PR-open).
+- **PGP key (master):** `5597 A3E0 587B 2530 06D0 DD7B 8C50 8261 8208 3050` (RSA-4096; project-role UID `InterGenOS Project Signing Key (primary) <intergenos-primary@intergenstudios.com>`; generated air-gapped on Tails 7.7 during ceremony 2026-05-05; no expiry on master)
+- **Release-signing subkey [S1]:** `D7AA 641D 81AC D690 C5AD 865E 7276 E14D D888 6BFE` (Nitrokey 3 NFC, serial `B9753481`; primary-maintainer daily-driver release-signing token; 2-year expiry to 2028-05-04. UIF=on per ceremony — touch required per signing operation.)
+- **Release-signing subkey [S2]:** `81DD 223F 9BA9 B3F2 AFBF FC5A FA24 B042 975F 775E` (Nitrokey 3 NFC, serial `43D33126`; primary-maintainer off-site bank-SDB token; 2-year expiry to 2028-05-04. UIF=on.)
+- **Release-signing subkey [S3]:** `B34D 3D3F B5EA DFC4 80ED BDB0 D3C5 DF2C C73B 67ED` (Nitrokey 3 NFC, serial `730D5185`; secondary-maintainer daily-driver release-signing token; 2-year expiry to 2028-05-04. UIF=on.)
+- **Release-signing subkey [S4]:** `99B3 E755 5064 180D C9CE 3284 32AE E441 15DE AAED` (Nitrokey 3 NFC, serial `CC1D07E3`; secondary-maintainer off-site fireproof-safe token; 2-year expiry to 2028-05-04. UIF=on.)
+- **Encryption subkey [E]:** `62C7 E2C3 0908 823D AF5E 4EBF 917B 649E 00F2 868C` (RSA-4096; on-disk in LUKS master backup; not card-bound; used for PGP-encrypted security reports per `SECURITY.md`; 2-year expiry to 2028-05-04.)
+- **Key publication:** Master pubkey LIVE on `keys.openpgp.org` (email-verified at `intergenos-primary@intergenstudios.com`) AND `keyserver.ubuntu.com`; cross-published in `docs/signing-key.md` (canonical fingerprint page) and `docs/signing-key.asc` (armored pubkey, second offline-verifier source).
 
 ---
 
@@ -268,7 +271,9 @@ The override-config addition was discovered as a gap during this 39Q draft's pop
 
 __FILLED__: (verified against `packages/core/linux-kernel/package.yml` and `build.sh`)
 
-  **No additional local patches.** The kernel build uses the upstream Linux 6.18.10 source tarball directly. No security-relevant code patches are applied.
+**Yes — one upstream-CVE backport patch** applied via `packages/core/linux-kernel/patches/CVE-2026-31431-copy-fail.patch` (upstream commit `crypto: algif_aead - Revert to operating out-of-place`, Herbert Xu, 2026-03-26). The patch reverts an in-place AEAD optimization that introduced an exploitable use-after-free (CVE-2026-31431, root-from-unprivileged-local). Applied during `linux-kernel/build.sh:21-29` before configure; reviewer-runnable verification: `ls packages/core/linux-kernel/patches/` plus inspection of `build.sh` patch-application loop.
+
+No other local patches. Kernel source is the upstream Linux 6.18.10 tarball (sha256 `d6d377161741ada2fab28eed69143277634a2aeb5e3883e50c031588ede48ede` per `packages/core/linux-kernel/package.yml`).
 
 ---
 
@@ -354,18 +359,25 @@ The SHA-256 here is the canonical attestation for the shim binary specifically. 
 
 **Vendor cert (CA) key custody — the "D1 v2 Nitrokey + offline Tails root" architecture.**
 
-Per `docs/research/installer/signing_key_custody_2026-04-18.md` (Section "Signing-ceremony checklist"):
+Per `docs/research/installer/signing_key_custody_2026-04-18.md` and the executed ceremony of 2026-05-05:
 
-- **Root CA private key (master keypair):** generated air-gapped on a Tails 7.7 boot from amnesic USB on 2026-04-30. RSA-4096, no expiry on master. UID `InterGenOS Project Signing Key (primary) <intergenos-primary@intergenstudios.com>` (project-role identity). Stored only as:
-  - LUKS-encrypted backup on dedicated USB drive (Drive #3); revocation cert co-resident
-  - Paperkey printout × 2 (one home safe, one offsite via secondary maintainer's location)
+- **Root CA private key (master keypair):** generated air-gapped on a Tails 7.7 boot from amnesic USB on 2026-05-05. RSA-4096, no expiry on master. UID `InterGenOS Project Signing Key (primary) <intergenos-primary@intergenstudios.com>` (project-role identity). Master fingerprint `5597A3E0587B253006D0DD7B8C50826182083050`. Stored only as:
+  - LUKS-encrypted backup on dedicated USB drive (Drive #3, on-site fireproof safe); revocation cert co-resident
+  - Paperkey printout × 2 (one on-site, one offsite)
   - Never present on any networked machine
-- **Release-signing subkeys [S1] and [S2]:** generated as subkeys of the master, keytocarded to two Nitrokey 3 NFC hardware tokens during the same air-gapped session (S1 → Nitrokey #1 daily-driver, S2 → Nitrokey #2 redundancy in local SDB). The Nitrokeys are the only artifacts that travel with the founder; the root key never leaves the air-gapped session.
-- **EFI-binary signing keypair (PIV slot 9c on Nitrokey #1):** **DEFERRED.** Toolchain ecosystem gap with the Nitrokey 3 PIV applet on Tails 7.7 (`yubico-piv-tool` fails firmware fingerprinting on non-Yubico cards; `pkcs11-tool --keypairgen` mechanism not exposed by the opensc PKCS#11 module for Nitrokey PIV). Follow-up air-gap session in flight; pre-validation work on a research-confirmed alternate toolchain is the gating step. Until C6 lands, the EFI signing chain is incomplete (this is the primary remaining blocker for end-to-end Secure Boot trust).
+- **Release-signing subkeys [S1]–[S4]:** four subkeys of the master, each keytocarded to a Nitrokey 3 NFC hardware token during the air-gapped session, all UIF=on (touch required per signing operation), 2-year expiry to 2028-05-04. Custody:
+  - **[S1]** → Nitrokey #1 (`B9753481`) — primary maintainer daily-driver
+  - **[S2]** → Nitrokey #2 (`43D33126`) — primary maintainer off-site bank-SDB
+  - **[S3]** → Nitrokey #3 (`730D5185`) — secondary maintainer daily-driver
+  - **[S4]** → Nitrokey #4 (`CC1D07E3`) — secondary maintainer off-site fireproof safe
+  
+  Symmetric custody across both maintainers: each holds one daily-use NK + one hardened-offline NK at separate physical locations. No single-location loss revokes the chain.
+- **Encryption subkey [E]** (`62C7E2C30908823DAF5E4EBF917B649E00F2868C`) — RSA-4096, on-disk in LUKS master backup; not card-bound. Used for PGP-encrypted security reports per `SECURITY.md`.
+- **EFI-binary signing keypair (PIV slot 9c on Nitrokey #1):** RSA-4096, generated on-card via `nitropy nk3 piv --experimental` during the same air-gapped session. Private half never leaves the hardware. Vendor cert SHA-256 `8ce749e7e77169205e4761d82b48a4333f48cdec2ee0f711b8cff560fe150514`. PIV management key rotated from factory hex to a fresh AES-256 value during the same session; recorded only on the maintainer's paper records.
 - **Key-storage policy:** GNOME Keyring / libsecret on operator hosts (where applicable); never plaintext on disk; never embedded in source code or commit messages.
 - **Ephemeral kernel-module signing keys:** see Q19 — these are NOT stored. Auto-generated per kernel build and reaped at build-completion.
 
-The signing ceremony of 2026-04-30 completed steps 2-5 of the checklist (Tails USB prep, root keygen, subkeys [S1]+[S2] onto Nitrokeys, LUKS backups, paperkeys × 2). Step 5b (PIV slot 9c vendor cert) deferred per the toolchain ecosystem gap noted above.
+The signing ceremony of 2026-05-05 completed all checklist steps end-to-end: Tails USB prep, root keygen, four signing subkeys keytocarded onto Nitrokeys, encryption subkey backed up via LUKS, paperkeys × 2 produced, EFI vendor cert minted on NK#1 PIV slot 9c, AES-256 PIV management key rotation. `validate.py` reported 0 failures across all 5 validation sections.
 
 References:
 
@@ -389,9 +401,9 @@ The InterGenOS shim-review path is Path B (community-reviewed → Red Hat batche
 CA properties:
 
 - **CN:** `InterGenOS Secure Boot CA`
-- **Type:** RSA-4096 (planned key length; on-card generation in the PIV slot 9c follow-up session)
-- **Generation status:** **DEFERRED** — the PIV slot 9c keypair generation was NOT completed in the 2026-04-30 ceremony due to a Nitrokey 3 PIV toolchain ecosystem gap on Tails 7.7 (see Q26 for full detail). Follow-up air-gap session in flight on a research-validated alternate toolchain (`piv-tool` from opensc as the candidate primary path, `nitropy nk3 piv` as fallback).
-- **Lifetime:** plan is multi-year (2-5 years) with documented rotation strategy if compromised or transitioned (per Q21 strategy when first rotation occurs)
+- **Type:** RSA-4096
+- **Generation:** on-card in Nitrokey #1's PIV applet (slot 9c) during the 2026-05-05 air-gapped Tails ceremony, via `nitropy nk3 piv --experimental` (validated 2026-05-02 against NK#4 with full rotate+re-auth+rotate-back cycle PASS, then applied to NK#1). Private half never leaves the hardware token. Vendor cert SHA-256 `8ce749e7e77169205e4761d82b48a4333f48cdec2ee0f711b8cff560fe150514`. PIV management key rotated from factory hex to fresh AES-256 during the same session.
+- **Lifetime:** 2 years (2028-05-04) with documented rotation strategy per Q21
 - **Use:** signs the InterGenOS-built signed GRUB2 binary AND the InterGenOS-built signed kernel image. Does NOT sign kernel modules (those use ephemeral per-build keys, see Q19).
 
 The CA private key, once generated in the PIV slot 9c follow-up session, will never leave the Nitrokey hardware token (per Q26 custody architecture; on-card generation guarantees private material is hardware-bound from inception).
@@ -456,7 +468,7 @@ GRUB2 module list to be confirmed in Q30.
 
 ## 37. What kernel are you using? Which patches and configuration does it include?
 
-**Kernel:** Linux mainline (version pin in `packages/core/linux/package.yml` — TBD-confirm exact version, expected 6.x stable LTS).
+**Kernel:** Linux 6.18.10 (version pin in `packages/core/linux-kernel/package.yml`; sha256 `d6d377161741ada2fab28eed69143277634a2aeb5e3883e50c031588ede48ede`).
 
 **Configuration:** generated from `config/kernel/fragments/*.config` via the InterGenOS Forge kernel-config-merge pipeline. Key fragments:
 
@@ -531,7 +543,7 @@ The kernel-lockdown auto-trigger gap (Q17) is acknowledged in this draft and wil
 
 - [x] All 39 questions present in order
 - [x] SPOC directive items 1-7 filled with substantive content
-- [ ] PGP fingerprints filled in Q6, Q7 (owner-fills evening 2026-04-29 + post-ceremony)
+- [x] PGP fingerprints filled in Q6 — master + [S1]-[S4] + [E] + EFI vendor cert SHA all populated post-ceremony 2026-05-05. Q7 (Ethan Phase 1) remains independently pending on secondary maintainer's Phase 1 onboarding.
 - [ ] Ethan email format decision in Q7 (owner-decision: personal vs role address)
 - [x] Kernel-lockdown auto-trigger gap (Q17) RESOLVED at master commit `baf84d8` — `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` added to `99-intergenos-overrides.config:130` per Path 1 (SPOC ruling 2026-04-29T18:05:38Z, integrated 18:18Z)
 - [ ] B2 Dockerfile build artifact + SHA256 + Q22-Q25 + Q14 + Q29 + Q30 (DeepSeek's lane)
