@@ -9,10 +9,12 @@
 #   * El Torito boot record (BIOS-legacy path; same UEFI binary loaded)
 #   * /live/filesystem.squashfs (root filesystem the UKI's initramfs mounts)
 #
-# archiso's mkarchiso was studied for ESP layout patterns; this script does
-# NOT vendor it. xorriso is the actual ISO-authoring engine; archiso is just
-# a thin orchestration layer over xorriso. We orchestrate xorriso directly
-# here so the trust boundary is clean.
+# Multiple distros' xorriso invocations were studied for the standard
+# hybrid-ISO incantation (archiso's mkarchiso, debian-live, casper,
+# xorriso's own docs). The flags are not original to any one of them; they
+# are an idiom convergence. This script does NOT vendor any of them.
+# xorriso is the actual ISO-authoring engine; we orchestrate it directly
+# so the trust boundary is clean.
 #
 # Usage:
 #   SHIM=/path/to/shimx64.efi.signed \
@@ -85,6 +87,18 @@ if [ -n "$THEME_DIR" ] && [ ! -d "$THEME_DIR" ]; then
     exit 1
 fi
 
+# PE-binary shape probe — pre-trust-boundary cheap check that the upstream
+# signing-helper actually wrote PE32+ binaries. Catches truncated writes,
+# wrong-architecture binaries, plain text smuggled in. Full sbverify is
+# correctly out-of-scope (build VM doesn't hold the cert).
+for binary in "$SHIM" "$GRUB" "$UKI"; do
+    if ! file -b "$binary" | grep -q "PE32+"; then
+        echo "ERROR: $binary is not a PE32+ binary" >&2
+        echo "       file says: $(file -b "$binary")" >&2
+        exit 1
+    fi
+done
+
 # --------------------------------------------------------------------------
 # Tool checks
 # --------------------------------------------------------------------------
@@ -103,6 +117,22 @@ for tool in xorriso mkfs.vfat mcopy mmd; do
         exit 1
     fi
 done
+
+# xorriso version assertion — 1.5.6+ honours SOURCE_DATE_EPOCH directly.
+# A stale xorriso silently drops SDE → reproducibility hole that masquerades
+# as host divergence. -appended_part_as_gpt requires 1.4.6; -isohybrid-gpt-
+# basdat requires 1.4.0; SDE honoring 1.5.6. Asserting 1.5.6 covers all.
+XORRISO_VER=$(xorriso --version 2>&1 | awk '/^xorriso /{print $2; exit}')
+if [ -z "$XORRISO_VER" ]; then
+    echo "ERROR: could not determine xorriso version from \`xorriso --version\`." >&2
+    exit 1
+fi
+# Compare via sort -V (version sort); abort if older than 1.5.6.
+if [ "$(printf '1.5.6\n%s\n' "$XORRISO_VER" | sort -V | head -1)" != "1.5.6" ]; then
+    echo "ERROR: xorriso version $XORRISO_VER is older than the required 1.5.6" >&2
+    echo "       (1.5.6 is the first version that honours SOURCE_DATE_EPOCH)" >&2
+    exit 1
+fi
 
 # --------------------------------------------------------------------------
 # Logging
@@ -200,12 +230,23 @@ dd if=/dev/zero of="$ESP_IMG" bs=1M count="$ESP_MB" status=none
 # mkfs.vfat: -F32 forces FAT32 (above the 32MB FAT16/FAT32 boundary it picks
 # FAT32 anyway, but explicit is clearer); -n VOLID sets the volume label.
 # `MTOOLS_SKIP_CHECK=1` lets mcopy work on a raw image without partition table.
-mkfs.vfat -F 32 -n "${VOLID:0:11}" "$ESP_IMG" >/dev/null
+#
+# The 32-bit FAT volume serial ID defaults to a time-derived number per
+# `man mkfs.vfat`. Two same-SDE runs would otherwise produce different
+# volume serials → different ESP_IMG bytes → different ISO bytes.
+# Derive it deterministically from the lower 32 bits of SOURCE_DATE_EPOCH.
+VOLSERIAL=$(printf '%08x' $((SOURCE_DATE_EPOCH & 0xffffffff)))
+mkfs.vfat -F 32 -i "$VOLSERIAL" -n "${VOLID:0:11}" "$ESP_IMG" >/dev/null
 
-# Copy the ESP tree into the FAT32 image. mcopy preserves the timestamps from
-# the source files; we don't try to clobber them with SOURCE_DATE_EPOCH at
-# the per-file level because mtools normalises FAT timestamps to 2-second
-# precision anyway and our reproducibility budget already accepts that.
+# Lock every staged-ESP file's mtime to SOURCE_DATE_EPOCH before mcopy reads
+# them. Without this, mcopy bakes in whatever mtime the local `cp` produced
+# (host-local "now"), which diverges across hosts even with identical SDE.
+# mtools' 2-second FAT precision normalisation doesn't help when the source
+# inputs differ by hours/days.
+find "$ESP_TREE" -exec touch -d "@${SOURCE_DATE_EPOCH}" {} +
+
+# Copy the ESP tree into the FAT32 image. With the touch+find above, mcopy
+# now writes deterministic FAT timestamps across hosts.
 export MTOOLS_SKIP_CHECK=1
 
 mmd -i "$ESP_IMG" ::EFI
@@ -305,12 +346,12 @@ xorriso -indev "$OUTPUT" -report_about ALL > "$INDEV_REPORT" 2>&1 || true
 
 VERIFY_FAIL=0
 
-if ! grep -qE "GPT|gpt" "$INDEV_REPORT"; then
+if ! grep -qE '\b[Gg][Pp][Tt]\b' "$INDEV_REPORT"; then
     echo "FAIL: GPT not detected in xorriso -report_about output" >&2
     VERIFY_FAIL=1
 fi
 
-if ! grep -qE "El Torito|eltorito|0xef" "$INDEV_REPORT"; then
+if ! grep -qE '\b(El Torito|eltorito|0xef)\b' "$INDEV_REPORT"; then
     echo "FAIL: ESP/El Torito boot record not detected" >&2
     VERIFY_FAIL=1
 fi
