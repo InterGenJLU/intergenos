@@ -1,0 +1,25 @@
+name: crun
+version: "1.27.1"
+release: 1
+description: OCI container runtime written in C
+license: GPL-2.0-or-later
+homepage: https://github.com/containers/crun
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/containers/crun/releases/download/${version}/crun-${version}.tar.gz
+    sha256: be7a71c455c918bbab0c03de64cf5ce4693c7164821ab3dce0bb0f579216e8f0
+dependencies:
+  build:
+    - autoconf
+    - automake
+    - libtool
+    - pkgconf
+  host:
+    - glib2
+    - libcap
+    - libseccomp
+    - systemd
+    - yajl
+  runtime: []
