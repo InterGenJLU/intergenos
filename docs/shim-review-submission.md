@@ -1,16 +1,17 @@
-# rhboot/shim-review submission — InterGenOS shim-x64-20260515 (DRAFT)
+# rhboot/shim-review submission — InterGenOS shim-x64-20260515
 
-**Status:** DRAFT skeleton populating in pre-PR work for the rhboot/shim-review queue. Target PR-open: 2026-05-15. Hard external deadline: 2026-06-27 (Microsoft 2011 UEFI CA expiration → 2023-CA only after that date).
+**Submitter:** InterGenOS (Christopher Cork, sole proprietor; secondary contact Ethan Bambock).
+**Target PR-open:** 2026-05-15.
+**Hard external deadline:** 2026-06-27 — Microsoft 2011 UEFI CA expiration; 2023-CA only after that date.
 
-**Conventions used in this draft:**
+**Reading conventions:**
 
-- `__FILLED__` items have substantive content per project-lead directive items 1-7.
-- `__TBD__: <reason>` items need owner-fill or follow-up work (e.g., PGP fingerprints, Ethan's email format choice).
-- `__GATED__: <trigger>` items wait until specific milestones (e.g., the B2 Dockerfile build, SBAT generation extraction from binary).
+- `__TBD__:` items name pending external dependencies (e.g., Ethan's PGP fingerprint, generated post-onboarding-Phase-1) and identify what unblocks them.
+- `__GATED__:` items remain only where binary-extracted output is required and the binary build is post-shim-review-merge (none in this submission's question set; all template gates are filled with the canonical SHAs and design-source citations).
 - **Kernel-config fragment terms:** `00-universal-baseline.config` is the cross-distro convergence baseline (Ubuntu/Arch/Fedora/Debian/openSUSE intersection of recommended hardening), applied first. `99-intergenos-overrides.config` is applied second and takes precedence — concatenation order in `packages/core/linux-kernel/build.sh:36` followed by `make olddefconfig`. Per-line citations like `99-intergenos-overrides.config:122` reference the exact line in the override fragment where each setting is defined; the final compiled kernel `.config` is the merged result.
-- Inline citations point at this repo's existing research (`docs/research/installer/...`, `docs/grub2-cve-audit.md`, etc.) so reviewers can audit the trail.
+- Inline citations point at the InterGenOS main repository (`docs/research/installer/...`, `docs/grub2-cve-audit.md`, etc.) so reviewers can audit the trail.
 
-**Audit-gap discovery + resolution (Q17):** during template population, this draft surfaced an InterGenOS kernel-config gap — baseline set `CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y` without `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` that Ubuntu/OpenSUSE/Fedora all ship, leaving lockdown=integrity not auto-triggered under Secure Boot. SPOC-ratified Path 1 resolution (one-line override addition) merged to master at commit `baf84d8` (`config/kernel/fragments/99-intergenos-overrides.config:130`). See Q17 body for full enforcement description + resolution audit-trail.
+**Audit-gap discovery + resolution (Q17):** during template population, this submission surfaced an InterGenOS kernel-config gap — baseline set `CONFIG_LOCK_DOWN_KERNEL_FORCE_NONE=y` without `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` that Ubuntu/OpenSUSE/Fedora all ship, leaving lockdown=integrity not auto-triggered under Secure Boot. Path 1 resolution (one-line override addition) merged to master at commit `baf84d8` (`config/kernel/fragments/99-intergenos-overrides.config:130`). See Q17 body for full enforcement description + resolution audit-trail.
 
 ---
 
@@ -115,7 +116,6 @@ Therefore InterGenOS requires its own shim binary signed by Microsoft with the I
 
 ## 8. Were these binaries created from the 16.1 shim release tar?
 
-__FILLED__:
 
 **Yes.** Build is rooted at `rhboot/shim` git tag `16.1` (commit `afc49558b34548644c1cd0ad1b6526a9470182ed`), per the InterGenOS shim-build Dockerfile committed at `docker/shim-build/Dockerfile` on master. The Dockerfile uses `FROM debian:bookworm-slim@sha256:5a2a80d11944804c01b8619bc967e31801ec39bf3257ab80b91070eb23625644` for reproducibility and pulls the shim source tarball directly from the upstream tag. Reviewer can verify by running `docker build .` against this Dockerfile and comparing the produced `shimx64.efi` SHA-256 against the canonical value in Q25 (`b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75`).
 
@@ -125,7 +125,7 @@ The `SHIM_COMMIT_SHA` artifact emitted by the build records the upstream commit 
 
 ## 9. URL for a repo that contains the exact code which was built to result in your binary?
 
-__FILLED__: `https://github.com/InterGenJLU/shim-review/tree/intergenos-shim-x64-20260515`
+`https://github.com/InterGenJLU/shim-review/tree/intergenos-shim-x64-20260515`
 
 The submission branch is created in the `InterGenJLU/shim-review` fork of `rhboot/shim-review`. The build inputs (Dockerfile, vendor cert, SBAT entries, signing script) live in the InterGenOS main repo and are referenced from the submission branch:
 
@@ -138,7 +138,7 @@ The submission branch is created in the `InterGenJLU/shim-review` fork of `rhboo
 
 ## 10. What patches are being applied and why?
 
-__FILLED__: (verified against `docker/shim-build/Dockerfile` and `packages/core/shim-signed/package.yml`)
+(verified against `docker/shim-build/Dockerfile` and `packages/core/shim-signed/package.yml`)
 
   **Zero code patches.** The build uses the upstream `rhboot/shim` repository at tag `16.1` (commit `afc49558b34548644c1cd0ad1b6526a9470182ed`) without any code-level modifications. The only configuration applied during the build is embedding the InterGenOS vendor certificate (`VENDOR_CERT_FILE`) and specifying the default loader (`DEFAULT_LOADER="\grubx64.efi"`).
 
@@ -148,7 +148,6 @@ Per `docs/research/installer/ms_shim_sponsorship_2026-04-18.md` §3, novel kerne
 
 ## 11. Do you have the NX bit set in your shim?
 
-__FILLED__ (per project-lead directive 2026-04-29T17:31:35Z item 7).
 
 **Yes.** The shim binary is built with the no-execute-stack property enforced at link time:
 
@@ -166,7 +165,7 @@ References:
 
 ## 12. What exact implementation of Secure Boot in GRUB2 do you have?
 
-__FILLED__: (verified against `packages/core/grub/package.yml`)
+(verified against `packages/core/grub/package.yml`)
 
   GRUB2 version 2.14. InterGenOS uses upstream GRUB2 with the standard shim -> GRUB2 -> kernel chain. Modules built into the signed GRUB2 image are enumerated in Q30.
 
@@ -176,7 +175,6 @@ Modules locked to the signed-binary image (vs loaded from `/boot`) via shim-lock
 
 ## 13. Do you have fixes for all the following GRUB2 CVEs applied?
 
-__FILLED__ (per project-lead directive 2026-04-29T17:31:35Z item 4).
 
 **Yes.** Comprehensive GRUB2 CVE audit committed at `docs/grub2-cve-audit.md` (live on master). The audit covers:
 
@@ -196,7 +194,6 @@ References:
 
 ## 14. If shim is loading GRUB2 bootloader, is the upstream global SBAT generation in your GRUB2 binary set to 5?
 
-__FILLED__:
 
 **Yes — `grub,5` per upstream baseline, plus InterGenOS-vendor `grub.intergenos,1` per `packages/core/grub/sbat.csv` on master.**
 
@@ -224,7 +221,6 @@ Reviewer-runnable verification (post-Phase-1 GRUB build): `objcopy --dump-sectio
 
 ## 16. If your boot chain of trust includes a Linux kernel, are specific upstream commits applied?
 
-__FILLED__ (per project-lead directive 2026-04-29T17:31:35Z item 6 — kernel-lockdown audit).
 
 **Yes.** The InterGenOS kernel includes the full upstream lockdown-as-LSM patchset as merged into Linux 5.4. Kernel-lockdown lineage citations:
 
@@ -265,7 +261,6 @@ The kernel build is reproducible from `config/kernel/fragments/*.config` + the I
 
 ## 17. How does your signed kernel enforce lockdown when your system runs with Secure Boot enabled?
 
-__FILLED__ (with audit-gap discovered during this draft + resolved on master per Path 1).
 
 ### Enforcement mechanism
 
@@ -289,7 +284,7 @@ The override-config addition was discovered as a gap during this 39Q draft's pop
 
 ## 18. Do you build your signed kernel with additional local patches?
 
-__FILLED__: (verified against `packages/core/linux-kernel/package.yml` and `build.sh`)
+(verified against `packages/core/linux-kernel/package.yml` and `build.sh`)
 
 **Yes — one upstream-CVE backport patch** applied via `packages/core/linux-kernel/patches/CVE-2026-31431-copy-fail.patch` (upstream commit `crypto: algif_aead - Revert to operating out-of-place`, Herbert Xu, 2026-03-26). The patch reverts an in-place AEAD optimization that introduced an exploitable use-after-free (CVE-2026-31431, root-from-unprivileged-local). Applied during `linux-kernel/build.sh:21-29` before configure; reviewer-runnable verification: `ls packages/core/linux-kernel/patches/` plus inspection of `build.sh` patch-application loop.
 
@@ -329,7 +324,7 @@ References:
 
 ## 20. If you use vendor_db functionality, please briefly describe your certificate setup?
 
-__FILLED__: (vendor_db not used)
+(vendor_db not used)
 
   No `vendor_db` allow-listing is used. Only the embedded InterGenOS vendor cert in the standard `vendor_cert` slot is trusted.
 
@@ -345,7 +340,6 @@ The InterGenOS Secure Boot CA (`CN=InterGenOS Secure Boot CA`) is freshly genera
 
 ## 22. Is the Dockerfile in your repository the recipe for reproducing the building of your shim binary?
 
-__FILLED__:
 
 **Yes — verified reproducible across two independent native-Linux Docker hosts.**
 
@@ -383,7 +377,6 @@ Plus `scripts/verify-b2-reproducibility.sh` graduates this into a 9-check harnes
 
 ## 23. Which files in this repo are the logs for your build?
 
-__FILLED__:
 
 Build logs are committed in the `InterGenJLU/shim-review/intergenos-shim-x64-20260515` fork branch under `logs/`:
 
@@ -406,7 +399,6 @@ The Dockerfile + harness script + log files together let any reviewer with a nat
 
 ## 25. What is the SHA256 hash of your final shim binary?
 
-__FILLED__:
 
 **Pre-MS-signing SHA-256 of the shim binary submitted for Microsoft signing:**
 
@@ -486,13 +478,13 @@ The CA private key, once generated in the PIV slot 9c follow-up session, will ne
 
 ## 29. Do you add a vendor-specific SBAT entry to the SBAT section in each binary?
 
-__FILLED__: Yes — `shim.intergenos,1` for the shim binary (file at `docker/shim-build/sbat/sbat.intergenos.csv` on master; one-line CSV currently committed: `shim.intergenos,1,InterGenOS,shim,16.1,https://github.com/InterGenJLU/intergenos`). Companion `grub.intergenos,1` entry lands in the GRUB binary per `packages/core/grub/sbat.csv`. Both are vendor-specific InterGenOS additions atop the upstream-baked `shim,4 / grub,5 / linux,1` entries; the union forms the resolved 6-line SBAT block (per docs/research/shim_review/post_b2_completion_roadmap_2026-05-01.md). Generation 1 ships at v1.0; bumped only on revocation.
+Yes — `shim.intergenos,1` for the shim binary (file at `docker/shim-build/sbat/sbat.intergenos.csv` on master; one-line CSV currently committed: `shim.intergenos,1,InterGenOS,shim,16.1,https://github.com/InterGenJLU/intergenos`). Companion `grub.intergenos,1` entry lands in the GRUB binary per `packages/core/grub/sbat.csv`. Both are vendor-specific InterGenOS additions atop the upstream-baked `shim,4 / grub,5 / linux,1` entries; the union forms the resolved 6-line SBAT block (per docs/research/shim_review/post_b2_completion_roadmap_2026-05-01.md). Generation 1 ships at v1.0; bumped only on revocation.
 
 ---
 
 ## 30. If shim is loading GRUB2 bootloader, which modules are built into your signed GRUB2 image?
 
-__FILLED__ (design-intent settled on master; binary-extracted module list verifiable post-Phase-1 GRUB build):
+Status: design-intent settled on master; binary-extracted module list verifiable post-Phase-1 GRUB build.
 
 **Minimal module set.** Only modules required to boot off the InterGenOS install media + load the signed kernel. **No filesystem-write modules, no network modules** in the signed image.
 
@@ -527,7 +519,7 @@ The on-master `packages/core/grub/build.sh` is the source of truth for the exact
 
 ## 32. What is the origin and full version number of your bootloader?
 
-__FILLED__: (verified against `packages/core/grub/package.yml`)
+(verified against `packages/core/grub/package.yml`)
 
   GNU GRUB2 version 2.14, sourced from upstream (`https://ftp.gnu.org/gnu/grub/grub-2.14.tar.xz`).
 
@@ -587,7 +579,6 @@ GRUB2 module list to be confirmed in Q30.
 
 ## 38. What contributions have you made to help us review the applications of other applicants?
 
-__FILLED__ (per project-lead directive 2026-04-29T17:31:35Z item 5).
 
 **Plan: peer-review at least 2 open shim-review PRs starting 2026-05-04**, ahead of our 2026-05-15 PR-open target. Specific PR selections will be recorded in the commit log of this branch as reviews are completed; we treat the peer-review-contribution gate as a queue-priority factor and an acknowledgement that the shim-review process scales by mutual review.
 
@@ -602,8 +593,6 @@ By the 2026-05-15 PR-open target, ≥2 substantive review comments will have bee
 ---
 
 ## 39. Add any additional information you think we may need to validate this shim signing application?
-
-__FILLED__ (cross-sign approach + project-context note).
 
 ### Cross-sign approach
 
