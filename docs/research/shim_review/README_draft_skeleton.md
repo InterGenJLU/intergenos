@@ -373,7 +373,7 @@ Per `docs/research/installer/signing_key_custody_2026-04-18.md` and the executed
   
   Symmetric custody across both maintainers: each holds one daily-use NK + one hardened-offline NK at separate physical locations. No single-location loss revokes the chain.
 - **Encryption subkey [E]** (`62C7E2C30908823DAF5E4EBF917B649E00F2868C`) — RSA-4096, on-disk in LUKS master backup; not card-bound. Used for PGP-encrypted security reports per `SECURITY.md`.
-- **EFI-binary signing keypair (PIV slot 9c on Nitrokey #1):** RSA-4096, generated on-card via `nitropy nk3 piv --experimental` during the same air-gapped session. Private half never leaves the hardware. Vendor cert SHA-256 `8ce749e7e77169205e4761d82b48a4333f48cdec2ee0f711b8cff560fe150514`. PIV management key rotated from factory hex to a fresh AES-256 value during the same session; recorded only on the maintainer's paper records.
+- **EFI-binary signing keypair (PIV slot 9c on Nitrokey #1):** RSA-4096, generated on-card via `nitropy nk3 piv --experimental` during the same air-gapped session. Private half never leaves the hardware. Vendor cert DER fingerprint (SHA-256) `7B:8F:21:50:B5:D0:0C:7B:28:DD:51:8F:AD:D7:0B:C0:E8:37:AE:43:DF:7B:5E:23:D6:18:5E:9C:75:30:C8:76`; PEM-file SHA-256 `8ce749e7e77169205e4761d82b48a4333f48cdec2ee0f711b8cff560fe150514` (transport integrity). PIV management key rotated from factory hex to a fresh AES-256 value during the same session; recorded only on the maintainer's paper records.
 - **Key-storage policy:** GNOME Keyring / libsecret on operator hosts (where applicable); never plaintext on disk; never embedded in source code or commit messages.
 - **Ephemeral kernel-module signing keys:** see Q19 — these are NOT stored. Auto-generated per kernel build and reaped at build-completion.
 
@@ -402,7 +402,7 @@ CA properties:
 
 - **CN:** `InterGenOS Secure Boot CA`
 - **Type:** RSA-4096
-- **Generation:** on-card in Nitrokey #1's PIV applet (slot 9c) during the 2026-05-05 air-gapped Tails ceremony, via `nitropy nk3 piv --experimental` (validated 2026-05-02 against NK#4 with full rotate+re-auth+rotate-back cycle PASS, then applied to NK#1). Private half never leaves the hardware token. Vendor cert SHA-256 `8ce749e7e77169205e4761d82b48a4333f48cdec2ee0f711b8cff560fe150514`. PIV management key rotated from factory hex to fresh AES-256 during the same session.
+- **Generation:** on-card in Nitrokey #1's PIV applet (slot 9c) during the 2026-05-05 air-gapped Tails ceremony, via `nitropy nk3 piv --experimental` (validated 2026-05-02 against NK#4 with full rotate+re-auth+rotate-back cycle PASS, then applied to NK#1). Private half never leaves the hardware token. Vendor cert DER fingerprint (SHA-256) `7B:8F:21:50:B5:D0:0C:7B:28:DD:51:8F:AD:D7:0B:C0:E8:37:AE:43:DF:7B:5E:23:D6:18:5E:9C:75:30:C8:76`; PEM-file SHA-256 `8ce749e7e77169205e4761d82b48a4333f48cdec2ee0f711b8cff560fe150514` (transport integrity check). PIV management key rotated from factory hex to fresh AES-256 during the same session.
 - **Lifetime:** 2 years (2028-05-04) with documented rotation strategy per Q21
 - **Use:** signs the InterGenOS-built signed GRUB2 binary AND the InterGenOS-built signed kernel image. Does NOT sign kernel modules (those use ephemeral per-build keys, see Q19).
 

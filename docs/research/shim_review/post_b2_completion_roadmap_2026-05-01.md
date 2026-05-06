@@ -13,7 +13,7 @@ The roadmap body below was authored 2026-05-01 anchored on the C6 PIV-toolchain 
 **What's done since 2026-05-01:**
 - Ceremony executed via automation (`scripts/ceremony/ceremony.py`) on air-gapped Tails 7.7. Master FP `5597A3E0587B253006D0DD7B8C50826182083050` LIVE on `keys.openpgp.org` (email-verified) + `keyserver.ubuntu.com`.
 - Four sign subkeys [S1]/[S2]/[S3]/[S4] keytocarded to NK#1/#2/#3/#4 with UIF=on, 2-year expiry to 2028-05-04. Symmetric custody across primary + secondary maintainer.
-- EFI vendor cert minted on NK#1 PIV slot 9c via `nitropy nk3 piv --experimental`. SHA-256 `8ce749e7e77169205e4761d82b48a4333f48cdec2ee0f711b8cff560fe150514`. PIV management key rotated to fresh AES-256.
+- EFI vendor cert minted on NK#1 PIV slot 9c via `nitropy nk3 piv --experimental`. DER fingerprint (SHA-256) `7B:8F:21:50:B5:D0:0C:7B:28:DD:51:8F:AD:D7:0B:C0:E8:37:AE:43:DF:7B:5E:23:D6:18:5E:9C:75:30:C8:76`; PEM-file SHA-256 `8ce749e7e77169205e4761d82b48a4333f48cdec2ee0f711b8cff560fe150514` (transport integrity). PIV management key rotated to fresh AES-256.
 - `validate.py` ship gate reports 0 failures across all 5 validation sections.
 - 39Q README (Q6, Q26, Q28, Q37) updated to reflect post-ceremony actuals; Q18 corrected to disclose the CVE-2026-31431 kernel-patch backport (per shim-review audit findings 2026-05-05).
 
