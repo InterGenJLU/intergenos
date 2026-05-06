@@ -1,0 +1,17 @@
+name: aardvark-dns
+version: "1.17.1"
+release: 1
+description: Authoritative DNS server for A/AAAA container records
+license: Apache-2.0
+homepage: https://github.com/containers/aardvark-dns
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/containers/aardvark-dns/releases/download/v${version}/aardvark-dns-v${version}-vendor.tar.gz
+    sha256: 009198f042f150d42025c8a0456bb7a98293c9deeb012d37b2d364f44e52288f
+dependencies:
+  build:
+    - rust
+  host: []
+  runtime: []

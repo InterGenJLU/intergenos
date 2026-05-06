@@ -1,0 +1,17 @@
+name: netavark
+version: "1.17.2"
+release: 1
+description: Container network plugin written in Rust
+license: Apache-2.0
+homepage: https://github.com/containers/netavark
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/containers/netavark/releases/download/v${version}/netavark-v${version}-vendor.tar.gz
+    sha256: afa8e99a9691ef6ea485d6cb6b1897684d9f8a26719deaa3cbf37b5f17198e6f
+dependencies:
+  build:
+    - rust
+  host: []
+  runtime: []
