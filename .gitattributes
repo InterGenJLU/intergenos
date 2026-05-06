@@ -1,0 +1,58 @@
+# Lock Unix-target file types to LF regardless of clone-host autocrlf.
+#
+# Caught 2026-05-06 by WC during cross-host harness re-run dispatch:
+# Windows clone with default core.autocrlf=true converted .sh files to
+# CRLF on checkout. SCP'd to Linux, bash interpreted `set -euo pipefail<CR>`
+# as if `<CR>` were part of the option name → "set: pipefail: invalid
+# option name", exit 2. The fix downstream (sed -i 's/\r$//') is a band-aid;
+# this file makes the line-ending policy authoritative at clone time.
+#
+# Existing Windows working trees with CRLF will need to renormalize via
+# `git add --renormalize .` (or just touch + add affected files) the next
+# time they're modified. Lazy renormalization is the lowest-disruption path.
+
+# Unix-target file types — LF mandatory
+*.sh        text eol=lf
+*.py        text eol=lf
+*.csv       text eol=lf
+*.cfg       text eol=lf
+*.conf      text eol=lf
+*.service   text eol=lf
+*.target    text eol=lf
+*.timer     text eol=lf
+*.socket    text eol=lf
+*.mount     text eol=lf
+*.path      text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.json      text eol=lf
+*.toml      text eol=lf
+*.in        text eol=lf
+*.mk        text eol=lf
+*.rules     text eol=lf
+Makefile    text eol=lf
+
+# Documentation — let platform pick (markdown viewers tolerate either)
+*.md        text
+*.txt       text
+
+# Binary — explicit so git never tries to text-munge
+*.efi       binary
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.gpg       binary
+*.asc       binary
+*.der       binary
+*.qcow2     binary
+*.iso       binary
+*.img       binary
+*.zst       binary
+*.gz        binary
+*.xz        binary
+*.bz2       binary
+*.tar       binary
+*.zip       binary
+*.pdf       binary
