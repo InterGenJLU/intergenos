@@ -1,0 +1,30 @@
+name: podman
+version: "5.8.2"
+release: 1
+description: Tool and library for managing OCI containers and pods
+license: Apache-2.0
+homepage: https://podman.io/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/containers/podman/archive/refs/tags/v${version}.tar.gz
+    sha256: b20ea65afc5a58ea1cea019bd51a5d84eb9042d25d3eb82c55010c8815732d84
+dependencies:
+  build:
+    - go
+    - go-md2man
+    - pkgconf
+  host:
+    - glib2
+    - systemd
+  runtime:
+    - aardvark-dns
+    - catatonit
+    - conmon
+    - containers-common
+    - crun
+    - fuse-overlayfs
+    - netavark
+    - passt
+    - yajl
