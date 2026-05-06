@@ -138,7 +138,21 @@ fi
 # Logging
 # --------------------------------------------------------------------------
 
-mkdir -p "$LOG_DIR"
+mkdir -p "$LOG_DIR" || {
+    echo "ERROR: cannot create LOG_DIR: $LOG_DIR" >&2
+    exit 1
+}
+
+# Pre-flight that LOG_DIR is actually writable. If LOG_DIR is on a network
+# mount that drops mid-run, tee dies and stdout disappears; the build then
+# proceeds blind. Catching it now (before the long-running xorriso step)
+# fails fast with a clear error rather than silent dataloss.
+if ! ( : > "${LOG_DIR}/.build-iso-write-probe" ) 2>/dev/null; then
+    echo "ERROR: LOG_DIR is not writable: $LOG_DIR" >&2
+    exit 1
+fi
+rm -f "${LOG_DIR}/.build-iso-write-probe"
+
 LOG_TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
 LOG_FILE="${LOG_DIR}/build_${LOG_TIMESTAMP}.log"
 
@@ -342,7 +356,15 @@ echo "[build-iso] [5/6] self-verify"
 # 5a. xorriso -indev report — confirms GPT, ESP partition, El Torito boot
 # record. Captured to a separate report file so the harness can grep it.
 INDEV_REPORT="${LOG_DIR}/indev_${LOG_TIMESTAMP}.txt"
-xorriso -indev "$OUTPUT" -report_about ALL > "$INDEV_REPORT" 2>&1 || true
+# Capture exit code rather than `|| true`-swallowing — empty INDEV_REPORT
+# is still caught by the grep checks below (defensive design), but a
+# non-zero indev RC is itself diagnostic and worth surfacing.
+INDEV_RC=0
+xorriso -indev "$OUTPUT" -report_about ALL > "$INDEV_REPORT" 2>&1 || INDEV_RC=$?
+if [ "$INDEV_RC" -ne 0 ]; then
+    echo "[build-iso]       WARN: xorriso -indev returned $INDEV_RC " \
+         "(non-fatal; downstream grep checks will assert content)" >&2
+fi
 
 VERIFY_FAIL=0
 
@@ -371,6 +393,13 @@ ISO_MB=$((ISO_BYTES / 1024 / 1024))
 
 if [ "$VERIFY_FAIL" -ne 0 ]; then
     echo "FAIL: self-verify failed; see $INDEV_REPORT for details" >&2
+    # Remove the half-baked OUTPUT so a subsequent operator who doesn't read
+    # stderr can't mistake the stale file for a good build. The trap that
+    # cleans STAGING is separate; this only removes the failed OUTPUT.
+    if [ -f "$OUTPUT" ]; then
+        rm -f "$OUTPUT"
+        echo "[build-iso]       removed partial $OUTPUT (verify-fail cleanup)" >&2
+    fi
     exit 1
 fi
 
