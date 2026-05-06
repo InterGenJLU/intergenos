@@ -7,8 +7,7 @@
 #
 # Multi-host verification: docker build on any host with this Dockerfile +
 # this repo's pinned cert MUST produce the same sha256sum on the output
-# tarball. (L2 apt-version pinning + harness graduation tracked separately
-# in post_b2_completion_roadmap_2026-05-01.md.)
+# tarball.
 #
 # Usage:
 #   docker build \
@@ -56,8 +55,18 @@ ARG SHIM_COMMIT=afc49558b34548644c1cd0ad1b6526a9470182ed
 # build-essential: gcc + make toolchain
 # perl: shim build scripts
 # (sbsigntool intentionally excluded — signing happens outside the container.)
+#
+# L2 fix (apt version pinning): switch from floating Debian bookworm to a
+# snapshot.debian.org timestamp. This pins every apt package to the exact
+# version available at that timestamp, eliminating the reproducibility leak
+# where two builds weeks apart pull different gcc/libc/binutils versions.
+# Timestamp 20260501T000000Z chosen as: post-bookworm-12.9 release,
+# pre-ceremony, stable package set.
 # -----------------------------------------------------------------------------
-RUN apt-get update \
+RUN echo "deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20260501T000000Z bookworm main" \
+        > /etc/apt/sources.list.d/snapshot.list \
+ && rm -f /etc/apt/sources.list.d/debian.sources \
+ && apt-get update \
  && apt-get install -y --no-install-recommends \
     build-essential \
     ca-certificates \

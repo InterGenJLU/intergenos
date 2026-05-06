@@ -24,6 +24,7 @@ Reference: `docs/research/installer/ms_shim_sponsorship_2026-04-18.md` §9 Step 
 | Vendor cert | Real ceremony-v2 cert (committed at `vendor-cert/`) | DER fingerprint `7B:8F:21:50:...:C8:76`; private half on NK#1 PIV slot 9c |
 | SBAT vendor entry | `sbat/sbat.intergenos.csv` (committed) | Concatenated to embedded SBAT section via shim's `VENDOR_SBATS` Makefile glob |
 | Build parallelism | `make -j1` | L1 fix — eliminates thread-race ordering as a reproducibility leak |
+| Apt package pinning | `snapshot.debian.org/.../20260501T000000Z` | L2 fix — pins all build-time packages to exact versions; eliminates gcc/libc/binutils version drift |
 | Tar | `--sort=name --owner=0 --group=0 --mtime=@$SOURCE_DATE_EPOCH` | Deterministic archive format |
 | In-container signing | DROPPED | Private key is hardware-bound to NK#1 PIV; signing happens externally |
 
@@ -34,12 +35,12 @@ Reference: `docs/research/installer/ms_shim_sponsorship_2026-04-18.md` §9 Step 
 3. **`LANG=C.UTF-8`, `TZ=UTC`** — no locale-dependent behavior in build tools
 4. **Fixed shim commit SHA** — clone at tag, then assert HEAD matches the commit pin (L3)
 5. **Serial build** — `make -j1` eliminates thread-race ordering (L1)
-6. **Deterministic tar** — sort order + ownership + mtime all fixed
-7. **Real vendor cert + SBAT entry committed in repo** — no out-of-band setup; deterministic input
+6. **Snapshot.debian.org pin** — `apt-get` pulls from a timestamped Debian snapshot (L2 fix). All build-time packages (gcc, libc, binutils, etc.) are pinned to the versions available at that snapshot timestamp.
+7. **Deterministic tar** — sort order + ownership + mtime all fixed
+8. **Real vendor cert + SBAT entry committed in repo** — no out-of-band setup; deterministic input
 
-**Outstanding leaks** (tracked separately):
-- **L2 (apt versions)**: package versions in `apt-get install` are not pinned. Different `apt-get update` timestamps will pull different gcc-minor / libc / binutils. Fix candidate: `snapshot.debian.org` timestamp in `sources.list`. Required for full multi-host reproducibility.
-- **Harness graduation**: `scripts/verify-b2-reproducibility.sh` lives in DS's research doc (`b2_reproducibility_harness_2026-05-01.md`); not yet graduated to repo.
+**Outstanding leaks (tracked separately):**
+- None — L1, L2, L3 all resolved at master tip (2026-05-05). See §Reproducibility anchors below.
 
 ## Usage
 
@@ -73,7 +74,7 @@ sign operation (UIF policy enforced on-card).
 
 ## Multi-host verification
 
-After L2 fix lands, build on multiple independent hosts and compare:
+Build on multiple independent hosts and compare with the graduated harness:
 
 ```bash
 # Host A
@@ -81,14 +82,14 @@ docker build --build-arg SOURCE_DATE_EPOCH=1746489600 ...
 sha256sum build-output/intergenos-shim-16.1.tar
 # Host B (different hardware, same Dockerfile + repo state)
 sha256sum build-output/intergenos-shim-16.1.tar
-# Hashes MUST match — that's the byte-for-byte reproducibility property
-```
 
-The `verify-b2-reproducibility.sh` harness (script in
-`docs/research/shim_review/b2_reproducibility_harness_2026-05-01.md` §2;
-graduation pending) automates the comparison: tarball sha256, shim binary
-sha256, vendor cert sha256, commit SHA text, SBAT section sha256, PE
-metadata. 6/6 PASS = full reproducibility.
+# Verify with the graduated harness (9 checks)
+./scripts/verify-b2-reproducibility.sh \
+    host-A/intergenos-shim-16.1.tar \
+    host-B/intergenos-shim-16.1.tar \
+    /tmp/b2-verdict.txt
+# Expected: 9/9 PASS = full byte-for-byte reproducibility
+```
 
 ## What this build does NOT produce
 
@@ -99,12 +100,12 @@ metadata. 6/6 PASS = full reproducibility.
 
 ## Known limitations (current phase)
 
-1. **L2 not yet applied** — apt-package versions floating; multi-host
-   reproducibility is not yet provable until snapshot.debian.org pin lands.
-   Tracked separately.
-2. **Harness not in repo yet** — `scripts/verify-b2-reproducibility.sh`
-   lives only in research doc. Tracked separately.
-3. **PKCS#11 URI in `sign-shim.sh` is a default guess** — `id=%02` is the
+1. **PKCS#11 URI in `sign-shim.sh` is a default guess** — `id=%02` is the
    typical OpenSC mapping for PIV slot 9c, but should be confirmed via
    `pkcs11-tool --list-objects --type privkey` on first run with NK#1 plugged
    in. Override via `PKCS11_KEY_URI` env var if the default doesn't match.
+2. **Multi-host verification not yet executed** — the Dockerfile, harness,
+   and L1+L2+L3 fixes are all in place, but actual multi-host builds have
+   not been run. This is Step 4 of `post_b2_completion_roadmap_2026-05-01.md`.
+   First single-host build must complete (IGOSC Step 3), then dual-host
+   verification follows.
