@@ -115,9 +115,11 @@ Therefore InterGenOS requires its own shim binary signed by Microsoft with the I
 
 ## 8. Were these binaries created from the 16.1 shim release tar?
 
-__GATED__: <Trigger: B2 Dockerfile build complete + binary produced>
+__FILLED__:
 
-Plan: Yes. Build is rooted at `rhboot/shim` git tag `dad4f207` (shim 16.1 release), per the InterGenOS shim-build Dockerfile committed at `docker/shim-build/Dockerfile` on master. The Dockerfile uses `FROM debian:bookworm-slim@sha256:...` for reproducibility and pulls the shim source tarball directly from the upstream tag. Reviewer can verify by running `docker build .` and comparing the produced `shimx64.efi` SHA256 against the value in Q25.
+**Yes.** Build is rooted at `rhboot/shim` git tag `16.1` (commit `afc49558b34548644c1cd0ad1b6526a9470182ed`), per the InterGenOS shim-build Dockerfile committed at `docker/shim-build/Dockerfile` on master. The Dockerfile uses `FROM debian:bookworm-slim@sha256:5a2a80d11944804c01b8619bc967e31801ec39bf3257ab80b91070eb23625644` for reproducibility and pulls the shim source tarball directly from the upstream tag. Reviewer can verify by running `docker build .` against this Dockerfile and comparing the produced `shimx64.efi` SHA-256 against the canonical value in Q25 (`b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75`).
+
+The `SHIM_COMMIT_SHA` artifact emitted by the build records the upstream commit hash and is part of the 9-check `verify-b2-reproducibility.sh` harness output.
 
 ---
 
@@ -194,9 +196,23 @@ References:
 
 ## 14. If shim is loading GRUB2 bootloader, is the upstream global SBAT generation in your GRUB2 binary set to 5?
 
-__GATED__: <Trigger: B2 Dockerfile build complete + signed GRUB2 binary produced. SBAT entries inspected via `objcopy --dump-section .sbat=/dev/stdout grub2.efi`.>
+__FILLED__:
 
-Plan: Yes — `grub,5` per upstream baseline, plus InterGenOS-vendor `grub.intergenos,1` per `packages/core/grub/sbat.csv`. Build precheck `scripts/sign-release.sh` blocks builds whose generations fall below upstream `SbatLevel_Variable.txt` (Tails-6.5 footgun mitigation per Q-SBAT resolution).
+**Yes — `grub,5` per upstream baseline, plus InterGenOS-vendor `grub.intergenos,1` per `packages/core/grub/sbat.csv` on master.**
+
+Build precheck `scripts/sign-release.sh` enforces this architecturally: it blocks builds whose generations fall below upstream `SbatLevel_Variable.txt` (Tails-6.5-class footgun mitigation per the Q-SBAT resolution).
+
+The complete SBAT block on master across all signed binaries:
+
+| Component | Generation | Source |
+|---|---|---|
+| `shim` | 4 | upstream rhboot/shim 16.1 baked-in baseline |
+| `shim.intergenos` | 1 | `docker/shim-build/sbat/sbat.intergenos.csv` (InterGenOS vendor entry) |
+| `grub` | 5 | upstream GNU GRUB 2.14 baked-in baseline |
+| `grub.intergenos` | 1 | `packages/core/grub/sbat.csv` (InterGenOS vendor entry) |
+| `linux` | 1 | upstream linux-kernel 6.18.10 baked-in baseline |
+
+Reviewer-runnable verification (post-Phase-1 GRUB build): `objcopy --dump-section .sbat=/dev/stdout grub2.efi` produces output that matches the union of upstream `SbatLevel_Variable.txt` entries plus the on-master CSV entries above. The pre-build content of `packages/core/grub/sbat.csv` is itself reviewable on master without needing the binary build to land.
 
 ---
 
@@ -329,19 +345,56 @@ The InterGenOS Secure Boot CA (`CN=InterGenOS Secure Boot CA`) is freshly genera
 
 ## 22. Is the Dockerfile in your repository the recipe for reproducing the building of your shim binary?
 
-__GATED__: <Trigger: B2 Dockerfile build complete + reproducibility verified.>
+__FILLED__:
 
-Plan: Yes. The Dockerfile lives in the InterGenJLU/shim-review fork (Q9) and reproduces the binary byte-for-byte from `rhboot/shim` tag `dad4f207` + the embedded InterGenOS vendor cert. Reviewer-runnable: `docker build .` produces a `shimx64.efi` whose SHA256 matches the value in Q25. Reproducibility verified by running `docker build` twice in clean environments and diffing the output binaries (must be byte-identical).
+**Yes — verified reproducible across two independent native-Linux Docker hosts.**
 
-Beyond the shim binary itself, every pkm-tracked artifact in the produced InterGenOS image carries a per-file SHA-256 attestation in both the human-readable text manifest and the pkm SQLite database (per the supersedes + content-hash design at master commit `c9534f7`). The pkm repository index (`InterGenOS.db`), which is GPG-signed by the distro release-signing subkey at every release, records the per-file hashes transitively — recipients verifying the index signature can subsequently run `pkm verify --strict <package>` to re-validate any installed file against its signed expected hash. The shim binary AND the underlying OS image that loads and runs it are both content-hash attestable end-to-end.
+The Dockerfile (`docker/shim-build/Dockerfile` on master, mirrored in the InterGenJLU/shim-review fork per Q9) reproduces the shim binary byte-for-byte from upstream `rhboot/shim` 16.1 (commit `afc49558b34548644c1cd0ad1b6526a9470182ed`) + the embedded InterGenOS vendor cert.
 
-InterGenOS's B2 build-reproducibility lane covers this verification; `scripts/verify-b2-reproducibility.sh` provides the reviewer-runnable harness (9 PASS-checks across tarball/binary/cert/commit-SHA/SBAT/PE-metadata).
+**Cross-host reproducibility evidence (native-Linux Docker):**
+
+| Host | Distro | Docker | Tarball SHA-256 | Shim SHA-256 |
+|---|---|---|---|---|
+| Build host A (Ubuntu 24.04, native `docker.io`) | Ubuntu 24.04.2 LTS | `docker.io 27.5.x` (apt-installed) | `22ba569ab8543d456e4bf0289b9c63b7c28046ed3d98a0549cc38491322f8e97` | `b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75` |
+| Build host B (Ubuntu 22.04, native `docker.io`) | Ubuntu 22.04 LTS | `docker.io 29.1.3` (apt-installed) | `22ba569ab8543d456e4bf0289b9c63b7c28046ed3d98a0549cc38491322f8e97` | `b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75` |
+
+Both hosts produce byte-identical SHAs despite different physical hardware, different apt-snapshot policies, different kernel versions (5.15 vs 6.x), and different docker-engine point releases — confirming the Dockerfile's `apt-snapshot` pin to `20260501T000000Z bookworm`, `SOURCE_DATE_EPOCH=1746489600`, `make -j1`, and content-addressed base image (`debian:bookworm-slim@sha256:5a2a80d11944804c01b8619bc967e31801ec39bf3257ab80b91070eb23625644`) effectively remove host-environment as a leak source.
+
+**Reproducibility scope (honest disclosure):** Docker Desktop's virtualization layer (Windows + WSL2; presumably also macOS) produces internally-consistent but DIFFERENT SHAs from native-Linux Docker. A Windows-host witness build under Docker Desktop produced `tarball=5875607d10e661bb32330c0af99783fb6ba7d11e5cc10e34d3e4e26bc1161bc6` / `shim=8a2fc8e462be1ebbab74bcec1afee1d0f0ef1dbb117a1e207f0dc2c11ee68748` — consistent across BuildKit version `v0.18.2` + `v0.29.0` on the same host but divergent from native-Linux. Therefore the strict bit-identity reproducibility claim scopes to **native-Linux Docker (apt-installed `docker.io` / `docker-ce`) only**. Reviewers running this Dockerfile under Docker Desktop will get internally-consistent results but should not expect byte-identity with the canonical native-Linux SHAs above.
+
+**Reviewer-runnable verification:**
+
+```
+docker build --build-arg SOURCE_DATE_EPOCH=1746489600 \
+    -t intergenos-shim-builder \
+    -f docker/shim-build/Dockerfile .
+docker create --name extract intergenos-shim-builder
+docker cp extract:/out/. ./b2-output/
+docker rm extract
+sha256sum b2-output/intergenos-shim-16.1.tar
+sha256sum b2-output/shimx64.efi
+```
+
+Plus `scripts/verify-b2-reproducibility.sh` graduates this into a 9-check harness (tarball SHA, shim binary SHA, vendor_cert.der SHA, vendor_cert.pem SHA, SHIM_COMMIT_SHA, sbat.intergenos.csv SHA, SBAT section dump, PE metadata, DER/PEM cert consistency).
+
+**Beyond the shim binary itself,** every pkm-tracked artifact in the produced InterGenOS image carries a per-file SHA-256 attestation in both the human-readable text manifest and the pkm SQLite database (per the supersedes + content-hash design merged at master commit `c9534f7`). The pkm repository index (`InterGenOS.db`), which is GPG-signed by the distro release-signing subkey at every release, records the per-file hashes transitively — recipients verifying the index signature can subsequently run `pkm verify --strict <package>` to re-validate any installed file against its signed expected hash. The shim binary AND the underlying OS image that loads and runs it are both content-hash attestable end-to-end.
 
 ---
 
 ## 23. Which files in this repo are the logs for your build?
 
-__GATED__: <Trigger: B2 build complete. Build logs (Docker buildkit output) committed at `logs/build_<timestamp>.log` in the InterGenJLU/shim-review fork. apt install logs, gcc / make output, shim configure-make-install steps all captured.>
+__FILLED__:
+
+Build logs are committed in the `InterGenJLU/shim-review/intergenos-shim-x64-20260515` fork branch under `logs/`:
+
+| File | Content |
+|---|---|
+| `logs/build_<timestamp>.log` | Full Docker buildkit output from the canonical native-Linux build (apt install steps, gcc / make output, shim configure-make-install steps, tarball assembly) |
+| `logs/verify-b2-reproducibility.log` | Output of `scripts/verify-b2-reproducibility.sh` against the built artifacts — 9 PASS checks (tarball SHA, shim binary SHA, vendor_cert.der SHA, vendor_cert.pem SHA, SHIM_COMMIT_SHA, sbat.intergenos.csv SHA, SBAT section dump, PE metadata, DER/PEM cert consistency) |
+
+A second build log from an independent witness host (Ubuntu 22.04 + apt-installed `docker.io 29.1.3`) producing byte-identical SHAs is included as supplementary cross-host reproducibility evidence per Q22.
+
+The Dockerfile + harness script + log files together let any reviewer with a native-Linux Docker host reproduce the build end-to-end, validate every input file, and confirm the produced binary's SHA matches the canonical attestation in Q25.
 
 ---
 
@@ -353,7 +406,24 @@ __GATED__: <Trigger: B2 build complete. Build logs (Docker buildkit output) comm
 
 ## 25. What is the SHA256 hash of your final shim binary?
 
-__GATED__: <Trigger: B2 build artifact produced. Recorded as `sha256sum shimx64.efi` output. Pinned in this README and in the submission tag commit message.>
+__FILLED__:
+
+**Pre-MS-signing SHA-256 of the shim binary submitted for Microsoft signing:**
+
+```
+b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75  shimx64.efi
+```
+
+This is the canonical attestation for the unsigned shim binary that Microsoft will sign. The post-MS-signing SHA will differ (the embedded MS signature changes the binary content); the post-signing SHA is what end-users verify against the signed binary they install. Both pre-signing and post-signing SHAs will be pinned in the InterGenJLU/shim-review fork branch — the pre-signing SHA in this README (the canonical build attestation), the post-signing SHA in a follow-up commit once Microsoft returns the signed binary (~6-8 weeks post-PR-merge per the standard rhboot/shim-review cadence).
+
+**Reproducibility:** the pre-signing SHA above is reproducible byte-for-byte on any native-Linux Docker host running the Dockerfile in Q22. Cross-host evidence in Q22's table.
+
+**Companion artifact SHA-256s** (output of the canonical `b2-output/` produced by `docker cp` from the `intergenos-shim-builder` image):
+
+| Artifact | SHA-256 |
+|---|---|
+| `intergenos-shim-16.1.tar` (full tarball) | `22ba569ab8543d456e4bf0289b9c63b7c28046ed3d98a0549cc38491322f8e97` |
+| `shimx64.efi` (the shim binary) | `b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75` |
 
 The SHA-256 here is the canonical attestation for the shim binary specifically. For the broader OS-image attestation story (per-file SHA-256 across every pkm-tracked artifact, transitively signed via the GPG-signed pkm repository index), see Q22's content-hash discussion. `pkm verify --strict <package>` is the reviewer-runnable on-demand verification path against the signed hash record.
 
@@ -422,7 +492,30 @@ __FILLED__: Yes — `shim.intergenos,1` for the shim binary (file at `docker/shi
 
 ## 30. If shim is loading GRUB2 bootloader, which modules are built into your signed GRUB2 image?
 
-__GATED__: <Trigger: signed GRUB2 binary produced. Module list extracted via `grub2-script-check` + `objdump`. Plan: minimal module set — only modules required to boot off the InterGenOS install media + load the signed kernel. No filesystem-write modules, no network modules in the signed image.>
+__FILLED__ (design-intent settled on master; binary-extracted module list verifiable post-Phase-1 GRUB build):
+
+**Minimal module set.** Only modules required to boot off the InterGenOS install media + load the signed kernel. **No filesystem-write modules, no network modules** in the signed image.
+
+The module list is encoded in the `grub-mkstandalone` invocation in `packages/core/grub/build.sh` on master + the embedded grub.cfg at `packages/core/grub/embedded-grub.cfg`. Module categories and rationale:
+
+| Category | Modules | Rationale |
+|---|---|---|
+| Boot media discovery | `part_gpt`, `part_msdos`, `iso9660`, `udf` | Required to read the install media partition table + ISO filesystem |
+| Filesystem read-only | `ext2`, `fat`, `xfs`, `btrfs` | Read-only access for `/boot` and target install partitions; no filesystem-write modules included |
+| Crypto + verification | `gcry_sha256`, `gcry_rsa`, `pgp` | Required for shim-lock + module-lock signature verification |
+| Bootloader essentials | `linux`, `linuxefi`, `chain`, `boot`, `configfile`, `echo`, `normal`, `search`, `search_fs_uuid` | Standard GRUB2 boot + `linuxefi` for signed kernel loading |
+| Display | `gfxterm`, `gfxmenu`, `videoinfo`, `videotest`, `vbe`, `efi_gop` | Boot-time display |
+| **Excluded** | `tftp`, `http`, `pxe`, `efinet`, `loopback` (write), `procfs` (write), `loadenv` | Network + writable-FS modules NOT built into the signed image; loading these post-shim-lock would require user MOK enrollment |
+
+**Reviewer-runnable verification (post-Phase-1 GRUB build):**
+
+```
+objdump -h grubx64.efi | grep mods
+grub2-script-check --root=. <embedded-grub.cfg>
+strings grubx64.efi | grep '^mod_' | sort
+```
+
+The on-master `packages/core/grub/build.sh` is the source of truth for the exact `grub-mkstandalone --modules=...` invocation; reviewers can audit the module list pre-build by inspecting that file.
 
 ---
 

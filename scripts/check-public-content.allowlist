@@ -31,3 +31,22 @@ chris@intergenstudios.com
 PRIME DIRECTIVE
 # References to this audit script itself
 check-public-content
+
+# --- Public SHA-256 hashes of public binaries (shim-review submission) ---
+# These are canonical attestation hashes published in the shim-review submission.
+# SHA-256 of a public binary is by definition public; not a secret.
+# Tarball SHA-256 (canonical native-Linux Docker build):
+22ba569ab8543d456e4bf0289b9c63b7c28046ed3d98a0549cc38491322f8e97
+# Shim binary SHA-256 (canonical, pre-MS-signing):
+b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75
+# Cross-host divergence reference (Docker Desktop / Windows witness — out-of-scope):
+5875607d10e661bb32330c0af99783fb6ba7d11e5cc10e34d3e4e26bc1161bc6
+8a2fc8e462be1ebbab74bcec1afee1d0f0ef1dbb117a1e207f0dc2c11ee68748
+# bookworm-slim base image content hash (Dockerfile pin):
+5a2a80d11944804c01b8619bc967e31801ec39bf3257ab80b91070eb23625644
+# Upstream rhboot/shim 16.1 release commit:
+afc49558b34548644c1cd0ad1b6526a9470182ed
+# Linux kernel 6.18.10 source tarball SHA-256:
+d6d377161741ada2fab28eed69143277634a2aeb5e3883e50c031588ede48ede
+# Vendor cert PEM-file SHA-256 (transport integrity check, public):
+8ce749e7e77169205e4761d82b48a4333f48cdec2ee0f711b8cff560fe150514
