@@ -8,10 +8,14 @@ public content. Enforces canonical 10 (secrets handling) in CI.
 Exit codes: 0 = clean, 1 = violations found, 2 = script error
 
 Options:
-  --dir <path>    Scan specific directory tree (for testing fixtures)
-  --file <path>   Scan specific files (repeatable)
-  --require-both  When set, must find both block and warn violations (for tests)
-  --require-clean When set, expects zero violations (for should-pass tests)
+  --dir <path>     Scan specific directory tree (for testing fixtures)
+  --file <path>    Scan specific files (repeatable)
+  --from-ref <ref> Read file content via `git show <ref>:<file>` instead of
+                   the working tree. Use `--from-ref HEAD` in pre-push hooks
+                   so the audit scans the actually-being-pushed bytes (not
+                   working-tree state which may differ from HEAD).
+  --require-both   When set, must find both block and warn violations (for tests)
+  --require-clean  When set, expects zero violations (for should-pass tests)
 """
 
 import os
@@ -132,15 +136,24 @@ def compile_patterns(specs):
     return result
 
 
-def get_tracked_files():
-    """Return list of tracked text files from git."""
+def get_tracked_files(from_ref=None):
+    """Return list of tracked text files from git.
+
+    When from_ref is set, returns files in that ref via `git ls-tree -r <ref>`
+    instead of the working tree's index. Pre-push gates pass HEAD here so the
+    file list matches the bytes the audit will scan.
+    """
     try:
+        if from_ref:
+            cmd = ["git", "ls-tree", "-r", "-z", "--name-only", from_ref]
+        else:
+            cmd = ["git", "ls-files", "-z"]
         result = subprocess.run(
-            ["git", "ls-files", "-z"],
+            cmd,
             capture_output=True, text=True, cwd=REPO_ROOT, timeout=10
         )
         if result.returncode != 0:
-            print("ERROR: git ls-files failed", file=sys.stderr)
+            print(f"ERROR: {' '.join(cmd)} failed", file=sys.stderr)
             sys.exit(2)
         files = [f for f in result.stdout.split("\0") if f]
     except Exception as e:
@@ -202,45 +215,74 @@ def is_allowlisted(line, allowlist_patterns):
     return False
 
 
-def scan_file(filepath, block_patterns, warn_patterns, allowlist_patterns, repo_root):
-    """Scan one file for violations. Returns list of violation tuples."""
-    violations = []
-    full_path = repo_root / filepath if not os.path.isabs(filepath) else Path(filepath)
+def read_file_content(filepath, repo_root, from_ref=None):
+    """Read file content from working tree or from a git ref.
 
-    if not full_path.exists():
+    When from_ref is set, content is read via `git show <ref>:<filepath>`
+    so the audit operates on the pushed-bytes, not working-tree-bytes.
+    Returns text content (decoded UTF-8 with error-replace), or None if
+    the file is binary / unreadable / missing.
+    """
+    if from_ref:
+        try:
+            result = subprocess.run(
+                ["git", "show", f"{from_ref}:{filepath}"],
+                capture_output=True, cwd=repo_root, timeout=10
+            )
+            if result.returncode != 0:
+                return None
+            return result.stdout.decode("utf-8", errors="replace")
+        except Exception:
+            return None
+    else:
+        full_path = repo_root / filepath if not os.path.isabs(filepath) else Path(filepath)
+        if not full_path.exists():
+            return None
+        try:
+            with open(full_path, encoding="utf-8", errors="replace") as f:
+                return f.read()
+        except (OSError, UnicodeDecodeError):
+            return None
+
+
+def scan_file(filepath, block_patterns, warn_patterns, allowlist_patterns, repo_root, from_ref=None):
+    """Scan one file for violations. Returns list of violation tuples.
+
+    When from_ref is set, file content is read via git-show against that ref
+    so the audit scans the actually-pushed bytes (relevant for pre-push gates
+    where working-tree may differ from HEAD).
+    """
+    violations = []
+    content = read_file_content(filepath, repo_root, from_ref=from_ref)
+    if content is None:
         return violations
 
-    try:
-        with open(full_path, encoding="utf-8", errors="replace") as f:
-            for line_no, line in enumerate(f, 1):
-                line_stripped = line.strip()
-                if not line_stripped:
+    display_path = filepath if not os.path.isabs(filepath) else str(Path(filepath).relative_to(repo_root))
+
+    for line_no, line in enumerate(content.splitlines(), 1):
+        line_stripped = line.strip()
+        if not line_stripped:
+            continue
+
+        if is_allowlisted(line_stripped, allowlist_patterns):
+            continue
+
+        for cat, pat in block_patterns:
+            match = pat.search(line)
+            if match:
+                matched = match.group(0)
+                if cat == "HEX-SECRET" and is_sha256_line(line):
                     continue
+                msg = f"{display_path}:{line_no}: [{cat}] {matched} — remove or replace with public-safe equivalent"
+                violations.append(("block", msg))
+                break
 
-                if is_allowlisted(line_stripped, allowlist_patterns):
-                    continue
-
-                for cat, pat in block_patterns:
-                    match = pat.search(line)
-                    if match:
-                        matched = match.group(0)
-                        if cat == "HEX-SECRET" and is_sha256_line(line):
-                            continue
-                        display_path = filepath if not os.path.isabs(filepath) else str(Path(filepath).relative_to(repo_root))
-                        msg = f"{display_path}:{line_no}: [{cat}] {matched} — remove or replace with public-safe equivalent"
-                        violations.append(("block", msg))
-                        break
-
-                for cat, pat in warn_patterns:
-                    match = pat.search(line)
-                    if match:
-                        matched = match.group(0)
-                        display_path = filepath if not os.path.isabs(filepath) else str(Path(filepath).relative_to(repo_root))
-                        msg = f"{display_path}:{line_no}: [{cat}] {matched} — verify this is a legitimate public use"
-                        violations.append(("warn", msg))
-
-    except (OSError, UnicodeDecodeError):
-        pass
+        for cat, pat in warn_patterns:
+            match = pat.search(line)
+            if match:
+                matched = match.group(0)
+                msg = f"{display_path}:{line_no}: [{cat}] {matched} — verify this is a legitimate public use"
+                violations.append(("warn", msg))
 
     return violations
 
@@ -249,6 +291,7 @@ def main():
     parser = argparse.ArgumentParser(description="Public content audit scanner")
     parser.add_argument("--dir", help="Scan specific directory tree (for test fixtures)")
     parser.add_argument("--file", action="append", default=[], help="Scan specific file (repeatable)")
+    parser.add_argument("--from-ref", help="Read file content via `git show <ref>:<file>` (pre-push: --from-ref HEAD)")
     parser.add_argument("--require-clean", action="store_true", help="Exit 1 if any violations found (for should-pass tests)")
     parser.add_argument("--require-both", action="store_true", help="Exit 0 only if both block and warn violations found")
     parser.add_argument("--require-fail", action="store_true", help="Exit 0 only if violations found (for should-fail tests)")
@@ -264,7 +307,7 @@ def main():
     elif args.file:
         files = args.file
     else:
-        files = get_tracked_files()
+        files = get_tracked_files(from_ref=args.from_ref)
 
     if not files:
         print("ERROR: no files to scan", file=sys.stderr)
@@ -274,7 +317,7 @@ def main():
 
     all_violations = []
     for filepath in sorted(files):
-        violations = scan_file(filepath, block_compiled, warn_compiled, allowlist_patterns, repo_root)
+        violations = scan_file(filepath, block_compiled, warn_compiled, allowlist_patterns, repo_root, from_ref=args.from_ref)
         all_violations.extend(violations)
 
     blocks = [v for v in all_violations if v[0] == "block"]
