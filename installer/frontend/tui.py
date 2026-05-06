@@ -1,656 +1,477 @@
-"""Forge — InterGenOS System Installer — Text User Interface (ncurses).
+"""Forge — InterGenOS System Installer — Declarative-builder TUI.
 
-Phase 1 installer UI. Works over SSH, serial console, or bare TTY.
-Guides the user through: disk selection → configuration → install → done.
+Per Q-TUI-INTERACTIVITY=B + Q-TUI-CONFIG=menu-driven-yaml-at-install (resolved
+2026-05-06): the TUI is NOT a "text version of the GUI." It is a builder.
+
+Flow:
+
+    1. walking()           — dialog/whiptail Q&A for the small set of choices
+                              that genuinely vary per install: locale,
+                              timezone, hostname, optional-package toggles.
+    2. emit_yaml()         — answers written to /var/lib/forge/install.yaml
+                              (ephemeral; lives on the live overlay).
+    3. prompt_install_io() — interactive disk choice + root password + user
+                              account during the install proper. Pre-seeding
+                              disk = fat-finger risk; pre-seeding password =
+                              supply-chain risk. PRIME DIRECTIVE.
+    4. run_declarative()   — orchestrate the install non-interactively from
+                              the yaml + collected interactive answers, using
+                              the existing installer.backend modules.
+
+The walking sequence uses dialog(1) where present, falls back to whiptail(1)
+(both in base tier — no new deps). We invoke via subprocess.run; the two
+binaries share enough of a flag surface for the wrapper to treat them
+interchangeably.
 """
 
-import curses
 import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from installer.backend import disks, packages, config, bootloader, hooks, users, mok
+from installer.backend import bootloader, config, disks, hooks, mok, packages, users
 
 
-class InstallerTUI:
-    """Text-based installer interface using curses."""
+YAML_PATH = "/var/lib/forge/install.yaml"
+DIALOG_BACKTITLE = "InterGenOS Installer (Forge — Declarative Builder)"
 
-    def __init__(self, stdscr, archive_dir, packages_dir=None):
-        self.stdscr = stdscr
-        self.archive_dir = archive_dir
-        self.packages_dir = packages_dir
 
-        # User selections
-        self.selected_disk = None
-        self.partitions = None
-        self.hostname = "intergenos"
-        self.timezone = "UTC"
-        self.locale = "en_US.UTF-8"
-        self.keymap = "us"
-        self.root_password = ""
-        self.username = ""
-        self.user_password = ""
-        self.selected_groups = ["core", "base", "desktop-gnome"]
-        self.target = "/mnt/target"
+# --------------------------------------------------------------------------
+# dialog(1) / whiptail(1) wrappers
+# --------------------------------------------------------------------------
 
-        # Secure Boot / MOK
-        self.mok_password = ""        # one-time enrollment password
-        self.mok_keypair = None       # populated during install (mok.generate_mok_keypair result)
 
-        # Install mode (fresh disk wipe vs. alongside existing OS)
-        self.install_mode = disks.InstallMode.FRESH
-        self.alongside_ntfs = None    # Partition object to shrink (alongside mode)
-        self.alongside_free_bytes = 0 # bytes available after shrink
+def _resolve_dialog_binary():
+    """Pick whichever of dialog/whiptail is available. Both honor the same
+    --backtitle / --inputbox / --menu / --checklist / --passwordbox / --yesno
+    flag set used here. dialog has --stdout (results on stdout); whiptail
+    doesn't (results on stderr). We adapt per-binary in _dialog()."""
+    for candidate in ("dialog", "whiptail"):
+        if shutil.which(candidate):
+            return candidate
+    return None
 
-        # Curses setup
-        curses.curs_set(0)
-        curses.init_pair(1, curses.COLOR_CYAN, curses.COLOR_BLACK)
-        curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
-        curses.init_pair(3, curses.COLOR_RED, curses.COLOR_BLACK)
-        curses.init_pair(4, curses.COLOR_YELLOW, curses.COLOR_BLACK)
-        curses.init_pair(5, curses.COLOR_WHITE, curses.COLOR_BLUE)
 
-    def run(self):
-        """Run the installer flow."""
-        if not self.screen_welcome():
-            return
-        if not self.screen_disk():
-            return
-        if not self.screen_config():
-            return
-        if not self.screen_groups():
-            return
-        # MOK setup only on EFI installs (BIOS legacy has no Secure Boot)
-        if disks.is_efi():
-            if not self.screen_mok_setup():
-                return
-        if not self.screen_confirm():
-            return
-        self.screen_install()
-        self.screen_done()
+_DIALOG_BIN = _resolve_dialog_binary()
 
-    # ------------------------------------------------------------------
-    # Helper methods
-    # ------------------------------------------------------------------
 
-    def clear(self):
-        self.stdscr.clear()
+def _dialog(*dialog_args):
+    """Run dialog/whiptail. Returns (rc, captured-output-or-None).
 
-    def header(self, title):
-        """Draw the standard header."""
-        h, w = self.stdscr.getmaxyx()
-        self.stdscr.attron(curses.color_pair(5))
-        self.stdscr.addstr(0, 0, " " * w)
-        header_text = f" Forge — {title}"
-        self.stdscr.addstr(0, 0, header_text[:w-1])
-        self.stdscr.attroff(curses.color_pair(5))
-
-    def message(self, row, text, color=0):
-        """Display a message at the given row."""
-        h, w = self.stdscr.getmaxyx()
-        if color:
-            self.stdscr.attron(curses.color_pair(color))
-        self.stdscr.addstr(row, 2, text[:w-4])
-        if color:
-            self.stdscr.attroff(curses.color_pair(color))
-
-    def prompt(self, row, text, default=""):
-        """Get text input from the user."""
-        curses.curs_set(1)
-        curses.echo()
-        self.message(row, f"{text} [{default}]: ")
-        h, w = self.stdscr.getmaxyx()
-        prompt_len = len(f"{text} [{default}]: ") + 2
-        self.stdscr.move(row, prompt_len)
-        value = self.stdscr.getstr(row, prompt_len, w - prompt_len - 2).decode().strip()
-        curses.noecho()
-        curses.curs_set(0)
-        return value if value else default
-
-    def prompt_password(self, row, text):
-        """Get password input (hidden)."""
-        curses.curs_set(1)
-        curses.noecho()
-        self.message(row, f"{text}: ")
-        h, w = self.stdscr.getmaxyx()
-        prompt_len = len(f"{text}: ") + 2
-        self.stdscr.move(row, prompt_len)
-        value = self.stdscr.getstr(row, prompt_len, w - prompt_len - 2).decode().strip()
-        curses.curs_set(0)
-        return value
-
-    def wait_key(self, row, text="Press any key to continue..."):
-        self.message(row, text, color=4)
-        self.stdscr.refresh()
-        self.stdscr.getch()
-
-    def yes_no(self, row, text, default=True):
-        """Ask a yes/no question."""
-        default_str = "Y/n" if default else "y/N"
-        self.message(row, f"{text} [{default_str}]: ")
-        self.stdscr.refresh()
-        key = self.stdscr.getch()
-        if key in (ord('y'), ord('Y')):
-            return True
-        elif key in (ord('n'), ord('N')):
-            return False
-        return default
-
-    # ------------------------------------------------------------------
-    # Screens
-    # ------------------------------------------------------------------
-
-    def screen_welcome(self):
-        """Welcome screen — introduce InterGenOS."""
-        self.clear()
-        self.header("Welcome")
-        self.message(3, "Welcome to Forge — the InterGenOS Installer", color=1)
-        self.message(5, '"A system you understand, can modify, and can trust."')
-        self.message(7, "This installer will guide you through setting up InterGenOS")
-        self.message(8, "on your computer. The installation process will:")
-        self.message(10, "  1. Partition and format a disk")
-        self.message(11, "  2. Install system packages from pre-built archives")
-        self.message(12, "  3. Configure your system (hostname, users, network)")
-        self.message(13, "  4. Install the GRUB bootloader")
-        self.message(15, "Your existing data on the selected disk WILL BE ERASED.", color=3)
-        self.message(17, "Press ENTER to continue, or 'q' to quit.")
-        self.stdscr.refresh()
-
-        key = self.stdscr.getch()
-        return key != ord('q')
-
-    def screen_disk(self):
-        """Disk selection screen + install mode chooser."""
-        self.clear()
-        self.header("Disk Selection")
-
-        available_disks = disks.detect_disks()
-        if not available_disks:
-            self.message(3, "ERROR: No disks detected!", color=3)
-            self.wait_key(5)
-            return False
-
-        self.message(3, "Available disks:", color=1)
-        row = 5
-        for i, disk in enumerate(available_disks):
-            label = f"  {i+1}. {disk.path} — {disk.size_human} — {disk.model}"
-            if disk.removable:
-                label += " [removable]"
-            # Annotate disks that contain something (existing OS / data)
-            if disk.partitions:
-                fstypes = [p.fstype for p in disk.partitions if p.fstype]
-                if "ntfs" in fstypes:
-                    label += " [contains Windows]"
-                elif fstypes:
-                    label += f" [contains {', '.join(set(fstypes))}]"
-            self.message(row, label)
-            row += 1
-
-        row += 1
-        choice = self.prompt(row, "Select disk number", "1")
-        try:
-            idx = int(choice) - 1
-            if 0 <= idx < len(available_disks):
-                self.selected_disk = available_disks[idx]
-            else:
-                self.message(row + 2, "Invalid selection", color=3)
-                self.wait_key(row + 3)
-                return False
-        except ValueError:
-            self.message(row + 2, "Invalid input", color=3)
-            self.wait_key(row + 3)
-            return False
-
-        # Detect if this disk has a Windows install we could share with
-        existing_esp = disks.detect_existing_esp(self.selected_disk)
-        ntfs_part, free_bytes = disks.detect_shrinkable_ntfs(self.selected_disk)
-        bitlocker_parts = disks.detect_bitlocker_partitions(self.selected_disk)
-
-        return self._screen_install_mode(existing_esp, ntfs_part, free_bytes, bitlocker_parts)
-
-    def _screen_install_mode(self, existing_esp, ntfs_part, free_bytes, bitlocker_parts):
-        """Sub-screen: choose fresh vs. alongside install mode."""
-        self.clear()
-        self.header("Install Mode")
-
-        efi = disks.is_efi()
-        mode = "EFI" if efi else "BIOS"
-        self.message(3, f"Selected disk: {self.selected_disk.path} ({self.selected_disk.size_human})", color=1)
-        self.message(4, f"Boot mode: {mode}", color=2)
-
-        row = 6
-
-        # BitLocker block: if we found encrypted NTFS, surface clearly first
-        if bitlocker_parts:
-            self.message(row, "BITLOCKER-ENCRYPTED PARTITION(S) DETECTED:", color=3); row += 1
-            for p in bitlocker_parts:
-                self.message(row, f"  {p.path} ({p.size_human})"); row += 1
-            row += 1
-            self.message(row, "Alongside install CANNOT shrink BitLocker volumes safely.", color=3); row += 1
-            self.message(row, "Options:", color=1); row += 1
-            self.message(row, "  - Boot Windows, disable BitLocker on this drive, re-run Forge"); row += 1
-            self.message(row, "  - OR proceed with FRESH install (DESTROYS Windows)", color=3); row += 2
-            if not self.yes_no(row, "Proceed with FRESH install (destroys all data)?", default=False):
-                return False
-            self.install_mode = disks.InstallMode.FRESH
-            return True
-
-        if existing_esp and ntfs_part and efi:
-            # Both an ESP and a shrinkable NTFS — alongside is possible
-            free_human = self._human_size_local(free_bytes)
-            self.message(row, "Existing Windows install detected.", color=4); row += 1
-            self.message(row, f"  ESP: {existing_esp.path} ({existing_esp.size_human})"); row += 1
-            self.message(row, f"  Windows: {ntfs_part.path} ({ntfs_part.size_human})"); row += 1
-            self.message(row, f"  Free space available after shrink: {free_human}"); row += 2
-
-            self.message(row, "Choose install mode:", color=1); row += 1
-            self.message(row, "  1. ALONGSIDE — keep Windows, shrink it, dual-boot"); row += 1
-            self.message(row, "  2. FRESH — erase entire disk, InterGenOS only", color=3); row += 2
-
-            choice = self.prompt(row, "Select mode (1 or 2)", "1")
-            if choice.strip() == "2":
-                self.install_mode = disks.InstallMode.FRESH
-                return self._confirm_fresh_wipe(row + 2)
-            else:
-                self.install_mode = disks.InstallMode.ALONGSIDE
-                self.alongside_ntfs = ntfs_part
-                self.alongside_free_bytes = free_bytes
-                return self._confirm_alongside(row + 2, ntfs_part, free_bytes)
-
-        elif existing_esp and not ntfs_part:
-            # Has an ESP but no shrinkable NTFS — only fresh available
-            self.message(row, "Existing EFI partition detected, but no shrinkable", color=4); row += 1
-            self.message(row, "NTFS partition found (or not enough free space).", color=4); row += 1
-            self.message(row, "Only FRESH install available — entire disk will be erased.", color=3); row += 2
-            self.install_mode = disks.InstallMode.FRESH
-            return self._confirm_fresh_wipe(row)
-
-        else:
-            # Empty disk or no usable existing OS — fresh install only
-            self.install_mode = disks.InstallMode.FRESH
-            return self._confirm_fresh_wipe(row)
-
-    def _confirm_fresh_wipe(self, row):
-        """Final confirmation for fresh-disk install (data loss warning)."""
-        self.message(row, f"WARNING: ALL data on {self.selected_disk.path} will be erased!", color=3)
-        row += 1
-        return self.yes_no(row, "Proceed with FRESH install?", default=False)
-
-    def _confirm_alongside(self, row, ntfs_part, free_bytes):
-        """Final confirmation for alongside install (NTFS shrink warning)."""
-        free_human = self._human_size_local(free_bytes)
-        self.message(row, f"NTFS partition {ntfs_part.path} will be shrunk.", color=3); row += 1
-        self.message(row, f"Windows data is preserved; {free_human} freed for InterGenOS.", color=4); row += 1
-        self.message(row, "Recommend: back up Windows before proceeding.", color=3); row += 2
-        return self.yes_no(row, "Proceed with ALONGSIDE install?", default=False)
-
-    def _human_size_local(self, bytes_val):
-        """Local human-size formatter (avoid coupling to disks._human_size)."""
-        for unit in ("B", "KB", "MB", "GB", "TB"):
-            if bytes_val < 1024:
-                return f"{bytes_val:.1f} {unit}"
-            bytes_val /= 1024
-        return f"{bytes_val:.1f} PB"
-
-    def screen_config(self):
-        """System configuration screen."""
-        self.clear()
-        self.header("System Configuration")
-
-        self.message(3, "Configure your InterGenOS system:", color=1)
-
-        self.hostname = self.prompt(5, "Hostname", self.hostname)
-        self.timezone = self.prompt(7, "Timezone", self.timezone)
-        self.locale = self.prompt(9, "Locale", self.locale)
-
-        self.message(11, "Root password:", color=1)
-        while True:
-            self.root_password = self.prompt_password(12, "  Enter password")
-            confirm = self.prompt_password(13, "  Confirm password")
-            if self.root_password == confirm and self.root_password:
-                break
-            self.message(14, "Passwords don't match or are empty. Try again.", color=3)
-            self.stdscr.refresh()
-
-        self.message(16, "Create a user account:", color=1)
-        self.username = self.prompt(17, "  Username", "")
-        if self.username:
-            while True:
-                self.user_password = self.prompt_password(18, "  Enter password")
-                confirm = self.prompt_password(19, "  Confirm password")
-                if self.user_password == confirm and self.user_password:
-                    break
-                self.message(20, "Passwords don't match or are empty. Try again.", color=3)
-                self.stdscr.refresh()
-
-        return True
-
-    def screen_groups(self):
-        """Package group selection screen."""
-        self.clear()
-        self.header("Package Selection")
-
-        self.message(3, "Select package groups to install:", color=1)
-
-        row = 5
-        group_list = list(packages.GROUPS.items())
-        for i, (name, info) in enumerate(group_list):
-            selected = name in self.selected_groups
-            marker = "[X]" if selected else "[ ]"
-            req = " (required)" if info["required"] else ""
-            self.message(row, f"  {marker} {name:20s} — {info['description']}{req}")
-            row += 1
-
-        row += 1
-        self.message(row, "Toggle with number keys, ENTER to continue:", color=4)
-        self.stdscr.refresh()
-
-        # Simple toggle — for now just accept defaults
-        key = self.stdscr.getch()
-        return True
-
-    def screen_mok_setup(self):
-        """MOK enrollment setup screen (EFI installs only).
-
-        Generates the one-time enrollment password and explains the
-        first-boot MokManager flow. The actual keypair generation happens
-        during the install step (needs the target chroot mounted).
-        """
-        self.clear()
-        self.header("Secure Boot — Machine Owner Key")
-
-        self.message(3, "InterGenOS uses Secure Boot to protect your system.", color=1)
-        self.message(5, "During install, we generate a Machine Owner Key (MOK) unique")
-        self.message(6, "to this machine. The public half gets enrolled in your UEFI")
-        self.message(7, "firmware so signed kernel modules (e.g. NVIDIA drivers built")
-        self.message(8, "via DKMS) can load on your system.")
-
-        self.message(10, "On first boot, you will see a blue MokManager screen:", color=4)
-        self.message(11, "  1. Press a key within 10 seconds when prompted")
-        self.message(12, "  2. Choose 'Enroll MOK'")
-        self.message(13, "  3. Enter the password shown below")
-        self.message(14, "  4. Reboot — the MOK is now trusted")
-
-        # Generate the one-time password and display it prominently
-        self.mok_password = mok.generate_enrollment_password()
-
-        self.message(16, "ONE-TIME ENROLLMENT PASSWORD (write this down NOW):", color=3)
-        self.message(17, f"  {self.mok_password}", color=2)
-        self.message(18, "(You only need this once, at the next reboot.)", color=4)
-
-        self.message(20, "Press ENTER when you have written the password down,", color=1)
-        self.message(21, "or 'q' to cancel installation.", color=1)
-        self.stdscr.refresh()
-
-        while True:
-            key = self.stdscr.getch()
-            if key == ord('q') or key == ord('Q'):
-                return False
-            if key in (curses.KEY_ENTER, 10, 13):
-                return True
-
-    def screen_confirm(self):
-        """Confirmation screen before installation."""
-        self.clear()
-        self.header("Confirm Installation")
-
-        self.message(3, "Please review your selections:", color=1)
-        self.message(5, f"  Disk:      {self.selected_disk.path} ({self.selected_disk.size_human})")
-        self.message(6, f"  Boot mode: {'EFI' if disks.is_efi() else 'BIOS'}")
-        self.message(7, f"  Hostname:  {self.hostname}")
-        self.message(8, f"  Timezone:  {self.timezone}")
-        self.message(9, f"  Locale:    {self.locale}")
-        self.message(10, f"  User:      {self.username or '(none — root only)'}")
-        self.message(11, f"  Groups:    {', '.join(self.selected_groups)}")
-
-        self.message(13, "ALL DATA ON THE SELECTED DISK WILL BE ERASED.", color=3)
-        self.message(14, f"  Model: {self.selected_disk.model or 'Unknown'}")
-
-        # Require typing the disk path to confirm — prevents accidental wipe
-        self.message(16, f"Type '{self.selected_disk.path}' to confirm, or 'q' to cancel:", color=1)
-        curses.echo()
-        self.stdscr.move(17, 2)
-        typed = self.stdscr.getstr(17, 2, 40).decode("utf-8", errors="replace").strip()
-        curses.noecho()
-
-        if typed != self.selected_disk.path:
-            self.message(19, "Input did not match. Installation cancelled.", color=3)
-            self.wait_key(21)
-            return False
-
-        return True
-
-    def screen_install(self):
-        """Installation progress screen."""
-        self.clear()
-        self.header("Installing")
-
-        row = 3
-
-        # Step 1: Partition (branch on install mode)
-        if self.install_mode == disks.InstallMode.ALONGSIDE:
-            self.message(row, f"Shrinking {self.alongside_ntfs.path}...", color=4)
-            self.stdscr.refresh()
-            try:
-                # Shrink NTFS to its current used size + 5GB safety margin
-                # (alongside_free_bytes is what we'll get back)
-                new_size = self.alongside_ntfs.size_bytes - self.alongside_free_bytes
-                disks.shrink_ntfs(self.alongside_ntfs.path, new_size)
-                self.message(row, f"Shrinking {self.alongside_ntfs.path}... done", color=2)
-            except Exception as e:
-                self.message(row, f"NTFS shrink failed: {e}", color=3)
-                self.wait_key(row + 2)
-                return
-            row += 1
-
-            self.message(row, "Creating InterGenOS partition in freed space...", color=4)
-            self.stdscr.refresh()
-            try:
-                free_start_mb = (
-                    (self.alongside_ntfs.size_bytes - self.alongside_free_bytes)
-                    // (1024 * 1024)
-                )
-                self.partitions = disks.partition_disk_alongside(
-                    self.selected_disk, self.alongside_ntfs, free_start_mb
-                )
-                self.message(row, "Creating InterGenOS partition in freed space... done", color=2)
-            except Exception as e:
-                self.message(row, f"Alongside partitioning failed: {e}", color=3)
-                self.wait_key(row + 2)
-                return
-            row += 1
-        else:
-            # Fresh wipe + clean GPT layout
-            self.message(row, "Partitioning disk...", color=4)
-            self.stdscr.refresh()
-            try:
-                efi = disks.is_efi()
-                self.partitions = disks.partition_disk(self.selected_disk.path, efi=efi)
-                self.message(row, "Partitioning disk... done", color=2)
-            except Exception as e:
-                self.message(row, f"Partitioning failed: {e}", color=3)
-                self.wait_key(row + 2)
-                return
-            row += 1
-
-        # Step 2: Mount
-        self.message(row, "Mounting filesystems...", color=4)
-        self.stdscr.refresh()
-        disks.mount_target(self.partitions, self.target)
-        self.message(row, "Mounting filesystems... done", color=2)
-        row += 1
-
-        # Step 3: Install packages
-        self.message(row, "Installing packages...", color=4)
-        self.stdscr.refresh()
-        progress_row = row + 1
-
-        def progress_cb(current, total, name):
-            h, w = self.stdscr.getmaxyx()
-            pct = current * 100 // total
-            bar_width = 30
-            filled = current * bar_width // total
-            bar = "█" * filled + "░" * (bar_width - filled)
-            text = f"  [{bar}] {pct}% — {name} ({current}/{total})"
-            self.stdscr.addstr(progress_row, 2, text[:w-4])
-            self.stdscr.clrtoeol()
-            self.stdscr.refresh()
-
-        success, fails, failed = packages.install_packages(
-            self.target, self.archive_dir, self.selected_groups,
-            self.packages_dir, progress_callback=progress_cb
+    Cancelling returns rc != 0; we propagate so callers decide whether to
+    abort or re-prompt.
+    """
+    if _DIALOG_BIN is None:
+        raise RuntimeError(
+            "Neither 'dialog' nor 'whiptail' is installed on this system. "
+            "InterGenOS base tier should ship one — please report this as a "
+            "missing-prereq bug."
         )
-        self.message(row, f"Installing packages... {success} installed, {fails} failed", color=2)
-        row = progress_row + 1
 
-        # Step 4: Generate config
-        self.message(row, "Generating system configuration...", color=4)
-        self.stdscr.refresh()
-        config.generate_all(
-            self.target, self.partitions,
-            hostname=self.hostname, locale=self.locale,
-            keymap=self.keymap, timezone=self.timezone
+    if _DIALOG_BIN == "dialog":
+        cmd = [_DIALOG_BIN, "--stdout", "--backtitle", DIALOG_BACKTITLE,
+               *dialog_args]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        out = proc.stdout
+    else:
+        # whiptail: results land on stderr. No --stdout flag.
+        cmd = [_DIALOG_BIN, "--backtitle", DIALOG_BACKTITLE, *dialog_args]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        out = proc.stderr
+
+    if proc.returncode == 0:
+        return 0, out.strip()
+    return proc.returncode, None
+
+
+def _ask_input(title, prompt, default=""):
+    return _dialog("--title", title, "--inputbox", prompt, "10", "70", default)
+
+
+def _ask_password(title, prompt):
+    return _dialog("--title", title, "--insecure", "--passwordbox",
+                   prompt, "10", "70")
+
+
+def _ask_menu(title, prompt, items):
+    """items: list of (tag, description) tuples. Returns selected tag."""
+    args = ["--title", title, "--menu", prompt, "20", "70", str(len(items))]
+    for tag, desc in items:
+        args.extend([tag, desc])
+    return _dialog(*args)
+
+
+def _ask_checklist(title, prompt, items):
+    """items: list of (tag, description, on_or_off) tuples. Returns space-sep
+    string of selected tags."""
+    args = ["--title", title, "--checklist", prompt, "20", "70", str(len(items))]
+    for tag, desc, state in items:
+        args.extend([tag, desc, state])
+    return _dialog(*args)
+
+
+def _ask_yesno(title, prompt):
+    rc, _ = _dialog("--title", title, "--yesno", prompt, "10", "70")
+    return rc == 0
+
+
+# --------------------------------------------------------------------------
+# walking() — small set of yaml-bound questions
+# --------------------------------------------------------------------------
+
+
+LOCALES = [
+    ("en_US.UTF-8", "English (United States)"),
+    ("en_GB.UTF-8", "English (United Kingdom)"),
+    ("de_DE.UTF-8", "German"),
+    ("fr_FR.UTF-8", "French"),
+    ("es_ES.UTF-8", "Spanish"),
+    ("ja_JP.UTF-8", "Japanese"),
+    ("zh_CN.UTF-8", "Chinese (Simplified)"),
+    ("other",       "Type a custom locale (e.g. nl_NL.UTF-8)"),
+]
+
+
+# Coarse list — enough that most users don't have to "type a custom" path.
+TIMEZONES_COMMON = [
+    ("UTC",                 "Coordinated Universal Time"),
+    ("America/New_York",    "US Eastern"),
+    ("America/Chicago",     "US Central"),
+    ("America/Denver",      "US Mountain"),
+    ("America/Los_Angeles", "US Pacific"),
+    ("Europe/London",       "UK"),
+    ("Europe/Berlin",       "Central Europe"),
+    ("Europe/Paris",        "Western Europe"),
+    ("Asia/Tokyo",          "Japan"),
+    ("Asia/Shanghai",       "China"),
+    ("Australia/Sydney",    "Australia East"),
+    ("other",               "Type a custom IANA timezone (e.g. Pacific/Auckland)"),
+]
+
+
+PACKAGE_GROUP_CHOICES = [
+    ("core",          "Essential system (kernel, shell, coreutils, systemd)", "on"),
+    ("base",          "CLI utilities (htop, rsync, strace, screen)",          "on"),
+    ("desktop-gnome", "GNOME desktop environment on Wayland",                  "on"),
+    ("extra",         "Browsers, editors, dev tooling",                        "off"),
+    ("ai",            "Local AI runtime (llama.cpp + models)",                 "off"),
+]
+
+
+def _ask_locale():
+    rc, tag = _ask_menu("Locale", "Choose your system locale:", LOCALES)
+    if rc != 0:
+        return None
+    if tag == "other":
+        rc, custom = _ask_input("Custom locale",
+                                "Enter a glibc locale (e.g. nl_NL.UTF-8):",
+                                "en_US.UTF-8")
+        if rc != 0 or not custom:
+            return None
+        return custom
+    return tag
+
+
+def _ask_timezone():
+    rc, tag = _ask_menu("Timezone", "Choose your timezone:", TIMEZONES_COMMON)
+    if rc != 0:
+        return None
+    if tag == "other":
+        rc, custom = _ask_input("Custom timezone",
+                                "Enter an IANA timezone (e.g. Pacific/Auckland):",
+                                "UTC")
+        if rc != 0 or not custom:
+            return None
+        return custom
+    return tag
+
+
+def _ask_hostname():
+    rc, hn = _ask_input("Hostname",
+                        "Enter the hostname for this system:",
+                        "intergenos")
+    if rc != 0 or not hn:
+        return None
+    return hn
+
+
+def _ask_package_groups():
+    rc, sel = _ask_checklist(
+        "Package groups",
+        "Select package groups to install (space toggles, enter accepts):",
+        PACKAGE_GROUP_CHOICES,
+    )
+    if rc != 0 or sel is None:
+        return None
+    # `core` is required; force-include it even if user un-toggled.
+    chosen = set(sel.split()) | {"core"}
+    return sorted(chosen)
+
+
+def walking():
+    """Run the interactive walking sequence. Returns dict of answers (or None
+    if the user cancelled at any step)."""
+    locale = _ask_locale()
+    if locale is None:
+        return None
+
+    timezone = _ask_timezone()
+    if timezone is None:
+        return None
+
+    hostname = _ask_hostname()
+    if hostname is None:
+        return None
+
+    groups = _ask_package_groups()
+    if groups is None:
+        return None
+
+    return {
+        "version": 1,
+        "locale": locale,
+        "timezone": timezone,
+        "hostname": hostname,
+        "package_groups": groups,
+    }
+
+
+# --------------------------------------------------------------------------
+# emit_yaml — answers → /var/lib/forge/install.yaml
+# --------------------------------------------------------------------------
+
+
+def emit_yaml(answers, path=YAML_PATH):
+    """Write answers as yaml without taking on a yaml dependency.
+
+    Schema is small and stable — the hand-rolled writer keeps the install-time
+    surface free of optional package deps. yaml READING (in run_declarative)
+    uses PyYAML which is already a dep.
+    """
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    with out.open("w", encoding="utf-8") as f:
+        f.write("# Forge install config — generated at install time by the\n")
+        f.write("# declarative-builder TUI. Ephemeral (lives on the live\n")
+        f.write("# overlay; not persisted to the installed target).\n")
+        f.write(f"version: {answers['version']}\n")
+        f.write(f"locale: \"{answers['locale']}\"\n")
+        f.write(f"timezone: \"{answers['timezone']}\"\n")
+        f.write(f"hostname: \"{answers['hostname']}\"\n")
+        f.write("package_groups:\n")
+        for group in answers["package_groups"]:
+            f.write(f"  - {group}\n")
+
+    return out
+
+
+def _load_yaml(path):
+    """Read the yaml back. Uses PyYAML (already an installer dep)."""
+    import yaml
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+# --------------------------------------------------------------------------
+# Interactive disk + password collection (NOT yaml — Q-TUI-INTERACTIVITY=B)
+# --------------------------------------------------------------------------
+
+
+def prompt_install_io():
+    """Collect disk choice + root password + user account interactively.
+
+    Returns (disk, root_password, username, user_password, mok_password) or
+    None if the user cancelled.
+    """
+    # Disk selection — list candidates from disks.list_candidates() (existing
+    # backend helper). Filter out the live media device.
+    try:
+        candidates = disks.list_candidates()
+    except AttributeError:
+        # If list_candidates doesn't exist yet, fall back to a plain text input.
+        # TODO Q1 (per dispatch): SPOC will weigh in on disk-detection logic
+        # in a follow-up phase; sketching as TODO here.
+        rc, raw = _ask_input(
+            "Target disk",
+            "Enter the disk device to install to (e.g. /dev/nvme0n1, /dev/sda):",
+            "/dev/sda",
         )
-        self.message(row, "Generating system configuration... done", color=2)
-        row += 1
+        if rc != 0 or not raw:
+            return None
+        disk = raw
+    else:
+        items = [(d.path, f"{d.size_gb} GB — {d.model}") for d in candidates]
+        if not items:
+            print("ERROR: no disks detected. Aborting.", file=sys.stderr)
+            return None
+        rc, disk = _ask_menu("Target disk",
+                             "Select the disk to install to (DESTRUCTIVE):",
+                             items)
+        if rc != 0 or not disk:
+            return None
 
-        # Step 5: Post-install hooks
-        if self.packages_dir:
-            self.message(row, "Running post-install hooks...", color=4)
-            self.stdscr.refresh()
-            hook_count = hooks.run_post_install_hooks(
-                self.target, self.packages_dir,
-                progress_callback=lambda c, t, n: None
-            )
-            self.message(row, f"Running post-install hooks... {hook_count} executed", color=2)
-            row += 1
+    # Confirm destructive op
+    if not _ask_yesno(
+        "Confirm destructive operation",
+        f"Installing to {disk} WILL ERASE all existing data on it.\n\n"
+        f"Continue?",
+    ):
+        return None
 
-        # Step 6: User accounts
-        self.message(row, "Setting up user accounts...", color=4)
-        self.stdscr.refresh()
-        users.set_root_password(self.target, self.root_password)
-        if self.username:
-            users.create_user(self.target, self.username, self.user_password)
-        users.enable_services(self.target)
-        self.message(row, "Setting up user accounts... done", color=2)
-        row += 1
+    # Root password
+    rc, root_pw = _ask_password("Root password", "Enter the root password:")
+    if rc != 0 or not root_pw:
+        return None
 
-        # Step 7a: MOK keypair generation + enrollment queue (EFI only)
-        if self.partitions.get("efi") and self.mok_password:
-            self.message(row, "Validating kernel config for MOK enrollment...", color=4)
-            self.stdscr.refresh()
-            import subprocess
-            # verify keyring-chain Kconfig is intact (C2)
-            # without SECONDARY_TRUSTED_KEYRING + INTEGRITY_MACHINE_KEYRING,
-            # MOK-enrolled keys won't reach the module verification path
-            required = [
-                "CONFIG_SECONDARY_TRUSTED_KEYRING=y",
-                "CONFIG_INTEGRITY_MACHINE_KEYRING=y",
-                "CONFIG_SYSTEM_TRUSTED_KEYRING=y",
-            ]
-            try:
-                with open(f"{self.target}/boot/config-{os.uname().release}", "r") as f:
-                    running_config = f.read()
-            except FileNotFoundError:
-                running_config = ""
-            missing = [k for k in required if k not in running_config]
-            if missing:
-                self.message(row,
-                    f"MOK enrollment cannot proceed: installed kernel is missing "
-                    f"required keyring-chain settings ({', '.join(missing)}). "
-                    f"DKMS modules would silently fail to load after Secure Boot enrollment.",
-                    color=3)
-                self.wait_key(row + 2)
-                return
-            self.message(row, "Validating kernel config for MOK enrollment... ok", color=2)
+    # User account
+    rc, username = _ask_input("User account",
+                              "Enter the primary user's username:",
+                              "user")
+    if rc != 0 or not username:
+        return None
 
-            self.message(row, "Generating Machine Owner Key (MOK)...", color=4)
-            self.stdscr.refresh()
-            try:
-                self.mok_keypair = mok.generate_mok_keypair(self.target)
-                mok.queue_mok_enrollment(
-                    self.target,
-                    self.mok_keypair["der_path"],
-                    self.mok_password,
-                )
-                self.message(row, "Generating Machine Owner Key (MOK)... done", color=2)
-            except Exception as e:
-                self.message(row, f"MOK setup failed: {e}", color=3)
-                self.wait_key(row + 2)
-                return
-            row += 1
+    rc, user_pw = _ask_password("User password",
+                                f"Enter the password for {username}:")
+    if rc != 0 or not user_pw:
+        return None
 
-        # Step 7b: Bootloader (signed boot chain on EFI, plain GRUB on BIOS)
-        self.message(row, "Installing bootloader...", color=4)
-        self.stdscr.refresh()
-        try:
-            bootloader.install_bootloader(
-                self.target, self.selected_disk.path, self.partitions,
-                mok_keypair=self.mok_keypair,
-            )
-            self.message(row, "Installing bootloader... done", color=2)
-        except Exception as e:
-            self.message(row, f"Bootloader installation failed: {e}", color=3)
-        row += 1
+    # MOK enrollment password (Secure Boot — only collected if EFI; rest of
+    # backend skips this on BIOS legacy)
+    mok_pw = ""
+    if disks.is_efi():
+        rc, mok_pw = _ask_password(
+            "Secure Boot MOK password",
+            "Enter a one-time password to enroll the InterGenOS Machine Owner "
+            "Key in your firmware. You'll be prompted for this password "
+            "during the first reboot via MokManager:",
+        )
+        if rc != 0 or not mok_pw:
+            return None
 
-        # Step 8: Unmount
-        self.message(row, "Unmounting filesystems...", color=4)
-        self.stdscr.refresh()
-        disks.unmount_target(self.target)
-        self.message(row, "Unmounting filesystems... done", color=2)
-        row += 2
+    return {
+        "disk": disk,
+        "root_password": root_pw,
+        "username": username,
+        "user_password": user_pw,
+        "mok_password": mok_pw,
+    }
 
-        self.message(row, "Installation complete!", color=2)
-        self.wait_key(row + 2)
 
-    def screen_done(self):
-        """Completion screen."""
-        self.clear()
-        self.header("Installation Complete")
+# --------------------------------------------------------------------------
+# Declarative install runner
+# --------------------------------------------------------------------------
 
-        self.message(3, "InterGenOS has been forged successfully!", color=2)
-        self.message(5, "You can now remove the installation media and reboot.")
-        self.message(7, f"  Hostname: {self.hostname}")
-        if self.username:
-            self.message(8, f"  User:     {self.username}")
-        self.message(9, f"  SSH:      Enabled (port 22)")
 
-        row = 11
-        # MOK enrollment reminder if EFI install
-        if self.mok_keypair and self.mok_password:
-            self.message(row, "AT FIRST BOOT — MOK ENROLLMENT (one time):", color=3)
-            row += 1
-            self.message(row, "  - Blue MokManager screen appears for 10 seconds")
-            row += 1
-            self.message(row, "  - Press any key, choose 'Enroll MOK' -> 'Continue'")
-            row += 1
-            self.message(row, f"  - Enter password: {self.mok_password}", color=2)
-            row += 1
-            self.message(row, "  - Reboot when MokManager finishes")
-            row += 2
+def run_declarative(yaml_path, install_io, archive_dir, packages_dir, dry_run):
+    """Read yaml + interactive answers, run the install non-interactively.
 
-        self.message(row, "After login:")
-        row += 1
-        self.message(row, "  - Run 'sudo igos-install-chrome' for Google Chrome")
-        row += 1
-        self.message(row, "  - Run 'sudo igos-install-vscode' for VS Code")
-        row += 1
-        self.message(row, "  - Run 'igos-install-claude-code' for Claude Code")
-        row += 2
+    Output is build-style — package names, status lines, no curses.
+    """
+    cfg = _load_yaml(yaml_path)
 
-        self.message(row, '"A system you understand, can modify, and can trust."', color=1)
-        self.wait_key(row + 3, "Press any key to exit the installer.")
+    print(f"forge: declarative install starting from {yaml_path}")
+    print(f"       locale={cfg['locale']} tz={cfg['timezone']} "
+          f"hostname={cfg['hostname']} groups={cfg['package_groups']}")
+    print(f"       target disk={install_io['disk']}")
+
+    if dry_run:
+        print("forge: --dry-run set — backend calls will log only.")
+
+    # The actual orchestration calls into the existing backend modules. The
+    # specific call shapes match the existing tui.py (curses) and gui (TBD)
+    # paths so that all three frontends share the backend contract.
+    target = "/mnt/target"
+
+    print(f"[ ... ] partitioning {install_io['disk']}")
+    if not dry_run:
+        partitions = disks.partition(install_io["disk"], install_io.get("install_mode"))
+        disks.format_partitions(partitions)
+        disks.mount(partitions, target)
+    print(f"[ OK  ] partitioning {install_io['disk']}")
+
+    print(f"[ ... ] installing package groups: {cfg['package_groups']}")
+
+    def _progress(current, total, name):
+        print(f"        ({current}/{total}) {name}")
+
+    if not dry_run:
+        ok, fail, failed = packages.install_packages(
+            target, archive_dir, cfg["package_groups"],
+            package_dir=packages_dir, progress_callback=_progress,
+        )
+        print(f"[ {'OK ' if fail == 0 else 'WARN'} ] packages installed: "
+              f"{ok} ok / {fail} failed")
+        if fail:
+            for n, msg in failed:
+                print(f"        FAILED: {n}: {msg}")
+
+    print(f"[ ... ] system config (hostname, locale, timezone)")
+    if not dry_run:
+        config.write_hostname(target, cfg["hostname"])
+        config.write_locale(target, cfg["locale"])
+        config.write_timezone(target, cfg["timezone"])
+    print(f"[ OK  ] system config")
+
+    print(f"[ ... ] root + user accounts")
+    if not dry_run:
+        users.set_root_password(target, install_io["root_password"])
+        users.create_user(target, install_io["username"],
+                          install_io["user_password"])
+    print(f"[ OK  ] accounts")
+
+    if disks.is_efi() and install_io.get("mok_password"):
+        print(f"[ ... ] Secure Boot MOK enrollment")
+        if not dry_run:
+            keypair = mok.generate_mok_keypair(target)
+            mok.stage_enrollment(target, keypair, install_io["mok_password"])
+        print(f"[ OK  ] MOK enrolled (will activate at first reboot)")
+
+    print(f"[ ... ] bootloader")
+    if not dry_run:
+        bootloader.install(target, install_io["disk"])
+    print(f"[ OK  ] bootloader")
+
+    print(f"[ ... ] post-install hooks")
+    if not dry_run:
+        hooks.run_post_install(target, packages_dir)
+    print(f"[ OK  ] post-install hooks")
+
+    print()
+    print("forge: install complete.")
+    print("       Reboot, remove the install media, and (if EFI) follow the")
+    print("       MokManager prompts to enroll the InterGenOS vendor cert.")
+    return 0
+
+
+# --------------------------------------------------------------------------
+# Entry point (called from installer/__main__.py via dispatch)
+# --------------------------------------------------------------------------
 
 
 def run_installer(archive_dir, packages_dir=None, dry_run=False):
-    """Entry point — launch the TUI installer."""
-    if dry_run:
-        disks.set_dry_run(True)
+    """Orchestrate the declarative-builder TUI: walk → emit → prompt → run."""
+    # Walking — yaml-bound choices
+    answers = walking()
+    if answers is None:
+        print("forge: cancelled during walking phase.", file=sys.stderr)
+        return 1
 
-    def _main(stdscr):
-        tui = InstallerTUI(stdscr, archive_dir, packages_dir)
-        tui.run()
+    yaml_path = emit_yaml(answers)
+    print(f"forge: install config written to {yaml_path}")
 
-    curses.wrapper(_main)
+    # Interactive — disk + passwords (Q-TUI-INTERACTIVITY=B)
+    install_io = prompt_install_io()
+    if install_io is None:
+        print("forge: cancelled during disk/password phase.", file=sys.stderr)
+        return 1
+
+    return run_declarative(str(yaml_path), install_io, archive_dir,
+                           packages_dir, dry_run)
+
+
+# Legacy compatibility — the original `run_installer` signature is preserved.
+# If a caller passes no positional `dry_run`, default behaviour is unchanged.

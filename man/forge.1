@@ -1,0 +1,265 @@
+.TH FORGE 1 "2026-05-06" "InterGenOS v1.0" "InterGenOS System Administration"
+.SH NAME
+forge \- InterGenOS system installer (GUI or declarative-builder TUI)
+.SH SYNOPSIS
+.B forge
+.B \-\-archives
+.I DIR
+.RB [ \-\-mode
+.IR gui | tui | live ]
+.RB [ \-\-packages
+.IR DIR ]
+.RB [ \-\-dry-run ]
+.SH DESCRIPTION
+.B forge
+is the InterGenOS system installer. It is invoked from the live ISO's GRUB
+menu (entries
+.B "Install (Graphical)"
+and
+.BR "Install (TUI Builder)" )
+or from the
+.B "Install InterGenOS"
+launcher icon on the live GNOME desktop.
+.PP
+Forge runs in three modes, dispatched by the
+.B igos.installer=
+parameter on the kernel command line (set by the GRUB menu) or by an explicit
+.B \-\-mode
+flag.
+.SH MODES
+.TP
+.B gui
+A GTK4 / libadwaita graphical installer with seven screens:
+.B Welcome
+\(em>
+.B "Keyboard / Locale / Timezone"
+\(em>
+.B Disk
+\(em>
+.B User
+\(em>
+.B Confirm
+\(em>
+.B Progress
+\(em>
+.BR Done .
+The order matches the modal pattern of other distros (locale up front, the
+destructive disk decision before the user account, then final confirm + progress
++ done). Default mode when launched from a Wayland session.
+.TP
+.B tui
+A declarative-builder TUI on
+.IR tty1 .
+The TUI is
+.B not
+a text-mode version of the GUI \(em it is a builder. The user is walked
+through a small set of yaml-bound questions (locale, timezone, hostname,
+optional package toggles) via
+.BR dialog (1),
+the answers are emitted to
+.IR /var/lib/forge/install.yaml ,
+and the install then runs non-interactively from that yaml. The disk choice
+and root + user passwords are
+.B not
+written to yaml \(em they are prompted for inline during the install proper.
+Pre-seeding the disk would be a fat-finger risk; pre-seeding a password would
+be a supply-chain risk.
+.TP
+.B live
+No install is dispatched. This mode is reached when no
+.B igos.installer=
+parameter is on the kernel cmdline; the live GNOME session shows a desktop
+launcher that re-invokes forge in
+.B gui
+mode when the user explicitly clicks it.
+.SH OPTIONS
+.TP
+.BR \-\-archives " " \fIDIR\fR
+.B Required.
+Path to the directory of
+.B .igos.tar.gz
+package archives produced by the InterGenOS build pipeline (typically
+.IR /var/lib/igos/archives
+on the live ISO).
+.TP
+.BR \-\-mode " " { gui | tui | live }
+Force a specific frontend, overriding the
+.B igos.installer=
+kernel cmdline parameter and the session-type heuristic. Useful for testing
+the GUI from a tty1 session or vice versa.
+.TP
+.BR \-\-packages " " \fIDIR\fR
+Path to the
+.B packages/
+directory in the InterGenOS source tree, used by the post-install hook
+runner and for tier-to-package mapping. Optional; if omitted, all archives
+in
+.B \-\-archives
+are installed without tier filtering.
+.TP
+.B \-\-dry-run
+Log all destructive commands (partitioning, package install, account
+creation, bootloader install) without executing them. The walking sequence
+and yaml emit still run; only the destructive steps are skipped.
+.TP
+.B \-\-version
+Print
+.B forge
+version and exit.
+.TP
+.B \-\-help
+Print usage and exit.
+.SH MODE SELECTION
+When
+.B \-\-mode
+is not supplied, forge resolves the effective mode in the following priority:
+.IP 1.
+.B igos.installer=
+on
+.B /proc/cmdline
+(set by the GRUB menu entry the user selected at boot).
+.IP 2.
+.B WAYLAND_DISPLAY
+in the environment, or
+.B XDG_SESSION_TYPE=wayland
+\(em both indicate a graphical session and resolve to
+.BR gui .
+.IP 3.
+Fallback:
+.B tui
+on a console without a graphical session.
+.SH TUI WALKING SEQUENCE
+The TUI walking sequence asks for four pieces of information in order:
+.IP 1.
+.B Locale
+\(em a glibc locale (e.g.
+.IR en_US.UTF-8 ).
+A short list of common locales is presented; "other" lets the user type a
+custom value.
+.IP 2.
+.B Timezone
+\(em an IANA timezone (e.g.
+.IR America/Chicago ).
+A short list of common zones is presented; "other" lets the user type a
+custom value.
+.IP 3.
+.B Hostname
+\(em the machine name (default
+.IR intergenos ).
+.IP 4.
+.B "Package groups"
+\(em a checklist of high-level package groups
+.RB ( core ", " base ", " desktop-gnome ", " extra ", " ai ).
+.B core
+is required and is force-included even if the user un-toggles it.
+.PP
+The walking sequence emits
+.IR /var/lib/forge/install.yaml
+on completion. Disk and password collection happens immediately after, in a
+separate phase that is
+.B not
+written to yaml.
+.SH INSTALL CONFIG SCHEMA
+The yaml emitted by the walking phase has the following schema:
+.PP
+.RS 4
+.nf
+version: 1
+locale: "en_US.UTF-8"
+timezone: "America/Chicago"
+hostname: "intergenos"
+package_groups:
+  - core
+  - base
+  - desktop-gnome
+.fi
+.RE
+.PP
+The yaml lives on the live overlay at
+.B /var/lib/forge/install.yaml
+and is not persisted to the installed target.
+.SH ENVIRONMENT
+.TP
+.B WAYLAND_DISPLAY
+If set, the session-type heuristic resolves to
+.BR gui .
+.TP
+.B XDG_SESSION_TYPE
+If set to
+.BR wayland ,
+the session-type heuristic resolves to
+.BR gui .
+.SH FILES
+.TP
+.I /var/lib/forge/install.yaml
+Ephemeral yaml config emitted by the TUI walking phase; consumed by the
+declarative-install runner.
+.TP
+.I /var/lib/igos/archives
+Default archive directory on the live ISO.
+.TP
+.I /mnt/target
+Mountpoint where the target root is assembled before the bootloader install.
+.SH EXIT STATUS
+.TP
+.B 0
+Install completed successfully (or
+.B \-\-dry-run
+exit).
+.TP
+.B 1
+User cancelled during the walking phase or the disk/password prompt phase.
+.TP
+.B 2
+.B \-\-archives
+directory not found, or unknown
+.B \-\-mode
+value, or running as non-root.
+.SH EXAMPLES
+.TP
+Auto-detect mode from the GRUB cmdline:
+.B forge \-\-archives /var/lib/igos/archives
+.TP
+Force the TUI builder (e.g. for testing from a graphical session):
+.B forge \-\-mode tui \-\-archives /var/lib/igos/archives
+.TP
+Dry-run the GUI install path against a custom archive directory:
+.B forge \-\-mode gui \-\-archives ~/build/archives \-\-dry-run
+.SH SECURITY
+.B forge
+must run as
+.BR root .
+The installer collects the root and user passwords interactively
+.RB ( "" "tui" "" )
+or via
+.BR Gtk.PasswordEntry " (" "" "gui" "" )
+and never echoes them. Passwords are passed to
+.BR chpasswd (8)
+via stdin, never via command-line arguments.
+.PP
+On EFI systems the user is also asked for a one-time MOK enrollment password.
+This password is staged with the InterGenOS Machine Owner Key keypair and
+prompted for once, in MokManager, on the first reboot after install. After
+enrollment the password is no longer required.
+.PP
+The TUI walking sequence's yaml is intentionally narrow: it carries
+.BR locale ", " timezone ", " hostname ", and " "package groups " only.
+Disks and passwords are collected interactively at install time so a stray or
+adversarial yaml cannot pre-seed a destructive disk choice or a known
+password.
+.SH SEE ALSO
+.BR pkm (1),
+.BR chpasswd (8),
+.BR dialog (1),
+.BR systemd-stub (8),
+.BR mokutil (1),
+.BR sbsign (1)
+.PP
+.IR docs/research/installer/iso-implementation-plan-2026-05-05.md
+\(em authoritative plan for the 3-part Secure Boot ISO of which forge is
+Phase 4.
+.PP
+.IR intergenos-first-boot (7)
+\(em the first-boot password greeter that runs on the installed system.
+.SH AUTHORS
+The InterGenOS maintainers.

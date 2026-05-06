@@ -7,4 +7,4 @@ hooks, bootloader installation, and user account creation.
 "Forged with InterGenOS."
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0-iso-dev"
