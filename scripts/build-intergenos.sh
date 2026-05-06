@@ -63,6 +63,7 @@ PHASES=(
     desktop
     ai
     extra
+    bootloader
     image
 )
 
@@ -523,6 +524,7 @@ sync_chroot_scripts() {
     rsync -a --delete /mnt/intergenos/scripts/   "$IGOS/mnt/intergenos/scripts/"
     rsync -a --delete /mnt/intergenos/packages/  "$IGOS/mnt/intergenos/packages/"
     rsync -a --delete /mnt/intergenos/config/    "$IGOS/mnt/intergenos/config/" 2>/dev/null || true
+    rsync -a --delete /mnt/intergenos/installer/ "$IGOS/mnt/intergenos/installer/" 2>/dev/null || true
     # Sync Python builder for desktop tier (igos-build + its pkm dependency
     # per RFC v1 tracker/verifier parity)
     rsync -a /mnt/intergenos/igos-build.py "$IGOS/mnt/intergenos/" 2>/dev/null || true
@@ -574,6 +576,21 @@ phase_extra() {
     sync_chroot_scripts
     log "Building extra tier packages in chroot (user applications)..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-extra.sh" 2>&1 | tee -a "$BUILD_LOG"
+}
+
+phase_bootloader() {
+    sync_chroot_scripts
+    log "Assembling unsigned bootloader artifacts in chroot..."
+    log "  (grubx64.efi + initramfs.cpio.gz + igos-live.efi UKI)"
+    log ""
+    log "  Note: orchestrator does NOT invoke signing. After this phase,"
+    log "  operator runs the offline ceremony (scripts/sign-release.sh on the"
+    log "  signing workstation) before proceeding to phase_image."
+    log ""
+    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-bootloader.sh" 2>&1 | tee -a "$BUILD_LOG"
+    log ""
+    log "  Bootloader artifacts at: ${IGOS}/mnt/intergenos/build/bootloader/"
+    log "  Recommended: run with --stop-after bootloader to pause for offline ceremony."
 }
 
 phase_image() {
@@ -653,6 +670,7 @@ run_phase "kernel"       "Build kernel (Ch 10)"                phase_kernel
 run_phase "desktop"     "Build desktop (GNOME on Wayland)"    phase_desktop
 run_phase "ai"          "Build AI tier (InterGen assistant)"  phase_ai
 run_phase "extra"       "Build extra tier (applications)"     phase_extra
+run_phase "bootloader"  "Assemble unsigned bootloader artifacts" phase_bootloader
 run_phase "image"       "Package bootable disk image"         phase_image
 
 # ==========================================================================
