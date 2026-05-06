@@ -1,16 +1,15 @@
 #!/bin/bash
-# rust 1.93.1 — Rust programming language
+# rust 1.95.0 — Rust programming language
 # BLFS 13.0
-# Note: requires internet connection for bootstrap download
 
 configure() {
     # Place pre-downloaded bootstrap tarballs where x.py expects them
     # so it skips the network download. Date from src/stage0.
-    mkdir -pv build/cache/2025-12-11
-    cp -v "${IGOS_SOURCES}/rustc-1.92.0-x86_64-unknown-linux-gnu.tar.xz" \
-          "${IGOS_SOURCES}/cargo-1.92.0-x86_64-unknown-linux-gnu.tar.xz" \
-          "${IGOS_SOURCES}/rust-std-1.92.0-x86_64-unknown-linux-gnu.tar.xz" \
-          build/cache/2025-12-11/
+    mkdir -pv build/cache/2026-03-05
+    cp -v "${IGOS_SOURCES}/rustc-1.94.0-x86_64-unknown-linux-gnu.tar.xz" \
+          "${IGOS_SOURCES}/cargo-1.94.0-x86_64-unknown-linux-gnu.tar.xz" \
+          "${IGOS_SOURCES}/rust-std-1.94.0-x86_64-unknown-linux-gnu.tar.xz" \
+          build/cache/2026-03-05/
 
     cat << EOF > bootstrap.toml
 # See bootstrap.toml.example for more possible options,
