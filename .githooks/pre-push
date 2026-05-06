@@ -10,38 +10,53 @@
 # Active when scripts/setup-githooks.sh has been run (sets core.hooksPath=.githooks).
 # Bypass for emergencies: git push --no-verify (use sparingly; flag in commit msg).
 
-set -euo pipefail
+set -uo pipefail
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT"
 
+# Read stdin (pre-push hook receives refs being pushed):
+#   <local_ref> <local_sha> <remote_ref> <remote_sha>
+# Captured into PUSH_REFS array so later gates can inspect for force-push to master.
+PUSH_REFS=()
+while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    PUSH_REFS+=("$line")
+done
+
 echo "[pre-push] running local gates..."
 
-# ---- 0. Working-tree-vs-HEAD coherence -----------------------------------
-# The public-content audit (gate 1 below) reads files from the working tree
-# via open(path). When the working tree differs from HEAD (uncommitted
-# changes; soft-reset+edit-without-stage; etc.), the audit can pass on
-# working-tree content while the actually-being-pushed content (HEAD)
-# carries violations. Caught 2026-05-06: a soft-reset+edit pattern
-# committed an unscrubbed agent-abbrev despite the audit passing.
-#
-# The fix: require working tree == HEAD before push. This guarantees the
-# audit (which scans working-tree files) is scanning the same content
-# that's about to be pushed. Cost: users with uncommitted unrelated
-# changes must commit-or-stash first; that's an acceptable trade for
-# the security-posture our public-content discipline requires.
-if ! git diff HEAD --quiet 2>/dev/null; then
-    echo "[pre-push] BLOCK: uncommitted changes detected (working tree differs from HEAD)."
-    echo "  Reason: the public-content audit scans working-tree files; uncommitted"
-    echo "  changes may mask violations in HEAD content (the actually-pushed bytes)."
-    echo "  Inspect: git status / git diff HEAD"
-    echo "  Resolve: commit the changes, OR git stash them, before retrying push."
-    exit 1
-fi
+# ---- 0. Force-push HARD-block on master ----------------------------------
+# master is sacred. Any push where remote_sha (current origin) is not an
+# ancestor of local_sha (about to be pushed) means we're rewriting history
+# at master — that's only possible via --force or --force-with-lease.
+# HARD BLOCK: we never rewrite published master history.
+ZERO="0000000000000000000000000000000000000000"
+for refline in "${PUSH_REFS[@]}"; do
+    read -r local_ref local_sha remote_ref remote_sha <<< "$refline"
+    if [ "$remote_ref" = "refs/heads/master" ] && [ "$remote_sha" != "$ZERO" ]; then
+        if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+            echo "[pre-push] BLOCK: force-push to master detected."
+            echo "  remote master at: $remote_sha"
+            echo "  local master at:  $local_sha"
+            echo "  remote is NOT an ancestor of local — this would rewrite published history."
+            echo "  master is sacred; no force-push permitted."
+            echo "  If you genuinely need history rewrite (e.g., post-incident scrub),"
+            echo "  coordinate with all active agents first AND temporarily remove this gate."
+            exit 1
+        fi
+    fi
+done
 
-# ---- 1. Public-content audit ---------------------------------------------
+# ---- 1. Public-content audit (scans HEAD via git-show, NOT working tree) -
+# The audit must scan the actually-being-pushed bytes. Reading from the
+# working tree (the historical default) was incorrect: a soft-reset+edit
+# pattern could pass the audit on working-tree content while the bytes in
+# HEAD (what actually gets pushed) carried violations. Caught 2026-05-06.
+# Fix: --from-ref HEAD reads each file via `git show HEAD:<file>` so the
+# audit operates on the same content that's about to be pushed.
 if [ -f scripts/check-public-content.py ]; then
-    if ! python3 scripts/check-public-content.py; then
+    if ! python3 scripts/check-public-content.py --from-ref HEAD; then
         echo "[pre-push] BLOCK: public-content audit failed (see above)"
         exit 1
     fi
@@ -103,6 +118,102 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
             fi
         fi
     done <<< "$CHANGED"
+fi
+
+# ---- 4. Commit-message-to-diff scope gate --------------------------------
+# For each commit in the push range, files with >THRESHOLD lines changed
+# must appear in the commit message body. Catches under-documented commits
+# like 8fc25f5 (2026-05-06: shipped 138 lines of mirror-upload under a
+# 1-line-tweak commit message). Three-lane fleet consensus on this gate.
+# Override: `NO-GATE: <reason>` line anywhere in commit message body for
+# legitimate bulk-mechanical changes (e.g., mass-rename, generated content).
+THRESHOLD=50
+if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+    BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
+
+    for sha in $(git rev-list --no-merges --reverse "$BASE".."$LOCAL"); do
+        msg=$(git log -1 --format=%B "$sha")
+
+        # Skip if NO-GATE override is present
+        if echo "$msg" | grep -qE '^NO-GATE:'; then
+            continue
+        fi
+
+        # Iterate per-file with >THRESHOLD added+removed lines
+        while IFS=$'\t' read -r added removed file; do
+            [ -z "$file" ] && continue
+            # Binary files: numstat shows "-" instead of numbers; skip
+            [ "$added" = "-" ] && continue
+            total=$((added + removed))
+            if [ "$total" -gt "$THRESHOLD" ]; then
+                base=$(basename "$file")
+                if ! echo "$msg" | grep -qF "$file" && ! echo "$msg" | grep -qF "$base"; then
+                    echo "[pre-push] BLOCK: commit $sha touches $file ($total lines changed) but message doesn't mention it."
+                    echo "  Reason: under-documentation risk (>$THRESHOLD lines = significant scope; must appear in message)."
+                    echo "  Resolve: amend message to reference $file, OR add 'NO-GATE: <reason>' line for legitimate bulk-mechanical changes."
+                    echo ""
+                    echo "  Commit message was:"
+                    echo "$msg" | sed 's/^/    /'
+                    exit 1
+                fi
+            fi
+        done < <(git show --numstat --format='' "$sha")
+    done
+fi
+
+# ---- 5. Conventional-commit format on subject line -----------------------
+# Each commit subject must follow `<type>(<scope>): <description>` OR
+# `<type>: <description>`. Codifies de-facto convention so the message
+# format is machine-parseable. Covers common types in this repo:
+#   feat, fix, docs, refactor, test, chore, perf, infra, build, ci, revert,
+#   phase<N> (e.g., phase3, phase4), and case-by-case scope tags.
+# Override: same NO-GATE: keyword as gate 4 also bypasses this gate.
+COMMIT_TYPE_RE='^(feat|fix|docs|refactor|test|chore|perf|infra|build|ci|revert|phase[0-9]+)(\([a-zA-Z0-9_,/.\-]+\))?: .+'
+if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+    BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
+    for sha in $(git rev-list --no-merges --reverse "$BASE".."$LOCAL"); do
+        msg=$(git log -1 --format=%B "$sha")
+        if echo "$msg" | grep -qE '^NO-GATE:'; then
+            continue
+        fi
+        subject=$(echo "$msg" | head -1)
+        if ! echo "$subject" | grep -qE "$COMMIT_TYPE_RE"; then
+            echo "[pre-push] BLOCK: commit $sha subject doesn't match conventional-commit format."
+            echo "  Expected: <type>(<scope>): <description>  OR  <type>: <description>"
+            echo "  Valid types: feat, fix, docs, refactor, test, chore, perf, infra, build, ci, revert, phase<N>"
+            echo "  Got: $subject"
+            echo "  Resolve: amend the commit message, OR add 'NO-GATE: <reason>' line for unconventional-but-justified subjects."
+            exit 1
+        fi
+    done
+fi
+
+# ---- 6. Co-Authored-By trailer enforcement -------------------------------
+# Owner-instituted pattern: AI-authored commits carry Co-Authored-By trailers
+# for provenance. Threshold: any commit with >25 lines changed must have
+# the trailer (covers all substantive agent-authored commits; trivial
+# typo-fixes can skip).
+COAUTH_THRESHOLD=25
+if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+    BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
+    for sha in $(git rev-list --no-merges --reverse "$BASE".."$LOCAL"); do
+        msg=$(git log -1 --format=%B "$sha")
+        if echo "$msg" | grep -qE '^NO-GATE:'; then
+            continue
+        fi
+        # Compute total lines changed in this commit
+        total=$(git show --numstat --format='' "$sha" | awk 'BEGIN{s=0} $1!="-" && $2!="-" {s += $1 + $2} END{print s+0}')
+        if [ "$total" -gt "$COAUTH_THRESHOLD" ]; then
+            if ! echo "$msg" | grep -qiE '^Co-Authored-By:'; then
+                echo "[pre-push] BLOCK: commit $sha ($total lines changed) lacks Co-Authored-By trailer."
+                echo "  Reason: provenance — substantive commits must declare authorship."
+                echo "  Resolve: amend the commit to add (example):"
+                echo "    Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+                echo "  OR use 'NO-GATE: <reason>' for owner-direct commits."
+                exit 1
+            fi
+        fi
+    done
 fi
 
 echo "[pre-push] all gates PASS"
