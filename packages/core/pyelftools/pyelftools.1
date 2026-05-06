@@ -1,0 +1,57 @@
+.TH PYELFTOOLS 1 "2026-05-06" "InterGenOS" "InterGenOS Manual"
+.SH NAME
+pyelftools \- pure-Python ELF and DWARF parser library
+.SH SYNOPSIS
+.B python3 -c "import elftools"
+.PP
+This is a Python library, not a command-line tool. The PyPI distribution
+ships small example scripts (\fIelf_show_*.py\fR, \fIdwarf_*.py\fR) but
+the primary use is as a build-time dependency in other packages.
+.SH DESCRIPTION
+.B pyelftools
+is a pure-Python library for parsing ELF and DWARF binary formats. It
+exposes the
+.B elftools
+Python module.
+
+.SS Why InterGenOS ships it
+systemd 259 uses
+.B pyelftools
+at meson configure-time to generate
+.IR linuxx64.efi.stub ,
+the systemd-stub PE binary that
+.IR scripts/build-uki.sh
+wraps the kernel + initramfs + cmdline into for the Unified Kernel
+Image (UKI). Without
+.B pyelftools
+present in the build environment, systemd's meson option
+.IR bootloader=auto
+silently resolves to disabled, the stub never gets built, and the UKI
+build fails much later with an opaque "STUB not found" error.
+
+Shipping pyelftools as a core-tier package closes that silent-failure
+path. systemd's recipe should declare
+.B pyelftools
+in its host-deps so the dependency is explicit at recipe level.
+.SH FILES
+.TP
+.I /usr/lib/python3*/site-packages/elftools/
+The Python module.
+.TP
+.I /usr/share/man/man1/pyelftools.1
+This page.
+.SH SEE ALSO
+.UR https://github.com/eliben/pyelftools
+github.com/eliben/pyelftools
+.UE
+\(em upstream documentation,
+.BR python3 (1),
+.BR systemd (1).
+.SH AUTHOR
+pyelftools is maintained by Eli Bendersky and contributors. Packaging
+for InterGenOS is by the InterGenOS project.
+.SH LICENSE
+Public Domain. Source:
+.UR https://github.com/eliben/pyelftools
+github.com/eliben/pyelftools
+.UE .
