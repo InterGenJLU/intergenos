@@ -1,0 +1,251 @@
+.TH FORGE-ISO 1 "2026-05-06" "InterGenOS v1.0" "InterGenOS Build Tooling"
+.SH NAME
+forge-iso \- assemble the InterGenOS hybrid bootable ISO from signed components
+.SH SYNOPSIS
+.B "SHIM=" \fIPATH\fR
+.B "GRUB=" \fIPATH\fR
+.B "UKI=" \fIPATH\fR
+.B "SQUASHFS=" \fIPATH\fR
+.B "OUTPUT=" \fIPATH\fR
+.B scripts/build-iso.sh
+.SH DESCRIPTION
+.B forge-iso
+.RI ( "scripts/build-iso.sh" )
+is the Phase 3 ISO assembly script of the 3-part Secure Boot ISO plan. It
+consumes already-signed
+.BR shim ", " GRUB ", and " UKI
+binaries plus a built squashfs root filesystem and produces a single
+.B hybrid-bootable
+.IR .iso
+file with a GPT + ESP partition (UEFI Secure Boot path), an El Torito boot
+record (BIOS-legacy path; same UEFI binary loaded), and the squashfs at
+.IR /live/filesystem.squashfs .
+.PP
+The script does
+.B not
+sign anything. The signing flow is two-stage: the build VM produces unsigned
+artifacts, the workstation runs the sign helpers
+.RB ( scripts/sign-shim.sh ", "
+.BR scripts/sign-grub.sh ", "
+.BR scripts/sign-kernel-uki.sh )
+against the InterGenOS vendor cert held on Nitrokey #1 PIV slot 9c, and the
+signed binaries are then handed to
+.BR forge-iso .
+The build VM never holds signing material.
+.SH ENVIRONMENT
+.SS Required
+.TP
+.B SHIM
+Path to the signed
+.IR shimx64.efi .
+This is loaded by firmware as
+.B /EFI/BOOT/BOOTX64.EFI
+and is also placed at the canonical
+.B /EFI/InterGenOS/shimx64.efi
+on the ESP.
+.TP
+.B GRUB
+Path to the signed
+.IR grubx64.efi
+(produced by
+.BR build-grub-standalone.sh
++ signed by
+.BR sign-grub.sh ).
+.TP
+.B UKI
+Path to the signed
+.IR igos-live.efi
+\(em the Unified Kernel Image (vmlinuz + initramfs + cmdline + os-release)
+produced by
+.BR build-uki.sh
++ signed by
+.BR sign-kernel-uki.sh .
+.TP
+.B SQUASHFS
+Path to the live root filesystem squashfs (produced by the squashfs build
+phase, not part of forge-iso's scope).
+.TP
+.B OUTPUT
+Path to write the resulting
+.IR .iso
+file (typically
+.IR build/intergenos-1.0-dev1.iso ).
+.SS Optional
+.TP
+.B GRUB_CFG
+ESP-side
+.IR grub.cfg
+(default:
+.IR installer/iso/grub/grub.cfg ).
+This is the user-facing 3-entry menu (Try / Install GUI / Install TUI).
+.TP
+.B THEME_DIR
+GRUB theme directory to embed at
+.B /EFI/InterGenOS/themes/
+(default: skipped if absent).
+.TP
+.B UNICODE_PF2
+GRUB unicode font (default:
+.IR /usr/share/grub/unicode.pf2 ).
+Required for the GRUB
+.B gfxmenu
+theme renderer.
+.TP
+.B VOLID
+ISO9660 volume id (default:
+.B IGOS_X86_64_<YYYYMMDD>
+where
+.IR YYYYMMDD
+is derived from
+.BR SOURCE_DATE_EPOCH ).
+The custom 100-line
+.B /init
+in the UKI's initramfs uses this to discover the boot media via
+.BR root=live:LABEL=$VOLID .
+.TP
+.B SOURCE_DATE_EPOCH
+For reproducible builds. xorriso 1.5.6+ honours this directly. If unset, the
+script defaults to build-start time and emits a warning. Reproducibility is
+a v1.0 release requirement (per Q-REPRO-GOAL); the caller (typically
+.BR build-intergenos.sh )
+is expected to set this.
+.TP
+.B LOG_DIR
+Directory for build logs (default:
+.IR build/logs/iso ).
+A timestamped log file
+.IR build_<YYYYMMDDTHHMMSSZ>.log
+is created per invocation.
+.TP
+.B ESP_HEADROOM_MB
+Extra MB to add to the ESP image beyond the computed file size (default:
+.BR 16 ).
+Covers FAT32 metadata + spare. The minimum FAT32 size of 33 MB is enforced;
+the headroom kicks in above that.
+.SH OUTPUT
+A single
+.IR .iso
+file at
+.B OUTPUT
+that is bootable in three modes:
+.IP \(bu 2
+.B UEFI Secure Boot:
+firmware loads
+.IR /EFI/BOOT/BOOTX64.EFI
+(= shim) from the ESP partition, shim chains to GRUB, GRUB chains to the UKI.
+.IP \(bu 2
+.B UEFI without Secure Boot:
+same path; signature checks pass trivially because shim allows it under
+disabled SB.
+.IP \(bu 2
+.B BIOS-legacy:
+the El Torito boot record loads the same UEFI binary via the hybrid MBR.
+.PP
+The .iso burns to a USB stick directly via
+.BR dd (1)
+or any imaging tool that handles hybrid-MBR/GPT images.
+.SH ESP LAYOUT
+.PP
+.RS 4
+.nf
+/EFI/BOOT/BOOTX64.EFI            (= shimx64.efi  — firmware fallback path)
+/EFI/InterGenOS/shimx64.efi      (= shimx64.efi  — canonical path)
+/EFI/InterGenOS/grubx64.efi      (signed standalone GRUB)
+/EFI/InterGenOS/igos-live.efi    (signed UKI)
+/EFI/InterGenOS/grub.cfg         (3-entry menu)
+/EFI/InterGenOS/themes/          (theme dir if present)
+/EFI/InterGenOS/fonts/unicode.pf2 (GRUB unicode font)
+.fi
+.RE
+.SH ISO LAYOUT
+.PP
+.RS 4
+.nf
+/live/filesystem.squashfs        (root fs the UKI's initramfs mounts)
+/live/filesystem.sha256          (sha256 of squashfs for /init verification)
+/IGOS_LIVE                       (volume marker; contains VOLID string)
+.fi
+.RE
+.SH SELF-VERIFICATION
+The script runs
+.B xorriso -indev <output> -report_about ALL
+post-build and asserts that GPT and ESP / El Torito boot records are present.
+A
+.IR <log-dir>/indev_<timestamp>.txt
+file captures the full report for later inspection. The script also runs
+.BR file (1)
+on the output and checks for the ISO 9660 / DOS/MBR signature, then emits
+.BR sha256sum (1)
+of the .iso for reproducibility attestation. Any of these checks failing
+causes a non-zero exit.
+.SH EXIT STATUS
+.TP
+.B 0
+ISO produced; self-verify passed.
+.TP
+.B 1
+Required env var unset, input file not found, required tool missing
+.RB ( xorriso ", " mkfs.vfat ", " mcopy ", " mmd ),
+xorriso failed, or self-verify failed.
+.SH FILES
+.TP
+.I scripts/build-iso.sh
+The script itself.
+.TP
+.I installer/iso/grub/grub.cfg
+Default ESP-side
+.IR grub.cfg
+(referenced via the
+.B GRUB_CFG
+env var).
+.TP
+.I build/logs/iso/build_<timestamp>.log
+Timestamped build log (path overridable via
+.BR LOG_DIR ).
+.TP
+.I build/logs/iso/indev_<timestamp>.txt
+xorriso self-verify report, captured for forensics.
+.SH SECURITY
+.B forge-iso
+operates only on already-signed binaries. It does not have access to any
+signing material and runs in the build VM (not the workstation that holds
+the signing keys). The two-stage signing flow is documented in
+.IR docs/signing-procedure.md .
+.PP
+Reproducibility is required at v1.0: two independent runs of this script
+with the same
+.B SOURCE_DATE_EPOCH
+and the same input binaries must produce a byte-identical
+.IR .iso .
+The
+.IR scripts/verify-b2-reproducibility.sh
+harness covers cross-host reproducibility evidence. Native-Linux Docker
+hosts produce deterministic, host-independent SHAs (validated 2026-05-06
+across SPOC's Ubuntu workstation + a 3rd-laptop Ubuntu 22.04 host). Docker
+Desktop's virtualisation layer is documented as out-of-scope for the strict
+reproducibility attestation.
+.SH SEE ALSO
+.BR xorriso (1),
+.BR mkfs.vfat (8),
+.BR mcopy (1),
+.BR forge (1)
+.PP
+.IR scripts/build-uki.sh
+\(em UKI assembly (Phase 2).
+.PP
+.IR scripts/build-grub-standalone.sh
+\(em standalone GRUB build (Phase 1).
+.PP
+.IR scripts/sign-shim.sh ", "
+.IR scripts/sign-grub.sh ", "
+.IR scripts/sign-kernel-uki.sh
+\(em signing helpers; produce the inputs to forge-iso.
+.PP
+.IR scripts/verify-b2-reproducibility.sh
+\(em cross-build SHA-256 diff harness.
+.PP
+.IR docs/research/installer/iso-implementation-plan-2026-05-05.md
+\(em authoritative plan for the 3-part Secure Boot ISO of which forge-iso
+is Phase 3.
+.SH AUTHORS
+The InterGenOS maintainers.
