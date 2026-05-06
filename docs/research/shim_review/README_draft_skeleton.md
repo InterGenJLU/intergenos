@@ -123,12 +123,14 @@ Plan: Yes. Build is rooted at `rhboot/shim` git tag `dad4f207` (shim 16.1 releas
 
 ## 9. URL for a repo that contains the exact code which was built to result in your binary?
 
-__TBD__: <`https://github.com/InterGenJLU/shim-review/tree/intergenos-shim-x64-20260515` once the InterGenJLU fork of `rhboot/shim-review` is created and the submission tag pushed. Currently planned for week 2-4 of the timeline in `ms_shim_sponsorship_2026-04-18.md` §9. Not yet created.>
+__FILLED__: `https://github.com/InterGenJLU/shim-review/tree/intergenos-shim-x64-20260515`
 
-The build inputs (Dockerfile, vendor cert public part, build scripts) currently live in the InterGenOS main repo under `packages/core/shim-signed/` (for visibility during review of this draft):
+The submission branch is created in the `InterGenJLU/shim-review` fork of `rhboot/shim-review`. The build inputs (Dockerfile, vendor cert, SBAT entries, signing script) live in the InterGenOS main repo and are referenced from the submission branch:
 
-- `packages/core/shim-signed/build.sh` — build orchestration
-- `packages/core/shim-signed/package.yml` — package metadata + version pin
+- `docker/shim-build/Dockerfile` — reproducible container build (produces unsigned `shimx64.efi`)
+- `docker/shim-build/vendor-cert/intergenos-secure-boot-ca.{pem,der}` — public vendor cert (private half on NK#1 PIV slot 9c)
+- `docker/shim-build/sbat/sbat.intergenos.csv` — InterGenOS SBAT vendor entry
+- `scripts/sign-shim.sh` — workstation-side NK#1 signing helper (PKCS#11 + sbsign)
 
 ---
 
@@ -547,7 +549,7 @@ The kernel-lockdown auto-trigger gap (Q17) is acknowledged in this draft and wil
 - [ ] Ethan email format decision in Q7 (owner-decision: personal vs role address)
 - [x] Kernel-lockdown auto-trigger gap (Q17) RESOLVED at master commit `baf84d8` — `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` added to `99-intergenos-overrides.config:130` per Path 1 (SPOC ruling 2026-04-29T18:05:38Z, integrated 18:18Z)
 - [ ] B2 Dockerfile build artifact + SHA256 + Q22-Q25 + Q14 + Q29 + Q30 (DeepSeek's lane)
-- [ ] Q9 InterGenJLU/shim-review fork created + tag pushed
+- [x] Q9 InterGenJLU/shim-review fork created + submission branch pushed (2026-05-05)
 - [x] Q10, Q12, Q18, Q20, Q32, Q37 specific version pins confirmed against package definitions (completed 2026-04-29)
 - [ ] Q38 ≥2 peer-review contributions completed and linked
 - [ ] Pre-PR-open final pass: SBAT entry + signed binary hashes + all gated items resolved
