@@ -4,8 +4,14 @@
 # Runs on the signing workstation (NOT the build VM) with the hardware
 # token plugged in, PIN unlocked. Signs three classes of artifact:
 #
-#   1. pkm repo index (GPG detached signature, --detach-sign --armor)
-#   2. Kernel vmlinuz       (sbsign with PKCS#11 URI to PIV slot 9c)
+#   1. pkm repo index       (GPG detached signature, --detach-sign --armor)
+#   2. Kernel UKI binaries  (sbsign with PKCS#11 URI to PIV slot 9c)
+#                           — UKI = vmlinuz + initramfs + cmdline bundled
+#                             by systemd-stub; one signature covers all.
+#                             We sign the UKI envelope, NOT bare vmlinuz.
+#                             Per Q-INIT resolved 2026-05-05/06: April-10
+#                             custom-init stands; UKI wrapping via
+#                             systemd-stub + objcopy.
 #   3. GRUB EFI binary      (sbsign with same PKCS#11 URI)
 #
 # Per D1-5 (split build/sign) and D1-4 (touch-to-sign on release subkey
@@ -25,9 +31,10 @@
 #
 # Arguments:
 #   --artifacts DIR   Directory of unsigned release artifacts. Expected
-#                     contents: InterGenOS.db (pkm index), vmlinuz-*,
-#                     grubx64.efi. Missing files skip their sign step
-#                     unless --strict is set.
+#                     contents: InterGenOS.db (pkm index), *.uki.efi
+#                     (Unified Kernel Images from build-uki.sh) plus
+#                     optionally igos-live.efi, grubx64.efi. Missing
+#                     files skip their sign step unless --strict is set.
 #   --output DIR      Directory where signed artifacts + detached sigs
 #                     are written. Created if missing.
 #   --gpg-key-id      Fingerprint of the signing subkey on the token.
@@ -98,9 +105,12 @@ mkdir -p "$OUTPUT_STAGING"
 trap 'rm -rf "$OUTPUT_STAGING"' EXIT
 
 # -------- cert pre-positioning check (SR3) --------
-if [[ -f "$ARTIFACTS/vmlinuz-"* ]] || [[ -f "$ARTIFACTS/grubx64.efi" ]]; then
+shopt -s nullglob
+_uki_check=( "$ARTIFACTS"/*.uki.efi "$ARTIFACTS"/igos-live.efi )
+if [[ ${#_uki_check[@]} -gt 0 ]] || [[ -f "$ARTIFACTS/grubx64.efi" ]]; then
     [[ -f "$VENDOR_CERT" ]] || die "vendor cert not found: $VENDOR_CERT" 2
 fi
+unset _uki_check
 
 # -------- token presence check --------
 # GPG side: gpg --card-status lists the token if connected + readable.
@@ -146,30 +156,61 @@ else
     echo "[-] skipping pkm repo index (not present)"
 fi
 
-# -------- step 2: kernel vmlinuz --------
-# Distro EFI X.509 key (PIV slot 9c) signs each kernel image so the
-# shim-signed GRUB verifies it under check_signatures=enforce.
-# One touch per kernel. Multiple vmlinuz-* files sign in sequence.
-shopt -s nullglob
-kernels=( "$ARTIFACTS"/vmlinuz-* )
-if [[ ${#kernels[@]} -gt 0 ]]; then
-    for kern in "${kernels[@]}"; do
-        kname=$(basename "$kern")
-        echo "[*] sbsigning kernel: $kname"
+# -------- step 2: kernel UKI(s) --------
+# Distro EFI X.509 key (PIV slot 9c) signs each UKI envelope. The UKI
+# bundles vmlinuz + initramfs + cmdline + os-release into a single PE
+# binary via systemd-stub; one signature covers all the bundled content.
+# shim-signed GRUB verifies the UKI under check_signatures=enforce via
+# the embedded shim_lock module. Bare vmlinuz is NEVER loaded directly —
+# only via the UKI envelope.
+#
+# UKI naming conventions accepted in artifacts dir:
+#   *.uki.efi       — explicit UKI suffix (preferred for build pipelines)
+#   igos-live.efi   — convention used by ESP grub.cfg menu entries
+#   *-live.efi      — variants for other live-mode UKIs (recovery, etc.)
+#
+# Verifies post-sign that the signed binary still has .linux + .initrd
+# sections (UKI shape preserved through the sign operation).
+ukis=( "$ARTIFACTS"/*.uki.efi "$ARTIFACTS"/igos-live.efi "$ARTIFACTS"/*-live.efi )
+# Deduplicate (e.g., igos-live.efi may match multiple globs)
+declare -A _seen=()
+unique_ukis=()
+for u in "${ukis[@]}"; do
+    [[ -f "$u" ]] || continue
+    bn=$(basename "$u")
+    [[ -n "${_seen[$bn]:-}" ]] && continue
+    _seen[$bn]=1
+    unique_ukis+=( "$u" )
+done
+unset _seen
+if [[ ${#unique_ukis[@]} -gt 0 ]]; then
+    for uki in "${unique_ukis[@]}"; do
+        uname=$(basename "$uki")
+        echo "[*] sbsigning UKI: $uname"
+        # Sanity-check UKI shape pre-sign
+        if ! objdump -h "$uki" 2>/dev/null | grep -q '\.linux'; then
+            die "$uname does not appear to be a UKI (no .linux section)" 3
+        fi
+        if ! objdump -h "$uki" 2>/dev/null | grep -q '\.initrd'; then
+            die "$uname missing .initrd section" 3
+        fi
         sbsign --engine pkcs11 \
                --key "$PKCS11_URI" \
                --cert "$VENDOR_CERT" \
-               --output "$OUTPUT_STAGING/$kname" \
-               "$kern"
-        # SR2: verify signature
-        sbverify --cert "$VENDOR_CERT" "$OUTPUT_STAGING/$kname" \
-            || die "sbsign verification failed for $kname" 3
-        echo "    -> $OUTPUT_STAGING/$kname"
+               --output "$OUTPUT_STAGING/$uname" \
+               "$uki"
+        # SR2: verify signature + UKI shape post-sign
+        sbverify --cert "$VENDOR_CERT" "$OUTPUT_STAGING/$uname" \
+            || die "sbsign verification failed for $uname" 3
+        if ! objdump -h "$OUTPUT_STAGING/$uname" 2>/dev/null | grep -q '\.linux'; then
+            die "post-sign UKI shape broken for $uname (.linux missing)" 3
+        fi
+        echo "    -> $OUTPUT_STAGING/$uname"
     done
 elif [[ "$STRICT" == "1" ]]; then
-    die "strict: no vmlinuz-* in $ARTIFACTS" 4
+    die "strict: no UKI files (*.uki.efi / igos-live.efi / *-live.efi) in $ARTIFACTS" 4
 else
-    echo "[-] skipping kernels (none present)"
+    echo "[-] skipping UKIs (none present)"
 fi
 
 # -------- step 3: GRUB EFI binary --------
@@ -206,5 +247,7 @@ echo
 echo "Next: hand signed artifacts back to the build orchestrator for"
 echo "      image-creation phase. Verify with:"
 echo "        gpg --verify $OUTPUT/InterGenOS.db.sig $OUTPUT/InterGenOS.db"
-echo "        sbverify --cert $VENDOR_CERT $OUTPUT/vmlinuz-*"
+echo "        for u in $OUTPUT/*.uki.efi $OUTPUT/igos-live.efi $OUTPUT/*-live.efi; do"
+echo "            [ -f \"\$u\" ] && sbverify --cert $VENDOR_CERT \"\$u\""
+echo "        done"
 echo "        sbverify --cert $VENDOR_CERT $OUTPUT/grubx64.efi"
