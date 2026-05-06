@@ -404,18 +404,61 @@ if [ "$VERIFY_FAIL" -ne 0 ]; then
 fi
 
 # --------------------------------------------------------------------------
-# Step 6: emit summary
+# Step 6a: SBOM-style manifest emission (Q22 reproducibility attestation)
+# --------------------------------------------------------------------------
+#
+# Plaintext, sha256-sorted, alongside OUTPUT as <OUTPUT>.manifest. Format
+# is diff-friendly (not cyclonedx / spdx-tag-value — those are heavier
+# ecosystem-bound formats; our consumers are bash scripts + reviewers).
+# Tool versions + SDE + script SHA + volid/volserial form a self-describing
+# reproduction recipe so anyone wanting to re-verify a stale ISO has all
+# the inputs to recompute.
+MANIFEST="${OUTPUT}.manifest"
+SCRIPT_SHA256=$(sha256sum "${BASH_SOURCE[0]}" | awk '{print $1}')
+SHIM_SHA256=$(sha256sum "$SHIM" | awk '{print $1}')
+GRUB_SHA256=$(sha256sum "$GRUB" | awk '{print $1}')
+UKI_SHA256=$(sha256sum "$UKI" | awk '{print $1}')
+SQUASHFS_SHA256=$(sha256sum "$SQUASHFS" | awk '{print $1}')
+GRUB_CFG_SHA256=$(sha256sum "$GRUB_CFG" | awk '{print $1}')
+
+XORRISO_VERSION_LINE=$(xorriso --version 2>&1 | head -1)
+MKFS_VFAT_VERSION_LINE=$(mkfs.vfat --help 2>&1 | head -1)
+
+# Hash-prefixed lines sorted by hash for stable ordering across same-SDE runs.
+{
+    printf '%s  shim:     %s\n' "$SHIM_SHA256"     "$SHIM"
+    printf '%s  grub:     %s\n' "$GRUB_SHA256"     "$GRUB"
+    printf '%s  uki:      %s\n' "$UKI_SHA256"      "$UKI"
+    printf '%s  squashfs: %s\n' "$SQUASHFS_SHA256" "$SQUASHFS"
+    printf '%s  grub_cfg: %s\n' "$GRUB_CFG_SHA256" "$GRUB_CFG"
+    printf '%s  output:   %s\n' "$ISO_SHA256"      "$OUTPUT"
+} | sort > "$MANIFEST"
+
+# Self-describing reproduction-recipe tail (NOT sorted with the above —
+# these are key:value lines, not sha256-prefixed entries).
+{
+    echo "xorriso_version: $XORRISO_VERSION_LINE"
+    echo "mkfs.vfat_version: $MKFS_VFAT_VERSION_LINE"
+    echo "script_sha256: $SCRIPT_SHA256"
+    echo "source_date_epoch: $SOURCE_DATE_EPOCH"
+    echo "volid: $VOLID"
+    echo "volserial: $VOLSERIAL"
+} >> "$MANIFEST"
+
+# --------------------------------------------------------------------------
+# Step 6b: emit summary
 # --------------------------------------------------------------------------
 
 echo "[build-iso] [6/6] PASS"
 echo "[build-iso] ============================================================"
-echo "[build-iso] output:  $OUTPUT"
-echo "[build-iso]   size:  ${ISO_MB} MB ($ISO_BYTES bytes)"
-echo "[build-iso]   sha256: $ISO_SHA256"
-echo "[build-iso]   volid:  $VOLID"
-echo "[build-iso]   sde:    $SOURCE_DATE_EPOCH"
-echo "[build-iso] log:     $LOG_FILE"
-echo "[build-iso] indev:   $INDEV_REPORT"
+echo "[build-iso] output:    $OUTPUT"
+echo "[build-iso]   size:    ${ISO_MB} MB ($ISO_BYTES bytes)"
+echo "[build-iso]   sha256:  $ISO_SHA256"
+echo "[build-iso]   volid:   $VOLID"
+echo "[build-iso]   sde:     $SOURCE_DATE_EPOCH"
+echo "[build-iso] manifest:  $MANIFEST"
+echo "[build-iso] log:       $LOG_FILE"
+echo "[build-iso] indev:     $INDEV_REPORT"
 echo "[build-iso] ============================================================"
 echo ""
 echo "Next steps:"
