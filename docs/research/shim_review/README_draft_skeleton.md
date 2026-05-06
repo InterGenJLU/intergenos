@@ -6,7 +6,7 @@
 
 - `__FILLED__` items have substantive content per project-lead directive items 1-7.
 - `__TBD__: <reason>` items need owner-fill or follow-up work (e.g., PGP fingerprints, Ethan's email format choice).
-- `__GATED__: <trigger>` items wait until specific milestones (e.g., DeepSeek's B2 Dockerfile build, SBAT generation extraction from binary).
+- `__GATED__: <trigger>` items wait until specific milestones (e.g., the B2 Dockerfile build, SBAT generation extraction from binary).
 - **Kernel-config fragment terms:** `00-universal-baseline.config` is the cross-distro convergence baseline (Ubuntu/Arch/Fedora/Debian/openSUSE intersection of recommended hardening), applied first. `99-intergenos-overrides.config` is applied second and takes precedence — concatenation order in `packages/core/linux-kernel/build.sh:36` followed by `make olddefconfig`. Per-line citations like `99-intergenos-overrides.config:122` reference the exact line in the override fragment where each setting is defined; the final compiled kernel `.config` is the merged result.
 - Inline citations point at this repo's existing research (`docs/research/installer/...`, `docs/grub2-cve-audit.md`, etc.) so reviewers can audit the trail.
 
@@ -115,7 +115,7 @@ Therefore InterGenOS requires its own shim binary signed by Microsoft with the I
 
 ## 8. Were these binaries created from the 16.1 shim release tar?
 
-__GATED__: <Trigger: DeepSeek's B2 Dockerfile build complete + binary produced>
+__GATED__: <Trigger: B2 Dockerfile build complete + binary produced>
 
 Plan: Yes. Build is rooted at `rhboot/shim` git tag `dad4f207` (shim 16.1 release), per the InterGenOS shim-build Dockerfile committed at `docker/shim-build/Dockerfile` on master. The Dockerfile uses `FROM debian:bookworm-slim@sha256:...` for reproducibility and pulls the shim source tarball directly from the upstream tag. Reviewer can verify by running `docker build .` and comparing the produced `shimx64.efi` SHA256 against the value in Q25.
 
@@ -168,7 +168,7 @@ __FILLED__: (verified against `packages/core/grub/package.yml`)
 
   GRUB2 version 2.14. InterGenOS uses upstream GRUB2 with the standard shim -> GRUB2 -> kernel chain. Modules built into the signed GRUB2 image are enumerated in Q30.
 
-Default expectation: GRUB2 v2.12+ with the standard shim-lock validation flow. Modules locked to the signed-binary image (vs loaded from `/boot`) per shim-review reproducibility expectations (Q30).
+Modules locked to the signed-binary image (vs loaded from `/boot`) via shim-lock + GRUB2 module-lock; reproducibility expectations per Q30.
 
 ---
 
@@ -194,7 +194,9 @@ References:
 
 ## 14. If shim is loading GRUB2 bootloader, is the upstream global SBAT generation in your GRUB2 binary set to 5?
 
-__GATED__: <Trigger: DeepSeek's B2 Dockerfile build complete + signed GRUB2 binary produced. SBAT entries inspected via `objcopy --dump-section .sbat=/dev/stdout grub2.efi`. Plan: yes, SBAT generation 5 (the current upstream baseline as of GRUB2 v2.12+).>
+__GATED__: <Trigger: B2 Dockerfile build complete + signed GRUB2 binary produced. SBAT entries inspected via `objcopy --dump-section .sbat=/dev/stdout grub2.efi`.>
+
+Plan: Yes — `grub,5` per upstream baseline, plus InterGenOS-vendor `grub.intergenos,1` per `packages/core/grub/sbat.csv`. Build precheck `scripts/sign-release.sh` blocks builds whose generations fall below upstream `SbatLevel_Variable.txt` (Tails-6.5 footgun mitigation per Q-SBAT resolution).
 
 ---
 
@@ -327,19 +329,19 @@ The InterGenOS Secure Boot CA (`CN=InterGenOS Secure Boot CA`) is freshly genera
 
 ## 22. Is the Dockerfile in your repository the recipe for reproducing the building of your shim binary?
 
-__GATED__: <Trigger: DeepSeek's B2 Dockerfile build complete + reproducibility verified.>
+__GATED__: <Trigger: B2 Dockerfile build complete + reproducibility verified.>
 
 Plan: Yes. The Dockerfile lives in the InterGenJLU/shim-review fork (Q9) and reproduces the binary byte-for-byte from `rhboot/shim` tag `dad4f207` + the embedded InterGenOS vendor cert. Reviewer-runnable: `docker build .` produces a `shimx64.efi` whose SHA256 matches the value in Q25. Reproducibility verified by running `docker build` twice in clean environments and diffing the output binaries (must be byte-identical).
 
 Beyond the shim binary itself, every pkm-tracked artifact in the produced InterGenOS image carries a per-file SHA-256 attestation in both the human-readable text manifest and the pkm SQLite database (per the supersedes + content-hash design at master commit `c9534f7`). The pkm repository index (`InterGenOS.db`), which is GPG-signed by the distro release-signing subkey at every release, records the per-file hashes transitively — recipients verifying the index signature can subsequently run `pkm verify --strict <package>` to re-validate any installed file against its signed expected hash. The shim binary AND the underlying OS image that loads and runs it are both content-hash attestable end-to-end.
 
-DeepSeek's B2 lane (per project-lead directive 2026-04-29T17:30:27Z to DeepSeek) covers this build verification.
+InterGenOS's B2 build-reproducibility lane covers this verification; `scripts/verify-b2-reproducibility.sh` provides the reviewer-runnable harness (9 PASS-checks across tarball/binary/cert/commit-SHA/SBAT/PE-metadata).
 
 ---
 
 ## 23. Which files in this repo are the logs for your build?
 
-__GATED__: <Trigger: DeepSeek's B2 build complete. Build logs (Docker buildkit output) committed at `logs/build_<timestamp>.log` in the InterGenJLU/shim-review fork. apt install logs, gcc / make output, shim configure-make-install steps all captured.>
+__GATED__: <Trigger: B2 build complete. Build logs (Docker buildkit output) committed at `logs/build_<timestamp>.log` in the InterGenJLU/shim-review fork. apt install logs, gcc / make output, shim configure-make-install steps all captured.>
 
 ---
 
@@ -351,7 +353,7 @@ __GATED__: <Trigger: DeepSeek's B2 build complete. Build logs (Docker buildkit o
 
 ## 25. What is the SHA256 hash of your final shim binary?
 
-__GATED__: <Trigger: DeepSeek's B2 build artifact produced. Recorded as `sha256sum shimx64.efi` output. Pinned in this README and in the submission tag commit message.>
+__GATED__: <Trigger: B2 build artifact produced. Recorded as `sha256sum shimx64.efi` output. Pinned in this README and in the submission tag commit message.>
 
 The SHA-256 here is the canonical attestation for the shim binary specifically. For the broader OS-image attestation story (per-file SHA-256 across every pkm-tracked artifact, transitively signed via the GPG-signed pkm repository index), see Q22's content-hash discussion. `pkm verify --strict <package>` is the reviewer-runnable on-demand verification path against the signed hash record.
 
@@ -414,7 +416,7 @@ The CA private key, once generated in the PIV slot 9c follow-up session, will ne
 
 ## 29. Do you add a vendor-specific SBAT entry to the SBAT section in each binary?
 
-__GATED__: <Trigger: build artifact + SBAT extraction. Plan: yes, add `intergenos.1` SBAT entry per shim-review template guidance. SBAT entry text and generation number to be recorded post-build.>
+__FILLED__: Yes — `shim.intergenos,1` for the shim binary (file at `docker/shim-build/sbat/sbat.intergenos.csv` on master; one-line CSV currently committed: `shim.intergenos,1,InterGenOS,shim,16.1,https://github.com/InterGenJLU/intergenos`). Companion `grub.intergenos,1` entry lands in the GRUB binary per `packages/core/grub/sbat.csv`. Both are vendor-specific InterGenOS additions atop the upstream-baked `shim,4 / grub,5 / linux,1` entries; the union forms the resolved 6-line SBAT block (per docs/research/shim_review/post_b2_completion_roadmap_2026-05-01.md). Generation 1 ships at v1.0; bumped only on revocation.
 
 ---
 
@@ -436,8 +438,6 @@ __FILLED__: (verified against `packages/core/grub/package.yml`)
 
   GNU GRUB2 version 2.14, sourced from upstream (`https://ftp.gnu.org/gnu/grub/grub-2.14.tar.xz`).
 
-Plan: GRUB2 v2.12 stable, sourced from upstream <https://ftp.gnu.org/gnu/grub/>, pinned by tag in the InterGenOS package definition.
-
 ---
 
 ## 33. If your shim launches any other components apart from your bootloader, please provide further details?
@@ -454,7 +454,7 @@ Plan: GRUB2 v2.12 stable, sourced from upstream <https://ftp.gnu.org/gnu/grub/>,
 
 ## 35. How do the launched components prevent execution of unauthenticated code?
 
-The InterGenOS-signed Linux kernel enforces signed-only kernel-module loading via `CONFIG_MODULE_SIG_FORCE=y` (override:117). When booted with Secure Boot, the lockdown LSM enforces additional restrictions (Q17) — though see the gap flagged in Q17 regarding auto-trigger of `lockdown=integrity` mode.
+The InterGenOS-signed Linux kernel enforces signed-only kernel-module loading via `CONFIG_MODULE_SIG_FORCE=y` (override:117). When booted with Secure Boot, the lockdown LSM enforces additional restrictions; see Q17 for `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` auto-trigger details.
 
 Userspace execution policy is the responsibility of the running OS image (executable-bit + capabilities + signed-package verification via pkm); this is outside the boot-chain scope but is documented in the project's broader security posture for completeness.
 
@@ -528,7 +528,7 @@ The novel architectural choice that reviewers will want to dig into is the **eph
 
 ### Audit gap acknowledgement
 
-The kernel-lockdown auto-trigger gap (Q17) is acknowledged in this draft and will be resolved before PR-open. Flagging here for transparency rather than as a surprise.
+The kernel-lockdown auto-trigger gap (Q17) was surfaced during this draft's population pass and resolved at master commit `baf84d8` ahead of submission. Documented here for transparency.
 
 ### References
 
@@ -546,9 +546,9 @@ The kernel-lockdown auto-trigger gap (Q17) is acknowledged in this draft and wil
 - [x] All 39 questions present in order
 - [x] SPOC directive items 1-7 filled with substantive content
 - [x] PGP fingerprints filled in Q6 — master + [S1]-[S4] + [E] + EFI vendor cert SHA all populated post-ceremony 2026-05-05. Q7 (Ethan Phase 1) remains independently pending on secondary maintainer's Phase 1 onboarding.
-- [ ] Ethan email format decision in Q7 (owner-decision: personal vs role address)
+- [x] Ethan email format decision in Q7 — resolved: shared role address (PGP-signed mail to secondary maintainer's key) per Q7 body
 - [x] Kernel-lockdown auto-trigger gap (Q17) RESOLVED at master commit `baf84d8` — `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` added to `99-intergenos-overrides.config:130` per Path 1 (SPOC ruling 2026-04-29T18:05:38Z, integrated 18:18Z)
-- [ ] B2 Dockerfile build artifact + SHA256 + Q22-Q25 + Q14 + Q29 + Q30 (DeepSeek's lane)
+- [ ] B2 Dockerfile build artifact + SHA256 + Q22-Q25 + Q14 + Q29 + Q30 (B2 reproducibility lane)
 - [x] Q9 InterGenJLU/shim-review fork created + submission branch pushed (2026-05-05)
 - [x] Q10, Q12, Q18, Q20, Q32, Q37 specific version pins confirmed against package definitions (completed 2026-04-29)
 - [ ] Q38 ≥2 peer-review contributions completed and linked
