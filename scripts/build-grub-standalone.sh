@@ -36,6 +36,16 @@ GRUB_FORMAT="${GRUB_FORMAT:-x86_64-efi}"
 [ -f "$EMBEDDED_CFG" ] || { echo "ERROR: EMBEDDED_CFG not found: $EMBEDDED_CFG" >&2; exit 1; }
 [ -f "$SBAT_CSV" ]     || { echo "ERROR: SBAT_CSV not found: $SBAT_CSV" >&2; exit 1; }
 
+# SBAT generation precheck — block before bake-in if any vendor entry fell
+# below upstream baseline (Tails-6.5-class footgun mitigation).
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -x "$SCRIPT_DIR/check-sbat-generations.sh" ]; then
+    GRUB_SBAT="$SBAT_CSV" bash "$SCRIPT_DIR/check-sbat-generations.sh" || {
+        echo "ERROR: SBAT generation precheck failed; refusing to bake regressed entries." >&2
+        exit 1
+    }
+fi
+
 if ! command -v grub-mkstandalone >/dev/null 2>&1; then
     echo "ERROR: grub-mkstandalone not in PATH (install grub2 or grub-efi-amd64-bin)." >&2
     exit 1

@@ -99,6 +99,20 @@ die() { echo "error: $*" >&2; exit "${2:-3}"; }
 [[ -d "$ARTIFACTS" ]] || die "artifacts dir not found: $ARTIFACTS" 2
 mkdir -p "$OUTPUT"
 
+# -------- SBAT generation precheck (Q14 — Tails-6.5-class footgun mitigation) --------
+# Block before signing if any vendor entry in shim/grub SBAT CSVs fell below
+# the upstream baseline. Source-of-truth CSVs are in-repo; precheck operates
+# on the working tree. If invoked from outside the repo (manual operator run
+# against staged artifacts), the precheck is best-effort and will warn-only.
+SR_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -x "$SR_SCRIPT_DIR/check-sbat-generations.sh" ] && \
+   [ -f "$SR_SCRIPT_DIR/../packages/core/grub/sbat.csv" ]; then
+    (cd "$SR_SCRIPT_DIR/.." && bash scripts/check-sbat-generations.sh) || {
+        echo "ERROR: SBAT generation precheck failed; refusing to sign regressed entries." >&2
+        exit 1
+    }
+fi
+
 # -------- staging for atomic sign (SR1) --------
 OUTPUT_STAGING="$OUTPUT/.signing-$$"
 mkdir -p "$OUTPUT_STAGING"

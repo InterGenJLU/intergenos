@@ -197,7 +197,7 @@ References:
 
 **Yes — `grub,5` per upstream baseline, plus InterGenOS-vendor `grub.intergenos,1` per `packages/core/grub/sbat.csv` on master.**
 
-Build precheck `scripts/sign-release.sh` enforces this architecturally: it blocks builds whose generations fall below upstream `SbatLevel_Variable.txt` (Tails-6.5-class footgun mitigation per the Q-SBAT resolution).
+Build precheck `scripts/check-sbat-generations.sh` enforces this architecturally — invoked by both `scripts/build-grub-standalone.sh` (before module-set baking) AND `scripts/sign-release.sh` (before signing). It parses `packages/core/grub/sbat.csv` and `docker/shim-build/sbat/sbat.intergenos.csv` and blocks builds whose vendor entry generations fall below documented upstream baselines (`sbat`≥1, `shim`≥4 per rhboot/shim 16.1, `grub`≥5 per GRUB 2.14; vendor extensions `*.intergenos` ≥1). The Tails-6.5-class footgun (a vendor SBAT generation rolling back below upstream revocation policy) is the canonical case the precheck mitigates per the Q-SBAT resolution. Reviewer-runnable test fixture at `tests/sbat/test_check_sbat_generations.sh` exercises both PASS and manufactured-downgrade REJECT cases (3/3 PASS as of master).
 
 The complete SBAT block on master across all signed binaries:
 
