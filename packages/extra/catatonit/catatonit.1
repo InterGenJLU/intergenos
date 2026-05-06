@@ -1,0 +1,46 @@
+.TH CATATONIT 1 "2026-05-06" "catatonit 0.2.1" "InterGenOS User Manual"
+.SH NAME
+catatonit \- brain-dead simple container init
+.SH SYNOPSIS
+.B catatonit
+[\fB\-g\fP] [\fB\-P\fP] \fIcommand\fP [\fIargs...\fP]
+.SH DESCRIPTION
+\fBcatatonit\fP is a minimal init process designed to run as PID 1
+inside Linux containers. It handles signal forwarding and zombie
+process reaping for the container's main process, then exits
+cleanly when that process terminates.
+.PP
+Unlike traditional init systems, catatonit does not perform system
+bootstrapping, service management, or any other operations outside
+its narrow scope. It is intentionally "brain-dead" to minimize
+attack surface and operational complexity inside containers.
+.SH OPTIONS
+.TP
+.B \-g
+Forward signals to the entire process group (not just the direct
+child). Useful when the container's main process spawns
+subprocesses that need the same signals.
+.TP
+.B \-P
+Pause-container mode. catatonit enters a wait loop without launching
+a child process. The container will pause indefinitely; signals
+sent to catatonit (PID 1) are consumed and forwarded to the process
+group.
+.SH EXIT STATUS
+catatonit exits with the exit code of the child process it
+supervises. In pause mode, it exits when it receives a fatal signal.
+.SH FILES
+.TP
+.I /usr/bin/catatonit
+The binary itself (statically linked, no shared library dependencies).
+.TP
+.I /usr/bin/docker-init
+.BR /usr/bin/podman-init
+Common symlink targets for Docker and Podman runtimes.
+.SH SEE ALSO
+.BR podman (1),
+.BR docker (1)
+.PP
+Project homepage:
+.UR https://github.com/openSUSE/catatonit
+.UE .

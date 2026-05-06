@@ -1,0 +1,16 @@
+name: passt
+version: "2026_01_20.386b5f5"
+release: 1
+description: User-mode networking for VMs and namespaces
+license: GPL-2.0-or-later
+homepage: https://passt.top/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  - url: https://passt.top/passt/snapshot/passt-${version}.tar.xz
+    sha256: cc0a86b0ac28e1e5b2a4243bcf7fa84b14dd91c7dc883a78896060111e12d105
+dependencies:
+  build: []
+  host: []
+  runtime: []

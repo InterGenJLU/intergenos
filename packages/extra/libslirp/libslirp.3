@@ -1,0 +1,28 @@
+.TH LIBSLIRP 3 "2026-05-06" "libslirp 4.7.0" "InterGenOS Library Manual"
+.SH NAME
+libslirp \- general purpose TCP-IP emulator library
+.SH SYNOPSIS
+.B #include <slirp/libslirp.h>
+.PP
+.B cc
+[\fIflags\fR] \fIfile\fR \fB-lslirp\fR
+.SH DESCRIPTION
+\fBlibslirp\fP is a user-mode networking library used by virtual
+machines and containers. It provides a full TCP/IP stack that
+operates entirely in userspace without requiring elevated
+privileges, kernel modules, or TUN/TAP devices.
+.PP
+The library implements DHCP, DNS, TFTP, ARP, IPv4, IPv6, ICMP,
+TCP, and UDP protocols sufficient to give a guest VM or container
+full IP-layer network access through a single socket on the host.
+.PP
+libslirp is used by QEMU's user-mode networking backend and by
+slirp4netns (rootless networking for containers). It replaces the
+older slirp implementation that was historically bundled with QEMU.
+.SH SEE ALSO
+.BR slirp4netns (1),
+.BR qemu (1)
+.PP
+Upstream documentation:
+.UR https://gitlab.freedesktop.org/slirp/libslirp
+.UE .

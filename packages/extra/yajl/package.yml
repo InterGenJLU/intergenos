@@ -1,0 +1,18 @@
+name: yajl
+version: "2.1.0"
+release: 1
+description: Yet Another JSON Library
+license: ISC
+homepage: https://github.com/lloyd/yajl
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/lloyd/yajl/archive/refs/tags/${version}.tar.gz
+    sha256: 3fb73364a5a30efe615046d07e6db9d09fd2b41c763c5f7d3bfb121cd5c5ac5a
+    filename: yajl-${version}.tar.gz
+dependencies:
+  build:
+    - cmake
+  host: []
+  runtime: []

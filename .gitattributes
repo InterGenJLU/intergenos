@@ -1,6 +1,6 @@
 # Lock Unix-target file types to LF regardless of clone-host autocrlf.
 #
-# Caught 2026-05-06 by WC during cross-host harness re-run dispatch:
+# Caught 2026-05-06 during cross-host harness re-run dispatch:
 # Windows clone with default core.autocrlf=true converted .sh files to
 # CRLF on checkout. SCP'd to Linux, bash interpreted `set -euo pipefail<CR>`
 # as if `<CR>` were part of the option name → "set: pipefail: invalid

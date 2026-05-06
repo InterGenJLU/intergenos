@@ -1,0 +1,22 @@
+name: conmon
+version: "2.2.1"
+release: 1
+description: OCI container runtime monitor
+license: Apache-2.0
+homepage: https://github.com/containers/conmon
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/containers/conmon/archive/refs/tags/v${version}.tar.gz
+    sha256: 814fb5979a3a4b8576b1f901e606b482bebb41cb7e57926e6d5765ee786b96d3
+    filename: conmon-${version}.tar.gz
+dependencies:
+  build:
+    - pkgconf
+  host:
+    - glib2
+    - libseccomp
+    - systemd
+  runtime:
+    - glib2
