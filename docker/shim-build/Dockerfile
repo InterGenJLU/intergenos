@@ -63,13 +63,14 @@ ARG SHIM_COMMIT=afc49558b34548644c1cd0ad1b6526a9470182ed
 # Timestamp 20260501T000000Z chosen as: post-bookworm-12.9 release,
 # pre-ceremony, stable package set.
 # -----------------------------------------------------------------------------
-RUN echo "deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20260501T000000Z bookworm main" \
+RUN echo "deb [trusted=yes check-valid-until=no] http://snapshot.debian.org/archive/debian/20260501T000000Z bookworm main" \
         > /etc/apt/sources.list.d/snapshot.list \
  && rm -f /etc/apt/sources.list.d/debian.sources \
  && apt-get update \
  && apt-get install -y --no-install-recommends \
     build-essential \
     ca-certificates \
+    dos2unix \
     git \
     gnu-efi \
     libelf-dev \
