@@ -425,13 +425,19 @@ XORRISO_VERSION_LINE=$(xorriso --version 2>&1 | head -1)
 MKFS_VFAT_VERSION_LINE=$(mkfs.vfat --help 2>&1 | head -1)
 
 # Hash-prefixed lines sorted by hash for stable ordering across same-SDE runs.
+# basename(...) used rather than the full path because $SHIM/$GRUB/etc are
+# operator-supplied via env var; two operators with different working-dir
+# layouts would otherwise produce manifests that diverge on the path columns
+# even with identical SHAs, breaking the byte-identity-across-operators
+# claim. The label-prefix (`shim:`, `grub:`, etc.) is the actual
+# disambiguator — basename on the right is illustrative.
 {
-    printf '%s  shim:     %s\n' "$SHIM_SHA256"     "$SHIM"
-    printf '%s  grub:     %s\n' "$GRUB_SHA256"     "$GRUB"
-    printf '%s  uki:      %s\n' "$UKI_SHA256"      "$UKI"
-    printf '%s  squashfs: %s\n' "$SQUASHFS_SHA256" "$SQUASHFS"
-    printf '%s  grub_cfg: %s\n' "$GRUB_CFG_SHA256" "$GRUB_CFG"
-    printf '%s  output:   %s\n' "$ISO_SHA256"      "$OUTPUT"
+    printf '%s  shim:     %s\n' "$SHIM_SHA256"     "$(basename "$SHIM")"
+    printf '%s  grub:     %s\n' "$GRUB_SHA256"     "$(basename "$GRUB")"
+    printf '%s  uki:      %s\n' "$UKI_SHA256"      "$(basename "$UKI")"
+    printf '%s  squashfs: %s\n' "$SQUASHFS_SHA256" "$(basename "$SQUASHFS")"
+    printf '%s  grub_cfg: %s\n' "$GRUB_CFG_SHA256" "$(basename "$GRUB_CFG")"
+    printf '%s  output:   %s\n' "$ISO_SHA256"      "$(basename "$OUTPUT")"
 } | sort > "$MANIFEST"
 
 # Self-describing reproduction-recipe tail (NOT sorted with the above —
