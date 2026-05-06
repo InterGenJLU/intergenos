@@ -17,6 +17,28 @@ cd "$REPO_ROOT"
 
 echo "[pre-push] running local gates..."
 
+# ---- 0. Working-tree-vs-HEAD coherence -----------------------------------
+# The public-content audit (gate 1 below) reads files from the working tree
+# via open(path). When the working tree differs from HEAD (uncommitted
+# changes; soft-reset+edit-without-stage; etc.), the audit can pass on
+# working-tree content while the actually-being-pushed content (HEAD)
+# carries violations. Caught 2026-05-06: a soft-reset+edit pattern
+# committed an unscrubbed agent-abbrev despite the audit passing.
+#
+# The fix: require working tree == HEAD before push. This guarantees the
+# audit (which scans working-tree files) is scanning the same content
+# that's about to be pushed. Cost: users with uncommitted unrelated
+# changes must commit-or-stash first; that's an acceptable trade for
+# the security-posture our public-content discipline requires.
+if ! git diff HEAD --quiet 2>/dev/null; then
+    echo "[pre-push] BLOCK: uncommitted changes detected (working tree differs from HEAD)."
+    echo "  Reason: the public-content audit scans working-tree files; uncommitted"
+    echo "  changes may mask violations in HEAD content (the actually-pushed bytes)."
+    echo "  Inspect: git status / git diff HEAD"
+    echo "  Resolve: commit the changes, OR git stash them, before retrying push."
+    exit 1
+fi
+
 # ---- 1. Public-content audit ---------------------------------------------
 if [ -f scripts/check-public-content.py ]; then
     if ! python3 scripts/check-public-content.py; then
