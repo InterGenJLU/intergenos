@@ -1,0 +1,36 @@
+.TH FUSE-OVERLAYFS 1 "2026-05-06" "fuse-overlayfs 1.16" "InterGenOS User Manual"
+.SH NAME
+fuse-overlayfs \- overlay filesystem in userspace
+.SH SYNOPSIS
+.B fuse-overlayfs
+[\fB\-o\fP \fIoptions\fP] \fImountpoint\fP
+.SH DESCRIPTION
+\fBfuse-overlayfs\fP provides an overlay filesystem implemented as a
+FUSE (Filesystem in Userspace) mount. It allows stacking writable
+upper layers over read-only lower layers, the same semantic as the
+in-kernel overlayfs, but without requiring kernel support or root
+privileges.
+.PP
+This is the primary storage driver for rootless Podman containers
+on hosts that do not support user-namespace overlay mounts. It
+provides full POSIX semantics including whiteouts, opaque
+directories, and extended attributes for storage layers.
+.SH OPTIONS
+Options are passed via the \fB\-o\fP flag as a comma-separated list:
+.TP
+.B lowerdir=\fIdir\fP
+Read-only lower layer.
+.TP
+.B upperdir=\fIdir\fP
+Writable upper layer.
+.TP
+.B workdir=\fIdir\fP
+Working directory (must be on the same filesystem as upperdir).
+.SH SEE ALSO
+.BR podman (1),
+.BR fuse (8),
+.BR mount.fuse (8)
+.PP
+Upstream documentation:
+.UR https://github.com/containers/fuse-overlayfs
+.UE .
