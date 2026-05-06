@@ -55,10 +55,30 @@ done
 # HEAD (what actually gets pushed) carried violations. Caught 2026-05-06.
 # Fix: --from-ref HEAD reads each file via `git show HEAD:<file>` so the
 # audit operates on the same content that's about to be pushed.
+#
+# Python invocation is portable across hosts:
+#   - Linux/macOS:    python3 (typical)
+#   - Windows mingw:  py launcher (Windows installer adds this)
+#   - Windows fallback: python (if Python 3 is the only python on PATH)
+# The bare `python3` path on Windows often resolves to the MS Store install
+# stub, which prompts an install + exits non-zero (caught 2026-05-06 via
+# cross-host clone validation). The detection chain below routes around that.
 if [ -f scripts/check-public-content.py ]; then
-    if ! python3 scripts/check-public-content.py --from-ref HEAD; then
-        echo "[pre-push] BLOCK: public-content audit failed (see above)"
-        exit 1
+    if python3 --version >/dev/null 2>&1; then
+        PY=python3
+    elif command -v py >/dev/null 2>&1; then
+        PY=py
+    elif python --version 2>&1 | grep -q "Python 3"; then
+        PY=python
+    else
+        echo "[pre-push] WARN: no Python 3 interpreter found; skipping audit"
+        PY=""
+    fi
+    if [ -n "$PY" ]; then
+        if ! "$PY" scripts/check-public-content.py --from-ref HEAD; then
+            echo "[pre-push] BLOCK: public-content audit failed (see above)"
+            exit 1
+        fi
     fi
 else
     echo "[pre-push] WARN: scripts/check-public-content.py not found; skipping audit"
