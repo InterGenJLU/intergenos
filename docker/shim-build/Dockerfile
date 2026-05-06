@@ -1,35 +1,36 @@
 # InterGenOS shim-review Dockerfile — byte-for-byte reproducible build
 #
-# Produces a signed shim EFI binary with embedded vendor certificate.
-# Multi-host verification: docker build on any host with this Dockerfile
-# MUST produce the same sha256sum on the output tarball.
+# Produces an UNSIGNED shim EFI binary with the InterGenOS Secure Boot CA
+# vendor certificate embedded. Final signing happens OUTSIDE the container,
+# on the workstation, via scripts/sign-shim.sh against Nitrokey #1's PIV
+# slot 9c (private key is hardware-bound; cannot be copied into a container).
 #
-# Vendor cert: placeholder self-signed. REAL vendor cert (from Thursday
-# 2026-04-30 Nitrokey ceremony, C6 output) plugs in at build arg VENDOR_CERT.
-#
-# Reference: docs/research/installer/ms_shim_sponsorship_2026-04-18.md
-#            docs/research/installer/signing_key_custody_2026-04-18.md
+# Multi-host verification: docker build on any host with this Dockerfile +
+# this repo's pinned cert MUST produce the same sha256sum on the output
+# tarball. (L2 apt-version pinning + harness graduation tracked separately
+# in post_b2_completion_roadmap_2026-05-01.md.)
 #
 # Usage:
 #   docker build \
-#     --build-arg SOURCE_DATE_EPOCH=1745904000 \
-#     -t intergenos-shim-builder .
-#   docker run --rm -v $(pwd)/out:/out intergenos-shim-builder
+#     --build-arg SOURCE_DATE_EPOCH=1746489600 \
+#     -t intergenos-shim-builder \
+#     -f docker/shim-build/Dockerfile .
+#   docker run --rm -v $(pwd)/build-output:/out intergenos-shim-builder
 
 # -----------------------------------------------------------------------------
 # Pinned base image — Debian 12 bookworm-slim, digest-locked
 # Rationale: Debian stable provides a narrow, well-known package set with
-# multi-year ABI stability. slim variant minimizes attack surface. Rocky
-# (RHEL-compatible) was considered but Debian's broader arch support and
-# established reproducibility tooling (reproducible-builds.org is Debian-
-# native) give it the edge for byte-for-byte verification.
+# multi-year ABI stability. slim variant minimizes attack surface.
+# Reproducible-builds.org tooling is Debian-native.
 # -----------------------------------------------------------------------------
 FROM debian:bookworm-slim@sha256:5a2a80d11944804c01b8619bc967e31801ec39bf3257ab80b91070eb23625644
 
 # -----------------------------------------------------------------------------
 # Reproducibility anchors — must be identical across all build hosts
+# SOURCE_DATE_EPOCH = 2026-05-06 00:00:00 UTC (post-ceremony cert mint at
+# 2026-05-05 17:23:27 UTC; epoch must be >= cert NotBefore for self-consistency)
 # -----------------------------------------------------------------------------
-ARG SOURCE_DATE_EPOCH=1745904000
+ARG SOURCE_DATE_EPOCH=1746489600
 ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
@@ -37,33 +38,24 @@ ENV TZ=UTC
 ENV DEBIAN_FRONTEND=noninteractive
 
 # -----------------------------------------------------------------------------
-# Shim source — pinned to exact Git tag SHA
-# rhboot/shim v16.1 tag object: dad4f20725731a8b16ce136918c312c29694848a
-# (git tag -v 16.1 would verify the signed tag; SHA here is the tag object,
-# not the commit, but Docker's ADD from git resolves tags to commits.
-# For strict reproducibility, we clone at checkout-time and verify.)
+# Shim source — pinned to exact tag AND exact commit SHA
+# Tag 16.1 → commit afc49558b34548644c1cd0ad1b6526a9470182ed
+# Commit pin (L3 fix from B2 leak register) ensures that even if the upstream
+# tag is moved (malicious or accidental), the build asserts the expected SHA
+# and exits non-zero on mismatch.
 # -----------------------------------------------------------------------------
 ARG SHIM_VERSION=16.1
-ARG SHIM_TAG_SHA=dad4f20725731a8b16ce136918c312c29694848a
-
-# -----------------------------------------------------------------------------
-# Vendor certificate — placeholder, replaced post-Thursday ceremony
-# Build arg allows plugging in the real cert without changing the Dockerfile.
-# Default: generate a self-signed placeholder with fixed serial/subject so
-# the intermediate build is deterministic until cert swap.
-# -----------------------------------------------------------------------------
-ARG VENDOR_CERT_SUBJECT="/C=US/O=InterGenOS/CN=InterGenOS Secure Boot CA (PLACEHOLDER)"
-ARG VENDOR_CERT_DAYS=3650
+ARG SHIM_COMMIT=afc49558b34548644c1cd0ad1b6526a9470182ed
 
 # -----------------------------------------------------------------------------
 # Build dependencies
-# gnu-efi: EFI development headers (shim is an EFI application)
-# libelf-dev: ELF manipulation (shim validates PE/COFF headers)
-# openssl: X.509 cert generation and EFI signature tooling
-# sbsigntool: sign EFI binaries (replaces pesign; lighter, pure Debian)
+# gnu-efi: EFI development headers
+# libelf-dev: ELF manipulation for shim's PE/COFF assembly
+# openssl: cert + EFI signature tooling (used by shim's Makefile during build)
 # git / ca-certificates: clone shim source
 # build-essential: gcc + make toolchain
 # perl: shim build scripts
+# (sbsigntool intentionally excluded — signing happens outside the container.)
 # -----------------------------------------------------------------------------
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -74,73 +66,85 @@ RUN apt-get update \
     libelf-dev \
     openssl \
     perl \
-    sbsigntool \
  && rm -rf /var/lib/apt/lists/*
 
 # -----------------------------------------------------------------------------
-# Clone shim source at exact tag
-# --depth 1 keeps the layer small; tag is verified by checkout.
+# Clone shim source at exact tag, then assert the commit SHA matches the pin.
+# --depth 1 keeps the layer small. The assert below is the L3 reproducibility
+# fix: a moved tag now fails the build instead of silently producing a
+# different binary.
 # -----------------------------------------------------------------------------
 WORKDIR /build
-RUN git clone --depth 1 --branch 16.1 --recurse-submodules --shallow-submodules \
+RUN git clone --depth 1 --branch ${SHIM_VERSION} --recurse-submodules --shallow-submodules \
     https://github.com/rhboot/shim.git /build/shim \
- && git -C /build/shim rev-parse HEAD > /build/SHIM_COMMIT_SHA
+ && ACTUAL_SHA=$(git -C /build/shim rev-parse HEAD) \
+ && if [ "${ACTUAL_SHA}" != "${SHIM_COMMIT}" ]; then \
+        echo "ERROR: shim HEAD ${ACTUAL_SHA} != expected ${SHIM_COMMIT}"; \
+        exit 1; \
+    fi \
+ && echo "${ACTUAL_SHA}" > /build/SHIM_COMMIT_SHA
 
 # -----------------------------------------------------------------------------
-# Vendor certificate — fixed test keypair for pre-ceremony reproducibility.
-# Source: tests/fixtures/shim-build/test-vendor-{cert,key}.pem
-# WARNING: TEST ONLY. NEVER use for production signing.
-# Post-ceremony: real vendor cert replaces these files via build arg or COPY.
+# InterGenOS Secure Boot CA vendor certificate (DER + PEM)
+# Cert minted on Nitrokey #1 PIV slot 9c during the 2026-05-05 air-gapped
+# Tails ceremony (see scripts/ceremony/ceremony.py + docs/signing-key.md).
+# Canonical DER fingerprint and PEM-file integrity hash are published in
+# docs/signing-key.md. Private half is hardware-bound to NK#1's PIV applet
+# and physically cannot be extracted; only the public cert lives in repo.
 # -----------------------------------------------------------------------------
-COPY tests/fixtures/shim-build/test-vendor-key.pem /build/vendor_key.pem
-COPY tests/fixtures/shim-build/test-vendor-cert.pem /build/vendor_cert.pem
-COPY tests/fixtures/shim-build/test-vendor-cert.der /build/vendor_cert.der
+COPY docker/shim-build/vendor-cert/intergenos-secure-boot-ca.der /build/vendor_cert.der
+COPY docker/shim-build/vendor-cert/intergenos-secure-boot-ca.pem /build/vendor_cert.pem
 
 # -----------------------------------------------------------------------------
-# Build shim with embedded vendor certificate
-# VENDOR_CERT_FILE points to the DER-encoded certificate shim embeds.
-# ENABLE_SBSIGN=1 enables sbsign-based signing of the resulting shim binary.
+# InterGenOS SBAT vendor entry
+# shim's Makefile globs data/sbat.*.csv (VENDOR_SBATS in the Makefile) and
+# concatenates each match onto the embedded .sbat section. Our distro line
+# below is generation 1; bump only when an InterGenOS shim version needs to
+# be revoked via SBAT enforcement.
+# -----------------------------------------------------------------------------
+COPY docker/shim-build/sbat/sbat.intergenos.csv /build/shim/data/sbat.intergenos.csv
+
+# -----------------------------------------------------------------------------
+# Build the shim binary with embedded vendor cert + SBAT entries.
+# -j1 (L1 fix): serial build to eliminate thread-race ordering as a
+# reproducibility leak. Cost is seconds — shim is small (~30 source files).
+# DEFAULT_LOADER points shim at the GRUB binary it should load next in the
+# Secure Boot chain. ENABLE_SBSIGN intentionally NOT set: we do not sign
+# inside the container.
 # -----------------------------------------------------------------------------
 WORKDIR /build/shim
-RUN make -j$(nproc) \
+RUN make -j1 \
     VENDOR_CERT_FILE=/build/vendor_cert.der \
-    ENABLE_SBSIGN=1 \
     DEFAULT_LOADER="\\\\grubx64.efi"
 
 # -----------------------------------------------------------------------------
-# Sign the shim binary with the vendor key
-# The shim binary is signed so Secure Boot trusts the first-stage loader.
-# -----------------------------------------------------------------------------
-RUN sbsign --key /build/vendor_key.pem \
-           --cert /build/vendor_cert.pem \
-           --output /build/shimx64.efi.signed \
-           /build/shim/shimx64.efi
-
-# -----------------------------------------------------------------------------
 # Collect outputs into a deterministic tarball
-# --sort=name: file order independent of filesystem
-# --owner=0 --group=0 --numeric-owner: consistent ownership
-# --mtime=@SOURCE_DATE_EPOCH: fixed timestamp
-# --format=gnu: GNU tar format supports all needed features
+# All four reproducibility anchors present: --sort, --owner=0, --group=0,
+# --mtime=@SOURCE_DATE_EPOCH. Output binary is UNSIGNED — see
+# scripts/sign-shim.sh for the workstation-side NK#1 signing step.
 # -----------------------------------------------------------------------------
 RUN mkdir -p /out \
- && cp /build/shimx64.efi.signed /out/shimx64.efi \
+ && cp /build/shim/shimx64.efi /out/shimx64.efi \
  && cp /build/vendor_cert.der /out/vendor_cert.der \
+ && cp /build/vendor_cert.pem /out/vendor_cert.pem \
  && cp /build/SHIM_COMMIT_SHA /out/SHIM_COMMIT_SHA \
+ && cp /build/shim/data/sbat.intergenos.csv /out/sbat.intergenos.csv \
  && tar --sort=name \
         --owner=0 --group=0 --numeric-owner \
         --mtime="@${SOURCE_DATE_EPOCH}" \
         --format=gnu \
         -cf /out/intergenos-shim-${SHIM_VERSION}.tar \
-        -C /out shimx64.efi vendor_cert.der SHIM_COMMIT_SHA \
+        -C /out shimx64.efi vendor_cert.der vendor_cert.pem SHIM_COMMIT_SHA sbat.intergenos.csv \
  && sha256sum /out/intergenos-shim-${SHIM_VERSION}.tar > /out/intergenos-shim-${SHIM_VERSION}.tar.sha256 \
  && cat /out/intergenos-shim-${SHIM_VERSION}.tar.sha256
 
 # -----------------------------------------------------------------------------
-# Expected verification:
-#   sha256sum of the tarball MUST match byte-for-byte across:
-#     - /mnt/intergenos-deepseek (Ubuntu 24.04 desktop, x86_64)
-#     - Ubuntu 24.04 server (separate host)
-#     - Windows-claude clone (Zephyrus M16, Docker Desktop)
-#   Mismatch = non-reproducibility bug → fix before shim-review PR.
+# Expected verification (post-build, host-side):
+#   1. sha256sum /out/intergenos-shim-${SHIM_VERSION}.tar (Q25 fill)
+#   2. objcopy --dump-section .sbat=/dev/stdout /out/shimx64.efi (Q14, Q29 fill)
+#   3. readelf -lW /out/shimx64.efi | grep STACK   (Q11 NX-bit assertion)
+#   4. Multi-host: same Dockerfile + repo on different hosts MUST produce
+#      identical tarball sha256. Run scripts/verify-b2-reproducibility.sh
+#      (graduation tracked separately) against two hosts' tarballs.
+#   5. Sign with NK#1: scripts/sign-shim.sh /out/shimx64.efi shimx64.efi.signed
 # -----------------------------------------------------------------------------
