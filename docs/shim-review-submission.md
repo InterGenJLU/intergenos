@@ -486,28 +486,29 @@ Yes — `shim.intergenos,1` for the shim binary (file at `docker/shim-build/sbat
 
 Status: design-intent settled on master; binary-extracted module list verifiable post-Phase-1 GRUB build.
 
-**Minimal module set.** Only modules required to boot off the InterGenOS install media + load the signed kernel. **No filesystem-write modules, no network modules** in the signed image.
+**Minimal module set.** Only modules required to discover boot media, read filesystems we load configs / UKIs from, verify signatures, chain the next signed binary, or render the menu. **No filesystem-write modules, no network modules, no env-write** in the signed image.
 
-The module list is encoded in the `grub-mkstandalone` invocation in `packages/core/grub/build.sh` on master + the embedded grub.cfg at `packages/core/grub/embedded-grub.cfg`. Module categories and rationale:
+The module list is encoded explicitly in `scripts/build-grub-standalone.sh` on master (the `MODULES=( … )` array) — that script is the source of truth for what `grub-mkstandalone --modules=...` is invoked with. Module categories and rationale:
 
 | Category | Modules | Rationale |
 |---|---|---|
-| Boot media discovery | `part_gpt`, `part_msdos`, `iso9660`, `udf` | Required to read the install media partition table + ISO filesystem |
-| Filesystem read-only | `ext2`, `fat`, `xfs`, `btrfs` | Read-only access for `/boot` and target install partitions; no filesystem-write modules included |
-| Crypto + verification | `gcry_sha256`, `gcry_rsa`, `pgp` | Required for shim-lock + module-lock signature verification |
-| Bootloader essentials | `linux`, `linuxefi`, `chain`, `boot`, `configfile`, `echo`, `normal`, `search`, `search_fs_uuid` | Standard GRUB2 boot + `linuxefi` for signed kernel loading |
-| Display | `gfxterm`, `gfxmenu`, `videoinfo`, `videotest`, `vbe`, `efi_gop` | Boot-time display |
-| **Excluded** | `tftp`, `http`, `pxe`, `efinet`, `loopback` (write), `procfs` (write), `loadenv` | Network + writable-FS modules NOT built into the signed image; loading these post-shim-lock would require user MOK enrollment |
+| Boot media + partition discovery | `part_gpt`, `part_msdos`, `iso9660`, `udf` | Required to read the install media partition table + ISO filesystem |
+| Filesystem read access | `ext2`, `fat`, `xfs`, `btrfs` | Read-only paths through these; no filesystem-write modules included |
+| Crypto + signature verification | `shim_lock`, `pgp`, `gcry_sha256`, `gcry_sha512`, `gcry_rsa` | `shim_lock` enforces the shim → GRUB → UKI signature chain under Secure Boot; `pgp` + `gcry_*` provide the verification primitives |
+| Bootloader essentials | `linux`, `chain`, `boot`, `configfile`, `echo`, `normal`, `test`, `true`, `search`, `search_fs_uuid`, `search_label`, `search_fs_file`, `halt`, `reboot`, `ls`, `help` | Standard GRUB2 boot + signed kernel loading + ESP discovery + minimal user-facing controls |
+| Display | `gfxterm`, `gfxmenu`, `videoinfo`, `vbe`, `efi_gop`, `font`, `png` | Boot-time display + theme rendering for the 3-entry menu |
+| **Excluded** | `tftp`, `http`, `pxe`, `efinet`, `loopback` (write), `procfs`, `loadenv`, `savedefault`, `password_pbkdf2` | Network + writable-FS + env-write modules NOT built into the signed image; loading these post-shim-lock would require user MOK enrollment |
 
 **Reviewer-runnable verification (post-Phase-1 GRUB build):**
 
 ```
 objdump -h grubx64.efi | grep mods
+objcopy --dump-section .sbat=/dev/stdout grubx64.efi
 grub2-script-check --root=. <embedded-grub.cfg>
-strings grubx64.efi | grep '^mod_' | sort
+file grubx64.efi  # expect: PE32+ executable (EFI application) x86-64
 ```
 
-The on-master `packages/core/grub/build.sh` is the source of truth for the exact `grub-mkstandalone --modules=...` invocation; reviewers can audit the module list pre-build by inspecting that file.
+The build script `scripts/build-grub-standalone.sh` performs the first three checks itself before declaring PASS; reviewers running the script on a native-Linux Docker host with GRUB 2.14 installed will reproduce the same module set + SBAT entries embedded in the produced binary.
 
 ---
 
