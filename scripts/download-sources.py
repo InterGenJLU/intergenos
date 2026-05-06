@@ -11,6 +11,8 @@ Usage:
     python3 scripts/download-sources.py --all --update-checksums    # Download + update package.yml
     python3 scripts/download-sources.py --verify                    # Verify existing tarballs
     python3 scripts/download-sources.py --all --dry-run             # Show what would be downloaded
+    python3 scripts/download-sources.py --mirror-upload             # Upload local cache to VPS mirror
+    python3 scripts/download-sources.py --mirror-upload --mirror-host user@host --mirror-path /path/to/sources/
 """
 
 import hashlib
@@ -28,7 +30,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 PACKAGES_DIR = PROJECT_ROOT / "packages"
 SOURCES_DIR = PROJECT_ROOT / "build" / "sources"
 
-TIERS = ["toolchain", "core", "base", "desktop"]
+TIERS = ["toolchain", "core", "base", "desktop", "extra"]
 
 
 def sha256_file(path: str) -> str:
@@ -386,6 +388,141 @@ def cmd_verify(tiers: list[str]):
     print(f"\nResults: {good} verified, {bad} mismatched, {missing} missing, {unchecked} no checksum")
 
 
+def generate_sha256sums(sources_dir: Path, dest_path: Path) -> None:
+    """Write SHA256SUMS for all files in sources_dir."""
+    sums = []
+    for f in sorted(sources_dir.iterdir()):
+        if f.is_file() and f.name != "SHA256SUMS":
+            sha = sha256_file(str(f))
+            sums.append(f"{sha}  {f.name}")
+    dest_path.write_text("\n".join(sums) + "\n")
+    print(f"  SHA256SUMS written: {len(sums)} entries")
+
+
+def cmd_mirror_upload(tiers: list[str], mirror_host: str = "", mirror_path: str = "",
+                      dry_run: bool = False):
+    """Upload local source tarballs to the VPS source mirror.
+
+    Creates the current/ directory structure on the mirror and populates
+    it with verified tarballs from the local cache. Generates SHA256SUMS
+    for integrity verification.
+
+    Q1=B (serve upstream as-is): tarballs are exact copies of upstream
+    sources, never repackaged or modified. The SHA256 in the mirror's
+    SHA256SUMS matches the SHA256 in package.yml.
+
+    Q2=A (hard-fail if mirror down): builds reference mirror URLs as
+    primary sources. When the mirror is unreachable, the build fails
+    with a clear error — no silent fallback to upstream.
+    """
+    if not mirror_host:
+        mirror_host = os.environ.get("MIRROR_HOST", "")
+    if not mirror_path:
+        mirror_path = os.environ.get("MIRROR_PATH", "/home/intergenos-fleet/public_html/intergenos/sources")
+
+    packages = load_packages(tiers)
+    print(f"\nPreparing mirror upload for {len(packages)} packages across tiers: {', '.join(tiers)}\n")
+
+    SOURCES_DIR.mkdir(parents=True, exist_ok=True)
+
+    to_upload = []
+    seen_files = set()
+    verified = 0
+    missing = 0
+    unchecked = 0
+
+    for pkg in packages:
+        for src in get_source_info(pkg):
+            dest = SOURCES_DIR / src["filename"]
+
+            if not dest.exists() or dest.stat().st_size == 0:
+                missing += 1
+                continue
+
+            if src["needs_checksum"]:
+                unchecked += 1
+                continue
+
+            if src["filename"] in seen_files:
+                continue
+
+            actual = sha256_file(str(dest))
+            if actual == src["sha256"]:
+                verified += 1
+                seen_files.add(src["filename"])
+                to_upload.append({
+                    "filename": src["filename"],
+                    "sha256": actual,
+                    "size": dest.stat().st_size,
+                    "path": str(dest),
+                })
+            else:
+                missing += 1
+                print(f"  CHECKSUM MISMATCH (skipping): {src['filename']}")
+
+    print(f"  Verified: {verified}  Missing/unchecked/mismatched: {missing + unchecked}")
+    print(f"  To upload: {len(to_upload)} tarballs\n")
+
+    if missing + unchecked > 0 and not dry_run:
+        print("  WARNING: some tarballs are missing or lack checksums. Run --all --update-checksums first.")
+        print()
+
+    if dry_run:
+        total_size = sum(item["size"] for item in to_upload)
+        print(f"  [DRY RUN] Would upload {len(to_upload)} files ({total_size / 1024 / 1024:.1f} MB total)")
+        for item in to_upload[:10]:
+            print(f"    {item['filename']} ({item['size'] / 1024 / 1024:.1f} MB)")
+        if len(to_upload) > 10:
+            print(f"    ... and {len(to_upload) - 10} more")
+        return
+
+    if not mirror_host:
+        print("ERROR: --mirror-host required (or set MIRROR_HOST env var)")
+        print("  Example: --mirror-host intergenos-fleet@intergenstudios.com")
+        sys.exit(1)
+
+    import tempfile
+
+    with tempfile.TemporaryDirectory(prefix="mirror-upload-") as staging:
+        staging_path = Path(staging)
+        current_path = staging_path / "current"
+        current_path.mkdir()
+
+        total_size = 0
+        for item in to_upload:
+            dest_file = current_path / item["filename"]
+            import shutil
+            shutil.copy2(item["path"], str(dest_file))
+            total_size += item["size"]
+
+        generate_sha256sums(current_path, current_path / "SHA256SUMS")
+
+        print(f"  Staging complete: {len(to_upload)} files, {total_size / 1024 / 1024:.1f} MB")
+        print(f"  Uploading to {mirror_host}:{mirror_path}/current/ ...")
+        print()
+
+        ssh_key = os.environ.get("MIRROR_SSH_KEY",
+                                  os.path.expanduser("~/.ssh/intergenos-fleet_ed25519"))
+
+        remote_dest = f"{mirror_host}:{mirror_path}/current/"
+        result = subprocess.run(
+            ["rsync", "-avz", "--progress",
+             "-e", f"ssh -i {ssh_key} -o StrictHostKeyChecking=accept-new",
+             f"{current_path}/", remote_dest],
+            capture_output=True, text=True, timeout=600, shell=False
+        )
+
+        if result.returncode == 0:
+            print(result.stdout[-500:] if len(result.stdout) > 500 else result.stdout)
+            print(f"\n  UPLOAD COMPLETE — {len(to_upload)} files synced to {remote_dest}")
+            print(f"  Public URL: https://intergenstudios.com/intergenos/sources/current/")
+        else:
+            print(f"  rsync stderr: {result.stderr[-500:]}")
+            print(f"  rsync exit code: {result.returncode}")
+            print(f"  UPLOAD FAILED. Check SSH connectivity to {mirror_host}")
+            sys.exit(1)
+
+
 def main():
     args = sys.argv[1:]
 
@@ -398,12 +535,23 @@ def main():
     update_checksums = "--update-checksums" in args
     dry_run = "--dry-run" in args
     verify_mode = "--verify" in args
+    mirror_upload = "--mirror-upload" in args
+    mirror_host = ""
+    mirror_path = ""
+
+    if "--mirror-host" in args:
+        idx = args.index("--mirror-host")
+        if idx + 1 < len(args):
+            mirror_host = args[idx + 1]
+    if "--mirror-path" in args:
+        idx = args.index("--mirror-path")
+        if idx + 1 < len(args):
+            mirror_path = args[idx + 1]
 
     if "--all" in args:
         tiers = TIERS
     elif "--tier" in args:
         idx = args.index("--tier")
-        # Collect all following args that aren't flags
         for a in args[idx+1:]:
             if a.startswith("--"):
                 break
@@ -413,9 +561,11 @@ def main():
                 print(f"Unknown tier: {a}. Valid: {', '.join(TIERS)}")
                 sys.exit(1)
 
-    if not tiers and not verify_mode:
-        print("Error: specify --tier <name> or --all")
-        sys.exit(1)
+    if mirror_upload:
+        if not tiers:
+            tiers = TIERS
+        cmd_mirror_upload(tiers, mirror_host=mirror_host, mirror_path=mirror_path, dry_run=dry_run)
+        return
 
     if verify_mode:
         if not tiers:
