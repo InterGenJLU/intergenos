@@ -133,8 +133,12 @@ fi
 # Final verdict
 echo "" >> "$VERDICT_FILE"
 echo "=== VERDICT ===" >> "$VERDICT_FILE"
-FAIL_COUNT=$(grep -c "^FAIL:" "$VERDICT_FILE" || echo 0)
-PASS_COUNT=$(grep -c "^PASS:" "$VERDICT_FILE" || echo 0)
+set +e
+FAIL_COUNT=$(grep -c "^FAIL:" "$VERDICT_FILE")
+PASS_COUNT=$(grep -c "^PASS:" "$VERDICT_FILE")
+set -e
+FAIL_COUNT=${FAIL_COUNT:-0}
+PASS_COUNT=${PASS_COUNT:-0}
 echo "$PASS_COUNT checks PASS, $FAIL_COUNT checks FAIL" >> "$VERDICT_FILE"
 
 # exit 0 = full reproducibility PASS. exit N = N checks failed.
