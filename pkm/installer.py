@@ -97,13 +97,14 @@ class PackageInstaller:
             # Extract archive to staging for inspection. Hardened tar flags:
             # --no-same-owner: don't preserve UID/GID from archive
             # --no-same-permissions: apply umask instead of archive perms
-            result = subprocess.run(
-                ["tar", "-xzf", str(archive_path), "-C", str(staging),
-                 "--no-same-owner", "--no-same-permissions"],
-                capture_output=True, text=True
-            )
-            if result.returncode != 0:
-                return False, f"Failed to extract archive: {result.stderr}"
+            try:
+                result = subprocess.run(
+                    ["tar", "-xzf", str(archive_path), "-C", str(staging),
+                     "--no-same-owner", "--no-same-permissions"],
+                    capture_output=True, text=True, check=True
+                )
+            except subprocess.CalledProcessError as e:
+                return False, f"Failed to extract archive: {e.stderr}"
 
             # Read staged manifest (if present): SUPERSEDES + file list + hashes.
             supersedes_decl, manifest_files, manifest_hashes = self._read_staged_manifest(staging, name)
@@ -155,14 +156,15 @@ class PackageInstaller:
             # tar succeeds, the supersede transaction below records the
             # ownership transfer; if it fails, no DB changes happen and
             # predecessors keep their records.
-            result = subprocess.run(
-                ["tar", "-xzf", str(archive_path), "-C", str(self.root),
-                 "--no-overwrite-dir", "--keep-directory-symlink",
-                 "--no-same-owner", "--no-same-permissions"],
-                capture_output=True, text=True
-            )
-            if result.returncode != 0:
-                return False, f"Failed to deploy: {result.stderr}"
+            try:
+                result = subprocess.run(
+                    ["tar", "-xzf", str(archive_path), "-C", str(self.root),
+                     "--no-overwrite-dir", "--keep-directory-symlink",
+                     "--no-same-owner", "--no-same-permissions"],
+                    capture_output=True, text=True, check=True
+                )
+            except subprocess.CalledProcessError as e:
+                return False, f"Failed to deploy: {e.stderr}"
 
             # Restore setuid/setgid/sticky bits that hardened-tar dropped.
             try:
