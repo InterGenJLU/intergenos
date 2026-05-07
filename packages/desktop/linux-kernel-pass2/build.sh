@@ -48,5 +48,7 @@ do_install() {
     cp -v System.map /boot/System.map-6.18.10
     cp -v .config /boot/config-6.18.10
 
-    depmod 6.18.10
+    # LOCALVERSION=-igos (set by config fragments) makes modules
+    # install to /lib/modules/6.18.10-igos/ — depmod must match.
+    depmod 6.18.10-igos
 }
