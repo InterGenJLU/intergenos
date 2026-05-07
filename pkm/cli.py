@@ -156,9 +156,9 @@ def cmd_install(db, args):
                     for chunk in iter(lambda: f.read(8192), b""):
                         sha.update(chunk)
                 archive_sha = sha.hexdigest()
-            except Exception:
-                print(f"  ERROR: cannot read archive: {archive}")
-                continue
+            except (IOError, OSError) as e:
+                print(f"  ERROR: cannot read archive: {e}")
+                sys.exit(1)
 
             print(f"  Archive: {archive}")
             print(f"  SHA256:  {archive_sha}")

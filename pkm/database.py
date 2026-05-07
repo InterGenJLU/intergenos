@@ -236,7 +236,7 @@ class PackageDB:
                     (package_id, path.rstrip("/"), is_dir, is_config, checksum)
                 )
             except sqlite3.IntegrityError:
-                pass
+                print(f"  WARNING: integrity error on file entry {path}", file=sys.stderr)
         if commit:
             self.conn.commit()
 
