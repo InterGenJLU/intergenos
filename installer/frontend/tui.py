@@ -28,6 +28,8 @@ import os
 import shutil
 import subprocess
 import sys
+import traceback
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -565,43 +567,114 @@ def run_declarative(yaml_path, install_io, archive_dir, packages_dir, dry_run):
 # --------------------------------------------------------------------------
 
 
+DEBUG_LOG_PATH = "/var/log/igos-install-debug.log"
+
+
+def _write_debug_log(exc_type, exc):
+    """Append a timestamped traceback to the install-debug log.
+
+    Best-effort: if the log can't be written (read-only fs, permission,
+    disk full), swallow silently so we don't mask the original exception
+    in run_installer's outer handler. Returns True iff the write succeeded
+    so the caller can decide whether to advertise the path to the user.
+    """
+    try:
+        with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(
+                f"\n=== forge crash {datetime.utcnow().isoformat(timespec='seconds')}Z ===\n"
+                f"{exc_type.__name__}: {exc}\n"
+            )
+            f.write(traceback.format_exc())
+        return True
+    except Exception:
+        return False
+
+
 def run_installer(archive_dir, packages_dir=None, dry_run=False):
-    """Orchestrate the declarative-builder TUI: walk → emit → prompt → confirm → run."""
-    # Walking — yaml-bound choices
-    answers = walking()
-    if answers is None:
-        return _cleanup_on_abort()
+    """Orchestrate the declarative-builder TUI: walk → emit → prompt → confirm → run.
 
-    yaml_path = emit_yaml(answers)
-    print(f"forge: install config written to {yaml_path}")
+    Top-level try/except wraps the entire flow so the user never sees a raw
+    Python traceback mid-install. Two failure classes:
+      * KeyboardInterrupt (Ctrl-C) → exit 130 with "Cancelled by user"
+      * any other Exception → log traceback to DEBUG_LOG_PATH (best-effort),
+        print sanitized "internal error" line, exit 1.
 
-    # Interactive — disk + passwords (Q-TUI-INTERACTIVITY=B)
-    install_io = prompt_install_io()
-    if install_io is None:
-        return _cleanup_on_abort(yaml_path=str(yaml_path))
+    The yaml at /var/lib/forge/install.yaml is best-effort cleaned up in the
+    finally block — even on crash we don't leave stale install state on the
+    live overlay.
+    """
+    yaml_path = None
+    try:
+        # Walking — yaml-bound choices
+        answers = walking()
+        if answers is None:
+            return _cleanup_on_abort()
 
-    # Confirm summary — last chance before destructive install
-    if not _show_confirm_summary(answers, install_io):
-        return _cleanup_on_abort(yaml_path=str(yaml_path))
+        yaml_path = emit_yaml(answers)
+        print(f"forge: install config written to {yaml_path}")
 
-    rc = run_declarative(str(yaml_path), install_io, archive_dir,
-                         packages_dir, dry_run)
+        # Interactive — disk + passwords (Q-TUI-INTERACTIVITY=B)
+        install_io = prompt_install_io()
+        if install_io is None:
+            return _cleanup_on_abort(yaml_path=str(yaml_path))
 
-    # Reboot prompt
-    if rc == 0:
-        if _ask_yesno(
-            "Installation complete",
-            "Installation completed successfully.\n\n"
-            "Reboot now to boot into your new InterGenOS system?"
-        ):
-            print("forge: rebooting...")
-            subprocess.run(["reboot"], check=False)
-        else:
-            print("forge: you can reboot later by running 'reboot' or Ctrl+Alt+Del.")
+        # Confirm summary — last chance before destructive install
+        if not _show_confirm_summary(answers, install_io):
+            return _cleanup_on_abort(yaml_path=str(yaml_path))
 
-    # Clean up the ephemeral yaml
-    Path(str(yaml_path)).unlink(missing_ok=True)
-    return rc
+        rc = run_declarative(str(yaml_path), install_io, archive_dir,
+                             packages_dir, dry_run)
+
+        # Reboot prompt
+        if rc == 0:
+            if _ask_yesno(
+                "Installation complete",
+                "Installation completed successfully.\n\n"
+                "Reboot now to boot into your new InterGenOS system?"
+            ):
+                if shutil.which("reboot"):
+                    print("forge: rebooting...")
+                    subprocess.run(["reboot"], check=False)
+                else:
+                    # Non-systemd init or busybox-only environment: 'reboot'
+                    # binary missing. Don't pretend we rebooted.
+                    print("forge: 'reboot' command not found on this system.",
+                          file=sys.stderr)
+                    print("       Please reboot manually (Ctrl+Alt+Del or your "
+                          "platform's reboot command).", file=sys.stderr)
+            else:
+                print("forge: you can reboot later by running 'reboot' or Ctrl+Alt+Del.")
+
+        return rc
+
+    except KeyboardInterrupt:
+        print()
+        print("forge: cancelled by user. No changes were made to the target disk.",
+              file=sys.stderr)
+        return 130
+
+    except Exception as e:
+        # Last-resort guard. Write the traceback to a debug log (best-effort)
+        # so post-incident review has the full stack, but show the user only
+        # a sanitized one-liner — they don't need stderr graffiti to know the
+        # install failed.
+        logged = _write_debug_log(type(e), e)
+        print()
+        print(f"forge: internal error: {type(e).__name__}: {e}", file=sys.stderr)
+        print("forge: install was aborted; the target disk may be in a partial state.",
+              file=sys.stderr)
+        if logged:
+            print(f"       Full traceback at {DEBUG_LOG_PATH}.", file=sys.stderr)
+        return 1
+
+    finally:
+        # Best-effort yaml cleanup. We don't want a stale /var/lib/forge/install.yaml
+        # surviving a crash and getting picked up by an accidental re-launch.
+        if yaml_path is not None:
+            try:
+                Path(str(yaml_path)).unlink(missing_ok=True)
+            except Exception:
+                pass
 
 
 # Legacy compatibility — the original `run_installer` signature is preserved.
