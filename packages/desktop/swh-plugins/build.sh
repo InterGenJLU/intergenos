@@ -16,8 +16,12 @@
 configure() {
     set -e
     autoreconf -fi
-    ./configure --prefix=/usr  \
-                --enable-sse
+    # Vendored gsm/ subdir builds libgsm.a as a non-libtool static archive,
+    # then top-level Makefile links it into a shared LADSPA plugin
+    # (gsm_1215.la). Modern toolchains refuse to link non-PIC objects into
+    # shared libs — propagate -fPIC into all CFLAGS so gsm/*.o are PIC-clean.
+    CFLAGS="${CFLAGS:-} -fPIC" ./configure --prefix=/usr  \
+                                            --enable-sse
 }
 
 build() {
