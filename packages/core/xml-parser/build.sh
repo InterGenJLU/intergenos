@@ -5,17 +5,21 @@
 # Perl module — uses Makefile.PL instead of autotools.
 
 configure() {
+    set -e
     perl Makefile.PL
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     make test
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

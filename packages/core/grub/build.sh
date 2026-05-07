@@ -6,6 +6,7 @@
 # BIOS build is the primary; EFI is built separately and merged.
 
 configure() {
+    set -e
     # Unset any GRUB-related environment variables
     unset {C,CXX,CPP,LD}FLAGS
 
@@ -24,6 +25,7 @@ configure() {
 }
 
 build() {
+    set -e
     cd build-bios
     make -j${IGOS_JOBS}
 
@@ -43,6 +45,7 @@ build() {
 }
 
 do_install() {
+    set -e
     cd build-bios
     make DESTDIR="$DESTDIR" install
 

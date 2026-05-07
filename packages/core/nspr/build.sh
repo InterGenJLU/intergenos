@@ -4,6 +4,7 @@
 # Note: source extracts with nspr/ subdirectory
 
 configure() {
+    set -e
     cd nspr
 
     # Disable installing unneeded static libs and scripts
@@ -17,11 +18,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd nspr
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     cd nspr
     make DESTDIR="$DESTDIR" install
 }

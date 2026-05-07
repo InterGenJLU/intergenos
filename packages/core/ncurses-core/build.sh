@@ -7,6 +7,7 @@
 # to stage into $DESTDIR instead.
 
 configure() {
+    set -e
     ./configure --prefix=/usr           \
         --mandir=/usr/share/man         \
         --with-shared                   \
@@ -18,10 +19,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     # Stage into a local dest first (LFS pattern), then copy to $DESTDIR
     make DESTDIR=$PWD/dest install
 

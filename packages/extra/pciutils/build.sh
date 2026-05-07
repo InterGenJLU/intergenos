@@ -3,12 +3,14 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # BLFS: Prevent installing pci.ids — hwdata provides it
     sed -r '/INSTALL/{/PCI_IDS|update-pciids /d; s/update-pciids.8//}' \
         -i Makefile
 }
 
 build() {
+    set -e
     make PREFIX=/usr                \
          SHAREDIR=/usr/share/hwdata \
          SHARED=yes                 \
@@ -16,6 +18,7 @@ build() {
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR"              \
          PREFIX=/usr                     \
          SHAREDIR=/usr/share/hwdata      \

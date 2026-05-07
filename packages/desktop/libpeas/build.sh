@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # BLFS required fixes
     sed "/docs_dir =/s@\$@/ 'libpeas-${PKG_VERSION}'@" -i ../docs/reference/meson.build
     mkdir build
@@ -19,11 +20,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }

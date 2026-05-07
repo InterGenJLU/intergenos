@@ -4,6 +4,7 @@
 # Note: does NOT support parallel build (make -j1)
 
 configure() {
+    set -e
     # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
 
     # Additional fixes for gcc-14+
@@ -22,11 +23,13 @@ configure() {
 }
 
 build() {
+    set -e
     # Cyrus SASL does NOT support parallel build
     make -j1
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 
     install -v -dm755 "${DESTDIR}/usr/share/doc/cyrus-sasl-${PKG_VERSION}/html"
@@ -37,6 +40,7 @@ do_install() {
 }
 
 post_install() {
+    set -e
     # Create SASL database directory
     install -v -dm700 /var/lib/sasl
 }

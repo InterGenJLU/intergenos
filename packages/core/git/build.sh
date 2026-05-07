@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     ./configure --prefix=/usr                   \
                 --with-gitconfig=/etc/gitconfig \
                 --with-python=python3           \
@@ -10,14 +11,17 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     GIT_UNZIP=nonexist make test -k || true
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" perllibdir=/usr/lib/perl5/5.42/site_perl install
 
     # Install pre-built man pages

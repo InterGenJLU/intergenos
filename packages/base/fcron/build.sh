@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Create fcron user/group
     groupadd -g 22 fcron 2>/dev/null || true
     useradd -d /dev/null -c "Fcron User" -g fcron -s /bin/false -u 22 fcron 2>/dev/null || true
@@ -19,14 +20,17 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }
 
 post_install() {
+    set -e
     # Create run-parts script
     cat > /usr/bin/run-parts << "RUNPARTS"
 #!/bin/sh

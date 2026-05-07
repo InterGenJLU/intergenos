@@ -42,6 +42,7 @@
 #   -DCMAKE_BUILD_TYPE=Release             — match other desktop CMake packages
 
 configure() {
+    set -e
     cmake -B build                                  \
           -DCMAKE_INSTALL_PREFIX=/usr               \
           -DCMAKE_BUILD_TYPE=Release                \
@@ -52,6 +53,7 @@ configure() {
 }
 
 build() {
+    set -e
     # Header-only — `cmake --build` is essentially a no-op that prepares the
     # install tree (RapidJSONConfig.cmake.in -> RapidJSONConfig.cmake, .pc.in
     # -> .pc). Run it for hygiene; don't skip.
@@ -62,9 +64,11 @@ build() {
 # Upstream's tests are unit/perf tests against gtest, which we deliberately
 # don't pull in (see RAPIDJSON_BUILD_TESTS=OFF rationale above).
 check() {
+    set -e
     return 0
 }
 
 do_install() {
+    set -e
     DESTDIR="$DESTDIR" cmake --install build
 }

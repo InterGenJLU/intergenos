@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # BLFS required fixes
     sed "s/api_version_major/'${PKG_VERSION}'/" -i ../docs/reference/libsecret/meson.build
     mkdir build
@@ -16,15 +17,18 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }
 
 post_install() {
+    set -e
     glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null || true
 }

@@ -9,19 +9,23 @@
 BUILD_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 configure() {
+    set -e
     ./autogen.sh
     ./configure --prefix=/usr
 }
 
 build() {
+    set -e
     make
 }
 
 check() {
+    set -e
     ./catatonit --version
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
     install -d "$DESTDIR/usr/share/man/man1"
     install -v -m644 "$BUILD_DIR/catatonit.1" "$DESTDIR/usr/share/man/man1/catatonit.1"

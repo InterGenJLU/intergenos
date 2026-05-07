@@ -3,6 +3,7 @@
 # LFS 13.0 Section 8.43
 
 configure() {
+    set -e
     export BUILD_ZLIB=False
     export BUILD_BZIP2=0
 
@@ -23,14 +24,17 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     TEST_JOBS=$(nproc) make test_harness
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
     unset BUILD_ZLIB BUILD_BZIP2
 }

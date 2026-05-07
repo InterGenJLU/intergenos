@@ -3,6 +3,7 @@
 # LFS 13.0 Section 8.82
 
 configure() {
+    set -e
     ./configure --bindir=/usr/bin      \
         --libdir=/usr/lib              \
         --runstatedir=/run             \
@@ -22,10 +23,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     # LFS: touch /etc/fstab to prevent two test failures
     touch /etc/fstab
 
@@ -36,6 +39,7 @@ check() {
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 
     # Set setuid bits — mount/umount need setuid for non-root user mounts.

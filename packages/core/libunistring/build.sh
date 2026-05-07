@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Fix required by glibc-2.43+
     sed -r '/_GL_EXTERN_C/s/w?memchr|bsearch/(&)/' \
         -i $(find -name \*.in.h)
@@ -13,13 +14,16 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     make check || true
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

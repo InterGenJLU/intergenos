@@ -8,18 +8,22 @@
 # Built with cargo --release --frozen.
 
 configure() {
+    set -e
     :
 }
 
 build() {
+    set -e
     cargo build --release --frozen
 }
 
 check() {
+    set -e
     ./target/release/netavark --version
 }
 
 do_install() {
+    set -e
     install -D -m 0755 target/release/netavark \
         "$DESTDIR/usr/libexec/podman/netavark"
 }

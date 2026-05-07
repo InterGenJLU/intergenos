@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Extract vendored crate dependencies (built offline on host)
     tar xf "${IGOS_SOURCES}/librsvg-${PKG_VERSION}-vendor.tar.xz" --strip-components=1
 
@@ -21,20 +22,24 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 check() {
+    set -e
     cd build
     meson test -v || true
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }
 
 post_install() {
+    set -e
     gdk-pixbuf-query-loaders --update-cache
 }

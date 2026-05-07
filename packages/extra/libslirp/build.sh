@@ -9,6 +9,7 @@
 BUILD_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 configure() {
+    set -e
     meson setup build \
         --prefix=/usr \
         --libdir=/usr/lib \
@@ -16,10 +17,12 @@ configure() {
 }
 
 build() {
+    set -e
     ninja -C build
 }
 
 do_install() {
+    set -e
     DESTDIR="$DESTDIR" ninja -C build install
     install -d "$DESTDIR/usr/share/man/man3"
     install -v -m644 "$BUILD_DIR/libslirp.3" "$DESTDIR/usr/share/man/man3/libslirp.3"

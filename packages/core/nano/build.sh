@@ -8,6 +8,7 @@
 # Spell checking compiles in but needs hunspell/aspell at runtime.
 
 configure() {
+    set -e
     ./configure --prefix=/usr      \
         --sysconfdir=/etc          \
         --enable-utf8              \
@@ -15,14 +16,17 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     : # No test suite
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 
     # Install documentation

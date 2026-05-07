@@ -3,6 +3,7 @@
 # LFS 13.0 Section 8.61
 
 configure() {
+    set -e
     # Apply i18n patch for multibyte locale compliance
     patch -Np1 -i ${IGOS_PATCHES}/coreutils-9.10-i18n-1.patch
 
@@ -14,10 +15,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     # Run root-specific tests first
     make NON_ROOT_USERNAME=tester check-root
 
@@ -34,6 +37,7 @@ check() {
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 
     # Move chroot to /usr/sbin and fix its man page section

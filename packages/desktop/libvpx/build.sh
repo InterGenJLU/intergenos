@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     sed -i 's/cp -p/cp/' build/make/Makefile
 
     mkdir libvpx-build
@@ -14,16 +15,19 @@ configure() {
 }
 
 build() {
+    set -e
     cd libvpx-build
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     cd libvpx-build
     LD_LIBRARY_PATH=. make test || true
 }
 
 do_install() {
+    set -e
     cd libvpx-build
     make DESTDIR="$DESTDIR" install
 }

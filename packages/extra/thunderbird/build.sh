@@ -6,6 +6,7 @@
 # Ensure /dev/shm is mounted if building in chroot.
 
 configure() {
+    set -e
     # Patches applied by builder PATCH phase (package.yml) with SHA256 validation.
     # Post-patch fixups only below.
 
@@ -67,6 +68,7 @@ MOZEOF
 }
 
 build() {
+    set -e
     export MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=none
     export MOZBUILD_STATE_PATH=$(pwd)/mozbuild
 
@@ -76,11 +78,13 @@ build() {
 }
 
 do_install() {
+    set -e
     MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=none \
         DESTDIR="$DESTDIR" ./mach install
 }
 
 post_install() {
+    set -e
     # Create desktop file for menu integration
     mkdir -pv /usr/share/{applications,pixmaps}
 

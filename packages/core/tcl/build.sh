@@ -5,6 +5,7 @@
 # Test infrastructure — needed for Binutils, GCC, and other test suites.
 
 configure() {
+    set -e
     cd unix
     ./configure --prefix=/usr           \
         --mandir=/usr/share/man         \
@@ -12,6 +13,7 @@ configure() {
 }
 
 build() {
+    set -e
     # SRCDIR must be computed here — each phase runs in a separate subprocess
     SRCDIR=$(dirname $(pwd))
     cd unix
@@ -35,11 +37,13 @@ build() {
 }
 
 check() {
+    set -e
     cd unix
     LC_ALL=C.UTF-8 make test
 }
 
 do_install() {
+    set -e
     cd unix
     make DESTDIR="$DESTDIR" install
 

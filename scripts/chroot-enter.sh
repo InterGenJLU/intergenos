@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # InterGenOS Chroot Entry — "Drop In"
 # LFS 13.0 Section 7.4
 #
@@ -13,7 +14,7 @@
 # For our build scripts, they're on the virtiofs mount, so use:
 #   sudo bash /mnt/intergenos/scripts/chroot-enter.sh /mnt/intergenos/scripts/chroot-build.sh
 
-IGOS=/mnt/igos
+IGOS="${IGOS:-/mnt/igos}"
 
 # Verify we're root
 if [ "$(id -u)" -ne 0 ]; then

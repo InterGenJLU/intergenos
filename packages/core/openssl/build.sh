@@ -3,6 +3,7 @@
 # LFS 13.0 Section 8.48
 
 configure() {
+    set -e
     ./config --prefix=/usr         \
         --openssldir=/etc/ssl      \
         --libdir=lib               \
@@ -11,15 +12,18 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     # HARNESS_JOBS speeds up the test suite significantly
     HARNESS_JOBS=$(nproc) make test || true
 }
 
 do_install() {
+    set -e
     sed -i '/INSTALL_LIBS/s/libcrypto.a libssl.a//' Makefile
     make DESTDIR="$DESTDIR" MANSUFFIX=ssl install
 

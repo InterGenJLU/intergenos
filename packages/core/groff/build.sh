@@ -6,17 +6,21 @@
 # letter = US, A4 = everywhere else.
 
 configure() {
+    set -e
     PAGE=letter ./configure --prefix=/usr
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     make check
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

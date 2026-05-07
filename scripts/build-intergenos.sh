@@ -595,6 +595,8 @@ phase_chroot_tools() {
 }
 
 sync_chroot_scripts() {
+    command -v rsync >/dev/null || { log "FATAL: rsync required but not installed"; return 1; }
+
     # Ensure chroot virtual filesystems are mounted.
     # When using --start-at to resume from a later phase, the chroot-prep
     # phase (which normally mounts these) is skipped. Without mounts,

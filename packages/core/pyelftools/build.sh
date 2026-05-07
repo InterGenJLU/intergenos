@@ -15,20 +15,24 @@
 # --root instead of DESTDIR.
 
 configure() {
+    set -e
     : # No configure step
 }
 
 build() {
+    set -e
     pip3 wheel -w dist --no-cache-dir --no-build-isolation --no-deps "$PWD"
 }
 
 check() {
+    set -e
     # Smoke-test: import + version probe. Pure-Python module so the
     # only failure mode is install path / Python interpreter shape.
     python3 -c "import elftools, sys; print('pyelftools', elftools.__version__, 'on Python', sys.version.split()[0])"
 }
 
 do_install() {
+    set -e
     pip3 install --no-index --no-user --root="$DESTDIR" --no-deps \
         --find-links dist pyelftools
 }

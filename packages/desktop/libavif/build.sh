@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # BLFS required fix
     sed 's/enable_adaptive_quantization/aq_mode/' -i src/codec_svt.c
 
@@ -14,9 +15,11 @@ configure() {
 }
 
 build() {
+    set -e
     cmake --build build -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     DESTDIR="$DESTDIR" cmake --install build
 }

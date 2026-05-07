@@ -3,16 +3,19 @@
 # BLFS 13.0 — builds both speex and speexdsp
 
 configure() {
+    set -e
     ./configure --prefix=/usr    \
                 --disable-static \
                 --docdir=/usr/share/doc/speex-${PKG_VERSION}
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 
     # BLFS: now build and install speexdsp from second source tarball

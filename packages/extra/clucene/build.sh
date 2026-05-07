@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
 
     # BLFS: fix missing ctime include
@@ -18,11 +19,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" make install
 }

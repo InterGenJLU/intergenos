@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     ./configure --prefix=/usr         \
                 --libexecdir=/usr/lib \
                 --with-secure-path    \
@@ -12,14 +13,17 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     env LC_ALL=C make check || true
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 
     # Set setuid bit — sudo must run as root to escalate privileges.
@@ -28,6 +32,7 @@ do_install() {
 }
 
 post_install() {
+    set -e
     # Create sudoers drop-in
     cat > /etc/sudoers.d/00-sudo << "EOF"
 Defaults secure_path="/usr/sbin:/usr/bin"

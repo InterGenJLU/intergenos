@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # BLFS required fix
     sed -i "s/'system',//" meson.build
 
@@ -16,11 +17,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd bld
     ninja
 }
 
 do_install() {
+    set -e
     cd bld
     DESTDIR="$DESTDIR" ninja install
 }

@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Fix Python scripts that reference python2
     grep -rl '^#!.*python$' | xargs sed -i '1s/python/&3/' 2>/dev/null || true
 
@@ -28,16 +29,19 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }
 
 post_install() {
+    set -e
     # Enable NetworkManager for GNOME desktop integration
     # (replaces systemd-networkd which is server-oriented)
     systemctl enable NetworkManager.service 2>/dev/null || true

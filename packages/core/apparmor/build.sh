@@ -3,14 +3,17 @@
 # Pulls substrate profiles + installs InterGenOS-specific profiles
 
 configure() {
+    set -e
     :
 }
 
 build() {
+    set -e
     :
 }
 
 do_install() {
+    set -e
     # 1. Install Debian 12 (bookworm) substrate profiles from source tarball
     install -vdm 755 "$DESTDIR/etc/apparmor.d/"
     install -vdm 755 "$DESTDIR/etc/apparmor.d/disable/"

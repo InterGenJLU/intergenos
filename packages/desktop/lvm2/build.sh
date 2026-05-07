@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     PATH+=:/usr/sbin                \
     ./configure --prefix=/usr       \
                 --enable-cmdlib     \
@@ -11,10 +12,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
     make DESTDIR="$DESTDIR" install_systemd_units
 }

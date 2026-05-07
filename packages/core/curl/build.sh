@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     ./configure --prefix=/usr    \
                 --disable-static \
                 --with-openssl   \
@@ -11,14 +12,17 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     make test || true
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 
     # Install documentation

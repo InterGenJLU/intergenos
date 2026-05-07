@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # BLFS required fixes
     sed -i '/cmptest/d' tests/CMakeLists.txt
     sed -i 's/PythonInterp/Python3/' CMakeLists.txt
@@ -16,9 +17,11 @@ configure() {
 }
 
 build() {
+    set -e
     cmake --build build -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     DESTDIR="$DESTDIR" cmake --install build
 }

@@ -3,6 +3,7 @@
 # BLFS 13.0 (meson build with Python bindings)
 
 configure() {
+    set -e
     # BLFS: remove unnecessary git call
     sed -i "/'git'/,+3d" meson.build
 
@@ -25,11 +26,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }

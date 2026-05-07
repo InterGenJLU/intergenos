@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # BLFS: disable static library installation
     sed -e '/install -m 644 $(LIBNEWT)/ s/^/#/' \
         -e '/$(LIBNEWT):/,/rv/ s/^/#/'          \
@@ -14,9 +15,11 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

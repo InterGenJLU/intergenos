@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Apply chromium method patch
 
     # Fix for SVT-AV1 4.0.0+
@@ -33,11 +34,13 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS} &&
     gcc tools/qt-faststart.c -o tools/qt-faststart
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 
     install -v -m755    tools/qt-faststart "${DESTDIR}/usr/bin"

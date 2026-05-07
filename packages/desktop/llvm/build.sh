@@ -4,6 +4,7 @@
 # Note: requires clang, cmake-modules, and third-party tarballs in sources dir
 
 pre_configure() {
+    set -e
     # Extract additional required tarballs
     tar -xf "${IGOS_SOURCES_DIR}/llvm-cmake-${version}.src.tar.xz"
     tar -xf "${IGOS_SOURCES_DIR}/llvm-third-party-${version}.src.tar.xz"
@@ -32,6 +33,7 @@ pre_configure() {
 }
 
 configure() {
+    set -e
     pre_configure
 
     mkdir -v build
@@ -55,16 +57,19 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }
 
 post_install() {
+    set -e
     # Create clang configuration files combining:
     #   --gcc-triple   — tell clang's GCCInstallationDetector about our custom
     #                    triple x86_64-igos-linux-gnu (not in clang's hardcoded

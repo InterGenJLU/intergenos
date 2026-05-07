@@ -3,6 +3,7 @@
 # LFS 13.0 Section 6.9
 
 configure() {
+    set -e
     # LFS: prevent installation of unnecessary extras
     sed -i 's/extras//' Makefile.in
 
@@ -12,9 +13,11 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 install() {
+    set -e
     make DESTDIR=$IGOS install
 }

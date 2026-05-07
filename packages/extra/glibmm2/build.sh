@@ -2,6 +2,7 @@
 # glibmm2 2.66.7 — C++ bindings for GLib 2.4 (GTK3-era, coexisting with newer glibmm)
 
 configure() {
+    set -e
     meson setup build               \
           --prefix=/usr             \
           --libdir=/usr/lib         \
@@ -10,11 +11,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     cd build
     # Skip giomm_tls_client_test: it does DNS resolution to www.gnome.org. The
     # chroot has no network by security design. Upstream's own test
@@ -34,6 +37,7 @@ check() {
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }

@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Create exim user/group
     groupadd -g 31 exim 2>/dev/null || true
     useradd -d /dev/null -c "Exim Daemon" -g exim -s /bin/false -u 31 exim 2>/dev/null || true
@@ -21,10 +22,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
     install -v -m644 doc/exim.8 "${DESTDIR}/usr/share/man/man8/exim.8"
     install -vdm 755    "${DESTDIR}/usr/share/doc/exim-4.99.1"
@@ -34,6 +37,7 @@ do_install() {
 }
 
 post_install() {
+    set -e
     install -v -d -m1777 /var/mail
 
     # Create aliases

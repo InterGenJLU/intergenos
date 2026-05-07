@@ -9,18 +9,22 @@
 # generate man pages from markdown sources.
 
 configure() {
+    set -e
     :
 }
 
 build() {
+    set -e
     go install github.com/cpuguy83/go-md2man/v2@v2.0.7
 }
 
 check() {
+    set -e
     go-md2man --help 2>&1 || "$HOME/go/bin/go-md2man" --help 2>&1
 }
 
 do_install() {
+    set -e
     install -d "$DESTDIR/usr/bin"
     if [ -x "$GOPATH/bin/go-md2man" ] || [ -x "$HOME/go/bin/go-md2man" ]; then
         BIN="${GOPATH:-$HOME/go}/bin/go-md2man"

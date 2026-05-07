@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     mkdir build
     cd    build
 
@@ -14,16 +15,19 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }
 
 post_install() {
+    set -e
     # Resolve PulseAudio/PipeWire conflict — PipeWire replaces PulseAudio
     rm -vf /etc/xdg/autostart/pulseaudio.desktop 2>/dev/null || true
     rm -vf /etc/xdg/Xwayland-session.d/00-pulseaudio-x11 2>/dev/null || true

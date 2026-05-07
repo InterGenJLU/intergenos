@@ -17,6 +17,7 @@
 FRAG_DIR="/mnt/intergenos/config/kernel/fragments"
 
 configure() {
+    set -e
     make mrproper
 
     # Merge ALL config fragments (baseline + overrides)
@@ -30,10 +31,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     # Overwrite pass 1 kernel and modules. Direct-install package
     # (per package.yml direct_install: true) — files land in /boot
     # and /lib/modules; framework's FS-snapshot-diff generates the

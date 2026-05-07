@@ -8,6 +8,7 @@
 #   - autoreconf -fi to regenerate configure for modern automake/libtool
 
 configure() {
+    set -e
     sed "s@AM_CONFIG_HEADER@AC_CONFIG_HEADERS@g" -i configure.ac
     touch NEWS AUTHORS ChangeLog
     autoreconf -fi
@@ -17,10 +18,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 
     # Many consumers expect a pkg-config file for libid3tag; upstream ships none.

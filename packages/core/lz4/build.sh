@@ -5,17 +5,21 @@
 # DESTDIR exception: needs both PREFIX and DESTDIR.
 
 configure() {
+    set -e
     : # Plain Makefile, no configure
 }
 
 build() {
+    set -e
     make BUILD_STATIC=no PREFIX=/usr -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     make -j1 check
 }
 
 do_install() {
+    set -e
     make BUILD_STATIC=no PREFIX=/usr DESTDIR="$DESTDIR" install
 }

@@ -4,6 +4,7 @@
 # Upstream: https://sourceforge.net/projects/gnu-efi/
 
 configure() {
+    set -e
     # gnu-efi uses a plain Makefile, no autotools. Make.defaults sets
     # reasonable defaults for x86_64 detection. INSTALLROOT defaults to
     # $(DESTDIR), which the build framework already exports — so we let
@@ -28,15 +29,18 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     # gnu-efi has no test suite
     :
 }
 
 do_install() {
+    set -e
     # PREFIX = in-system prefix (/usr); LIBDIR = where libs land within
     # PREFIX. DESTDIR (exported by build framework as $PKG_DEST) is
     # picked up by INSTALLROOT in Make.defaults — do not duplicate it

@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Fix info page build issue
     sed 's/\([a-z]\)@opensuse/\1@@opensuse/' -i doc/screen.texinfo
 
@@ -18,10 +19,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     # Create /etc in DESTDIR before make install — the Makefile tries to
     # copy screenrc there during install and fails if it doesn't exist
     install -v -d -m755 "${DESTDIR}/etc"

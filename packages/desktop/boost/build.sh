@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Fix stacktrace issue on i686
     case $(uname -m) in
         i?86)
@@ -14,10 +15,12 @@ configure() {
 }
 
 build() {
+    set -e
     ./b2 stage -j${IGOS_JOBS} threading=multi link=shared
 }
 
 do_install() {
+    set -e
     # Remove old cmake files before installing
     rm -rf "${DESTDIR}/usr/lib/cmake/[Bb]oost"* 2>/dev/null || true
 

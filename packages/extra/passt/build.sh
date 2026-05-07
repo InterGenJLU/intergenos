@@ -11,17 +11,21 @@
 # AVX2-optimized variants built automatically on x86_64.
 
 configure() {
+    set -e
     :
 }
 
 build() {
+    set -e
     make
 }
 
 check() {
+    set -e
     ./passt --version
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" prefix=/usr install
 }

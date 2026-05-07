@@ -3,6 +3,7 @@
 # LFS 13.0 Section 8.12
 
 configure() {
+    set -e
     # Prevent old libraries from being moved to .old (triggers ldconfig bug)
     sed -i '/MV.*old/d' Makefile.in
     sed -i '/{OLDSUFF}/c:' support/shlib-install
@@ -24,10 +25,12 @@ configure() {
 }
 
 build() {
+    set -e
     make SHLIB_LIBS="-lncursesw" -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make SHLIB_LIBS="-lncursesw" DESTDIR="$DESTDIR" install
     install -v -dm755 "${DESTDIR}/usr/share/doc/readline-8.3"
     install -v -m644 doc/*.{ps,pdf,html,dvi} "${DESTDIR}/usr/share/doc/readline-8.3"

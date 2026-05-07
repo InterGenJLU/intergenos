@@ -4,6 +4,7 @@
 # Note: source is from firefox ESR tarball
 
 configure() {
+    set -e
     # Apply Python 3.14 compatibility patch
 
     mkdir obj &&
@@ -21,17 +22,20 @@ configure() {
 }
 
 build() {
+    set -e
     cd obj &&
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     cd obj &&
     make -C js/src check-jstests \
          JSTESTS_EXTRA_ARGS="--timeout 300 --wpt=disabled" || true
 }
 
 do_install() {
+    set -e
     cd obj &&
 
     # Remove old shared lib to avoid crash on reinstall
@@ -47,6 +51,7 @@ do_install() {
 }
 
 post_install() {
+    set -e
     # Fix header for XP_UNIX define
     local jsver="${version%%.*}"
     sed "\$i#define XP_UNIX" -i "/usr/include/mozjs-${jsver}/js-config.h" 2>/dev/null || true

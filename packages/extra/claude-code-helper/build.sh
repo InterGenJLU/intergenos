@@ -7,14 +7,17 @@
 # accepts Anthropic's license terms by running this installer.
 
 configure() {
+    set -e
     :
 }
 
 build() {
+    set -e
     :
 }
 
 do_install() {
+    set -e
     # Install the helper script
     mkdir -pv "${DESTDIR}/usr/bin"
     cat > "${DESTDIR}/usr/bin/igos-install-claude-code" << 'HELPEREOF'

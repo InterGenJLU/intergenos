@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Build and install libsass first
     tar -xf "${IGOS_SOURCES}/libsass-3.6.6.tar.gz"
     cd libsass-3.6.6
@@ -21,9 +22,11 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

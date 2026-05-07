@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Remove bundled copies of libraries we have system versions of
     rm -rf freetype lcms2mt jpeg libpng openjpeg zlib
 
@@ -13,12 +14,14 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
     # Build shared library (libgs.so)
     make so
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
     make DESTDIR="$DESTDIR" soinstall
 
@@ -28,6 +31,7 @@ do_install() {
 }
 
 post_install() {
+    set -e
     # Fix documentation directory name
     if [ -d /usr/share/doc/ghostscript/${PKG_VERSION} ]; then
         mv -v /usr/share/doc/ghostscript/${PKG_VERSION} \

@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # BLFS: fix build without OpenSSH installed
     sed '/ssh.add/d; /ssh.agent/d' -i meson.build
 
@@ -21,11 +22,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }

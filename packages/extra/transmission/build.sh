@@ -27,6 +27,7 @@
 #   gettext, libnotify, systemd, dbus.
 
 configure() {
+    set -e
     # Out-of-tree CMake build.
     cmake -S . -B build                                 \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo               \
@@ -55,14 +56,17 @@ configure() {
 }
 
 build() {
+    set -e
     cmake --build build -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     DESTDIR="$DESTDIR" cmake --install build
 }
 
 post_install() {
+    set -e
     # CMake installs:
     #   man pages       -> /usr/share/man/man1/transmission-*.1
     #   desktop file    -> /usr/share/applications/transmission-gtk.desktop
@@ -83,5 +87,6 @@ post_install() {
 #   Some tests open loopback sockets (announcer-udp, dns, lpd, net) — these
 #   work inside the chroot since the loopback interface is always present.
 check() {
+    set -e
     ctest --test-dir build --output-on-failure -j${IGOS_JOBS}
 }

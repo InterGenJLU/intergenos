@@ -14,16 +14,19 @@
 # for reading/writing wave files.
 
 configure() {
+    set -e
     # No configure step — upstream Makefile is plain.
     :
 }
 
 build() {
+    set -e
     cd src
     make -j${IGOS_JOBS} targets
 }
 
 do_install() {
+    set -e
     cd src
     install -d "$DESTDIR/usr/lib/ladspa"
     install -d "$DESTDIR/usr/include"

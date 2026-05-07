@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Create pkg-config file
     cat > lua.pc << "EOF"
 V=5.4
@@ -30,14 +31,17 @@ EOF
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS} linux
 }
 
 check() {
+    set -e
     make test || true
 }
 
 do_install() {
+    set -e
     make INSTALL_TOP="${DESTDIR}/usr"                \
          INSTALL_DATA="cp -d"            \
          INSTALL_MAN="${DESTDIR}/usr/share/man/man1" \

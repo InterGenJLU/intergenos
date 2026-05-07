@@ -20,6 +20,8 @@
 #   0 = all checks passed
 #   1 = failures detected (see report)
 
+set -euo pipefail
+
 SYSROOT="${SYSROOT:-}"
 PASS=0
 FAIL=0

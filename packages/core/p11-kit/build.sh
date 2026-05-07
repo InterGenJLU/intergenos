@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Prepare distribution-specific anchor hook
     sed '20,$ d' -i trust/trust-extract-compat
 
@@ -25,16 +26,19 @@ EOF
 }
 
 build() {
+    set -e
     cd p11-build
     ninja
 }
 
 check() {
+    set -e
     cd p11-build
     ninja test || true
 }
 
 do_install() {
+    set -e
     cd p11-build
     DESTDIR="$DESTDIR" ninja install
 

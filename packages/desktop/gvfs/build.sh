@@ -7,6 +7,7 @@
 # Google backend disabled permanently (libgdata deprecated, owner approved).
 
 configure() {
+    set -e
     mkdir build
     cd    build
 
@@ -21,16 +22,19 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }
 
 post_install() {
+    set -e
     glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null || true
     gio-querymodules /usr/lib/gio/modules 2>/dev/null || true
 }

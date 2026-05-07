@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     ./configure                                \
         --prefix=/usr                          \
         --sysconfdir=/etc                      \
@@ -16,14 +17,17 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     make quicktest || true
 }
 
 do_install() {
+    set -e
     # Fix hard coded Python paths
     sed '1s@^.*$@#!/usr/bin/python3@' \
         -i ./bin/default/source4/scripting/bin/*.inst

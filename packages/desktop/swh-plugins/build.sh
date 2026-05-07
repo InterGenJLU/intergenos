@@ -14,15 +14,18 @@
 #   - Mandatory dependency: ladspa.h from ladspa-sdk.
 
 configure() {
+    set -e
     autoreconf -fi
     ./configure --prefix=/usr  \
                 --enable-sse
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

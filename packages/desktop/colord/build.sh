@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Create colord system user/group
     groupadd -g 71 colord 2>/dev/null || true
     useradd -c "Color Daemon Owner" -d /var/lib/colord \
@@ -26,15 +27,18 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }
 
 post_install() {
+    set -e
     glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null || true
 }

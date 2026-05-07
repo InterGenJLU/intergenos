@@ -14,16 +14,19 @@
 BUILD_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 configure() {
+    set -e
     tar -xzf "$IGOS_SOURCES_DIR/go${PKG_VERSION}.linux-amd64.tar.gz"
     export GOROOT="$PWD/go"
     export PATH="$GOROOT/bin:$PATH"
 }
 
 build() {
+    set -e
     :
 }
 
 check() {
+    set -e
     go version
     go env GOROOT GOPATH GOARCH GOOS
 
@@ -46,6 +49,7 @@ GOEOF
 }
 
 do_install() {
+    set -e
     install -d "$DESTDIR/usr/lib"
     cp -a go "$DESTDIR/usr/lib/go"
     rm -rf "$DESTDIR/usr/lib/go/pkg/bootstrap"

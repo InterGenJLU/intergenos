@@ -6,6 +6,7 @@
 # and libncursesw.so.5 alongside the existing ABI 6 libraries.
 
 configure() {
+    set -e
     ./configure --prefix=/usr        \
         --with-shared                \
         --without-normal             \
@@ -15,10 +16,12 @@ configure() {
 }
 
 build() {
+    set -e
     make sources libs
 }
 
 do_install() {
+    set -e
     # Only install the ABI 5 compat libraries — do NOT overwrite ABI 6
     cp -av lib/lib*.so.5* "$DESTDIR/usr/lib/"
 }

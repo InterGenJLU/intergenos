@@ -3,6 +3,7 @@
 # Required by efivar for man page generation
 
 configure() {
+    set -e
     # BSD-style configure — set install paths to avoid conflicts with man-db
     cat > configure.local << "EOF"
 PREFIX=/usr
@@ -20,9 +21,11 @@ EOF
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

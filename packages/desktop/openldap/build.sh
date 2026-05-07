@@ -3,6 +3,7 @@
 # BLFS 13.0 — Full server installation
 
 configure() {
+    set -e
     # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
     autoconf
 
@@ -28,11 +29,13 @@ configure() {
 }
 
 build() {
+    set -e
     make depend
     make
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 
     # Fix .la references to .so in slapd config files
@@ -48,6 +51,7 @@ do_install() {
 }
 
 post_install() {
+    set -e
     # Create ldap user and group for slapd
     if ! getent group ldap >/dev/null 2>&1; then
         groupadd -g 83 ldap

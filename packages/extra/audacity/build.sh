@@ -148,6 +148,7 @@
 # ============================================================================
 
 configure() {
+    set -e
     # Out-of-tree CMake build. Audacity's BUILDING.md uses Unix Makefiles in
     # examples; we use Ninja for parallelism + compatibility with our other
     # CMake-using packages (lv2, transmission, etc.).
@@ -208,14 +209,17 @@ configure() {
 }
 
 build() {
+    set -e
     cmake --build build -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     DESTDIR="$DESTDIR" cmake --install build
 }
 
 post_install() {
+    set -e
     # CMake installs (verified against linux/packages/ubuntu-20.04/debian/audacity.install):
     #   binary           -> /usr/bin/audacity
     #   modules + libs   -> /usr/lib/audacity/{modules,libaudacity-*.so,...}
@@ -247,5 +251,6 @@ post_install() {
 #        the lib-* shared objects, and the mod-* modules covers virtually all
 #        of the project's compilable surface.
 check() {
+    set -e
     return 0
 }

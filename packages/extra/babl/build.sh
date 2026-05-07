@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     mkdir bld
     cd    bld
 
@@ -13,11 +14,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd bld
     ninja
 }
 
 do_install() {
+    set -e
     cd bld
     DESTDIR="$DESTDIR" ninja install
 

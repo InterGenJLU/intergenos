@@ -4,6 +4,7 @@
 # BLFS 13.0 multimedia/liba52
 
 configure() {
+    set -e
     # BLFS: -fPIC is strictly required on x86_64 (runtime text relocation is
     # prohibited). Preserve upstream default optimisation (-g -O3) when CFLAGS
     # is unset, otherwise append -fPIC to whatever the build environment set.
@@ -15,10 +16,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 
     # BLFS: install internal header so consumers (xine-lib, etc.) can link

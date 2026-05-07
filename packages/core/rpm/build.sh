@@ -6,6 +6,7 @@
 # Upstream: https://rpm.org/
 
 configure() {
+    set -e
     ./configure --prefix=/usr \
                 --sysconfdir=/etc \
                 --localstatedir=/var \
@@ -17,16 +18,19 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     # rpm test suite requires system-level rpm database;
     # skip in chroot build
     :
 }
 
 do_install() {
+    set -e
     make DESTDIR="${DESTDIR}" install
 
     # Remove components not needed for shim-signed's rpm2cpio use:

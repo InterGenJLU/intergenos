@@ -10,6 +10,7 @@
 # added. installer/init/build-initramfs.sh expects /usr/bin/busybox.static.
 
 configure() {
+    set -e
     # Start from upstream's defconfig (a balanced applet set), then force
     # static linking. defconfig is regenerated each build to track upstream
     # changes; CONFIG_STATIC override is the only project-specific knob.
@@ -36,10 +37,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     # Static-linkage self-check. If this binary needs any shared library at
     # runtime, the initramfs will fail at boot — catch it here.
     if file ./busybox | grep -q "statically linked"; then
@@ -62,6 +65,7 @@ check() {
 }
 
 do_install() {
+    set -e
     install -d "$DESTDIR/usr/bin"
     install -m755 busybox "$DESTDIR/usr/bin/busybox.static"
 

@@ -3,14 +3,17 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     :
 }
 
 build() {
+    set -e
     make PREFIX=/usr amalg -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make PREFIX=/usr DESTDIR="$DESTDIR" install
 
     # Remove static library per BLFS

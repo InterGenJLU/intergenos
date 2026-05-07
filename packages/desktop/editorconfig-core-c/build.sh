@@ -3,6 +3,7 @@
 # Required by: gnome-text-editor
 
 configure() {
+    set -e
     mkdir build
     cd    build
 
@@ -12,11 +13,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     make
 }
 
 do_install() {
+    set -e
     cd build
     make DESTDIR="$DESTDIR" install
 }

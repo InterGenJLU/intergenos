@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Place pre-downloaded bootstrap tarballs where x.py expects them
     # so it skips the network download. Date from src/stage0.
     mkdir -pv build/cache/2026-03-05
@@ -73,12 +74,14 @@ EOF
 }
 
 build() {
+    set -e
     export LIBSSH2_SYS_USE_PKG_CONFIG=1
     export LIBSQLITE3_SYS_USE_PKG_CONFIG=1
     ./x.py build
 }
 
 do_install() {
+    set -e
     export LIBSSH2_SYS_USE_PKG_CONFIG=1
     export LIBSQLITE3_SYS_USE_PKG_CONFIG=1
 
@@ -90,6 +93,7 @@ do_install() {
 }
 
 post_install() {
+    set -e
     # Fix up docs
     rm -fv /opt/rustc-${version}/share/doc/rustc-${version}/*.old
     install -vm644 README.md /opt/rustc-${version}/share/doc/rustc-${version}

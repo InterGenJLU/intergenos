@@ -29,7 +29,8 @@ class CustomStyle(BuildStyle):
         return BuildPhase(
             name="configure",
             commands=[
-                f"source {script} && if declare -f configure >/dev/null 2>&1; then configure; fi",
+                f"source {script} || {{ echo 'FATAL: failed to source {script}'; exit 1; }}; "
+                f"if declare -f configure >/dev/null 2>&1; then configure; fi",
             ],
         )
 

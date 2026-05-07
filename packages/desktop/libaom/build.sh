@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Prevent installing static libraries
     sed -i 's/aom aom_static/aom/' build/cmake/aom_install.cmake
 
@@ -17,11 +18,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd aom-build
     ninja
 }
 
 do_install() {
+    set -e
     cd aom-build
     DESTDIR="$DESTDIR" ninja install
 }

@@ -8,6 +8,7 @@
 # is always built. BLFS does not carry sord.
 
 configure() {
+    set -e
     meson setup build         \
           --prefix=/usr       \
           --buildtype=release \
@@ -15,14 +16,17 @@ configure() {
 }
 
 build() {
+    set -e
     ninja -C build
 }
 
 do_install() {
+    set -e
     DESTDIR="$DESTDIR" ninja -C build install
 }
 
 check() {
+    set -e
     # sord ships an offline unit-test suite (test/) gated by the `tests`
     # feature (default auto/enabled). Tests exercise libsord internals
     # against bundled fixtures — no network access required.

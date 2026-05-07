@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     CC=gcc ./configure --prefix=/usr                             \
                 --disable-static                                 \
                 --docdir=/usr/share/doc/potrace-${PKG_VERSION}   \
@@ -12,13 +13,16 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     make check
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

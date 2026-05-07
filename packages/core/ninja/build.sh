@@ -6,10 +6,12 @@
 # All files are placed manually with install commands.
 
 configure() {
+    set -e
     : # No configure step — uses Python build script
 }
 
 build() {
+    set -e
     python3 configure.py --bootstrap --verbose
 }
 
@@ -17,6 +19,7 @@ build() {
 # The bootstrap build already validates ninja's core functionality.
 
 do_install() {
+    set -e
     # Manual installation — no make install target exists
     install -vm755 -d "${DESTDIR}/usr/bin"
     install -vm755 ninja "${DESTDIR}/usr/bin/"

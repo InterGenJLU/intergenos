@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # BLFS uses "gtkmm3-build" to distinguish from the GTK4 version
     mkdir gtkmm3-build
     cd    gtkmm3-build
@@ -14,11 +15,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd gtkmm3-build
     ninja
 }
 
 do_install() {
+    set -e
     cd gtkmm3-build
     DESTDIR="$DESTDIR" ninja install
 }

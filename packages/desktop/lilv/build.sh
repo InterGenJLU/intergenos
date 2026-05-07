@@ -8,6 +8,7 @@
 # BLFS does not (yet) carry lilv — upstream is the source of truth.
 
 configure() {
+    set -e
     mkdir build
     cd    build
 
@@ -26,11 +27,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }

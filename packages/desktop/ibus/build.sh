@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Install Unicode Character Database if not already present
     # ibus configure requires UCD files at /usr/share/unicode/ucd/
     if [ ! -f /usr/share/unicode/ucd/NamesList.txt ]; then
@@ -35,13 +36,16 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }
 
 post_install() {
+    set -e
     glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null || true
 }

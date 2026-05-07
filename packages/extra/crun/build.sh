@@ -13,18 +13,22 @@
 #   systemd (cgroups v2, sd_notify), glib2
 
 configure() {
+    set -e
     ./autogen.sh
     ./configure --prefix=/usr
 }
 
 build() {
+    set -e
     make
 }
 
 check() {
+    set -e
     ./crun --version
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

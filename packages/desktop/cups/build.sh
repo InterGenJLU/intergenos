@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # BLFS required fixes
     sed -i 's#@CUPS_HTMLVIEW@#firefox#' desktop/cups.desktop.in
     # Create lp user/group if needed
@@ -19,14 +20,17 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     LC_ALL=C make -k check || true
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 
     install -v -d -m755 "${DESTDIR}/usr/share/doc"
@@ -34,6 +38,7 @@ do_install() {
 }
 
 post_install() {
+    set -e
     echo "ServerName /run/cups/cups.sock" > /etc/cups/client.conf
 
     # PAM config for CUPS web admin authentication

@@ -6,6 +6,7 @@
 # passwd, and all PAM-aware authentication works correctly.
 
 configure() {
+    set -e
     # Disable groups program (provided by coreutils)
     sed -i 's/groups$(EXEEXT) //' src/Makefile.in
     find man -name Makefile.in -exec sed -i 's/groups\.1 / /'   {} \;
@@ -25,15 +26,18 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     # pamddir= prevents installing shipped PAM configs (we create our own)
     make DESTDIR="$DESTDIR" exec_prefix=/usr pamddir= install
 }
 
 post_install() {
+    set -e
     # --- Configure /etc/login.defs for PAM ---
     # Comment out functions now handled by PAM modules
     install -v -m644 /etc/login.defs /etc/login.defs.orig

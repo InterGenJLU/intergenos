@@ -54,6 +54,7 @@
 # unused.
 
 configure() {
+    set -e
     # Build in-tree. wxWidgets supports out-of-tree builds but its docs
     # still recommend in-tree for first-time builders, and the autotools
     # set-up is well-tested in this configuration.
@@ -75,10 +76,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make install DESTDIR="${DESTDIR}"
 }
 
@@ -103,5 +106,6 @@ do_install() {
 #   test suite (when we package Audacity) exercises the wxWidgets API
 #   surface that actually matters to InterGenOS users.
 check() {
+    set -e
     return 0
 }

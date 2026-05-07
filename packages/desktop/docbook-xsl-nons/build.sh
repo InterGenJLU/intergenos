@@ -7,6 +7,7 @@ configure() { : ; }
 build() { : ; }
 
 do_install() {
+    set -e
     install -v -m755 -d "${DESTDIR}/usr/share/xml/docbook/xsl-stylesheets-nons-1.79.2"
 
     cp -v -R VERSION assembly common eclipse epub epub3 extensions fo \
@@ -25,6 +26,7 @@ do_install() {
 }
 
 post_install() {
+    set -e
     # Create or update /etc/xml/catalog
     install -v -d -m755 /etc/xml
     [ -e /etc/xml/catalog ] || xmlcatalog --noout --create /etc/xml/catalog

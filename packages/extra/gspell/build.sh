@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     mkdir gspell-build
     cd    gspell-build
 
@@ -14,16 +15,19 @@ configure() {
 }
 
 build() {
+    set -e
     cd gspell-build
     ninja
 }
 
 check() {
+    set -e
     cd gspell-build
     ninja test || true
 }
 
 do_install() {
+    set -e
     cd gspell-build
     DESTDIR="$DESTDIR" ninja install
 }

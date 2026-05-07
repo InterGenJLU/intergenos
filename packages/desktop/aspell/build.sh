@@ -3,14 +3,17 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     ./configure --prefix=/usr
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 
     ln -svfn aspell-0.60 "${DESTDIR}/usr/lib/aspell"
@@ -22,6 +25,7 @@ do_install() {
 }
 
 post_install() {
+    set -e
     # Install English dictionary
     local dict_tar="${IGOS_SOURCES}/aspell6-en-2020.12.07-0.tar.bz2"
     if [ -f "$dict_tar" ]; then

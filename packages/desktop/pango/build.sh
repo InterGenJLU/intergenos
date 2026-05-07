@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # BLFS required fixes
     sed "/docs_dir =/s@\$@ / 'pango-${PKG_VERSION}'@" -i docs/meson.build
     mkdir build
@@ -17,17 +18,20 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 check() {
+    set -e
     cd build
     # Three tests (test-font-data, test-font, test-layout) are known to fail per BLFS
     ninja test || true
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }

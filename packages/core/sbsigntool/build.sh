@@ -4,6 +4,7 @@
 # Required by: build pipeline (signing the kernel image)
 
 configure() {
+    set -e
     # autogen.sh expects lib/ccan.git/ to be a git checkout. The bundled
     # ccan tarball gives us the source files but no .git/. The
     # create-ccan-tree script uses `modfiles --git-only` to enumerate
@@ -52,9 +53,11 @@ configure() {
 }
 
 build() {
+    set -e
     make
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

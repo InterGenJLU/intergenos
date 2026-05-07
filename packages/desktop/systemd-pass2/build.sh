@@ -12,6 +12,7 @@
 # systemd --user cannot start (no XDG_RUNTIME_DIR created).
 
 configure() {
+    set -e
     # Same sed fix as pass 1
     sed -e 's/GROUP="render"/GROUP="video"/' \
         -e 's/GROUP="sgx", //'               \
@@ -43,17 +44,20 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     cd build
     # Direct install — overwrites pass 1 systemd with PAM-enabled version
     ninja install
 }
 
 post_install() {
+    set -e
     # Verify pam_systemd.so was installed
     if [ -f /usr/lib/security/pam_systemd.so ]; then
         echo "  pam_systemd.so installed successfully"

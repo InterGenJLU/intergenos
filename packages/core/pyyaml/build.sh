@@ -9,10 +9,12 @@
 # The desktop tier rebuilds with libyaml/Cython for performance.
 
 configure() {
+    set -e
     : # No configure step
 }
 
 build() {
+    set -e
     pip3 wheel \
         --no-build-isolation \
         --no-deps \
@@ -22,6 +24,7 @@ build() {
 }
 
 do_install() {
+    set -e
     pip3 install \
         --no-index \
         --no-user \
@@ -33,5 +36,6 @@ do_install() {
 }
 
 check() {
+    set -e
     python3 -c "import yaml; print(f'PyYAML {yaml.__version__}')"
 }

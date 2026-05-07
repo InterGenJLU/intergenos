@@ -3,6 +3,7 @@
 # Required by PipeWire and GNOME Shell for real-time thread scheduling
 
 configure() {
+    set -e
     mkdir build
     cd    build
 
@@ -15,16 +16,19 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }
 
 post_install() {
+    set -e
     # Create rtkit system user for privilege dropping
     if ! getent group rtkit > /dev/null 2>&1; then
         groupadd -fg 133 rtkit

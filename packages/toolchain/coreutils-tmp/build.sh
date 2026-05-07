@@ -3,6 +3,7 @@
 # LFS 13.0 Section 6.5
 
 configure() {
+    set -e
     ./configure --prefix=/usr                      \
                 --host=$IGOS_TARGET                \
                 --build=$(build-aux/config.guess)   \
@@ -11,10 +12,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 install() {
+    set -e
     make DESTDIR=$IGOS install
     mv -v $IGOS/usr/bin/chroot $IGOS/usr/sbin
     mkdir -pv $IGOS/usr/share/man/man8

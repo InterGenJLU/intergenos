@@ -4,16 +4,19 @@
 # Note: requires network access to download cert data
 
 configure() {
+    set -e
     # Fix deprecated mktemp option
     sed '/mktemp/s/-t //' -i make-ca
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
     install -vdm755 "${DESTDIR}/etc/ssl/local"
 }
 
 post_install() {
+    set -e
     # Download and process certificates (requires network)
     /usr/sbin/make-ca -g
 

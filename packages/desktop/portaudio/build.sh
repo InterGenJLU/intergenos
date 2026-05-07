@@ -11,6 +11,7 @@
 #   handles the cd into the source dir.
 
 configure() {
+    set -e
     ./configure --prefix=/usr \
                 --disable-static \
                 --with-alsa \
@@ -19,9 +20,11 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

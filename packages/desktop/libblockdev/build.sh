@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     ./configure --prefix=/usr      \
                 --sysconfdir=/etc  \
                 --with-python3     \
@@ -16,9 +17,11 @@ configure() {
 }
 
 build() {
+    set -e
     make
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

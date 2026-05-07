@@ -6,6 +6,7 @@
 # We redirect PREFIX to $DESTDIR/usr for staging.
 
 configure() {
+    set -e
     patch -Np1 -i $IGOS_PATCHES/bzip2-1.0.8-install_docs-1.patch
 
     # Ensure symlinks are relative
@@ -15,6 +16,7 @@ configure() {
 }
 
 build() {
+    set -e
     # Build shared library first
     make -f Makefile-libbz2_so
     make clean
@@ -22,6 +24,7 @@ build() {
 }
 
 do_install() {
+    set -e
     # Bzip2 uses PREFIX, not DESTDIR
     make PREFIX="${DESTDIR}/usr" install
 

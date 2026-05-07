@@ -5,6 +5,7 @@
 # Uses meson. DESTDIR supported.
 
 configure() {
+    set -e
     mkdir build
     cd    build
 
@@ -15,16 +16,19 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     cd build
     ninja test
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 

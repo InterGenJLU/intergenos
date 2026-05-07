@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # BLFS required fixes
     sed -i '4967,4968d' src/adapter.c
     ./configure --prefix=/usr \
@@ -13,10 +14,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 
     # Convenience symlink for bluetoothd
@@ -24,6 +27,7 @@ do_install() {
 }
 
 post_install() {
+    set -e
     # Enable bluetooth service
     systemctl enable bluetooth 2>/dev/null || true
 }

@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Enable GX/AAT and OpenType table validation
     sed -ri "s:.*(AUX_MODULES.*valid):\1:" modules.cfg
 
@@ -23,11 +24,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }

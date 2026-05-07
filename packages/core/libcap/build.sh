@@ -5,18 +5,22 @@
 # DESTDIR exception: needs prefix=, lib=, and RAISE_SETFCAP=no for staging.
 
 configure() {
+    set -e
     # Prevent static library installation
     sed -i '/install -m.*STA/d' libcap/Makefile
 }
 
 build() {
+    set -e
     make prefix=/usr lib=lib -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     make test
 }
 
 do_install() {
+    set -e
     make prefix=/usr lib=lib DESTDIR="$DESTDIR" RAISE_SETFCAP=no install
 }

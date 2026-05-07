@@ -3,6 +3,7 @@
 # LFS 13.0 Section 8.69
 
 configure() {
+    set -e
     # Fix backspace/delete key behavior
     patch -Np1 -i ${IGOS_PATCHES}/kbd-2.9.0-backspace-1.patch
 
@@ -15,13 +16,16 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     make check
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

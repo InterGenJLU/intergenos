@@ -11,17 +11,21 @@
 #   containers-common (config), yajl (JSON parsing)
 
 configure() {
+    set -e
     :
 }
 
 build() {
+    set -e
     make PREFIX=/usr BUILDTAGS="seccomp systemd"
 }
 
 check() {
+    set -e
     bin/podman --version
 }
 
 do_install() {
+    set -e
     make PREFIX=/usr DESTDIR="$DESTDIR" install
 }

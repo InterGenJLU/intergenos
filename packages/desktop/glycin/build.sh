@@ -4,6 +4,7 @@
 # Requires pre-vendored Rust crates (glycin-2.0.8-vendor.tar.gz)
 
 configure() {
+    set -e
     # Extract pre-vendored Rust crates FIRST (patch needs vendor/ directory)
     if [ -f "${IGOS_SOURCES}/glycin-2.0.8-vendor.tar.gz" ]; then
         tar xf "${IGOS_SOURCES}/glycin-2.0.8-vendor.tar.gz"
@@ -45,12 +46,14 @@ CARGOEOF
 }
 
 build() {
+    set -e
     cd build
     export PATH="/opt/rustc/bin:$PATH"
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }

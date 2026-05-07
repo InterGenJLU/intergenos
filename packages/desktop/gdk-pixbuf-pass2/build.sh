@@ -8,6 +8,7 @@
 # gdk-pixbuf with glycin enabled for GTK4 image loading.
 
 configure() {
+    set -e
     mkdir build
     cd    build
 
@@ -25,15 +26,18 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     ninja install
 }
 
 post_install() {
+    set -e
     gdk-pixbuf-query-loaders --update-cache
 }

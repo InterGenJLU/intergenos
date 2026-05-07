@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # InterGenOS Chroot Teardown — "Drop Out"
 #
 # Unmounts virtual kernel filesystems in the correct order.
@@ -6,8 +7,9 @@
 #
 # Usage (as root on build VM):
 #   sudo bash /mnt/intergenos/scripts/chroot-teardown.sh
+#   IGOS=/custom/root sudo bash /mnt/intergenos/scripts/chroot-teardown.sh
 
-IGOS=/mnt/igos
+IGOS="${IGOS:-/mnt/igos}"
 
 # Defensive validation — if $IGOS is empty or "/", unmounting
 # would target host filesystems, which is catastrophic.

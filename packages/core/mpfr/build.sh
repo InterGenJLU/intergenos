@@ -3,6 +3,7 @@
 # LFS 13.0 Section 8.23
 
 configure() {
+    set -e
     ./configure --prefix=/usr        \
         --disable-static             \
         --enable-thread-safe         \
@@ -10,15 +11,18 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
     make html
 }
 
 check() {
+    set -e
     make check
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
     make DESTDIR="$DESTDIR" install-html
 }

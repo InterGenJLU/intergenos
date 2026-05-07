@@ -10,6 +10,7 @@
 # build_deps). BLFS does not carry sratom.
 
 configure() {
+    set -e
     meson setup build         \
           --prefix=/usr       \
           --buildtype=release \
@@ -17,14 +18,17 @@ configure() {
 }
 
 build() {
+    set -e
     ninja -C build
 }
 
 do_install() {
+    set -e
     DESTDIR="$DESTDIR" ninja -C build install
 }
 
 check() {
+    set -e
     # sratom ships an offline atom-roundtrip test suite (test/) gated by
     # the `tests` feature (default auto/enabled). Uses bundled fixtures;
     # no network access required.

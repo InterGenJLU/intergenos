@@ -3,6 +3,7 @@
 # LFS 13.0 Section 8.30
 
 configure() {
+    set -e
     # Fix for glibc-2.43 compatibility
     sed -i 's/char [*]q/const &/' libgomp/affinity-fmt.c
 
@@ -35,11 +36,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     cd build
     # Increase stack size for tests
     ulimit -s -H unlimited
@@ -57,6 +60,7 @@ check() {
 }
 
 do_install() {
+    set -e
     cd build
     make DESTDIR="$DESTDIR" install
 
@@ -80,6 +84,7 @@ do_install() {
 
 # Post-install: runs on the live system AFTER deploy
 post_install() {
+    set -e
     # GCC sanity check — must pass or stop the build
     echo ""
     echo "=== GCC Sanity Check ==="

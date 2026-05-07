@@ -3,14 +3,17 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Skip static library install
     sed -i '/install.*libaio.a/s/^/#/' src/Makefile
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

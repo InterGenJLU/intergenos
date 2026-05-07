@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Create build configuration
     cat > wpa_supplicant/.config << "EOF"
 CONFIG_BACKEND=file
@@ -37,11 +38,13 @@ EOF
 }
 
 build() {
+    set -e
     cd wpa_supplicant &&
     make -j${IGOS_JOBS} BINDIR=/usr/sbin LIBDIR=/usr/lib
 }
 
 do_install() {
+    set -e
     cd wpa_supplicant &&
 
     install -v -m755 wpa_{cli,passphrase,supplicant} "${DESTDIR}/usr/sbin/"

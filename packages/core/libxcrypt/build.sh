@@ -3,6 +3,7 @@
 # LFS 13.0 Section 8.28
 
 configure() {
+    set -e
     # Fix for glibc-2.43 compatibility
     sed -i '/strchr/s/const//' lib/crypt-{sm3,gost}-yescrypt.c
 
@@ -14,13 +15,16 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     make check
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

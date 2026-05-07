@@ -3,6 +3,7 @@
 # LFS 13.0 Section 8.75
 
 configure() {
+    set -e
     # Change default location of vimrc to /etc
     echo '#define SYS_VIMRC_FILE "/etc/vimrc"' >> src/feature.h
 
@@ -11,10 +12,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     # LFS: exclude test that requires curl/wget (not available during core build)
     sed '/test_plugin_glvs/d' -i src/testdir/Make_all.mak
 
@@ -27,6 +30,7 @@ check() {
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 
     # Symlinks: vi -> vim, man pages

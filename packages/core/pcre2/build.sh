@@ -3,6 +3,7 @@
 # LFS 13.0 Section 8.13
 
 configure() {
+    set -e
     ./configure --prefix=/usr                       \
         --docdir=/usr/share/doc/pcre2-10.47         \
         --enable-unicode                            \
@@ -16,13 +17,16 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     make check
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

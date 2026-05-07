@@ -6,6 +6,7 @@
 # installs systemd unit, and generates host keys.
 
 configure() {
+    set -e
     ./configure --prefix=/usr                            \
                 --sysconfdir=/etc/ssh                    \
                 --with-privsep-path=/var/lib/sshd        \
@@ -16,15 +17,18 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     # Tests require gdb and a running sshd — skip in chroot
     :
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 
     # Install ssh-copy-id utility (BLFS)
@@ -48,6 +52,7 @@ EOF
 
 # Post-install: runs on the live system AFTER deploy
 post_install() {
+    set -e
     # Create privilege separation directory
     install -v -g sys -m700 -d /var/lib/sshd
 

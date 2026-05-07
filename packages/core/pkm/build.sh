@@ -10,11 +10,13 @@
 # Pure Python, stdlib-only — no compile step, no third-party deps.
 
 build() {
+    set -e
     # No build step — pure Python.
     return 0
 }
 
 do_install() {
+    set -e
     # pkm Python package — copy sources from the repo tree. Source is the
     # canonical pkm/ directory in /mnt/intergenos, which is staged into
     # the chroot by the build orchestrator (scripts/build-intergenos.sh).
@@ -61,6 +63,7 @@ REPOS
 }
 
 post_install() {
+    set -e
     # Nothing to do — directories exist, database self-initialises on
     # first invocation, no systemd service to enable.
     :

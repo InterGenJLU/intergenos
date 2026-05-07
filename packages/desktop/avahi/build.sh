@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
 
     # Fix security vulnerability in avahi-daemon (BLFS)
@@ -30,14 +31,17 @@ return; \
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }
 
 post_install() {
+    set -e
     # Create avahi system user and group (BLFS: uid/gid 84)
     groupadd -fg 84 avahi 2>/dev/null || true
     useradd -c "Avahi Daemon Owner" -d /run/avahi-daemon -u 84 \

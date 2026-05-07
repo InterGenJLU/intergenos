@@ -9,6 +9,7 @@
 # installed via pip at build time — they ship as part of this package.
 
 build() {
+    set -e
     # Install Python dependencies into the package
     # CPU-only torch — no NVIDIA/CUDA bloat
     pip3 install --target="${DESTDIR}/usr/lib/python3.14/site-packages" \
@@ -27,6 +28,7 @@ build() {
 }
 
 do_install() {
+    set -e
     # InterGen Python package
     install -dm755 "${DESTDIR}/usr/lib/python3.14/site-packages/intergen"
     install -dm755 "${DESTDIR}/usr/lib/python3.14/site-packages/intergen/interfaces"
@@ -133,6 +135,7 @@ DBUS
 }
 
 post_install() {
+    set -e
     # Enable the systemd user service for all users
     systemctl --global enable intergen.service 2>/dev/null || true
     echo "InterGen installed. Run 'intergen setup' to configure your AI model."

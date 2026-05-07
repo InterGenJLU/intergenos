@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Create polkitd system user/group
     groupadd -fg 27 polkitd 2>/dev/null || true
     useradd -c "PolicyKit Daemon Owner" -d /etc/polkit-1 \
@@ -23,11 +24,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 

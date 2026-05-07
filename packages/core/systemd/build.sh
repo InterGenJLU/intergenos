@@ -6,6 +6,7 @@
 # Post-install: machine-id-setup, preset-all.
 
 configure() {
+    set -e
     # Fix udev rules: render -> video group, remove sgx
     sed -e 's/GROUP="render"/GROUP="video"/' \
         -e 's/GROUP="sgx", //'               \
@@ -46,11 +47,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     cd build
     # os-release is needed for tests
     echo 'NAME="InterGenOS"' > /etc/os-release
@@ -58,6 +61,7 @@ check() {
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 
@@ -70,6 +74,7 @@ do_install() {
 
 # Post-install: runs on the live system AFTER deploy
 post_install() {
+    set -e
     # Create machine ID (unique per machine, never bake into a package)
     systemd-machine-id-setup
 

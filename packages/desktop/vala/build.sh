@@ -3,15 +3,18 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     ./configure --prefix=/usr \
                 --disable-static
 }
 
 build() {
+    set -e
     # BLFS: make bootstrap rebuilds the compiler using itself
     make bootstrap -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

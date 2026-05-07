@@ -6,6 +6,7 @@
 # (pwconv, grpconv, useradd, passwd) MUST run on the live system.
 
 configure() {
+    set -e
     # Disable installation of the groups program (provided by coreutils)
     sed -i 's/groups$(EXEEXT) //' src/Makefile.in
     find man -name Makefile.in -exec sed -i 's/groups\.1 / /'   {} \;
@@ -30,10 +31,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" exec_prefix=/usr install
     make DESTDIR="$DESTDIR" -C man install-man
 
@@ -54,6 +57,7 @@ do_install() {
 
 # Post-install: runs on the live system AFTER deploy
 post_install() {
+    set -e
     # Enable shadow passwords
     pwconv
     grpconv

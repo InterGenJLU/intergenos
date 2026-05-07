@@ -1,5 +1,6 @@
 #!/bin/bash
 # InterGenOS Package Functions — DESTDIR Staging + Slackware-style Tracking
+set -e
 #
 # Sourced by the Chapter 8 build runner. Provides functions to:
 #   1. Stage a package's installed files via DESTDIR

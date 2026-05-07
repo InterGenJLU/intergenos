@@ -14,7 +14,7 @@
 
 set -e
 
-IGOS=/mnt/igos
+IGOS="${IGOS:-/mnt/igos}"
 
 echo "InterGenOS Chroot Setup"
 echo "======================="

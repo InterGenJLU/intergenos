@@ -12,18 +12,22 @@
 BUILD_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 configure() {
+    set -e
     :
 }
 
 build() {
+    set -e
     make PREFIX=/usr
 }
 
 check() {
+    set -e
     bin/conmon --version
 }
 
 do_install() {
+    set -e
     make PREFIX=/usr DESTDIR="$DESTDIR" install.bin
     install -d "$DESTDIR/usr/share/man/man8"
     install -v -m644 "$BUILD_DIR/conmon.8" "$DESTDIR/usr/share/man/man8/conmon.8"

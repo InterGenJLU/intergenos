@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Create atd user/group
     groupadd -g 17 atd 2>/dev/null || true
     useradd -d /dev/null -c "atd daemon" -g atd -s /bin/false -u 17 atd 2>/dev/null || true
@@ -16,20 +17,24 @@ configure() {
 }
 
 build() {
+    set -e
     make -j1
 }
 
 check() {
+    set -e
     make test || true
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install \
          docdir=/usr/share/doc/at-3.2.5 \
          atdocdir=/usr/share/doc/at-3.2.5
 }
 
 post_install() {
+    set -e
     # PAM configuration
     cat > /etc/pam.d/atd << "EOF"
 # Begin /etc/pam.d/atd

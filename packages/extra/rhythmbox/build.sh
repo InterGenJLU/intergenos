@@ -25,6 +25,7 @@
 #   (Python plugin support), vala (Vala plugin support)
 
 configure() {
+    set -e
     mkdir build
     cd    build
 
@@ -71,16 +72,19 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }
 
 post_install() {
+    set -e
     # Rhythmbox's meson.build invokes gnome.post_install() which already
     # runs glib-compile-schemas, gtk-update-icon-cache, and
     # update-desktop-database against DESTDIR during `ninja install`.
@@ -107,5 +111,6 @@ post_install() {
 #   Smoke testing happens at first launch (desktop entry + icon).
 #   Re-evaluate when libcheck lands.
 check() {
+    set -e
     return 0
 }

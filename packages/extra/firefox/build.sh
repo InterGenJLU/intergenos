@@ -15,6 +15,7 @@
 #     not reviewed by BLFS — would diverge from upstream distro practice
 
 configure() {
+    set -e
     # Patches applied by builder PATCH phase (package.yml) with SHA256 validation.
     # Post-patch fixups only below.
 
@@ -82,6 +83,7 @@ MOZEOF
 }
 
 build() {
+    set -e
     export MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=none
     export MOZBUILD_STATE_PATH=$(pwd)/mozbuild
 
@@ -91,11 +93,13 @@ build() {
 }
 
 do_install() {
+    set -e
     MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=none \
         DESTDIR="$DESTDIR" ./mach install
 }
 
 post_install() {
+    set -e
     # Create desktop file for menu integration
     mkdir -pv /usr/share/{applications,pixmaps}
 
@@ -141,5 +145,6 @@ DESKTOP_EOF
 #   is performed at first-boot via the launcher (icon + desktop file).
 #   See: BLFS xsoft/firefox.html "Testing Firefox" section.
 check() {
+    set -e
     return 0
 }

@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Pre-place Rust crate tarballs for offline build.
     # NVK (Nouveau Vulkan) and other Rust-based components require 27 crates
     # from crates.io. Since the chroot has no internet, we pre-download them
@@ -31,11 +32,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }

@@ -3,6 +3,7 @@
 # Not in BLFS — uses meson (switched from autotools in recent versions)
 
 configure() {
+    set -e
     mkdir build
     cd    build
 
@@ -14,11 +15,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }

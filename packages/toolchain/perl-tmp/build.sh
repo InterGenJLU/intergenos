@@ -5,6 +5,7 @@
 # Perl doesn't use autotools. Custom configure with sh.
 
 configure() {
+    set -e
     sh Configure -des                                  \
         -D prefix=/usr                                 \
         -D vendorprefix=/usr                           \
@@ -18,9 +19,11 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 install() {
+    set -e
     make DESTDIR=$IGOS install
 }

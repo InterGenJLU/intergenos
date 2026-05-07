@@ -6,6 +6,7 @@ configure() { :; }
 build() { :; }
 
 do_install() {
+    set -e
     mkdir -pv "${DESTDIR}/usr/bin"
     cat > "${DESTDIR}/usr/bin/igos-install-spotify" << 'HELPEREOF'
 #!/bin/bash

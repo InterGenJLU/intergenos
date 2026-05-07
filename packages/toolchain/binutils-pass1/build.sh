@@ -7,6 +7,7 @@
 # assembler to determine which of their own features to enable.
 
 configure() {
+    set -e
     mkdir -v build
     cd       build
 
@@ -22,11 +23,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     make -j${IGOS_JOBS}
 }
 
 install() {
+    set -e
     cd build
     make install
 }

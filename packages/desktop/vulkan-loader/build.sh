@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # BLFS required fixes
     sed "s/'git', 'clone'/\&, '--depth=1', '-b', self.commit/" -i ../scripts/update_deps.py
     cmake -B build                    \
@@ -11,9 +12,11 @@ configure() {
 }
 
 build() {
+    set -e
     cmake --build build -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     DESTDIR="$DESTDIR" cmake --install build
 }

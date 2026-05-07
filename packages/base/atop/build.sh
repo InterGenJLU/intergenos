@@ -3,10 +3,12 @@
 # From upstream (not in BLFS)
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     # Upstream Makefile sets SYSDPATH=/lib/systemd/system which creates a bare
     # lib/ dir in DESTDIR — on LFS systems /lib is a symlink to usr/lib, and
     # deploying a real lib/ directory over that symlink kills the dynamic linker.

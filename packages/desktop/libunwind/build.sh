@@ -3,6 +3,7 @@
 # Required by: sysprof, gstreamer (via #include <libunwind.h> in gst/gstinfo.c)
 
 configure() {
+    set -e
     # --disable-tests: skips src/tests/ which contains K&R-style function
     # pointer declarations that fail under gcc 15 strict checking
     # (Gtest-nomalloc.c:49 — 'func' declared as void *(*)() then called with
@@ -16,9 +17,11 @@ configure() {
 }
 
 build() {
+    set -e
     make
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

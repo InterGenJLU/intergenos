@@ -7,6 +7,7 @@
 # part of GCC automatically.
 
 configure() {
+    set -e
     # On x86_64: set default directory name for 64-bit libraries to "lib"
     case $(uname -m) in
         x86_64)
@@ -41,11 +42,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     make -j${IGOS_JOBS}
 }
 
 install() {
+    set -e
     cd build
     make install
 

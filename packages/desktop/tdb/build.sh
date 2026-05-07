@@ -23,12 +23,14 @@
 #   pytdb being available, and Python is already a build dep).
 
 configure() {
+    set -e
     ./configure                    \
         --prefix=/usr              \
         --disable-rpath-install
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
@@ -36,9 +38,11 @@ build() {
 # the build tree and do not require network. "tests are truth" — failures
 # fail the build.
 check() {
+    set -e
     make test
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

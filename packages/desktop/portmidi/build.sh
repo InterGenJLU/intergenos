@@ -6,6 +6,7 @@
 # Provides: libportmidi.so, portmidi.pc
 
 configure() {
+    set -e
     # Defaults are correct for our needs:
     #   BUILD_SHARED_LIBS=ON   → libportmidi.so
     #   LINUX_DEFINES=PMALSA   → ALSA sequencer backend (alsa-lib at runtime)
@@ -17,10 +18,12 @@ configure() {
 }
 
 build() {
+    set -e
     cmake --build build -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     # PortMidi's "tests" (pm_test/) are interactive demos that open a real
     # MIDI device (BUILD_PORTMIDI_TESTS, OFF by default). There is no
     # offline unit-test suite. Skip — return 0 so the build doesn't trip.
@@ -28,5 +31,6 @@ check() {
 }
 
 do_install() {
+    set -e
     DESTDIR="$DESTDIR" cmake --install build
 }

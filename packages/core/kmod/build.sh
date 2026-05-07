@@ -5,6 +5,7 @@
 # Uses meson. DESTDIR supported natively.
 
 configure() {
+    set -e
     mkdir -p build
     cd       build
 
@@ -15,15 +16,18 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     : # Tests require raw kernel headers, beyond LFS scope
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }

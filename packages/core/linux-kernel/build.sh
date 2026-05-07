@@ -12,6 +12,7 @@
 # user-owned decision.
 
 configure() {
+    set -e
     make mrproper
 
     # Apply kernel patches (e.g., CVE mitigations)
@@ -47,10 +48,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     # Kernel uses INSTALL_MOD_PATH, not DESTDIR
     make INSTALL_MOD_PATH="$DESTDIR" modules_install
 
@@ -67,6 +70,7 @@ do_install() {
 
 # Post-install: runs on the live system AFTER deploy
 post_install() {
+    set -e
     # Regenerate module dependency files
     depmod 6.18.10
 }

@@ -6,6 +6,7 @@
 # so we must build it for the host first then cross-compile.
 
 configure() {
+    set -e
     # Build file for the host first
     mkdir -v build
     pushd build
@@ -23,10 +24,12 @@ configure() {
 }
 
 build() {
+    set -e
     make FILE_COMPILE=$(pwd)/build/src/file -j${IGOS_JOBS}
 }
 
 install() {
+    set -e
     make DESTDIR=$IGOS install
     rm -v $IGOS/usr/lib/libmagic.la
 }

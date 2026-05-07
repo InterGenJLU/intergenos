@@ -6,6 +6,7 @@
 # BLFS does not carry zix — drobilla.net is the source of truth.
 
 configure() {
+    set -e
     meson setup build         \
           --prefix=/usr       \
           --buildtype=release \
@@ -13,14 +14,17 @@ configure() {
 }
 
 build() {
+    set -e
     ninja -C build
 }
 
 do_install() {
+    set -e
     DESTDIR="$DESTDIR" ninja -C build install
 }
 
 check() {
+    set -e
     # zix ships an offline unit-test suite (test/) gated by the `tests`
     # feature (default auto/enabled). All tests are pure-libc and run
     # without network access.

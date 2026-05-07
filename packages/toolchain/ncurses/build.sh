@@ -6,6 +6,7 @@
 # install it to $IGOS/tools, then cross-compile the library for the target.
 
 configure() {
+    set -e
     # Build tic for the host system first and install to tools
     mkdir -v build
     pushd build
@@ -32,10 +33,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 install() {
+    set -e
     make DESTDIR=$IGOS TIC_PATH=$(pwd)/build/progs/tic install
     ln -sv libncursesw.so $IGOS/usr/lib/libncurses.so
     sed -e 's/^#if.*XOPEN.*$/#if 1/' -i $IGOS/usr/include/curses.h

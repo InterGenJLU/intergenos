@@ -3,15 +3,18 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     cd libraries/liblmdb
 }
 
 build() {
+    set -e
     cd libraries/liblmdb
     make
 }
 
 do_install() {
+    set -e
     cd libraries/liblmdb
 
     # Remove static library from install target per BLFS

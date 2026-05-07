@@ -3,6 +3,7 @@
 # LFS 13.0 Section 8.22
 
 configure() {
+    set -e
     # Fix for gcc-15 compatibility
     sed -i '/long long t1;/,+1s/()/(...)/' configure
 
@@ -13,11 +14,13 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
     make html
 }
 
 check() {
+    set -e
     make check 2>&1 | tee gmp-check-log
 
     # Verify all 199 tests pass
@@ -27,6 +30,7 @@ check() {
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
     make DESTDIR="$DESTDIR" install-html
 }

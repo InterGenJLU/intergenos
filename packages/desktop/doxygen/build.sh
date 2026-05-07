@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # BLFS: fix python shebangs
     grep -rl '^#!.*python$' | xargs sed -i '1s/python/&3/'
 
@@ -17,11 +18,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     make
 }
 
 do_install() {
+    set -e
     cd build
     make DESTDIR="$DESTDIR" install
 }

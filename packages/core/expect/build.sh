@@ -3,6 +3,7 @@
 # LFS 13.0 Section 8.18
 
 configure() {
+    set -e
     # Verify PTY devices work (must output "ok")
     python3 -c 'from pty import spawn; spawn(["echo", "ok"])'
 
@@ -18,14 +19,17 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     make test
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
     ln -svf expect5.45.4/libexpect5.45.4.so "${DESTDIR}/usr/lib"
 }

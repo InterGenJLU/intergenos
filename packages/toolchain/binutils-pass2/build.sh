@@ -5,6 +5,7 @@
 # Cross-compiled binutils for the target system.
 
 configure() {
+    set -e
     # Fix libtool issue that could link against host libraries
     sed '6031s/$add_dir//' -i ltmain.sh
 
@@ -25,11 +26,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     make -j${IGOS_JOBS}
 }
 
 install() {
+    set -e
     cd build
     make DESTDIR=$IGOS install
 

@@ -4,6 +4,7 @@
 # Installs core Noto Sans/Serif/Mono (not the full 1GB+ collection)
 
 do_install() {
+    set -e
     install -v -d -m755 "${DESTDIR}/usr/share/fonts/noto"
 
     # Core fonts — Sans, Serif, Mono (Latin + common scripts)
@@ -16,5 +17,6 @@ do_install() {
 }
 
 post_install() {
+    set -e
     fc-cache -f 2>/dev/null || true
 }

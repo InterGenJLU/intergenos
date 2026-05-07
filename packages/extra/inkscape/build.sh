@@ -5,6 +5,7 @@
 # Note: The tarball extracts to inkscape-1.4.3_2025-12-25_0d15f75042/
 
 configure() {
+    set -e
     # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
 
     # Fix build failures with poppler-26.01.0
@@ -24,16 +25,19 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     cd build
     make DESTDIR="$DESTDIR" install
 }
 
 post_install() {
+    set -e
     gtk-update-icon-cache -qtf /usr/share/icons/hicolor 2>/dev/null || true
     update-desktop-database -q 2>/dev/null || true
 }

@@ -3,6 +3,7 @@
 # LFS 13.0 Section 8.21
 
 configure() {
+    set -e
     mkdir -v build
     cd       build
 
@@ -22,11 +23,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     make -j${IGOS_JOBS} tooldir=/usr
 }
 
 check() {
+    set -e
     cd build
     make -k check || true
 
@@ -36,6 +39,7 @@ check() {
 }
 
 do_install() {
+    set -e
     cd build
     make DESTDIR="$DESTDIR" tooldir=/usr install
 

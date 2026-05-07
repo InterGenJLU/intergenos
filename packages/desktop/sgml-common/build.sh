@@ -3,20 +3,24 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     autoreconf -f -i &&
 
     ./configure --prefix=/usr --sysconfdir=/etc
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" docdir=/usr/share/doc install
 }
 
 post_install() {
+    set -e
     install-catalog --add /etc/sgml/sgml-ent.cat \
         /usr/share/sgml/sgml-iso-entities-8879.1986/catalog &&
 

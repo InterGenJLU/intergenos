@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Use system glslang and spirv-tools per BLFS
     sed '/build-version/d'   -i glslc/CMakeLists.txt
     sed '/third_party/d'     -i CMakeLists.txt
@@ -20,11 +21,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja glslc/glslc
 }
 
 do_install() {
+    set -e
     install -v -m755 -d "${DESTDIR}/usr/bin"
     install -v -m755 build/glslc/glslc "${DESTDIR}/usr/bin"
 }

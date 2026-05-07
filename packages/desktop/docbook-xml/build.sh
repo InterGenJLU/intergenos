@@ -5,6 +5,7 @@
 # without --strip-components which the builder applies by default
 
 configure() {
+    set -e
     # The builder's extraction fails on this flat zip because
     # --strip-components=1 strips the actual filenames. Re-extract
     # properly from the source archive.
@@ -14,6 +15,7 @@ configure() {
 build() { : ; }
 
 do_install() {
+    set -e
     install -v -d -m755 "${DESTDIR}/usr/share/xml/docbook/xml-dtd-4.5"
     install -v -d -m755 "${DESTDIR}/etc/xml"
     cp -v -af --no-preserve=ownership \
@@ -22,6 +24,7 @@ do_install() {
 }
 
 post_install() {
+    set -e
     # Add URL rewrites to the installed catalog
     xmlcatalog --noout --add "rewriteSystem" \
         "http://www.oasis-open.org/docbook/xml/4.5" \

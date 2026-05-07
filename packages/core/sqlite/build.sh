@@ -3,6 +3,7 @@
 # LFS 13.0 Section 8.52
 
 configure() {
+    set -e
     ./configure --prefix=/usr     \
         --disable-static          \
         --enable-fts4             \
@@ -14,13 +15,16 @@ configure() {
 }
 
 build() {
+    set -e
     make LDFLAGS.rpath="" -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     : # No test suite
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

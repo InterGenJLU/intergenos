@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     cat > user.make << EOF
 USE_SYSTEM_FREETYPE := yes
 USE_SYSTEM_HARFBUZZ := yes
@@ -21,12 +22,14 @@ EOF
 }
 
 build() {
+    set -e
     export XCFLAGS=-fPIC
     make -j${IGOS_JOBS} build=release verbose=yes
     unset XCFLAGS
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" \
          prefix=/usr \
          build=release \

@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Apply upstream fix
 
     cd src &&
@@ -21,16 +22,19 @@ configure() {
 }
 
 build() {
+    set -e
     cd src &&
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     cd src &&
     make -j1 -k check || true
 }
 
 do_install() {
+    set -e
     cd src &&
     make DESTDIR="$DESTDIR" install
 

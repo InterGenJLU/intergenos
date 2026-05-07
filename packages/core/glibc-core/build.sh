@@ -6,6 +6,7 @@
 # Post-install: nsswitch.conf, ld.so.conf, timezone, locales.
 
 configure() {
+    set -e
     # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
 
     mkdir -v build
@@ -24,11 +25,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     cd build
     # CRITICAL: Do not skip the glibc test suite
     make check || true
@@ -40,6 +43,7 @@ check() {
 }
 
 do_install() {
+    set -e
     cd build
 
     # Prevent warnings during install
@@ -62,6 +66,7 @@ do_install() {
 
 # Post-install: runs on the live system AFTER deploy
 post_install() {
+    set -e
     # Create essential locales
     localedef -i C -f UTF-8 C.UTF-8
     localedef -i en_US -f ISO-8859-1 en_US

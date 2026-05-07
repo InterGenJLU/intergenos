@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     mkdir -vp build
     cd        build
 
@@ -27,6 +28,7 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     # Limit parallelism — WebCore unified sources each use ~2GB RAM.
     # 16 parallel jobs on 32GB RAM triggers OOM killer.
@@ -36,6 +38,7 @@ build() {
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }

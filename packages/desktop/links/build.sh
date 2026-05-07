@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Fix for glibc-2.43+
     sed '/*strchr/s/cast_const_char //g' -i ftp.c
 
@@ -11,10 +12,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 
     install -v -d -m755 "${DESTDIR}/usr/share/doc/links-${PKG_VERSION}"

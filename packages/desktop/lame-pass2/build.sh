@@ -8,6 +8,7 @@
 # enabling direct encoding from FLAC, AIFF, OGG, and other formats.
 
 configure() {
+    set -e
     # BLFS: prevent hardcoded library search path
     sed -i -e 's/^\(\s*hardcode_libdir_flag_spec\s*=\).*/\1/' configure
 
@@ -17,9 +18,11 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

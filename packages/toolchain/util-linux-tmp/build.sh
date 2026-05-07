@@ -3,6 +3,7 @@
 # LFS 13.0 Section 7.11
 
 configure() {
+    set -e
     mkdir -pv $IGOS/var/lib/hwclock
 
     ./configure                       \
@@ -23,9 +24,11 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 install() {
+    set -e
     make DESTDIR=$IGOS install
 }

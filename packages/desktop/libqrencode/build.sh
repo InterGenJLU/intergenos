@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # libqrencode 4.1.1's CMakeLists.txt sets cmake_minimum_required to a
     # version <3.5; CMake 4.x removed compat for that range. The official
     # workaround per CMake's own error message is to set the policy
@@ -22,9 +23,11 @@ configure() {
 }
 
 build() {
+    set -e
     cmake --build build -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     DESTDIR="$DESTDIR" cmake --install build
 }

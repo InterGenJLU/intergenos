@@ -4,11 +4,13 @@
 # shim ships post-Monday.
 
 configure() {
+    set -e
     # No configure step — we're extracting prebuilt binaries
     return 0
 }
 
 build() {
+    set -e
     # Extract RPM payload
     rpm2cpio shim-x64-${PKG_VERSION}-2.x86_64.rpm | cpio -idmv
 
@@ -24,6 +26,7 @@ build() {
 }
 
 do_install() {
+    set -e
     # Stage shim binaries under /usr/share/shim-signed/ where Forge expects
     install -d "$DESTDIR/usr/share/shim-signed"
     install -m 0644 boot/efi/EFI/fedora/shimx64.efi "$DESTDIR/usr/share/shim-signed/"

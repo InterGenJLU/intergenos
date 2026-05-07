@@ -4,6 +4,7 @@
 # BLFS 13.0 multimedia/libmpeg2
 
 configure() {
+    set -e
     # BLFS: fix problems with recent GCC compilers ("static const" → "static"
     # in MMX IDCT inline-assembly operands, where 'const' is rejected by
     # current GCC for memory-operand vector tables).
@@ -15,9 +16,11 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

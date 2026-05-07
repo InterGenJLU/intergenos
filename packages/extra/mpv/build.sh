@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     mkdir build
     cd    build
 
@@ -17,16 +18,19 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
 }
 
 post_install() {
+    set -e
     # mpv is a backend for Celluloid — hide from app menu
     if [ -f "${DESTDIR}/usr/share/applications/mpv.desktop" ]; then
         echo "NoDisplay=true" >> "${DESTDIR}/usr/share/applications/mpv.desktop"

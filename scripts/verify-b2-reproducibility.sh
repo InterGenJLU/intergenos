@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 # B2 Reproducibility Verification Harness
 # Compares two independent shim build outputs for bit-for-bit identity.
 # Exit 0 = PASS (all checks), Exit 1-N = FAIL (N checks failed).
@@ -42,6 +43,11 @@ tar -xf "$TAR_B" -C "$WORK/B"
 echo "=== B2 Reproducibility Verification $(date -u '+%Y-%m-%dT%H:%M:%SZ') ===" > "$VERDICT_FILE"
 echo "Run A: $TAR_A" >> "$VERDICT_FILE"
 echo "Run B: $TAR_B" >> "$VERDICT_FILE"
+
+# Tool availability checks
+for tool in sha256sum tar cmp objcopy awk; do
+    command -v "$tool" >/dev/null || { echo "FATAL: $tool not found in PATH"; exit 1; }
+done
 
 # Check 1: Tarball-level sha256 (wrapper check)
 SHA_A=$(sha256sum "$TAR_A" | awk '{print $1}')

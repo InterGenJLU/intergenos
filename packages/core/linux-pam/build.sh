@@ -4,6 +4,7 @@
 # IMPORTANT: Shadow and Systemd must be reinstalled after this
 
 configure() {
+    set -e
     # Create test config for build
     install -v -m755 -d /etc/pam.d
 
@@ -25,11 +26,13 @@ EOF
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 check() {
+    set -e
     cd build
     ninja test || true
     # Remove test config
@@ -37,12 +40,14 @@ check() {
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
     chmod -v 4755 "${DESTDIR}/usr/sbin/unix_chkpwd"
 }
 
 post_install() {
+    set -e
     # Create PAM configuration files
     install -vdm755 /etc/pam.d
 

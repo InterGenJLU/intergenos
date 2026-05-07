@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # BLFS required fixes
     sed -i '/output.h/i #include <cstdint>' src/woff2_out.cc
     # Fix cmake_minimum_required for cmake 4.x
@@ -13,9 +14,11 @@ configure() {
 }
 
 build() {
+    set -e
     cmake --build build -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     DESTDIR="$DESTDIR" cmake --install build
 }

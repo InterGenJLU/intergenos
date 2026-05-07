@@ -34,6 +34,7 @@
 #     dispatch picks the best path for the host CPU at execution time.
 
 configure() {
+    set -e
     # First pass: single-precision (float / fftw3f)
     ./configure --prefix=/usr        \
                 --enable-shared      \
@@ -46,6 +47,7 @@ configure() {
 }
 
 build() {
+    set -e
     # Pass 1: float — build then immediately stage-install so the artefacts
     # survive `make distclean` before pass 2.
     make -j${IGOS_JOBS}
@@ -64,6 +66,7 @@ build() {
 }
 
 do_install() {
+    set -e
     # Install pass 2 (double) — pass 1 (float) was already staged in build().
     make DESTDIR="$DESTDIR" install
 }

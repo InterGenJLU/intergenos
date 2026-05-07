@@ -3,6 +3,7 @@
 # LFS 13.0 Section 8.52
 
 configure() {
+    set -e
     ./configure --prefix=/usr             \
         --enable-shared                   \
         --with-system-expat               \
@@ -11,6 +12,7 @@ configure() {
 }
 
 build() {
+    set -e
     # Exclude test_generators from PGO profiling — it fails under PGO
     # instrumentation in KVM/chroot due to signal delivery timing changes.
     # 1 of 46 PGO tests excluded; negligible impact on optimization quality.
@@ -19,6 +21,7 @@ build() {
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 
     # PEP 394: 'python' should point to 'python3' on modern systems

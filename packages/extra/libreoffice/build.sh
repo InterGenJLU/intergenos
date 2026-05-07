@@ -10,6 +10,7 @@
 # Network access is NOT required at build time.
 
 configure() {
+    set -e
     # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
 
     # Fix zlib linking bug, install failure, and prevent man page compression
@@ -98,6 +99,7 @@ configure() {
 }
 
 build() {
+    set -e
     # LibreOffice refuses to build as root — bypass the check since
     # we're building in a controlled chroot environment.
     sed -i "s/test ! \`uname\` = 'Haiku' -a \`id -u\` = 0/false/" Makefile
@@ -110,10 +112,12 @@ build() {
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" distro-pack-install
 }
 
 post_install() {
+    set -e
     update-desktop-database -q 2>/dev/null || true
     gtk-update-icon-cache -qtf /usr/share/icons/hicolor 2>/dev/null || true
 }

@@ -3,6 +3,7 @@
 # LFS 13.0 Section 8.37
 
 configure() {
+    set -e
     ./configure --prefix=/usr             \
         --without-bash-malloc             \
         --with-installed-readline         \
@@ -10,10 +11,12 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     chown -R tester .
     LC_ALL=C.UTF-8 su -s /usr/bin/expect tester << "EOF"
 set timeout -1
@@ -25,6 +28,7 @@ EOF
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }
 

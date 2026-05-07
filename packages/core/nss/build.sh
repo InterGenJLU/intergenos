@@ -4,11 +4,13 @@
 # Non-standard build: uses raw make, no configure
 
 configure() {
+    set -e
     # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
     :
 }
 
 build() {
+    set -e
     cd nss
 
     make BUILD_OPT=1                      \
@@ -22,6 +24,7 @@ build() {
 }
 
 do_install() {
+    set -e
     cd dist
 
     install -v -m755 -d "${DESTDIR}/usr/lib"

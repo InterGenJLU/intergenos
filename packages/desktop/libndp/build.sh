@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # GitHub archive tarball — no pre-generated configure script
     ./autogen.sh
 
@@ -13,9 +14,11 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
 }

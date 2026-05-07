@@ -3,6 +3,7 @@
 # Not in BLFS — InterGenOS extra tier
 
 configure() {
+    set -e
     cmake -B build \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr \
@@ -10,14 +11,17 @@ configure() {
 }
 
 build() {
+    set -e
     cmake --build build
 }
 
 check() {
+    set -e
     cd build && ctest --output-on-failure || true
 }
 
 do_install() {
+    set -e
     cmake --install build --prefix "$DESTDIR/usr"
     install -d "$DESTDIR/usr/share/man/man3"
     install -v -m644 "$BUILD_DIR/libyajl.3" "$DESTDIR/usr/share/man/man3/libyajl.3"

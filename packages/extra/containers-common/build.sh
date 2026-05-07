@@ -10,6 +10,7 @@ configure() { : ; }
 build() { : ; }
 
 do_install() {
+    set -e
     install -d "$DESTDIR/etc/containers"
     install -d "$DESTDIR/usr/share/containers"
 

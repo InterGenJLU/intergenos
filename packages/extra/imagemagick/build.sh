@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     ./configure --prefix=/usr     \
                 --sysconfdir=/etc \
                 --enable-hdri     \
@@ -12,14 +13,17 @@ configure() {
 }
 
 build() {
+    set -e
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     make check || true
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" \
          DOCUMENTATION_PATH=/usr/share/doc/imagemagick-7.1.2 \
          install

@@ -7,6 +7,7 @@
 # We build it from the same GCC source tree.
 
 configure() {
+    set -e
     mkdir -v build
     cd       build
 
@@ -21,11 +22,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     make -j${IGOS_JOBS}
 }
 
 install() {
+    set -e
     cd build
     make DESTDIR=$IGOS install
 

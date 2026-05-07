@@ -9,19 +9,23 @@
 BUILD_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 configure() {
+    set -e
     ./autogen.sh
     ./configure --prefix=/usr
 }
 
 build() {
+    set -e
     make
 }
 
 check() {
+    set -e
     ./fuse-overlayfs --version
 }
 
 do_install() {
+    set -e
     make DESTDIR="$DESTDIR" install
     install -d "$DESTDIR/usr/share/man/man1"
     install -v -m644 "$BUILD_DIR/fuse-overlayfs.1" \

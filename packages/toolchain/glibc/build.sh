@@ -9,6 +9,7 @@
 # in the patch phase (declared in package.yml).
 
 configure() {
+    set -e
     # Create LSB compliance symlink and dynamic loader compatibility link
     case $(uname -m) in
         i?86)
@@ -36,11 +37,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     make -j${IGOS_JOBS}
 }
 
 install() {
+    set -e
     cd build
     make DESTDIR=$IGOS install
 
@@ -49,6 +52,7 @@ install() {
 }
 
 check() {
+    set -e
     # Sanity check — verify the cross-toolchain works correctly
     cd build
 

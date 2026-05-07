@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # BLFS required fix
     sed -i "/get_option/s/libdvdread/&-7.0.1/" meson.build
 
@@ -16,11 +17,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     ninja
 }
 
 do_install() {
+    set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
     rm -fv ${DESTDIR}/usr/lib/libdvdread.a

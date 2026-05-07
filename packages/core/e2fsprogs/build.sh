@@ -3,6 +3,7 @@
 # LFS 13.0 Section 8.83
 
 configure() {
+    set -e
     mkdir -v build
     cd       build
 
@@ -16,16 +17,19 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     make -j${IGOS_JOBS}
 }
 
 check() {
+    set -e
     cd build
     make check || true
 }
 
 do_install() {
+    set -e
     cd build
     make DESTDIR="$DESTDIR" install
 
@@ -44,6 +48,7 @@ do_install() {
 
 # Post-install: fix mke2fs defaults on live system
 post_install() {
+    set -e
     # Remove metadata_csum_seed from default mkfs features
     # (compatibility with older bootloaders/kernels)
     sed 's/metadata_csum_seed,//' -i /etc/mke2fs.conf

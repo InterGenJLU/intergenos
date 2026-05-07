@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # Prevent hard coding library rpath into shared libraries (BLFS)
     sed '/ORIGIN/d' -i lib/CMakeLists.txt
 
@@ -15,9 +16,11 @@ configure() {
 }
 
 build() {
+    set -e
     cmake --build build -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     DESTDIR="$DESTDIR" cmake --install build
 }

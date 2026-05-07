@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     mkdir -p build
     cd       build
 
@@ -14,11 +15,13 @@ configure() {
 }
 
 build() {
+    set -e
     cd build
     make -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     cd build
     make DESTDIR="$DESTDIR" install
 }

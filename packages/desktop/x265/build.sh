@@ -3,6 +3,7 @@
 # BLFS 13.0
 
 configure() {
+    set -e
     # BLFS required fixes
     sed -r '/cmake_policy.*(0025|0054)/d' -i source/CMakeLists.txt
     cmake -B build -S source                  \
@@ -14,10 +15,12 @@ configure() {
 }
 
 build() {
+    set -e
     cmake --build build -j${IGOS_JOBS}
 }
 
 do_install() {
+    set -e
     DESTDIR="$DESTDIR" cmake --install build
     rm -vf "${DESTDIR}/usr/lib/libx265.a"
 }
