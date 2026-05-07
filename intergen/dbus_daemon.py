@@ -408,12 +408,39 @@ class InterGenDaemon(InterGenDBusInterface):
             self._bus = Gio.bus_get_sync(Gio.BusType.SESSION)
             self._node_info = Gio.DBusNodeInfo.new_for_xml(INTROSPECTION_XML)
 
+            # Maximum size accepted for the Ask method's `message` arg.
+            # 4096 bytes is generous for legitimate natural-language input
+            # (well-formed dictation transcripts typically fit in <2 KB);
+            # caps RAM spike from a malformed/malicious local client that
+            # might send multi-MB payloads.
+            ASK_MESSAGE_MAX_BYTES = 4096
+
             def on_method_call(connection, sender, object_path, interface_name,
                                method_name, parameters, invocation):
                 """Handle incoming D-Bus method calls."""
                 try:
                     if method_name == "Ask":
                         message = parameters.unpack()[0]
+                        # F11: enforce input size cap before forwarding.
+                        # The byte length matters more than the character
+                        # length here — D-Bus transports UTF-8 over the
+                        # wire, and the cap is an anti-DoS guardrail.
+                        message_bytes = (
+                            len(message.encode("utf-8"))
+                            if isinstance(message, str)
+                            else len(message)
+                        )
+                        if message_bytes > ASK_MESSAGE_MAX_BYTES:
+                            log.warning(
+                                "D-Bus Ask: rejecting oversized message from "
+                                "%s (size %d > %d bytes)",
+                                sender, message_bytes, ASK_MESSAGE_MAX_BYTES,
+                            )
+                            invocation.return_dbus_error(
+                                "com.intergenos.InterGen.Error",
+                                f"Message too large (max {ASK_MESSAGE_MAX_BYTES} bytes).",
+                            )
+                            return
                         response = self.ask(message)
                         invocation.return_value(GLib.Variant("(s)", (response,)))
                     elif method_name == "Status":
@@ -428,9 +455,18 @@ class InterGenDaemon(InterGenDBusInterface):
                             f"Unknown method: {method_name}",
                         )
                 except Exception as e:
-                    log.error("D-Bus method call error: %s", e)
+                    # F5: don't leak internal details (file paths, library
+                    # exception messages, stack snippets) to whichever local
+                    # process called the bus. Full exception with traceback
+                    # goes to the daemon log; caller sees only a sanitized
+                    # generic error string.
+                    log.error(
+                        "D-Bus method call error in %s from %s: %s",
+                        method_name, sender, e, exc_info=True,
+                    )
                     invocation.return_dbus_error(
-                        "com.intergenos.InterGen.Error", str(e),
+                        "com.intergenos.InterGen.Error",
+                        "Internal error — check daemon logs for details.",
                     )
 
             self._reg_id = self._bus.register_object(
