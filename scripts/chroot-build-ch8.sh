@@ -245,6 +245,27 @@ run_package() {
 }
 
 # ============================================================================
+# Minimal OS identity stub
+# ============================================================================
+# systemd 259's meson configure (src/boot/meson.build:112) reads $ID from
+# /etc/os-release or /usr/lib/os-release for sd-boot resource paths. The
+# full os-release lands in chroot-config-ch9.sh during phase_config, but
+# that's after phase_core (Ch 8). Stage a minimal version here so systemd
+# can configure successfully. chroot-config-ch9.sh overwrites this with
+# the full content later.
+if [ ! -f /etc/os-release ]; then
+    log "  Staging minimal /etc/os-release (full version overwritten in Ch 9)"
+    mkdir -p /etc
+    cat > /etc/os-release <<'OSRELEASE_EOF'
+NAME="InterGenOS"
+ID=intergenos
+ID_LIKE=lfs
+VERSION_ID=1.0
+PRETTY_NAME="InterGenOS 1.0-dev (Ch 8 build stub)"
+OSRELEASE_EOF
+fi
+
+# ============================================================================
 # 8.3 — 8.5: Man-pages, Iana-Etc, Glibc
 # ============================================================================
 
