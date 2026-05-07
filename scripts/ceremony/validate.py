@@ -503,12 +503,24 @@ def validate_pubkey_import(master_fp):
 # Main
 # --------------------------------------------------------------
 def main():
-    banner("InterGenOS Ceremony Validation")
+    # Per §4 S8: --review mode skips card-dependent checks for code-review of
+    # the validator itself outside the Tails environment. Sections 2, 3, 4
+    # require physical hardware (NKs + USB drives) that aren't present on a
+    # dev workstation. Sections 1 and 5 are file-only and run in either mode.
+    review_mode = "--review" in sys.argv
+
+    banner("InterGenOS Ceremony Validation" + (" — REVIEW MODE" if review_mode else ""))
     print()
-    print("This is a READ-ONLY audit. No keys, cards, drives, or files are modified.")
-    print("You'll need to plug each NK in turn (one at a time) for Section 2.")
-    print()
-    input(">>> Press Enter to begin (Ctrl-C to abort): ")
+    if review_mode:
+        print("REVIEW MODE: Sections 2-4 (card / drive checks) skipped.")
+        print("Only file-format checks (Sections 1 + 5) will run.")
+        print("Use without --review during the actual ceremony on Tails.")
+        print()
+    else:
+        print("This is a READ-ONLY audit. No keys, cards, drives, or files are modified.")
+        print("You'll need to plug each NK in turn (one at a time) for Section 2.")
+        print()
+        input(">>> Press Enter to begin (Ctrl-C to abort): ")
 
     section1 = validate_master_keyring()
     if isinstance(section1, tuple):
@@ -521,17 +533,28 @@ def main():
         print("\nABORT: master keyring missing or unreadable. Cannot continue.")
         sys.exit(2)
 
-    s2_failures = validate_all_nks(master_fp)
-    s3_failures = validate_drive3()
-    s4_failures = validate_drive2()
+    if review_mode:
+        s2_failures = 0
+        s3_failures = 0
+        s4_failures = 0
+        print("\n[Sections 2-4 SKIPPED — review mode, no card/drive validation]\n")
+    else:
+        s2_failures = validate_all_nks(master_fp)
+        s3_failures = validate_drive3()
+        s4_failures = validate_drive2()
     s5_failures = validate_pubkey_import(master_fp)
 
     total = s1_failures + s2_failures + s3_failures + s4_failures + s5_failures
-    banner("VALIDATION SUMMARY")
+    banner("VALIDATION SUMMARY" + (" — REVIEW MODE" if review_mode else ""))
     print(f"  Section 1 (Master keyring):   {s1_failures} failure(s)")
-    print(f"  Section 2 (Per-NK signing):   {s2_failures} failure(s)")
-    print(f"  Section 3 (Drive #3):         {s3_failures} failure(s)")
-    print(f"  Section 4 (Drive #2):         {s4_failures} failure(s)")
+    if review_mode:
+        print(f"  Section 2 (Per-NK signing):   SKIPPED (review mode)")
+        print(f"  Section 3 (Drive #3):         SKIPPED (review mode)")
+        print(f"  Section 4 (Drive #2):         SKIPPED (review mode)")
+    else:
+        print(f"  Section 2 (Per-NK signing):   {s2_failures} failure(s)")
+        print(f"  Section 3 (Drive #3):         {s3_failures} failure(s)")
+        print(f"  Section 4 (Drive #2):         {s4_failures} failure(s)")
     print(f"  Section 5 (Pubkey roundtrip): {s5_failures} failure(s)")
     print(f"  TOTAL:                        {total} failure(s)")
     print()
