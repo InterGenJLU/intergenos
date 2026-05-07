@@ -23,8 +23,7 @@ import subprocess
 from pathlib import Path
 
 from .hooks import (
-    mount_virtual_fs,
-    unmount_virtual_fs,
+    virtual_fs,
     run_chroot,
     mount_efivars,
     unmount_efivars,
@@ -69,9 +68,7 @@ def install_bootloader(target, disk, partitions, mok_keypair=None):
             "to sign the GRUB binary"
         )
 
-    mount_virtual_fs(target)
-
-    try:
+    with virtual_fs(target):
         if efi:
             _install_signed_efi_chain(target, partitions, mok_keypair)
         else:
@@ -84,9 +81,6 @@ def install_bootloader(target, disk, partitions, mok_keypair=None):
         )
         if rc != 0:
             raise RuntimeError(f"grub-mkconfig failed: {stderr}")
-
-    finally:
-        unmount_virtual_fs(target)
 
 
 def _install_signed_efi_chain(target, partitions, mok_keypair):

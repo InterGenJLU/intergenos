@@ -6,7 +6,7 @@ import shlex
 import subprocess
 from pathlib import Path
 
-from .hooks import mount_virtual_fs, unmount_virtual_fs, run_chroot, run_chroot_stdin
+from .hooks import virtual_fs, run_chroot, run_chroot_stdin
 
 log = logging.getLogger(__name__)
 
@@ -23,14 +23,11 @@ _SUDOERS_WHEEL_COMMENTED_RE = re.compile(
 
 def set_root_password(target, password):
     """Set the root password on the target system."""
-    mount_virtual_fs(target)
-    try:
+    with virtual_fs(target):
         # Feed password via stdin to avoid process table exposure
         run_chroot_stdin(target, "chpasswd", f"root:{password}\n")
         # Remove password expiry for initial setup
         run_chroot(target, "passwd -x 99999 root")
-    finally:
-        unmount_virtual_fs(target)
 
 
 def create_user(target, username, password, groups=None):
@@ -45,8 +42,7 @@ def create_user(target, username, password, groups=None):
     if groups is None:
         groups = ["wheel", "audio", "video", "cdrom", "input"]
 
-    mount_virtual_fs(target)
-    try:
+    with virtual_fs(target):
         # Create group 'wheel' if it doesn't exist (for sudo)
         run_chroot(target, "getent group wheel >/dev/null 2>&1 || groupadd wheel")
 
@@ -89,14 +85,10 @@ def create_user(target, username, password, groups=None):
                         (stderr or "").strip(),
                     )
 
-    finally:
-        unmount_virtual_fs(target)
-
 
 def enable_services(target):
     """Enable essential systemd services on the target."""
-    mount_virtual_fs(target)
-    try:
+    with virtual_fs(target):
         services = [
             "systemd-networkd.service",
             "systemd-resolved.service",
@@ -110,5 +102,3 @@ def enable_services(target):
             "ln -sf /usr/lib/systemd/system/serial-getty@.service "
             "/etc/systemd/system/getty.target.wants/serial-getty@ttyS0.service"
         )
-    finally:
-        unmount_virtual_fs(target)

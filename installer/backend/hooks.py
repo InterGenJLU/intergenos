@@ -1,12 +1,22 @@
 """Post-install hook orchestration for InterGenOS installer."""
 
+import logging
 import os
 import subprocess
+from contextlib import contextmanager
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 
 def mount_virtual_fs(target):
-    """Mount virtual filesystems for chroot operations."""
+    """Mount virtual filesystems for chroot operations.
+
+    Mounts /dev (bind), /dev/pts (bind), /proc, /sys, /run in that order.
+    On partial failure (any mount raises), unmounts the ones that succeeded
+    in reverse order before re-raising — leaves the system in a known state
+    so a retry doesn't hit an "already mounted" cascade.
+    """
     target = str(target)
 
     mounts = [
@@ -17,18 +27,64 @@ def mount_virtual_fs(target):
         (["mount", "-t", "tmpfs", "tmpfs", f"{target}/run"], f"{target}/run"),
     ]
 
+    completed = []
     for cmd, mountpoint in mounts:
         os.makedirs(mountpoint, exist_ok=True)
-        subprocess.run(cmd, capture_output=True, check=True)
+        try:
+            subprocess.run(cmd, capture_output=True, check=True)
+        except subprocess.CalledProcessError:
+            for done in reversed(completed):
+                subprocess.run(["umount", done], capture_output=True)
+            raise
+        completed.append(mountpoint)
 
 
 def unmount_virtual_fs(target):
-    """Unmount virtual filesystems from target (reverse order)."""
-    target = str(target)
+    """Unmount virtual filesystems from target (reverse order).
 
+    Best-effort: a single umount failure (e.g., busy) is logged as a warning
+    but doesn't halt cleanup of subsequent mounts. Halting on first failure
+    would let one stuck mount block cleanup of the others, which is worse
+    than the current "log + continue" behavior. Caller cannot distinguish
+    "all clean" from "partial busy" — the warning log is the channel for that.
+    """
+    target = str(target)
     for sub in ["run", "sys", "proc", "dev/pts", "dev"]:
-        subprocess.run(["umount", f"{target}/{sub}"],
-                       capture_output=True)
+        path = f"{target}/{sub}"
+        result = subprocess.run(
+            ["umount", path], capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()
+            log.warning("umount %s returncode=%d (%s)",
+                        path, result.returncode, stderr)
+
+
+@contextmanager
+def virtual_fs(target):
+    """Context-manager form of mount_virtual_fs / unmount_virtual_fs.
+
+    Use in callers that want the cleaner mount-do-unmount shape:
+
+        with virtual_fs(target):
+            run_chroot(target, "...")
+
+    Equivalent to:
+
+        mount_virtual_fs(target)
+        try:
+            ...
+        finally:
+            unmount_virtual_fs(target)
+
+    Partial-mount rollback is handled by mount_virtual_fs itself; the
+    finally block here only runs after successful mount.
+    """
+    mount_virtual_fs(target)
+    try:
+        yield
+    finally:
+        unmount_virtual_fs(target)
 
 
 def mount_efivars(target):
@@ -139,42 +195,57 @@ def run_post_install_hooks(target, packages_dir, progress_callback=None):
     if total == 0:
         return 0
 
-    # Mount virtual filesystems for chroot
-    mount_virtual_fs(target)
-
-    try:
-        # Copy packages directory into target for hook access
+    with virtual_fs(target):
+        # Copy packages directory into target for hook access. Returncode-
+        # checked: a silent cp failure (disk full / permission denied) means
+        # no hook source files reach the chroot, so every per-hook source
+        # would fail with file-not-found; we skip the hooks loop entirely
+        # and surface the failure via progress_callback so the orchestrator
+        # frontend can render the warning.
         target_pkg_dir = target / "tmp" / "installer-packages"
-        subprocess.run(
+        cp_result = subprocess.run(
             ["cp", "-a", str(packages_dir), str(target_pkg_dir)],
-            capture_output=True
+            capture_output=True, text=True,
         )
+        if cp_result.returncode != 0:
+            stderr = (cp_result.stderr or "").strip()
+            log.warning("cp -a packages-dir failed: %s", stderr)
+            if progress_callback:
+                progress_callback(
+                    0, total,
+                    "warning: cannot copy packages — hooks skipped",
+                )
+            return 0
 
         executed = 0
-        for i, hook in enumerate(hooks, 1):
-            if progress_callback:
-                progress_callback(i, total, hook["name"])
+        try:
+            for i, hook in enumerate(hooks, 1):
+                if progress_callback:
+                    progress_callback(i, total, hook["name"])
 
-            # Build the chroot command
-            import shlex
-            pkg_path = f"/tmp/installer-packages/{shlex.quote(hook['tier'])}/{shlex.quote(hook['name'])}/build.sh"
-            cmd = (
-                f"export PKG_VERSION={shlex.quote(hook['version'])} && "
-                f"export version={shlex.quote(hook['version'])} && "
-                f"source {pkg_path} && "
-                f"post_install"
+                # Build the chroot command
+                import shlex
+                pkg_path = (
+                    f"/tmp/installer-packages/"
+                    f"{shlex.quote(hook['tier'])}/"
+                    f"{shlex.quote(hook['name'])}/build.sh"
+                )
+                cmd = (
+                    f"export PKG_VERSION={shlex.quote(hook['version'])} && "
+                    f"export version={shlex.quote(hook['version'])} && "
+                    f"source {pkg_path} && "
+                    f"post_install"
+                )
+
+                rc, stdout, stderr = run_chroot(target, cmd)
+                if rc == 0:
+                    executed += 1
+                # Don't fail on hook errors — some hooks expect services
+                # that aren't running yet (systemctl, etc.)
+
+        finally:
+            subprocess.run(
+                ["rm", "-rf", str(target_pkg_dir)], capture_output=True
             )
-
-            rc, stdout, stderr = run_chroot(target, cmd)
-            if rc == 0:
-                executed += 1
-            # Don't fail on hook errors — some hooks expect services
-            # that aren't running yet (systemctl, etc.)
-
-        # Clean up
-        subprocess.run(["rm", "-rf", str(target_pkg_dir)], capture_output=True)
-
-    finally:
-        unmount_virtual_fs(target)
 
     return executed
