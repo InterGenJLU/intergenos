@@ -1,3 +1,31 @@
+// safety-gate v2 — Kilo Code plugin: fleet-roster validation + force-push gate.
+//
+// DEPLOYMENT STATUS (kept current as the plugin lands across the fleet):
+//   The "v2-sketch" filename suffix marks the file as the v2 design surface
+//   under iteration; it does NOT mean "untested" or "not deployed."
+//   Production status is tracked here so a contributor reading this file
+//   knows whether they're looking at the current shipping plugin or a
+//   research draft. Update this comment when status changes; do not
+//   remove the suffix until the plugin is renamed in the same commit
+//   that updates references in `.kilo/config.json` and the README.
+//
+//   - DEPLOYED on the workstation node as of 2026-05-06.
+//   - Other workstation nodes + bare-metal hosts: install pending — track
+//     via the relevant fleet-pin reference doc once landed.
+//   - Newest fleet node: install pending; bundled with the v7.2.42 Kilo
+//     Code upgrade.
+//
+// PRODUCTION-CRITICAL SAFETY FEATURES (these block real pushes):
+//   - Fleet-roster check: a commit's branch_prefix is matched against the
+//     active-agent roster fetched from FLEET_ROSTER_URL; spoofed agent
+//     prefixes are rejected before push.
+//   - Force-push gate: `--force` / `--force-with-lease` against any
+//     refs/heads/master push is hard-blocked at plugin-hook time.
+//
+// EMERGENCY OVERRIDE: drop a JSON file at EMERGENCY_OVERRIDE_PATH with
+// the right shape to bypass — intentionally inconvenient (manual file
+// creation per push) so it is not a habitual escape hatch.
+
 import type { PluginInput, Hooks } from "@kilocode/plugin";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';

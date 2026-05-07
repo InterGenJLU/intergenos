@@ -32,6 +32,20 @@ against the InterGenOS vendor cert held on Nitrokey #1 PIV slot 9c, and the
 signed binaries are then handed to
 .BR forge-iso .
 The build VM never holds signing material.
+.SH OPTIONS
+.B forge-iso
+takes
+.B no command-line flags
+\(em all parameters are passed via shell environment variables. See
+.B ENVIRONMENT
+below. Contrast with
+.BR forge (1),
+which is a CLI tool driven by argparse with a
+.B \-\-archives
+flag and other options. The two manpages are intentionally distinct
+surfaces:
+.B forge
+is the runtime installer; this tool is a build-time shell script.
 .SH ENVIRONMENT
 .SS Required
 .TP
