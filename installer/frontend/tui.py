@@ -369,82 +369,66 @@ def prompt_install_io():
 def run_declarative(yaml_path, install_io, archive_dir, packages_dir, dry_run):
     """Read yaml + interactive answers, run the install non-interactively.
 
-    Output is build-style — package names, status lines, no curses.
+    Thin wrapper over `installer.backend.install.run_install` — the canonical
+    Phase 4 orchestrator shared by both TUI and GUI frontends. This function
+    only handles build-style stdout rendering; all backend orchestration
+    (12-phase pipeline, failure rollback, MOK keypair sequencing, etc.) is
+    in the orchestrator.
     """
+    from installer.backend import install as backend_install
+
     cfg = _load_yaml(yaml_path)
 
     print(f"forge: declarative install starting from {yaml_path}")
     print(f"       locale={cfg['locale']} tz={cfg['timezone']} "
           f"hostname={cfg['hostname']} groups={cfg['package_groups']}")
     print(f"       target disk={install_io['disk']}")
-
     if dry_run:
-        print("forge: --dry-run set — backend calls will log only.")
+        print("forge: --dry-run set — destructive disk ops will log only.")
 
-    # The actual orchestration calls into the existing backend modules. The
-    # specific call shapes match the existing tui.py (curses) and gui (TBD)
-    # paths so that all three frontends share the backend contract.
-    target = "/mnt/target"
+    phases_total = len(backend_install.PHASE_ORDER)
 
-    print(f"[ ... ] partitioning {install_io['disk']}")
-    if not dry_run:
-        partitions = disks.partition(install_io["disk"], install_io.get("install_mode"))
-        disks.format_partitions(partitions)
-        disks.mount(partitions, target)
-    print(f"[ OK  ] partitioning {install_io['disk']}")
+    def _progress(phase, current, total, message):
+        if phase == backend_install.PHASE_PACKAGES and total != phases_total:
+            # per-package fanout from packages.install_packages
+            print(f"        ({current}/{total}) {message}")
+            return
+        if phase == backend_install.PHASE_HOOKS and total != phases_total:
+            # per-hook fanout from hooks.run_post_install_hooks
+            print(f"        ({current}/{total}) {message}")
+            return
+        # Phase-boundary event. current==phase-index on enter, ==index+1 on exit.
+        # Render two-line shape: enter ("[ ... ]"), exit ("[ OK  ]").
+        if current == 0 or current < phases_total and message and "WARN" not in message and current < phases_total:
+            tag = "[ ... ]" if current < total else "[ OK  ]"
+        else:
+            tag = "[ OK  ]"
+        if "WARN" in message or "failed" in message.lower():
+            tag = "[ WARN ]"
+        print(f"  {tag} {phase}: {message}")
 
-    print(f"[ ... ] installing package groups: {cfg['package_groups']}")
-
-    def _progress(current, total, name):
-        print(f"        ({current}/{total}) {name}")
-
-    if not dry_run:
-        ok, fail, failed = packages.install_packages(
-            target, archive_dir, cfg["package_groups"],
-            package_dir=packages_dir, progress_callback=_progress,
-        )
-        print(f"[ {'OK ' if fail == 0 else 'WARN'} ] packages installed: "
-              f"{ok} ok / {fail} failed")
-        if fail:
-            for n, msg in failed:
-                print(f"        FAILED: {n}: {msg}")
-
-    print(f"[ ... ] system config (hostname, locale, timezone)")
-    if not dry_run:
-        config.write_hostname(target, cfg["hostname"])
-        config.write_locale(target, cfg["locale"])
-        config.write_timezone(target, cfg["timezone"])
-    print(f"[ OK  ] system config")
-
-    print(f"[ ... ] root + user accounts")
-    if not dry_run:
-        users.set_root_password(target, install_io["root_password"])
-        users.create_user(target, install_io["username"],
-                          install_io["user_password"])
-    print(f"[ OK  ] accounts")
-
-    if disks.is_efi() and install_io.get("mok_password"):
-        print(f"[ ... ] Secure Boot MOK enrollment")
-        if not dry_run:
-            keypair = mok.generate_mok_keypair(target)
-            mok.stage_enrollment(target, keypair, install_io["mok_password"])
-        print(f"[ OK  ] MOK enrolled (will activate at first reboot)")
-
-    print(f"[ ... ] bootloader")
-    if not dry_run:
-        bootloader.install(target, install_io["disk"])
-    print(f"[ OK  ] bootloader")
-
-    print(f"[ ... ] post-install hooks")
-    if not dry_run:
-        hooks.run_post_install(target, packages_dir)
-    print(f"[ OK  ] post-install hooks")
+    result = backend_install.run_install(
+        yaml_path, install_io,
+        str(archive_dir) if archive_dir else None,
+        str(packages_dir) if packages_dir else None,
+        progress_callback=_progress,
+        dry_run=dry_run,
+    )
 
     print()
-    print("forge: install complete.")
-    print("       Reboot, remove the install media, and (if EFI) follow the")
-    print("       MokManager prompts to enroll the InterGenOS vendor cert.")
-    return 0
+    if result.success:
+        print("forge: install complete.")
+        if result.package_fail_count:
+            print(f"       (note: {result.package_fail_count} package(s) failed)")
+            for n, msg in result.failed_packages:
+                print(f"         FAILED: {n}: {msg}")
+        print("       Reboot, remove the install media, and (if EFI) follow the")
+        print("       MokManager prompts to enroll the InterGenOS vendor cert.")
+        return 0
+
+    print(f"forge: install FAILED at phase {result.phase_completed or '<pre-validation>'}")
+    print(f"       error: {result.error_message}")
+    return 1
 
 
 # --------------------------------------------------------------------------
