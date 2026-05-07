@@ -118,6 +118,38 @@ def _ask_yesno(title, prompt):
     return rc == 0
 
 
+def _show_confirm_summary(cfg, install_io):
+    """Show a summary dialog before the destructive install begins.
+    Returns True if the user confirms, False if they cancel."""
+    disk = install_io.get("disk", "unknown")
+    lines = [
+        f"Target disk:     {disk} (ALL DATA WILL BE ERASED)",
+        f"Hostname:        {cfg.get('hostname', '?')}",
+        f"Locale:          {cfg.get('locale', '?')}",
+        f"Timezone:        {cfg.get('timezone', '?')}",
+        f"Package groups:  {', '.join(cfg.get('package_groups', []))}",
+        f"Root password:   (set)",
+        f"User account:    {install_io.get('username', '?')}",
+    ]
+    msg = "\n".join(lines)
+
+    return _ask_yesno(
+        "Confirm installation",
+        f"Review your choices:\n\n{msg}\n\nProceed with installation?",
+    )
+
+
+def _cleanup_on_abort(yaml_path=None):
+    """Clean up any partial state on abort or cancellation."""
+    if yaml_path:
+        p = Path(yaml_path)
+        if p.exists():
+            p.unlink(missing_ok=True)
+    print("forge: installation cancelled. No changes were made to the target disk.",
+          file=sys.stderr)
+    return 1
+
+
 # --------------------------------------------------------------------------
 # walking() — small set of yaml-bound questions
 # --------------------------------------------------------------------------
@@ -437,12 +469,11 @@ def run_declarative(yaml_path, install_io, archive_dir, packages_dir, dry_run):
 
 
 def run_installer(archive_dir, packages_dir=None, dry_run=False):
-    """Orchestrate the declarative-builder TUI: walk → emit → prompt → run."""
+    """Orchestrate the declarative-builder TUI: walk → emit → prompt → confirm → run."""
     # Walking — yaml-bound choices
     answers = walking()
     if answers is None:
-        print("forge: cancelled during walking phase.", file=sys.stderr)
-        return 1
+        return _cleanup_on_abort()
 
     yaml_path = emit_yaml(answers)
     print(f"forge: install config written to {yaml_path}")
@@ -450,11 +481,30 @@ def run_installer(archive_dir, packages_dir=None, dry_run=False):
     # Interactive — disk + passwords (Q-TUI-INTERACTIVITY=B)
     install_io = prompt_install_io()
     if install_io is None:
-        print("forge: cancelled during disk/password phase.", file=sys.stderr)
-        return 1
+        return _cleanup_on_abort(yaml_path=str(yaml_path))
 
-    return run_declarative(str(yaml_path), install_io, archive_dir,
-                           packages_dir, dry_run)
+    # Confirm summary — last chance before destructive install
+    if not _show_confirm_summary(answers, install_io):
+        return _cleanup_on_abort(yaml_path=str(yaml_path))
+
+    rc = run_declarative(str(yaml_path), install_io, archive_dir,
+                         packages_dir, dry_run)
+
+    # Reboot prompt
+    if rc == 0:
+        if _ask_yesno(
+            "Installation complete",
+            "Installation completed successfully.\n\n"
+            "Reboot now to boot into your new InterGenOS system?"
+        ):
+            print("forge: rebooting...")
+            subprocess.run(["reboot"], check=False)
+        else:
+            print("forge: you can reboot later by running 'reboot' or Ctrl+Alt+Del.")
+
+    # Clean up the ephemeral yaml
+    Path(str(yaml_path)).unlink(missing_ok=True)
+    return rc
 
 
 # Legacy compatibility — the original `run_installer` signature is preserved.

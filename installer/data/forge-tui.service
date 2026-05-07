@@ -1,0 +1,24 @@
+[Unit]
+Description=InterGenOS Forge Installer — Declarative Builder TUI
+Documentation=https://github.com/InterGenJLU/intergenos/blob/main/installer/README.md
+After=multi-user.target
+Wants=multi-user.target
+ConditionKernelCommandLine=igos.installer=tui
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+ExecStart=/usr/bin/forge --mode tui --archives /var/lib/igos/archives --packages /var/lib/igos/packages
+StandardInput=tty
+StandardOutput=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TimeoutStopSec=10
+Restart=no
+IgnoreSIGPIPE=no
+KillMode=process
+SendSIGHUP=yes
+
+[Install]
+WantedBy=multi-user.target
