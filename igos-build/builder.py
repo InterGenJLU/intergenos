@@ -430,7 +430,7 @@ class BuildExecutor(PackageTracker):
                     # injection risks while preserving bash semantics. (B10)
                     result = subprocess.run(
                         ["/bin/bash", "-c", check.script],
-                capture_output=True, text=True, timeout=300
+                        capture_output=True, text=True, timeout=300,
                         env=env, cwd=str(cwd),
                     )
                     # Log the output (mirrors what run_command does)
