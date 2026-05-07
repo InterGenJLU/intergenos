@@ -8,7 +8,12 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .parser import Package
+try:
+    from .parser import Package
+except ImportError:
+    # Fallback for top-level import (e.g., test runners that insert igos-build
+    # on sys.path rather than importing as a package).
+    from parser import Package
 
 
 # ---------------------------------------------------------------------------
