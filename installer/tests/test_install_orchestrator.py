@@ -369,5 +369,136 @@ class TestRunInstallDryRun(_RunInstallTestBase):
         self.disks.set_dry_run.assert_called_once_with(True)
 
 
+class TestRunInstallVerifyPhase(_RunInstallTestBase):
+    """PHASE_VERIFY integration — verify_config provided vs None vs failure."""
+
+    def setUp(self):
+        super().setUp()
+        # Patch integrity module too — orchestrator imports it from same path.
+        self._integrity_patch = patch("installer.backend.install.integrity")
+        self.integrity = self._integrity_patch.start()
+        # Prepare a stub VerifyConfig — the orchestrator never inspects its
+        # internals when integrity itself is patched.
+        from installer.backend.install import VerifyConfig
+        self.verify_config = VerifyConfig(
+            manifest_path=Path(self.tmp) / "manifest.txt",
+            public_key_path=Path(self.tmp) / "pubkey.gpg",
+            audit_log_path=Path(self.tmp) / "audit.log",
+            warning_callback=lambda *a: None,
+            ack_callback=lambda *a: True,
+        )
+
+    def tearDown(self):
+        self._integrity_patch.stop()
+        super().tearDown()
+
+    def _stub_verify_result(self, success=True, overrides=0, aborted_at=None,
+                            error=None):
+        result = MagicMock()
+        result.success = success
+        result.overrides_granted = overrides
+        result.aborted_at = aborted_at
+        result.error = error
+        return result
+
+    def test_verify_config_none_skips_phase(self):
+        """No verify_config → integrity.verify_archives never called."""
+        result = run_install(
+            self.yaml_path, VALID_INSTALL_IO,
+            str(self.archive_dir), str(self.packages_dir),
+            verify_config=None,
+        )
+        self.assertTrue(result.success, msg=result.error_message)
+        self.integrity.verify_archives.assert_not_called()
+        self.assertEqual(result.integrity_overrides_granted, 0)
+        self.assertIsNone(result.integrity_aborted_at)
+
+    def test_verify_success_no_overrides(self):
+        """verify_config provided + clean verify → success, count==0."""
+        self.integrity.verify_archives.return_value = self._stub_verify_result(
+            success=True, overrides=0
+        )
+        result = run_install(
+            self.yaml_path, VALID_INSTALL_IO,
+            str(self.archive_dir), str(self.packages_dir),
+            verify_config=self.verify_config,
+        )
+        self.assertTrue(result.success, msg=result.error_message)
+        self.assertEqual(result.phase_completed, PHASE_CLEANUP)
+        self.integrity.verify_archives.assert_called_once()
+        self.assertEqual(result.integrity_overrides_granted, 0)
+
+    def test_verify_success_with_overrides(self):
+        """User overrode 2 mismatches → install proceeds, count surfaces."""
+        self.integrity.verify_archives.return_value = self._stub_verify_result(
+            success=True, overrides=2
+        )
+        result = run_install(
+            self.yaml_path, VALID_INSTALL_IO,
+            str(self.archive_dir), str(self.packages_dir),
+            verify_config=self.verify_config,
+        )
+        self.assertTrue(result.success)
+        self.assertEqual(result.integrity_overrides_granted, 2)
+
+    def test_verify_signature_failure_halts_before_partition(self):
+        """Bad sig → return early; partition never called."""
+        self.integrity.verify_archives.return_value = self._stub_verify_result(
+            success=False, error="manifest signature verification failed"
+        )
+        result = run_install(
+            self.yaml_path, VALID_INSTALL_IO,
+            str(self.archive_dir), str(self.packages_dir),
+            verify_config=self.verify_config,
+        )
+        self.assertFalse(result.success)
+        self.assertIn("signature", result.error_message)
+        # Phase_completed stays at VALIDATE (verify itself didn't complete).
+        self.assertEqual(result.phase_completed, PHASE_VALIDATE)
+        # Partition never invoked — no disk write happened.
+        self.disks.partition_disk.assert_not_called()
+
+    def test_verify_user_abort_halts_before_partition(self):
+        """User declined override → halt with integrity_aborted_at set."""
+        self.integrity.verify_archives.return_value = self._stub_verify_result(
+            success=False, overrides=1, aborted_at="core/glibc.igos.tar.gz"
+        )
+        result = run_install(
+            self.yaml_path, VALID_INSTALL_IO,
+            str(self.archive_dir), str(self.packages_dir),
+            verify_config=self.verify_config,
+        )
+        self.assertFalse(result.success)
+        self.assertEqual(result.integrity_overrides_granted, 1)
+        self.assertEqual(result.integrity_aborted_at, "core/glibc.igos.tar.gz")
+        self.assertIn("aborted", result.error_message.lower())
+        self.disks.partition_disk.assert_not_called()
+
+    def test_audit_log_copied_to_target_on_success(self):
+        """Cleanup phase calls integrity.copy_audit_log_to_target."""
+        self.integrity.verify_archives.return_value = self._stub_verify_result(
+            success=True, overrides=1
+        )
+        run_install(
+            self.yaml_path, VALID_INSTALL_IO,
+            str(self.archive_dir), str(self.packages_dir),
+            verify_config=self.verify_config,
+        )
+        self.integrity.copy_audit_log_to_target.assert_called_once()
+
+    def test_audit_log_copy_error_does_not_fail_install(self):
+        """If audit-log copy raises, install still completes successfully."""
+        self.integrity.verify_archives.return_value = self._stub_verify_result(
+            success=True, overrides=0
+        )
+        self.integrity.copy_audit_log_to_target.side_effect = OSError("disk full")
+        result = run_install(
+            self.yaml_path, VALID_INSTALL_IO,
+            str(self.archive_dir), str(self.packages_dir),
+            verify_config=self.verify_config,
+        )
+        self.assertTrue(result.success, msg=result.error_message)
+
+
 if __name__ == "__main__":
     unittest.main()

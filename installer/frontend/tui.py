@@ -38,6 +38,16 @@ from installer.backend import bootloader, config, disks, hooks, mok, packages, u
 YAML_PATH = "/var/lib/forge/install.yaml"
 DIALOG_BACKTITLE = "InterGenOS Installer (Forge — Declarative Builder)"
 
+# Install-time integrity verification paths. The manifest + release-key
+# public component live on the install media (placed there by the build's
+# `manifest` phase + signing ceremony). The audit log lives in the install
+# environment; PHASE_CLEANUP copies it onto the target's /var/log so the
+# user has a record on their installed system of what (if anything) they
+# overrode during install.
+INSTALL_MEDIA_MANIFEST = Path("/install/intergenos-archive-manifest.txt")
+INSTALL_MEDIA_PUBKEY = Path("/install/intergenos-release-key.asc")
+INTEGRITY_AUDIT_LOG = Path("/var/log/igos-integrity-override.log")
+
 
 # --------------------------------------------------------------------------
 # dialog(1) / whiptail(1) wrappers
@@ -398,14 +408,80 @@ def prompt_install_io():
 # --------------------------------------------------------------------------
 
 
+def _tui_integrity_warning_callback(package_name, expected_sha256, actual_sha256):
+    """Render the hard-coded integrity-mismatch warning to stdout.
+
+    Called by integrity.verify_archives() when an archive's sha doesn't
+    match the manifest. The template is hard-coded in the integrity
+    module — the TUI just fills in the four placeholders and prints.
+    """
+    from installer.backend.integrity import (
+        INTEGRITY_WARNING_TEMPLATE,
+        expected_override_phrase,
+    )
+    print(INTEGRITY_WARNING_TEMPLATE.format(
+        package=package_name,
+        expected_sha256=expected_sha256,
+        actual_sha256=actual_sha256,
+        override_phrase=expected_override_phrase(package_name),
+    ), file=sys.stderr)
+
+
+def _tui_integrity_ack_callback(package_name):
+    """Read user's typed-phrase response from stdin.
+
+    Returns True iff the user typed expected_override_phrase(package_name)
+    exactly (case-sensitive, whitespace-trimmed). Anything else (including
+    Ctrl+C / EOF) returns False, which aborts the install.
+    """
+    from installer.backend.integrity import expected_override_phrase
+    expected = expected_override_phrase(package_name)
+    try:
+        line = input("Type override phrase to proceed (or anything else to abort): ")
+    except (EOFError, KeyboardInterrupt):
+        print(file=sys.stderr)
+        return False
+    return line.strip() == expected
+
+
+def _build_verify_config_if_present():
+    """Return a VerifyConfig if install-media manifest+key exist, else None.
+
+    Production install media has the manifest + release-key public component
+    placed by the build's `manifest` phase + signing ceremony. Dev/test
+    environments without those files skip integrity verification.
+
+    Note: skipping when the files are missing is the LOCAL choice for the
+    TUI default. Production deployments that want to fail-closed on missing
+    manifest can pre-flight-check the paths and bail before invoking the TUI.
+    """
+    from installer.backend.install import VerifyConfig
+    if not INSTALL_MEDIA_MANIFEST.exists() or not INSTALL_MEDIA_PUBKEY.exists():
+        return None
+    return VerifyConfig(
+        manifest_path=INSTALL_MEDIA_MANIFEST,
+        public_key_path=INSTALL_MEDIA_PUBKEY,
+        audit_log_path=INTEGRITY_AUDIT_LOG,
+        warning_callback=_tui_integrity_warning_callback,
+        ack_callback=_tui_integrity_ack_callback,
+    )
+
+
 def run_declarative(yaml_path, install_io, archive_dir, packages_dir, dry_run):
     """Read yaml + interactive answers, run the install non-interactively.
 
     Thin wrapper over `installer.backend.install.run_install` — the canonical
     Phase 4 orchestrator shared by both TUI and GUI frontends. This function
     only handles build-style stdout rendering; all backend orchestration
-    (12-phase pipeline, failure rollback, MOK keypair sequencing, etc.) is
-    in the orchestrator.
+    (13-phase pipeline including PHASE_VERIFY, failure rollback, MOK keypair
+    sequencing, etc.) is in the orchestrator.
+
+    Integrity verification: built-in. If the install media has a signed
+    manifest at /install/intergenos-archive-manifest.txt + release-key at
+    /install/intergenos-release-key.asc, PHASE_VERIFY runs before any disk
+    write. Mismatches surface via _tui_integrity_warning_callback +
+    _tui_integrity_ack_callback (typed-phrase override per design doc §6.4).
+    Dev/test environments without those files skip the phase silently.
     """
     from installer.backend import install as backend_install
 
@@ -439,17 +515,27 @@ def run_declarative(yaml_path, install_io, archive_dir, packages_dir, dry_run):
             tag = "[ WARN ]"
         print(f"  {tag} {phase}: {message}")
 
+    verify_config = None if dry_run else _build_verify_config_if_present()
+    if verify_config is not None:
+        print("forge: integrity verification armed (signed manifest detected on install media).")
+    elif not dry_run:
+        print("forge: integrity verification skipped (no signed manifest on install media).")
+
     result = backend_install.run_install(
         yaml_path, install_io,
         str(archive_dir) if archive_dir else None,
         str(packages_dir) if packages_dir else None,
         progress_callback=_progress,
         dry_run=dry_run,
+        verify_config=verify_config,
     )
 
     print()
     if result.success:
         print("forge: install complete.")
+        if result.integrity_overrides_granted:
+            print(f"       ⚠ {result.integrity_overrides_granted} integrity override(s) granted during install.")
+            print(f"         Review {INTEGRITY_AUDIT_LOG} on the installed system for details.")
         if result.package_fail_count:
             print(f"       (note: {result.package_fail_count} package(s) failed)")
             for n, msg in result.failed_packages:
@@ -457,6 +543,12 @@ def run_declarative(yaml_path, install_io, archive_dir, packages_dir, dry_run):
         print("       Reboot, remove the install media, and (if EFI) follow the")
         print("       MokManager prompts to enroll the InterGenOS vendor cert.")
         return 0
+
+    if result.integrity_aborted_at:
+        print(f"forge: install ABORTED during integrity verification at {result.integrity_aborted_at}")
+        print(f"       error: {result.error_message}")
+        print(f"       no changes were made to the target disk.")
+        return 1
 
     print(f"forge: install FAILED at phase {result.phase_completed or '<pre-validation>'}")
     print(f"       error: {result.error_message}")
