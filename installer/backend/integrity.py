@@ -355,8 +355,10 @@ def verify_archives(
     archives = sorted(p for p in archive_dir.rglob("*.igos.tar.gz") if p.is_file())
 
     for archive in archives:
-        # Manifest paths are relative to archive_dir (e.g. "toolchain/glibc-2.40-1.igos.tar.gz")
-        rel = str(archive.relative_to(archive_dir))
+        # Manifest paths are relative to archive_dir (e.g. "toolchain/glibc-2.40-1.igos.tar.gz").
+        # .as_posix() forces forward-slash separators to match BSD manifest format on every host;
+        # without it, Windows os-native "\" leaks through to ack/warning callbacks + audit log.
+        rel = archive.relative_to(archive_dir).as_posix()
         actual = sha256_file(archive)
         expected = manifest.get(rel)
 
