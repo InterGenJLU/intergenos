@@ -1,6 +1,6 @@
 """Forge — InterGenOS System Installer — GTK4/libadwaita GUI.
 
-Scaffolding for the 7-screen flow (per Q-GUI-SCREENS resolved 2026-05-06):
+The 7-screen flow (per Q-GUI-SCREENS resolved 2026-05-06):
 
     Welcome → Keyboard/Locale/Timezone → Disk → User → Confirm → Progress → Done
 
@@ -8,9 +8,10 @@ Scaffolding for the 7-screen flow (per Q-GUI-SCREENS resolved 2026-05-06):
 locale-y stuff up front, destructive disk decision before the user account, then
 final confirm + progress + done.
 
-Phase 4 kickoff scope is *scaffolding* — placeholder screen content, real
-navigation, real state-passing via the central InstallerState dataclass at
-`gui.state`. Actual screen content fills in later phases.
+This package is intentionally light at import time — `state` is pure
+Python (no Gtk dep), and the heavyweight gi/Gtk imports live in
+`window.py` and `screens/*.py`. Test rigs and headless tooling can import
+`installer.frontend.gui.state` without pulling in PyGObject. The
+application entry point `run_installer` is imported directly from
+`window.py` by `installer/__main__.py` dispatch — see that module.
 """
-
-from .window import run_installer  # noqa: F401  (re-export for __main__ dispatch)

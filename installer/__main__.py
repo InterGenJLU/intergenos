@@ -107,7 +107,10 @@ def dispatch(mode, archive_dir, packages_dir, dry_run):
         return 0
 
     if mode == "gui":
-        from .frontend.gui import run_installer as run_gui
+        # Direct import from .window keeps gi/Gtk imports lazy — the gui
+        # package's __init__.py stays empty so test rigs can import
+        # `installer.frontend.gui.state` without pulling in PyGObject.
+        from .frontend.gui.window import run_installer as run_gui
         run_gui(archive_dir, packages_dir, dry_run=dry_run)
         return 0
 
