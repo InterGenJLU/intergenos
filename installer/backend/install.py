@@ -218,7 +218,7 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
                        manifest integrity check before partition). Pass None
                        to skip the phase (dev/test contexts without a signed
                        manifest). Production install media always provides
-                       this — Holy Grail v1.0 ship-gate.
+                       this — anti-supply-chain v1.0 ship-gate.
 
     Returns:
         InstallResult dataclass.
