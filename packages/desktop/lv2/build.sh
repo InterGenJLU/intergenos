@@ -16,7 +16,7 @@ configure() {
           --buildtype=release \
           -Ddocs=disabled     \
           -Donline_docs=false \
-          -Dplugins=enabled   \
+          -Dplugins=auto      \
           -Dtests=disabled
 }
 
