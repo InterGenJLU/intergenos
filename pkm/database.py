@@ -11,7 +11,7 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-DB_PATH = Path("/var/lib/igos/pkm.db")
+DB_PATH = Path(os.environ.get("IGOS_PKM_DB", "/var/lib/igos/pkm.db"))
 MANIFEST_DIR = Path("/var/lib/igos/packages")
 ARCHIVE_DIR = Path("/var/lib/igos/archives")
 
@@ -139,6 +139,13 @@ class PackageDB:
 
     def close(self):
         self.conn.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
 
     # ------------------------------------------------------------------
     # Installed packages

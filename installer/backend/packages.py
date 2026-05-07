@@ -128,33 +128,37 @@ def install_packages(target, archive_dir, groups, package_dir=None,
     if total == 0:
         return 0, 0, []
 
-    # Create pkm database on the target
+    # Create pkm database on the target. Context-manager use guarantees
+    # close() runs even if an installer.install() call raises mid-loop —
+    # otherwise an exception leaks the SQLite handle (FD + WAL state).
     db_path = Path(target) / "var" / "lib" / "igos" / "pkm.db"
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    db = PackageDB(str(db_path))
-    installer = PackageInstaller(db, root=target)
 
     success = 0
     failed = []
 
-    # Build the install queue once so the per-package install() call can
-    # enforce the supersede install-order invariant: a successor declaring
-    # supersedes:[predecessor] must install AFTER its predecessor when both
-    # are in the queue. Without this, ad-hoc ordering could let a successor
-    # install first as a standard package, then the predecessor overwrites
-    # the same paths, leaving pkm with a manifest inversion the user cannot
-    # see. See pkm/installer.py install() and the Phase 4 RFC §4 design.
-    queue_names = [pkg[0] for pkg in packages]
+    with PackageDB(str(db_path)) as db:
+        installer = PackageInstaller(db, root=target)
 
-    for i, (name, version, archive_path) in enumerate(packages, 1):
-        if progress_callback:
-            progress_callback(i, total, name)
+        # Build the install queue once so the per-package install() call can
+        # enforce the supersede install-order invariant: a successor declaring
+        # supersedes:[predecessor] must install AFTER its predecessor when both
+        # are in the queue. Without this, ad-hoc ordering could let a successor
+        # install first as a standard package, then the predecessor overwrites
+        # the same paths, leaving pkm with a manifest inversion the user cannot
+        # see. See pkm/installer.py install() and the Phase 4 RFC §4 design.
+        queue_names = [pkg[0] for pkg in packages]
 
-        ok, msg = installer.install(name, archive_path=str(archive_path), queue=queue_names)
-        if ok:
-            success += 1
-        else:
-            failed.append((name, msg))
+        for i, (name, version, archive_path) in enumerate(packages, 1):
+            if progress_callback:
+                progress_callback(i, total, name)
 
-    db.close()
+            ok, msg = installer.install(
+                name, archive_path=str(archive_path), queue=queue_names
+            )
+            if ok:
+                success += 1
+            else:
+                failed.append((name, msg))
+
     return success, len(failed), failed

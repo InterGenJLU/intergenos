@@ -244,7 +244,7 @@ def run_command(cmd: str, remote: Optional[str] = None) -> tuple[int, str]:
 
     try:
         result = subprocess.run(
-            full_cmd, shell=True, capture_output=True, text=True, timeout=10
+            full_cmd, shell=True, capture_output=True, text=True, timeout=15
         )
         output = (result.stdout + result.stderr).strip()
         return result.returncode, output

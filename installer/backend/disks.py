@@ -54,11 +54,19 @@ def detect_disks():
     Returns list of Disk objects, excluding loop devices, RAM disks,
     and the installation media itself.
     """
-    result = subprocess.run(
-        ["lsblk", "-J", "-b", "-o",
-         "NAME,SIZE,MODEL,RM,TYPE,FSTYPE,MOUNTPOINT,LABEL,UUID,PATH"],
-        capture_output=True, text=True
-    )
+    # timeout=30: prevents installer hang on edge hardware where lsblk
+    # blocks indefinitely (e.g., stuck NFS mount on the live media,
+    # half-detected USB-IO error, broken kernel storage driver). On
+    # timeout we treat as no-disks-detected; the frontend then surfaces
+    # an explicit error rather than an unbounded spinner.
+    try:
+        result = subprocess.run(
+            ["lsblk", "-J", "-b", "-o",
+             "NAME,SIZE,MODEL,RM,TYPE,FSTYPE,MOUNTPOINT,LABEL,UUID,PATH"],
+            capture_output=True, text=True, timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        return []
     if result.returncode != 0:
         return []
 
