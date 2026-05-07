@@ -68,19 +68,23 @@ set -euo pipefail
 ARTIFACTS=""
 OUTPUT=""
 GPG_KEY_ID="${INTERGENOS_GPG_KEY_ID:-}"
+GPG_MASTER_KEY_ID="${INTERGENOS_GPG_MASTER_KEY_ID:-}"
 PKCS11_URI="${INTERGENOS_PKCS11_URI:-}"
 VENDOR_CERT="${INTERGENOS_VENDOR_CERT:-/etc/intergenos/signing/vendor-cert.pem}"
 STRICT=0
+MANIFEST_PATH=""
 
 # -------- arg parsing --------
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --artifacts)   ARTIFACTS="$2"; shift 2 ;;
-        --output)      OUTPUT="$2"; shift 2 ;;
-        --gpg-key-id)  GPG_KEY_ID="$2"; shift 2 ;;
-        --pkcs11-uri)  PKCS11_URI="$2"; shift 2 ;;
-        --vendor-cert) VENDOR_CERT="$2"; shift 2 ;;
-        --strict)      STRICT=1; shift ;;
+        --artifacts)         ARTIFACTS="$2"; shift 2 ;;
+        --output)            OUTPUT="$2"; shift 2 ;;
+        --gpg-key-id)        GPG_KEY_ID="$2"; shift 2 ;;
+        --gpg-master-key-id) GPG_MASTER_KEY_ID="$2"; shift 2 ;;
+        --pkcs11-uri)        PKCS11_URI="$2"; shift 2 ;;
+        --vendor-cert)       VENDOR_CERT="$2"; shift 2 ;;
+        --manifest)          MANIFEST_PATH="$2"; shift 2 ;;
+        --strict)            STRICT=1; shift ;;
         -h|--help)
             sed -n '2,45p' "$0"
             exit 0
@@ -248,6 +252,81 @@ else
     echo "[-] skipping GRUB (not present)"
 fi
 
+# -------- step 4: archive integrity manifest --------
+# Per install-time integrity verification design doc §5.2: sign the
+# build-emitted intergenos-archive-manifest.txt with master + [S1] so
+# install-time PHASE_VERIFY can validate the manifest signature before
+# trusting any per-archive sha256. Produces:
+#
+#   $OUTPUT/intergenos-archive-manifest.txt        (canonical copy)
+#   $OUTPUT/intergenos-archive-manifest.txt.sig    (detached, multi-sig
+#                                                   if INTERGENOS_GPG_MASTER_KEY_ID
+#                                                   is set; S1-only otherwise)
+#   $OUTPUT/intergenos-release-key.asc             (public key export of
+#                                                   $GPG_KEY_ID — embedded
+#                                                   in the ISO so the user
+#                                                   can self-validate)
+#
+# Master key cosignature: by design, the master key lives offline (Drive
+# #3) and is exhumed only during release ceremonies. For routine builds,
+# only [S1] signs (still cryptographically authoritative for build-
+# integrity). For tagged releases, the operator provides
+# INTERGENOS_GPG_MASTER_KEY_ID (or --gpg-master-key-id) to add the
+# master signature in the same call. See docs/signing-procedure.md.
+MANIFEST="${MANIFEST_PATH:-$ARTIFACTS/intergenos-archive-manifest.txt}"
+if [[ -f "$MANIFEST" ]]; then
+    echo "[*] signing archive manifest: $MANIFEST"
+
+    # Verify the manifest looks sane before committing a signature to it.
+    # A malformed or empty manifest signed at this stage would compromise
+    # the install-time integrity surface.
+    if ! grep -q '^# Manifest-version: 1$' "$MANIFEST"; then
+        die "manifest missing 'Manifest-version: 1' header — refusing to sign" 5
+    fi
+    if ! grep -q '^# End of manifest\.$' "$MANIFEST"; then
+        die "manifest missing '# End of manifest.' terminator — refusing to sign" 5
+    fi
+    if ! grep -q '^SHA256 ' "$MANIFEST"; then
+        die "manifest contains no SHA256 entries — refusing to sign empty manifest" 5
+    fi
+
+    cp "$MANIFEST" "$OUTPUT_STAGING/intergenos-archive-manifest.txt"
+
+    # Build sign-args: always S1; conditionally master-cosign.
+    sign_args=(--batch --yes --detach-sign --armor
+               --local-user "$GPG_KEY_ID")
+    sig_label="[S1]"
+    if [[ -n "$GPG_MASTER_KEY_ID" ]]; then
+        sign_args+=(--local-user "$GPG_MASTER_KEY_ID")
+        sig_label="master + [S1]"
+    fi
+    sign_args+=(--output "$OUTPUT_STAGING/intergenos-archive-manifest.txt.sig"
+                "$OUTPUT_STAGING/intergenos-archive-manifest.txt")
+
+    gpg "${sign_args[@]}"
+    echo "    signed by: $sig_label"
+
+    # SR2: verify signature against canonical copy
+    gpg --verify "$OUTPUT_STAGING/intergenos-archive-manifest.txt.sig" \
+                "$OUTPUT_STAGING/intergenos-archive-manifest.txt" \
+        || die "GPG signature verification failed for manifest" 3
+
+    # Export the public key ($GPG_KEY_ID's enclosing primary) so the
+    # install-time verifier can self-validate without external network.
+    # Per design doc §5.2: "Place release-key public component at
+    # /install/intergenos-release-key.asc".
+    gpg --batch --yes --armor --export "$GPG_KEY_ID" \
+        > "$OUTPUT_STAGING/intergenos-release-key.asc"
+
+    echo "    -> $OUTPUT_STAGING/intergenos-archive-manifest.txt"
+    echo "    -> $OUTPUT_STAGING/intergenos-archive-manifest.txt.sig"
+    echo "    -> $OUTPUT_STAGING/intergenos-release-key.asc"
+elif [[ "$STRICT" == "1" ]]; then
+    die "strict: missing manifest at $MANIFEST" 4
+else
+    echo "[-] skipping archive manifest (not present at $MANIFEST)"
+fi
+
 # -------- atomic promotion (SR1) --------
 mv "$OUTPUT_STAGING"/* "$OUTPUT/" 2>/dev/null || true
 rmdir "$OUTPUT_STAGING" 2>/dev/null || true
@@ -265,3 +344,7 @@ echo "        for u in $OUTPUT/*.uki.efi $OUTPUT/igos-live.efi $OUTPUT/*-live.ef
 echo "            [ -f \"\$u\" ] && sbverify --cert $VENDOR_CERT \"\$u\""
 echo "        done"
 echo "        sbverify --cert $VENDOR_CERT $OUTPUT/grubx64.efi"
+echo "        bash scripts/check-manifest-signature.sh \\"
+echo "             $OUTPUT/intergenos-archive-manifest.txt \\"
+echo "             $OUTPUT/intergenos-archive-manifest.txt.sig \\"
+echo "             $OUTPUT/intergenos-release-key.asc"

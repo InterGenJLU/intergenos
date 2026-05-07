@@ -65,6 +65,7 @@ PHASES=(
     extra
     bootloader
     image
+    manifest
 )
 
 # ==========================================================================
@@ -635,6 +636,81 @@ phase_image() {
     log "    See create-image.sh output above for virt-install command."
 }
 
+phase_manifest() {
+    # Step 4 of 7 ship-gate (install-time integrity verification design doc
+    # docs/research/security/install-integrity-verification.md §5.2):
+    # emit a BSD-style sha256sum manifest covering every .igos.tar.gz the
+    # build produced. Manifest is unsigned at this point — sign-release.sh
+    # --manifest signs it on the signing workstation; build-iso.sh embeds
+    # the signed manifest + release-key public component in the ISO at
+    # /install/intergenos-archive-manifest.txt + /install/intergenos-release-key.asc.
+    log "Generating archive integrity manifest..."
+
+    local archives_dir="${IGOS}/var/lib/igos/archives"
+    local out_dir="/mnt/intergenos/build"
+    local manifest="${out_dir}/intergenos-archive-manifest.txt"
+    local build_id="${INTERGENOS_BUILD_ID:-v1.0-dev1}"
+    local built_on="${INTERGENOS_BUILD_HOST:-$(hostname -f 2>/dev/null || hostname)}"
+    local built_at_iso
+    if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
+        # Honor SDE for reproducibility (Q-REPRO-GOAL=v1.0 bit-identical)
+        built_at_iso=$(date -u -d "@${SOURCE_DATE_EPOCH}" '+%Y-%m-%dT%H:%M:%SZ')
+    else
+        built_at_iso=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+    fi
+
+    if [ ! -d "$archives_dir" ]; then
+        log "  ERROR: archives dir not found: $archives_dir"
+        log "  (manifest phase requires phase_image to have completed; chroot still mounted)"
+        return 1
+    fi
+
+    mkdir -p "$out_dir"
+
+    # Emit header. Lines starting with '#' are comments per BSD sha256sum
+    # convention; sha256sum -c ignores them.
+    {
+        printf '# InterGenOS archive integrity manifest\n'
+        printf '# Build: %s\n' "$build_id"
+        printf '# Built: %s\n' "$built_at_iso"
+        printf '# Built-on: %s\n' "$built_on"
+        printf '# Manifest-version: 1\n'
+    } > "$manifest"
+
+    # Walk archives_dir; sort for deterministic output (cross-host
+    # byte-identity per Q-REPRO-GOAL). Path in the manifest is relative
+    # to /var/lib/igos/archives/ so the install-time verifier doesn't
+    # need to know the build host's absolute path.
+    local archive_count=0
+    local rel
+    while IFS= read -r -d '' archive; do
+        rel="${archive#${archives_dir}/}"
+        local sha
+        sha=$(sha256sum "$archive" | awk '{print $1}')
+        printf 'SHA256 (%s) = %s\n' "$rel" "$sha" >> "$manifest"
+        archive_count=$((archive_count + 1))
+    done < <(find "$archives_dir" -type f -name '*.igos.tar.gz' -print0 | sort -z)
+
+    printf '# End of manifest.\n' >> "$manifest"
+
+    log "  Manifest emitted: $manifest"
+    log "  Archives covered: $archive_count"
+    log "  SHA256 of manifest: $(sha256sum "$manifest" | awk '{print $1}')"
+
+    if [ "$archive_count" -eq 0 ]; then
+        log "  WARN: 0 archives found in $archives_dir; manifest is empty."
+        log "  This may be expected during partial-build runs (e.g. --stop-after toolchain)"
+        log "  but is unexpected after a full build pipeline. Investigate before signing."
+    fi
+
+    log ""
+    log "  Next step (signing workstation, NOT this build host):"
+    log "    sudo bash scripts/sign-release.sh --manifest $manifest --output <signed-out-dir>"
+    log ""
+    log "  Then place the signed manifest + intergenos-release-key.asc into the ISO"
+    log "  at /install/ via build-iso.sh inputs (per design doc §5.2)."
+}
+
 # ==========================================================================
 # Main — run all phases
 # ==========================================================================
@@ -672,6 +748,7 @@ run_phase "ai"          "Build AI tier (InterGen assistant)"  phase_ai
 run_phase "extra"       "Build extra tier (applications)"     phase_extra
 run_phase "bootloader"  "Assemble unsigned bootloader artifacts" phase_bootloader
 run_phase "image"       "Package bootable disk image"         phase_image
+run_phase "manifest"    "Emit archive integrity manifest"     phase_manifest
 
 # ==========================================================================
 # Done

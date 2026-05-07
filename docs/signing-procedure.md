@@ -1,9 +1,9 @@
 # InterGenOS Signing Procedure
 
-**Last updated:** 2026-04-21
+**Last updated:** 2026-05-07
 **Applies to:** the signing workstation (primary maintainer) during a release-signing window.
 
-This is the operational runbook for signing an InterGenOS release. It covers the distro GPG repo-index signature and the EFI-binary signatures for the kernel and GRUB. Kernel module signing is ephemeral per-build and is handled inside the kernel build itself — it does not appear in this procedure.
+This is the operational runbook for signing an InterGenOS release. It covers the distro GPG repo-index signature, the EFI-binary signatures for the kernel and GRUB, and the install-time archive integrity manifest signature. Kernel module signing is ephemeral per-build and is handled inside the kernel build itself — it does not appear in this procedure.
 
 For the decisions and rationale behind this architecture, see `docs/research/installer/signing_key_custody_2026-04-18.md`.
 
@@ -14,6 +14,7 @@ Each signature this procedure produces attests to one layer of the InterGenOS tr
 - **`InterGenOS.db.sig`** (distro GPG subkey [S1] on Nitrokey #1) — signs the pkm repository index. The index records per-file SHA-256 for every file in every package, so signing the index is a transitive attestation of every file in the distribution. Recipients verifying the index signature can subsequently run `pkm verify --strict <package>` to re-check any installed file against its signed hash. (Index format extended for per-file content-hash at commit `c9534f7`.)
 - **`vmlinuz-<version>-intergenos.sig`** (PIV slot 9c X.509 via `sbsign`) — signs the kernel EFI binary. shim verifies this signature against the embedded vendor cert when Secure Boot is active.
 - **`grubx64.efi.sig`** (PIV slot 9c X.509 via `sbsign`) — signs the GRUB EFI binary. Same shim verification path.
+- **`intergenos-archive-manifest.txt.sig`** (distro GPG subkey [S1] on Nitrokey #1; optionally cosigned by master key for tagged releases) — signs the build-emitted archive integrity manifest. The manifest contains BSD-style sha256 sums for every `.igos.tar.gz` archive shipped on the install media. At install time, Forge's `PHASE_VERIFY` validates this signature before trusting any per-archive sha256 — manifest tampering at any point between signing and install fails non-overridably. See `docs/research/security/install-integrity-verification.md` for the full design (status: APPROVED 2026-05-07).
 
 The kernel-module signing key (ephemeral, per-build) and end-user MOK enrollments are orthogonal to this procedure — they live inside the kernel build and per-install respectively, not at release-signing time.
 
@@ -34,11 +35,13 @@ Before starting a signing window:
    - `InterGenOS.db` — the pkm repository index
    - `vmlinuz-<version>-intergenos` — one or more kernel images
    - `grubx64.efi` — the custom GRUB build
+   - `intergenos-archive-manifest.txt` — the unsigned archive integrity manifest emitted by `phase_manifest` of `scripts/build-intergenos.sh`
    - `vendor-cert.pem` — the EFI vendor cert that pairs with the PIV-slot-9c private key
 4. **Output directory prepared.** A clean destination directory where signed artifacts + detached sigs are written.
 5. **Environment configured.** Either via flags to `sign-release.sh` or via env vars:
    - `INTERGENOS_GPG_KEY_ID` — fingerprint of the distro GPG release subkey
    - `INTERGENOS_PKCS11_URI` — PKCS#11 URI for the sbsign private key
+   - `INTERGENOS_GPG_MASTER_KEY_ID` (optional; **set for tagged releases**) — fingerprint of the offline master key. When set, the manifest is cosigned by master + [S1] for release-grade trust. When unset, the manifest is signed by [S1] only (sufficient for routine builds, but `check-manifest-signature.sh` will not assert release-grade).
 
 ## Pre-Sign Discipline (Signing Ceremony)
 
@@ -70,6 +73,7 @@ The script performs, in order:
 3. **pkm repo index (`InterGenOS.db`).** Distro GPG subkey. `gpg --detach-sign --armor` produces `InterGenOS.db.sig`. **One touch.**
 4. **Kernel `vmlinuz-*` images.** PIV-slot-9c EFI X.509 key via `sbsign --engine pkcs11`. **One touch per kernel image.**
 5. **GRUB `grubx64.efi`.** Same PIV-slot-9c EFI X.509 key. **One touch.**
+6. **Archive integrity manifest (`intergenos-archive-manifest.txt`).** Distro GPG subkey ([S1]) + optional master cosignature when `INTERGENOS_GPG_MASTER_KEY_ID` is set. Produces three outputs in the signed directory: the canonical `intergenos-archive-manifest.txt`, the detached `intergenos-archive-manifest.txt.sig`, and `intergenos-release-key.asc` (public key export so the install-time verifier can self-validate without external network). **One touch for [S1]; one additional touch for master cosign when present.** Pre-emits a sanity gate: refuses to sign manifests missing the v1 header, the BSD SHA256 entries, or the terminator line — a malformed manifest signed at this stage would be cryptographically valid but break install-time `PHASE_VERIFY`'s parser.
 
 If any expected artifact is missing, the script skips that step with a log line. Pass `--strict` to fail instead of skipping.
 
@@ -84,9 +88,15 @@ gpg --verify /path/to/signed/InterGenOS.db.sig /path/to/signed/InterGenOS.db
 # Kernel + GRUB
 sbverify --cert /path/to/unsigned/vendor-cert.pem /path/to/signed/vmlinuz-*
 sbverify --cert /path/to/unsigned/vendor-cert.pem /path/to/signed/grubx64.efi
+
+# Archive integrity manifest — full Q14-style precheck
+bash scripts/check-manifest-signature.sh \
+     /path/to/signed/intergenos-archive-manifest.txt \
+     /path/to/signed/intergenos-archive-manifest.txt.sig \
+     /path/to/signed/intergenos-release-key.asc
 ```
 
-Every `sbverify` should report "Signature verification OK." Every `gpg --verify` should print the expected signing subkey fingerprint with "Good signature."
+Every `sbverify` should report "Signature verification OK." Every `gpg --verify` should print the expected signing subkey fingerprint with "Good signature." The `check-manifest-signature.sh` step asserts (1) manifest BSD format integrity, (2) signature verifies under the embedded release-key (the same key material the user will see embedded in the ISO at `/install/intergenos-release-key.asc`), and (3) master cosignature presence when `INTERGENOS_GPG_MASTER_KEY_ID` was set during signing. **Run this before passing the signed manifest into `build-iso.sh` for ISO embedding** — a malformed-but-validly-signed manifest at this gate is the last chance to catch it before the ISO is sealed.
 
 ## Post-Sign
 
