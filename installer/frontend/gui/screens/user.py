@@ -67,6 +67,13 @@ class UserPage(_ForgePage):
         if not state.username:
             _toast(self._window, "Username is required.")
             return False
+
+        from installer.backend._validators import validate_hostname
+        hostname_err = validate_hostname(state.hostname)
+        if hostname_err:
+            _toast(self._window, f"Hostname: {hostname_err}")
+            return False
+
         if state.user_password != state.user_password_confirm:
             _toast(self._window, "User passwords don't match.")
             return False

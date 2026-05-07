@@ -232,12 +232,17 @@ def _ask_timezone():
 
 
 def _ask_hostname():
-    rc, hn = _ask_input("Hostname",
-                        "Enter the hostname for this system:",
-                        "intergenos")
-    if rc != 0 or not hn:
-        return None
-    return hn
+    from installer.backend._validators import validate_hostname
+    while True:
+        rc, hn = _ask_input("Hostname",
+                            "Enter the hostname for this system:",
+                            "intergenos")
+        if rc != 0 or not hn:
+            return None
+        err = validate_hostname(hn)
+        if err is None:
+            return hn
+        _dialog("--title", "Invalid hostname", "--msgbox", err, "10", "70")
 
 
 def _ask_package_groups():

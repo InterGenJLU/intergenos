@@ -171,6 +171,15 @@ def validate_install_inputs(cfg, install_io):
         if field_name not in cfg:
             errors.append(f"yaml missing required field: {field_name}")
 
+    if "hostname" in cfg:
+        # Defensive validation even after frontend re-prompt: a hand-edited
+        # install.yaml that bypasses the TUI/GUI must still be rejected
+        # before /etc/hosts generation. Same validator the frontends call.
+        from ._validators import validate_hostname
+        err = validate_hostname(cfg["hostname"])
+        if err:
+            errors.append(f"yaml hostname invalid: {err}")
+
     if "package_groups" in cfg:
         groups = cfg["package_groups"]
         if not isinstance(groups, list) or not groups:
