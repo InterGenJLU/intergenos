@@ -12,8 +12,9 @@
 #   sudo bash build-intergenos.sh --user <username> --checkpoint
 #
 # Phases (in order):
-#   validate     — Verify host meets all build requirements
-#   setup        — Create build root, verify sources and patches
+#   validate       — Verify host meets all build requirements
+#   verify-sources — Audit all source: SHAs against downloaded tarballs
+#   setup          — Create build root, verify sources and patches
 #   toolchain    — Cross-compilation toolchain (LFS Chapters 5-6)
 #   chroot-prep  — Mount virtual filesystems for chroot (Chapter 7 prep)
 #   chroot-tools — Build temporary tools inside chroot (Chapter 7)
@@ -52,6 +53,7 @@ BUILD_LOG="${LOGS}/build-intergenos-$(date '+%Y%m%d-%H%M%S').log"
 
 PHASES=(
     validate
+    verify-sources
     setup
     toolchain
     chroot-prep
@@ -368,6 +370,91 @@ phase_validate() {
 
     log "Running host requirements check..."
     python3 "${SCRIPTS}/host-check.py"
+}
+
+phase_verify_sources() {
+    # Anti-supply-chain gate (design doc §5.1).
+    # Audit every package.yml source: entry with a sha256 against the
+    # downloaded tarball. Missing sha256 or mismatch = HARD FAIL.
+    # build_artifacts: entries are NOT checked here — those are
+    # audited at the manifest phase (IGOSC Step 4).
+    log "Verifying pinned source SHAs against downloaded tarballs..."
+
+    local PYSCRIPT PYEXIT UNPINNED MISMATCHES
+
+    PYSCRIPT=$(python3 - "$PACKAGES_DIR" "$SOURCES" <<'PYEOF'
+import sys, hashlib, os
+from pathlib import Path
+
+try:
+    import yaml
+except ImportError:
+    print("FATAL: pyyaml required (pip install pyyaml)", file=sys.stderr)
+    sys.exit(2)
+
+packages_dir = Path(sys.argv[1])
+sources_dir = Path(sys.argv[2])
+
+unpinned = []
+mismatches = []
+build_artifacts_count = 0
+
+for yml_path in sorted(packages_dir.rglob("package.yml")):
+    with yml_path.open("r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    name = data.get("name", yml_path.parent.name)
+    src = data.get("source")
+    build = data.get("build_artifacts", [])
+    build_artifacts_count += len(build) if isinstance(build, list) else 0
+
+    if not src or not isinstance(src, list):
+        continue
+
+    for i, item in enumerate(src):
+        if not isinstance(item, dict):
+            unpinned.append(f"{name}: source[{i}] malformed")
+            continue
+        url = item.get("url", "")
+        sha = item.get("sha256")
+        if not sha or not isinstance(sha, str) or len(sha) != 64:
+            unpinned.append(f"{name}: {url} (no sha256 or invalid)")
+            continue
+
+        filename = item.get("filename") or url.rsplit("/", 1)[-1].split("?")[0]
+        tarball = sources_dir / filename
+        if not tarball.exists():
+            mismatches.append(f"{name}: {filename} (not downloaded)")
+            continue
+
+        actual = hashlib.sha256(tarball.read_bytes()).hexdigest()
+        if actual != sha:
+            mismatches.append(f"{name}: {filename} — expected={sha[:12]}... actual={actual[:12]}...")
+
+if unpinned:
+    print("UNPINNED:", file=sys.stderr)
+    for e in unpinned:
+        print(f"  {e}", file=sys.stderr)
+if mismatches:
+    print("MISMATCHES:", file=sys.stderr)
+    for e in mismatches:
+        print(f"  {e}", file=sys.stderr)
+
+if unpinned or mismatches:
+    sys.exit(1)
+
+print(f"OK: {build_artifacts_count} build_artifacts skipped, 0 source SHAs un-pinned, 0 mismatches")
+PYEOF
+)
+    PYEXIT=$?
+
+    if [ "$PYEXIT" -ne 0 ]; then
+        log "ERROR: verify-sources FAILED. Fix the package.yml files or re-download"
+        log "  the matching upstream tarballs before retrying the build."
+        return "$PYEXIT"
+    fi
+
+    log "verify-sources: all source SHAs verified"
 }
 
 phase_setup() {
@@ -734,8 +821,9 @@ if $CHECKPOINT; then
 fi
 log "================================================================"
 
-run_phase "validate"     "Verify host requirements"            phase_validate
-run_phase "setup"        "Create build environment"            phase_setup
+run_phase "validate"       "Verify host requirements"            phase_validate
+run_phase "verify-sources" "Audit source SHAs against tarballs"  phase_verify_sources
+run_phase "setup"          "Create build environment"            phase_setup
 run_phase "toolchain"    "Cross-compilation toolchain (Ch 5-6)" phase_toolchain
 run_phase "chroot-prep"  "Prepare chroot environment (Ch 7)"   phase_chroot_prep
 run_phase "chroot-tools" "Build temp tools in chroot (Ch 7)"   phase_chroot_tools

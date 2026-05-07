@@ -8,10 +8,11 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: https://github.com/rust-lang/rust-bindgen/archive/refs/tags/v${version}/rust-bindgen-${version}.tar.gz
-  sha256: 4ffb17061b2d71f19c5062d2e17e64107248f484f9775c0b7d30a16a8238dfd1
-- url: local://rust-bindgen-${version}-vendor.tar.xz
-  sha256: placeholder-vendor
+  - url: https://github.com/rust-lang/rust-bindgen/archive/refs/tags/v${version}/rust-bindgen-${version}.tar.gz
+    sha256: 4ffb17061b2d71f19c5062d2e17e64107248f484f9775c0b7d30a16a8238dfd1
+build_artifacts:
+  - name: rust-bindgen-${version}-vendor.tar.xz
+    generated_by: cargo-vendor
 dependencies:
   build:
   - rust

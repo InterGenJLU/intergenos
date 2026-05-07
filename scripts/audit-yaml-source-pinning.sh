@@ -3,6 +3,7 @@
 #
 # Reports any source: list entry that has a url: but no sha256:.
 # An empty source: [] (download-helpers for proprietary software) is treated as VALID.
+# build_artifacts: entries are IGNORED — they're audited at the manifest phase, not here.
 #
 # Output: TSV to stdout; one row per un-pinned source entry.
 # Exit: 0 always; piping to wc -l gives the un-pinned count.

@@ -8,10 +8,11 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: https://github.com/mozilla/cbindgen/archive/v${version}/cbindgen-${version}.tar.gz
-  sha256: c7d4d610482390c70e471a5682de714967e187ed2f92f2237c317a484a8c7e3a
-- url: local://cbindgen-${version}-vendor.tar.xz
-  sha256: placeholder-vendor
+  - url: https://github.com/mozilla/cbindgen/archive/v${version}/cbindgen-${version}.tar.gz
+    sha256: c7d4d610482390c70e471a5682de714967e187ed2f92f2237c317a484a8c7e3a
+build_artifacts:
+  - name: cbindgen-${version}-vendor.tar.xz
+    generated_by: cargo-vendor
 dependencies:
   build:
   - rust
