@@ -600,6 +600,10 @@ run_package "jinja2" "jinja2" "3.1.6" \
     "jinja2-3.1.6.tar.gz" \
     "Template engine for Python"
 
+run_package "pyelftools" "pyelftools" "0.32" \
+    "pyelftools-0.32.tar.gz" \
+    "Pure-Python ELF + DWARF parser (build-time dep for systemd sd-boot)"
+
 run_package "systemd" "systemd" "259.1" \
     "systemd-259.1.tar.gz" \
     "System and service manager"
