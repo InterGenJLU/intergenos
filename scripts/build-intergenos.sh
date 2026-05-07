@@ -43,6 +43,7 @@ set -euo pipefail
 IGOS=/mnt/igos
 IGOS_TARGET=x86_64-igos-linux-gnu
 SCRIPTS=/mnt/intergenos/scripts
+PACKAGES_DIR=/mnt/intergenos/packages
 SOURCES=/mnt/intergenos/build/sources
 PATCHES=/mnt/intergenos/build/patches
 LOGS=/mnt/intergenos/build/logs
