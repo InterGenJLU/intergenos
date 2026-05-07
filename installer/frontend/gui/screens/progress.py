@@ -102,12 +102,59 @@ class ProgressPage(_ForgePage):
             dry_run=getattr(self._window, "dry_run", False),
         )
 
+        # Inject install-time integrity verification if signed manifest is on
+        # install media. Mirrors tui._build_verify_config_if_present() — same
+        # paths, GUI-flavoured dialog callbacks instead of stdin/stdout. Skip
+        # in dry_run because dev/test environments don't ship a signed manifest.
+        if not kwargs.get("dry_run"):
+            kwargs["verify_config"] = self._build_verify_config_if_present()
+
         self._worker_thread = threading.Thread(
             target=self._run_install_worker,
             args=(state, kwargs),
             daemon=True,
         )
         self._worker_thread.start()
+
+    # ------------------------------------------------------------------
+    # Integrity verify_config builder.
+    # ------------------------------------------------------------------
+
+    # Install-media integrity manifest paths — mirror tui.py's constants.
+    # Production install media has the manifest + release-key public component
+    # placed by the build's `manifest` phase + signing ceremony. Dev/test
+    # environments without those files skip integrity verification (the GUI
+    # ProgressPage shows the orchestrator's "verify phase skipped" event in
+    # its status label).
+    _INSTALL_MEDIA_MANIFEST = "/install/intergenos-archive-manifest.txt"
+    _INSTALL_MEDIA_PUBKEY = "/install/intergenos-release-key.asc"
+    _INTEGRITY_AUDIT_LOG = "/var/log/igos-integrity-override.log"
+
+    def _build_verify_config_if_present(self):
+        """Return VerifyConfig if install-media manifest+key exist, else None.
+
+        On signed install media, returns a VerifyConfig wired to GUI dialogs
+        (paste-disabled Gtk.Entry per design doc §6.5.1). On dev/test
+        environments without those files, returns None to skip the phase.
+        """
+        from pathlib import Path
+        from installer.backend.install import VerifyConfig
+
+        manifest = Path(self._INSTALL_MEDIA_MANIFEST)
+        pubkey = Path(self._INSTALL_MEDIA_PUBKEY)
+        if not manifest.exists() or not pubkey.exists():
+            return None
+
+        from ..integrity_dialog import make_gui_integrity_callbacks
+        warning_cb, ack_cb = make_gui_integrity_callbacks(self._window)
+
+        return VerifyConfig(
+            manifest_path=manifest,
+            public_key_path=pubkey,
+            audit_log_path=Path(self._INTEGRITY_AUDIT_LOG),
+            warning_callback=warning_cb,
+            ack_callback=ack_cb,
+        )
 
     # ------------------------------------------------------------------
     # Worker thread — runs run_install + posts completion to main loop.
@@ -171,6 +218,13 @@ class ProgressPage(_ForgePage):
             self._progress_bar.set_fraction(1.0)
             self._progress_bar.set_text("Install complete")
             msg = "Install complete."
+            overrides = getattr(result, "integrity_overrides_granted", 0)
+            if overrides:
+                msg += (
+                    f"\n\n⚠ {overrides} integrity override(s) granted during install. "
+                    f"Review {self._INTEGRITY_AUDIT_LOG} on the installed system "
+                    f"for details."
+                )
             if result.package_fail_count:
                 msg += (
                     f"\n\nNote: {result.package_fail_count} package(s) failed "
@@ -181,9 +235,19 @@ class ProgressPage(_ForgePage):
             self._status_label.set_label(msg)
             self.next_button.set_sensitive(True)
         else:
+            # Integrity-abort gets a more specific error so the Done page
+            # can surface it differently from a mid-pipeline crash.
+            integrity_aborted = getattr(result, "integrity_aborted_at", None)
+            if integrity_aborted:
+                err_msg = (
+                    f"Integrity verification aborted at {integrity_aborted}. "
+                    f"No changes were made to the target disk."
+                )
+            else:
+                err_msg = result.error_message or "(no error captured)"
             self._on_install_failed(
                 state,
-                result.error_message or "(no error captured)",
+                err_msg,
                 phase_completed=result.phase_completed,
             )
         return False  # one-shot idle_add
