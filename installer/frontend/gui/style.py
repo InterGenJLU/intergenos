@@ -11,12 +11,12 @@ Per `docs/VISUAL_LANGUAGE.md`:
   * § 10 interaction: borders are inert by default and intensify on
                       hover/active/focus
 
-Phase 6 scope (per WC↔SPOC filter 2026-05-07): CSS-layer pass only — palette
-tokens + structural border alphas + typography + corner-radius scale. Full
-glow protocol with per-widget hover-corona + 150-400ms ease-out transitions
-is its own visual-polish phase post-bootable-ISO. We don't pull rendering
-correctness into Phase 6; this CSS is best-effort baseline so the installer
-doesn't render in upstream-default GTK/Adwaita colours.
+Phase 6 scope: CSS-layer pass only — palette tokens + structural border
+alphas + typography + corner-radius scale. Full glow protocol with
+per-widget hover-corona + 150-400ms ease-out transitions is its own
+visual-polish phase post-bootable-ISO. We don't pull rendering
+correctness into Phase 6; this CSS is best-effort baseline so the
+installer doesn't render in upstream-default GTK/Adwaita colours.
 
 Apply via `apply_intergenos_style()` once at application activate.
 """

@@ -15,8 +15,6 @@ required. Safe to run in CI without a Wayland session.
 import sys
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from installer.frontend.gui.state import InstallerState
