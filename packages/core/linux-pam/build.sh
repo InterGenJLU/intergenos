@@ -15,7 +15,7 @@ password required       pam_deny.so
 session  required       pam_deny.so
 EOF
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..        \

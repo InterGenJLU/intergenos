@@ -15,7 +15,7 @@ configure() {
 /usr/sbin/make-ca -r
 EOF
 
-    mkdir p11-build
+    mkdir -p p11-build
     cd    p11-build
 
     meson setup ..            \
