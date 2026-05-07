@@ -135,6 +135,11 @@ class InstallResult:
                      Surface to user in install-complete summary.
     integrity_aborted_at: package name where user declined to override
                      during PHASE_VERIFY; None unless verify-phase abort.
+    warnings: list of human-readable non-fatal warning strings collected
+                     during the install. Frontends should render these to
+                     the user on the done screen even when success=True.
+                     Examples: audit-log copy failed during cleanup; MOK
+                     enrollment queueing failed but system is bootable.
     """
     success: bool
     phase_completed: Optional[str] = None
@@ -144,6 +149,7 @@ class InstallResult:
     package_fail_count: int = 0
     integrity_overrides_granted: int = 0
     integrity_aborted_at: Optional[str] = None
+    warnings: list = field(default_factory=list)
 
 
 def load_yaml_config(yaml_path):
@@ -398,15 +404,28 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         _emit(PHASE_SERVICES, 12, "services enabled")
 
         # MOK enrollment last — failure here leaves system bootable; user
-        # can re-enroll via mokutil from running install if needed.
+        # can re-enroll via mokutil from running install if needed. Catch
+        # the failure explicitly + surface as a warning rather than letting
+        # it propagate to the outer except, which would mark the install
+        # FAILED even though the system IS fully usable. The user can
+        # then act on the warning instead of redoing the install.
         if efi and install_io.get("mok_password") and mok_keypair:
             _emit(PHASE_MOK, 12, "queueing MOK enrollment for first boot")
-            mok.queue_mok_enrollment(
-                target,
-                mok_keypair["der_path"],
-                install_io["mok_password"],
-            )
-            _emit(PHASE_MOK, 12, "MOK enrollment queued")
+            try:
+                mok.queue_mok_enrollment(
+                    target,
+                    mok_keypair["der_path"],
+                    install_io["mok_password"],
+                )
+                _emit(PHASE_MOK, 12, "MOK enrollment queued")
+            except Exception as e:
+                msg = (
+                    f"MOK enrollment queueing failed "
+                    f"({type(e).__name__}: {e}); system IS bootable — "
+                    f"re-enroll via mokutil from running install"
+                )
+                result.warnings.append(msg)
+                _emit(PHASE_MOK, 12, f"warning: {msg}")
 
         # 13: cleanup (unmount in reverse + copy integrity audit log to target)
         _emit(PHASE_CLEANUP, 12, "unmounting target")
@@ -415,10 +434,20 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
                 integrity.copy_audit_log_to_target(
                     Path(verify_config.audit_log_path), Path(target)
                 )
-            except Exception:
+            except Exception as e:
                 # Don't fail the install over an audit-log copy issue;
                 # the live log still exists in the install environment.
-                pass
+                # BUT surface as a warning so the user knows the trust-
+                # trail wasn't preserved onto the target — silent loss of
+                # the audit log undermines post-incident forensics.
+                msg = (
+                    f"audit log not copied to target "
+                    f"({type(e).__name__}: {e}); review "
+                    f"{verify_config.audit_log_path} on the install media "
+                    f"manually before retiring it"
+                )
+                result.warnings.append(msg)
+                _emit(PHASE_CLEANUP, 12, f"warning: {msg}")
         hooks.unmount_virtual_fs(target)
         disks.unmount_target(target)
         result.phase_completed = PHASE_CLEANUP

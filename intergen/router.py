@@ -72,6 +72,10 @@ class ConversationRouter(RouterInterface):
         self._current_query_type = self._classify_query_type(user_input)
 
         if not user_input:
+            # Empty input is fine but worth a debug-level breadcrumb —
+            # repeated empty dispatches from a frontend would otherwise
+            # be invisible here. Hides at default INFO log level.
+            logger.debug("Empty input received from frontend")
             return RouteResult(
                 text="What can I help with?",
                 source="empty_input",
