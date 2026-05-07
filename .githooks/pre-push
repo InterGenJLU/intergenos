@@ -252,5 +252,33 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
     done
 fi
 
+# ---- 7. Commit-message public-content audit ------------------------------
+# Per Group P (owner-flagged 2026-05-07): commit messages are public history.
+# Gate 1 scans file content but not commit messages; agent abbreviations,
+# internal vocab, and AGENT-NAME patterns can slip through into git log via
+# the message body. This gate scans messages of pushed commits with the same
+# patterns gate 1 uses on file content.
+if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ] && [ -f scripts/check-public-content.py ]; then
+    if python3 --version >/dev/null 2>&1; then
+        PY7=python3
+    elif command -v py >/dev/null 2>&1; then
+        PY7=py
+    elif python --version 2>&1 | grep -q "Python 3"; then
+        PY7=python
+    else
+        PY7=""
+    fi
+    if [ -n "$PY7" ]; then
+        BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
+        if ! "$PY7" scripts/check-public-content.py --commit-msgs "${BASE}..${LOCAL}"; then
+            echo "[pre-push] BLOCK: commit-message audit failed (see above)"
+            echo "  Resolve: amend the flagged commit message(s) before pushing."
+            echo "    git rebase -i ${BASE}      # interactive rebase to amend specific commits"
+            echo "  OR for legitimate uses, add to scripts/check-public-content.allowlist."
+            exit 1
+        fi
+    fi
+fi
+
 echo "[pre-push] all gates PASS"
 exit 0

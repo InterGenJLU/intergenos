@@ -108,6 +108,13 @@ WARN_PATTERNS = [
     ("WARN-VOCAB", r"(?i)\bHoly\s+Grail\b"),
 ]
 
+# Path prefixes where WARN-VOCAB is exempted. Audit-review files reference
+# these terms structurally (the dispatch format prescribes them), so flagging
+# is noise. BLOCK_PATTERNS still apply — this exempts WARN-only.
+WARN_EXEMPT_PATHS = [
+    "docs/research/audit/reviews/",
+]
+
 BLOCK_PATTERNS = AGENT_NAMES + AGENT_ABBREV + INTERNAL_VOCAB + OTHER_PROJECTS + HOME_PATH + INTERNAL_FILES + HEX_SECRETS
 
 
@@ -262,6 +269,12 @@ def scan_file(filepath, block_patterns, warn_patterns, allowlist_patterns, repo_
 
     display_path = filepath if not os.path.isabs(filepath) else str(Path(filepath).relative_to(repo_root))
 
+    # Per WARN_EXEMPT_PATHS: audit-review files reference WARN-VOCAB terms
+    # structurally (dispatch format prescribes them). Skip warn scan for those.
+    effective_warn_patterns = warn_patterns
+    if any(display_path.startswith(p) for p in WARN_EXEMPT_PATHS):
+        effective_warn_patterns = []
+
     for line_no, line in enumerate(content.splitlines(), 1):
         line_stripped = line.strip()
         if not line_stripped:
@@ -280,7 +293,7 @@ def scan_file(filepath, block_patterns, warn_patterns, allowlist_patterns, repo_
                 violations.append(("block", msg))
                 break
 
-        for cat, pat in warn_patterns:
+        for cat, pat in effective_warn_patterns:
             match = pat.search(line)
             if match:
                 matched = match.group(0)
@@ -290,11 +303,68 @@ def scan_file(filepath, block_patterns, warn_patterns, allowlist_patterns, repo_
     return violations
 
 
+def scan_commit_messages(range_spec, block_patterns, warn_patterns, allowlist_patterns):
+    """Scan commit messages in a git range for the same patterns we use on file content.
+
+    range_spec is a git rev-list argument like 'origin/master..HEAD' or 'a..b'.
+    Returns list of violation tuples like scan_file does.
+    """
+    violations = []
+    try:
+        result = subprocess.run(
+            ["git", "log", "--format=%H", range_spec],
+            capture_output=True, text=True, cwd=REPO_ROOT, timeout=10, check=True,
+        )
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        print(f"ERROR: git log {range_spec} failed: {e}", file=sys.stderr)
+        return violations
+
+    shas = [s for s in result.stdout.splitlines() if s.strip()]
+    for sha in shas:
+        try:
+            msg_result = subprocess.run(
+                ["git", "log", "-1", "--format=%B", sha],
+                capture_output=True, text=True, cwd=REPO_ROOT, timeout=10, check=True,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            continue
+
+        msg_text = msg_result.stdout
+        for line_no, line in enumerate(msg_text.splitlines(), 1):
+            line_stripped = line.strip()
+            if not line_stripped:
+                continue
+            if is_allowlisted(line_stripped, allowlist_patterns):
+                continue
+
+            for cat, pat in block_patterns:
+                match = pat.search(line)
+                if match:
+                    matched = match.group(0)
+                    if cat == "HEX-SECRET" and is_sha256_line(line):
+                        continue
+                    msg = f"commit {sha[:8]} msg:{line_no}: [{cat}] {matched} — remove or replace with public-safe equivalent (amend before push)"
+                    violations.append(("block", msg))
+                    break
+
+            # Commit messages use WARN_PATTERNS as-is (no path-based exemption;
+            # commit messages are unconditionally part of public history).
+            for cat, pat in warn_patterns:
+                match = pat.search(line)
+                if match:
+                    matched = match.group(0)
+                    msg = f"commit {sha[:8]} msg:{line_no}: [{cat}] {matched} — verify legitimate public use in commit message"
+                    violations.append(("warn", msg))
+
+    return violations
+
+
 def main():
     parser = argparse.ArgumentParser(description="Public content audit scanner")
     parser.add_argument("--dir", help="Scan specific directory tree (for test fixtures)")
     parser.add_argument("--file", action="append", default=[], help="Scan specific file (repeatable)")
     parser.add_argument("--from-ref", help="Read file content via `git show <ref>:<file>` (pre-push: --from-ref HEAD)")
+    parser.add_argument("--commit-msgs", help="Scan commit messages in given range (e.g. 'origin/master..HEAD' for pre-push)")
     parser.add_argument("--require-clean", action="store_true", help="Exit 1 if any violations found (for should-pass tests)")
     parser.add_argument("--require-both", action="store_true", help="Exit 0 only if both block and warn violations found")
     parser.add_argument("--require-fail", action="store_true", help="Exit 0 only if violations found (for should-fail tests)")
@@ -305,20 +375,40 @@ def main():
     block_compiled = compile_patterns(BLOCK_PATTERNS)
     warn_compiled = compile_patterns(WARN_PATTERNS)
 
-    if args.dir:
-        files = get_files_in_dir(args.dir)
-    elif args.file:
-        files = args.file
-    else:
-        files = get_tracked_files(from_ref=args.from_ref)
+    all_violations = []
 
-    if not files:
+    if args.commit_msgs:
+        # Commit-message scan mode (per Group P): scan messages in a range
+        # for the same patterns we use on file content. Useful as a pre-push
+        # gate to catch agent abbrevs / internal vocab in commit messages
+        # before they become public history.
+        all_violations.extend(
+            scan_commit_messages(args.commit_msgs, block_compiled, warn_compiled, allowlist_patterns)
+        )
+        # When --commit-msgs is the only mode, skip file scan.
+        if not args.dir and not args.file and not args.from_ref:
+            files = []
+        else:
+            if args.dir:
+                files = get_files_in_dir(args.dir)
+            elif args.file:
+                files = args.file
+            else:
+                files = get_tracked_files(from_ref=args.from_ref)
+    else:
+        if args.dir:
+            files = get_files_in_dir(args.dir)
+        elif args.file:
+            files = args.file
+        else:
+            files = get_tracked_files(from_ref=args.from_ref)
+
+    if not files and not args.commit_msgs:
         print("ERROR: no files to scan", file=sys.stderr)
         sys.exit(2)
 
     repo_root = REPO_ROOT if not args.dir else Path(args.dir).resolve()
 
-    all_violations = []
     for filepath in sorted(files):
         violations = scan_file(filepath, block_compiled, warn_compiled, allowlist_patterns, repo_root, from_ref=args.from_ref)
         all_violations.extend(violations)
