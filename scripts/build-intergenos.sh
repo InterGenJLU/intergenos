@@ -400,8 +400,16 @@ mismatches = []
 build_artifacts_count = 0
 
 for yml_path in sorted(packages_dir.rglob("package.yml")):
-    with yml_path.open("r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+    # Per §1 B12: per-file YAML error handling. A malformed YAML file
+    # used to produce a raw Python traceback that obscured which file
+    # was bad. Catch + tag the file path so the operator can fix one
+    # at a time instead of replaying tracebacks.
+    try:
+        with yml_path.open("r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        mismatches.append(f"{yml_path.relative_to(packages_dir)}: YAML parse error: {e}")
+        continue
 
     name = data.get("name", yml_path.parent.name)
     src = data.get("source")
@@ -790,6 +798,13 @@ phase_manifest() {
         log "  WARN: 0 archives found in $archives_dir; manifest is empty."
         log "  This may be expected during partial-build runs (e.g. --stop-after toolchain)"
         log "  but is unexpected after a full build pipeline. Investigate before signing."
+        # Per §1 B14: opt-in strict mode for full-build CI. When set,
+        # an empty manifest fails the manifest phase rather than warning.
+        # Useful for full builds where 0 archives indicates a real bug.
+        if [ "${MANIFEST_STRICT:-0}" = "1" ]; then
+            log "  FATAL: MANIFEST_STRICT=1 set; failing on empty manifest."
+            return 1
+        fi
     fi
 
     log ""

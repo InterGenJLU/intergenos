@@ -153,8 +153,11 @@ class BuildExecutor(PackageTracker):
         # GObject Introspection typelib path — needed by g-ir-scanner when
         # building GTK, GStreamer, and other GI-consuming packages
         env["GI_TYPELIB_PATH"] = "/usr/lib/girepository-1.0"
-        # Include /opt/rustc/bin for Rust toolchain (installed to /opt per BLFS)
-        env["PATH"] = f"/opt/rustc/bin:{self.system_root}/tools/bin:" + env.get("PATH", "")
+        # Include the Rust toolchain bin dir in PATH. Default is /opt/rustc/bin
+        # (installed there per BLFS). Override via IGOS_RUSTC_BIN env var for
+        # alternate-location Rust installations (per §1 B8). The default
+        # remains the BLFS path so existing builds are unchanged.
+        env["PATH"] = f"{os.environ.get('IGOS_RUSTC_BIN', '/opt/rustc/bin')}:{self.system_root}/tools/bin:" + env.get("PATH", "")
 
         # When tracked, each package stages into its own DESTDIR
         # and staged files are made visible as a sysroot for multi-pass builds
