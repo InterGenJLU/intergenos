@@ -69,6 +69,30 @@ class InstallerState:
     install_failed: bool = False
     install_error_message: str = ""
 
+    def clear_sensitive_data(self) -> None:
+        """Zero out password + MOK fields after install completes.
+
+        Best-effort residual-credentials-in-memory mitigation: if a crash
+        dump or core file is generated post-install, plaintext passwords
+        should not be recoverable from this dataclass instance.
+
+        Note: Python strings are immutable, so "zeroing" only drops THIS
+        object's reference. The original string objects may still exist
+        elsewhere in memory until garbage-collected (and even then, the
+        underlying bytes may persist on the heap until reused). This is
+        a defense-in-depth layer, not a cryptographic guarantee.
+
+        Called by ProgressPage from BOTH success and failure paths so a
+        failed install also clears the credentials it captured. Does NOT
+        clear `username` or `hostname` — those aren't sensitive in the
+        same class (and may be needed for the Done page summary).
+        """
+        self.user_password = ""
+        self.user_password_confirm = ""
+        self.root_password = ""
+        self.root_password_confirm = ""
+        self.mok_password = ""
+
     def is_ready_for_install(self) -> bool:
         """All required fields populated + destructive op confirmed.
 

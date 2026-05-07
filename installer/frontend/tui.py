@@ -104,6 +104,12 @@ def _ask_input(title, prompt, default=""):
 
 
 def _ask_password(title, prompt):
+    # The `--insecure` flag tells dialog(1) to show one asterisk per typed
+    # character (so the user has visual feedback of how many chars they've
+    # typed). whiptail(1) doesn't recognize the flag but ignores unknown
+    # options gracefully — its default passwordbox already shows asterisks,
+    # so behavior is equivalent. Don't drop `--insecure` thinking it's a
+    # no-op on whiptail; it's load-bearing for dialog(1) UX.
     return _dialog("--title", title, "--insecure", "--passwordbox",
                    prompt, "10", "70")
 

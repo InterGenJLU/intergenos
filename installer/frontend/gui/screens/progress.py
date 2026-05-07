@@ -215,6 +215,10 @@ class ProgressPage(_ForgePage):
         if result.success:
             state.install_completed = True
             state.install_failed = False
+            # Drop password references from state now that they've been
+            # consumed by the orchestrator. Defense-in-depth against
+            # crash-dump / core-file credential leakage.
+            state.clear_sensitive_data()
             self._progress_bar.set_fraction(1.0)
             self._progress_bar.set_text("Install complete")
             msg = "Install complete."
@@ -256,6 +260,10 @@ class ProgressPage(_ForgePage):
         state.install_failed = True
         state.install_completed = False
         state.install_error_message = error_message
+        # Drop password references on failure too — credentials were captured
+        # but install didn't complete. We don't want them sitting in state
+        # while the user is on the Done page reading the error message.
+        state.clear_sensitive_data()
         self._progress_bar.set_text("Install failed")
         where = f" at phase {phase_completed}" if phase_completed else ""
         self._status_label.set_label(

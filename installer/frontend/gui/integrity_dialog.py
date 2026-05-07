@@ -54,11 +54,30 @@ def _build_warning_text(package_name, expected_sha256, actual_sha256):
 
 
 def _make_paste_disabled_entry(expected_phrase, on_match_change):
-    """Build a Gtk.Entry that refuses paste + live-validates against expected_phrase.
+    """Build a Gtk.Entry that refuses paste + DnD + live-validates against expected_phrase.
 
     on_match_change(matches: bool) is called whenever the entered text
     becomes equal-to or different-from expected_phrase. The caller wires
     this to enable/disable the submit button.
+
+    Three input-suppression layers (per design doc §6.5.1, with F9
+    DnD-closure added 2026-05-07 fix-wave):
+
+      1. paste-clipboard signal suppressed — blocks Ctrl-V + middle-click.
+      2. extra-menu=None — removes right-click context menu (no GUI Paste).
+      3. Multi-character-insertion guard — rejects text growth >1 char per
+         change event, which catches drag-and-drop, IME paste, and any
+         other path that bypasses the paste-clipboard signal. Typing
+         always inserts 1 char per keystroke; multi-char growth is by
+         definition not a typed phrase.
+
+    The third layer is the F9 fix: GTK4 dropped the GTK3
+    `drag-data-received` signal in favour of `Gtk.DropTarget` controllers,
+    and `Gtk.Entry` ships internal drop targets that accept text drops.
+    Rather than enumerating + replacing internal controllers (fragile
+    across GTK4 minor versions), we monitor text-growth at the buffer
+    level — drop-text inserts the dragged string in one event, which
+    the guard reverts.
     """
     entry = Gtk.Entry()
     entry.set_input_hints(Gtk.InputHints.NO_SPELLCHECK | Gtk.InputHints.NO_EMOJI)
@@ -75,13 +94,33 @@ def _make_paste_disabled_entry(expected_phrase, on_match_change):
     # (no Cut/Copy/Paste/etc. context menu).
     entry.set_extra_menu(None)
 
-    # Live-validate on every keystroke.
-    last_match = [False]
+    # Combined typing-only validator + live-match notifier.
+    # `last_text` tracks the previously-accepted text so we can revert any
+    # multi-char insertion (paste/DnD/IME). `last_match` tracks match-state
+    # transitions so on_match_change is only called when the boolean flips.
+    # `in_revert` guards against recursive `changed` emission when set_text()
+    # is called from within the handler.
+    state = {"last_text": "", "last_match": False, "in_revert": False}
 
     def _on_changed(widget):
-        matches = widget.get_text() == expected_phrase
-        if matches != last_match[0]:
-            last_match[0] = matches
+        if state["in_revert"]:
+            return
+        new_text = widget.get_text()
+        # Reject growth >1 char per event — catches paste, DnD, and IME
+        # paste-paths that bypass the paste-clipboard signal. Allow
+        # shrinking (delete/backspace) and 1-char growth (typing).
+        if len(new_text) > len(state["last_text"]) + 1:
+            state["in_revert"] = True
+            try:
+                widget.set_text(state["last_text"])
+            finally:
+                state["in_revert"] = False
+            return
+        state["last_text"] = new_text
+        # Notify caller only on match-state transitions.
+        matches = new_text == expected_phrase
+        if matches != state["last_match"]:
+            state["last_match"] = matches
             on_match_change(matches)
     entry.connect("changed", _on_changed)
 

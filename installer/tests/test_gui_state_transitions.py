@@ -153,6 +153,70 @@ class TestValidationErrors:
         assert any("root passwords don't match" in e for e in errors)
 
 
+class TestClearSensitiveData:
+    """Coverage for InstallerState.clear_sensitive_data() — F4 fix-wave 2026-05-07.
+
+    Defense-in-depth credential-zeroization called by ProgressPage in both
+    success and failure terminal paths. Tests confirm all sensitive fields
+    are cleared and non-sensitive fields are preserved.
+    """
+
+    def test_clears_user_password(self):
+        state = InstallerState()
+        _populate_full(state)
+        state.user_password = "secret123"
+        state.user_password_confirm = "secret123"
+        state.clear_sensitive_data()
+        assert state.user_password == ""
+        assert state.user_password_confirm == ""
+
+    def test_clears_root_password(self):
+        state = InstallerState()
+        _populate_full(state)
+        state.root_password = "rootsecret"
+        state.root_password_confirm = "rootsecret"
+        state.clear_sensitive_data()
+        assert state.root_password == ""
+        assert state.root_password_confirm == ""
+
+    def test_clears_mok_password(self):
+        state = InstallerState()
+        _populate_full(state)
+        state.mok_password = "moksecret"
+        state.clear_sensitive_data()
+        assert state.mok_password == ""
+
+    def test_preserves_username_hostname_after_clear(self):
+        """Non-sensitive identity fields stay populated for the Done page summary."""
+        state = InstallerState()
+        _populate_full(state)
+        state.username = "alice"
+        state.hostname = "thinkpad"
+        state.clear_sensitive_data()
+        assert state.username == "alice"
+        assert state.hostname == "thinkpad"
+
+    def test_preserves_install_outcome_flags(self):
+        """Don't disturb install_completed/install_failed/install_error_message."""
+        state = InstallerState()
+        state.install_completed = True
+        state.install_failed = False
+        state.install_error_message = ""
+        state.clear_sensitive_data()
+        assert state.install_completed is True
+        assert state.install_failed is False
+        assert state.install_error_message == ""
+
+    def test_idempotent(self):
+        """Calling twice should be safe (failure-path may double-call)."""
+        state = InstallerState()
+        _populate_full(state)
+        state.clear_sensitive_data()
+        state.clear_sensitive_data()
+        assert state.user_password == ""
+        assert state.root_password == ""
+
+
 class TestStateMutationOrdering:
     """Sanity tests that state can be progressively built up across screens
     and ends up valid — mirrors the actual user flow through the 7 screens.
