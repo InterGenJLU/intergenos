@@ -55,15 +55,38 @@ def try_dbus(method: str, *args: str) -> str | None:
 
 
 def cmd_ask(message: str) -> None:
-    """Ask InterGen a question."""
-    # Try D-Bus first
+    """Ask InterGen a question.
+
+    Tries D-Bus first; falls through to direct mode only when no daemon
+    is on the bus at all. The fallthrough is gated by a Status probe to
+    distinguish:
+      (a) no daemon running on the session bus → safe to start direct
+          session
+      (b) daemon running but Ask method-failed → starting direct mode
+          would create a SECOND daemon, doubling model RAM via
+          Gio.bus_own_name name_lost race
+    """
+    # Try D-Bus first.
     response = try_dbus("Ask", message)
-    if response:
+    if response is not None:
         data = json.loads(response)
         print(data.get("response", response))
         return
 
-    # Direct mode — no daemon running
+    # Ask failed. Probe Status to disambiguate "no daemon" vs "daemon up
+    # but Ask method-failed" before deciding whether to start a competing
+    # direct session.
+    status_probe = try_dbus("Status")
+    if status_probe is not None:
+        # Daemon IS up but Ask failed for some reason. Don't start a
+        # second daemon — surface the symptom and exit.
+        print("InterGen daemon is running but the Ask call failed.",
+              file=sys.stderr)
+        print("Check the daemon logs for details:", file=sys.stderr)
+        print("  journalctl --user -u intergen -n 50", file=sys.stderr)
+        sys.exit(2)
+
+    # Status also failed → no daemon on the bus. Safe to start direct mode.
     print("InterGen daemon not running. Starting direct session...")
     from intergen.dbus_daemon import InterGenDaemon
     daemon = InterGenDaemon()

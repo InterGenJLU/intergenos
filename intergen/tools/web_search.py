@@ -89,7 +89,24 @@ class WebSearchTool(BaseTool):
         return self._search_ddg(query, num_results)
 
     def _search_serper(self, query: str, num: int, api_key: str) -> ToolResult | None:
-        """Search using Serper.dev API."""
+        """Search using Serper.dev API.
+
+        Defense-in-depth on the api_key argument: the caller in `execute()`
+        already gates this on `if serper_key:`, but the function should also
+        defend against being called with None/empty so a future refactor
+        that bypasses the env-var check produces a clear configuration
+        error rather than a confusing "X-API-KEY: None" HTTP response from
+        Serper itself.
+        """
+        if not api_key:
+            log.warning("Serper search invoked without API key configured")
+            return ToolResult(
+                call_id="", name=self.name,
+                content=("Error: Serper API key not configured. "
+                         "Set the SERPER_API_KEY environment variable, or "
+                         "InterGen will fall back to DuckDuckGo search."),
+                success=False,
+            )
         try:
             data = json.dumps({"q": query, "num": num}).encode()
             req = urllib.request.Request(
