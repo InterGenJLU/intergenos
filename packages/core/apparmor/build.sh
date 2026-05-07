@@ -19,8 +19,8 @@ do_install() {
     install -vdm 755 "$DESTDIR/etc/apparmor.d/disable/"
     install -vdm 755 "$DESTDIR/etc/apparmor.d/local/"
     
-    cp -rv apparmor-3.0.8/profiles/apparmor.d/* "$DESTDIR/etc/apparmor.d/"
-    cp -rv apparmor-profiles-extra-1.35/work/profiles/* "$DESTDIR/etc/apparmor.d/"
+    cp -rv apparmor-v${PKG_VERSION}/profiles/apparmor.d/* "$DESTDIR/etc/apparmor.d/"
+    cp -rv work/profiles/* "$DESTDIR/etc/apparmor.d/"
     
     # 2. Install InterGenOS-specific custom profiles
     install -vm 644 profiles/usr.bin.intergen-mcp "$DESTDIR/etc/apparmor.d/"
