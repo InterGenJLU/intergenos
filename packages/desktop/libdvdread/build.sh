@@ -7,7 +7,7 @@ configure() {
     # BLFS required fix
     sed -i "/get_option/s/libdvdread/&-7.0.1/" meson.build
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..            \

@@ -7,7 +7,7 @@ configure() {
     # BLFS required fixes
     sed -i 's:"/desktop:"/org:' schema/*.xml
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..            \

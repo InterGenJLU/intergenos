@@ -9,7 +9,7 @@ configure() {
     useradd -c "PolicyKit Daemon Owner" -d /etc/polkit-1 \
             -u 27 -g polkitd -s /bin/false polkitd 2>/dev/null || true
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..                  \

@@ -7,7 +7,7 @@ configure() {
     # BLFS required fix
     sed -i "s/'system',//" meson.build
 
-    mkdir bld
+    mkdir -p bld
     cd    bld
 
     meson setup ..            \

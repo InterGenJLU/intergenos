@@ -7,7 +7,7 @@ configure() {
     # meson 1.10+ disallows add_global_arguments after build targets
     sed -i 's/  add_global_arguments/  # add_global_arguments/' meson.build
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..            \

@@ -6,7 +6,7 @@ configure() {
     set -e
     # BLFS required fixes
     sed -i '/^udev/,$ s/^/#/' util/meson.build
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..            \

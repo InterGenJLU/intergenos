@@ -9,7 +9,7 @@ configure() {
     useradd -c "Color Daemon Owner" -d /var/lib/colord \
             -u 71 -g colord -s /bin/false colord 2>/dev/null || true
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..            \

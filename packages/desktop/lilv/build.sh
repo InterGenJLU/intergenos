@@ -9,7 +9,7 @@
 
 configure() {
     set -e
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..            \

@@ -11,7 +11,7 @@ configure() {
     sed -r "s:.*(#.*SUBPIXEL_RENDERING) .*:\1:" \
         -i include/freetype/config/ftoption.h
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..            \

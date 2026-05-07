@@ -13,7 +13,7 @@ configure() {
     # Replace the entire doxygen block with a stub so meson doesn't error.
     sed -i "s/^doxygen = find_program.*$/doxygen = disabler()/" doc/meson.build
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..              \

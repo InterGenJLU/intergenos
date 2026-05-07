@@ -4,7 +4,8 @@
 # Note: requires clang, cmake-modules, and third-party tarballs in sources dir
 
 pre_configure() {
-    set -e
+    # pipefail: grep | xargs pipe on line 29
+    set -e -o pipefail
     # Extract additional required tarballs
     tar -xf "${IGOS_SOURCES_DIR}/llvm-cmake-${version}.src.tar.xz"
     tar -xf "${IGOS_SOURCES_DIR}/llvm-third-party-${version}.src.tar.xz"

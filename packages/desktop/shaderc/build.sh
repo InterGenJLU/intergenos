@@ -11,7 +11,7 @@ configure() {
 
     echo '"2026.1"' > glslc/src/build-version.inc
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     cmake -D CMAKE_INSTALL_PREFIX=/usr \

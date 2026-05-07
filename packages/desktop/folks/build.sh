@@ -4,7 +4,7 @@
 
 configure() {
     set -e
-    mkdir build
+    mkdir -p build
     cd    build
 
     # Telepathy backend disabled: Telepathy is upstream-abandoned (BLFS 13.0 dropped

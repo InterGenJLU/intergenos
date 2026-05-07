@@ -10,7 +10,7 @@ configure() {
             -u 21 -g gdm -s /bin/false gdm 2>/dev/null || true
     passwd -ql gdm 2>/dev/null || true
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..            \

@@ -7,7 +7,7 @@ configure() {
     set -e
     # Apply Python 3.14 compatibility patch
 
-    mkdir obj &&
+    mkdir -p obj &&
     cd    obj &&
 
     CC=gcc CXX=g++ \

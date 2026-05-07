@@ -10,7 +10,7 @@ configure() {
     # BLFS: fix schema path
     sed -i 's:"/desktop:"/org:' schema/*.xml
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..              \

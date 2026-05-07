@@ -12,7 +12,7 @@ configure() {
         -e '/output/s|Rsvg-2.0|librsvg-'"${PKG_VERSION}"'|'                  \
         -i doc/meson.build
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup --prefix=/usr --buildtype=release \

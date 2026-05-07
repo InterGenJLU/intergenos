@@ -7,7 +7,7 @@ configure() {
     # Prevent installing static libraries
     sed -i 's/aom aom_static/aom/' build/cmake/aom_install.cmake
 
-    mkdir aom-build
+    mkdir -p aom-build
     cd    aom-build
 
     cmake -DCMAKE_INSTALL_PREFIX=/usr \

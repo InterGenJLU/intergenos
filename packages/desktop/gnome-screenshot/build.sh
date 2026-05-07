@@ -7,7 +7,7 @@ configure() {
     # BLFS required fix
     sed -i '/merge_file/{n;d}' data/meson.build
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..            \

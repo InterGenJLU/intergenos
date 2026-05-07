@@ -3,12 +3,14 @@
 # BLFS 13.0
 
 configure() {
-    set -e
+    # pipefail: find | xargs pipe — without pipefail, find failure
+    # would be masked by xargs succeeding on empty input
+    set -e -o pipefail
     # BLFS required fix — remove catch2 test dependency
     find . -name meson.build | xargs sed -i -e '/catch2/d'
     sed -i '145,155d' src/meson.build
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..            \

@@ -6,7 +6,7 @@ configure() {
     set -e
     # BLFS required fixes
     sed -e "s/'generate'/\&, '--no-namespace-dir'/" -e "/--output-dir/s/@OUTPUT@/&\/tinysparql-${PKG_VERSION}/" -i docs/reference/meson.build
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..            \

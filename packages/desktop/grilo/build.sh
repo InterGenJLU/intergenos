@@ -4,7 +4,7 @@
 
 configure() {
     set -e
-    mkdir build
+    mkdir -p build
     cd    build
 
     # -Denable-gtk-doc=false: project-wide convention (~25 GNOME packages

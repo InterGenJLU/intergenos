@@ -8,7 +8,7 @@ configure() {
     sed -i "/GPGME_EVENT_NEXT_TRUSTITEM/d" pgp/seahorse-gpgme.c
     sed -i -r 's:"(/apps):"/org/gnome\1:' data/*.xml
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..            \

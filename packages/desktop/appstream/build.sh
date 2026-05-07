@@ -11,7 +11,7 @@ configure() {
         rmdir AppStream-${PKG_VERSION}
     fi
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..            \

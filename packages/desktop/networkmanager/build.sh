@@ -7,7 +7,7 @@ configure() {
     # Fix Python scripts that reference python2
     grep -rl '^#!.*python$' | xargs sed -i '1s/python/&3/' 2>/dev/null || true
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..            \

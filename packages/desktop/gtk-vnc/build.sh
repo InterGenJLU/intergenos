@@ -4,7 +4,7 @@
 
 configure() {
     set -e
-    mkdir build
+    mkdir -p build
     cd    build
 
     # -Dpulseaudio=enabled: explicitly require pulseaudio support so

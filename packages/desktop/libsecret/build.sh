@@ -6,7 +6,7 @@ configure() {
     set -e
     # BLFS required fixes
     sed "s/api_version_major/'${PKG_VERSION}'/" -i ../docs/reference/libsecret/meson.build
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..            \

@@ -21,7 +21,7 @@ configure() {
     echo "#!/bin/sh" > generate-version.sh
     echo "echo ${PKG_VERSION}" >> generate-version.sh
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..            \
@@ -32,7 +32,9 @@ configure() {
 }
 
 build() {
-    set -e
+    # pipefail: grep | sed pipe — without pipefail, grep failure
+    # would be masked by sed succeeding on empty input
+    set -e -o pipefail
     cd build
 
     # BLFS: fix mocklibc for GCC 14+

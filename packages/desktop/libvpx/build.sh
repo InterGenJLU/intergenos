@@ -6,7 +6,7 @@ configure() {
     set -e
     sed -i 's/cp -p/cp/' build/make/Makefile
 
-    mkdir libvpx-build
+    mkdir -p libvpx-build
     cd    libvpx-build
 
     ../configure --prefix=/usr    \

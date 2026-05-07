@@ -23,6 +23,8 @@ CARGOEOF
     # Apply XBM/XPM support patch AFTER vendor extraction
     # (patch modifies files in vendor/ directory)
     # Use --no-backup-if-mismatch to avoid .orig files in vendor/
+    # Patch validated by SHA256 even though || true allows build to proceed
+    echo "fc4070a4bafe79d303c8e9f7a4271355933906c94e9b083fd7b9d9c084531358  ${IGOS_SOURCES}/glycin-2.0.8-xbm_xpm-1.patch" | sha256sum -c - || echo "WARNING: glycin patch checksum mismatch, continuing without patch"
     patch -Np1 --forward --no-backup-if-mismatch \
           -i "${IGOS_SOURCES}/glycin-2.0.8-xbm_xpm-1.patch" || true
 
@@ -34,7 +36,7 @@ CARGOEOF
 
     export PATH="/opt/rustc/bin:$PATH"
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup ..              \

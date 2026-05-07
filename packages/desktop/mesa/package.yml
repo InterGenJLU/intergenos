@@ -10,9 +10,11 @@ install_func: do_install
 source:
 - url: https://mesa.freedesktop.org/archive/mesa-${version}.tar.xz
   sha256: be472413475082df945e0f9be34f5af008baa03eb357e067ce5a611a2d44c44b
+- file: mesa-25.3.5-rust-crates.tar.gz
+  sha256: e013b32b7c286cb1cbafe7170439039ea4bb3e05d0fa7b97364216a4c4a2a545
 patches:
-  - file: mesa-add_xdemos-4.patch
-    sha256: 9677943764bfadc2800714e34933507365dfc24b33ec9d5a4720db03b6168f3d
+- file: mesa-add_xdemos-4.patch
+  sha256: 9677943764bfadc2800714e34933507365dfc24b33ec9d5a4720db03b6168f3d
 dependencies:
   build:
   - elfutils
