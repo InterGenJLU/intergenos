@@ -43,6 +43,12 @@ configure() {
         -D sysupdate=disabled     \
         -D ukify=disabled         \
         -D bootloader=enabled     \
+        -D sbat-distro=intergenos \
+        -D sbat-distro-summary="InterGenOS" \
+        -D sbat-distro-pkgname=systemd \
+        -D sbat-distro-version=259.1-1 \
+        -D sbat-distro-generation=1 \
+        -D sbat-distro-url=https://github.com/InterGenJLU/intergenos \
         -D docdir=/usr/share/doc/systemd-259.1
 }
 
