@@ -384,7 +384,7 @@ phase_verify_sources() {
     local PYSCRIPT PYEXIT UNPINNED MISMATCHES
 
     PYSCRIPT=$(python3 - "$PACKAGES_DIR" "$SOURCES" <<'PYEOF'
-import sys, hashlib, os
+import sys, hashlib, os, re
 from pathlib import Path
 
 try:
@@ -392,6 +392,15 @@ try:
 except ImportError:
     print("FATAL: pyyaml required (pip install pyyaml)", file=sys.stderr)
     sys.exit(2)
+
+# Mirror igos_build.parser._resolve_variables: package.yml URLs and filenames
+# carry ${name}/${version}/${version_major}/${version_major_minor}/${version_patch}
+# placeholders that the build pipeline expands. verify-sources reads the YAML
+# directly, so it must perform the same substitution before checking tarballs.
+# If this set drifts from parser.py, audit both consumers.
+_VAR_RE = re.compile(r"\$\{(\w+)\}")
+def _resolve(text, variables):
+    return _VAR_RE.sub(lambda m: variables.get(m.group(1), m.group(0)), text)
 
 packages_dir = Path(sys.argv[1])
 sources_dir = Path(sys.argv[2])
@@ -412,7 +421,19 @@ for yml_path in sorted(packages_dir.rglob("package.yml")):
         mismatches.append(f"{yml_path.relative_to(packages_dir)}: YAML parse error: {e}")
         continue
 
+    if data is None:
+        continue
+
     name = data.get("name", yml_path.parent.name)
+    version = str(data.get("version", ""))
+    version_parts = version.split(".")
+    variables = {
+        "name": name,
+        "version": version,
+        "version_major": version_parts[0] if version_parts else "",
+        "version_major_minor": ".".join(version_parts[:2]) if len(version_parts) >= 2 else version,
+        "version_patch": version_parts[2] if len(version_parts) >= 3 else "0",
+    }
     src = data.get("source")
     build = data.get("build_artifacts", [])
     build_artifacts_count += len(build) if isinstance(build, list) else 0
@@ -424,13 +445,17 @@ for yml_path in sorted(packages_dir.rglob("package.yml")):
         if not isinstance(item, dict):
             unpinned.append(f"{name}: source[{i}] malformed")
             continue
-        url = item.get("url", "")
+        url = _resolve(item.get("url", ""), variables)
         sha = item.get("sha256")
         if not sha or not isinstance(sha, str) or len(sha) != 64:
             unpinned.append(f"{name}: {url} (no sha256 or invalid)")
             continue
 
-        filename = item.get("filename") or url.rsplit("/", 1)[-1].split("?")[0]
+        filename_raw = item.get("filename")
+        if filename_raw:
+            filename = _resolve(filename_raw, variables)
+        else:
+            filename = url.rsplit("/", 1)[-1].split("?")[0]
         tarball = sources_dir / filename
         if not tarball.exists():
             mismatches.append(f"{name}: {filename} (not downloaded)")
