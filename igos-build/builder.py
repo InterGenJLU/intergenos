@@ -279,7 +279,7 @@ class BuildExecutor(PackageTracker):
             self.logger.info(f"Verifying SHA256: {primary.sha256[:16]}...")
             result = subprocess.run(
                 ["sha256sum", str(tarball_path)],
-                capture_output=True, text=True,
+                capture_output=True, text=True, timeout=300
             )
             actual = result.stdout.split()[0] if result.stdout else ""
             # Normalize case — sha256sum outputs lowercase, but hashes
@@ -430,7 +430,7 @@ class BuildExecutor(PackageTracker):
                     # injection risks while preserving bash semantics. (B10)
                     result = subprocess.run(
                         ["/bin/bash", "-c", check.script],
-                        capture_output=True, text=True,
+                capture_output=True, text=True, timeout=300
                         env=env, cwd=str(cwd),
                     )
                     # Log the output (mirrors what run_command does)
