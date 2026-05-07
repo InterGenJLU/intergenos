@@ -91,6 +91,24 @@ echo "=== [pre-orient] worktree list ==="
 git worktree list
 
 echo ""
+echo "=== [pre-orient] pre-push gate activation check ==="
+# Per §6 C2 substitute: self-healing convention. The pre-push gate suite
+# (.githooks/pre-push) only runs when core.hooksPath = .githooks. On a
+# fresh worktree clone, this defaults to .git/hooks (where our gate
+# isn't installed), so pushes from a fresh worktree skip ALL gates.
+# Surface the misconfig at session-start so it gets fixed before any push.
+HOOKS_PATH=$(git config --get core.hooksPath 2>/dev/null || echo "")
+if [ "$HOOKS_PATH" != ".githooks" ]; then
+    echo "  WARN: core.hooksPath is '$HOOKS_PATH' (expected '.githooks')."
+    echo "  Pre-push gate suite is NOT active on this worktree — pushes will skip gates."
+    echo "  Self-heal: bash scripts/setup-githooks.sh"
+    echo "  (Doesn't dirty the orient gate by itself — it's a worktree-config drift,"
+    echo "   not an inherited-state issue.)"
+else
+    echo "  STATUS: gate active (core.hooksPath=$HOOKS_PATH)"
+fi
+
+echo ""
 echo "=== [pre-orient] active branch + recent commits ==="
 echo "  branch: $(git branch --show-current)"
 echo "  recent commits (newest first):"

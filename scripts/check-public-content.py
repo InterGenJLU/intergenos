@@ -156,7 +156,10 @@ def get_tracked_files(from_ref=None):
             print(f"ERROR: {' '.join(cmd)} failed", file=sys.stderr)
             sys.exit(2)
         files = [f for f in result.stdout.split("\0") if f]
-    except Exception as e:
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        # Narrowed from broad except per §7 GP-10 audit — git/IO errors only.
+        # A logic flaw in this function would now propagate uncaught, which
+        # is what we want for a gate script (fail loudly, not silently).
         print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(2)
 

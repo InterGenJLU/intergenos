@@ -10,7 +10,7 @@
 # Active when scripts/setup-githooks.sh has been run (sets core.hooksPath=.githooks).
 # Bypass for emergencies: git push --no-verify (use sparingly; flag in commit msg).
 
-set -uo pipefail
+set -euo pipefail
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT"
@@ -86,8 +86,24 @@ fi
 
 # ---- 2. Stale-master check ------------------------------------------------
 # Fetch origin master; require local to be at-or-ahead of origin/master.
-# This prevents the "DS pushed while I worked → my push rejected → fix" loop.
-git fetch origin master --quiet 2>/dev/null || true
+# This prevents the "remote moved while we worked → push rejected" loop.
+#
+# Fail-closed posture (per §6 C1 review): if git fetch fails (network, auth,
+# remote unreachable), the stale-master check would silently run against a
+# cached origin/master ref and might pass a stale-base push. Block instead,
+# with an explicit override env var for genuinely-offline scenarios.
+if ! git fetch origin master --quiet 2>/dev/null; then
+    if [ "${GIT_PRE_PUSH_SKIP_FETCH:-0}" = "1" ]; then
+        echo "[pre-push] WARN: git fetch failed; continuing with cached origin/master per GIT_PRE_PUSH_SKIP_FETCH=1 override."
+    else
+        echo "[pre-push] BLOCK: git fetch origin master failed."
+        echo "  Stale-master check requires fresh origin/master — cannot run on cached refs."
+        echo "  Investigate: network connectivity, GitHub auth, SSH agent state."
+        echo "  Override (only when network is unreachable AND local is confirmed current):"
+        echo "    GIT_PRE_PUSH_SKIP_FETCH=1 git push origin master"
+        exit 1
+    fi
+fi
 
 LOCAL=$(git rev-parse master 2>/dev/null || echo "")
 REMOTE=$(git rev-parse origin/master 2>/dev/null || echo "")
