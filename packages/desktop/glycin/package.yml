@@ -10,7 +10,8 @@ install_func: do_install
 source:
 - url: https://download.gnome.org/sources/glycin/2.0/glycin-${version}.tar.xz
   sha256: 6b9aef4f626bf969dfd04b563b83d521271a30c3d6df6a6a8463fd55490891df
-- file: glycin-2.0.8-vendor.tar.gz
+- url: https://download.gnome.org/sources/glycin/2.0/glycin-${version}-vendor.tar.gz
+  filename: glycin-${version}-vendor.tar.gz
   sha256: 13195315dbfabaf1efea6696b6c13c2f066e3ec6e2315d85c1b42f3631feff29
 dependencies:
   build:
