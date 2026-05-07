@@ -97,10 +97,10 @@ TMP_GNUPG=$(mktemp -d -t igos-mfst-XXXXXX)
 trap 'rm -rf "$TMP_GNUPG"' EXIT
 chmod 700 "$TMP_GNUPG"
 
-if ! gpg --homedir "$TMP_GNUPG" --batch --quiet --import "$KEY" 2>&1; then
+if ! gpg --homedir "$TMP_GNUPG" --no-default-keyring --batch --quiet --import "$KEY" 2>&1; then
     echo "      FAIL: could not import release-key from $KEY"
     FAIL_COUNT=$((FAIL_COUNT + 1))
-elif gpg --homedir "$TMP_GNUPG" --batch --verify "$SIG" "$MANIFEST" 2>"$TMP_GNUPG/verify.err"; then
+elif gpg --homedir "$TMP_GNUPG" --no-default-keyring --batch --verify "$SIG" "$MANIFEST" 2>"$TMP_GNUPG/verify.err"; then
     echo "      PASS — signature verifies under the embedded release-key"
 else
     echo "      FAIL: signature verification failed:"
@@ -114,7 +114,7 @@ echo "[3/3] master cosignature presence"
 if [ -n "${INTERGENOS_GPG_MASTER_KEY_ID:-}" ]; then
     # Count signatures recorded against the manifest. gpg --verify with
     # --status-fd emits one GOODSIG/VALIDSIG per signature in the bundle.
-    sig_count=$(gpg --homedir "$TMP_GNUPG" --batch --verify --status-fd 1 \
+    sig_count=$(gpg --homedir "$TMP_GNUPG" --no-default-keyring --batch --verify --status-fd 1 \
                     "$SIG" "$MANIFEST" 2>/dev/null \
                 | grep -c '^\[GNUPG:\] GOODSIG' || true)
     if [ "$sig_count" -ge 2 ]; then

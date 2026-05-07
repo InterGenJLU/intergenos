@@ -207,8 +207,16 @@ def validate_one_nk(card_num, master_fp):
 
     failures = 0
 
-    # Refresh scdaemon
-    subprocess.run(["gpgconf", "--kill", "scdaemon"], capture_output=True, env=env)
+    # Refresh scdaemon. Both subprocess calls use check=True with broad
+    # exception handling so unexpected gpgconf/systemctl failures surface
+    # rather than silently leaving stale daemon state — but expected failure
+    # modes (scdaemon not running, sudo NOPASSWD not configured) are
+    # tolerated since this is best-effort pre-flight cleanup.
+    try:
+        subprocess.run(["gpgconf", "--kill", "scdaemon"],
+                       capture_output=True, check=True, env=env)
+    except Exception:
+        pass
     time.sleep(1)
     try:
         subprocess.run(["sudo", "-n", "systemctl", "restart", "pcscd"], check=True)

@@ -103,9 +103,22 @@ sha256sum build-output/intergenos-shim-16.1.tar
 1. **PKCS#11 URI in `sign-shim.sh` is a default guess** — `id=%02` is the
    typical OpenSC mapping for PIV slot 9c, but should be confirmed via
    `pkcs11-tool --list-objects --type privkey` on first run with NK#1 plugged
-   in. Override via `PKCS11_KEY_URI` env var if the default doesn't match.
-2. **Multi-host verification not yet executed** — the Dockerfile, harness,
-   and L1+L2+L3 fixes are all in place, but actual multi-host builds have
-   not been run. This is Step 4 of `post_b2_completion_roadmap_2026-05-01.md`.
-   First single-host build must complete (IGOSC Step 3), then dual-host
-   verification follows.
+   in. Specifically:
+
+   ```bash
+   pkcs11-tool --module /usr/lib/x86_64-linux-gnu/opensc-pkcs11.so \
+               --list-objects --type privkey
+   ```
+
+   Confirm a `Private Key Object` with `ID:02` is reported. Override via
+   `PKCS11_KEY_URI` env var if the default doesn't match.
+2. **Multi-host verification: CONFIRMED.** Triple-host reproducibility
+   verified 2026-05-07 across 3 independent hosts (Ubuntu 24.04 + Ubuntu
+   22.04, native Docker 29.x, x86_64). All produce the identical 5-file
+   tarball with sha256:
+   `22ba569ab8543d456e4bf0289b9c63b7c28046ed3d98a0549cc38491322f8e97`.
+   See `scripts/verify-b2-reproducibility.sh` for the harness and
+   `docs/shim-review-submission.md` Q22 for the cross-host comparison
+   evidence. **Note:** Docker Desktop (Windows/macOS) is out of scope —
+   its virtualization layer produces internally-consistent-but-divergent
+   SHAs. Reproducibility attestation requires native-Linux Docker.

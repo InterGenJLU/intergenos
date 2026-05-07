@@ -62,6 +62,24 @@ ARG SHIM_COMMIT=afc49558b34548644c1cd0ad1b6526a9470182ed
 # where two builds weeks apart pull different gcc/libc/binutils versions.
 # Timestamp 20260501T000000Z chosen as: post-bookworm-12.9 release,
 # pre-ceremony, stable package set.
+#
+# `[trusted=yes check-valid-until=no]` rationale (deliberate trade-off, NOT
+# an oversight):
+#   * `check-valid-until=no` — snapshot.debian.org Release files retain their
+#     original Valid-Until field, which is now in the past. apt would refuse
+#     them as "expired" without this flag. Disabling the check is the only
+#     way to use timestamped snapshots at all.
+#   * `trusted=yes` — snapshot.debian.org's archive signing key may have
+#     expired Valid-Until dates by design. Disabling chain validation here
+#     is required to install from the snapshot.
+# Defense-in-depth that compensates for both flags:
+#   1. Base image is digest-pinned at line 25 (single-supplier trust).
+#   2. snapshot.debian.org content for a given timestamp is itself immutable
+#      and reproducible across hosts; mismatches surface as build failures
+#      (not silent compromise) because all packages must hash-equal.
+#   3. The shim binary output is sha256-asserted across multiple build hosts
+#      per the shim-review reproducibility property — any compromise in the
+#      apt layer would be caught at the multi-host SHA comparison.
 # -----------------------------------------------------------------------------
 RUN echo "deb [trusted=yes check-valid-until=no] http://snapshot.debian.org/archive/debian/20260501T000000Z bookworm main" \
         > /etc/apt/sources.list.d/snapshot.list \
@@ -90,6 +108,9 @@ RUN git clone --depth 1 --branch ${SHIM_VERSION} --recurse-submodules --shallow-
  && ACTUAL_SHA=$(git -C /build/shim rev-parse HEAD) \
  && if [ "${ACTUAL_SHA}" != "${SHIM_COMMIT}" ]; then \
         echo "ERROR: shim HEAD ${ACTUAL_SHA} != expected ${SHIM_COMMIT}"; \
+        echo "       The upstream tag ${SHIM_VERSION} may have moved."; \
+        echo "       Run 'docker build --no-cache ...' to force a fresh clone,"; \
+        echo "       or update SHIM_COMMIT in this Dockerfile to match the new tag."; \
         exit 1; \
     fi \
  && echo "${ACTUAL_SHA}" > /build/SHIM_COMMIT_SHA
