@@ -289,6 +289,11 @@ def parse_template(template_path: Path) -> Package:
         "version": version,
         "version_major": version_parts[0] if version_parts else "",
         "version_major_minor": ".".join(version_parts[:2]) if len(version_parts) >= 2 else version,
+        # Per §3 P6: support ${version_patch} for packages that need the
+        # third version segment (e.g., GCC bundled-deps version). Falls
+        # back to "0" if the version doesn't have a patch segment so the
+        # template doesn't break on shorter version strings.
+        "version_patch": version_parts[2] if len(version_parts) >= 3 else "0",
     }
 
     # --- Parse complex fields ---

@@ -5,7 +5,7 @@
 configure() {
     set -e
     # Extract vendored crate dependencies (built offline on host)
-    tar xf "${IGOS_SOURCES}/librsvg-${PKG_VERSION}-vendor.tar.xz" --strip-components=1
+    tar xf "${IGOS_SOURCES_DIR}/librsvg-${PKG_VERSION}-vendor.tar.xz" --strip-components=1
 
     # Fix API documentation install path (from BLFS)
     sed -e "/OUTDIR/s|,| / 'librsvg-${PKG_VERSION}', '--no-namespace-dir',|" \

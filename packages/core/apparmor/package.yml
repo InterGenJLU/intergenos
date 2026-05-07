@@ -13,5 +13,5 @@ source:
   sha256: 31d0a65d2c1c0c8dc91d87437020bf4341b6bb1c8d324944628d6fc629039165
 dependencies:
   build: []
-  host: []
+  host: [perl, python3, bash]
   runtime: []

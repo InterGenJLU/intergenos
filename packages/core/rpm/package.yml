@@ -4,7 +4,7 @@ release: 1
 description: RPM package manager — provides rpm2cpio utility for extracting Fedora's MS-signed shim binary during the InterGenOS boot chain build (per shim-signed package dependency)
 license: GPL-2.0-or-later
 homepage: https://rpm.org/
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 
