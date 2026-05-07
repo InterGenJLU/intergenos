@@ -4,7 +4,7 @@
 
 configure() {
     set -e
-    mkdir bld
+    mkdir -p bld
     cd    bld
 
     meson setup ..            \

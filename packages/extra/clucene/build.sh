@@ -9,7 +9,7 @@ configure() {
     # BLFS: fix missing ctime include
     sed -i '/Misc.h/a #include <ctime>' src/core/CLucene/document/DateTools.cpp
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     cmake -D CMAKE_INSTALL_PREFIX=/usr        \

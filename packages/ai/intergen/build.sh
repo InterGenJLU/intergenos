@@ -9,7 +9,11 @@
 # installed via pip at build time — they ship as part of this package.
 
 build() {
-    set -e
+    # pipefail required: pip3 ... | tail -5 would otherwise mask a failed
+    # pip install (LHS exits non-zero, RHS tail succeeds → set -e doesn't
+    # trip). Without pipefail this package would build silently with
+    # missing or partial Python deps.
+    set -e -o pipefail
     # Install Python dependencies into the package
     # CPU-only torch — no NVIDIA/CUDA bloat
     pip3 install --target="${DESTDIR}/usr/lib/python3.14/site-packages" \

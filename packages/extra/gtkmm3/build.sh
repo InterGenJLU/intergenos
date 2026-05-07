@@ -5,7 +5,7 @@
 configure() {
     set -e
     # BLFS uses "gtkmm3-build" to distinguish from the GTK4 version
-    mkdir gtkmm3-build
+    mkdir -p gtkmm3-build
     cd    gtkmm3-build
 
     meson setup ..            \

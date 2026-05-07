@@ -26,7 +26,7 @@
 
 configure() {
     set -e
-    mkdir build
+    mkdir -p build
     cd    build
 
     # meson_options.txt features explicitly pinned:

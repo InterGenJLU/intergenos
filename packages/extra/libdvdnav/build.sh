@@ -7,7 +7,7 @@ configure() {
     # BLFS: install documentation in a versioned directory
     sed -i "/get_option/s/libdvdnav/&-7.0.0/" meson.build
 
-    mkdir build
+    mkdir -p build
     cd    build
 
     meson setup --prefix=/usr --libdir=/usr/lib --buildtype=release ..

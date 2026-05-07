@@ -4,7 +4,7 @@
 
 configure() {
     set -e
-    mkdir gspell-build
+    mkdir -p gspell-build
     cd    gspell-build
 
     meson setup ..              \

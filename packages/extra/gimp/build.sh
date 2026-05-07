@@ -6,7 +6,7 @@ configure() {
     set -e
     # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
 
-    mkdir gimp-build
+    mkdir -p gimp-build
     cd    gimp-build
 
     meson setup ..              \
