@@ -32,7 +32,10 @@ check() {
 
 do_install() {
     set -e
-    cmake --install build --prefix "$DESTDIR/usr"
+    # Don't pass --prefix here: configure already set CMAKE_INSTALL_PREFIX=/usr,
+    # and cmake honors DESTDIR env var. Passing both produces a double-nested
+    # /tmp/igos-staging/.../tmp/igos-staging/.../usr/ path.
+    DESTDIR="$DESTDIR" cmake --install build
     install -d "$DESTDIR/usr/share/man/man3"
     install -v -m644 "$BUILD_DIR/libyajl.3" "$DESTDIR/usr/share/man/man3/libyajl.3"
 }
