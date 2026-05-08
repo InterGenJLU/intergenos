@@ -5,7 +5,7 @@
 configure() {
     set -e
     # BLFS required fixes
-    sed "s/libgweather_full_version/'libgweather-${PKG_VERSION}'/" -i ../docs/meson.build
+    sed "s/libgweather_full_version/'libgweather-${PKG_VERSION}'/" -i docs/meson.build
     mkdir -p build
     cd    build
 

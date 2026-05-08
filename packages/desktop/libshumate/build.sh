@@ -5,7 +5,7 @@
 configure() {
     set -e
     # BLFS required fixes
-    sed -e 's/lib_version/version/' -i ../docs/meson.build
+    sed -e 's/lib_version/version/' -i docs/meson.build
     mkdir -p build
     cd    build
 

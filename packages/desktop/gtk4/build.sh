@@ -5,7 +5,7 @@
 configure() {
     set -e
     # BLFS required fixes
-    sed "s@'doc'@& / 'gtk-${PKG_VERSION}'@" -i ../docs/reference/meson.build
+    sed "s@'doc'@& / 'gtk-${PKG_VERSION}'@" -i docs/reference/meson.build
     mkdir -p build
     cd    build
 

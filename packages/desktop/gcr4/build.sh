@@ -5,7 +5,7 @@
 configure() {
     set -e
     # BLFS required fixes
-    sed -e "/install_dir/s@,\$@ / 'gcr-${PKG_VERSION}'&@" -i ../docs/*/meson.build
+    sed -e "/install_dir/s@,\$@ / 'gcr-${PKG_VERSION}'&@" -i docs/*/meson.build
     mkdir -p build
     cd    build
 
