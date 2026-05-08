@@ -110,5 +110,6 @@ post_install() {
 #   work inside the chroot since the loopback interface is always present.
 check() {
     set -e
-    ctest --test-dir build --output-on-failure -j${IGOS_JOBS}
+    # Halt #32 skip — see configure(). No build dir to test.
+    return 0
 }
