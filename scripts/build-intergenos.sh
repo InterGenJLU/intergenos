@@ -278,6 +278,16 @@ run_phase() {
     if $SKIPPING; then
         if [ "$phase" = "$START_AT" ]; then
             SKIPPING=false
+            # Refresh ld.so.cache in the chroot at the resume entry
+            # point. /usr/lib64 libs installed by earlier resumes
+            # (meson defaults to lib64 on x86_64; cache built once at
+            # chroot-prep only knows /usr/lib) would otherwise be
+            # invisible to any check() phase running runtime tests.
+            # Caused 2026-05-07 sratom halt #13.
+            if [ -x /mnt/igos/sbin/ldconfig ]; then
+                log "[INFO ] Refreshing chroot ld.so.cache at --start-at $phase"
+                chroot /mnt/igos /sbin/ldconfig 2>/dev/null || true
+            fi
         else
             log "[SKIP ] $phase — $description"
             return 0

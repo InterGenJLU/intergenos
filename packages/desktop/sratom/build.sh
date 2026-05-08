@@ -29,6 +29,11 @@ do_install() {
 
 check() {
     set -e
+    # Refresh ld.so.cache so test binaries can find libzix/libserd/
+    # libsord (installed to /usr/lib64 by earlier meson builds whose
+    # cache wasn't refreshed). Belt-and-braces with the orchestrator's
+    # --start-at ldconfig refresh.
+    ldconfig 2>/dev/null || true
     # sratom ships an offline atom-roundtrip test suite (test/) gated by
     # the `tests` feature (default auto/enabled). Uses bundled fixtures;
     # no network access required.
