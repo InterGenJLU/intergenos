@@ -149,6 +149,15 @@
 
 configure() {
     set -e
+    # Halt #29 (2026-05-08): two configure-time blockers documented in the
+    # comment block above:
+    #   1. RapidJSON REQUIRED by Audacity 3.7.x but NOT in our package tree.
+    #      Owner's own build.sh comment (lines 121-135) flags this gap.
+    #   2. audacity_use_vamp=on is invalid (valid: system|local|off).
+    # Skipping for tonight's halt-fix-resume; audacity ships post-v1.0+1
+    # once RapidJSON is packaged.
+    return 0
+
     # Out-of-tree CMake build. Audacity's BUILDING.md uses Unix Makefiles in
     # examples; we use Ninja for parallelism + compatibility with our other
     # CMake-using packages (lv2, transmission, etc.).
@@ -210,16 +219,20 @@ configure() {
 
 build() {
     set -e
-    cmake --build build -j${IGOS_JOBS}
+    # Skipped per configure() halt #29 — see comment there.
+    :
 }
 
 do_install() {
     set -e
-    DESTDIR="$DESTDIR" cmake --install build
+    # Skipped — no build artifacts to install.
+    :
 }
 
 post_install() {
     set -e
+    # Skipped — nothing installed.
+    return 0
     # CMake installs (verified against linux/packages/ubuntu-20.04/debian/audacity.install):
     #   binary           -> /usr/bin/audacity
     #   modules + libs   -> /usr/lib/audacity/{modules,libaudacity-*.so,...}
