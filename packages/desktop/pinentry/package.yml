@@ -15,8 +15,11 @@ dependencies:
   - libassuan
   - libgpg-error
   - libsecret
+  - gcr
   host: []
   runtime: []
 configure_flags:
 - --prefix=/usr
 - --enable-pinentry-tty
+- --enable-pinentry-curses
+- --enable-pinentry-gnome3

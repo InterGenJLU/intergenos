@@ -344,6 +344,92 @@ pkg_cleanup() {
 }
 
 # ============================================================================
+# pkg_run_tests — Run a test suite under the project's allow-list policy.
+#
+# Usage: pkg_run_tests <package.yml> <test_cmd> [args...]
+#
+# Reads the optional `tests:` block from the given package.yml:
+#
+#   tests:
+#     enabled: true                        # default; false = skip phase
+#     failure_policy: strict|known_failures # default strict; halts on any fail
+#     reason: "..."                        # required when enabled=false or
+#                                          #   failure_policy=known_failures
+#
+# Behavior:
+#   - No `tests:` block → strict mode (any test failure halts).
+#   - tests.enabled=false → skip silently with a log line. Reason required.
+#   - failure_policy=strict (default) → run command, halt on non-zero exit.
+#   - failure_policy=known_failures → run command, log a warning on non-zero
+#     exit but return 0. Reason required and printed to log.
+#
+# Spec: docs/test-allow-list.md
+# Adopted: 2026-05-08 after Build #5 audit.
+# ============================================================================
+
+pkg_run_tests() {
+    local pkg_yml="$1"
+    shift
+    local cmd=("$@")
+
+    if [ ! -f "$pkg_yml" ]; then
+        echo "[tests] ERROR: package.yml not found at $pkg_yml" >&2
+        return 1
+    fi
+
+    # Parse the tests: block. We only honor exact keys at indent level 2,
+    # under a top-level 'tests:' key. This matches the rest of the project's
+    # bash-friendly YAML conventions (no full YAML parser).
+    local enabled policy reason
+    enabled=$(awk '/^tests:[[:space:]]*$/{f=1; next} /^[A-Za-z_]+:/{f=0} f && /^[[:space:]]+enabled:[[:space:]]*/{sub(/^[[:space:]]+enabled:[[:space:]]*/,""); gsub(/[[:space:]]+$/,""); print; exit}' "$pkg_yml")
+    policy=$(awk '/^tests:[[:space:]]*$/{f=1; next} /^[A-Za-z_]+:/{f=0} f && /^[[:space:]]+failure_policy:[[:space:]]*/{sub(/^[[:space:]]+failure_policy:[[:space:]]*/,""); gsub(/[[:space:]]+$/,""); print; exit}' "$pkg_yml")
+    reason=$(awk '/^tests:[[:space:]]*$/{f=1; next} /^[A-Za-z_]+:/{f=0} f && /^[[:space:]]+reason:[[:space:]]*/{sub(/^[[:space:]]+reason:[[:space:]]*/,""); gsub(/^"/,""); gsub(/"$/,""); print; exit}' "$pkg_yml")
+
+    enabled="${enabled:-true}"
+    policy="${policy:-strict}"
+
+    if [ "$enabled" = "false" ]; then
+        if [ -z "$reason" ]; then
+            echo "[tests] ERROR: tests.enabled=false but no reason given in $pkg_yml" >&2
+            return 1
+        fi
+        echo "[tests] phase skipped (enabled=false). Reason: $reason"
+        return 0
+    fi
+
+    if [ "$policy" != "strict" ] && [ "$policy" != "known_failures" ]; then
+        echo "[tests] ERROR: invalid failure_policy '$policy' in $pkg_yml (expected strict|known_failures)" >&2
+        return 1
+    fi
+
+    if [ "$policy" = "known_failures" ] && [ -z "$reason" ]; then
+        echo "[tests] ERROR: failure_policy=known_failures requires a reason in $pkg_yml" >&2
+        return 1
+    fi
+
+    echo "[tests] policy=$policy"
+    [ -n "$reason" ] && echo "[tests] reason: $reason"
+    echo "[tests] running: ${cmd[*]}"
+
+    "${cmd[@]}"
+    local rc=$?
+
+    if [ $rc -eq 0 ]; then
+        echo "[tests] PASSED"
+        return 0
+    fi
+
+    if [ "$policy" = "known_failures" ]; then
+        echo "[tests] WARNING: test suite exit $rc — allowed by failure_policy=known_failures"
+        echo "[tests] WARNING reason: $reason"
+        return 0
+    fi
+
+    echo "[tests] FAILED (exit $rc) — strict policy, halting build" >&2
+    return $rc
+}
+
+# ============================================================================
 # pkg_install — Full pipeline: stage -> manifest -> archive -> deploy -> cleanup
 #
 # Usage: pkg_install <name> <version> [description]

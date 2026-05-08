@@ -136,12 +136,22 @@ build_base_package() {
         log "  [BUILD] done"
     fi
 
-    # --- CHECK (optional) ---
+    # --- CHECK ---
+    # Tests-as-truth: any check() failure halts the tier build. Packages with
+    # known-environment-only failures opt in via the `tests:` block in
+    # package.yml (see docs/test-allow-list.md). Bare `|| true` in check() is
+    # forbidden.
     if declare -f check > /dev/null 2>&1; then
         cd "$workdir"
         log "  [CHECK] starting..."
         check >> "$pkg_log" 2>&1
-        log "  [CHECK] done (see log for results)"
+        local rc=$?
+        if [ $rc -ne 0 ]; then
+            log "  FAILED in check (exit $rc)"
+            tail -20 "$pkg_log" | while IFS= read -r l; do log "    $l"; done
+            return 1
+        fi
+        log "  [CHECK] done"
     fi
 
     # --- INSTALL ---
