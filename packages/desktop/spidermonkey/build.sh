@@ -10,12 +10,17 @@ configure() {
     mkdir -p obj &&
     cd    obj &&
 
+    # NOTE: --enable-rust-simd intentionally OMITTED. Mozilla's simd-accel
+    # feature in vendored encoding_rs uses feature(core_intrinsics,
+    # portable_simd) which requires nightly Rust. We ship stable Rust 1.95.0,
+    # which fails with E0599 in encoding_rs/x_user_defined.rs (Mask::select
+    # moved behind Select trait). Standard distro practice on stable Rust.
+    # Encoding remains correct via encoding_rs scalar fallback paths.
     CC=gcc CXX=g++ \
     ../js/src/configure --prefix=/usr            \
                         --disable-debug-symbols  \
                         --disable-jemalloc       \
                         --enable-readline        \
-                        --enable-rust-simd       \
                         --with-intl-api          \
                         --with-system-icu        \
                         --with-system-zlib

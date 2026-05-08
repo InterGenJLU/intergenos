@@ -61,8 +61,10 @@ ac_add_options --disable-debug
 ac_add_options --disable-debug-symbols
 ac_add_options --disable-tests
 
-# SIMD optimization in the shipped encoding_rs crate
-ac_add_options --enable-rust-simd
+# NOTE: --enable-rust-simd intentionally OMITTED. encoding_rs's simd-accel
+# feature requires nightly Rust (uses feature(core_intrinsics, portable_simd)).
+# We ship stable Rust 1.95.0; build fails with E0599 in encoding_rs.
+# Standard distro practice; encoding correct via scalar fallback paths.
 
 ac_add_options --enable-strip
 ac_add_options --enable-install-strip
