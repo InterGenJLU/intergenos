@@ -33,9 +33,14 @@ configure() {
 
     # Re-run oldconfig to settle any dependency-cascade changes from the
     # CONFIG_STATIC flip + applet trims (some opts auto-enable/disable).
-    # olddefconfig auto-accepts defaults without prompting and without the
-    # `yes "" | make oldconfig` SIGPIPE-141 race under set -o pipefail.
-    make olddefconfig
+    # busybox 1.37.0 kconfig lacks `olddefconfig`, so we keep `yes ""` and
+    # only suppress the SIGPIPE-141 from `yes` exiting after make oldconfig
+    # finishes (pipefail otherwise propagates SIGPIPE as a build failure).
+    set +o pipefail
+    yes "" | make oldconfig
+    local rc=${PIPESTATUS[1]}
+    set -o pipefail
+    [ "$rc" -eq 0 ] || return 1
 }
 
 build() {
