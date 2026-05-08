@@ -27,6 +27,11 @@ build() {
 
 check() {
     set -e
+    # Each phase is a fresh `source build.sh` invocation — env vars set in
+    # configure() are gone. Re-export GOROOT/PATH so go is on PATH here.
+    export GOROOT="$PWD/go"
+    export PATH="$GOROOT/bin:$PATH"
+
     go version
     go env GOROOT GOPATH GOARCH GOOS
 
