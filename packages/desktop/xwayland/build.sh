@@ -5,7 +5,10 @@
 configure() {
     set -e
     # BLFS required fixes
-    sed -i '/install_man/,\$d' meson.build
+    # NOTE: original BLFS-style had \$ (escaped for double quotes). Inside
+    # single quotes \$ is literal — sed sees unterminated address regex.
+    # Use bare $ for sed's "to end of file" address.
+    sed -i '/install_man/,$d' meson.build
     mkdir -p build
     cd    build
 
