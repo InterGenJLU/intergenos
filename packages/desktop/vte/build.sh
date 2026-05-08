@@ -5,7 +5,10 @@
 configure() {
     set -e
     # BLFS required fixes
-    sed -e "/docdir =/s@\$@/ 'vte-${PKG_VERSION}'@" -i doc/meson.build
+    # Path is doc/reference/meson.build in vte 0.82.3 (verified via grep
+     # for 'docdir =' in source). BLFS instruction was for a layout where
+    # docdir lived in doc/meson.build directly.
+    sed -e "/docdir =/s@\$@/ 'vte-${PKG_VERSION}'@" -i doc/reference/meson.build
     mkdir -p build
     cd    build
 
