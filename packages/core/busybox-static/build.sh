@@ -33,7 +33,9 @@ configure() {
 
     # Re-run oldconfig to settle any dependency-cascade changes from the
     # CONFIG_STATIC flip + applet trims (some opts auto-enable/disable).
-    yes "" | make oldconfig
+    # olddefconfig auto-accepts defaults without prompting and without the
+    # `yes "" | make oldconfig` SIGPIPE-141 race under set -o pipefail.
+    make olddefconfig
 }
 
 build() {
