@@ -10,36 +10,28 @@
 
 configure() {
     set -e
+    # Both tarballs extract into the same source root. The project tarball
+    # provides go.mod/go.sum/source files; the vendor tarball provides
+    # vendor/. Standard offline Go build pattern.
     :
 }
 
 build() {
     set -e
-    # NOTE: `go install ...@v2.0.7` requires online proxy.golang.org access.
-    # Chroot is intentionally offline (Holy Grail: no untrusted network).
-    # Skipping build — package becomes a no-op until source/binary is
-    # pre-staged in /sources or vendored locally.
-    #
-    # Halt #24 (2026-05-08): originally `go install`, failed offline.
-    #
-    # Backlog: pre-stage go-md2man source tarball + go.sum + vendor dir;
-    # build via `go build -mod=vendor` to compile offline.
-    :
+    # GOFLAGS=-mod=vendor + offline modules cache. Project's only direct
+    # dep is github.com/russross/blackfriday/v2 (vendored).
+    export GOFLAGS="-mod=vendor"
+    export GOPROXY=off
+    go build -ldflags '-s -w' -o go-md2man .
 }
 
 check() {
     set -e
-    # No binary built — skip check.
-    :
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        env GOFLAGS=-mod=vendor GOPROXY=off go test ./...
 }
 
 do_install() {
     set -e
-    install -d "$DESTDIR/usr/bin"
-    # No binary to install. Consumer packages (podman) may lose
-    # generated man pages but should otherwise build.
-    if [ -x "$GOPATH/bin/go-md2man" ] || [ -x "$HOME/go/bin/go-md2man" ]; then
-        BIN="${GOPATH:-$HOME/go}/bin/go-md2man"
-        install -v -m755 "$BIN" "$DESTDIR/usr/bin/go-md2man"
-    fi
+    install -Dm755 go-md2man "$DESTDIR/usr/bin/go-md2man"
 }

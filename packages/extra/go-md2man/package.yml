@@ -7,7 +7,16 @@ homepage: https://github.com/cpuguy83/go-md2man
 tier: extra
 build_style: custom
 install_func: do_install
-source: []
+source:
+  - url: https://github.com/cpuguy83/go-md2man/archive/refs/tags/v${version}.tar.gz
+    filename: go-md2man-v${version}.tar.gz
+    sha256: ca3a5b57e2c01759f5a00ad2a578d034c5370fae9aa7a6c3af5648b2fc802a92
+  # Pre-vendored Go module deps (loupe-style two-tarball pattern). Generated
+  # via `go mod vendor` against go-md2man v2.0.7's go.mod (Go 1.26.2).
+  # Single direct dep: github.com/russross/blackfriday/v2 v2.1.0.
+  - url: https://intergenstudios.com/intergenos/sources/current/go-md2man-${version}-go-vendor.tar.gz
+    filename: go-md2man-${version}-go-vendor.tar.gz
+    sha256: 8daa8416b2873fa4cc218b8133a093aeec2553602b37cccb366c9ae22356e871
 dependencies:
   build:
     - go
