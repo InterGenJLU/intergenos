@@ -27,7 +27,8 @@ check() {
     set -e
     cd build
     # Three tests (test-font-data, test-font, test-layout) are known to fail per BLFS
-    ninja test || true
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        ninja test
 }
 
 do_install() {

@@ -23,7 +23,8 @@ build() {
 check() {
     set -e
     cd gspell-build
-    ninja test || true
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        ninja test
 }
 
 do_install() {

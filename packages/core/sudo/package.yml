@@ -17,3 +17,8 @@ dependencies:
     - linux-pam
   host: []
   runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "sudo test suite includes regression tests for setuid behaviour, PAM auth, and tty/sudoers handling that require an installed sudo binary with the setuid bit set and a real /etc/sudoers — neither is available during the chroot check phase."

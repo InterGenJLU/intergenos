@@ -19,7 +19,8 @@ build() {
 
 check() {
     set -e
-    env LC_ALL=C make check || true
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        env LC_ALL=C make check
 }
 
 do_install() {

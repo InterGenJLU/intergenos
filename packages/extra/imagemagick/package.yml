@@ -19,3 +19,8 @@ dependencies:
   - libwebp
   host: []
   runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "chroot environment limits — ImageMagick test suite expects fonts, display, and external test data not available in the build chroot."

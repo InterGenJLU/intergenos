@@ -36,7 +36,8 @@ check() {
     set -e
     cd gimp-build
     # Three tests (save-and-export, single-window-mode, ui) are known to fail
-    ninja test || true
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        ninja test
 }
 
 do_install() {

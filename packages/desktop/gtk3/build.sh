@@ -25,7 +25,8 @@ check() {
     set -e
     cd build
     # Requires graphical session per BLFS; failures expected in chroot
-    ninja test || true
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        ninja test
 }
 
 do_install() {

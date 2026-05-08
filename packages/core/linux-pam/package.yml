@@ -18,3 +18,8 @@ dependencies:
     - ninja
   host: []
   runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "Linux-PAM test suite requires real /etc/shadow + /etc/passwd entries, working setuid binaries, a controlling tty, and audit/loginuid kernel facilities that are not available inside the build chroot. BLFS 13.0 confirms tests fail without a fully provisioned auth stack."

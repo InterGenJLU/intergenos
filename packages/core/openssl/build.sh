@@ -19,7 +19,8 @@ build() {
 check() {
     set -e
     # HARNESS_JOBS speeds up the test suite significantly
-    HARNESS_JOBS=$(nproc) make test || true
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        env HARNESS_JOBS=$(nproc) make test
 }
 
 do_install() {

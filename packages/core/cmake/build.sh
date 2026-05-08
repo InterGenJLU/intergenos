@@ -23,7 +23,8 @@ build() {
 
 check() {
     set -e
-    bin/ctest -j$(nproc) || true
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        bin/ctest -j$(nproc)
 }
 
 do_install() {

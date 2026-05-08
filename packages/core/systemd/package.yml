@@ -25,3 +25,8 @@ dependencies:
   runtime: []
 tier: core
 build_style: meson
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "systemd meson test suite requires PID 1, cgroup v2 delegation, /dev/kvm, /sys/fs/cgroup writability, working dbus, and machined/userdbd hosts that the build chroot does not provide. Many tests (test-execute, test-cgroup, test-bus, test-network) are documented as environment-only failures."

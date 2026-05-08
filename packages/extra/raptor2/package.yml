@@ -18,3 +18,8 @@ dependencies:
   runtime:
   - curl
   - libxslt
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "BLFS-known: several XML tests may fail against libxml2 versions newer than upstream raptor2 2.0.16 expected."

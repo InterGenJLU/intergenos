@@ -17,3 +17,8 @@ dependencies:
   build: []
   host: []
   runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "LFS 13.0 Section 8.5 documents expected glibc test failures in a chroot environment: math/ulps tests, posix/tst-getaddrinfo*, nss/tst-nss-files-hosts-multi, and timezone/timeout-prone tests are known-broken under chroot. See LFS book test-suite notes."

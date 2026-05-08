@@ -18,7 +18,8 @@ build() {
 
 check() {
     set -e
-    make test || true
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        make test
 }
 
 do_install() {

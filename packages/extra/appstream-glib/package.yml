@@ -20,3 +20,8 @@ dependencies:
   - libyaml
   host: []
   runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "no display in chroot — appstream-glib GTK-based tests require a display server (BLFS-known environmental failure)."

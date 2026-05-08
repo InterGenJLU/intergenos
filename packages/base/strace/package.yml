@@ -18,3 +18,8 @@ dependencies:
 
 configure_flags:
   - "--prefix=/usr"
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "strace test suite exercises ptrace against many kernel syscalls; chroot lacks the host kernel features (seccomp, namespaces, /proc/<pid>/* state) that several tests assume"

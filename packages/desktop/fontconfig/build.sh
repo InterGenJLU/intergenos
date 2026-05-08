@@ -18,7 +18,8 @@ build() {
 check() {
     set -e
     # One test known to fail per BLFS; some tests download fonts via Internet
-    make check || true
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        make check
 }
 
 do_install() {

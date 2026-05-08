@@ -23,7 +23,8 @@ build() {
 check() {
     set -e
     cd libvpx-build
-    LD_LIBRARY_PATH=. make test || true
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        env LD_LIBRARY_PATH=. make test
 }
 
 do_install() {

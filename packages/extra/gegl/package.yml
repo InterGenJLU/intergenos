@@ -20,3 +20,8 @@ dependencies:
   - pygobject3
   host: []
   runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "no display in chroot — gegl image-processing tests render to display surfaces and fail without a display server."

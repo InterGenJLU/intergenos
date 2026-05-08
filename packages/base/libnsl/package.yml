@@ -20,3 +20,8 @@ dependencies:
 configure_flags:
   - "--sysconfdir=/etc"
   - "--disable-static"
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "NIS/RPC tests require rpcbind + working network; not available in offline build chroot"

@@ -63,7 +63,8 @@ check() {
     cd build
     # os-release is needed for tests
     echo 'NAME="InterGenOS"' > /etc/os-release
-    unshare -m ninja test || true
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        unshare -m ninja test
 }
 
 do_install() {

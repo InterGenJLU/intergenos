@@ -27,3 +27,8 @@ dependencies:
   - x264
   host: []
   runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "decoder/encoder roundtrip tests rely on full codec/hardware paths (AV1, HEVC, OpenH264); offline chroot lacks acceleration and some optional codecs"

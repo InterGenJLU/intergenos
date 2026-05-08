@@ -34,7 +34,8 @@ check() {
     set -e
     cd build
     # CRITICAL: Do not skip the glibc test suite
-    make check || true
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        make check
 
     # Check for timeouts (common in chroot)
     echo ""

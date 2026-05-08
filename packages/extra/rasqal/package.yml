@@ -15,3 +15,8 @@ dependencies:
   - raptor2
   host: []
   runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "no network in chroot — some SPARQL test cases reference remote endpoints; also inherits raptor2 XML test variances."

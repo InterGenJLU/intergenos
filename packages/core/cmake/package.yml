@@ -20,3 +20,8 @@ dependencies:
     - nghttp2
   host: []
   runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "ctest suite contains tests requiring network access (download/fetch modules), tty/interactive tests, and locale-dependent file-handling tests that fail in offline chroot."

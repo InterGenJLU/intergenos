@@ -27,7 +27,9 @@ build() {
 
 check() {
     set -e
-    cd build && ctest --output-on-failure || true
+    cd build
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        ctest --output-on-failure
 }
 
 do_install() {

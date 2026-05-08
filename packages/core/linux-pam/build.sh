@@ -34,7 +34,8 @@ build() {
 check() {
     set -e
     cd build
-    ninja test || true
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        ninja test
     # Remove test config
     rm -fv /etc/pam.d/other
 }

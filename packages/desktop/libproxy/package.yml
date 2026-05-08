@@ -19,3 +19,8 @@ dependencies:
   - vala
   host: []
   runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "PAC/WPAD discovery tests fetch from network and probe DBus/GSettings on a live session bus; offline chroot has neither"

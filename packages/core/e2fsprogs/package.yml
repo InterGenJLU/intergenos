@@ -13,3 +13,8 @@ dependencies:
   runtime: []
 tier: core
 build_style: custom
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "e2fsprogs test suite expects loop devices and a writeable /dev for filesystem-image fabrication; chroot does not expose loop-control. LFS book notes some tests fail in chroot environments."

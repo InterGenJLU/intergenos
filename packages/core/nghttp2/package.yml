@@ -21,3 +21,8 @@ configure_flags:
   - "--disable-static"
   - "--enable-lib-only"
   - "--docdir=/usr/share/doc/nghttp2-1.68.1"
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "nghttp2 test suite requires CUnit (not in our tree) for the C library tests, and the integration tests bind localhost ports for HTTP/2 round-trips which are unreliable in the build chroot."

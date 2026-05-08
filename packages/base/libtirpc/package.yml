@@ -22,3 +22,8 @@ configure_flags:
   - "--sysconfdir=/etc"
   - "--disable-static"
   - "--disable-gssapi"
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "Transport-Independent RPC tests require working network sockets and rpcbind; not available in offline build chroot"

@@ -17,3 +17,8 @@ dependencies:
     - libtirpc
   host: []
   runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "lsof tests need a fully populated /proc plus the ability to open sockets and PTYs; chroot /proc + offline-network environment fails several test cases"

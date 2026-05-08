@@ -25,7 +25,8 @@ build() {
 check() {
     set -e
     cd build
-    make check || true
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        make check
 }
 
 do_install() {

@@ -15,7 +15,8 @@ build() {
 check() {
     set -e
     # LFS: tests require the Check library which is not in LFS
-    make check || true
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        make check
 }
 
 do_install() {
