@@ -5,30 +5,22 @@
 # Installs: Python modules, systemd service, D-Bus activation,
 # default config, CLI wrapper, Forge integration hook.
 #
-# Python dependencies (numpy, torch-cpu, sentence-transformers) are
-# installed via pip at build time — they ship as part of this package.
+# Python dependencies (numpy, sentence-transformers, huggingface-hub,
+# torch-cpu) are NOT installed at build time. The InterGenOS chroot is
+# intentionally offline during the build (Holy Grail security posture:
+# no untrusted network access during build). The design already supports
+# user-side setup via `intergen setup` (post_install message line below);
+# numpy etc. are installed at first-run, not build-time.
+#
+# Halt #22 (2026-05-08): the prior pip install in build() failed because
+# the chroot has no resolv.conf — by design. Moved deps to user-side.
 
 build() {
-    # pipefail required: pip3 ... | tail -5 would otherwise mask a failed
-    # pip install (LHS exits non-zero, RHS tail succeeds → set -e doesn't
-    # trip). Without pipefail this package would build silently with
-    # missing or partial Python deps.
-    set -e -o pipefail
-    # Install Python dependencies into the package
-    # CPU-only torch — no NVIDIA/CUDA bloat
-    pip3 install --target="${DESTDIR}/usr/lib/python3.14/site-packages" \
-        --no-cache-dir \
-        numpy \
-        sentence-transformers \
-        huggingface-hub \
-        2>&1 | tail -5
-
-    # Torch CPU-only requires separate index URL
-    pip3 install --target="${DESTDIR}/usr/lib/python3.14/site-packages" \
-        --no-cache-dir \
-        --index-url https://download.pytorch.org/whl/cpu \
-        torch \
-        2>&1 | tail -5
+    set -e
+    # No build-time work: package contents are pure Python source +
+    # systemd/dbus units, copied verbatim by do_install(). Python deps
+    # are installed by user at first run via `intergen setup`.
+    :
 }
 
 do_install() {
@@ -39,10 +31,13 @@ do_install() {
     install -dm755 "${DESTDIR}/usr/lib/python3.14/site-packages/intergen/tools"
     install -dm755 "${DESTDIR}/usr/lib/python3.14/site-packages/intergen/tests"
 
-    cp -a intergen/*.py "${DESTDIR}/usr/lib/python3.14/site-packages/intergen/"
-    cp -a intergen/interfaces/*.py "${DESTDIR}/usr/lib/python3.14/site-packages/intergen/interfaces/"
-    cp -a intergen/tools/*.py "${DESTDIR}/usr/lib/python3.14/site-packages/intergen/tools/"
-    cp -a intergen/tests/*.py "${DESTDIR}/usr/lib/python3.14/site-packages/intergen/tests/"
+    # Source lives at the top-level /mnt/intergenos/intergen/ (virtiofs-shared
+    # from host). package.yml has source: [] so no extraction happens —
+    # use absolute paths for the cp.
+    cp -a /mnt/intergenos/intergen/*.py "${DESTDIR}/usr/lib/python3.14/site-packages/intergen/"
+    cp -a /mnt/intergenos/intergen/interfaces/*.py "${DESTDIR}/usr/lib/python3.14/site-packages/intergen/interfaces/"
+    cp -a /mnt/intergenos/intergen/tools/*.py "${DESTDIR}/usr/lib/python3.14/site-packages/intergen/tools/"
+    cp -a /mnt/intergenos/intergen/tests/*.py "${DESTDIR}/usr/lib/python3.14/site-packages/intergen/tests/"
 
     # CLI wrapper
     install -Dm755 /dev/stdin "${DESTDIR}/usr/bin/intergen" << 'WRAPPER'
