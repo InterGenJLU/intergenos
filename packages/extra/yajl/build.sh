@@ -6,14 +6,18 @@ configure() {
     set -e
     # CMake 4.x compatibility:
     # - CMAKE_POLICY_VERSION_MINIMUM=3.5 bypasses cmake_minimum_required <3.5.
-    # - CMAKE_POLICY_DEFAULT_CMP0026=OLD allows GET_TARGET_PROPERTY ... LOCATION
-    #   (removed pattern in reformatter/ and verify/ CMakeLists).
+    # - reformatter/ and verify/ subdirs use GET_TARGET_PROPERTY ... LOCATION,
+    #   a pattern entirely removed in CMake 4.x (CMP0026 OLD bypass doesn't
+    #   work — the code path is gone). Drop those subdirs from the build
+    #   via sed; they're CLI tools (json_reformat, json_verify), not needed
+    #   by yajl's lib consumers (crun, podman).
+    sed -i 's|^ADD_SUBDIRECTORY(reformatter)|# &|; s|^ADD_SUBDIRECTORY(verify)|# &|' CMakeLists.txt
+
     cmake -B build \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DCMAKE_INSTALL_LIBDIR=lib \
-        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-        -DCMAKE_POLICY_DEFAULT_CMP0026=OLD
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 }
 
 build() {
