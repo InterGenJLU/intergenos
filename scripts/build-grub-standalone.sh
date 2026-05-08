@@ -78,8 +78,11 @@ MODULES=(
     search search_fs_uuid search_label search_fs_file
     halt reboot ls help
 
-    # Display (gfxmenu requires gfxterm + font + image format)
-    gfxterm gfxmenu videoinfo vbe efi_gop font png
+    # Display (gfxmenu requires gfxterm + font + image format).
+    # vbe is BIOS-only (VESA BIOS Extensions) and does not exist in the
+    # x86_64-efi module tree — EFI uses efi_gop (Graphics Output Protocol)
+    # for the same role. Listing vbe here would fail grub-mkstandalone.
+    gfxterm gfxmenu videoinfo efi_gop font png
 )
 
 # Notable EXCLUSIONS (kept out of the signed binary on purpose):
