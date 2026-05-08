@@ -16,6 +16,23 @@
 
 configure() {
     set -e
+    # Halt #30 (2026-05-08): firefox compile fails with
+    #   intl/lwbrk/LineBreaker.cpp:458 static_assert
+    #   U_LB_COUNT == std::size(sUnicodeLineBreakToClass)
+    #   evaluates to '49 == 48'
+    # Our system ICU is one Unicode line-break-class ahead of firefox
+    # 140.9.0esr's bundled sUnicodeLineBreakToClass[] table. With
+    # --with-system-icu the static_assert fires.
+    #
+    # Resolution requires owner architectural decision: switch to bundled
+    # ICU (--without-system-icu, mozilla-tested config) vs. ICU pin vs.
+    # upstream patch. Holy Grail tradeoff (system-shared crypto/text
+    # surface vs. mozilla-validated configuration) deserves explicit
+    # owner input. Skip-and-continue tonight; queue for v1.0+1.
+    #
+    # Chrome download-helper covers browser need on the v1 ISO.
+    return 0
+
     # Patches applied by builder PATCH phase (package.yml) with SHA256 validation.
     # Post-patch fixups only below.
 
@@ -86,22 +103,21 @@ MOZEOF
 
 build() {
     set -e
-    export MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=none
-    export MOZBUILD_STATE_PATH=$(pwd)/mozbuild
-
-    # GCC detection handled system-wide by /etc/clang/clang.cfg
-    # (--gcc-triple=x86_64-igos-linux-gnu)
-    ./mach build
+    # Halt #30 skip — see configure().
+    :
 }
 
 do_install() {
     set -e
-    MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=none \
-        DESTDIR="$DESTDIR" ./mach install
+    # Halt #30 skip — see configure().
+    :
 }
 
 post_install() {
     set -e
+    # Halt #30 skip — no firefox installed, nothing to wire up.
+    return 0
+
     # Create desktop file for menu integration
     mkdir -pv /usr/share/{applications,pixmaps}
 
