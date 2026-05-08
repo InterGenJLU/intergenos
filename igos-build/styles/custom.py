@@ -24,12 +24,19 @@ class CustomStyle(BuildStyle):
             commands=self._patch_commands(pkg),
         )
 
+    # pkg-functions.sh defines pkg_run_tests (test-allow-list policy wrapper),
+    # verify_source_checksum, etc. — sourced into every phase shell so package
+    # build.sh files can call them. chroot-build-ch8.sh and core-extra source
+    # this at top; Python builder must do the same. Halt #4 (Build #6, cpio
+    # 2.15 [CHECK] exit 127) was the symptom of this gap.
+    _PKG_FUNCS = "source /mnt/intergenos/scripts/pkg-functions.sh && "
+
     def configure(self, pkg: Package) -> BuildPhase:
         script = self._build_sh_path(pkg)
         return BuildPhase(
             name="configure",
             commands=[
-                f"source {script} || {{ echo 'FATAL: failed to source {script}'; exit 1; }}; "
+                f"{self._PKG_FUNCS}source {script} || {{ echo 'FATAL: failed to source {script}'; exit 1; }}; "
                 f"if declare -f configure >/dev/null 2>&1; then configure; fi",
             ],
         )
@@ -39,7 +46,7 @@ class CustomStyle(BuildStyle):
         return BuildPhase(
             name="build",
             commands=[
-                f"source {script} && if declare -f build >/dev/null 2>&1; then build; fi",
+                f"{self._PKG_FUNCS}source {script} && if declare -f build >/dev/null 2>&1; then build; fi",
             ],
         )
 
@@ -48,7 +55,7 @@ class CustomStyle(BuildStyle):
         return BuildPhase(
             name="check",
             commands=[
-                f"source {script} && if declare -f check >/dev/null 2>&1; then check; fi",
+                f"{self._PKG_FUNCS}source {script} && if declare -f check >/dev/null 2>&1; then check; fi",
             ],
         )
 
@@ -58,7 +65,7 @@ class CustomStyle(BuildStyle):
         return BuildPhase(
             name="install",
             commands=[
-                f"source {script} && if declare -f {func} >/dev/null 2>&1; then {func}; fi",
+                f"{self._PKG_FUNCS}source {script} && if declare -f {func} >/dev/null 2>&1; then {func}; fi",
             ],
         )
 
@@ -72,6 +79,6 @@ class CustomStyle(BuildStyle):
         return BuildPhase(
             name="post_install",
             commands=[
-                f"source {script} && if declare -f post_install >/dev/null 2>&1; then post_install; fi",
+                f"{self._PKG_FUNCS}source {script} && if declare -f post_install >/dev/null 2>&1; then post_install; fi",
             ],
         )
