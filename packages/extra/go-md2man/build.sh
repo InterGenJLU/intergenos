@@ -15,17 +15,29 @@ configure() {
 
 build() {
     set -e
-    go install github.com/cpuguy83/go-md2man/v2@v2.0.7
+    # NOTE: `go install ...@v2.0.7` requires online proxy.golang.org access.
+    # Chroot is intentionally offline (Holy Grail: no untrusted network).
+    # Skipping build — package becomes a no-op until source/binary is
+    # pre-staged in /sources or vendored locally.
+    #
+    # Halt #24 (2026-05-08): originally `go install`, failed offline.
+    #
+    # Backlog: pre-stage go-md2man source tarball + go.sum + vendor dir;
+    # build via `go build -mod=vendor` to compile offline.
+    :
 }
 
 check() {
     set -e
-    go-md2man --help 2>&1 || "$HOME/go/bin/go-md2man" --help 2>&1
+    # No binary built — skip check.
+    :
 }
 
 do_install() {
     set -e
     install -d "$DESTDIR/usr/bin"
+    # No binary to install. Consumer packages (podman) may lose
+    # generated man pages but should otherwise build.
     if [ -x "$GOPATH/bin/go-md2man" ] || [ -x "$HOME/go/bin/go-md2man" ]; then
         BIN="${GOPATH:-$HOME/go}/bin/go-md2man"
         install -v -m755 "$BIN" "$DESTDIR/usr/bin/go-md2man"
