@@ -17,7 +17,8 @@ build() {
 
 check() {
     set -e
-    GIT_UNZIP=nonexist make test -k || true
+    GIT_UNZIP=nonexist pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        make test -k
 }
 
 do_install() {

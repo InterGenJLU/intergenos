@@ -20,3 +20,8 @@ dependencies:
     - pcre2
   host: []
   runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "git t/ test suite (~900 scripts) assumes a non-chroot dev environment: tests in t5500-t5600 require localhost networking + apache/CGI/git-daemon listeners (no servers in chroot), tests requiring TTY-controlled stdio fail without PTY allocation, tests checking non-root permission semantics misbehave under root, and parallel-make timing assumptions are sensitive. Prior check() masked all failures via 'make test -k || true' (tests-as-truth violation); this commit switches to pkg_run_tests + known_failures so failures are surfaced honestly. Functional confidence comes from upstream's CI + Debian/Fedora/Arch package testing, not ours. GIT_UNZIP=nonexist preserved to skip zip-related tests (unzip not in core toolchain)."
