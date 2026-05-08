@@ -5,7 +5,10 @@
 configure() {
     set -e
     # BLFS required fixes
-    sed "s/libgweather_full_version/'libgweather-${PKG_VERSION}'/" -i docs/meson.build
+    # Path is doc/ singular in libgweather 4.4.4 (verified against tarball);
+    # earlier sweep at halt #16 fixed ../docs → docs but didn't catch the
+    # docs/doc rename. Confirmed via tar tf: libgweather-4.4.4/doc/meson.build.
+    sed "s/libgweather_full_version/'libgweather-${PKG_VERSION}'/" -i doc/meson.build
     mkdir -p build
     cd    build
 
