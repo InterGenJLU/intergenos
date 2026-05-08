@@ -28,9 +28,18 @@
 
 configure() {
     set -e
+    # Halt #31 (2026-05-08): GCC 15.2 -Wmaybe-uninitialized false positives
+    # fire deep inside std::variant<...> template instantiations from
+    # libtransmission/announce-list.cc and variant.h (tr_variant). Transmission
+    # treats warnings as errors. The warning is a known GCC limitation in
+    # template-heavy variant code, not a real bug. Narrow -Wno-error= keeps
+    # the diagnostic visible without failing the build.
+    export CXXFLAGS="${CXXFLAGS:-} -Wno-error=maybe-uninitialized"
+
     # Out-of-tree CMake build.
     cmake -S . -B build                                 \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo               \
+        -DCMAKE_CXX_FLAGS_RELWITHDEBINFO_INIT="-O2 -g -Wno-error=maybe-uninitialized" \
         -DCMAKE_INSTALL_PREFIX=/usr                     \
         -DCMAKE_INSTALL_LIBDIR=lib                      \
         -DCMAKE_INSTALL_SYSCONFDIR=/etc                 \
