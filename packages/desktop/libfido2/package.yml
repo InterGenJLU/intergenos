@@ -1,0 +1,20 @@
+name: libfido2
+version: "1.17.0"
+release: 1
+description: Yubico FIDO2 library — CTAP 2.x and U2F authenticator interface
+license: BSD-2-Clause
+homepage: https://github.com/Yubico/libfido2
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/Yubico/libfido2/archive/refs/tags/${version}.tar.gz
+  filename: libfido2-${version}.tar.gz
+  sha256: ace062d14a482ff9325410ff63d06c8b5fe87e79ebc18dda07add2bc0188c77f
+dependencies:
+  build:
+  - openssl
+  - libcbor
+  - zlib
+  host: []
+  runtime: []

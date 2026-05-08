@@ -15,5 +15,7 @@ dependencies:
   - glib2
   - libunwind
   - libdex
+  - gtk4  # GTK4 GUI front-end. Build #5 audit: sysprof built before gtk4 so
+          # the UI was silently dropped (CLI-only sysprof shipped).
   host: []
   runtime: []

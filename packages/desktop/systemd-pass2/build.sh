@@ -40,6 +40,10 @@ configure() {
         -D nobody-group=nogroup   \
         -D sysupdate=disabled     \
         -D ukify=disabled         \
+        -D apparmor=enabled       \
+        -D tpm2=enabled           \
+        -D fido2=enabled          \
+        -D xkbcommon=enabled      \
         -D docdir=/usr/share/doc/systemd-259.1
 }
 

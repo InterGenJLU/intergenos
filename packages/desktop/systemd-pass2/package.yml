@@ -15,6 +15,15 @@ dependencies:
   build:
   - linux-pam
   - polkit
+  - apparmor       # LSM enforcement. Holy Grail. Build #5 audit: missing from
+                   # deps → systemd built without libapparmor → AppArmor profiles
+                   # cannot load.
+  - tpm2-tss       # systemd-cryptenroll --tpm2-device, pcrlock, measured boot.
+                   # Holy Grail. Build #5 audit: not in package set.
+  - libfido2       # systemd-cryptenroll --fido2-device + LUKS unlock.
+                   # Holy Grail. Build #5 audit: not in package set.
+  - libxkbcommon   # vconsole keymap support. Build #5 audit: built after
+                   # systemd-pass2 → vconsole keymap broken.
   host: []
   runtime: []
 

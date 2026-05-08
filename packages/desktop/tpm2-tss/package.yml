@@ -1,0 +1,19 @@
+name: tpm2-tss
+version: "4.1.3"
+release: 1
+description: TCG TPM2 Software Stack — userspace libraries for TPM 2.0 hardware
+license: BSD-2-Clause
+homepage: https://github.com/tpm2-software/tpm2-tss
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/tpm2-software/tpm2-tss/releases/download/${version}/tpm2-tss-${version}.tar.gz
+  sha256: 37f1580200ab78305d1fc872d89241aaee0c93cbe85bc559bf332737a60d3be8
+dependencies:
+  build:
+  - openssl
+  - libcurl
+  - json-c
+  host: []
+  runtime: []

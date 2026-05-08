@@ -17,5 +17,8 @@ dependencies:
   - icu
   - git
   - glib2
+  - cairo  # cairo backend for harfbuzz. Build #5 audit: harfbuzz built before
+           # cairo so cairo backend was silently disabled, regressing font
+           # rendering quality.
   host: []
   runtime: []

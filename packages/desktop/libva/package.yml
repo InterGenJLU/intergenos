@@ -15,6 +15,9 @@ dependencies:
   - libdrm
   - libX11
   - wayland
-  - mesa
   host: []
-  runtime: []
+  runtime:
+  - mesa  # GPU driver provided by mesa is a runtime requirement, not a build dep —
+          # libva links to libdrm only at compile time. Listing mesa in build:
+          # created a libva→mesa→libva cycle (Build #5 audit: "mesa built before
+          # libva → no HW video decode").

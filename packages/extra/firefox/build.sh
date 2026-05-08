@@ -16,22 +16,15 @@
 
 configure() {
     set -e
-    # Halt #30 (2026-05-08): firefox compile fails with
-    #   intl/lwbrk/LineBreaker.cpp:458 static_assert
+    # ICU policy decision (2026-05-08, owner-approved): build firefox against
+    # its bundled ICU rather than the system ICU. Build #5 hit the
+    # intl/lwbrk/LineBreaker.cpp:458 static_assert
     #   U_LB_COUNT == std::size(sUnicodeLineBreakToClass)
-    #   evaluates to '49 == 48'
-    # Our system ICU is one Unicode line-break-class ahead of firefox
-    # 140.9.0esr's bundled sUnicodeLineBreakToClass[] table. With
-    # --with-system-icu the static_assert fires.
-    #
-    # Resolution requires owner architectural decision: switch to bundled
-    # ICU (--without-system-icu, mozilla-tested config) vs. ICU pin vs.
-    # upstream patch. Holy Grail tradeoff (system-shared crypto/text
-    # surface vs. mozilla-validated configuration) deserves explicit
-    # owner input. Skip-and-continue tonight; queue for v1.0+1.
-    #
-    # Chrome download-helper covers browser need on the v1 ISO.
-    return 0
+    # because our system ICU is one Unicode line-break-class ahead of
+    # firefox 140.9.0esr's bundled sUnicodeLineBreakToClass[]. Mozilla
+    # validates ESR releases against bundled ICU; system-ICU mismatches
+    # are an upstream-known recurring issue. Bundled ICU rides the ESR
+    # security cycle. (See `--without-system-icu` below.)
 
     # Patches applied by builder PATCH phase (package.yml) with SHA256 validation.
     # Post-patch fixups only below.
@@ -61,7 +54,9 @@ ac_add_options --disable-necko-wifi
 
 # Use system libraries for recommended dependencies
 ac_add_options --with-system-av1
-ac_add_options --with-system-icu
+# system ICU dropped — see configure() comment. Bundled ICU rides Mozilla
+# ESR security cycle; system ICU drifted ahead of firefox's static tables.
+ac_add_options --without-system-icu
 ac_add_options --with-system-libevent
 ac_add_options --with-system-libvpx
 ac_add_options --with-system-nspr
@@ -103,21 +98,22 @@ MOZEOF
 
 build() {
     set -e
-    # Halt #30 skip — see configure().
-    :
+    export MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=none
+    export MOZBUILD_STATE_PATH=$(pwd)/mozbuild
+
+    # GCC detection handled system-wide by /etc/clang/clang.cfg
+    # (--gcc-triple=x86_64-igos-linux-gnu)
+    ./mach build
 }
 
 do_install() {
     set -e
-    # Halt #30 skip — see configure().
-    :
+    MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=none \
+        DESTDIR="$DESTDIR" ./mach install
 }
 
 post_install() {
     set -e
-    # Halt #30 skip — no firefox installed, nothing to wire up.
-    return 0
-
     # Create desktop file for menu integration
     mkdir -pv /usr/share/{applications,pixmaps}
 

@@ -39,5 +39,7 @@ dependencies:
   - libclc
   - zstd
   - libdisplay-info
+  - libva  # HW video accel hooks (vaapi). Build #5 audit: mesa built before
+           # libva so VAAPI gallium driver was silently disabled.
   host: []
   runtime: []
