@@ -356,6 +356,15 @@ run_package "git" "git" "2.53.0" \
     "git-2.53.0.tar.xz" \
     "Distributed version control system"
 
+# --- Group F: Bootloader prerequisites ---
+# busybox-static is required by phase_bootloader to assemble the live
+# initramfs. It is statically linked so it has no chroot runtime deps and
+# can be placed anywhere in the build order.
+
+run_package "busybox-static" "busybox-static" "1.37.0" \
+    "busybox-1.37.0.tar.bz2" \
+    "Statically-linked busybox userland for initramfs"
+
 # ============================================================================
 # Summary
 # ============================================================================
