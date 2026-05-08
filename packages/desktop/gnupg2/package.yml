@@ -17,7 +17,7 @@ dependencies:
   - libksba
   - npth
   - gnutls
-  - pinentry
+  - pinentry-pass1  # cycle-break: gnupg2 → pinentry-pass1 → (no gcr); full pinentry depends on gcr → gnupg2, so we use the pass1 here. pinentry (full) supersedes pinentry-pass1 at install time, so the runtime sees a single pinentry with the GNOME3 frontend.
   - curl
   - fuse3
   - libusb

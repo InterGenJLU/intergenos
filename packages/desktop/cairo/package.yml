@@ -13,7 +13,7 @@ source:
 dependencies:
   build:
   - fontconfig
-  - freetype2
+  - freetype2-pass1  # cycle-break: cairo doesn't use freetype's HarfBuzz integration; pass1's API is sufficient. Without this, cycle: freetype2 → harfbuzz → cairo → freetype2 (audit-fix 04e36a7 added harfbuzz → cairo for cairo backend feature, closing the cycle).
   - libpng
   - libX11
   - libXext

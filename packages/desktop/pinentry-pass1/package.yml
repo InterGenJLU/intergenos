@@ -1,7 +1,7 @@
-name: pinentry
+name: pinentry-pass1
 version: "1.3.2"
 release: 1
-description: PIN/passphrase entry dialog
+description: PIN/passphrase entry dialog (pass 1 — TTY/curses only, no gcr/GNOME3 frontend)
 license: GPL-2.0-or-later
 homepage: https://www.gnupg.org/
 tier: desktop
@@ -15,16 +15,10 @@ dependencies:
   - libassuan
   - libgpg-error
   - libsecret
-  - gcr
   host: []
   runtime: []
-# Cycle-break: pinentry-pass1 (curses/tty only, no gcr) is built first so
-# gnupg2 → gcr can be built before this full pinentry. This pinentry then
-# supersedes pinentry-pass1 with the GNOME3 frontend enabled.
-supersedes:
-- pinentry-pass1
 configure_flags:
 - --prefix=/usr
 - --enable-pinentry-tty
 - --enable-pinentry-curses
-- --enable-pinentry-gnome3
+- --disable-pinentry-gnome3
