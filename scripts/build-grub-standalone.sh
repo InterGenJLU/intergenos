@@ -64,8 +64,14 @@ MODULES=(
     # Filesystem read access (read-only paths through these; no write)
     ext2 fat xfs btrfs
 
-    # Crypto + signature verification (shim_lock is the load-bearing one)
-    shim_lock pgp gcry_sha256 gcry_sha512 gcry_rsa
+    # Crypto + signature verification.
+    # shim_lock was a loadable module in GRUB ≤2.12; in GRUB 2.14 the
+    # shim_lock verifier is built into the EFI kernel (kern/efi/sb.c)
+    # and there is no shim_lock.mod to load. The verifier still runs
+    # — it self-registers when GRUB starts on a system with shim — so
+    # the shim→GRUB→UKI trust chain is unchanged. Listing shim_lock
+    # here makes grub-mkstandalone fail with "cannot open shim_lock.mod".
+    pgp gcry_sha256 gcry_sha512 gcry_rsa
 
     # Bootloader essentials
     linux chain boot configfile echo normal test true
