@@ -411,8 +411,16 @@ pkg_run_tests() {
     [ -n "$reason" ] && echo "[tests] reason: $reason"
     echo "[tests] running: ${cmd[*]}"
 
-    "${cmd[@]}"
-    local rc=$?
+    # The `|| rc=$?` form keeps the policy-check below reachable when this
+    # function is called from a context with `set -e` (errexit) active —
+    # which is the norm: chroot-build-{ch8,core-extra}.sh, every package
+    # build.sh's check() function, and the Python-builder's bash shell all
+    # set -e. Without `||`, errexit would kill pkg_run_tests at the
+    # `"${cmd[@]}"` line on test-command failure, BEFORE the
+    # `failure_policy=known_failures` branch could suppress it. Build #6
+    # Halt #5 (FLAC, exit 2) was that exact failure mode.
+    local rc=0
+    "${cmd[@]}" || rc=$?
 
     if [ $rc -eq 0 ]; then
         echo "[tests] PASSED"
