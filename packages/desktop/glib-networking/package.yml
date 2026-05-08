@@ -16,5 +16,8 @@ dependencies:
   - gsettings-desktop-schemas
   - glib2
   - make-ca
+  - libproxy  # System PAC/proxy autodetect. Build #5 audit: libproxy was
+              # in extra tier (built after desktop) → glib-networking dropped
+              # libproxy support. libproxy moved to desktop tier in same batch.
   host: []
   runtime: []

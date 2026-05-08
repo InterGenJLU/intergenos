@@ -28,26 +28,22 @@
 
 configure() {
     set -e
-    # Halt #31/#32 (2026-05-08): two chained issues block transmission 4.1.1:
-    #   1. GCC 15.2 -Wmaybe-uninitialized false positives in std::variant<...>
-    #      template depths from libtransmission/announce-list.cc + variant.h.
-    #      Patched with -Wno-error=maybe-uninitialized — that worked.
-    #   2. After (1) cleared, build hit fatal error: dht/dht.h: No such file
-    #      or directory at libtransmission/tr-dht.h:23. transmission's bundled
-    #      third-party/dht include path is not wired by CMake config.
+    # Build #5 audit: Halt #31 — GCC 15.2 -Wmaybe-uninitialized false
+    # positives deep inside std::variant<...> template instantiations
+    # (libtransmission/announce-list.cc + variant.h). Known GCC limitation
+    # in template-heavy variant code. Narrow -Wno-error= keeps the
+    # diagnostic visible without failing the build.
     #
-    # Both are real bugs (not skip-and-continue defer-class) but each adds
-    # debugging surface. Skip-and-continue tonight; queue v1.0+1 fixes:
-    #   - GCC 15 patch (existing -Wno-error= patch is correct)
-    #   - WITH_DHT cmake option / bundled-dht include path investigation
-    return 0
-
-    export CXXFLAGS="${CXXFLAGS:-} -Wno-error=maybe-uninitialized"
+    # Halt #32 — bundled third-party/dht include path not wired by
+    # transmission's CMake. tr-dht.h does `#include <dht/dht.h>` and
+    # third-party/dht/dht.h exists, so adding `-Ithird-party` to CXXFLAGS
+    # restores the include path resolution.
+    export CXXFLAGS="${CXXFLAGS:-} -Wno-error=maybe-uninitialized -I$(pwd)/third-party"
 
     # Out-of-tree CMake build.
     cmake -S . -B build                                 \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo               \
-        -DCMAKE_CXX_FLAGS_RELWITHDEBINFO_INIT="-O2 -g -Wno-error=maybe-uninitialized" \
+        -DCMAKE_CXX_FLAGS_RELWITHDEBINFO_INIT="-O2 -g -Wno-error=maybe-uninitialized -I$(pwd)/third-party" \
         -DCMAKE_INSTALL_PREFIX=/usr                     \
         -DCMAKE_INSTALL_LIBDIR=lib                      \
         -DCMAKE_INSTALL_SYSCONFDIR=/etc                 \
@@ -74,21 +70,16 @@ configure() {
 
 build() {
     set -e
-    # Halt #32 skip — see configure().
-    :
+    cmake --build build -j${IGOS_JOBS}
 }
 
 do_install() {
     set -e
-    # Halt #32 skip — see configure().
-    :
+    DESTDIR="$DESTDIR" cmake --install build
 }
 
 post_install() {
     set -e
-    # Halt #32 skip — nothing installed, nothing to wire up.
-    return 0
-
     # CMake installs:
     #   man pages       -> /usr/share/man/man1/transmission-*.1
     #   desktop file    -> /usr/share/applications/transmission-gtk.desktop
@@ -110,6 +101,6 @@ post_install() {
 #   work inside the chroot since the loopback interface is always present.
 check() {
     set -e
-    # Halt #32 skip — see configure(). No build dir to test.
-    return 0
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        ctest --test-dir build --output-on-failure -j${IGOS_JOBS}
 }

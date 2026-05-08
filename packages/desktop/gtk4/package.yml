@@ -41,3 +41,8 @@ dependencies:
   - tinysparql
   host: []
   runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "no display in chroot — gtk4 4.20.3 reports 5,438/5,528 fail with 'Failed to open display' (Build #5 audit). All failures environmental, not regressions."

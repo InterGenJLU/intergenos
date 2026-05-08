@@ -7,11 +7,15 @@ configure() {
     mkdir -p build
     cd    build
 
+    # libproxy enables system-wide PAC/proxy autodetect. Build #5 audit
+    # found this disabled and the libproxy package was in the wrong tier
+    # (extra, built after desktop). libproxy moved to desktop tier in the
+    # same batch; flip flag to enabled.
     meson setup ..            \
           --prefix=/usr       \
           --libdir=/usr/lib   \
           --buildtype=release \
-          -Dlibproxy=disabled
+          -Dlibproxy=enabled
 }
 
 build() {

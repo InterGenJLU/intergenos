@@ -28,6 +28,9 @@ dependencies:
   - pulseaudio
   - sbc
   - vulkan-loader
+  - modemmanager  # BlueZ HFP-via-MM backend. Build #5 audit: silently
+                  # disabled because not in deps (despite vulkan-loader being
+                  # in deps, the bluez5-backend-native-mm path needs MM).
   host: []
   runtime: []
 configure_flags:

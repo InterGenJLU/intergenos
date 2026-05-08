@@ -11,6 +11,8 @@ source:
 - url: https://github.com/sahlberg/libnfs/archive/libnfs-${version}.tar.gz
   sha256: 4e5459cc3e0242447879004e9ad28286d4d27daa42cbdcde423248fad911e747
 dependencies:
-  build: []
+  build:
+  - gnutls  # TLS support for NFSv4-over-TLS. Build #5 audit: gnutls not
+            # found, TLS support disabled silently.
   host: []
   runtime: []

@@ -37,5 +37,7 @@ dependencies:
   - python
   - pygobject3
   - vala
+  - libmtp  # MTP device sync. Build #5 audit: silently disabled. libgpod
+            # (iPod sync) is not in our tree — v1.0+1 backlog.
   host: []
   runtime: []

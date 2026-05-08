@@ -149,14 +149,13 @@
 
 configure() {
     set -e
-    # Halt #29 (2026-05-08): two configure-time blockers documented in the
-    # comment block above:
-    #   1. RapidJSON REQUIRED by Audacity 3.7.x but NOT in our package tree.
-    #      Owner's own build.sh comment (lines 121-135) flags this gap.
-    #   2. audacity_use_vamp=on is invalid (valid: system|local|off).
-    # Skipping for tonight's halt-fix-resume; audacity ships post-v1.0+1
-    # once RapidJSON is packaged.
-    return 0
+    # Build #5 audit: Halt #29 was caused by (1) RapidJSON missing — STALE
+    # claim, RapidJSON is in tree at packages/desktop/rapidjson and listed
+    # in this package.yml deps; (2) audacity_use_vamp=on is invalid (valid
+    # values per audacity_find_package are system|local|off). Vamp SDK is
+    # not yet in our tree, so the correct setting is off (vamp-plugin-sdk
+    # → v1.0+1 backlog; ladspa + lv2 already cover most plugin needs).
+    # Real build now restored.
 
     # Out-of-tree CMake build. Audacity's BUILDING.md uses Unix Makefiles in
     # examples; we use Ninja for parallelism + compatibility with our other
@@ -203,7 +202,7 @@ configure() {
                                                                               \
         -Daudacity_use_ladspa=on                                              \
         -Daudacity_use_lv2=on                                                 \
-        -Daudacity_use_vamp=on                                                \
+        -Daudacity_use_vamp=off                                               \
         -Daudacity_use_vst=Off                                                \
         -Daudacity_use_wavpack=system                                         \
         -Daudacity_use_midi=system                                            \
@@ -219,20 +218,16 @@ configure() {
 
 build() {
     set -e
-    # Skipped per configure() halt #29 — see comment there.
-    :
+    cmake --build build -j${IGOS_JOBS}
 }
 
 do_install() {
     set -e
-    # Skipped — no build artifacts to install.
-    :
+    DESTDIR="$DESTDIR" cmake --install build
 }
 
 post_install() {
     set -e
-    # Skipped — nothing installed.
-    return 0
     # CMake installs (verified against linux/packages/ubuntu-20.04/debian/audacity.install):
     #   binary           -> /usr/bin/audacity
     #   modules + libs   -> /usr/lib/audacity/{modules,libaudacity-*.so,...}

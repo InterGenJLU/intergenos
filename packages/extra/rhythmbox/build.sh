@@ -34,8 +34,8 @@ configure() {
     #                            out under feature=auto when check missing
     #   - brasero=disabled     — libbrasero-media not in tree
     #   - lirc=disabled        — lirc not in tree
-    #   - ipod=disabled        — libgpod not in tree
-    #   - mtp=disabled         — libmtp not in tree
+    #   - ipod=disabled        — libgpod not in tree (v1.0+1 backlog)
+    #   - mtp=enabled          — libmtp present in tree (added Build #6)
     #   - daap=disabled        — already disabled by upstream default,
     #                            re-affirmed for clarity
     #   - sample-plugins=false — example code, not for distribution
@@ -63,7 +63,7 @@ configure() {
           -Dbrasero=disabled             \
           -Dlirc=disabled                \
           -Dipod=disabled                \
-          -Dmtp=disabled                 \
+          -Dmtp=enabled                  \
           -Ddaap=disabled                \
           -Dsample-plugins=false         \
           -Dhelp=true                    \
