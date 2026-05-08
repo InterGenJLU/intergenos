@@ -16,3 +16,8 @@ dependencies:
   build: []
   host: []
   runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "bsdtar_test/test_extract_tar_absolute_paths fails in chroot — libarchive's bsdtar test suite drops privileges to user 'nobody' (uid 65534) and tries to extract a tar archive containing absolute paths under /tmp. nobody cannot write to /tmp paths it doesn't own, so the assertion fails. 1 failure of 76 in bsdtar_test; the other 4 test programs (libarchive_test 697/697, bsdcat_test 18/18, bsdcpio_test 49/49, bsdunzip_test 24/24) all pass. Functional confidence comes from the 788 passing tests + libarchive being widely deployed (tar/cpio in core, every package manager that handles archives)."
