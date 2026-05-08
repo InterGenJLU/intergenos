@@ -8,6 +8,10 @@ tier: extra
 build_style: custom
 install_func: do_install
 source:
+  # Project source (loupe-style two-tarball pattern: project + cargo vendor)
+  - url: https://github.com/containers/netavark/archive/refs/tags/v${version}.tar.gz
+    filename: netavark-v${version}.tar.gz
+    sha256: 284faa7cc525b869cbac4053e0a4127ac743ca7da1457c49fffb35558ea9c78d
   - url: https://github.com/containers/netavark/releases/download/v${version}/netavark-v${version}-vendor.tar.gz
     sha256: afa8e99a9691ef6ea485d6cb6b1897684d9f8a26719deaa3cbf37b5f17198e6f
 dependencies:

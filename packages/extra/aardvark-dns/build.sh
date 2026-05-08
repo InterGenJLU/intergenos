@@ -9,31 +9,32 @@
 
 configure() {
     set -e
-    :
+    # Both tarballs extract into the same source root (loupe pattern):
+    # project tarball → Cargo.toml + src/ at the top level
+    # vendor tarball → vendor/ at the top level
+    # Configure cargo to use the vendor dir (no network access in chroot).
+    mkdir -p .cargo
+    cat > .cargo/config.toml <<'EOF'
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "vendor"
+EOF
 }
 
 build() {
     set -e
-    # Source tarball references aardvark-dns-v1.17.1-vendor.tar.gz which only
-    # contains the cargo vendor/ tree (crate dependencies), NOT the
-    # aardvark-dns project source itself. cargo build fails: no Cargo.toml.
-    #
-    # The package needs both project source + vendor staged separately.
-    # That's a packaging design issue — out of scope for tonight's
-    # halt-fix-resume cycle. Skipping build so the image phase can proceed;
-    # podman will lose its DNS backend until aardvark-dns is properly staged.
-    #
-    # Halt #26 (2026-05-08).
-    :
+    cargo build --release --frozen --offline
 }
 
 check() {
     set -e
-    :
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        cargo test --release --frozen --offline
 }
 
 do_install() {
     set -e
-    # No binary built — skip install entirely.
-    :
+    install -Dm755 target/release/aardvark-dns "$DESTDIR/usr/libexec/podman/aardvark-dns"
 }

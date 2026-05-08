@@ -8,6 +8,10 @@ tier: extra
 build_style: custom
 install_func: do_install
 source:
+  # Project source (loupe-style two-tarball pattern: project + cargo vendor)
+  - url: https://github.com/containers/aardvark-dns/archive/refs/tags/v${version}.tar.gz
+    filename: aardvark-dns-v${version}.tar.gz
+    sha256: 25b39bfad079a03862825b2f9db8b71b82fc80aad5552a9c76ea912edc9b889e
   - url: https://github.com/containers/aardvark-dns/releases/download/v${version}/aardvark-dns-v${version}-vendor.tar.gz
     sha256: 009198f042f150d42025c8a0456bb7a98293c9deeb012d37b2d364f44e52288f
 dependencies:

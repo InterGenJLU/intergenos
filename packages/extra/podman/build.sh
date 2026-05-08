@@ -17,25 +17,20 @@ configure() {
 
 build() {
     set -e
-    # Halt #28 (2026-05-08): build fails with
-    #   vendor/go.podman.io/storage/drivers/btrfs/btrfs.go:11:10:
-    #   fatal error: btrfs/ioctl.h: No such file or directory
-    # btrfs kernel headers (btrfs-progs/btrfs-progs-devel) not installed
-    # in chroot. Plus the prior aardvark-dns/netavark skips left podman
-    # without its DNS/network plugins anyway.
-    #
-    # Skip podman for tonight; container stack deferred to v1.0+1.
-    # Real fix: add btrfs-progs as build-dep + restore aardvark-dns/netavark
-    # vendor packaging.
-    :
+    # Standard podman makefile build. Requires btrfs-progs headers
+    # (Build #5 Halt #28) — added as build dep in package.yml. Cgo
+    # links against /usr/include/btrfs/ioctl.h.
+    make BUILDTAGS="seccomp systemd selinux apparmor exclude_graphdriver_devicemapper" \
+        -j${IGOS_JOBS}
 }
 
 check() {
     set -e
-    :
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        make localunit
 }
 
 do_install() {
     set -e
-    :
+    make DESTDIR="$DESTDIR" PREFIX=/usr install
 }

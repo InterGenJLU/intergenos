@@ -15,6 +15,9 @@ dependencies:
     - go
     - go-md2man
     - pkgconf
+    - btrfs-progs   # provides /usr/include/btrfs/ioctl.h required by
+                    # vendor/go.podman.io/storage/drivers/btrfs/btrfs.go.
+                    # Build #5 audit Halt #28.
   host:
     - glib2
     - systemd

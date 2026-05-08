@@ -1,0 +1,22 @@
+name: btrfs-progs
+version: "6.19.1"
+release: 1
+description: Userspace utilities and headers for the Btrfs filesystem
+license: GPL-2.0-only
+homepage: https://btrfs.readthedocs.io/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.kernel.org/pub/linux/kernel/people/kdave/btrfs-progs/btrfs-progs-v${version}.tar.xz
+  filename: btrfs-progs-v${version}.tar.xz
+  sha256: bb27e1ec54e7c3c0b7b2e596f853a73c07a3d72f21bc94042073c24dbf045796
+dependencies:
+  build:
+  - e2fsprogs       # libcom_err + libext2fs (uuid utilities)
+  - util-linux-core # libblkid + libuuid
+  - lzo
+  - zlib
+  - zstd
+  host: []
+  runtime: []
