@@ -4,8 +4,10 @@
 
 configure() {
     set -e
-    # BLFS required fixes
-    sed "/json_docdir =/s|\$| / 'json-glib-${PKG_VERSION}'|" -i ../doc/meson.build
+    # BLFS required fix — apply BEFORE cd into build/. Path is relative
+    # to the source dir (where configure() is invoked), so doc/meson.build
+    # not ../doc/meson.build.
+    sed "/json_docdir =/s|\$| / 'json-glib-${PKG_VERSION}'|" -i doc/meson.build
     mkdir -p build
     cd    build
 
