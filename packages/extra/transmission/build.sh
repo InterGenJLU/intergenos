@@ -55,7 +55,10 @@ configure() {
         ln -sfn miniupnp/miniupnpc/include third-party/miniupnpc
     fi
 
-    export CXXFLAGS="${CXXFLAGS:-} -Wno-error=maybe-uninitialized -I$(pwd)/third-party -I$(pwd)/third-party/libnatpmp"
+    # Halt #35 — same shape repeated for libdeflate. Adding -I for it
+    # too. (Keeping all the -I flags in one place rather than chasing each
+    # halt individually.)
+    export CXXFLAGS="${CXXFLAGS:-} -Wno-error=maybe-uninitialized -I$(pwd)/third-party -I$(pwd)/third-party/libnatpmp -I$(pwd)/third-party/libdeflate"
 
     # Out-of-tree CMake build.
     cmake -S . -B build                                 \
@@ -83,6 +86,10 @@ configure() {
         -DWITH_SYSTEMD=ON                               \
         -DUSE_SYSTEM_MINIUPNPC=OFF                      \
         -DUSE_SYSTEM_NATPMP=OFF                         \
+        -DUSE_SYSTEM_DEFLATE=OFF                        \
+        -DUSE_SYSTEM_DHT=OFF                            \
+        -DUSE_SYSTEM_UTP=OFF                            \
+        -DUSE_SYSTEM_B64=OFF                            \
         -DREBUILD_WEB=OFF                               \
         -W no-dev
 }
