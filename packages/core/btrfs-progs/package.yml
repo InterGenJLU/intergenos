@@ -4,7 +4,23 @@ release: 1
 description: Userspace utilities and headers for the Btrfs filesystem
 license: GPL-2.0-only
 homepage: https://btrfs.readthedocs.io/
-tier: core
+# Tier moved core → extra in 2026-05-09 Build #6 podman halt fix:
+# btrfs-progs was declared `tier: core` but NOT wired into either
+# chroot-build-ch8.sh (LFS Ch.8 hardcoded list) nor chroot-build-core-
+# extra.sh (run_package list) — same silent-skip shape as apparmor pre-
+# f190f1c and pkm pre-a9d60a4. Result: btrfs-progs was never built,
+# podman's vendor/go.podman.io/storage/drivers/btrfs/ failed to find
+# /usr/include/btrfs/ioctl.h at compile time, halting the extra tier.
+# Build #5 audit Halt #28 attempted a fix by adding the build dep
+# declaration to podman's package.yml but never wired btrfs-progs
+# itself into the build pipeline.
+#
+# Moving to tier:extra so the Python builder picks btrfs-progs up via
+# topological sort during chroot-build-extra.sh's `--tier extra` run,
+# placing it before podman in the build order. btrfs-progs's build
+# deps (e2fsprogs, util-linux-core, lzo, zlib, zstd) are all present
+# in the chroot by extra-phase entry (built in core / core-extra).
+tier: extra
 build_style: custom
 install_func: do_install
 source:
