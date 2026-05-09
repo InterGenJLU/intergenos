@@ -64,6 +64,8 @@ configure() {
         -DWITH_CRYPTO=openssl                           \
         -DWITH_INOTIFY=ON                               \
         -DWITH_SYSTEMD=ON                               \
+        -DUSE_SYSTEM_MINIUPNPC=OFF                      \
+        -DUSE_SYSTEM_NATPMP=OFF                         \
         -DREBUILD_WEB=OFF                               \
         -W no-dev
 }
