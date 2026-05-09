@@ -204,6 +204,16 @@ run_package() {
         fi
     fi
 
+    # Skip if already tracked. Mirrors chroot-build-desktop.sh's BASE_DEPS
+    # pre-check: if the desktop phase pre-built cpio/libtirpc/popt/which via
+    # the Python builder's --only fallback, those packages already have a
+    # /var/lib/igos/packages/<name>-<version> manifest and don't need to be
+    # rebuilt by this phase. Bash compgen returns 0 if any match exists.
+    if compgen -G "/var/lib/igos/packages/${name}-*" > /dev/null 2>&1; then
+        log "  Skipping: $name (already tracked at /var/lib/igos/packages/)"
+        return 0
+    fi
+
     build_base_package "$@" || {
         log ""
         log "!!! BUILD FAILED: $name"

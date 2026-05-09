@@ -62,6 +62,7 @@ PHASES=(
     core
     config
     core-extra
+    base
     kernel
     desktop
     ai
@@ -688,6 +689,21 @@ phase_core_extra() {
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-core-extra.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
+phase_base() {
+    # Build the base tier — end-user CLI tools (htop, rsync, strace, screen,
+    # etc.) that aren't core build dependencies but are expected on every
+    # InterGenOS install. The base orchestration was dormant from 2026-04-04
+    # (commit 45421d7 unified into chroot-build-tier.sh, then 66ef3da
+    # restored chroot-build-base.sh from archive but never re-wired it into
+    # build-intergenos.sh). 2026-05-09 stub-audit follow-up surfaced the
+    # gap — without this phase, 16 base-tier packages were silently skipped
+    # at install-time, degrading the user-facing CLI surface against the
+    # Prime Directive.
+    sync_chroot_scripts
+    log "Building base packages in chroot (end-user CLI tools)..."
+    bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-base.sh" 2>&1 | tee -a "$BUILD_LOG"
+}
+
 phase_kernel() {
     sync_chroot_scripts
     log "Building kernel in chroot (Ch 10)..."
@@ -883,6 +899,7 @@ run_phase "chroot-tools" "Build temp tools in chroot (Ch 7)"   phase_chroot_tool
 run_phase "core"         "Build core system (Ch 8, LFS order)" phase_core
 run_phase "config"       "System configuration (Ch 9)"         phase_config
 run_phase "core-extra"   "Build extra core packages (BLFS)"    phase_core_extra
+run_phase "base"         "Build base CLI tools (end-user)"     phase_base
 run_phase "kernel"       "Build kernel (Ch 10)"                phase_kernel
 run_phase "desktop"     "Build desktop (GNOME on Wayland)"    phase_desktop
 run_phase "ai"          "Build AI tier (InterGen assistant)"  phase_ai
