@@ -157,6 +157,26 @@ configure() {
     # → v1.0+1 backlog; ladspa + lv2 already cover most plugin needs).
     # Real build now restored.
 
+    # Build #6 (2026-05-09): two more configure-time fixes after Build #5
+    # restored the build path:
+    #
+    # 1. Patch cmake-proxies/cmake-modules/dependencies/rapidjson.cmake to
+    #    handle our system rapidjson — RapidJSONConfig.cmake provides
+    #    `rapidjson` as an ALIAS target, and audacity's wrapper at line 6
+    #    does `add_library(rapidjson::rapidjson ALIAS rapidjson)` which
+    #    CMake forbids (can't alias an alias). The fix walks ALIASED_TARGET
+    #    once to get the real target before aliasing.
+    #
+    # 2. audacity_use_lv2=on is invalid (same shape as the prior vamp=on
+    #    halt). Valid values per AudacityFunctions.cmake cmd_option are
+    #    system|local|off. We use 'local' so audacity builds against its
+    #    bundled lv2/lilv/suil stack in lib-src/lv2/ (per the comments
+    #    above — there is no `=system` mode for audacity's LV2 host).
+    local RJ=cmake-proxies/cmake-modules/dependencies/rapidjson.cmake
+    if [ -f "$RJ" ] && grep -q 'add_library( rapidjson::rapidjson ALIAS rapidjson )' "$RJ"; then
+        sed -i 's|add_library( rapidjson::rapidjson ALIAS rapidjson )|get_target_property(_rj_aliased rapidjson ALIASED_TARGET)\n         if(_rj_aliased)\n            add_library( rapidjson::rapidjson ALIAS ${_rj_aliased} )\n         else()\n            add_library( rapidjson::rapidjson ALIAS rapidjson )\n         endif()|' "$RJ"
+    fi
+
     # Out-of-tree CMake build. Audacity's BUILDING.md uses Unix Makefiles in
     # examples; we use Ninja for parallelism + compatibility with our other
     # CMake-using packages (lv2, transmission, etc.).
@@ -201,7 +221,7 @@ configure() {
         -Daudacity_use_ffmpeg=loaded                                          \
                                                                               \
         -Daudacity_use_ladspa=on                                              \
-        -Daudacity_use_lv2=on                                                 \
+        -Daudacity_use_lv2=local                                              \
         -Daudacity_use_vamp=off                                               \
         -Daudacity_use_vst=Off                                                \
         -Daudacity_use_wavpack=system                                         \
