@@ -42,9 +42,19 @@ configure() {
     # does not export its include directory via target_include_directories,
     # so even with USE_SYSTEM_NATPMP=OFF the include path doesn't propagate
     # to libtransmission's port-forwarding-natpmp.cc compile unit. Adding
-    # -Ithird-party/libnatpmp explicitly. Bundled miniupnpc is fine because
-    # its add_subdirectory(third-party/miniupnp/miniupnpc) does propagate
-    # via target_link_libraries.
+    # -Ithird-party/libnatpmp explicitly.
+    #
+    # Halt #34 — bundled miniupnpc has a layout mismatch: source uses
+    # `#include <miniupnpc/miniupnpc.h>` (system-style FHS path), but the
+    # bundled headers are at third-party/miniupnp/miniupnpc/include/*.h
+    # (no `miniupnpc/` subdir within `include/`). Bridging with a symlink
+    # at third-party/miniupnpc → miniupnp/miniupnpc/include so that
+    # `-Ithird-party` + `<miniupnpc/miniupnpc.h>` resolves to the bundled
+    # headers via symlink walk.
+    if [ ! -e third-party/miniupnpc ]; then
+        ln -sfn miniupnp/miniupnpc/include third-party/miniupnpc
+    fi
+
     export CXXFLAGS="${CXXFLAGS:-} -Wno-error=maybe-uninitialized -I$(pwd)/third-party -I$(pwd)/third-party/libnatpmp"
 
     # Out-of-tree CMake build.
