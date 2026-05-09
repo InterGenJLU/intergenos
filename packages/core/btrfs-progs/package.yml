@@ -38,6 +38,5 @@ dependencies:
   runtime: []
 
 tests:
-  enabled: true
-  failure_policy: known_failures
-  reason: "btrfs-progs's testsuite includes test-fsck and test-cli cases that exercise live mkfs.btrfs, mount, umount, and loopback-device operations. The offline build chroot cannot reliably create or mount loop devices and lacks a kernel with the btrfs LSM/filesystem driver loaded — test cases like 013-extent-tree-rebuild (mkfs.btrfs against a test image) and 014-multiple-profiles-warning (umount /dev/loop4) consistently fail with chroot-environmental errors, not code defects. The library build (libbtrfs/, libbtrfsutil) and binaries (mkfs.btrfs, btrfs, btrfs-convert) compile and link cleanly. Same chroot-environmental shape as libfido2 (no FIDO2 hw), tpm2-tss (no TPM2 simulator), libvisio (importtest), flac (CAP_DAC_OVERRIDE root-bypass)."
+  enabled: false
+  reason: "btrfs-progs's testsuite (test-fsck, test-cli, test-mkfs) creates loopback mounts at tests/mnt and runs live mkfs.btrfs/mount/umount operations. Beyond the chroot-environmental failures these tests produce (no kernel btrfs driver loaded, no reliable loop-device support — same shape as libfido2/tpm2-tss/libvisio), the bigger problem is that even with failure_policy=known_failures the orchestrator's post-test work-dir cleanup hits `OSError: [Errno 16] Device or resource busy: '.../tests/mnt'` because the tests left mounts active. tests:enabled:false avoids both the failures and the cleanup hazard. Library build (libbtrfs/, libbtrfsutil) and binaries (mkfs.btrfs, btrfs, btrfs-convert) compile and link cleanly without tests."
