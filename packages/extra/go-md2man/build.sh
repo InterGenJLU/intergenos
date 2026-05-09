@@ -10,10 +10,14 @@
 
 configure() {
     set -e
-    # Both tarballs extract into the same source root. The project tarball
-    # provides go.mod/go.sum/source files; the vendor tarball provides
-    # vendor/. Standard offline Go build pattern.
-    :
+    # Extract pre-vendored Go module deps so the offline chroot's go
+    # toolchain can resolve imports without hitting proxy.golang.org.
+    # Layout: vendor/ at top level (loupe-style two-tarball pattern).
+    # Without this extract, `go build -mod=vendor` fails with
+    # "cannot find module providing package github.com/russross/blackfriday/v2".
+    if [ -f "${IGOS_SOURCES}/go-md2man-${PKG_VERSION}-go-vendor.tar.gz" ]; then
+        tar xf "${IGOS_SOURCES}/go-md2man-${PKG_VERSION}-go-vendor.tar.gz"
+    fi
 }
 
 build() {
