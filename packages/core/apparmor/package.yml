@@ -1,16 +1,22 @@
 name: apparmor
 version: "3.1.7"
 release: 1
-description: AppArmor profile set for InterGenOS (base + custom profiles)
+description: AppArmor MAC framework — libapparmor, parser, and profile set
 license: GPL-2.0-only
 homepage: https://gitlab.com/apparmor/apparmor
-# Tier moved from core → desktop in Build #6 Halt #7b fix: apparmor was
-# declared as build dep of systemd-pass2 (Build #5 audit fix 04e36a7) but
-# never wired into chroot-build-ch8.sh or chroot-build-core-extra.sh, so
-# tier:core meant "supposed to be already-built in core phase, but isn't."
-# Moving to tier:desktop lets the Python builder pick it up via topological
-# sort and build it before systemd-pass2. apparmor's deps (host: perl-core,
-# python, bash) are all available in the chroot by desktop-phase entry.
+# Tier moved from core → desktop in Build #6 Halt #7b fix (f190f1c):
+# apparmor was declared as a build dep of systemd-pass2 (Build #5 audit fix
+# 04e36a7) but never wired into chroot-build-ch8.sh or
+# chroot-build-core-extra.sh, so tier:core meant "supposed to be already-
+# built in core phase, but isn't." tier:desktop lets the Python builder
+# pick it up via topological sort and build it before systemd-pass2.
+#
+# Halt #8 fix (this commit): the previous build.sh was a profile-only stub
+# that never compiled libapparmor.so — which is what systemd-pass2's
+# `Dependency "libapparmor" not found` actually surfaced. The new build.sh
+# compiles libraries/libapparmor (autotools), parser/ (Makefile), and
+# installs upstream substrate profiles + Debian-derived extras + IGOS-
+# specific custom profiles. See packages/core/apparmor/README.md.
 tier: desktop
 build_style: custom
 source:
@@ -19,6 +25,9 @@ source:
 - url: https://deb.debian.org/debian/pool/main/a/apparmor-profiles-extra/apparmor-profiles-extra_1.35.tar.xz
   sha256: 31d0a65d2c1c0c8dc91d87437020bf4341b6bb1c8d324944628d6fc629039165
 dependencies:
+  # autoconf/automake/libtool/bison/flex/gettext/pkg-config/perl-core are
+  # all in the chroot by desktop-phase entry (built in core / core-extra).
+  # No explicit build deps — relies on chroot baseline.
   build: []
   host: [perl-core, python, bash]
   runtime: []

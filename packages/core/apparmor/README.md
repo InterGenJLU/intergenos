@@ -1,40 +1,96 @@
-# InterGenOS AppArmor Profile Set
+# InterGenOS AppArmor
 
-This package provides the AppArmor Mandatory Access Control (MAC) profiles for InterGenOS. It implements Option A from the 2026-04-29 fleet consensus vote.
+This package builds **AppArmor v3.1.7** — the libapparmor C library, the
+apparmor_parser binary, and the upstream profile substrate — and installs
+the InterGenOS-specific profile additions on top.
 
-## Posture: Complain by Default
+It implements Option A from the 2026-04-29 fleet consensus vote (AppArmor
+as the InterGenOS MAC framework).
 
-In alignment with the Prime Directive ("user in control of their own machine"), InterGenOS ships all AppArmor profiles in **complain mode (learning mode)** by default.
+## What this package compiles and installs
 
-This posture provides a graceful rollout: it logs policy violations to the journal (`/var/log/audit/audit.log` or `dmesg`) without blocking execution. This allows us to validate the profiles against real-world workloads and edge cases without breaking user systems.
+1. **libraries/libapparmor** — autotools, produces `libapparmor.so` and the
+   `libapparmor.pc` pkg-config file. Consumed by systemd, polkit, dbus, and
+   anything else that links `-lapparmor`. Build #6 Halt #8 traced back to a
+   prior stub build.sh that never compiled this library.
 
-As confidence builds, profiles will graduate to `enforce` mode per-profile in future releases.
+2. **parser/** — Makefile-driven, produces:
+   - `/usr/sbin/apparmor_parser` — the profile parser/loader
+   - `/usr/sbin/aa-teardown` — profile-removal helper
+   - `/usr/lib/apparmor/profile-load`, `rc.apparmor.functions` — boot helpers
+   - `/etc/apparmor/parser.conf` — parser configuration
+   - `/usr/lib/systemd/system/apparmor.service` — systemd unit
+   - manpages for apparmor.d(5), apparmor(7), apparmor_parser(8),
+     aa-teardown(8), apparmor_xattrs(7)
 
-## Substrate
+3. **profiles/** — Makefile-driven, installs the upstream profile substrate
+   to `/etc/apparmor.d/` (top-level profiles, `abi/`, `abstractions/`,
+   `tunables/`) plus extra-profiles to `/usr/share/apparmor/extra-profiles/`.
 
-The foundational profiles in this package are derived from the Debian 12 (Bookworm) `apparmor` and `apparmor-profiles-extra` packages (version 3.0.8). We rely on upstream distribution hygiene for standard services (sshd, cups, NetworkManager, browsers, etc.) rather than rolling our own.
+4. **apparmor-profiles-extra_1.35** — Debian-derived extras (irssi,
+   pidgin, totem, etc.) extracted from the secondary tarball declared in
+   `package.yml`. Added with a "never overwrite upstream" merge policy.
 
-## InterGenOS-Specific Profiles
+5. **InterGenOS-specific profiles** (in `profiles/` alongside this README):
+   - `usr.bin.intergen-mcp` — local AI assistant daemon
+   - `usr.bin.pkm` — InterGenOS package manager
+   - `usr.bin.forge` — Secure Boot installer / MOK-enrollment flow
+   - `usr.libexec.intergenos.first-boot-greeter` — first-boot prompt that
+     ensures zero default credentials.
 
-We ship custom, minimal profiles for InterGenOS-specific services that lack upstream Debian profiles. These are housed in `packages/desktop/apparmor/profiles/`:
+6. **Complain-mode marker** — `/usr/share/intergenos-apparmor/default_mode`
+   contains `complain`. The first-boot orchestrator reads this after the
+   kernel boots with the apparmor LSM available and runs `aa-complain` on
+   every profile in `/etc/apparmor.d/`.
 
-- `usr.bin.intergen-mcp`: The local AI assistant daemon (runs as user service).
-- `usr.bin.pkm`: The InterGenOS package manager (runs privileged at install time).
-- `usr.bin.forge`: The Forge Secure Boot installer and MOK enrollment flow.
-- `usr.libexec.intergenos.first-boot-greeter`: The first-boot prompt ensuring zero default credentials.
+## Posture: complain-by-default
 
-## Disabling Profiles (User Control)
+In alignment with the Prime Directive ("user in control of their own
+machine"), InterGenOS ships all AppArmor profiles in **complain mode
+(learning mode)** by default.
 
-To disable a specific profile, symlink it into the `disable/` directory and reload AppArmor:
+This posture provides a graceful rollout: it logs policy violations to the
+journal (`/var/log/audit/audit.log` or `dmesg`) without blocking execution,
+which lets us validate the profile set against real-world workloads
+without breaking user systems.
+
+As confidence builds, profiles graduate to `enforce` mode per-profile in
+future releases.
+
+## Disabling profiles (user control)
+
+To disable a specific profile, symlink it into the `disable/` directory and
+unload it via `apparmor_parser`:
 
 ```bash
 sudo ln -s /etc/apparmor.d/usr.bin.intergen-mcp /etc/apparmor.d/disable/
 sudo apparmor_parser -R /etc/apparmor.d/usr.bin.intergen-mcp
 ```
 
-Alternatively, standard tooling can be used if installed:
+If the apparmor utils package is installed:
+
 ```bash
 sudo aa-disable /usr/bin/intergen-mcp
 ```
 
-To globally disable AppArmor (not recommended), append `apparmor=0` to your GRUB boot parameters.
+To globally disable AppArmor (not recommended), append `apparmor=0` to your
+kernel command line via the bootloader.
+
+## Build-time history (for context)
+
+* **Build #5 audit-fix `04e36a7`** declared `apparmor` as a build-dep of
+  `systemd-pass2`, expecting `libapparmor.so` to be available at meson
+  configure time.
+* **Build #6 Halt #7b** (master `f190f1c`) — surfaced that apparmor's
+  `tier: core` was declarative-only: the package was never wired into any
+  `chroot-build-*.sh` `run_package` list. Tier moved to `desktop` so the
+  Python builder picks it up via topological sort.
+* **Build #6 Halt #8** (this commit) — surfaced that the build.sh itself
+  was a profile-only stub: `configure()` and `build()` were no-ops, so
+  libapparmor was *still* never compiled. Path-shape bugs in `do_install()`
+  also referenced a post-strip-1 version-prefixed dir and a `work/` path
+  from the secondary tarball that the orchestrator never auto-extracts.
+
+This commit replaces the stub with a real build per upstream's expected
+recipe (autotools + Makefiles), preserves all InterGenOS-specific profiles,
+and explicitly extracts the secondary tarball in `build()`.
