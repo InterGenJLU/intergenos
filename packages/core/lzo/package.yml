@@ -12,6 +12,15 @@ dependencies:
   build: []
   host: []
   runtime: []
-tier: core
+# Tier moved core → extra in 2026-05-09 Build #6 cascade fix:
+# lzo was declared `tier: core` but NOT wired into either chroot-build-
+# ch8.sh (LFS Ch.8) nor chroot-build-core-extra.sh — same silent-skip
+# shape as apparmor pre-f190f1c, pkm pre-a9d60a4, btrfs-progs pre-
+# 9669ca4. Result: btrfs-progs's `cannot find lzo2 library` halt.
+#
+# lzo has no build deps — topological sort places it correctly via
+# btrfs-progs's build:lzo dep. tier:extra means the Python builder
+# picks it up during chroot-build-extra.sh's `--tier extra` run.
+tier: extra
 build_style: custom
 install_func: do_install
