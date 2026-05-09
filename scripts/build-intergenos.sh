@@ -588,6 +588,12 @@ phase_setup() {
     # parity). Without this sync, desktop-phase Python orchestrator fails
     # with ModuleNotFoundError on import.
     cp -a /mnt/intergenos/pkm        "$IGOS/mnt/intergenos/"
+    # intergen source must be copied into the chroot for phase_ai. The
+    # ai-tier build.sh references /mnt/intergenos/intergen/*.py and the
+    # subdirs (interfaces/, tools/, tests/). Without this copy, phase_ai
+    # halts at intergen with `cp: cannot stat ...`. Build #6 Halt at
+    # intergen 2026-05-09 surfaced the omission.
+    cp -a /mnt/intergenos/intergen   "$IGOS/mnt/intergenos/"
     cp    /mnt/intergenos/igos-build.py "$IGOS/mnt/intergenos/" 2>/dev/null || true
     log "  Build infrastructure placed on target filesystem"
 
@@ -665,6 +671,8 @@ sync_chroot_scripts() {
     rsync -a /mnt/intergenos/igos-build.py "$IGOS/mnt/intergenos/" 2>/dev/null || true
     rsync -a --delete /mnt/intergenos/igos-build/   "$IGOS/mnt/intergenos/igos-build/" 2>/dev/null || true
     rsync -a --delete /mnt/intergenos/pkm/          "$IGOS/mnt/intergenos/pkm/"        2>/dev/null || true
+    # intergen source for phase_ai (parity with phase_setup copy above)
+    rsync -a --delete /mnt/intergenos/intergen/     "$IGOS/mnt/intergenos/intergen/"   2>/dev/null || true
 }
 
 phase_core() {
