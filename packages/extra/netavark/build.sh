@@ -9,7 +9,15 @@
 
 configure() {
     set -e
-    # loupe-pattern: project + vendor tarballs both extract here.
+    # Extract the cargo-vendored crate deps so the offline chroot's
+    # cargo can resolve dependencies without hitting crates.io. The
+    # orchestrator only auto-extracts source[0]; the vendor tarball
+    # (source[1]) must be extracted by build.sh. Loupe-style two-
+    # tarball pattern.
+    if [ -f "${IGOS_SOURCES}/netavark-v${PKG_VERSION}-vendor.tar.gz" ]; then
+        tar xf "${IGOS_SOURCES}/netavark-v${PKG_VERSION}-vendor.tar.gz"
+    fi
+
     mkdir -p .cargo
     cat > .cargo/config.toml <<'EOF'
 [source.crates-io]

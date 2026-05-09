@@ -9,10 +9,15 @@
 
 configure() {
     set -e
-    # Both tarballs extract into the same source root (loupe pattern):
-    # project tarball → Cargo.toml + src/ at the top level
-    # vendor tarball → vendor/ at the top level
-    # Configure cargo to use the vendor dir (no network access in chroot).
+    # Extract the cargo-vendored crate deps so the offline chroot's
+    # cargo can resolve dependencies without hitting crates.io. The
+    # orchestrator only auto-extracts source[0]; the vendor tarball
+    # (source[1]) must be extracted by build.sh. Loupe-style two-
+    # tarball pattern.
+    if [ -f "${IGOS_SOURCES}/aardvark-dns-v${PKG_VERSION}-vendor.tar.gz" ]; then
+        tar xf "${IGOS_SOURCES}/aardvark-dns-v${PKG_VERSION}-vendor.tar.gz"
+    fi
+
     mkdir -p .cargo
     cat > .cargo/config.toml <<'EOF'
 [source.crates-io]
