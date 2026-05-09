@@ -4,7 +4,14 @@ release: 1
 description: InterGenOS package manager — install, remove, query, verify
 license: GPL-3.0-or-later
 homepage: https://github.com/InterGenJLU/intergenos
-tier: core
+# Tier moved core → desktop in 2026-05-09 stub-pattern audit follow-up:
+# the previous tier:core declaration mirrored apparmor's pre-f190f1c shape
+# (declared as core but NOT wired into either chroot-build-ch8.sh or
+# chroot-build-core-extra.sh), which silently skipped pkm at install-time.
+# The Python builder handles tier:desktop via topological sort and accepts
+# `source: []` (builder.extract_source returns the empty work dir
+# gracefully when no source is declared).
+tier: desktop
 build_style: custom
 source: []
 dependencies:
