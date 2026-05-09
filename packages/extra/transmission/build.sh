@@ -38,12 +38,19 @@ configure() {
     # transmission's CMake. tr-dht.h does `#include <dht/dht.h>` and
     # third-party/dht/dht.h exists, so adding `-Ithird-party` to CXXFLAGS
     # restores the include path resolution.
-    export CXXFLAGS="${CXXFLAGS:-} -Wno-error=maybe-uninitialized -I$(pwd)/third-party"
+    # Halt #33 (2026-05-09 Build #6) — bundled libnatpmp's CMakeLists.txt
+    # does not export its include directory via target_include_directories,
+    # so even with USE_SYSTEM_NATPMP=OFF the include path doesn't propagate
+    # to libtransmission's port-forwarding-natpmp.cc compile unit. Adding
+    # -Ithird-party/libnatpmp explicitly. Bundled miniupnpc is fine because
+    # its add_subdirectory(third-party/miniupnp/miniupnpc) does propagate
+    # via target_link_libraries.
+    export CXXFLAGS="${CXXFLAGS:-} -Wno-error=maybe-uninitialized -I$(pwd)/third-party -I$(pwd)/third-party/libnatpmp"
 
     # Out-of-tree CMake build.
     cmake -S . -B build                                 \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo               \
-        -DCMAKE_CXX_FLAGS_RELWITHDEBINFO_INIT="-O2 -g -Wno-error=maybe-uninitialized -I$(pwd)/third-party" \
+        -DCMAKE_CXX_FLAGS_RELWITHDEBINFO_INIT="-O2 -g -Wno-error=maybe-uninitialized -I$(pwd)/third-party -I$(pwd)/third-party/libnatpmp" \
         -DCMAKE_INSTALL_PREFIX=/usr                     \
         -DCMAKE_INSTALL_LIBDIR=lib                      \
         -DCMAKE_INSTALL_SYSCONFDIR=/etc                 \
