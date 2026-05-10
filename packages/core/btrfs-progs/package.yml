@@ -20,7 +20,7 @@ homepage: https://btrfs.readthedocs.io/
 # placing it before podman in the build order. btrfs-progs's build
 # deps (e2fsprogs, util-linux-core, lzo, zlib, zstd) are all present
 # in the chroot by extra-phase entry (built in core / core-extra).
-tier: extra
+tier: core
 build_style: custom
 install_func: do_install
 source:

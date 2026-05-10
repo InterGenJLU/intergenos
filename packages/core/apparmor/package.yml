@@ -17,7 +17,7 @@ homepage: https://gitlab.com/apparmor/apparmor
 # compiles libraries/libapparmor (autotools), parser/ (Makefile), and
 # installs upstream substrate profiles + Debian-derived extras + IGOS-
 # specific custom profiles. See packages/core/apparmor/README.md.
-tier: desktop
+tier: core
 build_style: custom
 source:
 - url: https://gitlab.com/apparmor/apparmor/-/archive/v${version}/apparmor-v${version}.tar.gz

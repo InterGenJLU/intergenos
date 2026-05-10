@@ -4,7 +4,7 @@ release: 1
 description: Command line option parsing library
 license: MIT
 homepage: https://github.com/rpm-software-management/popt
-tier: base
+tier: core
 build_style: autotools
 
 source:

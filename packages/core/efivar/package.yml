@@ -4,7 +4,7 @@ release: 1
 description: Library and tools for EFI variable management
 license: LGPL-2.1-or-later
 homepage: https://github.com/rhboot/efivar
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

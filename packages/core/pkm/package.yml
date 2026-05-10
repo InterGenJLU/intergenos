@@ -11,7 +11,7 @@ homepage: https://github.com/InterGenJLU/intergenos
 # The Python builder handles tier:desktop via topological sort and accepts
 # `source: []` (builder.extract_source returns the empty work dir
 # gracefully when no source is declared).
-tier: desktop
+tier: core
 build_style: custom
 source: []
 dependencies:

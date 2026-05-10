@@ -4,7 +4,7 @@ release: 1
 description: Generate man pages from --help output
 license: GPL-3.0-or-later
 homepage: https://www.gnu.org/software/help2man/
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

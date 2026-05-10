@@ -21,6 +21,6 @@ dependencies:
 # lzo has no build deps — topological sort places it correctly via
 # btrfs-progs's build:lzo dep. tier:extra means the Python builder
 # picks it up during chroot-build-extra.sh's `--tier extra` run.
-tier: extra
+tier: core
 build_style: custom
 install_func: do_install
