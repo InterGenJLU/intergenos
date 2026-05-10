@@ -7,6 +7,11 @@ configure() {
     mkdir -p build
     cd    build
 
+    # bluez5=disabled: PipeWire handles Bluetooth audio in the InterGenOS
+    # stack. PipeWire's package.yml lists `bluez` as a runtime dep and
+    # passes -Dbluez5-backend-native-mm=enabled. This disable is an
+    # architectural choice (avoid duplicate BT-audio backends), not a
+    # missing-dep bypass — bluez IS in tree.
     meson setup ..            \
           --prefix=/usr       \
           --libdir=/usr/lib   \
