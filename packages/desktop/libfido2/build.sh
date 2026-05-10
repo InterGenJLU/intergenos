@@ -1,8 +1,8 @@
 #!/bin/bash
 # libfido2 1.17.0 — Yubico FIDO2 (CTAP 2.x + U2F) library
 # Required by systemd for `systemd-cryptenroll --fido2-device` and the
-# fido2 LUKS unlock path. Holy Grail: hardware second factor for disk
-# encryption.
+# fido2 LUKS unlock path. Required by security design: hardware second
+# factor for disk encryption.
 #
 # Build #5 audit: not in package set → systemd-pass2 dropped fido2.
 #

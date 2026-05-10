@@ -7,10 +7,10 @@
 #
 # Python dependencies (numpy, sentence-transformers, huggingface-hub,
 # torch-cpu) are NOT installed at build time. The InterGenOS chroot is
-# intentionally offline during the build (Holy Grail security posture:
-# no untrusted network access during build). The design already supports
-# user-side setup via `intergen setup` (post_install message line below);
-# numpy etc. are installed at first-run, not build-time.
+# intentionally offline during the build (security-by-design: no untrusted
+# network access during build). The design already supports user-side
+# setup via `intergen setup` (post_install message line below); numpy
+# etc. are installed at first-run, not build-time.
 #
 # Halt #22 (2026-05-08): the prior pip install in build() failed because
 # the chroot has no resolv.conf — by design. Moved deps to user-side.
