@@ -7,6 +7,15 @@ homepage: https://github.com/rhboot/shim
 tier: core
 build_style: custom
 install_func: do_install
+# Maintainer direction 2026-05-09: shim-signed remains DEFERRED in build
+# wiring until either (a) we have our own Microsoft-pre-signed shim binary
+# acquired through the Microsoft UEFI CA sponsorship process, or (b) the
+# maintainer chooses to begin shipping with the Fedora-piggyback shim. In
+# the interim, users boot via the MOK-with-Fedora workflow which requires
+# `mokutil` on the installed system (mokutil IS wired). Preflight Rule 17
+# treats this `pending_acquisition` field as authorized non-wiring; the
+# package is NOT a Rule 2 silent-skip orphan.
+pending_acquisition: "Microsoft-pre-signed shim binary not yet acquired. Users boot via the MOK-with-Fedora workflow in the interim (mokutil + Fedora's shim from this RPM extracted at install time). Wiring blocked until either MS UEFI CA sponsorship completes or maintainer authorizes Fedora-shim-piggyback shipping."
 # Vendor-pinned shim from Fedora, signed by Microsoft. We piggyback on
 # Fedora's MS-signed shim as a minimum-viable Secure Boot path, since the
 # Fedora shim accepts our MOK at first-boot enrollment via MokManager.

@@ -382,6 +382,13 @@ phase_validate() {
 
     log "Running host requirements check..."
     python3 "${SCRIPTS}/host-check.py"
+
+    # Build Development Rulebook Rule 17: pre-flight tier-coverage check.
+    # Halts the build if any tier-declared package is unreachable from its
+    # phase's build invocation. This is the mechanical guard against the
+    # silent-skip class of failures (Build #6 found 6 such orphans).
+    log "Running pre-flight tier-coverage check (Rulebook Rule 17)..."
+    python3 "${SCRIPTS}/preflight-tier-coverage.py"
 }
 
 phase_verify_sources() {
