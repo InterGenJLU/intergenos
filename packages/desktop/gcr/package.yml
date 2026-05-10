@@ -20,5 +20,6 @@ dependencies:
   - glib2
   - gnupg2
   - libxslt
+  - openssh
   host: []
   runtime: []
