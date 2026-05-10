@@ -1,0 +1,16 @@
+name: libnatpmp
+version: "20230423"
+release: 1
+description: NAT-PMP (Port Mapping Protocol) client library and natpmpc utility
+license: BSD-3-Clause
+homepage: http://miniupnp.free.fr/libnatpmp.html
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://miniupnp.tuxfamily.org/files/libnatpmp-${version}.tar.gz
+  sha256: 0684ed2c8406437e7519a1bd20ea83780db871b3a3a5d752311ba3e889dbfc70
+dependencies:
+  build: []
+  host: []
+  runtime: []
