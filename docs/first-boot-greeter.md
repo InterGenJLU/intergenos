@@ -13,7 +13,7 @@ InterGenOS ships no default passwords. There is no "intergenos" or "root" or "li
 
 This is enforced in two layers:
 
-1. **Build time.** The build script that produces an InterGenOS image refuses to run without explicit `--root-password` and `--user-password` arguments. There is no default value to fall through to.
+1. **Build time.** The build script that produces an InterGenOS image either uses explicit `--root-password` / `--user-password` values supplied by the builder, or — if those flags are omitted — generates strong random values internally via `openssl rand`. There is no shared default to fall through to. Generated values are surfaced in the build log so an operator can recover them during the brief pre-first-boot window if needed; the builder is not required to choose, type, or memorize a build-time value.
 2. **First boot.** Whatever passwords were set at build time are immediately overwritten by a system service that runs once on the first boot and prompts you for new ones. You always pick the password that you actually use.
 
 The first-boot greeter is the second layer. It runs once, in a regular text-mode terminal, before the graphical login screen comes up. After you complete it, a flag file marks the system as "first-boot complete" and the greeter never runs again.
