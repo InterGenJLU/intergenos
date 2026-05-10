@@ -393,15 +393,15 @@ phase_validate() {
 
 phase_verify_sources() {
     # Anti-supply-chain gate (design doc §5.1).
-    # Audit every package.yml source: entry with a sha256 against the
-    # downloaded tarball. Missing sha256 or mismatch = HARD FAIL.
+    # Audit every package.yml source: AND patches: entry with a sha256 against
+    # the artifact on disk. Missing sha256 or mismatch = HARD FAIL.
     # build_artifacts: entries are NOT checked here — those are
     # audited at the manifest phase (IGOSC Step 4).
-    log "Verifying pinned source SHAs against downloaded tarballs..."
+    log "Verifying pinned source + patch SHAs against on-disk artifacts..."
 
     local PYSCRIPT PYEXIT UNPINNED MISMATCHES
 
-    PYSCRIPT=$(python3 - "$PACKAGES_DIR" "$SOURCES" <<'PYEOF'
+    PYSCRIPT=$(python3 - "$PACKAGES_DIR" "$SOURCES" "$PATCHES" <<'PYEOF'
 import sys, hashlib, os, re
 from pathlib import Path
 
@@ -422,10 +422,12 @@ def _resolve(text, variables):
 
 packages_dir = Path(sys.argv[1])
 sources_dir = Path(sys.argv[2])
+patches_dir = Path(sys.argv[3])
 
 unpinned = []
 mismatches = []
 build_artifacts_count = 0
+patches_checked = 0
 
 for yml_path in sorted(packages_dir.rglob("package.yml")):
     # Per §1 B12: per-file YAML error handling. A malformed YAML file
@@ -483,6 +485,37 @@ for yml_path in sorted(packages_dir.rglob("package.yml")):
         if actual != sha:
             mismatches.append(f"{name}: {filename} — expected={sha[:12]}... actual={actual[:12]}...")
 
+    # Verify declared patches. The chroot's /sources/ contains both ${PATCHES}/*
+    # and ${SOURCES}/* (build-intergenos.sh phase_setup copies both). Check
+    # patches_dir first, fall back to sources_dir. A patch with no sha256, no
+    # file on disk, or content mismatch is a HARD FAIL — this is the same
+    # supply-chain gate that protects sources, extended to declared patches.
+    patches = data.get("patches") or []
+    if isinstance(patches, list):
+        for j, pitem in enumerate(patches):
+            if not isinstance(pitem, dict):
+                unpinned.append(f"{name}: patches[{j}] malformed")
+                continue
+            pfile_raw = pitem.get("file")
+            psha = pitem.get("sha256")
+            if not pfile_raw:
+                unpinned.append(f"{name}: patches[{j}] missing 'file'")
+                continue
+            pfile = _resolve(pfile_raw, variables)
+            if not psha or not isinstance(psha, str) or len(psha) != 64:
+                unpinned.append(f"{name}: patch {pfile} (no sha256 or invalid)")
+                continue
+            ppath = patches_dir / pfile
+            if not ppath.exists():
+                ppath = sources_dir / pfile
+            if not ppath.exists():
+                mismatches.append(f"{name}: patch {pfile} (not found in patches/ or sources/)")
+                continue
+            pactual = hashlib.sha256(ppath.read_bytes()).hexdigest()
+            if pactual != psha:
+                mismatches.append(f"{name}: patch {pfile} — expected={psha[:12]}... actual={pactual[:12]}...")
+            patches_checked += 1
+
 if unpinned:
     print("UNPINNED:", file=sys.stderr)
     for e in unpinned:
@@ -495,7 +528,7 @@ if mismatches:
 if unpinned or mismatches:
     sys.exit(1)
 
-print(f"OK: {build_artifacts_count} build_artifacts skipped, 0 source SHAs un-pinned, 0 mismatches")
+print(f"OK: {build_artifacts_count} build_artifacts skipped, {patches_checked} patches verified, 0 source/patch SHAs un-pinned, 0 mismatches")
 PYEOF
 )
     PYEXIT=$?
@@ -506,7 +539,7 @@ PYEOF
         return "$PYEXIT"
     fi
 
-    log "verify-sources: all source SHAs verified"
+    log "verify-sources: all source + patch SHAs verified"
 }
 
 phase_setup() {
