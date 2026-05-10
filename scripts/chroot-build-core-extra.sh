@@ -408,10 +408,6 @@ run_package "xxhash" "xxhash" "0.8.3" \
     "xxhash-0.8.3.tar.gz" \
     "Extremely fast non-cryptographic hash algorithm library + xxhsum CLI"
 
-run_package "mitkrb" "mitkrb" "1.22.2" \
-    "krb5-1.22.2.tar.gz" \
-    "MIT Kerberos V5 authentication"
-
 run_package "apparmor" "apparmor" "3.1.7" \
     "apparmor-v3.1.7.tar.gz" \
     "AppArmor MAC framework — libapparmor, parser, profiles"
@@ -427,6 +423,14 @@ run_package "help2man" "help2man" "1.49.3" \
 run_package "keyutils" "keyutils" "1.6.3" \
     "keyutils-1.6.3.tar.gz" \
     "Linux kernel key management utilities"
+
+# mitkrb depends on keyutils — keep this immediately after keyutils so the
+# topological order in this file matches the declared build deps. (C2 audit
+# 2026-05-10 caught the prior mis-ordering: mitkrb was at @111 listing
+# keyutils@115 as a build dep, would have halted on a fresh post-base chroot.)
+run_package "mitkrb" "mitkrb" "1.22.2" \
+    "krb5-1.22.2.tar.gz" \
+    "MIT Kerberos V5 authentication"
 
 run_package "efivar" "efivar" "39" \
     "efivar-39.tar.gz" \
