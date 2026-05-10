@@ -17,11 +17,13 @@ configure() {
             -i comm/third_party/rust/$crate/.cargo-checksum.json
     done
 
-    # Update cargo checksum for glibc-2.43 patched file
+    # Update cargo checksum for glibc-2.43 patched file (glslopt threads_posix.h)
     GLSL_PTHREAD="comm/third_party/rust/glslopt/glsl-optimizer/include/c11/threads_posix.h"
-    NEWSHA=$(sha256sum $GLSL_PTHREAD | awk '{ print $1 }')
-    sed -i "s|threads_posix.h\":\"[a-f0-9]*\"|threads_posix.h\":\"$NEWSHA\"|" \
-        comm/third_party/rust/glslopt/.cargo-checksum.json
+    if [ -f "$GLSL_PTHREAD" ]; then
+        NEWSHA=$(sha256sum "$GLSL_PTHREAD" | awk '{ print $1 }')
+        sed -i "s|threads_posix.h\":\"[a-f0-9]*\"|threads_posix.h\":\"$NEWSHA\"|" \
+            comm/third_party/rust/glslopt/.cargo-checksum.json
+    fi
 
     # Create mozconfig
     cat > mozconfig << "MOZEOF"
