@@ -27,5 +27,6 @@ dependencies:
   - gtk3
   - lcms2
   - libtiff
+  - gpgme
   host: []
   runtime: []

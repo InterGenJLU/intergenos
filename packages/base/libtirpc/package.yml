@@ -21,7 +21,6 @@ configure_flags:
   - "--prefix=/usr"
   - "--sysconfdir=/etc"
   - "--disable-static"
-  - "--disable-gssapi"
 
 tests:
   enabled: true

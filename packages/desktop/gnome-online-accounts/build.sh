@@ -7,13 +7,16 @@ configure() {
     mkdir -p build
     cd    build
 
+    # kerberos=true: enterprise auth in cloud-account flows (Exchange,
+    # Office 365, etc.). mitkrb is tier:core (reclassified 2026-05-10);
+    # already declared as build dep.
     meson setup ..            \
           --prefix=/usr       \
           --libdir=/usr/lib   \
           --buildtype=release \
           -Ddocumentation=false \
           -Dman=false \
-          -Dkerberos=false
+          -Dkerberos=true
 }
 
 build() {

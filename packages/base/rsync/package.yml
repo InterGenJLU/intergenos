@@ -15,6 +15,7 @@ source:
 dependencies:
   build:
     - popt
+    - xxhash
   host: []
   runtime: []
 

@@ -7,7 +7,6 @@ configure() {
     # Patch applied by builder PATCH phase (package.yml) with SHA256 validation.
 
     ./configure --prefix=/usr    \
-                --disable-xxhash \
                 --without-included-zlib
 }
 

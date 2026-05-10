@@ -4,6 +4,13 @@
 
 configure() {
     set -e
+    # WITH_OPENLDAP=ON: LDAP address book backend. openldap is in tree at
+    # packages/desktop/openldap; declared as build dep.
+    # WITH_KRB5=ON: Kerberos authentication for IMAP/SMTP/cloud accounts.
+    # mitkrb is now tier:core (reclassified 2026-05-10); declared as
+    # build dep.
+    # WITH_LIBDB=OFF: Berkeley DB is deprecated upstream (Oracle license
+    # issues); kept off intentionally per BLFS recommendation.
     cmake -B build -G Ninja                    \
           -DCMAKE_INSTALL_PREFIX=/usr          \
           -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5           \
@@ -12,8 +19,6 @@ configure() {
           -DENABLE_INSTALLED_TESTS=OFF         \
           -DENABLE_VALA_BINDINGS=ON            \
           -DENABLE_INTROSPECTION=ON            \
-          -DWITH_OPENLDAP=OFF                  \
-          -DWITH_KRB5=OFF                      \
           -DWITH_LIBDB=OFF                     \
           -W no-dev
 }
