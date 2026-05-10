@@ -87,23 +87,34 @@ build_core_package() {
 
     export PKG_VERSION="$version"
 
-    # Verify source integrity before extraction
-    local expected_sha256
-    expected_sha256=$(get_package_sha256 "${IGOS_PACKAGES}/${pkg_dir}/package.yml")
-    if ! verify_source_checksum "${IGOS_SOURCES}/${tarball}" "$expected_sha256"; then
-        log "FATAL: Source integrity check failed for ${tarball} — aborting"
-        return 1
-    fi
+    # Source-less packages (source: [] in package.yml) — typically internal
+    # InterGenOS components like pkm whose source files are bind-mounted via
+    # /mnt/intergenos and copied directly in do_install. Pass tarball="" to
+    # signal "no extraction." Mirrors the Python builder's existing handling.
+    if [ -z "$tarball" ]; then
+        rm -rf "$workdir"
+        mkdir -pv "$workdir"
+        cd "$workdir"
+        log "  [SOURCE-LESS] no tarball; using empty workdir at $workdir"
+    else
+        # Verify source integrity before extraction
+        local expected_sha256
+        expected_sha256=$(get_package_sha256 "${IGOS_PACKAGES}/${pkg_dir}/package.yml")
+        if ! verify_source_checksum "${IGOS_SOURCES}/${tarball}" "$expected_sha256"; then
+            log "FATAL: Source integrity check failed for ${tarball} — aborting"
+            return 1
+        fi
 
-    # Clean and extract
-    rm -rf "$workdir"
-    mkdir -pv "$workdir"
-    tar -xf "${IGOS_SOURCES}/${tarball}" -C "$workdir" --strip-components=1 \
-        --no-same-owner --no-same-permissions || {
-        log "ERROR: Failed to extract ${tarball}"
-        return 1
-    }
-    cd "$workdir"
+        # Clean and extract
+        rm -rf "$workdir"
+        mkdir -pv "$workdir"
+        tar -xf "${IGOS_SOURCES}/${tarball}" -C "$workdir" --strip-components=1 \
+            --no-same-owner --no-same-permissions || {
+            log "ERROR: Failed to extract ${tarball}"
+            return 1
+        }
+        cd "$workdir"
+    fi
 
     local start=$(date +%s)
 
@@ -374,6 +385,76 @@ run_package "git" "git" "2.53.0" \
 run_package "busybox-static" "busybox-static" "1.37.0" \
     "busybox-1.37.0.tar.bz2" \
     "Statically-linked busybox userland for initramfs"
+
+# --- Group G: Core libraries previously misclassified or silent-skipped ---
+# Authored 2026-05-10 to address Build #6 audit findings. Each entry below
+# was either:
+#   (a) silent-skipped — declared tier:core but never wired (Rulebook Rule 2)
+#   (b) retiered to a non-core tier in Build #6 to bypass missing wiring
+#       (Rulebook Rule 1 violation — corrected by tier-restoration)
+#   (c) newly authored to provide a system library a feature-disable flag
+#       had been bypassing (Rulebook Rule 3 — xxhash for rsync)
+# Order is topological per declared build deps.
+
+run_package "popt" "popt" "1.19" \
+    "popt-1.19.tar.gz" \
+    "Command line option parsing library"
+
+run_package "lzo" "lzo" "2.10" \
+    "lzo-2.10.tar.gz" \
+    "Real-time data compression library"
+
+run_package "xxhash" "xxhash" "0.8.3" \
+    "xxhash-0.8.3.tar.gz" \
+    "Extremely fast non-cryptographic hash algorithm library + xxhsum CLI"
+
+run_package "mitkrb" "mitkrb" "1.22.2" \
+    "krb5-1.22.2.tar.gz" \
+    "MIT Kerberos V5 authentication"
+
+run_package "apparmor" "apparmor" "3.1.7" \
+    "apparmor-v3.1.7.tar.gz" \
+    "AppArmor MAC framework — libapparmor, parser, profiles"
+
+run_package "pkm" "pkm" "0.1.0" \
+    "" \
+    "InterGenOS package manager — install, remove, query, verify"
+
+run_package "help2man" "help2man" "1.49.3" \
+    "help2man-1.49.3.tar.xz" \
+    "Generate man pages from --help output"
+
+run_package "keyutils" "keyutils" "1.6.3" \
+    "keyutils-1.6.3.tar.gz" \
+    "Linux kernel key management utilities"
+
+run_package "efivar" "efivar" "39" \
+    "efivar-39.tar.gz" \
+    "Library and tools for EFI variable management"
+
+run_package "gnu-efi" "gnu-efi" "3.0.18" \
+    "gnu-efi-3.0.18.tar.bz2" \
+    "GNU EFI development library — UEFI headers and libraries"
+
+run_package "btrfs-progs" "btrfs-progs" "6.19.1" \
+    "btrfs-progs-v6.19.1.tar.xz" \
+    "Userspace utilities and headers for the Btrfs filesystem"
+
+run_package "efitools" "efitools" "1.9.2" \
+    "efitools-1.9.2.tar.gz" \
+    "Tools for manipulating UEFI Secure Boot variables and keys"
+
+run_package "sbsigntool" "sbsigntool" "0.9.5" \
+    "sbsigntools-0.9.5.tar.gz" \
+    "Tools for signing and verifying EFI binaries with Secure Boot keys"
+
+run_package "rpm" "rpm" "4.18.2" \
+    "rpm-4.18.2.tar.bz2" \
+    "RPM package manager — provides rpm2cpio for shim-signed extraction"
+
+run_package "mokutil" "mokutil" "0.7.2" \
+    "mokutil-0.7.2.tar.gz" \
+    "Tool for managing Machine Owner Keys (MOK) for Secure Boot"
 
 # ============================================================================
 # Summary
