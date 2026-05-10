@@ -4,7 +4,7 @@ release: 1
 description: BSD man page formatter and viewer
 license: ISC
 homepage: https://mandoc.bsd.lv/
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

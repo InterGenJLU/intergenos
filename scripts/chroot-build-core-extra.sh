@@ -445,6 +445,15 @@ run_package "mitkrb" "mitkrb" "1.22.2" \
     "krb5-1.22.2.tar.gz" \
     "MIT Kerberos V5 authentication"
 
+# mandoc: BSD man-page formatter. Required by efivar's docs/Makefile to
+# convert .mdoc source → traditional man pages at build time. Retiered
+# desktop→core (tier reflects intrinsic nature: man-page formatter,
+# analogous to groff which is core). Owner-approved 2026-05-10 after
+# efivar halt surfaced the cross-tier dep cascade.
+run_package "mandoc" "mandoc" "1.14.6" \
+    "mandoc-1.14.6.tar.gz" \
+    "BSD man page formatter and viewer"
+
 run_package "efivar" "efivar" "39" \
     "efivar-39.tar.gz" \
     "Library and tools for EFI variable management"
