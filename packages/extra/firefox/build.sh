@@ -16,15 +16,15 @@
 
 configure() {
     set -e
-    # ICU policy decision (2026-05-08, owner-approved): build firefox against
-    # its bundled ICU rather than the system ICU. Build #5 hit the
-    # intl/lwbrk/LineBreaker.cpp:458 static_assert
-    #   U_LB_COUNT == std::size(sUnicodeLineBreakToClass)
-    # because our system ICU is one Unicode line-break-class ahead of
-    # firefox 140.9.0esr's bundled sUnicodeLineBreakToClass[]. Mozilla
-    # validates ESR releases against bundled ICU; system-ICU mismatches
-    # are an upstream-known recurring issue. Bundled ICU rides the ESR
-    # security cycle. (See `--without-system-icu` below.)
+    # ICU policy (2026-05-08, owner-ratified Option A): system ICU + patch.
+    # firefox-140.9.0esr-icu78.patch teaches firefox's
+    # intl/lwbrk/LineBreaker.cpp about the new ICU 78 line-break class
+    # UNAMBIGUOUS_HYPHEN (LB 48 → CLASS_BREAKABLE), restoring parity between
+    # firefox's static sUnicodeLineBreakToClass[] and our system ICU's
+    # U_LB_COUNT. Patch is upstream-Gentoo's, applies clean to 140.9.0esr.
+    # System ICU = one shared library on the system (a CVE rebuild benefits
+    # everything, not firefox alone) + ICU is independently user-patchable
+    # without a firefox rebuild.
 
     # Patches applied by builder PATCH phase (package.yml) with SHA256 validation.
     # Post-patch fixups only below.
@@ -54,9 +54,7 @@ ac_add_options --disable-necko-wifi
 
 # Use system libraries for recommended dependencies
 ac_add_options --with-system-av1
-# system ICU dropped — see configure() comment. Bundled ICU rides Mozilla
-# ESR security cycle; system ICU drifted ahead of firefox's static tables.
-ac_add_options --without-system-icu
+ac_add_options --with-system-icu
 ac_add_options --with-system-libevent
 ac_add_options --with-system-libvpx
 ac_add_options --with-system-nspr

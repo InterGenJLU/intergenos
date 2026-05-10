@@ -19,6 +19,8 @@ patches:
     sha256: cb452bdd6026a15b44f5d41f3c21d153c2c8f92478072d4d768d90421f2b8e79
   - file: firefox-140.9.0esr-llvm_22-1.patch
     sha256: b3b608772ed7f256b4c06e5a94af38bf3c6bdfc14f66776f662db693add077e6
+  - file: firefox-140.9.0esr-icu78.patch
+    sha256: d2b4c32f55b3db49635c337e70e5bd74506e7d56fa51959fe8c3ae67072a565d
 dependencies:
   build:
   - cbindgen
