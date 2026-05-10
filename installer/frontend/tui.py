@@ -518,14 +518,18 @@ def run_declarative(yaml_path, install_io, archive_dir, packages_dir, dry_run):
             # per-hook fanout from hooks.run_post_install_hooks
             print(f"        ({current}/{total}) {message}")
             return
-        # Phase-boundary event. current==phase-index on enter, ==index+1 on exit.
-        # Render two-line shape: enter ("[ ... ]"), exit ("[ OK  ]").
-        if current == 0 or current < phases_total and message and "WARN" not in message and current < phases_total:
-            tag = "[ ... ]" if current < total else "[ OK  ]"
-        else:
-            tag = "[ OK  ]"
+        # Phase-boundary event. Orchestrator emits two events per phase:
+        # enter at current==phase_idx, exit at current==phase_idx+1. Render
+        # two-line shape by checking which side of the phase index we're on.
+        phase_idx = backend_install.PHASE_ORDER.index(phase)
         if "WARN" in message or "failed" in message.lower():
             tag = "[ WARN ]"
+        elif current == phase_idx:
+            tag = "[ ... ]"
+        elif current == phase_idx + 1:
+            tag = "[ OK  ]"
+        else:
+            tag = "[ ... ]"
         print(f"  {tag} {phase}: {message}")
 
     verify_config = None if dry_run else _build_verify_config_if_present()
