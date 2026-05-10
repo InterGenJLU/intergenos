@@ -28,5 +28,8 @@ dependencies:
   - libnotify
   - systemd
   - dbus
+  - libdeflate
+  - miniupnpc
+  - libnatpmp
   host: []
   runtime: []

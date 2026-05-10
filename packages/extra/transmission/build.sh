@@ -2,7 +2,7 @@
 # transmission 4.1.1 — Fast, easy, free BitTorrent client
 # Not in BLFS — built from upstream GitHub release.
 #
-# Components built (matches owner-approved 2026-04-08 strong-apps scope):
+# Components built (matches maintainer-approved 2026-04-08 strong-apps scope):
 #   * libtransmission   — core library
 #   * transmission-daemon  — headless daemon (systemd-notify enabled)
 #   * transmission-remote, transmission-show, transmission-create,
@@ -17,14 +17,21 @@
 #     pulling Qt purely for one optional client violates dependency policy.
 #   * macOS native client            — N/A on Linux.
 #
-# Bundled (third-party/) libraries used as fallback because we have not yet
-# packaged stand-alone versions and Transmission ships them in-tree:
-#   miniupnpc, libnatpmp, libdeflate, libb64, dht, libutp, fmt, fast_float,
-#   rapidjson, small, utfcpp, wide-integer, googletest (tests only).
-# CMake AUTO mode picks the system version when available, otherwise
-# falls back to the bundled copy. We supply system copies of:
-#   openssl, curl, libevent, libpsl, glib2, gtkmm4 (+ glibmm, giomm),
-#   gettext, libnotify, systemd, dbus.
+# System libraries (USE_SYSTEM_*=ON):
+#   miniupnpc, libnatpmp, libdeflate — packaged as standalone tier:extra
+#     libraries 2026-05-09 (commits authoring libdeflate/miniupnpc/libnatpmp).
+#     Replaces the bundled-libs path through transmission's CMake which is
+#     unreliable: tr_add_external_auto_library() omits BUILD_BYPRODUCTS on its
+#     ExternalProject_Add calls, so the gtk target's link step cannot resolve
+#     the .a output paths. Build #6 hit five distinct halts chasing this
+#     before maintainer approved Option A (system libs) on 2026-05-09.
+#
+# Bundled libraries kept (no upstream packaging required for the build to
+# succeed; transmission's CMake handles these without ExternalProject pain):
+#   libb64, dht, libutp, fmt, fast_float, rapidjson, small, utfcpp,
+#   wide-integer, googletest (tests only).
+# These build cleanly because they're either header-only or compiled directly
+# into libtransmission as in-tree sources rather than via ExternalProject.
 
 configure() {
     set -e
@@ -34,36 +41,18 @@ configure() {
     # in template-heavy variant code. Narrow -Wno-error= keeps the
     # diagnostic visible without failing the build.
     #
-    # Halt #32 — bundled third-party/dht include path not wired by
-    # transmission's CMake. tr-dht.h does `#include <dht/dht.h>` and
-    # third-party/dht/dht.h exists, so adding `-Ithird-party` to CXXFLAGS
-    # restores the include path resolution.
-    # Halt #33 (2026-05-09 Build #6) — bundled libnatpmp's CMakeLists.txt
-    # does not export its include directory via target_include_directories,
-    # so even with USE_SYSTEM_NATPMP=OFF the include path doesn't propagate
-    # to libtransmission's port-forwarding-natpmp.cc compile unit. Adding
-    # -Ithird-party/libnatpmp explicitly.
-    #
-    # Halt #34 — bundled miniupnpc has a layout mismatch: source uses
-    # `#include <miniupnpc/miniupnpc.h>` (system-style FHS path), but the
-    # bundled headers are at third-party/miniupnp/miniupnpc/include/*.h
-    # (no `miniupnpc/` subdir within `include/`). Bridging with a symlink
-    # at third-party/miniupnpc → miniupnp/miniupnpc/include so that
-    # `-Ithird-party` + `<miniupnpc/miniupnpc.h>` resolves to the bundled
-    # headers via symlink walk.
-    if [ ! -e third-party/miniupnpc ]; then
-        ln -sfn miniupnp/miniupnpc/include third-party/miniupnpc
-    fi
-
-    # Halt #35 — same shape repeated for libdeflate. Adding -I for it
-    # too. (Keeping all the -I flags in one place rather than chasing each
-    # halt individually.)
-    export CXXFLAGS="${CXXFLAGS:-} -Wno-error=maybe-uninitialized -I$(pwd)/third-party -I$(pwd)/third-party/libnatpmp -I$(pwd)/third-party/libdeflate"
+    # Build #5 audit: Halt #32 — bundled third-party/dht include path not
+    # wired by transmission's CMake. tr-dht.h does `#include <dht/dht.h>`
+    # and third-party/dht/dht.h exists, so adding `-Ithird-party` to
+    # CXXFLAGS restores the include path resolution. dht is a small in-tree
+    # source (not an ExternalProject) so this fix remains valid under the
+    # 2026-05-09 system-libs migration.
+    export CXXFLAGS="${CXXFLAGS:-} -Wno-error=maybe-uninitialized -I$(pwd)/third-party"
 
     # Out-of-tree CMake build.
     cmake -S . -B build                                 \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo               \
-        -DCMAKE_CXX_FLAGS_RELWITHDEBINFO_INIT="-O2 -g -Wno-error=maybe-uninitialized -I$(pwd)/third-party -I$(pwd)/third-party/libnatpmp" \
+        -DCMAKE_CXX_FLAGS_RELWITHDEBINFO_INIT="-O2 -g -Wno-error=maybe-uninitialized -I$(pwd)/third-party" \
         -DCMAKE_INSTALL_PREFIX=/usr                     \
         -DCMAKE_INSTALL_LIBDIR=lib                      \
         -DCMAKE_INSTALL_SYSCONFDIR=/etc                 \
@@ -84,9 +73,9 @@ configure() {
         -DWITH_CRYPTO=openssl                           \
         -DWITH_INOTIFY=ON                               \
         -DWITH_SYSTEMD=ON                               \
-        -DUSE_SYSTEM_MINIUPNPC=OFF                      \
-        -DUSE_SYSTEM_NATPMP=OFF                         \
-        -DUSE_SYSTEM_DEFLATE=OFF                        \
+        -DUSE_SYSTEM_MINIUPNPC=ON                       \
+        -DUSE_SYSTEM_NATPMP=ON                          \
+        -DUSE_SYSTEM_DEFLATE=ON                         \
         -DUSE_SYSTEM_DHT=OFF                            \
         -DUSE_SYSTEM_UTP=OFF                            \
         -DUSE_SYSTEM_B64=OFF                            \
