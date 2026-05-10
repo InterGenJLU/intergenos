@@ -4,10 +4,10 @@
 
 This rulebook gates **build decisions** — package authoring, chroot wiring, halt handling, deferral choices. It is consulted ahead of all other guidance:
 
-1. **HOLY GRAIL** (Mythos+Glasswing security alignment) — supreme directive
-2. **PRIME DIRECTIVE** — supreme directive
+1. **Project security alignment** — supreme directive (hardened-against-AI-class-attackers stance)
+2. **PRIME DIRECTIVE** — supreme directive (user-control-first stance)
 3. **This rulebook** — first operational filter
-4. Memory entries, conventions, individual feedback notes — backup detail
+4. Conventions, individual feedback notes — backup detail
 
 Read top-to-bottom **at every halt** and **at every multi-option proposal to the maintainer**.
 
@@ -283,28 +283,3 @@ The cost of pausing to ask is low. The cost of a "fast" workaround that ships a 
 
 The maintainer's standing direction at session-start of every build session: **"bootable, working, secureboot capable ISO, all expected functionality present, nothing degraded unexplainedly."** Every rule here exists to keep that promise.
 
----
-
-## Appendix — Rule-to-memory mapping
-
-These memory entries become one-line stubs pointing at this file. Source-of-truth is here:
-
-- `feedback_never_disable_features.md` → Rule 3
-- `feedback_never_pattern_match_disables.md` → Rule 4
-- `feedback_no_known_bad_options.md` → Section 4 (when in doubt)
-- `feedback_iceberg_halt_timebox.md` → **REWRITE** to match Rule 6. The existing memory's "defer" framing is incorrect; the corrected rule is FULL HALT + surface + request permission. Memory entry to be updated as part of the consolidation pass.
-- `feedback_silent_skip_wiring_audit.md` → Rule 2 + Rule 17
-- `feedback_vendor_tarball_extract_pattern.md` → Rule 5
-- `feedback_audit_all_consumers.md` → Rule 9
-- `feedback_audit_hardening_recurrence.md` → Rule 19
-- `feedback_no_correctness_speed_tradeoff.md` → Rule 14
-- `feedback_no_speed_framing_at_all.md` → Rule 14
-- `feedback_complete_over_defer.md` → Section 4 (deferral discipline interaction)
-- `feedback_research_first.md` → Rule 8
-- `feedback_stop_examine_identify.md` → Rule 7
-- `feedback_lfs_exact_compliance.md` → Rule 13
-- `feedback_dependency_policy.md` → Rule 3 (related)
-- `feedback_latest_stable_versions.md` → Rule 12
-- `feedback_every_package_ships_man_page.md` → Rule 15
-- `feedback_always_checkpoints.md` → Rule 16
-- `feedback_tests_are_truth.md` → Rule 10 (related)
