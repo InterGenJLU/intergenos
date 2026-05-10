@@ -1,0 +1,16 @@
+name: xxhash
+version: "0.8.3"
+release: 1
+description: Extremely fast non-cryptographic hash algorithm (XXH32, XXH64, XXH3, XXH128) library + xxhsum CLI
+license: BSD-2-Clause
+homepage: https://github.com/Cyan4973/xxHash
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/Cyan4973/xxHash/archive/refs/tags/v${version}/xxhash-${version}.tar.gz
+  sha256: aae608dfe8213dfd05d909a57718ef82f30722c392344583d3f39050c7f29a80
+dependencies:
+  build: []
+  host: []
+  runtime: []
