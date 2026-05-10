@@ -1,0 +1,17 @@
+name: libdeflate
+version: "1.25"
+release: 1
+description: Heavily optimized library for DEFLATE/zlib/gzip compression and decompression
+license: MIT
+homepage: https://github.com/ebiggers/libdeflate
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/ebiggers/libdeflate/releases/download/v${version}/libdeflate-${version}.tar.gz
+  sha256: fed5cd22f00f30cc4c2e5329f94e2b8a901df9fa45ee255cb70e2b0b42344477
+dependencies:
+  build:
+  - cmake
+  host: []
+  runtime: []
