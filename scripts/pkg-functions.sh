@@ -70,6 +70,139 @@ get_package_sha256() {
     grep 'sha256:' "$yml" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'"
 }
 
+# Apply patches declared in package.yml's `patches:` block to the current
+# working directory (assumed to be the extracted source tree, cd'd into
+# before this is called).
+#
+# Mirrors igos-build/styles/base.py:_patch_commands() so tier:core and
+# tier:base packages get the same patch-application behavior as
+# tier:desktop/extra/ai packages built via igos-build.py.
+#
+# For each declared patch:
+#   1. Verifies the file exists at $IGOS_PATCHES (which inside the chroot
+#      resolves to /sources where both $SOURCES and $PATCHES were copied
+#      during phase_setup).
+#   2. Verifies SHA256 against the declared value (defense-in-depth alongside
+#      phase_verify_sources).
+#   3. Applies via `patch -Np1 -i ...` (or zcat/bzcat/xzcat for compressed).
+#
+# Usage: apply_package_patches <package_yml_path>
+# Returns 0 if all declared patches applied cleanly, or if no patches declared.
+# Returns 1 on any patch file missing, sha mismatch, or patch-apply failure.
+#
+# Background: tier:core / tier:base run_package helpers (build_ch8_package,
+# build_core_package, build_base_package) historically did not apply patches.
+# `# Patch applied by builder PATCH phase (package.yml)` comments in some
+# build.sh files documented the intent but the wiring never landed. mitkrb
+# halt 2026-05-10 surfaced the gap when mitkrb retiered desktop→core,
+# moving from the igos-build.py path (auto-patch) to the run_package path
+# (no auto-patch). This helper closes that gap for ALL tier:core+base
+# packages.
+apply_package_patches() {
+    local yml="$1"
+    if [ ! -f "$yml" ]; then
+        # No package.yml means no declared patches. Don't fail; the build.sh
+        # may be the source of truth for sourceless packages (e.g., pkm).
+        return 0
+    fi
+
+    # Extract patches block via python (yaml is available in chroot per
+    # Chapter 8 baseline). Output one "file|sha256" line per declared patch.
+    local patches_list
+    patches_list=$(python3 - "$yml" <<'PYEOF'
+import sys, yaml
+try:
+    with open(sys.argv[1]) as f:
+        d = yaml.safe_load(f)
+except Exception as e:
+    sys.stderr.write(f"[pkg] apply_package_patches: YAML parse error: {e}\n")
+    sys.exit(2)
+if not isinstance(d, dict):
+    sys.exit(0)
+patches = d.get("patches") or []
+if not isinstance(patches, list):
+    sys.exit(0)
+for p in patches:
+    if not isinstance(p, dict):
+        continue
+    # Stringify defensively. Don't use `or ""` — yaml parses unquoted
+    # all-numeric shas as int 0, and `0 or ""` evaluates to "" (falsy),
+    # skipping the sha check entirely. Convert via explicit None test +
+    # str() so a malformed numeric sha becomes "0" and trips the
+    # 64-char hex regex downstream rather than slipping through.
+    pfile = p.get("file")
+    pfile = "" if pfile is None else str(pfile)
+    psha = p.get("sha256")
+    psha = "" if psha is None else str(psha)
+    if pfile:
+        print(f"{pfile}|{psha}")
+PYEOF
+)
+    local py_rc=$?
+    if [ $py_rc -ne 0 ]; then
+        echo "[pkg] FATAL: apply_package_patches could not parse $yml"
+        return 1
+    fi
+
+    if [ -z "$patches_list" ]; then
+        # No patches declared — common case, success.
+        return 0
+    fi
+
+    # Apply each patch in declared order. Halt on first failure.
+    local pfile psha patch_path actual
+    while IFS='|' read -r pfile psha; do
+        [ -z "$pfile" ] && continue
+        patch_path="${IGOS_PATCHES}/${pfile}"
+        if [ ! -f "$patch_path" ]; then
+            echo "[pkg] FATAL: patch file not found: ${patch_path}"
+            return 1
+        fi
+        if [ -n "$psha" ]; then
+            if [[ ! "$psha" =~ ^[a-f0-9]{64}$ ]]; then
+                echo "[pkg] FATAL: patch sha256 malformed for ${pfile}: '${psha:0:32}...'"
+                return 1
+            fi
+            actual=$(sha256sum "$patch_path" | cut -d' ' -f1)
+            if [ "$actual" != "$psha" ]; then
+                echo "[pkg] FATAL: patch sha mismatch for ${pfile}"
+                echo "[pkg]   expected: $psha"
+                echo "[pkg]   actual:   $actual"
+                return 1
+            fi
+        fi
+        echo "[pkg] Applying patch: ${pfile}"
+        case "$pfile" in
+            *.gz)
+                if ! zcat "$patch_path" | patch -Np1; then
+                    echo "[pkg] FATAL: patch -Np1 (gz) failed for ${pfile}"
+                    return 1
+                fi
+                ;;
+            *.bz2)
+                if ! bzcat "$patch_path" | patch -Np1; then
+                    echo "[pkg] FATAL: patch -Np1 (bz2) failed for ${pfile}"
+                    return 1
+                fi
+                ;;
+            *.xz)
+                if ! xzcat "$patch_path" | patch -Np1; then
+                    echo "[pkg] FATAL: patch -Np1 (xz) failed for ${pfile}"
+                    return 1
+                fi
+                ;;
+            *)
+                if ! patch -Np1 -i "$patch_path"; then
+                    echo "[pkg] FATAL: patch -Np1 failed for ${pfile}"
+                    return 1
+                fi
+                ;;
+        esac
+    done <<< "$patches_list"
+
+    return 0
+}
+
 # ============================================================================
 # Internal helpers
 # ============================================================================

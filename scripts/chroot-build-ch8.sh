@@ -111,6 +111,18 @@ build_ch8_package() {
 
     local start=$(date +%s)
 
+    # Apply declared patches BEFORE sourcing build.sh (parity with
+    # igos-build.py's styles/base.py:_patch_commands). Helper is sourced
+    # from pkg-functions.sh. Without this step, declared patches in
+    # package.yml are silently ignored — the gap that surfaced as the
+    # mitkrb halt 2026-05-10.
+    cd "$workdir"
+    if ! apply_package_patches "${IGOS_PACKAGES}/${pkg_dir}/package.yml" >> "$pkg_log" 2>&1; then
+        log "  FAILED in patch-apply"
+        tail -20 "$pkg_log" | while IFS= read -r l; do log "    $l"; done
+        return 1
+    fi
+
     # Clear any previously-defined functions
     unset -f configure build check do_install post_install
 

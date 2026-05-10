@@ -118,6 +118,19 @@ build_core_package() {
 
     local start=$(date +%s)
 
+    # Apply declared patches BEFORE sourcing build.sh (parity with
+    # igos-build.py's styles/base.py:_patch_commands). Helper is sourced
+    # from pkg-functions.sh. Skipped for sourceless packages (no source
+    # tree to patch into). mitkrb halt 2026-05-10 surfaced this gap.
+    if [ -n "$tarball" ]; then
+        cd "$workdir"
+        if ! apply_package_patches "${IGOS_PACKAGES}/${pkg_dir}/package.yml" >> "$pkg_log" 2>&1; then
+            log "  FAILED in patch-apply"
+            tail -20 "$pkg_log" | while IFS= read -r l; do log "    $l"; done
+            return 1
+        fi
+    fi
+
     # Clear any previously-defined functions
     unset -f configure build check do_install post_install
 
