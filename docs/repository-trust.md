@@ -18,12 +18,9 @@ If an attacker intercepts your network traffic or compromises a mirror, they can
 
 The InterGenOS release signing key is anchored by an offline, air-gapped master key. Daily signing operations use subkeys securely stored on hardware tokens (Nitrokey 3 NFC) that require physical touch for operations.
 
-**Quick Reference Fingerprints:**
-*   **Master Fingerprint:** `46DD 1029 F98F D453 1D44  99C3 A2AF 3A36 C5CE F2C3`
-*   **Subkey [S1] (Primary):** `6451 D186 F997 5781 A145  1DE6 7E65 89C3 954F 031F`
-*   **Subkey [S2] (Backup):** `AB6C 6EA3 EDE8 4067 9044  EE5E 237E 35D9 6422 136B`
+**Master Fingerprint:** `5597 A3E0 587B 2530 06D0  DD7B 8C50 8261 8208 3050`
 
-For the full custody policy, key hierarchy, and verification commands, see the canonical [docs/signing-key.md](signing-key.md) publication.
+The canonical [docs/signing-key.md](signing-key.md) publication is the authoritative source for the full fingerprint set (master + four signing subkeys on hardware tokens + the encryption subkey) plus the custody policy, key hierarchy, and verification commands. Always cross-check that page against at least one out-of-band source before trusting the key (see signing-key.md §"Cross-check the fingerprint").
 
 ## 3. What `pkm` Does at Install Time
 
