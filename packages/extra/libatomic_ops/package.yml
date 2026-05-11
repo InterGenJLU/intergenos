@@ -4,7 +4,7 @@ release: 1
 description: Atomic memory update operations library
 license: MIT
 homepage: https://github.com/bdwgc/libatomic_ops
-tier: core
+tier: extra
 build_style: custom
 install_func: do_install
 source:

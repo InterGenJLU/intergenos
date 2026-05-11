@@ -4,7 +4,7 @@ release: 1
 description: Fundamental package for scientific computing with Python
 license: BSD-3-Clause
 homepage: https://numpy.org/
-tier: core
+tier: extra
 build_style: custom
 install_func: do_install
 source:

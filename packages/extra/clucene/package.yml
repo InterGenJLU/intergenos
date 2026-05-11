@@ -4,7 +4,7 @@ release: 1
 description: C++ port of Lucene high performance text search engine
 license: LGPL-2.1-or-later OR Apache-2.0
 homepage: https://clucene.sourceforge.net/
-tier: core
+tier: extra
 build_style: custom
 install_func: do_install
 source:

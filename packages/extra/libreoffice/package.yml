@@ -4,7 +4,7 @@ release: 1
 description: Full-featured office productivity suite
 license: MPL-2.0
 homepage: https://www.libreoffice.org/
-tier: core
+tier: extra
 build_style: custom
 install_func: do_install
 source:
