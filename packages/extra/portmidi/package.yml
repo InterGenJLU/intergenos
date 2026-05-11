@@ -4,7 +4,7 @@ release: 1
 description: Portable real-time MIDI I/O library (ALSA backend on Linux)
 license: MIT
 homepage: https://github.com/PortMidi/portmidi
-tier: desktop
+tier: extra
 build_style: cmake
 install_func: do_install
 source:

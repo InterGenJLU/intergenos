@@ -4,7 +4,7 @@ release: 1
 description: ID3 tag manipulation library (MAD project)
 license: GPL-2.0-or-later
 homepage: https://sourceforge.net/projects/mad/
-tier: desktop
+tier: extra
 build_style: autotools
 install_func: do_install
 source:

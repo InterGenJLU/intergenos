@@ -4,7 +4,7 @@ release: 1
 description: Cross-platform portable audio I/O library
 license: MIT
 homepage: http://www.portaudio.com/
-tier: desktop
+tier: extra
 build_style: custom
 install_func: do_install
 source:

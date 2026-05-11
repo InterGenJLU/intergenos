@@ -4,7 +4,7 @@ release: 1
 description: GObject plugin system
 license: LGPL-2.1-or-later
 homepage: ''
-tier: desktop
+tier: extra
 build_style: custom
 install_func: do_install
 source:

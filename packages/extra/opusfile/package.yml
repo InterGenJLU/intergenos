@@ -4,7 +4,7 @@ release: 1
 description: High-level decoder library for the standard Opus-in-Ogg container format
 license: BSD-3-Clause
 homepage: https://opus-codec.org/
-tier: desktop
+tier: extra
 build_style: custom
 install_func: do_install
 source:
