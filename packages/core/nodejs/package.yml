@@ -4,7 +4,7 @@ release: 1
 description: JavaScript runtime built on V8
 license: MIT
 homepage: https://nodejs.org/
-tier: extra
+tier: core
 build_style: custom
 install_func: do_install
 source:

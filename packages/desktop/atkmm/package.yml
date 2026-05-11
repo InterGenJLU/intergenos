@@ -4,7 +4,7 @@ release: 1
 description: C++ interface to the ATK accessibility toolkit (GTK3 version)
 license: LGPL-2.1-or-later
 homepage: https://www.gtkmm.org/
-tier: extra
+tier: desktop
 build_style: meson
 install_func: do_install
 source:

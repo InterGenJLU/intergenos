@@ -4,7 +4,7 @@ release: 1
 description: Type-safe callback system for C++ (sigc++-2.0, GTK3 compatibility)
 license: LGPL-2.1-or-later
 homepage: https://libsigcplusplus.github.io/libsigcplusplus/
-tier: extra
+tier: desktop
 build_style: meson
 install_func: do_install
 source:
