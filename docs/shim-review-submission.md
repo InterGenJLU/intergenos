@@ -84,7 +84,11 @@ Additionally, InterGenOS's kernel-module-signing posture (ephemeral per-build mo
 
 Therefore InterGenOS requires its own shim binary signed by Microsoft with the InterGenOS vendor cert embedded.
 
-**Empirical note (2026-04-18):** the Fedora shim-x64-16.1-2 binary InterGenOS currently piggybacks on for the Monday 2026-04-20 release ships with MS 2011 CA signature only (verified `sbverify --list shimx64.efi`). That was acceptable for the piggyback bootstrap. Our own shim-review submission, opened before the 2026-06-27 cert-transition deadline, will receive dual-signed (2011 + 2023 CA) binaries from Microsoft for maximum hardware compatibility — a strict improvement over the Fedora-piggyback posture.
+**Empirical note (2026-04-18):** the Fedora shim-x64-16.1-2 binary InterGenOS currently piggybacks on for the Monday 2026-04-20 release ships with MS 2011 CA signature only (verified `sbverify --list shimx64.efi`). That was acceptable for the piggyback bootstrap.
+
+**Realistic timeline posture for InterGenOS's own shim-review submission:** Microsoft dual-signs (2011 + 2023 CA) only while the 2011 CA is active; the 2011 CA expires 2026-06-27. Empirically, recent rhboot/shim-review submissions average ~138 days from Issue-open to merge (range 91-589 across 5 examined precedents); the fastest comparable case (Miray Software, 91 days) would still place InterGenOS's signing post-2026-06-27 even from an earlier Issue-open date. **InterGenOS therefore plans for 2023-CA-only signing on its first MS-signed shim.** Trade-off acknowledged: 2023-CA-only signatures are not honored by firmware shipped pre-2023 with non-updated `db` variables. Most UEFI firmware shipped since 2024 carries the 2023 CA in default `db`, and most major OEMs shipped firmware updates carrying it during 2024-2025; the affected population is a small minority of fielded hardware.
+
+**End-user fallback for older firmware:** InterGenOS ships a MOK-enrollment workflow documented in `docs/mok-enrollment.md` (8-section runbook with per-vendor BIOS variants + failure-mode recovery). Users on pre-2023-`db` firmware who want Secure Boot enforcement install with MOK-enrolled InterGenOS keys; this preserves the security posture without depending on the MS 2023 CA being present in firmware default `db`.
 
 ---
 
