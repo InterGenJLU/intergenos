@@ -10,6 +10,9 @@ configure() {
 
     sed -i -e '/eq 0/{N;s/12 //}' plugins/kdb/db2/libdb2/test/run.test &&
 
+    # --with-cracklib + --with-ldap enable two declared deps that were
+    # silently disabled in the original configure invocation. Build #7
+    # halt 2026-05-10 surfaced the gap. Owner-direct fix.
     ./configure --prefix=/usr            \
                 --sysconfdir=/etc        \
                 --localstatedir=/var/lib \
@@ -17,6 +20,8 @@ configure() {
                 --with-system-et         \
                 --with-system-ss         \
                 --with-system-verto=no   \
+                --with-cracklib          \
+                --with-ldap              \
                 --enable-dns-for-realm   \
                 --disable-rpath
 }

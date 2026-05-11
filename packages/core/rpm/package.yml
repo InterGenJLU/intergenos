@@ -15,5 +15,9 @@ source:
 dependencies:
   build:
     - popt
+    - libgcrypt
   host: []
   runtime: []
+# libgcrypt added 2026-05-11 (owner-direct): rpm's configure errored out
+# in Build #7 because libgcrypt was an undeclared real dep. The header
+# is required by rpm's signature-verification code paths.
