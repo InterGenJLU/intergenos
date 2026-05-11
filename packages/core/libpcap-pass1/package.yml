@@ -1,0 +1,29 @@
+name: libpcap-pass1
+version: "1.10.6"
+release: 1
+description: Packet capture library (bootstrap — without Bluetooth capture)
+license: BSD-3-Clause
+homepage: ''
+tier: core
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.tcpdump.org/release/libpcap-${version}.tar.xz
+  sha256: ec97d1206bdd19cb6bdd043eaa9f0037aa732262ec68e070fd7c7b5f834d5dfc
+dependencies:
+  build:
+  - libnl
+  - libusb
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static
+- --disable-bluetooth
+# First pass of the 2-pass libpcap build, authored to break a cycle:
+# libpcap (core) → bluez (desktop) → ... when consumers in tier:core need
+# libpcap, but Bluetooth packet capture pulls in the entire desktop stack.
+# This pass1 satisfies iptables (tier:core, the in-tree libpcap consumer);
+# the full libpcap with --enable-bluetooth lives in tier:desktop and
+# supersedes pass1 at install time via migrate-pkm-supersedes.sh.
+# Owner-approved 2026-05-11.
