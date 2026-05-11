@@ -19,7 +19,7 @@ set -euo pipefail
 CHROOT="${1:-/mnt/igos}"
 DB_PATH="${CHROOT}/var/lib/igos/packages/pkm.db"
 MANIFEST_DIR="${CHROOT}/var/lib/igos/packages"
-SUPERSEDE_PAIRS="lame|lame-pass2 linux-kernel|linux-kernel-pass2 libtiff|libtiff-pass2 gdk-pixbuf|gdk-pixbuf-pass2 gst-plugins-base|gst-plugins-base-pass2 freetype2-pass1|freetype2 pyyaml|pyyaml-pass2 systemd|systemd-pass2"
+SUPERSEDE_PAIRS="lame|lame-pass2 linux-kernel|linux-kernel-pass2 libtiff|libtiff-pass2 gdk-pixbuf|gdk-pixbuf-pass2 gst-plugins-base|gst-plugins-base-pass2 freetype2-pass1|freetype2 pyyaml|pyyaml-pass2 systemd|systemd-pass2 libpcap-pass1|libpcap slang-pass1|slang networkmanager-pass1|networkmanager pinentry-pass1|pinentry"
 PYTHON="${CHROOT}/usr/bin/python3"
 
 log() { echo "[migrate $(date +%H:%M:%S)] $*"; }
