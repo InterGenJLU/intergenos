@@ -261,10 +261,10 @@ log ""
 pkg_init
 
 # --- No-dependency packages ---
-
-run_package "cpio" "cpio" "2.15" \
-    "cpio-2.15.tar.bz2" \
-    "GNU cpio — copies files into or out of archives"
+# Note: cpio, which, popt were previously listed here but are tier:core
+# (cpio + which moved 2026-05-11 per docs/package-tiers.md; popt was
+# already tier:core). They are now wired in chroot-build-core-extra.sh
+# and removed from this script to avoid duplicate builds.
 
 run_package "ed" "ed" "1.22.5" \
     "ed-1.22.5.tar.lz" \
@@ -294,10 +294,6 @@ run_package "perl-file-fcntllock" "perl-file-fcntllock" "0.22" \
     "File-FcntlLock-0.22.tar.gz" \
     "Perl module for file locking"
 
-run_package "popt" "popt" "1.19" \
-    "popt-1.19.tar.gz" \
-    "Command line option parsing library"
-
 run_package "screen" "screen" "5.0.1" \
     "screen-5.0.1.tar.gz" \
     "GNU Screen terminal multiplexer"
@@ -310,9 +306,19 @@ run_package "time" "time" "1.9" \
     "time-1.9.tar.gz" \
     "GNU time — resource usage summary"
 
-run_package "which" "which" "2.23" \
-    "which-2.23.tar.gz" \
-    "Utility to show the full path of commands"
+# --- 2026-05-11: arrivals from desktop and core retiers ---
+
+run_package "parallel" "parallel" "20260322" \
+    "parallel-20260322.tar.bz2" \
+    "GNU parallel — execute jobs in parallel"
+
+run_package "rdfind" "rdfind" "1.8.0" \
+    "rdfind-1.8.0.tar.gz" \
+    "Duplicate-file finder"
+
+run_package "zip" "zip" "3.0" \
+    "zip30.tar.gz" \
+    "Info-ZIP archiver for creating ZIP archives"
 
 # --- Packages with dependencies on other base packages ---
 
