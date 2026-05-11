@@ -431,7 +431,19 @@ FOUNDATIONAL_LIBS_EXTENDED = {
     "linux-kernel-pass2",      # kernel pass2 bootstrap variant; lives w/ kernel
     "pyyaml-pass2",            # PyYAML pass2 = follows pyyaml which is build infra
     "nftables",                # system-level firewall
+    "libmnl", "libndp", "libnftnl",  # low-level netlink/nftables libs
     "sgml-common",             # DocBook/SGML data — build-time docs infra
+    "pciutils",                # PCI enumeration — system-level
+    "cpio",                    # initramfs construction
+    "openldap",                # LDAP directory service (used by mitkrb, gnupg2, exim, samba)
+    "cyrus-sasl",              # SASL auth (used by exim, openldap, samba)
+    "icu",                     # Unicode (used by libxml2-full, node.js)
+    "newt", "slang",           # text-mode UI for installer dialogs
+    "go",                      # foundational language runtime (per Node/Ruby/Rust convention)
+    "meson_python",            # PEP 517 build backend (Python build infra)
+    "pyproject-metadata",      # ditto
+    "cbindgen", "rust-bindgen",# Rust→C ABI generators (build-time tools)
+    "editables", "pathspec", "pluggy", "trove-classifiers",  # hatchling deps (already in PYTHON_BUILD_INFRA above; defense in depth)
 }
 
 # Final-stragglers desktop additions (catches the remaining UNCLEAR rows).
@@ -458,6 +470,7 @@ GUI_SUBSTRATE_DESKTOP_EXTRA = {
 BASE_CLI_EXTRA = {
     "parallel",  # GNU parallel
     "rdfind",    # duplicate-file finder
+    "zip", "unzip",  # archive CLI utilities (alongside tar/gzip in core)
 }
 
 
