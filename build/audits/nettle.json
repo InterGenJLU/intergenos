@@ -1,0 +1,189 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:52Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "nettle",
+    "blfs_name": "Nettle",
+    "blfs_version": "3.10.2",
+    "deps": [
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "optional for the\n                tests",
+        "type": "optional",
+        "version": "3.26.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "nettle-hash",
+    "nettle-lfib-stream",
+    "nettle-pbkdf2",
+    "pkcs1-conv",
+    "sexp-conv"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libhogweed.so",
+    "libnettle.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "nettle",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/nettle",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "fe9ff51cb1f2abb5e65a6b8c10a92da0ab5ab6eaf26e7fc2b675c45f1fb519b5",
+  "source_tarball": "nettle-3.10.2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://ftpmirror.gnu.org/nettle/nettle-${version}.tar.gz",
+  "tarball_files_count": 973,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-public-key",
+      "kind": "enable",
+      "name": "public-key"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-assembler",
+      "kind": "enable",
+      "name": "assembler"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-static",
+      "kind": "enable",
+      "name": "static"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-shared",
+      "kind": "enable",
+      "name": "shared"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-pic",
+      "kind": "enable",
+      "name": "pic"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-openssl",
+      "kind": "enable",
+      "name": "openssl"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-gcov",
+      "kind": "enable",
+      "name": "gcov"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-documentation",
+      "kind": "enable",
+      "name": "documentation"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-fat",
+      "kind": "enable",
+      "name": "fat"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-arm-neon",
+      "kind": "enable",
+      "name": "arm-neon"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-arm64-crypto",
+      "kind": "enable",
+      "name": "arm64-crypto"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-x86-aesni",
+      "kind": "enable",
+      "name": "x86-aesni"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-x86-sha-ni",
+      "kind": "enable",
+      "name": "x86-sha-ni"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-x86-pclmul",
+      "kind": "enable",
+      "name": "x86-pclmul"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-power-crypto-ext",
+      "kind": "enable",
+      "name": "power-crypto-ext"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-power-altivec",
+      "kind": "enable",
+      "name": "power-altivec"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-power9",
+      "kind": "enable",
+      "name": "power9"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-s390x-vf",
+      "kind": "enable",
+      "name": "s390x-vf"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-s390x-msa",
+      "kind": "enable",
+      "name": "s390x-msa"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-extra-asserts",
+      "kind": "enable",
+      "name": "extra-asserts"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-mini-gmp",
+      "kind": "enable",
+      "name": "mini-gmp"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-include-path",
+      "kind": "with",
+      "name": "include-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-lib-path",
+      "kind": "with",
+      "name": "lib-path"
+    }
+  ],
+  "version": "3.10.2"
+}

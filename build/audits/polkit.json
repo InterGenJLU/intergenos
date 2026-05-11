@@ -1,0 +1,237 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:02Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "polkit",
+    "blfs_name": "Polkit",
+    "blfs_version": "127",
+    "deps": [
+      {
+        "anchor": "duktape",
+        "name": "duktape-2.7.0",
+        "note": "",
+        "type": "required",
+        "version": "2.7.0"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "GObject\n                Introspection recommended",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "",
+        "type": "recommended",
+        "version": "1.1.45"
+      },
+      {
+        "anchor": "linux-pam",
+        "name": "Linux-PAM-1.7.2",
+        "note": "",
+        "type": "recommended",
+        "version": "1.7.2"
+      },
+      {
+        "anchor": "python-dbusmock",
+        "name": "dbusmock-0.38.1",
+        "note": "required for tests",
+        "type": "optional",
+        "version": "0.38.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "pkaction",
+    "pkcheck",
+    "pkexec",
+    "pkttyagent",
+    "polkitd"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libpolkit-agent-1.so",
+    "libpolkit-gobject-1.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "polkit",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--libexecdir=/usr/libexec",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "duktape",
+    "glib2",
+    "libxslt",
+    "docbook-xsl-nons",
+    "docbook-xml",
+    "linux-pam"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "tests",
+      "value": "true"
+    },
+    {
+      "name": "man",
+      "value": "true"
+    },
+    {
+      "name": "session_tracking",
+      "value": "logind"
+    },
+    {
+      "name": "os_type",
+      "value": "lfs"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/core/polkit",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "9b7bc16f086479dcc626c575976568ba4a85d34297a750d8ab3d2e57f6d8b988",
+  "source_tarball": "polkit-127.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/polkit-org/polkit/archive/${version}/polkit-${version}.tar.gz",
+  "tarball_files_count": 277,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "default": "logind",
+      "description": "",
+      "name": "session_tracking",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "custom directory for systemd system units",
+      "name": "systemdsystemunitdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "libs-only",
+      "type": "boolean"
+    },
+    {
+      "default": "polkitd",
+      "description": "",
+      "name": "polkitd_user",
+      "type": "string"
+    },
+    {
+      "default": "-",
+      "description": "",
+      "name": "polkitd_uid",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "privileged_group",
+      "type": "string"
+    },
+    {
+      "default": "pam",
+      "description": "",
+      "name": "authfw",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "distribution or OS",
+      "name": "os_type",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "pam file to include",
+      "name": "pam_include",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "directory to install PAM security module",
+      "name": "pam_module_dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "specify where pam files go",
+      "name": "pam_prefix",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Build example programs",
+      "name": "examples",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable introspection for this build",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "use gtk-doc to build documentation",
+      "name": "gtk_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build manual pages",
+      "name": "man",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "use gettext for translations",
+      "name": "gettext",
+      "type": "boolean"
+    }
+  ],
+  "version": "127"
+}

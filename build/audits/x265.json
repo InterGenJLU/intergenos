@@ -1,0 +1,89 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "x265",
+    "blfs_name": "x265",
+    "blfs_version": "4.1",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "nasm",
+        "name": "NASM-3.01",
+        "note": "",
+        "type": "recommended",
+        "version": "3.01"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [
+    "x265"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libx265.so"
+  ],
+  "expected_pkgconfig": [
+    "x265.pc"
+  ],
+  "name": "x265",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "nasm",
+    "cmake"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "GIT_ARCHETYPE",
+      "value": "1"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/x265",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "a31699c6a89806b74b0151e5e6a7df65de4b49050482fe5ebf8a4379d7af8f29",
+  "source_tarball": "x265_4.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://bitbucket.org/multicoreware/x265_git/downloads/x265_${version}.tar.gz",
+  "tarball_files_count": 423,
+  "test_command": "ctest --output-on-failure",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "4.1"
+}

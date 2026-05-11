@@ -1,0 +1,64 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:27Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "efivar",
+    "blfs_name": "efivar",
+    "blfs_version": "39",
+    "deps": [],
+    "patches": [
+      {
+        "filename": "efivar-39-upstream_fixes-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/efivar-39-upstream_fixes-1.patch"
+      }
+    ]
+  },
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "efisecdb",
+    "efivar"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libefiboot.so",
+    "libefisec.so",
+    "libefivar.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "efivar",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "mandoc"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/efivar",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "c9edd15f2eeeea63232f3e669a48e992c7be9aff57ee22672ac31f5eca1609a6",
+  "source_tarball": "efivar-39.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/rhboot/efivar/archive/${version}/efivar-${version}.tar.gz",
+  "tarball_files_count": 617,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "39"
+}

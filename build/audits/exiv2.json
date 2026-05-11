@@ -1,0 +1,199 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear",
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:29Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "exiv2",
+    "blfs_name": "Exiv2",
+    "blfs_version": "0.28.7",
+    "deps": [
+      {
+        "anchor": "brotli",
+        "name": "Brotli-1.2.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.2.0"
+      },
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "curl",
+        "name": "cURL-8.18.0",
+        "note": "",
+        "type": "recommended",
+        "version": "8.18.0"
+      },
+      {
+        "anchor": "inih",
+        "name": "inih-62",
+        "note": "",
+        "type": "recommended",
+        "version": "62"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "contrib",
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "exiv2"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libexiv2.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "exiv2",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "brotli",
+    "curl",
+    "inih",
+    "cmake"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "EXIV2_ENABLE_VIDEO",
+      "value": "yes"
+    },
+    {
+      "name": "EXIV2_ENABLE_WEBREADY",
+      "value": "yes"
+    },
+    {
+      "name": "EXIV2_ENABLE_CURL",
+      "value": "yes"
+    },
+    {
+      "name": "EXIV2_BUILD_SAMPLES",
+      "value": "no"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/exiv2",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "5e292b02614dbc0cee40fe1116db2f42f63ef6b2ba430c77b614e17b8d61a638",
+  "source_tarball": "exiv2-0.28.7.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/Exiv2/exiv2/archive/v${version}/exiv2-${version}.tar.gz",
+  "tarball_files_count": 1995,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "curl",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "brotli",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "nls",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "png",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build with iconv support",
+      "name": "iconv",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build with INIReader support",
+      "name": "inih",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build with BMFF support",
+      "name": "bmff",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build including lens data",
+      "name": "lensdata",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build support for video formats",
+      "name": "video",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build support for XMP",
+      "name": "xmp",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build and run unit tests",
+      "name": "unitTests",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build with support for webready",
+      "name": "webready",
+      "type": "boolean"
+    }
+  ],
+  "version": "0.28.7"
+}

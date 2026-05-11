@@ -16,6 +16,8 @@ dependencies:
   build:
     - meson
     - ninja
+    - shadow
+    - systemd
   host: []
   runtime: []
 

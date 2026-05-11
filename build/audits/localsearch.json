@@ -1,0 +1,511 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:45Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "localsearch",
+    "blfs_name": "localsearch",
+    "blfs_version": "3.10.2",
+    "deps": [
+      {
+        "anchor": "asciidoc",
+        "name": "asciidoc-10.2.1",
+        "note": "to build manual pages;\n                note that manual pages are required for some tests",
+        "type": "optional",
+        "version": "10.2.1"
+      },
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "optional",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "exempi",
+        "name": "Exempi-2.6.6",
+        "note": "",
+        "type": "recommended",
+        "version": "2.6.6"
+      },
+      {
+        "anchor": "ffmpeg",
+        "name": "FFmpeg-8.0.1",
+        "note": "",
+        "type": "recommended",
+        "version": "8.0.1"
+      },
+      {
+        "anchor": "gexiv2",
+        "name": "gexiv2-0.14.6",
+        "note": "",
+        "type": "required",
+        "version": "0.14.6"
+      },
+      {
+        "anchor": "giflib",
+        "name": "giflib-5.2.2",
+        "note": "",
+        "type": "recommended",
+        "version": "5.2.2"
+      },
+      {
+        "anchor": "gst10-plugins-base",
+        "name": "gst-plugins-base-1.28.1",
+        "note": "",
+        "type": "required",
+        "version": "1.28.1"
+      },
+      {
+        "anchor": "gst10-plugins-good",
+        "name": "gst-plugins-good-1.28.1",
+        "note": "for\n                one test",
+        "type": "optional",
+        "version": "1.28.1"
+      },
+      {
+        "anchor": "icu",
+        "name": "ICU-78.2",
+        "note": "",
+        "type": "recommended",
+        "version": "78.2"
+      },
+      {
+        "anchor": "libexif",
+        "name": "libexif-0.6.25",
+        "note": "",
+        "type": "recommended",
+        "version": "0.6.25"
+      },
+      {
+        "anchor": "libgsf",
+        "name": "libgsf-1.14.55",
+        "note": "",
+        "type": "optional",
+        "version": "1.14.55"
+      },
+      {
+        "anchor": "libgxps",
+        "name": "libgxps-0.3.2",
+        "note": "",
+        "type": "recommended",
+        "version": "0.3.2"
+      },
+      {
+        "anchor": "libseccomp",
+        "name": "libseccomp-2.6.0",
+        "note": "",
+        "type": "recommended",
+        "version": "2.6.0"
+      },
+      {
+        "anchor": "libwebp",
+        "name": "libwebp-1.6.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.6.0"
+      },
+      {
+        "anchor": "poppler",
+        "name": "Poppler-26.02.0",
+        "note": "",
+        "type": "recommended",
+        "version": "26.02.0"
+      },
+      {
+        "anchor": "python-dbusmock",
+        "name": "dbusmock-0.38.1",
+        "note": "for functional tests",
+        "type": "optional",
+        "version": "0.38.1"
+      },
+      {
+        "anchor": "tinysparql",
+        "name": "tinysparql-3.10.1",
+        "note": "",
+        "type": "required",
+        "version": "3.10.1"
+      },
+      {
+        "anchor": "totem-pl-parser",
+        "name": "totem-pl-parser-3.26.6",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.6"
+      },
+      {
+        "anchor": "upower",
+        "name": "UPower-1.91.1",
+        "note": "",
+        "type": "recommended",
+        "version": "1.91.1"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "localsearch-3.10.2-security_fixes-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/localsearch-3.10.2-security_fixes-1.patch"
+      }
+    ]
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "localsearch"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "Several modules under /usr/lib/localsearch-3.0"
+  ],
+  "expected_pkgconfig": [],
+  "name": "localsearch",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gexiv2",
+    "gst-plugins-base",
+    "tinysparql",
+    "cmake",
+    "ffmpeg",
+    "giflib",
+    "gst-plugins-good",
+    "icu",
+    "libexif",
+    "libseccomp",
+    "libwebp",
+    "poppler",
+    "totem-pl-parser",
+    "upower"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "man",
+      "value": "false"
+    },
+    {
+      "name": "functional_tests",
+      "value": "false"
+    }
+  ],
+  "our_patches": [
+    {
+      "file": "localsearch-3.10.2-security_fixes-1.patch",
+      "sha256": "b59f3b68853c7b4ba16a98f4bd258f049afaae3869b886273bfd690b13def2ce"
+    }
+  ],
+  "package_dir": "packages/desktop/localsearch",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "b4dd89c85d76617101bad4ec9a33678f631ec5032e9880eb423dce52e878a285",
+  "source_tarball": "localsearch-3.10.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/localsearch/3.10/localsearch-${version}.tar.xz",
+  "tarball_files_count": 840,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Enable the Tracker metadata extractor",
+      "name": "extract",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable the Tracker functional test suite",
+      "name": "functional_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable the sandbox test suite",
+      "name": "sandbox_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Set nie:title and nie:contentCreated from filename and mtime if no metadata available",
+      "name": "guarantee_metadata",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Install man pages",
+      "name": "man",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable the Tracker filesystem miner",
+      "name": "miner_fs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable Tracker writeback feature",
+      "name": "writeback",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable seccomp sandboxing support in Tracker metadata extractor",
+      "name": "seccomp",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Enable landlock sandboxing support in Tracker metadata extractor",
+      "name": "landlock",
+      "type": "feature"
+    },
+    {
+      "default": "org.freedesktop",
+      "description": "Domain prefix to use, useful for sandboxing",
+      "name": "domain_prefix",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Location of the miner cache",
+      "name": "miner_fs_cache_location",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "List of directories to index recursively",
+      "name": "default_index_recursive_dirs",
+      "type": "array"
+    },
+    {
+      "default": "",
+      "description": "List of directories to index without inspecting subfolders",
+      "name": "default_index_single_dirs",
+      "type": "array"
+    },
+    {
+      "default": "auto",
+      "description": "Enable fanotify support on linux architechture",
+      "name": "fanotify",
+      "type": "feature"
+    },
+    {
+      "default": "true",
+      "description": "Enable extractor for AbiWord files",
+      "name": "abiword",
+      "type": "boolean"
+    },
+    {
+      "default": "true",
+      "description": "Enable extractor for ICO metadata",
+      "name": "icon",
+      "type": "boolean"
+    },
+    {
+      "default": "true",
+      "description": "Enable extractor for MP3 metadata",
+      "name": "mp3",
+      "type": "boolean"
+    },
+    {
+      "default": "true",
+      "description": "Enable extractor for PS metadata",
+      "name": "ps",
+      "type": "boolean"
+    },
+    {
+      "default": "true",
+      "description": "Enable extractor for TXT metadata",
+      "name": "text",
+      "type": "boolean"
+    },
+    {
+      "default": "true",
+      "description": "Enable extractor for PS.GZ metadata",
+      "name": "unzip_ps_gz_files",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Support cue sheet parsing",
+      "name": "cue",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support EXIF metadata",
+      "name": "exif",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support extracting metadata from GIF images",
+      "name": "gif",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support extracting metadata from MS & Open Office documents",
+      "name": "gsf",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support IPTC photo metadata",
+      "name": "iptc",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support ISO image parsing",
+      "name": "iso",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support extracting metadata from JPEG images",
+      "name": "jpeg",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support extracting metadata from PDF documents",
+      "name": "pdf",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "playlist",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support extracting metadata from PNG images",
+      "name": "png",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support extracting metadata from RAW photos",
+      "name": "raw",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support extracting metadata from TIFF images",
+      "name": "tiff",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support extracting metadata from XML and HTML documents",
+      "name": "xml",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support XMP metadata",
+      "name": "xmp",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support extracting metadata from XPS documents",
+      "name": "xps",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support extracting metadata using FFmpeg/libav",
+      "name": "libav",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support webp images",
+      "name": "webp",
+      "type": "feature"
+    },
+    {
+      "default": "upower",
+      "description": "Enable upower or HAL for battery/mains power detection",
+      "name": "battery_detection",
+      "type": "combo"
+    },
+    {
+      "default": "icu",
+      "description": "Enable enca or libicu for charset detection in MP3s",
+      "name": "charset_detection",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Whether to install Bash completion files",
+      "name": "bash_completion",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Directory to install Bash completion files",
+      "name": "bash_completion_dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "dbus_services_dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Whether to install systemd user .service files",
+      "name": "systemd_user_services",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "systemd_user_services_dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Whether to enable TAP protocol on tests",
+      "name": "tests_tap_protocol",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "test_utils_dir",
+      "type": "string"
+    }
+  ],
+  "version": "3.10.2"
+}

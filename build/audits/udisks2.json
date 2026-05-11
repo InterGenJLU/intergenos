@@ -1,0 +1,183 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:12Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "udisks2",
+    "blfs_name": "UDisks",
+    "blfs_version": "2.11.1",
+    "deps": [
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "optional",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "libatasmart",
+        "name": "libatasmart-0.19",
+        "note": "",
+        "type": "required",
+        "version": "0.19"
+      },
+      {
+        "anchor": "libblockdev",
+        "name": "libblockdev-3.4.0",
+        "note": "",
+        "type": "required",
+        "version": "3.4.0"
+      },
+      {
+        "anchor": "libgudev",
+        "name": "libgudev-238",
+        "note": "",
+        "type": "required",
+        "version": "238"
+      },
+      {
+        "anchor": "polkit",
+        "name": "Polkit-127",
+        "note": "",
+        "type": "required",
+        "version": "127"
+      },
+      {
+        "anchor": "systemd",
+        "name": "Systemd-259.1",
+        "note": "runtime [downgraded from recommended/runtime by fix-blfs-db-data-errors.py]",
+        "type": "optional",
+        "version": "259.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "udisksctl",
+    "umount.udisks2"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libudisks2.so"
+  ],
+  "expected_pkgconfig": [
+    "udisks2.pc"
+  ],
+  "name": "udisks2",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--enable-available-modules",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "libatasmart",
+    "libblockdev",
+    "libgudev",
+    "lvm2",
+    "polkit",
+    "glib2",
+    "systemd"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/udisks2",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "e88c52bae02fa13414604bbef42c6bb91c2e24177ee0057ed55c6bd7451bcb6d",
+  "source_tarball": "udisks-2.11.1.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/storaged-project/udisks/releases/download/udisks-${version}/udisks-${version}.tar.bz2",
+  "tarball_files_count": 699,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-man",
+      "kind": "enable",
+      "name": "man"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-daemon",
+      "kind": "enable",
+      "name": "daemon"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-fhs-media",
+      "kind": "enable",
+      "name": "fhs-media"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-acl",
+      "kind": "enable",
+      "name": "acl"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-lvm2",
+      "kind": "enable",
+      "name": "lvm2"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-iscsi",
+      "kind": "enable",
+      "name": "iscsi"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-btrfs",
+      "kind": "enable",
+      "name": "btrfs"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-smart",
+      "kind": "enable",
+      "name": "smart"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-udevdir=DIR",
+      "kind": "with",
+      "name": "udevdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-systemdsystemunitdir=DIR",
+      "kind": "with",
+      "name": "systemdsystemunitdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-tmpfilesdir=DIR",
+      "kind": "with",
+      "name": "tmpfilesdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-modloaddir=DIR",
+      "kind": "with",
+      "name": "modloaddir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-modprobedir=DIR",
+      "kind": "with",
+      "name": "modprobedir"
+    }
+  ],
+  "version": "2.11.1"
+}

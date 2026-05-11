@@ -1,0 +1,56 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:37Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "hicolor-icon-theme",
+    "blfs_name": "hicolor-icon-theme",
+    "blfs_version": "0.18",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "None"
+  ],
+  "expected_headers": [
+    "/usr/share/icons/hicolor"
+  ],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "hicolor-icon-theme",
+  "our_autotools_flags": [
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/hicolor-icon-theme",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "db0e50a80aa3bf64bb45cbca5cf9f75efd9348cf2ac690b907435238c3cf81d7",
+  "source_tarball": "hicolor-icon-theme-0.18.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://icon-theme.freedesktop.org/releases/hicolor-icon-theme-${version}.tar.xz",
+  "tarball_files_count": 12,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "0.18"
+}

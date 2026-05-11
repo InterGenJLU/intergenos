@@ -1,0 +1,55 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "build-system-undetected"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:45Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "lmdb",
+    "blfs_name": "lmdb",
+    "blfs_version": "0.9.35",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "unknown",
+  "bundled_libs": [],
+  "docs_seen": [],
+  "expected_binaries": [
+    "mdb_copy",
+    "mdb_dump",
+    "mdb_load",
+    "mdb_stat"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "liblmdb.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "lmdb",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/lmdb",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "3fa3ec5e52966cb81b1deb3f59d1a1f241aef1d0bf323b7a1146519c2d284924",
+  "source_tarball": "LMDB_0.9.35.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://git.openldap.org/openldap/openldap/-/archive/LMDB_${version}/LMDB_${version}.tar.bz2",
+  "tarball_files_count": 32,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "0.9.35"
+}

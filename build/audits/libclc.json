@@ -1,0 +1,74 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:48Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libclc",
+    "blfs_name": "libclc",
+    "blfs_version": "21.1.8",
+    "deps": [
+      {
+        "anchor": "spirv-llvm-translator",
+        "name": "SPIRV-LLVM-Translator-21.1.4",
+        "note": "",
+        "type": "required",
+        "version": "21.1.4"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [
+    "libclc.pc"
+  ],
+  "name": "libclc",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "llvm",
+    "spirv-llvm-translator"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libclc",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "6c2677362a53531c35edf482bdc9171ea0471ca0a1e9138ac9b5a1782925616f",
+  "source_tarball": "libclc-21.1.8.src.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/libclc-${version}.src.tar.xz",
+  "tarball_files_count": 1125,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "21.1.8"
+}

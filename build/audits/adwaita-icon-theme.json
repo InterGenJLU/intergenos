@@ -1,0 +1,80 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:14Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "adwaita-icon-theme",
+    "blfs_name": "adwaita-icon-theme",
+    "blfs_version": "49.0",
+    "deps": [
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "required",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "",
+        "type": "required",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "librsvg",
+        "name": "librsvg-2.61.4",
+        "note": "",
+        "type": "required",
+        "version": "2.61.4"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "adwaita-icon-theme",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gtk3",
+    "librsvg",
+    "gtk4"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/adwaita-icon-theme",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "65166461d1b278aa942f59aa8d0fccf1108d71c65f372c6266e172449791755c",
+  "source_tarball": "adwaita-icon-theme-49.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/adwaita-icon-theme/49/adwaita-icon-theme-${version}.tar.xz",
+  "tarball_files_count": 1883,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "49.0"
+}

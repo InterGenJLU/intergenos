@@ -1,0 +1,196 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:13Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gjs",
+    "blfs_name": "Gjs",
+    "blfs_version": "1.86.0",
+    "deps": [
+      {
+        "anchor": "cairo",
+        "name": "Cairo-1.18.4",
+        "note": "",
+        "type": "required",
+        "version": "1.18.4"
+      },
+      {
+        "anchor": "dbus",
+        "name": "dbus-1.16.2",
+        "note": "",
+        "type": "required",
+        "version": "1.16.2"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject\n                Introspection",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "recommended",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "",
+        "type": "recommended",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "spidermonkey",
+        "name": "SpiderMonkey from\n                Firefox-140.8.0",
+        "note": "",
+        "type": "required",
+        "version": "140.8.0"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "recommended",
+        "version": "3.26.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "gjs (symlink)",
+    "gjs-console"
+  ],
+  "expected_headers": [
+    "/usr/include/gjs-1.0"
+  ],
+  "expected_libs": [
+    "libgjs.so"
+  ],
+  "expected_pkgconfig": [
+    "gjs.pc"
+  ],
+  "name": "gjs",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr",
+    "--wrap-mode=nofallback"
+  ],
+  "our_deps_build": [
+    "cairo",
+    "gtk3",
+    "gtk4",
+    "spidermonkey",
+    "dbus",
+    "glib2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "installed_tests",
+      "value": "false"
+    },
+    {
+      "name": "skip_dbus_tests",
+      "value": "true"
+    }
+  ],
+  "our_patches": [
+    {
+      "file": "gjs-1.86.0-info-h-void-ptr-1.patch",
+      "sha256": "217c8ee02c8e7506b686fa935066944ad18a85233607d7f0ded354aa35242f9e"
+    }
+  ],
+  "package_dir": "packages/desktop/gjs",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "63448f7a57804d4c2a8d0c7f5e90e224d04d4eb2d560142c076c65a8eda00799",
+  "source_tarball": "gjs-1.86.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gjs/1.86/gjs-${version}.tar.xz",
+  "tarball_files_count": 638,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "Use readline for input in interactive shell and debugger",
+      "name": "readline",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "profiler",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Install test programs",
+      "name": "installed_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Include dtrace trace support",
+      "name": "dtrace",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "systemtap",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Link with -Bsymbolic-functions linker flag used to avoid intra-library PLT jumps, if supported; not used for Visual Studio and clang-cl builds",
+      "name": "bsymbolic_functions",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Skip tests that use a DBus session bus",
+      "name": "skip_dbus_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Skip tests that need a display connection",
+      "name": "skip_gtk_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "verbose_logs",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.86.0"
+}

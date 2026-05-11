@@ -1,0 +1,204 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:04Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "redland",
+    "blfs_name": "Redland",
+    "blfs_version": "1.0.17",
+    "deps": [
+      {
+        "anchor": "mariadb",
+        "name": "MariaDB-11.8.6",
+        "note": "",
+        "type": "optional",
+        "version": "11.8.6"
+      },
+      {
+        "anchor": "postgresql",
+        "name": "PostgreSQL-18.2",
+        "note": "",
+        "type": "optional",
+        "version": "18.2"
+      },
+      {
+        "anchor": "rasqal",
+        "name": "Rasqal-0.9.33",
+        "note": "",
+        "type": "required",
+        "version": "0.9.33"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "rdfproc",
+    "redland-config",
+    "redland-db-upgrade"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "librdf.so",
+    "/usr/lib/redland/librdf_storage_*.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "redland",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "rasqal"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/redland",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "de1847f7b59021c16bdc72abb4d8e2d9187cd6124d69156f3326dd34ee043681",
+  "source_tarball": "redland-1.0.17.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.librdf.org/source/redland-${version}.tar.gz",
+  "tarball_files_count": 359,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "  --enable-release        Turn on optimizations (for maintainer).  ",
+      "kind": "enable",
+      "name": "release"
+    },
+    {
+      "help": "  --disable-modular       Build storage backends into librdf library.  ",
+      "kind": "enable",
+      "name": "modular"
+    },
+    {
+      "help": "  --enable-digests=LIST   Use digests (default=md5 sha1 ripemd160)",
+      "kind": "enable",
+      "name": "digests"
+    },
+    {
+      "help": "  --enable-storages=LIST  Use storages (default=all)",
+      "kind": "enable",
+      "name": "storages"
+    },
+    {
+      "help": "  --enable-assertions     Perform run time assertion checks (default yes).  ",
+      "kind": "enable",
+      "name": "assertions"
+    },
+    {
+      "help": "  --enable-assert-messages  Print run time assertion check failure messages (default yes).  ",
+      "kind": "enable",
+      "name": "assert-messages"
+    },
+    {
+      "help": "  --enable-debug          Enable debug messages (default no).  ",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "  --with-bdb=DIR          Oracle Berkeley DB install area (default=/usr)",
+      "kind": "with",
+      "name": "bdb"
+    },
+    {
+      "help": "  --with-bdb-lib=DIR      Oracle Berkeley DB lib directory (default=/usr/lib)",
+      "kind": "with",
+      "name": "bdb_lib"
+    },
+    {
+      "help": "  --with-bdb-include=DIR  Oracle Berkeley DB include directory (default=/usr/include)",
+      "kind": "with",
+      "name": "bdb_include"
+    },
+    {
+      "help": "  --with-bdb-dbname=NAME  Oracle Berkeley DB library name (auto)",
+      "kind": "with",
+      "name": "bdb_dbname"
+    },
+    {
+      "help": "  --with-module-path=PATH Default search path for modules (default=/usr/local/lib/redland:${libdir}/redland",
+      "kind": "with",
+      "name": "module-path"
+    },
+    {
+      "help": "  --with-threestore(=CONFIG|yes|no)  Location of 3store-config (default=auto)",
+      "kind": "with",
+      "name": "threestore"
+    },
+    {
+      "help": "  --with-mysql(=CONFIG|yes|no) Location of MySQL 3/4 mysql_config (default=auto)",
+      "kind": "with",
+      "name": "mysql"
+    },
+    {
+      "help": "  --with-sqlite(=yes|no) Enable SQLite store (default=auto)",
+      "kind": "with",
+      "name": "sqlite"
+    },
+    {
+      "help": "  --with-postgresql(=CONFIG|yes|no)  Location of pg_config (default=auto)",
+      "kind": "with",
+      "name": "postgresql"
+    },
+    {
+      "help": "  --with-virtuoso(=yes|no) Enable Virtuoso RDF store (default=auto)",
+      "kind": "with",
+      "name": "virtuoso"
+    },
+    {
+      "help": "dnl\nAS_HELP_STRING([--with-iodbc(=DIR)",
+      "kind": "with",
+      "name": "iodbc"
+    },
+    {
+      "help": "dnl\nAS_HELP_STRING([--with-unixodbc(=DIR)",
+      "kind": "with",
+      "name": "unixodbc"
+    },
+    {
+      "help": "dnl\nAS_HELP_STRING([--with-datadirect(=DIR)",
+      "kind": "with",
+      "name": "datadirect"
+    },
+    {
+      "help": "dnl\nAS_HELP_STRING([--with-odbc-inc=DIR",
+      "kind": "with",
+      "name": "odbc-include"
+    },
+    {
+      "help": "dnl\nAS_HELP_STRING([--with-odbc-lib=DIR",
+      "kind": "with",
+      "name": "odbc-lib"
+    },
+    {
+      "help": "  --with-threads          With POSIX thread support (default=no)",
+      "kind": "with",
+      "name": "threads"
+    }
+  ],
+  "version": "1.0.17"
+}

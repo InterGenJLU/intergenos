@@ -1,0 +1,97 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:12Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libxslt",
+    "blfs_name": "libxslt",
+    "blfs_version": "1.1.45",
+    "deps": [
+      {
+        "anchor": "DocBook",
+        "name": "docbook-xml-4.5",
+        "note": "",
+        "type": "recommended",
+        "version": "4.5"
+      },
+      {
+        "anchor": "docbook-xsl",
+        "name": "docbook-xsl-nons-1.79.2",
+        "note": "",
+        "type": "recommended",
+        "version": "1.79.2"
+      },
+      {
+        "anchor": "libgcrypt",
+        "name": "libgcrypt-1.12.0",
+        "note": "only needed for the\n                deprecated EXSLT crypto extension, see Command Explanations",
+        "type": "optional",
+        "version": "1.12.0"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "required",
+        "version": "2.15.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "xslt-config",
+    "xsltproc"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libexslt.so",
+    "libxslt.so",
+    "optionally",
+    "libxsltmod.so Python"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libxslt",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr",
+    "--without-python"
+  ],
+  "our_deps_build": [
+    "libxml2",
+    "libgcrypt"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/libxslt",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "9acfe68419c4d06a45c550321b3212762d92f41465062ca4ea19e632ee5d216e",
+  "source_tarball": "libxslt-1.1.45.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/libxslt/1.1/libxslt-${version}.tar.xz",
+  "tarball_files_count": 2299,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "1.1.45"
+}

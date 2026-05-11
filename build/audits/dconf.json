@@ -1,0 +1,101 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:25Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "HACKING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "dconf",
+    "dconf-editor"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libdconf.so",
+    "libdconfsettings.so (GIO Module installed in /usr/lib/gio/modules)"
+  ],
+  "expected_pkgconfig": [],
+  "name": "dconf",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gtk3",
+    "vala"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "bash_completion",
+      "value": "false"
+    },
+    {
+      "name": "man",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/dconf",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "16a47e49a58156dbb96578e1708325299e4c19eea9be128d5bd12fd0963d6c36",
+  "source_tarball": "dconf-0.49.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/dconf/0.49/dconf-${version}.tar.xz",
+  "tarball_files_count": 150,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "install bash completion files",
+      "name": "bash_completion",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "generate man pages",
+      "name": "man",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "use gtk-doc to build documentation",
+      "name": "gtk_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install dconf client vapi",
+      "name": "vapi",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "override systemd user unit directory",
+      "name": "systemduserunitdir",
+      "type": "string"
+    }
+  ],
+  "version": "0.49.0"
+}

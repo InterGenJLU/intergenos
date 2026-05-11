@@ -1,0 +1,143 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:03Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "fontconfig",
+    "blfs_name": "Fontconfig",
+    "blfs_version": "2.17.1",
+    "deps": [
+      {
+        "anchor": "bubblewrap",
+        "name": "bubblewrap-0.11.0",
+        "note": "used by some\n                tests",
+        "type": "optional",
+        "version": "0.11.0"
+      },
+      {
+        "anchor": "curl",
+        "name": "cURL-8.18.0",
+        "note": "",
+        "type": "optional",
+        "version": "8.18.0"
+      },
+      {
+        "anchor": "docbook-utils",
+        "name": "DocBook-utils-0.6.14",
+        "note": "",
+        "type": "optional",
+        "version": "0.6.14"
+      },
+      {
+        "anchor": "freetype2",
+        "name": "FreeType-2.14.1",
+        "note": "",
+        "type": "required",
+        "version": "2.14.1"
+      },
+      {
+        "anchor": "json-c",
+        "name": "JSON-C-0.18",
+        "note": "",
+        "type": "optional",
+        "version": "0.18"
+      },
+      {
+        "anchor": "libarchive",
+        "name": "libarchive-3.8.5",
+        "note": "both used by some tests for downloading and extracting test\n                files",
+        "type": "optional",
+        "version": "3.8.5"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "optional",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "texlive",
+        "name": "texlive-20250308",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "tl-installer",
+        "name": "install-tl-unx",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "fc-cache",
+    "fc-cat",
+    "fc-conflist",
+    "fc-list",
+    "fc-match",
+    "fc-pattern",
+    "fc-query",
+    "fc-scan",
+    "fc-validate"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libfontconfig.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "fontconfig",
+  "our_autotools_flags": [
+    "--disable-docs",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "freetype2-pass1",
+    "curl",
+    "json-c",
+    "libxml2",
+    "freetype2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/fontconfig",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "9f5cae93f4fffc1fbc05ae99cdfc708cd60dfd6612ffc0512827025c026fa541",
+  "source_tarball": "fontconfig-2.17.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.freedesktop.org/api/v4/projects/890/packages/generic/fontconfig/${version}/fontconfig-${version}.tar.xz",
+  "tarball_files_count": 987,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "2.17.1"
+}

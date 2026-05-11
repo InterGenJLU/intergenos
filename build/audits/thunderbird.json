@@ -1,0 +1,266 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:10Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "thunderbird",
+    "blfs_name": "Thunderbird",
+    "blfs_version": "140.8.0esr",
+    "deps": [
+      {
+        "anchor": "alsa-lib",
+        "name": "alsa-lib-1.2.15.3",
+        "note": "",
+        "type": "required",
+        "version": "1.2.15.3"
+      },
+      {
+        "anchor": "cbindgen",
+        "name": "Cbindgen-0.29.2",
+        "note": "",
+        "type": "required",
+        "version": "0.29.2"
+      },
+      {
+        "anchor": "dav1d",
+        "name": "dav1d-1.5.3",
+        "note": "",
+        "type": "recommended",
+        "version": "1.5.3"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "required",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "libaom",
+        "name": "libaom-3.13.1",
+        "note": "",
+        "type": "recommended",
+        "version": "3.13.1"
+      },
+      {
+        "anchor": "libarchive",
+        "name": "libarchive-3.8.5",
+        "note": "",
+        "type": "required",
+        "version": "3.8.5"
+      },
+      {
+        "anchor": "libevent",
+        "name": "libevent-2.1.12",
+        "note": "",
+        "type": "recommended",
+        "version": "2.1.12"
+      },
+      {
+        "anchor": "libproxy",
+        "name": "libproxy-0.5.12",
+        "note": "",
+        "type": "optional",
+        "version": "0.5.12"
+      },
+      {
+        "anchor": "libvpx",
+        "name": "libvpx-1.16.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.16.0"
+      },
+      {
+        "anchor": "libwebp",
+        "name": "libwebp-1.6.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.6.0"
+      },
+      {
+        "anchor": "llvm",
+        "name": "LLVM-21.1.8",
+        "note": "",
+        "type": "required",
+        "version": "21.1.8"
+      },
+      {
+        "anchor": "nasm",
+        "name": "NASM-3.01",
+        "note": "",
+        "type": "recommended",
+        "version": "3.01"
+      },
+      {
+        "anchor": "nodejs",
+        "name": "nodejs-22.22.0",
+        "note": "",
+        "type": "required",
+        "version": "22.22.0"
+      },
+      {
+        "anchor": "nspr",
+        "name": "NSPR-4.38.2",
+        "note": "",
+        "type": "recommended",
+        "version": "4.38.2"
+      },
+      {
+        "anchor": "nss",
+        "name": "nss-3.120.1",
+        "note": "",
+        "type": "recommended",
+        "version": "3.120.1"
+      },
+      {
+        "anchor": "pciutils",
+        "name": "pciutils-3.14.0",
+        "note": "runtime",
+        "type": "optional",
+        "version": "3.14.0"
+      },
+      {
+        "anchor": "pulseaudio",
+        "name": "PulseAudio-17.0",
+        "note": "",
+        "type": "required",
+        "version": "17.0"
+      },
+      {
+        "anchor": "startup-notification",
+        "name": "startup-notification-0.12",
+        "note": "",
+        "type": "required",
+        "version": "0.12"
+      },
+      {
+        "anchor": "wget",
+        "name": "Wget-1.25.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.25.0"
+      },
+      {
+        "anchor": "wireless_tools",
+        "name": "Wireless\n                Tools-29",
+        "note": "",
+        "type": "optional",
+        "version": "29"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "thunderbird-140.8.0esr-python_3.14_fixes-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/thunderbird-140.8.0esr-python_3.14_fixes-1.patch"
+      },
+      {
+        "filename": "thunderbird-140.8.0esr-glibc-2.43.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/thunderbird-140.8.0esr-glibc-2.43.patch"
+      }
+    ]
+  },
+  "build_system": "cargo",
+  "bundled_libs": [
+    "third_party"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "BUILDING",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "thunderbird"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libraries"
+  ],
+  "expected_pkgconfig": [],
+  "name": "thunderbird",
+  "our_autotools_flags": [
+    "--disable-crashreporter",
+    "--disable-debug",
+    "--disable-debug-symbols",
+    "--disable-necko-wifi",
+    "--disable-tests",
+    "--disable-updater",
+    "--enable-application=comm/mail",
+    "--enable-install-strip",
+    "--enable-official-branding",
+    "--enable-rust-simd",
+    "--enable-strip",
+    "--enable-system-ffi",
+    "--enable-system-pixman",
+    "--prefix=/usr",
+    "--with-system-av1",
+    "--with-system-jpeg",
+    "--with-system-libevent",
+    "--with-system-libvpx",
+    "--with-system-nspr",
+    "--with-system-nss",
+    "--with-system-png",
+    "--with-system-webp",
+    "--with-system-zlib",
+    "--without-wasm-sandboxed-libraries"
+  ],
+  "our_deps_build": [
+    "cbindgen",
+    "gtk3",
+    "libarchive",
+    "llvm",
+    "nodejs",
+    "pulseaudio",
+    "startup-notification",
+    "dav1d",
+    "libaom",
+    "libevent",
+    "libvpx",
+    "libwebp",
+    "nasm",
+    "nspr",
+    "nss",
+    "alsa-lib"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "thunderbird-140.8.0esr-python_3.14_fixes-1.patch",
+      "sha256": "24183878004982be0d7d87af2daa49a36d327a279b0abcf222c0c99e805e2ed7"
+    },
+    {
+      "file": "thunderbird-140.8.0esr-glibc-2.43.patch",
+      "sha256": "6f89e294b8d41aa667f60faa0d93cc048fc4de74bffc8a96dbb235914218e050"
+    }
+  ],
+  "package_dir": "packages/extra/thunderbird",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=cargo; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": true,
+    "source_date_epoch_supported": true
+  },
+  "source_sha256": "b18f42db8aa35c1ef4b6eeb01771d0ec47ceca053bbb7a04aac7afc5f294b2e8",
+  "source_tarball": "thunderbird-140.8.0esr.source.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://archive.mozilla.org/pub/thunderbird/releases/${version}/source/thunderbird-${version}.source.tar.xz",
+  "tarball_files_count": 463210,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "140.8.0esr"
+}

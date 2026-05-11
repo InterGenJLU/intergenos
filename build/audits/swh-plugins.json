@@ -1,0 +1,72 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:44Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "swh-plugins",
+  "our_autotools_flags": [
+    "--enable-sse",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "ladspa-sdk",
+    "fftw"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "ladspa-sdk",
+    "fftw"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/swh-plugins",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "d1b090feec4c5e8f9605334b47faaad72db7cc18fe91d792b9161a9e3b821ce7",
+  "source_tarball": "swh-plugins-0.4.17.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/swh/ladspa/archive/v${version}/swh-plugins-${version}.tar.gz",
+  "tarball_files_count": 223,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "  --enable-3dnow Enables 3DNow! acceleration",
+      "kind": "enable",
+      "name": "3dnow"
+    },
+    {
+      "help": "  --enable-sse Uses SSE instructions where possible, requires gcc3 and a processor with SSE support",
+      "kind": "enable",
+      "name": "sse"
+    },
+    {
+      "help": "  --enable-darwin Builds plugins that will be shared object in the Darwin OS",
+      "kind": "enable",
+      "name": "darwin"
+    }
+  ],
+  "version": "0.4.17"
+}

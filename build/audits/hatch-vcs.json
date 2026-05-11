@@ -1,0 +1,84 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:37Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "hatch-vcs",
+    "blfs_name": "Hatch_vcs",
+    "blfs_version": "0.5.0",
+    "deps": [
+      {
+        "anchor": "git",
+        "name": "git-2.53.0",
+        "note": "",
+        "type": "optional",
+        "version": "2.53.0"
+      },
+      {
+        "anchor": "hatchling",
+        "name": "hatchling-1.28.0",
+        "note": "",
+        "type": "required",
+        "version": "1.28.0"
+      },
+      {
+        "anchor": "pytest",
+        "name": "pytest-9.0.2",
+        "note": "",
+        "type": "optional",
+        "version": "9.0.2"
+      },
+      {
+        "anchor": "setuptools_scm",
+        "name": "setuptools_scm-9.2.2",
+        "note": "",
+        "type": "required",
+        "version": "9.2.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "python",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "hatch-vcs",
+  "our_autotools_flags": [
+    "--no-build-isolation",
+    "--no-cache-dir",
+    "--no-deps"
+  ],
+  "our_deps_build": [
+    "hatchling",
+    "setuptools-scm"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/hatch-vcs",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "0395fa126940340215090c344a2bf4e2a77bcbe7daab16f41b37b98c95809ff9",
+  "source_tarball": "hatch_vcs-0.5.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://files.pythonhosted.org/packages/source/h/hatch-vcs/hatch_vcs-${version}.tar.gz",
+  "tarball_files_count": 26,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "0.5.0"
+}

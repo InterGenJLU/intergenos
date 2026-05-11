@@ -15,6 +15,7 @@ source:
 dependencies:
   build:
     - p11-kit
+    - libtasn1
   host: []
   runtime:
     - p11-kit

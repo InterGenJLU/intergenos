@@ -1,0 +1,224 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-3rdparty-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:55Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libplacebo",
+    "blfs_name": "libplacebo",
+    "blfs_version": "7.360.0",
+    "deps": [
+      {
+        "anchor": "glad",
+        "name": "Glad-2.0.8",
+        "note": "",
+        "type": "required",
+        "version": "2.0.8"
+      },
+      {
+        "anchor": "glslang",
+        "name": "Glslang-16.2.0",
+        "note": "",
+        "type": "recommended",
+        "version": "16.2.0"
+      },
+      {
+        "anchor": "lcms2",
+        "name": "Little\n                CMS-2.18",
+        "note": "",
+        "type": "optional",
+        "version": "2.18"
+      },
+      {
+        "anchor": "libunwind",
+        "name": "libunwind-1.8.3",
+        "note": "",
+        "type": "optional",
+        "version": "1.8.3"
+      },
+      {
+        "anchor": "vulkan-loader",
+        "name": "Vulkan-Loader-1.4.341.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.4.341.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "3rdparty"
+  ],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/libplacebo"
+  ],
+  "expected_libs": [
+    "libplacebo.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libplacebo",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "glad",
+    "glslang",
+    "vulkan-loader"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "tests",
+      "value": "true"
+    },
+    {
+      "name": "demos",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libplacebo",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "c4c70d430083915a157cb790660749649f58fee1e946c0a6e554fd1cba5a2e8f",
+  "source_tarball": "libplacebo-7.360.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/haasn/libplacebo/archive/v${version}/libplacebo-${version}.tar.gz",
+  "tarball_files_count": 277,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "Vulkan-based renderer",
+      "name": "vulkan",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Link directly against vkGetInstanceProcAddr from libvulkan.so",
+      "name": "vk-proc-addr",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "vulkan-registry",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "vulkan-sdk",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "OpenGL-based renderer",
+      "name": "opengl",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "gl-proc-addr",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Direct3D 11 based renderer",
+      "name": "d3d11",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "glslang SPIR-V compiler",
+      "name": "glslang",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "libshaderc SPIR-V compiler",
+      "name": "shaderc",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "LittleCMS 2 support",
+      "name": "lcms",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Dolby Vision reshaping support",
+      "name": "dovi",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "libdovi support",
+      "name": "libdovi",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "demos",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable building the test cases",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "bench",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "fuzz",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Enable linking against libunwind for printing stack traces caused by runtime errors",
+      "name": "unwind",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Use libxxhash as a faster replacement for internal siphash",
+      "name": "xxhash",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "debug-abort",
+      "type": "boolean"
+    }
+  ],
+  "version": "7.360.0"
+}

@@ -1,0 +1,120 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:46Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "lynx",
+    "blfs_name": "Lynx",
+    "blfs_version": "2.9.2",
+    "deps": [
+      {
+        "anchor": "brotli",
+        "name": "Brotli-1.2.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.2.0"
+      },
+      {
+        "anchor": "gnutls",
+        "name": "GnuTLS-3.8.12",
+        "note": "experimental, to replace\n                openssl",
+        "type": "optional",
+        "version": "3.8.12"
+      },
+      {
+        "anchor": "libarchive",
+        "name": "libarchive-3.8.5",
+        "note": "",
+        "type": "optional",
+        "version": "3.8.5"
+      },
+      {
+        "anchor": "libidn2",
+        "name": "libidn2-2.3.8",
+        "note": "",
+        "type": "optional",
+        "version": "2.3.8"
+      },
+      {
+        "anchor": "server-mail",
+        "name": "MTA",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "sharutils",
+        "name": "Sharutils-4.15.2",
+        "note": "",
+        "type": "optional",
+        "version": "4.15.2"
+      },
+      {
+        "anchor": "zip",
+        "name": "Zip-3.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "lynx"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "lynx",
+  "our_autotools_flags": [
+    "--datadir=/usr/share/doc/lynx-2.9.2",
+    "--enable-locale-charset",
+    "--prefix=/usr",
+    "--sysconfdir=/etc/lynx",
+    "--with-bzlib",
+    "--with-screen=ncursesw",
+    "--with-ssl",
+    "--with-zlib"
+  ],
+  "our_deps_build": [
+    "openssl",
+    "zlib",
+    "ncurses",
+    "brotli",
+    "gnutls",
+    "libarchive",
+    "libidn2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/lynx",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "7374b89936d991669e101f4e97f2c9592036e1e8cdaa7bafc259a77ab6fb07ce",
+  "source_tarball": "lynx2.9.2.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://invisible-mirror.net/archives/lynx/tarballs/lynx${version}.tar.bz2",
+  "tarball_files_count": 607,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "2.9.2"
+}

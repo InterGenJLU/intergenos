@@ -1,0 +1,96 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:50Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libfyaml",
+    "blfs_name": "libfyaml",
+    "blfs_version": "0.9.4",
+    "deps": [
+      {
+        "anchor": "git",
+        "name": "git-2.53.0",
+        "note": "",
+        "type": "optional",
+        "version": "2.53.0"
+      },
+      {
+        "anchor": "libyaml",
+        "name": "libyaml-0.2.5",
+        "note": "for YAML 0.1 support",
+        "type": "recommended",
+        "version": "0.2.5"
+      },
+      {
+        "anchor": "sphinx",
+        "name": "sphinx-9.1.0",
+        "note": "",
+        "type": "optional",
+        "version": "9.1.0"
+      },
+      {
+        "anchor": "sphinx_rtd_theme",
+        "name": "sphinx_rtd_theme-3.1.0",
+        "note": "for\n                documentation",
+        "type": "optional",
+        "version": "3.1.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "fy-compose (link to fy-tool)",
+    "fy-dump (link to fy-tool)",
+    "fy-filter (link to fy-tool)",
+    "fy-join (link to fy-tool)",
+    "fy-testsuite (link to fy-tool)",
+    "fy-tool",
+    "fy-ypath (link to fy-tool)"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libfyaml.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libfyaml",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "git",
+    "libyaml"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/libfyaml",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "dac2b0af7b757b32a4fa7c6493d85d0f7dea6effd20ae4352570b6a450b9e5fb",
+  "source_tarball": "libfyaml-0.9.4.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/pantoniou/libfyaml/releases/download/v${version}/libfyaml-${version}.tar.gz",
+  "tarball_files_count": 467,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "0.9.4"
+}

@@ -1,0 +1,66 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-DEPS-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:19Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "cmake",
+  "bundled_libs": [
+    "DEPS",
+    "third_party"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "shaderc",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cmake",
+    "glslang",
+    "spirv-tools"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "SHADERC_SKIP_TESTS",
+      "value": "ON"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/shaderc",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "245002feccbe7f8361b223545a5654cea69780745886872d7efff50a38d96c66",
+  "source_tarball": "shaderc-2026.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/google/shaderc/archive/v${version}/shaderc-${version}.tar.gz",
+  "tarball_files_count": 247,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "2026.1"
+}

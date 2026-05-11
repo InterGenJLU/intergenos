@@ -1,0 +1,217 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:14Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "alsa-utils",
+    "blfs_name": "alsa-utils",
+    "blfs_version": "1.2.15.2",
+    "deps": [
+      {
+        "anchor": "alsa-lib",
+        "name": "alsa-lib-1.2.15.3",
+        "note": "",
+        "type": "required",
+        "version": "1.2.15.3"
+      },
+      {
+        "anchor": "docutils",
+        "name": "docutils-0.22.4",
+        "note": "",
+        "type": "optional",
+        "version": "0.22.4"
+      },
+      {
+        "anchor": "fftw",
+        "name": "fftw-3.3.10",
+        "note": "",
+        "type": "optional",
+        "version": "3.3.10"
+      },
+      {
+        "anchor": "libsamplerate",
+        "name": "libsamplerate-0.2.2",
+        "note": "",
+        "type": "optional",
+        "version": "0.2.2"
+      },
+      {
+        "anchor": "xmlto",
+        "name": "xmlto-0.0.29",
+        "note": "",
+        "type": "optional",
+        "version": "0.0.29"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "aconnect",
+    "alsactl",
+    "alsaloop",
+    "alsamixer",
+    "alsatplg",
+    "alsaucm",
+    "alsa-info.sh",
+    "amidi",
+    "amixer",
+    "aplay",
+    "aplaymidi",
+    "aplaymidi2",
+    "arecord (symlink)",
+    "arecordmidi",
+    "arecordmidi2",
+    "aseqdump",
+    "aseqnet",
+    "aseqsend",
+    "axfer",
+    "iecset",
+    "nhlt-dmic-info",
+    "speaker-test"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "alsa-utils",
+  "our_autotools_flags": [
+    "--disable-alsaconf",
+    "--disable-bat",
+    "--disable-xmlto",
+    "--prefix=/usr",
+    "--with-curses=ncursesw",
+    "--with-udev-rules-dir=/usr/lib/udev/rules.d"
+  ],
+  "our_deps_build": [
+    "alsa-lib",
+    "docutils",
+    "libsamplerate"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/alsa-utils",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "7aaaafbfb01942113ec0c31e51f705910e81079205088ca2f8f137a3869e1a3a",
+  "source_tarball": "alsa-utils-1.2.15.2.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://www.alsa-project.org/files/pub/utils/alsa-utils-${version}.tar.bz2",
+  "tarball_files_count": 411,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-alsabat-backend-tiny",
+      "kind": "enable",
+      "name": "alsabat_backend_tiny"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-bat",
+      "kind": "enable",
+      "name": "bat"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-alsamixer",
+      "kind": "enable",
+      "name": "alsamixer"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-alsaconf",
+      "kind": "enable",
+      "name": "alsaconf"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-alsaloop",
+      "kind": "enable",
+      "name": "alsaloop"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-nhlt",
+      "kind": "enable",
+      "name": "nhlt"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-xmlto",
+      "kind": "enable",
+      "name": "xmlto"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-rst2man",
+      "kind": "enable",
+      "name": "rst2man"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-librt",
+      "kind": "with",
+      "name": "librt"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-curses=libname",
+      "kind": "with",
+      "name": "curses"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-testsound=file",
+      "kind": "with",
+      "name": "testsound"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-systemdsystemunitdir=DIR",
+      "kind": "with",
+      "name": "systemdsystemunitdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-asound-state-dir=DIR",
+      "kind": "with",
+      "name": "asound-state-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-alsactl-lock-dir=DIR",
+      "kind": "with",
+      "name": "alsactl-lock-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-alsactl-pidfile-dir=DIR",
+      "kind": "with",
+      "name": "alsactl-pidfile-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-alsactl-daemonswitch=FILE",
+      "kind": "with",
+      "name": "alsactl-daemonswitch"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-alsactl-udev-extra-test=TEST",
+      "kind": "with",
+      "name": "alsactl-udev-extra-test"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-alsactl-udev-args=ARGS",
+      "kind": "with",
+      "name": "alsactl-udev-args"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-plugindir=dir",
+      "kind": "with",
+      "name": "plugindir"
+    }
+  ],
+  "version": "1.2.15.2"
+}

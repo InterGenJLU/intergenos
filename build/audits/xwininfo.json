@@ -1,0 +1,62 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:23Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "xwininfo"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "xwininfo",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libxcb",
+    "libX11"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/xwininfo",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "3518897c17448df9ba99ad6d9bb1ca0f17bc0ed7c0fd61281b34ceed29a9253f",
+  "source_tarball": "xwininfo-1.1.6.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.x.org/pub/individual/app/xwininfo-${version}.tar.xz",
+  "tarball_files_count": 29,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--with-xcb-icccm",
+      "kind": "with",
+      "name": "xcb-icccm"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-xcb-errors",
+      "kind": "with",
+      "name": "xcb-errors"
+    }
+  ],
+  "version": "1.1.6"
+}

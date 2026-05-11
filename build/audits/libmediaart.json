@@ -1,0 +1,88 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:54Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "media-art-test"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libmediaart-2.0.so"
+  ],
+  "expected_pkgconfig": [
+    "libmediaart-2.0.pc"
+  ],
+  "name": "libmediaart",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gdk-pixbuf",
+    "glib2",
+    "vala"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libmediaart",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "2b43dd9f54f0d8d0b89e2addb83341ab06d7b98cb1b2e704383584af9c560f6b",
+  "source_tarball": "libmediaart-1.9.7.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/libmediaart/1.9/libmediaart-${version}.tar.xz",
+  "tarball_files_count": 35,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Which image processing backend to use",
+      "name": "image_library",
+      "type": "combo"
+    },
+    {
+      "default": "true",
+      "description": "Enable / disable the GObject-Introspection integration",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "true",
+      "description": "",
+      "name": "vapi",
+      "type": "boolean"
+    },
+    {
+      "default": "true",
+      "description": "Enable / disable unit tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "false",
+      "description": "",
+      "name": "gtk_doc",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.9.7"
+}

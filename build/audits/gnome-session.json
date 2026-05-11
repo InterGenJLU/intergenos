@@ -1,0 +1,175 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:19Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-session",
+    "blfs_name": "gnome-session",
+    "blfs_version": "49.2",
+    "deps": [
+      {
+        "anchor": "DocBook",
+        "name": "docbook-xml-4.5",
+        "note": "",
+        "type": "optional",
+        "version": "4.5"
+      },
+      {
+        "anchor": "docbook-xsl",
+        "name": "docbook-xsl-nons-1.79.2",
+        "note": "to\n                build the documentation",
+        "type": "optional",
+        "version": "1.79.2"
+      },
+      {
+        "anchor": "gnome-desktop",
+        "name": "gnome-desktop-44.5",
+        "note": "",
+        "type": "required",
+        "version": "44.5"
+      },
+      {
+        "anchor": "json-glib",
+        "name": "JSON-GLib-1.10.8",
+        "note": "",
+        "type": "required",
+        "version": "1.10.8"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "",
+        "type": "optional",
+        "version": "1.1.45"
+      },
+      {
+        "anchor": "mesa",
+        "name": "Mesa-25.3.5",
+        "note": "",
+        "type": "required",
+        "version": "25.3.5"
+      },
+      {
+        "anchor": "systemd",
+        "name": "Systemd-259.1",
+        "note": "runtime",
+        "type": "required",
+        "version": "259.1"
+      },
+      {
+        "anchor": "upower",
+        "name": "UPower-1.91.1",
+        "note": "",
+        "type": "required",
+        "version": "1.91.1"
+      },
+      {
+        "anchor": "xmlto",
+        "name": "xmlto-0.0.29",
+        "note": "",
+        "type": "optional",
+        "version": "0.0.29"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "gnome-session",
+    "gnome-session-inhibit",
+    "gnome-session-quit"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gnome-session",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gnome-desktop",
+    "json-glib",
+    "mesa",
+    "upower",
+    "docbook-xml",
+    "libxslt",
+    "systemd"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "docbook",
+      "value": "false"
+    },
+    {
+      "name": "man",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-session",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "fcdb4f45d6a60d84e9ecae1e3740bab6e55bab0cb49e0fb38280e9b38f3a8485",
+  "source_tarball": "gnome-session-49.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-session/49/gnome-session-${version}.tar.xz",
+  "tarball_files_count": 207,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "use *_DISABLE_DEPRECATED flags",
+      "name": "deprecation_flags",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Directory for systemd user service files",
+      "name": "systemduserunitdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "build documentation",
+      "name": "docbook",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "man",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable x11 session support",
+      "name": "x11",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install default gnome-mimeapps.list",
+      "name": "mimeapps",
+      "type": "boolean"
+    }
+  ],
+  "version": "49.2"
+}

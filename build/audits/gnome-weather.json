@@ -1,0 +1,109 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-weather",
+    "blfs_name": "gnome-weather",
+    "blfs_version": "48.0",
+    "deps": [
+      {
+        "anchor": "appstream-glib",
+        "name": "appstream-glib-0.8.3",
+        "note": "",
+        "type": "optional",
+        "version": "0.8.3"
+      },
+      {
+        "anchor": "geoclue2",
+        "name": "GeoClue-2.8.0",
+        "note": "",
+        "type": "required",
+        "version": "2.8.0"
+      },
+      {
+        "anchor": "gjs",
+        "name": "Gjs-1.86.0",
+        "note": "",
+        "type": "required",
+        "version": "1.86.0"
+      },
+      {
+        "anchor": "libadwaita1",
+        "name": "libadwaita-1.8.4",
+        "note": "",
+        "type": "required",
+        "version": "1.8.4"
+      },
+      {
+        "anchor": "libgweather",
+        "name": "libgweather-4.4.4",
+        "note": "",
+        "type": "required",
+        "version": "4.4.4"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "gnome-weather"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gnome-weather",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "geoclue2",
+    "gjs",
+    "libadwaita1",
+    "libgweather"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-weather",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "4c0569b3d815ae2f9416d47134cbd3056340640ff186d31a94c865813b4bdbb5",
+  "source_tarball": "gnome-weather-48.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-weather/48/gnome-weather-${version}.tar.xz",
+  "tarball_files_count": 191,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "default",
+      "description": "",
+      "name": "profile",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "dogtail",
+      "type": "boolean"
+    }
+  ],
+  "version": "48.0"
+}

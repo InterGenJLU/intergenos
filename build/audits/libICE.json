@@ -1,0 +1,57 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:43Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/X11/ICE/"
+  ],
+  "expected_libs": [
+    "libICE.so"
+  ],
+  "expected_pkgconfig": [
+    "ice.pc"
+  ],
+  "name": "libICE",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "xorgproto",
+    "xtrans"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libICE",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "974e4ed414225eb3c716985df9709f4da8d22a67a2890066bc6dfc89ad298625",
+  "source_tarball": "libICE-1.1.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.x.org/pub/individual/lib/libICE-${version}.tar.xz",
+  "tarball_files_count": 68,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.1.2"
+}

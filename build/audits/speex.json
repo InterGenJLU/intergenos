@@ -1,0 +1,148 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "speex",
+    "blfs_name": "Speex",
+    "blfs_version": "1.2.1",
+    "deps": [
+      {
+        "anchor": "libogg",
+        "name": "libogg-1.3.6",
+        "note": "",
+        "type": "required",
+        "version": "1.3.6"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "speexenc",
+    "speexdec"
+  ],
+  "expected_headers": [
+    "/usr/include/speex"
+  ],
+  "expected_libs": [
+    "libspeex.so",
+    "libspeexdsp.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "speex",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--docdir=/usr/share/doc/speex-${PKG_VERSION}",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libogg"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/speex",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "4b44d4f2b38a370a2d98a78329fefc56a0cf93d1c1be70029217baae6628feea",
+  "source_tarball": "speex-1.2.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://downloads.xiph.org/releases/speex/speex-${version}.tar.gz",
+  "tarball_files_count": 269,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "  --enable-valgrind       Enable valgrind extra checks",
+      "kind": "enable",
+      "name": "valgrind"
+    },
+    {
+      "help": "  --enable-sse            Enable SSE support",
+      "kind": "enable",
+      "name": "sse"
+    },
+    {
+      "help": "  --enable-fixed-point    Compile as fixed-point",
+      "kind": "enable",
+      "name": "fixed-point"
+    },
+    {
+      "help": "  --disable-float-api     Disable the floating-point API",
+      "kind": "enable",
+      "name": "float-api"
+    },
+    {
+      "help": "  --disable-binaries   Do not build the encoder and decoder programs, only the library",
+      "kind": "enable",
+      "name": "binaries"
+    },
+    {
+      "help": "  --disable-vbr           Disable VBR and VAD from the codec",
+      "kind": "enable",
+      "name": "vbr"
+    },
+    {
+      "help": "  --enable-arm4-asm       Make use of ARM4 assembly optimizations",
+      "kind": "enable",
+      "name": "arm4-asm"
+    },
+    {
+      "help": "  --enable-arm5e-asm      Make use of ARM5E assembly optimizations",
+      "kind": "enable",
+      "name": "arm5e-asm"
+    },
+    {
+      "help": "  --enable-blackfin-asm   Make use of Blackfin assembly optimizations",
+      "kind": "enable",
+      "name": "blackfin-asm"
+    },
+    {
+      "help": "  --enable-fixed-point-debug  Debug fixed-point implementation",
+      "kind": "enable",
+      "name": "fixed-point-debug"
+    },
+    {
+      "help": "  --enable-ti-c55x        Enable support for TI C55X DSP",
+      "kind": "enable",
+      "name": "ti-c55x"
+    },
+    {
+      "help": "  --enable-vorbis-psy    Enable the Vorbis psy model",
+      "kind": "enable",
+      "name": "vorbis-psy"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-fft=choice",
+      "kind": "with",
+      "name": "fft"
+    }
+  ],
+  "version": "1.2.1"
+}

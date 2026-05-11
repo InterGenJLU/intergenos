@@ -1,0 +1,79 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:08Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libslirp",
+    "blfs_name": "libslirp",
+    "blfs_version": "4.9.1",
+    "deps": [
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "",
+        "type": "required",
+        "version": "2.86.4"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libslirp.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libslirp",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "meson",
+    "ninja",
+    "pkgconf",
+    "glib2"
+  ],
+  "our_deps_host": [
+    "glib2"
+  ],
+  "our_deps_runtime": [
+    "glib2"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/libslirp",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=meson; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": true,
+    "source_date_epoch_supported": true
+  },
+  "source_sha256": "9398f0ec5a581d4e1cd6856b88ae83927e458d643788c3391a39e61b75db3d3b",
+  "source_tarball": "libslirp-v4.7.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.freedesktop.org/slirp/libslirp/-/archive/v${version}/libslirp-v${version}.tar.gz",
+  "tarball_files_count": 73,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Suffix to append to SLIRP_VERSION_STRING",
+      "name": "version_suffix",
+      "type": "string"
+    }
+  ],
+  "version": "4.7.0"
+}

@@ -1,0 +1,171 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:43Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "suil",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "lv2",
+    "lilv",
+    "gtk3"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "docs",
+      "value": "disabled"
+    },
+    {
+      "name": "html",
+      "value": "disabled"
+    },
+    {
+      "name": "singlehtml",
+      "value": "disabled"
+    },
+    {
+      "name": "tests",
+      "value": "disabled"
+    },
+    {
+      "name": "gtk3",
+      "value": "enabled"
+    },
+    {
+      "name": "x11",
+      "value": "enabled"
+    },
+    {
+      "name": "gtk2",
+      "value": "disabled"
+    },
+    {
+      "name": "qt5",
+      "value": "disabled"
+    },
+    {
+      "name": "qt6",
+      "value": "disabled"
+    },
+    {
+      "name": "cocoa",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/suil",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "62808916602c47d201a1ec2d246323a8048243f2bf972f859f0db1db4662ee43",
+  "source_tarball": "suil-0.10.26.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.drobilla.net/suil-${version}.tar.xz",
+  "tarball_files_count": 61,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Build Cocoa wrappers",
+      "name": "cocoa",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build documentation",
+      "name": "docs",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build Gtk2 wrappers",
+      "name": "gtk2",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build Gtk3 wrappers",
+      "name": "gtk3",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build paginated HTML documentation",
+      "name": "html",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Run code quality checks",
+      "name": "lint",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build Qt5 wrappers",
+      "name": "qt5",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build Qt6 wrappers",
+      "name": "qt6",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build single-page HTML documentation",
+      "name": "singlehtml",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build tests",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "Suil",
+      "description": "Project title",
+      "name": "title",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Build X11 wrappers",
+      "name": "x11",
+      "type": "feature"
+    }
+  ],
+  "version": "0.10.26"
+}

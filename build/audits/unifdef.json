@@ -1,0 +1,54 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:12Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "unifdef",
+    "blfs_name": "unifdef",
+    "blfs_version": "2.12",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "unifdef",
+    "unifdefall"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "unifdef",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/unifdef",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "43ce0f02ecdcdc723b2475575563ddb192e988c886d368260bc0a63aee3ac400",
+  "source_tarball": "unifdef-2.12.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://dotat.at/prog/unifdef/unifdef-${version}.tar.xz",
+  "tarball_files_count": 450,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "2.12"
+}

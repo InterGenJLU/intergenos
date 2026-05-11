@@ -1,0 +1,61 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:19Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [
+    "/usr/bin/btop"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "btop",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cmake"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "BUILD_TESTING",
+      "value": "OFF"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/base/btop",
+  "reproducibility": {
+    "_notes": "filled by agent-c03 from build.sh inspection + BLFS HTML",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "4beb90172c6acaac08c1b4a5112fb616772e214a7ef992bcbd461453295a58be",
+  "source_tarball": "btop-1.4.6.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/aristocratos/btop/archive/v${version}/btop-${version}.tar.gz",
+  "tarball_files_count": 161,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "base",
+  "upstream_options": [],
+  "version": "1.4.6"
+}

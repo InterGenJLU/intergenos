@@ -1,0 +1,87 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:46Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "lxml",
+    "blfs_name": "lxml",
+    "blfs_version": "6.0.2",
+    "deps": [
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "",
+        "type": "required",
+        "version": "1.1.45"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "python",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "mako-render",
+    "f2py",
+    "f2py3",
+    "f2py3.14 (3 copies of the same script)",
+    "pygmentize",
+    "pyserial-miniterm",
+    "pyserial-ports",
+    "pytest",
+    "py.test (different files but with same content)",
+    "cm2html",
+    "cm2latex",
+    "cm2man",
+    "cm2pseudoxml",
+    "cm2xetex",
+    "cm2xml",
+    "scour",
+    "sphinx-apidoc",
+    "sphinx-autogen",
+    "sphinx-build",
+    "sphinx-quickstart"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "lxml",
+  "our_autotools_flags": [
+    "--no-build-isolation",
+    "--no-cache-dir",
+    "--no-deps"
+  ],
+  "our_deps_build": [
+    "libxml2",
+    "libxslt",
+    "cython"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/lxml",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "cd79f3367bd74b317dda655dc8fcfa304d9eb6e4fb06b7168c5cf27f96e0cd62",
+  "source_tarball": "lxml-6.0.2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://files.pythonhosted.org/packages/source/l/lxml/lxml-${version}.tar.gz",
+  "tarball_files_count": 504,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "6.0.2"
+}

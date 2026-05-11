@@ -1,0 +1,170 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:03Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "freetype2",
+    "blfs_name": "FreeType",
+    "blfs_version": "2.14.1",
+    "deps": [
+      {
+        "anchor": "brotli",
+        "name": "Brotli-1.2.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.2.0"
+      },
+      {
+        "anchor": "harfbuzz",
+        "name": "harfBuzz-12.3.2",
+        "note": "runtime [downgraded from recommended/runtime by fix-blfs-db-data-errors.py]",
+        "type": "optional",
+        "version": "12.3.2"
+      },
+      {
+        "anchor": "libpng",
+        "name": "libpng-1.6.55",
+        "note": "",
+        "type": "recommended",
+        "version": "1.6.55"
+      },
+      {
+        "anchor": "librsvg",
+        "name": "librsvg-2.61.4",
+        "note": "",
+        "type": "optional",
+        "version": "2.61.4"
+      },
+      {
+        "anchor": "which",
+        "name": "Which-2.23",
+        "note": "",
+        "type": "recommended",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "freetype-config"
+  ],
+  "expected_headers": [
+    "/usr/include/freetype2"
+  ],
+  "expected_libs": [
+    "libfreetype.so"
+  ],
+  "expected_pkgconfig": [
+    "freetype.pc"
+  ],
+  "name": "freetype2",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "harfbuzz",
+    "libpng",
+    "brotli",
+    "which"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "harfbuzz",
+      "value": "enabled"
+    },
+    {
+      "name": "brotli",
+      "value": "enabled"
+    },
+    {
+      "name": "png",
+      "value": "enabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/freetype2",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "32427e8c471ac095853212a37aef816c60b42052d4d9e48230bab3bdf2936ccc",
+  "source_tarball": "freetype-2.14.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://downloads.sourceforge.net/freetype/freetype-${version}.tar.xz",
+  "tarball_files_count": 937,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "Use Brotli library to support decompressing WOFF2 fonts",
+      "name": "brotli",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support reading bzip2-compressed font files",
+      "name": "bzip2",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Use Harfbuzz library to improve auto-hinting;",
+      "name": "harfbuzz",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "mmap",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support color bitmap glyph formats in the PNG format;",
+      "name": "png",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable FreeType unit and regression tests",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Support reading gzip-compressed font files",
+      "name": "zlib",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Enable support for meaningful error descriptions",
+      "name": "error_strings",
+      "type": "boolean"
+    }
+  ],
+  "version": "2.14.1"
+}

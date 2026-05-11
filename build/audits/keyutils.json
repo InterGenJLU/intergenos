@@ -1,0 +1,62 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:43Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "keyutils",
+    "blfs_name": "keyutils",
+    "blfs_version": "1.6.3",
+    "deps": [
+      {
+        "anchor": "lsb-tools",
+        "name": "lsb-tools-0.12",
+        "note": "referred by the test\n                suite",
+        "type": "optional",
+        "version": "0.12"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [
+    "keyctl",
+    "key.dns_resolver",
+    "request-key"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libkeyutils.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "keyutils",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/keyutils",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "a61d5706136ae4c05bd48f86186bcfdbd88dd8bd5107e3e195c924cfc1b39bb4",
+  "source_tarball": "keyutils-1.6.3.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git/snapshot/keyutils-${version}.tar.gz",
+  "tarball_files_count": 265,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "1.6.3"
+}

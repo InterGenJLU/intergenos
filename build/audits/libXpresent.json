@@ -1,0 +1,59 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:45Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/X11/extensions/Xpresent.h"
+  ],
+  "expected_libs": [
+    "libXpresent.so"
+  ],
+  "expected_pkgconfig": [
+    "xpresent.pc"
+  ],
+  "name": "libXpresent",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "libXfixes",
+    "libXrandr"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libXpresent",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "4e5b21b4812206a4b223013606ae31170502c1043038777a1ef8f70c09d37602",
+  "source_tarball": "libXpresent-1.0.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.x.org/pub/individual/lib/libXpresent-${version}.tar.xz",
+  "tarball_files_count": 48,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.0.2"
+}

@@ -1,0 +1,72 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:17Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "rust-bindgen",
+    "blfs_name": "rust-bindgen",
+    "blfs_version": "0.72.1",
+    "deps": [
+      {
+        "anchor": "llvm",
+        "name": "LLVM-21.1.8",
+        "note": "with Clang,\n                runtime",
+        "type": "required",
+        "version": "21.1.8"
+      },
+      {
+        "anchor": "rust",
+        "name": "rustc-1.93.1",
+        "note": "",
+        "type": "required",
+        "version": "1.93.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cargo",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [
+    "bindgen"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "rust-bindgen",
+  "our_autotools_flags": [
+    "--strip-components=1"
+  ],
+  "our_deps_build": [
+    "rust",
+    "llvm"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/rust-bindgen",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "4ffb17061b2d71f19c5062d2e17e64107248f484f9775c0b7d30a16a8238dfd1",
+  "source_tarball": "rust-bindgen-0.72.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/rust-lang/rust-bindgen/archive/refs/tags/v${version}/rust-bindgen-${version}.tar.gz",
+  "tarball_files_count": 1401,
+  "test_command": "cargo test --release || true",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "0.72.1"
+}

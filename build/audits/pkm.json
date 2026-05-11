@@ -1,0 +1,45 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "no source tarball declared or downloaded",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:02Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "unknown",
+  "bundled_libs": [],
+  "docs_seen": [],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "pkm",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [
+    "python"
+  ],
+  "our_deps_runtime": [
+    "python"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/pkm",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_intentionally_sourceless": true,
+  "source_sha256": null,
+  "source_tarball": null,
+  "source_tarball_exists": false,
+  "source_url": null,
+  "tarball_files_count": 0,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "0.1.0"
+}

@@ -1,0 +1,80 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:10Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libunistring",
+    "blfs_name": "libunistring",
+    "blfs_version": "1.4.1",
+    "deps": [
+      {
+        "anchor": "texlive",
+        "name": "texlive-20250308",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "tl-installer",
+        "name": "install-tl-unx",
+        "note": "to rebuild the\n                documentation",
+        "type": "optional",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libunistring.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libunistring",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--docdir=/usr/share/doc/libunistring-${PKG_VERSION}",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/libunistring",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "5b46e74377ed7409c5b75e7a96f95377b095623b689d8522620927964a41499c",
+  "source_tarball": "libunistring-1.4.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://ftpmirror.gnu.org/libunistring/libunistring-${version}.tar.xz",
+  "tarball_files_count": 2396,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "  --disable-namespacing   build a library that exports undesired symbols",
+      "kind": "enable",
+      "name": "namespacing"
+    }
+  ],
+  "version": "1.4.2"
+}

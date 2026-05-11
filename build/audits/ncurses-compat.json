@@ -1,0 +1,56 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:51Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "ncurses-compat",
+  "our_autotools_flags": [
+    "--prefix=/usr",
+    "--with-abi-version=5",
+    "--with-shared",
+    "--without-cxx-binding",
+    "--without-debug",
+    "--without-normal"
+  ],
+  "our_deps_build": [
+    "ncurses"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/ncurses-compat",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=autotools; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": true,
+    "source_date_epoch_supported": true
+  },
+  "source_sha256": "355b4cbbed880b0381a04c46617b7656e362585d52e9cf84a67e2009b749ff11",
+  "source_tarball": "ncurses-6.6.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://invisible-mirror.net/archives/ncurses/ncurses-${version}.tar.gz",
+  "tarball_files_count": 1298,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "6.6"
+}

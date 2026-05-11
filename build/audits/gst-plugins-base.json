@@ -1,0 +1,243 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:30Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gst10-plugins-base",
+    "blfs_name": "gst-plugins-base",
+    "blfs_version": "1.28.1",
+    "deps": [
+      {
+        "anchor": "alsa-lib",
+        "name": "alsa-lib-1.2.15.3",
+        "note": "",
+        "type": "recommended",
+        "version": "1.2.15.3"
+      },
+      {
+        "anchor": "cdparanoia",
+        "name": "CDParanoia-III-10.2",
+        "note": "for building\n                the CDDA plugin",
+        "type": "recommended",
+        "version": "10.2"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "graphene",
+        "name": "graphene-1.10.8",
+        "note": "",
+        "type": "optional",
+        "version": "1.10.8"
+      },
+      {
+        "anchor": "gstreamer10",
+        "name": "gstreamer-1.28.1",
+        "note": "",
+        "type": "required",
+        "version": "1.28.1"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "for examples",
+        "type": "optional",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "iso-codes",
+        "name": "ISO Codes-4.20.1",
+        "note": "",
+        "type": "recommended",
+        "version": "4.20.1"
+      },
+      {
+        "anchor": "libgudev",
+        "name": "libgudev-238",
+        "note": "",
+        "type": "recommended",
+        "version": "238"
+      },
+      {
+        "anchor": "libjpeg",
+        "name": "libjpeg-turbo-3.1.3",
+        "note": "",
+        "type": "recommended",
+        "version": "3.1.3"
+      },
+      {
+        "anchor": "libogg",
+        "name": "libogg-1.3.6",
+        "note": "",
+        "type": "recommended",
+        "version": "1.3.6"
+      },
+      {
+        "anchor": "libpng",
+        "name": "libpng-1.6.55",
+        "note": "",
+        "type": "recommended",
+        "version": "1.6.55"
+      },
+      {
+        "anchor": "libvorbis",
+        "name": "libvorbis-1.3.7",
+        "note": "",
+        "type": "recommended",
+        "version": "1.3.7"
+      },
+      {
+        "anchor": "mesa",
+        "name": "Mesa-25.3.5",
+        "note": "",
+        "type": "recommended",
+        "version": "25.3.5"
+      },
+      {
+        "anchor": "opus",
+        "name": "Opus-1.6.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.6.1"
+      },
+      {
+        "anchor": "pango",
+        "name": "Pango-1.57.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.57.0"
+      },
+      {
+        "anchor": "sdl2",
+        "name": "sdl2-compat-2.32.64",
+        "note": "",
+        "type": "optional",
+        "version": "2.32.64"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      },
+      {
+        "anchor": "wayland-protocols",
+        "name": "wayland-protocols-1.47",
+        "note": "",
+        "type": "recommended",
+        "version": "1.47"
+      },
+      {
+        "anchor": "xorg7-lib",
+        "name": "Xorg\n                Libraries",
+        "note": "",
+        "type": "recommended",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "gst-device-monitor-1.0",
+    "gst-discoverer-1.0",
+    "gst-play-1.0"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libgstallocators-1.0.so",
+    "libgstapp-1.0.so",
+    "libgstaudio-1.0.so",
+    "libgstfft-1.0.so",
+    "libgstgl-1.0.so",
+    "libgstpbutils-1.0.so",
+    "libgstriff-1.0.so",
+    "libgstrtp-1.0.so",
+    "libgstrtsp-1.0.so",
+    "libgstsdp-1.0.so",
+    "libgsttag-1.0.so",
+    "libgstvideo-1.0.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "gst-plugins-base",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr",
+    "--wrap-mode=nodownload"
+  ],
+  "our_deps_build": [
+    "gstreamer",
+    "alsa-lib",
+    "libogg",
+    "libvorbis",
+    "orc",
+    "pango",
+    "libX11",
+    "libXext",
+    "cdparanoia",
+    "glib2",
+    "graphene",
+    "iso-codes",
+    "libgudev",
+    "libjpeg-turbo",
+    "libpng",
+    "mesa",
+    "opus",
+    "wayland-protocols"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "tests",
+      "value": "disabled"
+    },
+    {
+      "name": "examples",
+      "value": "disabled"
+    },
+    {
+      "name": "doc",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gst-plugins-base",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "1446a4c2a92ff5d78d88e85a599f0038441d53333236f0c72d72f21a9c132497",
+  "source_tarball": "gst-plugins-base-1.28.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugins-base-${version}.tar.xz",
+  "tarball_files_count": 1618,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.28.1"
+}

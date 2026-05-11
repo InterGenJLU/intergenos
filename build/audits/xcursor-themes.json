@@ -1,0 +1,68 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "xcursor-themes",
+    "blfs_name": "xcursor-themes",
+    "blfs_version": "1.0.7",
+    "deps": [
+      {
+        "anchor": "xorg7-app",
+        "name": "Xorg Applications",
+        "note": "",
+        "type": "required",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "xcursor-themes",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "xcursorgen"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/xcursor-themes",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "95bae8f48823d894a05bf42dfbf453674ab7dbdeb11e2bc079e8525ad47378c8",
+  "source_tarball": "xcursor-themes-1.0.7.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.x.org/pub/individual/data/xcursor-themes-${version}.tar.xz",
+  "tarball_files_count": 743,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--with-cursordir=<pathname>",
+      "kind": "with",
+      "name": "cursordir"
+    }
+  ],
+  "version": "1.0.7"
+}

@@ -1,0 +1,64 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:01Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "/usr/bin/parallel",
+    "/usr/bin/env_parallel",
+    "/usr/bin/niceload",
+    "/usr/bin/parcat",
+    "/usr/bin/parset",
+    "/usr/bin/parsort",
+    "/usr/bin/sem",
+    "/usr/bin/sql"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "parallel",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "perl-core"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/base/parallel",
+  "reproducibility": {
+    "_notes": "filled by agent-c03 from build.sh inspection + BLFS HTML",
+    "deterministic_install": 1,
+    "parallel_build_supported": 0,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "764680e932f4d0d21cf0329bd9f9eed659895de16836001f6491533b822befe0",
+  "source_tarball": "parallel-20260322.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://ftp.gnu.org/gnu/parallel/parallel-${version}.tar.bz2",
+  "tarball_files_count": 121,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "base",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-documentation",
+      "kind": "enable",
+      "name": "documentation"
+    }
+  ],
+  "version": "20260322"
+}

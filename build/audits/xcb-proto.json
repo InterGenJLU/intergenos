@@ -1,0 +1,70 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "xcb-proto",
+    "blfs_name": "xcb-proto",
+    "blfs_version": "1.17.0",
+    "deps": [
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "required to run the\n                tests",
+        "type": "optional",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "xorg-env",
+        "name": "Xorg build\n                environment",
+        "note": "needed for the instructions below",
+        "type": "recommended",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "xcb-proto",
+  "our_autotools_flags": [
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/xcb-proto",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "2c1bacd2110f4799f74de6ebb714b94cf6f80fb112316b1219480fd22562148c",
+  "source_tarball": "xcb-proto-1.17.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://xorg.freedesktop.org/archive/individual/proto/xcb-proto-${version}.tar.xz",
+  "tarball_files_count": 64,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.17.0"
+}

@@ -1,0 +1,95 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:48Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "cd-paranoia"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libcdio_cdda.so",
+    "libcdio_paranoia.so"
+  ],
+  "expected_pkgconfig": [
+    "libcdio_cdda.pc",
+    "libcdio_paranoia.pc"
+  ],
+  "name": "libcdio-paranoia",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libcdio"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libcdio-paranoia",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "186892539dedd661276014d71318c8c8f97ecb1250a86625256abd4defbf0d0c",
+  "source_tarball": "libcdio-paranoia-10.2+2.0.2.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://ftpmirror.gnu.org/libcdio/libcdio-paranoia-${version}.tar.bz2",
+  "tarball_files_count": 163,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-example-progs",
+      "kind": "enable",
+      "name": "example-progs"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-cxx",
+      "kind": "enable",
+      "name": "cxx"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-cpp-progs",
+      "kind": "enable",
+      "name": "cpp-progs"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ld-version-script",
+      "kind": "enable",
+      "name": "ld-version-script"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-example-progs",
+      "kind": "enable",
+      "name": "example-progs"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-cd-paranoia-name",
+      "kind": "with",
+      "name": "cd-paranoia-name"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-versioned-libs",
+      "kind": "with",
+      "name": "versioned-libs"
+    }
+  ],
+  "version": "10.2+2.0.2"
+}

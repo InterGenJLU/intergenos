@@ -1,0 +1,206 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:18Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "seahorse",
+    "blfs_name": "Seahorse",
+    "blfs_version": "47.0.1",
+    "deps": [
+      {
+        "anchor": "avahi",
+        "name": "Avahi-0.8",
+        "note": "",
+        "type": "optional",
+        "version": "0.8"
+      },
+      {
+        "anchor": "gcr",
+        "name": "Gcr-3.41.2",
+        "note": "",
+        "type": "required",
+        "version": "3.41.2"
+      },
+      {
+        "anchor": "gnupg2",
+        "name": "GnuPG-2.5.17",
+        "note": "",
+        "type": "required",
+        "version": "2.5.17"
+      },
+      {
+        "anchor": "gpgme",
+        "name": "gpgme-2.0.1",
+        "note": "",
+        "type": "required",
+        "version": "2.0.1"
+      },
+      {
+        "anchor": "itstool",
+        "name": "itstool-2.0.7",
+        "note": "",
+        "type": "required",
+        "version": "2.0.7"
+      },
+      {
+        "anchor": "libhandy1",
+        "name": "libhandy-1.8.3",
+        "note": "",
+        "type": "required",
+        "version": "1.8.3"
+      },
+      {
+        "anchor": "libpwquality",
+        "name": "libpwquality-1.4.5",
+        "note": "",
+        "type": "required",
+        "version": "1.4.5"
+      },
+      {
+        "anchor": "libsecret",
+        "name": "libsecret-0.21.7",
+        "note": "",
+        "type": "required",
+        "version": "0.21.7"
+      },
+      {
+        "anchor": "libsoup3",
+        "name": "libsoup-3.6.6",
+        "note": "",
+        "type": "recommended",
+        "version": "3.6.6"
+      },
+      {
+        "anchor": "openssh",
+        "name": "OpenSSH-10.2p1",
+        "note": "for\n                managing SSH keys",
+        "type": "recommended",
+        "version": "10.2p1"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "required",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "None"
+  ],
+  "expected_pkgconfig": [],
+  "name": "seahorse",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gcr",
+    "gnupg2",
+    "vala",
+    "gpgme",
+    "itstool",
+    "libhandy1",
+    "libpwquality",
+    "libsecret",
+    "openssh",
+    "libsoup3"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/seahorse",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "9c1917e4a61f7febb787849ce36ce717fce706c346880b991d056d54dadbcacc",
+  "source_tarball": "seahorse-47.0.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/seahorse/47/seahorse-${version}.tar.xz",
+  "tarball_files_count": 473,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Build help",
+      "name": "help",
+      "type": "boolean"
+    },
+    {
+      "default": "default",
+      "description": "",
+      "name": "profile",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Add support PGP keys",
+      "name": "pgp-support",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Perform a rudimentary check if the GPG and GPG versions are compatible",
+      "name": "check-compatible-gpg",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Add support for PKCS#11 objects",
+      "name": "pkcs11-support",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Add support for keyservers",
+      "name": "keyservers-support",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Add support for keyservers using HKP",
+      "name": "hkp-support",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Add support for keyservers using LDAP",
+      "name": "ldap-support",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Add support for DNS-SD key sharing",
+      "name": "key-sharing",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "manpage",
+      "type": "boolean"
+    }
+  ],
+  "version": "47.0.1"
+}

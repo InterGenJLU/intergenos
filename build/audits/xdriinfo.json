@@ -1,0 +1,54 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:22Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "xdriinfo"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "xdriinfo",
+  "our_autotools_flags": [
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "libX11",
+    "mesa"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/xdriinfo",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "00463056435b82261c227ad0de1873fd4536101607fbc57540e28e4a0a9b71f7",
+  "source_tarball": "xdriinfo-1.0.8.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.x.org/pub/individual/app/xdriinfo-${version}.tar.xz",
+  "tarball_files_count": 24,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.0.8"
+}

@@ -1,0 +1,174 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:19Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "shadow-pam",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--sysconfdir=/etc",
+    "--with-",
+    "--without-libbsd"
+  ],
+  "our_deps_build": [
+    "linux-pam"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/shadow-pam",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "11a8f358910712cf957dd4fd205063fce7e386b68fc7dfe3a0e1e53155ec53c5",
+  "source_tarball": "shadow-4.19.3.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/shadow-maint/shadow/releases/download/${version}/shadow-${version}.tar.xz",
+  "tarball_files_count": 16412,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-shadowgrp",
+      "kind": "enable",
+      "name": "shadowgrp"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-man",
+      "kind": "enable",
+      "name": "man"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-account-tools-setuid",
+      "kind": "enable",
+      "name": "account-tools-setuid"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-subordinate-ids",
+      "kind": "enable",
+      "name": "subordinate-ids"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-lastlog",
+      "kind": "enable",
+      "name": "lastlog"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-logind",
+      "kind": "enable",
+      "name": "logind"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-vendordir=DIR",
+      "kind": "enable",
+      "name": "vendordir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-audit",
+      "kind": "with",
+      "name": "audit"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-libpam",
+      "kind": "with",
+      "name": "libpam"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-btrfs",
+      "kind": "with",
+      "name": "btrfs"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-selinux",
+      "kind": "with",
+      "name": "selinux"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-acl",
+      "kind": "with",
+      "name": "acl"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-attr",
+      "kind": "with",
+      "name": "attr"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-skey",
+      "kind": "with",
+      "name": "skey"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-tcb",
+      "kind": "with",
+      "name": "tcb"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-sha-crypt",
+      "kind": "with",
+      "name": "sha-crypt"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-bcrypt",
+      "kind": "with",
+      "name": "bcrypt"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-yescrypt",
+      "kind": "with",
+      "name": "yescrypt"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-nscd",
+      "kind": "with",
+      "name": "nscd"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-sssd",
+      "kind": "with",
+      "name": "sssd"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-group-name-max-length",
+      "kind": "with",
+      "name": "group-name-max-length"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-su",
+      "kind": "with",
+      "name": "su"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-libbsd",
+      "kind": "with",
+      "name": "libbsd"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-fcaps",
+      "kind": "with",
+      "name": "fcaps"
+    }
+  ],
+  "version": "4.19.3"
+}

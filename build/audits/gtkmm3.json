@@ -1,0 +1,162 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:33Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gtkmm3",
+    "blfs_name": "Gtkmm",
+    "blfs_version": "3.24.10",
+    "deps": [
+      {
+        "anchor": "atkmm",
+        "name": "Atkmm-2.28.4",
+        "note": "",
+        "type": "required",
+        "version": "2.28.4"
+      },
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "required",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "pangomm",
+        "name": "Pangomm-2.46.4",
+        "note": "",
+        "type": "required",
+        "version": "2.46.4"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/gtkmm-3.0/gtkmm.h",
+    "/usr/include/gdkmm-3.0/gdkmm.h"
+  ],
+  "expected_libs": [
+    "/usr/lib/libgdkmm-3.0.so",
+    "/usr/lib/libgtkmm-3.0.so"
+  ],
+  "expected_pkgconfig": [
+    "/usr/lib/pkgconfig/gtkmm-3.0.pc",
+    "/usr/lib/pkgconfig/gdkmm-3.0.pc"
+  ],
+  "name": "gtkmm3",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "atkmm",
+    "gtk3",
+    "pangomm1"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/gtkmm3",
+  "reproducibility": {
+    "_notes": "meson",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "7ab7e2266808716e26c39924ace1fb46da86c17ef39d989624c42314b32b5a76",
+  "source_tarball": "gtkmm-3.24.10.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gtkmm/3.24/gtkmm-${version}.tar.xz",
+  "tarball_files_count": 3856,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [
+    {
+      "default": "if-git-build",
+      "description": "Generate source code from .hg and .ccg files",
+      "name": "maintainer-mode",
+      "type": "combo"
+    },
+    {
+      "default": "min",
+      "description": "Compiler warning level",
+      "name": "warnings",
+      "type": "combo"
+    },
+    {
+      "default": "fatal",
+      "description": "Compiler warning level when a tarball is created",
+      "name": "dist-warnings",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Build deprecated API and include it in the library",
+      "name": "build-deprecated-api",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build atkmm API and include it in the library",
+      "name": "build-atkmm-api",
+      "type": "boolean"
+    },
+    {
+      "default": "if-enabled-in-gdk",
+      "description": "Build X11 API and include it in the library",
+      "name": "build-x11-api",
+      "type": "combo"
+    },
+    {
+      "default": "if-maintainer-mode",
+      "description": "Build and install the documentation",
+      "name": "build-documentation",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Build demo programs",
+      "name": "build-demos",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build test programs",
+      "name": "build-tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Use separate DLL and LIB filenames for Visual Studio 2015, 2017 and 2019",
+      "name": "msvc14x-parallel-installable",
+      "type": "boolean"
+    }
+  ],
+  "version": "3.24.10"
+}

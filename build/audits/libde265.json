@@ -1,0 +1,78 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:48Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libde265",
+    "blfs_name": "libde265",
+    "blfs_version": "1.0.16",
+    "deps": [
+      {
+        "anchor": "ffmpeg",
+        "name": "FFmpeg-8.0.1",
+        "note": "",
+        "type": "optional",
+        "version": "8.0.1"
+      },
+      {
+        "anchor": "sdl2",
+        "name": "sdl2-compat-2.32.64",
+        "note": "",
+        "type": "optional",
+        "version": "2.32.64"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "dec265",
+    "sherlock265"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libde265.so"
+  ],
+  "expected_pkgconfig": [
+    "libde265.pc"
+  ],
+  "name": "libde265",
+  "our_autotools_flags": [
+    "--disable-sherlock265",
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libde265",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "b92beb6b53c346db9a8fae968d686ab706240099cdd5aff87777362d668b0de7",
+  "source_tarball": "libde265-1.0.16.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/strukturag/libde265/releases/download/v${version}/libde265-${version}.tar.gz",
+  "tarball_files_count": 232,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.0.16"
+}

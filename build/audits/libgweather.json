@@ -1,0 +1,190 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:52Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libgweather",
+    "blfs_name": "libgweather",
+    "blfs_version": "4.4.4",
+    "deps": [
+      {
+        "anchor": "geocode-glib",
+        "name": "geocode-glib-3.26.4",
+        "note": "",
+        "type": "required",
+        "version": "3.26.4"
+      },
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "libsoup3",
+        "name": "libsoup-3.6.6",
+        "note": "",
+        "type": "required",
+        "version": "3.6.6"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "recommended",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "llvm",
+        "name": "LLVM-21.1.8",
+        "note": "for clang-format",
+        "type": "optional",
+        "version": "21.1.8"
+      },
+      {
+        "anchor": "pygobject3",
+        "name": "PyGObject-3.54.5",
+        "note": "",
+        "type": "required",
+        "version": "3.54.5"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "libgweather-4.4.4-upstream_fix-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/libgweather-4.4.4-upstream_fix-1.patch"
+      }
+    ]
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libgweather-4.so"
+  ],
+  "expected_pkgconfig": [
+    "gweather4.pc"
+  ],
+  "name": "libgweather",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "geocode-glib",
+    "libsoup3",
+    "pygobject3",
+    "glib2",
+    "libxml2",
+    "llvm",
+    "vala"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "gtk_doc",
+      "value": "false"
+    },
+    {
+      "name": "tests",
+      "value": "false"
+    }
+  ],
+  "our_patches": [
+    {
+      "file": "libgweather-4.4.4-upstream_fix-1.patch",
+      "sha256": "8edd85a2d662c6a530f5cacd78ebcd4446925c9995c190daee6e7696e2ee1ae5"
+    }
+  ],
+  "package_dir": "packages/desktop/libgweather",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "7017677753cdf7d1fdc355e4bfcdb1eba8369793a8df24d241427a939cbf4283",
+  "source_tarball": "libgweather-4.4.4.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/libgweather/4.4/libgweather-${version}.tar.xz",
+  "tarball_files_count": 298,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "/usr/share/zoneinfo",
+      "description": "zoneinfo directory",
+      "name": "zoneinfo_dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "owm_apikey",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Install vala bindings",
+      "name": "enable_vala",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Whether to generate the API reference",
+      "name": "gtk_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Whether to generate introspection data",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Whether to build the tests and tools",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Whether to build with libsoup2",
+      "name": "soup2",
+      "type": "boolean"
+    }
+  ],
+  "version": "4.4.4"
+}

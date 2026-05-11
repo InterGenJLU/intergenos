@@ -1,0 +1,47 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:51Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "cargo",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "netavark",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "rust"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/netavark",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=unknown; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "284faa7cc525b869cbac4053e0a4127ac743ca7da1457c49fffb35558ea9c78d",
+  "source_tarball": "netavark-v1.17.2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/containers/netavark/archive/refs/tags/v${version}.tar.gz",
+  "tarball_files_count": 204,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "1.17.2"
+}

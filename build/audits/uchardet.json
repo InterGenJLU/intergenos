@@ -1,0 +1,77 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:11Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "uchardet",
+    "blfs_name": "Uchardet",
+    "blfs_version": "0.0.8",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "uchardet"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libuchardet.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "uchardet",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cmake"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "BUILD_STATIC",
+      "value": "OFF"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/extra/uchardet",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=cmake; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": true,
+    "source_date_epoch_supported": true
+  },
+  "source_sha256": "e97a60cfc00a1c147a674b097bb1422abd9fa78a2d9ce3f3fdcc2e78a34ac5f0",
+  "source_tarball": "uchardet-0.0.8.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.freedesktop.org/software/uchardet/releases/uchardet-${version}.tar.xz",
+  "tarball_files_count": 363,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "0.0.8"
+}

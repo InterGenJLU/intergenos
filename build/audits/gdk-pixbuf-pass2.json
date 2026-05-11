@@ -1,0 +1,194 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:05Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gdk-pixbuf-pass2",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr",
+    "--wrap-mode=nofallback"
+  ],
+  "our_deps_build": [
+    "shared-mime-info",
+    "libjpeg-turbo",
+    "libpng",
+    "libtiff",
+    "giflib",
+    "glycin"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "png",
+      "value": "enabled"
+    },
+    {
+      "name": "gif",
+      "value": "enabled"
+    },
+    {
+      "name": "jpeg",
+      "value": "enabled"
+    },
+    {
+      "name": "tiff",
+      "value": "enabled"
+    },
+    {
+      "name": "thumbnailer",
+      "value": "disabled"
+    },
+    {
+      "name": "glycin",
+      "value": "enabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gdk-pixbuf-pass2",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "69b93e09139b80c0ee661503d60deb5a5874a31772b5184b9cd5462a4100ab68",
+  "source_tarball": "gdk-pixbuf-2.44.5.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gdk-pixbuf/2.44/gdk-pixbuf-${version}.tar.xz",
+  "tarball_files_count": 754,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "png",
+      "type": ""
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "tiff",
+      "type": ""
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "jpeg",
+      "type": ""
+    },
+    {
+      "default": "auto",
+      "description": "Enable GIF loader, disabled on Windows if ",
+      "name": "gif",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "glycin",
+      "type": ""
+    },
+    {
+      "default": "auto",
+      "description": "Enable Android ImageDecoder loader. It provides loaders for JPEG, PNG, GIF, WEBP, BMP, ICO, WBMP, and HEIF images",
+      "name": "android",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable other loaders, which are weakly maintained",
+      "name": "others",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Comma-separated list of loaders to build into gdk-pixbuf",
+      "name": "builtin_loaders",
+      "type": "array"
+    },
+    {
+      "default": "",
+      "description": "Whether to generate the API reference",
+      "name": "gtk_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "documentation",
+      "type": ""
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "introspection",
+      "type": ""
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "man",
+      "type": ""
+    },
+    {
+      "default": "",
+      "description": "Whether to enable application bundle relocation support",
+      "name": "relocatable",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Use Windows system components to handle BMP, EMF, GIF, ICO, JPEG, TIFF and WMF images, overriding jpeg and tiff.  To build this into gdk-pixbuf, pass in windows",
+      "name": "native_windows_loaders",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build the test suite",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Install the test suite",
+      "name": "installed_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gio_sniffing",
+      "type": ""
+    },
+    {
+      "default": "auto",
+      "description": "Build the thumbnailer",
+      "name": "thumbnailer",
+      "type": "feature"
+    }
+  ],
+  "version": "2.44.5"
+}

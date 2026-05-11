@@ -1,0 +1,112 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:48Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libcloudproviders",
+    "blfs_name": "libcloudproviders",
+    "blfs_version": "0.3.6",
+    "deps": [
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "required",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libcloudproviders.so"
+  ],
+  "expected_pkgconfig": [
+    "cloudproviders.pc"
+  ],
+  "name": "libcloudproviders",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "glib2",
+    "vala"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "enable-gtk-doc",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libcloudproviders",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "3b75110b3a4fdef4c5c5a440e48701fe054d2ae061d156c89136bb5ba05e74b7",
+  "source_tarball": "libcloudproviders-0.3.6.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/libcloudproviders/0.3/libcloudproviders-${version}.tar.xz",
+  "tarball_files_count": 44,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "enable-gtk-doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "installed-tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build GObject introspection data for extension library",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build Vala bindings",
+      "name": "vapigen",
+      "type": "boolean"
+    }
+  ],
+  "version": "0.3.6"
+}

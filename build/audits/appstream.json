@@ -1,0 +1,238 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:15Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "appstream",
+    "blfs_name": "AppStream",
+    "blfs_version": "1.1.2",
+    "deps": [
+      {
+        "anchor": "curl",
+        "name": "cURL-8.18.0",
+        "note": "",
+        "type": "required",
+        "version": "8.18.0"
+      },
+      {
+        "anchor": "docbook-xsl",
+        "name": "docbook-xsl-nons-1.79.2",
+        "note": "",
+        "type": "recommended",
+        "version": "1.79.2"
+      },
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "itstool",
+        "name": "itstool-2.0.7",
+        "note": "",
+        "type": "required",
+        "version": "2.0.7"
+      },
+      {
+        "anchor": "libfyaml",
+        "name": "libfyaml-0.9.4",
+        "note": "",
+        "type": "required",
+        "version": "0.9.4"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "required",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "libxmlb",
+        "name": "libxmlb-0.3.25",
+        "note": "",
+        "type": "required",
+        "version": "0.3.25"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "",
+        "type": "required",
+        "version": "1.1.45"
+      },
+      {
+        "anchor": "qt6",
+        "name": "Qt-6.10.2",
+        "note": "",
+        "type": "optional",
+        "version": "6.10.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "appstreamcli"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libappstream.so",
+    "libAppStreamQt.so (if Qt6 support is enabled)"
+  ],
+  "expected_pkgconfig": [],
+  "name": "appstream",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "curl",
+    "itstool",
+    "libfyaml",
+    "libxml2",
+    "libxmlb",
+    "libxslt",
+    "docbook-xsl-nons"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "stemming",
+      "value": "false"
+    },
+    {
+      "name": "apidocs",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/appstream",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "46b4257100e25a6468ceed7b3ab82441f47b119da3398d30aea6d7b91174b586",
+  "source_tarball": "AppStream-1.1.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.freedesktop.org/software/appstream/releases/AppStream-${version}.tar.xz",
+  "tarball_files_count": 671,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "stemming",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build with systemd support",
+      "name": "systemd",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Create and install a Vala API file. Requires ",
+      "name": "vapi",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build libAppStreamQt",
+      "name": "qt",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build libappstream-compose library and `appstreamcli compose` tool",
+      "name": "compose",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Bash completion",
+      "name": "bash-completion",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable integration with APT on Debian",
+      "name": "apt-support",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build introspection data",
+      "name": "gir",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "svg-support",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "zstd-support",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build documentation for API and specification",
+      "name": "docs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build API documentation (automatically enabled when ",
+      "name": "apidocs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Install documentation for API and specification",
+      "name": "install-docs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build manual pages and install them",
+      "name": "man",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "maintainer",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable GCC static analysis support",
+      "name": "static-analysis",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.1.2"
+}

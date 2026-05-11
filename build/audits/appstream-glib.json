@@ -1,0 +1,201 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:15Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "appstream-glib",
+    "blfs_name": "appstream-glib",
+    "blfs_version": "0.8.3",
+    "deps": [
+      {
+        "anchor": "DocBook",
+        "name": "docbook-xml-4.5",
+        "note": "",
+        "type": "optional",
+        "version": "4.5"
+      },
+      {
+        "anchor": "curl",
+        "name": "cURL-8.18.0",
+        "note": "",
+        "type": "required",
+        "version": "8.18.0"
+      },
+      {
+        "anchor": "docbook-xsl",
+        "name": "docbook-xsl-nons-1.79.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.79.2"
+      },
+      {
+        "anchor": "gdk-pixbuf",
+        "name": "gdk-pixbuf-2.44.5",
+        "note": "",
+        "type": "required",
+        "version": "2.44.5"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "required",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "json-glib",
+        "name": "JSON-GLib-1.10.8",
+        "note": "",
+        "type": "required",
+        "version": "1.10.8"
+      },
+      {
+        "anchor": "libarchive",
+        "name": "libarchive-3.8.5",
+        "note": "",
+        "type": "required",
+        "version": "3.8.5"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "",
+        "type": "optional",
+        "version": "1.1.45"
+      },
+      {
+        "anchor": "libyaml",
+        "name": "libyaml-0.2.5",
+        "note": "",
+        "type": "required",
+        "version": "0.2.5"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "/usr/bin/appstream-builder",
+    "/usr/bin/appstream-compose",
+    "/usr/bin/appstream-util"
+  ],
+  "expected_headers": [
+    "/usr/include/libappstream-glib/appstream-glib.h"
+  ],
+  "expected_libs": [
+    "/usr/lib/libappstream-glib.so"
+  ],
+  "expected_pkgconfig": [
+    "/usr/lib/pkgconfig/appstream-glib.pc"
+  ],
+  "name": "appstream-glib",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "curl",
+    "gdk-pixbuf",
+    "gtk3",
+    "json-glib",
+    "libarchive",
+    "libyaml"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "rpm",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/extra/appstream-glib",
+  "reproducibility": {
+    "_notes": "meson honors SOURCE_DATE_EPOCH; ninja parallel default",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "84754064c560fca6e1ab151dc64354fc235a5798f016b91b38c9617253a8cf11",
+  "source_tarball": "appstream-glib-0.8.3.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "http://people.freedesktop.org/~hughsient/appstream-glib/releases/appstream-glib-${version}.tar.xz",
+  "tarball_files_count": 340,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "enable DEP-11",
+      "name": "dep11",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable AppStream builder",
+      "name": "builder",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable RPM support",
+      "name": "rpm",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable ALPM support",
+      "name": "alpm",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable font support",
+      "name": "fonts",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "generate man pages",
+      "name": "man",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "generate API reference",
+      "name": "gtk-doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "generate GObject Introspection data",
+      "name": "introspection",
+      "type": "boolean"
+    }
+  ],
+  "version": "0.8.3"
+}

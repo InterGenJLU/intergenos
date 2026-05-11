@@ -1,0 +1,59 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:11Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "trove-classifiers",
+    "blfs_name": "Trove-Classifiers",
+    "blfs_version": "2026.1.14.14",
+    "deps": [
+      {
+        "anchor": "pytest",
+        "name": "pytest-9.0.2",
+        "note": "",
+        "type": "optional",
+        "version": "9.0.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "python",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [
+    "uv_build"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "trove-classifiers",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/trove-classifiers",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "00492545a1402b09d4858605ba190ea33243d361e2b01c9c296ce06b5c3325f3",
+  "source_tarball": "trove_classifiers-2026.1.14.14.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://files.pythonhosted.org/packages/source/t/trove-classifiers/trove_classifiers-${version}.tar.gz",
+  "tarball_files_count": 32,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "2026.1.14.14"
+}

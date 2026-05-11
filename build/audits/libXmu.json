@@ -1,0 +1,58 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:45Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/X11/Xmu/"
+  ],
+  "expected_libs": [
+    "libXmu.so"
+  ],
+  "expected_pkgconfig": [
+    "xmu.pc"
+  ],
+  "name": "libXmu",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "libXt",
+    "libXext"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libXmu",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "81a99e94c4501e81c427cbaa4a11748b584933e94b7a156830c3621256857bc4",
+  "source_tarball": "libXmu-1.3.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.x.org/pub/individual/lib/libXmu-${version}.tar.xz",
+  "tarball_files_count": 130,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.3.1"
+}

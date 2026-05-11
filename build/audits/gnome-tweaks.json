@@ -1,0 +1,113 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:20Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-tweaks",
+    "blfs_name": "gnome-tweaks",
+    "blfs_version": "49.0",
+    "deps": [
+      {
+        "anchor": "gsettings-desktop-schemas",
+        "name": "gsettings-desktop-schemas-49.1",
+        "note": "",
+        "type": "required",
+        "version": "49.1"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "",
+        "type": "required",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "libadwaita1",
+        "name": "libadwaita-1.8.4",
+        "note": "",
+        "type": "required",
+        "version": "1.8.4"
+      },
+      {
+        "anchor": "libgudev",
+        "name": "libgudev-238",
+        "note": "",
+        "type": "required",
+        "version": "238"
+      },
+      {
+        "anchor": "pygobject3",
+        "name": "PyGObject-3.54.5",
+        "note": "",
+        "type": "required",
+        "version": "3.54.5"
+      },
+      {
+        "anchor": "sound-theme-freedesktop",
+        "name": "sound-theme-freedesktop-0.8",
+        "note": "",
+        "type": "required",
+        "version": "0.8"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "gnome-tweaks"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gnome-tweaks",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gsettings-desktop-schemas",
+    "gtk4",
+    "libadwaita1",
+    "libgudev",
+    "pygobject3",
+    "sound-theme-freedesktop"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-tweaks",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "b3909bdcb4905b68427d6ab581e01f436dff8e5c0a389b1e0b14500f18806ebb",
+  "source_tarball": "gnome-tweaks-49.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-tweaks/49/gnome-tweaks-${version}.tar.xz",
+  "tarball_files_count": 126,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "default",
+      "description": "",
+      "name": "profile",
+      "type": "combo"
+    }
+  ],
+  "version": "49.0"
+}

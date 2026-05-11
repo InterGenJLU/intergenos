@@ -1,0 +1,46 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:25Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [
+    "/usr/bin/go-md2man"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "go-md2man",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "go"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/go-md2man",
+  "reproducibility": {
+    "_notes": "go build -ldflags '-s -w'; vendored modules offline",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "ca3a5b57e2c01759f5a00ad2a578d034c5370fae9aa7a6c3af5648b2fc802a92",
+  "source_tarball": "go-md2man-v2.0.7.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/cpuguy83/go-md2man/archive/refs/tags/v${version}.tar.gz",
+  "tarball_files_count": 20,
+  "test_command": "go test ./...",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "2.0.7"
+}

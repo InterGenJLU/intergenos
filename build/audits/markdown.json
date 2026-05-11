@@ -1,0 +1,73 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:46Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "markdown",
+    "blfs_name": "Markdown",
+    "blfs_version": "3.10.2",
+    "deps": [
+      {
+        "anchor": "PyYAML",
+        "name": "PyYAML-6.0.3",
+        "note": "",
+        "type": "optional",
+        "version": "6.0.3"
+      },
+      {
+        "anchor": "pytest",
+        "name": "pytest-9.0.2",
+        "note": "",
+        "type": "optional",
+        "version": "9.0.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "python",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "markdown_py"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "markdown",
+  "our_autotools_flags": [
+    "--no-build-isolation",
+    "--no-cache-dir",
+    "--no-deps"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/markdown",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "994d51325d25ad8aa7ce4ebaec003febcce822c3f8c911e3b17c52f7f589f950",
+  "source_tarball": "markdown-3.10.2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://files.pythonhosted.org/packages/source/M/Markdown/markdown-${version}.tar.gz",
+  "tarball_files_count": 411,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "3.10.2"
+}

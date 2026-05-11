@@ -1,0 +1,180 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:55Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libnma",
+    "blfs_name": "libnma",
+    "blfs_version": "1.10.6",
+    "deps": [
+      {
+        "anchor": "NetworkManager",
+        "name": "NetworkManager-1.56.0",
+        "note": "",
+        "type": "required",
+        "version": "1.56.0"
+      },
+      {
+        "anchor": "gcr",
+        "name": "Gcr-3.41.2",
+        "note": "",
+        "type": "required",
+        "version": "3.41.2"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "required",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "",
+        "type": "recommended",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "iso-codes",
+        "name": "ISO Codes-4.20.1",
+        "note": "",
+        "type": "required",
+        "version": "4.20.1"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libnma-gtk4.so",
+    "libnma.so"
+  ],
+  "expected_pkgconfig": [
+    "libnma-gtk4.pc",
+    "libnma.pc"
+  ],
+  "name": "libnma",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gcr",
+    "gtk3",
+    "gtk4",
+    "iso-codes",
+    "networkmanager",
+    "vala"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "gtk_doc",
+      "value": "false"
+    },
+    {
+      "name": "libnma_gtk4",
+      "value": "true"
+    },
+    {
+      "name": "mobile_broadband_provider_info",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libnma",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "53a6fb2b190ad37c5986caed3e98bede7c3c602399ee4f93c8fc054303d76dab",
+  "source_tarball": "libnma-1.10.6.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/libnma/1.10/libnma-${version}.tar.xz",
+  "tarball_files_count": 399,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "build library libnma-gtk4 for use with GTK4",
+      "name": "libnma_gtk4",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable advanced certificate chooser.",
+      "name": "gcr",
+      "type": "boolean"
+    },
+    {
+      "default": "0",
+      "description": "Enable more assertions for debugging.",
+      "name": "more_asserts",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "check for iso-codes at build-time",
+      "name": "iso_codes",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "check for mobile-broadband-provider-info at build-time",
+      "name": "mobile_broadband_provider_info",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable garbage collection of unused symbols on linking",
+      "name": "ld_gc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "use gtk-doc to build documentation",
+      "name": "gtk_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable introspection for this build",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build Vala bindings",
+      "name": "vapi",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.10.6"
+}

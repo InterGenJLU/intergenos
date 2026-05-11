@@ -1,0 +1,202 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:57Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libqmi",
+    "blfs_name": "libqmi",
+    "blfs_version": "1.38.0",
+    "deps": [
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "GObject Introspection\n                recommended",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "libgudev",
+        "name": "libgudev-238",
+        "note": "",
+        "type": "required",
+        "version": "238"
+      },
+      {
+        "anchor": "libmbim",
+        "name": "libmbim-1.34.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.34.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "qmicli",
+    "qmi-firmware-update",
+    "qmi-network"
+  ],
+  "expected_headers": [
+    "/usr/include/libqmi-glib"
+  ],
+  "expected_libs": [
+    "libqmi-glib.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libqmi",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "glib2",
+    "libgudev",
+    "libmbim"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "gtk_doc",
+      "value": "false"
+    },
+    {
+      "name": "man",
+      "value": "false"
+    },
+    {
+      "name": "qrtr",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libqmi",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "8ee3b3a9002f2b45c825deade85710db006e01674f5f9359d351c192cc926015",
+  "source_tarball": "libqmi-1.38.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.freedesktop.org/mobile-broadband/libqmi/-/archive/${version}/libqmi-${version}.tar.gz",
+  "tarball_files_count": 895,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "full",
+      "description": "message collection to build",
+      "name": "collection",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "enable compilation of `qmi-firmware-update",
+      "name": "firmware_update",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable support for QMI over MBIM QMUX service",
+      "name": "mbim_qmux",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build ModemManager runtime check support",
+      "name": "mm_runtime_check",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "user allowed to access QMI devices",
+      "name": "qmi_username",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "group allowed to access QMI devices",
+      "name": "qmi_groupname",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "enable support for QRTR protocol",
+      "name": "qrtr",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable support for RMNET link management",
+      "name": "rmnet",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build udev support",
+      "name": "udev",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "where udev base directory is",
+      "name": "udevdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "build introspection support",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "use gtk-doc to build documentation",
+      "name": "gtk_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build man pages using help2man",
+      "name": "man",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install bash completion files",
+      "name": "bash_completion",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build fuzzer tests",
+      "name": "fuzzer",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.38.0"
+}

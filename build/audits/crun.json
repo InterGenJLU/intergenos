@@ -1,0 +1,163 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:23Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "/usr/bin/crun"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "crun",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "autoconf",
+    "automake",
+    "libtool",
+    "pkgconf"
+  ],
+  "our_deps_host": [
+    "glib2",
+    "libcap",
+    "libseccomp",
+    "systemd",
+    "yajl"
+  ],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/crun",
+  "reproducibility": {
+    "_notes": "autotools; make -j",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "be7a71c455c918bbab0c03de64cf5ce4693c7164821ab3dce0bb0f579216e8f0",
+  "source_tarball": "crun-1.27.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/containers/crun/releases/download/${version}/crun-${version}.tar.gz",
+  "tarball_files_count": 574,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-crun",
+      "kind": "enable",
+      "name": "crun"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-libcrun",
+      "kind": "enable",
+      "name": "libcrun"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-embedded-yajl",
+      "kind": "enable",
+      "name": "embedded-yajl"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-dynload-libcrun",
+      "kind": "enable",
+      "name": "dynload-libcrun"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-caps",
+      "kind": "enable",
+      "name": "caps"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-dl",
+      "kind": "enable",
+      "name": "dl"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-seccomp",
+      "kind": "enable",
+      "name": "seccomp"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-systemd",
+      "kind": "enable",
+      "name": "systemd"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-bpf",
+      "kind": "enable",
+      "name": "bpf"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-criu",
+      "kind": "enable",
+      "name": "criu"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-coverage",
+      "kind": "enable",
+      "name": "coverage"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-mono",
+      "kind": "with",
+      "name": "mono"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-wasmer",
+      "kind": "with",
+      "name": "wasmer"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-wasmtime",
+      "kind": "with",
+      "name": "wasmtime"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-wasmedge",
+      "kind": "with",
+      "name": "wasmedge"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-wamr",
+      "kind": "with",
+      "name": "wamr"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-libkrun",
+      "kind": "with",
+      "name": "libkrun"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-spin",
+      "kind": "with",
+      "name": "spin"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-python-bindings",
+      "kind": "with",
+      "name": "python-bindings"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-lua-bindings",
+      "kind": "with",
+      "name": "lua-bindings"
+    }
+  ],
+  "version": "1.27.1"
+}

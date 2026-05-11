@@ -1,0 +1,102 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "clucene",
+    "blfs_name": "CLucene",
+    "blfs_version": "2.3.3.4",
+    "deps": [
+      {
+        "anchor": "boost",
+        "name": "Boost-1.90.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.90.0"
+      },
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "clucene-2.3.3.4-contribs_lib-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/clucene-2.3.3.4-contribs_lib-1.patch"
+      }
+    ]
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/CLucene.h"
+  ],
+  "expected_libs": [
+    "/usr/lib/libclucene-contribs-lib.so",
+    "/usr/lib/libclucene-core.so",
+    "/usr/lib/libclucene-shared.so"
+  ],
+  "expected_pkgconfig": [
+    "/usr/lib/pkgconfig/libclucene-core.pc"
+  ],
+  "name": "clucene",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cmake",
+    "boost"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "BUILD_CONTRIBS_LIB",
+      "value": "ON"
+    }
+  ],
+  "our_patches": [
+    {
+      "file": "clucene-2.3.3.4-contribs_lib-1.patch",
+      "sha256": "a0751acfa848ec96ee5755d970fe0812651650c99e3fd0c8e7a85bc1e9e9677f"
+    }
+  ],
+  "package_dir": "packages/extra/clucene",
+  "reproducibility": {
+    "_notes": "cmake/make -j",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "ddfdc433dd8ad31b5c5819cc4404a8d2127472a3b720d3e744e8c51d79732eab",
+  "source_tarball": "clucene-core-2.3.3.4.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://downloads.sourceforge.net/clucene/clucene-core-${version}.tar.gz",
+  "tarball_files_count": 971,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "2.3.3.4"
+}

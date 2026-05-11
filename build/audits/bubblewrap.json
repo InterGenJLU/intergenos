@@ -1,0 +1,151 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:19Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "bubblewrap",
+    "blfs_name": "Bubblewrap",
+    "blfs_version": "0.11.0",
+    "deps": [
+      {
+        "anchor": "libseccomp",
+        "name": "libseccomp-2.6.0",
+        "note": "built with python\n                bindings, for tests",
+        "type": "optional",
+        "version": "2.6.0"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "to generate manual\n                pages",
+        "type": "optional",
+        "version": "1.1.45"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "bwrap"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "bubblewrap",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libxslt"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/bubblewrap",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "988fd6b232dafa04b8b8198723efeaccdb3c6aa9c1c7936219d5791a8b7a8646",
+  "source_tarball": "bubblewrap-0.11.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/containers/bubblewrap/releases/download/v${version}/bubblewrap-${version}.tar.xz",
+  "tarball_files_count": 60,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "enabled",
+      "description": "install bash completion script",
+      "name": "bash_completion",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "install bash completion script in this directory",
+      "name": "bash_completion_dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "install bwrap in this directory [default: bindir, or libexecdir in subprojects]",
+      "name": "bwrapdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "set a RUNPATH or RPATH on the bwrap executable",
+      "name": "build_rpath",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "set a RUNPATH or RPATH on the bwrap executable",
+      "name": "install_rpath",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "generate man pages",
+      "name": "man",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Prepend string to bwrap executable name, for use with subprojects",
+      "name": "program_prefix",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Path to Python 3, or empty to use python3",
+      "name": "python",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "require user namespaces by default when installed setuid",
+      "name": "require_userns",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "enable optional SELINUX support",
+      "name": "selinux",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "build tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "enabled",
+      "description": "install zsh completion script",
+      "name": "zsh_completion",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "install zsh completion script in this directory",
+      "name": "zsh_completion_dir",
+      "type": "string"
+    }
+  ],
+  "version": "0.11.0"
+}

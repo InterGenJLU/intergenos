@@ -1,0 +1,405 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:23Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnupg2",
+    "blfs_name": "GnuPG",
+    "blfs_version": "2.5.17",
+    "deps": [
+      {
+        "anchor": "curl",
+        "name": "cURL-8.18.0",
+        "note": "",
+        "type": "optional",
+        "version": "8.18.0"
+      },
+      {
+        "anchor": "fuse3",
+        "name": "Fuse-3.18.1",
+        "note": "",
+        "type": "optional",
+        "version": "3.18.1"
+      },
+      {
+        "anchor": "gnutls",
+        "name": "GnuTLS-3.8.12",
+        "note": "required to communicate\n                with keyservers using https or hkps protocol",
+        "type": "recommended",
+        "version": "3.8.12"
+      },
+      {
+        "anchor": "imagemagick",
+        "name": "ImageMagick-7.1.2-13",
+        "note": "",
+        "type": "optional",
+        "version": "13"
+      },
+      {
+        "anchor": "libassuan",
+        "name": "libassuan-3.0.2",
+        "note": "",
+        "type": "required",
+        "version": "3.0.2"
+      },
+      {
+        "anchor": "libgcrypt",
+        "name": "libgcrypt-1.12.0",
+        "note": "",
+        "type": "required",
+        "version": "1.12.0"
+      },
+      {
+        "anchor": "libksba",
+        "name": "libksba-1.6.7",
+        "note": "",
+        "type": "required",
+        "version": "1.6.7"
+      },
+      {
+        "anchor": "libusb",
+        "name": "libusb-1.0.29",
+        "note": "",
+        "type": "optional",
+        "version": "1.0.29"
+      },
+      {
+        "anchor": "npth",
+        "name": "npth-1.8",
+        "note": "",
+        "type": "required",
+        "version": "1.8"
+      },
+      {
+        "anchor": "openldap",
+        "name": "OpenLDAP-2.6.12",
+        "note": "",
+        "type": "required",
+        "version": "2.6.12"
+      },
+      {
+        "anchor": "pinentry",
+        "name": "pinentry-1.3.2",
+        "note": "Run-time requirement for\n                most of the package's functionality",
+        "type": "recommended",
+        "version": "1.3.2"
+      },
+      {
+        "anchor": "server-mail",
+        "name": "MTA",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "texlive",
+        "name": "texlive-20250308",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "tl-installer",
+        "name": "install-tl-unx",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "addgnupghome",
+    "applygnupgdefaults",
+    "dirmngr",
+    "dirmngr-client",
+    "g13",
+    "gpg-agent",
+    "gpg-card",
+    "gpg-connect-agent",
+    "gpg",
+    "gpgconf",
+    "gpgparsemail",
+    "gpgscm",
+    "gpgsm",
+    "gpgsplit",
+    "gpgtar",
+    "gpgv",
+    "gpg-wks-client",
+    "gpg-wks-server",
+    "kbxutil",
+    "watchgnupg"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gnupg2",
+  "our_autotools_flags": [
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "libassuan",
+    "libgcrypt",
+    "libksba",
+    "npth",
+    "gnutls",
+    "pinentry-pass1",
+    "curl",
+    "fuse3",
+    "libusb",
+    "openldap"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/gnupg2",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "2c1fbe20e2958fd8fb53cf37d7c38e84a900edc0d561a1c4af4bc3a10888685d",
+  "source_tarball": "gnupg-2.5.17.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://www.gnupg.org/ftp/gcrypt/gnupg/gnupg-${version}.tar.bz2",
+  "tarball_files_count": 1273,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-selinux-support",
+      "kind": "enable",
+      "name": "selinux-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-large-secmem",
+      "kind": "enable",
+      "name": "large-secmem"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-trust-models",
+      "kind": "enable",
+      "name": "trust-models"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tofu",
+      "kind": "enable",
+      "name": "tofu"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-libdns",
+      "kind": "enable",
+      "name": "libdns"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-zip",
+      "kind": "enable",
+      "name": "zip"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-bzip2",
+      "kind": "enable",
+      "name": "bzip2"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-exec",
+      "kind": "enable",
+      "name": "exec"
+    },
+    {
+      "help": "  --disable-photo-viewers disable photo ID viewers",
+      "kind": "enable",
+      "name": "photo-viewers"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-key-cache=SIZE",
+      "kind": "enable",
+      "name": "key-cache"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-card-support",
+      "kind": "enable",
+      "name": "card-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ccid-driver",
+      "kind": "enable",
+      "name": "ccid-driver"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-dirmngr-auto-start",
+      "kind": "enable",
+      "name": "dirmngr-auto-start"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-sqlite",
+      "kind": "enable",
+      "name": "sqlite"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-npth-debug",
+      "kind": "enable",
+      "name": "npth-debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ntbtls",
+      "kind": "enable",
+      "name": "ntbtls"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-gnutls",
+      "kind": "enable",
+      "name": "gnutls"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ldap",
+      "kind": "enable",
+      "name": "ldap"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-endian-check",
+      "kind": "enable",
+      "name": "endian-check"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-optimization",
+      "kind": "enable",
+      "name": "optimization"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-log-clock",
+      "kind": "enable",
+      "name": "log_clock"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-werror",
+      "kind": "enable",
+      "name": "werror"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-all-tests",
+      "kind": "enable",
+      "name": "all-tests"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tests",
+      "kind": "enable",
+      "name": "tests"
+    },
+    {
+      "help": ",\n              gnupg_builddir_envvar=$enableval)\nif test x\"$gnupg_builddir_envvar\" = x\"yes\"; then\n   AC_DEFINE(ENABLE_GNUPG_BUILDDIR_ENVVAR, 1,\n      [This is only used with \"make distcheck\"",
+      "kind": "enable",
+      "name": "gnupg-builddir-envvar"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-run-gnupg-user-socket",
+      "kind": "enable",
+      "name": "run-gnupg-user-socket"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-build-timestamp",
+      "kind": "enable",
+      "name": "build-timestamp"
+    },
+    {
+      "help": "  --with-agent-pgm=PATH  Use PATH as the default for the agent)",
+      "kind": "with",
+      "name": "agent-pgm"
+    },
+    {
+      "help": "  --with-pinentry-pgm=PATH  Use PATH as the default for the pinentry)",
+      "kind": "with",
+      "name": "pinentry-pgm"
+    },
+    {
+      "help": "  --with-scdaemon-pgm=PATH  Use PATH as the default for the scdaemon)",
+      "kind": "with",
+      "name": "scdaemon-pgm"
+    },
+    {
+      "help": "  --with-tpm2daemon-pgm=PATH  Use PATH as the default for the tpm2daemon)",
+      "kind": "with",
+      "name": "tpm2daemon-pgm"
+    },
+    {
+      "help": "  --with-dirmngr-pgm=PATH  Use PATH as the default for the dirmngr)",
+      "kind": "with",
+      "name": "dirmngr-pgm"
+    },
+    {
+      "help": "  --with-keyboxd-pgm=PATH  Use PATH as the default for the keyboxd)",
+      "kind": "with",
+      "name": "keyboxd-pgm"
+    },
+    {
+      "help": "  --with-protect-tool-pgm=PATH  Use PATH as the default for the protect-tool)",
+      "kind": "with",
+      "name": "protect-tool-pgm"
+    },
+    {
+      "help": "  --with-dirmngr-ldap-pgm=PATH  Use PATH as the default for the dirmngr ldap wrapper)",
+      "kind": "with",
+      "name": "dirmngr-ldap-pgm"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-agent-s2k-calibration=MSEC",
+      "kind": "with",
+      "name": "agent-s2k-calibration"
+    },
+    {
+      "help": "  --with-photo-viewer=FIXED_VIEWER  set a fixed photo ID viewer",
+      "kind": "with",
+      "name": "photo-viewer"
+    },
+    {
+      "help": "  --with-capabilities     use linux capabilities [default=no",
+      "kind": "with",
+      "name": "capabilities"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-trust-store-file=FILE",
+      "kind": "with",
+      "name": "default-trust-store-file"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-mailprog=NAME",
+      "kind": "with",
+      "name": "mailprog"
+    },
+    {
+      "help": "  --with-zlib=DIR         use libz in DIR",
+      "kind": "with",
+      "name": "zlib"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-bzip2=DIR",
+      "kind": "with",
+      "name": "bzip2"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-tss=TSS",
+      "kind": "with",
+      "name": "tss"
+    }
+  ],
+  "version": "2.5.17"
+}

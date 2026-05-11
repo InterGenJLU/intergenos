@@ -1,0 +1,71 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear",
+    "bundled-lib-vendor-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:02Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "python",
+  "bundled_libs": [
+    "contrib",
+    "vendor"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "podman",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "go",
+    "go-md2man",
+    "pkgconf",
+    "btrfs-progs"
+  ],
+  "our_deps_host": [
+    "glib2",
+    "systemd"
+  ],
+  "our_deps_runtime": [
+    "aardvark-dns",
+    "catatonit",
+    "conmon",
+    "containers-common",
+    "crun",
+    "fuse-overlayfs",
+    "netavark",
+    "passt",
+    "yajl"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/podman",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=python; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": true,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "b20ea65afc5a58ea1cea019bd51a5d84eb9042d25d3eb82c55010c8815732d84",
+  "source_tarball": "v5.8.2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/containers/podman/archive/refs/tags/v${version}.tar.gz",
+  "tarball_files_count": 11642,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "5.8.2"
+}

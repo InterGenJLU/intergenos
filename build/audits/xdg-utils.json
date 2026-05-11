@@ -1,0 +1,97 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:22Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "xdg-utils",
+    "blfs_name": "xdg-utils",
+    "blfs_version": "1.2.1",
+    "deps": [
+      {
+        "anchor": "Links",
+        "name": "Links-2.30",
+        "note": "",
+        "type": "required",
+        "version": "2.30"
+      },
+      {
+        "anchor": "dbus",
+        "name": "dbus-1.16.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.2"
+      },
+      {
+        "anchor": "lynx",
+        "name": "Lynx-2.9.2",
+        "note": "",
+        "type": "required",
+        "version": "2.9.2"
+      },
+      {
+        "anchor": "xmlto",
+        "name": "xmlto-0.0.29",
+        "note": "",
+        "type": "required",
+        "version": "0.0.29"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "xdg-desktop-menu",
+    "xdg-desktop-icon",
+    "xdg-mime",
+    "xdg-icon-resource",
+    "xdg-open",
+    "xdg-email",
+    "xdg-screensaver",
+    "xdg-settings"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "xdg-utils",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "xmlto",
+    "lynx",
+    "dbus",
+    "links"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/xdg-utils",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "f6b648c064464c2636884c05746e80428110a576f8daacf46ef2e554dcfdae75",
+  "source_tarball": "xdg-utils-v1.2.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.freedesktop.org/xdg/xdg-utils/-/archive/v${version}/xdg-utils-v${version}.tar.gz",
+  "tarball_files_count": 226,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.2.1"
+}

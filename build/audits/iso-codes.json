@@ -1,0 +1,54 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:42Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "iso-codes",
+    "blfs_name": "ISO Codes",
+    "blfs_version": "4.20.1",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "iso-codes",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/iso-codes",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "2d7d9f6084ab9ce6c534ce71a3dd5144b6e474f3c97616459a88f73f44a64bff",
+  "source_tarball": "iso-codes-v4.20.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://salsa.debian.org/iso-codes-team/iso-codes/-/archive/v${version}/iso-codes-v${version}.tar.gz",
+  "tarball_files_count": 787,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "4.20.1"
+}

@@ -14,5 +14,6 @@ dependencies:
   build:
   - pycairo
   - docbook-xsl-nons
+  - glib2
   host: []
   runtime: []

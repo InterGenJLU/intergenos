@@ -1,0 +1,86 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:15Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "glu",
+    "blfs_name": "GLU",
+    "blfs_version": "9.0.3",
+    "deps": [
+      {
+        "anchor": "mesa",
+        "name": "Mesa-25.3.5",
+        "note": "",
+        "type": "required",
+        "version": "25.3.5"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libGLU.so"
+  ],
+  "expected_pkgconfig": [
+    "GLU.pc"
+  ],
+  "name": "glu",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "mesa",
+    "meson",
+    "ninja"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "mesa"
+  ],
+  "our_meson_options": [
+    {
+      "name": "gl_provider",
+      "value": "gl"
+    },
+    {
+      "name": "default_library",
+      "value": "shared"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/glu",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "bd43fe12f374b1192eb15fe20e45ff456b9bc26ab57f0eee919f96ca0f8a330f",
+  "source_tarball": "glu-9.0.3.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://archive.mesa3d.org/glu/glu-${version}.tar.xz",
+  "tarball_files_count": 209,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "glvnd",
+      "description": "Which OpenGL to link with",
+      "name": "gl_provider",
+      "type": "combo"
+    }
+  ],
+  "version": "9.0.3"
+}

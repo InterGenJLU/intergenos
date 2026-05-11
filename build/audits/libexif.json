@@ -1,0 +1,90 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:50Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libexif",
+    "blfs_name": "libexif",
+    "blfs_version": "0.6.25",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "graphviz",
+        "name": "Graphviz-14.1.2",
+        "note": "",
+        "type": "optional",
+        "version": "14.1.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libexif.so"
+  ],
+  "expected_pkgconfig": [
+    "libexif.pc"
+  ],
+  "name": "libexif",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libexif",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "7c9eba99aed3e6594d8c3e85861f1c6aaf450c218621528bc989d3b3e7a26307",
+  "source_tarball": "libexif-0.6.25.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/libexif/libexif/releases/download/v${version}/libexif-${version}.tar.bz2",
+  "tarball_files_count": 267,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-ship-binaries",
+      "kind": "enable",
+      "name": "ship-binaries"
+    },
+    {
+      "help": "dnl\nAS_HELP_STRING([--enable-internal-docs",
+      "kind": "enable",
+      "name": "internal-docs"
+    }
+  ],
+  "version": "0.6.25"
+}

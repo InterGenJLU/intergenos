@@ -1,0 +1,93 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:12Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "unixodbc",
+    "blfs_name": "unixODBC",
+    "blfs_version": "2.3.14",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "unixodbc",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr",
+    "--sysconfdir=/etc/unixODBC"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/unixodbc",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=autotools; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": true,
+    "source_date_epoch_supported": true
+  },
+  "source_sha256": "3bd23171aca274820ef5cb4961b191adf2cf98509bea4d1b1b0a8630359ee2fb",
+  "source_tarball": "unixODBC-2.3.14.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/lurcher/unixODBC/archive/v${version}/unixODBC-${version}.tar.gz",
+  "tarball_files_count": 845,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-cursor-ver",
+      "kind": "enable",
+      "name": "cursor-ver"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-stats-ftok-name=filename",
+      "kind": "with",
+      "name": "stats_ftok_name"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-odbc-driver-path=DIR",
+      "kind": "with",
+      "name": "odbc-driver-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-iconv-char-enc=enc",
+      "kind": "with",
+      "name": "iconv_char_enc"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-iconv-ucode-enc=enc",
+      "kind": "with",
+      "name": "iconv_ucode_enc"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-msql-lib=DIR",
+      "kind": "with",
+      "name": "msql-lib"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-msql-include=DIR where the MiniSQL headers are installed",
+      "kind": "with",
+      "name": "msql-include"
+    }
+  ],
+  "version": "2.3.14"
+}

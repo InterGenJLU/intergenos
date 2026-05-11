@@ -1,0 +1,80 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:45Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "cxpm",
+    "sxpm"
+  ],
+  "expected_headers": [
+    "/usr/include/X11/xpm.h"
+  ],
+  "expected_libs": [
+    "libXpm.so"
+  ],
+  "expected_pkgconfig": [
+    "xpm.pc"
+  ],
+  "name": "libXpm",
+  "our_autotools_flags": [
+    "--disable-open-zfile",
+    "--disable-static",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "libXt",
+    "libXext"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libXpm",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "b4ed79bfc718000edee837d551c35286f0b84576db0ce07bbbebe60a4affa1e4",
+  "source_tarball": "libXpm-3.5.18.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.x.org/pub/individual/lib/libXpm-${version}.tar.xz",
+  "tarball_files_count": 170,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-open-zfile",
+      "kind": "enable",
+      "name": "open-zfile"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-stat-zfile",
+      "kind": "enable",
+      "name": "stat-zfile"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-localedir=<path>",
+      "kind": "with",
+      "name": "localedir"
+    }
+  ],
+  "version": "3.5.18"
+}

@@ -1,0 +1,73 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:04Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gc",
+    "blfs_name": "GC",
+    "blfs_version": "8.2.12",
+    "deps": [
+      {
+        "anchor": "libatomic_ops",
+        "name": "libatomic_ops-7.10.0",
+        "note": "",
+        "type": "optional",
+        "version": "7.10.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/gc/gc.h"
+  ],
+  "expected_libs": [
+    "/usr/lib/libcord.so",
+    "/usr/lib/libgc.so",
+    "/usr/lib/libgccpp.so",
+    "/usr/lib/libgctba.so"
+  ],
+  "expected_pkgconfig": [
+    "/usr/lib/pkgconfig/bdw-gc.pc"
+  ],
+  "name": "gc",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--docdir=/usr/share/doc/gc-8.2.12",
+    "--enable-cplusplus",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/gc",
+  "reproducibility": {
+    "_notes": "cmake/make -j",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e",
+  "source_tarball": "gc-8.2.12.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/bdwgc/bdwgc/releases/download/v${version}/gc-${version}.tar.gz",
+  "tarball_files_count": 207,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "8.2.12"
+}

@@ -1,0 +1,94 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:09Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libtasn1",
+    "blfs_name": "libtasn1",
+    "blfs_version": "4.21.0",
+    "deps": [
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "asn1Coding",
+    "asn1Decoding",
+    "asn1Parser"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libtasn1.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libtasn1",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/libtasn1",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "1d8a444a223cc5464240777346e125de51d8e6abf0b8bac742ac84609167dc87",
+  "source_tarball": "libtasn1-4.21.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://ftpmirror.gnu.org/libtasn1/libtasn1-${version}.tar.gz",
+  "tarball_files_count": 587,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-doc",
+      "kind": "enable",
+      "name": "doc"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-gcc-warnings",
+      "kind": "enable",
+      "name": "gcc-warnings"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-fuzzing",
+      "kind": "enable",
+      "name": "fuzzing"
+    }
+  ],
+  "version": "4.21.0"
+}

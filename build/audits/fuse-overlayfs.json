@@ -1,0 +1,60 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:04Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "/usr/bin/fuse-overlayfs"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "fuse-overlayfs",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "autoconf",
+    "automake",
+    "libtool",
+    "pkgconf"
+  ],
+  "our_deps_host": [
+    "fuse3"
+  ],
+  "our_deps_runtime": [
+    "fuse3"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/fuse-overlayfs",
+  "reproducibility": {
+    "_notes": "autotools",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "45968517603389ead067222d234bc8d8ed33e4b4f8ba16216bdd3e6aedcccea9",
+  "source_tarball": "fuse-overlayfs-1.16.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/containers/fuse-overlayfs/archive/refs/tags/v${version}.tar.gz",
+  "tarball_files_count": 72,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "1.16"
+}

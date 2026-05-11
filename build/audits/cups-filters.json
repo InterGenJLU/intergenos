@@ -1,0 +1,182 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:24Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "cups-filters",
+    "blfs_name": "cups-filters",
+    "blfs_version": "2.0.1",
+    "deps": [
+      {
+        "anchor": "cups-browsed",
+        "name": "cups-browsed-2.1.1",
+        "note": "if you need\n                Network Discovery capabilities",
+        "type": "optional",
+        "version": "2.1.1"
+      },
+      {
+        "anchor": "libcupsfilters",
+        "name": "libcupsfilters-2.1.1",
+        "note": "",
+        "type": "required",
+        "version": "2.1.1"
+      },
+      {
+        "anchor": "libppd",
+        "name": "libppd-2.1.1",
+        "note": "",
+        "type": "required",
+        "version": "2.1.1"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "cups-filters-2.0.1-security_fix-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/cups-filters-2.0.1-security_fix-1.patch"
+      }
+    ]
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "driverless",
+    "driverless-fax",
+    "foomatic-rip"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "cups-filters",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libcupsfilters",
+    "libppd"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "cups-filters-2.0.1-security_fix-1.patch",
+      "sha256": "52e73c96d896d18b28eabc6f507eb1011686d9c436c69983ba485312ed3e573b"
+    }
+  ],
+  "package_dir": "packages/desktop/cups-filters",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "39e71de3ce06762b342749f1dc7cba6817738f7bf4d322c1bb9ab10b8569ab80",
+  "source_tarball": "cups-filters-2.0.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/OpenPrinting/cups-filters/releases/download/${version}/cups-filters-${version}.tar.xz",
+  "tarball_files_count": 127,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-imagefilters",
+      "kind": "enable",
+      "name": "imagefilters"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-poppler",
+      "kind": "enable",
+      "name": "poppler"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ghostscript",
+      "kind": "enable",
+      "name": "ghostscript"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-mutool",
+      "kind": "enable",
+      "name": "mutool"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-driverless",
+      "kind": "enable",
+      "name": "driverless"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-foomatic",
+      "kind": "enable",
+      "name": "foomatic"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pstops",
+      "kind": "enable",
+      "name": "pstops"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-rastertopwg",
+      "kind": "enable",
+      "name": "rastertopwg"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-universal-cups-filter",
+      "kind": "enable",
+      "name": "universal-cups-filter"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-individual-cups-filters",
+      "kind": "enable",
+      "name": "individual-cups-filters"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-werror",
+      "kind": "enable",
+      "name": "werror"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-fontdir=path",
+      "kind": "with",
+      "name": "fontdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-cups-config=path",
+      "kind": "with",
+      "name": "cups-config"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-gs-path=value",
+      "kind": "with",
+      "name": "gs-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-mutool-path=value",
+      "kind": "with",
+      "name": "mutool-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-ippfind-path=value",
+      "kind": "with",
+      "name": "ippfind-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-shell=path",
+      "kind": "with",
+      "name": "shell"
+    }
+  ],
+  "version": "2.0.1"
+}

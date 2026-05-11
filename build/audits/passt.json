@@ -1,0 +1,47 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:01Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "make",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "passt",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/passt",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=make; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "cc0a86b0ac28e1e5b2a4243bcf7fa84b14dd91c7dc883a78896060111e12d105",
+  "source_tarball": "passt-2026_01_20.386b5f5.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://passt.top/passt/snapshot/passt-${version}.tar.xz",
+  "tarball_files_count": 245,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "2026_01_20.386b5f5"
+}

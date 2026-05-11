@@ -1,0 +1,73 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:25Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gpgmepp",
+    "blfs_name": "gpgmepp",
+    "blfs_version": "2.0.0",
+    "deps": [
+      {
+        "anchor": "gpgme",
+        "name": "gpgme-2.0.1",
+        "note": "",
+        "type": "required",
+        "version": "2.0.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libgpgmepp.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "gpgmepp",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "gpgme",
+    "cmake"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "gpgme"
+  ],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/core/gpgmepp",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "d4796049c06708a26f3096f748ef095347e1a3c1e570561701fe952c3f565382",
+  "source_tarball": "gpgmepp-2.0.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.gnupg.org/ftp/gcrypt/gpgmepp/gpgmepp-${version}.tar.xz",
+  "tarball_files_count": 133,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "2.0.0"
+}

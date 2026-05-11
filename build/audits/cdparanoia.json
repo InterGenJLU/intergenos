@@ -1,0 +1,68 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "cdparanoia",
+    "blfs_name": "CDParanoia-III",
+    "blfs_version": "10.2",
+    "deps": [],
+    "patches": [
+      {
+        "filename": "cdparanoia-III-10.2-gcc_fixes-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/cdparanoia-III-10.2-gcc_fixes-1.patch"
+      }
+    ]
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "cdparanoia"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libcdda_interface.so",
+    "libcdda_paranoia.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "cdparanoia",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "cdparanoia-III-10.2-gcc_fixes-1.patch",
+      "sha256": "0a0416252c0e0ba9362ca67de75b3bd599c1f8b559c2663328c5f1dbecdc2d90"
+    }
+  ],
+  "package_dir": "packages/desktop/cdparanoia",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "005db45ef4ee017f5c32ec124f913a0546e77014266c6a1c50df902a55fe64df",
+  "source_tarball": "cdparanoia-III-10.2.src.tgz",
+  "source_tarball_exists": true,
+  "source_url": "https://downloads.xiph.org/releases/cdparanoia/cdparanoia-III-${version}.src.tgz",
+  "tarball_files_count": 77,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "10.2"
+}

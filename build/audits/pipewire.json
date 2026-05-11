@@ -1,0 +1,886 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:02Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "pipewire",
+    "blfs_name": "Pipewire",
+    "blfs_version": "1.6.0",
+    "deps": [
+      {
+        "anchor": "alsa-lib",
+        "name": "alsa-lib-1.2.15.3",
+        "note": "",
+        "type": "optional",
+        "version": "1.2.15.3"
+      },
+      {
+        "anchor": "avahi",
+        "name": "Avahi-0.8",
+        "note": "",
+        "type": "optional",
+        "version": "0.8"
+      },
+      {
+        "anchor": "bluez",
+        "name": "BlueZ-5.86",
+        "note": "",
+        "type": "recommended",
+        "version": "5.86"
+      },
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "fdk-aac",
+        "name": "fdk-aac-2.0.3",
+        "note": "",
+        "type": "optional",
+        "version": "2.0.3"
+      },
+      {
+        "anchor": "ffmpeg",
+        "name": "FFmpeg-8.0.1",
+        "note": "",
+        "type": "optional",
+        "version": "8.0.1"
+      },
+      {
+        "anchor": "graphviz",
+        "name": "Graphviz-14.1.2",
+        "note": "for\n                documentation",
+        "type": "optional",
+        "version": "14.1.2"
+      },
+      {
+        "anchor": "gst10-plugins-base",
+        "name": "gst-plugins-base-1.28.1",
+        "note": "",
+        "type": "recommended",
+        "version": "1.28.1"
+      },
+      {
+        "anchor": "gstreamer10",
+        "name": "gstreamer-1.28.1",
+        "note": "",
+        "type": "recommended",
+        "version": "1.28.1"
+      },
+      {
+        "anchor": "libcanberra",
+        "name": "libcanberra-0.30",
+        "note": "",
+        "type": "optional",
+        "version": "0.30"
+      },
+      {
+        "anchor": "libdrm",
+        "name": "libdrm-2.4.131",
+        "note": "for\n                one example and libcamera support",
+        "type": "optional",
+        "version": "2.4.131"
+      },
+      {
+        "anchor": "libsndfile",
+        "name": "libsndfile-1.2.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.2.2"
+      },
+      {
+        "anchor": "libusb",
+        "name": "libusb-1.0.29",
+        "note": "",
+        "type": "optional",
+        "version": "1.0.29"
+      },
+      {
+        "anchor": "libxcb",
+        "name": "libxcb-1.17.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.17.0"
+      },
+      {
+        "anchor": "opus",
+        "name": "Opus-1.6.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.6.1"
+      },
+      {
+        "anchor": "pulseaudio",
+        "name": "PulseAudio-17.0",
+        "note": "",
+        "type": "recommended",
+        "version": "17.0"
+      },
+      {
+        "anchor": "sbc",
+        "name": "SBC-2.2",
+        "note": "",
+        "type": "recommended",
+        "version": "2.2"
+      },
+      {
+        "anchor": "sdl2",
+        "name": "sdl2-compat-2.32.64",
+        "note": "for some\n                examples",
+        "type": "optional",
+        "version": "2.32.64"
+      },
+      {
+        "anchor": "v4l-utils",
+        "name": "v4l-utils-1.32.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.32.0"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      },
+      {
+        "anchor": "vulkan-loader",
+        "name": "Vulkan-Loader-1.4.341.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.4.341.0"
+      },
+      {
+        "anchor": "wireplumber",
+        "name": "Wireplumber-0.5.13",
+        "note": "runtime [downgraded from recommended/runtime by fix-blfs-db-data-errors.py]",
+        "type": "optional",
+        "version": "0.5.13"
+      },
+      {
+        "anchor": "xorg7-lib",
+        "name": "Xorg\n                Libraries",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "pipewire",
+    "pw-cat",
+    "pw-cli",
+    "pw-config",
+    "pw-dot",
+    "pw-dump",
+    "pw-jack",
+    "pw-link",
+    "pw-loopback",
+    "pw-metadata",
+    "pw-mididump",
+    "pw-mon",
+    "pw-profiler",
+    "pw-reserve",
+    "pw-top",
+    "pw-v4l2",
+    "spa-acp-tool",
+    "spa-inspect",
+    "spa-json-dump",
+    "spa-monitor",
+    "spa-resample",
+    "pipewire-aes67",
+    "pipewire-avb",
+    "pipewire-pulse (symlinks to pipewire)",
+    "pw-dsdplay",
+    "pw-encplay",
+    "pw-midiplay",
+    "pw-midirecord",
+    "pw-play",
+    "pw-record (symlinks to pw-cat)"
+  ],
+  "expected_headers": [
+    "/usr/include/pipewire-0.3",
+    "/usr/include/spa-0.2"
+  ],
+  "expected_libs": [
+    "libpipewire-0.3.so",
+    "60 modules below /usr/lib/pipewire-0.3",
+    "/usr/lib/spa-0.2"
+  ],
+  "expected_pkgconfig": [],
+  "name": "pipewire",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "alsa-lib",
+    "avahi",
+    "bluez",
+    "fdk-aac",
+    "ffmpeg",
+    "gst-plugins-base",
+    "gstreamer",
+    "libcanberra",
+    "libdrm",
+    "libsndfile",
+    "libusb",
+    "libxcb",
+    "opus",
+    "pulseaudio",
+    "sbc",
+    "vulkan-loader",
+    "modemmanager"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "session-managers",
+      "value": "[]"
+    },
+    {
+      "name": "tests",
+      "value": "disabled"
+    },
+    {
+      "name": "man",
+      "value": "disabled"
+    },
+    {
+      "name": "vulkan",
+      "value": "enabled"
+    },
+    {
+      "name": "bluez5-backend-native-mm",
+      "value": "enabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/pipewire",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "eef582901d8323669560dd32e3b76b1b15011d73a38f0035a3f11b933112f397",
+  "source_tarball": "pipewire-1.6.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/PipeWire/pipewire/archive/${version}/pipewire-${version}.tar.gz",
+  "tarball_files_count": 1468,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "docdir",
+      "type": "string"
+    },
+    {
+      "default": "disabled",
+      "description": "Documentation",
+      "name": "docs",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Manual pages",
+      "name": "man",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Build examples",
+      "name": "examples",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Build tests",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Install manual and automated test executables",
+      "name": "installed_tests",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build GStreamer plugins",
+      "name": "gstreamer",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build GStreamer device provider plugin",
+      "name": "gstreamer-device-provider",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that depends on libsystemd",
+      "name": "libsystemd",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable logind integration",
+      "name": "logind",
+      "type": "feature"
+    },
+    {
+      "default": "libsystemd",
+      "description": "Provider for logind integration",
+      "name": "logind-provider",
+      "type": "combo"
+    },
+    {
+      "default": "disabled",
+      "description": "Install systemd system service file",
+      "name": "systemd-system-service",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Install systemd user service file",
+      "name": "systemd-user-service",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable SELinux integration",
+      "name": "selinux",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable pipewire-alsa integration",
+      "name": "pipewire-alsa",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Enable pipewire-jack integration",
+      "name": "pipewire-jack",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Enable pipewire-v4l2 integration",
+      "name": "pipewire-v4l2",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Install jack development files",
+      "name": "jack-devel",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Where to install the libjack.so library",
+      "name": "libjack-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Where to install the libpw-v4l2.so library",
+      "name": "libv4l2-path",
+      "type": "string"
+    },
+    {
+      "default": "enabled",
+      "description": "Enable spa plugins integration",
+      "name": "spa-plugins",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable alsa spa plugin integration",
+      "name": "alsa",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Enable audiomixer spa plugin integration",
+      "name": "audiomixer",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Enable audioconvert spa plugin integration",
+      "name": "audioconvert",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Array of ",
+      "name": "resampler-precomp-tuples",
+      "type": "array"
+    },
+    {
+      "default": "auto",
+      "description": "Enable bluez5 spa plugin integration",
+      "name": "bluez5",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Enable HSP in native backend in bluez5 spa plugin",
+      "name": "bluez5-backend-hsp-native",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Enable HFP in native backend in bluez5 spa plugin",
+      "name": "bluez5-backend-hfp-native",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable ModemManager in native backend in bluez5 spa plugin",
+      "name": "bluez5-backend-native-mm",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "bluez5-backend-ofono",
+      "type": ""
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "bluez5-backend-hsphfpd",
+      "type": ""
+    },
+    {
+      "default": "auto",
+      "description": "Enable AptX Qualcomm open source codec implementation",
+      "name": "bluez5-codec-aptx",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable LDAC Sony open source codec implementation",
+      "name": "bluez5-codec-ldac",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable LDAC Sony open source codec decoding",
+      "name": "bluez5-codec-ldac-dec",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Fraunhofer FDK AAC open source codec implementation",
+      "name": "bluez5-codec-aac",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable LC3plus open source codec implementation",
+      "name": "bluez5-codec-lc3plus",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Opus open source codec implementation",
+      "name": "bluez5-codec-opus",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable LC3 open source codec implementation",
+      "name": "bluez5-codec-lc3",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable G722 open source codec implementation",
+      "name": "bluez5-codec-g722",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable SpanDSP for packet loss concealment",
+      "name": "bluez5-plc-spandsp",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Enable control spa plugin integration",
+      "name": "control",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Enable audiotestsrc spa plugin integration",
+      "name": "audiotestsrc",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable ffmpeg spa plugin integration",
+      "name": "ffmpeg",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable jack spa plugin integration",
+      "name": "jack",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Enable support spa plugin integration",
+      "name": "support",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable EVL support spa plugin integration",
+      "name": "evl",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable test spa plugin integration",
+      "name": "test",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable v4l2 spa plugin integration",
+      "name": "v4l2",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Enable code that depends on dbus",
+      "name": "dbus",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable libcamera spa plugin integration",
+      "name": "libcamera",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Enable videoconvert spa plugin integration",
+      "name": "videoconvert",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Enable videotestsrc spa plugin integration",
+      "name": "videotestsrc",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Build the legacy volume spa plugin",
+      "name": "volume",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable vulkan spa plugin integration",
+      "name": "vulkan",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build pw-cat/pw-play/pw-record",
+      "name": "pw-cat",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable FFmpeg integration in pw-cat/pw-play/pw-record",
+      "name": "pw-cat-ffmpeg",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Udev integration",
+      "name": "udev",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "udevrulesdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "systemd-system-unit-dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "systemd-user-unit-dir",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that depends on SDL 2",
+      "name": "sdl2",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that depends on libsndfile",
+      "name": "sndfile",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that depends on libmysofa",
+      "name": "libmysofa",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that depends on libpulse",
+      "name": "libpulse",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that depends on roc toolkit",
+      "name": "roc",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that depends on avahi",
+      "name": "avahi",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable WebRTC-based echo canceller",
+      "name": "echo-cancel-webrtc",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that depends on libusb",
+      "name": "libusb",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "session-managers",
+      "type": ""
+    },
+    {
+      "default": "auto",
+      "description": "Enable module for Remote Audio Output Protocol",
+      "name": "raop",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable loading of LV2 plugins",
+      "name": "lv2",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that depends on X11",
+      "name": "x11",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that depends on XFixes",
+      "name": "x11-xfixes",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that depends on libcanberra",
+      "name": "libcanberra",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build legacy rtkit module",
+      "name": "legacy-rtkit",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Enable AVB code",
+      "name": "avb",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Enable Flatpak support",
+      "name": "flatpak",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that depends on libreadline",
+      "name": "readline",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that depends on gsettings",
+      "name": "gsettings",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable ALSA Compress-Offload support",
+      "name": "compress-offload",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Install limits.d file modifying defaults for all PAM users. Only for old kernels/systemd!",
+      "name": "pam-defaults-install",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "The default memlock value for any PAM user in kilobytes. Multiples of 64 recommended.",
+      "name": "pam-memlock-default",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "Install PAM limits.d file. Voids all following rlimits-* options, if false",
+      "name": "rlimits-install",
+      "type": "boolean"
+    },
+    {
+      "default": "@pipewire",
+      "description": "PAM match rule for the generated limits.d file. @<name> denotes matching a group.",
+      "name": "rlimits-match",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "PipeWire server realtime priority",
+      "name": "rtprio-server",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "PipeWire clients realtime priority",
+      "name": "rtprio-client",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "rlimits-rtprio",
+      "type": ""
+    },
+    {
+      "default": "4194304",
+      "description": "kB of memory each process of the user matched by the rule can lock. Can be unlimited .",
+      "name": "rlimits-memlock",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "rlimits-nice",
+      "type": ""
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that depends on opus",
+      "name": "opus",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that depends on libffado",
+      "name": "libffado",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Install gsettings schema for pulseaudio",
+      "name": "gsettings-pulse-schema",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Snap permissions support.",
+      "name": "snap",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Installation prefix to show in documentation instead of the actual value.",
+      "name": "doc-prefix-value",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Sysconf data directory to show in documentation instead of the actual value.",
+      "name": "doc-sysconfdir-value",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that depends on ebur128",
+      "name": "ebur128",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that depends on fftw",
+      "name": "fftw",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that depends on onnxruntime",
+      "name": "onnxruntime",
+      "type": "feature"
+    }
+  ],
+  "version": "1.6.0"
+}

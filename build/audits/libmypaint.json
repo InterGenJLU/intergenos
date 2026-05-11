@@ -1,0 +1,127 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:54Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libmypaint",
+    "blfs_name": "libmypaint",
+    "blfs_version": "1.6.1",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "to create XML docs",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "json-c",
+        "name": "JSON-C-0.18",
+        "note": "",
+        "type": "required",
+        "version": "0.18"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/libmypaint/mypaint-brush.h"
+  ],
+  "expected_libs": [
+    "/usr/lib/libmypaint.so"
+  ],
+  "expected_pkgconfig": [
+    "/usr/lib/pkgconfig/libmypaint.pc"
+  ],
+  "name": "libmypaint",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "json-c",
+    "glib2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "json-c"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/libmypaint",
+  "reproducibility": {
+    "_notes": "autotools",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "741754f293f6b7668f941506da07cd7725629a793108bb31633fb6c3eae5315f",
+  "source_tarball": "libmypaint-1.6.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/mypaint/libmypaint/releases/download/v${version}/libmypaint-${version}.tar.xz",
+  "tarball_files_count": 212,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-debug",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-profiling",
+      "kind": "enable",
+      "name": "profiling"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-openmp",
+      "kind": "enable",
+      "name": "openmp"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-gperftools",
+      "kind": "enable",
+      "name": "gperftools"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-docs",
+      "kind": "enable",
+      "name": "docs"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-i18n",
+      "kind": "enable",
+      "name": "i18n"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-gegl",
+      "kind": "enable",
+      "name": "gegl"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-glib",
+      "kind": "with",
+      "name": "glib"
+    }
+  ],
+  "version": "1.6.1"
+}

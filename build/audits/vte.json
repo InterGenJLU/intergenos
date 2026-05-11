@@ -1,0 +1,280 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:13Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "vte",
+    "blfs_name": "VTE",
+    "blfs_version": "0.82.3",
+    "deps": [
+      {
+        "anchor": "fast_float",
+        "name": "Fast_float-8.2.3",
+        "note": "",
+        "type": "recommended",
+        "version": "8.2.3"
+      },
+      {
+        "anchor": "fmt",
+        "name": "fmt-12.1.0",
+        "note": "",
+        "type": "recommended",
+        "version": "12.1.0"
+      },
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "git",
+        "name": "git-2.53.0",
+        "note": "",
+        "type": "optional",
+        "version": "2.53.0"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject\n                Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gnutls",
+        "name": "GnuTLS-3.8.12",
+        "note": "",
+        "type": "recommended",
+        "version": "3.8.12"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "recommended",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "at least one GTK version\n                is required",
+        "type": "recommended",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "icu",
+        "name": "ICU-78.2",
+        "note": "",
+        "type": "recommended",
+        "version": "78.2"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "required",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "make-ca",
+        "name": "make-ca-1.16.1",
+        "note": "for downloading copies\n                of fast_float, fmt, and simdutf if these recommended\n                dependencies are not installed",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "simdutf",
+        "name": "simdutf-8.0.0",
+        "note": "",
+        "type": "recommended",
+        "version": "8.0.0"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "vte-2.91",
+    "vte-2.91-gtk4"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libvte-2.91.so",
+    "libvte-2.91-gtk4.so"
+  ],
+  "expected_pkgconfig": [
+    "vte-2.91-gtk4.pc",
+    "vte-2.91.pc"
+  ],
+  "name": "vte",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gtk3",
+    "gtk4",
+    "icu",
+    "gnutls",
+    "fribidi",
+    "vala",
+    "libxml2",
+    "git",
+    "glib2",
+    "make-ca"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "a11y",
+      "value": "true"
+    },
+    {
+      "name": "gtk3",
+      "value": "true"
+    },
+    {
+      "name": "gtk4",
+      "value": "true"
+    },
+    {
+      "name": "b_lto",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/vte",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "6dc6278f6fee30d07d1a03e2ba3335b1ea4e8d2956ceb59d861943115d930a85",
+  "source_tarball": "vte-0.82.3.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/vte/0.82/vte-${version}.tar.xz",
+  "tarball_files_count": 1539,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Use -Bsymbolic-functions",
+      "name": "_b_symbolic_functions",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable a11y",
+      "name": "a11y",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable vte apaplication",
+      "name": "app",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Mark the vte apaplication as NotShowIn gnome",
+      "name": "app-hidden",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable extra debugging functionality",
+      "name": "dbg",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable documentation",
+      "name": "docs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable GObject Introspection",
+      "name": "gir",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable FriBidi support",
+      "name": "fribidi",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Install a glade catalogue file",
+      "name": "glade",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable GNUTLS support",
+      "name": "gnutls",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable GTK+ 3.0 widget",
+      "name": "gtk3",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable GTK+ 4.0 widget",
+      "name": "gtk4",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable legacy charset support using ICU",
+      "name": "icu",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable systemd support",
+      "name": "_systemd",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable Vala bindings",
+      "name": "vapi",
+      "type": "boolean"
+    }
+  ],
+  "version": "0.82.3"
+}

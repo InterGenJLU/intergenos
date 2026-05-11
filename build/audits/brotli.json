@@ -1,0 +1,86 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:19Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "brotli",
+    "blfs_name": "brotli",
+    "blfs_version": "1.2.0",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "pytest",
+        "name": "pytest-9.0.2",
+        "note": "for testing Python3\n                bindings",
+        "type": "optional",
+        "version": "9.0.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [
+    "brotli"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libbrotlicommon.so",
+    "libbrotlidec.so",
+    "libbrotlienc.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "brotli",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cmake"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/core/brotli",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "816c96e8e8f193b40151dad7e8ff37b1221d019dbcb9c35cd3fadbfe6477dfec",
+  "source_tarball": "brotli-1.2.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/google/brotli/archive/v${version}/brotli-${version}.tar.gz",
+  "tarball_files_count": 184,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "1.2.0"
+}

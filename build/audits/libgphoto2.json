@@ -1,0 +1,92 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:51Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libgphoto2.so",
+    "libgphoto2_port.so"
+  ],
+  "expected_pkgconfig": [
+    "libgphoto2.pc",
+    "libgphoto2_port.pc"
+  ],
+  "name": "libgphoto2",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "libusb",
+    "libexif",
+    "curl"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libgphoto2",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "fc994b550dfba6575ce0495c7246b36fff0d24e1bb2a0feb835f4da77b2ffc6b",
+  "source_tarball": "libgphoto2-2.5.33.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/gphoto/libgphoto2/releases/download/v${version}/libgphoto2-${version}.tar.gz",
+  "tarball_files_count": 1043,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-serial",
+      "kind": "enable",
+      "name": "serial"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-",
+      "kind": "enable",
+      "name": "$1"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-disk",
+      "kind": "enable",
+      "name": "disk"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-vusb",
+      "kind": "enable",
+      "name": "vusb"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ptpip",
+      "kind": "enable",
+      "name": "ptpip"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-debug",
+      "kind": "enable",
+      "name": "debug"
+    }
+  ],
+  "version": "2.5.33"
+}

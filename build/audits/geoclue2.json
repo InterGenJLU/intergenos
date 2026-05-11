@@ -1,0 +1,250 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:06Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "geoclue2",
+    "blfs_name": "GeoClue",
+    "blfs_version": "2.8.0",
+    "deps": [
+      {
+        "anchor": "ModemManager",
+        "name": "ModemManager-1.24.2",
+        "note": "",
+        "type": "recommended",
+        "version": "1.24.2"
+      },
+      {
+        "anchor": "avahi",
+        "name": "Avahi-0.8",
+        "note": "",
+        "type": "optional",
+        "version": "0.8"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "json-glib",
+        "name": "JSON-GLib-1.10.8",
+        "note": "",
+        "type": "required",
+        "version": "1.10.8"
+      },
+      {
+        "anchor": "libnotify",
+        "name": "libnotify-0.8.8",
+        "note": "",
+        "type": "recommended",
+        "version": "0.8.8"
+      },
+      {
+        "anchor": "libsoup3",
+        "name": "libsoup-3.6.6",
+        "note": "",
+        "type": "required",
+        "version": "3.6.6"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/libgeoclue-2.0"
+  ],
+  "expected_libs": [
+    "libgeoclue-2.so"
+  ],
+  "expected_pkgconfig": [
+    "geoclue-2.pc"
+  ],
+  "name": "geoclue2",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "json-glib",
+    "libsoup3",
+    "libnotify",
+    "vala",
+    "avahi",
+    "modemmanager"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "gtk-doc",
+      "value": "false"
+    },
+    {
+      "name": "modem-gps-source",
+      "value": "false"
+    },
+    {
+      "name": "cdma-source",
+      "value": "false"
+    },
+    {
+      "name": "nmea-source",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/geoclue2",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "8d1804b3d9d51c2a17af67c882ff5f9169724e248d39ccc3cfa8dba5d9323be7",
+  "source_tarball": "geoclue-2.8.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.freedesktop.org/geoclue/geoclue/-/archive/${version}/geoclue-${version}.tar.gz",
+  "tarball_files_count": 120,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Enable convenience library",
+      "name": "libgeoclue",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable convenience library introspection generation",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "vapi",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Whether to generate the API reference for Geocode-GLib",
+      "name": "gtk-doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable WiFi source",
+      "name": "wifi-source",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "3g-source",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "cdma-source",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "modem-gps-source",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "nmea-source",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "static-source",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "ip-source",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable setting heading from net.hadess.SensorProxy compass",
+      "name": "compass",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "enable-backend",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build demo agent",
+      "name": "demo-agent",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "where D-BUS system.d directory is",
+      "name": "dbus-sys-dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Directory for systemd service files",
+      "name": "systemd-system-unit-dir",
+      "type": "string"
+    },
+    {
+      "default": "root",
+      "description": "",
+      "name": "dbus-srv-user",
+      "type": "string"
+    },
+    {
+      "default": "https://api.beacondb.net/v1/geolocate",
+      "description": "Default URL for Ichnaea-compatible WiFi geolocation",
+      "name": "default-wifi-url",
+      "type": "string"
+    },
+    {
+      "default": "https://api.beacondb.net/v2/geosubmit",
+      "description": "Default URL for Ichnaea-compatible WiFi location submission",
+      "name": "default-wifi-submit-url",
+      "type": "string"
+    }
+  ],
+  "version": "2.8.0"
+}

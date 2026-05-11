@@ -1,0 +1,98 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:16Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "baobab",
+    "blfs_name": "Baobab",
+    "blfs_version": "49.1",
+    "deps": [
+      {
+        "anchor": "adwaita-icon-theme",
+        "name": "adwaita-icon-theme-49.0",
+        "note": "",
+        "type": "required",
+        "version": "49.0"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "",
+        "type": "required",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "itstool",
+        "name": "itstool-2.0.7",
+        "note": "",
+        "type": "required",
+        "version": "2.0.7"
+      },
+      {
+        "anchor": "libadwaita1",
+        "name": "libadwaita-1.8.4",
+        "note": "",
+        "type": "required",
+        "version": "1.8.4"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "required",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "baobab"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "baobab",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gtk4",
+    "vala",
+    "adwaita-icon-theme",
+    "itstool",
+    "libadwaita1"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/baobab",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "6243c92002be7e91f5decd249612face2a4a12d3742afd88b086a94b875dffe0",
+  "source_tarball": "baobab-49.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/baobab/49/baobab-${version}.tar.xz",
+  "tarball_files_count": 258,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "49.1"
+}

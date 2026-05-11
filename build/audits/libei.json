@@ -1,0 +1,142 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:49Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libei",
+    "blfs_name": "libei",
+    "blfs_version": "1.5.0",
+    "deps": [
+      {
+        "anchor": "attrs",
+        "name": "attrs-25.4.0",
+        "note": "",
+        "type": "required",
+        "version": "25.4.0"
+      },
+      {
+        "anchor": "libevdev",
+        "name": "libevdev-1.13.6",
+        "note": "",
+        "type": "optional",
+        "version": "1.13.6"
+      },
+      {
+        "anchor": "libxkbcommon",
+        "name": "libxkbcommon-1.13.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.13.1"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "optional",
+        "version": "2.15.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [
+    "eis-demo-server"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libei.so",
+    "libeis.so",
+    "liboeffis.so"
+  ],
+  "expected_pkgconfig": [
+    "libei-1.0.pc",
+    "libeis-1.0.pc",
+    "liboeffis-1.0.pc"
+  ],
+  "name": "libei",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "attrs",
+    "libevdev",
+    "libxkbcommon",
+    "libxml2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "tests",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libei",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "7687c3bbcff89ff331c5db72e0a5cce6bcae382e3c238d6f7019a6bc71d88e43",
+  "source_tarball": "libei-1.5.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.freedesktop.org/libinput/libei/-/archive/${version}/libei-${version}.tar.gz",
+  "tarball_files_count": 181,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Enable documentation builds",
+      "name": "documentation",
+      "type": "array"
+    },
+    {
+      "default": "auto",
+      "description": "Provider of the sd-bus library",
+      "name": "sd-bus-provider",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable/disable tests",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build liboeffis.so",
+      "name": "liboeffis",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build libeis.so",
+      "name": "libeis",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build libei.so",
+      "name": "libei",
+      "type": "feature"
+    }
+  ],
+  "version": "1.5.0"
+}

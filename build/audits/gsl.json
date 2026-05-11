@@ -1,0 +1,75 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:29Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gsl",
+    "blfs_name": "gsl",
+    "blfs_version": "2.8",
+    "deps": [
+      {
+        "anchor": "sphinx_rtd_theme",
+        "name": "sphinx_rtd_theme-3.1.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.1.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "/usr/bin/gsl-config",
+    "/usr/bin/gsl-histogram",
+    "/usr/bin/gsl-randist"
+  ],
+  "expected_headers": [
+    "/usr/include/gsl/gsl_math.h"
+  ],
+  "expected_libs": [
+    "/usr/lib/libgslcblas.so",
+    "/usr/lib/libgsl.so"
+  ],
+  "expected_pkgconfig": [
+    "/usr/lib/pkgconfig/gsl.pc"
+  ],
+  "name": "gsl",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/gsl",
+  "reproducibility": {
+    "_notes": "autotools",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "6a99eeed15632c6354895b1dd542ed5a855c0f15d9ad1326c6fe2b2c9e423190",
+  "source_tarball": "gsl-2.8.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://ftpmirror.gnu.org/gsl/gsl-${version}.tar.gz",
+  "tarball_files_count": 2327,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "2.8"
+}

@@ -1,0 +1,103 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:06Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "rtkit",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "dbus",
+    "libcap",
+    "polkit",
+    "systemd"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "installed_tests",
+      "value": "false"
+    },
+    {
+      "name": "libsystemd",
+      "value": "enabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/rtkit",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "0f9508530868109f0348e044cc1b20893672875467ace6d847ba6364274de003",
+  "source_tarball": "rtkit-0.13.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/heftig/rtkit/archive/refs/tags/v${version}/rtkit-${version}.tar.gz",
+  "tarball_files_count": 26,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Directory for D-Bus interface definitions",
+      "name": "dbus_interfacedir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Directory for D-Bus system bus policy rules",
+      "name": "dbus_rulesdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Directory for D-Bus system services",
+      "name": "dbus_systemservicedir",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Use the libsystemd sd-daemon API to communicate with systemd",
+      "name": "libsystemd",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Directory for Polkit actions",
+      "name": "polkit_actiondir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Directory for systemd system units",
+      "name": "systemd_systemunitdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Install tests",
+      "name": "installed_tests",
+      "type": "boolean"
+    }
+  ],
+  "version": "0.13"
+}

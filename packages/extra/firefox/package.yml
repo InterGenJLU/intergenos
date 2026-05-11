@@ -43,5 +43,6 @@ dependencies:
   - ffmpeg
   - libproxy
   - pciutils
+  - alsa-lib
   host: []
   runtime: []

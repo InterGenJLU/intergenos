@@ -1,0 +1,124 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:07Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "ruby",
+    "blfs_name": "Ruby",
+    "blfs_version": "4.0.1",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "graphviz",
+        "name": "Graphviz-14.1.2",
+        "note": "",
+        "type": "optional",
+        "version": "14.1.2"
+      },
+      {
+        "anchor": "libyaml",
+        "name": "libyaml-0.2.5",
+        "note": "",
+        "type": "required",
+        "version": "0.2.5"
+      },
+      {
+        "anchor": "rust",
+        "name": "rustc-1.93.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.93.1"
+      },
+      {
+        "anchor": "tk",
+        "name": "Tk-8.6.17",
+        "note": "",
+        "type": "optional",
+        "version": "8.6.17"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cargo",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "BUILDING",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "bundle",
+    "bundler",
+    "erb",
+    "gem",
+    "irb",
+    "racc",
+    "rake",
+    "rbs",
+    "rdbg",
+    "rdoc",
+    "ri",
+    "ruby",
+    "typeprof"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libruby.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "ruby",
+  "our_autotools_flags": [
+    "--disable-rpath",
+    "--enable-shared",
+    "--prefix=/usr",
+    "--without-baseruby",
+    "--without-valgrind"
+  ],
+  "our_deps_build": [
+    "libyaml",
+    "rust"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/ruby",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "0531fe57dfdb56bf591620d2450642ea0e0964f3512a6ebee7dc9305de69395f",
+  "source_tarball": "ruby-4.0.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://cache.ruby-lang.org/pub/ruby/4.0/ruby-${version}.tar.xz",
+  "tarball_files_count": 14750,
+  "test_command": "cargo test",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "4.0.1"
+}

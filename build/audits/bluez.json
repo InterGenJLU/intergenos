@@ -1,0 +1,357 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:17Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "bluez",
+    "blfs_name": "BlueZ",
+    "blfs_version": "5.86",
+    "deps": [
+      {
+        "anchor": "dbus",
+        "name": "dbus-1.16.2",
+        "note": "",
+        "type": "required",
+        "version": "1.16.2"
+      },
+      {
+        "anchor": "docutils",
+        "name": "docutils-0.22.4",
+        "note": "to generate man pages",
+        "type": "recommended",
+        "version": "0.22.4"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "libical",
+        "name": "libical-3.0.20",
+        "note": "",
+        "type": "required",
+        "version": "3.0.20"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "bluemoon",
+    "bluetoothctl",
+    "bluetoothd (symlink)",
+    "btattach",
+    "btmon",
+    "hex2hcd",
+    "l2ping",
+    "l2test",
+    "mpris-proxy",
+    "rctest"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libbluetooth.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "bluez",
+  "our_autotools_flags": [
+    "--disable-manpages",
+    "--enable-library",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "libical",
+    "dbus",
+    "docutils",
+    "glib2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/bluez",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "99f144540c6070591e4c53bcb977eb42664c62b7b36cb35a29cf72ded339621d",
+  "source_tarball": "bluez-5.86.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.kernel.org/pub/linux/bluetooth/bluez-${version}.tar.xz",
+  "tarball_files_count": 1091,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-threads",
+      "kind": "enable",
+      "name": "threads"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-backtrace",
+      "kind": "enable",
+      "name": "backtrace"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-library",
+      "kind": "enable",
+      "name": "library"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-test",
+      "kind": "enable",
+      "name": "test"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-nfc",
+      "kind": "enable",
+      "name": "nfc"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-a2dp",
+      "kind": "enable",
+      "name": "a2dp"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-avrcp",
+      "kind": "enable",
+      "name": "avrcp"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-network",
+      "kind": "enable",
+      "name": "network"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-hid",
+      "kind": "enable",
+      "name": "hid"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-hog",
+      "kind": "enable",
+      "name": "hog"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-bap",
+      "kind": "enable",
+      "name": "bap"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-bass",
+      "kind": "enable",
+      "name": "bass"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-mcp",
+      "kind": "enable",
+      "name": "mcp"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ccp",
+      "kind": "enable",
+      "name": "ccp"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-vcp",
+      "kind": "enable",
+      "name": "vcp"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-micp",
+      "kind": "enable",
+      "name": "micp"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-csip",
+      "kind": "enable",
+      "name": "csip"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tmap",
+      "kind": "enable",
+      "name": "tmap"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-gmap",
+      "kind": "enable",
+      "name": "gmap"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-asha",
+      "kind": "enable",
+      "name": "asha"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-hfp",
+      "kind": "enable",
+      "name": "hfp"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tools",
+      "kind": "enable",
+      "name": "tools"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-monitor",
+      "kind": "enable",
+      "name": "monitor"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-udev",
+      "kind": "enable",
+      "name": "udev"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-cups",
+      "kind": "enable",
+      "name": "cups"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-mesh",
+      "kind": "enable",
+      "name": "mesh"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-midi",
+      "kind": "enable",
+      "name": "midi"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-obex",
+      "kind": "enable",
+      "name": "obex"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-btpclient",
+      "kind": "enable",
+      "name": "btpclient"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-external-ell",
+      "kind": "enable",
+      "name": "external_ell"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-client",
+      "kind": "enable",
+      "name": "client"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-systemd",
+      "kind": "enable",
+      "name": "systemd"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-datafiles",
+      "kind": "enable",
+      "name": "datafiles"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-manpages",
+      "kind": "enable",
+      "name": "manpages"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-testing",
+      "kind": "enable",
+      "name": "testing"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-experimental",
+      "kind": "enable",
+      "name": "experimental"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-deprecated",
+      "kind": "enable",
+      "name": "deprecated"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-external-plugins",
+      "kind": "enable",
+      "name": "external-plugins"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-sixaxis",
+      "kind": "enable",
+      "name": "sixaxis"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-hid2hci",
+      "kind": "enable",
+      "name": "hid2hci"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-logger",
+      "kind": "enable",
+      "name": "logger"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-admin",
+      "kind": "enable",
+      "name": "admin"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-dbusconfdir=DIR",
+      "kind": "with",
+      "name": "dbusconfdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-dbussystembusdir=DIR",
+      "kind": "with",
+      "name": "dbussystembusdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-dbussessionbusdir=DIR",
+      "kind": "with",
+      "name": "dbussessionbusdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-zsh-completion-dir=DIR",
+      "kind": "with",
+      "name": "zsh-completion-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-udevdir=DIR",
+      "kind": "with",
+      "name": "udevdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-systemdsystemunitdir=DIR",
+      "kind": "with",
+      "name": "systemdsystemunitdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-systemduserunitdir=DIR",
+      "kind": "with",
+      "name": "systemduserunitdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-phonebook=PLUGIN",
+      "kind": "with",
+      "name": "phonebook"
+    }
+  ],
+  "version": "5.86"
+}

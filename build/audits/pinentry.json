@@ -1,0 +1,207 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:01Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "pinentry",
+    "blfs_name": "pinentry",
+    "blfs_version": "1.3.2",
+    "deps": [
+      {
+        "anchor": "emacs",
+        "name": "Emacs-30.2",
+        "note": "",
+        "type": "optional",
+        "version": "30.2"
+      },
+      {
+        "anchor": "fltk",
+        "name": "FLTK-1.4.4",
+        "note": "",
+        "type": "optional",
+        "version": "1.4.4"
+      },
+      {
+        "anchor": "gcr",
+        "name": "Gcr-3.41.2",
+        "note": "",
+        "type": "optional",
+        "version": "3.41.2"
+      },
+      {
+        "anchor": "gcr4",
+        "name": "Gcr-4.4.0.1",
+        "note": "",
+        "type": "optional",
+        "version": "4.4.0.1"
+      },
+      {
+        "anchor": "kf6-frameworks",
+        "name": "KDE\n                Frameworks-6.23.0",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "libassuan",
+        "name": "libassuan-3.0.2",
+        "note": "",
+        "type": "required",
+        "version": "3.0.2"
+      },
+      {
+        "anchor": "libgpg-error",
+        "name": "libgpg-error-1.59",
+        "note": "",
+        "type": "required",
+        "version": "1.59"
+      },
+      {
+        "anchor": "libsecret",
+        "name": "libsecret-0.21.7",
+        "note": "",
+        "type": "optional",
+        "version": "0.21.7"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "pinentry (symlink)",
+    "pinentry-curses",
+    "pinentry-emacs",
+    "pinentry-fltk",
+    "pinentry-gnome3",
+    "pinentry-qt",
+    "pinentry-tty"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "None"
+  ],
+  "expected_pkgconfig": [],
+  "name": "pinentry",
+  "our_autotools_flags": [
+    "--enable-pinentry-curses",
+    "--enable-pinentry-gnome3",
+    "--enable-pinentry-tty",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libassuan",
+    "libgpg-error",
+    "libsecret",
+    "gcr"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/pinentry",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "8e986ed88561b4da6e9efe0c54fa4ca8923035c99264df0b0464497c5fb94e9e",
+  "source_tarball": "pinentry-1.3.2.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://www.gnupg.org/ftp/gcrypt/pinentry/pinentry-${version}.tar.bz2",
+  "tarball_files_count": 233,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-pinentry-curses",
+      "kind": "enable",
+      "name": "pinentry-curses"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-fallback-curses",
+      "kind": "enable",
+      "name": "fallback-curses"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pinentry-tty",
+      "kind": "enable",
+      "name": "pinentry-tty"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pinentry-emacs",
+      "kind": "enable",
+      "name": "pinentry-emacs"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-inside-emacs",
+      "kind": "enable",
+      "name": "inside-emacs"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pinentry-efl",
+      "kind": "enable",
+      "name": "pinentry-efl"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pinentry-gtk2",
+      "kind": "enable",
+      "name": "pinentry-gtk2"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pinentry-gnome3",
+      "kind": "enable",
+      "name": "pinentry-gnome3"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-libsecret",
+      "kind": "enable",
+      "name": "libsecret"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pinentry-qt5",
+      "kind": "enable",
+      "name": "pinentry-qt5"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pinentry-qt",
+      "kind": "enable",
+      "name": "pinentry-qt"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pinentry-qt4",
+      "kind": "enable",
+      "name": "pinentry-qt4"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pinentry-tqt",
+      "kind": "enable",
+      "name": "pinentry-tqt"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pinentry-fltk",
+      "kind": "enable",
+      "name": "pinentry-fltk"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-doc",
+      "kind": "enable",
+      "name": "doc"
+    }
+  ],
+  "version": "1.3.2"
+}

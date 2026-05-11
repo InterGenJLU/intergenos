@@ -1,0 +1,163 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:04Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "rasqal",
+    "blfs_name": "Rasqal",
+    "blfs_version": "0.9.33",
+    "deps": [
+      {
+        "anchor": "libgcrypt",
+        "name": "libgcrypt-1.12.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.12.0"
+      },
+      {
+        "anchor": "raptor",
+        "name": "Raptor-2.0.16",
+        "note": "",
+        "type": "required",
+        "version": "2.0.16"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "rasqal-config",
+    "roqet"
+  ],
+  "expected_headers": [
+    "/usr/include/rasqal"
+  ],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "rasqal",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "raptor2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/rasqal",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "6924c9ac6570bd241a9669f83b467c728a322470bf34f4b2da4f69492ccfd97c",
+  "source_tarball": "rasqal-0.9.33.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.librdf.org/source/rasqal-${version}.tar.gz",
+  "tarball_files_count": 1035,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "  --enable-release        Turn on optimizations (for maintainer).  ",
+      "kind": "enable",
+      "name": "release"
+    },
+    {
+      "help": "  --disable-pcre                  Disable PCRE support (default auto)",
+      "kind": "enable",
+      "name": "pcre"
+    },
+    {
+      "help": "  --disable-xml2                  Disable XML2 support (default auto)",
+      "kind": "enable",
+      "name": "xml2"
+    },
+    {
+      "help": "  --enable-query-languages=LIST   Enable query languages (default=all)",
+      "kind": "enable",
+      "name": "query-languages"
+    },
+    {
+      "help": "  --enable-debug          Enable debug messages (default no).  ",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "  --with-pcre-config=PATH     Location of PCRE pcre-config (auto)",
+      "kind": "with",
+      "name": "pcre-config"
+    },
+    {
+      "help": "  --with-regex-library=NAME   Use regex library - posix, pcre (auto)",
+      "kind": "with",
+      "name": "regex-library"
+    },
+    {
+      "help": "  --with-mhash=DIR  mhash installation prefix (no default)",
+      "kind": "with",
+      "name": "mhash"
+    },
+    {
+      "help": "  --with-libgcrypt-config=PATH     Location of GCRYPT libgcrypt-config (auto)",
+      "kind": "with",
+      "name": "libgcrypt-config"
+    },
+    {
+      "help": "  --with-digest-library=NAME   Use message digest library - mhash, gcrypt, internal (auto)",
+      "kind": "with",
+      "name": "digest-library"
+    },
+    {
+      "help": "  --with-uuid-library=NAME   Use UUID library - libuuid, libc (auto)",
+      "kind": "with",
+      "name": "uuid-library"
+    },
+    {
+      "help": "  --with-xml2-config=PATH     Location of libxml xml2-config ()",
+      "kind": "with",
+      "name": "xml2-config"
+    },
+    {
+      "help": "  --with-gmp=DIR          GMP install area",
+      "kind": "with",
+      "name": "gmp"
+    },
+    {
+      "help": "  --with-mpfr=DIR          MPFR install area",
+      "kind": "with",
+      "name": "mpfr"
+    },
+    {
+      "help": "  --with-decimal=NAME           Use decimal library - mpfr (default), gmp, none",
+      "kind": "with",
+      "name": "decimal"
+    },
+    {
+      "help": "  --with-random-approach=NAME   Use random approach - mtwist, random_r, rand_r, random, rand (auto)",
+      "kind": "with",
+      "name": "random-approach"
+    },
+    {
+      "help": "  --with-memory-signing       Sign allocated memory (default=no)",
+      "kind": "with",
+      "name": "memory-signing"
+    }
+  ],
+  "version": "0.9.33"
+}

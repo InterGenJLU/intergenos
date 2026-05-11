@@ -1,0 +1,128 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:44Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/X11/Xlib.h",
+    "/usr/include/X11/Xutil.h"
+  ],
+  "expected_libs": [
+    "libX11.so"
+  ],
+  "expected_pkgconfig": [
+    "x11.pc"
+  ],
+  "name": "libX11",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "fontconfig",
+    "libxcb",
+    "xorgproto",
+    "xtrans"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libX11",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "69606f485c2c07c14ef64f75b7bb326d48587af33795d9ab3e607c0b5f94f11c",
+  "source_tarball": "libX11-1.8.13.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.x.org/pub/individual/lib/libX11-${version}.tar.xz",
+  "tarball_files_count": 1767,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-loadable-i18n",
+      "kind": "enable",
+      "name": "loadable-i18n"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-loadable-xcursor",
+      "kind": "enable",
+      "name": "loadable-xcursor"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-thread-safety-constructor",
+      "kind": "enable",
+      "name": "thread-safety-constructor"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-xthreads",
+      "kind": "enable",
+      "name": "xthreads"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-xcms",
+      "kind": "enable",
+      "name": "xcms"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-xlocale",
+      "kind": "enable",
+      "name": "xlocale"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-xlocaledir",
+      "kind": "enable",
+      "name": "xlocaledir"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-xf86bigfont",
+      "kind": "enable",
+      "name": "xf86bigfont"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-xkb",
+      "kind": "enable",
+      "name": "xkb"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-composecache",
+      "kind": "enable",
+      "name": "composecache"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-launchd",
+      "kind": "with",
+      "name": "launchd"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-keysymdefdir=DIR",
+      "kind": "with",
+      "name": "keysymdefdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-locale-lib-dir=DIR",
+      "kind": "with",
+      "name": "locale-lib-dir"
+    }
+  ],
+  "version": "1.8.13"
+}

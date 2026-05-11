@@ -1,0 +1,380 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:27Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "evince",
+    "blfs_name": "Evince",
+    "blfs_version": "48.1",
+    "deps": [
+      {
+        "anchor": "adwaita-icon-theme",
+        "name": "adwaita-icon-theme-49.0",
+        "note": "",
+        "type": "required",
+        "version": "49.0"
+      },
+      {
+        "anchor": "cups",
+        "name": "Cups-2.4.16",
+        "note": "",
+        "type": "optional",
+        "version": "2.4.16"
+      },
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with\n                GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gnome-desktop",
+        "name": "gnome-desktop-44.5",
+        "note": "",
+        "type": "optional",
+        "version": "44.5"
+      },
+      {
+        "anchor": "gnome-keyring",
+        "name": "gnome-keyring-48.0",
+        "note": "",
+        "type": "recommended",
+        "version": "48.0"
+      },
+      {
+        "anchor": "gsettings-desktop-schemas",
+        "name": "gsettings-desktop-schemas-49.1",
+        "note": "",
+        "type": "required",
+        "version": "49.1"
+      },
+      {
+        "anchor": "gspell",
+        "name": "gspell-1.14.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.14.2"
+      },
+      {
+        "anchor": "gst10-plugins-base",
+        "name": "gst-plugins-base-1.28.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.28.1"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "required",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "itstool",
+        "name": "itstool-2.0.7",
+        "note": "",
+        "type": "required",
+        "version": "2.0.7"
+      },
+      {
+        "anchor": "libarchive",
+        "name": "libarchive-3.8.5",
+        "note": "",
+        "type": "recommended",
+        "version": "3.8.5"
+      },
+      {
+        "anchor": "libgxps",
+        "name": "libgxps-0.3.2",
+        "note": "",
+        "type": "optional",
+        "version": "0.3.2"
+      },
+      {
+        "anchor": "libhandy1",
+        "name": "libhandy-1.8.3",
+        "note": "",
+        "type": "required",
+        "version": "1.8.3"
+      },
+      {
+        "anchor": "libsecret",
+        "name": "libsecret-0.21.7",
+        "note": "",
+        "type": "recommended",
+        "version": "0.21.7"
+      },
+      {
+        "anchor": "libtiff",
+        "name": "libtiff-4.7.1",
+        "note": "",
+        "type": "optional",
+        "version": "4.7.1"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "required",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "openjpeg2",
+        "name": "OpenJPEG-2.5.4",
+        "note": "",
+        "type": "required",
+        "version": "2.5.4"
+      },
+      {
+        "anchor": "poppler",
+        "name": "Poppler-26.02.0",
+        "note": "",
+        "type": "recommended",
+        "version": "26.02.0"
+      },
+      {
+        "anchor": "texlive",
+        "name": "texlive-20250308",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "tl-installer",
+        "name": "install-tl-unx",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "NEWS",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "evince",
+    "evince-previewer",
+    "evince-thumbnailer"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libevdocument3.so",
+    "libevview3.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "evince",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gtk3",
+    "openjpeg2",
+    "adwaita-icon-theme",
+    "gsettings-desktop-schemas",
+    "itstool",
+    "libhandy1",
+    "libxml2",
+    "glib2",
+    "poppler",
+    "gnome-keyring",
+    "libarchive",
+    "libsecret"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "gtk_doc",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/evince",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "7d8b9a6fa3a05d3f5b9048859027688c73a788ff6e923bc3945126884943fa10",
+  "source_tarball": "evince-48.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/evince/48/evince-${version}.tar.xz",
+  "tarball_files_count": 810,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "whether this is a development build",
+      "name": "development",
+      "type": "boolean"
+    },
+    {
+      "default": "gnome",
+      "description": "for which platform to build",
+      "name": "platform",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "whether Viewer support is requested",
+      "name": "viewer",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "whether Previewer support is requested",
+      "name": "previewer",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "whether Thumbnailer support is requested",
+      "name": "thumbnailer",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "whether Nautilus support is requested",
+      "name": "nautilus",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "whether Comics support is requested",
+      "name": "comics",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "whether DJVU support is requested",
+      "name": "djvu",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "whether DVI support is requested",
+      "name": "dvi",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "whether PDF support is requested",
+      "name": "pdf",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "whether PS support is requested",
+      "name": "ps",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "whether TIFF support is requested",
+      "name": "tiff",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "whether XPS support is requested",
+      "name": "xps",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "whether GTK Doc reference is requested",
+      "name": "gtk_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "whether User documentation is requested",
+      "name": "user_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "whether introspection support is requested",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "whether DBUS support is requested",
+      "name": "dbus",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "whether keyring support is requested",
+      "name": "keyring",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "whether gtk+-unix-print support is requested",
+      "name": "gtk_unix_print",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "thumbnail_cache",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "whether multimedia support is requested",
+      "name": "multimedia",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "whether gpsell support is requested",
+      "name": "gspell",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "whether to use the internal synctex",
+      "name": "internal_synctex",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "custom directory for systemd user units, or \\",
+      "name": "systemduserunitdir",
+      "type": "string"
+    }
+  ],
+  "version": "48.1"
+}

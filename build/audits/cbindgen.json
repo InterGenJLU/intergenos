@@ -1,0 +1,63 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "cbindgen",
+    "blfs_name": "Cbindgen",
+    "blfs_version": "0.29.2",
+    "deps": [
+      {
+        "anchor": "rust",
+        "name": "rustc-1.93.1",
+        "note": "",
+        "type": "required",
+        "version": "1.93.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cargo",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [
+    "cbindgen"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "cbindgen",
+  "our_autotools_flags": [
+    "--strip-components=1"
+  ],
+  "our_deps_build": [
+    "rust"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/cbindgen",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "c7d4d610482390c70e471a5682de714967e187ed2f92f2237c317a484a8c7e3a",
+  "source_tarball": "cbindgen-0.29.2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/mozilla/cbindgen/archive/v${version}/cbindgen-${version}.tar.gz",
+  "tarball_files_count": 1734,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "0.29.2"
+}

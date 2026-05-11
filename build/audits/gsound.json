@@ -1,0 +1,111 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:29Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gsound",
+    "blfs_name": "GSound",
+    "blfs_version": "1.0.3",
+    "deps": [
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "for generating\n                documentation",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "libcanberra",
+        "name": "libcanberra-0.30",
+        "note": "",
+        "type": "required",
+        "version": "0.30"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "gsound-play"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libgsound.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "gsound",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libcanberra",
+    "vala",
+    "glib2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gsound",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "ca2d039e1ebd148647017a7f548862350bc9af01986d39f10cfdc8e95f07881a",
+  "source_tarball": "gsound-1.0.3.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gsound/1.0/gsound-${version}.tar.xz",
+  "tarball_files_count": 25,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Generate API reference using GTK-Doc",
+      "name": "gtk_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Generate GObject Introspection data",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build vala tools and VAPI",
+      "name": "enable_vala",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.0.3"
+}

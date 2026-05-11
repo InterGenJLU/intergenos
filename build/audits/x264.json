@@ -1,0 +1,66 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "x264",
+    "blfs_name": "x264",
+    "blfs_version": "20250815",
+    "deps": [
+      {
+        "anchor": "nasm",
+        "name": "NASM-3.01",
+        "note": "",
+        "type": "recommended",
+        "version": "3.01"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libx264.so"
+  ],
+  "expected_pkgconfig": [
+    "x264.pc"
+  ],
+  "name": "x264",
+  "our_autotools_flags": [
+    "--disable-cli",
+    "--enable-shared",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "nasm"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/x264",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "eb9c8febcf4889d01a4fd97f67a9bec74981a67c89d04e492b74e81edd720031",
+  "source_tarball": "x264-20250815.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://anduin.linuxfromscratch.org/BLFS/x264/x264-${version}.tar.xz",
+  "tarball_files_count": 289,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "20250815"
+}

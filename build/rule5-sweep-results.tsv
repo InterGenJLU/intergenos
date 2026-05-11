@@ -1,0 +1,146 @@
+name	category	bundled	note
+aardvark-dns	HANDLED	contrib	explicit tar xf in build.sh OR multi-source
+accountsservice	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['packagecache']
+appstream-glib	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+argcomplete	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+at-spi2-core	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
+atkmm	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
+cairo	MESON-SUBPROJECTS-WRAP	subprojects	7 .wrap fallbacks, no vendored trees — benign
+cairomm	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
+cairomm1	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
+colord	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+colord-gtk	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+conmon	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+containers-common	NEEDS-MANUAL-REVIEW	contrib,vendor	multi-bundled: ['contrib', 'vendor']
+cppunit	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+dbus-python	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['dbus-gmain']
+dconf	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['gvdb']
+doxygen	NEEDS-MANUAL-REVIEW	deps	multi-bundled: ['deps']
+evince	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+exiv2	MESON-SUBPROJECTS-WRAP	contrib,subprojects	5 .wrap fallbacks, no vendored trees — benign
+firefox	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
+fontconfig	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['libintl']
+freerdp	NEEDS-MANUAL-REVIEW	external,third-party	multi-bundled: ['external', 'third-party']
+freetype2	MESON-SUBPROJECTS-WRAP	subprojects	3 .wrap fallbacks, no vendored trees — benign
+freetype2-pass1	MESON-SUBPROJECTS-WRAP	subprojects	3 .wrap fallbacks, no vendored trees — benign
+fuse-overlayfs	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+gdk-pixbuf	MESON-SUBPROJECTS-WRAP	subprojects	4 .wrap fallbacks, no vendored trees — benign
+gdk-pixbuf-pass2	MESON-SUBPROJECTS-WRAP	subprojects	4 .wrap fallbacks, no vendored trees — benign
+gegl	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['libnsgif', 'poly2tri-c']
+ghostscript	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+git	MESON-SUBPROJECTS-WRAP	contrib,subprojects	5 .wrap fallbacks, no vendored trees — benign
+gjs	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['gobject-introspection-tests']
+glib-networking	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+glib2	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['gvdb', 'packagefiles']
+glib2-bootstrap	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['gvdb', 'packagefiles']
+glibmm	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
+glibmm2	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
+glslang	NEEDS-MANUAL-REVIEW	DEPS,External	multi-bundled: ['DEPS', 'External']
+gnome-bluetooth	MESON-SUBPROJECTS-WRAP	contrib,subprojects	1 .wrap fallbacks, no vendored trees — benign
+gnome-calculator	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+gnome-connections	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['gtk-frdp']
+gnome-control-center	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['gvc', 'libgxdp']
+gnome-disk-utility	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+gnome-music	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['shared-modules']
+gnome-online-accounts	MESON-SUBPROJECTS-WRAP	subprojects	4 .wrap fallbacks, no vendored trees — benign
+gnome-settings-daemon	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['gvc']
+gnome-shell	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['extensions-app', 'extensions-tool', 'gvc']
+gnome-terminal	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+gnome-text-editor	MESON-SUBPROJECTS-WRAP	subprojects	4 .wrap fallbacks, no vendored trees — benign
+gobject-introspection	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+graphene	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['mutest']
+graphite2	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+graphviz	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+grilo-plugins	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['grilo']
+gst-plugins-base	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
+gst-plugins-base-pass2	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
+gtk-vnc	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['keycodemapdb']
+gtk3	MESON-SUBPROJECTS-WRAP	subprojects	19 .wrap fallbacks, no vendored trees — benign
+gtk4	MESON-SUBPROJECTS-WRAP	subprojects	23 .wrap fallbacks, no vendored trees — benign
+gtkmm3	MESON-SUBPROJECTS-WRAP	subprojects	7 .wrap fallbacks, no vendored trees — benign
+gtkmm4	MESON-SUBPROJECTS-WRAP	subprojects	7 .wrap fallbacks, no vendored trees — benign
+gtksourceview5	MESON-SUBPROJECTS-WRAP	subprojects	4 .wrap fallbacks, no vendored trees — benign
+harfbuzz	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['packagefiles']
+json-glib	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
+libadwaita1	MESON-SUBPROJECTS-WRAP	subprojects	4 .wrap fallbacks, no vendored trees — benign
+libaom	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
+libarchive	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+libavif	NEEDS-MANUAL-REVIEW	contrib,third_party	multi-bundled: ['contrib', 'third_party']
+libbluray	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+libdisplay-info	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+libei	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+libexif	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+libgusb	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+libgweather	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+libhandy1	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+libheif	NEEDS-MANUAL-REVIEW	third-party	third_party/ bundling without explicit extract or multi-source
+libjxl	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
+libnl	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
+libnotify	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+libnvme	MESON-SUBPROJECTS-WRAP	subprojects	3 .wrap fallbacks, no vendored trees — benign
+libpeas	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+libplacebo	NEEDS-MANUAL-REVIEW	3rdparty	multi-bundled: ['3rdparty']
+libpng	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+libportal	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+libproxy	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+libreoffice	NEEDS-MANUAL-REVIEW	external	external/ bundling without explicit extract or multi-source
+librest	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+libsecret	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+libshumate	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
+libsigcpp2	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+libsigcpp3	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+libsoup3	MESON-SUBPROJECTS-WRAP	subprojects	3 .wrap fallbacks, no vendored trees — benign
+libspelling	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
+libtiff	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+libtiff-pass2	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+libvpx	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
+libxmlb	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+lilv	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+linux-firmware	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+llama-cpp	NEEDS-MANUAL-REVIEW	vendor	vendor/ bundling — Go/Rust style; verify build.sh handles
+localsearch	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+mesa	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['packagefiles']
+mutter	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['gvdb']
+nasm	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+netavark	HANDLED	contrib	explicit tar xf in build.sh OR multi-source
+networkmanager	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+networkmanager-pass1	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+nghttp2	NEEDS-MANUAL-REVIEW	contrib,third-party	multi-bundled: ['contrib', 'third-party']
+nodejs	NEEDS-MANUAL-REVIEW	deps	multi-bundled: ['deps']
+openldap	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+openssh	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+p11-kit	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['pkcs11-json']
+pango	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['fontconfig', 'gperf']
+pangomm	MESON-SUBPROJECTS-WRAP	subprojects	3 .wrap fallbacks, no vendored trees — benign
+pangomm1	MESON-SUBPROJECTS-WRAP	subprojects	3 .wrap fallbacks, no vendored trees — benign
+passt	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+pipewire	MESON-SUBPROJECTS-WRAP	subprojects	4 .wrap fallbacks, no vendored trees — benign
+podman	NEEDS-MANUAL-REVIEW	contrib,vendor	multi-bundled: ['contrib', 'vendor']
+protobuf	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
+pulseaudio	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+pygments	NEEDS-MANUAL-REVIEW	external	external/ bundling without explicit extract or multi-source
+pygobject3	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['gobject-introspection-tests', 'packagefiles', 'pythoncapi-compat']
+rapidjson	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+rust	HANDLED	vendor	explicit tar xf in build.sh OR multi-source
+samba	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
+sdl2-ttf	NEEDS-MANUAL-REVIEW	external	external/ bundling without explicit extract or multi-source
+serd	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+shaderc	NEEDS-MANUAL-REVIEW	DEPS,third_party	multi-bundled: ['DEPS', 'third_party']
+snapshot	HANDLED	vendor	explicit tar xf in build.sh OR multi-source
+spidermonkey	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
+spirv-tools	NEEDS-MANUAL-REVIEW	DEPS,external	multi-bundled: ['DEPS', 'external']
+sratom	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+suil	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+svt-av1	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
+sysprof	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+taglib	NEEDS-MANUAL-REVIEW	3rdparty	multi-bundled: ['3rdparty']
+tdb	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
+thunderbird	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
+tinysparql	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['libstemmer_c-3.0.1', 'packagefiles']
+transmission	NEEDS-MANUAL-REVIEW	third-party	third_party/ bundling without explicit extract or multi-source
+upower	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+vte	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['fast_float', 'fmt', 'packagefiles']
+wireplumber	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
+wxwidgets	NEEDS-MANUAL-REVIEW	3rdparty	multi-bundled: ['3rdparty']
+xdg-desktop-portal-gnome	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['libgxdp']
+zix	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign

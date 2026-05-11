@@ -1,0 +1,89 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:20Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "slang",
+    "blfs_name": "slang",
+    "blfs_version": "2.3.3",
+    "deps": [
+      {
+        "anchor": "libpng",
+        "name": "libpng-1.6.55",
+        "note": "",
+        "type": "optional",
+        "version": "1.6.55"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libslang.so",
+    "numerous support modules"
+  ],
+  "expected_pkgconfig": [],
+  "name": "slang",
+  "our_autotools_flags": [
+    "--prefix=/usr",
+    "--sysconfdir=/etc",
+    "--with-readline=gnu"
+  ],
+  "our_deps_build": [
+    "readline",
+    "libpng"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/slang",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "f9145054ae131973c61208ea82486d5dd10e3c5cdad23b7c4a0617743c8f5a18",
+  "source_tarball": "slang-2.3.3.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://www.jedsoft.org/releases/slang/slang-${version}.tar.bz2",
+  "tarball_files_count": 630,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AC_HELP_STRING([--with-pkgconfigdir=DIR",
+      "kind": "with",
+      "name": "pkgconfigdir"
+    },
+    {
+      "help": "  --with-terminfo=xxx     Terminfo layout: default, hpux11, osf1r5, aix4, uwin ",
+      "kind": "with",
+      "name": "terminfo"
+    },
+    {
+      "help": "  --with-readline=xxx     Use slang(default) or gnu readline for slsh ",
+      "kind": "with",
+      "name": "readline"
+    },
+    {
+      "help": "  --with-slsyswrap=DIR    Not for production use",
+      "kind": "with",
+      "name": "slsyswrap"
+    }
+  ],
+  "version": "2.3.3"
+}

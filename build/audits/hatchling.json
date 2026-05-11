@@ -1,0 +1,92 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:37Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "hatchling",
+    "blfs_name": "Hatchling",
+    "blfs_version": "1.28.0",
+    "deps": [
+      {
+        "anchor": "editables",
+        "name": "editables-0.5",
+        "note": "",
+        "type": "required",
+        "version": "0.5"
+      },
+      {
+        "anchor": "pathspec",
+        "name": "pathspec-1.0.4",
+        "note": "",
+        "type": "required",
+        "version": "1.0.4"
+      },
+      {
+        "anchor": "pluggy",
+        "name": "pluggy-1.6.0",
+        "note": "",
+        "type": "required",
+        "version": "1.6.0"
+      },
+      {
+        "anchor": "trove-classifiers",
+        "name": "trove-classifiers-2026.1.14.14",
+        "note": "",
+        "type": "required",
+        "version": "2026.1.14.14"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "python",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [
+    "hatchling",
+    "maturin",
+    "markdown_py",
+    "smartypants",
+    "uv_build"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "hatchling",
+  "our_autotools_flags": [
+    "--no-build-isolation",
+    "--no-cache-dir",
+    "--no-deps"
+  ],
+  "our_deps_build": [
+    "editables",
+    "pathspec",
+    "pluggy",
+    "trove-classifiers"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/hatchling",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "4d50b02aece6892b8cd0b3ce6c82cb218594d3ec5836dbde75bf41a21ab004c8",
+  "source_tarball": "hatchling-1.28.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://files.pythonhosted.org/packages/source/h/hatchling/hatchling-${version}.tar.gz",
+  "tarball_files_count": 79,
+  "test_command": "pytest",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "1.28.0"
+}

@@ -1,0 +1,578 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:39Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "imagemagick",
+    "blfs_name": "ImageMagick-7.1.2",
+    "blfs_version": "13",
+    "deps": [
+      {
+        "anchor": "cups",
+        "name": "Cups-2.4.16",
+        "note": "",
+        "type": "optional",
+        "version": "2.4.16"
+      },
+      {
+        "anchor": "curl",
+        "name": "cURL-8.18.0",
+        "note": "",
+        "type": "optional",
+        "version": "8.18.0"
+      },
+      {
+        "anchor": "ffmpeg",
+        "name": "FFmpeg-8.0.1",
+        "note": "",
+        "type": "optional",
+        "version": "8.0.1"
+      },
+      {
+        "anchor": "fftw",
+        "name": "fftw-3.3.10",
+        "note": "",
+        "type": "optional",
+        "version": "3.3.10"
+      },
+      {
+        "anchor": "gnupg2",
+        "name": "GnuPG-2.5.17",
+        "note": "",
+        "type": "optional",
+        "version": "2.5.17"
+      },
+      {
+        "anchor": "llvm",
+        "name": "LLVM-21.1.8",
+        "note": "",
+        "type": "optional",
+        "version": "21.1.8"
+      },
+      {
+        "anchor": "sane",
+        "name": "SANE-1.4.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.4.0"
+      },
+      {
+        "anchor": "seven-zip",
+        "name": "7zip-26.00",
+        "note": "LZMA",
+        "type": "optional",
+        "version": "26.00"
+      },
+      {
+        "anchor": "wget",
+        "name": "Wget-1.25.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.25.0"
+      },
+      {
+        "anchor": "xdg-utils",
+        "name": "xdg-utils-1.2.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.2.1"
+      },
+      {
+        "anchor": "xorg7-lib",
+        "name": "Xorg\n                Libraries",
+        "note": "",
+        "type": "recommended",
+        "version": ""
+      },
+      {
+        "anchor": "xterm2",
+        "name": "xterm-407",
+        "note": "",
+        "type": "optional",
+        "version": "407"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "magick",
+    "Magick++-config",
+    "MagickCore-config",
+    "MagickWand-config"
+  ],
+  "expected_headers": [
+    "/etc/ImageMagick-7",
+    "/usr/include/ImageMagick-7",
+    "/usr/lib/ImageMagick-7.1.2",
+    "/usr/lib/perl5/site_perl/5.42/{",
+    "auto}/Image/Magick",
+    "/usr/share/doc/ImageMagick-7.1.2",
+    "/usr/share/ImageMagick-7"
+  ],
+  "expected_libs": [
+    "libMagickCore-7.Q16HDRI.so",
+    "libMagickWand-7.Q16HDRI.so",
+    "libMagick++-7.Q16HDRI.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "imagemagick",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--enable-hdri",
+    "--prefix=/usr",
+    "--sysconfdir=/etc",
+    "--with-modules",
+    "--with-perl=no"
+  ],
+  "our_deps_build": [
+    "freetype2",
+    "libjpeg-turbo",
+    "libpng",
+    "libtiff",
+    "libwebp"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/imagemagick",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "968e022c8c7ee620680bac658628ef0f582be7b8aa71b386a9a9d068ec17dbd2",
+  "source_tarball": "ImageMagick-7.1.2-13.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.imagemagick.org/archive/releases/ImageMagick-${version}.tar.xz",
+  "tarball_files_count": 2228,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-bounds-checking",
+      "kind": "enable",
+      "name": "bounds-checking"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-osx-universal-binary",
+      "kind": "enable",
+      "name": "osx-universal-binary"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-delegate-build",
+      "kind": "enable",
+      "name": "delegate-build"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-deprecated",
+      "kind": "enable",
+      "name": "deprecated"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-installed",
+      "kind": "enable",
+      "name": "installed"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-zero-configuration",
+      "kind": "enable",
+      "name": "zero-configuration"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-hdri",
+      "kind": "enable",
+      "name": "hdri"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-dpc",
+      "kind": "enable",
+      "name": "dpc"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pipes",
+      "kind": "enable",
+      "name": "pipes"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-hugepages",
+      "kind": "enable",
+      "name": "hugepages"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-ccmalloc",
+      "kind": "enable",
+      "name": "ccmalloc"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-efence",
+      "kind": "enable",
+      "name": "efence"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-prof",
+      "kind": "enable",
+      "name": "prof"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-gprof",
+      "kind": "enable",
+      "name": "gprof"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-gcov",
+      "kind": "enable",
+      "name": "gcov"
+    },
+    {
+      "help": "  --enable-legacy-support install legacy command-line utilities (default disabled)",
+      "kind": "enable",
+      "name": "legacy-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-docs",
+      "kind": "enable",
+      "name": "docs"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-cipher",
+      "kind": "enable",
+      "name": "cipher"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-64bit-channel-masks",
+      "kind": "enable",
+      "name": "64bit_channel_masks"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-force-cpp",
+      "kind": "enable",
+      "name": "force_cpp"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-includearch-dir=DIR",
+      "kind": "with",
+      "name": "includearch-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-sharearch-dir=DIR",
+      "kind": "with",
+      "name": "sharearch-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pkgconfigdir=DIR",
+      "kind": "with",
+      "name": "pkgconfigdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-threads",
+      "kind": "with",
+      "name": "threads"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-modules",
+      "kind": "with",
+      "name": "modules"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-method-prefix=PREFIX",
+      "kind": "with",
+      "name": "method-prefix"
+    },
+    {
+      "help": "  --with-utilities\tenable building command-line utilities (default yes)",
+      "kind": "with",
+      "name": "utilities"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-quantum-depth=DEPTH",
+      "kind": "with",
+      "name": "quantum-depth"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-cache=THRESHOLD",
+      "kind": "with",
+      "name": "cache"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-security-policy=open|limited|secure|websafe",
+      "kind": "with",
+      "name": "security-policy"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-frozenpaths",
+      "kind": "with",
+      "name": "frozenpaths"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-magick-plus-plus",
+      "kind": "with",
+      "name": "magick-plus-plus"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-package-release-name=NAME",
+      "kind": "with",
+      "name": "package-release-name"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-perl",
+      "kind": "with",
+      "name": "perl"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-perl-options=OPTIONS",
+      "kind": "with",
+      "name": "perl-options"
+    },
+    {
+      "help": "  --with-jemalloc         enable jemalloc memory allocation library support",
+      "kind": "with",
+      "name": "jemalloc"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-mtmalloc",
+      "kind": "with",
+      "name": "mtmalloc"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-tcmalloc",
+      "kind": "with",
+      "name": "tcmalloc"
+    },
+    {
+      "help": "  --with-umem             enable umem memory allocation library support",
+      "kind": "with",
+      "name": "umem"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-libstdc=DIR",
+      "kind": "with",
+      "name": "libstdc"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-bzlib",
+      "kind": "with",
+      "name": "bzlib"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-zip",
+      "kind": "with",
+      "name": "zip"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-zlib",
+      "kind": "with",
+      "name": "zlib"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-zstd",
+      "kind": "with",
+      "name": "zstd"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-apple-font-dir=DIR",
+      "kind": "with",
+      "name": "apple-font-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-autotrace",
+      "kind": "with",
+      "name": "autotrace"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-dps",
+      "kind": "with",
+      "name": "dps"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-dejavu-font-dir=DIR",
+      "kind": "with",
+      "name": "dejavu-font-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-fftw",
+      "kind": "with",
+      "name": "fftw"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-flif",
+      "kind": "with",
+      "name": "flif"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-fpx",
+      "kind": "with",
+      "name": "fpx"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-djvu",
+      "kind": "with",
+      "name": "djvu"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-fontconfig",
+      "kind": "with",
+      "name": "fontconfig"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-freetype",
+      "kind": "with",
+      "name": "freetype"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-raqm",
+      "kind": "with",
+      "name": "raqm"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-gdi32",
+      "kind": "with",
+      "name": "gdi32"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-gslib",
+      "kind": "with",
+      "name": "gslib"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-fontpath=DIR",
+      "kind": "with",
+      "name": "fontpath"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-gs-font-dir=DIR",
+      "kind": "with",
+      "name": "gs-font-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-gvc",
+      "kind": "with",
+      "name": "gvc"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-dmr",
+      "kind": "with",
+      "name": "dmr"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-heic",
+      "kind": "with",
+      "name": "heic"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-jbig",
+      "kind": "with",
+      "name": "jbig"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-jpeg",
+      "kind": "with",
+      "name": "jpeg"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-jxl",
+      "kind": "with",
+      "name": "jxl"
+    },
+    {
+      "help": "  --without-lcms          disable lcms (v1.1X) support",
+      "kind": "with",
+      "name": "lcms"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-openjp2",
+      "kind": "with",
+      "name": "openjp2"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-lqr",
+      "kind": "with",
+      "name": "lqr"
+    },
+    {
+      "help": "  --without-lzma          disable LZMA support",
+      "kind": "with",
+      "name": "lzma"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-openexr",
+      "kind": "with",
+      "name": "openexr"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-pango",
+      "kind": "with",
+      "name": "pango"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-png",
+      "kind": "with",
+      "name": "png"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-raw",
+      "kind": "with",
+      "name": "raw"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-rsvg",
+      "kind": "with",
+      "name": "rsvg"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-tiff",
+      "kind": "with",
+      "name": "tiff"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-uhdr",
+      "kind": "with",
+      "name": "uhdr"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-urw-base35-font-dir=DIR",
+      "kind": "with",
+      "name": "urw-base35-font-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-urw-base35-type1-font-dir=DIR",
+      "kind": "with",
+      "name": "urw-base35-type1-font-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-webp",
+      "kind": "with",
+      "name": "webp"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-windows-font-dir=DIR",
+      "kind": "with",
+      "name": "windows-font-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-wmf",
+      "kind": "with",
+      "name": "wmf"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-xml",
+      "kind": "with",
+      "name": "xml"
+    }
+  ],
+  "version": "7.1.2-13"
+}

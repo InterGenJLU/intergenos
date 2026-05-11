@@ -1,0 +1,274 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:22Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "xdg-desktop-portal",
+    "blfs_name": "xdg-desktop-portal",
+    "blfs_version": "1.20.3",
+    "deps": [
+      {
+        "anchor": "bubblewrap",
+        "name": "bubblewrap-0.11.0",
+        "note": "",
+        "type": "recommended",
+        "version": "0.11.0"
+      },
+      {
+        "anchor": "dbus",
+        "name": "dbus-1.16.2",
+        "note": "at runtime",
+        "type": "required",
+        "version": "1.16.2"
+      },
+      {
+        "anchor": "docutils",
+        "name": "docutils-0.22.4",
+        "note": "for building the manual pages",
+        "type": "recommended",
+        "version": "0.22.4"
+      },
+      {
+        "anchor": "fuse3",
+        "name": "Fuse-3.18.1",
+        "note": "",
+        "type": "required",
+        "version": "3.18.1"
+      },
+      {
+        "anchor": "gdk-pixbuf",
+        "name": "gdk-pixbuf-2.44.5",
+        "note": "",
+        "type": "required",
+        "version": "2.44.5"
+      },
+      {
+        "anchor": "geoclue2",
+        "name": "GeoClue-2.8.0",
+        "note": "",
+        "type": "optional",
+        "version": "2.8.0"
+      },
+      {
+        "anchor": "json-glib",
+        "name": "JSON-GLib-1.10.8",
+        "note": "",
+        "type": "required",
+        "version": "1.10.8"
+      },
+      {
+        "anchor": "libportal",
+        "name": "libportal-0.9.1",
+        "note": "",
+        "type": "optional",
+        "version": "0.9.1"
+      },
+      {
+        "anchor": "pipewire",
+        "name": "pipewire-1.6.0",
+        "note": "",
+        "type": "required",
+        "version": "1.6.0"
+      },
+      {
+        "anchor": "pytest",
+        "name": "pytest-9.0.2",
+        "note": "",
+        "type": "optional",
+        "version": "9.0.2"
+      },
+      {
+        "anchor": "python-dbusmock",
+        "name": "dbusmock-0.38.1",
+        "note": "",
+        "type": "optional",
+        "version": "0.38.1"
+      },
+      {
+        "anchor": "umockdev",
+        "name": "umockdev-0.19.4",
+        "note": "for running tests",
+        "type": "optional",
+        "version": "0.19.4"
+      },
+      {
+        "anchor": "xdg-desktop-portal-gnome",
+        "name": "xdg-desktop-portal-gnome-49.0",
+        "note": "",
+        "type": "required",
+        "version": "49.0"
+      },
+      {
+        "anchor": "xdg-desktop-portal-gtk",
+        "name": "xdg-desktop-portal-gtk-1.15.3",
+        "note": "",
+        "type": "required",
+        "version": "1.15.3"
+      },
+      {
+        "anchor": "xdg-desktop-portal-lxqt",
+        "name": "xdg-desktop-portal-lxqt-1.3.0",
+        "note": "",
+        "type": "required",
+        "version": "1.3.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "BUILDING",
+    "CONTRIBUTING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "xdg-desktop-portal",
+    "xdg-desktop-portal-validate-icon",
+    "xdg-desktop-portal-validate-sound"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "xdg-desktop-portal",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "bubblewrap",
+    "fuse3",
+    "gdk-pixbuf",
+    "gst-plugins-base",
+    "json-glib",
+    "pipewire",
+    "dbus",
+    "docutils",
+    "geoclue2",
+    "libportal"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "documentation",
+      "value": "disabled"
+    },
+    {
+      "name": "man-pages",
+      "value": "disabled"
+    },
+    {
+      "name": "tests",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/xdg-desktop-portal",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "4bfb164937f59107eb1a3cc21abaa948d903c76f3b99fac210cea38ce1da9edc",
+  "source_tarball": "xdg-desktop-portal-1.20.3.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/flatpak/xdg-desktop-portal/releases/download/${version}/xdg-desktop-portal-${version}.tar.xz",
+  "tarball_files_count": 439,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "dbus-service-dir",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Build flatpak interfaces",
+      "name": "flatpak-interfaces",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "flatpak-interfaces-dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "systemd-user-unit-dir",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Geoclue support. Needed for location portal",
+      "name": "geoclue",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable udev support. Needed for the USB portal.",
+      "name": "gudev",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable systemd support",
+      "name": "systemd",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "documentation",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Define the datarootdir for the pkgconf file",
+      "name": "datarootdir",
+      "type": "string"
+    },
+    {
+      "default": "enabled",
+      "description": "Enable the test suite",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Enable installation of some test cases",
+      "name": "installed-tests",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "man-pages",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Use Bubblewrap to sandbox image validation. Disabling this option may lead to security vulnerabilities.",
+      "name": "sandboxed-image-validation",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Use Bubblewrap to sandbox sound validation. Disabling this option may lead to security vulnerabilities.",
+      "name": "sandboxed-sound-validation",
+      "type": "feature"
+    }
+  ],
+  "version": "1.20.3"
+}

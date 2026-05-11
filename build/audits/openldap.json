@@ -1,0 +1,195 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:59Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "openldap",
+    "blfs_name": "OpenLDAP",
+    "blfs_version": "2.6.12",
+    "deps": [
+      {
+        "anchor": "cyrus-sasl",
+        "name": "Cyrus SASL-2.1.28",
+        "note": "",
+        "type": "recommended",
+        "version": "2.1.28"
+      },
+      {
+        "anchor": "gnutls",
+        "name": "GnuTLS-3.8.12",
+        "note": "",
+        "type": "optional",
+        "version": "3.8.12"
+      },
+      {
+        "anchor": "mariadb",
+        "name": "MariaDB-11.8.6",
+        "note": "",
+        "type": "optional",
+        "version": "11.8.6"
+      },
+      {
+        "anchor": "postgresql",
+        "name": "PostgreSQL-18.2",
+        "note": "",
+        "type": "optional",
+        "version": "18.2"
+      },
+      {
+        "anchor": "unixodbc",
+        "name": "unixODBC-2.3.14",
+        "note": "",
+        "type": "optional",
+        "version": "2.3.14"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "openldap-2.6.12-consolidated-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/openldap-2.6.12-consolidated-1.patch"
+      }
+    ]
+  },
+  "build_system": "autotools",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "ldapadd",
+    "ldapcompare",
+    "ldapdelete",
+    "ldapexop",
+    "ldapmodify",
+    "ldapmodrdn",
+    "ldappasswd",
+    "ldapsearch",
+    "ldapurl",
+    "ldapvc",
+    "ldapwhoami",
+    "slapacl",
+    "slapadd",
+    "slapauth",
+    "slapcat",
+    "slapd",
+    "slapdn",
+    "slapindex",
+    "slapmodify",
+    "slappasswd",
+    "slapschema",
+    "slaptest"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "liblber.so",
+    "libldap.so",
+    "several under /usr/lib/openldap"
+  ],
+  "expected_pkgconfig": [],
+  "name": "openldap",
+  "our_autotools_flags": [
+    "--disable-debug",
+    "--disable-sql",
+    "--disable-static",
+    "--disable-wt",
+    "--enable-backends=mod",
+    "--enable-crypt",
+    "--enable-dynamic",
+    "--enable-modules",
+    "--enable-overlays=mod",
+    "--enable-rlookups",
+    "--enable-slapd",
+    "--enable-spasswd",
+    "--libexecdir=/usr/lib",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc",
+    "--with-cyrus-sasl",
+    "--with-tls=openssl",
+    "--without-systemd"
+  ],
+  "our_deps_build": [
+    "cyrus-sasl",
+    "openssl",
+    "gnutls"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "openldap-2.6.12-consolidated-1.patch",
+      "sha256": "a1aee8daf29cbe6de0a41ce8d250d6f9157d581843c92034714cc82ea1cf934f"
+    }
+  ],
+  "package_dir": "packages/core/openldap",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "1716ad779e85d743694c3e3b05277fb71b6a5eadca43c7a958aa62683b22208e",
+  "source_tarball": "openldap-2.6.12.tgz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.openldap.org/software/download/OpenLDAP/openldap-release/openldap-${version}.tgz",
+  "tarball_files_count": 2206,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "\nSLAPD (Standalone LDAP Daemon) Options:",
+      "kind": "enable",
+      "name": "xxslapdoptions"
+    },
+    {
+      "help": "\nSLAPD Backend Options:",
+      "kind": "enable",
+      "name": "xxslapbackends"
+    },
+    {
+      "help": "\nSLAPD Overlay Options:",
+      "kind": "enable",
+      "name": "xxslapoverlays"
+    },
+    {
+      "help": "\nSLAPD Password Module Options:",
+      "kind": "enable",
+      "name": "pwmodoptions"
+    },
+    {
+      "help": "\nLLOADD (Load Balancer Daemon) Options:",
+      "kind": "enable",
+      "name": "balanceroptions"
+    },
+    {
+      "help": "\nLibrary Generation & Linking Options",
+      "kind": "enable",
+      "name": "xxliboptions"
+    },
+    {
+      "help": "  --with-subdir=DIR       change default subdirectory used for installs",
+      "kind": "with",
+      "name": "subdir"
+    },
+    {
+      "help": "\nSee INSTALL file for further details.",
+      "kind": "with",
+      "name": "xxinstall"
+    }
+  ],
+  "version": "2.6.12"
+}

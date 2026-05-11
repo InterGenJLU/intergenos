@@ -1,0 +1,302 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:12Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libxml2",
+    "blfs_name": "libxml2",
+    "blfs_version": "2.15.1",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "icu",
+        "name": "ICU-78.2",
+        "note": "",
+        "type": "recommended",
+        "version": "78.2"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "",
+        "type": "optional",
+        "version": "1.1.45"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "NOTES",
+    "README"
+  ],
+  "expected_binaries": [
+    "xml2-config",
+    "xmlcatalog",
+    "xmllint"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libxml2.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libxml2",
+  "our_autotools_flags": [
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "icu",
+    "readline"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "docs",
+      "value": "disabled"
+    },
+    {
+      "name": "history",
+      "value": "enabled"
+    },
+    {
+      "name": "icu",
+      "value": "enabled"
+    },
+    {
+      "name": "python",
+      "value": "enabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/core/libxml2",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "c008bac08fd5c7b4a87f7b8a71f283fa581d80d80ff8d2efd3b26224c39bc54c",
+  "source_tarball": "libxml2-2.15.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/libxml2/2.15/libxml2-${version}.tar.xz",
+  "tarball_files_count": 3946,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Canonical XML 1.0 support",
+      "name": "c14n",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "XML Catalogs support",
+      "name": "catalog",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Debugging module and shell",
+      "name": "debugging",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build documentation",
+      "name": "docs",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "History support for shell",
+      "name": "history",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "HTML parser",
+      "name": "html",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "ABI compatibility for removed HTTP support",
+      "name": "http",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "iconv support",
+      "name": "iconv",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "ICU support",
+      "name": "icu",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "ISO-8859-X support if no iconv",
+      "name": "iso8859x",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Maximum ABI compatibility",
+      "name": "legacy",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Dynamic modules support",
+      "name": "modules",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Serialization support",
+      "name": "output",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "xmlPattern selection interface",
+      "name": "pattern",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "push parser interfaces",
+      "name": "push",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Python bindings",
+      "name": "python",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "xmlReader parsing interface",
+      "name": "reader",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "use readline for shell history",
+      "name": "readline",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Regular expressions support",
+      "name": "regexps",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "RELAX NG support",
+      "name": "relaxng",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Older SAX1 interface",
+      "name": "sax1",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "XML Schemas 1.0 support",
+      "name": "schemas",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Schematron support",
+      "name": "schematron",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Multithreading support",
+      "name": "threads",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "per-thread malloc hooks",
+      "name": "thread-alloc",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "thread-local storage",
+      "name": "tls",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "DTD validation support",
+      "name": "valid",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "xmlWriter serialization interface",
+      "name": "writer",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "XInclude 1.0 support",
+      "name": "xinclude",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "XPath 1.0 support",
+      "name": "xpath",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "XPointer support",
+      "name": "xptr",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "ZLIB support",
+      "name": "zlib",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "build a minimally sized library",
+      "name": "minimum",
+      "type": "boolean"
+    }
+  ],
+  "version": "2.15.1"
+}

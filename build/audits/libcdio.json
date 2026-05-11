@@ -1,0 +1,154 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:47Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libcdio",
+    "blfs_name": "libcdio",
+    "blfs_version": "2.1.0",
+    "deps": [
+      {
+        "anchor": "libcddb",
+        "name": "libcddb-1.3.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.3.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "cd-drive",
+    "cd-info",
+    "cd-paranoia",
+    "cd-read",
+    "iso-info",
+    "iso-read"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libcdio++.so",
+    "libcdio.so",
+    "libiso9660++.so",
+    "libiso9660.so",
+    "libudf.so"
+  ],
+  "expected_pkgconfig": [
+    "libcdio++.pc",
+    "libcdio.pc",
+    "libiso9660++.pc",
+    "libiso9660.pc",
+    "libudf.pc"
+  ],
+  "name": "libcdio",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libcdio",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "8550e9589dbd594bfac93b81ecf129b1dc9d0d51e90f9696f1b2f9b2af32712b",
+  "source_tarball": "libcdio-2.1.0.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://ftpmirror.gnu.org/libcdio/libcdio-${version}.tar.bz2",
+  "tarball_files_count": 437,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AC_HELP_STRING([--disable-cxx",
+      "kind": "enable",
+      "name": "cxx"
+    },
+    {
+      "help": "AC_HELP_STRING([--enable-cpp-progs",
+      "kind": "enable",
+      "name": "cpp-progs"
+    },
+    {
+      "help": "AC_HELP_STRING([--disable-example-progs",
+      "kind": "enable",
+      "name": "example-progs"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-joliet",
+      "kind": "enable",
+      "name": "joliet"
+    },
+    {
+      "help": "AC_HELP_STRING([--enable-rock",
+      "kind": "enable",
+      "name": "rock"
+    },
+    {
+      "help": "AC_HELP_STRING([--enable-cddb",
+      "kind": "enable",
+      "name": "cddb"
+    },
+    {
+      "help": "AC_HELP_STRING([--enable-vcd-info",
+      "kind": "enable",
+      "name": "vcd_info"
+    },
+    {
+      "help": "AC_HELP_STRING([--without-cd-drive",
+      "kind": "with",
+      "name": "cd-drive"
+    },
+    {
+      "help": "AC_HELP_STRING([--without-cd-info",
+      "kind": "with",
+      "name": "cd-info"
+    },
+    {
+      "help": "AC_HELP_STRING([--without-cdda-player",
+      "kind": "with",
+      "name": "cdda-player"
+    },
+    {
+      "help": "AC_HELP_STRING([--without-cd-read",
+      "kind": "with",
+      "name": "cd-read"
+    },
+    {
+      "help": "AC_HELP_STRING([--without-iso-info",
+      "kind": "with",
+      "name": "iso-info"
+    },
+    {
+      "help": "AC_HELP_STRING([--without-iso-read",
+      "kind": "with",
+      "name": "iso-read"
+    },
+    {
+      "help": "AC_HELP_STRING([--without-versioned-libs",
+      "kind": "with",
+      "name": "versioned-libs"
+    }
+  ],
+  "version": "2.1.0"
+}

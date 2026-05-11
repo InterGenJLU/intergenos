@@ -1,0 +1,92 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:22Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "xdg-dbus-proxy",
+    "blfs_name": "xdg-dbus-proxy",
+    "blfs_version": "0.1.6",
+    "deps": [
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "",
+        "type": "required",
+        "version": "2.86.4"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "xdg-dbus-proxy"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "xdg-dbus-proxy",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "glib2",
+    "docbook-xsl-nons",
+    "docbook-xml"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/xdg-dbus-proxy",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "131bf59fce7c7ee7ecbc5d9106d6750f4f597bfe609966573240f7e4952973a1",
+  "source_tarball": "xdg-dbus-proxy-0.1.6.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/flatpak/xdg-dbus-proxy/releases/download/${version}/xdg-dbus-proxy-${version}.tar.xz",
+  "tarball_files_count": 45,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Build and install ",
+      "name": "installed_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "generate man pages",
+      "name": "man",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Prepend string to executable name, for use with subprojects",
+      "name": "program_prefix",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Build and run automated tests",
+      "name": "tests",
+      "type": "boolean"
+    }
+  ],
+  "version": "0.1.6"
+}

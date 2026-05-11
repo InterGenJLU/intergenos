@@ -1,0 +1,120 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:04Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "pygobject3",
+    "blfs_name": "PyGObject",
+    "blfs_version": "3.54.5",
+    "deps": [
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "",
+        "type": "optional",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "pycairo",
+        "name": "PyCairo-1.29.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.29.0"
+      },
+      {
+        "anchor": "pytest",
+        "name": "pytest-9.0.2",
+        "note": "",
+        "type": "optional",
+        "version": "9.0.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "None"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "None"
+  ],
+  "expected_pkgconfig": [],
+  "name": "pygobject3",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "pycairo",
+    "docbook-xsl-nons",
+    "glib2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/pygobject3",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "b6656f6348f5245606cf15ea48c384c7f05156c75ead206c1b246c80a22fb585",
+  "source_tarball": "pygobject-3.54.5.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/pygobject/3.54/pygobject-${version}.tar.gz",
+  "tarball_files_count": 433,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "python3",
+      "description": "",
+      "name": "python",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "build with pycairo integration",
+      "name": "pycairo",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "build unit tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build for a Python wheel",
+      "name": "wheel",
+      "type": "boolean"
+    }
+  ],
+  "version": "3.54.5"
+}

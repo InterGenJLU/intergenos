@@ -1,0 +1,55 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "/usr/bin/celluloid"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "celluloid",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "mpv",
+    "gtk4",
+    "libadwaita1",
+    "glib2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/celluloid",
+  "reproducibility": {
+    "_notes": "meson",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "216656c4495bb3ca02dc4ad9cf3da8e8f15c8f80e870eeac8eb1eedab4c3788b",
+  "source_tarball": "celluloid-0.27.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/celluloid-player/celluloid/releases/download/v${version}/celluloid-${version}.tar.xz",
+  "tarball_files_count": 250,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "0.27"
+}

@@ -1,0 +1,85 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:17Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "blueprint-compiler",
+    "blfs_name": "blueprint-compiler",
+    "blfs_version": "0.18.0",
+    "deps": [
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "",
+        "type": "optional",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "pygobject3",
+        "name": "PyGObject-3.54.5",
+        "note": "",
+        "type": "required",
+        "version": "3.54.5"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "blueprint-compiler"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "blueprint-compiler",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "pygobject3",
+    "at-spi2-core",
+    "docbook-xsl-nons",
+    "libxslt",
+    "lynx"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/blueprint-compiler",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "703c7ccd23cb6f77a8fe9c8cae0f91de9274910ca953de77135b6e79dbff1fc3",
+  "source_tarball": "blueprint-compiler-v0.18.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.gnome.org/jwestman/blueprint-compiler/-/archive/v${version}/blueprint-compiler-v${version}.tar.gz",
+  "tarball_files_count": 448,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "docs",
+      "type": "boolean"
+    }
+  ],
+  "version": "0.18.0"
+}

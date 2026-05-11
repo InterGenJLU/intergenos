@@ -1,0 +1,106 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear",
+    "bundled-lib-third-party-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:53Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "nghttp2",
+    "blfs_name": "nghttp2",
+    "blfs_version": "1.68.0",
+    "deps": [
+      {
+        "anchor": "c-ares",
+        "name": "c-ares-1.34.6",
+        "note": "",
+        "type": "optional",
+        "version": "1.34.6"
+      },
+      {
+        "anchor": "jansson",
+        "name": "jansson-2.15.0",
+        "note": "",
+        "type": "optional",
+        "version": "2.15.0"
+      },
+      {
+        "anchor": "libevent",
+        "name": "libevent-2.1.12",
+        "note": "",
+        "type": "optional",
+        "version": "2.1.12"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "required",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "sphinx",
+        "name": "sphinx-9.1.0",
+        "note": "",
+        "type": "optional",
+        "version": "9.1.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [
+    "contrib",
+    "third-party"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "BUILDING",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libnghttp2.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "nghttp2",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--docdir=/usr/share/doc/nghttp2-${PKG_VERSION}",
+    "--enable-lib-only",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libxml2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/nghttp2",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "6abd7ab0a7f1580d5914457cb3c85eb80455657ee5119206edbd7f848c14f0b2",
+  "source_tarball": "nghttp2-1.68.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/nghttp2/nghttp2/releases/download/v${version}/nghttp2-${version}.tar.xz",
+  "tarball_files_count": 1495,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "1.68.1"
+}

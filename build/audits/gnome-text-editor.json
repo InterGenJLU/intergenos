@@ -1,0 +1,77 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:20Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gnome-text-editor",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gtk4",
+    "gtksourceview5",
+    "libadwaita1",
+    "libspelling",
+    "itstool"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-text-editor",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "9dc299da4daa085423b5d48db59f0021ad55e74143a5cb8ab2e5ffe17967f45b",
+  "source_tarball": "gnome-text-editor-50.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-text-editor/50/gnome-text-editor-${version}.tar.xz",
+  "tarball_files_count": 350,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "If this is a development build",
+      "name": "development",
+      "type": "boolean"
+    },
+    {
+      "default": "enabled",
+      "description": "Use editorconfig for file settings",
+      "name": "editorconfig",
+      "type": "feature"
+    },
+    {
+      "default": "https://gitlab.gnome.org/GNOME/gnome-text-editor/issues",
+      "description": "URL to report issues. Distributions packaging Text Editor are encouraged to set this to their bugtracker.",
+      "name": "bugreport_url",
+      "type": "string"
+    }
+  ],
+  "version": "50.0"
+}

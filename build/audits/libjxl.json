@@ -1,0 +1,212 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-third_party-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:53Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libjxl",
+    "blfs_name": "libjxl",
+    "blfs_version": "0.11.2",
+    "deps": [
+      {
+        "anchor": "asciidoc",
+        "name": "asciidoc-10.2.1",
+        "note": "for man pages",
+        "type": "optional",
+        "version": "10.2.1"
+      },
+      {
+        "anchor": "brotli",
+        "name": "Brotli-1.2.0",
+        "note": "",
+        "type": "required",
+        "version": "1.2.0"
+      },
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "gdk-pixbuf",
+        "name": "gdk-pixbuf-2.44.5",
+        "note": "for the plugin",
+        "type": "optional",
+        "version": "2.44.5"
+      },
+      {
+        "anchor": "giflib",
+        "name": "giflib-5.2.2",
+        "note": "",
+        "type": "required",
+        "version": "5.2.2"
+      },
+      {
+        "anchor": "graphviz",
+        "name": "Graphviz-14.1.2",
+        "note": "for\n                documentation",
+        "type": "optional",
+        "version": "14.1.2"
+      },
+      {
+        "anchor": "highway",
+        "name": "highway-1.3.0",
+        "note": "",
+        "type": "required",
+        "version": "1.3.0"
+      },
+      {
+        "anchor": "java",
+        "name": "Java-21.0.10",
+        "note": "for the JAR",
+        "type": "optional",
+        "version": "21.0.10"
+      },
+      {
+        "anchor": "lcms2",
+        "name": "Little CMS-2.18",
+        "note": "",
+        "type": "required",
+        "version": "2.18"
+      },
+      {
+        "anchor": "libavif",
+        "name": "libavif-1.3.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.3.0"
+      },
+      {
+        "anchor": "libjpeg",
+        "name": "libjpeg-turbo-3.1.3",
+        "note": "",
+        "type": "required",
+        "version": "3.1.3"
+      },
+      {
+        "anchor": "libpng",
+        "name": "libpng-1.6.55",
+        "note": "",
+        "type": "required",
+        "version": "1.6.55"
+      },
+      {
+        "anchor": "libwebp",
+        "name": "libwebp-1.6.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.6.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [
+    "third_party"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "BUILDING",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [
+    "cjxl",
+    "djxl"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libjxl.so",
+    "libjxl_threads.so"
+  ],
+  "expected_pkgconfig": [
+    "libjxl.pc",
+    "libjxl_threads.pc"
+  ],
+  "name": "libjxl",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "brotli",
+    "giflib",
+    "highway",
+    "lcms2",
+    "libjpeg-turbo",
+    "libpng",
+    "cmake",
+    "gdk-pixbuf",
+    "libavif",
+    "libwebp"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "BUILD_TESTING",
+      "value": "OFF"
+    },
+    {
+      "name": "BUILD_SHARED_LIBS",
+      "value": "ON"
+    },
+    {
+      "name": "JPEGXL_ENABLE_BENCHMARK",
+      "value": "OFF"
+    },
+    {
+      "name": "JPEGXL_ENABLE_SKCMS",
+      "value": "OFF"
+    },
+    {
+      "name": "JPEGXL_ENABLE_SJPEG",
+      "value": "OFF"
+    },
+    {
+      "name": "JPEGXL_ENABLE_PLUGINS",
+      "value": "OFF"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libjxl",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "ab38928f7f6248e2a98cc184956021acb927b16a0dee71b4d260dc040a4320ea",
+  "source_tarball": "libjxl-0.11.2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/libjxl/libjxl/archive/v${version}/libjxl-${version}.tar.gz",
+  "tarball_files_count": 1021,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "0.11.2"
+}

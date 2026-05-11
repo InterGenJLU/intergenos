@@ -1,0 +1,45 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:15Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "atop",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "glib2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/base/atop",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "0f49f3aa5e3449f8c1cf10ac08036e2b67887640fe7980b8bc6ca9fd84d46fdf",
+  "source_tarball": "atop-2.12.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/Atoptool/atop/archive/refs/tags/v${version}.tar.gz",
+  "tarball_files_count": 111,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "base",
+  "upstream_options": [],
+  "version": "2.12.1"
+}

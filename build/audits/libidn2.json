@@ -1,0 +1,95 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:52Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libidn2",
+    "blfs_name": "libidn2",
+    "blfs_version": "2.3.8",
+    "deps": [
+      {
+        "anchor": "git",
+        "name": "git-2.53.0",
+        "note": "",
+        "type": "optional",
+        "version": "2.53.0"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "libunistring",
+        "name": "libunistring-1.4.1",
+        "note": "",
+        "type": "recommended",
+        "version": "1.4.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "idn2"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libidn2.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libidn2",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libunistring"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/libidn2",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "f557911bf6171621e1f72ff35f5b1825bb35b52ed45325dcdee931e5d3c0787a",
+  "source_tarball": "libidn2-2.3.8.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://ftpmirror.gnu.org/libidn/libidn2-${version}.tar.gz",
+  "tarball_files_count": 1676,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([[--enable-gcc-warnings[=TYPE",
+      "kind": "enable",
+      "name": "gcc-warnings"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-doc",
+      "kind": "enable",
+      "name": "doc"
+    }
+  ],
+  "version": "2.3.8"
+}

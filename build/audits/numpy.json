@@ -1,0 +1,145 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:59Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "numpy",
+    "blfs_name": "NumPy",
+    "blfs_version": "2.4.2",
+    "deps": [
+      {
+        "anchor": "cython",
+        "name": "cython-3.2.4",
+        "note": "",
+        "type": "required",
+        "version": "3.2.4"
+      },
+      {
+        "anchor": "gcc",
+        "name": "GCC-15.2.0",
+        "note": "",
+        "type": "optional",
+        "version": "15.2.0"
+      },
+      {
+        "anchor": "meson_python",
+        "name": "meson_python-0.19.0",
+        "note": "",
+        "type": "required",
+        "version": "0.19.0"
+      },
+      {
+        "anchor": "pyproject-metadata",
+        "name": "pyproject-metadata-0.11.0",
+        "note": "",
+        "type": "required",
+        "version": "0.11.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "BUILDING",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NOTES",
+    "README"
+  ],
+  "expected_binaries": [
+    "f2py",
+    "f2py3",
+    "f2py3.14"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "numpy",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cython",
+    "meson_python",
+    "pyproject-metadata"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/numpy",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=meson; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": true,
+    "source_date_epoch_supported": true
+  },
+  "source_sha256": "659a6107e31a83c4e33f763942275fd278b21d095094044eb35569e86a21ddae",
+  "source_tarball": "numpy-2.4.2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://files.pythonhosted.org/packages/source/n/numpy/numpy-${version}.tar.gz",
+  "tarball_files_count": 8242,
+  "test_command": "python -m pytest",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "Include contrib/",
+      "name": "contrib",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build examples",
+      "name": "examples",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable HWY tests",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Disable use of googletest",
+      "name": "test_standalone",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Disable futex for thread_pool",
+      "name": "disable_futex",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "arm7",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Set SSE2 as baseline for 32-bit x86?",
+      "name": "sse2",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Set copts for RISCV with RVV?",
+      "name": "rvv",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Change to header-only?",
+      "name": "header_only",
+      "type": "boolean"
+    }
+  ],
+  "version": "2.4.2"
+}

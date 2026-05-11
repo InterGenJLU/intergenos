@@ -1,0 +1,129 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:13Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "vorbistools",
+    "blfs_name": "vorbis-tools",
+    "blfs_version": "1.4.3",
+    "deps": [
+      {
+        "anchor": "libao",
+        "name": "libao-1.2.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.2.0"
+      },
+      {
+        "anchor": "libvorbis",
+        "name": "libvorbis-1.3.7",
+        "note": "",
+        "type": "required",
+        "version": "1.3.7"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "oggdec",
+    "oggenc",
+    "ogginfo",
+    "vcut",
+    "vorbiscomment"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "vorbis-tools",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libogg",
+    "libvorbis",
+    "flac"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/vorbis-tools",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "a1fe3ddc6777bdcebf6b797e7edfe0437954b24756ffcc8c6b816b63e0460dde",
+  "source_tarball": "vorbis-tools-1.4.3.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://downloads.xiph.org/releases/vorbis/vorbis-tools-${version}.tar.gz",
+  "tarball_files_count": 322,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "  --disable-ogg123   Skip building ogg123",
+      "kind": "enable",
+      "name": "ogg123"
+    },
+    {
+      "help": "  --disable-oggdec   Skip building oggdec",
+      "kind": "enable",
+      "name": "oggdec"
+    },
+    {
+      "help": "  --disable-oggenc   Skip building oggenc",
+      "kind": "enable",
+      "name": "oggenc"
+    },
+    {
+      "help": "  --disable-ogginfo  Skip building ogginfo",
+      "kind": "enable",
+      "name": "ogginfo"
+    },
+    {
+      "help": "  --disable-vcut     Skip building vcut",
+      "kind": "enable",
+      "name": "vcut"
+    },
+    {
+      "help": "  --disable-vorbiscomment   Skip building vorbiscomment",
+      "kind": "enable",
+      "name": "vorbiscomment"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-gcc-sanitizers",
+      "kind": "enable",
+      "name": "gcc-sanitizers"
+    },
+    {
+      "help": "  --without-flac     Do not compile FLAC support",
+      "kind": "with",
+      "name": "flac"
+    },
+    {
+      "help": "  --without-speex    Do not compile Speex support",
+      "kind": "with",
+      "name": "speex"
+    },
+    {
+      "help": "  --without-kate     Do not compile Kate support",
+      "kind": "with",
+      "name": "kate"
+    }
+  ],
+  "version": "1.4.3"
+}

@@ -1,0 +1,137 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:43Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "json-glib",
+    "blfs_name": "JSON-GLib",
+    "blfs_version": "1.10.8",
+    "deps": [
+      {
+        "anchor": "docutils",
+        "name": "docutils-0.22.4",
+        "note": "",
+        "type": "optional",
+        "version": "0.22.4"
+      },
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "GObject Introspection required\n                if building GNOME",
+        "type": "required",
+        "version": "2.86.4"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "json-glib-format",
+    "json-glib-validate"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libjson-glib-1.0.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "json-glib",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "glib2",
+    "docutils"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/json-glib",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "55c5c141a564245b8f8fbe7698663c87a45a7333c2a2c56f06f811ab73b212dd",
+  "source_tarball": "json-glib-1.10.8.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/json-glib/1.10/json-glib-${version}.tar.xz",
+  "tarball_files_count": 799,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "",
+      "name": "introspection",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "documentation",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "gtk_doc",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "man",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build the tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build conformance tests",
+      "name": "conformance",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "nls",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Enable installed tests",
+      "name": "installed_tests",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.10.8"
+}

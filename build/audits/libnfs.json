@@ -1,0 +1,65 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:54Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "nfs-cat",
+    "nfs-cp",
+    "nfs-io",
+    "nfs-ls",
+    "nfs-stat"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libnfs.so"
+  ],
+  "expected_pkgconfig": [
+    "libnfs.pc"
+  ],
+  "name": "libnfs",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "gnutls"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libnfs",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "4e5459cc3e0242447879004e9ad28286d4d27daa42cbdcde423248fad911e747",
+  "source_tarball": "libnfs-6.0.2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/sahlberg/libnfs/archive/libnfs-${version}.tar.gz",
+  "tarball_files_count": 300,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "6.0.2"
+}

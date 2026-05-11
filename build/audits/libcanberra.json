@@ -1,0 +1,176 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:47Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libcanberra",
+    "blfs_name": "libcanberra",
+    "blfs_version": "0.30",
+    "deps": [
+      {
+        "anchor": "alsa-lib",
+        "name": "alsa-lib-1.2.15.3",
+        "note": "",
+        "type": "recommended",
+        "version": "1.2.15.3"
+      },
+      {
+        "anchor": "gstreamer10",
+        "name": "gstreamer-1.28.1",
+        "note": "",
+        "type": "recommended",
+        "version": "1.28.1"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "recommended",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "libvorbis",
+        "name": "libvorbis-1.3.7",
+        "note": "",
+        "type": "required",
+        "version": "1.3.7"
+      },
+      {
+        "anchor": "pulseaudio",
+        "name": "PulseAudio-17.0",
+        "note": "",
+        "type": "optional",
+        "version": "17.0"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "libcanberra-0.30-wayland-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/libcanberra-0.30-wayland-1.patch"
+      }
+    ]
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "canberra-gtk-play"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libcanberra-gtk3.so",
+    "libcanberra.so"
+  ],
+  "expected_pkgconfig": [
+    "libcanberra-gtk3.pc",
+    "libcanberra.pc"
+  ],
+  "name": "libcanberra",
+  "our_autotools_flags": [
+    "--disable-oss",
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libvorbis",
+    "alsa-lib",
+    "gtk3",
+    "sound-theme-freedesktop",
+    "gstreamer",
+    "pulseaudio"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "libcanberra-0.30-wayland-1.patch",
+      "sha256": "e48ce8f952c2b71e38866b95aa21e02437924ed6f9c4409b64e8e4cb392b9013"
+    }
+  ],
+  "package_dir": "packages/desktop/libcanberra",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "c2b671e67e0c288a69fc33dc1b6f1b534d07882c2aceed37004bf48c601afa72",
+  "source_tarball": "libcanberra-0.30.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://0pointer.de/lennart/projects/libcanberra/libcanberra-${version}.tar.xz",
+  "tarball_files_count": 117,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-alsa",
+      "kind": "enable",
+      "name": "alsa"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-oss",
+      "kind": "enable",
+      "name": "oss"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-pulse",
+      "kind": "enable",
+      "name": "pulse"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-udev",
+      "kind": "enable",
+      "name": "udev"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-gstreamer",
+      "kind": "enable",
+      "name": "gstreamer"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-null",
+      "kind": "enable",
+      "name": "null"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-gtk",
+      "kind": "enable",
+      "name": "gtk"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-gtk3",
+      "kind": "enable",
+      "name": "gtk3"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tdb",
+      "kind": "enable",
+      "name": "tdb"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-lynx",
+      "kind": "enable",
+      "name": "lynx"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-systemdsystemunitdir=DIR",
+      "kind": "with",
+      "name": "systemdsystemunitdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-builtin",
+      "kind": "with",
+      "name": "builtin"
+    }
+  ],
+  "version": "0.30"
+}

@@ -1,0 +1,47 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:29Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "cmake",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "linux-firmware",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/linux-firmware",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "c74cc6f562b58ad5bc6b2b00a61abc29c9e49e06126e7ba34fbca9928e07a96c",
+  "source_tarball": "linux-firmware-20260309.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.kernel.org/pub/linux/kernel/firmware/linux-firmware-${version}.tar.xz",
+  "tarball_files_count": 4941,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "20260309"
+}

@@ -1,0 +1,211 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:47Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libblockdev",
+    "blfs_name": "libblockdev",
+    "blfs_version": "3.4.0",
+    "deps": [
+      {
+        "anchor": "btrfs-progs",
+        "name": "btrfs-progs-6.17.1",
+        "note": "",
+        "type": "optional",
+        "version": "6.17.1"
+      },
+      {
+        "anchor": "cryptsetup",
+        "name": "cryptsetup-2.8.4",
+        "note": "",
+        "type": "recommended",
+        "version": "2.8.4"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "GObject Introspection required\n                for GNOME",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "json-glib",
+        "name": "JSON-GLib-1.10.8",
+        "note": "",
+        "type": "optional",
+        "version": "1.10.8"
+      },
+      {
+        "anchor": "keyutils",
+        "name": "keyutils-1.6.3",
+        "note": "",
+        "type": "recommended",
+        "version": "1.6.3"
+      },
+      {
+        "anchor": "libatasmart",
+        "name": "libatasmart-0.19",
+        "note": "",
+        "type": "recommended",
+        "version": "0.19"
+      },
+      {
+        "anchor": "libbytesize",
+        "name": "libbytesize-2.12",
+        "note": "",
+        "type": "recommended",
+        "version": "2.12"
+      },
+      {
+        "anchor": "libnvme",
+        "name": "libnvme-1.16.1",
+        "note": "",
+        "type": "recommended",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "lvm2",
+        "name": "LVM2-2.03.38",
+        "note": "",
+        "type": "recommended",
+        "version": "2.03.38"
+      },
+      {
+        "anchor": "mdadm",
+        "name": "mdadm-4.4",
+        "note": "",
+        "type": "optional",
+        "version": "4.4"
+      },
+      {
+        "anchor": "parted",
+        "name": "parted-3.6",
+        "note": "",
+        "type": "optional",
+        "version": "3.6"
+      },
+      {
+        "anchor": "smartmontools",
+        "name": "smartmontools-7.5",
+        "note": "",
+        "type": "optional",
+        "version": "7.5"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "libblockdev",
+  "our_autotools_flags": [
+    "--prefix=/usr",
+    "--sysconfdir=/etc",
+    "--with-python3",
+    "--without-escrow",
+    "--without-gtk-doc",
+    "--without-lvm",
+    "--without-nvdimm",
+    "--without-smartmontools",
+    "--without-tools"
+  ],
+  "our_deps_build": [
+    "cryptsetup",
+    "keyutils",
+    "libatasmart",
+    "libbytesize",
+    "libnvme",
+    "lvm2",
+    "glib2",
+    "json-glib"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/libblockdev",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "65ef9a37babd44b85b8ff9b273f90f9f7d5f8ff7b0c76a8edb69240325fd83f4",
+  "source_tarball": "libblockdev-3.4.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/storaged-project/libblockdev/releases/download/${version}/libblockdev-${version}.tar.gz",
+  "tarball_files_count": 365,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-tests",
+      "kind": "enable",
+      "name": "tests"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-s390",
+      "kind": "with",
+      "name": "s390"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-python3",
+      "kind": "with",
+      "name": "python3"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-gtk-doc",
+      "kind": "with",
+      "name": "gtk-doc"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-escrow",
+      "kind": "with",
+      "name": "escrow"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-tools",
+      "kind": "with",
+      "name": "tools"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-nvme",
+      "kind": "with",
+      "name": "nvme"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-smart",
+      "kind": "with",
+      "name": "smart"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-smartmontools",
+      "kind": "with",
+      "name": "smartmontools"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-drivedb@<:@=PATH@:>@",
+      "kind": "with",
+      "name": "drivedb"
+    }
+  ],
+  "version": "3.4.0"
+}

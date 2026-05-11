@@ -1,0 +1,190 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:46Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libass",
+    "blfs_name": "libass",
+    "blfs_version": "0.17.4",
+    "deps": [
+      {
+        "anchor": "fontconfig",
+        "name": "Fontconfig-2.17.1",
+        "note": "",
+        "type": "recommended",
+        "version": "2.17.1"
+      },
+      {
+        "anchor": "freetype2",
+        "name": "FreeType-2.14.1",
+        "note": "",
+        "type": "required",
+        "version": "2.14.1"
+      },
+      {
+        "anchor": "fribidi",
+        "name": "FriBidi-1.0.16",
+        "note": "",
+        "type": "required",
+        "version": "1.0.16"
+      },
+      {
+        "anchor": "harfbuzz",
+        "name": "harfBuzz-12.3.2",
+        "note": "",
+        "type": "optional",
+        "version": "12.3.2"
+      },
+      {
+        "anchor": "nasm",
+        "name": "NASM-3.01",
+        "note": "",
+        "type": "recommended",
+        "version": "3.01"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libass.so"
+  ],
+  "expected_pkgconfig": [
+    "libass.pc"
+  ],
+  "name": "libass",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "freetype2",
+    "fribidi",
+    "fontconfig",
+    "nasm",
+    "harfbuzz"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libass",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "78f1179b838d025e9c26e8fef33f8092f65611444ffa1bfc0cfac6a33511a05a",
+  "source_tarball": "libass-0.17.4.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/libass/libass/releases/download/${version}/libass-${version}.tar.xz",
+  "tarball_files_count": 141,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "test",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "enable compare program",
+      "name": "compare",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "enable profiling program",
+      "name": "profile",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "enable fuzzing consumer",
+      "name": "fuzz",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "enable assembly unit test program",
+      "name": "checkasm",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Path to the root of regression testing sample repository. If set, it is used in meson test.",
+      "name": "art-samples",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Additional link flags for fuzz targets.",
+      "name": "fuzz-link-args",
+      "type": "string"
+    },
+    {
+      "default": "c",
+      "description": "Linking language for fuzz targets.",
+      "name": "fuzz-link-language",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Fontconfig support",
+      "name": "fontconfig",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "directwrite",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "coretext",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "asm",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "libunibreak support",
+      "name": "libunibreak",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "disallow compilation if no system font provider was found",
+      "name": "require-system-font-provider",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "large-tiles",
+      "type": "boolean"
+    }
+  ],
+  "version": "0.17.4"
+}

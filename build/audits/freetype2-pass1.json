@@ -1,0 +1,118 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:04Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "freetype2-pass1",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libpng",
+    "brotli"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "harfbuzz",
+      "value": "disabled"
+    },
+    {
+      "name": "brotli",
+      "value": "enabled"
+    },
+    {
+      "name": "png",
+      "value": "enabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/freetype2-pass1",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "32427e8c471ac095853212a37aef816c60b42052d4d9e48230bab3bdf2936ccc",
+  "source_tarball": "freetype-2.14.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://downloads.sourceforge.net/freetype/freetype-${version}.tar.xz",
+  "tarball_files_count": 937,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "Use Brotli library to support decompressing WOFF2 fonts",
+      "name": "brotli",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support reading bzip2-compressed font files",
+      "name": "bzip2",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Use Harfbuzz library to improve auto-hinting;",
+      "name": "harfbuzz",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "mmap",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support color bitmap glyph formats in the PNG format;",
+      "name": "png",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable FreeType unit and regression tests",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Support reading gzip-compressed font files",
+      "name": "zlib",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Enable support for meaningful error descriptions",
+      "name": "error_strings",
+      "type": "boolean"
+    }
+  ],
+  "version": "2.14.1"
+}

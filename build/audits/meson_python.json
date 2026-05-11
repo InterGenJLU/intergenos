@@ -1,0 +1,98 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:48Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "meson_python",
+    "blfs_name": "Meson_python",
+    "blfs_version": "0.19.0",
+    "deps": [
+      {
+        "anchor": "cython",
+        "name": "cython-3.2.4",
+        "note": "",
+        "type": "optional",
+        "version": "3.2.4"
+      },
+      {
+        "anchor": "git",
+        "name": "git-2.53.0",
+        "note": "",
+        "type": "optional",
+        "version": "2.53.0"
+      },
+      {
+        "anchor": "pypa-build",
+        "name": "build-1.4.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.4.0"
+      },
+      {
+        "anchor": "pyproject-metadata",
+        "name": "pyproject-metadata-0.11.0",
+        "note": "",
+        "type": "required",
+        "version": "0.11.0"
+      },
+      {
+        "anchor": "pytest",
+        "name": "pytest-9.0.2",
+        "note": "",
+        "type": "optional",
+        "version": "9.0.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [
+    "smartypants",
+    "uv_build"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "meson_python",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "pyproject-metadata"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/meson_python",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "9959d198aa69b57fcfd354a34518c6f795b781a73ed0656f4d01660160cc2553",
+  "source_tarball": "meson_python-0.19.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://files.pythonhosted.org/packages/source/m/meson_python/meson_python-${version}.tar.gz",
+  "tarball_files_count": 253,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "custom-meson-used",
+      "type": "boolean"
+    }
+  ],
+  "version": "0.19.0"
+}

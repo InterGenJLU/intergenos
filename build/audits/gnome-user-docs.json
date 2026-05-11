@@ -1,0 +1,70 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-user-docs",
+    "blfs_name": "gnome-user-docs",
+    "blfs_version": "49.4",
+    "deps": [
+      {
+        "anchor": "itstool",
+        "name": "itstool-2.0.7",
+        "note": "",
+        "type": "required",
+        "version": "2.0.7"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "required",
+        "version": "2.15.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gnome-user-docs",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "itstool",
+    "libxml2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-user-docs",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "064448eadd5c1f15bc8feb50418a6347114ef815dc8d15d00a20dc5f48ae8a80",
+  "source_tarball": "gnome-user-docs-49.4.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-user-docs/49/gnome-user-docs-${version}.tar.xz",
+  "tarball_files_count": 15238,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "49.4"
+}

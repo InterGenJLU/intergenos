@@ -1,0 +1,378 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:41Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "linux-pam",
+    "blfs_name": "Linux-PAM",
+    "blfs_version": "1.7.2",
+    "deps": [
+      {
+        "anchor": "libnsl",
+        "name": "libnsl-2.0.1",
+        "note": "",
+        "type": "optional",
+        "version": "2.0.1"
+      },
+      {
+        "anchor": "libpwquality",
+        "name": "libpwquality-1.4.5",
+        "note": "",
+        "type": "recommended",
+        "version": "1.4.5"
+      },
+      {
+        "anchor": "libtirpc",
+        "name": "libtirpc-1.3.7",
+        "note": "",
+        "type": "optional",
+        "version": "1.3.7"
+      },
+      {
+        "anchor": "rpcsvc-proto",
+        "name": "rpcsvc-proto-1.4.4",
+        "note": "",
+        "type": "optional",
+        "version": "1.4.4"
+      },
+      {
+        "anchor": "shadow",
+        "name": "Shadow-4.19.3",
+        "note": "",
+        "type": "required",
+        "version": "4.19.3"
+      },
+      {
+        "anchor": "systemd",
+        "name": "Systemd-259.1",
+        "note": "",
+        "type": "required",
+        "version": "259.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "faillock",
+    "mkhomedir_helper",
+    "pam_namespace_helper",
+    "pam_timestamp_check",
+    "pwhistory_helper",
+    "unix_chkpwd"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libpam.so",
+    "libpamc.so",
+    "libpam_misc.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "linux-pam",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "meson",
+    "ninja",
+    "shadow",
+    "systemd"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "docdir",
+      "value": "/usr/share/doc/Linux-PAM-1.7.2"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/core/linux-pam",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "3d86b6383fb5fd9eb9578d2cd47d92801191f4bf3f9bc61419bfefc8aa1e531a",
+  "source_tarball": "Linux-PAM-1.7.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/linux-pam/linux-pam/releases/download/v${version}/Linux-PAM-${version}.tar.xz",
+  "tarball_files_count": 911,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "i18n support",
+      "name": "i18n",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Generate and install documentation",
+      "name": "docs",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "audit support",
+      "name": "audit",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "libeconf support",
+      "name": "econf",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "logind support in pam_issue, pam_limits, and pam_timestamp via systemd",
+      "name": "logind",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "logind support in pam_issue, pam_limits, and pam_timestamp via elogind",
+      "name": "elogind",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Use OpenSSL crypto libraries in pam_timestamp",
+      "name": "openssl",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "libpwaccess support in pam_unix",
+      "name": "pwaccess",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "SELinux support",
+      "name": "selinux",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "NIS/YP support in pam_unix",
+      "name": "nis",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build examples",
+      "name": "examples",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Use lckpwdf function in pam_unix",
+      "name": "lckpwdf",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Save debugging information into pam-debug.log",
+      "name": "pam-debug",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Observe a global authentication lock",
+      "name": "pamlocking",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Read both /etc/pam.d and /etc/pam.conf files",
+      "name": "read-both-confs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "usergroups option default in pam_umask",
+      "name": "usergroups",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build xtests",
+      "name": "xtests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "misc-conv-bufsize",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "Linux kernel overflow uid",
+      "name": "kernel-overflow-uid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "Default value for regular user min uid",
+      "name": "uidmin",
+      "type": "integer"
+    },
+    {
+      "default": "http://docbook.org/xml/5.0/rng/docbookxi.rng",
+      "description": "RNG file for checking XML files",
+      "name": "docbook-rng",
+      "type": "string"
+    },
+    {
+      "default": "http://docbook.sourceforge.net/release/xsl-ns/current/html/chunk.xsl",
+      "description": "html stylesheet path",
+      "name": "html-stylesheet",
+      "type": "string"
+    },
+    {
+      "default": "http://docbook.sourceforge.net/release/xsl-ns/current/manpages/profile-docbook.xsl",
+      "description": "man stylesheet path",
+      "name": "man-stylesheet",
+      "type": "string"
+    },
+    {
+      "default": "http://docbook.sourceforge.net/release/xsl-ns/current/fo/docbook.xsl",
+      "description": "pdf stylesheet path",
+      "name": "pdf-stylesheet",
+      "type": "string"
+    },
+    {
+      "default": "http://docbook.sourceforge.net/release/xsl-ns/current/html/docbook.xsl",
+      "description": "txt stylesheet path",
+      "name": "txt-stylesheet",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "xml catalog path",
+      "name": "xml-catalog",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "documentation directory",
+      "name": "docdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "HTML documentation directory",
+      "name": "htmldir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "PDF documentation directory",
+      "name": "pdfdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Arch-specific PAM modules directory, relative to SECUREDIR",
+      "name": "isadir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "PAM modules directory",
+      "name": "securedir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "PAM module configuration files directory",
+      "name": "sconfigdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "systemd service directory",
+      "name": "systemdunitdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Mail spool directory",
+      "name": "mailspool",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Additional path to check for xauth when it is called from pam_xauth",
+      "name": "xauth",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Random device to use instead of /dev/urandom",
+      "name": "randomdev",
+      "type": "string"
+    },
+    {
+      "default": "/usr/share/pam",
+      "description": "Distribution provided configuration files directory",
+      "name": "vendordir",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "pam_userdb module",
+      "name": "pam_userdb",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "db",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Unique name for db libraries and functions",
+      "name": "db-uniquename",
+      "type": "string"
+    },
+    {
+      "default": "disabled",
+      "description": "pam_lastlog module",
+      "name": "pam_lastlog",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "pam_unix module",
+      "name": "pam_unix",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Let pam_unix try getspnam to obtain shadow password file entry before falling back to invoking the helper",
+      "name": "pam_unix-try-getspnam",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.7.2"
+}

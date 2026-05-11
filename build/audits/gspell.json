@@ -1,0 +1,157 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:29Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gspell",
+    "blfs_name": "gspell",
+    "blfs_version": "1.14.2",
+    "deps": [
+      {
+        "anchor": "enchant",
+        "name": "enchant-2.8.15",
+        "note": "",
+        "type": "required",
+        "version": "2.8.15"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "optional",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "required",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "icu",
+        "name": "ICU-78.2",
+        "note": "",
+        "type": "required",
+        "version": "78.2"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "optional",
+        "version": "0.56.18"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "gspell-app1"
+  ],
+  "expected_headers": [
+    "/usr/include/gspell-1",
+    "/usr/share/gtk-doc/html/gspell-1.0"
+  ],
+  "expected_libs": [
+    "libgspell-1.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "gspell",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "enchant",
+    "icu",
+    "gtk3"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "gtk_doc",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gspell",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "4ec7e5accc9013281bacd6bbc00006be733818b81ba3fe332c1e876c7e1e1477",
+  "source_tarball": "gspell-1.14.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gspell/1.14/gspell-${version}.tar.xz",
+  "tarball_files_count": 168,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Build gspell-app",
+      "name": "gspell_app",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gobject_introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "vapi",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gtk_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Install unit test executables",
+      "name": "install_tests",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.14.2"
+}

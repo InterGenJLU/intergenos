@@ -1,0 +1,74 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "cargo-c",
+    "blfs_name": "cargo-c",
+    "blfs_version": "0.10.20",
+    "deps": [
+      {
+        "anchor": "libssh2",
+        "name": "libssh2-1.11.1",
+        "note": "",
+        "type": "recommended",
+        "version": "1.11.1"
+      },
+      {
+        "anchor": "rust",
+        "name": "rustc-1.93.1",
+        "note": "",
+        "type": "required",
+        "version": "1.93.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cargo",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "cargo-capi",
+    "cargo-cbuild",
+    "cargo-cinstall",
+    "cargo-ctest"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "cargo-c",
+  "our_autotools_flags": [
+    "--strip-components=1"
+  ],
+  "our_deps_build": [
+    "rust",
+    "libssh2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/cargo-c",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "9bdf7c10b44466a7c01dc4ed152da5031793cca9e0c8009d73223a32522cf2c3",
+  "source_tarball": "cargo-c-0.10.20.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/lu-zero/cargo-c/archive/v${version}/cargo-c-${version}.tar.gz",
+  "tarball_files_count": 58,
+  "test_command": "cargo test",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "0.10.20"
+}

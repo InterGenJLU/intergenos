@@ -1,0 +1,82 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:07Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libsamplerate",
+    "blfs_name": "libsamplerate",
+    "blfs_version": "0.2.2",
+    "deps": [
+      {
+        "anchor": "alsa-lib",
+        "name": "alsa-lib-1.2.15.3",
+        "note": "",
+        "type": "optional",
+        "version": "1.2.15.3"
+      },
+      {
+        "anchor": "fftw",
+        "name": "fftw-3.3.10",
+        "note": "for tests",
+        "type": "optional",
+        "version": "3.3.10"
+      },
+      {
+        "anchor": "libsndfile",
+        "name": "libsndfile-1.2.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.2.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libsamplerate.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libsamplerate",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "alsa-lib",
+    "libsndfile"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libsamplerate",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "3258da280511d24b49d6b08615bbe824d0cacc9842b0e4caf11c52cf2b043893",
+  "source_tarball": "libsamplerate-0.2.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/libsndfile/libsamplerate/releases/download/${version}/libsamplerate-${version}.tar.xz",
+  "tarball_files_count": 119,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "0.2.2"
+}

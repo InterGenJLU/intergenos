@@ -1,0 +1,476 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:35Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gvfs",
+    "blfs_name": "Gvfs",
+    "blfs_version": "1.58.2",
+    "deps": [
+      {
+        "anchor": "apache",
+        "name": "Apache-2.4.66",
+        "note": "",
+        "type": "optional",
+        "version": "2.4.66"
+      },
+      {
+        "anchor": "avahi",
+        "name": "Avahi-0.8",
+        "note": "",
+        "type": "optional",
+        "version": "0.8"
+      },
+      {
+        "anchor": "bluez",
+        "name": "BlueZ-5.86",
+        "note": "",
+        "type": "optional",
+        "version": "5.86"
+      },
+      {
+        "anchor": "dbus",
+        "name": "dbus-1.16.2",
+        "note": "",
+        "type": "required",
+        "version": "1.16.2"
+      },
+      {
+        "anchor": "fuse3",
+        "name": "Fuse-3.18.1",
+        "note": "",
+        "type": "optional",
+        "version": "3.18.1"
+      },
+      {
+        "anchor": "gcr4",
+        "name": "Gcr-4.4.0.1",
+        "note": "",
+        "type": "required",
+        "version": "4.4.0.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gnome-online-accounts",
+        "name": "gnome-online-accounts-3.56.4",
+        "note": "",
+        "type": "optional",
+        "version": "3.56.4"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "recommended",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "libarchive",
+        "name": "libarchive-3.8.5",
+        "note": "",
+        "type": "optional",
+        "version": "3.8.5"
+      },
+      {
+        "anchor": "libcdio",
+        "name": "libcdio-2.1.0",
+        "note": "",
+        "type": "recommended",
+        "version": "2.1.0"
+      },
+      {
+        "anchor": "libgcrypt",
+        "name": "libgcrypt-1.12.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.12.0"
+      },
+      {
+        "anchor": "libgudev",
+        "name": "libgudev-238",
+        "note": "",
+        "type": "recommended",
+        "version": "238"
+      },
+      {
+        "anchor": "libsecret",
+        "name": "libsecret-0.21.7",
+        "note": "",
+        "type": "required",
+        "version": "0.21.7"
+      },
+      {
+        "anchor": "libsoup3",
+        "name": "libsoup-3.6.6",
+        "note": "",
+        "type": "recommended",
+        "version": "3.6.6"
+      },
+      {
+        "anchor": "libusb",
+        "name": "libusb-1.0.29",
+        "note": "",
+        "type": "required",
+        "version": "1.0.29"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "optional",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "",
+        "type": "optional",
+        "version": "1.1.45"
+      },
+      {
+        "anchor": "openssh",
+        "name": "OpenSSH-10.2p1",
+        "note": "",
+        "type": "optional",
+        "version": "10.2p1"
+      },
+      {
+        "anchor": "samba",
+        "name": "Samba-4.23.5",
+        "note": "",
+        "type": "optional",
+        "version": "4.23.5"
+      },
+      {
+        "anchor": "systemd",
+        "name": "Systemd-259.1",
+        "note": "runtime [downgraded from recommended/runtime by fix-blfs-db-data-errors.py]",
+        "type": "optional",
+        "version": "259.1"
+      },
+      {
+        "anchor": "udisks2",
+        "name": "UDisks-2.11.1",
+        "note": "",
+        "type": "recommended",
+        "version": "2.11.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "None"
+  ],
+  "expected_headers": [
+    "/usr/include/gvfs-client",
+    "/usr/{lib",
+    "share}/gvfs"
+  ],
+  "expected_libs": [
+    "libgvfscommon.so",
+    "libgvfsdaemon.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "gvfs",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "avahi",
+    "gcr4",
+    "glib-networking",
+    "gtk3",
+    "libcdio-paranoia",
+    "libbluray",
+    "libgphoto2",
+    "libimobiledevice",
+    "libmtp",
+    "libnfs",
+    "libsecret",
+    "libusb",
+    "udisks2",
+    "bluez",
+    "dbus",
+    "fuse3",
+    "glib2",
+    "gnome-online-accounts",
+    "libarchive",
+    "libgcrypt",
+    "libgudev",
+    "libsoup3",
+    "libxml2",
+    "libxslt",
+    "openssh",
+    "samba",
+    "systemd"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "man",
+      "value": "false"
+    },
+    {
+      "name": "google",
+      "value": "false"
+    },
+    {
+      "name": "goa",
+      "value": "false"
+    },
+    {
+      "name": "onedrive",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gvfs",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "ad9d5bf0b45caf232520df0adee51eb650200b0370680f80a350ead9d1d61ddf",
+  "source_tarball": "gvfs-1.58.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gvfs/1.58/gvfs-${version}.tar.xz",
+  "tarball_files_count": 533,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "custom directory for systemd user units, or \\",
+      "name": "systemduserunitdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "custom directory for tmpfiles.d config files, or \\",
+      "name": "tmpfilesdir",
+      "type": "string"
+    },
+    {
+      "default": "wheel",
+      "description": "custom name for group that has elevated permissions",
+      "name": "privileged_group",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "build with admin backend",
+      "name": "admin",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with afc backend and volume monitor",
+      "name": "afc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with afp backends",
+      "name": "afp",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with archive backend",
+      "name": "archive",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with burn backend",
+      "name": "burn",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with cdda backend",
+      "name": "cdda",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with dnssd backend",
+      "name": "dnssd",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with goa volume monitor",
+      "name": "goa",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with google backend",
+      "name": "google",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with gphoto2 backend and volume monitor",
+      "name": "gphoto2",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with http/dav backends",
+      "name": "http",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with mtp backend and volume monitor",
+      "name": "mtp",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with nfs backend",
+      "name": "nfs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with OneDrive backend",
+      "name": "onedrive",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with sftp backend",
+      "name": "sftp",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with smb backends",
+      "name": "smb",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with udisks2 volume monitor",
+      "name": "udisks2",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with wsdd backend",
+      "name": "wsdd",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with bluray metadata support",
+      "name": "bluray",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with fuse support",
+      "name": "fuse",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with gcr certificate support",
+      "name": "gcr",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with gcrypt support",
+      "name": "gcrypt",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with gudev device support",
+      "name": "gudev",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with keyring support",
+      "name": "keyring",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with logind support",
+      "name": "logind",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with libusb interruption support",
+      "name": "libusb",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install deprecated api headers",
+      "name": "deprecated_apis",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with development utility programs",
+      "name": "devel_utils",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable installed unit tests",
+      "name": "installed_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "generate man pages",
+      "name": "man",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with unit tests",
+      "name": "unit_tests",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.58.2"
+}

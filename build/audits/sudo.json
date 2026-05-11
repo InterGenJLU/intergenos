@@ -1,0 +1,812 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:43Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "sudo",
+    "blfs_name": "Sudo",
+    "blfs_version": "1.9.17p2",
+    "deps": [
+      {
+        "anchor": "linux-pam",
+        "name": "Linux-PAM-1.7.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.7.2"
+      },
+      {
+        "anchor": "mitkrb",
+        "name": "MIT Kerberos\n                V5-1.22.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.22.2"
+      },
+      {
+        "anchor": "openldap",
+        "name": "OpenLDAP-2.6.12",
+        "note": "",
+        "type": "optional",
+        "version": "2.6.12"
+      },
+      {
+        "anchor": "server-mail",
+        "name": "MTA",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "cvtsudoers",
+    "sudo",
+    "sudo_logsrvd",
+    "sudo_sendlog",
+    "sudoedit (symlink)",
+    "sudoreplay",
+    "visudo"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "audit_json.so",
+    "group_file.so",
+    "libsudo_util.so",
+    "sudoers.so",
+    "sudo_intercept.so",
+    "sudo_noexec.so",
+    "system_group.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "sudo",
+  "our_autotools_flags": [
+    "--docdir=/usr/share/doc/sudo-1.9.17p2",
+    "--libexecdir=/usr/lib",
+    "--prefix=/usr",
+    "--with-env-editor",
+    "--with-passprompt",
+    "--with-secure-path"
+  ],
+  "our_deps_build": [
+    "linux-pam"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/sudo",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "4a38a1ab3adb1199257edc2a7c4a2bd714665eb605b04368843b06dada2cfcfb",
+  "source_tarball": "sudo-1.9.17p2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.sudo.ws/dist/sudo-${version}.tar.gz",
+  "tarball_files_count": 1352,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-authentication",
+      "kind": "enable",
+      "name": "authentication"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-root-mailer",
+      "kind": "enable",
+      "name": "root-mailer"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-setreuid",
+      "kind": "enable",
+      "name": "setreuid"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-setresuid",
+      "kind": "enable",
+      "name": "setresuid"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-shadow",
+      "kind": "enable",
+      "name": "shadow"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-root-sudo",
+      "kind": "enable",
+      "name": "root-sudo"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-log-host",
+      "kind": "enable",
+      "name": "log-host"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-noargs-shell",
+      "kind": "enable",
+      "name": "noargs-shell"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-shell-sets-home",
+      "kind": "enable",
+      "name": "shell-sets-home"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-path-info",
+      "kind": "enable",
+      "name": "path_info"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-env-debug",
+      "kind": "enable",
+      "name": "env_debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ignore-dot",
+      "kind": "enable",
+      "name": "ignore-dot"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-postinstall",
+      "kind": "enable",
+      "name": "postinstall"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-zlib[[=PATH",
+      "kind": "enable",
+      "name": "zlib"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-env-reset",
+      "kind": "enable",
+      "name": "env_reset"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-warnings",
+      "kind": "enable",
+      "name": "warnings"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-werror",
+      "kind": "enable",
+      "name": "werror"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ssp",
+      "kind": "enable",
+      "name": "ssp"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-hardening",
+      "kind": "enable",
+      "name": "hardening"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pie",
+      "kind": "enable",
+      "name": "pie"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-sanitizer",
+      "kind": "enable",
+      "name": "sanitizer"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-fuzzer",
+      "kind": "enable",
+      "name": "fuzzer"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-fuzzer-engine",
+      "kind": "enable",
+      "name": "fuzzer-engine"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-fuzzer-linker",
+      "kind": "enable",
+      "name": "fuzzer-linker"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-leaks",
+      "kind": "enable",
+      "name": "leaks"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-poll",
+      "kind": "enable",
+      "name": "poll"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-admin-flag[[=PATH",
+      "kind": "enable",
+      "name": "admin-flag"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-nls",
+      "kind": "enable",
+      "name": "nls"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-rpath",
+      "kind": "enable",
+      "name": "rpath"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-static-sudoers",
+      "kind": "enable",
+      "name": "static-sudoers"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-shared-libutil",
+      "kind": "enable",
+      "name": "shared_libutil"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-tmpfiles.d=DIR",
+      "kind": "enable",
+      "name": "tmpfiles.d"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-devsearch=PATH",
+      "kind": "enable",
+      "name": "devsearch"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-sasl",
+      "kind": "enable",
+      "name": "sasl"
+    },
+    {
+      "help": "AS_HELP_STRING([--timestamp-type=TYPE",
+      "kind": "enable",
+      "name": "timestamp-type"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-package-build",
+      "kind": "enable",
+      "name": "package_build"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-gss-krb5-ccache-name",
+      "kind": "enable",
+      "name": "gss_krb5_ccache_name"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pvs-studio",
+      "kind": "enable",
+      "name": "pvs-studio"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-log-server",
+      "kind": "enable",
+      "name": "log-server"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-log-client",
+      "kind": "enable",
+      "name": "log-client"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-openssl",
+      "kind": "enable",
+      "name": "openssl"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-openssl-pkgconfig-template",
+      "kind": "enable",
+      "name": "openssl-pkgconfig-template"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-wolfssl",
+      "kind": "enable",
+      "name": "wolfssl"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-gcrypt",
+      "kind": "enable",
+      "name": "gcrypt"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-python",
+      "kind": "enable",
+      "name": "python"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-adminconf[[=DIR",
+      "kind": "enable",
+      "name": "adminconf"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-intercept",
+      "kind": "enable",
+      "name": "intercept"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-sia",
+      "kind": "enable",
+      "name": "sia"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-pam-session",
+      "kind": "enable",
+      "name": "pam_session"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-kerb5-instance",
+      "kind": "enable",
+      "name": "kerb5-instance"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-otp-only",
+      "kind": "with",
+      "name": "otp-only"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-alertmail",
+      "kind": "with",
+      "name": "alertmail"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-devel",
+      "kind": "with",
+      "name": "devel"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-CC",
+      "kind": "with",
+      "name": "CC"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-rpath",
+      "kind": "with",
+      "name": "rpath"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-blibpath[[=PATH",
+      "kind": "with",
+      "name": "blibpath"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-bsm-audit",
+      "kind": "with",
+      "name": "bsm-audit"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-linux-audit",
+      "kind": "with",
+      "name": "linux-audit"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-solaris-audit",
+      "kind": "with",
+      "name": "solaris-audit"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-sssd",
+      "kind": "with",
+      "name": "sssd"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-sssd-conf",
+      "kind": "with",
+      "name": "sssd-conf"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-sssd-lib",
+      "kind": "with",
+      "name": "sssd-lib"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-incpath",
+      "kind": "with",
+      "name": "incpath"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-libpath",
+      "kind": "with",
+      "name": "libpath"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-libraries",
+      "kind": "with",
+      "name": "libraries"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-csops",
+      "kind": "with",
+      "name": "csops"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-passwd",
+      "kind": "with",
+      "name": "passwd"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-skey[[=DIR",
+      "kind": "with",
+      "name": "skey"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-opie[[=DIR",
+      "kind": "with",
+      "name": "opie"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-long-otp-prompt",
+      "kind": "with",
+      "name": "long-otp-prompt"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-SecurID[[=DIR",
+      "kind": "with",
+      "name": "SecurID"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-fwtk[[=DIR",
+      "kind": "with",
+      "name": "fwtk"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-kerb5[[=DIR",
+      "kind": "with",
+      "name": "kerb5"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-aixauth",
+      "kind": "with",
+      "name": "aixauth"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pam",
+      "kind": "with",
+      "name": "pam"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-AFS",
+      "kind": "with",
+      "name": "AFS"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-DCE",
+      "kind": "with",
+      "name": "DCE"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-logincap",
+      "kind": "with",
+      "name": "logincap"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-bsdauth",
+      "kind": "with",
+      "name": "bsdauth"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-project",
+      "kind": "with",
+      "name": "project"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-lecture",
+      "kind": "with",
+      "name": "lecture"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-logging",
+      "kind": "with",
+      "name": "logging"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-logfac",
+      "kind": "with",
+      "name": "logfac"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-goodpri",
+      "kind": "with",
+      "name": "goodpri"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-badpri",
+      "kind": "with",
+      "name": "badpri"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-logpath",
+      "kind": "with",
+      "name": "logpath"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-loglen",
+      "kind": "with",
+      "name": "loglen"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-ignore-dot",
+      "kind": "with",
+      "name": "ignore-dot"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-mail-if-no-user",
+      "kind": "with",
+      "name": "mail-if-no-user"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-mail-if-no-host",
+      "kind": "with",
+      "name": "mail-if-no-host"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-mail-if-noperms",
+      "kind": "with",
+      "name": "mail-if-noperms"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-mailto",
+      "kind": "with",
+      "name": "mailto"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-mailsubject",
+      "kind": "with",
+      "name": "mailsubject"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-passprompt",
+      "kind": "with",
+      "name": "passprompt"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-badpass-message",
+      "kind": "with",
+      "name": "badpass-message"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-fqdn",
+      "kind": "with",
+      "name": "fqdn"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-timedir=DIR",
+      "kind": "with",
+      "name": "timedir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-rundir=DIR",
+      "kind": "with",
+      "name": "rundir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-vardir=DIR",
+      "kind": "with",
+      "name": "vardir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-iologdir=DIR",
+      "kind": "with",
+      "name": "iologdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-relaydir=DIR",
+      "kind": "with",
+      "name": "relaydir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-tzdir=DIR",
+      "kind": "with",
+      "name": "tzdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-sendmail",
+      "kind": "with",
+      "name": "sendmail"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-sudoers-mode",
+      "kind": "with",
+      "name": "sudoers-mode"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-sudoers-uid",
+      "kind": "with",
+      "name": "sudoers-uid"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-sudoers-gid",
+      "kind": "with",
+      "name": "sudoers-gid"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-umask",
+      "kind": "with",
+      "name": "umask"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-umask-override",
+      "kind": "with",
+      "name": "umask-override"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-runas-default",
+      "kind": "with",
+      "name": "runas-default"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-exempt=group",
+      "kind": "with",
+      "name": "exempt"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-editor=path",
+      "kind": "with",
+      "name": "editor"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-env-editor",
+      "kind": "with",
+      "name": "env-editor"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-passwd-tries",
+      "kind": "with",
+      "name": "passwd-tries"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-timeout",
+      "kind": "with",
+      "name": "timeout"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-password-timeout",
+      "kind": "with",
+      "name": "password-timeout"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-tty-tickets",
+      "kind": "with",
+      "name": "tty-tickets"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-insults",
+      "kind": "with",
+      "name": "insults"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-all-insults",
+      "kind": "with",
+      "name": "all-insults"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-classic-insults",
+      "kind": "with",
+      "name": "classic-insults"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-csops-insults",
+      "kind": "with",
+      "name": "csops-insults"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-hal-insults",
+      "kind": "with",
+      "name": "hal-insults"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-goons-insults",
+      "kind": "with",
+      "name": "goons-insults"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-python-insults",
+      "kind": "with",
+      "name": "python-insults"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-nsswitch[[=PATH",
+      "kind": "with",
+      "name": "nsswitch"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-ldap[[=DIR",
+      "kind": "with",
+      "name": "ldap"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-ldap-conf-file",
+      "kind": "with",
+      "name": "ldap-conf-file"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-ldap-secret-file",
+      "kind": "with",
+      "name": "ldap-secret-file"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-secure-path-value",
+      "kind": "with",
+      "name": "secure-path-value"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-secure-path",
+      "kind": "with",
+      "name": "secure-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-interfaces",
+      "kind": "with",
+      "name": "interfaces"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-askpass=PATH",
+      "kind": "with",
+      "name": "askpass"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-exampledir=DIR",
+      "kind": "with",
+      "name": "exampledir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-plugindir=DIR",
+      "kind": "with",
+      "name": "plugindir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-man",
+      "kind": "with",
+      "name": "man"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-mdoc",
+      "kind": "with",
+      "name": "mdoc"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-selinux",
+      "kind": "with",
+      "name": "selinux"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-apparmor",
+      "kind": "with",
+      "name": "apparmor"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-libtool=PATH",
+      "kind": "with",
+      "name": "libtool"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-noexec[[=PATH",
+      "kind": "with",
+      "name": "noexec"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-netsvc[[=PATH",
+      "kind": "with",
+      "name": "netsvc"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pam-login",
+      "kind": "with",
+      "name": "pam-login"
+    }
+  ],
+  "version": "1.9.17p2"
+}

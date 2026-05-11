@@ -1,0 +1,69 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:19Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "sgml-common",
+    "blfs_name": "sgml-common",
+    "blfs_version": "0.6.3",
+    "deps": [],
+    "patches": [
+      {
+        "filename": "sgml-common-0.6.3-manpage-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/sgml-common-0.6.3-manpage-1.patch"
+      }
+    ]
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "install-catalog",
+    "sgmlwhich"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "sgml-common",
+  "our_autotools_flags": [
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "sgml-common-0.6.3-manpage-1.patch",
+      "sha256": "50d93af704a0869faf8fedf5d23b1a9f90fff6499f4c11cf4addb5e460b7b58b"
+    }
+  ],
+  "package_dir": "packages/core/sgml-common",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "7dc418c1d361123ffc5e45d61f1b97257940a8eb35d0bfbbc493381cc5b1f959",
+  "source_tarball": "sgml-common-0.6.3.tgz",
+  "source_tarball_exists": true,
+  "source_url": "https://sourceware.org/ftp/docbook-tools/new-trials/SOURCES/sgml-common-${version}.tgz",
+  "tarball_files_count": 93,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "0.6.3"
+}

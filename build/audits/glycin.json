@@ -1,0 +1,278 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:16Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "glycin",
+    "blfs_name": "glycin",
+    "blfs_version": "2.0.8",
+    "deps": [
+      {
+        "anchor": "bubblewrap",
+        "name": "bubblewrap-0.11.0",
+        "note": "runtime",
+        "type": "required",
+        "version": "0.11.0"
+      },
+      {
+        "anchor": "fontconfig",
+        "name": "Fontconfig-2.17.1",
+        "note": "",
+        "type": "required",
+        "version": "2.17.1"
+      },
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "GObject\n                Introspection recommended",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "",
+        "type": "optional",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "lcms2",
+        "name": "Little CMS-2.18",
+        "note": "",
+        "type": "required",
+        "version": "2.18"
+      },
+      {
+        "anchor": "libheif",
+        "name": "libheif-1.21.2",
+        "note": "",
+        "type": "recommended",
+        "version": "1.21.2"
+      },
+      {
+        "anchor": "libjxl",
+        "name": "libjxl-0.11.2",
+        "note": "",
+        "type": "recommended",
+        "version": "0.11.2"
+      },
+      {
+        "anchor": "librsvg",
+        "name": "librsvg-2.61.4",
+        "note": "",
+        "type": "recommended",
+        "version": "2.61.4"
+      },
+      {
+        "anchor": "libseccomp",
+        "name": "libseccomp-2.6.0",
+        "note": "",
+        "type": "required",
+        "version": "2.6.0"
+      },
+      {
+        "anchor": "rust",
+        "name": "rustc-1.93.1",
+        "note": "",
+        "type": "required",
+        "version": "1.93.1"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "glycin-2.0.8-xorg_prefix-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/glycin-2.0.8-xorg_prefix-1.patch"
+      },
+      {
+        "filename": "glycin-2.0.8-xbm_xpm-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/glycin-2.0.8-xbm_xpm-1.patch"
+      }
+    ]
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "glycin-thumbnailer"
+  ],
+  "expected_headers": [
+    "/usr/include/glycin-2"
+  ],
+  "expected_libs": [
+    "libglycin-2.so"
+  ],
+  "expected_pkgconfig": [
+    "glycin-2.pc"
+  ],
+  "name": "glycin",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--forward",
+    "--libdir=/usr/lib",
+    "--no-backup-if-mismatch",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "bubblewrap",
+    "fontconfig",
+    "lcms2",
+    "libheif",
+    "librsvg",
+    "libseccomp",
+    "rust",
+    "vala",
+    "glib2",
+    "gtk4",
+    "libjxl"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "libglycin-gtk4",
+      "value": "false"
+    },
+    {
+      "name": "tests",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/glycin",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "6b9aef4f626bf969dfd04b563b83d521271a30c3d6df6a6a8463fd55490891df",
+  "source_tarball": "glycin-2.0.8.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/glycin/2.0/glycin-${version}.tar.xz",
+  "tarball_files_count": 498,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "Control link time optimizations. The ",
+      "name": "lto",
+      "type": "combo"
+    },
+    {
+      "default": "release",
+      "description": "",
+      "name": "profile",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Build loaders",
+      "name": "glycin-loaders",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "List of loaders to build. Only has an effect if ",
+      "name": "loaders",
+      "type": "array"
+    },
+    {
+      "default": "",
+      "description": "Support running tests.",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Image filename extensions, exlcuding dots, to skip during tests.",
+      "name": "test_skip_ext",
+      "type": "array"
+    },
+    {
+      "default": "",
+      "description": "Also run tests with tokio if tests are enabled.",
+      "name": "test_tokio",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Do not run meson install before running tests.",
+      "name": "test_skip_install",
+      "type": "boolean"
+    },
+    {
+      "default": "warn",
+      "description": "Output log messages of the specified level during tests.",
+      "name": "test_log_level",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Build libglycin C bindings for the glycin crate",
+      "name": "libglycin",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build libglycin-gtk4 C bindings with contain GTK 4 dependent functions. If ",
+      "name": "libglycin-gtk4",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Generate .gir and .typelib files",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Generate .vapi files for the Vala language",
+      "name": "vapi",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Generate HTML documentation for C API",
+      "name": "capi_docs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Test python bindings. Needs python3-gi",
+      "name": "python_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build thumbnailer",
+      "name": "glycin-thumbnailer",
+      "type": "boolean"
+    }
+  ],
+  "version": "2.0.8"
+}

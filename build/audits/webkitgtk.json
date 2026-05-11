@@ -1,0 +1,381 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:15Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "webkitgtk",
+    "blfs_name": "WebKitGTK",
+    "blfs_version": "2.50.5",
+    "deps": [
+      {
+        "anchor": "bubblewrap",
+        "name": "bubblewrap-0.11.0",
+        "note": "",
+        "type": "recommended",
+        "version": "0.11.0"
+      },
+      {
+        "anchor": "cairo",
+        "name": "Cairo-1.18.4",
+        "note": "",
+        "type": "required",
+        "version": "1.18.4"
+      },
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "enchant",
+        "name": "enchant-2.8.15",
+        "note": "",
+        "type": "recommended",
+        "version": "2.8.15"
+      },
+      {
+        "anchor": "geoclue2",
+        "name": "GeoClue-2.8.0",
+        "note": "runtime [downgraded from recommended/runtime by fix-blfs-db-data-errors.py]",
+        "type": "optional",
+        "version": "2.8.0"
+      },
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with\n                GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gst10-plugins-bad",
+        "name": "gst-plugins-bad-1.28.1",
+        "note": "",
+        "type": "required",
+        "version": "1.28.1"
+      },
+      {
+        "anchor": "gst10-plugins-base",
+        "name": "gst-plugins-base-1.28.1",
+        "note": "",
+        "type": "required",
+        "version": "1.28.1"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "required",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "",
+        "type": "required",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "harfbuzz",
+        "name": "harfBuzz-12.3.2",
+        "note": "",
+        "type": "optional",
+        "version": "12.3.2"
+      },
+      {
+        "anchor": "hicolor-icon-theme",
+        "name": "hicolor-icon-theme-0.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.18"
+      },
+      {
+        "anchor": "icu",
+        "name": "ICU-78.2",
+        "note": "",
+        "type": "required",
+        "version": "78.2"
+      },
+      {
+        "anchor": "lcms2",
+        "name": "Little CMS-2.18",
+        "note": "",
+        "type": "required",
+        "version": "2.18"
+      },
+      {
+        "anchor": "libavif",
+        "name": "libavif-1.3.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.3.0"
+      },
+      {
+        "anchor": "libgudev",
+        "name": "libgudev-238",
+        "note": "",
+        "type": "required",
+        "version": "238"
+      },
+      {
+        "anchor": "libjxl",
+        "name": "libjxl-0.11.2",
+        "note": "",
+        "type": "recommended",
+        "version": "0.11.2"
+      },
+      {
+        "anchor": "libseccomp",
+        "name": "libseccomp-2.6.0",
+        "note": "",
+        "type": "recommended",
+        "version": "2.6.0"
+      },
+      {
+        "anchor": "libsecret",
+        "name": "libsecret-0.21.7",
+        "note": "",
+        "type": "required",
+        "version": "0.21.7"
+      },
+      {
+        "anchor": "libsoup3",
+        "name": "libsoup-3.6.6",
+        "note": "",
+        "type": "required",
+        "version": "3.6.6"
+      },
+      {
+        "anchor": "libtasn1",
+        "name": "libtasn1-4.21.0",
+        "note": "",
+        "type": "required",
+        "version": "4.21.0"
+      },
+      {
+        "anchor": "libwebp",
+        "name": "libwebp-1.6.0",
+        "note": "",
+        "type": "required",
+        "version": "1.6.0"
+      },
+      {
+        "anchor": "mesa",
+        "name": "Mesa-25.3.5",
+        "note": "",
+        "type": "required",
+        "version": "25.3.5"
+      },
+      {
+        "anchor": "openjpeg2",
+        "name": "OpenJPEG-2.5.4",
+        "note": "",
+        "type": "required",
+        "version": "2.5.4"
+      },
+      {
+        "anchor": "ruby",
+        "name": "Ruby-4.0.1",
+        "note": "",
+        "type": "required",
+        "version": "4.0.1"
+      },
+      {
+        "anchor": "unifdef",
+        "name": "unifdef-2.12",
+        "note": "",
+        "type": "required",
+        "version": "2.12"
+      },
+      {
+        "anchor": "wayland",
+        "name": "Wayland-1.24.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.24.0"
+      },
+      {
+        "anchor": "which",
+        "name": "Which-2.23",
+        "note": "",
+        "type": "required",
+        "version": ""
+      },
+      {
+        "anchor": "woff2",
+        "name": "WOFF2-1.0.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.0.2"
+      },
+      {
+        "anchor": "xdg-dbus-proxy",
+        "name": "xdg-dbus-proxy-0.1.6",
+        "note": "",
+        "type": "recommended",
+        "version": "0.1.6"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "BUILDING",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "WebKitWebDriver"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libjavascriptcoregtk-4.1.so",
+    "libjavascriptcoregtk-6.0.so",
+    "libwebkit2gtk-4.1.so",
+    "libwebkitgtk-6.0.so"
+  ],
+  "expected_pkgconfig": [
+    "javascriptcoregtk-4.1.pc",
+    "javascriptcoregtk-6.0.pc",
+    "webkit2gtk-4.1.pc",
+    "webkitgtk-6.0.pc"
+  ],
+  "name": "webkitgtk",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "webkitgtk-gtk3",
+    "cairo",
+    "gst-plugins-base",
+    "gst-plugins-bad",
+    "gtk3",
+    "gtk4",
+    "libgudev",
+    "libsoup3",
+    "libwebp",
+    "openjpeg2",
+    "ruby",
+    "enchant",
+    "unifdef",
+    "bubblewrap",
+    "geoclue2",
+    "libseccomp",
+    "xdg-dbus-proxy",
+    "libX11",
+    "wayland",
+    "icu",
+    "cmake",
+    "glib2",
+    "harfbuzz",
+    "hicolor-icon-theme",
+    "lcms2",
+    "libavif",
+    "libjxl",
+    "libsecret",
+    "libtasn1",
+    "mesa",
+    "which",
+    "woff2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "CMAKE_SKIP_INSTALL_RPATH",
+      "value": "ON"
+    },
+    {
+      "name": "PORT",
+      "value": "GTK"
+    },
+    {
+      "name": "LIB_INSTALL_DIR",
+      "value": "/usr/lib"
+    },
+    {
+      "name": "USE_LIBBACKTRACE",
+      "value": "OFF"
+    },
+    {
+      "name": "USE_LIBHYPHEN",
+      "value": "OFF"
+    },
+    {
+      "name": "ENABLE_GAMEPAD",
+      "value": "OFF"
+    },
+    {
+      "name": "ENABLE_MINIBROWSER",
+      "value": "ON"
+    },
+    {
+      "name": "ENABLE_DOCUMENTATION",
+      "value": "OFF"
+    },
+    {
+      "name": "USE_WOFF2",
+      "value": "OFF"
+    },
+    {
+      "name": "USE_GTK4",
+      "value": "ON"
+    },
+    {
+      "name": "ENABLE_BUBBLEWRAP_SANDBOX",
+      "value": "ON"
+    },
+    {
+      "name": "USE_SYSPROF_CAPTURE",
+      "value": "NO"
+    },
+    {
+      "name": "ENABLE_SPEECH_SYNTHESIS",
+      "value": "OFF"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/webkitgtk",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "8737631bac3e9c7ad3e5208f9370e076c09d9c45b39980021ce54edadcc6f94f",
+  "source_tarball": "webkitgtk-2.50.5.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://webkitgtk.org/releases/webkitgtk-${version}.tar.xz",
+  "tarball_files_count": 33323,
+  "test_command": "ctest --output-on-failure",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "2.50.5"
+}

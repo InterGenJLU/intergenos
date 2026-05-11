@@ -1,0 +1,65 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:20Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-shell-extensions",
+    "blfs_name": "gnome-shell-extensions",
+    "blfs_version": "49.0",
+    "deps": [
+      {
+        "anchor": "libgtop",
+        "name": "libgtop-2.41.3",
+        "note": "",
+        "type": "required",
+        "version": "2.41.3"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "HACKING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gnome-shell-extensions",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gnome-shell",
+    "libgtop"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-shell-extensions",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "1570e064786cb4389759e0483f3a1bdbd5b9b38f06246eb4d1d509292a9c6a62",
+  "source_tarball": "gnome-shell-extensions-49.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-shell-extensions/49/gnome-shell-extensions-${version}.tar.xz",
+  "tarball_files_count": 221,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "49.0"
+}

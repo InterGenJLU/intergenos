@@ -1,0 +1,154 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:13Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "glib-networking",
+    "blfs_name": "glib-networking",
+    "blfs_version": "2.80.1",
+    "deps": [
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gnutls",
+        "name": "GnuTLS-3.8.12",
+        "note": "",
+        "type": "required",
+        "version": "3.8.12"
+      },
+      {
+        "anchor": "gsettings-desktop-schemas",
+        "name": "gsettings-desktop-schemas-49.1",
+        "note": "for the applications using this package to use proxy server\n                settings in GNOME",
+        "type": "recommended",
+        "version": "49.1"
+      },
+      {
+        "anchor": "libproxy",
+        "name": "libproxy-0.5.12",
+        "note": "",
+        "type": "optional",
+        "version": "0.5.12"
+      },
+      {
+        "anchor": "make-ca",
+        "name": "make-ca-1.16.1",
+        "note": "",
+        "type": "recommended",
+        "version": "1.16.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "HACKING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libgiognomeproxy.so",
+    "libgiognutls.so (GIO Modules installed in /usr/lib/gio/modules )"
+  ],
+  "expected_pkgconfig": [
+    "giognomeproxy.pc",
+    "giognutls.pc"
+  ],
+  "name": "glib-networking",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gnutls",
+    "gsettings-desktop-schemas",
+    "glib2",
+    "make-ca",
+    "libproxy"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "libproxy",
+      "value": "enabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/glib-networking",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "b80e2874157cd55071f1b6710fa0b911d5ac5de106a9ee2a4c9c7bee61782f8e",
+  "source_tarball": "glib-networking-2.80.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/glib-networking/2.80/glib-networking-${version}.tar.xz",
+  "tarball_files_count": 262,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "enabled",
+      "description": "support for GnuTLS networking configuration",
+      "name": "gnutls",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "support for OpenSSL networking configuration",
+      "name": "openssl",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "support for environment variable proxy configuration",
+      "name": "environment_proxy",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "support for libproxy proxy configuration",
+      "name": "libproxy",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "support for GNOME desktop proxy configuration",
+      "name": "gnome_proxy",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "enable installed tests",
+      "name": "installed_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "debug_logs",
+      "type": "boolean"
+    }
+  ],
+  "version": "2.80.1"
+}

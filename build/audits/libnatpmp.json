@@ -1,0 +1,49 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:54Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "README"
+  ],
+  "expected_binaries": [
+    "/usr/bin/natpmpc"
+  ],
+  "expected_headers": [
+    "/usr/include/natpmp.h"
+  ],
+  "expected_libs": [
+    "/usr/lib/libnatpmp.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libnatpmp",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/libnatpmp",
+  "reproducibility": {
+    "_notes": "raw Makefile; INSTALLPREFIX-driven install",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "0684ed2c8406437e7519a1bd20ea83780db871b3a3a5d752311ba3e889dbfc70",
+  "source_tarball": "libnatpmp-20230423.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://miniupnp.tuxfamily.org/files/libnatpmp-${version}.tar.gz",
+  "tarball_files_count": 30,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "20230423"
+}

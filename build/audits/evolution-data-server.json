@@ -1,0 +1,242 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:28Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "evolution-data-server",
+    "blfs_name": "evolution-data-server",
+    "blfs_version": "3.58.3",
+    "deps": [
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gnome-online-accounts",
+        "name": "gnome-online-accounts-3.56.4",
+        "note": "",
+        "type": "recommended",
+        "version": "3.56.4"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "recommended",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "",
+        "type": "recommended",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "icu",
+        "name": "ICU-78.2",
+        "note": "",
+        "type": "recommended",
+        "version": "78.2"
+      },
+      {
+        "anchor": "libcanberra",
+        "name": "libcanberra-0.30",
+        "note": "",
+        "type": "recommended",
+        "version": "0.30"
+      },
+      {
+        "anchor": "libgweather",
+        "name": "libgweather-4.4.4",
+        "note": "",
+        "type": "recommended",
+        "version": "4.4.4"
+      },
+      {
+        "anchor": "libical",
+        "name": "libical-3.0.20",
+        "note": "",
+        "type": "required",
+        "version": "3.0.20"
+      },
+      {
+        "anchor": "libsecret",
+        "name": "libsecret-0.21.7",
+        "note": "",
+        "type": "required",
+        "version": "0.21.7"
+      },
+      {
+        "anchor": "mitkrb",
+        "name": "MIT Kerberos\n                V5-1.22.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.22.2"
+      },
+      {
+        "anchor": "nss",
+        "name": "nss-3.120.1",
+        "note": "",
+        "type": "required",
+        "version": "3.120.1"
+      },
+      {
+        "anchor": "openldap",
+        "name": "OpenLDAP-2.6.12",
+        "note": "",
+        "type": "optional",
+        "version": "2.6.12"
+      },
+      {
+        "anchor": "server-mail",
+        "name": "MTA",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.56.18"
+      },
+      {
+        "anchor": "webkitgtk",
+        "name": "WebKitGTK-2.50.5",
+        "note": "",
+        "type": "recommended",
+        "version": "2.50.5"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "evolution-data-server-3.58.3-security_fixes-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/evolution-data-server-3.58.3-security_fixes-1.patch"
+      }
+    ]
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libcamel-1.2.so",
+    "libebackend-1.2.so",
+    "libebook-1.2.so",
+    "libebook-contacts-1.2.so",
+    "libecal-2.0.so",
+    "libedata-book-1.2.so",
+    "libedata-cal-2.0.so",
+    "libedataserver-1.2.so",
+    "libedataserverui-1.2.so",
+    "libedataserverui4-1.0.so",
+    "libetestserverutils.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "evolution-data-server",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "libical",
+    "libsecret",
+    "nss",
+    "gnome-online-accounts",
+    "gtk3",
+    "gtk4",
+    "libgweather",
+    "vala",
+    "webkitgtk",
+    "glib2",
+    "icu",
+    "libcanberra",
+    "mitkrb",
+    "openldap"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "SYSCONF_INSTALL_DIR",
+      "value": "/etc"
+    },
+    {
+      "name": "ENABLE_GTK_DOC",
+      "value": "OFF"
+    },
+    {
+      "name": "ENABLE_INSTALLED_TESTS",
+      "value": "OFF"
+    },
+    {
+      "name": "ENABLE_VALA_BINDINGS",
+      "value": "ON"
+    },
+    {
+      "name": "ENABLE_INTROSPECTION",
+      "value": "ON"
+    },
+    {
+      "name": "WITH_LIBDB",
+      "value": "OFF"
+    }
+  ],
+  "our_patches": [
+    {
+      "file": "evolution-data-server-3.58.3-security_fixes-1.patch",
+      "sha256": "f2388a8c41e7535b6249b8b104f3ac7e77edf61eafa1de982047602c7fff027e"
+    }
+  ],
+  "package_dir": "packages/desktop/evolution-data-server",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "da136d1190d9e8b09499452f6058e24eee6b77f441a8c769f74a52451bf379f1",
+  "source_tarball": "evolution-data-server-3.58.3.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/evolution-data-server/3.58/evolution-data-server-${version}.tar.xz",
+  "tarball_files_count": 1684,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "3.58.3"
+}

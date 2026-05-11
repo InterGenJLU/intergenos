@@ -1,0 +1,57 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:50Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "mtdev",
+    "blfs_name": "mtdev",
+    "blfs_version": "1.1.7",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "mtdev-test"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libmtdev.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "mtdev",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/mtdev",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "a107adad2101fecac54ac7f9f0e0a0dd155d954193da55c2340c97f2ff1d814e",
+  "source_tarball": "mtdev-1.1.7.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://bitmath.org/code/mtdev/mtdev-${version}.tar.bz2",
+  "tarball_files_count": 44,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.1.7"
+}

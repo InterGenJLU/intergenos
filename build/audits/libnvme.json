@@ -1,0 +1,169 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:55Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libnvme",
+    "blfs_name": "libnvme",
+    "blfs_version": "1.16.1",
+    "deps": [
+      {
+        "anchor": "json-c",
+        "name": "JSON-C-0.18",
+        "note": "",
+        "type": "optional",
+        "version": "0.18"
+      },
+      {
+        "anchor": "keyutils",
+        "name": "keyutils-1.6.3",
+        "note": "",
+        "type": "optional",
+        "version": "1.6.3"
+      },
+      {
+        "anchor": "swig",
+        "name": "SWIG-4.4.1",
+        "note": "to generate the Python bindings",
+        "type": "optional",
+        "version": "4.4.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libnvme.so",
+    "libnvme-mi.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libnvme",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "json-c",
+    "keyutils"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "libdbus",
+      "value": "auto"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/core/libnvme",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "ce1d9d393feb84c4e82ca096db2bdb7dd4a5fd1997d711cc1904796944f2c579",
+  "source_tarball": "libnvme-1.16.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/linux-nvme/libnvme/archive/v${version}/libnvme-${version}.tar.gz",
+  "tarball_files_count": 1325,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "override the git version string",
+      "name": "version-tag",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "directory for HTML documentation",
+      "name": "htmldir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "directory for ReST documentation",
+      "name": "rstdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "install documentation",
+      "name": "docs",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "build documentation",
+      "name": "docs-build",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build examples",
+      "name": "examples",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Generate libnvme python bindings",
+      "name": "python",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "OpenSSL support",
+      "name": "openssl",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "libdbus support",
+      "name": "libdbus",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "JSON support",
+      "name": "json-c",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "keyutils support",
+      "name": "keyutils",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "liburing support",
+      "name": "liburing",
+      "type": "feature"
+    }
+  ],
+  "version": "1.16.1"
+}

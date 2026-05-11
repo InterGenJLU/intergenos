@@ -1,0 +1,108 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:07Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "librevenge",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "boost"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/librevenge",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=autotools; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": true,
+    "source_date_epoch_supported": true
+  },
+  "source_sha256": "106d0c44bb6408b1348b9e0465666fa83b816177665a22cd017e886c1aaeeb34",
+  "source_tarball": "librevenge-0.0.5.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://sourceforge.net/projects/libwpd/files/librevenge/librevenge-${version}/librevenge-${version}.tar.xz",
+  "tarball_files_count": 190,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-werror",
+      "kind": "enable",
+      "name": "werror"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-weffc",
+      "kind": "enable",
+      "name": "weffc"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-wparanoic",
+      "kind": "enable",
+      "name": "wparanoic"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-debug",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-tests",
+      "kind": "enable",
+      "name": "tests"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-streams",
+      "kind": "enable",
+      "name": "streams"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-generators",
+      "kind": "enable",
+      "name": "generators"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pretty-printers",
+      "kind": "enable",
+      "name": "pretty-printers"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-fuzzers",
+      "kind": "enable",
+      "name": "fuzzers"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-docs",
+      "kind": "with",
+      "name": "docs"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-gdb-data-dir",
+      "kind": "with",
+      "name": "gdb-data-dir"
+    }
+  ],
+  "version": "0.0.5"
+}

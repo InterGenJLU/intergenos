@@ -1,0 +1,83 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:48Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "/usr/bin/libdeflate-gunzip",
+    "/usr/bin/libdeflate-gzip"
+  ],
+  "expected_headers": [
+    "/usr/include/libdeflate.h"
+  ],
+  "expected_libs": [
+    "/usr/lib/libdeflate.so"
+  ],
+  "expected_pkgconfig": [
+    "/usr/lib/pkgconfig/libdeflate.pc"
+  ],
+  "name": "libdeflate",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cmake"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_INSTALL_LIBDIR",
+      "value": "lib"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "LIBDEFLATE_BUILD_STATIC_LIB",
+      "value": "ON"
+    },
+    {
+      "name": "LIBDEFLATE_BUILD_SHARED_LIB",
+      "value": "ON"
+    },
+    {
+      "name": "LIBDEFLATE_BUILD_GZIP",
+      "value": "ON"
+    },
+    {
+      "name": "LIBDEFLATE_BUILD_TESTS",
+      "value": "OFF"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/extra/libdeflate",
+  "reproducibility": {
+    "_notes": "cmake",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "fed5cd22f00f30cc4c2e5329f94e2b8a901df9fa45ee255cb70e2b0b42344477",
+  "source_tarball": "libdeflate-1.25.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/ebiggers/libdeflate/releases/download/v${version}/libdeflate-${version}.tar.gz",
+  "tarball_files_count": 112,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "1.25"
+}

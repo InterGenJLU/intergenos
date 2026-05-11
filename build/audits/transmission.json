@@ -1,0 +1,238 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:11Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "transmission",
+    "blfs_name": "Transmission",
+    "blfs_version": "4.1.1",
+    "deps": [
+      {
+        "anchor": "curl",
+        "name": "cURL-8.18.0",
+        "note": "",
+        "type": "required",
+        "version": "8.18.0"
+      },
+      {
+        "anchor": "libevent",
+        "name": "libevent-2.1.12",
+        "note": "",
+        "type": "recommended",
+        "version": "2.1.12"
+      },
+      {
+        "anchor": "libpsl",
+        "name": "libpsl-0.21.5",
+        "note": "to use\n                system libraries instead of bundled ones",
+        "type": "recommended",
+        "version": "0.21.5"
+      },
+      {
+        "anchor": "librsvg",
+        "name": "librsvg-2.61.4",
+        "note": "",
+        "type": "recommended",
+        "version": "2.61.4"
+      },
+      {
+        "anchor": "nodejs",
+        "name": "nodejs-22.22.0",
+        "note": "for building the web\n                client, not needed at run time",
+        "type": "optional",
+        "version": "22.22.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [
+    "third-party"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "BUILDING",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "transmission-create",
+    "transmission-daemon",
+    "transmission-edit",
+    "transmission-gtk",
+    "transmission-qt",
+    "transmission-remote",
+    "transmission-show"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "transmission",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cmake",
+    "pkgconf",
+    "gettext",
+    "intltool",
+    "openssl",
+    "curl",
+    "libevent",
+    "libpsl",
+    "glib2",
+    "glibmm",
+    "gtk4",
+    "gtkmm4",
+    "pangomm",
+    "libnotify",
+    "systemd",
+    "dbus",
+    "libdeflate",
+    "miniupnpc",
+    "libnatpmp"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "RelWithDebInfo"
+    },
+    {
+      "name": "CMAKE_CXX_FLAGS_RELWITHDEBINFO_INIT",
+      "value": "\"-O2"
+    },
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_INSTALL_LIBDIR",
+      "value": "lib"
+    },
+    {
+      "name": "CMAKE_INSTALL_SYSCONFDIR",
+      "value": "/etc"
+    },
+    {
+      "name": "CMAKE_INSTALL_LOCALSTATEDIR",
+      "value": "/var"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "ENABLE_DAEMON",
+      "value": "ON"
+    },
+    {
+      "name": "ENABLE_GTK",
+      "value": "ON"
+    },
+    {
+      "name": "USE_GTK_VERSION",
+      "value": "4"
+    },
+    {
+      "name": "ENABLE_QT",
+      "value": "OFF"
+    },
+    {
+      "name": "ENABLE_MAC",
+      "value": "OFF"
+    },
+    {
+      "name": "ENABLE_UTILS",
+      "value": "ON"
+    },
+    {
+      "name": "ENABLE_CLI",
+      "value": "ON"
+    },
+    {
+      "name": "ENABLE_NLS",
+      "value": "ON"
+    },
+    {
+      "name": "ENABLE_TESTS",
+      "value": "ON"
+    },
+    {
+      "name": "ENABLE_UTP",
+      "value": "ON"
+    },
+    {
+      "name": "INSTALL_DOC",
+      "value": "ON"
+    },
+    {
+      "name": "INSTALL_WEB",
+      "value": "ON"
+    },
+    {
+      "name": "WITH_CRYPTO",
+      "value": "openssl"
+    },
+    {
+      "name": "WITH_INOTIFY",
+      "value": "ON"
+    },
+    {
+      "name": "WITH_SYSTEMD",
+      "value": "ON"
+    },
+    {
+      "name": "USE_SYSTEM_MINIUPNPC",
+      "value": "ON"
+    },
+    {
+      "name": "USE_SYSTEM_NATPMP",
+      "value": "ON"
+    },
+    {
+      "name": "USE_SYSTEM_DEFLATE",
+      "value": "ON"
+    },
+    {
+      "name": "USE_SYSTEM_DHT",
+      "value": "OFF"
+    },
+    {
+      "name": "USE_SYSTEM_UTP",
+      "value": "OFF"
+    },
+    {
+      "name": "USE_SYSTEM_B64",
+      "value": "OFF"
+    },
+    {
+      "name": "REBUILD_WEB",
+      "value": "OFF"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/extra/transmission",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=cmake; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": true,
+    "source_date_epoch_supported": true
+  },
+  "source_sha256": "e743283ee03a42c4d0b08fed2bd52b554aa6c9f65b4d4d45b795c32d98762a79",
+  "source_tarball": "transmission-4.1.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/transmission/transmission/releases/download/${version}/transmission-${version}.tar.xz",
+  "tarball_files_count": 7024,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "4.1.1"
+}

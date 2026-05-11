@@ -1,0 +1,46 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "build-system-undetected"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:52Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "unknown",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "font-dejavu",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/font-dejavu",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "fa9ca4d13871dd122f61258a80d01751d603b4d3ee14095d65453b4e846e17d7",
+  "source_tarball": "dejavu-fonts-ttf-2.37.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://sourceforge.net/projects/dejavu/files/dejavu/${version}/dejavu-fonts-ttf-${version}.tar.bz2",
+  "tarball_files_count": 39,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "2.37"
+}

@@ -1,0 +1,172 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:15Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "aspell",
+    "blfs_name": "Aspell",
+    "blfs_version": "0.60.8.2",
+    "deps": [
+      {
+        "anchor": "which",
+        "name": "Which-2.23",
+        "note": "for the\n                dictionaries",
+        "type": "required",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "aspell",
+    "aspell-import",
+    "precat",
+    "preunzip",
+    "prezip",
+    "prezip-bin",
+    "pspell-config",
+    "run-with-aspell",
+    "word-list-compress",
+    "optionally",
+    "ispell",
+    "spell"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libaspell.so",
+    "libpspell.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "aspell",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "which"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/aspell",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "57fe4863eae6048f72245a8575b44b718fb85ca14b9f8c0afc41b254dfd76919",
+  "source_tarball": "aspell-0.60.8.2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://ftpmirror.gnu.org/aspell/aspell-${version}.tar.gz",
+  "tarball_files_count": 654,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-docdir=DIR",
+      "kind": "enable",
+      "name": "docdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pkgdatadir=DIR",
+      "kind": "enable",
+      "name": "pkgdatadir"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-data-dir=DIR",
+      "kind": "enable",
+      "name": "pkgdata-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pkglibdir=DIR",
+      "kind": "enable",
+      "name": "pkglibdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-dict-dir=DIR",
+      "kind": "enable",
+      "name": "dict-dir"
+    },
+    {
+      "help": "  --enable-win32-relocatable",
+      "kind": "enable",
+      "name": "win32-relocatable"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-curses=LIBFILE",
+      "kind": "enable",
+      "name": "curses"
+    },
+    {
+      "help": "  --enable-curses-include=DIR",
+      "kind": "enable",
+      "name": "curses-include"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-wide-curses",
+      "kind": "enable",
+      "name": "wide-curses"
+    },
+    {
+      "help": "  --disable-regex",
+      "kind": "enable",
+      "name": "regex"
+    },
+    {
+      "help": "  --enable-compile-in-filters",
+      "kind": "enable",
+      "name": "compile-in-filters"
+    },
+    {
+      "help": "  --disable-filter-version-control",
+      "kind": "enable",
+      "name": "filter-version-control"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-32-bit-hash-fun",
+      "kind": "enable",
+      "name": "32-bit-hash-fun"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-sloppy-null-term-strings",
+      "kind": "enable",
+      "name": "sloppy-null-term-strings"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-pspell-compatibility",
+      "kind": "enable",
+      "name": "pspell-compatibility"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-incremented-soname",
+      "kind": "enable",
+      "name": "incremented-soname"
+    },
+    {
+      "help": "dnl [  --enable-aspell5-compatibility  install aspell 0.50 compatibility libraries",
+      "kind": "enable",
+      "name": "aspell5-compatibility"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-w-all-error",
+      "kind": "enable",
+      "name": "w-all-error"
+    }
+  ],
+  "version": "0.60.8.2"
+}

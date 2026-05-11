@@ -1,0 +1,85 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:50Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NEWS",
+    "NOTES",
+    "README"
+  ],
+  "expected_binaries": [
+    "fido2-assert",
+    "fido2-cred",
+    "fido2-token"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libfido2.so"
+  ],
+  "expected_pkgconfig": [
+    "libfido2.pc"
+  ],
+  "name": "libfido2",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "openssl",
+    "libcbor",
+    "zlib"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_INSTALL_LIBDIR",
+      "value": "lib"
+    },
+    {
+      "name": "BUILD_MANPAGES",
+      "value": "ON"
+    },
+    {
+      "name": "BUILD_EXAMPLES",
+      "value": "OFF"
+    },
+    {
+      "name": "BUILD_TOOLS",
+      "value": "ON"
+    },
+    {
+      "name": "USE_HIDAPI",
+      "value": "OFF"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libfido2",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "ace062d14a482ff9325410ff63d06c8b5fe87e79ebc18dda07add2bc0188c77f",
+  "source_tarball": "libfido2-1.17.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/Yubico/libfido2/archive/refs/tags/${version}.tar.gz",
+  "tarball_files_count": 243,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.17.0"
+}

@@ -1,0 +1,326 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:22Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "colord",
+    "blfs_name": "Colord",
+    "blfs_version": "1.4.8",
+    "deps": [
+      {
+        "anchor": "colord-gtk",
+        "name": "colord-gtk-0.3.1",
+        "note": "to build the example\n                tools",
+        "type": "optional",
+        "version": "0.3.1"
+      },
+      {
+        "anchor": "dbus",
+        "name": "dbus-1.16.2",
+        "note": "",
+        "type": "required",
+        "version": "1.16.2"
+      },
+      {
+        "anchor": "docbook-xsl-ns",
+        "name": "docbook-xsl-ns-1.79.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.79.2"
+      },
+      {
+        "anchor": "docbook5",
+        "name": "docbook-xml-5.0",
+        "note": "",
+        "type": "optional",
+        "version": "5.0"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "GObject Introspection\n                recommended",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gnome-desktop",
+        "name": "gnome-desktop-44.5",
+        "note": "",
+        "type": "optional",
+        "version": "44.5"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "lcms2",
+        "name": "Little CMS-2.18",
+        "note": "",
+        "type": "required",
+        "version": "2.18"
+      },
+      {
+        "anchor": "libgudev",
+        "name": "libgudev-238",
+        "note": "",
+        "type": "required",
+        "version": "238"
+      },
+      {
+        "anchor": "libgusb",
+        "name": "libgusb-0.4.9",
+        "note": "",
+        "type": "required",
+        "version": "0.4.9"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "to build the man pages",
+        "type": "optional",
+        "version": "1.1.45"
+      },
+      {
+        "anchor": "polkit",
+        "name": "Polkit-127",
+        "note": "",
+        "type": "required",
+        "version": "127"
+      },
+      {
+        "anchor": "sane",
+        "name": "SANE-1.4.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.4.0"
+      },
+      {
+        "anchor": "systemd",
+        "name": "Systemd-259.1",
+        "note": "runtime [downgraded from recommended/runtime by fix-blfs-db-data-errors.py]",
+        "type": "optional",
+        "version": "259.1"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "cd-create-profile",
+    "cd-fix-profile",
+    "cd-iccdump",
+    "cd-it8",
+    "colormgr"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libcolord.so",
+    "libcolordcompat.so",
+    "libcolordprivate.so",
+    "libcolorhug.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "colord",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "lcms2",
+    "libgudev",
+    "libgusb",
+    "polkit",
+    "vala",
+    "systemd",
+    "dbus",
+    "glib2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "docs",
+      "value": "false"
+    },
+    {
+      "name": "man",
+      "value": "false"
+    },
+    {
+      "name": "daemon_user",
+      "value": "colord"
+    },
+    {
+      "name": "vapi",
+      "value": "true"
+    },
+    {
+      "name": "systemd",
+      "value": "true"
+    },
+    {
+      "name": "libcolordcompat",
+      "value": "true"
+    },
+    {
+      "name": "argyllcms_sensor",
+      "value": "false"
+    },
+    {
+      "name": "bash_completion",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/colord",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "21500bd68975312a7f0f3ce6019d9f75f42aacaa75ca7115ec720b5445406896",
+  "source_tarball": "colord-1.4.8.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.freedesktop.org/software/colord/releases/colord-${version}.tar.xz",
+  "tarball_files_count": 523,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "build the daemon",
+      "name": "daemon",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable session example",
+      "name": "session_example",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable bash completion",
+      "name": "bash_completion",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Install udev rules",
+      "name": "udev_rules",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable systemd integration",
+      "name": "systemd",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Directory to base systemd\u2019s installation directories on",
+      "name": "systemd_root_prefix",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Enable libcolordcompat.so which is used by ArgyllCMS",
+      "name": "libcolordcompat",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable ArgllCMS sensor",
+      "name": "argyllcms_sensor",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable SANE support",
+      "name": "sane",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build gobject-introspection typelib files",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build vala bindings",
+      "name": "vapi",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build extra print profiles",
+      "name": "print_profiles",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build self tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Install tests",
+      "name": "installed_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "root",
+      "description": "User for running the colord daemon",
+      "name": "daemon_user",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Location of pnp.ids if hwdb is not available",
+      "name": "pnp_ids",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Generate man pages",
+      "name": "man",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Generate documentation",
+      "name": "docs",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.4.8"
+}

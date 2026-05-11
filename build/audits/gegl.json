@@ -1,0 +1,485 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:06Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gegl",
+    "blfs_name": "gegl",
+    "blfs_version": "0.4.66",
+    "deps": [
+      {
+        "anchor": "asciidoc",
+        "name": "asciidoc-10.2.1",
+        "note": "",
+        "type": "optional",
+        "version": "10.2.1"
+      },
+      {
+        "anchor": "babl",
+        "name": "babl-0.1.122",
+        "note": "",
+        "type": "required",
+        "version": "0.1.122"
+      },
+      {
+        "anchor": "cairo",
+        "name": "Cairo-1.18.4",
+        "note": "",
+        "type": "optional",
+        "version": "1.18.4"
+      },
+      {
+        "anchor": "ffmpeg",
+        "name": "FFmpeg-8.0.1",
+        "note": "currently broken",
+        "type": "optional",
+        "version": "8.0.1"
+      },
+      {
+        "anchor": "gdk-pixbuf",
+        "name": "gdk-pixbuf-2.44.5",
+        "note": "",
+        "type": "optional",
+        "version": "2.44.5"
+      },
+      {
+        "anchor": "gexiv2",
+        "name": "gexiv2-0.14.6",
+        "note": "",
+        "type": "optional",
+        "version": "0.14.6"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "graphviz",
+        "name": "Graphviz-14.1.2",
+        "note": "build with pango and\n                libpng",
+        "type": "recommended",
+        "version": "14.1.2"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "jasper",
+        "name": "jasper-4.2.8",
+        "note": "",
+        "type": "optional",
+        "version": "4.2.8"
+      },
+      {
+        "anchor": "json-glib",
+        "name": "JSON-GLib-1.10.8",
+        "note": "",
+        "type": "required",
+        "version": "1.10.8"
+      },
+      {
+        "anchor": "lcms2",
+        "name": "Little\n                CMS-2.18",
+        "note": "",
+        "type": "optional",
+        "version": "2.18"
+      },
+      {
+        "anchor": "libraw",
+        "name": "libraw-0.22.0",
+        "note": "",
+        "type": "optional",
+        "version": "0.22.0"
+      },
+      {
+        "anchor": "librsvg",
+        "name": "librsvg-2.61.4",
+        "note": "",
+        "type": "optional",
+        "version": "2.61.4"
+      },
+      {
+        "anchor": "libspiro",
+        "name": "libspiro-20220722",
+        "note": "",
+        "type": "optional",
+        "version": "20220722"
+      },
+      {
+        "anchor": "libtiff",
+        "name": "libtiff-4.7.1",
+        "note": "",
+        "type": "optional",
+        "version": "4.7.1"
+      },
+      {
+        "anchor": "libwebp",
+        "name": "libwebp-1.6.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.6.0"
+      },
+      {
+        "anchor": "luajit",
+        "name": "luajit-20260213",
+        "note": "",
+        "type": "optional",
+        "version": "20260213"
+      },
+      {
+        "anchor": "pango",
+        "name": "Pango-1.57.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.57.0"
+      },
+      {
+        "anchor": "poppler",
+        "name": "Poppler-26.02.0",
+        "note": "",
+        "type": "optional",
+        "version": "26.02.0"
+      },
+      {
+        "anchor": "pygments",
+        "name": "Pygments-2.19.2",
+        "note": "",
+        "type": "recommended",
+        "version": "2.19.2"
+      },
+      {
+        "anchor": "pygobject3",
+        "name": "PyGObject-3.54.5",
+        "note": "",
+        "type": "recommended",
+        "version": "3.54.5"
+      },
+      {
+        "anchor": "ruby",
+        "name": "Ruby-4.0.1",
+        "note": "",
+        "type": "optional",
+        "version": "4.0.1"
+      },
+      {
+        "anchor": "sdl2",
+        "name": "sdl2-compat-2.32.64",
+        "note": "",
+        "type": "optional",
+        "version": "2.32.64"
+      },
+      {
+        "anchor": "v4l-utils",
+        "name": "v4l-utils-1.32.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.32.0"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "optional",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "gegl",
+    "gegl-imgcmp"
+  ],
+  "expected_headers": [
+    "/usr/include/gegl-0.4"
+  ],
+  "expected_libs": [
+    "libgegl-0.4.so",
+    "libgegl-npd-0.4.so",
+    "modules in /usr/lib/gegl-0.4"
+  ],
+  "expected_pkgconfig": [
+    "gegl-0.4.pc",
+    "gegl-npd-0.4.pc"
+  ],
+  "name": "gegl",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "babl",
+    "json-glib",
+    "glib2",
+    "graphviz",
+    "pygments",
+    "pygobject3"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gegl",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "92b05855e2190868949d70cea6e9a50b163a6a441242e740a6263975379f993b",
+  "source_tarball": "gegl-0.4.66.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gimp.org/pub/gegl/0.4/gegl-${version}.tar.xz",
+  "tarball_files_count": 1349,
+  "test_command": "ninja test",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "build documentation",
+      "name": "docs",
+      "type": "combo"
+    },
+    {
+      "default": "false",
+      "description": "build gtk-doc reference",
+      "name": "gtk-doc",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "gi-docgen",
+      "type": "feature"
+    },
+    {
+      "default": "false",
+      "description": "build experimental operations",
+      "name": "workshop",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "gobject introspection .gir generation",
+      "name": "introspection",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Vala .vapi generation - depends on introspection",
+      "name": "vapigen",
+      "type": "feature"
+    },
+    {
+      "default": "native",
+      "description": "Build with native/CodeView debug symbols or with DWARF",
+      "name": "win-debugging",
+      "type": "combo"
+    },
+    {
+      "default": "true",
+      "description": "run tests in parallel or sequentially",
+      "name": "parallel-tests",
+      "type": "boolean"
+    },
+    {
+      "default": "false",
+      "description": "include gegl-tester in test suite",
+      "name": "operation-test",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "relocatable",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "gdk-pixbuf",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "gexiv2",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "graphviz",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "jasper",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "lcms",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "lensfun",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "libav",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "libraw",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "librsvg",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "libspiro",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "libtiff",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "libv4l",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "libv4l2",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "lua",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "mrg",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "maxflow",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "openexr",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "openmp",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "cairo",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "pango",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "pangocairo",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "poppler",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "pygobject",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "",
+      "name": "sdl1",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "sdl2",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "umfpack",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "webp",
+      "type": "feature"
+    }
+  ],
+  "version": "0.4.66"
+}

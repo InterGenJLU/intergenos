@@ -1,0 +1,269 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:49Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "mitkrb",
+    "blfs_name": "MIT Kerberos V5",
+    "blfs_version": "1.22.2",
+    "deps": [
+      {
+        "anchor": "bind-utils",
+        "name": "BIND Utilities-9.20.19",
+        "note": "",
+        "type": "optional",
+        "version": "9.20.19"
+      },
+      {
+        "anchor": "cracklib",
+        "name": "CrackLib-2.10.3",
+        "note": "",
+        "type": "optional",
+        "version": "2.10.3"
+      },
+      {
+        "anchor": "keyutils",
+        "name": "keyutils-1.6.3",
+        "note": "",
+        "type": "optional",
+        "version": "1.6.3"
+      },
+      {
+        "anchor": "openldap",
+        "name": "OpenLDAP-2.6.12",
+        "note": "",
+        "type": "optional",
+        "version": "2.6.12"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "used during the test\n                suite",
+        "type": "optional",
+        "version": "3.26.0"
+      },
+      {
+        "anchor": "yasm",
+        "name": "yasm-1.3.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.3.0"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "mitkrb-1.22.2-upstream_fix-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/mitkrb-1.22.2-upstream_fix-1.patch"
+      }
+    ]
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "gss-client",
+    "gss-server",
+    "k5srvutil",
+    "kadmin",
+    "kadmin.local",
+    "kadmind",
+    "kdb5_ldap_util (optional)",
+    "kdb5_util",
+    "kdestroy",
+    "kinit",
+    "klist",
+    "kpasswd",
+    "kprop",
+    "kpropd",
+    "kproplog",
+    "krb5-config",
+    "krb5-send-pr",
+    "krb5kdc",
+    "ksu",
+    "kswitch",
+    "ktutil",
+    "kvno",
+    "sclient",
+    "sim_client",
+    "sim_server",
+    "sserver",
+    "uuclient",
+    "uuserver"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libgssapi_krb5.so",
+    "libgssrpc.so",
+    "libk5crypto.so",
+    "libkadm5clnt_mit.so",
+    "libkadm5clnt.so",
+    "libkadm5srv_mit.so",
+    "libkadm5srv.so",
+    "libkdb_ldap.so (optional)",
+    "libkdb5.so",
+    "libkrad.so",
+    "libkrb5.so",
+    "libkrb5support.so",
+    "libverto.so",
+    "some plugins under the /usr/lib/krb5 tree"
+  ],
+  "expected_pkgconfig": [],
+  "name": "mitkrb",
+  "our_autotools_flags": [
+    "--disable-rpath",
+    "--enable-dns-for-realm",
+    "--localstatedir=/var/lib",
+    "--prefix=/usr",
+    "--runstatedir=/run",
+    "--sysconfdir=/etc",
+    "--with-cracklib",
+    "--with-ldap",
+    "--with-system-et",
+    "--with-system-ss",
+    "--with-system-verto=no"
+  ],
+  "our_deps_build": [
+    "keyutils",
+    "e2fsprogs",
+    "cracklib",
+    "openldap"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "mitkrb-1.22.2-upstream_fix-1.patch",
+      "sha256": "91bed46e7c59b4bc27df659c13abd4514e456293717720e8545d7f8acad00a97"
+    }
+  ],
+  "package_dir": "packages/core/mitkrb",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 0,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "3243ffbc8ea4d4ac22ddc7dd2a1dc54c57874c40648b60ff97009763554eaf13",
+  "source_tarball": "krb5-1.22.2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://kerberos.org/dist/krb5/1.22/krb5-${version}.tar.gz",
+  "tarball_files_count": 4865,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "  --enable-athena         build with MIT Project Athena configuration",
+      "kind": "enable",
+      "name": "athena"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-nls",
+      "kind": "enable",
+      "name": "nls"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-audit-plugin=IMPL",
+      "kind": "enable",
+      "name": "audit-plugin"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-aesni",
+      "kind": "enable",
+      "name": "aesni"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-kdc-lookaside-cache",
+      "kind": "enable",
+      "name": "kdc-lookaside-cache"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-asan",
+      "kind": "enable",
+      "name": "asan"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-ossfuzz",
+      "kind": "enable",
+      "name": "ossfuzz"
+    },
+    {
+      "help": "  --enable-athena         build with MIT Project Athena configuration",
+      "kind": "enable",
+      "name": "athena"
+    },
+    {
+      "help": "  --enable-athena         build with MIT Project Athena configuration",
+      "kind": "enable",
+      "name": "athena"
+    },
+    {
+      "help": "  --disable-pkinit        disable PKINIT plugin support",
+      "kind": "enable",
+      "name": "pkinit"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-vague-errors",
+      "kind": "with",
+      "name": "vague-errors"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-crypto-impl=IMPL",
+      "kind": "with",
+      "name": "crypto-impl"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-tls-impl=IMPL",
+      "kind": "with",
+      "name": "tls-impl"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-keyutils",
+      "kind": "with",
+      "name": "keyutils"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-spake-openssl",
+      "kind": "with",
+      "name": "spake-openssl"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-lmdb",
+      "kind": "with",
+      "name": "lmdb"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-libedit",
+      "kind": "with",
+      "name": "libedit"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-readline",
+      "kind": "with",
+      "name": "readline"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-system-verto",
+      "kind": "with",
+      "name": "system-verto"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-krb5-config=PATH",
+      "kind": "with",
+      "name": "krb5-config"
+    }
+  ],
+  "version": "1.22.2"
+}

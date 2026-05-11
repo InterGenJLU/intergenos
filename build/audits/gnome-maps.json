@@ -1,0 +1,141 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:19Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-maps",
+    "blfs_name": "gnome-maps",
+    "blfs_version": "49.4",
+    "deps": [
+      {
+        "anchor": "desktop-file-utils",
+        "name": "desktop-file-utils-0.28",
+        "note": "",
+        "type": "required",
+        "version": "0.28"
+      },
+      {
+        "anchor": "geoclue2",
+        "name": "GeoClue-2.8.0",
+        "note": "",
+        "type": "required",
+        "version": "2.8.0"
+      },
+      {
+        "anchor": "geocode-glib",
+        "name": "geocode-glib-3.26.4",
+        "note": "",
+        "type": "required",
+        "version": "3.26.4"
+      },
+      {
+        "anchor": "gjs",
+        "name": "Gjs-1.86.0",
+        "note": "",
+        "type": "required",
+        "version": "1.86.0"
+      },
+      {
+        "anchor": "libadwaita1",
+        "name": "libadwaita-1.8.4",
+        "note": "",
+        "type": "required",
+        "version": "1.8.4"
+      },
+      {
+        "anchor": "libgweather",
+        "name": "libgweather-4.4.4",
+        "note": "",
+        "type": "required",
+        "version": "4.4.4"
+      },
+      {
+        "anchor": "libportal",
+        "name": "libportal-0.9.1",
+        "note": "",
+        "type": "required",
+        "version": "0.9.1"
+      },
+      {
+        "anchor": "librest",
+        "name": "librest-0.10.2",
+        "note": "",
+        "type": "required",
+        "version": "0.10.2"
+      },
+      {
+        "anchor": "libshumate",
+        "name": "libshumate-1.5.3",
+        "note": "",
+        "type": "required",
+        "version": "1.5.3"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "BUILDING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "gnome-maps (symlink)"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libgnome-maps.so"
+  ],
+  "expected_pkgconfig": [
+    "gnome-maps.pc"
+  ],
+  "name": "gnome-maps",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "geoclue2",
+    "gjs",
+    "desktop-file-utils",
+    "geocode-glib",
+    "libadwaita1",
+    "libgweather",
+    "libportal",
+    "librest",
+    "libshumate"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-maps",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "86faaf58d40d6ae0f2f5f37c9c0dd312c3ee2aa4e5125b1f4a31efe4a9f804b0",
+  "source_tarball": "gnome-maps-49.4.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-maps/49/gnome-maps-${version}.tar.xz",
+  "tarball_files_count": 769,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "default",
+      "description": "",
+      "name": "profile",
+      "type": "combo"
+    }
+  ],
+  "version": "49.4"
+}

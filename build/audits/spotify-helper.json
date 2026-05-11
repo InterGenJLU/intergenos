@@ -1,0 +1,43 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "no source tarball declared or downloaded",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:43Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "unknown",
+  "bundled_libs": [],
+  "docs_seen": [],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "spotify-helper",
+  "our_autotools_flags": [
+    "--show-progress"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/spotify-helper",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=unknown; verify against real build",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_intentionally_sourceless": true,
+  "source_sha256": null,
+  "source_tarball": null,
+  "source_tarball_exists": false,
+  "source_url": null,
+  "tarball_files_count": 0,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "1.0"
+}

@@ -1,0 +1,111 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:19Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "shared-mime-info",
+    "blfs_name": "shared-mime-info",
+    "blfs_version": "2.4",
+    "deps": [
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "required",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "xmlto",
+        "name": "xmlto-0.0.29",
+        "note": "",
+        "type": "optional",
+        "version": "0.0.29"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "HACKING",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "shared-mime-info",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "glib2",
+    "libxml2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/shared-mime-info",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "531291d0387eb94e16e775d7e73788d06d2b2fdd8cd2ac6b6b15287593b6a2de",
+  "source_tarball": "shared-mime-info-2.4.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.freedesktop.org/xdg/shared-mime-info/-/archive/${version}/shared-mime-info-${version}.tar.gz",
+  "tarball_files_count": 795,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Call update-mime-database after install. It should not be enabled if DESTDIR is used.",
+      "name": "update-mimedb",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build the update-mime-database tools. If set to false only the mime data is installed.",
+      "name": "build-tools",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build the translations.",
+      "name": "build-translations",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build the test suite.  If not set then there will be no \\",
+      "name": "build-tests",
+      "type": "boolean"
+    },
+    {
+      "default": "./xdgmime",
+      "description": "Path to the xdgmime executable",
+      "name": "xdgmime-path",
+      "type": "string"
+    }
+  ],
+  "version": "2.4"
+}

@@ -1,0 +1,69 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:04Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "/usr/bin/rdfind"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "rdfind",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "nettle"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/base/rdfind",
+  "reproducibility": {
+    "_notes": "filled by agent-c03 from build.sh inspection + BLFS HTML",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "0a2d0d32002cc2dc0134ee7b649bcc811ecfb2f8d9f672aa476a851152e7af35",
+  "source_tarball": "rdfind-1.8.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/pauldreik/rdfind/releases/download/releases/${version}/rdfind-${version}.tar.gz",
+  "tarball_files_count": 65,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "base",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING(\n            [--enable-debug",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING(\n            [--enable-warnings",
+      "kind": "enable",
+      "name": "warnings"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-xxhash",
+      "kind": "with",
+      "name": "xxhash"
+    }
+  ],
+  "version": "1.8.0"
+}

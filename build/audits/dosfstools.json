@@ -1,0 +1,77 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:26Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "dosfstools",
+    "blfs_name": "dosfstools",
+    "blfs_version": "4.2",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "fatlabel",
+    "fsck.fat",
+    "mkfs.fat"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "dosfstools",
+  "our_autotools_flags": [
+    "--docdir=/usr/share/doc/dosfstools-${version}",
+    "--enable-compat-symlinks",
+    "--mandir=/usr/share/man",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/dosfstools",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "64926eebf90092dca21b14259a5301b7b98e7b1943e8a201c7d726084809b527",
+  "source_tarball": "dosfstools-4.2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/dosfstools/dosfstools/releases/download/v${version}/dosfstools-${version}.tar.gz",
+  "tarball_files_count": 157,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-compat-symlinks",
+      "kind": "enable",
+      "name": "compat-symlinks"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-atari-check",
+      "kind": "enable",
+      "name": "atari-check"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-iconv",
+      "kind": "with",
+      "name": "iconv"
+    }
+  ],
+  "version": "4.2"
+}

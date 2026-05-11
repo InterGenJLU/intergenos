@@ -1,0 +1,343 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:38Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "ibus",
+    "blfs_name": "ibus",
+    "blfs_version": "1.5.33",
+    "deps": [
+      {
+        "anchor": "dconf",
+        "name": "DConf-0.49.0",
+        "note": "",
+        "type": "recommended",
+        "version": "49.0"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gnome-desktop",
+        "name": "gnome-desktop-44.5",
+        "note": "for one test",
+        "type": "optional",
+        "version": "44.5"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "for generating API\n                documentation",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "recommended",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "",
+        "type": "recommended",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "iso-codes",
+        "name": "ISO Codes-4.20.1",
+        "note": "",
+        "type": "required",
+        "version": "4.20.1"
+      },
+      {
+        "anchor": "libarchive",
+        "name": "libarchive-3.8.5",
+        "note": "for extracting the\n                Unicode Character Database",
+        "type": "required",
+        "version": "3.8.5"
+      },
+      {
+        "anchor": "libnotify",
+        "name": "libnotify-0.8.8",
+        "note": "",
+        "type": "recommended",
+        "version": "0.8.8"
+      },
+      {
+        "anchor": "libxkbcommon",
+        "name": "libxkbcommon-1.13.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.13.1"
+      },
+      {
+        "anchor": "pygobject3",
+        "name": "PyGObject-3.54.5",
+        "note": "",
+        "type": "optional",
+        "version": "3.54.5"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "required",
+        "version": "0.56.18"
+      },
+      {
+        "anchor": "wayland",
+        "name": "Wayland-1.24.0",
+        "note": "to build the Wayland\n                support programs",
+        "type": "optional",
+        "version": "1.24.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "README"
+  ],
+  "expected_binaries": [
+    "ibus",
+    "ibus-daemon",
+    "ibus-setup"
+  ],
+  "expected_headers": [
+    "/etc/dconf/db/ibus.d",
+    "/usr/include/ibus-1.0",
+    "/usr/share/gtk-doc/html/ibus",
+    "/usr/share/ibus"
+  ],
+  "expected_libs": [
+    "libibus-1.0.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "ibus",
+  "our_autotools_flags": [
+    "--disable-appindicator",
+    "--disable-emoji-dict",
+    "--disable-gtk2",
+    "--disable-python2",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "dconf",
+    "gtk3",
+    "gtk4",
+    "iso-codes",
+    "libarchive",
+    "vala",
+    "glib2",
+    "gnome-desktop",
+    "libnotify",
+    "libxkbcommon",
+    "pygobject3",
+    "wayland"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/ibus",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "a777068caba4ba7599a3214e2966f564daec01bba94cd7f2ca63062107e0604f",
+  "source_tarball": "ibus-1.5.33.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/ibus/ibus/archive/${version}/ibus-${version}.tar.gz",
+  "tarball_files_count": 614,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-product-build",
+      "kind": "enable",
+      "name": "product-build"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tests",
+      "kind": "enable",
+      "name": "tests"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-gtk2",
+      "kind": "enable",
+      "name": "gtk2"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-gtk3",
+      "kind": "enable",
+      "name": "gtk3"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-gtk4",
+      "kind": "enable",
+      "name": "gtk4"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-xim",
+      "kind": "enable",
+      "name": "xim"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-wayland",
+      "kind": "enable",
+      "name": "wayland"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-appindicator",
+      "kind": "enable",
+      "name": "appindicator"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-memconf",
+      "kind": "enable",
+      "name": "memconf"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-dconf",
+      "kind": "enable",
+      "name": "dconf"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-systemd-services",
+      "kind": "enable",
+      "name": "systemd-services"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-python2",
+      "kind": "enable",
+      "name": "python2"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-python-library",
+      "kind": "enable",
+      "name": "python-library"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-setup",
+      "kind": "enable",
+      "name": "setup"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-dbus-python-check",
+      "kind": "enable",
+      "name": "dbus-python-check"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-key-snooper",
+      "kind": "enable",
+      "name": "key-snooper"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-surrounding-text",
+      "kind": "enable",
+      "name": "surrounding-text"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ui",
+      "kind": "enable",
+      "name": "ui"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-engine",
+      "kind": "enable",
+      "name": "engine"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-libnotify",
+      "kind": "enable",
+      "name": "libnotify"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-install-tests",
+      "kind": "enable",
+      "name": "install-tests"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-emoji-dict",
+      "kind": "enable",
+      "name": "emoji-dict"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-unicode-dict",
+      "kind": "enable",
+      "name": "unicode-dict"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-python[=PATH",
+      "kind": "with",
+      "name": "python"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-python-overrides-dir[=DIR",
+      "kind": "with",
+      "name": "python-overrides-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-gtk2-im-module-dir[=DIR",
+      "kind": "with",
+      "name": "gtk2-im-module-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-gtk3-im-module-dir[=DIR",
+      "kind": "with",
+      "name": "gtk3-im-module-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-gtk4-im-module-dir[=DIR",
+      "kind": "with",
+      "name": "gtk4-im-module-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-no-snooper-apps[=regex1,regex2",
+      "kind": "with",
+      "name": "no-snooper-apps"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-panel-icon-keyboard[=icon_name",
+      "kind": "with",
+      "name": "panel-icon-keyboard"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-unicode-emoji-dir[=DIR",
+      "kind": "with",
+      "name": "unicode-emoji-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-emoji-annotation-dir[=DIR",
+      "kind": "with",
+      "name": "emoji-annotation-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-ucd-dir[=DIR",
+      "kind": "with",
+      "name": "ucd-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-socket-dir[=DIR",
+      "kind": "with",
+      "name": "socket-dir"
+    }
+  ],
+  "version": "1.5.33"
+}

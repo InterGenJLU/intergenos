@@ -1,0 +1,304 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:10Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "tss2/tss2_esys.h",
+    "tss2/tss2_fapi.h",
+    "tss2/tss2_mu.h",
+    "tss2/tss2_sys.h",
+    "tss2/tss2_tpm2_types.h"
+  ],
+  "expected_libs": [
+    "libtss2-esys.so",
+    "libtss2-fapi.so",
+    "libtss2-mu.so",
+    "libtss2-rc.so",
+    "libtss2-sys.so",
+    "libtss2-tcti-cmd.so",
+    "libtss2-tcti-device.so",
+    "libtss2-tcti-mssim.so",
+    "libtss2-tcti-swtpm.so",
+    "libtss2-tctildr.so"
+  ],
+  "expected_pkgconfig": [
+    "tss2-esys.pc",
+    "tss2-fapi.pc",
+    "tss2-mu.pc",
+    "tss2-sys.pc",
+    "tss2-tcti-device.pc",
+    "tss2-tcti-mssim.pc",
+    "tss2-tctildr.pc"
+  ],
+  "name": "tpm2-tss",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--enable-fapi",
+    "--enable-policy",
+    "--prefix=/usr",
+    "--with-sysusersdir=/usr/lib/sysusers.d",
+    "--with-tmpfilesdir=/usr/lib/tmpfiles.d",
+    "--with-udevrulesdir=/usr/lib/udev/rules.d"
+  ],
+  "our_deps_build": [
+    "openssl",
+    "curl",
+    "json-c"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/tpm2-tss",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "37f1580200ab78305d1fc872d89241aaee0c93cbe85bc559bf332737a60d3be8",
+  "source_tarball": "tpm2-tss-4.1.3.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/tpm2-software/tpm2-tss/releases/download/${version}/tpm2-tss-${version}.tar.gz",
+  "tarball_files_count": 965,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-unit",
+      "kind": "enable",
+      "name": "unit"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-esys",
+      "kind": "enable",
+      "name": "esys"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-fapi",
+      "kind": "enable",
+      "name": "fapi"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-fapi-async-tests",
+      "kind": "enable",
+      "name": "fapi-async-tests"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-policy",
+      "kind": "enable",
+      "name": "policy"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-vendor",
+      "kind": "enable",
+      "name": "vendor"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-util-io",
+      "kind": "enable",
+      "name": "util-io"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tcti-device",
+      "kind": "enable",
+      "name": "tcti-device"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tcti-mssim",
+      "kind": "enable",
+      "name": "tcti-mssim"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tcti-swtpm",
+      "kind": "enable",
+      "name": "tcti-swtpm"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tcti-pcap",
+      "kind": "enable",
+      "name": "tcti-pcap"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tcti-libtpms",
+      "kind": "enable",
+      "name": "tcti-libtpms"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tcti-cmd",
+      "kind": "enable",
+      "name": "tcti-cmd"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tcti-spi-helper",
+      "kind": "enable",
+      "name": "tcti-spi-helper"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tcti-spi-ltt2go",
+      "kind": "enable",
+      "name": "tcti-spi-ltt2go"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tcti-spidev",
+      "kind": "enable",
+      "name": "tcti-spidev"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tcti-spi-ftdi",
+      "kind": "enable",
+      "name": "tcti-spi-ftdi"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tcti-i2c-helper",
+      "kind": "enable",
+      "name": "tcti-i2c-helper"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tcti-i2c-ftdi",
+      "kind": "enable",
+      "name": "tcti-i2c-ftdi"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-tcti-fuzzing",
+      "kind": "enable",
+      "name": "tcti-fuzzing"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-nodl",
+      "kind": "enable",
+      "name": "nodl"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-integration",
+      "kind": "enable",
+      "name": "integration"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-log-file",
+      "kind": "enable",
+      "name": "log-file"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-defaultflags",
+      "kind": "enable",
+      "name": "defaultflags"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-weakcrypto",
+      "kind": "enable",
+      "name": "weakcrypto"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-self-generated-certificate",
+      "kind": "enable",
+      "name": "self-generated-certificate"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-imameasurements=<file>",
+      "kind": "with",
+      "name": "imameasurements"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-sysmeasurements=<file>",
+      "kind": "with",
+      "name": "sysmeasurements"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-runstatedir=<dir>",
+      "kind": "with",
+      "name": "runstatedir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-userstatedir=<dir>",
+      "kind": "with",
+      "name": "userstatedir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-sysusersdir=<dir>",
+      "kind": "with",
+      "name": "sysusersdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-tmpfilesdir=<dir>",
+      "kind": "with",
+      "name": "tmpfilesdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-crypto={ossl,mbed,none}",
+      "kind": "with",
+      "name": "crypto"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-tctidefaultmodule",
+      "kind": "with",
+      "name": "tctidefaultmodule"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-tctidefaultconfig",
+      "kind": "with",
+      "name": "tctidefaultconfig"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-udevrulesdir=DIR",
+      "kind": "with",
+      "name": "udevrulesdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-udevrulesprefix=XY",
+      "kind": "with",
+      "name": "udevrulesprefix"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-device=<device>",
+      "kind": "with",
+      "name": "device"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-devicetests=<case>",
+      "kind": "with",
+      "name": "devicetests"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-integrationtcti=<tcti>",
+      "kind": "with",
+      "name": "integrationtcti"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-sanitizer={none,address,undefined}",
+      "kind": "with",
+      "name": "sanitizer"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-fuzzing={none,libfuzzer,ossfuzz}",
+      "kind": "with",
+      "name": "fuzzing"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-maxloglevel={none,error,warning,info,debug,trace}",
+      "kind": "with",
+      "name": "maxloglevel"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-test-fapi-profile=PROFILE",
+      "kind": "with",
+      "name": "default-test-fapi-profile"
+    }
+  ],
+  "version": "4.1.3"
+}

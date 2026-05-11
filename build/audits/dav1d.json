@@ -1,0 +1,159 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:24Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "dav1d",
+    "blfs_name": "dav1d",
+    "blfs_version": "1.5.3",
+    "deps": [
+      {
+        "anchor": "nasm",
+        "name": "NASM-3.01",
+        "note": "",
+        "type": "recommended",
+        "version": "3.01"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "dav1d"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libdav1d.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "dav1d",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "nasm"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/dav1d",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "e099f53253f6c247580c554d53a13f1040638f2066edc3c740e4c2f15174ce22",
+  "source_tarball": "dav1d-1.5.3.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://code.videolan.org/videolan/dav1d/-/archive/${version}/dav1d-${version}.tar.bz2",
+  "tarball_files_count": 394,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Enable only specified bitdepths",
+      "name": "bitdepths",
+      "type": "array"
+    },
+    {
+      "default": "",
+      "description": "Build asm files, if available",
+      "name": "enable_asm",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build dav1d cli tools",
+      "name": "enable_tools",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build dav1d examples",
+      "name": "enable_examples",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build dav1d tests",
+      "name": "enable_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build seek_stress test tool",
+      "name": "enable_seek_stress",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build dav1d documentation",
+      "name": "enable_docs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Print error log messages using the provided callback function",
+      "name": "logging",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Run tests requiring the test data repository",
+      "name": "testdata_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "none",
+      "description": "Select the fuzzing engine",
+      "name": "fuzzing_engine",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Extra LDFLAGS used during linking of fuzzing binaries",
+      "name": "fuzzer_ldflags",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "stack_alignment",
+      "type": "integer"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "xxhash_muxer",
+      "type": "feature"
+    },
+    {
+      "default": "if-release",
+      "description": "Eliminate redundant DSP functions where possible",
+      "name": "trim_dsp",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Use the private macOS kperf API for benchmarking",
+      "name": "macos_kperf",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.5.3"
+}

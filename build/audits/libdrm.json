@@ -1,0 +1,253 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:49Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libdrm",
+    "blfs_name": "Libdrm",
+    "blfs_version": "2.4.131",
+    "deps": [
+      {
+        "anchor": "DocBook",
+        "name": "docbook-xml-4.5",
+        "note": "",
+        "type": "optional",
+        "version": "4.5"
+      },
+      {
+        "anchor": "cairo",
+        "name": "Cairo-1.18.4",
+        "note": "for tests",
+        "type": "optional",
+        "version": "1.18.4"
+      },
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "could be\n                used to find dependencies without pkgconfig files",
+        "type": "optional",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "docbook-xsl",
+        "name": "docbook-xsl-nons-1.79.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.79.2"
+      },
+      {
+        "anchor": "docutils",
+        "name": "docutils-0.22.4",
+        "note": "",
+        "type": "optional",
+        "version": "0.22.4"
+      },
+      {
+        "anchor": "libatomic_ops",
+        "name": "libatomic_ops-7.10.0",
+        "note": "required by architectures without native atomic operations",
+        "type": "optional",
+        "version": "7.10.0"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "to\n                build manual pages",
+        "type": "optional",
+        "version": "1.1.45"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      },
+      {
+        "anchor": "xorg7-lib",
+        "name": "Xorg\n                Libraries",
+        "note": "for Intel KMS API support required by Mesa",
+        "type": "recommended",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libdrm.so",
+    "libdrm_amdgpu.so",
+    "libdrm_intel.so",
+    "libdrm_nouveau.so",
+    "libdrm_radeon.so"
+  ],
+  "expected_pkgconfig": [
+    "libdrm.pc",
+    "libdrm_amdgpu.pc",
+    "libdrm_intel.pc",
+    "libdrm_nouveau.pc",
+    "libdrm_radeon.pc"
+  ],
+  "name": "libdrm",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libpciaccess",
+    "cmake",
+    "docbook-xml",
+    "docbook-xsl-nons",
+    "docutils",
+    "libxslt"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "udev",
+      "value": "true"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libdrm",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "45ba9983b51c896406a3d654de81d313b953b76e6391e2797073d543c5f617d5",
+  "source_tarball": "libdrm-2.4.131.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://dri.freedesktop.org/libdrm/libdrm-${version}.tar.xz",
+  "tarball_files_count": 354,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "intel",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "radeon",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "amdgpu",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "nouveau",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "vmwgfx",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "",
+      "name": "omap",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "",
+      "name": "exynos",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "freedreno",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "",
+      "name": "tegra",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "vc4",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "etnaviv",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Enable support for Cairo rendering in tests.",
+      "name": "cairo-tests",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Enable manpage generation and installation.",
+      "name": "man-pages",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build libdrm with valgrind support.",
+      "name": "valgrind",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Enable support for freedreno to use downstream android kernel API.",
+      "name": "freedreno-kgsl",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Install test programs.",
+      "name": "install-test-programs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable support for using udev instead of mknod.",
+      "name": "udev",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build test programs.",
+      "name": "tests",
+      "type": "boolean"
+    }
+  ],
+  "version": "2.4.131"
+}

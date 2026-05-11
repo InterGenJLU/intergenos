@@ -1,0 +1,55 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:03Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "NOTES",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "portaudio",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr",
+    "--with-alsa",
+    "--without-jack",
+    "--without-oss"
+  ],
+  "our_deps_build": [
+    "alsa-lib"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/portaudio",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=cmake; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": true,
+    "source_date_epoch_supported": true
+  },
+  "source_sha256": "47efbf42c77c19a05d22e627d42873e991ec0c1357219c0d74ce6a2948cb2def",
+  "source_tarball": "pa_stable_v190700_20210406.tgz",
+  "source_tarball_exists": true,
+  "source_url": "https://files.portaudio.com/archives/pa_stable_v190700_20210406.tgz",
+  "tarball_files_count": 422,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "19.7.0"
+}

@@ -1,0 +1,147 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:10Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "totem-pl-parser",
+    "blfs_name": "totem-pl-parser",
+    "blfs_version": "3.26.6",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "optional",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "gvfs",
+        "name": "Gvfs-1.58.2",
+        "note": "for some tests",
+        "type": "optional",
+        "version": "1.58.2"
+      },
+      {
+        "anchor": "libarchive",
+        "name": "libarchive-3.8.5",
+        "note": "",
+        "type": "recommended",
+        "version": "3.8.5"
+      },
+      {
+        "anchor": "libgcrypt",
+        "name": "libgcrypt-1.12.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.12.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "None"
+  ],
+  "expected_headers": [
+    "/usr/include/totem-pl-parser"
+  ],
+  "expected_libs": [
+    "libtotem-plparser-mini.so",
+    "libtotem-plparser.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "totem-pl-parser",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libarchive",
+    "libgcrypt",
+    "libxml2",
+    "cmake",
+    "glib2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "enable-gtk-doc",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/totem-pl-parser",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "c0df0f68d5cf9d7da43c81c7f13f11158358368f98c22d47722f3bd04bd3ac1c",
+  "source_tarball": "totem-pl-parser-3.26.6.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/totem-pl-parser/3.26/totem-pl-parser-${version}.tar.xz",
+  "tarball_files_count": 236,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "Enable libarchive support.",
+      "name": "enable-libarchive",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable libgcrypt support.",
+      "name": "enable-libgcrypt",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable uchardet support.",
+      "name": "enable-uchardet",
+      "type": "combo"
+    },
+    {
+      "default": "false",
+      "description": "",
+      "name": "enable-gtk-doc",
+      "type": "boolean"
+    },
+    {
+      "default": "true",
+      "description": "Generate GObject Introspection bindings",
+      "name": "introspection",
+      "type": "boolean"
+    }
+  ],
+  "version": "3.26.6"
+}

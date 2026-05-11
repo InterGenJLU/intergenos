@@ -1,0 +1,79 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:56Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "libplist",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libplist",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "7ac42301e896b1ebe3c654634780c82baa7cb70df8554e683ff89f7c2643eb8b",
+  "source_tarball": "libplist-2.7.0.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/libimobiledevice/libplist/releases/download/${version}/libplist-${version}.tar.bz2",
+  "tarball_files_count": 225,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-debug",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-cython",
+      "kind": "with",
+      "name": "cython"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-tools",
+      "kind": "with",
+      "name": "tools"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-sanitizers",
+      "kind": "with",
+      "name": "sanitizers"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-fuzzers",
+      "kind": "with",
+      "name": "fuzzers"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-tests",
+      "kind": "with",
+      "name": "tests"
+    }
+  ],
+  "version": "2.7.0"
+}

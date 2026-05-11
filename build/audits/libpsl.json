@@ -1,0 +1,151 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:56Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libpsl",
+    "blfs_name": "libpsl",
+    "blfs_version": "0.21.5",
+    "deps": [
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "for documentation",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "icu",
+        "name": "ICU-78.2",
+        "note": "may be used instead of libidn2",
+        "type": "optional",
+        "version": "78.2"
+      },
+      {
+        "anchor": "libidn",
+        "name": "libidn-1.43",
+        "note": "may be used\n                instead of libidn2",
+        "type": "optional",
+        "version": "1.43"
+      },
+      {
+        "anchor": "libidn2",
+        "name": "libidn2-2.3.8",
+        "note": "",
+        "type": "recommended",
+        "version": "2.3.8"
+      },
+      {
+        "anchor": "libunistring",
+        "name": "libunistring-1.4.1",
+        "note": "",
+        "type": "recommended",
+        "version": "1.4.1"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "for tests",
+        "type": "optional",
+        "version": "3.26.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "psl"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libpsl.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libpsl",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libidn2",
+    "libunistring",
+    "meson",
+    "ninja"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/libpsl",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "1dcc9ceae8b128f3c0b3f654decd0e1e891afc6ff81098f227ef260449dae208",
+  "source_tarball": "libpsl-0.21.5.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/rockdaboot/libpsl/releases/download/${version}/libpsl-${version}.tar.gz",
+  "tarball_files_count": 2385,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "Specify the IDNA library used for libpsl run-time conversions",
+      "name": "runtime",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Specify whether libpsl will include built-in PSL data",
+      "name": "builtin",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "path to distribution-wide PSL file",
+      "name": "psl_distfile",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to PSL file",
+      "name": "psl_file",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to PSL test file",
+      "name": "psl_testfile",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "docs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build the tests and fuzzers",
+      "name": "tests",
+      "type": "boolean"
+    }
+  ],
+  "version": "0.21.5"
+}

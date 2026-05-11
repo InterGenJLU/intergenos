@@ -1,0 +1,111 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:13Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "vulkan-loader",
+    "blfs_name": "Vulkan-Loader",
+    "blfs_version": "1.4.341.0",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "git",
+        "name": "git-2.53.0",
+        "note": "",
+        "type": "optional",
+        "version": "2.53.0"
+      },
+      {
+        "anchor": "vulkan-headers",
+        "name": "Vulkan-Headers-1.4.341.0",
+        "note": "",
+        "type": "required",
+        "version": "1.4.341.0"
+      },
+      {
+        "anchor": "wayland",
+        "name": "Wayland-1.24.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.24.0"
+      },
+      {
+        "anchor": "xorg7-lib",
+        "name": "Xorg\n                Libraries",
+        "note": "",
+        "type": "required",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libvulkan.so"
+  ],
+  "expected_pkgconfig": [
+    "vulkan.pc"
+  ],
+  "name": "vulkan-loader",
+  "our_autotools_flags": [
+    "--depth=1',"
+  ],
+  "our_deps_build": [
+    "vulkan-headers",
+    "libX11",
+    "libXrandr",
+    "wayland",
+    "cmake",
+    "git"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/vulkan-loader",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "fe982697c780a950641bfcf94707135c26c501352242d285fa95d087d691292e",
+  "source_tarball": "vulkan-loader-1.4.341.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/KhronosGroup/Vulkan-Loader/archive/vulkan-sdk-${version}/vulkan-loader-${version}.tar.gz",
+  "tarball_files_count": 319,
+  "test_command": "ctest --output-on-failure",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.4.341.0"
+}

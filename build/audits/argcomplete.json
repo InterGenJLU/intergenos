@@ -1,0 +1,50 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:15Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "python",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "argcomplete",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "hatchling"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/argcomplete",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "62e8ed4fd6a45864acc8235409461b72c9a28ee785a2011cc5eb78318786c89c",
+  "source_tarball": "argcomplete-3.6.3.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://files.pythonhosted.org/packages/source/a/argcomplete/argcomplete-${version}.tar.gz",
+  "tarball_files_count": 51,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "3.6.3"
+}

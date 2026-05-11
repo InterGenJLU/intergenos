@@ -1,0 +1,135 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:20Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-system-monitor",
+    "blfs_name": "gnome-system-monitor",
+    "blfs_version": "49.1",
+    "deps": [
+      {
+        "anchor": "adwaita-icon-theme",
+        "name": "adwaita-icon-theme-49.0",
+        "note": "",
+        "type": "required",
+        "version": "49.0"
+      },
+      {
+        "anchor": "appstream-glib",
+        "name": "appstream-glib-0.8.3",
+        "note": "",
+        "type": "optional",
+        "version": "0.8.3"
+      },
+      {
+        "anchor": "desktop-file-utils",
+        "name": "desktop-file-utils-0.28",
+        "note": "",
+        "type": "optional",
+        "version": "0.28"
+      },
+      {
+        "anchor": "gtkmm4",
+        "name": "Gtkmm-4.20.0",
+        "note": "",
+        "type": "required",
+        "version": "4.20.0"
+      },
+      {
+        "anchor": "itstool",
+        "name": "itstool-2.0.7",
+        "note": "",
+        "type": "required",
+        "version": "2.0.7"
+      },
+      {
+        "anchor": "libadwaita1",
+        "name": "libadwaita-1.8.4",
+        "note": "",
+        "type": "required",
+        "version": "1.8.4"
+      },
+      {
+        "anchor": "libgtop",
+        "name": "libgtop-2.41.3",
+        "note": "",
+        "type": "required",
+        "version": "2.41.3"
+      },
+      {
+        "anchor": "librsvg",
+        "name": "librsvg-2.61.4",
+        "note": "",
+        "type": "required",
+        "version": "2.61.4"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "gnome-system-monitor"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gnome-system-monitor",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gtkmm4",
+    "adwaita-icon-theme",
+    "itstool",
+    "libadwaita1",
+    "libgtop",
+    "librsvg"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-system-monitor",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "915b6a321ada12eba7bf578c20c9fe5e41f55d532847cbd124bbddaaec11d70f",
+  "source_tarball": "gnome-system-monitor-49.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-system-monitor/49/gnome-system-monitor-${version}.tar.xz",
+  "tarball_files_count": 332,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "systemd support",
+      "name": "systemd",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "If this is a development build",
+      "name": "development",
+      "type": "boolean"
+    }
+  ],
+  "version": "49.1"
+}

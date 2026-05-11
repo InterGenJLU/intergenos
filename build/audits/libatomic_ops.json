@@ -1,0 +1,63 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:46Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libatomic_ops",
+    "blfs_name": "libatomic_ops",
+    "blfs_version": "7.10.0",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/atomic_ops.h"
+  ],
+  "expected_libs": [
+    "/usr/lib/libatomic_ops.so",
+    "/usr/lib/libatomic_ops_gpl.so"
+  ],
+  "expected_pkgconfig": [
+    "/usr/lib/pkgconfig/atomic_ops.pc"
+  ],
+  "name": "libatomic_ops",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--docdir=/usr/share/doc/libatomic_ops-${PKG_VERSION}",
+    "--enable-shared",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/libatomic_ops",
+  "reproducibility": {
+    "_notes": "cmake/make -j",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "0db3ebff755db170f65e74a64ec4511812e9ee3185c232eeffeacd274190dfb0",
+  "source_tarball": "libatomic_ops-7.10.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/bdwgc/libatomic_ops/releases/download/v${version}/libatomic_ops-${version}.tar.gz",
+  "tarball_files_count": 145,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "7.10.0"
+}

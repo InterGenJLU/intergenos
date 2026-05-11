@@ -1,0 +1,318 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:18Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-control-center",
+    "blfs_name": "gnome-control-center",
+    "blfs_version": "49.4",
+    "deps": [
+      {
+        "anchor": "ModemManager",
+        "name": "ModemManager-1.24.2",
+        "note": "",
+        "type": "required",
+        "version": "1.24.2"
+      },
+      {
+        "anchor": "accountsservice",
+        "name": "AccountsService-23.13.9",
+        "note": "",
+        "type": "required",
+        "version": "23.13.9"
+      },
+      {
+        "anchor": "blueprint-compiler",
+        "name": "blueprint-compiler-0.18.0",
+        "note": "",
+        "type": "required",
+        "version": "0.18.0"
+      },
+      {
+        "anchor": "colord-gtk",
+        "name": "colord-gtk-0.3.1",
+        "note": "",
+        "type": "required",
+        "version": "0.3.1"
+      },
+      {
+        "anchor": "cups",
+        "name": "Cups-2.4.16",
+        "note": "",
+        "type": "required",
+        "version": "2.4.16"
+      },
+      {
+        "anchor": "gnome-bluetooth",
+        "name": "gnome-bluetooth-47.1",
+        "note": "",
+        "type": "required",
+        "version": "47.1"
+      },
+      {
+        "anchor": "gnome-online-accounts",
+        "name": "gnome-online-accounts-3.56.4",
+        "note": "",
+        "type": "required",
+        "version": "3.56.4"
+      },
+      {
+        "anchor": "gnome-settings-daemon",
+        "name": "gnome-settings-daemon-49.1",
+        "note": "",
+        "type": "required",
+        "version": "49.1"
+      },
+      {
+        "anchor": "gsound",
+        "name": "gsound-1.0.3",
+        "note": "",
+        "type": "required",
+        "version": "1.0.3"
+      },
+      {
+        "anchor": "ibus",
+        "name": "ibus-1.5.33",
+        "note": "",
+        "type": "recommended",
+        "version": "1.5.33"
+      },
+      {
+        "anchor": "libadwaita1",
+        "name": "libadwaita-1.8.4",
+        "note": "",
+        "type": "required",
+        "version": "1.8.4"
+      },
+      {
+        "anchor": "libgtop",
+        "name": "libgtop-2.41.3",
+        "note": "",
+        "type": "required",
+        "version": "2.41.3"
+      },
+      {
+        "anchor": "libnma",
+        "name": "libnma-1.10.6",
+        "note": "",
+        "type": "required",
+        "version": "1.10.6"
+      },
+      {
+        "anchor": "libpwquality",
+        "name": "libpwquality-1.4.5",
+        "note": "",
+        "type": "required",
+        "version": "1.4.5"
+      },
+      {
+        "anchor": "mitkrb",
+        "name": "MIT Kerberos\n                V5-1.22.2",
+        "note": "",
+        "type": "required",
+        "version": "1.22.2"
+      },
+      {
+        "anchor": "python-dbusmock",
+        "name": "dbusmock-0.38.1",
+        "note": "both for tests",
+        "type": "optional",
+        "version": "0.38.1"
+      },
+      {
+        "anchor": "samba",
+        "name": "Samba-4.23.5",
+        "note": "",
+        "type": "required",
+        "version": "4.23.5"
+      },
+      {
+        "anchor": "shared-mime-info",
+        "name": "shared-mime-info-2.4",
+        "note": "",
+        "type": "required",
+        "version": "2.4"
+      },
+      {
+        "anchor": "tecla",
+        "name": "Tecla-49.0",
+        "note": "",
+        "type": "required",
+        "version": "49.0"
+      },
+      {
+        "anchor": "udisks2",
+        "name": "UDisks-2.11.1",
+        "note": "",
+        "type": "required",
+        "version": "2.11.1"
+      },
+      {
+        "anchor": "xorg-server",
+        "name": "Xorg-Server-21.1.21",
+        "note": "",
+        "type": "optional",
+        "version": "21.1.21"
+      },
+      {
+        "anchor": "xwayland",
+        "name": "Xwayland-24.1.9",
+        "note": "",
+        "type": "optional",
+        "version": "24.1.9"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "BUILDING",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "gnome-control-center"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gnome-control-center",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "accountsservice",
+    "blueprint-compiler",
+    "colord-gtk",
+    "cups",
+    "gnome-bluetooth",
+    "gnome-online-accounts",
+    "gnome-settings-daemon",
+    "gsound",
+    "libadwaita1",
+    "libgtop",
+    "libnma",
+    "libpwquality",
+    "mitkrb",
+    "modemmanager",
+    "networkmanager",
+    "samba",
+    "shared-mime-info",
+    "tecla",
+    "udisks2",
+    "ibus",
+    "xwayland"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "documentation",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-control-center",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "131975e5fddd208f3a30f766a1c667f8cb3f15b689a868d285a641a234204b02",
+  "source_tarball": "gnome-control-center-49.4.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-control-center/49/gnome-control-center-${version}.tar.xz",
+  "tarball_files_count": 1541,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "disabled",
+      "description": "build with deprecated declaration warnings",
+      "name": "deprecated-declarations",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "build documentation",
+      "name": "documentation",
+      "type": "boolean"
+    },
+    {
+      "default": "enabled",
+      "description": "build with location services",
+      "name": "location-services",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "build with IBus support",
+      "name": "ibus",
+      "type": "boolean"
+    },
+    {
+      "default": "wheel",
+      "description": "name of group that has elevated permissions",
+      "name": "privileged_group",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "build with Snap support",
+      "name": "snap",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with X11 support",
+      "name": "x11",
+      "type": "boolean"
+    },
+    {
+      "default": "default",
+      "description": "",
+      "name": "profile",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "build with malcontent support",
+      "name": "malcontent",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "absolute path to distributor logo for the About panel",
+      "name": "distributor_logo",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "absolute path to distributor logo dark mode variant",
+      "name": "dark_mode_distributor_logo",
+      "type": "string"
+    }
+  ],
+  "version": "49.4"
+}

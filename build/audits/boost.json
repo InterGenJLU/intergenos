@@ -1,0 +1,130 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "build-system-undetected"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:19Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "boost",
+    "blfs_name": "boost",
+    "blfs_version": "1.90.0",
+    "deps": [
+      {
+        "anchor": "icu",
+        "name": "ICU-78.2",
+        "note": "",
+        "type": "optional",
+        "version": "78.2"
+      },
+      {
+        "anchor": "numpy",
+        "name": "NumPy-2.4.2",
+        "note": "",
+        "type": "optional",
+        "version": "2.4.2"
+      },
+      {
+        "anchor": "which",
+        "name": "Which-2.23",
+        "note": "",
+        "type": "recommended",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "unknown",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "BUILDING",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libboost_atomic.so",
+    "libboost_charconv.so",
+    "libboost_chrono.so",
+    "libboost_container.so",
+    "libboost_context.so",
+    "libboost_contract.so",
+    "libboost_coroutine.so",
+    "libboost_date_time.so",
+    "libboost_exception.a",
+    "libboost_fiber.so",
+    "libboost_filesystem.so",
+    "libboost_graph.so",
+    "libboost_iostreams.so",
+    "libboost_json.so",
+    "libboost_locale.so",
+    "libboost_log_setup.so",
+    "libboost_log.so",
+    "libboost_math_c99.so",
+    "libboost_math_c99f.so",
+    "libboost_math_c99l.so",
+    "libboost_math_tr1.so",
+    "libboost_math_tr1f.so",
+    "libboost_math_tr1l.so",
+    "libboost_nowide.so",
+    "libboost_numpy314.so",
+    "libboost_prg_exec_monitor.so",
+    "libboost_process.so",
+    "libboost_program_options.so",
+    "libboost_python314.so",
+    "libboost_random.so",
+    "libboost_regex.so",
+    "libboost_serialization.so",
+    "libboost_stacktrace_addr2line.so",
+    "libboost_stacktrace_basic.so",
+    "libboost_stacktrace_from_exception.so",
+    "libboost_stacktrace_noop.so",
+    "libboost_test_exec_monitor.a",
+    "libboost_thread.so",
+    "libboost_timer.so",
+    "libboost_type_erasure.so",
+    "libboost_unit_test_framework.so",
+    "libboost_url.so",
+    "libboost_wave.so",
+    "libboost_wserialization.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "boost",
+  "our_autotools_flags": [
+    "--prefix=/usr",
+    "--with-python=python3"
+  ],
+  "our_deps_build": [
+    "icu",
+    "which"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/boost",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "9e6bee9ab529fb2b0733049692d57d10a72202af085e553539a05b4204211a6f",
+  "source_tarball": "boost-1.90.0-b2-nodocs.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/boostorg/boost/releases/download/boost-${version}/boost-${version}-b2-nodocs.tar.xz",
+  "tarball_files_count": 51502,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.90.0"
+}

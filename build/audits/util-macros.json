@@ -1,0 +1,62 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:12Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "util-macros",
+    "blfs_name": "util-macros",
+    "blfs_version": "1.20.2",
+    "deps": [
+      {
+        "anchor": "xorg-env",
+        "name": "Xorg build\n                environment",
+        "note": "should be set for the following instructions\n                to work",
+        "type": "required",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "util-macros",
+  "our_autotools_flags": [
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/util-macros",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "9ac269eba24f672d7d7b3574e4be5f333d13f04a7712303b1821b2a51ac82e8e",
+  "source_tarball": "util-macros-1.20.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.x.org/pub/individual/util/util-macros-${version}.tar.xz",
+  "tarball_files_count": 14,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "1.20.2"
+}

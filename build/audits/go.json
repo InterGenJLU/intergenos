@@ -1,0 +1,54 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "build-system-undetected"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:25Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "unknown",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CONTRIBUTING",
+    "HACKING",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "go",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "binutils-core",
+    "gcc-core",
+    "glibc",
+    "make-ca"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/go",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "990e6b4bbba816dc3ee129eaeaf4b42f17c2800b88a2166c265ac1a200262282",
+  "source_tarball": "go1.26.2.linux-amd64.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://go.dev/dl/go${version}.linux-amd64.tar.gz",
+  "tarball_files_count": 16676,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "1.26.2"
+}

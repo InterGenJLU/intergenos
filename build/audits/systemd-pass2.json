@@ -1,0 +1,1725 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:45Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "BUILDING",
+    "CONTRIBUTING",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "systemd-pass2",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "linux-pam",
+    "polkit",
+    "apparmor",
+    "tpm2-tss",
+    "libfido2",
+    "libxkbcommon"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "default-dnssec",
+      "value": "no"
+    },
+    {
+      "name": "firstboot",
+      "value": "false"
+    },
+    {
+      "name": "install-tests",
+      "value": "false"
+    },
+    {
+      "name": "ldconfig",
+      "value": "false"
+    },
+    {
+      "name": "sysusers",
+      "value": "false"
+    },
+    {
+      "name": "rpmmacrosdir",
+      "value": "no"
+    },
+    {
+      "name": "homed",
+      "value": "disabled"
+    },
+    {
+      "name": "man",
+      "value": "disabled"
+    },
+    {
+      "name": "mode",
+      "value": "release"
+    },
+    {
+      "name": "pam",
+      "value": "enabled"
+    },
+    {
+      "name": "pamconfdir",
+      "value": "/etc/pam.d"
+    },
+    {
+      "name": "dev-kvm-mode",
+      "value": "0660"
+    },
+    {
+      "name": "nobody-group",
+      "value": "nogroup"
+    },
+    {
+      "name": "sysupdate",
+      "value": "disabled"
+    },
+    {
+      "name": "ukify",
+      "value": "disabled"
+    },
+    {
+      "name": "apparmor",
+      "value": "enabled"
+    },
+    {
+      "name": "tpm2",
+      "value": "enabled"
+    },
+    {
+      "name": "libfido2",
+      "value": "enabled"
+    },
+    {
+      "name": "xkbcommon",
+      "value": "enabled"
+    },
+    {
+      "name": "docdir",
+      "value": "/usr/share/doc/systemd-259.1"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/systemd-pass2",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "7af4f36db512ad2f0f749a0f9886370edeb2bb5128014fc47cdf73702c7e1911",
+  "source_tarball": "systemd-259.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/systemd/systemd/archive/v${version}/systemd-${version}.tar.gz",
+  "tarball_files_count": 7420,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "version-tag",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "shared-lib-tag",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "append current git commit to version output when git information is available",
+      "name": "vcs-tag",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "autoenable features suitable for systemd development/release builds",
+      "name": "mode",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "sbin is not a symlink to bin",
+      "name": "split-bin",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "link systemd-udevd and its helpers to libsystemd-shared.so",
+      "name": "link-udev-shared",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "link systemd-executor to libsystemd-shared.so and libsystemd-core.so",
+      "name": "link-executor-shared",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "link systemctl against libsystemd-shared.so",
+      "name": "link-systemctl-shared",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "link systemd-networkd and its helpers to libsystemd-shared.so",
+      "name": "link-networkd-shared",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "link systemd-timesyncd and its helpers to libsystemd-shared.so",
+      "name": "link-timesyncd-shared",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "link journalctl against libsystemd-shared.so",
+      "name": "link-journalctl-shared",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "link bootctl and systemd-bless-boot against libsystemd-shared.so",
+      "name": "link-boot-shared",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "link systemd-portabled and its helpers to libsystemd-shared.so",
+      "name": "link-portabled-shared",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "first-boot-full-preset",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install a static library for libsystemd",
+      "name": "static-libsystemd",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "install a static library for libudev",
+      "name": "static-libudev",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "also build standalone versions of supported binaries",
+      "name": "standalone-binaries",
+      "type": "boolean"
+    },
+    {
+      "default": "/etc/init.d",
+      "description": "the directory where the SysV init scripts are located",
+      "name": "sysvinit-path",
+      "type": "string"
+    },
+    {
+      "default": "/etc/rc.d",
+      "description": "the base directory for SysV rcN.d directories",
+      "name": "sysvrcnd-path",
+      "type": "string"
+    },
+    {
+      "default": "/etc/rc.local",
+      "description": "path to SysV rc.local script",
+      "name": "rc-local",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "install services for use when running systemd in initrd",
+      "name": "initrd",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "look at uid boundaries in /etc/login.defs for compatibility",
+      "name": "compat-mutable-uid-boundaries",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "path to quotaon",
+      "name": "quotaon-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to quotacheck",
+      "name": "quotacheck-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to kmod",
+      "name": "kmod-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to kexec",
+      "name": "kexec-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to sulogin",
+      "name": "sulogin-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to swapon",
+      "name": "swapon-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to swapoff",
+      "name": "swapoff-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to agetty",
+      "name": "agetty-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to mount",
+      "name": "mount-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to umount",
+      "name": "umount-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to loadkeys",
+      "name": "loadkeys-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to setfont",
+      "name": "setfont-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to nologin",
+      "name": "nologin-path",
+      "type": "string"
+    },
+    {
+      "default": "/bin/sh",
+      "description": "path to debug shell binary",
+      "name": "debug-shell",
+      "type": "string"
+    },
+    {
+      "default": "/dev/tty9",
+      "description": "specify the tty device for debug shell",
+      "name": "debug-tty",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "enable extra debugging",
+      "name": "debug-extra",
+      "type": "array"
+    },
+    {
+      "default": "",
+      "description": "enable MemoryAccounting= by default",
+      "name": "memory-accounting-default",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "bump /proc/sys/fs/file-max to LONG_MAX",
+      "name": "bump-proc-sys-fs-file-max",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "bump /proc/sys/fs/nr_open to INT_MAX",
+      "name": "bump-proc-sys-fs-nr-open",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable low level debug logging",
+      "name": "log-trace",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "$PATH to use for user sessions",
+      "name": "user-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "support for utmp/wtmp log handling",
+      "name": "utmp",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "support for hibernation",
+      "name": "hibernate",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "support for dynamic linker cache creation",
+      "name": "ldconfig",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "systemd-resolved stack",
+      "name": "resolve",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable EFI support",
+      "name": "efi",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "TPM should be used to log events and extend the registers",
+      "name": "tpm",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "support for environment.d",
+      "name": "environment-d",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "support for custom binary formats",
+      "name": "binfmt",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install the systemd-repart tool",
+      "name": "repart",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "install the systemd-sysupdate tool",
+      "name": "sysupdate",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "install the systemd-sysupdated service",
+      "name": "sysupdated",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "install the coredump handler",
+      "name": "coredump",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install the pstore archival tool",
+      "name": "pstore",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install the userspace oom killer",
+      "name": "oomd",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install the systemd-logind stack",
+      "name": "logind",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install the systemd-hostnamed stack",
+      "name": "hostnamed",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install the systemd-localed stack",
+      "name": "localed",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install the systemd-machined stack",
+      "name": "machined",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install the systemd-portabled stack",
+      "name": "portabled",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install the systemd-sysext stack",
+      "name": "sysext",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install the systemd-mountfsd stack",
+      "name": "mountfsd",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install the systemd-userdbd stack",
+      "name": "userdb",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install the systemd-homed stack",
+      "name": "homed",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "install the systemd-networkd stack",
+      "name": "networkd",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install default .network files",
+      "name": "default-network",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install the systemd-timedated daemon",
+      "name": "timedated",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install the systemd-timesyncd daemon",
+      "name": "timesyncd",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "journal-storage-default",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "support for ",
+      "name": "remote",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "create /var/log/journal{,/remote}",
+      "name": "create-log-dirs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install the systemd-nsresourced stack",
+      "name": "nsresourced",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install nss-myhostname module",
+      "name": "nss-myhostname",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install nss-mymachines module",
+      "name": "nss-mymachines",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "install nss-resolve module",
+      "name": "nss-resolve",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "install nss-systemd module",
+      "name": "nss-systemd",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "support for firstboot mechanism",
+      "name": "firstboot",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "support for restoring random seed",
+      "name": "randomseed",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "support for restoring backlight state",
+      "name": "backlight",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "support for vconsole configuration",
+      "name": "vconsole",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install the systemd-vmspawn tool",
+      "name": "vmspawn",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "support for the quotacheck tools",
+      "name": "quotacheck",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "support for the sysusers configuration",
+      "name": "sysusers",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "support for Storage Target Mode",
+      "name": "storagetm",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "support for tmpfiles.d",
+      "name": "tmpfiles",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install the systemd-importd daemon",
+      "name": "importd",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "support for the hardware database",
+      "name": "hwdb",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "support for the rfkill tools",
+      "name": "rfkill",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install the xdg-autostart-generator and unit",
+      "name": "xdg-autostart",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build and install systemd-nspawn",
+      "name": "nspawn",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "build and install man pages",
+      "name": "man",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "build and install html pages",
+      "name": "html",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "build and install translations",
+      "name": "translations",
+      "type": "boolean"
+    },
+    {
+      "default": "/etc/ssl",
+      "description": "the prefix for TLS certificates",
+      "name": "certificate-root",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "D-Bus policy directory",
+      "name": "dbuspolicydir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "D-Bus session service directory",
+      "name": "dbussessionservicedir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "D-Bus system service directory",
+      "name": "dbussystemservicedir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "export D-Bus introspection XML as standalone files",
+      "name": "dbus-interfaces-dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "default timeout for system unit start/stop",
+      "name": "default-timeout-sec",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "default timeout for user unit start/stop",
+      "name": "default-user-timeout-sec",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "directory for arch-independent pkg-config files",
+      "name": "pkgconfigdatadir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "directory for standard pkg-config files",
+      "name": "pkgconfiglibdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "directory for xinitrc files",
+      "name": "xinitrcdir",
+      "type": "string"
+    },
+    {
+      "default": "lib/rpm/macros.d",
+      "description": "directory for rpm macros [",
+      "name": "rpmmacrosdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "timeout for user manager package operations",
+      "name": "update-helper-user-timeout-sec",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "directory for PAM modules",
+      "name": "pamlibdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "directory for PAM configuration [",
+      "name": "pamconfdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "directory for SSH client configuration [",
+      "name": "sshconfdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "directory for SSH server configuration [",
+      "name": "sshdconfdir",
+      "type": "string"
+    },
+    {
+      "default": "/run/sshd",
+      "description": "directory for SSH privilege separation [",
+      "name": "sshdprivsepdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "directory for libcryptsetup plugins",
+      "name": "libcryptsetup-plugins-dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "directory for Shell profile drop-ins [",
+      "name": "shellprofiledir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "documentation directory",
+      "name": "docdir",
+      "type": "string"
+    },
+    {
+      "default": "true",
+      "description": "install configuration files and directories",
+      "name": "install-sysconfdir",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "directory for configuration files",
+      "name": "configfiledir",
+      "type": "string"
+    },
+    {
+      "default": "localhost",
+      "description": "the hostname used if none configured",
+      "name": "fallback-hostname",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "comma-separated list of extra net.naming_scheme= definitions",
+      "name": "extra-net-naming-schemes",
+      "type": "string"
+    },
+    {
+      "default": "latest",
+      "description": "default net.naming_scheme= value",
+      "name": "default-net-naming-scheme",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "use unit name or description in messages by default",
+      "name": "status-unit-format-default",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "time epoch for time clients",
+      "name": "time-epoch",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "maximum value in microseconds for the difference between RTC and epoch, exceeding which is considered an RTC error [",
+      "name": "clock-valid-range-usec-max",
+      "type": "integer"
+    },
+    {
+      "default": "/bin/bash",
+      "description": "default interactive shell",
+      "name": "default-user-shell",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "minimum system UID used when allocating",
+      "name": "system-alloc-uid-min",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "minimum system GID used when allocating",
+      "name": "system-alloc-gid-min",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "maximum system UID",
+      "name": "system-uid-max",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "maximum system GID",
+      "name": "system-gid-max",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "minimum greeter UID",
+      "name": "greeter-uid-min",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "maximum greeter UID",
+      "name": "greeter-uid-max",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "minimum dynamic UID",
+      "name": "dynamic-uid-min",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "maximum dynamic UID",
+      "name": "dynamic-uid-max",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "minimum container UID base",
+      "name": "container-uid-base-min",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "maximum container UID base",
+      "name": "container-uid-base-max",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "foreign OS image UID base",
+      "name": "foreign-uid-base",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "the ACL for adm group should be added",
+      "name": "adm-group",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "the ACL for wheel group should be added",
+      "name": "wheel-group",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "nobody-user",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "nobody-group",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the ",
+      "name": "adm-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the ",
+      "name": "audio-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the ",
+      "name": "cdrom-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the ",
+      "name": "clock-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the ",
+      "name": "dialout-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the ",
+      "name": "disk-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the ",
+      "name": "empower-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the ",
+      "name": "input-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the ",
+      "name": "kmem-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the ",
+      "name": "kvm-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the ",
+      "name": "lp-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the ",
+      "name": "render-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the ",
+      "name": "sgx-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the ",
+      "name": "tape-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "the numeric GID of the ",
+      "name": "tty-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the ",
+      "name": "users-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the ",
+      "name": "utmp-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the ",
+      "name": "video-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the ",
+      "name": "wheel-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the systemd-journal group",
+      "name": "systemd-journal-gid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the systemd-network user",
+      "name": "systemd-network-uid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the systemd-resolve user",
+      "name": "systemd-resolve-uid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "soft-static allocation for the systemd-timesync user",
+      "name": "systemd-timesync-uid",
+      "type": "integer"
+    },
+    {
+      "default": "0666",
+      "description": "/dev/kvm access mode",
+      "name": "dev-kvm-mode",
+      "type": "string"
+    },
+    {
+      "default": "0666",
+      "description": "",
+      "name": "group-render-mode",
+      "type": "string"
+    },
+    {
+      "default": "0600",
+      "description": "Access mode for tty/pts device nodes.",
+      "name": "tty-mode",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "the default value for KillUserProcesses= setting",
+      "name": "default-kill-user-processes",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "support for shadow group",
+      "name": "gshadow",
+      "type": "boolean"
+    },
+    {
+      "default": "C.UTF-8",
+      "description": "default locale used when /etc/locale.conf does not exist",
+      "name": "default-locale",
+      "type": "string"
+    },
+    {
+      "default": "C.UTF-8",
+      "description": "default locale used by systemd-nspawn when executing commands in a container",
+      "name": "nspawn-locale",
+      "type": "string"
+    },
+    {
+      "default": "us",
+      "description": "default keymap used when populating /etc/vconsole.conf",
+      "name": "default-keymap",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "absolute path to the locale-gen binary in case the system is using locale-gen",
+      "name": "localegen-path",
+      "type": "string"
+    },
+    {
+      "default": "3min",
+      "description": "default watchdog setting for systemd services",
+      "name": "service-watchdog",
+      "type": "string"
+    },
+    {
+      "default": "allow-downgrade",
+      "description": "default DNSSEC mode",
+      "name": "default-dnssec",
+      "type": "combo"
+    },
+    {
+      "default": "no",
+      "description": "default DNS-over-TLS mode",
+      "name": "default-dns-over-tls",
+      "type": "combo"
+    },
+    {
+      "default": "yes",
+      "description": "default MulticastDNS mode",
+      "name": "default-mdns",
+      "type": "combo"
+    },
+    {
+      "default": "yes",
+      "description": "default LLMNR mode",
+      "name": "default-llmnr",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "DNS-over-TLS support",
+      "name": "dns-over-tls",
+      "type": "combo"
+    },
+    {
+      "default": "1.1.1.1#cloudflare-dns.com 8.8.8.8#dns.google 9.9.9.9#dns.quad9.net 1.0.0.1#cloudflare-dns.com 8.8.4.4#dns.google 149.112.112.112#dns.quad9.net 2606:4700:4700::1111#cloudflare-dns.com 2001:4860:4860::8888#dns.google 2620:fe::fe#dns.quad9.net 2606:4700:4700::1001#cloudflare-dns.com 2001:4860:4860::8844#dns.google 2620:fe::9#dns.quad9.net",
+      "description": "space-separated list of default DNS servers",
+      "name": "dns-servers",
+      "type": "string"
+    },
+    {
+      "default": "time1.google.com time2.google.com time3.google.com time4.google.com",
+      "description": "space-separated list of default NTP servers",
+      "name": "ntp-servers",
+      "type": "string"
+    },
+    {
+      "default": "https://lists.freedesktop.org/mailman/listinfo/systemd-devel",
+      "description": "the support URL to show in catalog entries included in systemd",
+      "name": "support-url",
+      "type": "string"
+    },
+    {
+      "default": "www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd",
+      "description": "the address and dir to upload docs too",
+      "name": "www-target",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "SECCOMP support",
+      "name": "seccomp",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "SELinux support",
+      "name": "selinux",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "AppArmor support",
+      "name": "apparmor",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "SMACK support",
+      "name": "smack",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "run systemd --system itself with a specific SMACK label",
+      "name": "smack-run-label",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "default SMACK label for executed processes",
+      "name": "smack-default-process-label",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "polkit support",
+      "name": "polkit",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "IMA support",
+      "name": "ima",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "IPE support",
+      "name": "ipe",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "libc implementation to be used",
+      "name": "libc",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "libacl support",
+      "name": "acl",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "libaudit support",
+      "name": "audit",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "libblkid support",
+      "name": "blkid",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "libfdisk support",
+      "name": "fdisk",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "support for loadable modules",
+      "name": "kmod",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "support for Xen kexec",
+      "name": "xenctrl",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "PAM support",
+      "name": "pam",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "libpasswdqc support",
+      "name": "passwdqc",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "libpwquality support",
+      "name": "pwquality",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "lib\u00b5httpd support",
+      "name": "microhttpd",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "libcryptsetup support",
+      "name": "libcryptsetup",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "libcryptsetup-plugins",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "libcurl support",
+      "name": "libcurl",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "use IDN when printing hostnames",
+      "name": "idn",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "libidn2 support",
+      "name": "libidn2",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "libidn support",
+      "name": "libidn",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "libiptc support",
+      "name": "libiptc",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "libqrencode support",
+      "name": "qrencode",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "gcrypt support",
+      "name": "gcrypt",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "gnutls support",
+      "name": "gnutls",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "openssl support",
+      "name": "openssl",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "cryptolib",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "p11kit support",
+      "name": "p11kit",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "FIDO2 support",
+      "name": "libfido2",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "TPM2 support",
+      "name": "tpm2",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Base for TPM2 nvindex based PCRs",
+      "name": "tpm2-nvpcr-base",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "elfutils support",
+      "name": "elfutils",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "zlib compression support",
+      "name": "zlib",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "bzip2 compression support",
+      "name": "bzip2",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "xz compression support",
+      "name": "xz",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "lz4 compression support",
+      "name": "lz4",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "zstd compression support",
+      "name": "zstd",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "default compression algorithm",
+      "name": "default-compression",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "xkbcommon keymap support",
+      "name": "xkbcommon",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "regexp matching support using pcre2",
+      "name": "pcre2",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "glib",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "dbus",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "libarchive support",
+      "name": "libarchive",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "libmount support",
+      "name": "libmount",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "sd-boot/stub and userspace tools",
+      "name": "bootloader",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "SBAT distribution ID, e.g. fedora, or auto for autodetection",
+      "name": "sbat-distro",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "SBAT distribution generation",
+      "name": "sbat-distro-generation",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "SBAT distribution summary, e.g. Fedora",
+      "name": "sbat-distro-summary",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "SBAT distribution package name, e.g. systemd",
+      "name": "sbat-distro-pkgname",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "SBAT distribution package version, e.g. 248-7.fc34",
+      "name": "sbat-distro-version",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "SBAT distribution URL, e.g. https://src.fedoraproject.org/rpms/systemd",
+      "name": "sbat-distro-url",
+      "type": "string"
+    },
+    {
+      "default": "lightgray,black",
+      "description": "general boot loader color in ",
+      "name": "efi-color-normal",
+      "type": "string"
+    },
+    {
+      "default": "lightgray,black",
+      "description": "boot loader color for entries",
+      "name": "efi-color-entry",
+      "type": "string"
+    },
+    {
+      "default": "black,lightgray",
+      "description": "boot loader color for selected entries",
+      "name": "efi-color-highlight",
+      "type": "string"
+    },
+    {
+      "default": "black,lightgray",
+      "description": "boot loader color for option line edit",
+      "name": "efi-color-edit",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "minimum number of sections to keep free in stub PE header",
+      "name": "efi-stub-extra-sections",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "minimum number of sections to keep free in addon PE header",
+      "name": "efi-addon-extra-sections",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "directory for bash completion scripts [",
+      "name": "bashcompletiondir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "directory for zsh completion scripts [",
+      "name": "zshcompletiondir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "enable extra tests with =unsafe",
+      "name": "tests",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "run the slow tests by default",
+      "name": "slow-tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "run the fuzzer regression tests",
+      "name": "fuzz-tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install test executables",
+      "name": "install-tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "log-message-verification",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "run the integration tests",
+      "name": "integration-tests",
+      "type": "boolean"
+    },
+    {
+      "default": "green",
+      "description": "color of the ",
+      "name": "ok-color",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "enable pager Hyperlink ANSI sequence support",
+      "name": "urlify",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "fexecve",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build against oss-fuzz",
+      "name": "oss-fuzz",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build against LLVM libFuzzer",
+      "name": "llvm-fuzz",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install kernel-install and associated files",
+      "name": "kernel-install",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install ukify",
+      "name": "ukify",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "install systemd-analyze",
+      "name": "analyze",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "compiler used to build BPF programs",
+      "name": "bpf-compiler",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "build BPF programs from source code in restricted C",
+      "name": "bpf-framework",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "which vmlinux.h to use",
+      "name": "vmlinux-h",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "path to vmlinux.h to use",
+      "name": "vmlinux-h-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "controls whether mountfsd should apply a relaxed policy on DDIs in system DDI directories",
+      "name": "default-mountfsd-trusted-directories",
+      "type": "boolean"
+    }
+  ],
+  "version": "259.1"
+}

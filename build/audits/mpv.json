@@ -1,0 +1,183 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:49Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "mpv",
+    "blfs_name": "mpv",
+    "blfs_version": "0.41.0",
+    "deps": [
+      {
+        "anchor": "alsa-lib",
+        "name": "alsa-lib-1.2.15.3",
+        "note": "",
+        "type": "required",
+        "version": "1.2.15.3"
+      },
+      {
+        "anchor": "ffmpeg",
+        "name": "FFmpeg-8.0.1",
+        "note": "",
+        "type": "required",
+        "version": "8.0.1"
+      },
+      {
+        "anchor": "libass",
+        "name": "libass-0.17.4",
+        "note": "",
+        "type": "required",
+        "version": "0.17.4"
+      },
+      {
+        "anchor": "libdvdcss",
+        "name": "libdvdcss-1.5.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.5.0"
+      },
+      {
+        "anchor": "libdvdnav",
+        "name": "libdvdnav-7.0.0",
+        "note": "",
+        "type": "optional",
+        "version": "7.0.0"
+      },
+      {
+        "anchor": "libdvdread",
+        "name": "libdvdread-7.0.1",
+        "note": "",
+        "type": "optional",
+        "version": "7.0.1"
+      },
+      {
+        "anchor": "libjpeg",
+        "name": "libjpeg-turbo-3.1.3",
+        "note": "",
+        "type": "recommended",
+        "version": "3.1.3"
+      },
+      {
+        "anchor": "libplacebo",
+        "name": "libplacebo-7.360.0",
+        "note": "",
+        "type": "required",
+        "version": "7.360.0"
+      },
+      {
+        "anchor": "libva",
+        "name": "libva-2.23.0",
+        "note": "",
+        "type": "recommended",
+        "version": "2.23.0"
+      },
+      {
+        "anchor": "luajit",
+        "name": "luajit-20260213",
+        "note": "",
+        "type": "recommended",
+        "version": "20260213"
+      },
+      {
+        "anchor": "mesa",
+        "name": "Mesa-25.3.5",
+        "note": "",
+        "type": "required",
+        "version": "25.3.5"
+      },
+      {
+        "anchor": "pulseaudio",
+        "name": "PulseAudio-17.0",
+        "note": "",
+        "type": "required",
+        "version": "17.0"
+      },
+      {
+        "anchor": "uchardet",
+        "name": "uchardet-0.0.8",
+        "note": "",
+        "type": "recommended",
+        "version": "0.0.8"
+      },
+      {
+        "anchor": "vulkan-loader",
+        "name": "Vulkan-Loader-1.4.341.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.4.341.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "mpv"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "mpv",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "ffmpeg",
+    "libplacebo",
+    "alsa-lib",
+    "pulseaudio",
+    "libva",
+    "libass",
+    "luajit",
+    "uchardet",
+    "libdvdnav",
+    "mesa",
+    "wayland"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "x11",
+      "value": "enabled"
+    },
+    {
+      "name": "wayland",
+      "value": "enabled"
+    },
+    {
+      "name": "dvdnav",
+      "value": "enabled"
+    },
+    {
+      "name": "cdda",
+      "value": "enabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/extra/mpv",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=meson; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": true,
+    "source_date_epoch_supported": true
+  },
+  "source_sha256": "ee21092a5ee427353392360929dc64645c54479aefdb5babc5cfbb5fad626209",
+  "source_tarball": "mpv-0.41.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/mpv-player/mpv/archive/v${version}/mpv-${version}.tar.gz",
+  "tarball_files_count": 893,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "0.41.0"
+}

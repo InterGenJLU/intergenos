@@ -1,0 +1,90 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:22Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "xmlto",
+    "blfs_name": "xmlto",
+    "blfs_version": "0.0.29",
+    "deps": [
+      {
+        "anchor": "DocBook",
+        "name": "docbook-xml-4.5",
+        "note": "",
+        "type": "required",
+        "version": "4.5"
+      },
+      {
+        "anchor": "docbook-xsl",
+        "name": "docbook-xsl-nons-1.79.2",
+        "note": "",
+        "type": "required",
+        "version": "1.79.2"
+      },
+      {
+        "anchor": "fop",
+        "name": "fop-2.11",
+        "note": "",
+        "type": "optional",
+        "version": "2.11"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "",
+        "type": "required",
+        "version": "1.1.45"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "xmlif",
+    "xmlto"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "xmlto",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "docbook-xml",
+    "docbook-xsl-nons",
+    "libxslt"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/xmlto",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "6000d8e8f0f9040426c4f85d7ad86789bc88d4aeaef585c4d4110adb0b214f21",
+  "source_tarball": "xmlto-0.0.29.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://releases.pagure.org/xmlto/xmlto-${version}.tar.bz2",
+  "tarball_files_count": 70,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "0.0.29"
+}

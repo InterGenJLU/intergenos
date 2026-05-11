@@ -1,0 +1,437 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:59Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "openssh",
+    "blfs_name": "OpenSSH",
+    "blfs_version": "10.2p1",
+    "deps": [
+      {
+        "anchor": "gdb",
+        "name": "GDB-17.1",
+        "note": "for tests",
+        "type": "optional",
+        "version": "17.1"
+      },
+      {
+        "anchor": "linux-pam",
+        "name": "Linux-PAM-1.7.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.7.2"
+      },
+      {
+        "anchor": "mitkrb",
+        "name": "MIT Kerberos\n                V5-1.22.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.22.2"
+      },
+      {
+        "anchor": "shadow",
+        "name": "Shadow-4.19.3",
+        "note": "",
+        "type": "optional",
+        "version": "4.19.3"
+      },
+      {
+        "anchor": "which",
+        "name": "Which-2.23",
+        "note": "for tests",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "xorg-env",
+        "name": "Xorg build\n                environment",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "xorg7-app",
+        "name": "Xorg Applications",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "scp",
+    "sftp",
+    "ssh",
+    "ssh-add",
+    "ssh-agent",
+    "ssh-copy-id",
+    "ssh-keygen",
+    "ssh-keyscan",
+    "sshd"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "openssh",
+  "our_autotools_flags": [
+    "--prefix=/usr",
+    "--sysconfdir=/etc/ssh",
+    "--with-default-path=/usr/bin",
+    "--with-pam",
+    "--with-pid-dir=/run",
+    "--with-privsep-path=/var/lib/sshd",
+    "--with-superuser-path=/usr/sbin:/usr/bin"
+  ],
+  "our_deps_build": [
+    "openssl",
+    "linux-pam"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/openssh",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "ccc42c0419937959263fa1dbd16dafc18c56b984c03562d2937ce56a60f798b2",
+  "source_tarball": "openssh-10.2p1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://ftp.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-${version}.tar.gz",
+  "tarball_files_count": 886,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "  --disable-pkcs11        disable PKCS#11 support code [no",
+      "kind": "enable",
+      "name": "pkcs11"
+    },
+    {
+      "help": "  --disable-security-key  disable U2F/FIDO support code [no",
+      "kind": "enable",
+      "name": "security-key"
+    },
+    {
+      "help": "  --disable-strip         Disable calling strip(1) on install",
+      "kind": "enable",
+      "name": "strip"
+    },
+    {
+      "help": "  --disable-etc-default-login Disable using PATH from /etc/default/login [no",
+      "kind": "enable",
+      "name": "etc-default-login"
+    },
+    {
+      "help": "  --disable-fd-passing    disable file descriptor passsing [no",
+      "kind": "enable",
+      "name": "fd-passing"
+    },
+    {
+      "help": "  --disable-lastlog       disable use of lastlog even if detected [no",
+      "kind": "enable",
+      "name": "lastlog"
+    },
+    {
+      "help": "  --disable-utmp          disable use of utmp even if detected [no",
+      "kind": "enable",
+      "name": "utmp"
+    },
+    {
+      "help": "  --disable-utmpx         disable use of utmpx even if detected [no",
+      "kind": "enable",
+      "name": "utmpx"
+    },
+    {
+      "help": "  --disable-wtmp          disable use of wtmp even if detected [no",
+      "kind": "enable",
+      "name": "wtmp"
+    },
+    {
+      "help": "  --disable-wtmpx         disable use of wtmpx even if detected [no",
+      "kind": "enable",
+      "name": "wtmpx"
+    },
+    {
+      "help": "  --disable-libutil       disable use of libutil (login() etc.) [no",
+      "kind": "enable",
+      "name": "libutil"
+    },
+    {
+      "help": "  --disable-pututline     disable use of pututline() etc. ([uw",
+      "kind": "enable",
+      "name": "pututline"
+    },
+    {
+      "help": "  --disable-pututxline    disable use of pututxline() etc. ([uw",
+      "kind": "enable",
+      "name": "pututxline"
+    },
+    {
+      "help": "  --without-openssl       Disable use of OpenSSL; use only limited internal crypto **EXPERIMENTAL** ",
+      "kind": "with",
+      "name": "openssl"
+    },
+    {
+      "help": "  --without-stackprotect  Don't use compiler's stack protection",
+      "kind": "with",
+      "name": "stackprotect"
+    },
+    {
+      "help": "  --without-hardening     Don't use toolchain hardening flags",
+      "kind": "with",
+      "name": "hardening"
+    },
+    {
+      "help": "  --without-retpoline     Enable retpoline spectre mitigation",
+      "kind": "with",
+      "name": "retpoline"
+    },
+    {
+      "help": "  --without-rpath         Disable auto-added -R linker paths",
+      "kind": "with",
+      "name": "rpath"
+    },
+    {
+      "help": "  --with-cflags           Specify additional flags to pass to compiler",
+      "kind": "with",
+      "name": "cflags"
+    },
+    {
+      "help": "  --with-cflags-after     Specify additional flags to pass to compiler after configure",
+      "kind": "with",
+      "name": "cflags-after"
+    },
+    {
+      "help": "  --with-cppflags         Specify additional flags to pass to preprocessor",
+      "kind": "with",
+      "name": "cppflags"
+    },
+    {
+      "help": "  --with-ldflags          Specify additional flags to pass to linker",
+      "kind": "with",
+      "name": "ldflags"
+    },
+    {
+      "help": "  --with-ldflags-after    Specify additional flags to pass to linker after configure",
+      "kind": "with",
+      "name": "ldflags-after"
+    },
+    {
+      "help": "  --with-libs             Specify additional libraries to link with",
+      "kind": "with",
+      "name": "libs"
+    },
+    {
+      "help": "  --with-Werror           Build main code with -Werror",
+      "kind": "with",
+      "name": "Werror"
+    },
+    {
+      "help": "  --with-linux-memlock-onfault Enables memory locking on Linux",
+      "kind": "with",
+      "name": "linux-memlock-onfault"
+    },
+    {
+      "help": "  --with-solaris-contracts Enable Solaris process contracts (experimental)",
+      "kind": "with",
+      "name": "solaris-contracts"
+    },
+    {
+      "help": "  --with-solaris-projects Enable Solaris projects (experimental)",
+      "kind": "with",
+      "name": "solaris-projects"
+    },
+    {
+      "help": "  --with-solaris-privs    Enable Solaris/Illumos privileges (experimental)",
+      "kind": "with",
+      "name": "solaris-privs"
+    },
+    {
+      "help": "  --with-osfsia           Enable Digital Unix SIA",
+      "kind": "with",
+      "name": "osfsia"
+    },
+    {
+      "help": "  --with-zlib=PATH        Use zlib in PATH",
+      "kind": "with",
+      "name": "zlib"
+    },
+    {
+      "help": "  --without-zlib-version-check Disable zlib version check",
+      "kind": "with",
+      "name": "zlib-version-check"
+    },
+    {
+      "help": "  --with-ldns[[=PATH",
+      "kind": "with",
+      "name": "ldns"
+    },
+    {
+      "help": "  --with-libedit[[=PATH",
+      "kind": "with",
+      "name": "libedit"
+    },
+    {
+      "help": "  --with-wtmpdb[[=PATH",
+      "kind": "with",
+      "name": "wtmpdb"
+    },
+    {
+      "help": "  --with-audit=module     Enable audit support (modules=debug,bsm,linux)",
+      "kind": "with",
+      "name": "audit"
+    },
+    {
+      "help": "  --with-pie              Build Position Independent Executables if possible",
+      "kind": "with",
+      "name": "pie"
+    },
+    {
+      "help": "  --with-security-key-builtin include builtin U2F/FIDO support",
+      "kind": "with",
+      "name": "security-key-builtin"
+    },
+    {
+      "help": "  --with-security-key-standalone build standalone sk-libfido2 SecurityKeyProvider",
+      "kind": "with",
+      "name": "security-key-standalone"
+    },
+    {
+      "help": "  --with-ssl-dir=PATH     Specify path to OpenSSL installation ",
+      "kind": "with",
+      "name": "ssl-dir"
+    },
+    {
+      "help": "  --without-openssl-header-check Disable OpenSSL version consistency check",
+      "kind": "with",
+      "name": "openssl-header-check"
+    },
+    {
+      "help": "  --with-ssl-engine       Enable OpenSSL (hardware) ENGINE support ",
+      "kind": "with",
+      "name": "ssl-engine"
+    },
+    {
+      "help": "  --with-prngd-port=PORT  read entropy from PRNGD/EGD TCP localhost:PORT",
+      "kind": "with",
+      "name": "prngd-port"
+    },
+    {
+      "help": "  --with-prngd-socket=FILE read entropy from PRNGD/EGD socket FILE (default=/var/run/egd-pool)",
+      "kind": "with",
+      "name": "prngd-socket"
+    },
+    {
+      "help": "  --with-pam              Enable PAM support ",
+      "kind": "with",
+      "name": "pam"
+    },
+    {
+      "help": "  --with-pam-service=name Specify PAM service name ",
+      "kind": "with",
+      "name": "pam-service"
+    },
+    {
+      "help": "  --with-privsep-user=user Specify non-privileged user for privilege separation",
+      "kind": "with",
+      "name": "privsep-user"
+    },
+    {
+      "help": "  --with-sandbox=style    Specify privilege separation sandbox (no, capsicum, darwin, rlimit, seccomp_filter)",
+      "kind": "with",
+      "name": "sandbox"
+    },
+    {
+      "help": "  --with-selinux          Enable SELinux support",
+      "kind": "with",
+      "name": "selinux"
+    },
+    {
+      "help": "  --with-kerberos5=PATH   Enable Kerberos 5 support",
+      "kind": "with",
+      "name": "kerberos5"
+    },
+    {
+      "help": "  --with-privsep-path=xxx Path for privilege separation chroot (default=/var/empty)",
+      "kind": "with",
+      "name": "privsep-path"
+    },
+    {
+      "help": "  --with-xauth=PATH       Specify path to xauth program ",
+      "kind": "with",
+      "name": "xauth"
+    },
+    {
+      "help": "  --with-maildir=/path/to/mail    Specify your system mail directory",
+      "kind": "with",
+      "name": "maildir"
+    },
+    {
+      "help": "  --with-mantype=man|cat|doc  Set man page type",
+      "kind": "with",
+      "name": "mantype"
+    },
+    {
+      "help": "  --without-shadow        Disable shadow password support",
+      "kind": "with",
+      "name": "shadow"
+    },
+    {
+      "help": "  --with-ipaddr-display   Use ip address instead of hostname in $DISPLAY",
+      "kind": "with",
+      "name": "ipaddr-display"
+    },
+    {
+      "help": "  --with-default-path=    Specify default $PATH environment for server",
+      "kind": "with",
+      "name": "default-path"
+    },
+    {
+      "help": "  --with-superuser-path=  Specify different path for super-user",
+      "kind": "with",
+      "name": "superuser-path"
+    },
+    {
+      "help": "  --with-4in6             Check for and convert IPv4 in IPv6 mapped addresses",
+      "kind": "with",
+      "name": "4in6"
+    },
+    {
+      "help": "  --with-bsd-auth         Enable BSD auth support",
+      "kind": "with",
+      "name": "bsd-auth"
+    },
+    {
+      "help": "  --with-pid-dir=PATH     Specify location of sshd.pid file",
+      "kind": "with",
+      "name": "pid-dir"
+    },
+    {
+      "help": "  --with-lastlog=FILE|DIR specify lastlog location [common locations",
+      "kind": "with",
+      "name": "lastlog"
+    }
+  ],
+  "version": "10.2p1"
+}

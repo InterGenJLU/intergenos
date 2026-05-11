@@ -1,0 +1,158 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:20Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-terminal",
+    "blfs_name": "gnome-terminal",
+    "blfs_version": "3.58.1",
+    "deps": [
+      {
+        "anchor": "appstream-glib",
+        "name": "appstream-glib-0.8.3",
+        "note": "",
+        "type": "optional",
+        "version": "0.8.3"
+      },
+      {
+        "anchor": "dconf",
+        "name": "DConf-0.49.0",
+        "note": "",
+        "type": "required",
+        "version": "49.0"
+      },
+      {
+        "anchor": "desktop-file-utils",
+        "name": "desktop-file-utils-0.28",
+        "note": "",
+        "type": "optional",
+        "version": "0.28"
+      },
+      {
+        "anchor": "gnome-shell",
+        "name": "gnome-shell-49.4",
+        "note": "",
+        "type": "required",
+        "version": "49.4"
+      },
+      {
+        "anchor": "gsettings-desktop-schemas",
+        "name": "gsettings-desktop-schemas-49.1",
+        "note": "",
+        "type": "required",
+        "version": "49.1"
+      },
+      {
+        "anchor": "itstool",
+        "name": "itstool-2.0.7",
+        "note": "",
+        "type": "required",
+        "version": "2.0.7"
+      },
+      {
+        "anchor": "libhandy1",
+        "name": "libhandy-1.8.3",
+        "note": "",
+        "type": "required",
+        "version": "1.8.3"
+      },
+      {
+        "anchor": "nautilus",
+        "name": "Nautilus-49.3",
+        "note": "",
+        "type": "recommended",
+        "version": "49.3"
+      },
+      {
+        "anchor": "vte",
+        "name": "VTE-0.82.3",
+        "note": "",
+        "type": "required",
+        "version": "0.82.3"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "README"
+  ],
+  "expected_binaries": [
+    "gnome-terminal"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gnome-terminal",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "dconf",
+    "gsettings-desktop-schemas",
+    "itstool",
+    "vte",
+    "libadwaita1",
+    "libhandy1",
+    "desktop-file-utils",
+    "gnome-shell",
+    "nautilus"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-terminal",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "6165f671fb26d8b724f22a185d90212787512e375108b02a27df5069efb846c9",
+  "source_tarball": "gnome-terminal-3.58.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.gnome.org/GNOME/gnome-terminal/-/archive/${version}/gnome-terminal-${version}.tar.gz",
+  "tarball_files_count": 329,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Enable extra debugging functionality",
+      "name": "dbg",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable documentation",
+      "name": "docs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Provide integration for nautilus",
+      "name": "nautilus_extension",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Provide search integration for gnome-shell",
+      "name": "search_provider",
+      "type": "boolean"
+    }
+  ],
+  "version": "3.58.1"
+}

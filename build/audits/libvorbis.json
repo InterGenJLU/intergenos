@@ -1,0 +1,90 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:11Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libvorbis",
+    "blfs_name": "libvorbis",
+    "blfs_version": "1.3.7",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "libogg",
+        "name": "libogg-1.3.6",
+        "note": "",
+        "type": "required",
+        "version": "1.3.6"
+      },
+      {
+        "anchor": "texlive",
+        "name": "texlive-20250308",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "tl-installer",
+        "name": "install-tl-unx",
+        "note": "specifically, pdflatex\n                and htlatex",
+        "type": "optional",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/vorbis"
+  ],
+  "expected_libs": [
+    "libvorbis.so",
+    "libvorbisenc.so",
+    "libvorbisfile.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libvorbis",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libogg"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libvorbis",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "b33cc4934322bcbf6efcbacf49e3ca01aadbea4114ec9589d1b1e9d20f72954b",
+  "source_tarball": "libvorbis-1.3.7.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://downloads.xiph.org/releases/vorbis/libvorbis-${version}.tar.xz",
+  "tarball_files_count": 466,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.3.7"
+}

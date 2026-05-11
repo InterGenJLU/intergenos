@@ -1,0 +1,58 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:14Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "apparmor",
+  "our_autotools_flags": [
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc",
+    "--with-gnu-ld",
+    "--with-perl",
+    "--with-python"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [
+    "perl-core",
+    "python",
+    "bash"
+  ],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/apparmor",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "64494bd99fa6547a9cbdb4fc6bc732451a02dd19e6eb70eab977b239632151eb",
+  "source_tarball": "apparmor-v3.1.7.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.com/apparmor/apparmor/-/archive/v${version}/apparmor-v${version}.tar.gz",
+  "tarball_files_count": 3639,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "3.1.7"
+}

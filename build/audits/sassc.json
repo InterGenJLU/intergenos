@@ -1,0 +1,79 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:18Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "sassc",
+    "blfs_name": "sassc",
+    "blfs_version": "3.6.2",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "BUILDING",
+    "README"
+  ],
+  "expected_binaries": [
+    "sassc"
+  ],
+  "expected_headers": [
+    "/usr/include/sass"
+  ],
+  "expected_libs": [
+    "libsass.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "sassc",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/sassc",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "608dc9002b45a91d11ed59e352469ecc05e4f58fc1259fc9a9f5b8f0f8348a03",
+  "source_tarball": "sassc-3.6.2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/sass/sassc/archive/${version}/sassc-${version}.tar.gz",
+  "tarball_files_count": 39,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-coverage",
+      "kind": "enable",
+      "name": "coverage"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-libsass",
+      "kind": "with",
+      "name": "libsass"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-libsass-lib",
+      "kind": "with",
+      "name": "libsass-lib"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-libsass-include",
+      "kind": "with",
+      "name": "libsass-include"
+    }
+  ],
+  "version": "3.6.2"
+}

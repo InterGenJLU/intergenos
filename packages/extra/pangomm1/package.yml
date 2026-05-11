@@ -15,5 +15,6 @@ dependencies:
   - pango
   - cairomm1
   - glibmm2
+  - glibmm
   host: []
   runtime: []

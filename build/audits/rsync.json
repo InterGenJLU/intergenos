@@ -1,0 +1,223 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:06Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "rsync",
+    "blfs_name": "rsync",
+    "blfs_version": "3.4.1",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "popt",
+        "name": "popt-1.19",
+        "note": "",
+        "type": "recommended",
+        "version": "1.19"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "rsync-3.4.1-security_fix-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/rsync-3.4.1-security_fix-1.patch"
+      }
+    ]
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "/usr/bin/rsync",
+    "/usr/bin/rsync-ssl"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "rsync",
+  "our_autotools_flags": [
+    "--prefix=/usr",
+    "--without-included-zlib"
+  ],
+  "our_deps_build": [
+    "popt",
+    "xxhash"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "rsync-3.4.1-security_fix-1.patch",
+      "sha256": "79bec5ef5e8113980759f8ecacf12632bee97eb0bcd4622a1b9dc59acd979778"
+    }
+  ],
+  "package_dir": "packages/base/rsync",
+  "reproducibility": {
+    "_notes": "filled by agent-c03 from build.sh inspection + BLFS HTML",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "2924bcb3a1ed8b551fc101f740b9f0fe0a202b115027647cf69850d65fd88c52",
+  "source_tarball": "rsync-3.4.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.samba.org/ftp/rsync/src/rsync-${version}.tar.gz",
+  "tarball_files_count": 282,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "base",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-debug",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-profile",
+      "kind": "enable",
+      "name": "profile"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-md2man",
+      "kind": "enable",
+      "name": "md2man"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-maintainer-mode",
+      "kind": "enable",
+      "name": "maintainer-mode"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-roll-simd",
+      "kind": "enable",
+      "name": "roll-simd"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ipv6",
+      "kind": "enable",
+      "name": "ipv6"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-locale",
+      "kind": "enable",
+      "name": "locale"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-openssl",
+      "kind": "enable",
+      "name": "openssl"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-md5-asm",
+      "kind": "enable",
+      "name": "md5-asm"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-roll-asm",
+      "kind": "enable",
+      "name": "roll-asm"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-xxhash",
+      "kind": "enable",
+      "name": "xxhash"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-zstd",
+      "kind": "enable",
+      "name": "zstd"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-lz4",
+      "kind": "enable",
+      "name": "lz4"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-iconv-open",
+      "kind": "enable",
+      "name": "iconv-open"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-iconv",
+      "kind": "enable",
+      "name": "iconv"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-acl-support",
+      "kind": "enable",
+      "name": "acl-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-xattr-support",
+      "kind": "enable",
+      "name": "xattr-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-openssl-conf=PATH",
+      "kind": "with",
+      "name": "openssl-conf"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-rrsync",
+      "kind": "with",
+      "name": "rrsync"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-included-popt",
+      "kind": "with",
+      "name": "included-popt"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-included-zlib",
+      "kind": "with",
+      "name": "included-zlib"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-secluded-args",
+      "kind": "with",
+      "name": "secluded-args"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-rsync-path=PATH",
+      "kind": "with",
+      "name": "rsync-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-rsyncd-conf=PATH",
+      "kind": "with",
+      "name": "rsyncd-conf"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-rsh=CMD",
+      "kind": "with",
+      "name": "rsh"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-nobody-user=USER",
+      "kind": "with",
+      "name": "nobody-user"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-nobody-group=GROUP",
+      "kind": "with",
+      "name": "nobody-group"
+    }
+  ],
+  "version": "3.4.1"
+}

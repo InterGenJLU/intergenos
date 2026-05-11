@@ -1,0 +1,167 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:19Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "btrfs-progs",
+    "blfs_name": "btrfs-progs",
+    "blfs_version": "6.17.1",
+    "deps": [
+      {
+        "anchor": "lvm2",
+        "name": "LVM2-2.03.38",
+        "note": "",
+        "type": "optional",
+        "version": "2.03.38"
+      },
+      {
+        "anchor": "lzo",
+        "name": "LZO-2.10",
+        "note": "",
+        "type": "required",
+        "version": "2.10"
+      },
+      {
+        "anchor": "ntfs-3g",
+        "name": "ntfs-3g-2022.10.3",
+        "note": "",
+        "type": "optional",
+        "version": "2022.10.3"
+      },
+      {
+        "anchor": "sphinx",
+        "name": "sphinx-9.1.0",
+        "note": "",
+        "type": "optional",
+        "version": "9.1.0"
+      },
+      {
+        "anchor": "sphinx_rtd_theme",
+        "name": "sphinx_rtd_theme-3.1.0",
+        "note": "required\n                to build documentation",
+        "type": "optional",
+        "version": "3.1.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "btrfs-progs",
+  "our_autotools_flags": [
+    "--disable-documentation",
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "e2fsprogs",
+    "util-linux-core",
+    "lzo",
+    "zlib",
+    "zstd"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/btrfs-progs",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "bb27e1ec54e7c3c0b7b2e596f853a73c07a3d72f21bc94042073c24dbf045796",
+  "source_tarball": "btrfs-progs-v6.19.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.kernel.org/pub/linux/kernel/people/kdave/btrfs-progs/btrfs-progs-v${version}.tar.xz",
+  "tarball_files_count": 1267,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-backtrace",
+      "kind": "enable",
+      "name": "backtrace"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-documentation",
+      "kind": "enable",
+      "name": "documentation"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-programs",
+      "kind": "enable",
+      "name": "programs"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-shared",
+      "kind": "enable",
+      "name": "shared"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-static",
+      "kind": "enable",
+      "name": "static"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-convert",
+      "kind": "enable",
+      "name": "convert"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-zoned",
+      "kind": "enable",
+      "name": "zoned"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-zstd",
+      "kind": "enable",
+      "name": "zstd"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-lzo",
+      "kind": "enable",
+      "name": "lzo"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-libudev",
+      "kind": "enable",
+      "name": "libudev"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-python",
+      "kind": "enable",
+      "name": "python"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-experimental",
+      "kind": "enable",
+      "name": "experimental"
+    },
+    {
+      "help": "AS_HELP_STRING([[[",
+      "kind": "with",
+      "name": "convert"
+    },
+    {
+      "help": "AS_HELP_STRING([[[",
+      "kind": "with",
+      "name": "crypto"
+    }
+  ],
+  "version": "6.19.1"
+}

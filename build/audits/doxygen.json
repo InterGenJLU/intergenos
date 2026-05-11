@@ -1,0 +1,154 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-deps-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:27Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "doxygen",
+    "blfs_name": "Doxygen",
+    "blfs_version": "1.16.1",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "git",
+        "name": "git-2.53.0",
+        "note": "",
+        "type": "required",
+        "version": "2.53.0"
+      },
+      {
+        "anchor": "graphviz",
+        "name": "Graphviz-14.1.2",
+        "note": "",
+        "type": "optional",
+        "version": "14.1.2"
+      },
+      {
+        "anchor": "gs",
+        "name": "ghostscript-10.06.0",
+        "note": "",
+        "type": "optional",
+        "version": "10.06.0"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "required for the tests",
+        "type": "optional",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "llvm",
+        "name": "LLVM-21.1.8",
+        "note": "with clang",
+        "type": "optional",
+        "version": "21.1.8"
+      },
+      {
+        "anchor": "qt6",
+        "name": "Qt-6.10.2",
+        "note": "for doxywizard",
+        "type": "recommended",
+        "version": "6.10.2"
+      },
+      {
+        "anchor": "texlive",
+        "name": "texlive-20250308",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "tl-installer",
+        "name": "install-tl-unx",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "xapian",
+        "name": "xapian-1.4.30",
+        "note": "for\n                doxyindexer",
+        "type": "optional",
+        "version": "1.4.30"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [
+    "deps"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "doxygen",
+    "optionally",
+    "doxywizard",
+    "doxyindexer",
+    "doxysearch.cgi"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "doxygen",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cmake",
+    "git",
+    "ghostscript",
+    "llvm"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "build_wizard",
+      "value": "OFF"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/doxygen",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "201ce33b514ea87cc1697c0dcf829692c2695c1812683a9cc622194b05e263a8",
+  "source_tarball": "doxygen-1.16.1.src.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://doxygen.nl/files/doxygen-${version}.src.tar.gz",
+  "tarball_files_count": 1383,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.16.1"
+}

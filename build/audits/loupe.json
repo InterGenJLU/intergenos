@@ -1,0 +1,132 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:45Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "loupe",
+    "blfs_name": "Loupe",
+    "blfs_version": "49.2",
+    "deps": [
+      {
+        "anchor": "appstream",
+        "name": "AppStream-1.1.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.1.2"
+      },
+      {
+        "anchor": "glycin",
+        "name": "glycin-2.0.8",
+        "note": "runtime",
+        "type": "required",
+        "version": "2.0.8"
+      },
+      {
+        "anchor": "lcms2",
+        "name": "Little CMS-2.18",
+        "note": "",
+        "type": "required",
+        "version": "2.18"
+      },
+      {
+        "anchor": "libadwaita1",
+        "name": "libadwaita-1.8.4",
+        "note": "",
+        "type": "required",
+        "version": "1.8.4"
+      },
+      {
+        "anchor": "libgweather",
+        "name": "libgweather-4.4.4",
+        "note": "",
+        "type": "required",
+        "version": "4.4.4"
+      },
+      {
+        "anchor": "libseccomp",
+        "name": "libseccomp-2.6.0",
+        "note": "",
+        "type": "required",
+        "version": "2.6.0"
+      },
+      {
+        "anchor": "rust",
+        "name": "rustc-1.93.1",
+        "note": "",
+        "type": "required",
+        "version": "1.93.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "loupe"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "loupe",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "lcms2",
+    "glycin",
+    "libadwaita1",
+    "libgweather",
+    "libseccomp",
+    "rust"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/loupe",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "5853e75cceba7fa2bea01be273cd2f0a3061941e7bdfe3a008b233171067142c",
+  "source_tarball": "loupe-49.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/loupe/49/loupe-${version}.tar.xz",
+  "tarball_files_count": 405,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "release",
+      "description": "Cargo profile value.",
+      "name": "profile",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Value will be appended to the app id.",
+      "name": "app_id_suffix",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Enable X11 specific features.",
+      "name": "x11",
+      "type": "feature"
+    }
+  ],
+  "version": "49.2"
+}

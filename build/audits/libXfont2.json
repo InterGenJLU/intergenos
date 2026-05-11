@@ -1,0 +1,103 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:44Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/X11/fonts/"
+  ],
+  "expected_libs": [
+    "libXfont2.so"
+  ],
+  "expected_pkgconfig": [
+    "xfont2.pc"
+  ],
+  "name": "libXfont2",
+  "our_autotools_flags": [
+    "--disable-devel-docs",
+    "--disable-static",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "freetype2",
+    "libfontenc",
+    "xorgproto",
+    "xtrans"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libXfont2",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "8b7b82fdeba48769b69433e8e3fbb984a5f6bf368b0d5f47abeec49de3e58efb",
+  "source_tarball": "libXfont2-2.0.7.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.x.org/pub/individual/lib/libXfont2-${version}.tar.xz",
+  "tarball_files_count": 127,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-freetype",
+      "kind": "enable",
+      "name": "freetype"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-builtins",
+      "kind": "enable",
+      "name": "builtins"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-pcfformat",
+      "kind": "enable",
+      "name": "pcfformat"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-bdfformat",
+      "kind": "enable",
+      "name": "bdfformat"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-snfformat",
+      "kind": "enable",
+      "name": "snfformat"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-fc",
+      "kind": "enable",
+      "name": "fc"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-freetype-config=PROG",
+      "kind": "with",
+      "name": "freetype-config"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-bzip2",
+      "kind": "with",
+      "name": "bzip2"
+    }
+  ],
+  "version": "2.0.7"
+}

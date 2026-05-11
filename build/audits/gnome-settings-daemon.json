@@ -1,0 +1,347 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:19Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-settings-daemon",
+    "blfs_name": "gnome-settings-daemon",
+    "blfs_version": "49.1",
+    "deps": [
+      {
+        "anchor": "ModemManager",
+        "name": "ModemManager-1.24.2",
+        "note": "",
+        "type": "recommended",
+        "version": "1.24.2"
+      },
+      {
+        "anchor": "NetworkManager",
+        "name": "NetworkManager-1.56.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.56.0"
+      },
+      {
+        "anchor": "alsa-lib",
+        "name": "alsa-lib-1.2.15.3",
+        "note": "",
+        "type": "required",
+        "version": "1.2.15.3"
+      },
+      {
+        "anchor": "colord",
+        "name": "colord-1.4.8",
+        "note": "",
+        "type": "recommended",
+        "version": "1.4.8"
+      },
+      {
+        "anchor": "cups",
+        "name": "Cups-2.4.16",
+        "note": "",
+        "type": "recommended",
+        "version": "2.4.16"
+      },
+      {
+        "anchor": "fontconfig",
+        "name": "Fontconfig-2.17.1",
+        "note": "",
+        "type": "required",
+        "version": "2.17.1"
+      },
+      {
+        "anchor": "gcr4",
+        "name": "Gcr-4.4.0.1",
+        "note": "",
+        "type": "required",
+        "version": "4.4.0.1"
+      },
+      {
+        "anchor": "geoclue2",
+        "name": "GeoClue-2.8.0",
+        "note": "",
+        "type": "required",
+        "version": "2.8.0"
+      },
+      {
+        "anchor": "geocode-glib",
+        "name": "geocode-glib-3.26.4",
+        "note": "",
+        "type": "required",
+        "version": "3.26.4"
+      },
+      {
+        "anchor": "gnome-desktop",
+        "name": "gnome-desktop-44.5",
+        "note": "",
+        "type": "required",
+        "version": "44.5"
+      },
+      {
+        "anchor": "gnome-session",
+        "name": "gnome-session-49.2",
+        "note": "",
+        "type": "optional",
+        "version": "49.2"
+      },
+      {
+        "anchor": "libcanberra",
+        "name": "libcanberra-0.30",
+        "note": "",
+        "type": "required",
+        "version": "0.30"
+      },
+      {
+        "anchor": "libgweather",
+        "name": "libgweather-4.4.4",
+        "note": "",
+        "type": "required",
+        "version": "4.4.4"
+      },
+      {
+        "anchor": "libnotify",
+        "name": "libnotify-0.8.8",
+        "note": "",
+        "type": "required",
+        "version": "0.8.8"
+      },
+      {
+        "anchor": "libwacom",
+        "name": "libwacom-2.18.0",
+        "note": "",
+        "type": "required",
+        "version": "2.18.0"
+      },
+      {
+        "anchor": "mutter",
+        "name": "Mutter-49.4",
+        "note": "",
+        "type": "optional",
+        "version": "49.4"
+      },
+      {
+        "anchor": "nss",
+        "name": "nss-3.120.1",
+        "note": "",
+        "type": "recommended",
+        "version": "3.120.1"
+      },
+      {
+        "anchor": "pulseaudio",
+        "name": "PulseAudio-17.0",
+        "note": "",
+        "type": "required",
+        "version": "17.0"
+      },
+      {
+        "anchor": "python-dbusmock",
+        "name": "dbusmock-0.38.1",
+        "note": "",
+        "type": "optional",
+        "version": "0.38.1"
+      },
+      {
+        "anchor": "umockdev",
+        "name": "umockdev-0.19.4",
+        "note": "",
+        "type": "optional",
+        "version": "0.19.4"
+      },
+      {
+        "anchor": "upower",
+        "name": "UPower-1.91.1",
+        "note": "",
+        "type": "required",
+        "version": "1.91.1"
+      },
+      {
+        "anchor": "wayland",
+        "name": "Wayland-1.24.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.24.0"
+      },
+      {
+        "anchor": "xorg-server",
+        "name": "Xorg-Server-21.1.21",
+        "note": "",
+        "type": "optional",
+        "version": "21.1.21"
+      },
+      {
+        "anchor": "xwayland",
+        "name": "Xwayland-24.1.9",
+        "note": "",
+        "type": "optional",
+        "version": "24.1.9"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/gnome-settings-daemon-48"
+  ],
+  "expected_libs": [
+    "libgsd.so"
+  ],
+  "expected_pkgconfig": [
+    "gsd.pc"
+  ],
+  "name": "gnome-settings-daemon",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "alsa-lib",
+    "colord",
+    "fontconfig",
+    "gcr4",
+    "geocode-glib",
+    "geoclue2",
+    "gnome-desktop",
+    "libcanberra",
+    "libgweather",
+    "libnotify",
+    "libwacom",
+    "pulseaudio",
+    "upower",
+    "networkmanager",
+    "wayland",
+    "cups",
+    "gnome-session",
+    "modemmanager",
+    "nss",
+    "xwayland"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-settings-daemon",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "2a9957fc4f91c3b9127b49484179bef485120d9c1c208e44d44e6a746e6cc1c1",
+  "source_tarball": "gnome-settings-daemon-49.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-settings-daemon/49/gnome-settings-daemon-${version}.tar.xz",
+  "tarball_files_count": 391,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Absolute path of the udev base directory",
+      "name": "udev_dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Enable systemd integration",
+      "name": "systemd",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Use elogind",
+      "name": "elogind",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "alsa",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gudev",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with CUPS support",
+      "name": "cups",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "network_manager",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "rfkill",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with smartcard support",
+      "name": "smartcard",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with usb-protection support",
+      "name": "usb-protection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with WWAN support",
+      "name": "wwan",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with gcr3, otherwise gcr4 is used",
+      "name": "gcr3",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with colord support",
+      "name": "colord",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with X11 sessions support",
+      "name": "x11",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with Xwayland support",
+      "name": "xwayland",
+      "type": "boolean"
+    }
+  ],
+  "version": "49.1"
+}

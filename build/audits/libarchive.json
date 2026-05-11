@@ -1,0 +1,86 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:46Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libarchive",
+    "blfs_name": "libarchive",
+    "blfs_version": "3.8.5",
+    "deps": [
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "optional",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "lzo",
+        "name": "LZO-2.10",
+        "note": "",
+        "type": "optional",
+        "version": "2.10"
+      },
+      {
+        "anchor": "nettle",
+        "name": "Nettle-3.10.2",
+        "note": "",
+        "type": "optional",
+        "version": "3.10.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "bsdcat",
+    "bsdcpio",
+    "bsdtar",
+    "bsdunzip"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libarchive.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libarchive",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/libarchive",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "8ac57c1f5e99550948d1fe755c806d26026e71827da228f36bef24527e372e6f",
+  "source_tarball": "libarchive-3.8.6.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/libarchive/libarchive/releases/download/v${version}/libarchive-${version}.tar.xz",
+  "tarball_files_count": 1577,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "3.8.6"
+}

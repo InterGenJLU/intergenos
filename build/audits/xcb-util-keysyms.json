@@ -1,0 +1,59 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "xcb/xcb_keysyms.h"
+  ],
+  "expected_libs": [
+    "libxcb-keysyms.so"
+  ],
+  "expected_pkgconfig": [
+    "xcb-keysyms.pc"
+  ],
+  "name": "xcb-util-keysyms",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "libxcb",
+    "xcb-util"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/xcb-util-keysyms",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "7c260a5294412aed429df1da2f8afd3bd07b7cba3fec772fba15a613a6d5c638",
+  "source_tarball": "xcb-util-keysyms-0.4.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://xcb.freedesktop.org/dist/xcb-util-keysyms-${version}.tar.xz",
+  "tarball_files_count": 33,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "0.4.1"
+}

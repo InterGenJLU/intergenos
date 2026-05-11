@@ -1,0 +1,252 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:53Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libinput",
+    "blfs_name": "libinput",
+    "blfs_version": "1.31.0",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "graphviz",
+        "name": "Graphviz-14.1.2",
+        "note": "",
+        "type": "optional",
+        "version": "14.1.2"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "to build the GUI event\n                  viewer",
+        "type": "optional",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "libevdev",
+        "name": "libevdev-1.13.6",
+        "note": "",
+        "type": "required",
+        "version": "1.13.6"
+      },
+      {
+        "anchor": "libunwind",
+        "name": "libunwind-1.8.3",
+        "note": "required for tests",
+        "type": "optional",
+        "version": "1.8.3"
+      },
+      {
+        "anchor": "libwacom",
+        "name": "libwacom-2.18.0",
+        "note": "",
+        "type": "optional",
+        "version": "2.18.0"
+      },
+      {
+        "anchor": "lua",
+        "name": "Lua-5.4.8",
+        "note": "",
+        "type": "optional",
+        "version": "5.4.8"
+      },
+      {
+        "anchor": "mtdev",
+        "name": "mtdev-1.1.7",
+        "note": "",
+        "type": "required",
+        "version": "1.1.7"
+      },
+      {
+        "anchor": "pyparsing",
+        "name": "pyparsing-3.3.2",
+        "note": "for one non-root test",
+        "type": "optional",
+        "version": "3.3.2"
+      },
+      {
+        "anchor": "pytest",
+        "name": "pytest-9.0.2",
+        "note": "for another non-root\n                  test",
+        "type": "optional",
+        "version": "9.0.2"
+      },
+      {
+        "anchor": "recommonmark",
+        "name": "recommonmark-0.7.1",
+        "note": "",
+        "type": "optional",
+        "version": "0.7.1"
+      },
+      {
+        "anchor": "sphinx_rtd_theme",
+        "name": "sphinx_rtd_theme-3.1.0",
+        "note": "required to build documentation",
+        "type": "optional",
+        "version": "3.1.0"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "to run the tests",
+        "type": "optional",
+        "version": "3.26.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "BUILDING",
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [
+    "libinput"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libinput.so"
+  ],
+  "expected_pkgconfig": [
+    "libinput.pc"
+  ],
+  "name": "libinput",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libevdev",
+    "libwacom",
+    "mtdev"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "udev-dir",
+      "value": "/usr/lib/udev"
+    },
+    {
+      "name": "debug-gui",
+      "value": "false"
+    },
+    {
+      "name": "tests",
+      "value": "false"
+    },
+    {
+      "name": "documentation",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libinput",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "5f95a8ce039b3b2b4560a60bbdb920518d41baa9419344e5878c94bd841d5a54",
+  "source_tarball": "libinput-1.31.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.freedesktop.org/libinput/libinput/-/archive/${version}/libinput-${version}.tar.gz",
+  "tarball_files_count": 538,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "udev base directory [default=$prefix/lib/udev]",
+      "name": "udev-dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "epoll-dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "libwacom",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "mtdev",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable the ",
+      "name": "debug-gui",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build the tests [default=true]",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Install the libinput test command [default=false]",
+      "name": "install-tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build the documentation [default=false]",
+      "name": "documentation",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable coverity build fixes, see meson.build for details [default=false]",
+      "name": "coverity",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Directory for zsh completion scripts [",
+      "name": "zshcompletiondir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Enable additional internal event debug tracing. This will print key values to the logs and thus must never be enabled in a release build",
+      "name": "internal-event-debugging",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "autoload-plugins",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Enable support for Lua plugins",
+      "name": "lua-plugins",
+      "type": "feature"
+    }
+  ],
+  "version": "1.31.0"
+}

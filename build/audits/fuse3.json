@@ -1,0 +1,152 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:04Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "fuse3",
+    "blfs_name": "Fuse",
+    "blfs_version": "3.18.1",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "to rebuild the API\n                documentation",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "pytest",
+        "name": "pytest-9.0.2",
+        "note": "required for tests",
+        "type": "optional",
+        "version": "9.0.2"
+      },
+      {
+        "anchor": "which",
+        "name": "Which-2.23",
+        "note": "required for\n                tests",
+        "type": "optional",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "fusermount3",
+    "mount.fuse3"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libfuse3.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "fuse3",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "examples",
+      "value": "false"
+    },
+    {
+      "name": "useroot",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/core/fuse3",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "dd395c88f29c7540bbdd0b830260ab8092ccb241bb6e66f603643f715fb9322c",
+  "source_tarball": "fuse-3.18.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/libfuse/libfuse/releases/download/fuse-${version}/fuse-${version}.tar.gz",
+  "tarball_files_count": 1006,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Disable and ignore usage of /etc/mtab",
+      "name": "disable-mtab",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "udevrulesdir",
+      "type": "string"
+    },
+    {
+      "default": "/etc/init.d/",
+      "description": "",
+      "name": "initscriptdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Whether or not to build and install helper programs",
+      "name": "utils",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Whether or not to build example programs",
+      "name": "examples",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Set owner and setuid bits on installed files",
+      "name": "useroot",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Compile the test files",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Disable versioned symbols through libc",
+      "name": "disable-libc-symbol-version",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable user statically defined tracepoints for extra observability",
+      "name": "enable-usdt",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable fuse-over-io-uring support",
+      "name": "enable-io-uring",
+      "type": "boolean"
+    }
+  ],
+  "version": "3.18.1"
+}

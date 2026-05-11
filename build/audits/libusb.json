@@ -1,0 +1,107 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:10Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libusb",
+    "blfs_name": "libusb",
+    "blfs_version": "1.0.29",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libusb-1.0.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libusb",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/libusb",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "5977fc950f8d1395ccea9bd48c06b3f808fd3c2c961b44b0c2e6e29fc3a70a85",
+  "source_tarball": "libusb-1.0.29.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/libusb/libusb/releases/download/v${version}/libusb-${version}.tar.bz2",
+  "tarball_files_count": 157,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-udev",
+      "kind": "enable",
+      "name": "udev"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-eventfd",
+      "kind": "enable",
+      "name": "eventfd"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-timerfd",
+      "kind": "enable",
+      "name": "timerfd"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-log",
+      "kind": "enable",
+      "name": "log"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-debug-log",
+      "kind": "enable",
+      "name": "debug-log"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-system-log",
+      "kind": "enable",
+      "name": "system-log"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-examples-build",
+      "kind": "enable",
+      "name": "examples-build"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-tests-build",
+      "kind": "enable",
+      "name": "tests-build"
+    }
+  ],
+  "version": "1.0.29"
+}

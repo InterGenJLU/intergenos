@@ -1,0 +1,404 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:24Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnutls",
+    "blfs_name": "GnuTLS",
+    "blfs_version": "3.8.12",
+    "deps": [
+      {
+        "anchor": "brotli",
+        "name": "Brotli-1.2.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.2.0"
+      },
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "libidn",
+        "name": "libidn-1.43",
+        "note": "",
+        "type": "optional",
+        "version": "1.43"
+      },
+      {
+        "anchor": "libidn2",
+        "name": "libidn2-2.3.8",
+        "note": "",
+        "type": "optional",
+        "version": "2.3.8"
+      },
+      {
+        "anchor": "libseccomp",
+        "name": "libseccomp-2.6.0",
+        "note": "",
+        "type": "optional",
+        "version": "2.6.0"
+      },
+      {
+        "anchor": "libtasn1",
+        "name": "libtasn1-4.21.0",
+        "note": "",
+        "type": "recommended",
+        "version": "4.21.0"
+      },
+      {
+        "anchor": "libunistring",
+        "name": "libunistring-1.4.1",
+        "note": "",
+        "type": "recommended",
+        "version": "1.4.1"
+      },
+      {
+        "anchor": "make-ca",
+        "name": "make-ca-1.16.1",
+        "note": "",
+        "type": "recommended",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "net-tools",
+        "name": "Net-tools-2.10",
+        "note": "used during the test\n                suite",
+        "type": "optional",
+        "version": "2.10"
+      },
+      {
+        "anchor": "nettle",
+        "name": "Nettle-3.10.2",
+        "note": "",
+        "type": "required",
+        "version": "3.10.2"
+      },
+      {
+        "anchor": "p11-kit",
+        "name": "p11-kit-0.26.2",
+        "note": "",
+        "type": "recommended",
+        "version": "0.26.2"
+      },
+      {
+        "anchor": "texlive",
+        "name": "texlive-20250308",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "tl-installer",
+        "name": "install-tl-unx",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "used\n                during the test suite",
+        "type": "optional",
+        "version": "3.26.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "certtool",
+    "danetool",
+    "gnutls-cli",
+    "gnutls-cli-debug",
+    "gnutls-serv",
+    "ocsptool",
+    "p11tool",
+    "psktool",
+    "srptool"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libgnutls.so",
+    "libgnutls-dane.so",
+    "libgnutlsxx.so",
+    "libgnutls-openssl.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "gnutls",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr",
+    "--with-default-trust-store-pkcs11=pkcs11:"
+  ],
+  "our_deps_build": [
+    "libtasn1",
+    "libunistring",
+    "make-ca",
+    "nettle",
+    "p11-kit",
+    "brotli",
+    "libidn2",
+    "libseccomp"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/gnutls",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "a7b341421bfd459acf7a374ca4af3b9e06608dcd7bd792b2bf470bea012b8e51",
+  "source_tarball": "gnutls-3.8.12.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.gnupg.org/ftp/gcrypt/gnutls/v3.8/gnutls-${version}.tar.xz",
+  "tarball_files_count": 7300,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-bash-tests",
+      "kind": "enable",
+      "name": "bash-tests"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-doc",
+      "kind": "enable",
+      "name": "doc"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-manpages",
+      "kind": "enable",
+      "name": "manpages"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tools",
+      "kind": "enable",
+      "name": "tools"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-cxx",
+      "kind": "enable",
+      "name": "cxx"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-dyn-ncrypt",
+      "kind": "enable",
+      "name": "dyn_ncrypt"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-hardware-acceleration",
+      "kind": "enable",
+      "name": "hardware-acceleration"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tls13-interop",
+      "kind": "enable",
+      "name": "tls13-interop"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-padlock",
+      "kind": "enable",
+      "name": "padlock"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tests",
+      "kind": "enable",
+      "name": "tests"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-fuzzer-target",
+      "kind": "enable",
+      "name": "fuzzer-target"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-seccomp-tests",
+      "kind": "enable",
+      "name": "seccomp-tests"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-full-test-suite",
+      "kind": "enable",
+      "name": "full-test-suite"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-oldgnutls-interop",
+      "kind": "enable",
+      "name": "oldgnutls-interop"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-gcc-warnings",
+      "kind": "enable",
+      "name": "gcc-warnings"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-fips140-mode",
+      "kind": "enable",
+      "name": "fips140-mode"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-strict-x509",
+      "kind": "enable",
+      "name": "strict-x509"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-non-suiteb-curves",
+      "kind": "enable",
+      "name": "non-suiteb-curves"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-dsa",
+      "kind": "enable",
+      "name": "dsa"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-libdane",
+      "kind": "enable",
+      "name": "libdane"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-included-unistring",
+      "kind": "with",
+      "name": "included-unistring"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-fips140-key",
+      "kind": "with",
+      "name": "fips140-key"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-fips140-module-name",
+      "kind": "with",
+      "name": "fips140-module-name"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-fips140-module-version",
+      "kind": "with",
+      "name": "fips140-module-version"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pkcs12-iter-count",
+      "kind": "with",
+      "name": "pkcs12-iter-count"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-idn",
+      "kind": "with",
+      "name": "idn"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-unbound-root-key-file",
+      "kind": "with",
+      "name": "unbound-root-key-file"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-system-priority-file",
+      "kind": "with",
+      "name": "system-priority-file"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-priority-string",
+      "kind": "with",
+      "name": "default-priority-string"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-p11-kit",
+      "kind": "with",
+      "name": "p11-kit"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-tpm2=yes/link/dlopen/no --without-tpm2",
+      "kind": "with",
+      "name": "tpm2"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-tpm",
+      "kind": "with",
+      "name": "tpm"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-trousers-lib=LIB",
+      "kind": "with",
+      "name": "trousers-lib"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-zlib=yes/link/dlopen/no --without-zlib",
+      "kind": "with",
+      "name": "zlib"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-brotli=yes/link/dlopen/no --without-brotli",
+      "kind": "with",
+      "name": "brotli"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-zstd=yes/link/dlopen/no --without-zstd",
+      "kind": "with",
+      "name": "zstd"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-leancrypto",
+      "kind": "with",
+      "name": "leancrypto"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-trust-store-pkcs11=URI",
+      "kind": "with",
+      "name": "default-trust-store-pkcs11"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-trust-store-dir=DIR",
+      "kind": "with",
+      "name": "default-trust-store-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-trust-store-file=FILE",
+      "kind": "with",
+      "name": "default-trust-store-file"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-crl-file=FILE",
+      "kind": "with",
+      "name": "default-crl-file"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-blocklist-file=FILE",
+      "kind": "with",
+      "name": "default-blocklist-file"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-blacklist-file=FILE",
+      "kind": "with",
+      "name": "default-blacklist-file"
+    }
+  ],
+  "version": "3.8.12"
+}

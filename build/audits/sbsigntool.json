@@ -1,0 +1,57 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:18Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "sbsigntool",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--git-only",
+    "--no-license",
+    "--no-same-owner",
+    "--no-same-permissions",
+    "--prefix=/usr",
+    "--strip-components=1",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "openssl",
+    "gnu-efi",
+    "efitools",
+    "help2man"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/sbsigntool",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "a2323e54be6d17f50ceb3253ca6ed063171a5bcb7079bfa594008cd2aeb7fdea",
+  "source_tarball": "sbsigntools-0.9.5.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/jejb/sbsigntools.git/snapshot/sbsigntools-${version}.tar.gz",
+  "tarball_files_count": 57,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "0.9.5"
+}

@@ -1,0 +1,98 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:58Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "nss",
+    "blfs_name": "NSS",
+    "blfs_version": "3.120.1",
+    "deps": [
+      {
+        "anchor": "nspr",
+        "name": "NSPR-4.38.2",
+        "note": "",
+        "type": "required",
+        "version": "4.38.2"
+      },
+      {
+        "anchor": "p11-kit",
+        "name": "p11-kit-0.26.2",
+        "note": "runtime [downgraded from recommended/runtime by fix-blfs-db-data-errors.py]",
+        "type": "optional",
+        "version": "0.26.2"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "nss-standalone-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/nss-standalone-1.patch"
+      }
+    ]
+  },
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "NOTES",
+    "README"
+  ],
+  "expected_binaries": [
+    "certutil",
+    "nss-config",
+    "pk12util"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libcrmf.a",
+    "libfreebl3.so",
+    "libfreeblpriv3.so",
+    "libnss3.so",
+    "libnssckbi.so",
+    "libnssckbi-testlib.so",
+    "libnssdbm3.so",
+    "libnsssysinit.so",
+    "libnssutil3.so",
+    "libpkcs11testmodule.so",
+    "libsmime3.so",
+    "libsoftokn3.so",
+    "libssl3.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "nss",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "nspr"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "p11-kit"
+  ],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "nss-standalone-1.patch",
+      "sha256": "87bb1af0b11fd41311b9899187f6e4b3fca9940651123c7bc836ec7497d2da84"
+    }
+  ],
+  "package_dir": "packages/core/nss",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "cb3a8f8781bea78b7b8edd3afb7a2cb58e4881bb0160d189a39b98216ba7632e",
+  "source_tarball": "nss-3.121.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://archive.mozilla.org/pub/security/nss/releases/NSS_3_121_RTM/src/nss-${version}.tar.gz",
+  "tarball_files_count": 4741,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "3.121"
+}

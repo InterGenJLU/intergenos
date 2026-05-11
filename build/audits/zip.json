@@ -1,0 +1,56 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:23Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "zip",
+    "blfs_name": "Zip",
+    "blfs_version": "3.0",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "/usr/bin/zip",
+    "/usr/bin/zipcloak",
+    "/usr/bin/zipnote",
+    "/usr/bin/zipsplit"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "zip",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/base/zip",
+  "reproducibility": {
+    "_notes": "filled by agent-c03 from build.sh inspection + BLFS HTML",
+    "deterministic_install": 1,
+    "parallel_build_supported": 0,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "f0e8bb1f9b7eb0b01285495a2699df3a4b766784c1765a8f1aeedf63c0806369",
+  "source_tarball": "zip30.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://downloads.sourceforge.net/infozip/zip30.tar.gz",
+  "tarball_files_count": 395,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "base",
+  "upstream_options": [],
+  "version": "3.0"
+}

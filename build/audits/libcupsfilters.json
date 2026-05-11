@@ -1,0 +1,261 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:48Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libcupsfilters",
+    "blfs_name": "libcupsfilters",
+    "blfs_version": "2.1.1",
+    "deps": [
+      {
+        "anchor": "cups",
+        "name": "Cups-2.4.16",
+        "note": "",
+        "type": "required",
+        "version": "2.4.16"
+      },
+      {
+        "anchor": "dejavu-fonts",
+        "name": "Dejavu fonts",
+        "note": "the build fails if they are\n                not installed, although they are only required for the\n                tests",
+        "type": "recommended",
+        "version": ""
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gs",
+        "name": "ghostscript-10.06.0",
+        "note": "",
+        "type": "required",
+        "version": "10.06.0"
+      },
+      {
+        "anchor": "lcms2",
+        "name": "Little CMS-2.18",
+        "note": "",
+        "type": "required",
+        "version": "2.18"
+      },
+      {
+        "anchor": "libexif",
+        "name": "libexif-0.6.25",
+        "note": "",
+        "type": "recommended",
+        "version": "0.6.25"
+      },
+      {
+        "anchor": "libjpeg",
+        "name": "libjpeg-turbo-3.1.3",
+        "note": "",
+        "type": "recommended",
+        "version": "3.1.3"
+      },
+      {
+        "anchor": "libpng",
+        "name": "libpng-1.6.55",
+        "note": "",
+        "type": "recommended",
+        "version": "1.6.55"
+      },
+      {
+        "anchor": "libtiff",
+        "name": "libtiff-4.7.1",
+        "note": "",
+        "type": "recommended",
+        "version": "4.7.1"
+      },
+      {
+        "anchor": "mupdf",
+        "name": "mupdf-1.26.12",
+        "note": "",
+        "type": "required",
+        "version": "1.26.12"
+      },
+      {
+        "anchor": "poppler",
+        "name": "Poppler-26.02.0",
+        "note": "",
+        "type": "required",
+        "version": "26.02.0"
+      },
+      {
+        "anchor": "qpdf",
+        "name": "Qpdf-12.3.2",
+        "note": "",
+        "type": "required",
+        "version": "12.3.2"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "libcupsfilters-2.1.1-security_fixes-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/libcupsfilters-2.1.1-security_fixes-1.patch"
+      }
+    ]
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libcupsfilters.so",
+    "libfontembed.so"
+  ],
+  "expected_pkgconfig": [
+    "libcupsfilters.pc",
+    "libfontembed.pc"
+  ],
+  "name": "libcupsfilters",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "cups",
+    "mupdf",
+    "lcms2",
+    "poppler",
+    "qpdf",
+    "ghostscript",
+    "glib2",
+    "libexif",
+    "libjpeg-turbo",
+    "libpng",
+    "libtiff"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "libcupsfilters-2.1.1-security_fixes-1.patch",
+      "sha256": "a2d31c93c82057672c8bb7d5ebe09d961d5f44ffcd64ce2b36bf442265c7349c"
+    }
+  ],
+  "package_dir": "packages/desktop/libcupsfilters",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "6c303e36cfde05a6c88fb940c62b6a18e7cdbfb91f077733ebc98f104925ce36",
+  "source_tarball": "libcupsfilters-2.1.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/OpenPrinting/libcupsfilters/releases/download/${version}/libcupsfilters-${version}.tar.xz",
+  "tarball_files_count": 201,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-imagefilters",
+      "kind": "enable",
+      "name": "imagefilters"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-exif",
+      "kind": "enable",
+      "name": "exif"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-poppler",
+      "kind": "enable",
+      "name": "poppler"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-dbus",
+      "kind": "enable",
+      "name": "dbus"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ghostscript",
+      "kind": "enable",
+      "name": "ghostscript"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-mutool",
+      "kind": "enable",
+      "name": "mutool"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-werror",
+      "kind": "enable",
+      "name": "werror"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-cups-config=path",
+      "kind": "with",
+      "name": "cups-config"
+    },
+    {
+      "help": "  --with-cups-rundir           set transient run-time state directory of CUPS",
+      "kind": "with",
+      "name": "cups-rundir"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-jpeg",
+      "kind": "with",
+      "name": "jpeg"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-png",
+      "kind": "with",
+      "name": "png"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-tiff",
+      "kind": "with",
+      "name": "tiff"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-exif-libs",
+      "kind": "with",
+      "name": "exif-libs"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-exif-includes",
+      "kind": "with",
+      "name": "exif-includes"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-gs-path=value",
+      "kind": "with",
+      "name": "gs-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-ippfind-path=value",
+      "kind": "with",
+      "name": "ippfind-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-mutool-path=value",
+      "kind": "with",
+      "name": "mutool-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-test-font-path=value",
+      "kind": "with",
+      "name": "test-font-path"
+    }
+  ],
+  "version": "2.1.1"
+}

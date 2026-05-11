@@ -15,5 +15,7 @@ dependencies:
   - dbus
   - glib2
   - pygobject3
+  - meson_python
+  - patchelf
   host: []
   runtime: []

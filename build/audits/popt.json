@@ -1,0 +1,78 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:03Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "popt",
+    "blfs_name": "Popt",
+    "blfs_version": "1.19",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "for generating\n                documentation",
+        "type": "optional",
+        "version": "1.16.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libpopt.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "popt",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/popt",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "c25a4838fc8e4c1c8aacb8bd620edb3084a3d63bf8987fdad3ca2758c63240f9",
+  "source_tarball": "popt-1.19.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://ftp.osuosl.org/pub/rpm/popt/releases/popt-1.x/popt-${version}.tar.gz",
+  "tarball_files_count": 160,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-ld-version-script",
+      "kind": "enable",
+      "name": "ld-version-script"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-build-gcov",
+      "kind": "enable",
+      "name": "build-gcov"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-werror",
+      "kind": "enable",
+      "name": "werror"
+    }
+  ],
+  "version": "1.19"
+}

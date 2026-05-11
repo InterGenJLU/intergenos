@@ -1,0 +1,150 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:11Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libwacom",
+    "blfs_name": "libwacom",
+    "blfs_version": "2.18.0",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "git",
+        "name": "git-2.53.0",
+        "note": "",
+        "type": "optional",
+        "version": "2.53.0"
+      },
+      {
+        "anchor": "libevdev",
+        "name": "libevdev-1.13.6",
+        "note": "",
+        "type": "required",
+        "version": "1.13.6"
+      },
+      {
+        "anchor": "libgudev",
+        "name": "libgudev-238",
+        "note": "",
+        "type": "required",
+        "version": "238"
+      },
+      {
+        "anchor": "librsvg",
+        "name": "librsvg-2.61.4",
+        "note": "",
+        "type": "optional",
+        "version": "2.61.4"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "recommended",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "pytest",
+        "name": "pytest-9.0.2",
+        "note": "",
+        "type": "optional",
+        "version": "9.0.2"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "optional for some\n                tests",
+        "type": "optional",
+        "version": "3.26.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "libwacom-list-devices",
+    "libwacom-list-local-devices",
+    "libwacom-show-stylus",
+    "libwacom-update-db"
+  ],
+  "expected_headers": [
+    "/usr/include/libwacom-1.0"
+  ],
+  "expected_libs": [
+    "libwacom.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libwacom",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libevdev",
+    "libgudev",
+    "libxml2",
+    "git",
+    "librsvg"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "tests",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libwacom",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "7dbb9ab37df9df47ae2fdbb644916c986728291749bcd5ad8bcaa26f1e15f002",
+  "source_tarball": "libwacom-2.18.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/linuxwacom/libwacom/releases/download/libwacom-${version}/libwacom-${version}.tar.xz",
+  "tarball_files_count": 898,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "disabled",
+      "description": "Build doxygen documentation [default=auto]",
+      "name": "documentation",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "udev base directory [default=$prefix/lib/udev]",
+      "name": "udev-dir",
+      "type": "string"
+    },
+    {
+      "default": "enabled",
+      "description": "Build the tests [default=enabled]",
+      "name": "tests",
+      "type": "feature"
+    }
+  ],
+  "version": "2.18.0"
+}

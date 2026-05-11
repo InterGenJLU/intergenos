@@ -1,0 +1,80 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:18Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "sdl2",
+    "blfs_name": "sdl2-compat",
+    "blfs_version": "2.32.64",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "sdl3",
+        "name": "SDL3-3.4.0",
+        "note": "",
+        "type": "required",
+        "version": "3.4.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CONTRIBUTING",
+    "HACKING",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/SDL2"
+  ],
+  "expected_libs": [
+    "libSDL2.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "sdl2",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libxkbcommon",
+    "wayland",
+    "wayland-protocols",
+    "cmake"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/sdl2",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "6a7a40d6c2e00016791815e1a9f4042809210bdf10cc78d2c75b45c4f52f93ad",
+  "source_tarball": "SDL2-2.32.6.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/libsdl-org/SDL/releases/download/release-${version}/SDL2-${version}.tar.gz",
+  "tarball_files_count": 1751,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "2.32.6"
+}

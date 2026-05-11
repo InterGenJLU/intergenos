@@ -1,0 +1,250 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:42Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "inkscape",
+    "blfs_name": "Inkscape",
+    "blfs_version": "1.4.3",
+    "deps": [
+      {
+        "anchor": "aspell",
+        "name": "Aspell-0.60.8.2",
+        "note": "",
+        "type": "optional",
+        "version": "0.60.8.2"
+      },
+      {
+        "anchor": "boost",
+        "name": "Boost-1.90.0",
+        "note": "",
+        "type": "required",
+        "version": "1.90.0"
+      },
+      {
+        "anchor": "cachecontrol",
+        "name": "cachecontrol-0.14.4",
+        "note": "",
+        "type": "recommended",
+        "version": "0.14.4"
+      },
+      {
+        "anchor": "cssselect",
+        "name": "cssselect-1.4.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.4.0"
+      },
+      {
+        "anchor": "dbus",
+        "name": "dbus-1.16.2",
+        "note": "to run inkscape\n                from scripts",
+        "type": "optional",
+        "version": "1.16.2"
+      },
+      {
+        "anchor": "double-conversion",
+        "name": "double-conversion-3.4.0",
+        "note": "",
+        "type": "required",
+        "version": "3.4.0"
+      },
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "gc",
+        "name": "GC-8.2.12",
+        "note": "",
+        "type": "required",
+        "version": "8.2.12"
+      },
+      {
+        "anchor": "gsl",
+        "name": "gsl-2.8",
+        "note": "",
+        "type": "required",
+        "version": "2.8"
+      },
+      {
+        "anchor": "gspell",
+        "name": "gspell-1.14.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.14.2"
+      },
+      {
+        "anchor": "gtkmm3",
+        "name": "Gtkmm-3.24.10",
+        "note": "",
+        "type": "required",
+        "version": "3.24.10"
+      },
+      {
+        "anchor": "imagemagick",
+        "name": "ImageMagick-7.1.2-13",
+        "note": "runtime [downgraded from recommended/runtime by fix-blfs-db-data-errors.py]",
+        "type": "optional",
+        "version": "13"
+      },
+      {
+        "anchor": "lcms2",
+        "name": "Little\n                CMS-2.18",
+        "note": "",
+        "type": "recommended",
+        "version": "2.18"
+      },
+      {
+        "anchor": "libcanberra",
+        "name": "libcanberra-0.30",
+        "note": "to eliminate plugin\n                warnings",
+        "type": "recommended",
+        "version": "0.30"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "",
+        "type": "required",
+        "version": "1.1.45"
+      },
+      {
+        "anchor": "lxml",
+        "name": "lxml-6.0.2",
+        "note": "",
+        "type": "recommended",
+        "version": "6.0.2"
+      },
+      {
+        "anchor": "numpy",
+        "name": "NumPy-2.4.2",
+        "note": "",
+        "type": "recommended",
+        "version": "2.4.2"
+      },
+      {
+        "anchor": "poppler",
+        "name": "Poppler-26.02.0",
+        "note": "",
+        "type": "required",
+        "version": "26.02.0"
+      },
+      {
+        "anchor": "popt",
+        "name": "popt-1.19",
+        "note": "",
+        "type": "required",
+        "version": "1.19"
+      },
+      {
+        "anchor": "potrace",
+        "name": "Potrace-1.16",
+        "note": "for the bucket-fill tool",
+        "type": "recommended",
+        "version": "1.16"
+      },
+      {
+        "anchor": "pyserial",
+        "name": "pySerial-3.5",
+        "note": "",
+        "type": "recommended",
+        "version": "3.5"
+      },
+      {
+        "anchor": "scour",
+        "name": "Scour-0.38.2",
+        "note": "",
+        "type": "recommended",
+        "version": "0.38.2"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "inkscape-1.4.3-poppler_26.02-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/inkscape-1.4.3-poppler_26.02-1.patch"
+      }
+    ]
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "/usr/bin/inkscape",
+    "/usr/bin/inkview"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "/usr/lib/inkscape/libinkscape_base.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "inkscape",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "boost",
+    "double-conversion",
+    "gc",
+    "gsl",
+    "gtkmm3",
+    "libxslt",
+    "poppler",
+    "popt",
+    "potrace",
+    "imagemagick",
+    "lcms2",
+    "libcanberra",
+    "gspell",
+    "numpy"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    }
+  ],
+  "our_patches": [
+    {
+      "file": "inkscape-1.4.3-poppler_26.02-1.patch",
+      "sha256": "e7e9c70addce0ffc0d3019868eb3bf96fe4cf0fa1b43b34542d9ef94765267b4"
+    }
+  ],
+  "package_dir": "packages/extra/inkscape",
+  "reproducibility": {
+    "_notes": "cmake; private lib lives in /usr/lib/inkscape",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "e83a2c3db570b6c5a1ff0fccfe7098837b3f6bd74b133567937c8a91710ed1d1",
+  "source_tarball": "inkscape-1.4.3.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://inkscape.org/gallery/item/58914/inkscape-${version}.tar.xz",
+  "tarball_files_count": 10508,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "1.4.3"
+}

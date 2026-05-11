@@ -1,0 +1,124 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-DEPS-extract-unclear",
+    "bundled-lib-external-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:43Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "spirv-tools",
+    "blfs_name": "SPIRV-Tools",
+    "blfs_version": "1.4.341.0",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "spirv-headers",
+        "name": "SPIRV-Headers-1.4.341.0",
+        "note": "",
+        "type": "required",
+        "version": "1.4.341.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [
+    "DEPS",
+    "external"
+  ],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "spirv-as",
+    "spirv-cfg",
+    "spirv-dis",
+    "spirv-lesspipe.sh",
+    "spirv-link",
+    "spirv-lint",
+    "spirv-objdump",
+    "spirv-opt",
+    "spirv-reduce",
+    "spirv-val"
+  ],
+  "expected_headers": [
+    "/usr/include/spirv-tools"
+  ],
+  "expected_libs": [
+    "libSPIRV-Tools-diff.so",
+    "libSPIRV-Tools-link.so",
+    "libSPIRV-Tools-lint.so",
+    "libSPIRV-Tools-opt.so",
+    "libSPIRV-Tools-reduce.so",
+    "libSPIRV-Tools-shared.so",
+    "libSPIRV-Tools.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "spirv-tools",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "spirv-headers",
+    "cmake"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "SPIRV_WERROR",
+      "value": "OFF"
+    },
+    {
+      "name": "BUILD_SHARED_LIBS",
+      "value": "ON"
+    },
+    {
+      "name": "SPIRV_TOOLS_BUILD_STATIC",
+      "value": "OFF"
+    },
+    {
+      "name": "SPIRV-Headers_SOURCE_DIR",
+      "value": "/usr"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/spirv-tools",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "15bfb678138cdf9cd1480dfb952547bbb66b763a735b6d5582578572f5c2e6f9",
+  "source_tarball": "spirv-tools-1.4.341.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/KhronosGroup/SPIRV-Tools/archive/vulkan-sdk-${version}/spirv-tools-${version}.tar.gz",
+  "tarball_files_count": 1849,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.4.341.0"
+}

@@ -1,0 +1,106 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:43Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "spirv-llvm-translator",
+    "blfs_name": "SPIRV-LLVM-Translator",
+    "blfs_version": "21.1.4",
+    "deps": [
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "required",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "llvm",
+        "name": "LLVM-21.1.8",
+        "note": "",
+        "type": "required",
+        "version": "21.1.8"
+      },
+      {
+        "anchor": "spirv-tools",
+        "name": "SPIRV-Tools-1.4.341.0",
+        "note": "",
+        "type": "required",
+        "version": "1.4.341.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [
+    "llvm-spirv"
+  ],
+  "expected_headers": [
+    "/usr/include/LLVMSPIRVLib"
+  ],
+  "expected_libs": [
+    "libLLVMSPIRVLib.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "spirv-llvm-translator",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "llvm",
+    "spirv-tools",
+    "libxml2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "BUILD_SHARED_LIBS",
+      "value": "ON"
+    },
+    {
+      "name": "CMAKE_SKIP_INSTALL_RPATH",
+      "value": "ON"
+    },
+    {
+      "name": "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR",
+      "value": "/usr"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/spirv-llvm-translator",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "e900c907b62f82cf541a611b33d6685f375fe3bda6f041087fcdba350ffb437d",
+  "source_tarball": "spirv-llvm-translator-21.1.4.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/KhronosGroup/SPIRV-LLVM-Translator/archive/v${version}/spirv-llvm-translator-${version}.tar.gz",
+  "tarball_files_count": 1199,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "21.1.4"
+}

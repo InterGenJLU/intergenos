@@ -1,0 +1,75 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:45Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "tecla",
+    "blfs_name": "Tecla",
+    "blfs_version": "49.0",
+    "deps": [
+      {
+        "anchor": "libadwaita1",
+        "name": "libadwaita-1.8.4",
+        "note": "",
+        "type": "required",
+        "version": "1.8.4"
+      },
+      {
+        "anchor": "libxkbcommon",
+        "name": "libxkbcommon-1.13.1",
+        "note": "",
+        "type": "required",
+        "version": "1.13.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "tecla"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "None"
+  ],
+  "expected_pkgconfig": [],
+  "name": "tecla",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libadwaita1",
+    "libxkbcommon"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/tecla",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "2ca424e402baf60cd6b13777703b701ebb1faf8f3d0f2f971144d823f651249f",
+  "source_tarball": "tecla-49.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/tecla/49/tecla-${version}.tar.xz",
+  "tarball_files_count": 96,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "49.0"
+}

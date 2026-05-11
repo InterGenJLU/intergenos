@@ -1,0 +1,97 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:18Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-logs",
+    "blfs_name": "gnome-logs",
+    "blfs_version": "45.0",
+    "deps": [
+      {
+        "anchor": "gsettings-desktop-schemas",
+        "name": "gsettings-desktop-schemas-49.1",
+        "note": "",
+        "type": "required",
+        "version": "49.1"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "",
+        "type": "required",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "itstool",
+        "name": "itstool-2.0.7",
+        "note": "",
+        "type": "required",
+        "version": "2.0.7"
+      },
+      {
+        "anchor": "libadwaita1",
+        "name": "libadwaita-1.8.4",
+        "note": "",
+        "type": "required",
+        "version": "1.8.4"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "gnome-logs"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gnome-logs",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gtk4",
+    "gsettings-desktop-schemas",
+    "itstool",
+    "libadwaita1"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-logs",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "b28a06ea5c98bd17f2873b507f085b0ca0de9810136611f4f2eeb098614ece52",
+  "source_tarball": "gnome-logs-45.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-logs/45/gnome-logs-${version}.tar.xz",
+  "tarball_files_count": 202,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Enable building the man page",
+      "name": "man",
+      "type": "boolean"
+    }
+  ],
+  "version": "45.0"
+}

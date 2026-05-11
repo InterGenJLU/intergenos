@@ -1,0 +1,154 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:39Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "inih",
+    "blfs_name": "inih",
+    "blfs_version": "62",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [
+    "None"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libinih.so",
+    "libINIReader.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "inih",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/inih",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "9c15fa751bb8093d042dae1b9f125eb45198c32c6704cd5481ccde460d4f8151",
+  "source_tarball": "inih-r62.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/benhoyt/inih/archive/r${version}/inih-r${version}.tar.gz",
+  "tarball_files_count": 69,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "install shared libs, headers and pkg-config entries",
+      "name": "distro_install",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "with_INIReader",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "support for multi-line entries in the style of Python\\",
+      "name": "multi-line_entries",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "utf-8_bom",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "allow inline comments with the comment prefix character",
+      "name": "inline_comments",
+      "type": "boolean"
+    },
+    {
+      "default": ";",
+      "description": "",
+      "name": "inline_comment_prefix",
+      "type": "string"
+    },
+    {
+      "default": ";#",
+      "description": "",
+      "name": "start-of-line_comment_prefix",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "allow name with no value",
+      "name": "allow_no_value",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "stop parsing after an error",
+      "name": "stop_on_first_error",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "report line number on ini_handler callback",
+      "name": "report_line_numbers",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "call the handler each time a new section is encountered",
+      "name": "call_handler_on_new_section",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "allocate memory on the heap using malloc instead using a fixed-sized line buffer on the stack",
+      "name": "use_heap",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "maximum line length in bytes",
+      "name": "max_line_length",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "initial_malloc_size",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "allow_realloc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "tests",
+      "type": "boolean"
+    }
+  ],
+  "version": "62"
+}

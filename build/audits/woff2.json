@@ -1,0 +1,84 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:17Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "woff2",
+    "blfs_name": "woff2",
+    "blfs_version": "1.0.2",
+    "deps": [
+      {
+        "anchor": "brotli",
+        "name": "Brotli-1.2.0",
+        "note": "",
+        "type": "required",
+        "version": "1.2.0"
+      },
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libwoff2common.so",
+    "libwoff2dec.so",
+    "libwoff2enc.so"
+  ],
+  "expected_pkgconfig": [
+    "woff2common.pc",
+    "woff2dec.pc",
+    "woff2enc.pc"
+  ],
+  "name": "woff2",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "brotli",
+    "cmake"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/woff2",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "add272bb09e6384a4833ffca4896350fdb16e0ca22df68c0384773c67a175594",
+  "source_tarball": "woff2-1.0.2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/google/woff2/archive/v${version}/woff2-${version}.tar.gz",
+  "tarball_files_count": 45,
+  "test_command": "ctest --output-on-failure",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.0.2"
+}

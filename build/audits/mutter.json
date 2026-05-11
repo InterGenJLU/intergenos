@@ -1,0 +1,232 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:51Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "mutter",
+    "blfs_name": "Mutter",
+    "blfs_version": "49.4",
+    "deps": [
+      {
+        "anchor": "at-spi2-core",
+        "name": "at-spi2-core-2.58.3",
+        "note": "",
+        "type": "required",
+        "version": "2.58.3"
+      },
+      {
+        "anchor": "desktop-file-utils",
+        "name": "desktop-file-utils-0.28",
+        "note": "",
+        "type": "recommended",
+        "version": "0.28"
+      },
+      {
+        "anchor": "docutils",
+        "name": "docutils-0.22.4",
+        "note": "",
+        "type": "required",
+        "version": "0.22.4"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gnome-settings-daemon",
+        "name": "gnome-settings-daemon-49.1",
+        "note": "",
+        "type": "required",
+        "version": "49.1"
+      },
+      {
+        "anchor": "graphene",
+        "name": "graphene-1.10.8",
+        "note": "",
+        "type": "required",
+        "version": "1.10.8"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "both\n                required for tests",
+        "type": "optional",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "",
+        "type": "required",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "libadwaita1",
+        "name": "libadwaita-1.8.4",
+        "note": "",
+        "type": "optional",
+        "version": "1.8.4"
+      },
+      {
+        "anchor": "libdisplay-info",
+        "name": "libdisplay-info-0.3.0",
+        "note": "",
+        "type": "recommended",
+        "version": "0.3.0"
+      },
+      {
+        "anchor": "libei",
+        "name": "libei-1.5.0",
+        "note": "",
+        "type": "required",
+        "version": "1.5.0"
+      },
+      {
+        "anchor": "libxcvt",
+        "name": "libxcvt-0.1.3",
+        "note": "",
+        "type": "required",
+        "version": "0.1.3"
+      },
+      {
+        "anchor": "libxkbcommon",
+        "name": "libxkbcommon-1.13.1",
+        "note": "",
+        "type": "required",
+        "version": "1.13.1"
+      },
+      {
+        "anchor": "pipewire",
+        "name": "pipewire-1.6.0",
+        "note": "",
+        "type": "required",
+        "version": "1.6.0"
+      },
+      {
+        "anchor": "python-dbusmock",
+        "name": "dbusmock-0.38.1",
+        "note": "",
+        "type": "optional",
+        "version": "0.38.1"
+      },
+      {
+        "anchor": "startup-notification",
+        "name": "startup-notification-0.12",
+        "note": "",
+        "type": "recommended",
+        "version": "0.12"
+      },
+      {
+        "anchor": "xorg-server",
+        "name": "Xorg-Server-21.1.21",
+        "note": "for X11\n                sessions, deprecated",
+        "type": "optional",
+        "version": "21.1.21"
+      },
+      {
+        "anchor": "xwayland",
+        "name": "Xwayland-24.1.9",
+        "note": "",
+        "type": "optional",
+        "version": "24.1.9"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "BUILDING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "gdctl",
+    "gnome-service-client",
+    "mutter"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libmutter-17.so",
+    "libmutter-test-17.so (optional)"
+  ],
+  "expected_pkgconfig": [],
+  "name": "mutter",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "argcomplete",
+    "at-spi2-core",
+    "glycin",
+    "graphene",
+    "gtk4",
+    "libei",
+    "libxcvt",
+    "libdisplay-info",
+    "pipewire",
+    "startup-notification",
+    "libinput",
+    "wayland-protocols",
+    "libxkbcommon",
+    "libX11",
+    "libXrandr",
+    "libXi",
+    "libXcomposite",
+    "libXdamage",
+    "libXfixes",
+    "desktop-file-utils",
+    "docutils",
+    "glib2",
+    "gnome-settings-daemon",
+    "libadwaita1",
+    "xwayland"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "tests",
+      "value": "disabled"
+    },
+    {
+      "name": "docs",
+      "value": "false"
+    },
+    {
+      "name": "profiler",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/mutter",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "c1666ec50561530be25cb88d939c2bcc2af34f01c63b8b16b82b892ee33d7855",
+  "source_tarball": "mutter-49.4.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/mutter/49/mutter-${version}.tar.xz",
+  "tarball_files_count": 2342,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "49.4"
+}

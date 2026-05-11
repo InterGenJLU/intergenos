@@ -1,0 +1,343 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:51Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "firefox",
+    "blfs_name": "Firefox",
+    "blfs_version": "140.8.0esr",
+    "deps": [
+      {
+        "anchor": "alsa-lib",
+        "name": "alsa-lib-1.2.15.3",
+        "note": "",
+        "type": "required",
+        "version": "1.2.15.3"
+      },
+      {
+        "anchor": "cbindgen",
+        "name": "Cbindgen-0.29.2",
+        "note": "",
+        "type": "required",
+        "version": "0.29.2"
+      },
+      {
+        "anchor": "curl",
+        "name": "cURL-8.18.0",
+        "note": "",
+        "type": "optional",
+        "version": "8.18.0"
+      },
+      {
+        "anchor": "dav1d",
+        "name": "dav1d-1.5.3",
+        "note": "",
+        "type": "recommended",
+        "version": "1.5.3"
+      },
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "ffmpeg",
+        "name": "FFmpeg-8.0.1",
+        "note": "runtime, to play mov, mp3 or\n                mp4 files",
+        "type": "optional",
+        "version": "8.0.1"
+      },
+      {
+        "anchor": "geoclue2",
+        "name": "GeoClue-2.8.0",
+        "note": "runtime",
+        "type": "optional",
+        "version": "2.8.0"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "required",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "icu",
+        "name": "ICU-78.2",
+        "note": "",
+        "type": "recommended",
+        "version": "78.2"
+      },
+      {
+        "anchor": "libaom",
+        "name": "libaom-3.13.1",
+        "note": "",
+        "type": "recommended",
+        "version": "3.13.1"
+      },
+      {
+        "anchor": "libarchive",
+        "name": "libarchive-3.8.5",
+        "note": "",
+        "type": "required",
+        "version": "3.8.5"
+      },
+      {
+        "anchor": "libevent",
+        "name": "libevent-2.1.12",
+        "note": "",
+        "type": "recommended",
+        "version": "2.1.12"
+      },
+      {
+        "anchor": "libnotify",
+        "name": "libnotify-0.8.8",
+        "note": "",
+        "type": "required",
+        "version": "0.8.8"
+      },
+      {
+        "anchor": "liboauth",
+        "name": "liboauth-1.0.3",
+        "note": "",
+        "type": "optional",
+        "version": "1.0.3"
+      },
+      {
+        "anchor": "libproxy",
+        "name": "libproxy-0.5.12",
+        "note": "",
+        "type": "optional",
+        "version": "0.5.12"
+      },
+      {
+        "anchor": "libvpx",
+        "name": "libvpx-1.16.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.16.0"
+      },
+      {
+        "anchor": "libwebp",
+        "name": "libwebp-1.6.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.6.0"
+      },
+      {
+        "anchor": "llvm",
+        "name": "LLVM-21.1.8",
+        "note": "with clang, used for bindgen\n                even if using gcc",
+        "type": "required",
+        "version": "21.1.8"
+      },
+      {
+        "anchor": "nasm",
+        "name": "NASM-3.01",
+        "note": "",
+        "type": "recommended",
+        "version": "3.01"
+      },
+      {
+        "anchor": "nodejs",
+        "name": "nodejs-22.22.0",
+        "note": "",
+        "type": "required",
+        "version": "22.22.0"
+      },
+      {
+        "anchor": "nss",
+        "name": "nss-3.120.1",
+        "note": "",
+        "type": "recommended",
+        "version": "3.120.1"
+      },
+      {
+        "anchor": "pciutils",
+        "name": "pciutils-3.14.0",
+        "note": "runtime",
+        "type": "optional",
+        "version": "3.14.0"
+      },
+      {
+        "anchor": "pulseaudio",
+        "name": "PulseAudio-17.0",
+        "note": "",
+        "type": "required",
+        "version": "17.0"
+      },
+      {
+        "anchor": "startup-notification",
+        "name": "startup-notification-0.12",
+        "note": "",
+        "type": "required",
+        "version": "0.12"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      },
+      {
+        "anchor": "wget",
+        "name": "Wget-1.25.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.25.0"
+      },
+      {
+        "anchor": "wireless_tools",
+        "name": "Wireless\n                Tools-29",
+        "note": "",
+        "type": "optional",
+        "version": "29"
+      },
+      {
+        "anchor": "yasm",
+        "name": "yasm-1.3.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.3.0"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "firefox-140.8.0esr-ffmpeg-8.0.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/firefox-140.8.0esr-ffmpeg-8.0.patch"
+      },
+      {
+        "filename": "firefox-140.8.0esr-glibc-2.43.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/firefox-140.8.0esr-glibc-2.43.patch"
+      },
+      {
+        "filename": "firefox-140.8.0esr-python_3.14_fixes-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/firefox-140.8.0esr-python_3.14_fixes-1.patch"
+      }
+    ]
+  },
+  "build_system": "cargo",
+  "bundled_libs": [
+    "third_party"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "BUILDING",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "/usr/bin/firefox"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "firefox",
+  "our_autotools_flags": [
+    "--disable-crashreporter",
+    "--disable-debug",
+    "--disable-debug-symbols",
+    "--disable-necko-wifi",
+    "--disable-tests",
+    "--disable-updater",
+    "--enable-application=browser",
+    "--enable-install-strip",
+    "--enable-official-branding",
+    "--enable-rust-simd",
+    "--enable-strip",
+    "--enable-system-ffi",
+    "--enable-system-pixman",
+    "--prefix=/usr",
+    "--with-system-av1",
+    "--with-system-icu",
+    "--with-system-jpeg",
+    "--with-system-libevent",
+    "--with-system-libvpx",
+    "--with-system-nspr",
+    "--with-system-nss",
+    "--with-system-png",
+    "--with-system-webp",
+    "--with-system-zlib",
+    "--without-wasm-sandboxed-libraries"
+  ],
+  "our_deps_build": [
+    "cbindgen",
+    "gtk3",
+    "libnotify",
+    "libarchive",
+    "llvm",
+    "nodejs",
+    "pulseaudio",
+    "startup-notification",
+    "dav1d",
+    "icu",
+    "libaom",
+    "libevent",
+    "libvpx",
+    "libwebp",
+    "nasm",
+    "nspr",
+    "nss",
+    "ffmpeg",
+    "libproxy",
+    "pciutils",
+    "alsa-lib"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "firefox-140.9.0esr-python_3.14_fixes-1.patch",
+      "sha256": "24183878004982be0d7d87af2daa49a36d327a279b0abcf222c0c99e805e2ed7"
+    },
+    {
+      "file": "firefox-140.9.0esr-glibc-2.43.patch",
+      "sha256": "703e5605a7aeffb45d73884b59488afa30ceea7ef65a8c401c428f8102123fb1"
+    },
+    {
+      "file": "firefox-140.9.0esr-ffmpeg-8.0.patch",
+      "sha256": "cb452bdd6026a15b44f5d41f3c21d153c2c8f92478072d4d768d90421f2b8e79"
+    },
+    {
+      "file": "firefox-140.9.0esr-llvm_22-1.patch",
+      "sha256": "b3b608772ed7f256b4c06e5a94af38bf3c6bdfc14f66776f662db693add077e6"
+    },
+    {
+      "file": "firefox-140.9.0esr-icu78.patch",
+      "sha256": "d2b4c32f55b3db49635c337e70e5bd74506e7d56fa51959fe8c3ae67072a565d"
+    }
+  ],
+  "package_dir": "packages/extra/firefox",
+  "reproducibility": {
+    "_notes": "mach build -j; embedded /usr/lib/firefox install dir is expected",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "b972b2a4c17244d51c10123cbd6c936e2cf26ebc29eb724570d285c283e9e92c",
+  "source_tarball": "firefox-140.9.0esr.source.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://archive.mozilla.org/pub/firefox/releases/${version}/source/firefox-${version}.source.tar.xz",
+  "tarball_files_count": 421901,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "140.9.0esr"
+}

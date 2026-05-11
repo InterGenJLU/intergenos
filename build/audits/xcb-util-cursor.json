@@ -1,0 +1,65 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "xcb/xcb_cursor.h"
+  ],
+  "expected_libs": [
+    "libxcb-cursor.so"
+  ],
+  "expected_pkgconfig": [
+    "xcb-cursor.pc"
+  ],
+  "name": "xcb-util-cursor",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "xcb-util-image",
+    "xcb-util-renderutil"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/xcb-util-cursor",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "fdeb8bd127873519be5cc70dcd0d3b5d33b667877200f9925a59fdcad8f7a933",
+  "source_tarball": "xcb-util-cursor-0.1.6.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://xcb.freedesktop.org/dist/xcb-util-cursor-${version}.tar.xz",
+  "tarball_files_count": 40,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--with-cursorpath=<paths>",
+      "kind": "with",
+      "name": "cursorpath"
+    }
+  ],
+  "version": "0.1.6"
+}

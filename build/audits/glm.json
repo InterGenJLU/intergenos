@@ -1,0 +1,52 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:15Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "glm",
+    "blfs_name": "GLM",
+    "blfs_version": "1.0.3",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/glm"
+  ],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "glm",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cmake"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/glm",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 0,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "6775e47231a446fd086d660ecc18bcd076531cfedd912fbd66e576b118607001",
+  "source_tarball": "glm-1.0.3.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/g-truc/glm/archive/${version}/glm-${version}.tar.gz",
+  "tarball_files_count": 1698,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.0.3"
+}

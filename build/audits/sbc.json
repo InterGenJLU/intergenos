@@ -1,0 +1,100 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:18Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "sbc",
+    "blfs_name": "SBC",
+    "blfs_version": "2.2",
+    "deps": [
+      {
+        "anchor": "libsndfile",
+        "name": "libsndfile-1.2.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.2.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "sbcdec",
+    "sbcenc",
+    "sbcinfo"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "sbc",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libsndfile"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/sbc",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "a1ada76ef35e5af9c2fbd063754dc9e37a8d989417c6eb1ecebb089b1383ae9e",
+  "source_tarball": "sbc-2.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.kernel.org/pub/linux/bluetooth/sbc-${version}.tar.xz",
+  "tarball_files_count": 54,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-optimization",
+      "kind": "enable",
+      "name": "optimization"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-debug",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pie",
+      "kind": "enable",
+      "name": "pie"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-high-precision",
+      "kind": "enable",
+      "name": "high-precision"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tools",
+      "kind": "enable",
+      "name": "tools"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tester",
+      "kind": "enable",
+      "name": "tester"
+    }
+  ],
+  "version": "2.2"
+}

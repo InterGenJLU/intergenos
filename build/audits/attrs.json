@@ -1,0 +1,79 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:15Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "attrs",
+    "blfs_name": "Attrs",
+    "blfs_version": "25.4.0",
+    "deps": [
+      {
+        "anchor": "hatch-fancy-pypi-readme",
+        "name": "hatch-fancy-pypi-readme-25.1.0",
+        "note": "",
+        "type": "required",
+        "version": "25.1.0"
+      },
+      {
+        "anchor": "hatch-vcs",
+        "name": "hatch_vcs-0.5.0",
+        "note": "",
+        "type": "required",
+        "version": "0.5.0"
+      },
+      {
+        "anchor": "pytest",
+        "name": "pytest-9.0.2",
+        "note": "",
+        "type": "optional",
+        "version": "9.0.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "python",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "attrs",
+  "our_autotools_flags": [
+    "--no-build-isolation",
+    "--no-cache-dir",
+    "--no-deps"
+  ],
+  "our_deps_build": [
+    "hatch-fancy-pypi-readme",
+    "hatch-vcs"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/attrs",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "16d5969b87f0859ef33a48b35d55ac1be6e42ae49d5e853b597db70c35c57e11",
+  "source_tarball": "attrs-25.4.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://files.pythonhosted.org/packages/source/a/attrs/attrs-${version}.tar.gz",
+  "tarball_files_count": 129,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "25.4.0"
+}

@@ -1,0 +1,76 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:17Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gnome-characters",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gjs",
+    "gtk4",
+    "pango"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-characters",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "795c0fe434e602dc783391fb5830dbc7d8e1ea05ca77210fb140e2f6f40a145c",
+  "source_tarball": "gnome-characters-49.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-characters/49/gnome-characters-${version}.tar.xz",
+  "tarball_files_count": 176,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "custom directory for dbus service files",
+      "name": "dbus_service_dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "enable pangoft2 support",
+      "name": "pangoft2",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable installation of some test cases",
+      "name": "installed_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "default",
+      "description": "The build profile for GTK Rust Template. One of ",
+      "name": "profile",
+      "type": "combo"
+    }
+  ],
+  "version": "49.1"
+}

@@ -1,0 +1,115 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:53Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "idevice_id",
+    "idevicebackup",
+    "idevicebackup2",
+    "idevicecrashreport",
+    "idevicedate",
+    "idevicedebug",
+    "idevicedebugserverproxy",
+    "idevicediagnostics",
+    "ideviceenterrecovery",
+    "ideviceimagemounter",
+    "ideviceinfo",
+    "idevicename",
+    "idevicenotificationproxy",
+    "idevicepair",
+    "ideviceprovision",
+    "idevicescreenshot",
+    "idevicesetlocation",
+    "idevicesyslog"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libimobiledevice-1.0.so"
+  ],
+  "expected_pkgconfig": [
+    "libimobiledevice-1.0.pc"
+  ],
+  "name": "libimobiledevice",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libtatsu"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "libplist",
+    "libimobiledevice-glue",
+    "libusbmuxd",
+    "libusb",
+    "openssl"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libimobiledevice",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "23cc0077e221c7d991bd0eb02150a0d49199bcca1ddf059edccee9ffd914939d",
+  "source_tarball": "libimobiledevice-1.4.0.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/libimobiledevice/libimobiledevice/releases/download/${version}/libimobiledevice-${version}.tar.bz2",
+  "tarball_files_count": 261,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-wireless-pairing",
+      "kind": "enable",
+      "name": "wireless-pairing"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-debug",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-readline",
+      "kind": "with",
+      "name": "readline"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-cython",
+      "kind": "with",
+      "name": "cython"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-mbedtls",
+      "kind": "with",
+      "name": "mbedtls"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-gnutls",
+      "kind": "with",
+      "name": "gnutls"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-openssl",
+      "kind": "with",
+      "name": "openssl"
+    }
+  ],
+  "version": "1.4.0"
+}

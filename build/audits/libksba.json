@@ -1,0 +1,102 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:53Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libksba",
+    "blfs_name": "libksba",
+    "blfs_version": "1.6.7",
+    "deps": [
+      {
+        "anchor": "libgpg-error",
+        "name": "libgpg-error-1.59",
+        "note": "",
+        "type": "required",
+        "version": "1.59"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libksba.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libksba",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libgpg-error"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/libksba",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "cf72510b8ebb4eb6693eef765749d83677a03c79291a311040a5bfd79baab763",
+  "source_tarball": "libksba-1.6.7.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://www.gnupg.org/ftp/gcrypt/libksba/libksba-${version}.tar.bz2",
+  "tarball_files_count": 179,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-optimization",
+      "kind": "enable",
+      "name": "optimization"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-ld-version-script",
+      "kind": "enable",
+      "name": "ld-version-script"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-build-timestamp",
+      "kind": "enable",
+      "name": "build-timestamp"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-doc",
+      "kind": "enable",
+      "name": "doc"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-libtool-modification=apply|never|try",
+      "kind": "with",
+      "name": "libtool-modification"
+    }
+  ],
+  "version": "1.6.7"
+}

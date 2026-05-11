@@ -1,0 +1,74 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:02Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "pixman",
+    "blfs_name": "Pixman",
+    "blfs_version": "0.46.4",
+    "deps": [
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "for tests and\n                demos",
+        "type": "optional",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "libpng",
+        "name": "libpng-1.6.55",
+        "note": "",
+        "type": "optional",
+        "version": "1.6.55"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "None"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "pixman",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libpng"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/pixman",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "d09c44ebc3bd5bee7021c79f922fe8fb2fb57f7320f55e97ff9914d2346a591c",
+  "source_tarball": "pixman-0.46.4.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.cairographics.org/releases/pixman-${version}.tar.gz",
+  "tarball_files_count": 235,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "0.46.4"
+}

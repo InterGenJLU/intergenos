@@ -1,0 +1,134 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:09Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libtiff",
+    "blfs_name": "libtiff",
+    "blfs_version": "4.7.1",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "recommended",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "freeglut",
+        "name": "Freeglut-3.8.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.8.0"
+      },
+      {
+        "anchor": "libjpeg",
+        "name": "libjpeg-turbo-3.1.3",
+        "note": "",
+        "type": "optional",
+        "version": "3.1.3"
+      },
+      {
+        "anchor": "libwebp",
+        "name": "libwebp-1.6.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.6.0"
+      },
+      {
+        "anchor": "sphinx",
+        "name": "sphinx-9.1.0",
+        "note": "",
+        "type": "optional",
+        "version": "9.1.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "fax2ps",
+    "fax2tiff",
+    "pal2rgb",
+    "ppm2tiff",
+    "raw2tiff",
+    "tiff2bw",
+    "tiff2pdf",
+    "tiff2ps",
+    "tiff2rgba",
+    "tiffcmp",
+    "tiffcp",
+    "tiffcrop",
+    "tiffdither",
+    "tiffdump",
+    "tiffgt",
+    "tiffinfo",
+    "tiffmedian",
+    "tiffset",
+    "tiffsplit"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libtiff.so",
+    "libtiffxx.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libtiff",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "libjpeg-turbo",
+    "cmake"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "BUILD_SHARED_LIBS",
+      "value": "ON"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libtiff",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "f698d94f3103da8ca7438d84e0344e453fe0ba3b7486e04c5bf7a9a3fabe9b69",
+  "source_tarball": "tiff-4.7.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.osgeo.org/libtiff/tiff-${version}.tar.gz",
+  "tarball_files_count": 1095,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "4.7.1"
+}

@@ -1,0 +1,43 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gnu-efi",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/gnu-efi",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "7f212c96ee66547eeefb531267b641e5473d7d8529f0bd8ccdefd33cf7413f5c",
+  "source_tarball": "gnu-efi-3.0.18.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://sourceforge.net/projects/gnu-efi/files/gnu-efi-${version}.tar.bz2",
+  "tarball_files_count": 240,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "3.0.18"
+}

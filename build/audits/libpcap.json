@@ -1,0 +1,86 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:55Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libpcap",
+    "blfs_name": "libpcap",
+    "blfs_version": "1.10.6",
+    "deps": [
+      {
+        "anchor": "bluez",
+        "name": "BlueZ-5.86",
+        "note": "",
+        "type": "optional",
+        "version": "5.86"
+      },
+      {
+        "anchor": "libnl",
+        "name": "libnl-3.12.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.12.0"
+      },
+      {
+        "anchor": "libusb",
+        "name": "libusb-1.0.29",
+        "note": "",
+        "type": "optional",
+        "version": "1.0.29"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "pcap-config"
+  ],
+  "expected_headers": [
+    "/usr/include/pcap"
+  ],
+  "expected_libs": [
+    "libpcap.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libpcap",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "bluez",
+    "libnl",
+    "libusb"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libpcap",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "ec97d1206bdd19cb6bdd043eaa9f0037aa732262ec68e070fd7c7b5f834d5dfc",
+  "source_tarball": "libpcap-1.10.6.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.tcpdump.org/release/libpcap-${version}.tar.xz",
+  "tarball_files_count": 311,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.10.6"
+}

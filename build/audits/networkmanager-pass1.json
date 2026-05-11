@@ -1,0 +1,545 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:53Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "networkmanager-pass1",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libnl",
+    "libndp",
+    "wpa_supplicant",
+    "glib2",
+    "systemd",
+    "curl",
+    "gnutls",
+    "jansson",
+    "libpsl",
+    "nss",
+    "libnvme"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "libaudit",
+      "value": "no"
+    },
+    {
+      "name": "modem_manager",
+      "value": "false"
+    },
+    {
+      "name": "nm_cloud_setup",
+      "value": "false"
+    },
+    {
+      "name": "nbft",
+      "value": "false"
+    },
+    {
+      "name": "nmtui",
+      "value": "false"
+    },
+    {
+      "name": "ovs",
+      "value": "false"
+    },
+    {
+      "name": "ppp",
+      "value": "false"
+    },
+    {
+      "name": "selinux",
+      "value": "false"
+    },
+    {
+      "name": "qt",
+      "value": "false"
+    },
+    {
+      "name": "bluez5",
+      "value": "false"
+    },
+    {
+      "name": "iptables",
+      "value": "/usr/bin/false"
+    },
+    {
+      "name": "polkit",
+      "value": "false"
+    },
+    {
+      "name": "introspection",
+      "value": "false"
+    },
+    {
+      "name": "vapi",
+      "value": "false"
+    },
+    {
+      "name": "session_tracking",
+      "value": "systemd"
+    },
+    {
+      "name": "tests",
+      "value": "no"
+    },
+    {
+      "name": "docs",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/core/networkmanager-pass1",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "59a32d385cc1e7ae26e43798c6f12d07ff6198abd041ec0620b3a08cfc021ccc",
+  "source_tarball": "NetworkManager-1.56.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.freedesktop.org/NetworkManager/NetworkManager/-/releases/${version}/downloads/NetworkManager-${version}.tar.xz",
+  "tarball_files_count": 3106,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Directory for systemd service files",
+      "name": "systemdsystemunitdir",
+      "type": "string"
+    },
+    {
+      "default": "/etc/ssl/certs",
+      "description": "path to system CA certificates",
+      "name": "system_ca_path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Absolute path of the udev base directory. Set to \\",
+      "name": "udev_dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "where D-Bus system.d directory is",
+      "name": "dbus_conf_dir",
+      "type": "string"
+    },
+    {
+      "default": "/lib/firmware",
+      "description": "",
+      "name": "kernel_firmware_dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Directory for transient runtime state [default: LOCALSTATEDIR/run or /run]",
+      "name": "runtime_dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to iptables",
+      "name": "iptables",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to ip6tables",
+      "name": "ip6tables",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to nft",
+      "name": "nft",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to dnsmasq",
+      "name": "dnsmasq",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to modprobe",
+      "name": "modprobe",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Define the NM\\",
+      "name": "dist_version",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Support consolekit session tracking",
+      "name": "session_tracking_consolekit",
+      "type": "boolean"
+    },
+    {
+      "default": "systemd",
+      "description": "Compatibility option to choose one session tracking module",
+      "name": "session_tracking",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Build NetworkManager with specific suspend/resume support",
+      "name": "suspend_resume",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "User auth-polkit configuration option.",
+      "name": "polkit",
+      "type": "boolean"
+    },
+    {
+      "default": "default",
+      "description": "Default value for configuration main.auth-polkit.",
+      "name": "config_auth_polkit_default",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Allow users to modify system connections",
+      "name": "modify_system",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Path name to the polkit-agent-helper-1 binary from polkit",
+      "name": "polkit_agent_helper_1",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Build with SELinux",
+      "name": "selinux",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Use systemd journal for logging",
+      "name": "systemd_journal",
+      "type": "boolean"
+    },
+    {
+      "default": "default",
+      "description": "Default value for logging.backend",
+      "name": "config_logging_backend_default",
+      "type": "combo"
+    },
+    {
+      "default": "default",
+      "description": "Default value for wifi.backend",
+      "name": "config_wifi_backend_default",
+      "type": "combo"
+    },
+    {
+      "default": "default",
+      "description": "Hostname persist method",
+      "name": "hostname_persist",
+      "type": "combo"
+    },
+    {
+      "default": "yes",
+      "description": "Build with audit daemon support. yes-disabled-by-default enables support, but disables it unless explicitly configured via NetworkManager.conf",
+      "name": "libaudit",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Enable or disable Linux Wireless Extensions",
+      "name": "wext",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable Wi-Fi support",
+      "name": "wifi",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "iwd",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable PPP/PPPoE support",
+      "name": "ppp",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "path to pppd binary",
+      "name": "pppd",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "path to the pppd plugins directory",
+      "name": "pppd_plugin_dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Enable new ModemManager1 interface support",
+      "name": "modem_manager",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "path to the mobile-broadband-provider-info database",
+      "name": "mobile_broadband_provider_info_database",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "ofono",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable connectivity checking support",
+      "name": "concheck",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable Teamd control support",
+      "name": "teamdctl",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable Open vSwitch support",
+      "name": "ovs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build nmcli",
+      "name": "nmcli",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build nmtui",
+      "name": "nmtui",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build nm-cloud-setup, a tool for automatically configuring networking in cloud",
+      "name": "nm_cloud_setup",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable Bluez5 DUN support",
+      "name": "bluez5_dun",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "ebpf",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Enable NBFT support in the initrd generator",
+      "name": "nbft",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Default configuration option for main.plugins setting, used as fallback if the configuration option is unset",
+      "name": "config_plugins_default",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "ifcfg_rh",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "ifupdown",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "The default value of the main.migrate-ifcfg-rh configuration option",
+      "name": "config_migrate_ifcfg_rh_default",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable resolvconf support",
+      "name": "resolvconf",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Enable SUSE netconfig support",
+      "name": "netconfig",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Configure default value for main.rc-manager setting",
+      "name": "config_dns_rc_manager_default",
+      "type": "combo"
+    },
+    {
+      "default": "no",
+      "description": "",
+      "name": "dhclient",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Enable dhcpcd support",
+      "name": "dhcpcd",
+      "type": "string"
+    },
+    {
+      "default": "internal",
+      "description": "Default configuration option for main.dhcp setting, used as fallback if the configuration option is unset",
+      "name": "config_dhcp_default",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Enable introspection for this build",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build Vala bindings",
+      "name": "vapi",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "use to build documentation",
+      "name": "docs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Install manpages",
+      "name": "man",
+      "type": "boolean"
+    },
+    {
+      "default": "yes",
+      "description": "Build NetworkManager tests",
+      "name": "tests",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Install and use firewalld zone for shared mode",
+      "name": "firewalld_zone",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "more_asserts",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Enable more debug logging",
+      "name": "more_logging",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Use valgrind to memory-check the tests",
+      "name": "valgrind",
+      "type": "array"
+    },
+    {
+      "default": "",
+      "description": "Use specific valgrind suppression file",
+      "name": "valgrind_suppressions",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Enable garbage collection of unused symbols on linking",
+      "name": "ld_gc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Link against libpsl",
+      "name": "libpsl",
+      "type": "boolean"
+    },
+    {
+      "default": "nss",
+      "description": "Cryptography library to use for certificate and key operations",
+      "name": "crypto",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "enable Qt examples",
+      "name": "qt",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "readline",
+      "type": "combo"
+    }
+  ],
+  "version": "1.56.0"
+}

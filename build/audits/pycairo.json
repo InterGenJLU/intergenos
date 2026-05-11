@@ -1,0 +1,101 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:03Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "pycairo",
+    "blfs_name": "PyCairo",
+    "blfs_version": "1.29.0",
+    "deps": [
+      {
+        "anchor": "cairo",
+        "name": "Cairo-1.18.4",
+        "note": "",
+        "type": "required",
+        "version": "1.18.4"
+      },
+      {
+        "anchor": "pytest",
+        "name": "pytest-9.0.2",
+        "note": "for tests",
+        "type": "optional",
+        "version": "9.0.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "None"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "None"
+  ],
+  "expected_pkgconfig": [],
+  "name": "pycairo",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "cairo",
+    "docbook-xsl-nons"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/pycairo",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "f3f7fde97325cae80224c09f12564ef58d0d0f655da0e3b040f5807bd5bd3142",
+  "source_tarball": "pycairo-1.29.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/pygobject/pycairo/releases/download/v${version}/pycairo-${version}.tar.gz",
+  "tarball_files_count": 144,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "python3",
+      "description": "",
+      "name": "python",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "build unit tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build for a Python wheel",
+      "name": "wheel",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "no-x11",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.29.0"
+}

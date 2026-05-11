@@ -1,0 +1,109 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-third_party-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:03Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "protobuf",
+    "blfs_name": "Protobuf",
+    "blfs_version": "33.5",
+    "deps": [
+      {
+        "anchor": "abseil-cpp",
+        "name": "Abseil-cpp-20260107.1",
+        "note": "",
+        "type": "required",
+        "version": "20260107.1"
+      },
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [
+    "third_party"
+  ],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "protoc (a symlink to protoc-33.5.0)",
+    "protoc-33.5.0",
+    "protoc-gen-upb (a symlink to protoc-gen-upb-33.5.0)",
+    "protoc-gen-upbdefs (a symlink to protoc-gen-upbdefs-33.5.0)"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libprotobuf.so",
+    "libprotobuf-lite.so",
+    "libprotoc.so",
+    "libupb.a",
+    "libutf8_range.so",
+    "libutf8_validity.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "protobuf",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "abseil-cpp",
+    "cmake"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "CMAKE_SKIP_INSTALL_RPATH",
+      "value": "ON"
+    },
+    {
+      "name": "protobuf_BUILD_SHARED_LIBS",
+      "value": "ON"
+    },
+    {
+      "name": "protobuf_BUILD_TESTS",
+      "value": "OFF"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/core/protobuf",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "c6c7c27fadc19d40ab2eaa23ff35debfe01f6494a8345559b9bb285ce4144dd1",
+  "source_tarball": "protobuf-33.5.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/protocolbuffers/protobuf/releases/download/v${version}/protobuf-${version}.tar.gz",
+  "tarball_files_count": 3640,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "33.5"
+}

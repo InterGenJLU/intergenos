@@ -1,0 +1,72 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:17Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "wpa_supplicant",
+    "blfs_name": "wpa_supplicant",
+    "blfs_version": "2.11",
+    "deps": [
+      {
+        "anchor": "libnl",
+        "name": "libnl-3.12.0",
+        "note": "",
+        "type": "recommended",
+        "version": "3.12.0"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "optional",
+        "version": "2.15.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "wpa_supplicant",
+    "wpa_passphrase",
+    "wpa_cli"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "wpa_supplicant",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "libnl",
+    "libxml2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/wpa_supplicant",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "912ea06f74e30a8e36fbb68064d6cdff218d8d591db0fc5d75dee6c81ac7fc0a",
+  "source_tarball": "wpa_supplicant-2.11.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://w1.fi/releases/wpa_supplicant-${version}.tar.gz",
+  "tarball_files_count": 933,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "2.11"
+}

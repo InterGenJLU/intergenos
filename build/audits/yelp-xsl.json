@@ -1,0 +1,100 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:23Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "yelp-xsl",
+    "blfs_name": "yelp-xsl",
+    "blfs_version": "49.0",
+    "deps": [
+      {
+        "anchor": "itstool",
+        "name": "itstool-2.0.7",
+        "note": "",
+        "type": "required",
+        "version": "2.0.7"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "",
+        "type": "required",
+        "version": "1.1.45"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "NEWS",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "yelp-xsl",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "itstool",
+    "libxslt"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/yelp-xsl",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "59d43a8f8fe67b784f14f9a04dd4a7a092a7f4a64a65e71b90fe02a47a50fbec",
+  "source_tarball": "yelp-xsl-49.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/yelp-xsl/49/yelp-xsl-${version}.tar.xz",
+  "tarball_files_count": 728,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Install DITA stylesheets",
+      "name": "dita",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Install DocBook stylesheets",
+      "name": "docbook",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Install Mallard stylesheets",
+      "name": "mallard",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "yelp_manual",
+      "type": "boolean"
+    }
+  ],
+  "version": "49.0"
+}

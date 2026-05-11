@@ -1,0 +1,203 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:28Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "graphviz",
+    "blfs_name": "Graphviz",
+    "blfs_version": "14.1.2",
+    "deps": [
+      {
+        "anchor": "aalib",
+        "name": "AAlib-1.4rc5",
+        "note": "for outputting images in\n                ASCII art",
+        "type": "optional",
+        "version": "1.4rc5"
+      },
+      {
+        "anchor": "cairo",
+        "name": "Cairo-1.18.4",
+        "note": "",
+        "type": "recommended",
+        "version": "1.18.4"
+      },
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "cups",
+        "name": "Cups-2.4.16",
+        "note": "for formatting graphs for\n                printing",
+        "type": "optional",
+        "version": "2.4.16"
+      },
+      {
+        "anchor": "fontconfig",
+        "name": "Fontconfig-2.17.1",
+        "note": "",
+        "type": "recommended",
+        "version": "2.17.1"
+      },
+      {
+        "anchor": "gegl",
+        "name": "gegl-0.4.66",
+        "note": "",
+        "type": "recommended",
+        "version": "0.4.66"
+      },
+      {
+        "anchor": "libpng",
+        "name": "libpng-1.6.55",
+        "note": "",
+        "type": "recommended",
+        "version": "1.6.55"
+      },
+      {
+        "anchor": "pango",
+        "name": "Pango-1.57.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.57.0"
+      },
+      {
+        "anchor": "qt6",
+        "name": "Qt-6.10.2",
+        "note": "",
+        "type": "optional",
+        "version": "6.10.2"
+      },
+      {
+        "anchor": "webkitgtk",
+        "name": "WebKitGTK-2.50.5",
+        "note": "",
+        "type": "optional",
+        "version": "2.50.5"
+      },
+      {
+        "anchor": "xorg7-lib",
+        "name": "Xorg\n                Libraries",
+        "note": "",
+        "type": "recommended",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "acyclic",
+    "bcomps",
+    "ccomps",
+    "circo",
+    "cluster",
+    "dijkstra",
+    "dot",
+    "dot2gxl",
+    "dot_builtins",
+    "dot_sandbox",
+    "edgepaint",
+    "fdp",
+    "gc",
+    "gml2gv",
+    "graphml2gv",
+    "gv2gml",
+    "gv2gxl",
+    "gvcolor",
+    "gvedit",
+    "gvgen",
+    "gvmap",
+    "gvmap.sh",
+    "gvpack",
+    "gvpr",
+    "gxl2dot",
+    "gxl2gv",
+    "mm2gv",
+    "neato",
+    "nop",
+    "osage",
+    "patchwork",
+    "prune",
+    "sccmap",
+    "sfdp",
+    "tred",
+    "twopi",
+    "unflatten",
+    "vimdot"
+  ],
+  "expected_headers": [
+    "/usr/include/graphviz",
+    "/usr/lib/graphviz",
+    "/usr/lib/cmake/graphviz",
+    "/usr/share/graphviz"
+  ],
+  "expected_libs": [
+    "libcdt.so",
+    "libcgraph.so",
+    "libgvc.so",
+    "libgvpr.so",
+    "libpathplan.so",
+    "libxdot.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "graphviz",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cmake",
+    "cairo",
+    "pango",
+    "freetype2",
+    "fontconfig",
+    "libpng"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/graphviz",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "8ba7611c378b3e82f2a0ca5fc9dbcc5fef77c86d9fdfe3281f8f59eaab3314f6",
+  "source_tarball": "graphviz-14.1.2.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.com/graphviz/graphviz/-/archive/${version}/graphviz-${version}.tar.bz2",
+  "tarball_files_count": 3403,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "14.1.2"
+}

@@ -1,0 +1,164 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:16Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "babl",
+    "blfs_name": "babl",
+    "blfs_version": "0.1.122",
+    "deps": [
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "lcms2",
+        "name": "Little CMS-2.18",
+        "note": "",
+        "type": "recommended",
+        "version": "2.18"
+      },
+      {
+        "anchor": "librsvg",
+        "name": "librsvg-2.61.4",
+        "note": "",
+        "type": "recommended",
+        "version": "2.61.4"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libbabl-0.1.so",
+    "libraries in /usr/lib/babl-0.1"
+  ],
+  "expected_pkgconfig": [],
+  "name": "babl",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "glib2",
+    "librsvg",
+    "lcms2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/babl",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "6851f705cda38f2df08a4ba8618279ce30d0a46f957fe6aa325b7b7de297bed2",
+  "source_tarball": "babl-0.1.122.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gimp.org/pub/babl/0.1/babl-${version}.tar.xz",
+  "tarball_files_count": 230,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "build documentation",
+      "name": "with-docs",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "gobject introspection .gir generation",
+      "name": "enable-gir",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Vala .vapi generation - depends on introspection",
+      "name": "enable-vapi",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "gi-docgen",
+      "type": "feature"
+    },
+    {
+      "default": "native",
+      "description": "Build with native/CodeView debug symbols or with DWARF",
+      "name": "win-debugging",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "relocatable",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "MMX support - disables all compiler extensons",
+      "name": "enable-mmx",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "SSE support - depends on MMX",
+      "name": "enable-sse",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "SSE2 support - depends on SSE",
+      "name": "enable-sse2",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "SSE4.1 support - depends on SSE2",
+      "name": "enable-sse4_1",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "AVX2 support - depends on SSE4.1",
+      "name": "enable-avx2",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Hardware half-float support - depends on SSE",
+      "name": "enable-f16c",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "build with lcms",
+      "name": "with-lcms",
+      "type": "feature"
+    }
+  ],
+  "version": "0.1.122"
+}

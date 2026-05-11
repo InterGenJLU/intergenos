@@ -1,0 +1,550 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear",
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:13Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "git",
+    "blfs_name": "Git",
+    "blfs_version": "2.53.0",
+    "deps": [
+      {
+        "anchor": "apache",
+        "name": "Apache-2.4.66",
+        "note": "for some tests",
+        "type": "optional",
+        "version": "2.4.66"
+      },
+      {
+        "anchor": "curl",
+        "name": "cURL-8.18.0",
+        "note": "",
+        "type": "recommended",
+        "version": "8.18.0"
+      },
+      {
+        "anchor": "fcron",
+        "name": "Fcron-3.4.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.4.0"
+      },
+      {
+        "anchor": "gnupg2",
+        "name": "GnuPG-2.5.17",
+        "note": "",
+        "type": "optional",
+        "version": "2.5.17"
+      },
+      {
+        "anchor": "linux-pam",
+        "name": "Linux-PAM-1.7.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.7.2"
+      },
+      {
+        "anchor": "openssh",
+        "name": "OpenSSH-10.2p1",
+        "note": "",
+        "type": "optional",
+        "version": "10.2p1"
+      },
+      {
+        "anchor": "perl-io-socket-ssl",
+        "name": "IO-Socket-SSL-2.098",
+        "note": "",
+        "type": "optional",
+        "version": "2.098"
+      },
+      {
+        "anchor": "subversion",
+        "name": "Subversion-1.14.5",
+        "note": "",
+        "type": "optional",
+        "version": "1.14.5"
+      },
+      {
+        "anchor": "systemd",
+        "name": "Systemd-259.1",
+        "note": "",
+        "type": "optional",
+        "version": "259.1"
+      },
+      {
+        "anchor": "tk",
+        "name": "Tk-8.6.17",
+        "note": "",
+        "type": "optional",
+        "version": "8.6.17"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "contrib",
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "INSTALL",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "git",
+    "git-receive-pack",
+    "git-upload-archive",
+    "git-upload-pack (hardlinked to each other)",
+    "git-cvsserver",
+    "git-shell",
+    "gitk",
+    "scalar"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "git",
+  "our_autotools_flags": [
+    "--prefix=/usr",
+    "--with-gitconfig=/etc/gitconfig",
+    "--with-libpcre2",
+    "--with-python=python3"
+  ],
+  "our_deps_build": [
+    "curl",
+    "pcre2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/git",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "5818bd7d80b061bbbdfec8a433d609dc8818a05991f731ffc4a561e2ca18c653",
+  "source_tarball": "git-2.53.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.kernel.org/pub/software/scm/git/git-${version}.tar.xz",
+  "tarball_files_count": 4917,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Directory to install HTML docs to. Defaults to <datadir>/doc/git-doc",
+      "name": "htmldir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Directory to install perl lib to. Defaults to <datadir>/perl5",
+      "name": "perllibdir",
+      "type": "string"
+    },
+    {
+      "default": "less",
+      "description": "Fall-back pager.",
+      "name": "default_pager",
+      "type": "string"
+    },
+    {
+      "default": "vi",
+      "description": "Fall-back editor.",
+      "name": "default_editor",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gitconfig",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gitattributes",
+      "type": "string"
+    },
+    {
+      "default": "LESS=FRX LV=-c",
+      "description": "Environment used when spawning the pager",
+      "name": "pager_environment",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Install bundled copies of CPAN modules that serve as a fallback in case the modules are not available on the system.",
+      "name": "perl_cpan_fallback",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Resolve ancillary tooling and support files relative to the location of the runtime binary instead of hard-coding them into the binary.",
+      "name": "runtime_prefix",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "An array of paths to pick up tools from in case the normal tools are broken or lacking.",
+      "name": "sane_tool_path",
+      "type": "array"
+    },
+    {
+      "default": "",
+      "description": "Build date reported by our documentation.",
+      "name": "build_date",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "built_from_commit",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "User agent reported to remote servers.",
+      "name": "user_agent",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "version",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Contributed features to include.",
+      "name": "contrib",
+      "type": "array"
+    },
+    {
+      "default": "",
+      "description": "Contributed features to include.",
+      "name": "credential_helpers",
+      "type": "array"
+    },
+    {
+      "default": "enabled",
+      "description": "Build helpers used to access remotes with the HTTP transport.",
+      "name": "curl",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Build helpers used to push to remotes with the HTTP transport.",
+      "name": "expat",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build translation files.",
+      "name": "gettext",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build Git web interface. Requires Perl.",
+      "name": "gitweb",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support reencoding strings with different encodings.",
+      "name": "iconv",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "pcre2",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build tools written in Perl.",
+      "name": "perl",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build tools written in Python.",
+      "name": "python",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Use the system-provided regex library instead of the bundled one.",
+      "name": "regex",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "The backend to use for generating cryptographically-secure pseudo-random numbers.",
+      "name": "csprng_backend",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "The HTTPS backend to use when connecting to remotes.",
+      "name": "https_backend",
+      "type": "combo"
+    },
+    {
+      "default": "sha1dc",
+      "description": "The backend used for hashing objects with the SHA1 object format.",
+      "name": "sha1_backend",
+      "type": "combo"
+    },
+    {
+      "default": "none",
+      "description": "The backend used for hashing data with the SHA1 object format in case no cryptographic security is needed.",
+      "name": "sha1_unsafe_backend",
+      "type": "combo"
+    },
+    {
+      "default": "block",
+      "description": "The backend used for hashing objects with the SHA256 object format.",
+      "name": "sha256_backend",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "The backend used for compressing objects and other data.",
+      "name": "zlib_backend",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Enable upcoming breaking changes.",
+      "name": "breaking_changes",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Enable building with Rust.",
+      "name": "rust",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Use gettext from Homebrew instead of the slightly-broken system-provided one.",
+      "name": "macos_use_homebrew_gettext",
+      "type": "boolean"
+    },
+    {
+      "default": "gitweb_config.perl",
+      "description": "",
+      "name": "gitweb_config",
+      "type": "string"
+    },
+    {
+      "default": "/etc/gitweb.conf",
+      "description": "",
+      "name": "gitweb_config_system",
+      "type": "string"
+    },
+    {
+      "default": "/etc/gitweb-common.conf",
+      "description": "",
+      "name": "gitweb_config_common",
+      "type": "string"
+    },
+    {
+      "default": "projects",
+      "description": "",
+      "name": "gitweb_home_link_str",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gitweb_sitename",
+      "type": "string"
+    },
+    {
+      "default": "/pub/git",
+      "description": "",
+      "name": "gitweb_projectroot",
+      "type": "string"
+    },
+    {
+      "default": "2007",
+      "description": "",
+      "name": "gitweb_project_maxdepth",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gitweb_export_ok",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gitweb_strict_export",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gitweb_base_url",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gitweb_list",
+      "type": "string"
+    },
+    {
+      "default": "indextext.html",
+      "description": "",
+      "name": "gitweb_hometext",
+      "type": "string"
+    },
+    {
+      "default": "static/gitweb.css",
+      "description": "",
+      "name": "gitweb_css",
+      "type": "string"
+    },
+    {
+      "default": "static/git-logo.png",
+      "description": "",
+      "name": "gitweb_logo",
+      "type": "string"
+    },
+    {
+      "default": "static/git-favicon.png",
+      "description": "",
+      "name": "gitweb_favicon",
+      "type": "string"
+    },
+    {
+      "default": "static/gitweb.js",
+      "description": "",
+      "name": "gitweb_js",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gitweb_site_html_head_string",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gitweb_site_header",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gitweb_site_footer",
+      "type": "string"
+    },
+    {
+      "default": "highlight",
+      "description": "",
+      "name": "highlight_bin",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Which documenattion formats to build and install.",
+      "name": "docs",
+      "type": "array"
+    },
+    {
+      "default": "platform",
+      "description": "",
+      "name": "default_help_format",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Which backend to use to generate documentation.",
+      "name": "docs_backend",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable benchmarks. This requires Perl and GNU time.",
+      "name": "benchmarks",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Repository to copy for the performance tests. Should be at least the size of the Git repository.",
+      "name": "benchmark_repo",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Large repository to copy for the performance tests. Should be at least the size of the Linux repository.",
+      "name": "benchmark_large_repo",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Number of times a test should be repeated for best-of-N measurements.",
+      "name": "benchmark_repeat_count",
+      "type": "integer"
+    },
+    {
+      "default": "auto",
+      "description": "Provide a coccicheck target that generates a Coccinelle patch.",
+      "name": "coccinelle",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Enable building tests. This requires Perl, but is separate from the ",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Path to the directory used to store test outputs",
+      "name": "test_output_directory",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Name of a UTF-8 locale used for testing.",
+      "name": "test_utf8_locale",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Enable building fuzzers.",
+      "name": "fuzzers",
+      "type": "boolean"
+    }
+  ],
+  "version": "2.53.0"
+}

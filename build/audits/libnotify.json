@@ -1,0 +1,135 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:55Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libnotify",
+    "blfs_name": "libnotify",
+    "blfs_version": "0.8.8",
+    "deps": [
+      {
+        "anchor": "gdk-pixbuf",
+        "name": "gdk-pixbuf-2.44.5",
+        "note": "",
+        "type": "required",
+        "version": "2.44.5"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "optional",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "required for tests",
+        "type": "recommended",
+        "version": "4.20.3"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "otify-send"
+  ],
+  "expected_headers": [
+    "/usr/include/libnotify"
+  ],
+  "expected_libs": [
+    "libnotify.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libnotify",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gdk-pixbuf",
+    "gtk4",
+    "glib2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "man",
+      "value": "false"
+    },
+    {
+      "name": "gtk_doc",
+      "value": "false"
+    },
+    {
+      "name": "docbook_docs",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libnotify",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "23420ef619dc2cb5aebad613f4823a2fa41c07e5a1d05628d40f6ec4b35bfddd",
+  "source_tarball": "libnotify-0.8.8.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/libnotify/0.8/libnotify-${version}.tar.xz",
+  "tarball_files_count": 72,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Build tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "enabled",
+      "description": "Enable GObject introspection",
+      "name": "introspection",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "man",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gtk_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "docbook_docs",
+      "type": "feature"
+    }
+  ],
+  "version": "0.8.8"
+}

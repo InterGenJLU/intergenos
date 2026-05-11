@@ -1,0 +1,113 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:54Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "mtp-albumart",
+    "mtp-albums",
+    "mtp-connect",
+    "mtp-delfile",
+    "mtp-detect",
+    "mtp-emptyfolders",
+    "mtp-files",
+    "mtp-filetree",
+    "mtp-folders",
+    "mtp-format",
+    "mtp-getfile",
+    "mtp-getplaylist",
+    "mtp-newfolder",
+    "mtp-newplaylist",
+    "mtp-playlists",
+    "mtp-reset",
+    "mtp-sendfile",
+    "mtp-sendtr",
+    "mtp-thumb",
+    "mtp-trexist"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libmtp.so"
+  ],
+  "expected_pkgconfig": [
+    "libmtp.pc"
+  ],
+  "name": "libmtp",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr",
+    "--with-udev=/usr/lib/udev"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "libusb"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libmtp",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "74a2b6e8cb4a0304e95b995496ea3ac644c29371649b892b856e22f12a0bdeed",
+  "source_tarball": "libmtp-1.1.23.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/libmtp/libmtp/releases/download/v${version}/libmtp-${version}.tar.gz",
+  "tarball_files_count": 116,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-doxygen",
+      "kind": "enable",
+      "name": "doxygen"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-crossbuilddir",
+      "kind": "enable",
+      "name": "crossbuilddir"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-mtpz",
+      "kind": "enable",
+      "name": "mtpz"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-udev=DIR",
+      "kind": "with",
+      "name": "udev"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-udev-rules=NAME",
+      "kind": "with",
+      "name": "udev-rules"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-udev-group=GROUP",
+      "kind": "with",
+      "name": "udev-group"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-udev-mode=GROUP",
+      "kind": "with",
+      "name": "udev-mode"
+    }
+  ],
+  "version": "1.1.23"
+}

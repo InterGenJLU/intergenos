@@ -1,0 +1,212 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:05Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "rhythmbox",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gtk3",
+    "glib2",
+    "libsoup3",
+    "gstreamer",
+    "gst-plugins-base",
+    "gst-plugins-good",
+    "gst-plugins-bad",
+    "totem-pl-parser",
+    "libpeas",
+    "json-glib",
+    "libxml2",
+    "gettext",
+    "gobject-introspection",
+    "itstool",
+    "desktop-file-utils",
+    "appstream",
+    "libgudev",
+    "libnotify",
+    "libsecret",
+    "grilo",
+    "python",
+    "pygobject3",
+    "vala",
+    "libmtp"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "tests",
+      "value": "disabled"
+    },
+    {
+      "name": "brasero",
+      "value": "disabled"
+    },
+    {
+      "name": "lirc",
+      "value": "disabled"
+    },
+    {
+      "name": "ipod",
+      "value": "disabled"
+    },
+    {
+      "name": "mtp",
+      "value": "enabled"
+    },
+    {
+      "name": "daap",
+      "value": "disabled"
+    },
+    {
+      "name": "sample-plugins",
+      "value": "false"
+    },
+    {
+      "name": "help",
+      "value": "true"
+    },
+    {
+      "name": "apidoc",
+      "value": "false"
+    },
+    {
+      "name": "plugins_python",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/extra/rhythmbox",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=meson; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": true,
+    "source_date_epoch_supported": true
+  },
+  "source_sha256": "e42291a18df7a21ffe6b352bf73f05d7e298bb4e05bce5967f98ee8cee4408f1",
+  "source_tarball": "rhythmbox-3.4.9.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/rhythmbox/3.4/rhythmbox-${version}.tar.xz",
+  "tarball_files_count": 902,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "Enable disc burning support using libbrasero-media",
+      "name": "brasero",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable DAAP sharing support using libdmapsharing",
+      "name": "daap",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable FM radio support",
+      "name": "fm_radio",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Grilo support",
+      "name": "grilo",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable GUdev for hardware detection",
+      "name": "gudev",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable iPod support",
+      "name": "ipod",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable desktop notifications with libnotify",
+      "name": "libnotify",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable keyring support using libsecret",
+      "name": "libsecret",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable lirc support",
+      "name": "lirc",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable MTP support",
+      "name": "mtp",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Python plugins",
+      "name": "plugins_python",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Vala plugins",
+      "name": "plugins_vala",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Whether to install sample plugins",
+      "name": "sample-plugins",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Install user documentation",
+      "name": "help",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build API documentation",
+      "name": "apidoc",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Build tests",
+      "name": "tests",
+      "type": "feature"
+    }
+  ],
+  "version": "3.4.9"
+}

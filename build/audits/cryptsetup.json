@@ -1,0 +1,452 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:23Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "cryptsetup",
+    "blfs_name": "cryptsetup",
+    "blfs_version": "2.8.4",
+    "deps": [
+      {
+        "anchor": "asciidoctor",
+        "name": "asciidoctor-2.0.26",
+        "note": "",
+        "type": "optional",
+        "version": "2.0.26"
+      },
+      {
+        "anchor": "json-c",
+        "name": "JSON-C-0.18",
+        "note": "",
+        "type": "required",
+        "version": "0.18"
+      },
+      {
+        "anchor": "libpwquality",
+        "name": "libpwquality-1.4.5",
+        "note": "",
+        "type": "optional",
+        "version": "1.4.5"
+      },
+      {
+        "anchor": "lvm2",
+        "name": "LVM2-2.03.38",
+        "note": "",
+        "type": "required",
+        "version": "2.03.38"
+      },
+      {
+        "anchor": "popt",
+        "name": "popt-1.19",
+        "note": "",
+        "type": "required",
+        "version": "1.19"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "cryptsetup",
+    "integritysetup",
+    "veritysetup"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libcryptsetup.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "cryptsetup",
+  "our_autotools_flags": [
+    "--disable-asciidoc",
+    "--disable-ssh-token",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "json-c",
+    "lvm2",
+    "popt",
+    "libpwquality"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/cryptsetup",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "443e46f8964c9acc780f455afbb8e23aa0e8ed7ec504cfc59e04f406fa1e8a83",
+  "source_tarball": "cryptsetup-2.8.4.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.kernel.org/pub/linux/utils/cryptsetup/v2.8/cryptsetup-${version}.tar.xz",
+  "tarball_files_count": 633,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "argon-implementation",
+      "type": "combo"
+    },
+    {
+      "default": "enabled",
+      "description": "generate man pages from asciidoc",
+      "name": "asciidoc",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "use of blkid for device signature detection and wiping",
+      "name": "blkid",
+      "type": "boolean"
+    },
+    {
+      "default": "openssl",
+      "description": "crypto backend",
+      "name": "crypto-backend",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "cryptsetup support",
+      "name": "cryptsetup",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "default-integrity-keyfile-size-maxkb",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "default-keyfile-size-maxkb",
+      "type": "integer"
+    },
+    {
+      "default": "aes",
+      "description": "cipher for loop-AES mode",
+      "name": "default-loopaes-cipher",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "key length in bits for loop-AES mode",
+      "name": "default-loopaes-keybits",
+      "type": "integer"
+    },
+    {
+      "default": "aes",
+      "description": "cipher for LUKS1",
+      "name": "default-luks1-cipher",
+      "type": "string"
+    },
+    {
+      "default": "sha256",
+      "description": "hash function for LUKS1 header",
+      "name": "default-luks1-hash",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "default-luks1-iter-time",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "key length in bits for LUKS1",
+      "name": "default-luks1-keybits",
+      "type": "integer"
+    },
+    {
+      "default": "xts-plain64",
+      "description": "cipher mode for LUKS1",
+      "name": "default-luks1-mode",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "default-luks2-iter-time",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "default-luks2-keyslot-cipher",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "default-luks2-keyslot-keybits",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "default luks2 locking directory permissions",
+      "name": "default-luks2-lock-dir-perms",
+      "type": "integer"
+    },
+    {
+      "default": "/run/cryptsetup",
+      "description": "path to directory for LUKSv2 locks",
+      "name": "default-luks2-lock-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "default-luks2-memory-kb",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "default-luks2-parallel-threads",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "default-luks2-pbkdf",
+      "type": "string"
+    },
+    {
+      "default": "LUKS2",
+      "description": "default LUKS format version",
+      "name": "default-luks-format",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "default-passphrase-size-max",
+      "type": "integer"
+    },
+    {
+      "default": "aes",
+      "description": "cipher for plain mode",
+      "name": "default-plain-cipher",
+      "type": "string"
+    },
+    {
+      "default": "sha256",
+      "description": "cipher for plain mode",
+      "name": "default-plain-hash",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "key length in bits for plain mode",
+      "name": "default-plain-keybits",
+      "type": "integer"
+    },
+    {
+      "default": "xts-plain64",
+      "description": "cipher mode for plain mode",
+      "name": "default-plain-mode",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "data block size for verity mode",
+      "name": "default-verity-data-block",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "parity bytes for verity FEC",
+      "name": "default-verity-fec-roots",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "hash block size for verity mode",
+      "name": "default-verity-hash-block",
+      "type": "integer"
+    },
+    {
+      "default": "sha256",
+      "description": "hash function for verity mode",
+      "name": "default-verity-hash",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "salt size for verity mode",
+      "name": "default-verity-salt-size",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "dev-random",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build static libraries",
+      "name": "enable-static",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "external LUKS2 tokens",
+      "name": "external-tokens",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable FIPS mode restrictions",
+      "name": "fips",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "fuzzing-engine",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "enable building fuzz targets",
+      "name": "fuzz-targets",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "enable internal gcrypt PBKDF2",
+      "name": "gcrypt-pbkdf2",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "enable internal gcrypt Argon2",
+      "name": "gcrypt-argon2",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "support LUKS2 extension for SED OPAL HW encryption",
+      "name": "hw-opal",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "integritysetup Support",
+      "name": "integritysetup",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "use internal SSE implementation of Argon2 PBKDF",
+      "name": "internal-sse-argon2",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "kernel_crypto",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "kernel keyring support and builtin kernel keyring token",
+      "name": "keyring",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "luks2-external-tokens-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "LUKS2 online reencryption extension",
+      "name": "luks2-reencryption",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "XTS mode requires two keys, double default LUKS keysize if needed",
+      "name": "luks_adjust_xts_keysize",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "use Native Language Support",
+      "name": "nls",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "passwdqc",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "password quality checking using pwquality library",
+      "name": "pwquality",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "LUKS2 ssh-token",
+      "name": "ssh-token",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable build of static version of tools",
+      "name": "static-cryptsetup",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "compile systemd tokens and test using them from cryptsetup",
+      "name": "systemd-tokens-test",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "override default path to directory with systemd temporary files",
+      "name": "tmpfilesdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "udev support",
+      "name": "udev",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "veritysetup support",
+      "name": "veritysetup",
+      "type": "boolean"
+    }
+  ],
+  "version": "2.8.4"
+}

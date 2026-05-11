@@ -1,0 +1,188 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:16Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-calculator",
+    "blfs_name": "gnome-calculator",
+    "blfs_version": "49.2",
+    "deps": [
+      {
+        "anchor": "blueprint-compiler",
+        "name": "blueprint-compiler-0.18.0",
+        "note": "",
+        "type": "required",
+        "version": "0.18.0"
+      },
+      {
+        "anchor": "gtksourceview5",
+        "name": "gtksourceview5-5.18.0",
+        "note": "",
+        "type": "required",
+        "version": "5.18.0"
+      },
+      {
+        "anchor": "itstool",
+        "name": "itstool-2.0.7",
+        "note": "",
+        "type": "required",
+        "version": "2.0.7"
+      },
+      {
+        "anchor": "libadwaita1",
+        "name": "libadwaita-1.8.4",
+        "note": "",
+        "type": "required",
+        "version": "1.8.4"
+      },
+      {
+        "anchor": "libgee",
+        "name": "libgee-0.20.8",
+        "note": "",
+        "type": "required",
+        "version": "0.20.8"
+      },
+      {
+        "anchor": "libsoup3",
+        "name": "libsoup-3.6.6",
+        "note": "",
+        "type": "required",
+        "version": "3.6.6"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "gcalccmd",
+    "gnome-calculator"
+  ],
+  "expected_headers": [
+    "/usr/include/gcalc-2",
+    "/usr/include/gci-2"
+  ],
+  "expected_libs": [
+    "libgcalc-2.so",
+    "libgci-1.so"
+  ],
+  "expected_pkgconfig": [
+    "gcalc-2.pc",
+    "gci-1.pc"
+  ],
+  "name": "gnome-calculator",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "blueprint-compiler",
+    "gtksourceview5",
+    "itstool",
+    "libadwaita1",
+    "libgee",
+    "libsoup3",
+    "vala"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-calculator",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "ddf4cd2edda135c41c8af68f9c0cdcd9d9a9163cb9f7f8e28ca2c8e81fd87657",
+  "source_tarball": "gnome-calculator-49.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-calculator/49/gnome-calculator-${version}.tar.xz",
+  "tarball_files_count": 401,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Disable GTK+ program",
+      "name": "disable-ui",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "vala-version",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Disable GObject Introspection Typelib generation",
+      "name": "disable-introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Execute UI tests: requires X/Wayland/Broadway/Windows server",
+      "name": "ui-tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Used to add search path for libraries like mpc",
+      "name": "libpath",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "If this is a development build",
+      "name": "development",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build GCalc library",
+      "name": "gcalc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build GCalc UI library",
+      "name": "gci",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build GNOME Calculator Application",
+      "name": "app",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build GCalc and/or GCi documentation",
+      "name": "doc",
+      "type": "boolean"
+    }
+  ],
+  "version": "49.2"
+}

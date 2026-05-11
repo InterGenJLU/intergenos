@@ -1,0 +1,82 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:13Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "abseil-cpp",
+    "blfs_name": "Abseil-cpp",
+    "blfs_version": "20260107.1",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CONTRIBUTING",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "abseil-cpp",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cmake"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "BUILD_SHARED_LIBS",
+      "value": "ON"
+    },
+    {
+      "name": "ABSL_PROPAGATE_CXX_STD",
+      "value": "ON"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/core/abseil-cpp",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "4314e2a7cbac89cac25a2f2322870f343d81579756ceff7f431803c2c9090195",
+  "source_tarball": "abseil-cpp-20260107.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/abseil/abseil-cpp/archive/${version}/abseil-cpp-${version}.tar.gz",
+  "tarball_files_count": 1644,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "20260107.1"
+}

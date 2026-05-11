@@ -1,0 +1,53 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "soundtouch",
+    "blfs_name": "SoundTouch",
+    "blfs_version": "2.4.0",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/soundtouch"
+  ],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "soundtouch",
+  "our_autotools_flags": [
+    "--docdir=/usr/share/doc/soundtouch-2.4.0",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/soundtouch",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "3dda3c9ab1e287f15028c010a66ab7145fa855dfa62763538f341e70b4d10abd",
+  "source_tarball": "soundtouch-2.4.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.surina.net/soundtouch/soundtouch-${version}.tar.gz",
+  "tarball_files_count": 153,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "2.4.0"
+}

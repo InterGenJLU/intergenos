@@ -1,0 +1,79 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:20Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "c-ares",
+    "blfs_name": "c-ares",
+    "blfs_version": "1.34.6",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CONTRIBUTING",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "adig",
+    "ahost"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libcares.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "c-ares",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cmake"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/core/c-ares",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "912dd7cc3b3e8a79c52fd7fb9c0f4ecf0aaa73e45efda880266a2d6e26b84ef5",
+  "source_tarball": "c-ares-1.34.6.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/c-ares/c-ares/releases/download/v${version}/c-ares-${version}.tar.gz",
+  "tarball_files_count": 553,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "1.34.6"
+}

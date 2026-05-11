@@ -1,0 +1,468 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:23Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "xwayland",
+    "blfs_name": "Xwayland",
+    "blfs_version": "24.1.9",
+    "deps": [
+      {
+        "anchor": "git",
+        "name": "git-2.53.0",
+        "note": "to download packages needed for the tests",
+        "type": "optional",
+        "version": "2.53.0"
+      },
+      {
+        "anchor": "libei",
+        "name": "libei-1.5.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.5.0"
+      },
+      {
+        "anchor": "libepoxy",
+        "name": "libepoxy-1.5.10",
+        "note": "",
+        "type": "recommended",
+        "version": "1.5.10"
+      },
+      {
+        "anchor": "libgcrypt",
+        "name": "libgcrypt-1.12.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.12.0"
+      },
+      {
+        "anchor": "libtirpc",
+        "name": "libtirpc-1.3.7",
+        "note": "",
+        "type": "recommended",
+        "version": "1.3.7"
+      },
+      {
+        "anchor": "libxcvt",
+        "name": "libxcvt-0.1.3",
+        "note": "",
+        "type": "required",
+        "version": "0.1.3"
+      },
+      {
+        "anchor": "mesa",
+        "name": "Mesa-25.3.5",
+        "note": "",
+        "type": "recommended",
+        "version": "25.3.5"
+      },
+      {
+        "anchor": "nettle",
+        "name": "Nettle-3.10.2",
+        "note": "",
+        "type": "optional",
+        "version": "3.10.2"
+      },
+      {
+        "anchor": "pixman",
+        "name": "Pixman-0.46.4",
+        "note": "",
+        "type": "required",
+        "version": "0.46.4"
+      },
+      {
+        "anchor": "wayland-protocols",
+        "name": "wayland-protocols-1.47",
+        "note": "",
+        "type": "required",
+        "version": "1.47"
+      },
+      {
+        "anchor": "xmlto",
+        "name": "xmlto-0.0.29",
+        "note": "",
+        "type": "optional",
+        "version": "0.0.29"
+      },
+      {
+        "anchor": "xorg7-app",
+        "name": "Xorg Applications",
+        "note": "runtime",
+        "type": "required",
+        "version": ""
+      },
+      {
+        "anchor": "xorg7-font",
+        "name": "Xorg\n                Fonts",
+        "note": "only font-util",
+        "type": "required",
+        "version": ""
+      },
+      {
+        "anchor": "xorg7-legacy",
+        "name": "Xorg Legacy Fonts",
+        "note": "only bdftopcf, for building fonts required for the tests",
+        "type": "optional",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [
+    "Xwayland"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "xwayland",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libepoxy",
+    "libxcvt",
+    "mesa",
+    "pixman",
+    "wayland-protocols",
+    "libX11",
+    "libXfont2",
+    "xkeyboard-config",
+    "xkbcomp",
+    "font-util",
+    "libei",
+    "libgcrypt",
+    "libtirpc",
+    "nettle"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "xkb_output_dir",
+      "value": "/var/lib/xkb"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/xwayland",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "f297af27a84508db9b80d1cbbcc69c3801da38eb64c72f3b5b50f582459afdd0",
+  "source_tarball": "xwayland-24.1.9.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.x.org/pub/individual/xserver/xwayland-${version}.tar.xz",
+  "tarball_files_count": 797,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "glamor",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Enable emulated input support on Xwayland",
+      "name": "xwayland_ei",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Enable Xvfb X server",
+      "name": "xvfb",
+      "type": "boolean"
+    },
+    {
+      "default": "xorg@lists.freedesktop.org",
+      "description": "Builder address",
+      "name": "builder_addr",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Additional builder string",
+      "name": "builder_string",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "default_font_path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Root directory for legacy fonts. Default: from font-utils.pc or $datadir/fonts/X11",
+      "name": "fontrootdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Miscellaneous server configuration files path. Default: $libdir/xorg",
+      "name": "serverconfigdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "glx",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "xdmcp",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "xdm-auth-1",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "secure-rpc",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "ipv6",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "input_thread",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "xkb_dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "xkb_output_dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "xkb_bin_dir",
+      "type": "string"
+    },
+    {
+      "default": "evdev",
+      "description": "",
+      "name": "xkb_default_rules",
+      "type": "string"
+    },
+    {
+      "default": "pc105",
+      "description": "",
+      "name": "xkb_default_model",
+      "type": "string"
+    },
+    {
+      "default": "us",
+      "description": "",
+      "name": "xkb_default_layout",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "xkb_default_variant",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "xkb_default_options",
+      "type": "string"
+    },
+    {
+      "default": "The X.Org Foundation",
+      "description": "",
+      "name": "vendor_name",
+      "type": "string"
+    },
+    {
+      "default": "X.Org",
+      "description": "",
+      "name": "vendor_name_short",
+      "type": "string"
+    },
+    {
+      "default": "http://wiki.x.org",
+      "description": "",
+      "name": "vendor_web",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Enable dtrace hooks",
+      "name": "dtrace",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Listen on TCP by default",
+      "name": "listen_tcp",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Listen on Unix by default",
+      "name": "listen_unix",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Listen on local by default",
+      "name": "listen_local",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Enable systemd-notify support",
+      "name": "systemd_notify",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Xorg DPMS extension",
+      "name": "dpms",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "XF86 Big Font extension",
+      "name": "xf86bigfont",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "ScreenSaver extension",
+      "name": "screensaver",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "XRes extension",
+      "name": "xres",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "X-ACE extension",
+      "name": "xace",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "XSELINUX extension",
+      "name": "xselinux",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Xinerama extension",
+      "name": "xinerama",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Security extension",
+      "name": "xcsecurity",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Xv extension",
+      "name": "xv",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "SHM extension",
+      "name": "mitshm",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "SHA1 implementation",
+      "name": "sha1",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "dri3",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Build Xorg with libdrm support",
+      "name": "drm",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Use libunwind for backtrace reporting",
+      "name": "libunwind",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Directory containing Xwayland executable",
+      "name": "xwayland-path",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Whether Xwayland should use libdecor when running rootful.",
+      "name": "libdecor",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Build documentation",
+      "name": "docs",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Build development documentation",
+      "name": "devel-docs",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Whether to build PDF version of documentation. Setting is ignored if documentation is not built.",
+      "name": "docs-pdf",
+      "type": "combo"
+    }
+  ],
+  "version": "24.1.9"
+}

@@ -1,0 +1,106 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-third_party-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:44Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "svt-av1",
+    "blfs_name": "SVT-AV1",
+    "blfs_version": "4.0.1",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "nasm",
+        "name": "NASM-3.01",
+        "note": "",
+        "type": "recommended",
+        "version": "3.01"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [
+    "third_party"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [
+    "SvtAv1EncApp"
+  ],
+  "expected_headers": [
+    "/usr/include/svt-av1"
+  ],
+  "expected_libs": [
+    "libSvtAv1Enc.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "svt-av1",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "nasm",
+    "cmake"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "CMAKE_SKIP_INSTALL_RPATH",
+      "value": "ON"
+    },
+    {
+      "name": "BUILD_SHARED_LIBS",
+      "value": "ON"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/svt-av1",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "df2a2dd51512717e8c3637072750a3899c3a69d684accccace33c1c467f7e852",
+  "source_tarball": "SVT-AV1-v4.0.1.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/archive/v${version}/SVT-AV1-v${version}.tar.bz2",
+  "tarball_files_count": 1337,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "4.0.1"
+}

@@ -15,6 +15,7 @@ dependencies:
   - libxkbcommon
   - wayland
   - wayland-protocols
+  - cmake
   host: []
   runtime: []
 configure_flags:

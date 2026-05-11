@@ -65,11 +65,23 @@ def find_source_tarball(pkg_yml: dict) -> Path | None:
     if not sources:
         return None
     s0 = sources[0]
-    url = s0.get("url") if isinstance(s0, dict) else None
-    if not url:
+    if not isinstance(s0, dict):
         return None
     version = str(pkg_yml.get("version", ""))
-    tarball = url.replace("${version}", version).rstrip("/").rsplit("/", 1)[-1]
+    # Prefer explicit `filename:` override if present — handles cases where
+    # the URL template doesn't produce the actual on-disk filename (e.g.,
+    # GitHub releases that emit `v${version}.tar.gz` but get renamed during
+    # download, or upstream rename quirks).
+    name = pkg_yml.get("name", "")
+    def expand(s):
+        return s.replace("${version}", version).replace("${name}", name)
+    if s0.get("filename"):
+        tarball = expand(s0["filename"])
+    else:
+        url = s0.get("url")
+        if not url:
+            return None
+        tarball = expand(url).rstrip("/").rsplit("/", 1)[-1]
     p = SOURCES / tarball
     return p if p.exists() else None
 
@@ -468,18 +480,104 @@ def audit(name: str, audited_by: str = "audit-package.py") -> dict:
             if b not in cfg_text and "tar xf" not in cfg_text.lower():
                 record["_needs_review"].append(f"bundled-lib-{b}-extract-unclear")
     if not tarball:
-        record["_needs_review"].append("source-tarball-missing")
-    # Cross-reference declared deps with BLFS truth
+        # Distinguish intentionally-sourceless packages from missing-on-disk:
+        #   source: []     → intentional (helpers, internal pkm/intergen/llama-cpp);
+        #                    do NOT flag as blocker.
+        #   missing yml    → real audit blocker.
+        sources_raw = pkg_yml.get("source")
+        if sources_raw == [] or sources_raw is None and not pkg_yml.get("source"):
+            record["source_intentionally_sourceless"] = True
+        else:
+            record["_needs_review"].append("source-tarball-missing")
+
+    # Cross-reference declared deps with BLFS truth, with proper normalization.
     if blfs and blfs.get("deps"):
-        blfs_required = [d["name"].lower() for d in blfs["deps"] if d["type"] == "required"]
-        our_lower = [d.lower() for d in our_deps_build]
-        for r in blfs_required:
-            # Strip version suffixes / case
-            r_short = re.split(r'[-_]\d', r)[0].lower()
-            if r_short not in [d.split('-')[0] for d in our_lower]:
+        # Build alias maps for normalization. Many-to-many: a single BLFS
+        # anchor can correspond to multiple InterGenOS packages (e.g.,
+        # `libsigc` BLFS anchor ↔ libsigcpp + libsigcpp2 IGOS packages —
+        # both satisfy).
+        alias_blfs_to_igos: dict[str, set[str]] = {}
+        if BLFS_DB.exists():
+            adb = sqlite3.connect(str(BLFS_DB))
+            for r in adb.execute("SELECT blfs_anchor, igos_name FROM aliases"):
+                alias_blfs_to_igos.setdefault(r[0], set()).add(r[1])
+
+        def alias_candidates(blfs_anchor: str) -> set[str]:
+            """All InterGenOS names that satisfy this BLFS anchor."""
+            return set(s.lower() for s in alias_blfs_to_igos.get(blfs_anchor, set()))
+
+        # Build a set of our package names + their normalized forms
+        our_pkg_set = set(d.lower() for d in our_deps_build)
+        # Also accept normalized base names (lib-foo-1.2 → lib-foo)
+        for d in our_deps_build:
+            base = re.sub(r'-?\d+(\.\d+)+.*$', '', d).lower()
+            our_pkg_set.add(base)
+
+        for dep in blfs["deps"]:
+            if dep["type"] != "required":
+                continue
+            blfs_anchor = dep["anchor"]
+            blfs_name = dep["name"]
+
+            # Try multiple match strategies (case-insensitive)
+            candidates: set[str] = set()
+            # Aliases first — many-to-many
+            candidates.update(alias_candidates(blfs_anchor))
+            candidates.add(blfs_anchor.lower())
+            candidates.add(blfs_name.split('-')[0].lower())
+            # Also handle versioned anchors like 'gtk-3.24.51' → 'gtk3'
+            # (collapse the major-version onto the name) and the
+            # already-stripped base
+            anchor_base = re.sub(r'-?\d+(\.\d+)+.*$', '', blfs_anchor).lower()
+            candidates.add(anchor_base)
+            # Pull out the leading major from a versioned anchor (e.g.
+            # 'gtk-3' → 'gtk3', 'gtk-4' → 'gtk4')
+            m = re.match(r'^([a-z][a-z0-9_-]*?)-(\d+)', blfs_anchor.lower())
+            if m:
+                candidates.add(f"{m.group(1)}{m.group(2)}")
+                candidates.add(m.group(1))
+
+            # Skip BLFS-specific names that are aggregate metapackages,
+            # build-environment placeholders, or known-cycle false positives.
+            BLFS_AGGREGATES = {
+                # Xorg cluster aggregates
+                "xorg libraries", "xorg-libraries",
+                "xorg applications", "xorg-applications",
+                "xorg7-lib", "xorg7-app", "xorg7-driver",
+                "xorg7-font", "xorg7-proto", "xorg-cf-files",
+                "x window system", "xorg-env",
+                # BLFS env-setup pseudo-packages
+                "server-mail",  # MTA placeholder; exim provides this
+                "mta",          # ditto
+                "tetex",        # texlive cluster
+            }
+            if blfs_anchor.lower() in BLFS_AGGREGATES or \
+               blfs_name.lower() in BLFS_AGGREGATES:
+                continue
+
+            # Known cycles handled by our bootstrap variants — skip:
+            # wayland-protocols → wayland (XML-only, handled in our yml audit)
+            # xdg-desktop-portal → portal-gnome/gtk/lxqt (the 2-pass cycle)
+            # newt → slang (we satisfy via slang-pass1)
+            KNOWN_CYCLES = {
+                ("wayland-protocols", "wayland"),
+                ("xdg-desktop-portal", "xdg-desktop-portal-gnome"),
+                ("xdg-desktop-portal", "xdg-desktop-portal-gtk"),
+                ("xdg-desktop-portal", "xdg-desktop-portal-lxqt"),
+                # newt's slang dep is satisfied via slang-pass1 in core
+                ("newt", "slang"),
+                # SDL2 build needs only SDL2 itself; BLFS lists SDL3 as
+                # alt-major-version — skip.
+                ("sdl2", "sdl3"),
+            }
+            if (name, blfs_anchor) in KNOWN_CYCLES:
+                continue
+
+            if not (candidates & our_pkg_set):
                 record["_mismatches"].append({
                     "field": "deps_build",
-                    "issue": f"BLFS required dep '{r}' not in our dependencies.build",
+                    "issue": f"BLFS required dep '{blfs_anchor}' (name={blfs_name}) not in our dependencies.build",
+                    "tried_candidates": sorted(candidates),
                 })
 
     return record

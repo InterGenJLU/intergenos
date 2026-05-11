@@ -1,0 +1,80 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:57Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "npth",
+    "blfs_name": "npth",
+    "blfs_version": "1.8",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "npth-config"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libnpth.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "npth",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/npth",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "8bd24b4f23a3065d6e5b26e98aba9ce783ea4fd781069c1b35d149694e90ca3e",
+  "source_tarball": "npth-1.8.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://www.gnupg.org/ftp/gcrypt/npth/npth-${version}.tar.bz2",
+  "tarball_files_count": 63,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-install-npth-config",
+      "kind": "enable",
+      "name": "install-npth-config"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tests",
+      "kind": "enable",
+      "name": "tests"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-build-timestamp",
+      "kind": "enable",
+      "name": "build-timestamp"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-libtool-modification=apply|never|try",
+      "kind": "with",
+      "name": "libtool-modification"
+    }
+  ],
+  "version": "1.8"
+}

@@ -1,0 +1,56 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:10Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "time",
+    "blfs_name": "Time",
+    "blfs_version": "1.9",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "/usr/bin/time"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "time",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/base/time",
+  "reproducibility": {
+    "_notes": "filled by agent-c03 from build.sh inspection + BLFS HTML",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "fbacf0c81e62429df3e33bda4cee38756604f18e01d977338e23306a3e3b521e",
+  "source_tarball": "time-1.9.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://ftpmirror.gnu.org/time/time-${version}.tar.gz",
+  "tarball_files_count": 172,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "base",
+  "upstream_options": [],
+  "version": "1.9"
+}

@@ -1,0 +1,251 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:00Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "p11-kit",
+    "blfs_name": "p11-kit",
+    "blfs_version": "0.26.2",
+    "deps": [
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "libtasn1",
+        "name": "libtasn1-4.21.0",
+        "note": "",
+        "type": "recommended",
+        "version": "4.21.0"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "",
+        "type": "optional",
+        "version": "1.1.45"
+      },
+      {
+        "anchor": "nss",
+        "name": "nss-3.120.1",
+        "note": "runtime",
+        "type": "optional",
+        "version": "3.120.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "p11-kit",
+    "trust",
+    "update-ca-certificates"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libp11-kit.so",
+    "p11-kit-proxy.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "p11-kit",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libtasn1",
+    "meson",
+    "ninja"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "trust_paths",
+      "value": "/etc/pki/anchors"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/core/p11-kit",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "09fd9f44da4813a3141e73d5e7cf7008e5660d0405f13d56c15e1da9dcecf828",
+  "source_tarball": "p11-kit-0.26.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/p11-glue/p11-kit/releases/download/${version}/p11-kit-${version}.tar.xz",
+  "tarball_files_count": 677,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "default": "internal",
+      "description": "Hash implementation to use",
+      "name": "hash_impl",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Module configuration files shipped by packages",
+      "name": "module_config",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Change PKCS#11 system config directory",
+      "name": "system_config",
+      "type": "string"
+    },
+    {
+      "default": "~/.config/pkcs11",
+      "description": "Change PKCS#11 user config directory",
+      "name": "user_config",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Load modules with relative path names from here",
+      "name": "module_path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Override module and config paths with environment variables",
+      "name": "env_override_paths",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Use libffi for building closures",
+      "name": "libffi",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "The number of precompiled closures, used when libffi is unavailable",
+      "name": "closures",
+      "type": "integer"
+    },
+    {
+      "default": "auto",
+      "description": "Build the trust module",
+      "name": "trust_module",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Input paths for trust module",
+      "name": "trust_paths",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Strict code compilation",
+      "name": "strict",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Use systemd socket activation",
+      "name": "systemd",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Override default location for bash completion files",
+      "name": "bashcompdir",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Install bash completion files",
+      "name": "bash_completion",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Override default location for zsh completion files",
+      "name": "zshcompdir",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Install zsh completion files",
+      "name": "zsh_completion",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build documentation using gtk-doc",
+      "name": "gtk_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "GLib installed prefix, used for gtk-doc, taken from pkg-config if undefined",
+      "name": "glib_prefix",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Build manpages using xsltproc",
+      "name": "man",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable NLS support",
+      "name": "nls",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable building test programs",
+      "name": "test",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable running post-install test programs",
+      "name": "post_install_test",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Minimum RPC protocol version we support",
+      "name": "rpc_min",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "Maximum RPC protocol version we support",
+      "name": "rpc_max",
+      "type": "integer"
+    }
+  ],
+  "version": "0.26.2"
+}

@@ -1,0 +1,68 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:55Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "libpciaccess",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "util-macros"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libpciaccess",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "4af43444b38adb5545d0ed1c2ce46d9608cc47b31c2387fc5181656765a6fa76",
+  "source_tarball": "libpciaccess-0.18.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://xorg.freedesktop.org/archive/individual/lib/libpciaccess-${version}.tar.xz",
+  "tarball_files_count": 44,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "hwdata",
+      "description": "path to pci ids. If relative is assumed relative to $datadir.",
+      "name": "pci-ids",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Enable support for falling back to /dev/mem for roms",
+      "name": "linux-rom-fallback",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable zlib support to read gzip compressed pci.ids.",
+      "name": "zlib",
+      "type": "feature"
+    }
+  ],
+  "version": "0.18.1"
+}

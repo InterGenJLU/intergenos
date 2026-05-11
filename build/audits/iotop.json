@@ -1,0 +1,46 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:42Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [
+    "/usr/sbin/iotop"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "iotop",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [
+    "ncurses"
+  ],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/base/iotop",
+  "reproducibility": {
+    "_notes": "filled by agent-c03 from build.sh inspection + BLFS HTML",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "7740ada353262808c12f19b5efc37b3c7bfb6be3be4abc0404557806d0204b26",
+  "source_tarball": "iotop-1.31.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/Tomas-M/iotop/releases/download/v${version}/iotop-${version}.tar.xz",
+  "tarball_files_count": 32,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "base",
+  "upstream_options": [],
+  "version": "1.31"
+}

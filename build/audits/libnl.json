@@ -1,0 +1,107 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-third_party-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:55Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libnl",
+    "blfs_name": "libnl",
+    "blfs_version": "3.12.0",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [
+    "third_party"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "genl-ctrl-list",
+    "idiag-socket-details",
+    "nl-class-add",
+    "nl-class-delete",
+    "nl-classid-lookup",
+    "nl-class-list",
+    "nl-cls-add",
+    "nl-cls-delete",
+    "nl-cls-list",
+    "nl-link-list",
+    "nl-pktloc-lookup",
+    "nl-qdisc-add",
+    "nl-qdisc-delete",
+    "nl-qdisc-list",
+    "48 other helper programs with nl-",
+    "nf- prefixes"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libnl-3.so",
+    "libnl-cli-3.so",
+    "libnl-genl-3.so",
+    "libnl-idiag-3.so",
+    "libnl-nf-3.so",
+    "libnl-route-3.so",
+    "libnl-xfrm-3.so",
+    "cli modules under /usr/lib/libnl/cli tree"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libnl",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/libnl",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "fc51ca7196f1a3f5fdf6ffd3864b50f4f9c02333be28be4eeca057e103c0dd18",
+  "source_tarball": "libnl-3.12.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/thom311/libnl/releases/download/libnl3_12_0/libnl-${version}.tar.gz",
+  "tarball_files_count": 633,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-cli=yes|no|no-inst|bin|sbin",
+      "kind": "enable",
+      "name": "cli"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-pthreads",
+      "kind": "enable",
+      "name": "pthreads"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-debug",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pkgconfigdir=PATH",
+      "kind": "with",
+      "name": "pkgconfigdir"
+    }
+  ],
+  "version": "3.12.0"
+}

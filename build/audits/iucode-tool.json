@@ -1,0 +1,86 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:42Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "iucode-tool",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/iucode-tool",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "e24951098b5753293e43689bd8e0a61c4fd2e68870672d20bb89b093dfd8b255",
+  "source_tarball": "iucode-tool-v2.3.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.com/iucode-tool/iucode-tool/-/archive/v${version}/iucode-tool-v${version}.tar.gz",
+  "tarball_files_count": 24,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AC_HELP_STRING([--enable-extend-flags",
+      "kind": "enable",
+      "name": "extend-flags"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-cpuid-device",
+      "kind": "enable",
+      "name": "cpuid-device"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-valgrind-build",
+      "kind": "enable",
+      "name": "valgrind-build"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-kernel-device=PATH",
+      "kind": "with",
+      "name": "default-kernel-device"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-firmware-dir=PATH",
+      "kind": "with",
+      "name": "default-firmware-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-cpuid-device-parent=PATH",
+      "kind": "with",
+      "name": "cpuid-device-parent"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-cpuid-device-base=PATH_FORMAT",
+      "kind": "with",
+      "name": "cpuid-device-base"
+    }
+  ],
+  "version": "2.3.1"
+}

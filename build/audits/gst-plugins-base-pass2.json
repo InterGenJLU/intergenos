@@ -1,0 +1,94 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:30Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "gst-device-monitor-1.0",
+    "gst-discoverer-1.0",
+    "gst-play-1.0"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libgstallocators-1.0.so",
+    "libgstapp-1.0.so",
+    "libgstaudio-1.0.so",
+    "libgstfft-1.0.so",
+    "libgstgl-1.0.so",
+    "libgstpbutils-1.0.so",
+    "libgstriff-1.0.so",
+    "libgstrtp-1.0.so",
+    "libgstrtsp-1.0.so",
+    "libgstsdp-1.0.so",
+    "libgsttag-1.0.so",
+    "libgstvideo-1.0.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "gst-plugins-base-pass2",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr",
+    "--wrap-mode=nodownload"
+  ],
+  "our_deps_build": [
+    "gst-plugins-base",
+    "mesa",
+    "alsa-lib",
+    "libogg",
+    "libvorbis",
+    "orc",
+    "pango",
+    "libX11",
+    "libXext"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "tests",
+      "value": "disabled"
+    },
+    {
+      "name": "examples",
+      "value": "disabled"
+    },
+    {
+      "name": "doc",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gst-plugins-base-pass2",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "1446a4c2a92ff5d78d88e85a599f0038441d53333236f0c72d72f21a9c132497",
+  "source_tarball": "gst-plugins-base-1.28.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugins-base-${version}.tar.xz",
+  "tarball_files_count": 1618,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.28.1"
+}

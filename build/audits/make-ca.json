@@ -1,0 +1,78 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:46Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "make-ca",
+    "blfs_name": "make-ca",
+    "blfs_version": "1.16.1",
+    "deps": [
+      {
+        "anchor": "libtasn1",
+        "name": "libtasn1-4.21.0",
+        "note": "",
+        "type": "required",
+        "version": "4.21.0"
+      },
+      {
+        "anchor": "nss",
+        "name": "nss-3.120.1",
+        "note": "to generate a shared NSSDB",
+        "type": "optional",
+        "version": "3.120.1"
+      },
+      {
+        "anchor": "p11-kit",
+        "name": "p11-kit-0.26.2",
+        "note": "",
+        "type": "required",
+        "version": "0.26.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "README"
+  ],
+  "expected_binaries": [
+    "make-ca"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "make-ca",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "p11-kit",
+    "libtasn1"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "p11-kit"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/make-ca",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "98c7e6fded1938b972d0177b5d5e925d318be87f84ee9e4cad680656a8c29414",
+  "source_tarball": "make-ca-1.16.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/lfs-book/make-ca/archive/v${version}/make-ca-${version}.tar.gz",
+  "tarball_files_count": 18,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "1.16.1"
+}

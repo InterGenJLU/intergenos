@@ -1,0 +1,84 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:09Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libssh2",
+    "blfs_name": "libssh2",
+    "blfs_version": "1.11.1",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "optional",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "libgcrypt",
+        "name": "libgcrypt-1.12.0",
+        "note": "can be used instead\n                of OpenSSL",
+        "type": "optional",
+        "version": "1.12.0"
+      },
+      {
+        "anchor": "openssh",
+        "name": "OpenSSH-10.2p1",
+        "note": "for some tests",
+        "type": "optional",
+        "version": "10.2p1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libssh2.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libssh2",
+  "our_autotools_flags": [
+    "--disable-docker-tests",
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "openssl"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/libssh2",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "d9ec76cbe34db98eec3539fe2c899d26b0c837cb3eb466a56b0f109cabf658f7",
+  "source_tarball": "libssh2-1.11.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.libssh2.org/download/libssh2-${version}.tar.gz",
+  "tarball_files_count": 462,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "1.11.1"
+}

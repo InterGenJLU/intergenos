@@ -1,0 +1,125 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:59Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "openjpeg2",
+    "blfs_name": "OpenJPEG",
+    "blfs_version": "2.5.4",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "to\n                build the API documentation",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "git",
+        "name": "git-2.53.0",
+        "note": "for tests",
+        "type": "optional",
+        "version": "2.53.0"
+      },
+      {
+        "anchor": "lcms2",
+        "name": "Little CMS-2.18",
+        "note": "",
+        "type": "optional",
+        "version": "2.18"
+      },
+      {
+        "anchor": "libpng",
+        "name": "libpng-1.6.55",
+        "note": "",
+        "type": "optional",
+        "version": "1.6.55"
+      },
+      {
+        "anchor": "libtiff",
+        "name": "libtiff-4.7.1",
+        "note": "",
+        "type": "optional",
+        "version": "4.7.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "opj_compress",
+    "opj_decompress",
+    "opj_dump"
+  ],
+  "expected_headers": [
+    "/usr/include/openjpeg-2.5"
+  ],
+  "expected_libs": [
+    "libopenjp2.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "openjpeg2",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cmake",
+    "lcms2",
+    "libpng",
+    "libtiff"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "BUILD_SHARED_LIBS",
+      "value": "ON"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/openjpeg2",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "a695fbe19c0165f295a8531b1e4e855cd94d0875d2f88ec4b61080677e27188a",
+  "source_tarball": "openjpeg-2.5.4.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/uclouvain/openjpeg/archive/v${version}/openjpeg-${version}.tar.gz",
+  "tarball_files_count": 519,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "2.5.4"
+}

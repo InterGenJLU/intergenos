@@ -1,0 +1,277 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:35Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "None"
+  ],
+  "expected_headers": [
+    "/usr/include/gvfs-client",
+    "/usr/{lib",
+    "share}/gvfs"
+  ],
+  "expected_libs": [
+    "libgvfscommon.so",
+    "libgvfsdaemon.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "gvfs-pass2",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "glib-networking",
+    "gvfs",
+    "gnome-online-accounts",
+    "libmsgraph"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "man",
+      "value": "false"
+    },
+    {
+      "name": "google",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gvfs-pass2",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "ad9d5bf0b45caf232520df0adee51eb650200b0370680f80a350ead9d1d61ddf",
+  "source_tarball": "gvfs-1.58.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gvfs/1.58/gvfs-${version}.tar.xz",
+  "tarball_files_count": 533,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "custom directory for systemd user units, or \\",
+      "name": "systemduserunitdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "custom directory for tmpfiles.d config files, or \\",
+      "name": "tmpfilesdir",
+      "type": "string"
+    },
+    {
+      "default": "wheel",
+      "description": "custom name for group that has elevated permissions",
+      "name": "privileged_group",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "build with admin backend",
+      "name": "admin",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with afc backend and volume monitor",
+      "name": "afc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with afp backends",
+      "name": "afp",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with archive backend",
+      "name": "archive",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with burn backend",
+      "name": "burn",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with cdda backend",
+      "name": "cdda",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with dnssd backend",
+      "name": "dnssd",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with goa volume monitor",
+      "name": "goa",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with google backend",
+      "name": "google",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with gphoto2 backend and volume monitor",
+      "name": "gphoto2",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with http/dav backends",
+      "name": "http",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with mtp backend and volume monitor",
+      "name": "mtp",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with nfs backend",
+      "name": "nfs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with OneDrive backend",
+      "name": "onedrive",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with sftp backend",
+      "name": "sftp",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with smb backends",
+      "name": "smb",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with udisks2 volume monitor",
+      "name": "udisks2",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with wsdd backend",
+      "name": "wsdd",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with bluray metadata support",
+      "name": "bluray",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with fuse support",
+      "name": "fuse",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with gcr certificate support",
+      "name": "gcr",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with gcrypt support",
+      "name": "gcrypt",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with gudev device support",
+      "name": "gudev",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with keyring support",
+      "name": "keyring",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with logind support",
+      "name": "logind",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with libusb interruption support",
+      "name": "libusb",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "install deprecated api headers",
+      "name": "deprecated_apis",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with development utility programs",
+      "name": "devel_utils",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable installed unit tests",
+      "name": "installed_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "generate man pages",
+      "name": "man",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build with unit tests",
+      "name": "unit_tests",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.58.2"
+}

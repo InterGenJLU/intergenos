@@ -1,0 +1,140 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:48Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libdex-1.so"
+  ],
+  "expected_pkgconfig": [
+    "libdex-1.pc"
+  ],
+  "name": "libdex",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "glib2",
+    "vala"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "examples",
+      "value": "false"
+    },
+    {
+      "name": "tests",
+      "value": "false"
+    },
+    {
+      "name": "docs",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libdex",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "a9e04c8abee01c9a7cf1148c5b7aa66ba377efe6af6d83801d4fd1aa55219aaa",
+  "source_tarball": "libdex-1.1.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/libdex/1.1/libdex-${version}.tar.xz",
+  "tarball_files_count": 169,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "docs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build example programs",
+      "name": "examples",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable stack-protector",
+      "name": "stack-protector",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "vapi",
+      "type": "boolean"
+    },
+    {
+      "default": "enabled",
+      "description": "",
+      "name": "introspection",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Provide anscillary profiling information when run under Sysprof",
+      "name": "sysprof",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build and enable tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "liburing",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Allow use of eventfd",
+      "name": "eventfd",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "pygobject",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Path to pygobject overrides directory",
+      "name": "pygobject-override-dir",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Integrate with gdbus",
+      "name": "gdbus",
+      "type": "feature"
+    }
+  ],
+  "version": "1.1.0"
+}

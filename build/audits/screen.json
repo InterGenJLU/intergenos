@@ -1,0 +1,114 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:18Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "screen",
+    "blfs_name": "Screen",
+    "blfs_version": "5.0.1",
+    "deps": [
+      {
+        "anchor": "linux-pam",
+        "name": "Linux-PAM-1.7.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.7.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "/usr/bin/screen"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "screen",
+  "our_autotools_flags": [
+    "--enable-pam",
+    "--enable-socket-dir=/run/screen",
+    "--infodir=/usr/share/info",
+    "--mandir=/usr/share/man",
+    "--prefix=/usr",
+    "--with-pty-group=5",
+    "--with-system"
+  ],
+  "our_deps_build": [
+    "linux-pam"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/base/screen",
+  "reproducibility": {
+    "_notes": "filled by agent-c03 from build.sh inspection + BLFS HTML",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "2dae36f4db379ffcd14b691596ba6ec18ac3a9e22bc47ac239789ab58409869d",
+  "source_tarball": "screen-5.0.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://ftpmirror.gnu.org/screen/screen-${version}.tar.gz",
+  "tarball_files_count": 160,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "base",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-pam",
+      "kind": "enable",
+      "name": "pam"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-utmp",
+      "kind": "enable",
+      "name": "utmp"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-telnet",
+      "kind": "enable",
+      "name": "telnet"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-socket-dir",
+      "kind": "enable",
+      "name": "socket-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-system_screenrc",
+      "kind": "with",
+      "name": "system_screenrc"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pty-mode",
+      "kind": "with",
+      "name": "pty-mode"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pty-group",
+      "kind": "with",
+      "name": "pty-group"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pty-rofs",
+      "kind": "with",
+      "name": "pty-rofs"
+    }
+  ],
+  "version": "5.0.1"
+}

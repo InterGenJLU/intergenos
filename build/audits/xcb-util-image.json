@@ -1,0 +1,60 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "xcb/xcb_image.h",
+    "xcb/xcb_bitops.h",
+    "xcb/xcb_pixel.h"
+  ],
+  "expected_libs": [
+    "libxcb-image.so"
+  ],
+  "expected_pkgconfig": [
+    "xcb-image.pc"
+  ],
+  "name": "xcb-util-image",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "xcb-util"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/xcb-util-image",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "ccad8ee5dadb1271fd4727ad14d9bd77a64e505608766c4e98267d9aede40d3d",
+  "source_tarball": "xcb-util-image-0.4.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://xcb.freedesktop.org/dist/xcb-util-image-${version}.tar.xz",
+  "tarball_files_count": 46,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "0.4.1"
+}

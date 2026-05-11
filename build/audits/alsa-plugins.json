@@ -1,0 +1,215 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:14Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "alsa-plugins",
+    "blfs_name": "alsa-plugins",
+    "blfs_version": "1.2.12",
+    "deps": [
+      {
+        "anchor": "alsa-lib",
+        "name": "alsa-lib-1.2.15.3",
+        "note": "",
+        "type": "required",
+        "version": "1.2.15.3"
+      },
+      {
+        "anchor": "ffmpeg",
+        "name": "FFmpeg-8.0.1",
+        "note": "",
+        "type": "optional",
+        "version": "8.0.1"
+      },
+      {
+        "anchor": "libsamplerate",
+        "name": "libsamplerate-0.2.2",
+        "note": "",
+        "type": "optional",
+        "version": "0.2.2"
+      },
+      {
+        "anchor": "pulseaudio",
+        "name": "PulseAudio-17.0",
+        "note": "",
+        "type": "optional",
+        "version": "17.0"
+      },
+      {
+        "anchor": "speex",
+        "name": "Speex-1.2.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.2.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "Numerous libasound_module_&lt;module&gt;.so modules including conf_pulse",
+    "ctl_arcam_av",
+    "ctl_oss",
+    "ctl_pulse",
+    "pcm_a52",
+    "pcm_jack",
+    "pcm_oss",
+    "pcm_pulse",
+    "pcm_speex",
+    "pcm_upmix",
+    "pcm_usb_stream",
+    "pcm_vdownmix",
+    "rate_lavrate*",
+    "rate_samplerate*",
+    "rate_speexrate*"
+  ],
+  "expected_pkgconfig": [],
+  "name": "alsa-plugins",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "alsa-lib",
+    "ffmpeg",
+    "libsamplerate",
+    "pulseaudio",
+    "speex"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/alsa-plugins",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "7bd8a83d304e8e2d86a25895d8dcb0ef0245a8df32e271959cdbdc6af39b66f2",
+  "source_tarball": "alsa-plugins-1.2.12.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://www.alsa-project.org/files/pub/plugins/alsa-plugins-${version}.tar.bz2",
+  "tarball_files_count": 132,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-oss",
+      "kind": "enable",
+      "name": "oss"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-mix",
+      "kind": "enable",
+      "name": "mix"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-usbstream",
+      "kind": "enable",
+      "name": "usbstream"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-arcamav",
+      "kind": "enable",
+      "name": "arcamav"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-jack",
+      "kind": "enable",
+      "name": "jack"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-pulseaudio",
+      "kind": "enable",
+      "name": "pulseaudio"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-samplerate",
+      "kind": "enable",
+      "name": "samplerate"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-maemo-plugin",
+      "kind": "enable",
+      "name": "maemo-plugin"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-maemo-resource-manager",
+      "kind": "enable",
+      "name": "maemo-resource-manager"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-libav",
+      "kind": "enable",
+      "name": "libav"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-a52",
+      "kind": "enable",
+      "name": "a52"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-lavrate",
+      "kind": "enable",
+      "name": "lavrate"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-speexdsp",
+      "kind": "enable",
+      "name": "speexdsp"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-aaf",
+      "kind": "enable",
+      "name": "aaf"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-libav-includedir=dir",
+      "kind": "with",
+      "name": "libav-includedir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-libav-libdir=dir",
+      "kind": "with",
+      "name": "libav-libdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-speex={builtin|lib|no}",
+      "kind": "with",
+      "name": "speex"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-plugindir=dir",
+      "kind": "with",
+      "name": "plugindir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-alsadatadir=dir",
+      "kind": "with",
+      "name": "alsadatadir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-alsagconfdir=dir",
+      "kind": "with",
+      "name": "alsagconfdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-alsalconfdir=dir",
+      "kind": "with",
+      "name": "alsalconfdir"
+    }
+  ],
+  "version": "1.2.12"
+}

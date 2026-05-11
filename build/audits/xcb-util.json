@@ -1,0 +1,77 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "xcb-util",
+    "blfs_name": "xcb-util",
+    "blfs_version": "0.4.1",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "for documentation",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "libxcb",
+        "name": "libxcb-1.17.0",
+        "note": "",
+        "type": "required",
+        "version": "1.17.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libxcb-util.so"
+  ],
+  "expected_pkgconfig": [
+    "xcb-util.pc"
+  ],
+  "name": "xcb-util",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "libxcb"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/xcb-util",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "5abe3bbbd8e54f0fa3ec945291b7e8fa8cfd3cccc43718f8758430f94126e512",
+  "source_tarball": "xcb-util-0.4.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://xcb.freedesktop.org/dist/xcb-util-${version}.tar.xz",
+  "tarball_files_count": 42,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "0.4.1"
+}

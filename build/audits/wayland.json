@@ -1,0 +1,163 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:13Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "wayland",
+    "blfs_name": "Wayland",
+    "blfs_version": "1.24.0",
+    "deps": [
+      {
+        "anchor": "DocBook",
+        "name": "docbook-xml-4.5",
+        "note": "",
+        "type": "optional",
+        "version": "4.5"
+      },
+      {
+        "anchor": "docbook-xsl",
+        "name": "docbook-xsl-nons-1.79.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.79.2"
+      },
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "graphviz",
+        "name": "Graphviz-14.1.2",
+        "note": "",
+        "type": "optional",
+        "version": "14.1.2"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "required",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "to build the manual\n                pages",
+        "type": "optional",
+        "version": "1.1.45"
+      },
+      {
+        "anchor": "xmlto",
+        "name": "xmlto-0.0.29",
+        "note": "to build the API\n                documentation",
+        "type": "optional",
+        "version": "0.0.29"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "wayland-scanner"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libwayland-client.so",
+    "libwayland-cursor.so",
+    "libwayland-egl.so",
+    "libwayland-server.so"
+  ],
+  "expected_pkgconfig": [
+    "wayland-client.pc",
+    "wayland-cursor.pc",
+    "wayland-egl.pc",
+    "wayland-server.pc"
+  ],
+  "name": "wayland",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libxml2",
+    "docbook-xml",
+    "docbook-xsl-nons",
+    "libxslt"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "documentation",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/wayland",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "82892487a01ad67b334eca83b54317a7c86a03a89cfadacfef5211f11a5d0536",
+  "source_tarball": "wayland-1.24.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.freedesktop.org/wayland/wayland/-/releases/${version}/downloads/wayland-${version}.tar.xz",
+  "tarball_files_count": 176,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Compile Wayland libraries",
+      "name": "libraries",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Compile wayland-scanner binary",
+      "name": "scanner",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Compile Wayland tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "documentation",
+      "type": ""
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "dtd_validation",
+      "type": ""
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "icon_directory",
+      "type": ""
+    }
+  ],
+  "version": "1.24.0"
+}

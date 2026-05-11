@@ -1,0 +1,92 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:25Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "desktop-file-utils",
+    "blfs_name": "desktop-file-utils",
+    "blfs_version": "0.28",
+    "deps": [
+      {
+        "anchor": "emacs",
+        "name": "Emacs-30.2",
+        "note": "",
+        "type": "optional",
+        "version": "30.2"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "",
+        "type": "required",
+        "version": "2.86.4"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "desktop-file-edit",
+    "desktop-file-install",
+    "desktop-file-validate",
+    "update-desktop-database"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "desktop-file-utils",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "glib2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/desktop-file-utils",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "4401d4e231d842c2de8242395a74a395ca468cd96f5f610d822df33594898a70",
+  "source_tarball": "desktop-file-utils-0.28.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.freedesktop.org/software/desktop-file-utils/releases/desktop-file-utils-${version}.tar.xz",
+  "tarball_files_count": 32,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "ansi",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gcov",
+      "type": "boolean"
+    }
+  ],
+  "version": "0.28"
+}

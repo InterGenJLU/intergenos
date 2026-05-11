@@ -1,0 +1,117 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-third_party-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:46Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libaom",
+    "blfs_name": "libaom",
+    "blfs_version": "3.13.1",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "nasm",
+        "name": "NASM-3.01",
+        "note": "",
+        "type": "recommended",
+        "version": "3.01"
+      },
+      {
+        "anchor": "yasm",
+        "name": "yasm-1.3.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.3.0"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "libaom-3.13.1-nasm3-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/libaom-3.13.1-nasm3-1.patch"
+      }
+    ]
+  },
+  "build_system": "cmake",
+  "bundled_libs": [
+    "third_party"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "README"
+  ],
+  "expected_binaries": [
+    "aomdec",
+    "aomenc"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libaom.so"
+  ],
+  "expected_pkgconfig": [
+    "aom.pc"
+  ],
+  "name": "libaom",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "nasm"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "BUILD_SHARED_LIBS",
+      "value": "1"
+    },
+    {
+      "name": "ENABLE_DOCS",
+      "value": "no"
+    }
+  ],
+  "our_patches": [
+    {
+      "file": "libaom-3.13.1-nasm3-1.patch",
+      "sha256": "966118fb5ae0f20e99487ebb46d4d83cc0952b0d7d5dc00f55081b4b62a1526d"
+    }
+  ],
+  "package_dir": "packages/desktop/libaom",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "19e45a5a7192d690565229983dad900e76b513a02306c12053fb9a262cbeca7d",
+  "source_tarball": "libaom-3.13.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://storage.googleapis.com/aom-releases/libaom-${version}.tar.gz",
+  "tarball_files_count": 1506,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "3.13.1"
+}

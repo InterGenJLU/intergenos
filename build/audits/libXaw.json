@@ -1,0 +1,74 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:44Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/X11/Xaw/"
+  ],
+  "expected_libs": [
+    "libXaw.so"
+  ],
+  "expected_pkgconfig": [
+    "xaw7.pc"
+  ],
+  "name": "libXaw",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "libXmu",
+    "libXpm"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libXaw",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "731d572b54c708f81e197a6afa8016918e2e06dfd3025e066ca642a5b8c39c8f",
+  "source_tarball": "libXaw-1.0.16.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.x.org/pub/individual/lib/libXaw-${version}.tar.xz",
+  "tarball_files_count": 224,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-xaw6",
+      "kind": "enable",
+      "name": "xaw6"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-xaw7",
+      "kind": "enable",
+      "name": "xaw7"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-const",
+      "kind": "enable",
+      "name": "const"
+    }
+  ],
+  "version": "1.0.16"
+}

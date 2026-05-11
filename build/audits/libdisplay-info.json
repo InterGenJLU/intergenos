@@ -1,0 +1,72 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:49Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libdisplay-info",
+    "blfs_name": "libdisplay-info",
+    "blfs_version": "0.3.0",
+    "deps": [
+      {
+        "anchor": "hwdata",
+        "name": "hwdata-0.404",
+        "note": "",
+        "type": "required",
+        "version": "0.404"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [
+    "di-edid-decode"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libdisplay-info.so"
+  ],
+  "expected_pkgconfig": [
+    "libdisplay-info.pc"
+  ],
+  "name": "libdisplay-info",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "hwdata"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libdisplay-info",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "6ae77cd937f9cf7d1321d35c116062c4911e8447010a6a713ac4286f7a9d5987",
+  "source_tarball": "libdisplay-info-0.3.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.freedesktop.org/emersion/libdisplay-info/-/releases/${version}/downloads/libdisplay-info-${version}.tar.xz",
+  "tarball_files_count": 188,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "0.3.0"
+}

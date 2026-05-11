@@ -1,0 +1,88 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:07Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libseccomp",
+    "blfs_name": "libseccomp",
+    "blfs_version": "2.6.0",
+    "deps": [
+      {
+        "anchor": "cython",
+        "name": "cython-3.2.4",
+        "note": "for python\n                bindings",
+        "type": "optional",
+        "version": "3.2.4"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      },
+      {
+        "anchor": "which",
+        "name": "Which-2.23",
+        "note": "needed for\n                tests",
+        "type": "optional",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "scmp_sys_resolver"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libseccomp.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libseccomp",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "cython"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/libseccomp",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "83b6085232d1588c379dc9b9cae47bb37407cf262e6e74993c61ba72d2a784dc",
+  "source_tarball": "libseccomp-2.6.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/seccomp/libseccomp/releases/download/v${version}/libseccomp-${version}.tar.gz",
+  "tarball_files_count": 359,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-python",
+      "kind": "enable",
+      "name": "python"
+    }
+  ],
+  "version": "2.6.0"
+}

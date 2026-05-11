@@ -1,0 +1,107 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "snapshot",
+    "blfs_name": "Snapshot",
+    "blfs_version": "49.1",
+    "deps": [
+      {
+        "anchor": "gst10-plugins-bad",
+        "name": "gst-plugins-bad-1.28.1",
+        "note": "",
+        "type": "required",
+        "version": "1.28.1"
+      },
+      {
+        "anchor": "libadwaita1",
+        "name": "libadwaita-1.8.4",
+        "note": "",
+        "type": "required",
+        "version": "1.8.4"
+      },
+      {
+        "anchor": "rust",
+        "name": "rustc-1.93.1",
+        "note": "",
+        "type": "required",
+        "version": "1.93.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "vendor"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "snapshot"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "None"
+  ],
+  "expected_pkgconfig": [],
+  "name": "snapshot",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gtk4",
+    "libadwaita1",
+    "glycin",
+    "gstreamer",
+    "gst-plugins-base",
+    "lcms2",
+    "libseccomp",
+    "rust",
+    "gst-plugins-bad"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/snapshot",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "3558f6f8e0d38b2950b6bad9b9eec238249bedfedce70fb58a28cad6945e6ce9",
+  "source_tarball": "snapshot-49.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/snapshot/49/snapshot-${version}.tar.xz",
+  "tarball_files_count": 10842,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "default",
+      "description": "The build profile for Snapshot. One of ",
+      "name": "profile",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Enable X11 specific features.",
+      "name": "x11",
+      "type": "feature"
+    }
+  ],
+  "version": "49.1"
+}

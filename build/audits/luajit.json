@@ -1,0 +1,54 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:45Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "luajit",
+    "blfs_name": "luajit",
+    "blfs_version": "20260213",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "luajit (symlink to luajit-2.1.ROLLING)",
+    "luajit-2.1.ROLLING"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libluajit-5.1.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "luajit",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/luajit",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "fb81576bb22649178e6c31eff041acb5ba60e408d39b01df483f39d304c95009",
+  "source_tarball": "luajit-20260213.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://anduin.linuxfromscratch.org/BLFS/luajit/luajit-${version}.tar.xz",
+  "tarball_files_count": 240,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "20260213"
+}

@@ -1,0 +1,289 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:05Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gdk-pixbuf",
+    "blfs_name": "gdk-pixbuf",
+    "blfs_version": "2.44.5",
+    "deps": [
+      {
+        "anchor": "docutils",
+        "name": "docutils-0.22.4",
+        "note": "",
+        "type": "recommended",
+        "version": "0.22.4"
+      },
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "to generate\n                documentation",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "GObject Introspection required\n                for GNOME",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "glycin",
+        "name": "glycin-2.0.8",
+        "note": "circular: build gdk-pixbuf without glycin first, then build\n                glycin with all its recommended dependencies, and rebuild\n                gdk-pixbuf again",
+        "type": "recommended",
+        "version": "2.0.8"
+      },
+      {
+        "anchor": "libavif",
+        "name": "libavif-1.3.0",
+        "note": "runtime, deprecated",
+        "type": "optional",
+        "version": "1.3.0"
+      },
+      {
+        "anchor": "libjpeg",
+        "name": "libjpeg-turbo-3.1.3",
+        "note": "deprecated",
+        "type": "optional",
+        "version": "3.1.3"
+      },
+      {
+        "anchor": "libjxl",
+        "name": "libjxl-0.11.2",
+        "note": "runtime, deprecated",
+        "type": "optional",
+        "version": "0.11.2"
+      },
+      {
+        "anchor": "libpng",
+        "name": "libpng-1.6.55",
+        "note": "deprecated",
+        "type": "optional",
+        "version": "1.6.55"
+      },
+      {
+        "anchor": "librsvg",
+        "name": "librsvg-2.61.4",
+        "note": "runtime, deprecated",
+        "type": "optional",
+        "version": "2.61.4"
+      },
+      {
+        "anchor": "libtiff",
+        "name": "libtiff-4.7.1",
+        "note": "deprecated",
+        "type": "optional",
+        "version": "4.7.1"
+      },
+      {
+        "anchor": "shared-mime-info",
+        "name": "shared-mime-info-2.4",
+        "note": "",
+        "type": "required",
+        "version": "2.4"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "gdk-pixbuf-csource",
+    "gdk-pixbuf-pixdata",
+    "gdk-pixbuf-query-loaders"
+  ],
+  "expected_headers": [
+    "/usr/include/gdk-pixbuf-2.0"
+  ],
+  "expected_libs": [
+    "libgdk_pixbuf-2.0.so"
+  ],
+  "expected_pkgconfig": [
+    "gdk_pixbuf-2.0.pc"
+  ],
+  "name": "gdk-pixbuf",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr",
+    "--wrap-mode=nofallback"
+  ],
+  "our_deps_build": [
+    "shared-mime-info",
+    "libjpeg-turbo",
+    "libpng",
+    "libtiff",
+    "giflib",
+    "docutils",
+    "glib2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "png",
+      "value": "enabled"
+    },
+    {
+      "name": "gif",
+      "value": "enabled"
+    },
+    {
+      "name": "jpeg",
+      "value": "enabled"
+    },
+    {
+      "name": "tiff",
+      "value": "enabled"
+    },
+    {
+      "name": "thumbnailer",
+      "value": "disabled"
+    },
+    {
+      "name": "glycin",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gdk-pixbuf",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "69b93e09139b80c0ee661503d60deb5a5874a31772b5184b9cd5462a4100ab68",
+  "source_tarball": "gdk-pixbuf-2.44.5.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gdk-pixbuf/2.44/gdk-pixbuf-${version}.tar.xz",
+  "tarball_files_count": 754,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "png",
+      "type": ""
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "tiff",
+      "type": ""
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "jpeg",
+      "type": ""
+    },
+    {
+      "default": "auto",
+      "description": "Enable GIF loader, disabled on Windows if ",
+      "name": "gif",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "glycin",
+      "type": ""
+    },
+    {
+      "default": "auto",
+      "description": "Enable Android ImageDecoder loader. It provides loaders for JPEG, PNG, GIF, WEBP, BMP, ICO, WBMP, and HEIF images",
+      "name": "android",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable other loaders, which are weakly maintained",
+      "name": "others",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Comma-separated list of loaders to build into gdk-pixbuf",
+      "name": "builtin_loaders",
+      "type": "array"
+    },
+    {
+      "default": "",
+      "description": "Whether to generate the API reference",
+      "name": "gtk_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "documentation",
+      "type": ""
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "introspection",
+      "type": ""
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "man",
+      "type": ""
+    },
+    {
+      "default": "",
+      "description": "Whether to enable application bundle relocation support",
+      "name": "relocatable",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Use Windows system components to handle BMP, EMF, GIF, ICO, JPEG, TIFF and WMF images, overriding jpeg and tiff.  To build this into gdk-pixbuf, pass in windows",
+      "name": "native_windows_loaders",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build the test suite",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Install the test suite",
+      "name": "installed_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gio_sniffing",
+      "type": ""
+    },
+    {
+      "default": "auto",
+      "description": "Build the thumbnailer",
+      "name": "thumbnailer",
+      "type": "feature"
+    }
+  ],
+  "version": "2.44.5"
+}

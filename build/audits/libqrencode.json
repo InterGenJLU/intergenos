@@ -1,0 +1,98 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:57Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "qrencode",
+    "blfs_name": "libqrencode",
+    "blfs_version": "4.1.1",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "libpng",
+        "name": "libpng-1.6.55",
+        "note": "",
+        "type": "recommended",
+        "version": "1.6.55"
+      },
+      {
+        "anchor": "sdl2",
+        "name": "sdl2-compat-2.32.64",
+        "note": "",
+        "type": "optional",
+        "version": "2.32.64"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "qrencode"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libqrencode.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libqrencode",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POSITION_INDEPENDENT_CODE",
+      "value": "ON"
+    },
+    {
+      "name": "BUILD_TOOLS",
+      "value": "OFF"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libqrencode",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "5385bc1b8c2f20f3b91d258bf8ccc8cf62023935df2d2676b5b67049f31a049c",
+  "source_tarball": "libqrencode-4.1.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/fukuchi/libqrencode/archive/v${version}/libqrencode-${version}.tar.gz",
+  "tarball_files_count": 82,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "4.1.1"
+}

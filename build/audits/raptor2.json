@@ -1,0 +1,90 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:04Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "raptor",
+    "blfs_name": "Raptor",
+    "blfs_version": "2.0.16",
+    "deps": [
+      {
+        "anchor": "curl",
+        "name": "cURL-8.18.0",
+        "note": "",
+        "type": "required",
+        "version": "8.18.0"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "icu",
+        "name": "ICU-78.2",
+        "note": "",
+        "type": "optional",
+        "version": "78.2"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "",
+        "type": "required",
+        "version": "1.1.45"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "raptor2",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "curl",
+    "libxslt"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "curl",
+    "libxslt"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/raptor2",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "089db78d7ac982354bdbf39d973baf09581e6904ac4c92a98c5caadb3de44680",
+  "source_tarball": "raptor2-2.0.16.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.librdf.org/source/raptor2-${version}.tar.gz",
+  "tarball_files_count": 1995,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "2.0.16"
+}

@@ -1,0 +1,123 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:22Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "xdg-desktop-portal-gnome",
+    "blfs_name": "xdg-desktop-portal-gnome",
+    "blfs_version": "49.0",
+    "deps": [
+      {
+        "anchor": "gnome-desktop",
+        "name": "gnome-desktop-44.5",
+        "note": "",
+        "type": "required",
+        "version": "44.5"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "",
+        "type": "required",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "libadwaita1",
+        "name": "libadwaita-1.8.4",
+        "note": "",
+        "type": "required",
+        "version": "1.8.4"
+      },
+      {
+        "anchor": "xdg-desktop-portal",
+        "name": "xdg-desktop-portal-1.20.3",
+        "note": "",
+        "type": "required",
+        "version": "1.20.3"
+      },
+      {
+        "anchor": "xdg-desktop-portal-gtk",
+        "name": "xdg-desktop-portal-gtk-1.15.3",
+        "note": "at runtime",
+        "type": "required",
+        "version": "1.15.3"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "xdg-desktop-portal-gnome"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "xdg-desktop-portal-gnome",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gnome-desktop",
+    "gtk4",
+    "libadwaita1",
+    "xdg-desktop-portal",
+    "xdg-desktop-portal-gtk"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "xdg-desktop-portal-gtk"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/xdg-desktop-portal-gnome",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "401dafcdf8cb911f09c08d2813f774dd864127abfca93ff4caf1fc4c9b5ec4d2",
+  "source_tarball": "xdg-desktop-portal-gnome-49.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/xdg-desktop-portal-gnome/49/xdg-desktop-portal-gnome-${version}.tar.xz",
+  "tarball_files_count": 231,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Directory for D-Bus service files",
+      "name": "dbus_service_dir",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Enable systemd support",
+      "name": "systemd",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Directory for systemd user service files",
+      "name": "systemduserunitdir",
+      "type": "string"
+    }
+  ],
+  "version": "49.0"
+}

@@ -1,0 +1,68 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:54Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libndp",
+    "blfs_name": "libndp",
+    "blfs_version": "1.9",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [
+    "ndptool"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libndp.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libndp",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/libndp",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "e564f5914a6b1b799c3afa64c258824a801c1b79a29e2fe6525b682249c65261",
+  "source_tarball": "libndp-1.9.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/jpirko/libndp/archive/v${version}/libndp-${version}.tar.gz",
+  "tarball_files_count": 25,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-logging",
+      "kind": "enable",
+      "name": "logging"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-debug",
+      "kind": "enable",
+      "name": "debug"
+    }
+  ],
+  "version": "1.9"
+}

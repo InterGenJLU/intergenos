@@ -1,0 +1,149 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:22Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "cmake",
+    "blfs_name": "CMake",
+    "blfs_version": "4.2.3",
+    "deps": [
+      {
+        "anchor": "curl",
+        "name": "cURL-8.18.0",
+        "note": "",
+        "type": "recommended",
+        "version": "8.18.0"
+      },
+      {
+        "anchor": "gcc",
+        "name": "GCC-15.2.0",
+        "note": "for gfortran",
+        "type": "optional",
+        "version": "15.2.0"
+      },
+      {
+        "anchor": "git",
+        "name": "git-2.53.0",
+        "note": "for use during tests",
+        "type": "optional",
+        "version": "2.53.0"
+      },
+      {
+        "anchor": "libarchive",
+        "name": "libarchive-3.8.5",
+        "note": "",
+        "type": "recommended",
+        "version": "3.8.5"
+      },
+      {
+        "anchor": "libuv",
+        "name": "libuv-1.52.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.52.0"
+      },
+      {
+        "anchor": "mercurial",
+        "name": "mercurial-7.2",
+        "note": "for use during tests",
+        "type": "optional",
+        "version": "7.2"
+      },
+      {
+        "anchor": "nghttp2",
+        "name": "nghttp2-1.68.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.68.0"
+      },
+      {
+        "anchor": "openjdk",
+        "name": "OpenJDK-21.0.10",
+        "note": "for use during tests",
+        "type": "optional",
+        "version": "21.0.10"
+      },
+      {
+        "anchor": "qt6",
+        "name": "Qt-6.10.2",
+        "note": "for the Qt-based GUI",
+        "type": "optional",
+        "version": "6.10.2"
+      },
+      {
+        "anchor": "sphinx",
+        "name": "sphinx-9.1.0",
+        "note": "for building documents",
+        "type": "optional",
+        "version": "9.1.0"
+      },
+      {
+        "anchor": "subversion",
+        "name": "Subversion-1.14.5",
+        "note": "for testing",
+        "type": "optional",
+        "version": "1.14.5"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "NOTES",
+    "README"
+  ],
+  "expected_binaries": [
+    "ccmake",
+    "cmake",
+    "cmake-gui",
+    "cpack",
+    "ctest"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "cmake",
+  "our_autotools_flags": [
+    "--docdir=/usr/share/doc/cmake-${PKG_VERSION}",
+    "--mandir=/usr/share/man",
+    "--no-system-cppdap",
+    "--no-system-jsoncpp",
+    "--no-system-librhash",
+    "--prefix=/usr",
+    "--system-libs"
+  ],
+  "our_deps_build": [
+    "curl",
+    "libarchive",
+    "libuv",
+    "nghttp2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/cmake",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "0798f4be7a1a406a419ac32db90c2956936fecbf50db3057d7af47d69a2d7edb",
+  "source_tarball": "cmake-4.3.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://cmake.org/files/v4.3/cmake-${version}.tar.gz",
+  "tarball_files_count": 31853,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "4.3.1"
+}

@@ -1,0 +1,88 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:19Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-screenshot",
+    "blfs_name": "gnome-screenshot",
+    "blfs_version": "41.0",
+    "deps": [
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "required",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "libcanberra",
+        "name": "libcanberra-0.30",
+        "note": "Compiled with GTK+3 support",
+        "type": "required",
+        "version": "0.30"
+      },
+      {
+        "anchor": "libhandy1",
+        "name": "libhandy-1.8.3",
+        "note": "",
+        "type": "required",
+        "version": "1.8.3"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "gnome-screenshot"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gnome-screenshot",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gtk3",
+    "libcanberra",
+    "libhandy1"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-screenshot",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "4adb7dec926428f74263d5796673cf142e4720b6e768f5468a8d0933f98c9597",
+  "source_tarball": "gnome-screenshot-41.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-screenshot/41/gnome-screenshot-${version}.tar.xz",
+  "tarball_files_count": 167,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "Enable fallback X11 backend",
+      "name": "x11",
+      "type": "feature"
+    }
+  ],
+  "version": "41.0"
+}

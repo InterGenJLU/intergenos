@@ -1,0 +1,203 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:07Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "librsvg",
+    "blfs_name": "librsvg",
+    "blfs_version": "2.61.4",
+    "deps": [
+      {
+        "anchor": "cairo",
+        "name": "Cairo-1.18.4",
+        "note": "",
+        "type": "required",
+        "version": "1.18.4"
+      },
+      {
+        "anchor": "cargo-c",
+        "name": "cargo-c-0.10.20",
+        "note": "",
+        "type": "required",
+        "version": "0.10.20"
+      },
+      {
+        "anchor": "dav1d",
+        "name": "dav1d-1.5.3",
+        "note": "to support embedded AVIF in\n                SVG",
+        "type": "optional",
+        "version": "1.5.3"
+      },
+      {
+        "anchor": "docutils",
+        "name": "docutils-0.22.4",
+        "note": "for man pages",
+        "type": "optional",
+        "version": "0.22.4"
+      },
+      {
+        "anchor": "gdk-pixbuf",
+        "name": "gdk-pixbuf-2.44.5",
+        "note": "",
+        "type": "recommended",
+        "version": "2.44.5"
+      },
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "for documentation",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with\n                GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "pango",
+        "name": "Pango-1.57.0",
+        "note": "",
+        "type": "required",
+        "version": "1.57.0"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "BUILDING",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "rsvg-convert"
+  ],
+  "expected_headers": [
+    "/usr/include/librsvg-2.0"
+  ],
+  "expected_libs": [
+    "librsvg-2.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "librsvg",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--no-namespace-dir",
+    "--prefix=/usr",
+    "--strip-components=1"
+  ],
+  "our_deps_build": [
+    "cargo-c",
+    "cairo",
+    "gdk-pixbuf",
+    "pango",
+    "vala",
+    "dav1d",
+    "glib2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "pixbuf-loader",
+      "value": "enabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/librsvg",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "fca0ea28d1f28f95c8407d2579f4702dac085e7c758644daca8b40d1e072ca0c",
+  "source_tarball": "librsvg-2.61.4.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/librsvg/2.61/librsvg-${version}.tar.xz",
+  "tarball_files_count": 2200,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "",
+      "name": "introspection",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build with GDK-Pixbuf",
+      "name": "pixbuf",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Build the rsvg-convert util to convert SVG files to other image formats",
+      "name": "rsvg-convert",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "",
+      "name": "pixbuf-loader",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "docs",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "vala",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build the test suite",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "triplet",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Support embedded AVIF via libdav1d",
+      "name": "avif",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "rustc-version",
+      "type": "string"
+    }
+  ],
+  "version": "2.61.4"
+}

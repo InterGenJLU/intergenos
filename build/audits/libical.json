@@ -1,0 +1,162 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:52Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libical",
+    "blfs_name": "libical",
+    "blfs_version": "3.0.20",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "for the API\n                documentation",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "graphviz",
+        "name": "Graphviz-14.1.2",
+        "note": "for the API\n                documentation",
+        "type": "optional",
+        "version": "14.1.2"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "for the API\n                documentation",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "icu",
+        "name": "ICU-78.2",
+        "note": "",
+        "type": "optional",
+        "version": "78.2"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "recommended",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "pygobject3",
+        "name": "PyGObject-3.54.5",
+        "note": "for some\n                tests",
+        "type": "optional",
+        "version": "3.54.5"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "both\n                required for GNOME",
+        "type": "recommended",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "icalversion"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libical.so",
+    "libical_cxx.so",
+    "libicalss.so",
+    "libicalss_cxx.so",
+    "libicalvcal.so"
+  ],
+  "expected_pkgconfig": [
+    "libical.pc"
+  ],
+  "name": "libical",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cmake",
+    "glib2",
+    "libxml2",
+    "vala",
+    "gobject-introspection",
+    "icu"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "SHARED_ONLY",
+      "value": "yes"
+    },
+    {
+      "name": "ICAL_BUILD_DOCS",
+      "value": "false"
+    },
+    {
+      "name": "ICAL_GLIB_VAPI",
+      "value": "true"
+    },
+    {
+      "name": "GOBJECT_INTROSPECTION",
+      "value": "true"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libical",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "e73de92f5a6ce84c1b00306446b290a2b08cdf0a80988eca0a2c9d5c3510b4c2",
+  "source_tarball": "libical-3.0.20.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/libical/libical/releases/download/v${version}/libical-${version}.tar.gz",
+  "tarball_files_count": 1094,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "3.0.20"
+}

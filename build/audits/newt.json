@@ -1,0 +1,109 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:53Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "newt",
+    "blfs_name": "newt",
+    "blfs_version": "0.52.25",
+    "deps": [
+      {
+        "anchor": "gpm",
+        "name": "GPM-1.20.7",
+        "note": "runtime [downgraded from recommended/runtime by fix-blfs-db-data-errors.py]",
+        "type": "optional",
+        "version": "1.20.7"
+      },
+      {
+        "anchor": "popt",
+        "name": "popt-1.19",
+        "note": "",
+        "type": "required",
+        "version": "1.19"
+      },
+      {
+        "anchor": "slang",
+        "name": "slang-2.3.3",
+        "note": "",
+        "type": "required",
+        "version": "2.3.3"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "README"
+  ],
+  "expected_binaries": [
+    "whiptail"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libnewt.so",
+    "whiptcl.so",
+    "/usr/lib/python3.14/site-packages/_snack.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "newt",
+  "our_autotools_flags": [
+    "--prefix=/usr",
+    "--without-gpm-support"
+  ],
+  "our_deps_build": [
+    "popt",
+    "slang-pass1"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/newt",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "ef0ca9ee27850d1a5c863bb7ff9aa08096c9ed312ece9087b30f3a426828de82",
+  "source_tarball": "newt-0.52.25.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://releases.pagure.org/newt/newt-${version}.tar.gz",
+  "tarball_files_count": 197,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "  --disable-nls           compile without NLS support",
+      "kind": "enable",
+      "name": "nls"
+    },
+    {
+      "help": "  --without-python        do not compile python support",
+      "kind": "with",
+      "name": "python"
+    },
+    {
+      "help": "  --without-tcl           do not compile whiptcl.so",
+      "kind": "with",
+      "name": "tcl"
+    },
+    {
+      "help": "  --with-gpm-support      compile with GPM support",
+      "kind": "with",
+      "name": "gpm-support"
+    },
+    {
+      "help": "  --with-colorsfile=file  set default location of colors file",
+      "kind": "with",
+      "name": "colorsfile"
+    }
+  ],
+  "version": "0.52.25"
+}

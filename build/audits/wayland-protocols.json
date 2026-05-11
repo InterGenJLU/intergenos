@@ -1,0 +1,68 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:13Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "wayland-protocols",
+    "blfs_name": "Wayland-Protocols",
+    "blfs_version": "1.47",
+    "deps": [
+      {
+        "anchor": "wayland",
+        "name": "Wayland-1.24.0",
+        "note": "",
+        "type": "required",
+        "version": "1.24.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NOTES",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "wayland-protocols",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/wayland-protocols",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "5fd4349bcbc9bab9a46f8cf77d1f434296a7a052c87440a094f63fcf62a58e20",
+  "source_tarball": "wayland-protocols-1.47.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.freedesktop.org/wayland/wayland-protocols/-/releases/${version}/downloads/wayland-protocols-${version}.tar.xz",
+  "tarball_files_count": 208,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Build the tests",
+      "name": "tests",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.47"
+}

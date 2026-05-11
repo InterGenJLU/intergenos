@@ -1,0 +1,178 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:42Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "iptables",
+    "blfs_name": "iptables",
+    "blfs_version": "1.8.12",
+    "deps": [
+      {
+        "anchor": "libpcap",
+        "name": "libpcap-1.10.6",
+        "note": "required for BPF\n                compiler or nfsynproxy support",
+        "type": "optional",
+        "version": "1.10.6"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "ip6tables",
+    "ip6tables-apply",
+    "ip6tables-legacy",
+    "ip6tables-legacy-restore",
+    "ip6tables-legacy-save",
+    "ip6tables-restore",
+    "ip6tables-save",
+    "iptables",
+    "iptables-apply",
+    "iptables-legacy",
+    "iptables-legacy-restore",
+    "iptables-legacy-apply",
+    "iptables-restore",
+    "iptables-save",
+    "iptables-xml",
+    "nfsynproxy",
+    "xtables-multi"
+  ],
+  "expected_headers": [
+    "/lib/xtables",
+    "/usr/include/libiptc"
+  ],
+  "expected_libs": [
+    "libip4tc.so",
+    "libip6tc.so",
+    "libipq.so",
+    "libiptc.so",
+    "libxtables.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "iptables",
+  "our_autotools_flags": [
+    "--disable-nftables",
+    "--enable-libipq",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libpcap",
+    "libnftnl",
+    "libmnl"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/iptables",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "8e7ee962601492de6503d171d4a948092ab18f89f111de72e3037c1f40cfb846",
+  "source_tarball": "iptables-1.8.12.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.netfilter.org/projects/iptables/files/iptables-${version}.tar.xz",
+  "tarball_files_count": 831,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-ipv4",
+      "kind": "enable",
+      "name": "ipv4"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ipv6",
+      "kind": "enable",
+      "name": "ipv6"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-largefile",
+      "kind": "enable",
+      "name": "largefile"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-devel",
+      "kind": "enable",
+      "name": "devel"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-libipq",
+      "kind": "enable",
+      "name": "libipq"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-bpf-compiler",
+      "kind": "enable",
+      "name": "bpf-compiler"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-nfsynproxy",
+      "kind": "enable",
+      "name": "nfsynproxy"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-nftables",
+      "kind": "enable",
+      "name": "nftables"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-libnfnetlink",
+      "kind": "enable",
+      "name": "libnfnetlink"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-connlabel",
+      "kind": "enable",
+      "name": "connlabel"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-profiling",
+      "kind": "enable",
+      "name": "profiling"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-kernel=PATH",
+      "kind": "with",
+      "name": "kernel"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-kbuild=PATH",
+      "kind": "with",
+      "name": "kbuild"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-ksource=PATH",
+      "kind": "with",
+      "name": "ksource"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-xtlibdir=PATH",
+      "kind": "with",
+      "name": "xtlibdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pkgconfigdir=PATH",
+      "kind": "with",
+      "name": "pkgconfigdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-xt-lock-name=PATH",
+      "kind": "with",
+      "name": "xt-lock-name"
+    }
+  ],
+  "version": "1.8.12"
+}

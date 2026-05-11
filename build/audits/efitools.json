@@ -1,0 +1,75 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:27Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "efitools",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "openssl",
+    "gnu-efi",
+    "help2man"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "efitools-1.9.2-fix-ftbfs-1.patch",
+      "sha256": "1ee79172543b8e387e32568cd4320eb7d72a1f818b79b9c75c2f90f4769e6398"
+    },
+    {
+      "file": "efitools-1.9.2-stack-protector-1.patch",
+      "sha256": "2d073659da3be06b0a186c53395858cdbdc21e2d844d03369f9101485c87668c"
+    },
+    {
+      "file": "efitools-1.9.2-gcc15-1.patch",
+      "sha256": "de2e78f43c157ec0133b2264f074499e05713dcf3012e9fc488475028eecd8ac"
+    },
+    {
+      "file": "efitools-1.9.2-objcopy-target-1.patch",
+      "sha256": "3bfdb13801e3744c054fa04cda3d0035bab1f8668bec030fbe43916b6fccc3bf"
+    },
+    {
+      "file": "efitools-1.9.2-skip-efisigned-1.patch",
+      "sha256": "743729db035f081cb12bfb9c379eb4720db90a5ea6047a43661e7f9a1ac048ef"
+    },
+    {
+      "file": "efitools-1.9.2-xxdi-no-fileslurp-1.patch",
+      "sha256": "10c391f8727f8a2b689c9722d605d9378bf847080396e94c7da163586778f3ab"
+    },
+    {
+      "file": "efitools-1.9.2-pk-blacklist-deps-1.patch",
+      "sha256": "cb3dcaf3f6027712a57a922285d3569cadf35b6ef33f44a42418650931ccbbab"
+    }
+  ],
+  "package_dir": "packages/core/efitools",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "0f315b36e7d1ba74bfc97ab9f304f0a3072c47578bbe5e42594acae381f9acfe",
+  "source_tarball": "efitools-1.9.2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/jejb/efitools.git/snapshot/efitools-${version}.tar.gz",
+  "tarball_files_count": 97,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "1.9.2"
+}

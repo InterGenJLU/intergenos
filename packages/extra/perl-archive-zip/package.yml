@@ -13,5 +13,6 @@ source:
 dependencies:
   build:
   - perl-core
+  - libarchive
   host: []
   runtime: []

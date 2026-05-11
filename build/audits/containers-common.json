@@ -1,0 +1,52 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear",
+    "bundled-lib-vendor-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:22Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "make",
+  "bundled_libs": [
+    "contrib",
+    "vendor"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "containers-common",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/containers-common",
+  "reproducibility": {
+    "_notes": "config-only \u2014 installs containers.conf, registries.conf, storage.conf, policy.json",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "414def665a172a4d79366dc594e5313d43d672ba19009aa2a3dd78272e277506",
+  "source_tarball": "v0.64.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/containers/common/archive/refs/tags/v${version}.tar.gz",
+  "tarball_files_count": 5641,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "0.64.1"
+}

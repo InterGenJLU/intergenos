@@ -1,0 +1,144 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:25Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gpgme",
+    "blfs_name": "gpgme",
+    "blfs_version": "2.0.1",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "gnupg2",
+        "name": "GnuPG-2.5.17",
+        "note": "as per upstream\n                recommendation",
+        "type": "recommended",
+        "version": "2.5.17"
+      },
+      {
+        "anchor": "libassuan",
+        "name": "libassuan-3.0.2",
+        "note": "",
+        "type": "required",
+        "version": "3.0.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "gnupg-key-manage",
+    "gpgme-json",
+    "gpgme-tool"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libgpgme.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "gpgme",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libassuan",
+    "gnupg2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/gpgme",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "821ab0695c842eab51752a81980c92b0410c7eadd04103f791d5d2a526784966",
+  "source_tarball": "gpgme-2.0.1.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://www.gnupg.org/ftp/gcrypt/gpgme/gpgme-${version}.tar.bz2",
+  "tarball_files_count": 408,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-w32-glib",
+      "kind": "enable",
+      "name": "w32-glib"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-fixed-path=PATH",
+      "kind": "enable",
+      "name": "fixed-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-languages=languages",
+      "kind": "enable",
+      "name": "languages"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-build-timestamp",
+      "kind": "enable",
+      "name": "build-timestamp"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-gpgconf-test",
+      "kind": "enable",
+      "name": "gpgconf-test"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-gpg-test",
+      "kind": "enable",
+      "name": "gpg-test"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-gpgsm-test",
+      "kind": "enable",
+      "name": "gpgsm-test"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-g13-test",
+      "kind": "enable",
+      "name": "g13-test"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-fd-passing",
+      "kind": "enable",
+      "name": "fd-passing"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-linux-getdents",
+      "kind": "enable",
+      "name": "linux-getdents"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-libtool-modification=apply|never|try",
+      "kind": "with",
+      "name": "libtool-modification"
+    }
+  ],
+  "version": "2.0.1"
+}

@@ -1,0 +1,81 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:11Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "libxcrypt-compat",
+  "our_autotools_flags": [
+    "--disable-failure-tokens",
+    "--disable-static",
+    "--enable-hashes=strong,glibc",
+    "--enable-obsolete-api=glibc",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libxcrypt"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/libxcrypt-compat",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=autotools; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": true,
+    "source_date_epoch_supported": true
+  },
+  "source_sha256": "71513a31c01a428bccd5367a32fd95f115d6dac50fb5b60c779d5c7942aec071",
+  "source_tarball": "libxcrypt-4.5.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/besser82/libxcrypt/releases/download/v${version}/libxcrypt-${version}.tar.xz",
+  "tarball_files_count": 178,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING(\n        [--disable-failure-tokens",
+      "kind": "enable",
+      "name": "failure-tokens"
+    },
+    {
+      "help": "AS_HELP_STRING(\n        [--disable-xcrypt-compat-files",
+      "kind": "enable",
+      "name": "xcrypt-compat-files"
+    },
+    {
+      "help": "AS_HELP_STRING(\n        [--enable-obsolete-api[=ARG",
+      "kind": "enable",
+      "name": "obsolete-api"
+    },
+    {
+      "help": "AS_HELP_STRING(\n        [--enable-obsolete-api-enosys[=ARG",
+      "kind": "enable",
+      "name": "obsolete-api-enosys"
+    },
+    {
+      "help": "AS_HELP_STRING(\n        [--enable-hashes=HASHES",
+      "kind": "enable",
+      "name": "hashes"
+    }
+  ],
+  "version": "4.5.2"
+}

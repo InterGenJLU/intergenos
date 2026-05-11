@@ -13,5 +13,6 @@ source:
 dependencies:
   build:
   - cmake
+  - utfcpp
   host: []
   runtime: []

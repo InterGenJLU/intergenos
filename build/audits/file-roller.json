@@ -1,0 +1,206 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:30Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "file-roller",
+    "blfs_name": "File-Roller",
+    "blfs_version": "44.6",
+    "deps": [
+      {
+        "anchor": "cpio",
+        "name": "cpio-2.15",
+        "note": "",
+        "type": "recommended",
+        "version": "2.15"
+      },
+      {
+        "anchor": "desktop-file-utils",
+        "name": "desktop-file-utils-0.28",
+        "note": "",
+        "type": "recommended",
+        "version": "0.28"
+      },
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "",
+        "type": "required",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "itstool",
+        "name": "itstool-2.0.7",
+        "note": "",
+        "type": "required",
+        "version": "2.0.7"
+      },
+      {
+        "anchor": "json-glib",
+        "name": "JSON-GLib-1.10.8",
+        "note": "",
+        "type": "recommended",
+        "version": "1.10.8"
+      },
+      {
+        "anchor": "libadwaita1",
+        "name": "libadwaita-1.8.4",
+        "note": "",
+        "type": "recommended",
+        "version": "1.8.4"
+      },
+      {
+        "anchor": "libarchive",
+        "name": "libarchive-3.8.5",
+        "note": "",
+        "type": "recommended",
+        "version": "3.8.5"
+      },
+      {
+        "anchor": "libportal",
+        "name": "libportal-0.9.1",
+        "note": "",
+        "type": "recommended",
+        "version": "0.9.1"
+      },
+      {
+        "anchor": "nautilus",
+        "name": "Nautilus-49.3",
+        "note": "",
+        "type": "recommended",
+        "version": "49.3"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "file-roller"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libnautilus-fileroller.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "file-roller",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gtk4",
+    "itstool",
+    "json-glib",
+    "nautilus",
+    "desktop-file-utils",
+    "libadwaita1",
+    "libarchive",
+    "libportal"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "packagekit",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/file-roller",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "9e873b5005bc425799a8cd4b237e1fff430ec8d6b34a992c6033f1dfc6e3764e",
+  "source_tarball": "file-roller-44.6.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/file-roller/44/file-roller-${version}.tar.xz",
+  "tarball_files_count": 383,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Enable deprecated declaration warnings in debug mode",
+      "name": "warn-deprecated",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Load ui data from the source tree",
+      "name": "run-in-place",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Build the nautilus context menu actions",
+      "name": "nautilus-actions",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable operation completion notification",
+      "name": "notification",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "use_native_appchooser",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build PackageKit installer for missing utilities",
+      "name": "packagekit",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Enable code that requires libarchive",
+      "name": "libarchive",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Path to the cpio program",
+      "name": "cpio",
+      "type": "string"
+    },
+    {
+      "default": "disabled",
+      "description": "",
+      "name": "introspection",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "",
+      "name": "api_docs",
+      "type": "feature"
+    }
+  ],
+  "version": "44.6"
+}

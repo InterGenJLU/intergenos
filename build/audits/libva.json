@@ -1,0 +1,151 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:10Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libva",
+    "blfs_name": "libva",
+    "blfs_version": "2.23.0",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "libdrm",
+        "name": "libdrm-2.4.131",
+        "note": "",
+        "type": "required",
+        "version": "2.4.131"
+      },
+      {
+        "anchor": "mesa",
+        "name": "Mesa-25.3.5",
+        "note": "",
+        "type": "recommended",
+        "version": "25.3.5"
+      },
+      {
+        "anchor": "wayland",
+        "name": "Wayland-1.24.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.24.0"
+      },
+      {
+        "anchor": "xorg-env",
+        "name": "Xorg build\n                environment",
+        "note": "",
+        "type": "required",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "$XORG_PREFIX/include/va"
+  ],
+  "expected_libs": [
+    "libva-drm.so",
+    "libva-glx.so",
+    "libva.so",
+    "libva-wayland.so",
+    "libva-x11.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libva",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libdrm",
+    "libX11",
+    "wayland"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libva",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "9ac190a87017bfd49743248f5df7cf3b18a99a9962175caf6bbe3f1ea41b6dbb",
+  "source_tarball": "libva-2.23.0.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/intel/libva/releases/download/${version}/libva-${version}.tar.bz2",
+  "tarball_files_count": 138,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "drivers path",
+      "name": "driverdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "disable_drm",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "with_x11",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "with_glx",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "with_wayland",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "with_win32",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "with_legacy",
+      "type": "array"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "enable_docs",
+      "type": "boolean"
+    }
+  ],
+  "version": "2.23.0"
+}

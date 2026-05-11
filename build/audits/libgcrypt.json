@@ -1,0 +1,283 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:51Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libgcrypt",
+    "blfs_name": "libgcrypt",
+    "blfs_version": "1.12.0",
+    "deps": [
+      {
+        "anchor": "libgpg-error",
+        "name": "libgpg-error-1.59",
+        "note": "",
+        "type": "required",
+        "version": "1.59"
+      },
+      {
+        "anchor": "texlive",
+        "name": "texlive-20250308",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "tl-installer",
+        "name": "install-tl-unx",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "dumpsexp",
+    "hmac256",
+    "mpicalc"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libgcrypt.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libgcrypt",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libgpg-error"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/libgcrypt",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "0311454e678189bad62a7e9402a9dd793025efff6e7449898616e2fc75e0f4f5",
+  "source_tarball": "libgcrypt-1.12.0.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://www.gnupg.org/ftp/gcrypt/libgcrypt/libgcrypt-${version}.tar.bz2",
+  "tarball_files_count": 647,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-endian-check",
+      "kind": "enable",
+      "name": "endian-check"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-ciphers=ciphers",
+      "kind": "enable",
+      "name": "ciphers"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pubkey-ciphers=ciphers",
+      "kind": "enable",
+      "name": "pubkey-ciphers"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-digests=digests",
+      "kind": "enable",
+      "name": "digests"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-kfds=kdfs",
+      "kind": "enable",
+      "name": "kdfs"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-random=name",
+      "kind": "enable",
+      "name": "random"
+    },
+    {
+      "help": "  --disable-dev-random    disable the use of dev random",
+      "kind": "enable",
+      "name": "dev-random"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-asm",
+      "kind": "enable",
+      "name": "asm"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-large-data-tests",
+      "kind": "enable",
+      "name": "large-data-tests"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-force-soft-hwfeatures",
+      "kind": "enable",
+      "name": "force-soft-hwfeatures"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-hmac-binary-check",
+      "kind": "enable",
+      "name": "hmac-binary-check"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-jent-support",
+      "kind": "enable",
+      "name": "jent-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-padlock-support",
+      "kind": "enable",
+      "name": "padlock-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-aesni-support",
+      "kind": "enable",
+      "name": "aesni-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-shaext-support",
+      "kind": "enable",
+      "name": "shaext-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-pclmul-support",
+      "kind": "enable",
+      "name": "pclmul-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-sse41-support",
+      "kind": "enable",
+      "name": "sse41-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-drng-support",
+      "kind": "enable",
+      "name": "drng-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-avx-support",
+      "kind": "enable",
+      "name": "avx-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-avx2-support",
+      "kind": "enable",
+      "name": "avx2-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-avx512-support",
+      "kind": "enable",
+      "name": "avx512-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-gfni-support",
+      "kind": "enable",
+      "name": "gfni-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-neon-support",
+      "kind": "enable",
+      "name": "neon-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-arm-crypto-support",
+      "kind": "enable",
+      "name": "arm-crypto-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-sve-support",
+      "kind": "enable",
+      "name": "sve-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-sve2-support",
+      "kind": "enable",
+      "name": "sve2-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ppc-crypto-support",
+      "kind": "enable",
+      "name": "ppc-crypto-support"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-O-flag-munging",
+      "kind": "enable",
+      "name": "O-flag-munging"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-instrumentation-munging",
+      "kind": "enable",
+      "name": "instrumentation-munging"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-amd64-as-feature-detection",
+      "kind": "enable",
+      "name": "amd64-as-feature-detection"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-ld-version-script",
+      "kind": "enable",
+      "name": "ld-version-script"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-mpi-path=EXTRA_PATH",
+      "kind": "enable",
+      "name": "mpi-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-optimization",
+      "kind": "enable",
+      "name": "optimization"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-doc",
+      "kind": "enable",
+      "name": "doc"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-build-timestamp",
+      "kind": "enable",
+      "name": "build-timestamp"
+    },
+    {
+      "help": "  --with-egd-socket=NAME  Use NAME for the EGD socket)",
+      "kind": "with",
+      "name": "egd-socket"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-capabilities",
+      "kind": "with",
+      "name": "capabilities"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-fips-module-version=VERSION",
+      "kind": "with",
+      "name": "fips-module-version"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-libtool-modification=apply|never|try",
+      "kind": "with",
+      "name": "libtool-modification"
+    }
+  ],
+  "version": "1.12.0"
+}

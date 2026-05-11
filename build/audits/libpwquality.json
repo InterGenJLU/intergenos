@@ -1,0 +1,125 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:56Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libpwquality",
+    "blfs_name": "libpwquality",
+    "blfs_version": "1.4.5",
+    "deps": [
+      {
+        "anchor": "cracklib",
+        "name": "CrackLib-2.10.3",
+        "note": "",
+        "type": "required",
+        "version": "2.10.3"
+      },
+      {
+        "anchor": "linux-pam",
+        "name": "Linux-PAM-1.7.2",
+        "note": "",
+        "type": "recommended",
+        "version": "1.7.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "libpwquality",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr",
+    "--with-securedir=/usr/lib/security"
+  ],
+  "our_deps_build": [
+    "cracklib",
+    "linux-pam"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/libpwquality",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "6fcf18b75d305d99d04d2e42982ed5b787a081af2842220ed63287a2d6a10988",
+  "source_tarball": "libpwquality-1.4.5.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/libpwquality/libpwquality/releases/download/libpwquality-${version}/libpwquality-${version}.tar.bz2",
+  "tarball_files_count": 197,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AC_HELP_STRING([--enable-ld-version-script",
+      "kind": "enable",
+      "name": "ld-version-script"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pam",
+      "kind": "enable",
+      "name": "pam"
+    },
+    {
+      "help": "AC_HELP_STRING([--enable-python-bindings",
+      "kind": "enable",
+      "name": "python-bindings"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-cracklib-check",
+      "kind": "enable",
+      "name": "cracklib-check"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-securedir=DIR",
+      "kind": "with",
+      "name": "securedir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-sconfigdir=DIR",
+      "kind": "with",
+      "name": "sconfigdir"
+    },
+    {
+      "help": "  --with-python-binary=python3    python binary name with which modules should be built",
+      "kind": "with",
+      "name": "python-binary"
+    },
+    {
+      "help": "  --with-python-rev=2.7    version of python for which modules should be built",
+      "kind": "with",
+      "name": "python-rev"
+    },
+    {
+      "help": "  --with-pythonsitedir=DIR    directory of the python site packages @<:@default=$libdir/python$PYTHONREV/site-packages@:>@",
+      "kind": "with",
+      "name": "pythonsitedir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-randomdev=(<path>|yes)",
+      "kind": "with",
+      "name": "randomdev"
+    }
+  ],
+  "version": "1.4.5"
+}

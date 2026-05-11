@@ -1,0 +1,162 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:46Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libadwaita1",
+    "blfs_name": "libadwaita",
+    "blfs_version": "1.8.4",
+    "deps": [
+      {
+        "anchor": "appstream",
+        "name": "AppStream-1.1.2",
+        "note": "",
+        "type": "required",
+        "version": "1.1.2"
+      },
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "",
+        "type": "required",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "sassc",
+        "name": "sassc-3.6.2",
+        "note": "",
+        "type": "required",
+        "version": "3.6.2"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.56.18"
+      },
+      {
+        "anchor": "xdg-desktop-portal",
+        "name": "xdg-desktop-portal-1.20.3",
+        "note": "for two tests",
+        "type": "optional",
+        "version": "1.20.3"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CONTRIBUTING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "adwaita-1-demo"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libadwaita-1.so"
+  ],
+  "expected_pkgconfig": [
+    "libadwaita-1.pc"
+  ],
+  "name": "libadwaita1",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "appstream",
+    "gtk4",
+    "sassc",
+    "vala"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libadwaita1",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "d02bb77b6f0ff1055002d299898c487cb2d83dbf940d9edf59f6fdf2572a921c",
+  "source_tarball": "libadwaita-1.8.4.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/libadwaita/1.8/libadwaita-${version}.tar.xz",
+  "tarball_files_count": 1212,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "profiling",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "introspection",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "vapi",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Subdirectory to append to all installed files, for use as subproject",
+      "name": "package_subdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Whether to generate the API reference for libadwaita",
+      "name": "documentation",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Whether to generate the API reference for libadwaita",
+      "name": "gtk_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Whether to compile unit tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "examples",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.8.4"
+}

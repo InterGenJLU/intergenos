@@ -1,0 +1,134 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:16Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-autoar",
+    "blfs_name": "gnome-autoar",
+    "blfs_version": "0.4.5",
+    "deps": [
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "for building\n                documentation",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "required",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "libarchive",
+        "name": "libarchive-3.8.5",
+        "note": "",
+        "type": "required",
+        "version": "3.8.5"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/gnome-autoar-0"
+  ],
+  "expected_libs": [
+    "libgnome-autoar-0.so",
+    "libgnome-autoar-gtk-0.so"
+  ],
+  "expected_pkgconfig": [
+    "gnome-autoar-0.pc",
+    "gnome-autoar-gtk-0.pc"
+  ],
+  "name": "gnome-autoar",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gtk3",
+    "vala",
+    "libarchive"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "gtk_doc",
+      "value": "false"
+    },
+    {
+      "name": "tests",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-autoar",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "838c5306fc38bfaa2f23abe24262f4bf15771e3303fb5dcb74f5b9c7a615dabe",
+  "source_tarball": "gnome-autoar-0.4.5.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-autoar/0.4/gnome-autoar-${version}.tar.xz",
+  "tarball_files_count": 178,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "build some common GTK+ widgets support",
+      "name": "gtk",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "build introspection support",
+      "name": "introspection",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "build vala bindings",
+      "name": "vapi",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build GTK Doc reference",
+      "name": "gtk_doc",
+      "type": "boolean"
+    }
+  ],
+  "version": "0.4.5"
+}

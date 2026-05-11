@@ -1,0 +1,249 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:14Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "alsa-lib",
+    "blfs_name": "alsa-lib",
+    "blfs_version": "1.2.15.3",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "aserver"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libasound.so",
+    "libatopology.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "alsa-lib",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/alsa-lib",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "7b079d614d582cade7ab8db2364e65271d0877a37df8757ac4ac0c8970be861e",
+  "source_tarball": "alsa-lib-1.2.15.3.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://www.alsa-project.org/files/pub/lib/alsa-lib-${version}.tar.bz2",
+  "tarball_files_count": 455,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-symbolic-functions",
+      "kind": "enable",
+      "name": "symbolic-functions"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-debug",
+      "kind": "enable",
+      "name": "debug-assert"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-resmgr",
+      "kind": "enable",
+      "name": "resmgr"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-aload",
+      "kind": "enable",
+      "name": "aload"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-mixer",
+      "kind": "enable",
+      "name": "mixer"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-pcm",
+      "kind": "enable",
+      "name": "pcm"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-rawmidi",
+      "kind": "enable",
+      "name": "rawmidi"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-hwdep",
+      "kind": "enable",
+      "name": "hwdep"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-seq",
+      "kind": "enable",
+      "name": "seq"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ucm",
+      "kind": "enable",
+      "name": "ucm"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-topology",
+      "kind": "enable",
+      "name": "topology"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-old-symbols",
+      "kind": "enable",
+      "name": "old-symbols"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-mixer-modules",
+      "kind": "enable",
+      "name": "mixer-modules"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-mixer-pymods",
+      "kind": "enable",
+      "name": "mixer-pymods"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-python",
+      "kind": "enable",
+      "name": "python"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-python2",
+      "kind": "enable",
+      "name": "python2"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-lockless-dmix",
+      "kind": "enable",
+      "name": "lockless-dmix"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-thread-safety",
+      "kind": "enable",
+      "name": "thread-safety"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-configdir=dir",
+      "kind": "with",
+      "name": "configdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-plugindir=dir",
+      "kind": "with",
+      "name": "plugindir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pkgconfdir=dir",
+      "kind": "with",
+      "name": "pkgconfdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-versioned",
+      "kind": "with",
+      "name": "versioned"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-debug",
+      "kind": "with",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-tmpdir=directory",
+      "kind": "with",
+      "name": "tmpdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-softfloat",
+      "kind": "with",
+      "name": "softfloat"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-libdl",
+      "kind": "with",
+      "name": "libdl"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pthread",
+      "kind": "with",
+      "name": "pthread"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-librt",
+      "kind": "with",
+      "name": "librt"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-wordexp",
+      "kind": "with",
+      "name": "wordexp"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-alsa-devdir=dir",
+      "kind": "with",
+      "name": "alsa-devdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-aload-devdir=dir",
+      "kind": "with",
+      "name": "aload-devdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pythonlibs=ldflags",
+      "kind": "with",
+      "name": "pythonlibs"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pythonincludes=Cflags",
+      "kind": "with",
+      "name": "pythonincludes"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pcm-plugins=<list>",
+      "kind": "with",
+      "name": "pcm-plugins"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-ctl-plugins=<list>",
+      "kind": "with",
+      "name": "ctl-plugins"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-max-cards",
+      "kind": "with",
+      "name": "max-cards"
+    }
+  ],
+  "version": "1.2.15.3"
+}

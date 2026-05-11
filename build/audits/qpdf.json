@@ -1,0 +1,133 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:04Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "qpdf",
+    "blfs_name": "Qpdf",
+    "blfs_version": "12.3.2",
+    "deps": [
+      {
+        "anchor": "gnutls",
+        "name": "GnuTLS-3.8.12",
+        "note": "",
+        "type": "optional",
+        "version": "3.8.12"
+      },
+      {
+        "anchor": "gs",
+        "name": "ghostscript-10.06.0",
+        "note": "",
+        "type": "optional",
+        "version": "10.06.0"
+      },
+      {
+        "anchor": "libjpeg",
+        "name": "libjpeg-turbo-3.1.3",
+        "note": "",
+        "type": "required",
+        "version": "3.1.3"
+      },
+      {
+        "anchor": "libtiff",
+        "name": "libtiff-4.7.1",
+        "note": "",
+        "type": "optional",
+        "version": "4.7.1"
+      },
+      {
+        "anchor": "sphinx",
+        "name": "sphinx-9.1.0",
+        "note": "",
+        "type": "optional",
+        "version": "9.1.0"
+      },
+      {
+        "anchor": "sphinx_rtd_theme",
+        "name": "sphinx_rtd_theme-3.1.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.1.0"
+      },
+      {
+        "anchor": "texlive",
+        "name": "texlive-20250308",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "tl-installer",
+        "name": "install-tl-unx",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "fix-qdf",
+    "qpdf",
+    "zlib-flate"
+  ],
+  "expected_headers": [
+    "/usr/include/qpdf"
+  ],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "qpdf",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "libjpeg-turbo",
+    "ghostscript",
+    "gnutls",
+    "libtiff"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/qpdf",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "6cba2f9f2cd887d905faeb99e0e51a307b217920d1bbf3e9cfbb2e8178a2deda",
+  "source_tarball": "qpdf-12.3.2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/qpdf/qpdf/releases/download/v${version}/qpdf-${version}.tar.gz",
+  "tarball_files_count": 3016,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "12.3.2"
+}

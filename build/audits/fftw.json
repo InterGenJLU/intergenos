@@ -1,0 +1,74 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:29Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "fftw",
+    "blfs_name": "fftw",
+    "blfs_version": "3.3.10",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "fftw-wisdom",
+    "fftw-wisdom-to-conf"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libfftw3.so",
+    "libfftw3_threads.so",
+    "libfftw3f.so",
+    "libfftw3f_threads.so",
+    "libfftw3l.so",
+    "libfftw3l_threads.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "fftw",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--enable-avx",
+    "--enable-avx2",
+    "--enable-float",
+    "--enable-shared",
+    "--enable-sse2",
+    "--enable-threads",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "pkgconf"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/fftw",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "5630c24cdeb33b131612f7eb4b1a9934234754f9f388ff8617458d0be6f239a1",
+  "source_tarball": "fftw-3.3.11.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "http://fftw.org/fftw-${version}.tar.gz",
+  "tarball_files_count": 4952,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "3.3.11"
+}

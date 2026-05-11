@@ -1,0 +1,71 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "build-system-undetected"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:25Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "DocBook",
+    "blfs_name": "docbook-xml",
+    "blfs_version": "4.5",
+    "deps": [
+      {
+        "anchor": "libarchive",
+        "name": "libarchive-3.8.5",
+        "note": "",
+        "type": "required",
+        "version": "3.8.5"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "required",
+        "version": "2.15.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "unknown",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "docbook-xml",
+  "our_autotools_flags": [
+    "--strip-components=1"
+  ],
+  "our_deps_build": [
+    "libarchive",
+    "libxml2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/docbook-xml",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "4e4e037a2b83c98c6c94818390d4bdd3f6e10f6ec62dd79188594e26190dc7b4",
+  "source_tarball": "docbook-xml-4.5.zip",
+  "source_tarball_exists": true,
+  "source_url": "https://archive.docbook.org/xml/${version}/docbook-xml-${version}.zip",
+  "tarball_files_count": 33,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "4.5"
+}

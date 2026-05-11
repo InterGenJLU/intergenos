@@ -1,0 +1,230 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:12Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libxkbcommon",
+    "blfs_name": "libxkbcommon",
+    "blfs_version": "1.13.1",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "for generating the\n                documentation",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "libxcb",
+        "name": "libxcb-1.17.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.17.0"
+      },
+      {
+        "anchor": "wayland",
+        "name": "Wayland-1.24.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.24.0"
+      },
+      {
+        "anchor": "wayland-protocols",
+        "name": "wayland-protocols-1.47",
+        "note": "",
+        "type": "recommended",
+        "version": "1.47"
+      },
+      {
+        "anchor": "xkeyboard-config",
+        "name": "xkeyboard-config-2.46",
+        "note": "runtime",
+        "type": "required",
+        "version": "2.46"
+      },
+      {
+        "anchor": "xorg-server",
+        "name": "Xorg-Server-21.1.21",
+        "note": "",
+        "type": "optional",
+        "version": "21.1.21"
+      },
+      {
+        "anchor": "xwayland",
+        "name": "Xwayland-24.1.9",
+        "note": "",
+        "type": "optional",
+        "version": "24.1.9"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "xkbcli"
+  ],
+  "expected_headers": [
+    "/usr/include/xkbcommon"
+  ],
+  "expected_libs": [
+    "libxkbcommon.so",
+    "libxkbcommon-x11.so",
+    "libxkbregistry.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libxkbcommon",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "xkeyboard-config",
+    "libxcb",
+    "wayland",
+    "wayland-protocols"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "enable-docs",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libxkbcommon",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "04e3bf1ab0858a26218576d956d83ebb3ec9c583402b8807b454250be10775b1",
+  "source_tarball": "libxkbcommon-1.13.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/lfs-book/libxkbcommon/archive/v${version}/libxkbcommon-${version}.tar.gz",
+  "tarball_files_count": 550,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "The XKB config root [default=xkeyboard-config install path]",
+      "name": "xkb-config-root",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Lookup path for system-wide XKB versioned data extensions [default=xkeyboard-config install path + .d]",
+      "name": "xkb-config-versioned-extensions-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Lookup path for system-wide XKB unversioned data extensions [default=xkeyboard-config install path - version + .d]",
+      "name": "xkb-config-unversioned-extensions-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Extra lookup path for system-wide XKB data [default=$sysconfdir/xkb]",
+      "name": "xkb-config-extra-path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "The X locale root [default=$datadir/X11/locale]",
+      "name": "x-locale-root",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Directory for bash completion scripts",
+      "name": "bash-completion-path",
+      "type": "string"
+    },
+    {
+      "default": "evdev",
+      "description": "Default XKB ruleset",
+      "name": "default-rules",
+      "type": "string"
+    },
+    {
+      "default": "pc105",
+      "description": "Default XKB model",
+      "name": "default-model",
+      "type": "string"
+    },
+    {
+      "default": "us",
+      "description": "Default XKB layout",
+      "name": "default-layout",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Default XKB variant",
+      "name": "default-variant",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Default XKB options",
+      "name": "default-options",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Enable building tools",
+      "name": "enable-tools",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable building the xkbcommon-x11 library",
+      "name": "enable-x11",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable building the documentation",
+      "name": "enable-docs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable creating redirections to maintain stable documentation pages",
+      "name": "enable-cool-uris",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "enable-wayland",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable building libxkbregistry",
+      "name": "enable-xkbregistry",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable installing bash completion scripts",
+      "name": "enable-bash-completion",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.13.1"
+}

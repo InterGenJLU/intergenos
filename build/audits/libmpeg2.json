@@ -1,0 +1,105 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:54Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libmpeg2",
+    "blfs_name": "libmpeg2",
+    "blfs_version": "0.5.1",
+    "deps": [
+      {
+        "anchor": "x-window-system",
+        "name": "a graphical\n                environment",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "extract_mpeg2",
+    "mpeg2dec"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libmpeg2.so",
+    "libmpeg2convert.so"
+  ],
+  "expected_pkgconfig": [
+    "libmpeg2.pc",
+    "libmpeg2convert.pc"
+  ],
+  "name": "libmpeg2",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--enable-shared",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libmpeg2",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "dee22e893cb5fc2b2b6ebd60b88478ab8556cb3b93f9a0d7ce8f3b61851871d4",
+  "source_tarball": "libmpeg2-0.5.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.videolan.org/contrib/libmpeg2/libmpeg2-${version}.tar.gz",
+  "tarball_files_count": 129,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "  --enable-debug          debug mode configuration",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "  --disable-accel-detect  make a version without accel detection code",
+      "kind": "enable",
+      "name": "accel-detect"
+    },
+    {
+      "help": "  --enable-directx=DIR    use Win32 DirectX headers in DIR",
+      "kind": "enable",
+      "name": "directx"
+    },
+    {
+      "help": "  --disable-sdl           make a version not using SDL",
+      "kind": "enable",
+      "name": "sdl"
+    },
+    {
+      "help": "  --enable-warnings       treat warnings as errors",
+      "kind": "enable",
+      "name": "warnings"
+    },
+    {
+      "help": "  --enable-gprof          make a version using gprof",
+      "kind": "enable",
+      "name": "gprof"
+    }
+  ],
+  "version": "0.5.1"
+}

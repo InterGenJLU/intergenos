@@ -1,0 +1,102 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "sord",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--prefix=/usr",
+    "--strip"
+  ],
+  "our_deps_build": [
+    "meson",
+    "ninja",
+    "pkgconf",
+    "zix",
+    "serd",
+    "pcre2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "zix",
+    "serd"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/sord",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "bb23b34b216579136795d518cffa73d91cf205594ce9accebfd408afb839173f",
+  "source_tarball": "sord-0.16.22.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.drobilla.net/sord-${version}.tar.xz",
+  "tarball_files_count": 126,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Build C++ bindings",
+      "name": "bindings_cpp",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build documentation",
+      "name": "docs",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Run code quality checks",
+      "name": "lint",
+      "type": "boolean"
+    },
+    {
+      "default": "enabled",
+      "description": "Install man pages",
+      "name": "man",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build tests",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "Sord",
+      "description": "Project title",
+      "name": "title",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Build command line utilities",
+      "name": "tools",
+      "type": "feature"
+    }
+  ],
+  "version": "0.16.22"
+}

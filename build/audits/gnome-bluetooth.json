@@ -1,0 +1,169 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear",
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:16Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-bluetooth",
+    "blfs_name": "gnome-bluetooth",
+    "blfs_version": "47.1",
+    "deps": [
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gsound",
+        "name": "gsound-1.0.3",
+        "note": "",
+        "type": "required",
+        "version": "1.0.3"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "",
+        "type": "required",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "libadwaita1",
+        "name": "libadwaita-1.8.4",
+        "note": "",
+        "type": "recommended",
+        "version": "1.8.4"
+      },
+      {
+        "anchor": "libnotify",
+        "name": "libnotify-0.8.8",
+        "note": "",
+        "type": "required",
+        "version": "0.8.8"
+      },
+      {
+        "anchor": "python-dbusmock",
+        "name": "dbusmock-0.38.1",
+        "note": "",
+        "type": "optional",
+        "version": "0.38.1"
+      },
+      {
+        "anchor": "upower",
+        "name": "UPower-1.91.1",
+        "note": "",
+        "type": "required",
+        "version": "1.91.1"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "gnome-bluetooth-47.1-build_fix-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/gnome-bluetooth-47.1-build_fix-1.patch"
+      }
+    ]
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "contrib",
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "bluetooth-sendto"
+  ],
+  "expected_headers": [
+    "/usr/include/gnome-bluetooth-3.0"
+  ],
+  "expected_libs": [
+    "libgnome-bluetooth-3.0.so",
+    "libgnome-bluetooth-ui-3.0.so"
+  ],
+  "expected_pkgconfig": [
+    "gnome-bluetooth-3.0.pc",
+    "gnome-bluetooth-ui-3.0.pc"
+  ],
+  "name": "gnome-bluetooth",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gtk4",
+    "gsound",
+    "upower",
+    "libadwaita1",
+    "glib2",
+    "libnotify"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "gtk_doc",
+      "value": "false"
+    }
+  ],
+  "our_patches": [
+    {
+      "file": "gnome-bluetooth-47.1-build_fix-1.patch",
+      "sha256": "8100644af815e6b5a1e4f39cf1c5ed3eddcabe90584f3ef31c5191a94f1b49a6"
+    }
+  ],
+  "package_dir": "packages/desktop/gnome-bluetooth",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "03e3e7403a15108ffc1496210a1da5c2961b2834a5c07eccc7a3f493195daba3",
+  "source_tarball": "gnome-bluetooth-47.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-bluetooth/47/gnome-bluetooth-${version}.tar.xz",
+  "tarball_files_count": 175,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Whether to build and install bluetooth-sendto",
+      "name": "sendto",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "use gtk-doc to build documentation",
+      "name": "gtk_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "introspection",
+      "type": "boolean"
+    }
+  ],
+  "version": "47.1"
+}

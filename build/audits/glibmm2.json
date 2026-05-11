@@ -1,0 +1,166 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:15Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "glibmm2",
+    "blfs_name": "GLibmm",
+    "blfs_version": "2.86.0",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "glib-networking",
+        "name": "glib-networking-2.80.1",
+        "note": "for\n                tests",
+        "type": "optional",
+        "version": "2.80.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gnutls",
+        "name": "GnuTLS-3.8.12",
+        "note": "for tests",
+        "type": "optional",
+        "version": "3.8.12"
+      },
+      {
+        "anchor": "libsigc3",
+        "name": "libsigc++-3.6.0",
+        "note": "",
+        "type": "required",
+        "version": "3.6.0"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "",
+        "type": "optional",
+        "version": "1.1.45"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/g{io"
+  ],
+  "expected_libs": [
+    "libgiomm-2.68.so",
+    "libglibmm-2.68.so",
+    "libglibmm_generate_extra_defs-2.68.so"
+  ],
+  "expected_pkgconfig": [
+    "giomm-2.68.pc",
+    "glibmm-2.68.pc",
+    "glibmm_generate_extra_defs-2.68.pc"
+  ],
+  "name": "glibmm2",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr",
+    "--wrap-mode=nodownload"
+  ],
+  "our_deps_build": [
+    "glib2",
+    "libsigcpp2",
+    "libsigcpp3"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/glibmm2",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "fe02c1e5f5825940d82b56b6ec31a12c06c05c1583cfe62f934d0763e1e542b3",
+  "source_tarball": "glibmm-2.66.7.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/glibmm/2.66/glibmm-${version}.tar.xz",
+  "tarball_files_count": 3289,
+  "test_command": "meson test --no-rebuild --print-errorlogs \"${tests[@]}\"",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "if-git-build",
+      "description": "Generate source code from .hg and .ccg files",
+      "name": "maintainer-mode",
+      "type": "combo"
+    },
+    {
+      "default": "min",
+      "description": "Compiler warning level",
+      "name": "warnings",
+      "type": "combo"
+    },
+    {
+      "default": "fatal",
+      "description": "Compiler warning level when a tarball is created",
+      "name": "dist-warnings",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Build deprecated API and include it in the library",
+      "name": "build-deprecated-api",
+      "type": "boolean"
+    },
+    {
+      "default": "if-maintainer-mode",
+      "description": "Build and install the documentation",
+      "name": "build-documentation",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Print debug messages in connection with reference counting",
+      "name": "debug-refcounting",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build example programs",
+      "name": "build-examples",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Use separate DLL and LIB filenames for Visual Studio 2015, 2017 and 2019",
+      "name": "msvc14x-parallel-installable",
+      "type": "boolean"
+    }
+  ],
+  "version": "2.66.7"
+}

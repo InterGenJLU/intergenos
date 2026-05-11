@@ -1,0 +1,61 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "xcb/xcb_icccm.h",
+    "xcb/xcb_ewmh.h"
+  ],
+  "expected_libs": [
+    "libxcb-icccm.so",
+    "libxcb-ewmh.so"
+  ],
+  "expected_pkgconfig": [
+    "xcb-icccm.pc",
+    "xcb-ewmh.pc"
+  ],
+  "name": "xcb-util-wm",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "libxcb"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/xcb-util-wm",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "62c34e21d06264687faea7edbf63632c9f04d55e72114aa4a57bb95e4f888a0b",
+  "source_tarball": "xcb-util-wm-0.4.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://xcb.freedesktop.org/dist/xcb-util-wm-${version}.tar.xz",
+  "tarball_files_count": 42,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "0.4.2"
+}

@@ -1,0 +1,93 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-3rdparty-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:45Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "taglib",
+    "blfs_name": "Taglib",
+    "blfs_version": "2.2",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "utfcpp",
+        "name": "utfcpp-4.0.9",
+        "note": "",
+        "type": "required",
+        "version": "4.0.9"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [
+    "3rdparty"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "taglib-config"
+  ],
+  "expected_headers": [
+    "/usr/include/taglib"
+  ],
+  "expected_libs": [
+    "libtag.so",
+    "libtag_c.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "taglib",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cmake",
+    "utfcpp"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "BUILD_SHARED_LIBS",
+      "value": "ON"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/taglib",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "c89e7ebd450535e77c9230fac3985fcdce7bee05e06c9cd0bc36d50184e9c9dd",
+  "source_tarball": "taglib-2.2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://taglib.org/releases/taglib-${version}.tar.gz",
+  "tarball_files_count": 545,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "2.2"
+}

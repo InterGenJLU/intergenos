@@ -1,0 +1,54 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:42Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "jansson",
+    "blfs_name": "Jansson",
+    "blfs_version": "2.15.0",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libjansson.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "jansson",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/jansson",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "a7eac7765000373165f9373eb748be039c10b2efc00be9af3467ec92357d8954",
+  "source_tarball": "jansson-2.15.0.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/akheron/jansson/releases/download/v${version}/jansson-${version}.tar.bz2",
+  "tarball_files_count": 453,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "2.15.0"
+}

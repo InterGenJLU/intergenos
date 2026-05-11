@@ -1,0 +1,130 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:51Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CONTRIBUTING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "folks",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "evolution-data-server",
+    "glib2",
+    "libgee",
+    "vala"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "telepathy_backend",
+      "value": "false"
+    },
+    {
+      "name": "tests",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/folks",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "21f44e2bdabb1ee7f8e41bb996d10ac7daf35c78c498177db0c00f580a20a914",
+  "source_tarball": "folks-0.15.12.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/folks/0.15/folks-${version}.tar.xz",
+  "tarball_files_count": 383,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "build the Bluez backend",
+      "name": "bluez_backend",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build the E-D-S backend",
+      "name": "eds_backend",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build the oFono backend",
+      "name": "ofono_backend",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build the Telepathy backend",
+      "name": "telepathy_backend",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build Zeitgeist support in the Telepathy backend",
+      "name": "zeitgeist",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable building the meta-contact import tool",
+      "name": "import_tool",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable building the data inspection tool",
+      "name": "inspect_tool",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable profiling using sysprof",
+      "name": "profiling",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build tests programs",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Install test programs",
+      "name": "installed_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable documentation generation",
+      "name": "docs",
+      "type": "boolean"
+    }
+  ],
+  "version": "0.15.12"
+}

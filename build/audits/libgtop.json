@@ -1,0 +1,95 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:51Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libgtop",
+    "blfs_name": "libgtop",
+    "blfs_version": "2.41.3",
+    "deps": [
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "GObject Introspection\n                recommended",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "xorg7-lib",
+        "name": "Xorg Libraries",
+        "note": "",
+        "type": "required",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libgtop-2.0.so"
+  ],
+  "expected_pkgconfig": [
+    "libgtop-2.0.pc"
+  ],
+  "name": "libgtop",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "glib2",
+    "libXau"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libgtop",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "775676df958e2ea2452f7568f28b2ea581063d312773dd5c0b7624c1b9b2da8c",
+  "source_tarball": "libgtop-2.41.3.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/libgtop/2.41/libgtop-${version}.tar.xz",
+  "tarball_files_count": 894,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-debug",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-fatal-warnings",
+      "kind": "enable",
+      "name": "fatal-warnings"
+    }
+  ],
+  "version": "2.41.3"
+}

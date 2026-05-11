@@ -1,0 +1,61 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:01Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "perl-archive-zip",
+    "blfs_name": "Archive::Zip",
+    "blfs_version": "1.68",
+    "deps": [
+      {
+        "anchor": "libarchive",
+        "name": "libarchive-3.8.5",
+        "note": "",
+        "type": "required",
+        "version": "3.8.5"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "perl-makemaker",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [
+    "crc32"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "perl-archive-zip",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "perl-core",
+    "libarchive"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/perl-archive-zip",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=perl-makemaker; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": true,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "984e185d785baf6129c6e75f8eb44411745ac00bf6122fb1c8e822a3861ec650",
+  "source_tarball": "Archive-Zip-1.68.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://cpan.metacpan.org/authors/id/P/PH/PHRED/Archive-Zip-${version}.tar.gz",
+  "tarball_files_count": 110,
+  "test_command": "make test",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "1.68"
+}

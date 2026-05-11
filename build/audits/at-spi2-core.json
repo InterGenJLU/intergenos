@@ -1,0 +1,186 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:15Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "at-spi2-core",
+    "blfs_name": "at-spi2-core",
+    "blfs_version": "2.58.3",
+    "deps": [
+      {
+        "anchor": "dbus",
+        "name": "dbus-1.16.2",
+        "note": "",
+        "type": "required",
+        "version": "1.16.2"
+      },
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "GObject Introspection\n                required for GNOME",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gsettings-desktop-schemas",
+        "name": "gsettings-desktop-schemas-49.1",
+        "note": "Runtime",
+        "type": "required",
+        "version": "49.1"
+      },
+      {
+        "anchor": "sphinx",
+        "name": "sphinx-9.1.0",
+        "note": "",
+        "type": "optional",
+        "version": "9.1.0"
+      },
+      {
+        "anchor": "xorg7-lib",
+        "name": "Xorg Libraries",
+        "note": "",
+        "type": "required",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "at-spi2-core",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libX11",
+    "libXi",
+    "libXtst",
+    "dbus",
+    "glib2",
+    "gsettings-desktop-schemas"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "gtk2_atk_adaptor",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/at-spi2-core",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "b0fabea6c9742eda8c9c675f9b8c1d1babba1da82da03ea1103710233717c1b0",
+  "source_tarball": "at-spi2-core-2.58.3.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/at-spi2-core/2.58/at-spi2-core-${version}.tar.xz",
+  "tarball_files_count": 527,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "default",
+      "description": "Location of the DBus services",
+      "name": "dbus_services_dir",
+      "type": "string"
+    },
+    {
+      "default": "default",
+      "description": "The path of the DBus daemon",
+      "name": "dbus_daemon",
+      "type": "string"
+    },
+    {
+      "default": "default",
+      "description": "The path of the DBus broker",
+      "name": "dbus_broker",
+      "type": "string"
+    },
+    {
+      "default": "dbus-daemon",
+      "description": "The default DBus implementation to use",
+      "name": "default_bus",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "use_systemd",
+      "type": ""
+    },
+    {
+      "default": "",
+      "description": "Build the runtime module loaded by GTK2",
+      "name": "gtk2_atk_adaptor",
+      "type": "boolean"
+    },
+    {
+      "default": "default",
+      "description": "Location of the systemd user services",
+      "name": "systemd_user_dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "docs",
+      "type": ""
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "introspection",
+      "type": ""
+    },
+    {
+      "default": "auto",
+      "description": "Enable X11 support",
+      "name": "x11",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "atk_only",
+      "type": ""
+    },
+    {
+      "default": "python3",
+      "description": "",
+      "name": "python",
+      "type": "string"
+    }
+  ],
+  "version": "2.58.3"
+}

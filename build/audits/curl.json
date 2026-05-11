@@ -1,0 +1,140 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:24Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "curl",
+    "blfs_name": "cURL",
+    "blfs_version": "8.18.0",
+    "deps": [
+      {
+        "anchor": "brotli",
+        "name": "Brotli-1.2.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.2.0"
+      },
+      {
+        "anchor": "c-ares",
+        "name": "c-ares-1.34.6",
+        "note": "",
+        "type": "optional",
+        "version": "1.34.6"
+      },
+      {
+        "anchor": "gnutls",
+        "name": "GnuTLS-3.8.12",
+        "note": "",
+        "type": "optional",
+        "version": "3.8.12"
+      },
+      {
+        "anchor": "libidn2",
+        "name": "libidn2-2.3.8",
+        "note": "",
+        "type": "optional",
+        "version": "2.3.8"
+      },
+      {
+        "anchor": "libpsl",
+        "name": "libpsl-0.21.5",
+        "note": "",
+        "type": "recommended",
+        "version": "0.21.5"
+      },
+      {
+        "anchor": "libssh2",
+        "name": "libssh2-1.11.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.11.1"
+      },
+      {
+        "anchor": "mitkrb",
+        "name": "MIT Kerberos\n                V5-1.22.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.22.2"
+      },
+      {
+        "anchor": "nghttp2",
+        "name": "nghttp2-1.68.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.68.0"
+      },
+      {
+        "anchor": "openldap",
+        "name": "OpenLDAP-2.6.12",
+        "note": "",
+        "type": "optional",
+        "version": "2.6.12"
+      },
+      {
+        "anchor": "samba",
+        "name": "Samba-4.23.5",
+        "note": "runtime, for NTLM\n                authentication",
+        "type": "optional",
+        "version": "4.23.5"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "curl",
+    "curl-config",
+    "wcurl"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libcurl.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "curl",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr",
+    "--with-ca-path=/etc/ssl/certs",
+    "--with-libssh2",
+    "--with-openssl"
+  ],
+  "our_deps_build": [
+    "libpsl",
+    "libssh2",
+    "make-ca",
+    "openssl"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "make-ca"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/curl",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "4eb41489790d19e190d7ac7e18e82857cdd68af8f4e66b292ced562d333f11df",
+  "source_tarball": "curl-8.19.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://curl.se/download/curl-${version}.tar.xz",
+  "tarball_files_count": 4180,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "8.19.0"
+}

@@ -1,0 +1,160 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:17Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "BUILDING",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "WebKitWebDriver"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libjavascriptcoregtk-4.1.so",
+    "libjavascriptcoregtk-6.0.so",
+    "libwebkit2gtk-4.1.so",
+    "libwebkitgtk-6.0.so"
+  ],
+  "expected_pkgconfig": [
+    "javascriptcoregtk-4.1.pc",
+    "javascriptcoregtk-6.0.pc",
+    "webkit2gtk-4.1.pc",
+    "webkitgtk-6.0.pc"
+  ],
+  "name": "webkitgtk-gtk3",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cairo",
+    "gst-plugins-base",
+    "gst-plugins-bad",
+    "gtk3",
+    "libgudev",
+    "libsoup3",
+    "libwebp",
+    "openjpeg2",
+    "ruby",
+    "enchant",
+    "unifdef",
+    "bubblewrap",
+    "geoclue2",
+    "libseccomp",
+    "xdg-dbus-proxy",
+    "libX11",
+    "wayland",
+    "icu",
+    "cmake",
+    "glib2",
+    "gtk4",
+    "harfbuzz",
+    "hicolor-icon-theme",
+    "lcms2",
+    "libavif",
+    "libjxl",
+    "libsecret",
+    "libtasn1",
+    "mesa",
+    "which",
+    "woff2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "CMAKE_SKIP_INSTALL_RPATH",
+      "value": "ON"
+    },
+    {
+      "name": "PORT",
+      "value": "GTK"
+    },
+    {
+      "name": "LIB_INSTALL_DIR",
+      "value": "/usr/lib"
+    },
+    {
+      "name": "USE_LIBBACKTRACE",
+      "value": "OFF"
+    },
+    {
+      "name": "USE_LIBHYPHEN",
+      "value": "OFF"
+    },
+    {
+      "name": "ENABLE_GAMEPAD",
+      "value": "OFF"
+    },
+    {
+      "name": "ENABLE_MINIBROWSER",
+      "value": "ON"
+    },
+    {
+      "name": "ENABLE_DOCUMENTATION",
+      "value": "OFF"
+    },
+    {
+      "name": "USE_WOFF2",
+      "value": "OFF"
+    },
+    {
+      "name": "USE_GTK4",
+      "value": "OFF"
+    },
+    {
+      "name": "ENABLE_WEBDRIVER",
+      "value": "OFF"
+    },
+    {
+      "name": "ENABLE_BUBBLEWRAP_SANDBOX",
+      "value": "ON"
+    },
+    {
+      "name": "USE_SYSPROF_CAPTURE",
+      "value": "NO"
+    },
+    {
+      "name": "ENABLE_SPEECH_SYNTHESIS",
+      "value": "OFF"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/webkitgtk-gtk3",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "8737631bac3e9c7ad3e5208f9370e076c09d9c45b39980021ce54edadcc6f94f",
+  "source_tarball": "webkitgtk-2.50.5.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://webkitgtk.org/releases/webkitgtk-${version}.tar.xz",
+  "tarball_files_count": 33323,
+  "test_command": "ctest --output-on-failure",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "2.50.5"
+}

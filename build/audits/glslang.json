@@ -1,0 +1,107 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-DEPS-extract-unclear",
+    "bundled-lib-External-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:15Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "glslang",
+    "blfs_name": "glslang",
+    "blfs_version": "16.2.0",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "spirv-tools",
+        "name": "SPIRV-Tools-1.4.341.0",
+        "note": "",
+        "type": "required",
+        "version": "1.4.341.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [
+    "DEPS",
+    "External"
+  ],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [
+    "glslang",
+    "glslang-validator (symlink to glslang)"
+  ],
+  "expected_headers": [
+    "/usr/include/glslang"
+  ],
+  "expected_libs": [
+    "libSPIRV.so",
+    "libglslang-default-resource-limits.so",
+    "libglslang.so"
+  ],
+  "expected_pkgconfig": [
+    "SPIRV.pc",
+    "glslang-default-resource-limits.pc",
+    "glslang.pc"
+  ],
+  "name": "glslang",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "spirv-tools",
+    "spirv-headers",
+    "cmake"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "BUILD_SHARED_LIBS",
+      "value": "ON"
+    },
+    {
+      "name": "ALLOW_EXTERNAL_SPIRV_TOOLS",
+      "value": "ON"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/glslang",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "01985335785c97906a91afe3cb5ee015997696181ec6c125bab5555602ba08e2",
+  "source_tarball": "glslang-16.2.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/KhronosGroup/glslang/archive/${version}/glslang-${version}.tar.gz",
+  "tarball_files_count": 3302,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "16.2.0"
+}

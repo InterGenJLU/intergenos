@@ -235,7 +235,11 @@ def reconciliation_rows(rec: dict) -> list[tuple]:
     if rec.get("bundled_libs"):
         rows.append((name, "rule-5-trigger", "bundled-libs",
                      ", ".join(rec["bundled_libs"])))
-    if not rec.get("source_tarball_exists"):
+    # Source-tarball blocker: only flag if NOT intentionally sourceless.
+    # Helpers (brave/chrome/etc.) and internal packages (pkm/intergen/llama-cpp)
+    # declare `source: []` deliberately — they install via download-helper or
+    # bind-mount, not from a tarball.
+    if not rec.get("source_tarball_exists") and not rec.get("source_intentionally_sourceless"):
         rows.append((name, "blocker", "source-tarball-missing",
                      rec.get("_notes_source", "")))
     return rows

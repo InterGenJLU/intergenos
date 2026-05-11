@@ -1,0 +1,189 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:56Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libppd",
+    "blfs_name": "libppd",
+    "blfs_version": "2.1.1",
+    "deps": [
+      {
+        "anchor": "libcupsfilters",
+        "name": "libcupsfilters-2.1.1",
+        "note": "",
+        "type": "required",
+        "version": "2.1.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "ppdc",
+    "ppdhtml",
+    "ppdi",
+    "ppdmerge",
+    "ppdpo"
+  ],
+  "expected_headers": [
+    "/usr/include/ppd"
+  ],
+  "expected_libs": [
+    "libppd.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libppd",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--enable-ppdc-utils",
+    "--prefix=/usr",
+    "--with-cups-rundir=/run/cups"
+  ],
+  "our_deps_build": [
+    "libcupsfilters"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libppd",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "3fa341cc03964046d2bf6b161d80c1b4b2e20609f38d860bcaa11cb70c1285e4",
+  "source_tarball": "libppd-2.1.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/OpenPrinting/libppd/releases/download/${version}/libppd-${version}.tar.xz",
+  "tarball_files_count": 129,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-testppdfile",
+      "kind": "enable",
+      "name": "testppdfile"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-ppdc-utils",
+      "kind": "enable",
+      "name": "ppdc-utils"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-genstrings",
+      "kind": "enable",
+      "name": "genstrings"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ghostscript",
+      "kind": "enable",
+      "name": "ghostscript"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-pdftops",
+      "kind": "enable",
+      "name": "pdftops"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-gs-ps2write",
+      "kind": "enable",
+      "name": "gs-ps2write"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-mutool",
+      "kind": "enable",
+      "name": "mutool"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-pdftocairo",
+      "kind": "enable",
+      "name": "pdftocairo"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-acroread",
+      "kind": "enable",
+      "name": "acroread"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-werror",
+      "kind": "enable",
+      "name": "werror"
+    },
+    {
+      "help": "  --enable-debug-guards   build libppd with memory allocat\nion guards",
+      "kind": "enable",
+      "name": "debug_guards"
+    },
+    {
+      "help": "  --enable-debug-printfs  build libppd with CUPS_DEBUG_LOG support",
+      "kind": "enable",
+      "name": "debug_printfs"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-cups-config=path",
+      "kind": "with",
+      "name": "cups-config"
+    },
+    {
+      "help": "  --with-cups-rundir           set transient run-time state directory of CUPS",
+      "kind": "with",
+      "name": "cups-rundir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pdftops=value",
+      "kind": "with",
+      "name": "pdftops"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-gs-path=value",
+      "kind": "with",
+      "name": "gs-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pdftops-path=value",
+      "kind": "with",
+      "name": "pdftops-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pdftocairo-path=value",
+      "kind": "with",
+      "name": "pdftocairo-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-acroread-path=value",
+      "kind": "with",
+      "name": "acroread-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-ippfind-path=value",
+      "kind": "with",
+      "name": "ippfind-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pdftops-maxres=value",
+      "kind": "with",
+      "name": "pdftops-maxres"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-mutool-path=value",
+      "kind": "with",
+      "name": "mutool-path"
+    }
+  ],
+  "version": "2.1.1"
+}

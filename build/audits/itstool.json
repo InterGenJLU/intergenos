@@ -1,0 +1,81 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:42Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "itstool",
+    "blfs_name": "itstool",
+    "blfs_version": "2.0.7",
+    "deps": [
+      {
+        "anchor": "DocBook",
+        "name": "docbook-xml-4.5",
+        "note": "",
+        "type": "required",
+        "version": "4.5"
+      },
+      {
+        "anchor": "lxml",
+        "name": "lxml-6.0.2",
+        "note": "",
+        "type": "required",
+        "version": "6.0.2"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "itstool-2.0.7-lxml-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/itstool-2.0.7-lxml-1.patch"
+      }
+    ]
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "itstool"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "itstool",
+  "our_autotools_flags": [
+    "--force",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "docbook-xml",
+    "lxml"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/itstool",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "6b9a7cd29a12bb95598f5750e8763cee78836a1a207f85b74d8b3275b27e87ca",
+  "source_tarball": "itstool-2.0.7.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://files.itstool.org/itstool/itstool-${version}.tar.bz2",
+  "tarball_files_count": 30,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "2.0.7"
+}

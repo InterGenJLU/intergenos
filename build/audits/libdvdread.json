@@ -1,0 +1,78 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:49Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libdvdread",
+    "blfs_name": "libdvdread",
+    "blfs_version": "7.0.1",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libdvdread.so"
+  ],
+  "expected_pkgconfig": [
+    "dvdread.pc"
+  ],
+  "name": "libdvdread",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libdvdread",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "2e3e04a305c15c3963aa03ae1b9a83c1d239880003fcf3dde986d3943355d407",
+  "source_tarball": "libdvdread-7.0.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://get.videolan.org/libdvdread/${version}/libdvdread-${version}.tar.xz",
+  "tarball_files_count": 69,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "enable_docs",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Link directly against libdvdcss",
+      "name": "libdvdcss",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Use external dlfcn for MinGW",
+      "name": "dlfcn",
+      "type": "combo"
+    }
+  ],
+  "version": "7.0.1"
+}

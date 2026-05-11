@@ -1,0 +1,57 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:22Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "README"
+  ],
+  "expected_binaries": [
+    "/usr/libexec/podman/conmon"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "conmon",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "pkgconf"
+  ],
+  "our_deps_host": [
+    "glib2",
+    "libseccomp",
+    "systemd"
+  ],
+  "our_deps_runtime": [
+    "glib2"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/conmon",
+  "reproducibility": {
+    "_notes": "make PREFIX=/usr; no embedded paths beyond DESTDIR",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "814fb5979a3a4b8576b1f901e606b482bebb41cb7e57926e6d5765ee786b96d3",
+  "source_tarball": "conmon-2.2.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/containers/conmon/archive/refs/tags/v${version}.tar.gz",
+  "tarball_files_count": 95,
+  "test_command": "bin/conmon --version",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "2.2.1"
+}

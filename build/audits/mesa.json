@@ -1,0 +1,175 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:48Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "mesa",
+    "blfs_name": "Mesa",
+    "blfs_version": "25.3.5",
+    "deps": [
+      {
+        "anchor": "Mako",
+        "name": "Mako-1.3.10",
+        "note": "",
+        "type": "required",
+        "version": "1.3.10"
+      },
+      {
+        "anchor": "PyYAML",
+        "name": "PyYAML-6.0.3",
+        "note": "",
+        "type": "required",
+        "version": "6.0.3"
+      },
+      {
+        "anchor": "libdisplay-info",
+        "name": "libdisplay-info-0.3.0",
+        "note": "",
+        "type": "optional",
+        "version": "0.3.0"
+      },
+      {
+        "anchor": "libdrm",
+        "name": "libdrm-2.4.131",
+        "note": "",
+        "type": "required",
+        "version": "2.4.131"
+      },
+      {
+        "anchor": "libunwind",
+        "name": "libunwind-1.8.3",
+        "note": "",
+        "type": "optional",
+        "version": "1.8.3"
+      },
+      {
+        "anchor": "lm_sensors",
+        "name": "lm-sensors-3-6-2",
+        "note": "",
+        "type": "optional",
+        "version": "2"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      },
+      {
+        "anchor": "xorg7-lib",
+        "name": "Xorg\n                Libraries",
+        "note": "",
+        "type": "required",
+        "version": ""
+      }
+    ],
+    "patches": [
+      {
+        "filename": "mesa-add_xdemos-4.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/mesa-add_xdemos-4.patch"
+      }
+    ]
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "INSTALL",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "mesa",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr",
+    "--wrap-mode=nodownload"
+  ],
+  "our_deps_build": [
+    "elfutils",
+    "expat",
+    "libdrm",
+    "libX11",
+    "libXext",
+    "libXfixes",
+    "libXrandr",
+    "libxshmfence",
+    "libxcb",
+    "libxkbcommon",
+    "wayland-protocols",
+    "llvm",
+    "Mako",
+    "glslang",
+    "vulkan-headers",
+    "vulkan-loader",
+    "cbindgen",
+    "rust-bindgen",
+    "libclc",
+    "zstd",
+    "libdisplay-info",
+    "libva",
+    "pyyaml-pass2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "platforms",
+      "value": "x11,wayland"
+    },
+    {
+      "name": "gallium-drivers",
+      "value": "auto"
+    },
+    {
+      "name": "vulkan-drivers",
+      "value": "auto"
+    },
+    {
+      "name": "valgrind",
+      "value": "disabled"
+    },
+    {
+      "name": "video-codecs",
+      "value": "all"
+    },
+    {
+      "name": "libunwind",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [
+    {
+      "file": "mesa-add_xdemos-4.patch",
+      "sha256": "9677943764bfadc2800714e34933507365dfc24b33ec9d5a4720db03b6168f3d"
+    }
+  ],
+  "package_dir": "packages/desktop/mesa",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "be472413475082df945e0f9be34f5af008baa03eb357e067ce5a611a2d44c44b",
+  "source_tarball": "mesa-25.3.5.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://mesa.freedesktop.org/archive/mesa-${version}.tar.xz",
+  "tarball_files_count": 12009,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "25.3.5"
+}

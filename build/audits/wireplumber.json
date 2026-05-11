@@ -1,0 +1,241 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:17Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "wireplumber",
+    "blfs_name": "Wireplumber",
+    "blfs_version": "0.5.13",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "linux-pam",
+        "name": "Linux-PAM-1.7.2",
+        "note": "",
+        "type": "required",
+        "version": "1.7.2"
+      },
+      {
+        "anchor": "lua",
+        "name": "Lua-5.4.8",
+        "note": "",
+        "type": "recommended",
+        "version": "5.4.8"
+      },
+      {
+        "anchor": "lxml",
+        "name": "lxml-6.0.2",
+        "note": "",
+        "type": "optional",
+        "version": "6.0.2"
+      },
+      {
+        "anchor": "pipewire",
+        "name": "pipewire-1.6.0",
+        "note": "",
+        "type": "required",
+        "version": "1.6.0"
+      },
+      {
+        "anchor": "sphinx",
+        "name": "sphinx-9.1.0",
+        "note": "",
+        "type": "optional",
+        "version": "9.1.0"
+      },
+      {
+        "anchor": "sphinx_rtd_theme",
+        "name": "sphinx_rtd_theme-3.1.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.1.0"
+      },
+      {
+        "anchor": "systemd",
+        "name": "Systemd-259.1",
+        "note": "",
+        "type": "required",
+        "version": "259.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "wpctl",
+    "wpexec",
+    "wireplumber"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libwireplumber-0.5.so"
+  ],
+  "expected_pkgconfig": [
+    "wireplumber-0.5.pc"
+  ],
+  "name": "wireplumber",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr",
+    "--wrap-mode=nofallback"
+  ],
+  "our_deps_build": [
+    "glib2",
+    "lua",
+    "pipewire",
+    "linux-pam",
+    "lxml",
+    "systemd"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "system-lua",
+      "value": "true"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/wireplumber",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "904e4219dacfc6070e13fcb41846b085c61aa1c1cbb0dcc59e1ab982adc8968a",
+  "source_tarball": "wireplumber-0.5.13.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.freedesktop.org/pipewire/wireplumber/-/archive/${version}/wireplumber-${version}.tar.gz",
+  "tarball_files_count": 545,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "Generate gobject-introspection bindings",
+      "name": "introspection",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable documentation.",
+      "name": "doc",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build modules",
+      "name": "modules",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build session manager daemon",
+      "name": "daemon",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build CLI tools",
+      "name": "tools",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Use lua from the system instead of the bundled one",
+      "name": "system-lua",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "The system lua version to use or ",
+      "name": "system-lua-version",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Enable elogind integration",
+      "name": "elogind",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable installing systemd units & logind integration",
+      "name": "systemd",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Install systemd system service file",
+      "name": "systemd-system-service",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Install systemd user service file",
+      "name": "systemd-user-service",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Directory for system systemd units",
+      "name": "systemd-system-unit-dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Directory for user systemd units",
+      "name": "systemd-user-unit-dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "The glib.supp valgrind suppressions file to be used when running valgrind",
+      "name": "glib-supp",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Build the test suite",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable running tests that need a dbus-daemon",
+      "name": "dbus-tests",
+      "type": "boolean"
+    }
+  ],
+  "version": "0.5.13"
+}

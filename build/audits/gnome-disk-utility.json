@@ -1,0 +1,149 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:18Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-disk-utility",
+    "blfs_name": "gnome-disk-utility",
+    "blfs_version": "46.1",
+    "deps": [
+      {
+        "anchor": "appstream-glib",
+        "name": "appstream-glib-0.8.3",
+        "note": "",
+        "type": "optional",
+        "version": "0.8.3"
+      },
+      {
+        "anchor": "gnome-settings-daemon",
+        "name": "gnome-settings-daemon-49.1",
+        "note": "",
+        "type": "required",
+        "version": "49.1"
+      },
+      {
+        "anchor": "itstool",
+        "name": "itstool-2.0.7",
+        "note": "",
+        "type": "required",
+        "version": "2.0.7"
+      },
+      {
+        "anchor": "libdvdread",
+        "name": "libdvdread-7.0.1",
+        "note": "",
+        "type": "required",
+        "version": "7.0.1"
+      },
+      {
+        "anchor": "libhandy1",
+        "name": "libhandy-1.8.3",
+        "note": "",
+        "type": "required",
+        "version": "1.8.3"
+      },
+      {
+        "anchor": "libpwquality",
+        "name": "libpwquality-1.4.5",
+        "note": "",
+        "type": "required",
+        "version": "1.4.5"
+      },
+      {
+        "anchor": "libsecret",
+        "name": "libsecret-0.21.7",
+        "note": "",
+        "type": "required",
+        "version": "0.21.7"
+      },
+      {
+        "anchor": "udisks2",
+        "name": "UDisks-2.11.1",
+        "note": "",
+        "type": "required",
+        "version": "2.11.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "gnome-disk-image-mounter",
+    "gnome-disks"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gnome-disk-utility",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "udisks2",
+    "gnome-settings-daemon",
+    "itstool",
+    "libdvdread",
+    "libhandy1",
+    "libpwquality",
+    "libsecret"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-disk-utility",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "c24e9439a04d70bcfae349ca134c7005435fe2b6f452114df878bff0b89bbffe",
+  "source_tarball": "gnome-disk-utility-46.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-disk-utility/46/gnome-disk-utility-${version}.tar.xz",
+  "tarball_files_count": 249,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "libsystemd",
+      "description": "build with logind",
+      "name": "logind",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "build gnome-settings-daemon plug-in",
+      "name": "gsd_plugin",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "generate man pages",
+      "name": "man",
+      "type": "boolean"
+    }
+  ],
+  "version": "46.1"
+}

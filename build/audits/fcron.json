@@ -1,0 +1,95 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:29Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "fcron",
+    "blfs_name": "Fcron",
+    "blfs_version": "3.4.0",
+    "deps": [
+      {
+        "anchor": "docbook-utils",
+        "name": "DocBook-utils-0.6.14",
+        "note": "",
+        "type": "optional",
+        "version": "0.6.14"
+      },
+      {
+        "anchor": "linux-pam",
+        "name": "Linux-PAM-1.7.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.7.2"
+      },
+      {
+        "anchor": "server-mail",
+        "name": "MTA",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "vim",
+        "name": "Vim-9.2.0078",
+        "note": "",
+        "type": "optional",
+        "version": "9.2.0078"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "/usr/bin/fcrondyn",
+    "/usr/bin/fcrontab",
+    "/usr/sbin/fcron",
+    "/usr/sbin/fcronsighup"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "fcron",
+  "our_autotools_flags": [
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc",
+    "--with-boot-install=no",
+    "--with-piddir=/run",
+    "--without-sendmail"
+  ],
+  "our_deps_build": [
+    "linux-pam",
+    "vim"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/base/fcron",
+  "reproducibility": {
+    "_notes": "filled by agent-c03 from build.sh inspection + BLFS HTML",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "f4e7fc553cdd70ff4b3b6ac9138b3b7cffab9198b8c266d97af0a87506e0e1b5",
+  "source_tarball": "fcron-3.4.0.src.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "http://fcron.free.fr/archives/fcron-${version}.src.tar.gz",
+  "tarball_files_count": 228,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "base",
+  "upstream_options": [],
+  "version": "3.4.0"
+}

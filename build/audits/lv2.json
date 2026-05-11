@@ -1,0 +1,117 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:46Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "lv2",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libsamplerate",
+    "libsndfile"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "docs",
+      "value": "disabled"
+    },
+    {
+      "name": "online_docs",
+      "value": "false"
+    },
+    {
+      "name": "plugins",
+      "value": "auto"
+    },
+    {
+      "name": "tests",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/lv2",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "78c51bcf21b54e58bb6329accbb4dae03b2ed79b520f9a01e734bd9de530953f",
+  "source_tarball": "lv2-1.18.10.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://lv2plug.in/spec/lv2-${version}.tar.xz",
+  "tarball_files_count": 350,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "Build documentation",
+      "name": "docs",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "LV2 bundle installation directory",
+      "name": "lv2dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Install backwards compatible headers at URI-style paths",
+      "name": "old_headers",
+      "type": "boolean"
+    },
+    {
+      "default": "false",
+      "description": "Build documentation for online hosting",
+      "name": "online_docs",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Build example plugins",
+      "name": "plugins",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Enable ultra-strict warnings",
+      "name": "strict",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Build tests",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "LV2",
+      "description": "Project title",
+      "name": "title",
+      "type": "string"
+    }
+  ],
+  "version": "1.18.10"
+}

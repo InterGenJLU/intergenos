@@ -1,0 +1,50 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:01Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "perl-file-fcntllock",
+    "blfs_name": "File::FcntlLock",
+    "blfs_version": "0.22",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "perl-makemaker",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "perl-file-fcntllock",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "libarchive"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/base/perl-file-fcntllock",
+  "reproducibility": {
+    "_notes": "filled by agent-c03 from build.sh inspection + BLFS HTML",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "9a9abb2efff93ab73741a128d3f700e525273546c15d04e7c51c704ab09dbcdf",
+  "source_tarball": "File-FcntlLock-0.22.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.cpan.org/authors/id/J/JT/JTT/File-FcntlLock-${version}.tar.gz",
+  "tarball_files_count": 22,
+  "test_command": "make test",
+  "test_known_failures": [],
+  "tier": "base",
+  "upstream_options": [],
+  "version": "0.22"
+}

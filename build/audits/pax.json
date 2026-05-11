@@ -1,0 +1,48 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:01Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "pax",
+    "blfs_name": "Pax",
+    "blfs_version": "20240817",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [],
+  "expected_binaries": [
+    "/usr/bin/pax"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "pax",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/base/pax",
+  "reproducibility": {
+    "_notes": "filled by agent-c03 from build.sh inspection + BLFS HTML",
+    "deterministic_install": 1,
+    "parallel_build_supported": 0,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "e955d5d3af97aede0a3f463a9a59b83e8d1083aaf142eb6f388c549a7d182e6b",
+  "source_tarball": "paxmirabilis-20240817.tgz",
+  "source_tarball_exists": true,
+  "source_url": "http://www.mirbsd.org/MirOS/dist/mir/cpio/paxmirabilis-${version}.tgz",
+  "tarball_files_count": 35,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "base",
+  "upstream_options": [],
+  "version": "20240817"
+}

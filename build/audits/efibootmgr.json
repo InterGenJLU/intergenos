@@ -1,0 +1,72 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:27Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "efibootmgr",
+    "blfs_name": "efibootmgr",
+    "blfs_version": "18",
+    "deps": [
+      {
+        "anchor": "efivar",
+        "name": "efivar-39",
+        "note": "",
+        "type": "required",
+        "version": "39"
+      },
+      {
+        "anchor": "popt",
+        "name": "popt-1.19",
+        "note": "",
+        "type": "required",
+        "version": "1.19"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "efibootdump",
+    "efibootmgr"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "efibootmgr",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "efivar",
+    "popt"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/efibootmgr",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "442867d12f8525034a404fc8af3036dba8e1fc970998af2486c3b940dfad0874",
+  "source_tarball": "efibootmgr-18.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/rhboot/efibootmgr/archive/${version}/efibootmgr-${version}.tar.gz",
+  "tarball_files_count": 42,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "18"
+}

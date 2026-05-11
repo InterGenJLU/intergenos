@@ -1,0 +1,253 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:10Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gs",
+    "blfs_name": "ghostscript",
+    "blfs_version": "10.06.0",
+    "deps": [
+      {
+        "anchor": "cairo",
+        "name": "Cairo-1.18.4",
+        "note": "",
+        "type": "optional",
+        "version": "1.18.4"
+      },
+      {
+        "anchor": "cups",
+        "name": "Cups-2.4.16",
+        "note": "",
+        "type": "recommended",
+        "version": "2.4.16"
+      },
+      {
+        "anchor": "fontconfig",
+        "name": "Fontconfig-2.17.1",
+        "note": "required if you are installing any of the suggested fonts",
+        "type": "recommended",
+        "version": "2.17.1"
+      },
+      {
+        "anchor": "freetype2",
+        "name": "FreeType-2.14.1",
+        "note": "",
+        "type": "recommended",
+        "version": "2.14.1"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "optional",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "lcms2",
+        "name": "Little CMS-2.18",
+        "note": "",
+        "type": "recommended",
+        "version": "2.18"
+      },
+      {
+        "anchor": "libidn",
+        "name": "libidn-1.43",
+        "note": "",
+        "type": "optional",
+        "version": "1.43"
+      },
+      {
+        "anchor": "libjpeg",
+        "name": "libjpeg-turbo-3.1.3",
+        "note": "",
+        "type": "recommended",
+        "version": "3.1.3"
+      },
+      {
+        "anchor": "libpaper",
+        "name": "libpaper-2.2.7",
+        "note": "",
+        "type": "optional",
+        "version": "2.2.7"
+      },
+      {
+        "anchor": "libpng",
+        "name": "libpng-1.6.55",
+        "note": "",
+        "type": "recommended",
+        "version": "1.6.55"
+      },
+      {
+        "anchor": "libtiff",
+        "name": "libtiff-4.7.1",
+        "note": "",
+        "type": "recommended",
+        "version": "4.7.1"
+      },
+      {
+        "anchor": "libwebp",
+        "name": "libwebp-1.6.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.6.0"
+      },
+      {
+        "anchor": "openjpeg2",
+        "name": "OpenJPEG-2.5.4",
+        "note": "",
+        "type": "recommended",
+        "version": "2.5.4"
+      },
+      {
+        "anchor": "x-window-system",
+        "name": "a graphical\n                environment",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "dvipdf",
+    "eps2eps",
+    "gs",
+    "gsbj",
+    "gsc (from soinstall)",
+    "gsdj",
+    "gsdj500",
+    "gslj",
+    "gslp",
+    "gsnd",
+    "gsx (from soinstall)",
+    "lprsetup.sh",
+    "pdf2dsc",
+    "pdf2ps",
+    "pf2afm",
+    "pfbtopfa",
+    "pphs",
+    "printafm",
+    "ps2ascii",
+    "ps2epsi",
+    "ps2pdf",
+    "ps2pdf12",
+    "ps2pdf13",
+    "ps2pdf14",
+    "ps2pdfwr",
+    "ps2ps",
+    "ps2ps2",
+    "unix-lpr.sh"
+  ],
+  "expected_headers": [
+    "/usr/include/ghostscript"
+  ],
+  "expected_libs": [
+    "libgs.so"
+  ],
+  "expected_pkgconfig": [
+    "gs.pc"
+  ],
+  "name": "ghostscript",
+  "our_autotools_flags": [
+    "--disable-compile-inits",
+    "--g",
+    "--prefix=/usr",
+    "--with-system-libtiff"
+  ],
+  "our_deps_build": [
+    "cups",
+    "fontconfig",
+    "freetype2",
+    "lcms2",
+    "libjpeg-turbo",
+    "libpng",
+    "libtiff",
+    "openjpeg2",
+    "cairo",
+    "gtk3",
+    "libwebp"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/ghostscript",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "64352648c2c081c8a9fb1a12dc1965e01ead7c57f58b72d1b54f6ef1cef3c561",
+  "source_tarball": "ghostscript-10.06.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10060/ghostscript-${version}.tar.xz",
+  "tarball_files_count": 9350,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "Use Brotli library to support decompressing WOFF2 fonts",
+      "name": "brotli",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support reading bzip2-compressed font files",
+      "name": "bzip2",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Use Harfbuzz library to improve auto-hinting;",
+      "name": "harfbuzz",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "mmap",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support color bitmap glyph formats in the PNG format;",
+      "name": "png",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable FreeType unit and regression tests",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Support reading gzip-compressed font files",
+      "name": "zlib",
+      "type": "combo"
+    }
+  ],
+  "version": "10.06.0"
+}

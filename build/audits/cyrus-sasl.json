@@ -1,0 +1,358 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:24Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "cyrus-sasl",
+    "blfs_name": "Cyrus SASL",
+    "blfs_version": "2.1.28",
+    "deps": [
+      {
+        "anchor": "linux-pam",
+        "name": "Linux-PAM-1.7.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.7.2"
+      },
+      {
+        "anchor": "lmdb",
+        "name": "lmdb-0.9.35",
+        "note": "",
+        "type": "recommended",
+        "version": "0.9.35"
+      },
+      {
+        "anchor": "mariadb",
+        "name": "MariaDB-11.8.6",
+        "note": "",
+        "type": "optional",
+        "version": "11.8.6"
+      },
+      {
+        "anchor": "mitkrb",
+        "name": "MIT Kerberos\n                V5-1.22.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.22.2"
+      },
+      {
+        "anchor": "openldap",
+        "name": "OpenLDAP-2.6.12",
+        "note": "",
+        "type": "optional",
+        "version": "2.6.12"
+      },
+      {
+        "anchor": "postgresql",
+        "name": "PostgreSQL-18.2",
+        "note": "",
+        "type": "optional",
+        "version": "18.2"
+      },
+      {
+        "anchor": "sphinx",
+        "name": "sphinx-9.1.0",
+        "note": "needed for\n                regenerating the documentation",
+        "type": "optional",
+        "version": "9.1.0"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "cyrus-sasl-2.1.28-gcc15_fixes-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/cyrus-sasl-2.1.28-gcc15_fixes-1.patch"
+      }
+    ]
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "pluginviewer",
+    "saslauthd",
+    "sasldblistusers2",
+    "saslpasswd2",
+    "testsaslauthd"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libsasl2.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "cyrus-sasl",
+  "our_autotools_flags": [
+    "--enable-auth-sasldb",
+    "--prefix=/usr",
+    "--sysconfdir=/etc",
+    "--with-dblib=lmdb",
+    "--with-dbpath=/var/lib/sasl/sasldb2",
+    "--with-saslauthd=/var/run/saslauthd",
+    "--with-sphinx-build=no"
+  ],
+  "our_deps_build": [
+    "lmdb",
+    "linux-pam"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "cyrus-sasl-2.1.28-gcc15_fixes-1.patch",
+      "sha256": "361310425a4a8f19e5f9479f682cc042f191450f2bb6e8bd8d9fb80b6052197e"
+    }
+  ],
+  "package_dir": "packages/core/cyrus-sasl",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 0,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "7ccfc6abd01ed67c1a0924b353e526f1b766b21f42d4562ee635a8ebfc5bb38c",
+  "source_tarball": "cyrus-sasl-2.1.28.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/cyrusimap/cyrus-sasl/releases/download/cyrus-sasl-${version}/cyrus-sasl-${version}.tar.gz",
+  "tarball_files_count": 1118,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-cmulocal",
+      "kind": "enable",
+      "name": "cmulocal"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-sample",
+      "kind": "enable",
+      "name": "sample"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-obsolete_cram_attr",
+      "kind": "enable",
+      "name": "obsolete_cram_attr"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-obsolete_digest_attr",
+      "kind": "enable",
+      "name": "obsolete_digest_attr"
+    },
+    {
+      "help": "  --enable-staticdlopen   try dynamic plugins when we are a static libsasl [[no",
+      "kind": "enable",
+      "name": "staticdlopen"
+    },
+    {
+      "help": "  --enable-keep-db-open   keep handle to DB open for improved performance [[no",
+      "kind": "enable",
+      "name": "keep_db_open"
+    },
+    {
+      "help": "  --enable-alwaystrue     enable the alwaystrue password verifier (discouraged)",
+      "kind": "enable",
+      "name": "alwaystrue"
+    },
+    {
+      "help": "  --enable-checkapop      enable use of sasl_checkapop [[yes",
+      "kind": "enable",
+      "name": "checkapop"
+    },
+    {
+      "help": "  --enable-cram           enable CRAM-MD5 authentication [[yes",
+      "kind": "enable",
+      "name": "cram"
+    },
+    {
+      "help": "  --enable-digest         enable DIGEST-MD5 authentication [[yes",
+      "kind": "enable",
+      "name": "digest"
+    },
+    {
+      "help": "  --enable-scram            enable SCRAM authentication [[yes",
+      "kind": "enable",
+      "name": "scram"
+    },
+    {
+      "help": "  --enable-otp            enable OTP authentication [[yes",
+      "kind": "enable",
+      "name": "otp"
+    },
+    {
+      "help": "  --enable-srp            enable SRP authentication [[no",
+      "kind": "enable",
+      "name": "srp"
+    },
+    {
+      "help": "  --enable-srp-setpass    enable setting SRP secrets with saslpasswd [[no",
+      "kind": "enable",
+      "name": "srp_setpass"
+    },
+    {
+      "help": "  --enable-gss_mutexes     use mutexes around calls to the GSS library",
+      "kind": "enable",
+      "name": "gss_mutexes"
+    },
+    {
+      "help": "  --enable-sia            enable SIA authentication [no",
+      "kind": "enable",
+      "name": "sia"
+    },
+    {
+      "help": "  --enable-auth-sasldb    enable experimental SASLdb authentication module [no",
+      "kind": "enable",
+      "name": "auth-sasldb"
+    },
+    {
+      "help": "  --enable-httpform       enable HTTP form authentication [[no",
+      "kind": "enable",
+      "name": "httpform"
+    },
+    {
+      "help": "  --enable-anon           enable ANONYMOUS authentication [[yes",
+      "kind": "enable",
+      "name": "anon"
+    },
+    {
+      "help": "  --enable-login          enable unsupported LOGIN authentication [[no",
+      "kind": "enable",
+      "name": "login"
+    },
+    {
+      "help": "  --enable-ntlm           enable unsupported NTLM authentication [[no",
+      "kind": "enable",
+      "name": "ntlm"
+    },
+    {
+      "help": "  --enable-passdss        enable PASSDSS authentication (experimental) [[no",
+      "kind": "enable",
+      "name": "passdss"
+    },
+    {
+      "help": "  --enable-sql            enable SQL auxprop [[no",
+      "kind": "enable",
+      "name": "sql"
+    },
+    {
+      "help": "  --enable-ldapdb         enable LDAPDB plugin [no",
+      "kind": "enable",
+      "name": "ldapdb"
+    },
+    {
+      "help": "  --disable-macos-framework       disable building and installing replacement SASL2 Framework for MacOS X-provided SASL Framework [[no",
+      "kind": "enable",
+      "name": "macos-framework"
+    },
+    {
+      "help": "  --with-purecov          link with purecov",
+      "kind": "with",
+      "name": "purecov"
+    },
+    {
+      "help": "  --with-purify           link with purify",
+      "kind": "with",
+      "name": "purify"
+    },
+    {
+      "help": "  --with-devrandom=PATH   set the path to pseudo random number generator [[/dev/urandom",
+      "kind": "with",
+      "name": "devrandom"
+    },
+    {
+      "help": "  --with-saslauthd=DIR    enable use of the saslauth daemon using state dir DIR ",
+      "kind": "with",
+      "name": "saslauthd"
+    },
+    {
+      "help": "  --with-authdaemond=PATH enable use of authdaemon with default socket=PATH [[yes",
+      "kind": "with",
+      "name": "authdaemond"
+    },
+    {
+      "help": "  --with-pwcheck=DIR     enable deprecated pwcheck daemon using statedir DIR ",
+      "kind": "with",
+      "name": "pwcheck"
+    },
+    {
+      "help": "  --with-ipctype={unix,doors}    use ipctype [[unix",
+      "kind": "with",
+      "name": "ipctype"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-opie=PATH",
+      "kind": "with",
+      "name": "opie"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-pam=DIR",
+      "kind": "with",
+      "name": "pam"
+    },
+    {
+      "help": "  --with-ldap=DIR         use LDAP (in DIR) for saslauthd [no",
+      "kind": "with",
+      "name": "ldap"
+    },
+    {
+      "help": "  --with-mysql=PATH       use MySQL from PATH ",
+      "kind": "with",
+      "name": "mysql"
+    },
+    {
+      "help": "  --with-pgsql=PATH       use PostgreSQL from PATH ",
+      "kind": "with",
+      "name": "pgsql"
+    },
+    {
+      "help": "  --with-sqlite=PATH       use SQLite from PATH ",
+      "kind": "with",
+      "name": "sqlite"
+    },
+    {
+      "help": "  --with-sqlite3=PATH       use SQLite3 from PATH ",
+      "kind": "with",
+      "name": "sqlite3"
+    },
+    {
+      "help": "  --with-plugindir=DIR    set the directory where plugins will\n                          be found [[LIBDIR/sasl2",
+      "kind": "with",
+      "name": "plugindir"
+    },
+    {
+      "help": "   --with-configdir=DIR    set the directory where config files will\n                          be found [PLUGINDIR:SYSCONFDIR/sasl2",
+      "kind": "with",
+      "name": "configdir"
+    },
+    {
+      "help": "  --with-rc4              use rc4 routines [[yes",
+      "kind": "with",
+      "name": "rc4"
+    },
+    {
+      "help": "  --with-dmalloc=DIR      with DMALLOC support (for test applications) [[no",
+      "kind": "with",
+      "name": "dmalloc"
+    },
+    {
+      "help": "  --with-sfio=DIR         with SFIO support (for smtptest/libsfsasl) [[no",
+      "kind": "with",
+      "name": "sfio"
+    },
+    {
+      "help": "AS_HELP_STRING([with-sphinx-build=(yes|no|PATH)",
+      "kind": "with",
+      "name": "sphinx-build"
+    }
+  ],
+  "version": "2.1.28"
+}

@@ -1,0 +1,59 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:46Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "lzo",
+    "blfs_name": "LZO",
+    "blfs_version": "2.10",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "liblzo2.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "lzo",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--docdir=/usr/share/doc/lzo-${version}",
+    "--enable-shared",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/lzo",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "c0f892943208266f9b6543b3ae308fab6284c5c90e627931446fb49b4221a072",
+  "source_tarball": "lzo-2.10.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.oberhumer.com/opensource/lzo/download/lzo-${version}.tar.gz",
+  "tarball_files_count": 338,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "2.10"
+}

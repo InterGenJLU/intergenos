@@ -1,0 +1,54 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:01Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "perl-parse-yapp",
+    "blfs_name": "Parse::Yapp",
+    "blfs_version": "1.21",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "perl-makemaker",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [
+    "yapp"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libbtparse.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "perl-parse-yapp",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "libarchive"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/perl-parse-yapp",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 0,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "3810e998308fba2e0f4f26043035032b027ce51ce5c8a52a8b8e340ca65f13e5",
+  "source_tarball": "Parse-Yapp-1.21.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.cpan.org/authors/id/W/WB/WBRASWELL/Parse-Yapp-${version}.tar.gz",
+  "tarball_files_count": 28,
+  "test_command": "make test",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.21"
+}

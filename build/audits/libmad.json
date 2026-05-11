@@ -1,0 +1,114 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:53Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libmad",
+    "blfs_name": "libmad",
+    "blfs_version": "0.15.1b",
+    "deps": [],
+    "patches": [
+      {
+        "filename": "libmad-0.15.1b-fixes-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/libmad-0.15.1b-fixes-1.patch"
+      }
+    ]
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libmad.so"
+  ],
+  "expected_pkgconfig": [
+    "mad.pc"
+  ],
+  "name": "libmad",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "libmad-0.15.1b-fixes-1.patch",
+      "sha256": "94d488d8288f557de45f0e83e90320c5127cf67a0d6a4f4a67b41b2517d58445"
+    }
+  ],
+  "package_dir": "packages/desktop/libmad",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "bbfac3ed6bfbc2823d3775ebb931087371e142bb0e9bb1bee51a76a6e0078690",
+  "source_tarball": "libmad-0.15.1b.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://downloads.sourceforge.net/mad/libmad-${version}.tar.gz",
+  "tarball_files_count": 61,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AC_HELP_STRING([--enable-speed",
+      "kind": "enable",
+      "name": "speed"
+    },
+    {
+      "help": "AC_HELP_STRING([--enable-accuracy",
+      "kind": "enable",
+      "name": "accuracy"
+    },
+    {
+      "help": "AC_HELP_STRING([--enable-fpm=ARCH",
+      "kind": "enable",
+      "name": "fpm"
+    },
+    {
+      "help": "AC_HELP_STRING([--enable-sso",
+      "kind": "enable",
+      "name": "sso"
+    },
+    {
+      "help": "AC_HELP_STRING([--disable-aso",
+      "kind": "enable",
+      "name": "aso"
+    },
+    {
+      "help": "AC_HELP_STRING([--enable-strict-iso",
+      "kind": "enable",
+      "name": "strict-iso"
+    },
+    {
+      "help": "AC_HELP_STRING([--enable-profiling",
+      "kind": "enable",
+      "name": "profiling"
+    },
+    {
+      "help": "AC_HELP_STRING([--enable-debugging",
+      "kind": "enable",
+      "name": "debugging"
+    },
+    {
+      "help": "AC_HELP_STRING([--enable-experimental",
+      "kind": "enable",
+      "name": "experimental"
+    }
+  ],
+  "version": "0.15.1b"
+}

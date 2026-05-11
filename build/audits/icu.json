@@ -1,0 +1,206 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:38Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "icu",
+    "blfs_name": "icu",
+    "blfs_version": "78.2",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "for documentation",
+        "type": "optional",
+        "version": "1.16.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "derb",
+    "escapesrc",
+    "genbrk",
+    "genccode",
+    "gencfu",
+    "gencmn",
+    "gencnval",
+    "gendict",
+    "gennorm2",
+    "genrb",
+    "gensprep",
+    "icu-config",
+    "icuexportdata",
+    "icuinfo",
+    "icupkg",
+    "makeconv",
+    "pkgdata",
+    "uconv"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libicudata.so",
+    "libicui18n.so",
+    "libicuio.so",
+    "libicutest.so",
+    "libicutu.so",
+    "libicuuc.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "icu",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/icu",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "3e99687b5c435d4b209630e2d2ebb79906c984685e78635078b672e03c89df35",
+  "source_tarball": "icu4c-78.2-sources.tgz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/unicode-org/icu/releases/download/release-${version}/icu4c-${version}-sources.tgz",
+  "tarball_files_count": 2610,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-icu-config",
+      "kind": "enable",
+      "name": "icu-config"
+    },
+    {
+      "help": "  --enable-debug          build debug libraries and enable the U_DEBUG define",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "  --disable-release       do not build release libraries",
+      "kind": "enable",
+      "name": "release"
+    },
+    {
+      "help": "  --disable-shared        do not build shared libraries",
+      "kind": "enable",
+      "name": "shared"
+    },
+    {
+      "help": "  --enable-static         build static libraries",
+      "kind": "enable",
+      "name": "static"
+    },
+    {
+      "help": "  --enable-auto-cleanup   enable auto cleanup of libraries",
+      "kind": "enable",
+      "name": "auto-cleanup"
+    },
+    {
+      "help": "  --disable-draft         do not enable draft APIs (and internal APIs)",
+      "kind": "enable",
+      "name": "draft"
+    },
+    {
+      "help": "  --disable-renaming      do not add a version suffix to symbols",
+      "kind": "enable",
+      "name": "renaming"
+    },
+    {
+      "help": "  --enable-tracing        enable function and data tracing",
+      "kind": "enable",
+      "name": "tracing"
+    },
+    {
+      "help": "  --enable-plugins        enable plugins",
+      "kind": "enable",
+      "name": "plugins"
+    },
+    {
+      "help": "  --disable-dyload        disable dynamic loading",
+      "kind": "enable",
+      "name": "dyload"
+    },
+    {
+      "help": "  --enable-rpath          use rpath when linking [default is only if necessary",
+      "kind": "enable",
+      "name": "rpath"
+    },
+    {
+      "help": "  --enable-weak-threads   weakly reference the threading library",
+      "kind": "enable",
+      "name": "weak-threads"
+    },
+    {
+      "help": "  --disable-extras        do not build ICU extras",
+      "kind": "enable",
+      "name": "extras"
+    },
+    {
+      "help": "  --disable-icuio         do not build ICU's icuio library",
+      "kind": "enable",
+      "name": "icuio"
+    },
+    {
+      "help": "  --enable-layoutex       build ICU's Paragraph Layout library.\n            icu-le-hb must be installed via pkg-config. See http://harfbuzz.org",
+      "kind": "enable",
+      "name": "layoutex"
+    },
+    {
+      "help": "",
+      "kind": "enable",
+      "name": "layout"
+    },
+    {
+      "help": "  --disable-tools         do not build ICU's tools",
+      "kind": "enable",
+      "name": "tools"
+    },
+    {
+      "help": "  --enable-fuzzer         build ICU's fuzzer test targets",
+      "kind": "enable",
+      "name": "fuzzer"
+    },
+    {
+      "help": "  --disable-tests         do not build ICU tests",
+      "kind": "enable",
+      "name": "tests"
+    },
+    {
+      "help": "  --disable-samples       do not build ICU samples\n\nAdditionally, the variable FORCE_LIBS may be set before calling configure.\nIf set, it will REPLACE any automatic list of libraries.",
+      "kind": "enable",
+      "name": "samples"
+    },
+    {
+      "help": "  --with-cross-build=dir specify an absolute path to the build directory of an ICU built for the current platform [default=no cross dir",
+      "kind": "with",
+      "name": "cross-build"
+    },
+    {
+      "help": "  --with-data-packaging     specify how to package ICU data. Possible values:\n        files    raw files (.res, etc)\n        archive  build a single icudtXX.dat file\n        library  shared library (.",
+      "kind": "with",
+      "name": "data-packaging"
+    },
+    {
+      "help": "  --with-library-suffix=suffix    tag a suffix to the library names [default=",
+      "kind": "with",
+      "name": "library-suffix"
+    }
+  ],
+  "version": "78.2"
+}

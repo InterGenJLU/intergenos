@@ -1,0 +1,295 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:16Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "avahi",
+    "blfs_name": "Avahi",
+    "blfs_version": "0.8",
+    "deps": [
+      {
+        "anchor": "dbus-python",
+        "name": "D-Bus Python-1.4.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.4.0"
+      },
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "GObject Introspection\n                recommended",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "recommended",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "libdaemon",
+        "name": "libdaemon-0.14",
+        "note": "",
+        "type": "recommended",
+        "version": "0.14"
+      },
+      {
+        "anchor": "libevent",
+        "name": "libevent-2.1.12",
+        "note": "",
+        "type": "optional",
+        "version": "2.1.12"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "avahi-0.8-ipv6_race_condition_fix-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/avahi-0.8-ipv6_race_condition_fix-1.patch"
+      }
+    ]
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "dig",
+    "host",
+    "nslookup",
+    "nsupdate",
+    "rndc"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "avahi",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "dbus",
+    "glib2",
+    "libdaemon",
+    "libevent"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "avahi-0.8-ipv6_race_condition_fix-1.patch",
+      "sha256": "218c909581d0ca2c86c8145bb0797050d987a6b0ae3417949dbe2a6d55c49360"
+    }
+  ],
+  "package_dir": "packages/desktop/avahi",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "060309d7a333d38d951bc27598c677af1796934dbd98e1024e7ad8de798fedda",
+  "source_tarball": "avahi-0.8.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/lathiat/avahi/releases/download/v${version}/avahi-${version}.tar.gz",
+  "tarball_files_count": 707,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-stack-protector",
+      "kind": "enable",
+      "name": "stack-protector"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-glib",
+      "kind": "enable",
+      "name": "glib"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-gobject",
+      "kind": "enable",
+      "name": "gobject"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-libevent",
+      "kind": "enable",
+      "name": "libevent"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-qt3",
+      "kind": "enable",
+      "name": "qt3"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-qt4",
+      "kind": "enable",
+      "name": "qt4"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-qt5",
+      "kind": "enable",
+      "name": "qt5"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-gtk",
+      "kind": "enable",
+      "name": "gtk"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-gtk3",
+      "kind": "enable",
+      "name": "gtk3"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-dbus",
+      "kind": "enable",
+      "name": "dbus"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-dbm",
+      "kind": "enable",
+      "name": "dbm"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-gdbm",
+      "kind": "enable",
+      "name": "gdbm"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-libdaemon",
+      "kind": "enable",
+      "name": "libdaemon"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-python",
+      "kind": "enable",
+      "name": "python"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-pygobject",
+      "kind": "enable",
+      "name": "pygobject"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-python-dbus",
+      "kind": "enable",
+      "name": "python-dbus"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-mono",
+      "kind": "enable",
+      "name": "mono"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-monodoc",
+      "kind": "enable",
+      "name": "monodoc"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-autoipd",
+      "kind": "enable",
+      "name": "autoipd"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-core-docs",
+      "kind": "enable",
+      "name": "core-docs"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-manpages",
+      "kind": "enable",
+      "name": "manpages"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-xmltoman",
+      "kind": "enable",
+      "name": "xmltoman"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-tests",
+      "kind": "enable",
+      "name": "tests"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-compat-libdns_sd",
+      "kind": "enable",
+      "name": "compat-libdns_sd"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-compat-howl",
+      "kind": "enable",
+      "name": "compat-howl"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-distro=DISTRO",
+      "kind": "with",
+      "name": "distro"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-dbus-sys=<dir>",
+      "kind": "with",
+      "name": "dbus-sys"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-dbus-system-address=<address>",
+      "kind": "with",
+      "name": "dbus-system-socket"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-xml=[expat/bsdxml/none",
+      "kind": "with",
+      "name": "xml"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-avahi-user=<user>",
+      "kind": "with",
+      "name": "avahi_user"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-avahi-group=<group>",
+      "kind": "with",
+      "name": "avahi_group"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-avahi-priv-access-group=<group>",
+      "kind": "with",
+      "name": "avahi_priv_access_group"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-autoipd-user=<user>",
+      "kind": "with",
+      "name": "autoipd_user"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-autoipd-group=<group>",
+      "kind": "with",
+      "name": "autoipd_group"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-systemdsystemunitdir=DIR",
+      "kind": "with",
+      "name": "systemdsystemunitdir"
+    }
+  ],
+  "version": "0.8"
+}

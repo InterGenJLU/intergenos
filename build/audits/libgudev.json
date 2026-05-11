@@ -1,0 +1,107 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:51Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libgudev",
+    "blfs_name": "libgudev",
+    "blfs_version": "238",
+    "deps": [
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "GObject Introspection required\n                for GNOME",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "umockdev",
+        "name": "umockdev-0.19.4",
+        "note": "for\n                testing",
+        "type": "optional",
+        "version": "0.19.4"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libgudev-1.0.so"
+  ],
+  "expected_pkgconfig": [
+    "gudev-1.0.pc"
+  ],
+  "name": "libgudev",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "glib2",
+    "vala"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libgudev",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "61266ab1afc9d73dbc60a8b2af73e99d2fdff47d99544d085760e4fa667b5dd1",
+  "source_tarball": "libgudev-238.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/libgudev/238/libgudev-${version}.tar.xz",
+  "tarball_files_count": 45,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "introspection",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "vapi",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gtk_doc",
+      "type": "boolean"
+    }
+  ],
+  "version": "238"
+}

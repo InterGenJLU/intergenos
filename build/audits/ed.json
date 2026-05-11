@@ -1,0 +1,61 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "tarball at /mnt/intergenos/build/sources/ed-1.22.5.tar.lz unreadable",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:27Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "ed",
+    "blfs_name": "Ed",
+    "blfs_version": "1.22.5",
+    "deps": [
+      {
+        "anchor": "libarchive",
+        "name": "libarchive-3.8.5",
+        "note": "for bsdtar",
+        "type": "required",
+        "version": "3.8.5"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "unknown",
+  "bundled_libs": [],
+  "docs_seen": [],
+  "expected_binaries": [
+    "/usr/bin/ed",
+    "/usr/bin/red"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "ed",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libarchive"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/base/ed",
+  "reproducibility": {
+    "_notes": "filled by agent-c03 from build.sh inspection + BLFS HTML",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "56e107ddc2f29dad6690376c15bf9751509e1ee3b8241710e44edbe5c3a158cc",
+  "source_tarball": "ed-1.22.5.tar.lz",
+  "source_tarball_exists": true,
+  "source_url": "https://ftpmirror.gnu.org/ed/ed-${version}.tar.lz",
+  "tarball_files_count": 0,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "base",
+  "upstream_options": [],
+  "version": "1.22.5"
+}

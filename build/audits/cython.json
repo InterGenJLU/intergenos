@@ -1,0 +1,113 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:24Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "cython",
+    "blfs_name": "Cython",
+    "blfs_version": "3.2.4",
+    "deps": [
+      {
+        "anchor": "gdb",
+        "name": "GDB-17.1",
+        "note": "",
+        "type": "optional",
+        "version": "17.1"
+      },
+      {
+        "anchor": "pytest",
+        "name": "pytest-9.0.2",
+        "note": "",
+        "type": "optional",
+        "version": "9.0.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "python",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "cygdb",
+    "cython",
+    "cythonize",
+    "docutils",
+    "rst2html4",
+    "rst2html5",
+    "rst2html",
+    "rst2latex",
+    "rst2man",
+    "rst2odt",
+    "rst2pseudoxml",
+    "rst2s5",
+    "rst2xetex",
+    "rst2xml",
+    "doxypypy",
+    "doxyqml",
+    "gi-docgen",
+    "mako-render",
+    "f2py",
+    "f2py3",
+    "f2py3.14 (3 copies of the same script)",
+    "pygmentize",
+    "pyserial-miniterm",
+    "pyserial-ports",
+    "pytest",
+    "py.test (different files but with same content)",
+    "cm2html",
+    "cm2latex",
+    "cm2man",
+    "cm2pseudoxml",
+    "cm2xetex",
+    "cm2xml",
+    "scour",
+    "sphinx-apidoc",
+    "sphinx-autogen",
+    "sphinx-build",
+    "sphinx-quickstart"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "/usr/lib/python3.14/site-packages/gi/_gi{",
+    "_cairo}.cpython-314-&lt;arch&gt;-linux-gnu.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "cython",
+  "our_autotools_flags": [
+    "--no-build-isolation",
+    "--no-cache-dir",
+    "--no-deps"
+  ],
+  "our_deps_build": [
+    "docbook-xsl-nons"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/cython",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "84226ecd313b233da27dc2eb3601b4f222b8209c3a7216d8733b031da1dc64e6",
+  "source_tarball": "cython-3.2.4.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://files.pythonhosted.org/packages/source/C/Cython/cython-${version}.tar.gz",
+  "tarball_files_count": 2679,
+  "test_command": "pytest",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "3.2.4"
+}

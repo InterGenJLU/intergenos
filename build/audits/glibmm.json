@@ -1,0 +1,155 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:14Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "glibmm",
+    "blfs_name": "GLibmm",
+    "blfs_version": "2.66.8",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "glib-networking",
+        "name": "glib-networking-2.80.1",
+        "note": "for\n                tests",
+        "type": "optional",
+        "version": "2.80.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gnutls",
+        "name": "GnuTLS-3.8.12",
+        "note": "for tests",
+        "type": "optional",
+        "version": "3.8.12"
+      },
+      {
+        "anchor": "libsigc",
+        "name": "libsigc++-2.12.1",
+        "note": "",
+        "type": "required",
+        "version": "2.12.1"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "",
+        "type": "optional",
+        "version": "1.1.45"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "glibmm",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "glib2",
+    "libsigcpp3",
+    "libsigcpp"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/glibmm",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "39c0e9f6da046d679390774efdb9ad564436236736dc2f7825e614b2d4087826",
+  "source_tarball": "glibmm-2.86.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/glibmm/2.86/glibmm-${version}.tar.xz",
+  "tarball_files_count": 3152,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "if-git-build",
+      "description": "Generate source code from .hg and .ccg files",
+      "name": "maintainer-mode",
+      "type": "combo"
+    },
+    {
+      "default": "min",
+      "description": "Compiler warning level",
+      "name": "warnings",
+      "type": "combo"
+    },
+    {
+      "default": "fatal",
+      "description": "Compiler warning level when a tarball is created",
+      "name": "dist-warnings",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Build deprecated API and include it in the library",
+      "name": "build-deprecated-api",
+      "type": "boolean"
+    },
+    {
+      "default": "if-maintainer-mode",
+      "description": "Build and install the documentation",
+      "name": "build-documentation",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Print debug messages in connection with reference counting",
+      "name": "debug-refcounting",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build example programs",
+      "name": "build-examples",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Use separate DLL and LIB filenames for Visual Studio 2017 and 2019",
+      "name": "msvc14x-parallel-installable",
+      "type": "boolean"
+    }
+  ],
+  "version": "2.86.0"
+}

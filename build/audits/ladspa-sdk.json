@@ -1,0 +1,47 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:43Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "ladspa-sdk",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "libsndfile"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "libsndfile"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/ladspa-sdk",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "27d24f279e4b81bd17ecbdcc38e4c42991bb388826c0b200067ce0eb59d3da5b",
+  "source_tarball": "ladspa_sdk_1.17.tgz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.ladspa.org/download/ladspa_sdk_${version}.tgz",
+  "tarball_files_count": 36,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.17"
+}

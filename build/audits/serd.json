@@ -1,0 +1,124 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:19Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "serd",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--prefix=/usr",
+    "--strip"
+  ],
+  "our_deps_build": [
+    "meson",
+    "ninja",
+    "pkgconf"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/serd",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "f47259bc38ba553b0deb8b6dab6b5b73d3630469a7c9439ccdca80e06d7c1ece",
+  "source_tarball": "serd-0.32.8.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.drobilla.net/serd-${version}.tar.xz",
+  "tarball_files_count": 1525,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "enabled",
+      "description": "Check for platform-specific features",
+      "name": "checks",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build documentation",
+      "name": "docs",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build paginated HTML documentation",
+      "name": "html",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Run code quality checks",
+      "name": "lint",
+      "type": "boolean"
+    },
+    {
+      "default": "enabled",
+      "description": "Install man pages",
+      "name": "man",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build HTML man pages",
+      "name": "man_html",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build single-page HTML documentation",
+      "name": "singlehtml",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Statically link executables",
+      "name": "static",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build tests",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "Serd",
+      "description": "Project title",
+      "name": "title",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Build command line utilities",
+      "name": "tools",
+      "type": "feature"
+    }
+  ],
+  "version": "0.32.8"
+}

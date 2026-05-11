@@ -1,0 +1,119 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libcairomm-1.16.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "cairomm",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "cairo",
+    "libsigcpp3"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/cairomm",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "b81255394e3ea8e8aa887276d22afa8985fc8daef60692eb2407d23049f03cfb",
+  "source_tarball": "cairomm-1.18.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.cairographics.org/releases/cairomm-${version}.tar.xz",
+  "tarball_files_count": 464,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "if-git-build",
+      "description": "Let mm-common-get copy some files to untracked/",
+      "name": "maintainer-mode",
+      "type": "combo"
+    },
+    {
+      "default": "min",
+      "description": "Compiler warning level",
+      "name": "warnings",
+      "type": "combo"
+    },
+    {
+      "default": "fatal",
+      "description": "Compiler warning level when a tarball is created",
+      "name": "dist-warnings",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Build deprecated API and include it in the library",
+      "name": "build-deprecated-api",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build exceptions API and include it in the library",
+      "name": "build-exceptions-api",
+      "type": "boolean"
+    },
+    {
+      "default": "if-maintainer-mode",
+      "description": "Build and install the documentation",
+      "name": "build-documentation",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Build example programs",
+      "name": "build-examples",
+      "type": "boolean"
+    },
+    {
+      "default": "if-dependencies-found",
+      "description": "",
+      "name": "build-tests",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Use shared version of boost",
+      "name": "boost-shared",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Use separate DLL and LIB filenames for Visual Studio 2017 and 2019",
+      "name": "msvc14x-parallel-installable",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.18.0"
+}

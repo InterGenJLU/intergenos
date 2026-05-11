@@ -1,0 +1,126 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:11Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libwebp",
+    "blfs_name": "libwebp",
+    "blfs_version": "1.6.0",
+    "deps": [
+      {
+        "anchor": "freeglut",
+        "name": "Freeglut-3.8.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.8.0"
+      },
+      {
+        "anchor": "giflib",
+        "name": "giflib-5.2.2",
+        "note": "",
+        "type": "optional",
+        "version": "5.2.2"
+      },
+      {
+        "anchor": "libjpeg",
+        "name": "libjpeg-turbo-3.1.3",
+        "note": "",
+        "type": "recommended",
+        "version": "3.1.3"
+      },
+      {
+        "anchor": "libpng",
+        "name": "libpng-1.6.55",
+        "note": "",
+        "type": "recommended",
+        "version": "1.6.55"
+      },
+      {
+        "anchor": "libtiff",
+        "name": "libtiff-4.7.1",
+        "note": "",
+        "type": "recommended",
+        "version": "4.7.1"
+      },
+      {
+        "anchor": "sdl2",
+        "name": "sdl2-compat-2.32.64",
+        "note": "for improved\n                3D Acceleration",
+        "type": "recommended",
+        "version": "2.32.64"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "BUILDING",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "cwebp",
+    "webp",
+    "gif2webp",
+    "img2webp",
+    "vwebp",
+    "webpinfo",
+    "webpmux"
+  ],
+  "expected_headers": [
+    "/usr/include/webp"
+  ],
+  "expected_libs": [
+    "libsharpyuv.so",
+    "libwebpdecoder.so",
+    "libwebpdemux.so",
+    "libwebpmux.so",
+    "libwebp.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libwebp",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--enable-libwebpdecoder",
+    "--enable-libwebpdemux",
+    "--enable-libwebpextras",
+    "--enable-libwebpmux",
+    "--enable-swap-16bit-csp",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libjpeg-turbo",
+    "libpng",
+    "libtiff",
+    "giflib"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libwebp",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "e4ab7009bf0629fd11982d4c2aa83964cf244cffba7347ecd39019a9e38c4564",
+  "source_tarball": "libwebp-1.6.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-${version}.tar.gz",
+  "tarball_files_count": 392,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.6.0"
+}

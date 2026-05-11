@@ -26,5 +26,6 @@ dependencies:
   - lcms2
   - libseccomp
   - rust
+  - gst-plugins-bad
   host: []
   runtime: []

@@ -1,0 +1,169 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:21Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "cairo",
+    "blfs_name": "Cairo",
+    "blfs_version": "1.18.4",
+    "deps": [
+      {
+        "anchor": "fontconfig",
+        "name": "Fontconfig-2.17.1",
+        "note": "",
+        "type": "recommended",
+        "version": "2.17.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "required\n                for most GUIs",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gs",
+        "name": "ghostscript-10.06.0",
+        "note": "",
+        "type": "optional",
+        "version": "10.06.0"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "libdrm",
+        "name": "libdrm-2.4.131",
+        "note": "",
+        "type": "optional",
+        "version": "2.4.131"
+      },
+      {
+        "anchor": "libpng",
+        "name": "libpng-1.6.55",
+        "note": "",
+        "type": "required",
+        "version": "1.6.55"
+      },
+      {
+        "anchor": "librsvg",
+        "name": "librsvg-2.61.4",
+        "note": "",
+        "type": "optional",
+        "version": "2.61.4"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "optional",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "lzo",
+        "name": "LZO-2.10",
+        "note": "",
+        "type": "optional",
+        "version": "2.10"
+      },
+      {
+        "anchor": "pixman",
+        "name": "Pixman-0.46.4",
+        "note": "",
+        "type": "required",
+        "version": "0.46.4"
+      },
+      {
+        "anchor": "poppler",
+        "name": "Poppler-26.02.0",
+        "note": "",
+        "type": "optional",
+        "version": "26.02.0"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      },
+      {
+        "anchor": "xorg7-lib",
+        "name": "Xorg Libraries",
+        "note": "",
+        "type": "recommended",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "cairo-trace"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libcairo.so",
+    "libcairo-gobject.so",
+    "libcairo-script-interpreter.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "cairo",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "fontconfig",
+    "freetype2-pass1",
+    "libpng",
+    "libX11",
+    "libXext",
+    "libXrender",
+    "pixman",
+    "glib2",
+    "libdrm",
+    "libxml2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/cairo",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "445ed8208a6e4823de1226a74ca319d3600e83f6369f99b14265006599c32ccb",
+  "source_tarball": "cairo-1.18.4.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.cairographics.org/releases/cairo-${version}.tar.xz",
+  "tarball_files_count": 4958,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.18.4"
+}

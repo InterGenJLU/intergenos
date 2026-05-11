@@ -39,6 +39,7 @@ dependencies:
   - libwebp
   - lua
   - openjpeg2
+  - appstream
   host: []
   runtime: []
 

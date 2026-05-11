@@ -1,0 +1,172 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-deps-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:57Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "nodejs",
+    "blfs_name": "Node.js",
+    "blfs_version": "22.22.0",
+    "deps": [
+      {
+        "anchor": "brotli",
+        "name": "Brotli-1.2.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.2.0"
+      },
+      {
+        "anchor": "c-ares",
+        "name": "c-ares-1.34.6",
+        "note": "",
+        "type": "recommended",
+        "version": "1.34.6"
+      },
+      {
+        "anchor": "icu",
+        "name": "ICU-78.2",
+        "note": "",
+        "type": "recommended",
+        "version": "78.2"
+      },
+      {
+        "anchor": "libuv",
+        "name": "libuv-1.52.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.52.0"
+      },
+      {
+        "anchor": "nghttp2",
+        "name": "nghttp2-1.68.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.68.0"
+      },
+      {
+        "anchor": "which",
+        "name": "Which-2.23",
+        "note": "",
+        "type": "required",
+        "version": ""
+      }
+    ],
+    "patches": [
+      {
+        "filename": "node-v22.22.0-python_build_fix-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/node-v22.22.0-python_build_fix-1.patch"
+      }
+    ]
+  },
+  "build_system": "autotools",
+  "bundled_libs": [
+    "deps"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "BUILDING",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "corepack",
+    "node",
+    "npm",
+    "npx"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "nodejs",
+  "our_autotools_flags": [
+    "--prefix=/usr",
+    "--shared-brotli",
+    "--shared-cares",
+    "--shared-libuv",
+    "--shared-nghttp2",
+    "--shared-openssl",
+    "--shared-zlib",
+    "--with-intl=system-icu"
+  ],
+  "our_deps_build": [
+    "brotli",
+    "c-ares",
+    "icu",
+    "libuv",
+    "nghttp2",
+    "which"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "node-v22.22.0-python_build_fix-1.patch",
+      "sha256": "2e9bbd25cbf3841907e9d5bb601bf74450e91bc2f833d64340db2683ffa2e1c4"
+    }
+  ],
+  "package_dir": "packages/core/nodejs",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "4c138012bb5352f49822a8f3e6d1db71e00639d0c36d5b6756f91e4c6f30b683",
+  "source_tarball": "node-v22.22.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://nodejs.org/dist/v${version}/node-v${version}.tar.xz",
+  "tarball_files_count": 32839,
+  "test_command": "make test",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-warnings",
+      "kind": "enable",
+      "name": "warnings"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-symbol-hiding",
+      "kind": "enable",
+      "name": "symbol-hiding"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-tests",
+      "kind": "enable",
+      "name": "tests"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-cares-threads",
+      "kind": "enable",
+      "name": "cares-threads"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-libgcc",
+      "kind": "enable",
+      "name": "libgcc"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-tests-crossbuild",
+      "kind": "enable",
+      "name": "tests-crossbuild"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-random=FILE",
+      "kind": "with",
+      "name": "random"
+    }
+  ],
+  "version": "22.22.0"
+}

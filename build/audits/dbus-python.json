@@ -1,0 +1,134 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:25Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "dbus-python",
+    "blfs_name": "D-Bus Python",
+    "blfs_version": "1.4.0",
+    "deps": [
+      {
+        "anchor": "dbus",
+        "name": "dbus-1.16.2",
+        "note": "",
+        "type": "required",
+        "version": "1.16.2"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "meson_python",
+        "name": "meson_python-0.19.0",
+        "note": "",
+        "type": "required",
+        "version": "0.19.0"
+      },
+      {
+        "anchor": "patchelf",
+        "name": "patchelf-0.18.0",
+        "note": "",
+        "type": "required",
+        "version": "0.18.0"
+      },
+      {
+        "anchor": "pygobject3",
+        "name": "PyGObject-3.54.5",
+        "note": "for tests",
+        "type": "optional",
+        "version": "3.54.5"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "dbus-python",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "dbus",
+    "glib2",
+    "pygobject3",
+    "meson_python",
+    "patchelf"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/dbus-python",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "c36b28f10ffcc8f1f798aca973bcc132f91f33eb9b6b8904381b4077766043d5",
+  "source_tarball": "dbus-python-1.4.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://dbus.freedesktop.org/releases/dbus-python/dbus-python-${version}.tar.xz",
+  "tarball_files_count": 195,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "disabled",
+      "description": "Enable documentation",
+      "name": "doc",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Enable ",
+      "name": "installed_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Suffix to make installed-tests from multiple builds co-installable",
+      "name": "installed_tests_subdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Override the Python interpreter to use",
+      "name": "python",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Enable unit tests",
+      "name": "tests",
+      "type": "feature"
+    }
+  ],
+  "version": "1.4.0"
+}

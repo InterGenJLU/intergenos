@@ -1,0 +1,60 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:13Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "wavpack",
+    "wvunpack",
+    "wvgain",
+    "wvtag"
+  ],
+  "expected_headers": [
+    "wavpack/wavpack.h"
+  ],
+  "expected_libs": [
+    "libwavpack.so"
+  ],
+  "expected_pkgconfig": [
+    "wavpack.pc"
+  ],
+  "name": "wavpack",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/wavpack",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "b5291bc4e6d69ebbd3da3800c5bf4a70f19bb92679b23e09b3b612c1e648d1ff",
+  "source_tarball": "wavpack-5.9.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/dbry/WavPack/releases/download/${version}/wavpack-${version}.tar.xz",
+  "tarball_files_count": 135,
+  "test_command": "ctest --output-on-failure",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "5.9.0"
+}

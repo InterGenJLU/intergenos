@@ -1,0 +1,188 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:30Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gtk-vnc",
+    "blfs_name": "gtk-vnc",
+    "blfs_version": "1.5.0",
+    "deps": [
+      {
+        "anchor": "cyrus-sasl",
+        "name": "Cyrus SASL-2.1.28",
+        "note": "",
+        "type": "optional",
+        "version": "2.1.28"
+      },
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "for generating\n                documentation",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gnutls",
+        "name": "GnuTLS-3.8.12",
+        "note": "",
+        "type": "required",
+        "version": "3.8.12"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "required",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "libgcrypt",
+        "name": "libgcrypt-1.12.0",
+        "note": "",
+        "type": "required",
+        "version": "1.12.0"
+      },
+      {
+        "anchor": "pulseaudio",
+        "name": "PulseAudio-17.0",
+        "note": "",
+        "type": "recommended",
+        "version": "17.0"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "gvnccapture"
+  ],
+  "expected_headers": [
+    "/usr/include/gtk-vnc-2.0",
+    "/usr/include/gvnc-1.0",
+    "/usr/include/gvncpulse-1.0"
+  ],
+  "expected_libs": [
+    "libgtk-vnc-2.0.so",
+    "libgvnc-1.0.so",
+    "libgvncpulse-1.0.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "gtk-vnc",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gtk3",
+    "gnutls",
+    "libgcrypt",
+    "glib2",
+    "pulseaudio",
+    "vala",
+    "cyrus-sasl"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "pulseaudio",
+      "value": "enabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gtk-vnc",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "c0beb4747528ad931da43acc567c6a0190f7fc624465571ed9ccece02c34dd23",
+  "source_tarball": "gtk-vnc-1.5.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gtk-vnc/1.5/gtk-vnc-${version}.tar.xz",
+  "tarball_files_count": 197,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "Enable introspection for this build",
+      "name": "introspection",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build the pulseaudio bridge for VNC client connections",
+      "name": "pulseaudio",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build with SASL support",
+      "name": "sasl",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build with coroutine backend: [auto, ucontext, libucontext, gthread, winfibre]",
+      "name": "with-coroutine",
+      "type": "string"
+    },
+    {
+      "default": "NORMAL",
+      "description": "Set default TLS priority string",
+      "name": "with-tls-priority",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Vala bindings",
+      "name": "with-vala",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build API reference",
+      "name": "gi-docs",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Enable Valgrind support",
+      "name": "valgrind",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.5.0"
+}

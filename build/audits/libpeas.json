@@ -1,0 +1,190 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:55Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libpeas",
+    "blfs_name": "libpeas",
+    "blfs_version": "1.36.0",
+    "deps": [
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "required",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "recommended",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "luajit",
+        "name": "luajit-20260213",
+        "note": "",
+        "type": "optional",
+        "version": "20260213"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "/usr/bin/peas-demo"
+  ],
+  "expected_headers": [
+    "/usr/include/libpeas-1.0/libpeas/peas.h"
+  ],
+  "expected_libs": [
+    "/usr/lib/libpeas-1.0.so",
+    "/usr/lib/libpeas-gtk-1.0.so"
+  ],
+  "expected_pkgconfig": [
+    "/usr/lib/pkgconfig/libpeas-1.0.pc",
+    "/usr/lib/pkgconfig/libpeas-gtk-1.0.pc"
+  ],
+  "name": "libpeas",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr",
+    "--wrap-mode=nofallback"
+  ],
+  "our_deps_build": [
+    "gtk3",
+    "pygobject3",
+    "glib2",
+    "libxml2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "demos",
+      "value": "false"
+    },
+    {
+      "name": "gtk_doc",
+      "value": "false"
+    },
+    {
+      "name": "python3",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/extra/libpeas",
+  "reproducibility": {
+    "_notes": "meson",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "297cb9c2cccd8e8617623d1a3e8415b4530b8e5a893e3527bbfd1edd13237b4c",
+  "source_tarball": "libpeas-1.36.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/libpeas/1.36/libpeas-${version}.tar.xz",
+  "tarball_files_count": 361,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "lua51",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "python2",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "python3",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "python2_path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "python3_path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "vapi",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "widgetry",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "glade_catalog",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build demo programs",
+      "name": "demos",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gtk_doc",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.36.0"
+}

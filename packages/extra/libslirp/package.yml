@@ -15,6 +15,7 @@ dependencies:
     - meson
     - ninja
     - pkgconf
+    - glib2
   host:
     - glib2
   runtime:

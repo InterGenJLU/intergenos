@@ -1,0 +1,144 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:37Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "/usr/bin/htop"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "htop",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [
+    "ncurses"
+  ],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/base/htop",
+  "reproducibility": {
+    "_notes": "filled by agent-c03 from build.sh inspection + BLFS HTML",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "904f7d4580fc11cffc7e0f06895a4789e0c1c054435752c151e812fead9f6220",
+  "source_tarball": "htop-3.4.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/htop-dev/htop/releases/download/${version}/htop-${version}.tar.xz",
+  "tarball_files_count": 365,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "base",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-static",
+      "kind": "enable",
+      "name": "static"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pcp",
+      "kind": "enable",
+      "name": "pcp"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-unicode",
+      "kind": "enable",
+      "name": "unicode"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-affinity",
+      "kind": "enable",
+      "name": "affinity"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-unwind",
+      "kind": "enable",
+      "name": "unwind"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-hwloc",
+      "kind": "enable",
+      "name": "hwloc"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-openvz",
+      "kind": "enable",
+      "name": "openvz"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-vserver",
+      "kind": "enable",
+      "name": "vserver"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-ancient-vserver",
+      "kind": "enable",
+      "name": "ancient_vserver"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-capabilities",
+      "kind": "enable",
+      "name": "capabilities"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-delayacct",
+      "kind": "enable",
+      "name": "delayacct"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-sensors",
+      "kind": "enable",
+      "name": "sensors"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-werror",
+      "kind": "enable",
+      "name": "werror"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-debug",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-curses=NAME",
+      "kind": "with",
+      "name": "curses"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-os-release=FILE",
+      "kind": "with",
+      "name": "os-release"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-config=DIR",
+      "kind": "with",
+      "name": "config"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-proc=DIR",
+      "kind": "with",
+      "name": "proc"
+    }
+  ],
+  "version": "3.4.1"
+}

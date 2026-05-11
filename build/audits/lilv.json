@@ -1,0 +1,159 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:12Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "lilv",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "lv2",
+    "zix",
+    "serd",
+    "sord",
+    "sratom"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "docs",
+      "value": "disabled"
+    },
+    {
+      "name": "html",
+      "value": "disabled"
+    },
+    {
+      "name": "singlehtml",
+      "value": "disabled"
+    },
+    {
+      "name": "tests",
+      "value": "disabled"
+    },
+    {
+      "name": "tools",
+      "value": "enabled"
+    },
+    {
+      "name": "bindings_cpp",
+      "value": "disabled"
+    },
+    {
+      "name": "bindings_py",
+      "value": "disabled"
+    },
+    {
+      "name": "dynmanifest",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/lilv",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "1c8b5fcb78718173e67d76e51ad423f5113a9ff68463f2566195ae46396089e3",
+  "source_tarball": "lilv-0.26.4.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.drobilla.net/lilv-${version}.tar.xz",
+  "tarball_files_count": 222,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Build Python bindings",
+      "name": "bindings_py",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build C++ bindings",
+      "name": "bindings_cpp",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Default LV2_PATH to use if it is unset",
+      "name": "default_lv2_path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Build documentation",
+      "name": "docs",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Build dynamic manifest support",
+      "name": "dynmanifest",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build paginated HTML documentation",
+      "name": "html",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Run code quality checks",
+      "name": "lint",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build single-page HTML documentation",
+      "name": "singlehtml",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build tests",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "Lilv",
+      "description": "Project title",
+      "name": "title",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Build command line utilities",
+      "name": "tools",
+      "type": "feature"
+    }
+  ],
+  "version": "0.26.4"
+}

@@ -1,0 +1,106 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:48Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "/usr/bin/cdr2raw",
+    "/usr/bin/cdr2xhtml",
+    "/usr/bin/cmx2raw",
+    "/usr/bin/cmx2xhtml"
+  ],
+  "expected_headers": [
+    "/usr/include/libcdr-0.1/libcdr/libcdr.h"
+  ],
+  "expected_libs": [
+    "/usr/lib/libcdr-0.1.so"
+  ],
+  "expected_pkgconfig": [
+    "/usr/lib/pkgconfig/libcdr-0.1.pc"
+  ],
+  "name": "libcdr",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "librevenge",
+    "icu",
+    "lcms2",
+    "boost"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/libcdr",
+  "reproducibility": {
+    "_notes": "autotools",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "ced677c8300b29c91d3004bb1dddf0b99761bf5544991c26c2ee8f427e87193c",
+  "source_tarball": "libcdr-0.1.8.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://dev-www.libreoffice.org/src/libcdr/libcdr-${version}.tar.xz",
+  "tarball_files_count": 135,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-tools",
+      "kind": "enable",
+      "name": "tools"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-fuzzers",
+      "kind": "enable",
+      "name": "fuzzers"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-werror",
+      "kind": "enable",
+      "name": "werror"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-weffc",
+      "kind": "enable",
+      "name": "weffc"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-wparanoic",
+      "kind": "enable",
+      "name": "wparanoic"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-debug",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-tests",
+      "kind": "enable",
+      "name": "tests"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-docs",
+      "kind": "with",
+      "name": "docs"
+    }
+  ],
+  "version": "0.1.8"
+}

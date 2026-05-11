@@ -1,0 +1,325 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:49Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "mpg123",
+    "blfs_name": "mpg123",
+    "blfs_version": "1.33.4",
+    "deps": [
+      {
+        "anchor": "alsa-lib",
+        "name": "alsa-lib-1.2.15.3",
+        "note": "",
+        "type": "recommended",
+        "version": "1.2.15.3"
+      },
+      {
+        "anchor": "pulseaudio",
+        "name": "PulseAudio-17.0",
+        "note": "",
+        "type": "optional",
+        "version": "17.0"
+      },
+      {
+        "anchor": "sdl2",
+        "name": "sdl2-compat-2.32.64",
+        "note": "",
+        "type": "optional",
+        "version": "2.32.64"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "mpg123",
+    "mpg123-id3dump",
+    "mpg123-strip",
+    "out123"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libmpg123.so",
+    "libout123.so",
+    "libsyn123.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "mpg123",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "alsa-lib"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/mpg123",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "3ae8c9ff80a97bfc0e22e89fbcd74687eca4fc1db315b12607f27f01cb5a47d9",
+  "source_tarball": "mpg123-1.33.4.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://downloads.sourceforge.net/mpg123/mpg123-${version}.tar.bz2",
+  "tarball_files_count": 390,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-modules",
+      "kind": "enable",
+      "name": "modules"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-components",
+      "kind": "enable",
+      "name": "components"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-programs",
+      "kind": "enable",
+      "name": "programs"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-libmpg123",
+      "kind": "enable",
+      "name": "libmpg123"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-libout123",
+      "kind": "enable",
+      "name": "libout123"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-libout123-modules",
+      "kind": "enable",
+      "name": "libout123-modules"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-libsyn123",
+      "kind": "enable",
+      "name": "libsyn123"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-debug",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-xdebug",
+      "kind": "enable",
+      "name": "xdebug"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-nagging",
+      "kind": "enable",
+      "name": "nagging"
+    },
+    {
+      "help": "AS_HELP_STRING( [--disable-gapless",
+      "kind": "enable",
+      "name": "gapless"
+    },
+    {
+      "help": "AS_HELP_STRING( [--enable-fifo",
+      "kind": "enable",
+      "name": "fifo"
+    },
+    {
+      "help": "AS_HELP_STRING( [--disable-id3v2",
+      "kind": "enable",
+      "name": "id3v2"
+    },
+    {
+      "help": "AS_HELP_STRING( [--disable-string",
+      "kind": "enable",
+      "name": "string"
+    },
+    {
+      "help": "AS_HELP_STRING( [--disable-icy",
+      "kind": "enable",
+      "name": "icy"
+    },
+    {
+      "help": "AS_HELP_STRING( [--disable-ntom",
+      "kind": "enable",
+      "name": "ntom"
+    },
+    {
+      "help": "AS_HELP_STRING( [--disable-downsample",
+      "kind": "enable",
+      "name": "downsample"
+    },
+    {
+      "help": "AS_HELP_STRING( [--disable-feeder",
+      "kind": "enable",
+      "name": "feeder"
+    },
+    {
+      "help": "AS_HELP_STRING( [--disable-moreinfo",
+      "kind": "enable",
+      "name": "moreinfo"
+    },
+    {
+      "help": "AS_HELP_STRING( [--disable-messages",
+      "kind": "enable",
+      "name": "messages"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-runtime-tables",
+      "kind": "enable",
+      "name": "runtime-tables"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-new-huffman",
+      "kind": "enable",
+      "name": "new-huffman"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-int-quality",
+      "kind": "enable",
+      "name": "int-quality"
+    },
+    {
+      "help": "AS_HELP_STRING( [--disable-16bit",
+      "kind": "enable",
+      "name": "16bit"
+    },
+    {
+      "help": "AS_HELP_STRING( [--disable-8bit",
+      "kind": "enable",
+      "name": "8bit"
+    },
+    {
+      "help": "AS_HELP_STRING( [--disable-32bit",
+      "kind": "enable",
+      "name": "32bit"
+    },
+    {
+      "help": "AS_HELP_STRING( [--disable-real",
+      "kind": "enable",
+      "name": "real"
+    },
+    {
+      "help": "AS_HELP_STRING( [--disable-equalizer",
+      "kind": "enable",
+      "name": "equalizer"
+    },
+    {
+      "help": "AS_HELP_STRING( [--enable-yasm",
+      "kind": "enable",
+      "name": "yasm"
+    },
+    {
+      "help": "AS_HELP_STRING( [--disable-ieeefloat",
+      "kind": "enable",
+      "name": "ieeefloat"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-cases",
+      "kind": "enable",
+      "name": "cases"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-buffer",
+      "kind": "enable",
+      "name": "buffer"
+    },
+    {
+      "help": "AS_HELP_STRING( [--enable-newoldwritesample",
+      "kind": "enable",
+      "name": "newoldwritesample"
+    },
+    {
+      "help": "AS_HELP_STRING( [--disable-layer1",
+      "kind": "enable",
+      "name": "layer1"
+    },
+    {
+      "help": "AS_HELP_STRING( [--disable-layer2",
+      "kind": "enable",
+      "name": "layer2"
+    },
+    {
+      "help": "AS_HELP_STRING( [--disable-layer3",
+      "kind": "enable",
+      "name": "layer3"
+    },
+    {
+      "help": "AS_HELP_STRING( [--enable-portable",
+      "kind": "enable",
+      "name": "portable"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-largefile",
+      "kind": "enable",
+      "name": "largefile"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-feature_report",
+      "kind": "enable",
+      "name": "feature_report"
+    },
+    {
+      "help": "AS_HELP_STRING( [--enable-ipv6",
+      "kind": "enable",
+      "name": "ipv6"
+    },
+    {
+      "help": "AS_HELP_STRING( [--enable-network",
+      "kind": "enable",
+      "name": "network"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-cpu=<type>",
+      "kind": "with",
+      "name": "cpu"
+    },
+    {
+      "help": "\nAS_HELP_STRING([--with-audio=<list of modules>",
+      "kind": "with",
+      "name": "audio"
+    },
+    {
+      "help": "\n  --with-default-audio=<list of modules>  Select a list of audio output modules to try at runtime, even if not built right now (comma or space separated). See --with-audio for options.\n",
+      "kind": "with",
+      "name": "default-audio"
+    },
+    {
+      "help": "\n  --with-optimization=0   No Optimization\n  --with-optimization=1   Limited Optimization (-O) (for gcc)\n  --with-optimization=2   Default Optimization (-O2 ...) (for gcc)\n  --with-optimization=3   Mo",
+      "kind": "with",
+      "name": "optimization"
+    },
+    {
+      "help": "\n  --with-seektable=<size> choose size of seek index table (0 disables it), default 1000\n",
+      "kind": "with",
+      "name": "seektable"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-network=<type>",
+      "kind": "with",
+      "name": "network"
+    }
+  ],
+  "version": "1.33.4"
+}

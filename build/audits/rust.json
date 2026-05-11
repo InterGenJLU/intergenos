@@ -1,0 +1,127 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-vendor-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:17Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "rust",
+    "blfs_name": "Rustc",
+    "blfs_version": "1.93.1",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "curl",
+        "name": "cURL-8.18.0",
+        "note": "",
+        "type": "required",
+        "version": "8.18.0"
+      },
+      {
+        "anchor": "gcc",
+        "name": "GCC-15.2.0",
+        "note": "",
+        "type": "optional",
+        "version": "15.2.0"
+      },
+      {
+        "anchor": "gdb",
+        "name": "GDB-17.1",
+        "note": "used by the test suite if it is present",
+        "type": "optional",
+        "version": "17.1"
+      },
+      {
+        "anchor": "git",
+        "name": "git-2.53.0",
+        "note": "required by\n                the test suite",
+        "type": "optional",
+        "version": "2.53.0"
+      },
+      {
+        "anchor": "libssh2",
+        "name": "libssh2-1.11.1",
+        "note": "",
+        "type": "recommended",
+        "version": "1.11.1"
+      },
+      {
+        "anchor": "llvm",
+        "name": "LLVM-21.1.8",
+        "note": "built with -D\n                LLVM_LINK_LLVM_DYLIB=ON so that rust can link to the system\n                installed version of LLVM instead of building its shipped\n                version",
+        "type": "recommended",
+        "version": "21.1.8"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cargo",
+  "bundled_libs": [
+    "vendor"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "BUILDING",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "cargo-clippy",
+    "cargo-fmt",
+    "cargo",
+    "clippy-driver",
+    "rust-gdb",
+    "rust-gdbgui",
+    "rust-lldb",
+    "rustc",
+    "rustdoc",
+    "rustfmt"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "rust",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "llvm",
+    "cmake",
+    "curl",
+    "libssh2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/rust",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "62b67230754da642a264ca0cb9fc08820c54e2ed7b3baba0289876d4cdb48c08",
+  "source_tarball": "rustc-1.95.0-src.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://static.rust-lang.org/dist/rustc-${version}-src.tar.xz",
+  "tarball_files_count": 312705,
+  "test_command": "cargo test",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "1.95.0"
+}

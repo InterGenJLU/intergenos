@@ -1,0 +1,124 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:22Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "xdg-desktop-portal-gtk",
+    "blfs_name": "xdg-desktop-portal-gtk",
+    "blfs_version": "1.15.3",
+    "deps": [
+      {
+        "anchor": "gnome-desktop",
+        "name": "gnome-desktop-44.5",
+        "note": "for compiling\n                more portal interfaces",
+        "type": "recommended",
+        "version": "44.5"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "required",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "xdg-desktop-portal",
+        "name": "xdg-desktop-portal-1.20.3",
+        "note": "",
+        "type": "required",
+        "version": "1.20.3"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "xdg-desktop-portal-gtk"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "xdg-desktop-portal-gtk",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gnome-desktop",
+    "gtk3",
+    "xdg-desktop-portal"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/xdg-desktop-portal-gtk",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "47a3743d2419a8601e691db37e85bb5fac5ae4b26842177065cd5f22ada23b37",
+  "source_tarball": "xdg-desktop-portal-gtk-1.15.3.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/flatpak/xdg-desktop-portal-gtk/releases/download/${version}/xdg-desktop-portal-gtk-${version}.tar.xz",
+  "tarball_files_count": 127,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "dbus-service-dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "systemd-user-unit-dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Define the datarootdir for the pkgconf file",
+      "name": "datarootdir",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "wallpaper",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "settings",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable AppChooser portal",
+      "name": "appchooser",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Lockdown portal",
+      "name": "lockdown",
+      "type": "feature"
+    }
+  ],
+  "version": "1.15.3"
+}

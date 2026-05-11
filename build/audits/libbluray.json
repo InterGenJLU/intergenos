@@ -1,0 +1,76 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:47Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libbluray.so"
+  ],
+  "expected_pkgconfig": [
+    "libbluray.pc"
+  ],
+  "name": "libbluray",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "libxml2",
+    "fontconfig"
+  ],
+  "our_meson_options": [
+    {
+      "name": "bdj_jar",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libbluray",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "76b5dc40097f28dca4ebb009c98ed51321b2927453f75cc72cf74acd09b9f449",
+  "source_tarball": "libbluray-1.4.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.videolan.org/pub/videolan/libbluray/${version}/libbluray-${version}.tar.xz",
+  "tarball_files_count": 1108,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Build libudfread examples",
+      "name": "enable_examples",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build libudfread as static library with no install",
+      "name": "embed_udfread",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.4.1"
+}

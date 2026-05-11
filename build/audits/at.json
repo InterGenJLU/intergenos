@@ -1,0 +1,124 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:15Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "at",
+    "blfs_name": "at",
+    "blfs_version": "3.2.5",
+    "deps": [
+      {
+        "anchor": "linux-pam",
+        "name": "Linux-PAM-1.7.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.7.2"
+      },
+      {
+        "anchor": "server-mail",
+        "name": "MTA",
+        "note": "",
+        "type": "required",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "/usr/bin/at",
+    "/usr/bin/atq",
+    "/usr/bin/atrm",
+    "/usr/bin/batch",
+    "/usr/sbin/atd",
+    "/usr/sbin/atrun"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "at",
+  "our_autotools_flags": [
+    "--with-atspool=/var/spool/atspool",
+    "--with-daemon",
+    "--with-jobdir=/var/spool/atjobs",
+    "--with-systemdsystemunitdir=/usr/lib/systemd/system"
+  ],
+  "our_deps_build": [
+    "exim",
+    "linux-pam"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "exim"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/base/at",
+  "reproducibility": {
+    "_notes": "filled by agent-c03 from build.sh inspection + BLFS HTML",
+    "deterministic_install": 1,
+    "parallel_build_supported": 0,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "bb066b389d7c9bb9d84a35738032b85c30cba7d949f758192adc72c9477fd3b8",
+  "source_tarball": "at_3.2.5.orig.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://anduin.linuxfromscratch.org/BLFS/at/at_${version}.orig.tar.gz",
+  "tarball_files_count": 48,
+  "test_command": "make test",
+  "test_known_failures": [],
+  "tier": "base",
+  "upstream_options": [
+    {
+      "help": "  --with-etcdir=PATH      Directory containing permission files (default /etc).",
+      "kind": "with",
+      "name": "etcdir"
+    },
+    {
+      "help": "  --with-systemdsystemunitdir=PATH Directory for systemd service files",
+      "kind": "with",
+      "name": "systemdsystemunitdir"
+    },
+    {
+      "help": "  --with-jobdir=PATH      Directory containing at jobs (default SPOOLDIR/atjobs).",
+      "kind": "with",
+      "name": "jobdir"
+    },
+    {
+      "help": "  --with-atspool=PATH    Directory containing at spool (default SPOOLDIR/atspool).",
+      "kind": "with",
+      "name": "atspool"
+    },
+    {
+      "help": " --with-loadavg_mx=LOADAVG_MX\tDefault max. load average for batch (default 0.8). ",
+      "kind": "with",
+      "name": "loadavg_mx"
+    },
+    {
+      "help": " --with-daemon_username=DAEMON_USERNAME\tUsername to run under (default daemon) ",
+      "kind": "with",
+      "name": "daemon_username"
+    },
+    {
+      "help": " --with-selinux       Define to run with selinux (default=check)",
+      "kind": "with",
+      "name": "selinux"
+    },
+    {
+      "help": " --with-daemon_groupname=DAEMON_GROUPNAME\tGroupname to run under (default daemon) ",
+      "kind": "with",
+      "name": "daemon_groupname"
+    }
+  ],
+  "version": "3.2.5"
+}

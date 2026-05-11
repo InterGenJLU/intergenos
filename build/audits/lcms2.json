@@ -1,0 +1,123 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:43Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "lcms2",
+    "blfs_name": "Little CMS",
+    "blfs_version": "2.18",
+    "deps": [
+      {
+        "anchor": "libjpeg",
+        "name": "libjpeg-turbo-3.1.3",
+        "note": "",
+        "type": "optional",
+        "version": "3.1.3"
+      },
+      {
+        "anchor": "libtiff",
+        "name": "libtiff-4.7.1",
+        "note": "",
+        "type": "optional",
+        "version": "4.7.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "jpgicc",
+    "linkicc",
+    "psicc",
+    "tificc",
+    "transicc"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "liblcms2.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "lcms2",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libjpeg-turbo",
+    "libtiff"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/lcms2",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "ee67be3566f459362c1ee094fde2c159d33fa0390aa4ed5f5af676f9e5004347",
+  "source_tarball": "lcms2-2.18.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/mm2/Little-CMS/releases/download/lcms${version}/lcms2-${version}.tar.gz",
+  "tarball_files_count": 453,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "enabled",
+      "description": "Enable or disable tests",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Use JPEG",
+      "name": "jpeg",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Use LibTiff",
+      "name": "tiff",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build the utils",
+      "name": "utils",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build and install the fast float plugin, use only if GPL 3.0 is acceptable",
+      "name": "fastfloat",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build and install the multi threaded plugin, use only if GPL 3.0 is acceptable",
+      "name": "threaded",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable building of .so.version libraries, disable when crosscompiling for Android",
+      "name": "versionedlibs",
+      "type": "boolean"
+    }
+  ],
+  "version": "2.18"
+}

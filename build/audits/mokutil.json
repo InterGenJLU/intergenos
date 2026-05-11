@@ -1,0 +1,69 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:49Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "mokutil",
+  "our_autotools_flags": [
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "efivar",
+    "openssl",
+    "keyutils"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/mokutil",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "839d677c4fc9805f1565703ca32863e4652692c53da66a88ae9b9e30676f9e17",
+  "source_tarball": "mokutil-0.7.2.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/lcp/mokutil/archive/refs/tags/${version}.tar.gz",
+  "tarball_files_count": 31,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AC_HELP_STRING([--enable-debug",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-strict",
+      "kind": "enable",
+      "name": "strict"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-bash-completion-dir[=PATH",
+      "kind": "with",
+      "name": "bash-completion-dir"
+    }
+  ],
+  "version": "0.7.2"
+}

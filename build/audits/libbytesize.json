@@ -1,0 +1,88 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:47Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libbytesize",
+    "blfs_name": "libbytesize",
+    "blfs_version": "2.12",
+    "deps": [
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "pygments",
+        "name": "Pygments-2.19.2",
+        "note": "",
+        "type": "required",
+        "version": "2.19.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "bscalc"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libbytesize.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libbytesize",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "pygments"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/libbytesize",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "8356bac2cafd2f31f39bf1ad373cef8448cab08b817aeaee5c526d54e81c3c5a",
+  "source_tarball": "libbytesize-2.12.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/storaged-project/libbytesize/releases/download/${version}/libbytesize-${version}.tar.gz",
+  "tarball_files_count": 120,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--with-python3",
+      "kind": "with",
+      "name": "python3"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-gtk-doc",
+      "kind": "with",
+      "name": "gtk-doc"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-tools",
+      "kind": "with",
+      "name": "tools"
+    }
+  ],
+  "version": "2.12"
+}

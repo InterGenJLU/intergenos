@@ -1,0 +1,163 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:06Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "rpm",
+  "our_autotools_flags": [
+    "--disable-plugins",
+    "--disable-static",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc",
+    "--without-acl",
+    "--without-cap",
+    "--without-lua"
+  ],
+  "our_deps_build": [
+    "popt",
+    "libgcrypt"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/rpm",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "ba7eee1bc2c6f83be73c0a40d159c625cbaed976b3ac044233404fb25ae1b979",
+  "source_tarball": "rpm-4.18.2.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://ftp.osuosl.org/pub/rpm/releases/rpm-${version_major_minor}.x/rpm-${version}.tar.bz2",
+  "tarball_files_count": 1290,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-werror",
+      "kind": "enable",
+      "name": "werror"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-zstd=@<:@yes/no/auto@:>@",
+      "kind": "enable",
+      "name": "zstd"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-libelf=@<:@yes/no/auto@:>@",
+      "kind": "enable",
+      "name": "libelf"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-ndb",
+      "kind": "enable",
+      "name": "ndb"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-bdb-ro (EXPERIMENTAL)",
+      "kind": "enable",
+      "name": "bdb-ro"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-sqlite=@<:@yes/no/auto@:>@)",
+      "kind": "enable",
+      "name": "sqlite"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-python",
+      "kind": "enable",
+      "name": "python"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-plugins",
+      "kind": "enable",
+      "name": "plugins"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-inhibit-plugin",
+      "kind": "enable",
+      "name": "inhibit_plugin"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-crypto=CRYPTO_LIB",
+      "kind": "with",
+      "name": "crypto"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-archive",
+      "kind": "with",
+      "name": "archive"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-selinux",
+      "kind": "with",
+      "name": "selinux"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-imaevm",
+      "kind": "with",
+      "name": "imaevm"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-fsverity",
+      "kind": "with",
+      "name": "fsverity"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-cap",
+      "kind": "with",
+      "name": "cap"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-acl",
+      "kind": "with",
+      "name": "acl"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-readline=@<:@yes/no/auto@:>@",
+      "kind": "with",
+      "name": "readline"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-fapolicyd",
+      "kind": "with",
+      "name": "fapolicyd"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-audit",
+      "kind": "with",
+      "name": "audit"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-vendor=VENDOR",
+      "kind": "with",
+      "name": "vendor"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-rundir=RUNDIR",
+      "kind": "with",
+      "name": "rundir"
+    }
+  ],
+  "version": "4.18.2"
+}

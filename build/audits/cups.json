@@ -1,0 +1,158 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:24Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "cups",
+    "blfs_name": "Cups",
+    "blfs_version": "2.4.16",
+    "deps": [
+      {
+        "anchor": "avahi",
+        "name": "Avahi-0.8",
+        "note": "",
+        "type": "optional",
+        "version": "0.8"
+      },
+      {
+        "anchor": "colord",
+        "name": "colord-1.4.8",
+        "note": "",
+        "type": "recommended",
+        "version": "1.4.8"
+      },
+      {
+        "anchor": "dbus",
+        "name": "dbus-1.16.2",
+        "note": "",
+        "type": "recommended",
+        "version": "1.16.2"
+      },
+      {
+        "anchor": "gnutls",
+        "name": "GnuTLS-3.8.12",
+        "note": "",
+        "type": "required",
+        "version": "3.8.12"
+      },
+      {
+        "anchor": "libpaper",
+        "name": "libpaper-2.2.7",
+        "note": "",
+        "type": "optional",
+        "version": "2.2.7"
+      },
+      {
+        "anchor": "libusb",
+        "name": "libusb-1.0.29",
+        "note": "",
+        "type": "recommended",
+        "version": "1.0.29"
+      },
+      {
+        "anchor": "linux-pam",
+        "name": "Linux-PAM-1.7.2",
+        "note": "",
+        "type": "recommended",
+        "version": "1.7.2"
+      },
+      {
+        "anchor": "php",
+        "name": "PHP-8.5.3",
+        "note": "",
+        "type": "optional",
+        "version": "8.5.3"
+      },
+      {
+        "anchor": "xdg-utils",
+        "name": "xdg-utils-1.2.1",
+        "note": "",
+        "type": "recommended",
+        "version": "1.2.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "cancel",
+    "cupsaccept",
+    "cups-config",
+    "cupsctl",
+    "cupsd",
+    "cupsdisable",
+    "cupsenable",
+    "cupsfilter",
+    "cupsreject",
+    "cupstestppd",
+    "ippeveprinter",
+    "ippfind",
+    "ipptool",
+    "lp",
+    "lpadmin",
+    "lpc",
+    "lpinfo",
+    "lpmove",
+    "lpoptions",
+    "lpq",
+    "lpr",
+    "lprm",
+    "lpstat",
+    "ppdc",
+    "ppdhtml",
+    "ppdi",
+    "ppdmerge",
+    "ppdpo"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libcupsimage.so",
+    "libcups.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "cups",
+  "our_autotools_flags": [
+    "--libdir=/usr/lib",
+    "--with-docdir=/usr/share/cups/doc-${version}",
+    "--with-rundir=/run/cups",
+    "--with-system-groups=lpadmin"
+  ],
+  "our_deps_build": [
+    "dbus",
+    "gnutls",
+    "libusb",
+    "linux-pam",
+    "avahi",
+    "xdg-utils"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/cups",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "0339587204b4f9428dd0592eb301dec0bf9ea6ea8dce5d9690d56be585aba92d",
+  "source_tarball": "cups-2.4.16-source.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/OpenPrinting/cups/releases/download/v${version}/cups-${version}-source.tar.gz",
+  "tarball_files_count": 1343,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "2.4.16"
+}

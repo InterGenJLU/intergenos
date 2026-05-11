@@ -1,0 +1,277 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:09Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libsoup3",
+    "blfs_name": "libsoup",
+    "blfs_version": "3.6.6",
+    "deps": [
+      {
+        "anchor": "apache",
+        "name": "Apache-2.4.66",
+        "note": "required to run the test\n                suite",
+        "type": "optional",
+        "version": "2.4.66"
+      },
+      {
+        "anchor": "brotli",
+        "name": "Brotli-1.2.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.2.0"
+      },
+      {
+        "anchor": "curl",
+        "name": "cURL-8.18.0",
+        "note": "required to run the test\n                suite",
+        "type": "optional",
+        "version": "8.18.0"
+      },
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "glib-networking",
+        "name": "glib-networking-2.80.1",
+        "note": "",
+        "type": "required",
+        "version": "2.80.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "libpsl",
+        "name": "libpsl-0.21.5",
+        "note": "",
+        "type": "required",
+        "version": "0.21.5"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "required",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "mitkrb",
+        "name": "MIT Kerberos\n                V5-1.22.2",
+        "note": "required to run the test suite",
+        "type": "optional",
+        "version": "1.22.2"
+      },
+      {
+        "anchor": "nghttp2",
+        "name": "nghttp2-1.68.0",
+        "note": "",
+        "type": "required",
+        "version": "1.68.0"
+      },
+      {
+        "anchor": "php",
+        "name": "PHP-8.5.3",
+        "note": "only used for the XMLRPC regression\n                tests",
+        "type": "optional",
+        "version": "8.5.3"
+      },
+      {
+        "anchor": "samba",
+        "name": "Samba-4.23.5",
+        "note": "ntlm_auth is required to run\n                the test suite",
+        "type": "optional",
+        "version": "4.23.5"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "libsoup-3.6.6-upstream_fixes-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/libsoup-3.6.6-upstream_fixes-1.patch"
+      }
+    ]
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/libsoup-3.0"
+  ],
+  "expected_libs": [
+    "libsoup-3.0.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libsoup3",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr",
+    "--wrap-mode=nofallback"
+  ],
+  "our_deps_build": [
+    "glib-networking",
+    "libpsl",
+    "libxml2",
+    "nghttp2",
+    "vala",
+    "brotli",
+    "curl",
+    "glib2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "tests",
+      "value": "false"
+    },
+    {
+      "name": "docs",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [
+    {
+      "file": "libsoup-3.6.6-upstream_fixes-1.patch",
+      "sha256": "fbb882736209700137e49d6a8d161ffe3b20345da79a9353d9b61fd0cc6ea9bb"
+    }
+  ],
+  "package_dir": "packages/desktop/libsoup3",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "51ed0ae06f9d5a40f401ff459e2e5f652f9a510b7730e1359ee66d14d4872740",
+  "source_tarball": "libsoup-3.6.6.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/libsoup/3.6/libsoup-${version}.tar.xz",
+  "tarball_files_count": 437,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "Build with GSSAPI support",
+      "name": "gssapi",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build with NTLM support",
+      "name": "ntlm",
+      "type": "feature"
+    },
+    {
+      "default": "ntlm_auth",
+      "description": "",
+      "name": "ntlm_auth",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Build with Brotli decompression support",
+      "name": "brotli",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "tls_check",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Build GObject Introspection data",
+      "name": "introspection",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build Vala bindings",
+      "name": "vapi",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable generating the API reference",
+      "name": "docs",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Enable strict validation of API docs",
+      "name": "doc_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable unit tests compilation",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Enable autobahn test suite",
+      "name": "autobahn",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Install tests for as-installed testing",
+      "name": "installed_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "enable sysprof-capture support for profiling",
+      "name": "sysprof",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "enable fuzzing support",
+      "name": "fuzzing",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "enable PKCS #11 tests depending on gnutls",
+      "name": "pkcs11_tests",
+      "type": "feature"
+    }
+  ],
+  "version": "3.6.6"
+}

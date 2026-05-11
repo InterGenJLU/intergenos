@@ -1,0 +1,74 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:27Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "encodings",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "font-util",
+    "mkfontscale"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/encodings",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "9ff13c621756cfa12e95f32ba48a5b23839e8f577d0048beda66c67dab4de975",
+  "source_tarball": "encodings-1.1.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.x.org/pub/individual/font/encodings-${version}.tar.xz",
+  "tarball_files_count": 71,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "gzip small encoding files",
+      "name": "gzip-small-encodings",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "gzip large encoding files",
+      "name": "gzip-large-encodings",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Path to root directory for font files",
+      "name": "fontrootdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Path to directory for encodings files",
+      "name": "encodingsdir",
+      "type": "string"
+    }
+  ],
+  "version": "1.1.0"
+}

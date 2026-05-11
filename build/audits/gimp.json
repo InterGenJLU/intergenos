@@ -1,0 +1,647 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:12Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gimp",
+    "blfs_name": "Gimp",
+    "blfs_version": "3.0.6",
+    "deps": [
+      {
+        "anchor": "aalib",
+        "name": "AAlib-1.4rc5",
+        "note": "",
+        "type": "optional",
+        "version": "1.4rc5"
+      },
+      {
+        "anchor": "alsa-lib",
+        "name": "alsa-lib-1.2.15.3",
+        "note": "",
+        "type": "optional",
+        "version": "1.2.15.3"
+      },
+      {
+        "anchor": "appstream",
+        "name": "AppStream-1.1.2",
+        "note": "",
+        "type": "required",
+        "version": "1.1.2"
+      },
+      {
+        "anchor": "appstream-glib",
+        "name": "appstream-glib-0.8.3",
+        "note": "",
+        "type": "required",
+        "version": "0.8.3"
+      },
+      {
+        "anchor": "gegl",
+        "name": "gegl-0.4.66",
+        "note": "",
+        "type": "required",
+        "version": "0.4.66"
+      },
+      {
+        "anchor": "gexiv2",
+        "name": "gexiv2-0.14.6",
+        "note": "",
+        "type": "required",
+        "version": "0.14.6"
+      },
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "gjs",
+        "name": "Gjs-1.86.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.86.0"
+      },
+      {
+        "anchor": "glib-networking",
+        "name": "glib-networking-2.80.1",
+        "note": "",
+        "type": "required",
+        "version": "2.80.1"
+      },
+      {
+        "anchor": "graphviz",
+        "name": "Graphviz-14.1.2",
+        "note": "",
+        "type": "recommended",
+        "version": "14.1.2"
+      },
+      {
+        "anchor": "gs",
+        "name": "ghostscript-10.06.0",
+        "note": "with libgs installed",
+        "type": "recommended",
+        "version": "10.06.0"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "required",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "harfbuzz",
+        "name": "harfBuzz-12.3.2",
+        "note": "",
+        "type": "required",
+        "version": "12.3.2"
+      },
+      {
+        "anchor": "iso-codes",
+        "name": "ISO Codes-4.20.1",
+        "note": "",
+        "type": "recommended",
+        "version": "4.20.1"
+      },
+      {
+        "anchor": "lcms2",
+        "name": "Little CMS-2.18",
+        "note": "",
+        "type": "required",
+        "version": "2.18"
+      },
+      {
+        "anchor": "libgudev",
+        "name": "libgudev-238",
+        "note": "",
+        "type": "recommended",
+        "version": "238"
+      },
+      {
+        "anchor": "libheif",
+        "name": "libheif-1.21.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.21.2"
+      },
+      {
+        "anchor": "libjxl",
+        "name": "libjxl-0.11.2",
+        "note": "",
+        "type": "optional",
+        "version": "0.11.2"
+      },
+      {
+        "anchor": "libmng",
+        "name": "libmng-2.0.3",
+        "note": "",
+        "type": "optional",
+        "version": "2.0.3"
+      },
+      {
+        "anchor": "libmypaint",
+        "name": "libmypaint-1.6.1",
+        "note": "",
+        "type": "required",
+        "version": "1.6.1"
+      },
+      {
+        "anchor": "librsvg",
+        "name": "librsvg-2.61.4",
+        "note": "",
+        "type": "required",
+        "version": "2.61.4"
+      },
+      {
+        "anchor": "libtiff",
+        "name": "libtiff-4.7.1",
+        "note": "",
+        "type": "required",
+        "version": "4.7.1"
+      },
+      {
+        "anchor": "libunwind",
+        "name": "libunwind-1.8.3",
+        "note": "",
+        "type": "optional",
+        "version": "1.8.3"
+      },
+      {
+        "anchor": "libwebp",
+        "name": "libwebp-1.6.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.6.0"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "to\n                build the translated help files",
+        "type": "required",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "lua",
+        "name": "Lua-5.4.8",
+        "note": "",
+        "type": "optional",
+        "version": "5.4.8"
+      },
+      {
+        "anchor": "mypaint-brushes",
+        "name": "mypaint-brushes-1.3.1",
+        "note": "",
+        "type": "required",
+        "version": "1.3.1"
+      },
+      {
+        "anchor": "openjpeg2",
+        "name": "OpenJPEG-2.5.4",
+        "note": "",
+        "type": "optional",
+        "version": "2.5.4"
+      },
+      {
+        "anchor": "poppler",
+        "name": "Poppler-26.02.0",
+        "note": "including\n                poppler-data",
+        "type": "required",
+        "version": "26.02.0"
+      },
+      {
+        "anchor": "pygobject3",
+        "name": "PyGObject-3.54.5",
+        "note": "",
+        "type": "recommended",
+        "version": "3.54.5"
+      },
+      {
+        "anchor": "xdg-utils",
+        "name": "xdg-utils-1.2.1",
+        "note": "",
+        "type": "recommended",
+        "version": "1.2.1"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "gimp-3.0.6-security_fixes-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/gimp-3.0.6-security_fixes-1.patch"
+      }
+    ]
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "BUILDING",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "/usr/bin/gimp-3.0",
+    "/usr/bin/gimp-console-3.0",
+    "/usr/bin/gimptool-3.0",
+    "/usr/bin/gimp-test-clipboard-3.0",
+    "/usr/bin/gimp-script-fu-interpreter-3.0"
+  ],
+  "expected_headers": [
+    "/usr/include/gimp-3.0/libgimp/gimp.h"
+  ],
+  "expected_libs": [
+    "/usr/lib/libgimp-3.0.so",
+    "/usr/lib/libgimpbase-3.0.so",
+    "/usr/lib/libgimpcolor-3.0.so",
+    "/usr/lib/libgimpconfig-3.0.so",
+    "/usr/lib/libgimpmath-3.0.so",
+    "/usr/lib/libgimpmodule-3.0.so",
+    "/usr/lib/libgimpthumb-3.0.so",
+    "/usr/lib/libgimpui-3.0.so",
+    "/usr/lib/libgimpwidgets-3.0.so"
+  ],
+  "expected_pkgconfig": [
+    "/usr/lib/pkgconfig/gimp-3.0.pc",
+    "/usr/lib/pkgconfig/gimp-ui-3.0.pc"
+  ],
+  "name": "gimp",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "appstream-glib",
+    "gegl",
+    "gexiv2",
+    "glib-networking",
+    "gtk3",
+    "harfbuzz",
+    "libmypaint",
+    "mypaint-brushes",
+    "librsvg",
+    "libtiff",
+    "libxml2",
+    "lcms2",
+    "poppler",
+    "graphviz",
+    "iso-codes",
+    "libgudev",
+    "pygobject3",
+    "xdg-utils",
+    "alsa-lib",
+    "gjs",
+    "libheif",
+    "libwebp",
+    "lua",
+    "openjpeg2",
+    "appstream"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "headless-tests",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [
+    {
+      "file": "gimp-3.0.6-security_fixes-1.patch",
+      "sha256": "e2c35c2206869c44e5e290b990b61df25eef01f32eae4997495395f4593ba097"
+    }
+  ],
+  "package_dir": "packages/extra/gimp",
+  "reproducibility": {
+    "_notes": "meson; embedded plugin/data paths under /usr/lib/gimp expected",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "246c225383c72ef9f0dc7703b7d707084bbf177bd2900e94ce466a62862e296b",
+  "source_tarball": "gimp-3.0.6.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gimp.org/gimp/v3.0/gimp-${version}.tar.xz",
+  "tarball_files_count": 7130,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Turn on strict ansi",
+      "name": "ansi",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build a console-only binary which does not link GTK",
+      "name": "enable-console-bin",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Open a console when starting the program",
+      "name": "win32-debug-console",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Support for multiple processors",
+      "name": "enable-multiproc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable profiling",
+      "name": "profiling",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Generate files needed for the Inno Windows installer",
+      "name": "windows-installer",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Generate files needed for the Microsoft Store .msixupload and/or .msixbundle",
+      "name": "ms-store",
+      "type": "boolean"
+    },
+    {
+      "default": "platform-default",
+      "description": "build with resources considered bundled under the same prefix",
+      "name": "relocatable-bundle",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Shared memory transport type",
+      "name": "shmem-type",
+      "type": "combo"
+    },
+    {
+      "default": "unknown",
+      "description": "Unique string used to define your build",
+      "name": "build-id",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Revision increment for a package",
+      "name": "revision",
+      "type": "integer"
+    },
+    {
+      "default": "platform-default",
+      "description": "GIMP will look up new version availability on startup",
+      "name": "check-update",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "URL used by the debug dialog to report bugs",
+      "name": "bug-report-url",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gimpdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Path to default color profiles for this system",
+      "name": "icc-directory",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Use Sendmail instead of Xdg-email",
+      "name": "with-sendmail",
+      "type": "string"
+    },
+    {
+      "default": "32/bin",
+      "description": "alternative folder with 32-bit versions of DLL libraries on Windows",
+      "name": "win32-32bits-dll-folder",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Build with libunwind for backtrace",
+      "name": "libunwind",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build with libbacktrace support",
+      "name": "libbacktrace",
+      "type": "boolean"
+    },
+    {
+      "default": "native",
+      "description": "Build with native/CodeView debug symbols or with DWARF",
+      "name": "win-debugging",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "enable-default-bin",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "AA plugin",
+      "name": "aa",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Alsa support in midi input controller",
+      "name": "alsa",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Validate the appdata file",
+      "name": "appdata-test",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Cairo-pdf support",
+      "name": "cairo-pdf",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Support for loading/exporting FITS images",
+      "name": "fits",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Ghostscript support",
+      "name": "ghostscript",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Gudev support",
+      "name": "gudev",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "HEIF support",
+      "name": "heif",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Amiga IFF support",
+      "name": "ilbm",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Jpeg-2000 support",
+      "name": "jpeg2000",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "JPEG XL support",
+      "name": "jpeg-xl",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Mng support",
+      "name": "mng",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Openexr support",
+      "name": "openexr",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "OpenMP support",
+      "name": "openmp",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Print support",
+      "name": "print",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "webkit-unmaintained",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Webp support",
+      "name": "webp",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Wmf support",
+      "name": "wmf",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Xcursor support",
+      "name": "xcursor",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "XPM support",
+      "name": "xpm",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Use xvfb-run/dbus-run-session for UI-dependent automatic tests",
+      "name": "headless-tests",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "file-plug-ins-test",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "GIR is buildable even if crosscompiling",
+      "name": "can-crosscompile-gir",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "gi-docgen",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Linux input event controller module",
+      "name": "linux-input",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Use vector icons rather than raster ones",
+      "name": "vector-icons",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Build VAPI and Vala plugins",
+      "name": "vala",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Install Javascript plug-ins",
+      "name": "javascript",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "lua",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Run in-build GIMP within gdb for debugging purpose",
+      "name": "debug-self-in-build",
+      "type": "boolean"
+    }
+  ],
+  "version": "3.0.6"
+}

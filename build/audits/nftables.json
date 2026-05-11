@@ -1,0 +1,85 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:53Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "nftables",
+  "our_autotools_flags": [
+    "--disable-man-doc",
+    "--prefix=/usr",
+    "--sysconfdir=/etc",
+    "--with-cli=readline",
+    "--with-json"
+  ],
+  "our_deps_build": [
+    "libnftnl",
+    "libmnl",
+    "gmp",
+    "readline"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/nftables",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "9c8a64b59c90b0825e540a9b8fcb9d2d942c636f81ba50199f068fde44f34ed8",
+  "source_tarball": "nftables-1.1.3.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.netfilter.org/projects/nftables/files/nftables-${version}.tar.xz",
+  "tarball_files_count": 2067,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-debug",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-man-doc",
+      "kind": "enable",
+      "name": "man-doc"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-mini-gmp",
+      "kind": "with",
+      "name": "mini-gmp"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-cli",
+      "kind": "with",
+      "name": "cli"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-xtables",
+      "kind": "with",
+      "name": "xtables"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-json",
+      "kind": "with",
+      "name": "json"
+    }
+  ],
+  "version": "1.1.3"
+}

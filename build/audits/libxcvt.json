@@ -1,0 +1,66 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:12Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libxcvt",
+    "blfs_name": "libxcvt",
+    "blfs_version": "0.1.3",
+    "deps": [
+      {
+        "anchor": "xorg-env",
+        "name": "Xorg build\n                environment",
+        "note": "should be set for the following instructions\n                to work",
+        "type": "required",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [
+    "cvt"
+  ],
+  "expected_headers": [
+    "$XORG_PREFIX/include/libxcvt"
+  ],
+  "expected_libs": [
+    "libxcvt.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libxcvt",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libxcvt",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "a929998a8767de7dfa36d6da4751cdbeef34ed630714f2f4a767b351f2442e01",
+  "source_tarball": "libxcvt-0.1.3.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.x.org/pub/individual/lib/libxcvt-${version}.tar.xz",
+  "tarball_files_count": 24,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "0.1.3"
+}

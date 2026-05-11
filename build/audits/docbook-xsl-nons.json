@@ -1,0 +1,106 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:26Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "docbook-xsl",
+    "blfs_name": "docbook-xsl-nons",
+    "blfs_version": "1.79.2",
+    "deps": [
+      {
+        "anchor": "apache-ant",
+        "name": "apache-ant-1.10.15",
+        "note": "",
+        "type": "optional",
+        "version": "1.10.15"
+      },
+      {
+        "anchor": "libxml2",
+        "name": "libxml2-2.15.1",
+        "note": "",
+        "type": "recommended",
+        "version": "2.15.1"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "or\n                any other XSLT processor",
+        "type": "optional",
+        "version": "1.1.45"
+      },
+      {
+        "anchor": "ruby",
+        "name": "Ruby-4.0.1",
+        "note": "",
+        "type": "optional",
+        "version": "4.0.1"
+      },
+      {
+        "anchor": "zip",
+        "name": "Zip-3.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.0"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "docbook-xsl-nons-1.79.2-stack_fix-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/docbook-xsl-nons-1.79.2-stack_fix-1.patch"
+      }
+    ]
+  },
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "docbook-xsl-nons",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "docbook-xml",
+    "libxml2",
+    "libxslt",
+    "ruby"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "docbook-xsl-nons-1.79.2-stack_fix-1.patch",
+      "sha256": "a92c39715c54949ba9369add1809527b8f155b7e2a2b2e30cb4b39ee715f2e30"
+    }
+  ],
+  "package_dir": "packages/core/docbook-xsl-nons",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "ee8b9eca0b7a8f89075832a2da7534bce8c5478fc8fc2676f512d5d87d832102",
+  "source_tarball": "docbook-xsl-nons-1.79.2.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/docbook/xslt10-stylesheets/releases/download/release%2F${version}/docbook-xsl-nons-${version}.tar.bz2",
+  "tarball_files_count": 1947,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "1.79.2"
+}

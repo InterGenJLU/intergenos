@@ -1,0 +1,59 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:53Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libimobiledevice-glue-1.0.so"
+  ],
+  "expected_pkgconfig": [
+    "libimobiledevice-glue-1.0.pc"
+  ],
+  "name": "libimobiledevice-glue",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "libplist"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libimobiledevice-glue",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "6489a3411b874ecd81c87815d863603f518b264a976319725e0ed59935546774",
+  "source_tarball": "libimobiledevice-glue-1.3.2.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/libimobiledevice/libimobiledevice-glue/releases/download/${version}/libimobiledevice-glue-${version}.tar.bz2",
+  "tarball_files_count": 61,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--with-winver",
+      "kind": "with",
+      "name": "winver"
+    }
+  ],
+  "version": "1.3.2"
+}

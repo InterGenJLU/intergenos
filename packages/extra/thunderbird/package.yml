@@ -32,5 +32,6 @@ dependencies:
   - nasm
   - nspr
   - nss
+  - alsa-lib
   host: []
   runtime: []

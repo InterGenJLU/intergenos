@@ -1,0 +1,89 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:29Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gst10-libav",
+    "blfs_name": "gst-libav",
+    "blfs_version": "1.28.1",
+    "deps": [
+      {
+        "anchor": "ffmpeg",
+        "name": "FFmpeg-8.0.1",
+        "note": "",
+        "type": "required",
+        "version": "8.0.1"
+      },
+      {
+        "anchor": "gst10-plugins-base",
+        "name": "gst-plugins-base-1.28.1",
+        "note": "",
+        "type": "required",
+        "version": "1.28.1"
+      },
+      {
+        "anchor": "yasm",
+        "name": "yasm-1.3.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.3.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "README"
+  ],
+  "expected_binaries": [
+    "None"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gst-libav",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gst-plugins-base",
+    "ffmpeg"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "tests",
+      "value": "disabled"
+    },
+    {
+      "name": "doc",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gst-libav",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "bfa91aaca38d0fd8addcdd559e35b7541e3f32a5f410194ec4ba18040defee9b",
+  "source_tarball": "gst-libav-1.28.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://gstreamer.freedesktop.org/src/gst-libav/gst-libav-${version}.tar.xz",
+  "tarball_files_count": 60,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.28.1"
+}

@@ -1,0 +1,126 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:17Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-connections",
+    "blfs_name": "gnome-connections",
+    "blfs_version": "49.0",
+    "deps": [
+      {
+        "anchor": "appstream",
+        "name": "AppStream-1.1.2",
+        "note": "",
+        "type": "required",
+        "version": "1.1.2"
+      },
+      {
+        "anchor": "freerdp",
+        "name": "FreeRDP-3.22.0",
+        "note": "",
+        "type": "required",
+        "version": "3.22.0"
+      },
+      {
+        "anchor": "gtk-vnc",
+        "name": "gtk-vnc-1.5.0",
+        "note": "",
+        "type": "required",
+        "version": "1.5.0"
+      },
+      {
+        "anchor": "itstool",
+        "name": "itstool-2.0.7",
+        "note": "",
+        "type": "required",
+        "version": "2.0.7"
+      },
+      {
+        "anchor": "libhandy1",
+        "name": "libhandy-1.8.3",
+        "note": "",
+        "type": "required",
+        "version": "1.8.3"
+      },
+      {
+        "anchor": "libsecret",
+        "name": "libsecret-0.21.7",
+        "note": "",
+        "type": "required",
+        "version": "0.21.7"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "required",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "gnome-connections"
+  ],
+  "expected_headers": [
+    "/usr/include/gnome-connections"
+  ],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gnome-connections",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "appstream",
+    "freerdp",
+    "vala",
+    "gtk-vnc",
+    "itstool",
+    "libhandy1",
+    "libsecret"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-connections",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "3a1f9466ba54914747235fae21ec6ea326c97f6f8d0090cb99cfb0a2b24c739e",
+  "source_tarball": "gnome-connections-49.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-connections/49/gnome-connections-${version}.tar.xz",
+  "tarball_files_count": 227,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "default",
+      "description": "",
+      "name": "profile",
+      "type": "combo"
+    }
+  ],
+  "version": "49.0"
+}

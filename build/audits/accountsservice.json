@@ -1,0 +1,184 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:13Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "accountsservice",
+    "blfs_name": "AccountsService",
+    "blfs_version": "23.13.9",
+    "deps": [
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "polkit",
+        "name": "Polkit-127",
+        "note": "",
+        "type": "required",
+        "version": "127"
+      },
+      {
+        "anchor": "systemd",
+        "name": "Systemd-259.1",
+        "note": "runtime [downgraded from recommended/runtime by fix-blfs-db-data-errors.py]",
+        "type": "optional",
+        "version": "259.1"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.56.18"
+      },
+      {
+        "anchor": "xmlto",
+        "name": "xmlto-0.0.29",
+        "note": "",
+        "type": "optional",
+        "version": "0.0.29"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "accounts-daemon (in /usr/libexec)"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libaccountsservice.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "accountsservice",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr",
+    "--strip-components=1."
+  ],
+  "our_deps_build": [
+    "polkit",
+    "vala",
+    "glib2",
+    "systemd"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "admin_group",
+      "value": "adm"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/accountsservice",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "adda4cdeae24fa0992e7df3ffff9effa7090be3ac233a3edfdf69d5a9c9b924f",
+  "source_tarball": "accountsservice-23.13.9.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.freedesktop.org/software/accountsservice/accountsservice-${version}.tar.xz",
+  "tarball_files_count": 186,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "custom directory for systemd system units",
+      "name": "systemdsystemunitdir",
+      "type": "string"
+    },
+    {
+      "default": "/etc/gdm/custom.conf",
+      "description": "GDM configuration file",
+      "name": "gdmconffile",
+      "type": "string"
+    },
+    {
+      "default": "/etc/lightdm/lightdm.conf",
+      "description": "LightDM configuration file",
+      "name": "lightdmconffile",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Set group for administrative accounts",
+      "name": "admin_group",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Comma-separated list of extra groups that administrator users are part of",
+      "name": "extra_admin_groups",
+      "type": "array"
+    },
+    {
+      "default": "",
+      "description": "Set minimum uid for human users",
+      "name": "minimum_uid",
+      "type": "integer"
+    },
+    {
+      "default": "",
+      "description": "Use elogind",
+      "name": "elogind",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable introspection for this build",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable Vala bindings for this build",
+      "name": "vapi",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "docbook",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "use gtk-doc to build documentation",
+      "name": "gtk_doc",
+      "type": "boolean"
+    }
+  ],
+  "version": "23.13.9"
+}

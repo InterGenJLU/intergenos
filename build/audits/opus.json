@@ -1,0 +1,207 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:59Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "opus",
+    "blfs_name": "Opus",
+    "blfs_version": "1.6.1",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "texlive",
+        "name": "texlive-20250308",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "tl-installer",
+        "name": "install-tl-unx",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "None"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "opus",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "docdir",
+      "value": "/usr/share/doc/opus-1.6.1"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/opus",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1",
+  "source_tarball": "opus-1.6.1.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://downloads.xiph.org/releases/opus/opus-${version}.tar.gz",
+  "tarball_files_count": 509,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Compile without floating point (for machines without a fast enough FPU",
+      "name": "fixed-point",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Debug fixed-point implementation",
+      "name": "fixed-point-debug",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Compile with or without the floating point API (for machines with no float library",
+      "name": "float-api",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "float-approx",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Run-time CPU capabilities detection",
+      "name": "rtcd",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "asm",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Intrinsics optimizations for ARM NEON or x86",
+      "name": "intrinsics",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "",
+      "name": "deep-plc",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "",
+      "name": "dred",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "",
+      "name": "osce",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Compute DNN using float weights",
+      "name": "dnn-debug-float",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Enable non-Opus modes, e.g. 44.1 kHz & 2^n frames",
+      "name": "custom-modes",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "extra-programs",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Additional software error checking",
+      "name": "assertions",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Run-time checks that are cheap and safe for use in production",
+      "name": "hardening",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Causes the encoder to make random decisions",
+      "name": "fuzzing",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Run bit-exactness checks between optimized and c implementations",
+      "name": "check-asm",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Build tests",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build API documentation",
+      "name": "docs",
+      "type": "feature"
+    },
+    {
+      "default": "doc/opus",
+      "description": "Directory to install documentation into (default: DATADIR/doc/opus",
+      "name": "docdir",
+      "type": "string"
+    }
+  ],
+  "version": "1.6.1"
+}

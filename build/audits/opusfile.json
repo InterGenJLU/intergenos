@@ -1,0 +1,82 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:00Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "opusfile",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libogg",
+    "opus",
+    "openssl"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/opusfile",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=autotools; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": true,
+    "source_date_epoch_supported": true
+  },
+  "source_sha256": "118d8601c12dd6a44f52423e68ca9083cc9f2bfe72da7a8c1acb22a80ae3550b",
+  "source_tarball": "opusfile-0.12.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://downloads.xiph.org/releases/opus/opusfile-${version}.tar.gz",
+  "tarball_files_count": 60,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-assertions",
+      "kind": "enable",
+      "name": "assertions"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-http",
+      "kind": "enable",
+      "name": "http"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-fixed-point",
+      "kind": "enable",
+      "name": "fixed-point"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-float",
+      "kind": "enable",
+      "name": "float"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-examples",
+      "kind": "enable",
+      "name": "examples"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-doc",
+      "kind": "enable",
+      "name": "doc"
+    }
+  ],
+  "version": "0.12"
+}

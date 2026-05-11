@@ -1,0 +1,113 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:22Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "xkeyboard-config",
+    "blfs_name": "XKeyboardConfig",
+    "blfs_version": "2.46",
+    "deps": [
+      {
+        "anchor": "libxkbcommon",
+        "name": "libxkbcommon-1.13.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.13.1"
+      },
+      {
+        "anchor": "pytest",
+        "name": "pytest-9.0.2",
+        "note": "",
+        "type": "optional",
+        "version": "9.0.2"
+      },
+      {
+        "anchor": "xorg7-app",
+        "name": "Xorg Applications",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "xorg7-lib",
+        "name": "Xorg\n                Libraries",
+        "note": "",
+        "type": "required",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [
+    "xkeyboard-config.pc"
+  ],
+  "name": "xkeyboard-config",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libX11"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/xkeyboard-config",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "10c58218fb60d08fb1f7b30304deb3ba47613195aa8a08a81f1972775ccc3640",
+  "source_tarball": "xkeyboard-config-2.46.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.x.org/pub/individual/data/xkeyboard-config/xkeyboard-config-${version}.tar.xz",
+  "tarball_files_count": 477,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "create compatibility rules [default=true]",
+      "name": "compat-rules",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "create ",
+      "name": "xorg-rules-symlinks",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "nls",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "create the list of non-Latin layouts [default=false]",
+      "name": "non-latin-layouts-list",
+      "type": "boolean"
+    }
+  ],
+  "version": "2.46"
+}

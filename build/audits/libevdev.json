@@ -1,0 +1,110 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:49Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libevdev",
+    "blfs_name": "libevdev",
+    "blfs_version": "1.13.6",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "optional for tests",
+        "type": "optional",
+        "version": "3.26.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "libevdev-tweak-device"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libevdev.so"
+  ],
+  "expected_pkgconfig": [
+    "libevdev.pc"
+  ],
+  "name": "libevdev",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "mtdev"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "tests",
+      "value": "disabled"
+    },
+    {
+      "name": "documentation",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libevdev",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "73f215eccbd8233f414737ac06bca2687e67c44b97d2d7576091aa9718551110",
+  "source_tarball": "libevdev-1.13.6.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.freedesktop.org/software/libevdev/libevdev-${version}.tar.xz",
+  "tarball_files_count": 228,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "enabled",
+      "description": "Build the tests",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Build the tools",
+      "name": "tools",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Build the documentation",
+      "name": "documentation",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Enable coverity build fixes, see meson.build for details",
+      "name": "coverity",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.13.6"
+}

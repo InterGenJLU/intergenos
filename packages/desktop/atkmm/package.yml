@@ -14,5 +14,6 @@ dependencies:
   build:
   - at-spi2-core
   - glibmm2
+  - glibmm
   host: []
   runtime: []

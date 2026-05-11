@@ -1,0 +1,154 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:03Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "power-profiles-daemon",
+    "blfs_name": "Power-profiles-daemon",
+    "blfs_version": "0.30",
+    "deps": [
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "polkit",
+        "name": "Polkit-127",
+        "note": "",
+        "type": "required",
+        "version": "127"
+      },
+      {
+        "anchor": "pygobject3",
+        "name": "PyGObject-3.54.5",
+        "note": "",
+        "type": "required",
+        "version": "3.54.5"
+      },
+      {
+        "anchor": "python-dbusmock",
+        "name": "dbusmock-0.38.1",
+        "note": "",
+        "type": "optional",
+        "version": "0.38.1"
+      },
+      {
+        "anchor": "umockdev",
+        "name": "umockdev-0.19.4",
+        "note": "",
+        "type": "optional",
+        "version": "0.19.4"
+      },
+      {
+        "anchor": "upower",
+        "name": "UPower-1.91.1",
+        "note": "",
+        "type": "required",
+        "version": "1.91.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "None"
+  ],
+  "expected_pkgconfig": [],
+  "name": "power-profiles-daemon",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "polkit",
+    "pygobject3",
+    "upower"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "tests",
+      "value": "false"
+    },
+    {
+      "name": "gtk_doc",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/power-profiles-daemon",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "90f2c95024861d9f4062abedd514084939224e7a49edd468f001af7260ec8e6c",
+  "source_tarball": "power-profiles-daemon-0.30.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://gitlab.freedesktop.org/upower/power-profiles-daemon/-/archive/${version}/power-profiles-daemon-${version}.tar.gz",
+  "tarball_files_count": 71,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "systemd unit directory",
+      "name": "systemdsystemunitdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Build docs",
+      "name": "gtk_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Run pylint checks, for developers only",
+      "name": "pylint",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Whether to run tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "generate powerprofilesctl man page",
+      "name": "manpage",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "generate bash completion",
+      "name": "bashcomp",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "path for zsh completion file",
+      "name": "zshcomp",
+      "type": "string"
+    }
+  ],
+  "version": "0.30"
+}

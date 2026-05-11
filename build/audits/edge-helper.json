@@ -1,0 +1,45 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "no source tarball declared or downloaded",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:27Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "unknown",
+  "bundled_libs": [],
+  "docs_seen": [],
+  "expected_binaries": [
+    "/usr/bin/igos-install-edge"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "edge-helper",
+  "our_autotools_flags": [
+    "--show-progress"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/edge-helper",
+  "reproducibility": {
+    "_notes": "no-op build; static helper install",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_intentionally_sourceless": true,
+  "source_sha256": null,
+  "source_tarball": null,
+  "source_tarball_exists": false,
+  "source_url": null,
+  "tarball_files_count": 0,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "1.0"
+}

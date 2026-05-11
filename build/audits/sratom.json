@@ -1,0 +1,100 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:43Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "sratom",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--prefix=/usr",
+    "--strip"
+  ],
+  "our_deps_build": [
+    "meson",
+    "ninja",
+    "pkgconf",
+    "serd",
+    "sord",
+    "lv2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "serd",
+    "sord",
+    "lv2"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/sratom",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "0209b7d0f22c96abb416722ed735b0933be47931ecff4aa4b26ded7760b4f252",
+  "source_tarball": "sratom-0.6.22.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.drobilla.net/sratom-${version}.tar.xz",
+  "tarball_files_count": 55,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Build documentation",
+      "name": "docs",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build paginated HTML documentation",
+      "name": "html",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Run code quality checks",
+      "name": "lint",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build single-page HTML documentation",
+      "name": "singlehtml",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build tests",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "Sratom",
+      "description": "Project title",
+      "name": "title",
+      "type": "string"
+    }
+  ],
+  "version": "0.6.22"
+}

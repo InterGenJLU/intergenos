@@ -1,0 +1,114 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:00Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "BUILDING",
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "orc",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "tests",
+      "value": "disabled"
+    },
+    {
+      "name": "benchmarks",
+      "value": "disabled"
+    },
+    {
+      "name": "examples",
+      "value": "disabled"
+    },
+    {
+      "name": "hotdoc",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/orc",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "7ec912ab59af3cc97874c456a56a8ae1eec520c385ec447e8a102b2bd122c90c",
+  "source_tarball": "orc-0.4.42.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://gstreamer.freedesktop.org/src/orc/orc-${version}.tar.xz",
+  "tarball_files_count": 236,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "orc-target",
+      "type": "array"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "orc-backend",
+      "type": "array"
+    },
+    {
+      "default": "auto",
+      "description": "Build the orc-test library used for unit testing and by the orc-bugreport tool",
+      "name": "orc-test",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "benchmarks",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "examples",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Generate API documentation with hotdoc",
+      "name": "hotdoc",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "",
+      "name": "tools",
+      "type": "feature"
+    }
+  ],
+  "version": "0.4.42"
+}

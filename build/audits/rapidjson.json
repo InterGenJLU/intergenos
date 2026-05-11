@@ -1,0 +1,75 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:04Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "cmake",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "rapidjson",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cmake",
+    "pkgconf"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "RAPIDJSON_BUILD_DOC",
+      "value": "OFF"
+    },
+    {
+      "name": "RAPIDJSON_BUILD_EXAMPLES",
+      "value": "OFF"
+    },
+    {
+      "name": "RAPIDJSON_BUILD_TESTS",
+      "value": "OFF"
+    },
+    {
+      "name": "RAPIDJSON_BUILD_THIRDPARTY_GTEST",
+      "value": "OFF"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/extra/rapidjson",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=cmake; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": true,
+    "source_date_epoch_supported": true
+  },
+  "source_sha256": "2d2601a82d2d3b7e143a3c8d43ef616671391034bc46891a9816b79cf2d3e7a8",
+  "source_tarball": "24b5e7a8b27f42fa16b96fc70aade9106cf7102f.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/Tencent/rapidjson/archive/24b5e7a8b27f42fa16b96fc70aade9106cf7102f.tar.gz",
+  "tarball_files_count": 369,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "0.0.0+master.20250205"
+}

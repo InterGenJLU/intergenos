@@ -1,0 +1,86 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:51Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "nasm",
+    "blfs_name": "NASM",
+    "blfs_version": "3.01",
+    "deps": [
+      {
+        "anchor": "asciidoc",
+        "name": "asciidoc-10.2.1",
+        "note": "",
+        "type": "optional",
+        "version": "10.2.1"
+      },
+      {
+        "anchor": "xmlto",
+        "name": "xmlto-0.0.29",
+        "note": "",
+        "type": "optional",
+        "version": "0.0.29"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "nasm",
+    "ndisasm"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "nasm",
+  "our_autotools_flags": [
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/nasm",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "b7324cbe86e767b65f26f467ed8b12ad80e124e3ccb89076855c98e43a9eddd4",
+  "source_tarball": "nasm-3.01.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.nasm.us/pub/nasm/releasebuilds/${version}/nasm-${version}.tar.xz",
+  "tarball_files_count": 1392,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--with-zlib=path",
+      "kind": "with",
+      "name": "zlib"
+    },
+    {
+      "help": "AS_HELP_STRING([[--with-nsis[=makensis",
+      "kind": "with",
+      "name": "nsis"
+    }
+  ],
+  "version": "3.01"
+}

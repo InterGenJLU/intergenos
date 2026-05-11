@@ -1,0 +1,81 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:23Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "cpio",
+    "blfs_name": "cpio",
+    "blfs_version": "2.15",
+    "deps": [
+      {
+        "anchor": "texlive",
+        "name": "texlive-20250308",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "tl-installer",
+        "name": "install-tl-unx",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "cpio",
+    "mt"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "cpio",
+  "our_autotools_flags": [
+    "--enable-mt",
+    "--prefix=/usr",
+    "--with-rmt=/usr/libexec/rmt"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/cpio",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "937610b97c329a1ec9268553fb780037bcfff0dcffe9725ebc4fd9c1aa9075db",
+  "source_tarball": "cpio-2.15.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://ftpmirror.gnu.org/cpio/cpio-${version}.tar.bz2",
+  "tarball_files_count": 802,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-mt",
+      "kind": "enable",
+      "name": "mt"
+    }
+  ],
+  "version": "2.15"
+}

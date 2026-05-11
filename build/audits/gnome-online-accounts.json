@@ -1,0 +1,268 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:19Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-online-accounts",
+    "blfs_name": "gnome-online-accounts",
+    "blfs_version": "3.56.4",
+    "deps": [
+      {
+        "anchor": "gcr4",
+        "name": "Gcr-4.4.0.1",
+        "note": "",
+        "type": "required",
+        "version": "4.4.0.1"
+      },
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "json-glib",
+        "name": "JSON-GLib-1.10.8",
+        "note": "",
+        "type": "required",
+        "version": "1.10.8"
+      },
+      {
+        "anchor": "keyutils",
+        "name": "keyutils-1.6.3",
+        "note": "",
+        "type": "optional",
+        "version": "1.6.3"
+      },
+      {
+        "anchor": "libadwaita1",
+        "name": "libadwaita-1.8.4",
+        "note": "",
+        "type": "required",
+        "version": "1.8.4"
+      },
+      {
+        "anchor": "librest",
+        "name": "librest-0.10.2",
+        "note": "",
+        "type": "required",
+        "version": "0.10.2"
+      },
+      {
+        "anchor": "mitkrb",
+        "name": "MIT Kerberos V5-1.22.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.22.2"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "required",
+        "version": "0.56.18"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/goa-1.0"
+  ],
+  "expected_libs": [
+    "libgoa-1.0.so",
+    "libgoa-backend-1.0.so"
+  ],
+  "expected_pkgconfig": [
+    "goa-1.0.pc",
+    "goa-backend-1.0.pc"
+  ],
+  "name": "gnome-online-accounts",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gcr4",
+    "json-glib",
+    "libadwaita1",
+    "librest",
+    "vala",
+    "glib2",
+    "keyutils",
+    "mitkrb"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "documentation",
+      "value": "false"
+    },
+    {
+      "name": "man",
+      "value": "false"
+    },
+    {
+      "name": "kerberos",
+      "value": "true"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-online-accounts",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "2a831eadab45e38aae33e8229c3c944dfa1521de9c3140d3602a9277caa161b3",
+  "source_tarball": "gnome-online-accounts-3.56.4.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-online-accounts/3.56/gnome-online-accounts-${version}.tar.xz",
+  "tarball_files_count": 265,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Enable goabackend library",
+      "name": "goabackend",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable Microsoft Exchange provider",
+      "name": "exchange",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable Fedora Account System provider",
+      "name": "fedora",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable Google provider",
+      "name": "google",
+      "type": "boolean"
+    },
+    {
+      "default": "44438659992-7kgjeitenc16ssihbtdjbgguch7ju55s.apps.googleusercontent.com",
+      "description": "Google OAuth 2.0 client id",
+      "name": "google_client_id",
+      "type": "string"
+    },
+    {
+      "default": "-gMLuQyDiI0XrQS_vx_mhuYF",
+      "description": "Google OAuth 2.0 client secret",
+      "name": "google_client_secret",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Enable IMAP/SMTP provider",
+      "name": "imap_smtp",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable kerberos provider",
+      "name": "kerberos",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable ownCloud provider",
+      "name": "owncloud",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable WebDAV provider",
+      "name": "webdav",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable Microsoft 365 provider",
+      "name": "ms_graph",
+      "type": "boolean"
+    },
+    {
+      "default": "8ef61e06-9fd5-49af-9b63-6983aede4213",
+      "description": "Microsoft 365 client id",
+      "name": "ms_graph_client_id",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "use gtk_doc to build documentation",
+      "name": "gtk_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable API documentation (depends on gi-docgen",
+      "name": "documentation",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable man pages",
+      "name": "man",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Path to the template file",
+      "name": "template_file",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "build Vala binding",
+      "name": "vapi",
+      "type": "boolean"
+    }
+  ],
+  "version": "3.56.4"
+}

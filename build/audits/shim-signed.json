@@ -1,0 +1,43 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "tarball at /mnt/intergenos/build/sources/shim-x64-16.1-2.x86_64.rpm unreadable",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:19Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "unknown",
+  "bundled_libs": [],
+  "docs_seen": [],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "shim-signed",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cpio",
+    "rpm"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/shim-signed",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "1662629916cf2322ff8e6333439643bca63e6e6327d2e6089bf66cb7a8c5dc4b",
+  "source_tarball": "shim-x64-16.1-2.x86_64.rpm",
+  "source_tarball_exists": true,
+  "source_url": "https://intergenstudios.com/intergenos/sources/current/shim-x64-${version}-2.x86_64.rpm",
+  "tarball_files_count": 0,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "16.1"
+}

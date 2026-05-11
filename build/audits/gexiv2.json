@@ -1,0 +1,130 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:06Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gexiv2",
+    "blfs_name": "gexiv2",
+    "blfs_version": "0.14.6",
+    "deps": [
+      {
+        "anchor": "exiv2",
+        "name": "Exiv2-0.28.7",
+        "note": "",
+        "type": "required",
+        "version": "0.28.7"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "for documentation",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/gexiv2"
+  ],
+  "expected_libs": [
+    "libgexiv2.so"
+  ],
+  "expected_pkgconfig": [
+    "gexiv2.pc"
+  ],
+  "name": "gexiv2",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "exiv2",
+    "vala",
+    "pygobject3"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "gtk_doc",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gexiv2",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "606c28aaae7b1f3ef5c8eabe5e7dffd7c5a1c866d25b7671fb847fe287a72b8b",
+  "source_tarball": "gexiv2-0.14.6.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gexiv2/0.14/gexiv2-${version}.tar.xz",
+  "tarball_files_count": 101,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Enable or disable building tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gtk_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable or disable GObject Introspection",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable or disable generation of vala vapi file",
+      "name": "vapi",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable or disable building the commandline tools",
+      "name": "tools",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "python3",
+      "type": "boolean"
+    }
+  ],
+  "version": "0.14.6"
+}

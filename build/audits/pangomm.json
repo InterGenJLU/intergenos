@@ -1,0 +1,126 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:00Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "pangomm",
+    "blfs_name": "Pangomm",
+    "blfs_version": "2.46.4",
+    "deps": [
+      {
+        "anchor": "cairomm-1.0",
+        "name": "libcairomm-1.14.5",
+        "note": "",
+        "type": "required",
+        "version": ""
+      },
+      {
+        "anchor": "glibmm",
+        "name": "GLibmm-2.66.8",
+        "note": "",
+        "type": "required",
+        "version": "2.66.8"
+      },
+      {
+        "anchor": "pango",
+        "name": "Pango-1.57.0",
+        "note": "",
+        "type": "required",
+        "version": "1.57.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "None"
+  ],
+  "expected_headers": [
+    "/usr/include/pangomm-1.4"
+  ],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "pangomm",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "cairomm",
+    "glibmm",
+    "pango"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/pangomm",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "539f5aa60e9bdc6b955bb448e2a62cc14562744df690258040fbb74bf885755d",
+  "source_tarball": "pangomm-2.56.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/pangomm/2.56/pangomm-${version}.tar.xz",
+  "tarball_files_count": 599,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "if-git-build",
+      "description": "Generate source code from .hg and .ccg files",
+      "name": "maintainer-mode",
+      "type": "combo"
+    },
+    {
+      "default": "min",
+      "description": "Compiler warning level",
+      "name": "warnings",
+      "type": "combo"
+    },
+    {
+      "default": "fatal",
+      "description": "Compiler warning level when a tarball is created",
+      "name": "dist-warnings",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Build deprecated API and include it in the library",
+      "name": "build-deprecated-api",
+      "type": "boolean"
+    },
+    {
+      "default": "if-maintainer-mode",
+      "description": "Build and install the documentation",
+      "name": "build-documentation",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Use separate DLL and LIB filenames for Visual Studio 2017 and 2019",
+      "name": "msvc14x-parallel-installable",
+      "type": "boolean"
+    }
+  ],
+  "version": "2.56.1"
+}

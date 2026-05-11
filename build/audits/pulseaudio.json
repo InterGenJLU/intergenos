@@ -1,0 +1,562 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:03Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "pulseaudio",
+    "blfs_name": "PulseAudio",
+    "blfs_version": "17.0",
+    "deps": [
+      {
+        "anchor": "alsa-lib",
+        "name": "alsa-lib-1.2.15.3",
+        "note": "",
+        "type": "recommended",
+        "version": "1.2.15.3"
+      },
+      {
+        "anchor": "avahi",
+        "name": "Avahi-0.8",
+        "note": "",
+        "type": "optional",
+        "version": "0.8"
+      },
+      {
+        "anchor": "bluez",
+        "name": "BlueZ-5.86",
+        "note": "",
+        "type": "optional",
+        "version": "5.86"
+      },
+      {
+        "anchor": "dbus",
+        "name": "dbus-1.16.2",
+        "note": "",
+        "type": "recommended",
+        "version": "1.16.2"
+      },
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "for\n                documentation",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "fftw",
+        "name": "fftw-3.3.10",
+        "note": "",
+        "type": "optional",
+        "version": "3.3.10"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gst10-plugins-base",
+        "name": "gst-plugins-base-1.28.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.28.1"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "optional",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "libsamplerate",
+        "name": "libsamplerate-0.2.2",
+        "note": "",
+        "type": "optional",
+        "version": "0.2.2"
+      },
+      {
+        "anchor": "libsndfile",
+        "name": "libsndfile-1.2.2",
+        "note": "",
+        "type": "required",
+        "version": "1.2.2"
+      },
+      {
+        "anchor": "sbc",
+        "name": "SBC-2.2",
+        "note": "Bluetooth\n                support",
+        "type": "optional",
+        "version": "2.2"
+      },
+      {
+        "anchor": "speex",
+        "name": "Speex-1.2.1",
+        "note": "",
+        "type": "recommended",
+        "version": "1.2.1"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      },
+      {
+        "anchor": "xorg7-lib",
+        "name": "Xorg Libraries",
+        "note": "",
+        "type": "recommended",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "pacat",
+    "pacmd",
+    "pactl",
+    "padsp",
+    "pamon (symlink to pacat)",
+    "paplay (symlink to pacat)",
+    "parec (symlink to pacat)",
+    "parecord (symlink to pacat)",
+    "qpaeq",
+    "pasuspender",
+    "pax11publish",
+    "pulseaudio",
+    "start-pulseaudio-x11"
+  ],
+  "expected_headers": [
+    "/usr/include/pulse"
+  ],
+  "expected_libs": [
+    "libpulse.so",
+    "libpulse-mainloop-glib.so",
+    "libpulse-simple.so",
+    "libpulsecommon-17.0.so",
+    "libpulsecore-17.0.so",
+    "libpulsedsp.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "pulseaudio",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "alsa-lib",
+    "libsndfile",
+    "speex",
+    "avahi",
+    "bluez",
+    "dbus",
+    "glib2",
+    "gst-plugins-base",
+    "gtk3",
+    "libsamplerate",
+    "sbc"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "bluez5-backend-native-mm",
+      "value": "enabled."
+    },
+    {
+      "name": "database",
+      "value": "gdbm"
+    },
+    {
+      "name": "bluez5",
+      "value": "disabled"
+    },
+    {
+      "name": "doxygen",
+      "value": "false"
+    },
+    {
+      "name": "tests",
+      "value": "false"
+    },
+    {
+      "name": "udevrulesdir",
+      "value": "/usr/lib/udev/rules.d"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/pulseaudio",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "053794d6671a3e397d849e478a80b82a63cb9d8ca296bd35b73317bb5ceb87b5",
+  "source_tarball": "pulseaudio-17.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.freedesktop.org/software/pulseaudio/releases/pulseaudio-${version}.tar.xz",
+  "tarball_files_count": 915,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Enable building and installation of pulseaudio daemon and supporting configuration files",
+      "name": "daemon",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build and install pulseaudio client libraries and utilities",
+      "name": "client",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable building and installation of documentation generated with doxygen",
+      "name": "doxygen",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable optional gcov coverage analysis",
+      "name": "gcov",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable building and installation of man pages",
+      "name": "man",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable unit tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "pulse",
+      "description": "",
+      "name": "system_user",
+      "type": "string"
+    },
+    {
+      "default": "pulse",
+      "description": "",
+      "name": "system_group",
+      "type": "string"
+    },
+    {
+      "default": "pulse-access",
+      "description": "",
+      "name": "access_group",
+      "type": "string"
+    },
+    {
+      "default": "tdb",
+      "description": "Database backend",
+      "name": "database",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "legacy-database-entry-format",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Forget per-stream routing settings that have been set before version 14.0. Recommended when using GNOME. See https://gitlab.freedesktop.org/pulseaudio/pulseaudio/-/issues/832",
+      "name": "stream-restore-clear-old-devices",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable running from build tree",
+      "name": "running-from-build-tree",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Use inline asm or libatomic_ops instead",
+      "name": "atomic-arm-linux-helpers",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "atomic-arm-memory-barrier",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Specify location where OSS wrapper library will be installed",
+      "name": "padsplibdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Specify location where OSS wrapper library will be loaded from; can use \\\\$LIB",
+      "name": "pulsedsp-location",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Specify location where modules will be installed",
+      "name": "modlibexecdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "alsadatadir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Directory for systemd user service files",
+      "name": "systemduserunitdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "udevrulesdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Directory for bash completion scripts [",
+      "name": "bashcompletiondir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Directory for zsh completion scripts [",
+      "name": "zshcompletiondir",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Optional ALSA support",
+      "name": "alsa",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optional Async DNS support",
+      "name": "asyncns",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optional Avahi support",
+      "name": "avahi",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optional BlueZ 5 support",
+      "name": "bluez5",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optional BlueZ 5 GStreamer support",
+      "name": "bluez5-gstreamer",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "bluez5-native-headset",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "bluez5-ofono-headset",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Optional ConsoleKit support",
+      "name": "consolekit",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optional D-Bus support",
+      "name": "dbus",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optional elogind support",
+      "name": "elogind",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optional FFTW support",
+      "name": "fftw",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optional GLib 2 support",
+      "name": "glib",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optional GSettings support",
+      "name": "gsettings",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optional GStreamer dependency for media-related functionality",
+      "name": "gstreamer",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optional Gtk+ 3 support",
+      "name": "gtk",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "hal-compat",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Optional IPv6 support",
+      "name": "ipv6",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Optional JACK support",
+      "name": "jack",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optional LIRC support",
+      "name": "lirc",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "openssl",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optimized Inner Loop Runtime Compiler",
+      "name": "orc",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optional OSS output support",
+      "name": "oss-output",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "",
+      "name": "samplerate",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "soxr",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "speex",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optional systemd support",
+      "name": "systemd",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optional TCP wrappers support",
+      "name": "tcpwrap",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optional udev support",
+      "name": "udev",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optional Valgrind support",
+      "name": "valgrind",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Optional X11 support",
+      "name": "x11",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Use alternative time smoother implementation",
+      "name": "enable-smoother-2",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Optional Adrian\\",
+      "name": "adrian-aec",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Optional WebRTC-based echo canceller",
+      "name": "webrtc-aec",
+      "type": "feature"
+    }
+  ],
+  "version": "17.0"
+}

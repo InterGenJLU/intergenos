@@ -1,0 +1,224 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:17Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "wget",
+    "blfs_name": "Wget",
+    "blfs_version": "1.25.0",
+    "deps": [
+      {
+        "anchor": "gnutls",
+        "name": "GnuTLS-3.8.12",
+        "note": "",
+        "type": "optional",
+        "version": "3.8.12"
+      },
+      {
+        "anchor": "libidn2",
+        "name": "libidn2-2.3.8",
+        "note": "",
+        "type": "optional",
+        "version": "2.3.8"
+      },
+      {
+        "anchor": "libproxy",
+        "name": "libproxy-0.5.12",
+        "note": "",
+        "type": "optional",
+        "version": "0.5.12"
+      },
+      {
+        "anchor": "libpsl",
+        "name": "libpsl-0.21.5",
+        "note": "",
+        "type": "recommended",
+        "version": "0.21.5"
+      },
+      {
+        "anchor": "perl-http-daemon",
+        "name": "HTTP-Daemon-6.16",
+        "note": "for the test\n                suite",
+        "type": "optional",
+        "version": "6.16"
+      },
+      {
+        "anchor": "perl-io-socket-ssl",
+        "name": "IO-Socket-SSL-2.098",
+        "note": "for the test\n                suite",
+        "type": "optional",
+        "version": "2.098"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "for the test suite",
+        "type": "optional",
+        "version": "3.26.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "wget"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "wget",
+  "our_autotools_flags": [
+    "--prefix=/usr",
+    "--sysconfdir=/etc",
+    "--with-ssl=openssl"
+  ],
+  "our_deps_build": [
+    "libpsl",
+    "openssl"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [
+    "make-ca"
+  ],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/wget",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "766e48423e79359ea31e41db9e5c289675947a7fcf2efdcedb726ac9d0da3784",
+  "source_tarball": "wget-1.25.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://ftpmirror.gnu.org/wget/wget-${version}.tar.gz",
+  "tarball_files_count": 1479,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-fuzzing",
+      "kind": "enable",
+      "name": "fuzzing"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-fsanitize-ubsan",
+      "kind": "enable",
+      "name": "fsanitize-ubsan"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-fsanitize-asan",
+      "kind": "enable",
+      "name": "fsanitize-asan"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-fsanitize-msan",
+      "kind": "enable",
+      "name": "fsanitize-msan"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-opie",
+      "kind": "enable",
+      "name": "opie"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-digest",
+      "kind": "enable",
+      "name": "digest"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ntlm",
+      "kind": "enable",
+      "name": "ntlm"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-debug",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-valgrind-tests",
+      "kind": "enable",
+      "name": "valgrind-tests"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-assert",
+      "kind": "enable",
+      "name": "assert"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ipv6",
+      "kind": "enable",
+      "name": "ipv6"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-iri",
+      "kind": "enable",
+      "name": "iri"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-pcre2",
+      "kind": "enable",
+      "name": "pcre2"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-pcre",
+      "kind": "enable",
+      "name": "pcre"
+    },
+    {
+      "help": "  --enable-libproxy       libproxy support for system wide proxy configuration",
+      "kind": "enable",
+      "name": "libproxy"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-xattr",
+      "kind": "enable",
+      "name": "xattr"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-libpsl",
+      "kind": "with",
+      "name": "libpsl"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-ssl={gnutls,openssl,no}",
+      "kind": "with",
+      "name": "ssl"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-zlib",
+      "kind": "with",
+      "name": "zlib"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-metalink",
+      "kind": "with",
+      "name": "metalink"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-cares",
+      "kind": "with",
+      "name": "cares"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-libuuid",
+      "kind": "with",
+      "name": "libuuid"
+    }
+  ],
+  "version": "1.25.0"
+}

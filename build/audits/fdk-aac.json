@@ -1,0 +1,55 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:29Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "fdk-aac",
+    "blfs_name": "fdk-aac",
+    "blfs_version": "2.0.3",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libfdk-aac.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "fdk-aac",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/fdk-aac",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "829b6b89eef382409cda6857fd82af84fabb63417b08ede9ea7a553f811cb79e",
+  "source_tarball": "fdk-aac-2.0.3.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://downloads.sourceforge.net/opencore-amr/fdk-aac-${version}.tar.gz",
+  "tarball_files_count": 503,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "2.0.3"
+}

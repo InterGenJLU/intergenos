@@ -1,0 +1,144 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:11Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libxcb",
+    "blfs_name": "libxcb",
+    "blfs_version": "1.17.0",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "to generate API\n                documentation",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "libXau",
+        "name": "libXau-1.0.12",
+        "note": "",
+        "type": "required",
+        "version": "1.0.12"
+      },
+      {
+        "anchor": "libXdmcp",
+        "name": "libXdmcp-1.1.5",
+        "note": "",
+        "type": "recommended",
+        "version": "1.1.5"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "",
+        "type": "optional",
+        "version": "1.1.45"
+      },
+      {
+        "anchor": "mesa",
+        "name": "Mesa-25.3.5",
+        "note": "",
+        "type": "recommended",
+        "version": "25.3.5"
+      },
+      {
+        "anchor": "xcb-proto",
+        "name": "xcb-proto-1.17.0",
+        "note": "",
+        "type": "required",
+        "version": "1.17.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "$XORG_PREFIX /include/xcb"
+  ],
+  "expected_libs": [
+    "libxcb.so",
+    "libxcb-composite.so",
+    "libxcb-damage.so",
+    "libxcb-dbe.so",
+    "libxcb-dpms.so",
+    "libxcb-dri2.so",
+    "libxcb-dri3.so",
+    "libxcb-glx.so",
+    "libxcb-present.so",
+    "libxcb-randr.so",
+    "libxcb-record.so",
+    "libxcb-render.so",
+    "libxcb-res.so",
+    "libxcb-screensaver.so",
+    "libxcb-shape.so",
+    "libxcb-shm.so",
+    "libxcb-sync.so",
+    "libxcb-xf86dri.so",
+    "libxcb-xfixes.so",
+    "libxcb-xinerama.so",
+    "libxcb-xinput.so",
+    "libxcb-xkb.so",
+    "libxcb-xtest.so",
+    "libxcb-xvmc.so",
+    "libxcb-xv.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libxcb",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc",
+    "--without-doxygen"
+  ],
+  "our_deps_build": [
+    "xcb-proto",
+    "libXau",
+    "libXdmcp",
+    "libxslt"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libxcb",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "599ebf9996710fea71622e6e184f3a8ad5b43d0e5fa8c4e407123c88a59a6d55",
+  "source_tarball": "libxcb-1.17.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://xorg.freedesktop.org/archive/individual/lib/libxcb-${version}.tar.xz",
+  "tarball_files_count": 100,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--with-queue-size=SIZE",
+      "kind": "with",
+      "name": "queue-size"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-serverside-support",
+      "kind": "with",
+      "name": "serverside-support"
+    }
+  ],
+  "version": "1.17.0"
+}

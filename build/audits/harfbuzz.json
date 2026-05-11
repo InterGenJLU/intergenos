@@ -1,0 +1,317 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:37Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "harfbuzz",
+    "blfs_name": "harfBuzz",
+    "blfs_version": "12.3.2",
+    "deps": [
+      {
+        "anchor": "cairo",
+        "name": "Cairo-1.18.4",
+        "note": "circular: build cairo and\n                all its recommended dependencies, including harfbuzz, first,\n                then rebuild harfbuzz if the cairo backend is needed",
+        "type": "optional",
+        "version": "1.18.4"
+      },
+      {
+        "anchor": "freetype2",
+        "name": "FreeType-2.14.1",
+        "note": "",
+        "type": "recommended",
+        "version": "2.14.1"
+      },
+      {
+        "anchor": "git",
+        "name": "git-2.53.0",
+        "note": "",
+        "type": "optional",
+        "version": "2.53.0"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "required for Pango; GObject\n                Introspection required for building GNOME",
+        "type": "recommended",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "graphite2",
+        "name": "Graphite2-1.3.14",
+        "note": "",
+        "type": "recommended",
+        "version": "1.3.14"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "icu",
+        "name": "ICU-78.2",
+        "note": "",
+        "type": "recommended",
+        "version": "78.2"
+      },
+      {
+        "anchor": "libreoffice",
+        "name": "LibreOffice-26.2.1.2",
+        "note": "",
+        "type": "recommended",
+        "version": "26.2.1"
+      },
+      {
+        "anchor": "texlive",
+        "name": "texlive-20250308",
+        "note": "",
+        "type": "recommended",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "hb-info",
+    "hb-ot-shape-closure",
+    "hb-shape",
+    "hb-subset",
+    "hb-view"
+  ],
+  "expected_headers": [
+    "/usr/include/harbuzz",
+    "/usr/lib/cmake/harfbuzz",
+    "/usr/share/gtk-doc/html/harfbuzz"
+  ],
+  "expected_libs": [
+    "libharfbuzz.so",
+    "libharfbuzz-cairo.so",
+    "libharfbuzz-gobject.so",
+    "libharfbuzz-icu.so",
+    "libharfbuzz-subset.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "harfbuzz",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "freetype2-pass1",
+    "graphite2",
+    "icu",
+    "git",
+    "glib2",
+    "cairo"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "graphite2",
+      "value": "enabled"
+    },
+    {
+      "name": "icu",
+      "value": "enabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/harfbuzz",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "6f6db164359a2da5a84ef826615b448b33e6306067ad829d85d5b0bf936f1bb8",
+  "source_tarball": "harfbuzz-12.3.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/harfbuzz/harfbuzz/releases/download/${version}/harfbuzz-${version}.tar.xz",
+  "tarball_files_count": 3652,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "Enable GLib unicode functions",
+      "name": "glib",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable GObject bindings",
+      "name": "gobject",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Use Cairo graphics library",
+      "name": "cairo",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Use Chafa terminal graphics library",
+      "name": "chafa",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable ICU library unicode functions",
+      "name": "icu",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Deprecated use graphite2 option instead",
+      "name": "graphite",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable Graphite2 complementary shaper",
+      "name": "graphite2",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Enable freetype font backend",
+      "name": "freetype",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable fontations font backend",
+      "name": "fontations",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable GDI helpers and Uniscribe shaper backend on Windows",
+      "name": "gdi",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable DirectWrite shaper and font backend on Windows",
+      "name": "directwrite",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable CoreText shaper and font backend on Apple platforms",
+      "name": "coretext",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable HarfRust shaper backend",
+      "name": "harfrust",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable kb_text_shape backend",
+      "name": "kbts",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "",
+      "name": "wasm",
+      "type": "feature"
+    },
+    {
+      "default": "enabled",
+      "description": "Enable or disable unit tests",
+      "name": "tests",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "introspection",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Generate documentation with gtk-doc",
+      "name": "docs",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Run gtkdoc-check tests",
+      "name": "doc_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "enabled",
+      "description": "Build harfbuzz utils",
+      "name": "utilities",
+      "type": "feature"
+    },
+    {
+      "default": "disabled",
+      "description": "Enable benchmark tests",
+      "name": "benchmark",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Don\\",
+      "name": "icu_builtin",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Allow linking with libstdc++",
+      "name": "with_libstdcxx",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable experimental APIs",
+      "name": "experimental_api",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build Ragel subproject if no suitable version is found",
+      "name": "ragel_subproject",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Extra LDFLAGS used during linking of fuzzing binaries",
+      "name": "fuzzer_ldflags",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "CMake package configuration install directory",
+      "name": "cmakepackagedir",
+      "type": "string"
+    }
+  ],
+  "version": "12.3.2"
+}

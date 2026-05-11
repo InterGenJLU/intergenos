@@ -1,0 +1,90 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:17Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "BUILDING",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "gnome-contacts",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gtk4",
+    "libadwaita1",
+    "folks",
+    "evolution-data-server",
+    "glycin",
+    "libgee",
+    "libportal",
+    "libqrencode",
+    "gstreamer",
+    "vala",
+    "blueprint-compiler"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-contacts",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "25f21c67bc29d77def2d9cd3e22d28460d12b47ff248a2017731b54db485e4af",
+  "source_tarball": "gnome-contacts-49.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-contacts/49/gnome-contacts-${version}.tar.xz",
+  "tarball_files_count": 256,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "default",
+      "description": "",
+      "name": "profile",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Support creaing an avatar with the webcam using the XDG camera portal",
+      "name": "camera",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable building man pages.",
+      "name": "manpage",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Whether to build the valadoc docs.",
+      "name": "docs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Whether to build with GNOME Online Accounts support.",
+      "name": "goa",
+      "type": "boolean"
+    }
+  ],
+  "version": "49.0"
+}

@@ -1,0 +1,152 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:12Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "vala",
+    "blfs_name": "Vala",
+    "blfs_version": "0.56.18",
+    "deps": [
+      {
+        "anchor": "dbus",
+        "name": "dbus-1.16.2",
+        "note": "Required for the tests",
+        "type": "optional",
+        "version": "1.16.2"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "GObject Introspection required\n                for the tests",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "graphviz",
+        "name": "Graphviz-14.1.2",
+        "note": "Required for valadoc",
+        "type": "recommended",
+        "version": "14.1.2"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "Required for generating\n                the documentation",
+        "type": "optional",
+        "version": "1.1.45"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "vala-0.56.18-graphviz_13_fix-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/vala-0.56.18-graphviz_13_fix-1.patch"
+      }
+    ]
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "vala",
+    "vala-0.56",
+    "valac",
+    "valadoc",
+    "vala-gen-introspect",
+    "vapigen",
+    "(symlinks)",
+    "valac-0.56",
+    "valadoc-0.56",
+    "vala-gen-introspect-0.56",
+    "vapigen-0.56"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libvala-0.56.so",
+    "libvaladoc-0.56.so"
+  ],
+  "expected_pkgconfig": [
+    "vala-0.56.pc",
+    "valadoc-0.56.pc"
+  ],
+  "name": "vala",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "glib2",
+    "graphviz"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "vala-0.56.18-graphviz_13_fix-1.patch",
+      "sha256": "1c7ce7cb06c5cb22d6ef94348ac0fe55136910c3632fdfceee17cb8f00534aa5"
+    }
+  ],
+  "package_dir": "packages/desktop/vala",
+  "reproducibility": {
+    "_notes": "heuristic defaults; agent-c12 (chunk c12)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "f2affe7d40ab63db8e7b9ecc3f6bdc9c2fc7e3134c84ff2d795f482fe926a382",
+  "source_tarball": "vala-0.56.18.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/vala/0.56/vala-${version}.tar.xz",
+  "tarball_files_count": 3729,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-debug",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-unversioned",
+      "kind": "enable",
+      "name": "unversioned"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-coverage",
+      "kind": "enable",
+      "name": "coverage"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-test-asan",
+      "kind": "enable",
+      "name": "test-asan"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-test-ubsan",
+      "kind": "enable",
+      "name": "test-ubsan"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-valadoc",
+      "kind": "enable",
+      "name": "valadoc"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-cgraph",
+      "kind": "with",
+      "name": "cgraph"
+    }
+  ],
+  "version": "0.56.18"
+}

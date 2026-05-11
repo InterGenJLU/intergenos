@@ -1,0 +1,194 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:04Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gcr",
+    "blfs_name": "Gcr",
+    "blfs_version": "3.41.2",
+    "deps": [
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "GObject Introspection\n                recommended",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gnupg2",
+        "name": "GnuPG-2.5.17",
+        "note": "",
+        "type": "recommended",
+        "version": "2.5.17"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "recommended",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "libgcrypt",
+        "name": "libgcrypt-1.12.0",
+        "note": "",
+        "type": "required",
+        "version": "1.12.0"
+      },
+      {
+        "anchor": "libsecret",
+        "name": "libsecret-0.21.7",
+        "note": "",
+        "type": "recommended",
+        "version": "0.21.7"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "",
+        "type": "recommended",
+        "version": "1.1.45"
+      },
+      {
+        "anchor": "p11-kit",
+        "name": "p11-kit-0.26.2",
+        "note": "",
+        "type": "required",
+        "version": "0.26.2"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.56.18"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CONTRIBUTING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "gcr-viewer"
+  ],
+  "expected_headers": [
+    "/usr/include/gck-1",
+    "/usr/include/gcr-3"
+  ],
+  "expected_libs": [
+    "libgck-1.so",
+    "libgcr-base-3.so",
+    "libgcr-ui-3.so"
+  ],
+  "expected_pkgconfig": [
+    "gck-1.pc",
+    "gcr-base-3.pc",
+    "gcr-ui-3.pc"
+  ],
+  "name": "gcr",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libgcrypt",
+    "p11-kit",
+    "gtk3",
+    "libsecret",
+    "vala",
+    "glib2",
+    "gnupg2",
+    "libxslt",
+    "openssh"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "gtk_doc",
+      "value": "false"
+    },
+    {
+      "name": "ssh_agent",
+      "value": "true"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gcr",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "bad10f3c553a0e1854649ab59c5b2434da22ca1a54ae6138f1f53961567e1ab7",
+  "source_tarball": "gcr-3.41.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gcr/3.41/gcr-${version}.tar.xz",
+  "tarball_files_count": 712,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build code that uses GTK+",
+      "name": "gtk",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "gtk_doc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Path to gpg, autodetected if not set",
+      "name": "gpg_path",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Build ssh-agent binary",
+      "name": "ssh_agent",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Use systemd socket activation for server programs",
+      "name": "systemd",
+      "type": "feature"
+    }
+  ],
+  "version": "3.41.2"
+}

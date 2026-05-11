@@ -1,0 +1,132 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-contrib-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:12Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libxmlb",
+    "blfs_name": "libxmlb",
+    "blfs_version": "0.3.25",
+    "deps": [
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "GObject Introspection\n                recommended",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "contrib"
+  ],
+  "docs_seen": [
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "xb-tool"
+  ],
+  "expected_headers": [
+    "/usr/include/libxmlb-2"
+  ],
+  "expected_libs": [
+    "libxmlb.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libxmlb",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "glib2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "gtkdoc",
+      "value": "false"
+    },
+    {
+      "name": "tests",
+      "value": "false"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libxmlb",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "77f2768c9debd2e946173cdf9465efd987849805e7c58251c5772ea728a61d9a",
+  "source_tarball": "libxmlb-0.3.25.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/hughsie/libxmlb/releases/download/${version}/libxmlb-${version}.tar.xz",
+  "tarball_files_count": 131,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "enable developer documentation",
+      "name": "gtkdoc",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "generate GObject Introspection data",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "enable stemmer support",
+      "name": "stemmer",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "build and install the xb-tool CLI",
+      "name": "cli",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "lzma",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "enable zstd support",
+      "name": "zstd",
+      "type": "feature"
+    }
+  ],
+  "version": "0.3.25"
+}

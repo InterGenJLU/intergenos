@@ -1,0 +1,64 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:45Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "lua",
+    "blfs_name": "Lua",
+    "blfs_version": "5.4.8",
+    "deps": [],
+    "patches": [
+      {
+        "filename": "lua-5.4.8-shared_library-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/lua-5.4.8-shared_library-1.patch"
+      }
+    ]
+  },
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [
+    "lua",
+    "luac"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "liblua.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "lua",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [
+    {
+      "file": "lua-5.4.8-shared_library-1.patch",
+      "sha256": "44324a802822f0a35d095aaad2f5f58fa7b1821ae87ae44dbcfc8a23fcd2e67e"
+    }
+  ],
+  "package_dir": "packages/core/lua",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae",
+  "source_tarball": "lua-5.4.8.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.lua.org/ftp/lua-${version}.tar.gz",
+  "tarball_files_count": 78,
+  "test_command": "make test",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "5.4.8"
+}

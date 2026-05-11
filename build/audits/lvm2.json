@@ -1,0 +1,696 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:46Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "lvm2",
+    "blfs_name": "LVM2",
+    "blfs_version": "2.03.38",
+    "deps": [
+      {
+        "anchor": "btrfs-progs",
+        "name": "btrfs-progs-6.17.1",
+        "note": "",
+        "type": "optional",
+        "version": "6.17.1"
+      },
+      {
+        "anchor": "dosfstools",
+        "name": "dosfstools-4.2",
+        "note": "",
+        "type": "optional",
+        "version": "4.2"
+      },
+      {
+        "anchor": "jfsutils",
+        "name": "jfsutils-1.1.15",
+        "note": "",
+        "type": "optional",
+        "version": "1.1.15"
+      },
+      {
+        "anchor": "libaio",
+        "name": "libaio-0.3.113",
+        "note": "",
+        "type": "required",
+        "version": "0.3.113"
+      },
+      {
+        "anchor": "mdadm",
+        "name": "mdadm-4.4",
+        "note": "",
+        "type": "optional",
+        "version": "4.4"
+      },
+      {
+        "anchor": "parted",
+        "name": "parted-3.6",
+        "note": "",
+        "type": "optional",
+        "version": "3.6"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      },
+      {
+        "anchor": "which",
+        "name": "Which-2.23",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "xfsprogs",
+        "name": "xfsprogs-6.18.0",
+        "note": "",
+        "type": "optional",
+        "version": "6.18.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "blkdeactivate",
+    "dmeventd (optional)",
+    "dmsetup",
+    "fsadm",
+    "lvm",
+    "lvmdump",
+    "lvm_import_vdo. There are also numerous symbolic links to lvm that implement specific functionalities"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libdevmapper.so",
+    "liblvm2cmd.so; optional: libdevmapper-event.so",
+    "libdevmapper-event-lvm2.so",
+    "libdevmapper-event-lvm2mirror.so",
+    "libdevmapper-event-lvm2raid.so",
+    "libdevmapper-event-lvm2snapshot.so",
+    "libdevmapper-event-lvm2thin.so",
+    "libdevmapper-event-lvm2vdo.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "lvm2",
+  "our_autotools_flags": [
+    "--enable-cmdlib",
+    "--enable-pkgconfig",
+    "--enable-udev",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "libaio",
+    "systemd",
+    "dosfstools",
+    "which"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/lvm2",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "322d44bf40de318e6e6b52c56999aaeb86b16c8267187ac2e01a44d4dc526960",
+  "source_tarball": "LVM2.2.03.38.tgz",
+  "source_tarball_exists": true,
+  "source_url": "https://sourceware.org/ftp/lvm2/LVM2.${version}.tgz",
+  "tarball_files_count": 1391,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-dependency-tracking",
+      "kind": "enable",
+      "name": "dependency-tracking"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-silent-rules",
+      "kind": "enable",
+      "name": "silent-rules"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-static_link",
+      "kind": "enable",
+      "name": "static_link"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-shared",
+      "kind": "enable",
+      "name": "shared"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-thin_check_needs_check",
+      "kind": "enable",
+      "name": "thin_check_needs_check"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-cache_check_needs_check",
+      "kind": "enable",
+      "name": "cache_check_needs_check"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-readline",
+      "kind": "enable",
+      "name": "readline"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-editline",
+      "kind": "enable",
+      "name": "editline"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-realtime",
+      "kind": "enable",
+      "name": "realtime"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-ocf",
+      "kind": "enable",
+      "name": "ocf"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-cmirrord",
+      "kind": "enable",
+      "name": "cmirrord"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-debug",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-profiling",
+      "kind": "enable",
+      "name": "profiling"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-valgrind-pool",
+      "kind": "enable",
+      "name": "valgrind_pool"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-devmapper",
+      "kind": "enable",
+      "name": "devmapper"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-lvmpolld",
+      "kind": "enable",
+      "name": "lvmpolld"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-lvmlockd-sanlock",
+      "kind": "enable",
+      "name": "lvmlockd-sanlock"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-lvmlockd-dlm",
+      "kind": "enable",
+      "name": "lvmlockd-dlm"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-lvmlockd-dlmcontrol",
+      "kind": "enable",
+      "name": "lvmlockd-dlmcontrol"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-lvmlockd-idm",
+      "kind": "enable",
+      "name": "lvmlockd-idm"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-use-lvmlockd",
+      "kind": "enable",
+      "name": "use_lvmlockd"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-use-lvmpolld",
+      "kind": "enable",
+      "name": "use_lvmpolld"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-systemd-journal",
+      "kind": "enable",
+      "name": "systemd-journal"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-app-machineid",
+      "kind": "enable",
+      "name": "app-machineid"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-sd-notify",
+      "kind": "enable",
+      "name": "sd-notify"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-blkid_wiping",
+      "kind": "enable",
+      "name": "blkid_wiping"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-nvme-wwid",
+      "kind": "enable",
+      "name": "nvme-wwid"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-udev_sync",
+      "kind": "enable",
+      "name": "udev_sync"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-udev_rules",
+      "kind": "enable",
+      "name": "udev_rules"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-udev-rule-exec-detection",
+      "kind": "enable",
+      "name": "udev_rule_exec_detection"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-units-compat",
+      "kind": "enable",
+      "name": "units-compat"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-ioctl",
+      "kind": "enable",
+      "name": "ioctl"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-o_direct",
+      "kind": "enable",
+      "name": "o_direct"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-dbus-service",
+      "kind": "enable",
+      "name": "dbus-service"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-notify-dbus",
+      "kind": "enable",
+      "name": "notify-dbus"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-pkgconfig",
+      "kind": "enable",
+      "name": "pkgconfig"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-write_install",
+      "kind": "enable",
+      "name": "write_install"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-fsadm",
+      "kind": "enable",
+      "name": "fsadm"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-lvmimportvdo",
+      "kind": "enable",
+      "name": "lvmimportvdo"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-blkdeactivate",
+      "kind": "enable",
+      "name": "blkdeactivate"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-dmeventd",
+      "kind": "enable",
+      "name": "dmeventd"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-cmdlib",
+      "kind": "enable",
+      "name": "cmdlib"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-dmfilemapd",
+      "kind": "enable",
+      "name": "dmfilemapd"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-selinux",
+      "kind": "enable",
+      "name": "selinux"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-blkzeroout",
+      "kind": "enable",
+      "name": "blkzeroout"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-nls",
+      "kind": "enable",
+      "name": "nls"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-blkid",
+      "kind": "with",
+      "name": "blkid"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-libnvme",
+      "kind": "with",
+      "name": "libnvme"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-systemd",
+      "kind": "with",
+      "name": "systemd"
+    },
+    {
+      "help": "AS_HELP_STRING([--without-udev",
+      "kind": "with",
+      "name": "udev"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-user=USER",
+      "kind": "with",
+      "name": "user"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-group=GROUP",
+      "kind": "with",
+      "name": "group"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-device-uid=UID",
+      "kind": "with",
+      "name": "device-uid"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-device-gid=GID",
+      "kind": "with",
+      "name": "device-gid"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-device-mode=MODE",
+      "kind": "with",
+      "name": "device-mode"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-device-nodes-on=ON",
+      "kind": "with",
+      "name": "device-nodes-on"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-use-devices-file=ON",
+      "kind": "with",
+      "name": "default-use-devices-file"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-name-mangling=MANGLING",
+      "kind": "with",
+      "name": "default-name-mangling"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-event-activation=ON",
+      "kind": "with",
+      "name": "default-event-activation"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-snapshots=TYPE",
+      "kind": "with",
+      "name": "snapshots"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-mirrors=TYPE",
+      "kind": "with",
+      "name": "mirrors"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-mirror-segtype=TYPE",
+      "kind": "with",
+      "name": "default-mirror-segtype"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-raid10-segtype=TYPE",
+      "kind": "with",
+      "name": "default-raid10-segtype"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-sparse-segtype=TYPE",
+      "kind": "with",
+      "name": "default-sparse-segtype"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-thin=TYPE",
+      "kind": "with",
+      "name": "thin"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-thin-check=PATH",
+      "kind": "with",
+      "name": "thin-check"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-thin-dump=PATH",
+      "kind": "with",
+      "name": "thin-dump"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-thin-repair=PATH",
+      "kind": "with",
+      "name": "thin-repair"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-thin-restore=PATH",
+      "kind": "with",
+      "name": "thin-restore"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-cache=TYPE",
+      "kind": "with",
+      "name": "cache"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-cache-check=PATH",
+      "kind": "with",
+      "name": "cache-check"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-cache-dump=PATH",
+      "kind": "with",
+      "name": "cache-dump"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-cache-repair=PATH",
+      "kind": "with",
+      "name": "cache-repair"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-cache-restore=PATH",
+      "kind": "with",
+      "name": "cache-restore"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-vdo=TYPE",
+      "kind": "with",
+      "name": "vdo"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-vdo-format=PATH",
+      "kind": "with",
+      "name": "vdo-format"
+    },
+    {
+      "help": "#\t    AS_HELP_STRING([--with-vdo-include=PATH",
+      "kind": "with",
+      "name": "vdo-include"
+    },
+    {
+      "help": "#            AS_HELP_STRING([--with-vdo-lib=PATH",
+      "kind": "with",
+      "name": "vdo-lib"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-writecache=TYPE",
+      "kind": "with",
+      "name": "writecache"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-integrity=TYPE",
+      "kind": "with",
+      "name": "integrity"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-ocfdir=DIR",
+      "kind": "with",
+      "name": "ocfdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-pid-dir=PID_DIR",
+      "kind": "with",
+      "name": "default-pid-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-dm-run-dir=DM_RUN_DIR",
+      "kind": "with",
+      "name": "default-dm-run-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-run-dir=RUN_DIR",
+      "kind": "with",
+      "name": "default-run-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-cmirrord-pidfile=PATH",
+      "kind": "with",
+      "name": "cmirrord-pidfile"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-optimisation=OPT",
+      "kind": "with",
+      "name": "optimisation"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-symvers=STYLE",
+      "kind": "with",
+      "name": "symvers"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-lvmlockd-pidfile=PATH",
+      "kind": "with",
+      "name": "lvmlockd-pidfile"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-lvmpolld-pidfile=PATH",
+      "kind": "with",
+      "name": "lvmpolld-pidfile"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-systemd-run=PATH",
+      "kind": "with",
+      "name": "systemd-run"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-localedir=DIR",
+      "kind": "with",
+      "name": "localedir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-confdir=DIR",
+      "kind": "with",
+      "name": "confdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-staticdir=DIR",
+      "kind": "with",
+      "name": "staticdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-usrlibdir=DIR",
+      "kind": "with",
+      "name": "usrlibdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-usrsbindir=DIR",
+      "kind": "with",
+      "name": "usrsbindir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-libexecdir=DIR",
+      "kind": "with",
+      "name": "libexecdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-udev-prefix=UPREFIX",
+      "kind": "with",
+      "name": "udev_prefix"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-udevdir=DIR",
+      "kind": "with",
+      "name": "udevdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-systemdsystemunitdir=DIR",
+      "kind": "with",
+      "name": "systemdsystemunitdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-tmpfilesdir=DIR",
+      "kind": "with",
+      "name": "tmpfilesdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-modulesdir=DIR",
+      "kind": "with",
+      "name": "modulesdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-dmeventd-pidfile=PATH",
+      "kind": "with",
+      "name": "dmeventd-pidfile"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-dmeventd-path=PATH",
+      "kind": "with",
+      "name": "dmeventd-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-dmeventd-exit-on-path=PATH",
+      "kind": "with",
+      "name": "dmeventd-exit-on-path"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-system-dir=DIR",
+      "kind": "with",
+      "name": "default-system-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-profile-subdir=SUBDIR",
+      "kind": "with",
+      "name": "default-profile-subdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-archive-subdir=SUBDIR",
+      "kind": "with",
+      "name": "default-archive-subdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-backup-subdir=SUBDIR",
+      "kind": "with",
+      "name": "default-backup-subdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-cache-subdir=SUBDIR",
+      "kind": "with",
+      "name": "default-cache-subdir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-default-locking-dir=DIR",
+      "kind": "with",
+      "name": "default-locking-dir"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-interface=IFACE",
+      "kind": "with",
+      "name": "interface"
+    }
+  ],
+  "version": "2.03.38"
+}

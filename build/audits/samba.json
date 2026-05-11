@@ -1,0 +1,416 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-third_party-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:17Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "samba",
+    "blfs_name": "Samba",
+    "blfs_version": "4.23.5",
+    "deps": [
+      {
+        "anchor": "avahi",
+        "name": "Avahi-0.8",
+        "note": "",
+        "type": "optional",
+        "version": "0.8"
+      },
+      {
+        "anchor": "bind",
+        "name": "BIND-9.20.19",
+        "note": "",
+        "type": "optional",
+        "version": "9.20.19"
+      },
+      {
+        "anchor": "cups",
+        "name": "Cups-2.4.16",
+        "note": "",
+        "type": "optional",
+        "version": "2.4.16"
+      },
+      {
+        "anchor": "cyrus-sasl",
+        "name": "Cyrus\n                SASL-2.1.28",
+        "note": "",
+        "type": "optional",
+        "version": "2.1.28"
+      },
+      {
+        "anchor": "fuse3",
+        "name": "Fuse-3.18.1",
+        "note": "",
+        "type": "recommended",
+        "version": "3.18.1"
+      },
+      {
+        "anchor": "gdb",
+        "name": "GDB-17.1",
+        "note": "",
+        "type": "optional",
+        "version": "17.1"
+      },
+      {
+        "anchor": "git",
+        "name": "git-2.53.0",
+        "note": "",
+        "type": "optional",
+        "version": "2.53.0"
+      },
+      {
+        "anchor": "gnupg2",
+        "name": "GnuPG-2.5.17",
+        "note": "required for ADS and\n                the test suite",
+        "type": "optional",
+        "version": "2.5.17"
+      },
+      {
+        "anchor": "gnutls",
+        "name": "GnuTLS-3.8.12",
+        "note": "",
+        "type": "required",
+        "version": "3.8.12"
+      },
+      {
+        "anchor": "gpgme",
+        "name": "gpgme-2.0.1",
+        "note": "",
+        "type": "recommended",
+        "version": "2.0.1"
+      },
+      {
+        "anchor": "icu",
+        "name": "ICU-78.2",
+        "note": "",
+        "type": "recommended",
+        "version": "78.2"
+      },
+      {
+        "anchor": "jansson",
+        "name": "jansson-2.15.0",
+        "note": "",
+        "type": "recommended",
+        "version": "2.15.0"
+      },
+      {
+        "anchor": "libaio",
+        "name": "libaio-0.3.113",
+        "note": "",
+        "type": "optional",
+        "version": "0.3.113"
+      },
+      {
+        "anchor": "libarchive",
+        "name": "libarchive-3.8.5",
+        "note": "for tar in smbclient",
+        "type": "optional",
+        "version": "3.8.5"
+      },
+      {
+        "anchor": "libcap-pam",
+        "name": "libcap-2.77 with PAM",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      },
+      {
+        "anchor": "libgcrypt",
+        "name": "libgcrypt-1.12.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.12.0"
+      },
+      {
+        "anchor": "libnsl",
+        "name": "libnsl-2.0.1",
+        "note": "",
+        "type": "optional",
+        "version": "2.0.1"
+      },
+      {
+        "anchor": "libtasn1",
+        "name": "libtasn1-4.21.0",
+        "note": "",
+        "type": "recommended",
+        "version": "4.21.0"
+      },
+      {
+        "anchor": "libtirpc",
+        "name": "libtirpc-1.3.7",
+        "note": "",
+        "type": "required",
+        "version": "1.3.7"
+      },
+      {
+        "anchor": "libunwind",
+        "name": "libunwind-1.8.3",
+        "note": "",
+        "type": "optional",
+        "version": "1.8.3"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "for\n                documentation",
+        "type": "recommended",
+        "version": "1.1.45"
+      },
+      {
+        "anchor": "linux-pam",
+        "name": "Linux-PAM-1.7.2",
+        "note": "",
+        "type": "recommended",
+        "version": "1.7.2"
+      },
+      {
+        "anchor": "lmdb",
+        "name": "lmdb-0.9.35",
+        "note": "",
+        "type": "recommended",
+        "version": "0.9.35"
+      },
+      {
+        "anchor": "markdown",
+        "name": "Markdown-3.10.2",
+        "note": "",
+        "type": "optional",
+        "version": "3.10.2"
+      },
+      {
+        "anchor": "mitkrb",
+        "name": "MIT Kerberos\n                V5-1.22.2",
+        "note": "",
+        "type": "recommended",
+        "version": "1.22.2"
+      },
+      {
+        "anchor": "nss",
+        "name": "nss-3.120.1",
+        "note": "",
+        "type": "optional",
+        "version": "3.120.1"
+      },
+      {
+        "anchor": "openldap",
+        "name": "OpenLDAP-2.6.12",
+        "note": "",
+        "type": "recommended",
+        "version": "2.6.12"
+      },
+      {
+        "anchor": "perl-parse-yapp",
+        "name": "Parse-Yapp-1.21",
+        "note": "",
+        "type": "required",
+        "version": "1.21"
+      },
+      {
+        "anchor": "popt",
+        "name": "popt-1.19",
+        "note": "",
+        "type": "optional",
+        "version": "1.19"
+      },
+      {
+        "anchor": "rpcsvc-proto",
+        "name": "rpcsvc-proto-1.4.4",
+        "note": "",
+        "type": "required",
+        "version": "1.4.4"
+      },
+      {
+        "anchor": "talloc",
+        "name": "Talloc-2.4.4",
+        "note": "used by the\n                test suite",
+        "type": "optional",
+        "version": "2.4.4"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "optional",
+        "version": "0.56.18"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "optionally used by the test suite",
+        "type": "optional",
+        "version": "3.26.0"
+      },
+      {
+        "anchor": "xfsprogs",
+        "name": "xfsprogs-6.18.0",
+        "note": "",
+        "type": "optional",
+        "version": "6.18.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cargo",
+  "bundled_libs": [
+    "third_party"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "cifsdd",
+    "dbwrap_tool",
+    "dumpmscat",
+    "eventlogadm",
+    "gentest",
+    "ldbadd",
+    "ldbdel",
+    "ldbedit",
+    "ldbmodify",
+    "ldbrename",
+    "ldbsearch",
+    "locktest",
+    "masktest",
+    "mdsearch",
+    "mvxattr",
+    "ndrdump",
+    "net",
+    "nmbd",
+    "nmblookup",
+    "ntlm_auth",
+    "oLschema2ldif",
+    "pdbedit",
+    "profiles",
+    "regdiff",
+    "regpatch",
+    "regshell",
+    "regtree",
+    "rpcclient",
+    "samba-log-parser",
+    "samba-gpupdate",
+    "samba-regedit",
+    "samba-tool",
+    "sharesec",
+    "smbcacls",
+    "smbclient",
+    "smbcontrol",
+    "smbcquotas",
+    "smbd",
+    "smbget",
+    "smbpasswd",
+    "smbspool",
+    "smbstatus",
+    "smbtar",
+    "smbtorture",
+    "smbtree",
+    "tdbbackup",
+    "tdbdump",
+    "tdbrestore",
+    "tdbtool",
+    "testparm",
+    "wbinfo",
+    "winbindd"
+  ],
+  "expected_headers": [
+    "/usr/include/samba-4.0"
+  ],
+  "expected_libs": [
+    "libdcerpc-binding.so",
+    "libdcerpc-samr.so",
+    "libdcerpc-server-core.so",
+    "libdcerpc.so",
+    "libndr-krb5pac.so",
+    "libndr-nbt.so",
+    "libndr.so",
+    "libndr-standard.so",
+    "libnetapi.so",
+    "libnss_winbind.so",
+    "libnss_wins.so",
+    "libsamba-credentials.so",
+    "libsamba-errors.so",
+    "libsamba-hostconfig.so",
+    "libsamba-passdb.so",
+    "libsamba-policy.cpython-311-x86_64-linux-gnu.so",
+    "libsamba-util.so",
+    "libsamdb.so",
+    "libsmbclient.so",
+    "libsmbconf.so",
+    "libsmbldap.so",
+    "libtevent-util.so",
+    "libwbclient.so",
+    "filesystem",
+    "support modules under /usr/lib/{python3.14",
+    "samba}"
+  ],
+  "expected_pkgconfig": [],
+  "name": "samba",
+  "our_autotools_flags": [
+    "--disable-rpath-install",
+    "--enable-fhs",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc",
+    "--with-pammodulesdir=/usr/lib/security",
+    "--with-piddir=/run/samba",
+    "--with-system-mitkrb5",
+    "--without-ad-dc"
+  ],
+  "our_deps_build": [
+    "gnutls",
+    "gpgme",
+    "jansson",
+    "mitkrb",
+    "openldap",
+    "perl-parse-yapp",
+    "rpcsvc-proto",
+    "fuse3",
+    "libtirpc",
+    "linux-pam",
+    "avahi",
+    "cups",
+    "cyrus-sasl",
+    "git",
+    "icu",
+    "libaio",
+    "libarchive",
+    "libgcrypt",
+    "libnsl",
+    "libtasn1",
+    "libxslt",
+    "lmdb",
+    "markdown",
+    "nss",
+    "popt",
+    "vala"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/samba",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 0,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "593a43ddd0d57902237dfa76888f7b02cb7fc7747111369cb31e126db4836b9f",
+  "source_tarball": "samba-4.23.5.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://www.samba.org/ftp/samba/stable/samba-${version}.tar.gz",
+  "tarball_files_count": 11739,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "4.23.5"
+}

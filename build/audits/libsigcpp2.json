@@ -1,0 +1,159 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:58:08Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libsigc",
+    "blfs_name": "libsigc++",
+    "blfs_version": "2.12.1",
+    "deps": [
+      {
+        "anchor": "boost",
+        "name": "Boost-1.90.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.90.0"
+      },
+      {
+        "anchor": "docbook-utils",
+        "name": "DocBook-utils-0.6.14",
+        "note": "",
+        "type": "optional",
+        "version": "0.6.14"
+      },
+      {
+        "anchor": "docbook5",
+        "name": "docbook-xml-5.0",
+        "note": "",
+        "type": "optional",
+        "version": "5.0"
+      },
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "fop",
+        "name": "fop-2.11",
+        "note": "",
+        "type": "optional",
+        "version": "2.11"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "",
+        "type": "recommended",
+        "version": "1.1.45"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "libsigcpp2",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libsigcpp2",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "a9dbee323351d109b7aee074a9cb89ca3e7bcf8ad8edef1851f4cf359bd50843",
+  "source_tarball": "libsigc++-2.12.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/libsigc++/2.12/libsigc++-${version}.tar.xz",
+  "tarball_files_count": 1410,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "if-git-build",
+      "description": "Generate source code from .m4 files",
+      "name": "maintainer-mode",
+      "type": "combo"
+    },
+    {
+      "default": "min",
+      "description": "Compiler warning level",
+      "name": "warnings",
+      "type": "combo"
+    },
+    {
+      "default": "fatal",
+      "description": "Compiler warning level when a tarball is created",
+      "name": "dist-warnings",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Build deprecated API and include it in the library",
+      "name": "build-deprecated-api",
+      "type": "boolean"
+    },
+    {
+      "default": "if-maintainer-mode",
+      "description": "Build and install the documentation",
+      "name": "build-documentation",
+      "type": "combo"
+    },
+    {
+      "default": "",
+      "description": "Validate the tutorial XML file",
+      "name": "validation",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build tutorial PDF file",
+      "name": "build-pdf",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build example programs",
+      "name": "build-examples",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build test programs",
+      "name": "build-tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build and test benchmark program",
+      "name": "benchmark",
+      "type": "boolean"
+    }
+  ],
+  "version": "2.12.1"
+}

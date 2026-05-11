@@ -1,0 +1,249 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:02Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "poppler",
+    "blfs_name": "Poppler",
+    "blfs_version": "26.02.0",
+    "deps": [
+      {
+        "anchor": "boost",
+        "name": "Boost-1.90.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.90.0"
+      },
+      {
+        "anchor": "cairo",
+        "name": "Cairo-1.18.4",
+        "note": "",
+        "type": "recommended",
+        "version": "1.18.4"
+      },
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      },
+      {
+        "anchor": "curl",
+        "name": "cURL-8.18.0",
+        "note": "",
+        "type": "optional",
+        "version": "8.18.0"
+      },
+      {
+        "anchor": "fontconfig",
+        "name": "Fontconfig-2.17.1",
+        "note": "",
+        "type": "required",
+        "version": "2.17.1"
+      },
+      {
+        "anchor": "gdk-pixbuf",
+        "name": "gdk-pixbuf-2.44.5",
+        "note": "",
+        "type": "optional",
+        "version": "2.44.5"
+      },
+      {
+        "anchor": "git",
+        "name": "git-2.53.0",
+        "note": "for\n                downloading test files",
+        "type": "optional",
+        "version": "2.53.0"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gpgmepp",
+        "name": "gpgmepp-2.0.0",
+        "note": "",
+        "type": "recommended",
+        "version": "2.0.0"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "optional",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "lcms2",
+        "name": "Little CMS-2.18",
+        "note": "",
+        "type": "recommended",
+        "version": "2.18"
+      },
+      {
+        "anchor": "libjpeg",
+        "name": "libjpeg-turbo-3.1.3",
+        "note": "",
+        "type": "recommended",
+        "version": "3.1.3"
+      },
+      {
+        "anchor": "libpng",
+        "name": "libpng-1.6.55",
+        "note": "",
+        "type": "recommended",
+        "version": "1.6.55"
+      },
+      {
+        "anchor": "libtiff",
+        "name": "libtiff-4.7.1",
+        "note": "",
+        "type": "recommended",
+        "version": "4.7.1"
+      },
+      {
+        "anchor": "nss",
+        "name": "nss-3.120.1",
+        "note": "",
+        "type": "recommended",
+        "version": "3.120.1"
+      },
+      {
+        "anchor": "okular",
+        "name": "okular-25.12.2",
+        "note": "",
+        "type": "recommended",
+        "version": "25.12.2"
+      },
+      {
+        "anchor": "openjpeg2",
+        "name": "OpenJPEG-2.5.4",
+        "note": "",
+        "type": "recommended",
+        "version": "2.5.4"
+      },
+      {
+        "anchor": "qt6",
+        "name": "Qt-6.10.2",
+        "note": "",
+        "type": "recommended",
+        "version": "6.10.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "pdfattach",
+    "pdfdetach",
+    "pdffonts",
+    "pdfimages",
+    "pdfinfo",
+    "pdfseparate",
+    "pdfsig",
+    "pdftocairo",
+    "pdftohtml",
+    "pdftoppm",
+    "pdftops",
+    "pdftotext",
+    "pdfunite"
+  ],
+  "expected_headers": [
+    "/usr/include/poppler"
+  ],
+  "expected_libs": [
+    "libpoppler.so",
+    "libpoppler-cpp.so",
+    "libpoppler-glib.so",
+    "(optionally) libpoppler-qt6.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "poppler",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "fontconfig",
+    "libjpeg-turbo",
+    "libpng",
+    "nss",
+    "openjpeg2",
+    "cairo",
+    "boost",
+    "cmake",
+    "curl",
+    "gdk-pixbuf",
+    "git",
+    "glib2",
+    "gtk3",
+    "lcms2",
+    "libtiff",
+    "gpgme"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "ENABLE_UNSTABLE_API_ABI_HEADERS",
+      "value": "ON"
+    },
+    {
+      "name": "ENABLE_QT5",
+      "value": "OFF"
+    },
+    {
+      "name": "ENABLE_QT6",
+      "value": "OFF"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/poppler",
+  "reproducibility": {
+    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "dded8621f7b2f695c91063aab1558691c8418374cd583501e89ed39487e7ab77",
+  "source_tarball": "poppler-26.02.0.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://poppler.freedesktop.org/poppler-${version}.tar.xz",
+  "tarball_files_count": 889,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "26.02.0"
+}

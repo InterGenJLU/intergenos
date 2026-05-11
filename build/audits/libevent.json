@@ -1,0 +1,75 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:49Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libevent",
+    "blfs_name": "libevent",
+    "blfs_version": "2.1.12",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "for API documentation",
+        "type": "optional",
+        "version": "1.16.1"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "event_rpcgen.py"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libevent.so",
+    "libevent_core.so",
+    "libevent_extra.so",
+    "libevent_openssl.so",
+    "libevent_pthreads.so"
+  ],
+  "expected_pkgconfig": [
+    "libevent.pc",
+    "libevent_core.pc",
+    "libevent_extra.pc",
+    "libevent_openssl.pc",
+    "libevent_pthreads.pc"
+  ],
+  "name": "libevent",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libevent",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "92e6de1be9ec176428fd2367677e61ceffc2ee1cb119035037a27d346b0403bb",
+  "source_tarball": "libevent-2.1.12-stable.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/libevent/libevent/releases/download/release-${version}-stable/libevent-${version}-stable.tar.gz",
+  "tarball_files_count": 234,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "2.1.12"
+}

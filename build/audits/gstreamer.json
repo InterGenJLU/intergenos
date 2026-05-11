@@ -1,0 +1,134 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:30Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gstreamer10",
+    "blfs_name": "gstreamer",
+    "blfs_version": "1.28.1",
+    "deps": [
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "GObject Introspection required\n                for GNOME",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gsl",
+        "name": "gsl-2.8",
+        "note": "used by one test if\n                installed",
+        "type": "optional",
+        "version": "2.8"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "for examples",
+        "type": "optional",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "libnsl",
+        "name": "libnsl-2.0.1",
+        "note": "",
+        "type": "optional",
+        "version": "2.0.1"
+      },
+      {
+        "anchor": "libunwind",
+        "name": "libunwind-1.8.3",
+        "note": "",
+        "type": "optional",
+        "version": "1.8.3"
+      },
+      {
+        "anchor": "rust",
+        "name": "rustc-1.93.1",
+        "note": "for IEEE 1588:2008 PTP clock\n                support",
+        "type": "optional",
+        "version": "1.93.1"
+      },
+      {
+        "anchor": "valgrind",
+        "name": "Valgrind-3.26.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.26.0"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "BUILDING",
+    "CHANGELOG",
+    "README"
+  ],
+  "expected_binaries": [
+    "gst-inspect-1.0",
+    "gst-launch-1.0",
+    "gst-stats-1.0",
+    "gst-tester-1.0",
+    "gst-typefind-1.0"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libgstbase-1.0.so",
+    "libgstcheck-1.0.so",
+    "libgstcontroller-1.0.so",
+    "libgstnet-1.0.so",
+    "libgstreamer-1.0.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "gstreamer",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "glib2",
+    "libnsl",
+    "libunwind",
+    "rust"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "tests",
+      "value": "disabled"
+    },
+    {
+      "name": "examples",
+      "value": "disabled"
+    },
+    {
+      "name": "doc",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gstreamer",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "b65e2ffa35bdbf8798cb75c23ffc3d05e484e48346ff7546844ba85217664504",
+  "source_tarball": "gstreamer-1.28.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://gstreamer.freedesktop.org/src/gstreamer/gstreamer-${version}.tar.xz",
+  "tarball_files_count": 867,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "1.28.1"
+}

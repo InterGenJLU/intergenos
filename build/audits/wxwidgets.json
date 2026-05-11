@@ -1,0 +1,78 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-3rdparty-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:00:20Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "cmake",
+  "bundled_libs": [
+    "3rdparty"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "wxwidgets",
+  "our_autotools_flags": [
+    "--disable-mediactrl",
+    "--disable-secretstore",
+    "--disable-webview",
+    "--enable-shared",
+    "--enable-unicode",
+    "--prefix=/usr",
+    "--with-expat=sys",
+    "--with-gtk=3",
+    "--with-libjpeg=sys",
+    "--with-libpng=sys",
+    "--with-libtiff=sys",
+    "--with-opengl",
+    "--with-zlib=sys",
+    "--without-libcurl"
+  ],
+  "our_deps_build": [
+    "pkgconf",
+    "gtk3",
+    "libpng",
+    "libjpeg-turbo",
+    "libtiff",
+    "zlib",
+    "expat",
+    "mesa",
+    "glib2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/extra/wxwidgets",
+  "reproducibility": {
+    "_notes": "auto-derived from build_system=cmake; verify against real build",
+    "deterministic_install": true,
+    "parallel_build_supported": true,
+    "source_date_epoch_supported": true
+  },
+  "source_sha256": "d66e929569947a4a5920699539089a9bda83a93e5f4917fb313a61f0c344b896",
+  "source_tarball": "wxWidgets-3.2.10.tar.bz2",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/wxWidgets/wxWidgets/releases/download/v${version}/wxWidgets-${version}.tar.bz2",
+  "tarball_files_count": 8969,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "3.2.10"
+}

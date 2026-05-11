@@ -1,0 +1,202 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:56Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libportal",
+    "blfs_name": "libportal",
+    "blfs_version": "0.9.1",
+    "deps": [
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "for documentation",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "with GObject Introspection",
+        "type": "required",
+        "version": "2.86.4"
+      },
+      {
+        "anchor": "gtk3",
+        "name": "GTK-3.24.51",
+        "note": "",
+        "type": "recommended",
+        "version": "3.24.51"
+      },
+      {
+        "anchor": "gtk4",
+        "name": "GTK-4.20.3",
+        "note": "",
+        "type": "recommended",
+        "version": "4.20.3"
+      },
+      {
+        "anchor": "pytest",
+        "name": "pytest-9.0.2",
+        "note": "for\n                testing",
+        "type": "optional",
+        "version": "9.0.2"
+      },
+      {
+        "anchor": "python-dbusmock",
+        "name": "dbusmock-0.38.1",
+        "note": "",
+        "type": "optional",
+        "version": "0.38.1"
+      },
+      {
+        "anchor": "qt6",
+        "name": "Qt-6.10.2",
+        "note": "",
+        "type": "optional",
+        "version": "6.10.2"
+      },
+      {
+        "anchor": "vala",
+        "name": "Vala-0.56.18",
+        "note": "",
+        "type": "optional",
+        "version": "0.56.18"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "libportal-0.9.1-qt6.9_fixes-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/libportal-0.9.1-qt6.9_fixes-1.patch"
+      }
+    ]
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/libportal"
+  ],
+  "expected_libs": [
+    "libportal.so",
+    "libportal-gtk3.so",
+    "libportal-gtk4.so",
+    "libportal-qt6.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "libportal",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gtk3",
+    "gtk4",
+    "glib2",
+    "vala"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "docs",
+      "value": "false"
+    },
+    {
+      "name": "tests",
+      "value": "false"
+    }
+  ],
+  "our_patches": [
+    {
+      "file": "libportal-0.9.1-qt6.9_fixes-1.patch",
+      "sha256": "52fa427c47cf92edcb4f3d800e6f1232dbcb6251dc897954c96ec1db8668d271"
+    }
+  ],
+  "package_dir": "packages/desktop/libportal",
+  "reproducibility": {
+    "_notes": "heuristic defaults",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "de801ee349ed3c255a9af3c01b1a401fab5b3fc1c35eb2fd7dfb35d4b8194d7f",
+  "source_tarball": "libportal-0.9.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/flatpak/libportal/releases/download/${version}/libportal-${version}.tar.xz",
+  "tarball_files_count": 165,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "Build the GTK3 portal backend",
+      "name": "backend-gtk3",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build the GTK4 portal backend",
+      "name": "backend-gtk4",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build the Qt5 portal backend",
+      "name": "backend-qt5",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build the Qt6 portal backend",
+      "name": "backend-qt6",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Build portal tests of each backend",
+      "name": "portal-tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Generate GObject introspection files",
+      "name": "introspection",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Generate Vala bindings",
+      "name": "vapi",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build API reference with gi-docgen",
+      "name": "docs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build unit tests",
+      "name": "tests",
+      "type": "boolean"
+    }
+  ],
+  "version": "0.9.1"
+}

@@ -1,0 +1,79 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:48Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "libdaemon",
+    "blfs_name": "libdaemon",
+    "blfs_version": "0.14",
+    "deps": [
+      {
+        "anchor": "doxygen",
+        "name": "Doxygen-1.16.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.16.1"
+      },
+      {
+        "anchor": "lynx",
+        "name": "Lynx-2.9.2",
+        "note": "",
+        "type": "optional",
+        "version": "2.9.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [
+    "libdaemon.so"
+  ],
+  "expected_pkgconfig": [
+    "libdaemon.pc"
+  ],
+  "name": "libdaemon",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "lynx"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/libdaemon",
+  "reproducibility": {
+    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "fd23eb5f6f986dcc7e708307355ba3289abe03cc381fc47a80bca4a50aa6b834",
+  "source_tarball": "libdaemon-0.14.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://0pointer.de/lennart/projects/libdaemon/libdaemon-${version}.tar.gz",
+  "tarball_files_count": 57,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--disable-examples",
+      "kind": "enable",
+      "name": "examples"
+    }
+  ],
+  "version": "0.14"
+}

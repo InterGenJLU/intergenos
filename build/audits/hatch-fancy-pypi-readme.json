@@ -1,0 +1,79 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:37Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "hatch-fancy-pypi-readme",
+    "blfs_name": "Hatch-Fancy-Pypi-Readme",
+    "blfs_version": "25.1.0",
+    "deps": [
+      {
+        "anchor": "hatchling",
+        "name": "hatchling-1.28.0",
+        "note": "",
+        "type": "required",
+        "version": "1.28.0"
+      },
+      {
+        "anchor": "pypa-build",
+        "name": "build-1.4.0",
+        "note": "",
+        "type": "optional",
+        "version": "1.4.0"
+      },
+      {
+        "anchor": "pytest",
+        "name": "pytest-9.0.2",
+        "note": "",
+        "type": "optional",
+        "version": "9.0.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "python",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "hatch-fancy-pypi-readme",
+  "our_autotools_flags": [
+    "--no-build-isolation",
+    "--no-cache-dir",
+    "--no-deps"
+  ],
+  "our_deps_build": [
+    "hatchling"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/hatch-fancy-pypi-readme",
+  "reproducibility": {
+    "_notes": "auto-derived by agent-c01",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "9c58ed3dff90d51f43414ce37009ad1d5b0f08ffc9fc216998a06380f01c0045",
+  "source_tarball": "hatch_fancy_pypi_readme-25.1.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://files.pythonhosted.org/packages/source/h/hatch-fancy-pypi-readme/hatch_fancy_pypi_readme-${version}.tar.gz",
+  "tarball_files_count": 43,
+  "test_command": "pytest",
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "25.1.0"
+}

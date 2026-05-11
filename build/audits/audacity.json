@@ -1,0 +1,262 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:16Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "BUILDING",
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "NOTES",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "/usr/bin/audacity"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "audacity",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cmake",
+    "ninja",
+    "pkgconf",
+    "python",
+    "util-linux-core",
+    "wxwidgets",
+    "portaudio",
+    "libsndfile",
+    "soundtouch",
+    "lame",
+    "libid3tag",
+    "mpg123",
+    "twolame",
+    "ffmpeg",
+    "libogg",
+    "libvorbis",
+    "flac",
+    "opus",
+    "opusfile",
+    "ladspa-sdk",
+    "expat",
+    "sqlite",
+    "zlib",
+    "rapidjson",
+    "wavpack",
+    "portmidi",
+    "alsa-lib",
+    "gtk3"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_INSTALL_LIBDIR",
+      "value": "lib"
+    },
+    {
+      "name": "CMAKE_INSTALL_SYSCONFDIR",
+      "value": "/etc"
+    },
+    {
+      "name": "CMAKE_INSTALL_LOCALSTATEDIR",
+      "value": "/var"
+    },
+    {
+      "name": "CMAKE_POLICY_VERSION_MINIMUM",
+      "value": "3.5"
+    },
+    {
+      "name": "audacity_conan_enabled",
+      "value": "Off"
+    },
+    {
+      "name": "audacity_lib_preference",
+      "value": "system"
+    },
+    {
+      "name": "audacity_obey_system_dependencies",
+      "value": "Off"
+    },
+    {
+      "name": "audacity_has_networking",
+      "value": "Off"
+    },
+    {
+      "name": "audacity_has_crashreports",
+      "value": "Off"
+    },
+    {
+      "name": "audacity_has_sentry_reporting",
+      "value": "Off"
+    },
+    {
+      "name": "audacity_has_updates_check",
+      "value": "Off"
+    },
+    {
+      "name": "audacity_has_audiocom_upload",
+      "value": "Off"
+    },
+    {
+      "name": "audacity_has_url_schemes_support",
+      "value": "Off"
+    },
+    {
+      "name": "audacity_has_whats_new",
+      "value": "Off"
+    },
+    {
+      "name": "audacity_has_tests",
+      "value": "Off"
+    },
+    {
+      "name": "audacity_has_vst3",
+      "value": "Off"
+    },
+    {
+      "name": "audacity_use_wxwidgets",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_portaudio",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_libsndfile",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_libmp3lame",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_libid3tag",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_libmpg123",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_libogg",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_libvorbis",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_libflac",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_libopus",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_opusfile",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_expat",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_zlib",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_png",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_jpeg",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_ffmpeg",
+      "value": "loaded"
+    },
+    {
+      "name": "audacity_use_ladspa",
+      "value": "on"
+    },
+    {
+      "name": "audacity_use_lv2",
+      "value": "local"
+    },
+    {
+      "name": "audacity_use_vamp",
+      "value": "off"
+    },
+    {
+      "name": "audacity_use_vst",
+      "value": "Off"
+    },
+    {
+      "name": "audacity_use_wavpack",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_midi",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_soundtouch",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_twolame",
+      "value": "system"
+    },
+    {
+      "name": "audacity_use_portmixer",
+      "value": "on"
+    },
+    {
+      "name": "audacity_use_nyquist",
+      "value": "on"
+    },
+    {
+      "name": "audacity_bundle_gplv3",
+      "value": "On"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/extra/audacity",
+  "reproducibility": {
+    "_notes": "cmake/ninja -j; SOURCE_DATE_EPOCH supported by cmake",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "1574688e54009b40faeffe5752b5f822ff251e2d4228e8ec60ec0f99f3423cda",
+  "source_tarball": "audacity-sources-3.7.7.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/audacity/audacity/releases/download/Audacity-${version}/audacity-sources-${version}.tar.gz",
+  "tarball_files_count": 8815,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "extra",
+  "upstream_options": [],
+  "version": "3.7.7"
+}

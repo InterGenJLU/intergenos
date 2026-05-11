@@ -1,0 +1,148 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:56:28Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "exim",
+    "blfs_name": "Exim",
+    "blfs_version": "4.99.1",
+    "deps": [
+      {
+        "anchor": "cyrus-sasl",
+        "name": "Cyrus SASL-2.1.28",
+        "note": "",
+        "type": "optional",
+        "version": "2.1.28"
+      },
+      {
+        "anchor": "gnutls",
+        "name": "GnuTLS-3.8.12",
+        "note": "",
+        "type": "optional",
+        "version": "3.8.12"
+      },
+      {
+        "anchor": "libidn",
+        "name": "libidn-1.43",
+        "note": "",
+        "type": "optional",
+        "version": "1.43"
+      },
+      {
+        "anchor": "libnsl",
+        "name": "libnsl-2.0.1",
+        "note": "",
+        "type": "required",
+        "version": "2.0.1"
+      },
+      {
+        "anchor": "linux-pam",
+        "name": "Linux-PAM-1.7.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.7.2"
+      },
+      {
+        "anchor": "mariadb",
+        "name": "MariaDB-11.8.6",
+        "note": "",
+        "type": "optional",
+        "version": "11.8.6"
+      },
+      {
+        "anchor": "openldap",
+        "name": "OpenLDAP-2.6.12",
+        "note": "",
+        "type": "optional",
+        "version": "2.6.12"
+      },
+      {
+        "anchor": "perl-file-fcntllock",
+        "name": "File-FcntlLock-0.22",
+        "note": "",
+        "type": "required",
+        "version": "0.22"
+      },
+      {
+        "anchor": "postgresql",
+        "name": "PostgreSQL-18.2",
+        "note": "",
+        "type": "optional",
+        "version": "18.2"
+      },
+      {
+        "anchor": "x-window-system",
+        "name": "a graphical\n                environment",
+        "note": "",
+        "type": "optional",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "make",
+  "bundled_libs": [],
+  "docs_seen": [
+    "CHANGELOG",
+    "CONTRIBUTING",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [
+    "/usr/sbin/exim",
+    "/usr/sbin/sendmail",
+    "/usr/sbin/exicyclog",
+    "/usr/sbin/exigrep",
+    "/usr/sbin/exim_checkaccess",
+    "/usr/sbin/exim_dbmbuild",
+    "/usr/sbin/exim_dumpdb",
+    "/usr/sbin/exim_fixdb",
+    "/usr/sbin/exim_id_update",
+    "/usr/sbin/exim_lock",
+    "/usr/sbin/exim_msgdate",
+    "/usr/sbin/exim_tidydb",
+    "/usr/sbin/eximstats",
+    "/usr/sbin/exinext",
+    "/usr/sbin/exipick",
+    "/usr/sbin/exiqgrep",
+    "/usr/sbin/exiqsumm",
+    "/usr/sbin/exiwhat"
+  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "exim",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "libnsl",
+    "perl-file-fcntllock",
+    "linux-pam",
+    "cyrus-sasl",
+    "gnutls",
+    "openldap"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/base/exim",
+  "reproducibility": {
+    "_notes": "filled by agent-c03 from build.sh inspection + BLFS HTML",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 0
+  },
+  "source_sha256": "eae967bd49a5f879933b8c6ec88c30475a1c6646232135f37f05b55dbc4e3447",
+  "source_tarball": "exim-4.99.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://ftp.exim.org/pub/exim/exim4/exim-${version}.tar.xz",
+  "tarball_files_count": 460,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "base",
+  "upstream_options": [],
+  "version": "4.99.1"
+}

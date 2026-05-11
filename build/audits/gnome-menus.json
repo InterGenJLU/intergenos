@@ -1,0 +1,84 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:19Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "gnome-menus",
+    "blfs_name": "gnome-menus",
+    "blfs_version": "3.38.1",
+    "deps": [
+      {
+        "anchor": "glib2",
+        "name": "GLib-2.86.4",
+        "note": "GObject Introspection\n                recommended",
+        "type": "required",
+        "version": "2.86.4"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "HACKING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [
+    "/usr/include/gnome-menus-3.0"
+  ],
+  "expected_libs": [
+    "libgnome-menu-3.so"
+  ],
+  "expected_pkgconfig": [
+    "gnome-menu-3.pc"
+  ],
+  "name": "gnome-menus",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "glib2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/gnome-menus",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "1198a91cdbdcfb232df94e71ef5427617d26029e327be3f860c3b0921c448118",
+  "source_tarball": "gnome-menus-3.38.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/gnome-menus/3.38/gnome-menus-${version}.tar.xz",
+  "tarball_files_count": 333,
+  "test_command": "make check",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "help": "AC_HELP_STRING([--enable-deprecation-flags",
+      "kind": "enable",
+      "name": "deprecation_flags"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-debug=@<:@no/minimum/yes@:>@",
+      "kind": "enable",
+      "name": "debug"
+    }
+  ],
+  "version": "3.38.1"
+}

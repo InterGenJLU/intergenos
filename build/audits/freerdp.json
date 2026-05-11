@@ -1,0 +1,266 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-external-extract-unclear",
+    "bundled-lib-third-party-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:03Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "freerdp",
+    "blfs_name": "FreeRDP",
+    "blfs_version": "3.22.0",
+    "deps": [
+      {
+        "anchor": "cairo",
+        "name": "Cairo-1.18.4",
+        "note": "",
+        "type": "recommended",
+        "version": "1.18.4"
+      },
+      {
+        "anchor": "cups",
+        "name": "Cups-2.4.16",
+        "note": "",
+        "type": "optional",
+        "version": "2.4.16"
+      },
+      {
+        "anchor": "docbook-xsl",
+        "name": "docbook-xsl-nons-1.79.2",
+        "note": "",
+        "type": "recommended",
+        "version": "1.79.2"
+      },
+      {
+        "anchor": "faac",
+        "name": "faac-1.31.1",
+        "note": "",
+        "type": "optional",
+        "version": "1.31.1"
+      },
+      {
+        "anchor": "faad2",
+        "name": "FAAD2-2.11.2",
+        "note": "",
+        "type": "optional",
+        "version": "2.11.2"
+      },
+      {
+        "anchor": "fdk-aac",
+        "name": "fdk-aac-2.0.3",
+        "note": "",
+        "type": "optional",
+        "version": "2.0.3"
+      },
+      {
+        "anchor": "ffmpeg",
+        "name": "FFmpeg-8.0.1",
+        "note": "",
+        "type": "required",
+        "version": "8.0.1"
+      },
+      {
+        "anchor": "fuse3",
+        "name": "Fuse-3.18.1",
+        "note": "",
+        "type": "recommended",
+        "version": "3.18.1"
+      },
+      {
+        "anchor": "icu",
+        "name": "ICU-78.2",
+        "note": "",
+        "type": "required",
+        "version": "78.2"
+      },
+      {
+        "anchor": "json-c",
+        "name": "JSON-C-0.18",
+        "note": "",
+        "type": "recommended",
+        "version": "0.18"
+      },
+      {
+        "anchor": "lame",
+        "name": "LAME-3.100",
+        "note": "",
+        "type": "optional",
+        "version": "3.100"
+      },
+      {
+        "anchor": "libusb",
+        "name": "libusb-1.0.29",
+        "note": "",
+        "type": "recommended",
+        "version": "1.0.29"
+      },
+      {
+        "anchor": "libxkbcommon",
+        "name": "libxkbcommon-1.13.1",
+        "note": "",
+        "type": "recommended",
+        "version": "1.13.1"
+      },
+      {
+        "anchor": "linux-pam",
+        "name": "Linux-PAM-1.7.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.7.2"
+      },
+      {
+        "anchor": "mitkrb",
+        "name": "MIT Kerberos\n                V5-1.22.2",
+        "note": "",
+        "type": "recommended",
+        "version": "1.22.2"
+      },
+      {
+        "anchor": "pulseaudio",
+        "name": "PulseAudio-17.0",
+        "note": "",
+        "type": "optional",
+        "version": "17.0"
+      },
+      {
+        "anchor": "sdl3",
+        "name": "SDL3-3.4.0",
+        "note": "",
+        "type": "optional",
+        "version": "3.4.0"
+      },
+      {
+        "anchor": "wayland",
+        "name": "Wayland-1.24.0",
+        "note": "",
+        "type": "recommended",
+        "version": "1.24.0"
+      },
+      {
+        "anchor": "xorg7-lib",
+        "name": "Xorg Libraries",
+        "note": "",
+        "type": "required",
+        "version": ""
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [
+    "external",
+    "third-party"
+  ],
+  "docs_seen": [
+    "CHANGELOG",
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [
+    "freerdp-proxy",
+    "freerdp-shadow-cli",
+    "sfreerdp",
+    "sfreerdp-server",
+    "winpr-hash",
+    "winpr-makecert",
+    "wlfreerdp",
+    "xfreerdp"
+  ],
+  "expected_headers": [],
+  "expected_libs": [
+    "libfreerdp3.so",
+    "libfreerdp-client3.so",
+    "libfreerdp-server3.so",
+    "libfreerdp-server-proxy3.so",
+    "libfreerdp-shadow3.so",
+    "libfreerdp-shadow-subsystem3.so",
+    "librtdk0.so",
+    "libuwac0.so",
+    "libwinpr3.so",
+    "libwinpr-tools3.so"
+  ],
+  "expected_pkgconfig": [],
+  "name": "freerdp",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "ffmpeg",
+    "icu",
+    "cairo",
+    "fuse3",
+    "json-c",
+    "mitkrb",
+    "wayland",
+    "docbook-xsl-nons",
+    "libusb",
+    "libxkbcommon"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_SKIP_INSTALL_RPATH",
+      "value": "ON"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "WITH_CAIRO",
+      "value": "ON"
+    },
+    {
+      "name": "WITH_CLIENT_SDL",
+      "value": "OFF"
+    },
+    {
+      "name": "WITH_DSP_FFMPEG",
+      "value": "ON"
+    },
+    {
+      "name": "WITH_FFMPEG",
+      "value": "ON"
+    },
+    {
+      "name": "WITH_PCSC",
+      "value": "OFF"
+    },
+    {
+      "name": "WITH_SERVER",
+      "value": "ON"
+    },
+    {
+      "name": "WITH_SERVER_CHANNELS",
+      "value": "ON"
+    },
+    {
+      "name": "DOCBOOKXSL_DIR",
+      "value": "/usr/share/xml/docbook/xsl-stylesheets-nons-1.79.2"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/freerdp",
+  "reproducibility": {
+    "_notes": "auto-filled by agent-c06 from build.sh + BLFS html",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "f4af346eb12b5558f7a93e585e55f523a5cbbb53e6e3a0bf3ffed8f293e2a5b8",
+  "source_tarball": "FreeRDP-3.22.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/freerdp/freerdp/archive/${version}/FreeRDP-${version}.tar.gz",
+  "tarball_files_count": 3315,
+  "test_command": "ctest",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "3.22.0"
+}

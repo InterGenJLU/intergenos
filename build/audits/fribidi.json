@@ -1,0 +1,96 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:04Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "fribidi",
+    "blfs_name": "FriBidi",
+    "blfs_version": "1.0.16",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "meson",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [
+    "fribidi"
+  ],
+  "expected_headers": [
+    "/usr/include/fribidi"
+  ],
+  "expected_libs": [
+    "libfribidi.so"
+  ],
+  "expected_pkgconfig": [
+    "fribidi.pc"
+  ],
+  "name": "fribidi",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/fribidi",
+  "reproducibility": {
+    "_notes": "set by agent-c07 from build_system + build.sh",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "1b1cde5b235d40479e91be2f0e88a309e3214c8ab470ec8a2744d82a5a9ea05c",
+  "source_tarball": "fribidi-1.0.16.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/fribidi/fribidi/releases/download/v${version}/fribidi-${version}.tar.xz",
+  "tarball_files_count": 196,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "",
+      "description": "Build deprecated functionality",
+      "name": "deprecated",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build documentation",
+      "name": "docs",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build binaries",
+      "name": "bin",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build tests",
+      "name": "tests",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Extra LDFLAGS used during linking of fuzzing binaries",
+      "name": "fuzzer_ldflags",
+      "type": "string"
+    }
+  ],
+  "version": "1.0.16"
+}

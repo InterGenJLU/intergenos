@@ -1,0 +1,200 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:57:28Z",
+  "audited_by": "audit-package.py",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "grilo-plugins",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "grilo",
+    "glib2",
+    "gnome-online-accounts",
+    "librest",
+    "libsoup3",
+    "totem-pl-parser",
+    "libxml2"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/desktop/grilo-plugins",
+  "reproducibility": {
+    "_notes": "set by agent-c08; assumes standard build-system reproducibility",
+    "deterministic_install": 1,
+    "parallel_build_supported": 1,
+    "source_date_epoch_supported": 1
+  },
+  "source_sha256": "8e3ce74ee717c3c322d0cb0f8df26bb0914028a5d016e28055ffb49cc9a46c5e",
+  "source_tarball": "grilo-plugins-0.3.18.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/grilo-plugins/0.3/grilo-plugins-${version}.tar.xz",
+  "tarball_files_count": 658,
+  "test_command": "meson test -C build",
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "Enable Bookmarks plugin",
+      "name": "enable-bookmarks",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Chromaprint plugin",
+      "name": "enable-chromaprint",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable dLeyna plugin",
+      "name": "enable-dleyna",
+      "type": "combo"
+    },
+    {
+      "default": "com.intel.dleyna-server",
+      "description": "D-Bus name for dLeyna server",
+      "name": "dleyna-service-name",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Enable DMAP plugin",
+      "name": "enable-dmap",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Filesystem plugin",
+      "name": "enable-filesystem",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Flickr plugin",
+      "name": "enable-flickr",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Freebox plugin",
+      "name": "enable-freebox",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Gravatar plugin",
+      "name": "enable-gravatar",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Local Metadata plugin",
+      "name": "enable-local-metadata",
+      "type": "combo"
+    },
+    {
+      "default": "yes",
+      "description": "Enable Lua Factory plugin",
+      "name": "enable-lua-factory",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Magnatune plugin",
+      "name": "enable-magnatune",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Metadata Store plugin",
+      "name": "enable-metadata-store",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Optical Media plugin",
+      "name": "enable-optical-media",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Podcasts plugin",
+      "name": "enable-podcasts",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Shoutcast plugin",
+      "name": "enable-shoutcast",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Thetvdb plugin",
+      "name": "enable-thetvdb",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable TMDb plugin",
+      "name": "enable-tmdb",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "enable-tracker",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable Tracker3 plugin",
+      "name": "enable-tracker3",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable YouTube plugin",
+      "name": "enable-youtube",
+      "type": "combo"
+    },
+    {
+      "default": "auto",
+      "description": "Enable gnome-online-accounts usage",
+      "name": "goa",
+      "type": "feature"
+    },
+    {
+      "default": "yes",
+      "description": "Build examples developers",
+      "name": "help",
+      "type": "combo"
+    }
+  ],
+  "version": "0.3.18"
+}

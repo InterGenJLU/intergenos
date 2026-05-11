@@ -1,0 +1,73 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T16:59:04Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "PyYAML",
+    "blfs_name": "PyYAML",
+    "blfs_version": "6.0.3",
+    "deps": [
+      {
+        "anchor": "cython",
+        "name": "cython-3.2.4",
+        "note": "",
+        "type": "recommended",
+        "version": "3.2.4"
+      },
+      {
+        "anchor": "libyaml",
+        "name": "libyaml-0.2.5",
+        "note": "",
+        "type": "recommended",
+        "version": "0.2.5"
+      },
+      {
+        "anchor": "pytest",
+        "name": "pytest-9.0.2",
+        "note": "for testing",
+        "type": "optional",
+        "version": "9.0.2"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "python",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "pyyaml-pass2",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cython",
+    "libyaml"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/pyyaml-pass2",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": 1,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f",
+  "source_tarball": "pyyaml-6.0.3.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://files.pythonhosted.org/packages/source/P/PyYAML/pyyaml-${version}.tar.gz",
+  "tarball_files_count": 656,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "6.0.3"
+}
