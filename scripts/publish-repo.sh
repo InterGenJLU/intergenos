@@ -10,6 +10,11 @@
 #   scripts/publish-repo.sh --archive-dir /path/to/  # custom archive dir
 #   scripts/publish-repo.sh --gpg-key S2             # sign with backup key
 #
+# Environment overrides:
+#   PUBLISH_REMOTE_USER       (default: intergenos)
+#   PUBLISH_REMOTE_HOST       (default: origin.intergenstudios.com)
+#   PUBLISH_REMOTE_PATH       (default: /home/intergenos/repo/x86_64)
+#
 # Prerequisites:
 #   - Packages built and archived at /var/lib/igos/archives/
 #   - SSH key auth to origin.intergenstudios.com configured
@@ -17,19 +22,18 @@
 set -e -o pipefail
 
 ARCHIVE_DIR="/var/lib/igos/archives"
-REMOTE_USER="intergenos"
-REMOTE_HOST="origin.intergenstudios.com"
-REMOTE_PATH="/home/intergenos/repo/x86_64"
-STAGING_PATH="${REMOTE_PATH}/_staging"
+REMOTE_USER="${PUBLISH_REMOTE_USER:-intergenos}"
+REMOTE_HOST="${PUBLISH_REMOTE_HOST:-origin.intergenstudios.com}"
+REMOTE_PATH="${PUBLISH_REMOTE_PATH:-/home/intergenos/repo/x86_64}"
 GPG_KEY="NK1"
 DRY_RUN=false
 
 # Release key fingerprints
 declare -A GPG_KEY_FPS
 GPG_KEY_FPS[NK1]="D7AA641D81ACD690C5AD865E7276E14DD8886BFE"
-GPG_KEY_FPS[NK2]="81DD223F9BA9B3F2AFFBFC5AFA24B042975F775E"
+GPG_KEY_FPS[NK2]="81DD223F9BA9B3F2AFBFC5AFA24B042975F775E"
 GPG_KEY_FPS[S1]="D7AA641D81ACD690C5AD865E7276E14DD8886BFE"
-GPG_KEY_FPS[S2]="81DD223F9BA9B3F2AFFBFC5AFA24B042975F775E"
+GPG_KEY_FPS[S2]="81DD223F9BA9B3F2AFBFC5AFA24B042975F775E"
 
 usage() {
     echo "Usage: $0 [--dry-run] [--archive-dir DIR] [--gpg-key NK1|NK2]"
@@ -66,6 +70,18 @@ echo "GPG key:     $GPG_KEY ($GPG_FP)"
 echo "Remote:      $REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH"
 echo ""
 
+# Preflight checks — fail-fast before expensive operations
+echo "[preflight] Checking SSH connectivity..."
+ssh -o BatchMode=yes -o ConnectTimeout=10 \
+    "${REMOTE_USER}@${REMOTE_HOST}" true \
+    || { echo "ERROR: SSH auth to ${REMOTE_USER}@${REMOTE_HOST} failed" >&2; exit 1; }
+echo "  OK — SSH reachable"
+
+echo "[preflight] Checking GPG key availability..."
+gpg --list-secret-keys "$GPG_FP" >/dev/null 2>&1 \
+    || { echo "ERROR: GPG key $GPG_KEY ($GPG_FP) not available" >&2; exit 1; }
+echo "  OK — GPG key available"
+
 # Step 1: Generate InterGenOS.db index
 echo "[1/4] Generating InterGenOS.db..."
 python3 -c "
@@ -100,16 +116,20 @@ if [ "$DRY_RUN" = true ]; then
     echo ""
     echo "=== DRY RUN — not publishing ==="
     echo "Would rsync:"
-    echo "  $ARCHIVE_DIR/*.igos.tar.gz  →  $REMOTE_HOST:$STAGING_PATH/packages/"
-    echo "  $INDEX_PATH                 →  $REMOTE_HOST:$STAGING_PATH/InterGenOS.db"
-    echo "  $SIG_PATH                   →  $REMOTE_HOST:$STAGING_PATH/InterGenOS.db.sig"
-    echo "  Then: mv $STAGING_PATH/* → $REMOTE_PATH/ (atomic)"
+    echo "  $ARCHIVE_DIR/*.igos.tar.gz  →  $REMOTE_HOST:staging/"
+    echo "  $INDEX_PATH                 →  $REMOTE_HOST:staging/InterGenOS.db"
+    echo "  $SIG_PATH                   →  $REMOTE_HOST:staging/InterGenOS.db.sig"
+    echo "  Then: promote staging/ → live/"
     exit 0
 fi
 
-# Step 3: Rsync to staging on remote
-echo "[3/4] Uploading to staging..."
+# Step 3: Rsync to timestamped staging directory on remote
+# Timestamped staging prevents M2 race condition (concurrent invocations).
+STAGING_DIR="_staging-$(date -u +%Y%m%dT%H%M%SZ)"
+STAGING_PATH="${REMOTE_PATH}/${STAGING_DIR}"
 STAGING_RSYNC="ssh://${REMOTE_USER}@${REMOTE_HOST}${STAGING_PATH}"
+
+echo "[3/4] Uploading to ${STAGING_DIR}..."
 rsync -av --mkpath \
     "$ARCHIVE_DIR"/*.igos.tar.gz \
     "$INDEX_PATH" \
@@ -119,13 +139,19 @@ rsync -av --mkpath \
 echo "  OK — packages + index + signature uploaded"
 
 # Step 4: Atomic promote from staging to live
-echo "[4/4] Promoting staging → live..."
-ssh "${REMOTE_USER}@${REMOTE_HOST}" << 'SSHEOF' || { echo "ERROR: atomic promote failed" >&2; exit 1; }
-STAGING="/home/intergenos/repo/x86_64/_staging"
-LIVE="/home/intergenos/repo/x86_64"
+# Move .sig BEFORE .db: ensures any client fetching during the promotion
+# window sees either (old .db + old .sig) or (new .db + new .sig), never
+# (new .db + old .sig) which would fail signature verification.
+echo "[4/4] Promoting ${STAGING_DIR} → live..."
+ssh "${REMOTE_USER}@${REMOTE_HOST}" bash -s -- \
+    "$REMOTE_PATH" "$STAGING_DIR" << 'SSHEOF' || { echo "ERROR: atomic promote failed" >&2; exit 1; }
+set -e -o pipefail
+LIVE="$1"
+STAGING_DIR="$2"
+STAGING="$LIVE/$STAGING_DIR"
 
 if [ ! -d "$STAGING" ]; then
-    echo "ERROR: staging directory not found on remote" >&2
+    echo "ERROR: staging directory not found on remote: $STAGING" >&2
     exit 1
 fi
 
@@ -137,9 +163,20 @@ if [ -f "$LIVE/InterGenOS.db" ]; then
     cp "$LIVE/InterGenOS.db.sig" "$LIVE/_previous/InterGenOS-${TIMESTAMP}.db.sig"
 fi
 
-mv "$STAGING"/*.igos.tar.gz "$LIVE/" 2>/dev/null || true
-mv "$STAGING"/InterGenOS.db "$LIVE/"
-mv "$STAGING"/InterGenOS.db.sig "$LIVE/"
+# Move .sig FIRST so client always sees consistent pair
+if [ -f "$STAGING/InterGenOS.db.sig" ]; then
+    mv "$STAGING/InterGenOS.db.sig" "$LIVE/"
+fi
+
+if [ -f "$STAGING/InterGenOS.db" ]; then
+    mv "$STAGING/InterGenOS.db" "$LIVE/"
+fi
+
+# Move archives (only if files exist — compgen-based guard)
+if compgen -G "$STAGING/*.igos.tar.gz" >/dev/null 2>&1; then
+    mv "$STAGING"/*.igos.tar.gz "$LIVE/"
+fi
+
 rmdir "$STAGING" 2>/dev/null || true
 
 echo "Publish complete: $(date -u)"
