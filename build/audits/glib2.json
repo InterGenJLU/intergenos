@@ -1,0 +1,192 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T15:47:29Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "glib2",
+    "blfs_name": "GLib",
+    "blfs_version": "2.86.4",
+    "deps": [
+      {
+        "anchor": "DocBook",
+        "name": "docbook-xml-4.5",
+        "note": "",
+        "type": "optional",
+        "version": "4.5"
+      },
+      {
+        "anchor": "Mako",
+        "name": "Mako-1.3.10",
+        "note": "",
+        "type": "optional",
+        "version": "1.3.10"
+      },
+      {
+        "anchor": "cairo",
+        "name": "Cairo-1.18.4",
+        "note": "for some GObject\n                Introspection tests",
+        "type": "optional",
+        "version": "1.18.4"
+      },
+      {
+        "anchor": "dbus",
+        "name": "dbus-1.16.2",
+        "note": "for some tests",
+        "type": "optional",
+        "version": "1.16.2"
+      },
+      {
+        "anchor": "docbook-xsl",
+        "name": "docbook-xsl-nons-1.79.2",
+        "note": "",
+        "type": "optional",
+        "version": "1.79.2"
+      },
+      {
+        "anchor": "docutils",
+        "name": "docutils-0.22.4",
+        "note": "",
+        "type": "recommended",
+        "version": "0.22.4"
+      },
+      {
+        "anchor": "fuse3",
+        "name": "Fuse-3.18.1",
+        "note": "",
+        "type": "optional",
+        "version": "3.18.1"
+      },
+      {
+        "anchor": "gdb",
+        "name": "GDB-17.1",
+        "note": "for bindings",
+        "type": "optional",
+        "version": "17.1"
+      },
+      {
+        "anchor": "gi-docgen",
+        "name": "Gi-DocGen-2026.1",
+        "note": "to build API\n                documentation",
+        "type": "optional",
+        "version": "2026.1"
+      },
+      {
+        "anchor": "gjs",
+        "name": "Gjs-1.86.0",
+        "note": "for some GObject\n                Introspection tests",
+        "type": "optional",
+        "version": "1.86.0"
+      },
+      {
+        "anchor": "glib-networking",
+        "name": "glib-networking-2.80.1",
+        "note": "for some tests, but this is a circular dependency",
+        "type": "optional",
+        "version": "2.80.1"
+      },
+      {
+        "anchor": "gtk-doc",
+        "name": "GTK-Doc-1.35.1",
+        "note": "for GObject\n                Introspection documentation",
+        "type": "optional",
+        "version": "1.35.1"
+      },
+      {
+        "anchor": "libxslt",
+        "name": "libxslt-1.1.45",
+        "note": "",
+        "type": "recommended",
+        "version": "1.1.45"
+      },
+      {
+        "anchor": "markdown",
+        "name": "Markdown-3.10.2",
+        "note": "",
+        "type": "optional",
+        "version": "3.10.2"
+      }
+    ],
+    "patches": [
+      {
+        "filename": "glib-skip_warnings-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/glib-skip_warnings-1.patch"
+      },
+      {
+        "filename": "glib-2.86.4-upstream_fixes-1.patch",
+        "required": true,
+        "url": "https://www.linuxfromscratch.org/patches/blfs/13.0/glib-2.86.4-upstream_fixes-1.patch"
+      }
+    ]
+  },
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "BUILDING",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "glib2",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "gobject-introspection",
+    "meson",
+    "ninja"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "introspection",
+      "value": "enabled"
+    },
+    {
+      "name": "glib_debug",
+      "value": "disabled"
+    },
+    {
+      "name": "man-pages",
+      "value": "disabled"
+    },
+    {
+      "name": "sysprof",
+      "value": "disabled"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/core/glib2",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "51ab804c56f6eab3e5045c774d1290ac5e4c923d4f9a3d8e33123bee45c1840e",
+  "source_tarball": "glib-2.88.1.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/glib/2.88/glib-${version}.tar.xz",
+  "tarball_files_count": 2481,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "2.88.1"
+}
