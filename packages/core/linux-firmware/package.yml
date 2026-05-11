@@ -4,7 +4,7 @@ release: 1
 description: Firmware files for Linux kernel drivers (WiFi, GPU, audio, etc.)
 license: Various (redistributable)
 homepage: https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:
