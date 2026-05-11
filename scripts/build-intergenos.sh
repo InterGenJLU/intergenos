@@ -80,6 +80,7 @@ BUILD_USER=""
 START_AT=""
 STOP_AFTER=""
 CHECKPOINT=false
+PUBLISH=false
 ROOT_PASSWORD_ARG=""
 USER_PASSWORD_ARG=""
 ROOT_PASSWORD_PROVIDED=false
@@ -102,6 +103,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --checkpoint)
             CHECKPOINT=true
+            shift
+            ;;
+        --publish)
+            PUBLISH=true
             shift
             ;;
         --root-password)
@@ -228,6 +233,11 @@ validate_phase_name() {
 
 validate_phase_name "$START_AT" "--start-at"
 validate_phase_name "$STOP_AFTER" "--stop-after"
+
+# Conditionally enable publish phase
+if $PUBLISH; then
+    PHASES+=(publish)
+fi
 
 # ==========================================================================
 # Logging
@@ -1033,6 +1043,39 @@ phase_manifest() {
     log "  at /install/ via build-iso.sh inputs (per design doc §5.2)."
 }
 
+phase_publish() {
+    # Post-build publish hook (E1.B.8). Publishes the binary repository to
+    # repo.intergenos.org if --publish flag was passed.
+    # Only runs after a successful full build; gated behind --publish flag
+    # to prevent accidental publishing from development/CI builds.
+    #
+    # Calls scripts/publish-repo.sh which:
+    # 1. Generates InterGenOS.db index via pkm.repo.generate_index()
+    # 2. PGP-signs it via pkm.repo.sign_index()
+    # 3. Rsyncs archives + index + signature to staging
+    # 4. Atomically promotes staging → live on remote
+    log "Publishing binary repository..."
+    log "  Archive dir: ${IGOS}/var/lib/igos/archives"
+
+    local publish_script="${INTERGENOS_ROOT}/scripts/publish-repo.sh"
+    if [ ! -f "$publish_script" ]; then
+        log "  ERROR: publish script not found: $publish_script"
+        return 1
+    fi
+
+    if [ ! -d "${IGOS}/var/lib/igos/archives" ]; then
+        log "  ERROR: archives dir not found: ${IGOS}/var/lib/igos/archives"
+        return 1
+    fi
+
+    bash "$publish_script" --archive-dir "${IGOS}/var/lib/igos/archives" || {
+        log "  ERROR: publish-repo.sh failed"
+        return 1
+    }
+
+    log "  Repo published. Verify: pk sync + pkm install <test-pkg> on fresh target."
+}
+
 # ==========================================================================
 # Main — run all phases
 # ==========================================================================
@@ -1073,6 +1116,9 @@ run_phase "extra"       "Build extra tier (applications)"     phase_extra
 run_phase "bootloader"  "Assemble unsigned bootloader artifacts" phase_bootloader
 run_phase "image"       "Package bootable disk image"         phase_image
 run_phase "manifest"    "Emit archive integrity manifest"     phase_manifest
+if $PUBLISH; then
+    run_phase "publish" "Publish binary repository to repo.intergenos.org" phase_publish
+fi
 
 # ==========================================================================
 # Done
