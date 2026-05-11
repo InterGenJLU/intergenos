@@ -324,9 +324,9 @@ run_package "glib2-bootstrap" "glib2-bootstrap" "2.88.1" \
     "glib-2.88.1.tar.xz" \
     "GLib core library (bootstrap — without introspection)"
 
-run_package "gobject-introspection" "gobject-introspection" "1.86.0" \
+run_package "gobject-introspection-pass1" "gobject-introspection-pass1" "1.86.0" \
     "gobject-introspection-1.86.0.tar.xz" \
-    "GObject type introspection framework"
+    "GObject type introspection framework (bootstrap — no cairo, no doctool)"
 
 run_package "glib2" "glib2" "2.88.1" \
     "glib-2.88.1.tar.xz" \

@@ -14,7 +14,7 @@ source:
 
 dependencies:
   build:
-    - gobject-introspection
+    - gobject-introspection-pass1
     - meson
     - ninja
   host: []

@@ -1,0 +1,33 @@
+name: gobject-introspection-pass1
+version: "1.86.0"
+release: 1
+description: GObject type introspection framework (bootstrap — no cairo, no doctool)
+license: LGPL-2.0-or-later
+homepage: https://gi.readthedocs.io/
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://download.gnome.org/sources/gobject-introspection/1.86/gobject-introspection-${version}.tar.xz
+    sha256: 920d1a3fcedeadc32acff95c2e203b319039dd4b4a08dd1a2dfd283d19c0b9ae
+
+dependencies:
+  build:
+    - glib2-bootstrap
+    - meson
+    - ninja
+  host: []
+  runtime: []
+# First pass of the 2-pass gobject-introspection build. Builds against
+# glib2-bootstrap; provides g-ir-scanner / g-ir-compiler / libgirepository
+# for the full glib2 build (tier:core) to enable introspection.
+#
+# Minimal feature set: -Dcairo=disabled -Ddoctool=disabled because
+# cairo lives in tier:desktop and would create a tier:core → tier:desktop
+# cross-tier-backward dep. Full gobject-introspection with cairo + doctool
+# lives in tier:desktop and supersedes pass1 at install time via
+# migrate-pkm-supersedes.sh.
+#
+# Owner-approved 2026-05-11 — completes the bootstrap chain
+# (glib2-bootstrap → gobject-introspection-pass1 → glib2 full → ...).

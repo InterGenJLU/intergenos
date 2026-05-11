@@ -5,7 +5,7 @@
   ],
   "_notes_source": "",
   "audit_version": 1,
-  "audited_at": "2026-05-11T17:31:21Z",
+  "audited_at": "2026-05-11T17:31:20Z",
   "audited_by": "audit-package.py",
   "blfs": {},
   "build_system": "meson",
@@ -22,7 +22,7 @@
   "expected_headers": [],
   "expected_libs": [],
   "expected_pkgconfig": [],
-  "name": "gobject-introspection",
+  "name": "gobject-introspection-pass1",
   "our_autotools_flags": [
     "--buildtype=release",
     "--libdir=/usr/lib",
@@ -35,9 +35,18 @@
   ],
   "our_deps_host": [],
   "our_deps_runtime": [],
-  "our_meson_options": [],
+  "our_meson_options": [
+    {
+      "name": "cairo",
+      "value": "disabled"
+    },
+    {
+      "name": "doctool",
+      "value": "disabled"
+    }
+  ],
   "our_patches": [],
-  "package_dir": "packages/desktop/gobject-introspection",
+  "package_dir": "packages/core/gobject-introspection-pass1",
   "reproducibility": {
     "_notes": "manual review required",
     "deterministic_install": null,
@@ -51,7 +60,7 @@
   "tarball_files_count": 2683,
   "test_command": null,
   "test_known_failures": [],
-  "tier": "desktop",
+  "tier": "core",
   "upstream_options": [
     {
       "default": "",
