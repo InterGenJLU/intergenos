@@ -442,11 +442,24 @@ This section is the procedure used to validate the runbook against a real machin
 
 ### Test procedure
 
-1. **Pre-flight on host (IGOSC):**
-   - `mokutil --list-enrolled` — capture the baseline enrolled-key set.
-   - `mokutil --sb-state` — confirm `SecureBoot enabled`.
-   - `bootctl status` — confirm Setup Mode is `user`.
-   - Capture all three to `~/tmp/mok-validation/baseline-<timestamp>.log`.
+1. **Pre-flight baseline — capture from the Build #8 live-ISO env, NOT from the installed host.**
+
+   The IGOSC test host's installed OS is a dev-state InterGenOS 1.0-dev build that
+   pre-dates `mokutil`/`sbverify`/`sbsign` landing in the package tree. The Build #8
+   live-ISO env ships these tools as part of the standard image, so baseline capture
+   runs from the live env.
+
+   - `dd` the Build #8 ISO to USB; boot the laptop from the USB.
+   - At the live shell, run and capture each:
+     - `mokutil --list-enrolled` — baseline enrolled-key set (firmware cert store
+       + any preexisting MOKs from prior installs on this hardware).
+     - `mokutil --sb-state` — must report `SecureBoot enabled`.
+     - `bootctl status | grep -E 'Secure Boot|Setup Mode|Vendor'` — must show
+       `Setup Mode: user`.
+   - Write outputs to `/run/mok-validation/baseline-<timestamp>.log` (live env is
+     tmpfs). Before reboot/install, rsync the log to the witness host per the
+     "Witness + reproducibility" subsection below so the baseline survives the
+     live-env teardown.
 
 2. **Boot Build #8 ISO from USB:**
    - dd the ISO to a USB stick.
