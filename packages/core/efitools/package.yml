@@ -56,3 +56,14 @@ patches:
   # File::Slurp's documented sysopen+sysread semantics (same SHA256).
   - file: efitools-1.9.2-xxdi-no-fileslurp-1.patch
     sha256: 10c391f8727f8a2b689c9722d605d9378bf847080396e94c7da163586778f3ab
+  # InterGenOS-vendored: fix Make.rules:75 dep declaration. The
+  # %-blacklist.esl rule's recipe invokes ./cert-to-efi-sig-list, but
+  # the declared dep was cert-to-efi-hash-list (different binary).
+  # Under parallel make, the rule fires before cert-to-efi-sig-list is
+  # fully linked → exec() on a half-written ELF returns EACCES (make
+  # reports as "Permission denied" / Error 127). Patch declares
+  # cert-to-efi-sig-list as the dep, matching the recipe and mirroring
+  # the %.esl rule's correct dep declaration two lines below. Surfaced
+  # by Build #7 phase_core_extra 2026-05-10.
+  - file: efitools-1.9.2-pk-blacklist-deps-1.patch
+    sha256: cb3dcaf3f6027712a57a922285d3569cadf35b6ef33f44a42418650931ccbbab

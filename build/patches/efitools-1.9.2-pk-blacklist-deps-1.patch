@@ -1,0 +1,30 @@
+Description: Fix Make.rules dep declaration for %-blacklist.esl rule
+
+The %-blacklist.esl rule's recipe invokes ./cert-to-efi-sig-list, but the
+declared dependency list names cert-to-efi-hash-list (a different binary).
+Under parallel make, this lets the rule fire before cert-to-efi-sig-list
+is fully linked — exec() on a half-written ELF returns EACCES, which make
+reports as "Permission denied" / Error 127.
+
+Fix: declare cert-to-efi-sig-list as the dep, matching the recipe.
+Mirrors the %.esl rule's correct dep declaration two lines below.
+
+Surfaced by InterGenOS Build #7 phase_core_extra at efitools (2026-05-10):
+  ./cert-to-efi-sig-list PK.crt PK-blacklist.esl
+  make: ./cert-to-efi-sig-list: Permission denied
+  make: *** [Make.rules:75: PK-blacklist.esl] Error 127
+
+Author: InterGenJLU <InterGenJLU@users.noreply.github.com>
+Last-Update: 2026-05-10
+
+--- efitools-1.9.2.orig/Make.rules
++++ efitools-1.9.2/Make.rules
+@@ -71,7 +71,7 @@
+ %.hash: %.efi hash-to-efi-sig-list
+ 	./hash-to-efi-sig-list $< $@
+
+-%-blacklist.esl: %.crt cert-to-efi-hash-list
++%-blacklist.esl: %.crt cert-to-efi-sig-list
+ 	./cert-to-efi-sig-list $< $@
+
+ %-hash-blacklist.esl: %.crt cert-to-efi-hash-list
