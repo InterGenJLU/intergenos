@@ -1,0 +1,19 @@
+name: libndp
+version: '1.9'
+release: 1
+description: Neighbor Discovery Protocol library
+license: LGPL-2.1-or-later
+homepage: https://github.com/jpirko/libndp
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/jpirko/libndp/archive/v${version}/libndp-${version}.tar.gz
+  sha256: e564f5914a6b1b799c3afa64c258824a801c1b79a29e2fe6525b682249c65261
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

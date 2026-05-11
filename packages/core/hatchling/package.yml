@@ -1,0 +1,20 @@
+name: hatchling
+version: "1.28.0"
+release: 1
+description: Python build backend
+license: MIT
+homepage: ''
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/h/hatchling/hatchling-${version}.tar.gz
+  sha256: 4d50b02aece6892b8cd0b3ce6c82cb218594d3ec5836dbde75bf41a21ab004c8
+dependencies:
+  build:
+  - editables
+  - pathspec
+  - pluggy
+  - trove-classifiers
+  host: []
+  runtime: []
