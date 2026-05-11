@@ -5,6 +5,20 @@
 
 configure() {
     set -e
+    # Extract the bundled ccan tarball into lib/ccan.git/. sbsigntool's
+    # source tarball ships lib/ccan.git/ as an empty placeholder; the
+    # actual ccan source comes from the secondary `source:` entry
+    # (ccan-b35fabb.tar.gz). build_core_package's auto-extract handles
+    # source[0] only — tier:core/base packages with bundled_deps must
+    # extract them explicitly per Rule 5 (vendor tarballs must be
+    # extracted explicitly). Sister-case: igos-build.py's
+    # tier:desktop/extra path handles bundled_deps automatically via
+    # builder.py; chroot-build-core-extra.sh does not (yet).
+    tar xf "${IGOS_SOURCES}/ccan-b35fabb.tar.gz" \
+        -C lib/ccan.git/ \
+        --strip-components=1 \
+        --no-same-owner --no-same-permissions
+
     # autogen.sh expects lib/ccan.git/ to be a git checkout. The bundled
     # ccan tarball gives us the source files but no .git/. The
     # create-ccan-tree script uses `modfiles --git-only` to enumerate
