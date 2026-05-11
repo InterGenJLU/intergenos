@@ -4,7 +4,7 @@ release: 1
 description: Rust programming language
 license: MIT
 homepage: https://www.rust-lang.org/
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

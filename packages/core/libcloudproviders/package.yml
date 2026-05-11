@@ -4,7 +4,7 @@ release: 1
 description: Cloud storage integration library
 license: LGPL-3.0-or-later
 homepage: ''
-tier: desktop
+tier: core
 build_style: meson
 install_func: do_install
 source:

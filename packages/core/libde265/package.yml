@@ -4,7 +4,7 @@ release: 1
 description: Open source H.265/HEVC video decoder
 license: LGPL-3.0-or-later
 homepage: https://github.com/strukturag/libde265
-tier: extra
+tier: core
 build_style: autotools
 install_func: do_install
 source:

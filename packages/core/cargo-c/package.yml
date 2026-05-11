@@ -4,7 +4,7 @@ release: 1
 description: Cargo C-ABI helpers for building and installing C-compatible libraries
 license: MIT
 homepage: https://github.com/lu-zero/cargo-c
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

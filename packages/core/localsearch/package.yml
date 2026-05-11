@@ -4,7 +4,7 @@ release: 1
 description: Filesystem indexer and metadata extractor
 license: GPL-2.0-or-later
 homepage: https://gnome.pages.gitlab.gnome.org/localsearch/
-tier: desktop
+tier: core
 build_style: meson
 install_func: do_install
 source:

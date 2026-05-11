@@ -4,7 +4,7 @@ release: 1
 description: Vorbis audio codec library
 license: BSD-3-Clause
 homepage: https://www.xiph.org/vorbis/
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

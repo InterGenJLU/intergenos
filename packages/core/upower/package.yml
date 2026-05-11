@@ -4,7 +4,7 @@ release: 1
 description: Power management service
 license: GPL-2.0-or-later
 homepage: https://upower.freedesktop.org/
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

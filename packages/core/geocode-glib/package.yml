@@ -4,7 +4,7 @@ release: 1
 description: Geocoding and reverse geocoding library
 license: LGPL-2.0-or-later
 homepage: https://developer.gnome.org/geocode-glib/
-tier: desktop
+tier: core
 build_style: meson
 install_func: do_install
 source:

@@ -4,7 +4,7 @@ release: 1
 description: High-speed JPEG compression/decompression library
 license: IJG
 homepage: https://libjpeg-turbo.org/
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

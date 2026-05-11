@@ -4,7 +4,7 @@ release: 1
 description: Python bindings for D-Bus
 license: MIT
 homepage: https://dbus.freedesktop.org/
-tier: desktop
+tier: core
 build_style: meson
 install_func: do_install
 source:

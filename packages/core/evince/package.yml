@@ -4,7 +4,7 @@ release: 1
 description: GNOME document viewer
 license: GPL-2.0-or-later
 homepage: https://wiki.gnome.org/Apps/Evince
-tier: desktop
+tier: core
 build_style: meson
 install_func: do_install
 source:

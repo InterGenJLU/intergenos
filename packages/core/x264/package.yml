@@ -4,7 +4,7 @@ release: 1
 description: H.264/AVC video encoder
 license: GPL-2.0-or-later
 homepage: https://www.videolan.org/developers/x264.html
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

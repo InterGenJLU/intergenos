@@ -4,7 +4,7 @@ release: 1
 description: Text-mode web browser
 license: GPL-2.0-or-later
 homepage: ''
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

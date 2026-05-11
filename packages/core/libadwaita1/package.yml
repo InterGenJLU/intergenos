@@ -4,7 +4,7 @@ release: 1
 description: GTK4 adaptive widgets library
 license: LGPL-2.1-or-later
 homepage: https://gnome.pages.gitlab.gnome.org/libadwaita/
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

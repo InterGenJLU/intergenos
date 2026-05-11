@@ -4,7 +4,7 @@ release: 1
 description: DVD reading library
 license: GPL-2.0-or-later
 homepage: https://www.videolan.org/developers/libdvdread.html
-tier: desktop
+tier: core
 build_style: meson
 install_func: do_install
 source:

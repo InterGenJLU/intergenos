@@ -4,7 +4,7 @@ release: 1
 description: Desktop file validation and installation utilities
 license: GPL-2.0-or-later
 homepage: https://www.freedesktop.org/wiki/Software/desktop-file-utils/
-tier: desktop
+tier: core
 build_style: meson
 install_func: do_install
 source:

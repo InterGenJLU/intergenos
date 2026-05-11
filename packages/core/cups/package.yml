@@ -4,7 +4,7 @@ release: 1
 description: Common UNIX Printing System
 license: Apache-2.0
 homepage: https://openprinting.github.io/cups/
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

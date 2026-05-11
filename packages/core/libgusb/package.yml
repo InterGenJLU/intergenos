@@ -4,7 +4,7 @@ release: 1
 description: GObject wrapper for libusb
 license: LGPL-2.1-or-later
 homepage: https://github.com/hughsie/libgusb
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

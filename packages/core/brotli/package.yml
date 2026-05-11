@@ -4,7 +4,7 @@ release: 1
 description: Brotli compression library
 license: MIT
 homepage: https://github.com/google/brotli
-tier: desktop
+tier: core
 build_style: cmake
 install_func: do_install
 source:

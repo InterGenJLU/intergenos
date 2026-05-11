@@ -4,7 +4,7 @@ release: 1
 description: OpenGL function pointer management library
 license: MIT
 homepage: https://github.com/anholt/libepoxy
-tier: desktop
+tier: core
 build_style: meson
 install_func: do_install
 source:

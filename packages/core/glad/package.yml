@@ -4,7 +4,7 @@ release: 1
 description: OpenGL/Vulkan/EGL loader generator
 license: MIT
 homepage: https://github.com/Dav1dde/glad
-tier: extra
+tier: core
 build_style: custom
 install_func: do_install
 source:

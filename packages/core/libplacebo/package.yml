@@ -4,7 +4,7 @@ release: 1
 description: GPU-accelerated image and video processing library
 license: LGPL-2.1-or-later
 homepage: https://code.videolan.org/videolan/libplacebo
-tier: extra
+tier: core
 build_style: custom
 install_func: do_install
 source:

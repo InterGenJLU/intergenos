@@ -4,7 +4,7 @@ release: 1
 description: D-Bus geolocation service
 license: LGPL-2.0-or-later
 homepage: https://gitlab.freedesktop.org/geoclue/geoclue
-tier: desktop
+tier: core
 build_style: meson
 install_func: do_install
 source:

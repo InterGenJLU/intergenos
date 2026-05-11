@@ -4,7 +4,7 @@ release: 1
 description: Dynamic pixel format translation library
 license: LGPL-3.0-or-later
 homepage: https://gegl.org/babl/
-tier: extra
+tier: core
 build_style: meson
 install_func: do_install
 source:

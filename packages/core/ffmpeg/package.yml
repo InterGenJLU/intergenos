@@ -4,7 +4,7 @@ release: 1
 description: Complete multimedia framework
 license: LGPL-2.1-or-later
 homepage: https://ffmpeg.org/
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

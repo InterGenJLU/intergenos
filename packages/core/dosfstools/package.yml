@@ -4,7 +4,7 @@ release: 1
 description: Utilities for FAT filesystems (mkfs.fat, fsck.fat)
 license: GPL-3.0-or-later
 homepage: https://github.com/dosfstools/dosfstools
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

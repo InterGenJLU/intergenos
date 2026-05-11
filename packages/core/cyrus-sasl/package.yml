@@ -4,7 +4,7 @@ release: 1
 description: Cyrus Simple Authentication and Security Layer
 license: BSD-4-Clause-UC
 homepage: https://www.cyrusimap.org/sasl/
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

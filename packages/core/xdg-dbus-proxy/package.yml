@@ -4,7 +4,7 @@ release: 1
 description: D-Bus proxy for sandboxed applications
 license: LGPL-2.1-or-later
 homepage: https://github.com/flatpak/xdg-dbus-proxy
-tier: desktop
+tier: core
 build_style: meson
 install_func: do_install
 source:

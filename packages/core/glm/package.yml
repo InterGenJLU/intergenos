@@ -4,7 +4,7 @@ release: 1
 description: OpenGL Mathematics — header-only C++ math library for graphics
 license: MIT
 homepage: https://github.com/g-truc/glm
-tier: extra
+tier: core
 build_style: custom
 install_func: do_install
 source:

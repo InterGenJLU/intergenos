@@ -4,7 +4,7 @@ release: 1
 description: Multitouch protocol translation library
 license: MIT
 homepage: https://bitmath.org/code/mtdev/
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

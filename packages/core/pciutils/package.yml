@@ -4,7 +4,7 @@ release: 1
 description: PCI device listing and configuration utilities
 license: GPL-2.0-or-later
 homepage: https://mj.ucw.cz/sw/pciutils/
-tier: extra
+tier: core
 build_style: custom
 install_func: do_install
 source:

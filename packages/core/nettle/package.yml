@@ -4,7 +4,7 @@ release: 1
 description: Low-level cryptographic library
 license: LGPL-3.0-or-later
 homepage: https://www.lysator.liu.se/~nisse/nettle/
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

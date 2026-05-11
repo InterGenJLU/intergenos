@@ -4,7 +4,7 @@ release: 1
 description: HEIF and AVIF file format decoder and encoder
 license: LGPL-3.0-or-later
 homepage: https://github.com/strukturag/libheif
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

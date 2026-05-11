@@ -4,7 +4,7 @@ release: 1
 description: CD paranoia library from libcdio
 license: GPL-3.0-or-later
 homepage: https://www.gnu.org/software/libcdio/
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

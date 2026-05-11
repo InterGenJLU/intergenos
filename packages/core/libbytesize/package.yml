@@ -4,7 +4,7 @@ release: 1
 description: Library for operations with sizes in bytes
 license: LGPL-2.1-or-later
 homepage: https://github.com/storaged-project/libbytesize
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

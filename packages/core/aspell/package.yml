@@ -4,7 +4,7 @@ release: 1
 description: Interactive spell checking program and libraries
 license: LGPL-2.1-or-later
 homepage: http://aspell.net/
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

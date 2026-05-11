@@ -4,7 +4,7 @@ release: 2
 description: iptables CLI compat shim — translates iptables syntax to nftables rules
 license: GPL-2.0-or-later
 homepage: https://www.netfilter.org/
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

@@ -4,7 +4,7 @@ release: 1
 description: Text layout and rendering library
 license: LGPL-2.0-or-later
 homepage: https://pango.gnome.org/
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

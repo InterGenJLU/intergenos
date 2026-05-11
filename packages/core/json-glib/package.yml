@@ -4,7 +4,7 @@ release: 1
 description: JSON parser for GLib
 license: LGPL-2.1-or-later
 homepage: https://wiki.gnome.org/Projects/JsonGlib
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

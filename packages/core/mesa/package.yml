@@ -4,7 +4,7 @@ release: 1
 description: OpenGL, Vulkan, and OpenCL implementation
 license: MIT
 homepage: https://www.mesa3d.org/
-tier: desktop
+tier: core
 build_style: meson
 install_func: do_install
 source:

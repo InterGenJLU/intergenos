@@ -4,7 +4,7 @@ release: 1
 description: ATA S.M.A.R.T. disk reporting library
 license: LGPL-2.1-or-later
 homepage: https://0pointer.de/public/
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 configure_flags:

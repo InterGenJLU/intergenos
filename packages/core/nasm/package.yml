@@ -4,7 +4,7 @@ release: 1
 description: Netwide Assembler
 license: BSD-2-Clause
 homepage: https://www.nasm.us/
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

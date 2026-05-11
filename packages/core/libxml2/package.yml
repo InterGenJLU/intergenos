@@ -4,7 +4,7 @@ release: 1
 description: XML parsing library
 license: MIT
 homepage: https://gitlab.gnome.org/GNOME/libxml2
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

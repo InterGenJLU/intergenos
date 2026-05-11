@@ -4,7 +4,7 @@ release: 1
 description: Simple DirectMedia Layer 2
 license: Zlib
 homepage: https://www.libsdl.org/
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

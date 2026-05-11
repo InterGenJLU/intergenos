@@ -4,7 +4,7 @@ release: 1
 description: Audio codec designed for speech compression
 license: BSD-3-Clause
 homepage: https://www.speex.org/
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

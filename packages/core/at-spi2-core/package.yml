@@ -4,7 +4,7 @@ release: 1
 description: Assistive Technology Service Provider Interface
 license: LGPL-2.1-or-later
 homepage: https://wiki.gnome.org/Accessibility
-tier: desktop
+tier: core
 build_style: meson
 install_func: do_install
 source:

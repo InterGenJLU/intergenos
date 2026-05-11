@@ -4,7 +4,7 @@ release: 1
 description: X server running as a Wayland client
 license: MIT
 homepage: https://wayland.freedesktop.org/xserver.html
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

@@ -4,7 +4,7 @@ release: 1
 description: Mesa OpenGL Utility library
 license: SGI-B-2.0
 homepage: https://mesa3d.org/
-tier: extra
+tier: core
 build_style: custom
 install_func: do_install
 source:

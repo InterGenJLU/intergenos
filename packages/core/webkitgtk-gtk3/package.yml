@@ -4,7 +4,7 @@ release: 1
 description: Web content engine for GTK (GTK-3 version)
 license: LGPL-2.0-or-later
 homepage: https://webkitgtk.org/
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

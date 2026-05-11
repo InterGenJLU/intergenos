@@ -4,7 +4,7 @@ release: 1
 description: PipeWire session manager
 license: MIT
 homepage: https://pipewire.pages.freedesktop.org/wireplumber/
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

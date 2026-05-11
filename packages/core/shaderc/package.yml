@@ -4,7 +4,7 @@ release: 1
 description: Google GLSL/HLSL to SPIR-V shader compiler
 license: Apache-2.0
 homepage: https://github.com/google/shaderc
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

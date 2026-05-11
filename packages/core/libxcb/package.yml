@@ -4,7 +4,7 @@ release: 1
 description: X C Binding library
 license: MIT
 homepage: https://xcb.freedesktop.org/
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

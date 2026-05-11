@@ -4,7 +4,7 @@ release: 1
 description: RPC service protocol definitions
 license: BSD-3-Clause
 homepage: ''
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

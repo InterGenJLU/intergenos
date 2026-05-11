@@ -4,7 +4,7 @@ release: 1
 description: Open source LDAP directory server and client libraries
 license: OLDAP-2.8
 homepage: https://www.openldap.org/
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

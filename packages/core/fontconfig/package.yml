@@ -4,7 +4,7 @@ release: 1
 description: Font configuration and customization library
 license: MIT
 homepage: https://www.freedesktop.org/wiki/Software/fontconfig/
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

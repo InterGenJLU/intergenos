@@ -4,7 +4,7 @@ release: 1
 description: X Keyboard Configuration Database
 license: MIT
 homepage: https://www.freedesktop.org/wiki/Software/XKeyboardConfig/
-tier: desktop
+tier: core
 build_style: meson
 install_func: do_install
 source:

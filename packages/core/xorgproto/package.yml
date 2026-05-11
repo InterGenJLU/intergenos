@@ -4,7 +4,7 @@ release: 1
 description: X11 protocol headers
 license: MIT
 homepage: https://www.x.org/
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

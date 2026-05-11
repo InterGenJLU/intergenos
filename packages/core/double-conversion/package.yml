@@ -4,7 +4,7 @@ release: 1
 description: Binary-to-decimal and decimal-to-binary conversion routines for IEEE doubles
 license: BSD-3-Clause
 homepage: https://github.com/google/double-conversion
-tier: extra
+tier: core
 build_style: custom
 install_func: do_install
 source:

@@ -4,7 +4,7 @@ release: 1
 description: Pixel manipulation library
 license: MIT
 homepage: https://www.cairographics.org/
-tier: desktop
+tier: core
 build_style: meson
 install_func: do_install
 source:

@@ -4,7 +4,7 @@ release: 1
 description: Web Open Font Format 2.0 library
 license: MIT
 homepage: ''
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

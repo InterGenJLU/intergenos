@@ -4,7 +4,7 @@ release: 1
 description: EDID and DisplayID library
 license: MIT
 homepage: https://gitlab.freedesktop.org/emersion/libdisplay-info
-tier: desktop
+tier: core
 build_style: meson
 install_func: do_install
 source:

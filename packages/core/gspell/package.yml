@@ -4,7 +4,7 @@ release: 1
 description: Spell checking library for GTK applications
 license: LGPL-2.1-or-later
 homepage: https://gitlab.gnome.org/GNOME/gspell
-tier: extra
+tier: core
 build_style: custom
 install_func: do_install
 source:

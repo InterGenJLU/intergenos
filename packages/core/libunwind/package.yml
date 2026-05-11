@@ -4,7 +4,7 @@ release: 1
 description: Portable and efficient C programming interface to determine the call-chain of a program
 license: MIT
 homepage: https://www.nongnu.org/libunwind/
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

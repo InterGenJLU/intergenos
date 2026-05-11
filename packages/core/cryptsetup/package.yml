@@ -4,7 +4,7 @@ release: 1
 description: Transparent disk encryption using the kernel crypto API
 license: GPL-2.0-or-later
 homepage: https://gitlab.com/cryptsetup/cryptsetup
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

@@ -4,7 +4,7 @@ release: 1
 description: Emulated Input library
 license: MIT
 homepage: https://gitlab.freedesktop.org/libinput/libei
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

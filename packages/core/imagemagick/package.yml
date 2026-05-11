@@ -4,7 +4,7 @@ release: 1
 description: Image processing and conversion suite
 license: ImageMagick
 homepage: https://imagemagick.org/
-tier: extra
+tier: core
 build_style: custom
 install_func: do_install
 source:

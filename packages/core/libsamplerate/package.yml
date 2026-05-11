@@ -4,7 +4,7 @@ release: 1
 description: Audio sample rate conversion library
 license: BSD-2-Clause
 homepage: https://libsndfile.github.io/libsamplerate/
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

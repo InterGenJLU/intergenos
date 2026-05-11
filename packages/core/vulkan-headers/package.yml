@@ -4,7 +4,7 @@ release: 1
 description: Vulkan API headers
 license: Apache-2.0
 homepage: ''
-tier: desktop
+tier: core
 build_style: cmake
 install_func: do_install
 source:

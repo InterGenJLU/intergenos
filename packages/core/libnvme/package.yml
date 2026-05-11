@@ -4,7 +4,7 @@ release: 1
 description: NVMe management library
 license: LGPL-2.1-or-later
 homepage: https://github.com/linux-nvme/libnvme
-tier: desktop
+tier: core
 build_style: meson
 install_func: do_install
 configure_flags:

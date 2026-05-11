@@ -4,7 +4,7 @@ release: 1
 description: GPG error code library
 license: LGPL-2.1-or-later
 homepage: https://www.gnupg.org/
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

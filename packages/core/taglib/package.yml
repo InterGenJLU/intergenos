@@ -4,7 +4,7 @@ release: 1
 description: Library for reading and editing audio file metadata tags
 license: LGPL-2.1-or-later AND MPL-1.1
 homepage: https://taglib.org/
-tier: desktop
+tier: core
 build_style: cmake
 install_func: do_install
 source:

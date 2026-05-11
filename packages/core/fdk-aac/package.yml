@@ -4,7 +4,7 @@ release: 1
 description: Fraunhofer FDK AAC codec
 license: FDK-AAC
 homepage: https://sourceforge.net/projects/opencore-amr/
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

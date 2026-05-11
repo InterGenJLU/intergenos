@@ -4,7 +4,7 @@ release: 1
 description: Graphics data types library
 license: MIT
 homepage: https://ebassi.github.io/graphene/
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

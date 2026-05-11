@@ -4,7 +4,7 @@ release: 1
 description: REST web service access library
 license: LGPL-2.1-or-later
 homepage: ''
-tier: desktop
+tier: core
 build_style: custom
 install_func: do_install
 source:

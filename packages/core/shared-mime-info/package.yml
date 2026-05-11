@@ -4,7 +4,7 @@ release: 1
 description: Core MIME type database
 license: GPL-2.0-or-later
 homepage: https://www.freedesktop.org/wiki/Software/shared-mime-info/
-tier: desktop
+tier: core
 build_style: meson
 install_func: do_install
 configure_flags:

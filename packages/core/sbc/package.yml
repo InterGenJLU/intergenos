@@ -4,7 +4,7 @@ release: 1
 description: Bluetooth SBC audio codec
 license: LGPL-2.1-or-later
 homepage: https://www.kernel.org/pub/linux/bluetooth/
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

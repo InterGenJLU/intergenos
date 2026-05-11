@@ -4,7 +4,7 @@ release: 1
 description: MPEG audio decoder
 license: LGPL-2.1-or-later
 homepage: ''
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

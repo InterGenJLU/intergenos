@@ -4,7 +4,7 @@ release: 1
 description: Input event device wrapper library
 license: MIT
 homepage: https://www.freedesktop.org/wiki/Software/libevdev/
-tier: desktop
+tier: core
 build_style: meson
 install_func: do_install
 source:

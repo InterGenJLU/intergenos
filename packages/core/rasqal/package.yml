@@ -4,7 +4,7 @@ release: 1
 description: RDF query language library (SPARQL)
 license: LGPL-2.1-or-later
 homepage: https://librdf.org/rasqal/
-tier: extra
+tier: core
 build_style: autotools
 install_func: do_install
 source:

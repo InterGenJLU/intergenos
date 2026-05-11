@@ -4,7 +4,7 @@ release: 1
 description: DVD navigation library
 license: GPL-2.0-or-later
 homepage: https://www.videolan.org/developers/libdvdnav.html
-tier: extra
+tier: core
 build_style: custom
 install_func: do_install
 source:
