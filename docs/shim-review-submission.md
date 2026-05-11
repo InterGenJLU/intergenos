@@ -1,13 +1,13 @@
 # rhboot/shim-review submission — InterGenOS shim-x64-20260515
 
 **Submitter:** InterGenOS (Christopher Cork, sole proprietor; secondary contact Ethan Bambock).
-**Target PR-open:** 2026-05-15.
+**Target PR-open:** 2026-05-22.
 **Hard external deadline:** 2026-06-27 — Microsoft 2011 UEFI CA expiration; 2023-CA only after that date.
 
 **Reading conventions:**
 
 - `__TBD__:` items name pending external dependencies (e.g., Ethan's PGP fingerprint, generated post-onboarding-Phase-1) and identify what unblocks them.
-- `__GATED__:` items remain only where binary-extracted output is required and the binary build is post-shim-review-merge (none in this submission's question set; all template gates are filled with the canonical SHAs and design-source citations).
+- `__GATED__:` literal markers are absent from this submission's question set; design-conditional "post-Phase-1 GRUB build" / "post-MS-signing" reviewer-verification passages exist where reviewer commands inherently require a built artifact, but all in-scope content (canonical SHAs, design-source citations, pre-build module lists, SBAT entries on-master) is populated.
 - **Kernel-config fragment terms:** `00-universal-baseline.config` is the cross-distro convergence baseline (Ubuntu/Arch/Fedora/Debian/openSUSE intersection of recommended hardening), applied first. `99-intergenos-overrides.config` is applied second and takes precedence — concatenation order in `packages/core/linux-kernel/build.sh:36` followed by `make olddefconfig`. Per-line citations like `99-intergenos-overrides.config:122` reference the exact line in the override fragment where each setting is defined; the final compiled kernel `.config` is the merged result.
 - Inline citations point at the InterGenOS main repository (`docs/research/installer/...`, `docs/grub2-cve-audit.md`, etc.) so reviewers can audit the trail.
 
@@ -187,7 +187,7 @@ The audit document is the primary citation source for this question. Reviewers c
 
 References:
 
-- Audit document: `docs/grub2-cve-audit.md` (live on master, sha256 to be recorded post-final-merge)
+- Audit document: `docs/grub2-cve-audit.md` (live on master, sha256 `905db4a2380fe6e64b11d8e128f3c7b4fb1ac5d7e2dadf005220862105c596a9`)
 - Audit prep doc: `docs/research/shim_review/grub2_cve_audit_2026-04-29.md` (on master post-merge)
 
 ---
@@ -472,7 +472,7 @@ CA properties:
 - **Lifetime:** 2 years (2028-05-04) with documented rotation strategy per Q21
 - **Use:** signs the InterGenOS-built signed GRUB2 binary AND the InterGenOS-built signed kernel image. Does NOT sign kernel modules (those use ephemeral per-build keys, see Q19).
 
-The CA private key, once generated in the PIV slot 9c follow-up session, will never leave the Nitrokey hardware token (per Q26 custody architecture; on-card generation guarantees private material is hardware-bound from inception).
+The CA private key, generated on-card in the PIV slot 9c during the 2026-05-05 ceremony, will never leave the Nitrokey hardware token (per Q26 custody architecture; on-card generation guarantees private material is hardware-bound from inception).
 
 ---
 
@@ -550,7 +550,7 @@ Userspace execution policy is the responsibility of the running OS image (execut
 
 **No.** The InterGenOS-signed GRUB2 image is built with module-set restricted to those needed to boot off the install media + verify and load the signed kernel. No loader modules supporting unsigned-kernel loading (e.g., `linux16`-style insecure loaders bypassing signature verification) are included in the signed GRUB2 image.
 
-GRUB2 module list to be confirmed in Q30.
+GRUB2 module list documented in Q30 (built-in modules; no filesystem-write or network modules included).
 
 ---
 
@@ -581,7 +581,7 @@ GRUB2 module list to be confirmed in Q30.
 ## 38. What contributions have you made to help us review the applications of other applicants?
 
 
-**Plan: peer-review at least 2 open shim-review PRs starting 2026-05-04**, ahead of our 2026-05-15 PR-open target. Specific PR selections will be recorded in the commit log of this branch as reviews are completed; we treat the peer-review-contribution gate as a queue-priority factor and an acknowledgement that the shim-review process scales by mutual review.
+**Plan: peer-review at least 2 open shim-review PRs starting 2026-05-04**, ahead of our 2026-05-22 PR-open target. Specific PR selections will be recorded in the commit log of this branch as reviews are completed; we treat the peer-review-contribution gate as a queue-priority factor and an acknowledgement that the shim-review process scales by mutual review.
 
 Initial selection criteria for which PRs to review:
 
@@ -589,7 +589,7 @@ Initial selection criteria for which PRs to review:
 - PRs with technical questions in flight where InterGenOS's research (kernel-lockdown audit, GRUB2 CVE audit, ephemeral-module-signing analysis) is directly applicable
 - PRs in the architecture / Dockerfile-reproducibility / SBAT-entry domain (where InterGenOS's own work is similar enough to provide qualified review feedback)
 
-By the 2026-05-15 PR-open target, ≥2 substantive review comments will have been delivered and are linkable from this answer (links to be added once reviews are posted).
+By the 2026-05-22 PR-open target, ≥2 substantive review comments will have been delivered and are linkable from this answer (links to be added once reviews are posted).
 
 ---
 
