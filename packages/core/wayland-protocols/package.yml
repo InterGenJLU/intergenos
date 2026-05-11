@@ -11,7 +11,12 @@ source:
 - url: https://gitlab.freedesktop.org/wayland/wayland-protocols/-/releases/${version}/downloads/wayland-protocols-${version}.tar.xz
   sha256: 5fd4349bcbc9bab9a46f8cf77d1f434296a7a052c87440a094f63fcf62a58e20
 dependencies:
-  build:
-  - wayland
+  build: []
   host: []
   runtime: []
+# wayland was declared as a build dep but wayland-protocols is just XML
+# protocol definitions — the build only installs .xml files under
+# /usr/share/wayland-protocols/, with no compilation step that requires
+# libwayland or wayland-scanner. The spurious entry was likely contributed
+# by BLFS dep importer mis-attribution (same class of bug that produced
+# the hatch-pair self-cycle, fixed in 7554f7b). Audited 2026-05-11.

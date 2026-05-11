@@ -12,10 +12,18 @@ source:
   sha256: cd79f3367bd74b317dda655dc8fcfa304d9eb6e4fb06b7168c5cf27f96e0cd62
 dependencies:
   build:
+  - libxml2
   - libxslt
-  - at-spi2-core
-  - docbook-xsl-nons
-  - lynx
-  - pygobject3
+  - cython
   host: []
   runtime: []
+# Fixed 2026-05-11: removed spurious build deps that were not real
+# upstream requirements (at-spi2-core, lynx, pygobject3 — accessibility/
+# browser/GObject-bindings, no relation to XML processing). Also
+# removed docbook-xsl-nons (used for doc generation only; not a hard
+# build dep). Added the missing libxml2 (lxml is Python bindings for
+# libxml2 + libxslt) and cython (build-time C extension generator).
+# Per-upstream lxml.de: real deps are libxml2 >= 2.9, libxslt >= 1.1.27,
+# Cython. The spurious entries are residue of the BLFS dep importer's
+# contaminated-rows bug class (same shape as the hatch-pair self-cycle
+# fixed in 7554f7b).
