@@ -4,7 +4,7 @@ release: 1
 description: Utility to show the full path of commands
 license: GPL-3.0-or-later
 homepage: https://www.gnu.org/software/which/
-tier: base
+tier: core
 build_style: autotools
 
 source:

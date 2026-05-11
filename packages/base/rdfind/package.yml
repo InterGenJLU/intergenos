@@ -4,7 +4,7 @@ release: 1
 description: Redundant data finder — deduplicates files with hardlinks
 license: GPL-2.0-or-later
 homepage: https://github.com/pauldreik/rdfind
-tier: desktop
+tier: base
 build_style: custom
 install_func: do_install
 source:

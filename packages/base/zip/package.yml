@@ -4,7 +4,7 @@ release: 1
 description: Info-ZIP archiver for creating ZIP archives
 license: Info-ZIP
 homepage: http://infozip.sourceforge.net/
-tier: core
+tier: base
 build_style: custom
 install_func: do_install
 source:
