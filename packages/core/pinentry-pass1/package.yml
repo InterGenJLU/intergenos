@@ -1,0 +1,35 @@
+name: pinentry-pass1
+version: "1.3.2"
+release: 1
+description: PIN/passphrase entry dialog (bootstrap — TTY/curses only, no GNOME frontend)
+license: GPL-2.0-or-later
+homepage: https://www.gnupg.org/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.gnupg.org/ftp/gcrypt/pinentry/pinentry-${version}.tar.bz2
+  sha256: 8e986ed88561b4da6e9efe0c54fa4ca8923035c99264df0b0464497c5fb94e9e
+dependencies:
+  build:
+  - libassuan
+  - libgpg-error
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --enable-pinentry-tty
+- --enable-pinentry-curses
+- --disable-pinentry-gnome3
+- --disable-pinentry-gtk2
+- --disable-pinentry-qt
+- --disable-pinentry-qt5
+- --disable-pinentry-fltk
+# First pass of the 2-pass pinentry build. TTY + curses frontends only.
+# Satisfies gnupg2 (tier:core)'s pinentry dependency without pulling
+# libsecret/gcr (tier:desktop) into the core build.
+# Full pinentry with GNOME3 frontend lives in tier:desktop and supersedes
+# pinentry-pass1 at install time via migrate-pkm-supersedes.sh.
+# Owner-approved 2026-05-11. (The full pinentry package.yml already
+# carried a `supersedes: pinentry-pass1` field — this commit finally
+# authors the pass1 variant that field was expecting.)

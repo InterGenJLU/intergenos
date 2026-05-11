@@ -11,8 +11,14 @@ source:
 - url: https://www.kernel.org/pub/linux/kernel/firmware/linux-firmware-${version}.tar.xz
   sha256: c74cc6f562b58ad5bc6b2b00a61abc29c9e49e06126e7ba34fbca9928e07a96c
 dependencies:
-  build:
-  - parallel
-  - rdfind
+  build: []
   host: []
   runtime: []
+# parallel and rdfind were declared as build-time helpers (parallel copy +
+# duplicate-firmware deduplication). They are install-time optimizations
+# only — the installed firmware is byte-identical with or without them,
+# so dropping the optional deps does NOT remove any user-facing capability.
+# Owner-approved 2026-05-11 under the criterion "build-time-only with no
+# installed-artifact impact = OK to drop." If parallel/rdfind are present
+# in the chroot at install time, the build.sh may use them; if absent,
+# the build falls back to plain cp/no-dedup.
