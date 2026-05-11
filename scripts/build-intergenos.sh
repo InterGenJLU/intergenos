@@ -1057,7 +1057,7 @@ phase_publish() {
     log "Publishing binary repository..."
     log "  Archive dir: ${IGOS}/var/lib/igos/archives"
 
-    local publish_script="${INTERGENOS_ROOT}/scripts/publish-repo.sh"
+    local publish_script="${SCRIPTS}/publish-repo.sh"
     if [ ! -f "$publish_script" ]; then
         log "  ERROR: publish script not found: $publish_script"
         return 1
