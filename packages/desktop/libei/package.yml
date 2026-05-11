@@ -1,0 +1,20 @@
+name: libei
+version: "1.5.0"
+release: 1
+description: Emulated Input library
+license: MIT
+homepage: https://gitlab.freedesktop.org/libinput/libei
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/libinput/libei/-/archive/${version}/libei-${version}.tar.gz
+  sha256: 7687c3bbcff89ff331c5db72e0a5cce6bcae382e3c238d6f7019a6bc71d88e43
+dependencies:
+  build:
+  - attrs
+  - libevdev
+  - libxkbcommon
+  - libxml2
+  host: []
+  runtime: []

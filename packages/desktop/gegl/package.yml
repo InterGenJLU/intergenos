@@ -1,0 +1,27 @@
+name: gegl
+version: "0.4.66"
+release: 1
+description: GEneric Graphics Library — graph-based image processing framework
+license: LGPL-3.0-or-later
+homepage: https://gegl.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gimp.org/pub/gegl/0.4/gegl-${version}.tar.xz
+  sha256: 92b05855e2190868949d70cea6e9a50b163a6a441242e740a6263975379f993b
+dependencies:
+  build:
+  - babl
+  - json-glib
+  - glib2
+  - graphviz
+  - pygments
+  - pygobject3
+  host: []
+  runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "no display in chroot — gegl image-processing tests render to display surfaces and fail without a display server."

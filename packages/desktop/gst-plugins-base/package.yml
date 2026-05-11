@@ -1,0 +1,34 @@
+name: gst-plugins-base
+version: "1.28.1"
+release: 1
+description: GStreamer base plugins
+license: LGPL-2.0-or-later
+homepage: https://gstreamer.freedesktop.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugins-base-${version}.tar.xz
+  sha256: 1446a4c2a92ff5d78d88e85a599f0038441d53333236f0c72d72f21a9c132497
+dependencies:
+  build:
+  - gstreamer
+  - alsa-lib
+  - libogg
+  - libvorbis
+  - orc
+  - pango
+  - libX11
+  - libXext
+  - cdparanoia
+  - glib2
+  - graphene
+  - iso-codes
+  - libgudev
+  - libjpeg-turbo
+  - libpng
+  - mesa
+  - opus
+  - wayland-protocols
+  host: []
+  runtime: []

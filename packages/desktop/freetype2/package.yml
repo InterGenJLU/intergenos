@@ -1,0 +1,28 @@
+name: freetype2
+version: "2.14.1"
+release: 1
+description: "FreeType font rendering library (pass 2 \u2014 with HarfBuzz)"
+license: FTL
+homepage: https://www.freetype.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://downloads.sourceforge.net/freetype/freetype-${version}.tar.xz
+  sha256: 32427e8c471ac095853212a37aef816c60b42052d4d9e48230bab3bdf2936ccc
+dependencies:
+  build:
+  - harfbuzz
+  - libpng
+  - brotli
+  - which
+  host: []
+  runtime: []
+
+# Reversed-naming case: this package is the SUCCESSOR (the version with
+# HarfBuzz support); the predecessor is freetype2-pass1 (the minimal
+# version built early to break the freetype2 ↔ harfbuzz cycle). Other
+# pass1/pass2 pairs put the successor under "-pass2" — freetype2 keeps
+# the canonical short name on the successor side.
+supersedes:
+  - freetype2-pass1

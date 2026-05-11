@@ -1,0 +1,22 @@
+name: libpng
+version: "1.6.55"
+release: 1
+description: PNG reference library
+license: Libpng
+homepage: http://www.libpng.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://downloads.sourceforge.net/libpng/libpng-${version}.tar.xz
+  sha256: d925722864837ad5ae2a82070d4b2e0603dc72af44bd457c3962298258b8e82d
+patches:
+  - file: libpng-1.6.55-apng.patch.gz
+    sha256: 017c06f75ffed25f6cda9b5369ec6da0ac35a6616adf7abe4222516a0237f37a
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static

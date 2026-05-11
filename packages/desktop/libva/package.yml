@@ -1,0 +1,25 @@
+name: libva
+version: "2.23.0"
+release: 1
+description: Video Acceleration API
+license: MIT
+homepage: https://github.com/intel/libva
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://github.com/intel/libva/releases/download/${version}/libva-${version}.tar.bz2
+  sha256: 9ac190a87017bfd49743248f5df7cf3b18a99a9962175caf6bbe3f1ea41b6dbb
+dependencies:
+  build:
+  - libdrm
+  - libX11
+  - wayland
+  host: []
+  runtime: []
+  # Note: mesa's gallium VAAPI driver is loaded by libva at runtime via dlopen
+  # of /usr/lib/dri/*_drv_video.so — this is a dynamic-linker relationship,
+  # not a package-graph edge. Listing mesa here (build OR runtime) creates a
+  # libva ↔ mesa cycle because the graph treats both kinds as edges. Audit-fix
+  # 04e36a7 added mesa → libva (build) for VAAPI gallium driver; that single
+  # direction is what's needed.

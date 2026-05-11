@@ -1,0 +1,17 @@
+name: dav1d
+version: "1.5.3"
+release: 1
+description: AV1 video decoder
+license: BSD-2-Clause
+homepage: https://code.videolan.org/videolan/dav1d
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://code.videolan.org/videolan/dav1d/-/archive/${version}/dav1d-${version}.tar.bz2
+  sha256: e099f53253f6c247580c554d53a13f1040638f2066edc3c740e4c2f15174ce22
+dependencies:
+  build:
+  - nasm
+  host: []
+  runtime: []

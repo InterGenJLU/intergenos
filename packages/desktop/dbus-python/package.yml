@@ -1,0 +1,19 @@
+name: dbus-python
+version: "1.4.0"
+release: 1
+description: Python bindings for D-Bus
+license: MIT
+homepage: https://dbus.freedesktop.org/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://dbus.freedesktop.org/releases/dbus-python/dbus-python-${version}.tar.xz
+  sha256: c36b28f10ffcc8f1f798aca973bcc132f91f33eb9b6b8904381b4077766043d5
+dependencies:
+  build:
+  - dbus
+  - glib2
+  - pygobject3
+  host: []
+  runtime: []

@@ -1,0 +1,22 @@
+name: redland
+version: "1.0.17"
+release: 1
+description: RDF metadata library
+license: LGPL-2.1-or-later
+homepage: https://librdf.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://download.librdf.org/source/redland-${version}.tar.gz
+  sha256: de1847f7b59021c16bdc72abb4d8e2d9187cd6124d69156f3326dd34ee043681
+dependencies:
+  build:
+  - rasqal
+  host: []
+  runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "no network in chroot — redland SPARQL tests reach for remote endpoints and inherit raptor2/rasqal RDF test variances."

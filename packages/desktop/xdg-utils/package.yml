@@ -1,0 +1,22 @@
+name: xdg-utils
+version: "1.2.1"
+release: 1
+description: Desktop integration utilities
+license: MIT
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/xdg/xdg-utils/-/archive/v${version}/xdg-utils-v${version}.tar.gz
+  sha256: f6b648c064464c2636884c05746e80428110a576f8daacf46ef2e554dcfdae75
+dependencies:
+  build:
+  - xmlto
+  - lynx
+  - dbus
+  - links
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr

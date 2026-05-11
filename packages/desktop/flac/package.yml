@@ -1,0 +1,22 @@
+name: flac
+version: "1.5.0"
+release: 1
+description: Free Lossless Audio Codec
+license: GPL-2.0-or-later
+homepage: https://xiph.org/flac/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://downloads.xiph.org/releases/flac/flac-${version}.tar.xz
+  sha256: f2c1c76592a82ffff8413ba3c4a1299b6c7ab06c734dee03fd88630485c2b920
+dependencies:
+  build:
+  - libogg
+  host: []
+  runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "FLAC's test_libFLAC unit suite includes a 'level 1 interface — simple iterator on read-only file' test that chmod's the metadata.flac test file to read-only, then asks the iterator if the file is writable and expects 'no'. Under root (uid 0), POSIX read-only file permissions are bypassed via CAP_DAC_OVERRIDE — root can write any file regardless of mode bits — so the iterator correctly reports the file as writable. Upstream is aware: the failure message even prints 'are you running as root?'. All preceding test_libFLAC tests (entropy coder, bitreader, bitwriter, format, picture metadata, level-0 streaminfo/tags/cuesheet/picture for both native FLAC and Ogg FLAC) pass cleanly. Same chroot-environmental shape as libuv (refuses-root) and libarchive (nobody-uid+abs-paths) — not a code defect."

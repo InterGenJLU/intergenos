@@ -1,0 +1,19 @@
+name: geocode-glib
+version: "3.26.4"
+release: 1
+description: Geocoding and reverse geocoding library
+license: LGPL-2.0-or-later
+homepage: https://developer.gnome.org/geocode-glib/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/geocode-glib/3.26/geocode-glib-${version}.tar.xz
+  sha256: 2d9a6826d158470449a173871221596da0f83ebdcff98b90c7049089056a37aa
+dependencies:
+  build:
+  - json-glib
+  - libsoup3
+  - glib2
+  host: []
+  runtime: []

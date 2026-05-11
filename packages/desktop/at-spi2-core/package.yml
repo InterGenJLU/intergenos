@@ -1,0 +1,22 @@
+name: at-spi2-core
+version: "2.58.3"
+release: 1
+description: Assistive Technology Service Provider Interface
+license: LGPL-2.1-or-later
+homepage: https://wiki.gnome.org/Accessibility
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/at-spi2-core/2.58/at-spi2-core-${version}.tar.xz
+  sha256: b0fabea6c9742eda8c9c675f9b8c1d1babba1da82da03ea1103710233717c1b0
+dependencies:
+  build:
+  - libX11
+  - libXi
+  - libXtst
+  - dbus
+  - glib2
+  - gsettings-desktop-schemas
+  host: []
+  runtime: []

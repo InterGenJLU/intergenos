@@ -1,0 +1,21 @@
+name: libgusb
+version: "0.4.9"
+release: 1
+description: GObject wrapper for libusb
+license: LGPL-2.1-or-later
+homepage: https://github.com/hughsie/libgusb
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/hughsie/libgusb/releases/download/${version}/libgusb-${version}.tar.xz
+  sha256: 9df5ef301d6a4b361002aa52cce1165a87a89744055879bdbab31e7e86f1e846
+dependencies:
+  build:
+  - json-glib
+  - libusb
+  - vala
+  - glib2
+  - hwdata
+  host: []
+  runtime: []

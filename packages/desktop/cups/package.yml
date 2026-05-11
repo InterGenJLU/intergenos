@@ -1,0 +1,22 @@
+name: cups
+version: "2.4.16"
+release: 1
+description: Common UNIX Printing System
+license: Apache-2.0
+homepage: https://openprinting.github.io/cups/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/OpenPrinting/cups/releases/download/v${version}/cups-${version}-source.tar.gz
+  sha256: 0339587204b4f9428dd0592eb301dec0bf9ea6ea8dce5d9690d56be585aba92d
+dependencies:
+  build:
+  - dbus
+  - gnutls
+  - libusb
+  - linux-pam
+  - avahi
+  - xdg-utils
+  host: []
+  runtime: []

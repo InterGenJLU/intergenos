@@ -1,0 +1,19 @@
+name: xdg-dbus-proxy
+version: "0.1.6"
+release: 1
+description: D-Bus proxy for sandboxed applications
+license: LGPL-2.1-or-later
+homepage: https://github.com/flatpak/xdg-dbus-proxy
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://github.com/flatpak/xdg-dbus-proxy/releases/download/${version}/xdg-dbus-proxy-${version}.tar.xz
+  sha256: 131bf59fce7c7ee7ecbc5d9106d6750f4f597bfe609966573240f7e4952973a1
+dependencies:
+  build:
+  - glib2
+  - docbook-xsl-nons
+  - docbook-xml
+  host: []
+  runtime: []

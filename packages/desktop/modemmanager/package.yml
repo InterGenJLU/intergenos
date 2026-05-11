@@ -1,0 +1,22 @@
+name: modemmanager
+version: "1.24.2"
+release: 1
+description: Mobile broadband modem management daemon
+license: GPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/mobile-broadband/ModemManager/-/archive/${version}/ModemManager-${version}.tar.gz
+  sha256: fbc75adcc0d7b0565f256e7ff4e8872b0a37c4413ff576665f7470932d9c1b68
+dependencies:
+  build:
+  - libgudev
+  - libmbim
+  - libqmi
+  - polkit
+  - vala
+  - glib2
+  host: []
+  runtime: []

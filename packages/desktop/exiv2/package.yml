@@ -1,0 +1,20 @@
+name: exiv2
+version: "0.28.7"
+release: 1
+description: Image metadata library
+license: GPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://github.com/Exiv2/exiv2/archive/v${version}/exiv2-${version}.tar.gz
+  sha256: 5e292b02614dbc0cee40fe1116db2f42f63ef6b2ba430c77b614e17b8d61a638
+dependencies:
+  build:
+  - brotli
+  - curl
+  - inih
+  - cmake
+  host: []
+  runtime: []

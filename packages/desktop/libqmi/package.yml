@@ -1,0 +1,19 @@
+name: libqmi
+version: "1.38.0"
+release: 1
+description: QMI protocol library
+license: LGPL-2.1-or-later
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/mobile-broadband/libqmi/-/archive/${version}/libqmi-${version}.tar.gz
+  sha256: 8ee3b3a9002f2b45c825deade85710db006e01674f5f9359d351c192cc926015
+dependencies:
+  build:
+  - glib2
+  - libgudev
+  - libmbim
+  host: []
+  runtime: []

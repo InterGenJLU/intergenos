@@ -1,0 +1,19 @@
+name: glslang
+version: "16.2.0"
+release: 1
+description: GLSL/HLSL to SPIR-V compiler
+license: Apache-2.0
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/KhronosGroup/glslang/archive/${version}/glslang-${version}.tar.gz
+  sha256: 01985335785c97906a91afe3cb5ee015997696181ec6c125bab5555602ba08e2
+dependencies:
+  build:
+  - spirv-tools
+  - spirv-headers
+  - cmake
+  host: []
+  runtime: []

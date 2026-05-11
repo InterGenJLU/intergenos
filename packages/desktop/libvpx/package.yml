@@ -1,0 +1,27 @@
+name: libvpx
+version: "1.16.0"
+release: 1
+description: VP8/VP9 video codec
+license: BSD-3-Clause
+homepage: https://www.webmproject.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/webmproject/libvpx/archive/v${version}/libvpx-${version}.tar.gz
+  sha256: 7a479a3c66b9f5d5542a4c6a1b7d3768a983b1e5c14c60a9396edc9b649e015c
+patches:
+  - file: libvpx-1.16.0-security_fix-1.patch
+    sha256: d608171f1bab79d38a2aebf850869d698f7134b62067530a290bac70fae90335
+dependencies:
+  build:
+  - nasm
+  - curl
+  - which
+  host: []
+  runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "libvpx test suite downloads ~1GB of reference vectors over HTTP from downloads.webmproject.org; chroot is offline"

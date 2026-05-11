@@ -1,0 +1,17 @@
+name: Mako
+version: "1.3.10"
+release: 1
+description: Python template library (needed by Mesa)
+license: MIT
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/M/Mako/mako-${version}.tar.gz
+  sha256: 99579a6f39583fa7e5630a28c3c1f440e4e97a414b80372649c0ce338da2ea28
+dependencies:
+  build:
+  - docbook-xsl-nons
+  host: []
+  runtime: []

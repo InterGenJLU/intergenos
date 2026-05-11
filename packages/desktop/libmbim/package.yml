@@ -1,0 +1,19 @@
+name: libmbim
+version: "1.34.0"
+release: 1
+description: MBIM protocol library
+license: LGPL-2.1-or-later
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/mobile-broadband/libmbim/-/archive/${version}/libmbim-${version}.tar.gz
+  sha256: 55bb88df358f8a36b6e01e63877500d7c6420f5907d2d3101812b4912eabe08f
+dependencies:
+  build:
+  - bash-completion
+  - glib2
+  - help2man
+  host: []
+  runtime: []

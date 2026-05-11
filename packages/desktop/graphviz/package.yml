@@ -1,0 +1,22 @@
+name: graphviz
+version: "14.1.2"
+release: 1
+description: Graph visualization software
+license: EPL-1.0
+homepage: https://graphviz.org/
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://gitlab.com/graphviz/graphviz/-/archive/${version}/graphviz-${version}.tar.bz2
+  sha256: 8ba7611c378b3e82f2a0ca5fc9dbcc5fef77c86d9fdfe3281f8f59eaab3314f6
+dependencies:
+  build:
+  - cmake
+  - cairo
+  - pango
+  - freetype2
+  - fontconfig
+  - libpng
+  host: []
+  runtime: []

@@ -1,0 +1,21 @@
+name: lame
+version: '3.100'
+release: 1
+description: MP3 encoder
+license: LGPL-2.0-or-later
+homepage: https://lame.sourceforge.io/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://downloads.sourceforge.net/lame/lame-${version}.tar.gz
+  sha256: ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e
+dependencies:
+  build:
+  - nasm
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --enable-mp3rtp
+- --disable-static

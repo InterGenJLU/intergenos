@@ -1,0 +1,18 @@
+name: boost
+version: "1.90.0"
+release: 1
+description: C++ utility libraries
+license: BSL-1.0
+homepage: https://www.boost.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/boostorg/boost/releases/download/boost-${version}/boost-${version}-b2-nodocs.tar.xz
+  sha256: 9e6bee9ab529fb2b0733049692d57d10a72202af085e553539a05b4204211a6f
+dependencies:
+  build:
+  - icu
+  - which
+  host: []
+  runtime: []

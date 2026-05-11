@@ -1,0 +1,28 @@
+name: xdg-desktop-portal
+version: "1.20.3"
+release: 1
+description: Desktop integration portal
+license: LGPL-2.1-or-later
+homepage: ''
+tier: desktop
+build_style: meson
+install_func: do_install
+configure_flags:
+- -Dtests=disabled
+source:
+- url: https://github.com/flatpak/xdg-desktop-portal/releases/download/${version}/xdg-desktop-portal-${version}.tar.xz
+  sha256: 4bfb164937f59107eb1a3cc21abaa948d903c76f3b99fac210cea38ce1da9edc
+dependencies:
+  build:
+  - bubblewrap
+  - fuse3
+  - gdk-pixbuf
+  - gst-plugins-base
+  - json-glib
+  - pipewire
+  - dbus
+  - docutils
+  - geoclue2
+  - libportal
+  host: []
+  runtime: []

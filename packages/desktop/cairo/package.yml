@@ -1,0 +1,26 @@
+name: cairo
+version: "1.18.4"
+release: 1
+description: 2D graphics library
+license: LGPL-2.1-or-later
+homepage: https://www.cairographics.org/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://www.cairographics.org/releases/cairo-${version}.tar.xz
+  sha256: 445ed8208a6e4823de1226a74ca319d3600e83f6369f99b14265006599c32ccb
+dependencies:
+  build:
+  - fontconfig
+  - freetype2-pass1  # cycle-break: cairo doesn't use freetype's HarfBuzz integration; pass1's API is sufficient. Without this, cycle: freetype2 → harfbuzz → cairo → freetype2 (audit-fix 04e36a7 added harfbuzz → cairo for cairo backend feature, closing the cycle).
+  - libpng
+  - libX11
+  - libXext
+  - libXrender
+  - pixman
+  - glib2
+  - libdrm
+  - libxml2
+  host: []
+  runtime: []

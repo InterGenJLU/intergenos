@@ -1,0 +1,17 @@
+name: glm
+version: "1.0.3"
+release: 1
+description: OpenGL Mathematics — header-only C++ math library for graphics
+license: MIT
+homepage: https://github.com/g-truc/glm
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/g-truc/glm/archive/${version}/glm-${version}.tar.gz
+  sha256: 6775e47231a446fd086d660ecc18bcd076531cfedd912fbd66e576b118607001
+dependencies:
+  build:
+  - cmake
+  host: []
+  runtime: []

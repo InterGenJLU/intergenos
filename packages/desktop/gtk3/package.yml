@@ -1,0 +1,44 @@
+name: gtk3
+version: "3.24.51"
+release: 1
+description: GTK 3 widget toolkit
+license: LGPL-2.0-or-later
+homepage: https://www.gtk.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gtk/3.24/gtk-${version}.tar.xz
+  filename: gtk-${version}.tar.xz
+  sha256: 0013877c6bd23c2dbe42ad7c70a053d0e449be66736574e37867c49c5f905a4f
+dependencies:
+  build:
+  - at-spi2-core
+  - gdk-pixbuf
+  - libepoxy
+  - pango
+  - libXi
+  - libXrandr
+  - libXcursor
+  - libXinerama
+  - libXcomposite
+  - libXdamage
+  - wayland
+  - wayland-protocols
+  - libxkbcommon
+  - iso-codes
+  - colord
+  - cups
+  - docbook-xsl-nons
+  - hicolor-icon-theme
+  - libcloudproviders
+  - libxslt
+  - sassc
+  - tinysparql
+  host: []
+  runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "no display in chroot — GTK 3 widget tests require X11/Wayland session per BLFS; same root cause as gtk4"

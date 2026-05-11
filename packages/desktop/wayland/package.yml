@@ -1,0 +1,22 @@
+name: wayland
+version: "1.24.0"
+release: 1
+description: Wayland display server protocol
+license: MIT
+homepage: https://wayland.freedesktop.org/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/wayland/wayland/-/releases/${version}/downloads/wayland-${version}.tar.xz
+  sha256: 82892487a01ad67b334eca83b54317a7c86a03a89cfadacfef5211f11a5d0536
+dependencies:
+  build:
+  - libxml2
+  - docbook-xml
+  - docbook-xsl-nons
+  - libxslt
+  host: []
+  runtime: []
+configure_flags:
+- -Ddocumentation=false

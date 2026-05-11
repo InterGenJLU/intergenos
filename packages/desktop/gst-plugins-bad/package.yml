@@ -1,0 +1,47 @@
+name: gst-plugins-bad
+version: "1.28.1"
+release: 1
+description: GStreamer bad plugins
+license: LGPL-2.0-or-later
+homepage: https://gstreamer.freedesktop.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugins-bad-${version}.tar.xz
+  sha256: 56c1593787f8b5550893d59e4ff29e6bcccf34973316fa55e34ce493e04313a2
+dependencies:
+  build:
+  - gst-plugins-base
+  - soundtouch
+  - bluez
+  - curl
+  - fdk-aac
+  - gst-plugins-good
+  - gtk3
+  - json-glib
+  - lcms2
+  - libaom
+  - libass
+  - libexif
+  - libgcrypt
+  - librsvg
+  - libsndfile
+  - libssh2
+  - libusb
+  - libva
+  - libwebp
+  - libxkbcommon
+  - libxml2
+  - nettle
+  - openjpeg2
+  - opus
+  - pango
+  - sbc
+  - shaderc
+  - svt-av1
+  - vulkan-loader
+  - wayland
+  - x265
+  host: []
+  runtime: []

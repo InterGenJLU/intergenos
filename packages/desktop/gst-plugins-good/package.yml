@@ -1,0 +1,30 @@
+name: gst-plugins-good
+version: "1.28.1"
+release: 1
+description: GStreamer good plugins
+license: LGPL-2.0-or-later
+homepage: https://gstreamer.freedesktop.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-${version}.tar.xz
+  sha256: 738e26aee41b7a62050e40b81adc017a110a7f32d1ec49fa6a0300846c44368d
+dependencies:
+  build:
+  - gst-plugins-base
+  - cairo
+  - flac
+  - lame
+  - libpng
+  - pulseaudio
+  - gdk-pixbuf
+  - gtk3
+  - libsoup3
+  - libvpx
+  - mpg123
+  - nasm
+  - speex
+  - wayland
+  host: []
+  runtime: []

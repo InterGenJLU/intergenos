@@ -1,0 +1,23 @@
+name: glib-networking
+version: "2.80.1"
+release: 1
+description: GIO networking extensions
+license: LGPL-2.1-or-later
+homepage: https://gitlab.gnome.org/GNOME/glib-networking
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/glib-networking/2.80/glib-networking-${version}.tar.xz
+  sha256: b80e2874157cd55071f1b6710fa0b911d5ac5de106a9ee2a4c9c7bee61782f8e
+dependencies:
+  build:
+  - gnutls
+  - gsettings-desktop-schemas
+  - glib2
+  - make-ca
+  - libproxy  # System PAC/proxy autodetect. Build #5 audit: libproxy was
+              # in extra tier (built after desktop) → glib-networking dropped
+              # libproxy support. libproxy moved to desktop tier in same batch.
+  host: []
+  runtime: []

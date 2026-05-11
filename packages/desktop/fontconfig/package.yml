@@ -1,0 +1,30 @@
+name: fontconfig
+version: "2.17.1"
+release: 1
+description: Font configuration and customization library
+license: MIT
+homepage: https://www.freedesktop.org/wiki/Software/fontconfig/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/api/v4/projects/890/packages/generic/fontconfig/${version}/fontconfig-${version}.tar.xz
+  sha256: 9f5cae93f4fffc1fbc05ae99cdfc708cd60dfd6612ffc0512827025c026fa541
+dependencies:
+  build:
+  - freetype2-pass1  # cycle-break: fontconfig uses freetype2's font-metadata APIs (FT_Init_FreeType, FT_New_Face, FT_Get_Sfnt_Table) which are unchanged between pass1 and full freetype2. fontconfig does not link HarfBuzz, so pass1 (freetype2 sans HarfBuzz integration) is API-equivalent. Without this, cycle: fontconfig → freetype2 → harfbuzz → cairo → fontconfig (and libX*-rooted variations).
+  - curl
+  - json-c
+  - libxml2
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --sysconfdir=/etc
+- --localstatedir=/var
+- --disable-docs
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "BLFS notes one test failure is expected; additional tests download fonts over the network — chroot is offline"

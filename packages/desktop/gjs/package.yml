@@ -1,0 +1,30 @@
+name: gjs
+version: "1.86.0"
+release: 1
+description: GNOME JavaScript bindings
+license: LGPL-2.0-or-later
+homepage: https://gitlab.gnome.org/GNOME/gjs
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gjs/1.86/gjs-${version}.tar.xz
+  sha256: 63448f7a57804d4c2a8d0c7f5e90e224d04d4eb2d560142c076c65a8eda00799
+dependencies:
+  build:
+  - cairo
+  - gtk3
+  - gtk4
+  - spidermonkey
+  - dbus
+  - glib2
+  host: []
+  runtime: []
+patches:
+  # gjs 1.86.0 has a void** vs void* type mismatch in
+  # gi/info.h:887's closure_native_address() declaration vs the
+  # underlying gobject-introspection function. Upstream fix is MR
+  # !1057 (post-1.86.0); this is a minimal subset (info.h only) that
+  # avoids the cosmetic closure() -> get_func_ptr() rename.
+  - file: gjs-1.86.0-info-h-void-ptr-1.patch
+    sha256: 217c8ee02c8e7506b686fa935066944ad18a85233607d7f0ded354aa35242f9e

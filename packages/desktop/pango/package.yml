@@ -1,0 +1,31 @@
+name: pango
+version: "1.57.0"
+release: 1
+description: Text layout and rendering library
+license: LGPL-2.0-or-later
+homepage: https://pango.gnome.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/pango/1.57/pango-${version}.tar.xz
+  sha256: 890640c841dae77d3ae3d8fe8953784b930fa241b17423e6120c7bfdf8b891e7
+dependencies:
+  build:
+  - cairo
+  - fontconfig
+  - freetype2
+  - fribidi
+  - glib2
+  - harfbuzz
+  - libX11
+  - libXft
+  - gobject-introspection
+  - docutils
+  host: []
+  runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "no display in chroot — three tests (test-font-data, test-font, test-layout) known to fail per BLFS; same display/font-cache root cause as gtk3/gtk4"

@@ -1,0 +1,32 @@
+name: poppler
+version: "26.02.0"
+release: 1
+description: PDF rendering library
+license: GPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://poppler.freedesktop.org/poppler-${version}.tar.xz
+  sha256: dded8621f7b2f695c91063aab1558691c8418374cd583501e89ed39487e7ab77
+dependencies:
+  build:
+  - fontconfig
+  - libjpeg-turbo
+  - libpng
+  - nss
+  - openjpeg2
+  - cairo
+  - boost
+  - cmake
+  - curl
+  - gdk-pixbuf
+  - git
+  - glib2
+  - gtk3
+  - lcms2
+  - libtiff
+  - gpgme
+  host: []
+  runtime: []

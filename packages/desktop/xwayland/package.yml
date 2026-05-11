@@ -1,0 +1,30 @@
+name: xwayland
+version: "24.1.9"
+release: 1
+description: X server running as a Wayland client
+license: MIT
+homepage: https://wayland.freedesktop.org/xserver.html
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/xserver/xwayland-${version}.tar.xz
+  sha256: f297af27a84508db9b80d1cbbcc69c3801da38eb64c72f3b5b50f582459afdd0
+dependencies:
+  build:
+  - libepoxy
+  - libxcvt
+  - mesa
+  - pixman
+  - wayland-protocols
+  - libX11
+  - libXfont2
+  - xkeyboard-config
+  - xkbcomp
+  - font-util
+  - libei
+  - libgcrypt
+  - libtirpc
+  - nettle
+  host: []
+  runtime: []
