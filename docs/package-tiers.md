@@ -335,7 +335,7 @@ This is a **reviewable** report — the maintainer signs off on every non-OK row
 
 ## Reproducibility — first-class design concern
 
-Debian's "Reproducible Builds" mandate (effective March 2026, post-Mythos publication) is the industry signal: every package must produce byte-identical output from the same source, so a third party can cryptographically verify the binary matches the claimed source. With Mythos-class adversaries capable of superhuman vulnerability discovery, reproducible builds are a **security primitive** — they let downstream verifiers detect silent backdoor insertion, supply-chain compromise, or build-environment tampering. This aligns directly with InterGenOS's HOLY GRAIL (security-only alignment).
+Debian's "Reproducible Builds" mandate (effective March 2026) is the industry signal: every package must produce byte-identical output from the same source, so a third party can cryptographically verify the binary matches the claimed source. With adversaries capable of superhuman vulnerability discovery, reproducible builds are a **security primitive** — they let downstream verifiers detect silent backdoor insertion, supply-chain compromise, or build-environment tampering. This aligns directly with InterGenOS's security-only alignment.
 
 **What reproducibility means for tier design.**
 
@@ -347,7 +347,7 @@ Debian's "Reproducible Builds" mandate (effective March 2026, post-Mythos public
 **What reproducibility does NOT mean for tier design.**
 
   - It does not mean every package must hit byte-identical reproducibility today. We adopt the primitives package-by-package; the tier model just must not get in the way.
-  - It does not mean we copy Debian's specific implementation choices wholesale. Per `feedback_inspiration_not_copy.md` — other distros inspire us, but we develop our own. We adopt the *principle* (deterministic, verifiable builds) without importing Debian's trust assumptions or tooling architecture.
+  - It does not mean we copy Debian's specific implementation choices wholesale. Other distros inspire us, but we develop our own — wholesale adoption would import their trust assumptions into our trust boundary. We adopt the *principle* (deterministic, verifiable builds) without importing Debian's trust assumptions or tooling architecture.
 
 This section gets revisited as we adopt reproducibility primitives in build scripts.
 

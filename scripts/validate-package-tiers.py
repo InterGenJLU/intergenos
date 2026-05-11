@@ -118,8 +118,11 @@ FOUNDATIONAL_LIBS = {
     # Storage / filesystems substrate
     "sqlite", "lmdb", "libuv", "libarchive",
     # Other foundational
-    "popt", "pcre2", "libpcap", "libcap", "libseccomp", "libnl",
-    "libgudev", "kmod", "eudev",
+    "popt", "pcre2", "libcap", "libseccomp", "libnl",
+    "kmod", "eudev",
+    # libpcap is in PASS1_FULL_BUILDS_DESKTOP (the pass1 lives in core)
+    # libgudev moved to desktop 2026-05-11 — it's a GObject wrapper around
+    # libudev; primary consumers are tier:desktop services. Per Rule 1.
     # Auth / session
     "linux-pam", "shadow", "shadow-pam", "libpwquality", "cracklib",
     "mitkrb", "keyutils", "sudo", "openssh",
@@ -131,7 +134,10 @@ FOUNDATIONAL_LIBS = {
     "lvm2", "cryptsetup", "btrfs-progs", "dosfstools", "fuse3",
     "libaio", "libatasmart", "libnvme", "libbytesize", "libblockdev",
     # Block-device / disk utilities used by core daemons
-    "parted", "udisks2",
+    "parted",
+    # udisks2 moved to desktop 2026-05-11 — it's a D-Bus disk management
+    # service whose primary consumers are file managers and the file-
+    # mounting UX. Per Rule 1: desktop integration service.
     # Kernel headers / module mgmt
     "kmod",
     # Time / locale
@@ -438,12 +444,28 @@ FOUNDATIONAL_LIBS_EXTENDED = {
     "openldap",                # LDAP directory service (used by mitkrb, gnupg2, exim, samba)
     "cyrus-sasl",              # SASL auth (used by exim, openldap, samba)
     "icu",                     # Unicode (used by libxml2-full, node.js)
-    "newt", "slang",           # text-mode UI for installer dialogs
+    "newt",                    # text-mode UI for installer dialogs
     "go",                      # foundational language runtime (per Node/Ruby/Rust convention)
     "meson_python",            # PEP 517 build backend (Python build infra)
     "pyproject-metadata",      # ditto
     "cbindgen", "rust-bindgen",# Rust→C ABI generators (build-time tools)
     "editables", "pathspec", "pluggy", "trove-classifiers",  # hatchling deps (already in PYTHON_BUILD_INFRA above; defense in depth)
+    # -pass1 bootstrap variants — the pass1 lives in tier:core to break
+    # cross-tier cycles; the full build lives in tier:desktop.
+    "libpcap-pass1", "slang-pass1", "networkmanager-pass1", "pinentry-pass1",
+}
+
+# Full-build variants of -pass1 packages — these LIVE in tier:desktop
+# (with all their deep desktop deps available) and are superseded over
+# their tier:core -pass1 counterparts at install time via
+# migrate-pkm-supersedes.sh. Validator: treat as natural=desktop, not
+# natural=core (which the foundational-lib heuristic would otherwise pick).
+PASS1_FULL_BUILDS_DESKTOP = {
+    "libpcap", "slang", "networkmanager", "pinentry",
+    # Two more that have the same shape after the 2026-05-11 tier
+    # correction batch (doxygen has ghostscript dep in desktop tier;
+    # vala's consumers all moved to desktop, so it follows).
+    "doxygen", "vala",
 }
 
 # Final-stragglers desktop additions (catches the remaining UNCLEAR rows).
@@ -476,6 +498,12 @@ BASE_CLI_EXTRA = {
 
 def hard_category_tier(name: str, lfs_ch8: Set[str]) -> str:
     """Returns the hard-rule tier for `name`, or '' if not categorized."""
+    # PRIORITY 0: -pass1 / full-build variants override other rules.
+    # A name like "libpcap" might match FOUNDATIONAL_LIBS, but the full
+    # build lives in tier:desktop while libpcap-pass1 lives in tier:core.
+    # The PASS1 sets explicitly say which tier each variant lives in.
+    if name in PASS1_FULL_BUILDS_DESKTOP:
+        return "desktop"
     # Step 1: toolchain is handled by directory location only.
     # Step 2-6 all map to tier:core:
     if name in lfs_ch8:

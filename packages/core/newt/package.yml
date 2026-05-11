@@ -13,9 +13,14 @@ source:
 dependencies:
   build:
   - popt
-  - slang
+  - slang-pass1
   host: []
   runtime: []
+# slang-pass1 (no libpng) is the tier:core bootstrap variant; newt's
+# text-mode installer dialogs do not need slang's PNG rendering. The
+# full slang (with libpng) is built in tier:desktop and supersedes
+# slang-pass1 at install time via migrate-pkm-supersedes.sh. Owner-
+# approved 2026-05-11.
 configure_flags:
 - --prefix=/usr
 - --with-gpm-support

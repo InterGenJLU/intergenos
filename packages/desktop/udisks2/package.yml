@@ -4,7 +4,7 @@ release: 1
 description: Disk management D-Bus service
 license: GPL-2.0-or-later
 homepage: https://github.com/storaged-project/udisks
-tier: core
+tier: desktop
 build_style: custom
 install_func: do_install
 source:
