@@ -106,38 +106,12 @@ apply_package_patches() {
         return 0
     fi
 
-    # Extract patches block via python (yaml is available in chroot per
-    # Chapter 8 baseline). Output one "file|sha256" line per declared patch.
+    # Extract patches block via stdlib-only parser. The previous inline
+    # `import yaml` approach broke at Ch 8 entry (Build #8 halt 2026-05-11)
+    # because chroot Python has no PyYAML — it's itself a Ch 8 package.
+    # Schema is ours; a targeted parser is right-sized.
     local patches_list
-    patches_list=$(python3 - "$yml" <<'PYEOF'
-import sys, yaml
-try:
-    with open(sys.argv[1]) as f:
-        d = yaml.safe_load(f)
-except Exception as e:
-    sys.stderr.write(f"[pkg] apply_package_patches: YAML parse error: {e}\n")
-    sys.exit(2)
-if not isinstance(d, dict):
-    sys.exit(0)
-patches = d.get("patches") or []
-if not isinstance(patches, list):
-    sys.exit(0)
-for p in patches:
-    if not isinstance(p, dict):
-        continue
-    # Stringify defensively. Don't use `or ""` — yaml parses unquoted
-    # all-numeric shas as int 0, and `0 or ""` evaluates to "" (falsy),
-    # skipping the sha check entirely. Convert via explicit None test +
-    # str() so a malformed numeric sha becomes "0" and trips the
-    # 64-char hex regex downstream rather than slipping through.
-    pfile = p.get("file")
-    pfile = "" if pfile is None else str(pfile)
-    psha = p.get("sha256")
-    psha = "" if psha is None else str(psha)
-    if pfile:
-        print(f"{pfile}|{psha}")
-PYEOF
-)
+    patches_list=$(python3 "${SCRIPTS:-/mnt/intergenos/scripts}/parse-package-yml-patches.py" "$yml")
     local py_rc=$?
     if [ $py_rc -ne 0 ]; then
         echo "[pkg] FATAL: apply_package_patches could not parse $yml"
