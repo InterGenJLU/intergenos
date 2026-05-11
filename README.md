@@ -128,7 +128,7 @@ intergenos/
 ├── igos-build/          # Build system (Python — parser, graph, builder, tracker)
 ├── pkm/                 # Package manager (Python — install, remove, query, verify)
 ├── installer/           # Forge installer (Python — TUI + backend)
-├── packages/            # 688 package templates (YAML + build.sh)
+├── packages/            # 719 package templates (YAML + build.sh)
 │   ├── toolchain/       # LFS Ch. 5-7 (28 packages)
 │   ├── core/            # LFS Ch. 8 + TLS/PAM/SSH + forge SB primitives (115 packages)
 │   ├── base/            # End-user CLI tools (20 packages)
@@ -146,7 +146,7 @@ intergenos/
 
 Active development, pre-1.0. Originally built 2015-2016 (build_001 through build_003 on GitHub). Revived March 2026.
 
-**Now:** 688 package templates across six tiers. First successful GNOME 49.4 desktop boot on Wayland achieved April 7, 2026 — kernel 6.18.10 with config converged from 5-distro analysis, 478 packages built from source. Installer (`forge`) now handles partition → signed boot chain → image deploy → post-install hooks. Test harness covers 186 tests across installer backend, MOK validation, and Class 1 signing-chain verification.
+**Now:** 719 package templates across six tiers. First successful GNOME 49.4 desktop boot on Wayland achieved April 7, 2026 — kernel 6.18.10 with config converged from 5-distro analysis, 478 packages built from source. Installer (`forge`) now handles partition → signed boot chain → image deploy → post-install hooks. Test harness covers 186 tests across installer backend, MOK validation, and Class 1 signing-chain verification.
 
 **External reviews:** Full codebase reviewed by four external LLMs (ChatGPT, DeepSeek, Gemini, Grok) across build system, installer, orchestration, and package management. Initial audit findings all remediated; follow-on hardening continues as new edge cases surface.
 
