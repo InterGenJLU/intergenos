@@ -1,0 +1,71 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:27:50Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "utfcpp",
+    "blfs_name": "utfcpp",
+    "blfs_version": "4.0.9",
+    "deps": [
+      {
+        "anchor": "cmake",
+        "name": "CMake-4.2.3",
+        "note": "",
+        "type": "required",
+        "version": "4.2.3"
+      }
+    ],
+    "patches": []
+  },
+  "build_system": "cmake",
+  "bundled_libs": [],
+  "docs_seen": [
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "utfcpp",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "cmake"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "CMAKE_INSTALL_PREFIX",
+      "value": "/usr"
+    },
+    {
+      "name": "CMAKE_BUILD_TYPE",
+      "value": "Release"
+    },
+    {
+      "name": "UTF8_TESTS",
+      "value": "OFF"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/utfcpp",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "397a9a2a6ed5238f854f490b0177b840abc6b62571ec3e07baa0bb94d3f14d5a",
+  "source_tarball": "utfcpp-4.0.9.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/nemtrif/utfcpp/archive/refs/tags/v${version}.tar.gz",
+  "tarball_files_count": 37,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [],
+  "version": "4.0.9"
+}

@@ -413,6 +413,10 @@ run_package "popt" "popt" "1.19" \
     "popt-1.19.tar.gz" \
     "Command line option parsing library"
 
+run_package "patchelf" "patchelf" "0.18.0" \
+    "patchelf-0.18.0.tar.gz" \
+    "RPATH/dynamic-section rewriter for ELF binaries"
+
 run_package "lzo" "lzo" "2.10" \
     "lzo-2.10.tar.gz" \
     "Real-time data compression library"

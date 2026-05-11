@@ -449,6 +449,8 @@ FOUNDATIONAL_LIBS_EXTENDED = {
     "meson_python",            # PEP 517 build backend (Python build infra)
     "pyproject-metadata",      # ditto
     "cbindgen", "rust-bindgen",# Rust→C ABI generators (build-time tools)
+    "patchelf",                # ELF RPATH rewriter; build-time tool used by
+                               # dbus-python and other Python bindings
     "editables", "pathspec", "pluggy", "trove-classifiers",  # hatchling deps (already in PYTHON_BUILD_INFRA above; defense in depth)
     # -pass1 bootstrap variants — the pass1 lives in tier:core to break
     # cross-tier cycles; the full build lives in tier:desktop.

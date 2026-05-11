@@ -4,7 +4,7 @@
 
 configure() {
     set -e
-    ./configure --prefix=/usr \
+    ./configure --prefix=/usr --with-crypto \
                 --disable-static \
                 --without-python
 }

@@ -4,7 +4,7 @@
 
 configure() {
     set -e
-    ./configure --prefix=/usr       \
+    ./configure --prefix=/usr --enable-pwquality       \
                 --disable-ssh-token \
                 --disable-asciidoc
 }

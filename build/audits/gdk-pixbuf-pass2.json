@@ -5,7 +5,7 @@
   ],
   "_notes_source": "",
   "audit_version": 1,
-  "audited_at": "2026-05-11T16:57:05Z",
+  "audited_at": "2026-05-11T17:27:18Z",
   "audited_by": "audit-package.py",
   "blfs": {},
   "build_system": "meson",
@@ -67,17 +67,17 @@
   "our_patches": [],
   "package_dir": "packages/desktop/gdk-pixbuf-pass2",
   "reproducibility": {
-    "_notes": "set by agent-c07 from build_system + build.sh",
-    "deterministic_install": 1,
-    "parallel_build_supported": 1,
-    "source_date_epoch_supported": 1
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
   },
   "source_sha256": "69b93e09139b80c0ee661503d60deb5a5874a31772b5184b9cd5462a4100ab68",
   "source_tarball": "gdk-pixbuf-2.44.5.tar.xz",
   "source_tarball_exists": true,
   "source_url": "https://download.gnome.org/sources/gdk-pixbuf/2.44/gdk-pixbuf-${version}.tar.xz",
   "tarball_files_count": 754,
-  "test_command": "meson test -C build",
+  "test_command": null,
   "test_known_failures": [],
   "tier": "desktop",
   "upstream_options": [

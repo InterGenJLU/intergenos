@@ -34,7 +34,7 @@ build() {
 do_install() {
     set -e
     cd build
-    ninja install
+    DESTDIR="$DESTDIR" ninja install
 }
 
 post_install() {

@@ -1,0 +1,68 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-11T17:27:16Z",
+  "audited_by": "audit-package.py",
+  "blfs": {
+    "anchor_id": "patchelf",
+    "blfs_name": "Patchelf",
+    "blfs_version": "0.18.0",
+    "deps": [],
+    "patches": []
+  },
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "INSTALL",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "patchelf",
+  "our_autotools_flags": [
+    "--docdir=/usr/share/doc/patchelf-${PKG_VERSION}",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/patchelf",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "64de10e4c6b8b8379db7e87f58030f336ea747c0515f381132e810dbf84a86e7",
+  "source_tarball": "patchelf-0.18.0.tar.gz",
+  "source_tarball_exists": true,
+  "source_url": "https://github.com/NixOS/patchelf/releases/download/${version}/patchelf-${version}.tar.gz",
+  "tarball_files_count": 122,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--with-page-size=SIZE",
+      "kind": "with",
+      "name": "page-size"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-asan",
+      "kind": "with",
+      "name": "asan"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-ubsan",
+      "kind": "with",
+      "name": "ubsan"
+    }
+  ],
+  "version": "0.18.0"
+}

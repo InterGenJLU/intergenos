@@ -1,0 +1,25 @@
+name: utfcpp
+version: "4.0.9"
+release: 1
+description: UTF-8 with C++ — header-only library for handling UTF-8 strings
+license: BSL-1.0
+homepage: https://github.com/nemtrif/utfcpp
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://github.com/nemtrif/utfcpp/archive/refs/tags/v${version}.tar.gz
+  filename: utfcpp-${version}.tar.gz
+  sha256: 397a9a2a6ed5238f854f490b0177b840abc6b62571ec3e07baa0bb94d3f14d5a
+dependencies:
+  build:
+  - cmake
+  host: []
+  runtime: []
+configure_flags:
+- -DCMAKE_INSTALL_PREFIX=/usr
+- -DCMAKE_BUILD_TYPE=Release
+- -DUTF8_TESTS=OFF
+# Added 2026-05-11 (audit-surfaced gap): taglib uses utfcpp for proper
+# UTF-8 string handling in audio metadata tags. Header-only library;
+# the build just installs headers + a CMake config package to /usr/include.

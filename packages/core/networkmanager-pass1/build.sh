@@ -25,7 +25,6 @@ configure() {
           -Dppp=false \
           -Dselinux=false \
           -Dqt=false \
-          -Dbluez5=false \
           -Diptables=/usr/bin/false \
           -Dpolkit=false \
           -Dintrospection=false \

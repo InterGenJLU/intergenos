@@ -5,7 +5,7 @@
   ],
   "_notes_source": "",
   "audit_version": 1,
-  "audited_at": "2026-05-11T16:58:53Z",
+  "audited_at": "2026-05-11T17:27:17Z",
   "audited_by": "audit-package.py",
   "blfs": {},
   "build_system": "meson",
@@ -83,10 +83,6 @@
       "value": "false"
     },
     {
-      "name": "bluez5",
-      "value": "false"
-    },
-    {
       "name": "iptables",
       "value": "/usr/bin/false"
     },
@@ -119,16 +115,16 @@
   "package_dir": "packages/core/networkmanager-pass1",
   "reproducibility": {
     "_notes": "manual review required",
-    "deterministic_install": 1,
-    "parallel_build_supported": 1,
-    "source_date_epoch_supported": 0
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
   },
   "source_sha256": "59a32d385cc1e7ae26e43798c6f12d07ff6198abd041ec0620b3a08cfc021ccc",
   "source_tarball": "NetworkManager-1.56.0.tar.xz",
   "source_tarball_exists": true,
   "source_url": "https://gitlab.freedesktop.org/NetworkManager/NetworkManager/-/releases/${version}/downloads/NetworkManager-${version}.tar.xz",
   "tarball_files_count": 3106,
-  "test_command": "meson test -C build",
+  "test_command": null,
   "test_known_failures": [],
   "tier": "core",
   "upstream_options": [

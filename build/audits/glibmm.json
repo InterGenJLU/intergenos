@@ -5,7 +5,7 @@
   ],
   "_notes_source": "",
   "audit_version": 1,
-  "audited_at": "2026-05-11T16:57:14Z",
+  "audited_at": "2026-05-11T17:27:18Z",
   "audited_by": "audit-package.py",
   "blfs": {
     "anchor_id": "glibmm",
@@ -80,7 +80,7 @@
   "our_deps_build": [
     "glib2",
     "libsigcpp3",
-    "libsigcpp"
+    "libsigcpp2"
   ],
   "our_deps_host": [],
   "our_deps_runtime": [],
