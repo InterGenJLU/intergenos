@@ -209,9 +209,6 @@ def _install_signed_efi_chain(target, partitions, mok_keypair):
         # Fallback path: /EFI/BOOT/bootx64.efi auto-discovery works on most
         # firmware. On older/custom firmware that doesn't auto-discover,
         # the logged command below lets the user register by hand.
-        #
-        # TODO: Class 2 test harness should check 'did UEFI boot
-        # order include InterGenOS entry post-reboot?'
         host_efi_note = (
             "host has no EFI firmware — expected in build VM"
             if not efivars_ok
