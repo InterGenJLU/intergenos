@@ -383,7 +383,7 @@ Build logs are committed in the `InterGenJLU/shim-review/intergenos-shim-x64-202
 | File | Content |
 |---|---|
 | `logs/build_<timestamp>.log` | Full Docker buildkit output from the canonical native-Linux build (apt install steps, gcc / make output, shim configure-make-install steps, tarball assembly) |
-| `logs/verify-b2-reproducibility.log` | Output of `scripts/verify-b2-reproducibility.sh` against the built artifacts — 9 PASS checks (tarball SHA, shim binary SHA, vendor_cert.der SHA, vendor_cert.pem SHA, SHIM_COMMIT_SHA, sbat.intergenos.csv SHA, SBAT section dump, PE metadata, DER/PEM cert consistency) |
+| `logs/verify-b2-reproducibility-cross-host-2026-05-06.log` | Output of `scripts/verify-b2-reproducibility.sh` against the built artifacts — 9 PASS checks (tarball SHA, shim binary SHA, vendor_cert.der SHA, vendor_cert.pem SHA, SHIM_COMMIT_SHA, sbat.intergenos.csv SHA, SBAT section dump, PE metadata, DER/PEM cert consistency) |
 
 A second build log from an independent witness host (Ubuntu 22.04 + apt-installed `docker.io 29.1.3`) producing byte-identical SHAs is included as supplementary cross-host reproducibility evidence per Q22.
 
