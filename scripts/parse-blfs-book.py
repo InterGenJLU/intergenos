@@ -127,25 +127,86 @@ def extract_text(tag):
 def find_section(anchor_tag):
     """Find the package section for an anchor.
 
-    BLFS structure varies — some packages are in div.sect1, others have
-    div.package as a direct child of div.chapter. We try multiple strategies:
-    1. find_parent('div', class_='sect1')
-    2. find_next('div', class_='package') and use its parent
-    3. Walk siblings from the anchor's h2 parent
+    BLFS structure varies. Each package has either its own div.sect1 /
+    div.sect2 wrapper, or it appears as a div.package within a larger
+    section (typical of the Python Modules section where ~100 packages
+    share one sect1).
+
+    BUG FIX 2026-05-11. Previous version returned `pkg_div.parent` when
+    no sect1 was found, which is the SHARED parent for all packages in
+    a multi-package section like Python Modules. parse_dependencies then
+    called section.find('p', class_='required') — which returns the
+    FIRST matching <p> in the entire shared parent, attributing the
+    first package's deps to EVERY package in the parent. This produced
+    the contaminated-rows pattern (Hatchling's deps appearing on
+    Alabaster, Attrs, babel, certifi, ...) that broke Mode 3 cascade
+    research. Owner-direct fix.
+
+    New behavior: return the package's OWN tight bounding region:
+      1. sect1 parent (when each package has its own sect1)
+      2. sect2 parent (when nested inside a Modules-style sect1)
+      3. The div.package that BELONGS to this anchor (closest-following
+         div.package with NO intervening package anchor between)
+    Returns None if no bounded region can be determined — caller should
+    skip the package rather than attribute wrong deps.
     """
-    # Strategy 1: sect1 parent
+    # Strategy 1: sect1 parent (one-package-per-sect1 layout)
     sect = anchor_tag.find_parent('div', class_='sect1')
     if sect:
-        return sect
+        # Make sure NO other package anchor lives in this sect1 — otherwise
+        # it's the multi-package layout and we need a tighter bound.
+        other_anchors = []
+        for a in sect.find_all('a', id=True):
+            if a is anchor_tag:
+                continue
+            aid = a.get('id', '')
+            if aid.startswith('idm') or aid.startswith('id-') or len(aid) < 2:
+                continue
+            next_text = a.next_sibling
+            if next_text and isinstance(next_text, str) and VERSION_RE.match(next_text.strip()):
+                other_anchors.append(a)
+                break
+        if not other_anchors:
+            return sect
+        # else: fall through to a tighter bound
 
-    # Strategy 2: next div.package — use its grandparent as section boundary
+    # Strategy 2: sect2 parent (nested-section layout)
+    sect2 = anchor_tag.find_parent('div', class_='sect2')
+    if sect2:
+        return sect2
+
+    # Strategy 3: the div.package belonging to this anchor (multi-package
+    # layout, e.g., Python Modules). Find the closest-following div.package
+    # but verify NO other named anchor sits between this anchor and it —
+    # if one does, that div.package belongs to the other anchor.
     pkg_div = anchor_tag.find_next('div', class_='package')
     if pkg_div:
-        # Verify this package div is for OUR anchor (not the next package)
-        # by checking the anchor text matches
-        parent = pkg_div.parent
-        if parent:
-            return parent
+        for a in anchor_tag.find_all_next('a', id=True):
+            if a is pkg_div or pkg_div in (a.parents if hasattr(a, 'parents') else []):
+                break
+            try:
+                # If 'a' appears before pkg_div in document order...
+                anchor_pos = (anchor_tag.sourceline or 0, anchor_tag.sourcepos or 0)
+                a_pos = (a.sourceline or 0, a.sourcepos or 0)
+                pkg_pos = (pkg_div.sourceline or 0, pkg_div.sourcepos or 0)
+            except AttributeError:
+                continue
+            if not (anchor_pos < a_pos < pkg_pos):
+                continue
+            # Skip auto-generated and short IDs (same filter as the
+            # outer iteration)
+            aid = a.get('id', '')
+            if aid.startswith('idm') or aid.startswith('id-') or len(aid) < 2:
+                continue
+            # Skip anchors whose next sibling isn't a package name
+            next_text = a.next_sibling
+            if not (next_text and isinstance(next_text, str)
+                    and VERSION_RE.match(next_text.strip())):
+                continue
+            # Another package anchor intervenes — this pkg_div is NOT for us
+            return None
+        return pkg_div  # Return the package div directly — tight bound,
+        # ensures parse_dependencies sees only this package's <p class>.
 
     return None
 
