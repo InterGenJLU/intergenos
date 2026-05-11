@@ -1,0 +1,34 @@
+name: networkmanager-pass1
+version: "1.56.0"
+release: 1
+description: Network connection manager (bootstrap — system networking only, no desktop integration)
+license: GPL-2.0-or-later
+homepage: https://networkmanager.dev/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/NetworkManager/NetworkManager/-/releases/${version}/downloads/NetworkManager-${version}.tar.xz
+  sha256: 59a32d385cc1e7ae26e43798c6f12d07ff6198abd041ec0620b3a08cfc021ccc
+dependencies:
+  build:
+  - libnl
+  - libndp
+  - wpa_supplicant
+  - glib2
+  - systemd
+  - curl
+  - gnutls
+  - jansson
+  - libpsl
+  - nss
+  - libnvme
+  host: []
+  runtime: []
+# First pass of the 2-pass NetworkManager build. System networking
+# essentials only — no iptables/polkit/bluez/pygobject3/vala/upower/newt
+# integrations (those are tier:desktop). Provides enough NM to bring up
+# wired + WPA-supplicant WiFi at boot for system-tier needs. Full
+# NetworkManager with desktop integrations lives in tier:desktop and
+# supersedes pass1 at install time via migrate-pkm-supersedes.sh.
+# Owner-approved 2026-05-11.
