@@ -1,89 +1,89 @@
 name	category	bundled	note
 aardvark-dns	HANDLED	contrib	explicit tar xf in build.sh OR multi-source
-accountsservice	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['packagecache']
-appstream-glib	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-argcomplete	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+accountsservice	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (packagecache) — meson uses explicit subproject() refs; dormant trees benign
+appstream-glib	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+argcomplete	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
 at-spi2-core	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
 atkmm	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
 cairo	MESON-SUBPROJECTS-WRAP	subprojects	7 .wrap fallbacks, no vendored trees — benign
 cairomm	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
 cairomm1	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
-colord	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-colord-gtk	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-conmon	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-containers-common	NEEDS-MANUAL-REVIEW	contrib,vendor	multi-bundled: ['contrib', 'vendor']
-cppunit	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-dbus-python	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['dbus-gmain']
-dconf	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['gvdb']
-doxygen	NEEDS-MANUAL-REVIEW	deps	multi-bundled: ['deps']
+colord	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+colord-gtk	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+conmon	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+containers-common	INTERNAL-BUILD-SYSTEM	contrib,vendor	Go native vendor mode — handled by go build
+cppunit	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+dbus-python	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (dbus-gmain) — meson uses explicit subproject() refs; dormant trees benign
+dconf	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (gvdb) — meson uses explicit subproject() refs; dormant trees benign
+doxygen	INTERNAL-BUILD-SYSTEM	deps	cmake project with deps — typically add_subdirectory() handled at configure
 evince	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
 exiv2	MESON-SUBPROJECTS-WRAP	contrib,subprojects	5 .wrap fallbacks, no vendored trees — benign
-firefox	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
-fontconfig	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['libintl']
-freerdp	NEEDS-MANUAL-REVIEW	external,third-party	multi-bundled: ['external', 'third-party']
+firefox	INTERNAL-BUILD-SYSTEM	third_party	cargo native vendor mode — handled by cargo build
+fontconfig	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (libintl) — meson uses explicit subproject() refs; dormant trees benign
+freerdp	INTERNAL-BUILD-SYSTEM	external,third-party	cmake project with external,third-party — typically add_subdirectory() handled at configure
 freetype2	MESON-SUBPROJECTS-WRAP	subprojects	3 .wrap fallbacks, no vendored trees — benign
 freetype2-pass1	MESON-SUBPROJECTS-WRAP	subprojects	3 .wrap fallbacks, no vendored trees — benign
-fuse-overlayfs	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+fuse-overlayfs	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
 gdk-pixbuf	MESON-SUBPROJECTS-WRAP	subprojects	4 .wrap fallbacks, no vendored trees — benign
 gdk-pixbuf-pass2	MESON-SUBPROJECTS-WRAP	subprojects	4 .wrap fallbacks, no vendored trees — benign
-gegl	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['libnsgif', 'poly2tri-c']
-ghostscript	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+gegl	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (libnsgif, poly2tri-c) — meson uses explicit subproject() refs; dormant trees benign
+ghostscript	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
 git	MESON-SUBPROJECTS-WRAP	contrib,subprojects	5 .wrap fallbacks, no vendored trees — benign
-gjs	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['gobject-introspection-tests']
+gjs	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (gobject-introspection-tests) — meson uses explicit subproject() refs; dormant trees benign
 glib-networking	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
-glib2	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['gvdb', 'packagefiles']
-glib2-bootstrap	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['gvdb', 'packagefiles']
+glib2	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (gvdb, packagefiles) — meson uses explicit subproject() refs; dormant trees benign
+glib2-bootstrap	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (gvdb, packagefiles) — meson uses explicit subproject() refs; dormant trees benign
 glibmm	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
 glibmm2	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
-glslang	NEEDS-MANUAL-REVIEW	DEPS,External	multi-bundled: ['DEPS', 'External']
+glslang	INTERNAL-BUILD-SYSTEM	DEPS,External	cmake project with DEPS,External — typically add_subdirectory() handled at configure
 gnome-bluetooth	MESON-SUBPROJECTS-WRAP	contrib,subprojects	1 .wrap fallbacks, no vendored trees — benign
 gnome-calculator	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
-gnome-connections	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['gtk-frdp']
-gnome-control-center	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['gvc', 'libgxdp']
+gnome-connections	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (gtk-frdp) — meson uses explicit subproject() refs; dormant trees benign
+gnome-control-center	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (gvc, libgxdp) — meson uses explicit subproject() refs; dormant trees benign
 gnome-disk-utility	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
-gnome-music	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['shared-modules']
+gnome-music	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (shared-modules) — meson uses explicit subproject() refs; dormant trees benign
 gnome-online-accounts	MESON-SUBPROJECTS-WRAP	subprojects	4 .wrap fallbacks, no vendored trees — benign
-gnome-settings-daemon	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['gvc']
-gnome-shell	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['extensions-app', 'extensions-tool', 'gvc']
+gnome-settings-daemon	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (gvc) — meson uses explicit subproject() refs; dormant trees benign
+gnome-shell	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (extensions-app, extensions-tool, gvc) — meson uses explicit subproject() refs; dormant trees benign
 gnome-terminal	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
 gnome-text-editor	MESON-SUBPROJECTS-WRAP	subprojects	4 .wrap fallbacks, no vendored trees — benign
 gobject-introspection	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
-graphene	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['mutest']
-graphite2	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-graphviz	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-grilo-plugins	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['grilo']
+graphene	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (mutest) — meson uses explicit subproject() refs; dormant trees benign
+graphite2	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+graphviz	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+grilo-plugins	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (grilo) — meson uses explicit subproject() refs; dormant trees benign
 gst-plugins-base	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
 gst-plugins-base-pass2	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
-gtk-vnc	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['keycodemapdb']
+gtk-vnc	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (keycodemapdb) — meson uses explicit subproject() refs; dormant trees benign
 gtk3	MESON-SUBPROJECTS-WRAP	subprojects	19 .wrap fallbacks, no vendored trees — benign
 gtk4	MESON-SUBPROJECTS-WRAP	subprojects	23 .wrap fallbacks, no vendored trees — benign
 gtkmm3	MESON-SUBPROJECTS-WRAP	subprojects	7 .wrap fallbacks, no vendored trees — benign
 gtkmm4	MESON-SUBPROJECTS-WRAP	subprojects	7 .wrap fallbacks, no vendored trees — benign
 gtksourceview5	MESON-SUBPROJECTS-WRAP	subprojects	4 .wrap fallbacks, no vendored trees — benign
-harfbuzz	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['packagefiles']
+harfbuzz	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (packagefiles) — meson uses explicit subproject() refs; dormant trees benign
 json-glib	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
 libadwaita1	MESON-SUBPROJECTS-WRAP	subprojects	4 .wrap fallbacks, no vendored trees — benign
-libaom	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
-libarchive	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-libavif	NEEDS-MANUAL-REVIEW	contrib,third_party	multi-bundled: ['contrib', 'third_party']
-libbluray	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+libaom	INTERNAL-BUILD-SYSTEM	third_party	cmake project with third_party — typically add_subdirectory() handled at configure
+libarchive	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+libavif	INTERNAL-BUILD-SYSTEM	contrib,third_party	cmake project with contrib,third_party — typically add_subdirectory() handled at configure
+libbluray	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
 libdisplay-info	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
 libei	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
-libexif	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-libgusb	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+libexif	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+libgusb	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
 libgweather	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
 libhandy1	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
-libheif	NEEDS-MANUAL-REVIEW	third-party	third_party/ bundling without explicit extract or multi-source
-libjxl	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
-libnl	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
+libheif	INTERNAL-BUILD-SYSTEM	third-party	cmake project with third-party — typically add_subdirectory() handled at configure
+libjxl	INTERNAL-BUILD-SYSTEM	third_party	cmake project with third_party — typically add_subdirectory() handled at configure
+libnl	BENIGN-CONTRIB-LIKELY	third_party	autotools project + third_party/ — typically test fixtures or bundled headers, not system-lib substitutes
 libnotify	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
 libnvme	MESON-SUBPROJECTS-WRAP	subprojects	3 .wrap fallbacks, no vendored trees — benign
 libpeas	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
-libplacebo	NEEDS-MANUAL-REVIEW	3rdparty	multi-bundled: ['3rdparty']
-libpng	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+libplacebo	INTERNAL-BUILD-SYSTEM	3rdparty	meson project with 3rdparty/ — meson references via subproject()/explicit imports; dormant trees benign
+libpng	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
 libportal	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
 libproxy	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
-libreoffice	NEEDS-MANUAL-REVIEW	external	external/ bundling without explicit extract or multi-source
+libreoffice	HANDLED	external	--with-external-tar + --disable-fetch-external + --with-system-X pattern (LibreOffice-style)
 librest	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
 libsecret	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
 libshumate	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
@@ -91,56 +91,56 @@ libsigcpp2	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored tre
 libsigcpp3	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
 libsoup3	MESON-SUBPROJECTS-WRAP	subprojects	3 .wrap fallbacks, no vendored trees — benign
 libspelling	MESON-SUBPROJECTS-WRAP	subprojects	2 .wrap fallbacks, no vendored trees — benign
-libtiff	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-libtiff-pass2	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-libvpx	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
-libxmlb	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+libtiff	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+libtiff-pass2	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+libvpx	BENIGN-CONTRIB-LIKELY	third_party	autotools project + third_party/ — typically test fixtures or bundled headers, not system-lib substitutes
+libxmlb	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
 lilv	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
-linux-firmware	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-llama-cpp	NEEDS-MANUAL-REVIEW	vendor	vendor/ bundling — Go/Rust style; verify build.sh handles
+linux-firmware	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+llama-cpp	INTERNAL-BUILD-SYSTEM	vendor	cmake project with vendor — typically add_subdirectory() handled at configure
 localsearch	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
-mesa	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['packagefiles']
-mutter	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['gvdb']
-nasm	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+mesa	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (packagefiles) — meson uses explicit subproject() refs; dormant trees benign
+mutter	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (gvdb) — meson uses explicit subproject() refs; dormant trees benign
+nasm	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
 netavark	HANDLED	contrib	explicit tar xf in build.sh OR multi-source
-networkmanager	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-networkmanager-pass1	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-nghttp2	NEEDS-MANUAL-REVIEW	contrib,third-party	multi-bundled: ['contrib', 'third-party']
-nodejs	NEEDS-MANUAL-REVIEW	deps	multi-bundled: ['deps']
-openldap	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-openssh	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-p11-kit	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['pkcs11-json']
-pango	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['fontconfig', 'gperf']
+networkmanager	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+networkmanager-pass1	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+nghttp2	INTERNAL-BUILD-SYSTEM	contrib,third-party	cmake project with contrib,third-party — typically add_subdirectory() handled at configure
+nodejs	HANDLED	deps	--shared-X flags route bundled deps/ to system libs (Node-style)
+openldap	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+openssh	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+p11-kit	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (pkcs11-json) — meson uses explicit subproject() refs; dormant trees benign
+pango	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (fontconfig, gperf) — meson uses explicit subproject() refs; dormant trees benign
 pangomm	MESON-SUBPROJECTS-WRAP	subprojects	3 .wrap fallbacks, no vendored trees — benign
 pangomm1	MESON-SUBPROJECTS-WRAP	subprojects	3 .wrap fallbacks, no vendored trees — benign
-passt	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
+passt	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
 pipewire	MESON-SUBPROJECTS-WRAP	subprojects	4 .wrap fallbacks, no vendored trees — benign
-podman	NEEDS-MANUAL-REVIEW	contrib,vendor	multi-bundled: ['contrib', 'vendor']
-protobuf	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
+podman	INTERNAL-BUILD-SYSTEM	contrib,vendor	Go native vendor mode — handled by go build
+protobuf	INTERNAL-BUILD-SYSTEM	third_party	cargo native vendor mode — handled by cargo build
 pulseaudio	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
-pygments	NEEDS-MANUAL-REVIEW	external	external/ bundling without explicit extract or multi-source
-pygobject3	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['gobject-introspection-tests', 'packagefiles', 'pythoncapi-compat']
-rapidjson	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-rust	HANDLED	vendor	explicit tar xf in build.sh OR multi-source
-samba	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
-sdl2-ttf	NEEDS-MANUAL-REVIEW	external	external/ bundling without explicit extract or multi-source
+pygments	BENIGN-CONTRIB-LIKELY	external	python project with external/ — typically test fixtures or build-time C extensions
+pygobject3	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (gobject-introspection-tests, packagefiles, pythoncapi-compat) — meson uses explicit subproject() refs; dormant trees benign
+rapidjson	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+rust	INTERNAL-BUILD-SYSTEM	vendor	cargo native vendor mode — handled by cargo build
+samba	INTERNAL-BUILD-SYSTEM	third_party	cargo native vendor mode — handled by cargo build
+sdl2-ttf	INTERNAL-BUILD-SYSTEM	external	cmake project with external — typically add_subdirectory() handled at configure
 serd	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
-shaderc	NEEDS-MANUAL-REVIEW	DEPS,third_party	multi-bundled: ['DEPS', 'third_party']
-snapshot	HANDLED	vendor	explicit tar xf in build.sh OR multi-source
-spidermonkey	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
-spirv-tools	NEEDS-MANUAL-REVIEW	DEPS,external	multi-bundled: ['DEPS', 'external']
+shaderc	INTERNAL-BUILD-SYSTEM	DEPS,third_party	cmake project with DEPS,third_party — typically add_subdirectory() handled at configure
+snapshot	INTERNAL-BUILD-SYSTEM	vendor	cargo native vendor mode — handled by cargo build
+spidermonkey	INTERNAL-BUILD-SYSTEM	third_party	cargo native vendor mode — handled by cargo build
+spirv-tools	INTERNAL-BUILD-SYSTEM	DEPS,external	cmake project with DEPS,external — typically add_subdirectory() handled at configure
 sratom	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
 suil	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
-svt-av1	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
-sysprof	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-taglib	NEEDS-MANUAL-REVIEW	3rdparty	multi-bundled: ['3rdparty']
-tdb	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
-thunderbird	NEEDS-MANUAL-REVIEW	third_party	third_party/ bundling without explicit extract or multi-source
-tinysparql	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['libstemmer_c-3.0.1', 'packagefiles']
-transmission	NEEDS-MANUAL-REVIEW	third-party	third_party/ bundling without explicit extract or multi-source
-upower	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, usually tests/examples/doc-only
-vte	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['fast_float', 'fmt', 'packagefiles']
+svt-av1	INTERNAL-BUILD-SYSTEM	third_party	cmake project with third_party — typically add_subdirectory() handled at configure
+sysprof	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+taglib	INTERNAL-BUILD-SYSTEM	3rdparty	cmake project with 3rdparty — typically add_subdirectory() handled at configure
+tdb	BENIGN-CONTRIB-LIKELY	third_party	autotools project + third_party/ — typically test fixtures or bundled headers, not system-lib substitutes
+thunderbird	INTERNAL-BUILD-SYSTEM	third_party	cargo native vendor mode — handled by cargo build
+tinysparql	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (libstemmer_c-3.0.1, packagefiles) — meson uses explicit subproject() refs; dormant trees benign
+transmission	INTERNAL-BUILD-SYSTEM	third-party	cmake project with third-party — typically add_subdirectory() handled at configure
+upower	BENIGN-CONTRIB-LIKELY	contrib	contrib/ dir alone, typically tests/examples/doc-only
+vte	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (fast_float, fmt, packagefiles) — meson uses explicit subproject() refs; dormant trees benign
 wireplumber	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
-wxwidgets	NEEDS-MANUAL-REVIEW	3rdparty	multi-bundled: ['3rdparty']
-xdg-desktop-portal-gnome	MESON-SUBPROJECTS-VENDORED	subprojects	subprojects/ contains vendored trees: ['libgxdp']
+wxwidgets	INTERNAL-BUILD-SYSTEM	3rdparty	cmake project with 3rdparty — typically add_subdirectory() handled at configure
+xdg-desktop-portal-gnome	INTERNAL-BUILD-SYSTEM	subprojects	meson vendored subprojects (libgxdp) — meson uses explicit subproject() refs; dormant trees benign
 zix	MESON-SUBPROJECTS-WRAP	subprojects	1 .wrap fallbacks, no vendored trees — benign
