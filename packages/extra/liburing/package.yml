@@ -1,0 +1,16 @@
+name: liburing
+version: "2.14"
+release: 1
+description: Linux io_uring async I/O wrapper library (Jens Axboe)
+license: MIT AND LGPL-2.1 AND GPL-2.0
+homepage: https://git.kernel.dk/cgit/liburing/
+tier: extra
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/axboe/liburing/archive/refs/tags/liburing-${version}.tar.gz
+  sha256: 5f80964108981c6ad979c735f0b4877d5f49914c2a062f8e88282f26bf61de0c
+dependencies:
+  build: []
+  host: []
+  runtime: []
