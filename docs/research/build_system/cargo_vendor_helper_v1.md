@@ -26,12 +26,16 @@ The helper is **maintainer infrastructure** — it produces artifacts that the b
 ## 3. CLI shape
 
 ```
-scripts/cargo-vendor-gen.sh <pkg-name> <version> <source-url-or-path>
+scripts/cargo-vendor-gen.sh [--cargo-lock <path>] <pkg-name> <version> <source-url-or-path>
 ```
 
 - `pkg-name` — must match `name:` in the package's `package.yml`
 - `version` — must match `version:` in the package's `package.yml`
 - `source-url-or-path` — either an `https://` URL (downloaded fresh) or a local path to an already-fetched source tarball (e.g., an entry in `build/sources/` from `download-sources.py`)
+
+**Options:**
+
+- `--cargo-lock <path>` — inject this `Cargo.lock` into the project root before `cargo vendor` runs, overriding any upstream-shipped lockfile. The injection closes the lockfile-non-determinism gap for upstream-lacks-lock packages (cargo-c is one such case in tree): the first run with no flag emits a `<pkg>-<version>-Cargo.lock` side artifact; subsequent runs pass that side artifact back via `--cargo-lock` for byte-reproducible re-runs. If the injected lockfile is incompatible with the upstream `Cargo.toml`, `cargo vendor --locked` fails loudly.
 
 **Environment overrides:**
 
@@ -59,7 +63,10 @@ The script walks these stages, each idempotent on its own work dir:
 1. **Preflight** — tools on PATH, identifier validation, work dir created, cargo version captured (recorded for reproducibility).
 2. **Resolve source** — URL → `curl` to work dir; path → use in place. Compute source sha256 for the report.
 3. **Extract** — `tar -xaf` (auto-detects `.tar.gz` / `.tar.xz` / `.tar.bz2`). Locate project root: if exactly one top-level dir (GitHub archive convention), use it; otherwise use the extract dir.
-4. **Cargo.lock handling** — if upstream ships `Cargo.lock`, mark as `upstream`. If absent, run `cargo generate-lockfile` and mark as `generated`. **Warn loudly that generated lockfiles are non-deterministic** (cargo resolves to latest compatible versions at generation time).
+4. **Cargo.lock handling** — three paths:
+   - **`--cargo-lock <path>` injected:** copy the provided lockfile into project root, mark as `injected`. Used for byte-reproducible re-runs.
+   - **Upstream ships `Cargo.lock`:** mark as `upstream`. Used for packages like ripgrep / fd / bat / eza where the GitHub archive includes the lockfile.
+   - **Both absent:** run `cargo generate-lockfile`, mark as `generated`. **Warn loudly that generated lockfiles are non-deterministic** (cargo resolves to latest-compatible at generation time). The emitted side artifact captures this state for `--cargo-lock` injection on future runs.
 5. **`cargo vendor --locked --versioned-dirs`** — `--locked` refuses to update `Cargo.lock` mid-run; `--versioned-dirs` produces `<crate>-<version>/` subdirectories (multi-version safe + slightly more reproducible than the legacy unversioned shape).
 6. **`.cargo/config.toml`** — written into the project root with the `[source.crates-io] replace-with = "vendored-sources"` + `[source.vendored-sources] directory = "vendor"` pair. This is what makes `cargo build --offline` actually use the vendored crates.
 7. **Stage wrapper directory** — move `vendor/` and `.cargo/` into `<work>/stage/<pkg>-<version>/`. This is what gets archived. The wrapper-dir + `--strip-components=1` convention matches the cargo-c / aardvark-dns / G4-user-tools build.sh extract pattern.
@@ -218,12 +225,23 @@ This dispatch's acceptance verification:
 
 ## 13. Limitations + future work
 
-- **No `Cargo.lock`-as-input flag in v1.** When upstream doesn't ship `Cargo.lock`, the helper currently calls `cargo generate-lockfile` which is non-deterministic. v1.1 should add `--cargo-lock <path>` so the operator can pass a previously-emitted side artifact back in to lock the run.
 - **No Go support in v1.** See §9.
 - **No package.yml introspection.** The helper takes name + version as args rather than reading them from package.yml. Trade-off: simpler helper, easier to script in bulk. v1.1 could add a `--from-package-yml <path>` mode that derives args.
-- **No bulk-run wrapper.** The current G4 user-tools batch has 15 Rust packages; running the helper 15 times manually is tractable but a `scripts/cargo-vendor-gen-all.sh` that walks `packages/*/*/package.yml` looking for `generated_by: cargo-vendor` artifacts and runs the helper for each is a reasonable v1.1.
 - **No SBOM / attestation emission.** Mentioned in §11. v2 territory.
 - **No automatic stage-to-mirror.** Operator runs `rsync` manually. A `--stage-to <host>:<path>` flag would close that loop. v1.1 candidate.
+
+### v1.1 additions: bulk runner
+
+`scripts/cargo-vendor-gen-all.sh` walks `packages/*/*/package.yml`, identifies packages with `build_artifacts: ... generated_by: cargo-vendor`, and invokes the helper for each. The bulk runner is **idempotent**: when a previously-emitted `Cargo.lock` side artifact exists in `${OUTPUT_DIR}/<pkg>-<version>-Cargo.lock`, the runner passes it back via `--cargo-lock` for byte-reproducible re-runs.
+
+CLI:
+```
+scripts/cargo-vendor-gen-all.sh [--dry-run] [--tier <tier>] [--package <name>]
+```
+
+Filters compose by union within a kind (e.g., `--tier core --tier desktop` widens) but `--package` overrides `--tier` (narrow takes precedence). Dry-run prints a table showing what would be vendored + whether each package has a pinned lockfile (`pinned`) or would need fresh generation (`fresh-gen`).
+
+The runner continues past individual package failures (logs them in a final summary) so a single network glitch doesn't lose the rest of the batch. Exit code 0 iff all packages succeeded.
 
 ## 14. Provenance
 
