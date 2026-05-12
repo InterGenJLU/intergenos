@@ -1,0 +1,15 @@
+{
+  "comment": "InterGenOS release signing keys. Canonical source of fingerprint data. docs/signing-key.md references this file.",
+  "keys": {
+    "S1": {
+      "fingerprint": "D7AA641D81ACD690C5AD865E7276E14DD8886BFE",
+      "role": "primary signing (Nitrokey NK1 serial B9753481)",
+      "aliases": ["NK1"]
+    },
+    "S2": {
+      "fingerprint": "81DD223F9BA9B3F2AFBFFC5AFA24B042975F775E",
+      "role": "off-site backup signing (Nitrokey NK2 serial 43D33126)",
+      "aliases": ["NK2"]
+    }
+  }
+}
