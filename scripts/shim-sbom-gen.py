@@ -70,6 +70,35 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def sha256_git_blob(repo_root: Path, relpath: str) -> str:
+    """Compute SHA-256 of a file's canonical content as stored in git HEAD.
+
+    Host-independent. Reads via ``git show HEAD:<path>`` so working-tree
+    state (line-ending transformations from core.autocrlf=true on Windows,
+    smudge filters, etc.) doesn't affect the emitted SHA. Caller is
+    responsible for ensuring the file exists at HEAD.
+
+    Rationale (F17, 2026-05-12): the previous emit path used
+    :func:`sha256_file` against the working-tree copy of repo-resident
+    text-shaped artifacts. On a Windows host with core.autocrlf=true and
+    no ``.gitattributes`` entry covering the file, those copies acquire
+    CRLF line endings on checkout, producing a SHA that differs from
+    what every non-Windows reviewer (and the git-stored canonical blob)
+    sees. Reading via the git object database sidesteps that entirely.
+
+    Args:
+        repo_root: git repo root (cwd for the subprocess call)
+        relpath: file path relative to repo root, forward-slashed
+
+    Returns: 64-char lowercase hex SHA-256
+    """
+    raw = subprocess.check_output(
+        ["git", "show", f"HEAD:{relpath}"],
+        cwd=str(repo_root),
+    )
+    return sha256_bytes(raw)
+
+
 def parse_dockerfile(path: Path) -> dict:
     """Extract the reproducibility anchors from the shim-build Dockerfile.
 
@@ -156,8 +185,7 @@ def read_sbat_entry(path: Path) -> dict:
 def build_spdx_doc(
     dockerfile: dict,
     sbat: dict,
-    cert_pem_path: Path,
-    cert_der_path: Path,
+    repo_root: Path,
     shim_sha256: str,
     shim_size: int,
     shim_version: str,
@@ -168,15 +196,22 @@ def build_spdx_doc(
 
     Output dict keys are emitted in insertion order; json.dumps with
     sort_keys=False preserves that order in the rendered file.
+
+    Repo-resident artifact SHAs (PEM, DER, SBAT) are read from git HEAD
+    via :func:`sha256_git_blob` rather than the working tree, so emitted
+    SHAs are host-independent (see F17 root-cause investigation,
+    2026-05-12: Windows autocrlf=true silently CRLF-transformed PEM
+    on checkout, producing a working-tree SHA that diverged from the
+    canonical git-stored SHA every non-Windows reviewer sees).
     """
     document_namespace = (
         f"https://intergenstudios.com/sbom/{submission_tag}-"
         f"{shim_sha256[:16]}"
     )
 
-    cert_pem_sha = sha256_file(cert_pem_path)
-    cert_der_sha = sha256_file(cert_der_path)
-    sbat_sha = sha256_bytes(sbat["raw_bytes"])
+    cert_pem_sha = sha256_git_blob(repo_root, CERT_PEM_RELPATH)
+    cert_der_sha = sha256_git_blob(repo_root, CERT_DER_RELPATH)
+    sbat_sha = sha256_git_blob(repo_root, SBAT_CSV_RELPATH)
 
     pkg_shim_binary = {
         "SPDXID": "SPDXRef-Package-shimx64-efi",
@@ -508,8 +543,7 @@ def main(argv: list[str] | None = None) -> int:
     doc = build_spdx_doc(
         dockerfile=dockerfile,
         sbat=sbat,
-        cert_pem_path=cert_pem_path,
-        cert_der_path=cert_der_path,
+        repo_root=repo,
         shim_sha256=shim_sha,
         shim_size=shim_size,
         shim_version=dockerfile["shim_version"],

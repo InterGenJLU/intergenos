@@ -5,7 +5,7 @@
   "name": "InterGenOS intergenos-shim-x64-20260515",
   "documentNamespace": "https://intergenstudios.com/sbom/intergenos-shim-x64-20260515-b6c0c2c59cd2c6cc",
   "creationInfo": {
-    "created": "2026-05-12T03:00:00Z",
+    "created": "2026-05-12T04:12:47Z",
     "creators": [
       "Tool: scripts/shim-sbom-gen.py-1.0",
       "Organization: InterGenOS"
@@ -118,7 +118,7 @@
       "checksums": [
         {
           "algorithm": "SHA256",
-          "checksumValue": "620c4ebdb02224c734483949249270539d1086e3bca6d808f46c3013a892664b"
+          "checksumValue": "8ce749e7e77169205e4761d82b48a4333f48cdec2ee0f711b8cff560fe150514"
         }
       ],
       "licenseConcluded": "NOASSERTION",
