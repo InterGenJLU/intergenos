@@ -232,7 +232,13 @@ This dispatch's acceptance verification:
 
 ### v1.1 additions: bulk runner
 
-`scripts/cargo-vendor-gen-all.sh` walks `packages/*/*/package.yml`, identifies packages with `build_artifacts: ... generated_by: cargo-vendor`, and invokes the helper for each. The bulk runner is **idempotent**: when a previously-emitted `Cargo.lock` side artifact exists in `${OUTPUT_DIR}/<pkg>-<version>-Cargo.lock`, the runner passes it back via `--cargo-lock` for byte-reproducible re-runs.
+`scripts/cargo-vendor-gen-all.sh` walks `packages/*/*/package.yml`, identifies packages with `build_artifacts: ... generated_by: cargo-vendor`, and invokes the helper for each. The bulk runner is **idempotent**: when a `Cargo.lock` is available for a package, the runner passes it back via `--cargo-lock` for byte-reproducible re-runs.
+
+**Lockfile-discovery precedence** (highest priority first):
+
+1. `packages/<tier>/<pkg>/Cargo.lock` — committed canonical lockfile co-located with `package.yml`. This is the source-of-truth location for packages where upstream doesn't ship `Cargo.lock` (e.g., cargo-c, cbindgen, rust-bindgen, librsvg). When present, the bulk runner reports the package as `pinned (packages/)`.
+2. `${OUTPUT_DIR}/<pkg>-<version>-Cargo.lock` — locally-emitted side artifact from a prior bulk-runner invocation. Useful for ephemeral / per-host pinning when the canonical lockfile isn't yet committed. Reported as `pinned (output-dir)`.
+3. (neither) — falls through to the helper's `cargo generate-lockfile` path (non-deterministic). Reported as `fresh-gen`.
 
 CLI:
 ```
