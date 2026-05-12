@@ -83,7 +83,7 @@ The archive is **byte-identical across runs** when these inputs are held constan
 | Cargo version | Use the InterGenOS-built cargo (`/opt/rustc/bin/cargo`) or any pinned cargo version | Different cargo versions can produce slightly different vendor/ layouts |
 | Cargo.lock contents | `--locked` in `cargo vendor` enforces this | If `Cargo.lock` is generated, run-to-run reproducibility breaks until the lock is committed somewhere durable |
 | Crate availability on crates.io | Pin upstream Cargo.lock contents | Yanked crates can break re-vendoring |
-| Tar format / mtimes / uid/gid | `--format=ustar` + zeroed metadata + `SOURCE_DATE_EPOCH` | See script for full flag list |
+| Tar format / mtimes / uid/gid | `--format=pax --pax-option='exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime'` + zeroed metadata + `SOURCE_DATE_EPOCH` | See script for full flag list. **pax over ustar**: ustar has a 100-character per-filename limit (155-char prefix + split heuristics in some implementations) that some Rust crates' deeply-nested test data files exceed — cyclonedx-bom-0.8.1's snapshot files (~170 chars before wrapper-dir prefix) is one such case, transitively pulled by maturin's sbom feature deps. pax (POSIX extended) supports unlimited filename length while staying deterministic when its extended-header names are pinned via `exthdr.name=...` and atime/ctime are stripped. mtime stays in the header but is fixed via `--mtime`. |
 | xz compression | `-T 1 -9` | Multi-thread xz breaks block boundaries |
 | Wrapper directory name | Derived from `<pkg-name>-<version>` args | Stable across runs |
 

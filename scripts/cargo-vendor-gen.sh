@@ -262,7 +262,13 @@ log "building reproducible archive: $OUTPUT_TARBALL"
 #   --owner=0 --group=0 zero out uid/gid names
 #   --numeric-owner     numeric ids (no /etc/passwd lookup)
 #   --mtime=@<EPOCH>    fixed mtime
-#   --format=ustar      stable archive format
+#   --format=pax        POSIX extended (supports paths > 100 chars; some Rust
+#                       crates have deeply-nested test data files like
+#                       cyclonedx-bom snapshots that exceed ustar's limit)
+#   --pax-option=...    suppress per-file pax-header name randomness (must be
+#                       deterministic) and drop atime/ctime which are runtime-
+#                       dependent. mtime stays in the header but is fixed via
+#                       --mtime above.
 # Xz flags:
 #   -T 1                single-thread (multi-thread varies block boundaries)
 #   -9                  max compression (deterministic at fixed thread count)
@@ -270,7 +276,8 @@ log "building reproducible archive: $OUTPUT_TARBALL"
     tar --sort=name \
         --owner=0 --group=0 --numeric-owner \
         --mtime="@${SOURCE_EPOCH}" \
-        --format=ustar \
+        --format=pax \
+        --pax-option='exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime' \
         -cf - "$WRAP_NAME" \
     | xz -T 1 -9 > "$OUTPUT_TARBALL") || die "tar+xz failed"
 
