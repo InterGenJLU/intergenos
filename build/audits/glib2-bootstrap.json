@@ -5,8 +5,8 @@
   ],
   "_notes_source": "",
   "audit_version": 1,
-  "audited_at": "2026-05-11T16:57:13Z",
-  "audited_by": "audit-package.py",
+  "audited_at": "2026-05-12T02:30:07Z",
+  "audited_by": "SPOC",
   "blfs": {},
   "build_system": "meson",
   "bundled_libs": [
@@ -32,7 +32,11 @@
   ],
   "our_deps_build": [
     "meson",
-    "ninja"
+    "ninja",
+    "libxml2",
+    "libxslt",
+    "docbook-xml",
+    "docbook-xsl-nons"
   ],
   "our_deps_host": [],
   "our_deps_runtime": [],
@@ -57,17 +61,17 @@
   "our_patches": [],
   "package_dir": "packages/core/glib2-bootstrap",
   "reproducibility": {
-    "_notes": "auto-derived by agent-c01",
-    "deterministic_install": 1,
-    "parallel_build_supported": 1,
-    "source_date_epoch_supported": 0
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
   },
   "source_sha256": "51ab804c56f6eab3e5045c774d1290ac5e4c923d4f9a3d8e33123bee45c1840e",
   "source_tarball": "glib-2.88.1.tar.xz",
   "source_tarball_exists": true,
   "source_url": "https://download.gnome.org/sources/glib/2.88/glib-${version}.tar.xz",
   "tarball_files_count": 2481,
-  "test_command": "meson test -C build",
+  "test_command": null,
   "test_known_failures": [],
   "tier": "core",
   "upstream_options": [],

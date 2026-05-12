@@ -1,0 +1,46 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "source-tarball-missing"
+  ],
+  "_notes_source": "no source tarball declared or downloaded",
+  "audit_version": 1,
+  "audited_at": "2026-05-12T02:30:05Z",
+  "audited_by": "SPOC",
+  "blfs": {},
+  "build_system": "unknown",
+  "bundled_libs": [],
+  "docs_seen": [],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "setuptools-rust",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [
+    "setuptools",
+    "setuptools-scm",
+    "wheel"
+  ],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/setuptools-rust",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "e7c4c79b67f76b6e4f6d04eccf4eddcd23faa0cbcd91d2ca0b76ec01ee9a7e96",
+  "source_tarball": null,
+  "source_tarball_exists": false,
+  "source_url": "https://pypi.org/packages/source/s/setuptools-rust/setuptools_rust-${version}.tar.gz",
+  "tarball_files_count": 0,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "1.10.2"
+}

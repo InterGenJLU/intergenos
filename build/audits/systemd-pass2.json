@@ -3,8 +3,8 @@
   "_needs_review": [],
   "_notes_source": "",
   "audit_version": 1,
-  "audited_at": "2026-05-11T16:59:45Z",
-  "audited_by": "audit-package.py",
+  "audited_at": "2026-05-12T02:30:09Z",
+  "audited_by": "SPOC",
   "blfs": {},
   "build_system": "meson",
   "bundled_libs": [],
@@ -33,14 +33,28 @@
     "apparmor",
     "tpm2-tss",
     "libfido2",
-    "libxkbcommon"
+    "libxkbcommon",
+    "libseccomp",
+    "libcryptsetup",
+    "libidn2",
+    "libqrencode",
+    "libgcrypt",
+    "gnutls",
+    "libarchive",
+    "curl",
+    "bash-completion",
+    "python-pefile",
+    "python-cryptography",
+    "rpm",
+    "git",
+    "rsync"
   ],
   "our_deps_host": [],
   "our_deps_runtime": [],
   "our_meson_options": [
     {
       "name": "default-dnssec",
-      "value": "no"
+      "value": "allow-downgrade"
     },
     {
       "name": "firstboot",
@@ -60,15 +74,15 @@
     },
     {
       "name": "rpmmacrosdir",
-      "value": "no"
+      "value": "/usr/lib/rpm/macros.d"
     },
     {
       "name": "homed",
-      "value": "disabled"
+      "value": "enabled"
     },
     {
       "name": "man",
-      "value": "disabled"
+      "value": "enabled"
     },
     {
       "name": "mode",
@@ -92,11 +106,11 @@
     },
     {
       "name": "sysupdate",
-      "value": "disabled"
+      "value": "enabled"
     },
     {
       "name": "ukify",
-      "value": "disabled"
+      "value": "enabled"
     },
     {
       "name": "apparmor",
@@ -115,6 +129,42 @@
       "value": "enabled"
     },
     {
+      "name": "seccomp",
+      "value": "enabled"
+    },
+    {
+      "name": "libcryptsetup",
+      "value": "enabled"
+    },
+    {
+      "name": "idn",
+      "value": "true"
+    },
+    {
+      "name": "qrencode",
+      "value": "enabled"
+    },
+    {
+      "name": "gcrypt",
+      "value": "enabled"
+    },
+    {
+      "name": "gnutls",
+      "value": "enabled"
+    },
+    {
+      "name": "libarchive",
+      "value": "enabled"
+    },
+    {
+      "name": "libcurl",
+      "value": "enabled"
+    },
+    {
+      "name": "bash-completion",
+      "value": "true"
+    },
+    {
       "name": "docdir",
       "value": "/usr/share/doc/systemd-259.1"
     }
@@ -122,17 +172,17 @@
   "our_patches": [],
   "package_dir": "packages/desktop/systemd-pass2",
   "reproducibility": {
-    "_notes": "heuristic: parallel/install assumed standard for build-system; SDE marked 0 (unverified)",
-    "deterministic_install": 1,
-    "parallel_build_supported": 1,
-    "source_date_epoch_supported": 0
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
   },
   "source_sha256": "7af4f36db512ad2f0f749a0f9886370edeb2bb5128014fc47cdf73702c7e1911",
   "source_tarball": "systemd-259.1.tar.gz",
   "source_tarball_exists": true,
   "source_url": "https://github.com/systemd/systemd/archive/v${version}/systemd-${version}.tar.gz",
   "tarball_files_count": 7420,
-  "test_command": "meson test -C build",
+  "test_command": null,
   "test_known_failures": [],
   "tier": "desktop",
   "upstream_options": [

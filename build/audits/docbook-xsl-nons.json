@@ -3,8 +3,8 @@
   "_needs_review": [],
   "_notes_source": "",
   "audit_version": 1,
-  "audited_at": "2026-05-11T16:56:26Z",
-  "audited_by": "audit-package.py",
+  "audited_at": "2026-05-12T02:30:07Z",
+  "audited_by": "SPOC",
   "blfs": {
     "anchor_id": "docbook-xsl",
     "blfs_name": "docbook-xsl-nons",
@@ -74,8 +74,7 @@
   "our_deps_build": [
     "docbook-xml",
     "libxml2",
-    "libxslt",
-    "ruby"
+    "libxslt"
   ],
   "our_deps_host": [],
   "our_deps_runtime": [],
@@ -88,8 +87,8 @@
   ],
   "package_dir": "packages/core/docbook-xsl-nons",
   "reproducibility": {
-    "_notes": "auto-derived by agent-c01",
-    "deterministic_install": 1,
+    "_notes": "manual review required",
+    "deterministic_install": null,
     "parallel_build_supported": null,
     "source_date_epoch_supported": null
   },

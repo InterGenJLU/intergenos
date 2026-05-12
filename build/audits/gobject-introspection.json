@@ -5,8 +5,8 @@
   ],
   "_notes_source": "",
   "audit_version": 1,
-  "audited_at": "2026-05-11T17:31:21Z",
-  "audited_by": "audit-package.py",
+  "audited_at": "2026-05-12T02:30:08Z",
+  "audited_by": "SPOC",
   "blfs": {},
   "build_system": "meson",
   "bundled_libs": [
@@ -29,13 +29,25 @@
     "--prefix=/usr"
   ],
   "our_deps_build": [
-    "glib2-bootstrap",
+    "glib2",
+    "cairo",
     "meson",
-    "ninja"
+    "ninja",
+    "python",
+    "libffi"
   ],
   "our_deps_host": [],
   "our_deps_runtime": [],
-  "our_meson_options": [],
+  "our_meson_options": [
+    {
+      "name": "cairo",
+      "value": "enabled"
+    },
+    {
+      "name": "doctool",
+      "value": "enabled"
+    }
+  ],
   "our_patches": [],
   "package_dir": "packages/desktop/gobject-introspection",
   "reproducibility": {

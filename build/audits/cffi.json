@@ -1,0 +1,48 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "source-tarball-missing"
+  ],
+  "_notes_source": "no source tarball declared or downloaded",
+  "audit_version": 1,
+  "audited_at": "2026-05-12T02:30:05Z",
+  "audited_by": "SPOC",
+  "blfs": {},
+  "build_system": "unknown",
+  "bundled_libs": [],
+  "docs_seen": [],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "cffi",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "libffi"
+  ],
+  "our_deps_host": [
+    "setuptools",
+    "wheel",
+    "pycparser"
+  ],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/cffi",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "1c39c6016c32bc48dd54561950ebd6836e1670f2ae46128f67cf49e789c52824",
+  "source_tarball": null,
+  "source_tarball_exists": false,
+  "source_url": "https://pypi.org/packages/source/c/cffi/cffi-${version}.tar.gz",
+  "tarball_files_count": 0,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "1.17.1"
+}

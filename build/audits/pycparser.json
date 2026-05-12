@@ -1,0 +1,45 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "source-tarball-missing"
+  ],
+  "_notes_source": "no source tarball declared or downloaded",
+  "audit_version": 1,
+  "audited_at": "2026-05-12T02:30:05Z",
+  "audited_by": "SPOC",
+  "blfs": {},
+  "build_system": "unknown",
+  "bundled_libs": [],
+  "docs_seen": [],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "pycparser",
+  "our_autotools_flags": [],
+  "our_deps_build": [],
+  "our_deps_host": [
+    "setuptools",
+    "wheel"
+  ],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/pycparser",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "491c8be9c040f5390a5bf44a5b07f4ff09e21e896b58fc40f44bf9da32c14a76",
+  "source_tarball": null,
+  "source_tarball_exists": false,
+  "source_url": "https://pypi.org/packages/source/p/pycparser/pycparser-${version}.tar.gz",
+  "tarball_files_count": 0,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "2.22"
+}

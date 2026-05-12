@@ -153,7 +153,7 @@ LANGUAGE_RUNTIMES = {
 # Python build infrastructure (PEP 517 backends + version helpers).
 PYTHON_BUILD_INFRA = {
     "hatchling", "hatch-vcs", "hatch-fancy-pypi-readme",
-    "setuptools", "setuptools-scm", "setuptools_rust",
+    "setuptools", "setuptools-scm", "setuptools_rust", "setuptools-rust",
     "wheel", "pip", "pypa-build", "build",
     "pyproject_hooks", "pyproject-hooks", "pyproject-metadata",
     "pyproject_metadata", "meson_python", "meson-python",
@@ -162,6 +162,10 @@ PYTHON_BUILD_INFRA = {
     "maturin", "uv_build", "uv-build",
     "editables", "pathspec", "pluggy", "trove-classifiers",
     "packaging", "tomli", "tomllib",
+    # Python C-FFI + crypto runtime (required for systemd-pass2's ukify
+    # tool — see packages/desktop/systemd-pass2/build.sh -D ukify=enabled).
+    "cffi", "pycparser",
+    "python-pefile", "python-cryptography",
 }
 
 # Build-system tools — required to build a substantial fraction of the
@@ -399,7 +403,7 @@ PATTERN_DESKTOP_EXACT_X11_APPS = {
 PATTERN_DESKTOP_AUDIO_VIDEO = {
     "a52dec", "alsa-plugins", "alsa-utils", "vorbis-tools",
     "wireless-regdb",
-    "gvfs-pass2", "systemd-pass2",
+    "gvfs-pass2", "systemd-pass2", "dbus-pass2",
     "freerdp", "gtk-vnc",
     "cups-filters",
     # Audio plugin runtime (LV2 stack)
@@ -455,6 +459,9 @@ FOUNDATIONAL_LIBS_EXTENDED = {
     # -pass1 bootstrap variants — the pass1 lives in tier:core to break
     # cross-tier cycles; the full build lives in tier:desktop.
     "libpcap-pass1", "slang-pass1", "networkmanager-pass1", "pinentry-pass1",
+    "vala-pass1",  # added 2026-05-11: --disable-valadoc bootstrap that
+                   # satisfies libgudev's vala dep without pulling graphviz
+                   # (tier:desktop) into tier:core. Full vala stays in desktop.
 }
 
 # Full-build variants of -pass1 packages — these LIVE in tier:desktop

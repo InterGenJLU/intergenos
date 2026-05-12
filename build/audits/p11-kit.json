@@ -5,8 +5,8 @@
   ],
   "_notes_source": "",
   "audit_version": 1,
-  "audited_at": "2026-05-11T16:59:00Z",
-  "audited_by": "audit-package.py",
+  "audited_at": "2026-05-12T02:30:08Z",
+  "audited_by": "SPOC",
   "blfs": {
     "anchor_id": "p11-kit",
     "blfs_name": "p11-kit",
@@ -55,16 +55,9 @@
     "NEWS",
     "README"
   ],
-  "expected_binaries": [
-    "p11-kit",
-    "trust",
-    "update-ca-certificates"
-  ],
+  "expected_binaries": [],
   "expected_headers": [],
-  "expected_libs": [
-    "libp11-kit.so",
-    "p11-kit-proxy.so"
-  ],
+  "expected_libs": [],
   "expected_pkgconfig": [],
   "name": "p11-kit",
   "our_autotools_flags": [
@@ -75,7 +68,8 @@
   "our_deps_build": [
     "libtasn1",
     "meson",
-    "ninja"
+    "ninja",
+    "bash-completion"
   ],
   "our_deps_host": [],
   "our_deps_runtime": [],
@@ -89,16 +83,16 @@
   "package_dir": "packages/core/p11-kit",
   "reproducibility": {
     "_notes": "manual review required",
-    "deterministic_install": 1,
-    "parallel_build_supported": 1,
-    "source_date_epoch_supported": 0
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
   },
   "source_sha256": "09fd9f44da4813a3141e73d5e7cf7008e5660d0405f13d56c15e1da9dcecf828",
   "source_tarball": "p11-kit-0.26.2.tar.xz",
   "source_tarball_exists": true,
   "source_url": "https://github.com/p11-glue/p11-kit/releases/download/${version}/p11-kit-${version}.tar.xz",
   "tarball_files_count": 677,
-  "test_command": "meson test -C build",
+  "test_command": null,
   "test_known_failures": [],
   "tier": "core",
   "upstream_options": [

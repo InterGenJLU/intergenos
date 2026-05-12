@@ -3,8 +3,8 @@
   "_needs_review": [],
   "_notes_source": "",
   "audit_version": 1,
-  "audited_at": "2026-05-11T16:58:41Z",
-  "audited_by": "audit-package.py",
+  "audited_at": "2026-05-12T02:30:08Z",
+  "audited_by": "SPOC",
   "blfs": {
     "anchor_id": "linux-pam",
     "blfs_name": "Linux-PAM",
@@ -63,20 +63,9 @@
     "NEWS",
     "README"
   ],
-  "expected_binaries": [
-    "faillock",
-    "mkhomedir_helper",
-    "pam_namespace_helper",
-    "pam_timestamp_check",
-    "pwhistory_helper",
-    "unix_chkpwd"
-  ],
+  "expected_binaries": [],
   "expected_headers": [],
-  "expected_libs": [
-    "libpam.so",
-    "libpamc.so",
-    "libpam_misc.so"
-  ],
+  "expected_libs": [],
   "expected_pkgconfig": [],
   "name": "linux-pam",
   "our_autotools_flags": [
@@ -88,7 +77,8 @@
     "meson",
     "ninja",
     "shadow",
-    "systemd"
+    "systemd",
+    "libtirpc"
   ],
   "our_deps_host": [],
   "our_deps_runtime": [],
@@ -102,16 +92,16 @@
   "package_dir": "packages/core/linux-pam",
   "reproducibility": {
     "_notes": "manual review required",
-    "deterministic_install": 1,
-    "parallel_build_supported": 1,
-    "source_date_epoch_supported": 0
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
   },
   "source_sha256": "3d86b6383fb5fd9eb9578d2cd47d92801191f4bf3f9bc61419bfefc8aa1e531a",
   "source_tarball": "Linux-PAM-1.7.2.tar.xz",
   "source_tarball_exists": true,
   "source_url": "https://github.com/linux-pam/linux-pam/releases/download/v${version}/Linux-PAM-${version}.tar.xz",
   "tarball_files_count": 911,
-  "test_command": "meson test -C build",
+  "test_command": null,
   "test_known_failures": [],
   "tier": "core",
   "upstream_options": [

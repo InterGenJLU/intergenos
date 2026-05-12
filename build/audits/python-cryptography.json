@@ -1,0 +1,50 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "source-tarball-missing"
+  ],
+  "_notes_source": "no source tarball declared or downloaded",
+  "audit_version": 1,
+  "audited_at": "2026-05-12T02:30:05Z",
+  "audited_by": "SPOC",
+  "blfs": {},
+  "build_system": "unknown",
+  "bundled_libs": [],
+  "docs_seen": [],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "python-cryptography",
+  "our_autotools_flags": [],
+  "our_deps_build": [
+    "openssl",
+    "rust",
+    "cffi",
+    "setuptools-rust"
+  ],
+  "our_deps_host": [
+    "setuptools",
+    "wheel"
+  ],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/python-cryptography",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "cd4049e6cf6e7b4b2c509f40e4d4e7b1ae3d63aacc8c70d77f6f3f6c3ba8a16e",
+  "source_tarball": null,
+  "source_tarball_exists": false,
+  "source_url": "https://pypi.org/packages/source/c/cryptography/cryptography-${version}.tar.gz",
+  "tarball_files_count": 0,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [],
+  "version": "44.0.0"
+}

@@ -6,7 +6,7 @@ license: MIT
 homepage: https://github.com/erocarrera/pefile
 source:
 - url: https://pypi.org/packages/source/p/pefile/pefile-${version}.tar.gz
-  sha256: 5294edfe249108178c8042d68c4ee2bb55b91dccd4cdd13cab44b0a9bb47ee47
+  sha256: 3ff6c5d8b43e8c37bb6e6dd5085658d658a7a0bdcd20b6a07b1fcfc1c4e9d632
 dependencies:
   build: []
   host:

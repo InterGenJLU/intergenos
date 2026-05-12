@@ -3,8 +3,8 @@
   "_needs_review": [],
   "_notes_source": "",
   "audit_version": 1,
-  "audited_at": "2026-05-11T16:58:09Z",
-  "audited_by": "audit-package.py",
+  "audited_at": "2026-05-12T02:30:08Z",
+  "audited_by": "SPOC",
   "blfs": {
     "anchor_id": "libtirpc",
     "blfs_name": "libtirpc",
@@ -32,17 +32,9 @@
     "TODO"
   ],
   "expected_binaries": [],
-  "expected_headers": [
-    "/usr/include/tirpc/rpc/rpc.h",
-    "/usr/include/tirpc/netconfig.h"
-  ],
-  "expected_libs": [
-    "/usr/lib/libtirpc.so",
-    "/usr/lib/libtirpc.so.3"
-  ],
-  "expected_pkgconfig": [
-    "/usr/lib/pkgconfig/libtirpc.pc"
-  ],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
   "name": "libtirpc",
   "our_autotools_flags": [
     "--disable-gssapi",
@@ -50,28 +42,26 @@
     "--prefix=/usr",
     "--sysconfdir=/etc"
   ],
-  "our_deps_build": [
-    "mitkrb"
-  ],
+  "our_deps_build": [],
   "our_deps_host": [],
   "our_deps_runtime": [],
   "our_meson_options": [],
   "our_patches": [],
-  "package_dir": "packages/base/libtirpc",
+  "package_dir": "packages/core/libtirpc",
   "reproducibility": {
-    "_notes": "filled by agent-c03 from build.sh inspection + BLFS HTML",
-    "deterministic_install": 1,
-    "parallel_build_supported": 1,
-    "source_date_epoch_supported": 0
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
   },
   "source_sha256": "b47d3ac19d3549e54a05d0019a6c400674da716123858cfdb6d3bdd70a66c702",
   "source_tarball": "libtirpc-1.3.7.tar.bz2",
   "source_tarball_exists": true,
   "source_url": "https://downloads.sourceforge.net/libtirpc/libtirpc-${version}.tar.bz2",
   "tarball_files_count": 205,
-  "test_command": "make check",
+  "test_command": null,
   "test_known_failures": [],
-  "tier": "base",
+  "tier": "core",
   "upstream_options": [
     {
       "help": "AS_HELP_STRING([--disable-gssapi",

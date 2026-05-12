@@ -1,0 +1,88 @@
+{
+  "_mismatches": [],
+  "_needs_review": [],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-12T02:30:05Z",
+  "audited_by": "SPOC",
+  "blfs": {},
+  "build_system": "autotools",
+  "bundled_libs": [],
+  "docs_seen": [
+    "AUTHORS",
+    "CHANGELOG",
+    "INSTALL",
+    "NEWS",
+    "README"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "vala-pass1",
+  "our_autotools_flags": [
+    "--disable-static",
+    "--disable-valadoc",
+    "--prefix=/usr"
+  ],
+  "our_deps_build": [
+    "glib2-bootstrap"
+  ],
+  "our_deps_host": [],
+  "our_deps_runtime": [],
+  "our_meson_options": [],
+  "our_patches": [],
+  "package_dir": "packages/core/vala-pass1",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "f2affe7d40ab63db8e7b9ecc3f6bdc9c2fc7e3134c84ff2d795f482fe926a382",
+  "source_tarball": "vala-0.56.18.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://download.gnome.org/sources/vala/0.56/vala-${version}.tar.xz",
+  "tarball_files_count": 3729,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "core",
+  "upstream_options": [
+    {
+      "help": "AS_HELP_STRING([--enable-debug",
+      "kind": "enable",
+      "name": "debug"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-unversioned",
+      "kind": "enable",
+      "name": "unversioned"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-coverage",
+      "kind": "enable",
+      "name": "coverage"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-test-asan",
+      "kind": "enable",
+      "name": "test-asan"
+    },
+    {
+      "help": "AS_HELP_STRING([--enable-test-ubsan",
+      "kind": "enable",
+      "name": "test-ubsan"
+    },
+    {
+      "help": "AS_HELP_STRING([--disable-valadoc",
+      "kind": "enable",
+      "name": "valadoc"
+    },
+    {
+      "help": "AS_HELP_STRING([--with-cgraph",
+      "kind": "with",
+      "name": "cgraph"
+    }
+  ],
+  "version": "0.56.18"
+}

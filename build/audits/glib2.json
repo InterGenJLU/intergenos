@@ -5,8 +5,8 @@
   ],
   "_notes_source": "",
   "audit_version": 1,
-  "audited_at": "2026-05-11T17:31:21Z",
-  "audited_by": "audit-package.py",
+  "audited_at": "2026-05-12T02:30:07Z",
+  "audited_by": "SPOC",
   "blfs": {
     "anchor_id": "glib2",
     "blfs_name": "GLib",
@@ -149,7 +149,11 @@
   "our_deps_build": [
     "gobject-introspection-pass1",
     "meson",
-    "ninja"
+    "ninja",
+    "libxml2",
+    "libxslt",
+    "docbook-xml",
+    "docbook-xsl-nons"
   ],
   "our_deps_host": [],
   "our_deps_runtime": [],

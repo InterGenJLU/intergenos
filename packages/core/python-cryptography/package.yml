@@ -6,7 +6,7 @@ license: Apache-2.0 OR BSD-3-Clause
 homepage: https://cryptography.io/
 source:
 - url: https://pypi.org/packages/source/c/cryptography/cryptography-${version}.tar.gz
-  sha256: cd4049e6cf6e7b4b2c509f40e4d4e7b1ae3d63aacc8c70d77f6f3f6c3ba8a16e
+  sha256: cd4e834f340b4293430701e772ec543b0fbe6c2dea510a5286fe0acabe153a02
 dependencies:
   build:
   - openssl

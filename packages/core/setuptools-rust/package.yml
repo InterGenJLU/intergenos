@@ -6,7 +6,7 @@ license: MIT
 homepage: https://github.com/PyO3/setuptools-rust
 source:
 - url: https://pypi.org/packages/source/s/setuptools-rust/setuptools_rust-${version}.tar.gz
-  sha256: e7c4c79b67f76b6e4f6d04eccf4eddcd23faa0cbcd91d2ca0b76ec01ee9a7e96
+  sha256: 5d73e7eee5f87a6417285b617c97088a7c20d1a70fcea60e3bdc94ff567c29dc
 dependencies:
   build: []
   host:

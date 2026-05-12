@@ -6,7 +6,7 @@ license: BSD-3-Clause
 homepage: https://github.com/eliben/pycparser
 source:
 - url: https://pypi.org/packages/source/p/pycparser/pycparser-${version}.tar.gz
-  sha256: 491c8be9c040f5390a5bf44a5b07f4ff09e21e896b58fc40f44bf9da32c14a76
+  sha256: 491c8be9c040f5390f5bf44a5b07752bd07f56edf992381b05c701439eec10f6
 dependencies:
   build: []
   host:

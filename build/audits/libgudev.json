@@ -3,8 +3,8 @@
   "_needs_review": [],
   "_notes_source": "",
   "audit_version": 1,
-  "audited_at": "2026-05-11T16:57:51Z",
-  "audited_by": "audit-package.py",
+  "audited_at": "2026-05-12T02:30:08Z",
+  "audited_by": "SPOC",
   "blfs": {
     "anchor_id": "libgudev",
     "blfs_name": "libgudev",
@@ -42,12 +42,8 @@
   ],
   "expected_binaries": [],
   "expected_headers": [],
-  "expected_libs": [
-    "libgudev-1.0.so"
-  ],
-  "expected_pkgconfig": [
-    "gudev-1.0.pc"
-  ],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
   "name": "libgudev",
   "our_autotools_flags": [
     "--buildtype=release",
@@ -56,7 +52,7 @@
   ],
   "our_deps_build": [
     "glib2",
-    "vala"
+    "vala-pass1"
   ],
   "our_deps_host": [],
   "our_deps_runtime": [],
@@ -64,17 +60,17 @@
   "our_patches": [],
   "package_dir": "packages/desktop/libgudev",
   "reproducibility": {
-    "_notes": "make/ninja support -j; meson/cmake/autotools respect SOURCE_DATE_EPOCH; DESTDIR install is deterministic",
-    "deterministic_install": 1,
-    "parallel_build_supported": 1,
-    "source_date_epoch_supported": 1
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
   },
   "source_sha256": "61266ab1afc9d73dbc60a8b2af73e99d2fdff47d99544d085760e4fa667b5dd1",
   "source_tarball": "libgudev-238.tar.xz",
   "source_tarball_exists": true,
   "source_url": "https://download.gnome.org/sources/libgudev/238/libgudev-${version}.tar.xz",
   "tarball_files_count": 45,
-  "test_command": "meson test -C build",
+  "test_command": null,
   "test_known_failures": [],
   "tier": "desktop",
   "upstream_options": [

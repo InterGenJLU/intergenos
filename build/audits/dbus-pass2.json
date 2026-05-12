@@ -1,0 +1,322 @@
+{
+  "_mismatches": [],
+  "_needs_review": [
+    "bundled-lib-subprojects-extract-unclear"
+  ],
+  "_notes_source": "",
+  "audit_version": 1,
+  "audited_at": "2026-05-12T02:30:05Z",
+  "audited_by": "SPOC",
+  "blfs": {},
+  "build_system": "meson",
+  "bundled_libs": [
+    "subprojects"
+  ],
+  "docs_seen": [
+    "AUTHORS",
+    "CONTRIBUTING",
+    "INSTALL",
+    "NEWS",
+    "README",
+    "TODO"
+  ],
+  "expected_binaries": [],
+  "expected_headers": [],
+  "expected_libs": [],
+  "expected_pkgconfig": [],
+  "name": "dbus-pass2",
+  "our_autotools_flags": [
+    "--buildtype=release",
+    "--libdir=/usr/lib",
+    "--localstatedir=/var",
+    "--prefix=/usr",
+    "--sysconfdir=/etc"
+  ],
+  "our_deps_build": [
+    "doxygen",
+    "meson",
+    "ninja"
+  ],
+  "our_deps_host": [
+    "systemd",
+    "expat"
+  ],
+  "our_deps_runtime": [],
+  "our_meson_options": [
+    {
+      "name": "api_docs",
+      "value": "true"
+    }
+  ],
+  "our_patches": [],
+  "package_dir": "packages/desktop/dbus-pass2",
+  "reproducibility": {
+    "_notes": "manual review required",
+    "deterministic_install": null,
+    "parallel_build_supported": null,
+    "source_date_epoch_supported": null
+  },
+  "source_sha256": "0ba2a1a4b16afe7bceb2c07e9ce99a8c2c3508e5dec290dbb643384bd6beb7e2",
+  "source_tarball": "dbus-1.16.2.tar.xz",
+  "source_tarball_exists": true,
+  "source_url": "https://dbus.freedesktop.org/releases/dbus/dbus-${version}.tar.xz",
+  "tarball_files_count": 674,
+  "test_command": null,
+  "test_known_failures": [],
+  "tier": "desktop",
+  "upstream_options": [
+    {
+      "default": "auto",
+      "description": "AppArmor support",
+      "name": "apparmor",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Include assertion checks",
+      "name": "asserts",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Check for usage errors at public API",
+      "name": "checks",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Directory for installing the dbus-daemon",
+      "name": "dbus_daemondir",
+      "type": "string"
+    },
+    {
+      "default": "messagebus",
+      "description": "User for running the system dbus-daemon",
+      "name": "dbus_user",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Fallback address for a session bus client to connect to",
+      "name": "dbus_session_bus_connect_address",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Default address for a session bus to listen on",
+      "name": "dbus_session_bus_listen_address",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Build Doxygen documentation",
+      "name": "doxygen_docs",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build Ducktype documentation",
+      "name": "ducktype_docs",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Enable tests that require insecure extra code in the library and binaries",
+      "name": "intrusive_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "epoll",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Inotify support on Linux",
+      "name": "inotify",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Install automated tests for ",
+      "name": "installed_tests",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Kqueue support",
+      "name": "kqueue",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Launchd auto-launch support",
+      "name": "launchd",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Directory to put the launchd agent",
+      "name": "launchd_agent_dir",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Audit logging support for SELinux and AppArmor",
+      "name": "libaudit",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Enable dbus-daemon",
+      "name": "message_bus",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "",
+      "name": "modular_tests",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Directory to put the Qt help file",
+      "name": "qch_dir",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Build Qt help documentation",
+      "name": "qt_help",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Make pkg-config metadata relocatable",
+      "name": "relocation",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Directory for transient runtime state [default: LOCALSTATEDIR/run or /run]",
+      "name": "runtime_dir",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "SELinux support",
+      "name": "selinux",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Where to put sockets for the per-login-session message bus",
+      "name": "session_socket_dir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "File to determine current console owner on Solaris (or ",
+      "name": "solaris_console_owner_file",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Enable bus daemon usage statistics",
+      "name": "stats",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "PID file for systemwide daemon",
+      "name": "system_pid_file",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "UNIX domain socket for systemwide daemon",
+      "name": "system_socket",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Directory for systemd system service files",
+      "name": "systemd_system_unitdir",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Directory for systemd user service files",
+      "name": "systemd_user_unitdir",
+      "type": "string"
+    },
+    {
+      "default": "auto",
+      "description": "Systemd at_console support",
+      "name": "systemd",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Where to put sockets for make check",
+      "name": "test_socket_dir",
+      "type": "string"
+    },
+    {
+      "default": "nobody",
+      "description": "Unprivileged user for regression tests, other than root and the dbus_user",
+      "name": "test_user",
+      "type": "string"
+    },
+    {
+      "default": "",
+      "description": "Enable CLI tools such as dbus-send and dbus-monitor",
+      "name": "tools",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Build support for service activation without using SystemdService",
+      "name": "traditional_activation",
+      "type": "boolean"
+    },
+    {
+      "default": "",
+      "description": "Enable user-session semantics for session bus under systemd",
+      "name": "user_session",
+      "type": "boolean"
+    },
+    {
+      "default": "disabled",
+      "description": "",
+      "name": "valgrind",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "Support verbose debug mode",
+      "name": "verbose_mode",
+      "type": "boolean"
+    },
+    {
+      "default": "auto",
+      "description": "Build with X11 auto-launch support",
+      "name": "x11_autolaunch",
+      "type": "feature"
+    },
+    {
+      "default": "auto",
+      "description": "Build XML documentation",
+      "name": "xml_docs",
+      "type": "feature"
+    },
+    {
+      "default": "",
+      "description": "",
+      "name": "windows_output_debug_string",
+      "type": "boolean"
+    }
+  ],
+  "version": "1.16.2"
+}
