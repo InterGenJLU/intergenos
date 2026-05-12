@@ -1,0 +1,16 @@
+name: jemalloc
+version: "5.3.1"
+release: 1
+description: High-performance, fragmentation-resilient malloc implementation (Jason Evans / Facebook)
+license: BSD-2-Clause
+homepage: https://jemalloc.net/
+tier: extra
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/jemalloc/jemalloc/releases/download/${version}/jemalloc-${version}.tar.bz2
+  sha256: 3826bc80232f22ed5c4662f3034f799ca316e819103bdc7bb99018a421706f92
+dependencies:
+  build: []
+  host: []
+  runtime: []
