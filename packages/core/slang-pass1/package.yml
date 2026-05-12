@@ -19,9 +19,12 @@ configure_flags:
 - --prefix=/usr
 - --sysconfdir=/etc
 - --with-readline=gnu
-- --with-png=NO
-# First pass of the 2-pass slang build. Built with --with-png=NO so it does
+- --without-png
+# First pass of the 2-pass slang build. Built with --without-png so it does
 # NOT depend on libpng (tier:desktop). Satisfies newt (tier:core, text-mode
 # installer dialogs — does not use S-Lang PNG rendering). Full slang with
 # PNG image rendering lives in tier:desktop and supersedes pass1 at install
 # time via migrate-pkm-supersedes.sh. Owner-approved 2026-05-11.
+# --without-png (not --with-png=NO): slang's autoconf treats --with-png=<val>
+# as a literal path prefix, so --with-png=NO would expand to -INO/include
+# + -LNO/lib. --without-png is the correct disable form.
