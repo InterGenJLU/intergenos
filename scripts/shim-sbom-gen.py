@@ -31,6 +31,10 @@ If --shim-binary is omitted:
 
 Conventions:
 - Repo-on-disk paths are resolved relative to --repo-root (default = CWD).
+- Repo-resident artifacts (SBAT CSV, cert files) are read from git HEAD
+  via ``git show HEAD:<path>``, not the working tree. Cert rotations or
+  SBAT edits must be committed before running this generator; uncommitted
+  working-tree changes will NOT be reflected in emitted SHAs.
 - Document namespace is deterministic given the input set, so re-runs over
   unchanged inputs produce byte-identical SPDX JSON output.
 - The script never invokes signing operations without the explicit --sign
