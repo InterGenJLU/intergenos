@@ -70,6 +70,43 @@ get_package_sha256() {
     grep 'sha256:' "$yml" 2>/dev/null | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'"
 }
 
+# Extract a source archive into $workdir, dispatching by file extension.
+# Mirrors the dispatch in igos-build/builder.py for shell-side parity:
+#   .zip   -> bsdtar -xf (no --strip-components; many upstream zips ship flat
+#             without a top-level dir, e.g., docbook-xml-4.5.zip)
+#   .lz    -> bsdtar -xf with --strip-components=1 (lzip — tar lacks native
+#             support in the chroot's tar binary)
+#   .tar*  -> tar -xf with --strip-components=1 + --no-same-owner/perms
+#
+# Args:
+#   $1 — tarball basename (e.g. docbook-xml-4.5.zip)
+#   $2 — workdir to extract into (must exist + be empty)
+# Returns: 0 on success, propagates extractor's exit code on failure.
+#
+# Centralizes what was previously duplicated across chroot-build-ch8.sh,
+# chroot-build-base.sh, chroot-build-core-extra.sh, chroot-build-ch10.sh.
+# Build #9 halted at docbook-xml when the hardcoded `tar -xf` couldn't
+# read the .zip; this helper closes that bug class.
+extract_source() {
+    local tarball="$1"
+    local workdir="$2"
+    local src="${IGOS_SOURCES}/${tarball}"
+
+    case "$tarball" in
+        *.zip)
+            bsdtar -xf "$src" -C "$workdir"
+            ;;
+        *.lz)
+            bsdtar -xf "$src" -C "$workdir" --strip-components=1 \
+                --no-same-owner --no-same-permissions
+            ;;
+        *)
+            tar -xf "$src" -C "$workdir" --strip-components=1 \
+                --no-same-owner --no-same-permissions
+            ;;
+    esac
+}
+
 # Apply patches declared in package.yml's `patches:` block to the current
 # working directory (assumed to be the extracted source tree, cd'd into
 # before this is called).

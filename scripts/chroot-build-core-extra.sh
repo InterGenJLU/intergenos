@@ -105,11 +105,11 @@ build_core_package() {
             return 1
         fi
 
-        # Clean and extract
+        # Clean and extract (helper in pkg-functions.sh handles .zip / .lz /
+        # .tar.* via extension dispatch)
         rm -rf "$workdir"
         mkdir -pv "$workdir"
-        tar -xf "${IGOS_SOURCES}/${tarball}" -C "$workdir" --strip-components=1 \
-            --no-same-owner --no-same-permissions || {
+        extract_source "${tarball}" "$workdir" || {
             log "ERROR: Failed to extract ${tarball}"
             return 1
         }

@@ -1,16 +1,12 @@
 #!/bin/bash
 # docbook-xml 4.5 — DocBook XML DTD
 # BLFS 13.0
-# Note: source is a flat zip (no top-level directory) — must re-extract
-# without --strip-components which the builder applies by default
+# Note: source is a flat zip (no top-level directory). The shell-side
+# extract_source helper in pkg-functions.sh dispatches by file extension
+# and extracts .zip files without --strip-components, so the contents
+# land directly in $workdir for do_install to copy.
 
-configure() {
-    set -e
-    # The builder's extraction fails on this flat zip because
-    # --strip-components=1 strips the actual filenames. Re-extract
-    # properly from the source archive.
-    bsdtar -xf "${IGOS_SOURCES}/docbook-xml-4.5.zip"
-}
+configure() { : ; }
 
 build() { : ; }
 

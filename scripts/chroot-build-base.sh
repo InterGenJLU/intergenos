@@ -79,22 +79,14 @@ build_base_package() {
 
     export PKG_VERSION="$version"
 
-    # Clean and extract
+    # Clean and extract (helper in pkg-functions.sh handles .zip / .lz /
+    # .tar.* via extension dispatch)
     rm -rf "$workdir"
     mkdir -pv "$workdir"
-
-    # Use bsdtar for .lz archives, tar for everything else
-    if [[ "$tarball" == *.lz ]]; then
-        bsdtar -xf "${IGOS_SOURCES}/${tarball}" -C "$workdir" --strip-components=1 || {
-            log "ERROR: Failed to extract ${tarball}"
-            return 1
-        }
-    else
-        tar -xf "${IGOS_SOURCES}/${tarball}" -C "$workdir" --strip-components=1 || {
-            log "ERROR: Failed to extract ${tarball}"
-            return 1
-        }
-    fi
+    extract_source "${tarball}" "$workdir" || {
+        log "ERROR: Failed to extract ${tarball}"
+        return 1
+    }
     cd "$workdir"
 
     local start=$(date +%s)
