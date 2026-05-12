@@ -15,7 +15,7 @@ BUILD_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 configure() {
     set -e
-    tar -xzf "$IGOS_SOURCES_DIR/go${PKG_VERSION}.linux-amd64.tar.gz"
+    tar -xzf "$IGOS_SOURCES/go${PKG_VERSION}.linux-amd64.tar.gz"
     export GOROOT="$PWD/go"
     export PATH="$GOROOT/bin:$PATH"
 }

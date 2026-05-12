@@ -7,8 +7,8 @@ pre_configure() {
     # pipefail: grep | xargs pipe on line 29
     set -e -o pipefail
     # Extract additional required tarballs
-    tar -xf "${IGOS_SOURCES_DIR}/llvm-cmake-${version}.src.tar.xz"
-    tar -xf "${IGOS_SOURCES_DIR}/llvm-third-party-${version}.src.tar.xz"
+    tar -xf "${IGOS_SOURCES}/llvm-cmake-${version}.src.tar.xz"
+    tar -xf "${IGOS_SOURCES}/llvm-third-party-${version}.src.tar.xz"
 
     # Fix paths to extracted cmake and third-party directories
     sed "/LLVM_COMMON_CMAKE_UTILS/s@../cmake@cmake-${version}.src@" \
@@ -17,12 +17,12 @@ pre_configure() {
         -i cmake/modules/HandleLLVMOptions.cmake
 
     # Extract clang into the source tree
-    tar -xf "${IGOS_SOURCES_DIR}/clang-${version}.src.tar.xz" -C tools
+    tar -xf "${IGOS_SOURCES}/clang-${version}.src.tar.xz" -C tools
     mv tools/clang-${version}.src tools/clang
 
     # Extract compiler-rt if available
-    if [ -f "${IGOS_SOURCES_DIR}/compiler-rt-${version}.src.tar.xz" ]; then
-        tar -xf "${IGOS_SOURCES_DIR}/compiler-rt-${version}.src.tar.xz" -C projects
+    if [ -f "${IGOS_SOURCES}/compiler-rt-${version}.src.tar.xz" ]; then
+        tar -xf "${IGOS_SOURCES}/compiler-rt-${version}.src.tar.xz" -C projects
         mv projects/compiler-rt-${version}.src projects/compiler-rt
     fi
 
