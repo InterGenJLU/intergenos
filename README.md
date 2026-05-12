@@ -146,7 +146,7 @@ intergenos/
 
 Active development, pre-1.0. Originally built 2015-2016 (build_001 through build_003 on GitHub). Revived March 2026.
 
-**Now:** 726 package templates across six tiers. First successful GNOME 49.4 desktop boot on Wayland achieved April 7, 2026 — kernel 6.18.10 with config converged from 5-distro analysis, 478 packages built from source. Installer (`forge`) now handles partition → signed boot chain → image deploy → post-install hooks. Test harness covers 186 tests across installer backend, MOK validation, and Class 1 signing-chain verification.
+**Now:** 726 package templates across six tiers. First successful GNOME 49.4 desktop boot on Wayland achieved April 7, 2026 — kernel 6.18.10 with config converged from 5-distro analysis, 478 packages built from source. Installer (`forge`) now handles partition → signed boot chain → image deploy → post-install hooks. Test harness covers 186 tests across installer backend, MOK validation, and Class 1 signing-chain verification. Public binary mirror infrastructure provisioned at `repo.intergenos.org`; signing-key ceremony complete (RSA-4096 master with hardware-token signing subs); v1.0 first-publish lands when the current build completes.
 
 **External reviews:** Full codebase reviewed by four external LLMs (ChatGPT, DeepSeek, Gemini, Grok) across build system, installer, orchestration, and package management. Initial audit findings all remediated; follow-on hardening continues as new edge cases surface.
 
@@ -158,14 +158,14 @@ Items actively in flight or planned before v1.0:
 
 - **Forge Secure Boot bare-metal validation** — first hardware install with live MOK enrollment and end-to-end signed-chain verification.
 - **Microsoft shim-review submission** — obtaining an InterGenOS-owned MS-signed shim (sponsor track; hard deadline June 27 2026 for the CA rotation).
-- **Signing-key custody ceremony** — Nitrokey-based offline root, key-enrollment rotation plan, publication of fingerprints at `intergenstudios.com/signing-key`.
+- **Public binary mirror first-publish** — `repo.intergenos.org` flips live once Build #9 completes; covers signed per-package archive emission, signed `InterGenOS.db` index generation, and end-to-end `pkm sync` validation against the live mirror.
 - **`pkm` installed as a system tool** — packaging pkm itself so `pkm install <pkg>` works out of the box on a freshly installed target.
 - **VPS source mirror completion** — download-sources tooling refresh plus an upstream-version auto-poller (Components 2 and 3 of the mirror design).
 - **35B AI tier scoping** — evaluating the 35-billion-parameter local-assistant tier for high-end hardware.
 - **NVIDIA driver-open packaging** — fetch-helper approach for the GPL-compliant NVIDIA open modules.
 - **Dual-boot Zephyrus playbook** — tested alongside-Windows install flow on shared hardware.
 - **Switchable desktop environments** — v1 ships GNOME on Wayland; KDE Plasma, XFCE, and other Wayland-capable desktops planned post-v1, with the per-tier architecture already supporting the split.
-- **Security Hall of Fame** — researcher acknowledgment page paired with the signing-key publication.
+- **Security Hall of Fame** — researcher acknowledgment page maintained alongside the project's responsible-disclosure track.
 
 ## History
 

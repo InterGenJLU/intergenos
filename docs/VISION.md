@@ -3,7 +3,7 @@
 **Created:** March 30, 2026
 **Author:** InterGenJLU
 **Status:** Draft — living document
-**Last Updated:** 2026-05-05
+**Last Updated:** 2026-05-12
 
 ---
 
@@ -293,7 +293,7 @@ Full research archives in [docs/research/](research/INDEX.md) (180+ documents ac
 32. ☐ Multi-DE with config isolation (KDE Plasma, COSMIC)
 33. ☐ AI Tier 1 integration (intergen-console + intergen-daemon; opt-in LLM endpoint)
 34. ☐ InterGen Sentinel security scanning (Local-Rules + Local-Qwen default; opt-in cloud providers)
-35. ☐ VPS package mirror + ISO download infrastructure (`origin.intergenstudios.com`)
+35. ☐ Public binary mirror + ISO download infrastructure — `repo.intergenos.org` infrastructure (DNS, TLS, SSH access, docroot) provisioned 2026-05-11; first-publish via `pkm sync` against the live mirror pending Build #9 completion + `InterGenOS.db` signed index generation + first end-to-end sync test
 
 ### Release
 
