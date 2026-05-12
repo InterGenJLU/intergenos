@@ -26,5 +26,9 @@ dependencies:
   - nasm
   - speex
   - wayland
+  - glib2
+  - gst-plugins-base-pass2
+  - gstreamer
+  - zlib
   host: []
   runtime: []

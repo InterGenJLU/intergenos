@@ -21,6 +21,8 @@ dependencies:
   - pango
   - libX11
   - libXext
+  - glib2
+  - gstreamer
   host: []
   runtime: []
 

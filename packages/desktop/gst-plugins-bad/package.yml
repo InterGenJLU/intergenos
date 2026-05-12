@@ -43,5 +43,8 @@ dependencies:
   - vulkan-loader
   - wayland
   - x265
+  - glib2
+  - gst-plugins-base-pass2
+  - gstreamer
   host: []
   runtime: []
