@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
   - url: https://github.com/sharkdp/hyperfine/archive/v1.18.0/hyperfine-1.18.0.tar.gz
-    sha256: 0000000000000000000000000000000000000000000000000000000000000000
+    sha256: fea7b92922117ed04b9c84bb9998026264346768804f66baa40743c5528bed6b
 build_artifacts:
   - name: hyperfine-1.18.0-vendor.tar.xz
     generated_by: cargo-vendor

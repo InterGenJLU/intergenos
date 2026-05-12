@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
   - url: https://github.com/ClementTsang/bottom/archive/0.9.6/bottom-0.9.6.tar.gz
-    sha256: 0000000000000000000000000000000000000000000000000000000000000000
+    sha256: 202130e0d7c362d0d0cf211f6a13e31be3a02f13f998f88571e59a7735d60667
 build_artifacts:
   - name: bottom-0.9.6-vendor.tar.xz
     generated_by: cargo-vendor

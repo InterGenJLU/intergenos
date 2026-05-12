@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
   - url: https://github.com/golang/tools/archive/gopls/v0.15.3.tar.gz
-    sha256: 0000000000000000000000000000000000000000000000000000000000000000
+    sha256: 7fb0a43ff5e562089ca0ec3e8e7819dd205977758c02ea9bded05f56d5080a54
 build_artifacts:
   - name: gopls-0.15.3-vendor.tar.xz
     generated_by: go-vendor

@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
   - url: https://github.com/jesseduffield/lazygit/archive/v0.41.0/lazygit-0.41.0.tar.gz
-    sha256: 0000000000000000000000000000000000000000000000000000000000000000
+    sha256: f2176fa253588fe4b7118bf83f4316ae3ecb914ae1e99aad8c474e23cea49fb8
 build_artifacts:
   - name: lazygit-0.41.0-vendor.tar.xz
     generated_by: go-vendor

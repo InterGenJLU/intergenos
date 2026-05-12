@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
   - url: https://github.com/BurntSushi/ripgrep/archive/14.1.0/ripgrep-14.1.0.tar.gz
-    sha256: 0000000000000000000000000000000000000000000000000000000000000000
+    sha256: 33c6169596a6bbfdc81415910008f26e0809422fda2d849562637996553b2ab6
 build_artifacts:
   - name: ripgrep-14.1.0-vendor.tar.xz
     generated_by: cargo-vendor

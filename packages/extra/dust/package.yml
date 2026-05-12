@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
   - url: https://github.com/bootandy/dust/archive/v0.9.0/dust-0.9.0.tar.gz
-    sha256: 0000000000000000000000000000000000000000000000000000000000000000
+    sha256: 70efd66e662fcd93bbc6cf2f8c3104a1de7e52090f709e9040a34bdc7c72ea9c
 build_artifacts:
   - name: dust-0.9.0-vendor.tar.xz
     generated_by: cargo-vendor
