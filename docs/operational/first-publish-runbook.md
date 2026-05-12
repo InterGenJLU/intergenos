@@ -89,7 +89,7 @@ The publish target is structured (not flat):
 
 The repository index (`InterGenOS.db`) and its detached GPG signature (`InterGenOS.db.sig`) sit at `/x86_64/` root. Per-package archives live in `/x86_64/packages/`. The atomic-swap target is the entire `/x86_64/` directory as a single unit — the orchestrator stages a `/x86_64.new/` sibling, fsyncs, then renames over `/x86_64/`. See [Atomic Promote](#step-6-atomic-promote-on-the-mirror).
 
-**Open question for first run (flag on review):** the layout diagram supplied at runbook commission time included per-archive `<pkg>-<version>.igos.tar.gz.sig` files alongside each archive. The current trust model in [`docs/repository-trust.md`](../repository-trust.md) §1 specifies SHA-256-via-signed-index — per-archive integrity is verified against the sha256 recorded in the cryptographically signed `InterGenOS.db`, not against per-archive PGP signatures. `scripts/sign-release.sh` does not emit per-archive signatures. If per-archive `.sig` files are intended as defence-in-depth alongside the signed index, that is a separate addition to the signer + a trust-model doc update. **Resolve before first publish: confirm whether per-archive `.sig` files are required on the mirror, and if so, dispatch the signer enhancement first.**
+The v1.0 trust model is signed-index-only: the GPG-signed `InterGenOS.db` carries the SHA-256 of every archive, and `pkm install` verifies each archive's SHA-256 against the signed index before extraction. Per-archive PGP signatures are not emitted for v1.0. See [`docs/architecture/per-archive-sig-decision.md`](../architecture/per-archive-sig-decision.md) for the rationale and the v1.1+ deferral triggers.
 
 ## Procedure
 
@@ -383,9 +383,9 @@ The first publish is the first public publication of the `intergenos-keyring` pa
 
 `scripts/emit-package-archives.py` exists on master and emits per-package `.igos.tar.gz` archives correctly when invoked against a populated package-build directory. The open piece between Step 1 of this runbook and the build orchestrator is the wiring that invokes `emit-package-archives.py` automatically at the end of each build, so the operator does not have to stage archives out of the chroot by hand. Until that wiring lands, Step 1 is operator-driven; once it lands, Step 1 reduces to a single `cp` from a host-visible output directory.
 
-### A.4 — Per-archive signature design question
+### A.4 — Per-archive signature decision (closed)
 
-See the "Open question for first run" note in [Mirror Layout](#mirror-layout). The current trust model does not require per-archive PGP signatures; the runbook is written against the as-built tooling. Resolve before the first publish whether per-archive `.sig` files are required as defence-in-depth and dispatch the signer enhancement if so.
+The per-archive `.sig` question raised at runbook commission time is resolved: v1.0 ships signed-index-only. Per-archive signatures are deferred to v1.1+ as a project-backlog item with documented trigger conditions for revisiting. See [`docs/architecture/per-archive-sig-decision.md`](../architecture/per-archive-sig-decision.md) for the full rationale (threat-model analysis, operational-cost comparison, security-only-alignment filter) and the four trigger conditions that would promote per-archive signing back to active consideration.
 
 ## Appendix B — Launch checklist
 
