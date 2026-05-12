@@ -98,7 +98,7 @@ runbook at [`docs/operational/first-publish-runbook.md`](../operational/first-pu
 | `InterGenOS.db` + `InterGenOS.db.sig` at `/x86_64/` root | YES | Matches the repository-trust.md trust model; `pkm` verifies the index sig and trusts the index's archive sha256s |
 | `*.igos.tar.gz` archives under `/x86_64/packages/` | YES | The actual binary artifacts |
 | Atomic publish via `/x86_64.new/` → `rename → /x86_64/` | YES | Avoids partial-read races during publish; covered by the publish-repo orchestrator atomic-promote chain |
-| Per-archive `*.sig` alongside each `*.igos.tar.gz` | OPEN | Defense-in-depth vs. signed-index-only. Pending resolution in `docs/architecture/per-archive-sig-decision.md` (in flight) |
+| Per-archive `*.sig` alongside each `*.igos.tar.gz` | NO (v1.0); deferred to v1.1+ project-backlog | Signed-index-only is sufficient for v1.0: the chain of trust (GPG key → signed index → sha256 per archive) is complete and every link is verified by pkm at install time. Decision recorded in `docs/architecture/per-archive-sig-decision.md`; independent peer-review confirmed the implementation claim (22/22 tests pass) and the operational impact (zero runbook procedure changes) on 2026-05-12. |
 | Default Apache directory index for `/x86_64/packages/` | YES | Operators can curl the layout; users go through pkm |
 
 ### Deferred to v1.x
