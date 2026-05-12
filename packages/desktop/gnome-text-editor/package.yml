@@ -17,5 +17,6 @@ dependencies:
   - libadwaita1
   - libspelling
   - itstool
+  - glib2
   host: []
   runtime: []

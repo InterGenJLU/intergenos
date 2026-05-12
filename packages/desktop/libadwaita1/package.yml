@@ -16,5 +16,7 @@ dependencies:
   - gtk4
   - sassc
   - vala
+  - fribidi
+  - glib2
   host: []
   runtime: []

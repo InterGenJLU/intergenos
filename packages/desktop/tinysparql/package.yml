@@ -19,5 +19,6 @@ dependencies:
   - vala
   - avahi
   - glib2
+  - libxml2
   host: []
   runtime: []

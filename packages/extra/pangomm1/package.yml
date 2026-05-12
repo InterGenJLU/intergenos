@@ -16,5 +16,6 @@ dependencies:
   - cairomm1
   - glibmm2
   - glibmm
+  - python
   host: []
   runtime: []

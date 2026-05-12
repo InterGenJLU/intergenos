@@ -15,5 +15,6 @@ dependencies:
   - cairomm
   - glibmm
   - pango
+  - python
   host: []
   runtime: []

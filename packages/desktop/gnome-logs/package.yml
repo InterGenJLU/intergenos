@@ -16,5 +16,7 @@ dependencies:
   - gsettings-desktop-schemas
   - itstool
   - libadwaita1
+  - glib2
+  - systemd
   host: []
   runtime: []

@@ -21,5 +21,8 @@ dependencies:
   - vala
   - vorbis-tools
   - itstool
+  - gettext
+  - glib2
+  - libadwaita1
   host: []
   runtime: []

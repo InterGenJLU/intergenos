@@ -25,5 +25,6 @@ dependencies:
   - gstreamer
   - vala
   - blueprint-compiler
+  - glib2
   host: []
   runtime: []

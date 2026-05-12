@@ -15,5 +15,6 @@ dependencies:
   - gtk4
   - gtksourceview5
   - enchant
+  - glib2
   host: []
   runtime: []

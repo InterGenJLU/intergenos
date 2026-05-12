@@ -26,6 +26,7 @@ dependencies:
   - libxkbcommon
   - pygobject3
   - wayland
+  - dbus
   host: []
   runtime: []
 configure_flags:

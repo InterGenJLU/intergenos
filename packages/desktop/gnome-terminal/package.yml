@@ -21,5 +21,10 @@ dependencies:
   - desktop-file-utils
   - gnome-shell
   - nautilus
+  - glib2
+  - gtk3
+  - libxslt
+  - pcre2
+  - util-linux-core
   host: []
   runtime: []

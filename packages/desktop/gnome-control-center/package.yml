@@ -33,5 +33,18 @@ dependencies:
   - udisks2
   - ibus
   - xwayland
+  - colord
+  - gcr
+  - gdk-pixbuf
+  - glib2
+  - gnome-desktop
+  - gsettings-desktop-schemas
+  - gtk4
+  - json-glib
+  - libepoxy
+  - libgudev
+  - libxml2
+  - polkit
+  - pulseaudio
   host: []
   runtime: []

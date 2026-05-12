@@ -27,5 +27,13 @@ dependencies:
   - gst-plugins-base
   - networkmanager
   - power-profiles-daemon
+  - gcr
+  - gdk-pixbuf
+  - glib2
+  - gsettings-desktop-schemas
+  - gtk4
+  - libxml2
+  - pango
+  - python
   host: []
   runtime: []

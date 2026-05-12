@@ -14,5 +14,6 @@ dependencies:
   build:
   - cairo
   - libsigcpp3
+  - python
   host: []
   runtime: []

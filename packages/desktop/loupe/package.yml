@@ -24,5 +24,7 @@ dependencies:
   - libgweather
   - libseccomp
   - rust
+  - glib2
+  - gtk4
   host: []
   runtime: []

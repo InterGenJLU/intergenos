@@ -18,5 +18,8 @@ dependencies:
   - linux-pam
   - gtk3
   - keyutils
+  - glib2
+  - libgudev
+  - systemd
   host: []
   runtime: []

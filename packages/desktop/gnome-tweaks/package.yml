@@ -18,5 +18,7 @@ dependencies:
   - libgudev
   - pygobject3
   - sound-theme-freedesktop
+  - glib2
+  - gobject-introspection
   host: []
   runtime: []

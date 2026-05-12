@@ -16,5 +16,6 @@ dependencies:
   - pygobject3
   - glib2
   - libxml2
+  - gobject-introspection
   host: []
   runtime: []

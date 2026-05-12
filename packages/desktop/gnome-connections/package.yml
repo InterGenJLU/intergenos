@@ -19,5 +19,8 @@ dependencies:
   - itstool
   - libhandy1
   - libsecret
+  - glib2
+  - gtk3
+  - libxml2
   host: []
   runtime: []

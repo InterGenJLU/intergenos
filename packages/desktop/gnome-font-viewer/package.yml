@@ -18,5 +18,6 @@ dependencies:
   - fontconfig
   - freetype2
   - fribidi
+  - glib2
   host: []
   runtime: []

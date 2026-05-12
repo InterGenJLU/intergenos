@@ -19,5 +19,8 @@ dependencies:
   - pulseaudio
   - vala
   - cyrus-sasl
+  - cairo
+  - gdk-pixbuf
+  - zlib
   host: []
   runtime: []

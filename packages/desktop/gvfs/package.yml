@@ -39,5 +39,6 @@ dependencies:
   - openssh
   - samba
   - systemd
+  - gsettings-desktop-schemas
   host: []
   runtime: []

@@ -29,5 +29,9 @@ dependencies:
   - poppler
   - totem-pl-parser
   - upower
+  - dbus
+  - glib2
+  - gobject-introspection
+  - libgudev
   host: []
   runtime: []

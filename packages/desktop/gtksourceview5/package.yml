@@ -17,5 +17,7 @@ dependencies:
   - libxml2
   - vala
   - vulkan-loader
+  - fribidi
+  - pcre2
   host: []
   runtime: []

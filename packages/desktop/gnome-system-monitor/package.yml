@@ -18,5 +18,8 @@ dependencies:
   - libadwaita1
   - libgtop
   - librsvg
+  - glib2
+  - glibmm
+  - gtk4
   host: []
   runtime: []

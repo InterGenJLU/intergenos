@@ -14,5 +14,6 @@ dependencies:
   build:
   - libadwaita1
   - libxkbcommon
+  - gtk4
   host: []
   runtime: []

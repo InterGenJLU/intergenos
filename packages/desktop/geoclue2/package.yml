@@ -18,5 +18,6 @@ dependencies:
   - vala
   - avahi
   - modemmanager
+  - glib2
   host: []
   runtime: []

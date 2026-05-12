@@ -16,5 +16,8 @@ dependencies:
   - gjs
   - libadwaita1
   - libgweather
+  - glib2
+  - gobject-introspection
+  - gtk4
   host: []
   runtime: []

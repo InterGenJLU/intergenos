@@ -22,5 +22,7 @@ dependencies:
   - libsecret
   - openssh
   - libsoup3
+  - glib2
+  - gtk3
   host: []
   runtime: []

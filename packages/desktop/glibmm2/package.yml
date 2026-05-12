@@ -15,5 +15,6 @@ dependencies:
   - glib2
   - libsigcpp2
   - libsigcpp3
+  - python
   host: []
   runtime: []

@@ -20,5 +20,6 @@ dependencies:
   - glib2
   - keyutils
   - mitkrb
+  - dbus
   host: []
   runtime: []

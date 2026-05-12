@@ -15,5 +15,6 @@ dependencies:
   - exiv2
   - vala
   - pygobject3
+  - glib2
   host: []
   runtime: []

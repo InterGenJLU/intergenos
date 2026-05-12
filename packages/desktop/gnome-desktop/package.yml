@@ -22,5 +22,7 @@ dependencies:
   - glib2
   - itstool
   - libxkbcommon
+  - fontconfig
+  - gdk-pixbuf
   host: []
   runtime: []

@@ -24,5 +24,7 @@ dependencies:
   - gnome-keyring
   - libarchive
   - libsecret
+  - cairo
+  - gdk-pixbuf
   host: []
   runtime: []

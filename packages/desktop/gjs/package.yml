@@ -18,6 +18,7 @@ dependencies:
   - spidermonkey
   - dbus
   - glib2
+  - libffi
   host: []
   runtime: []
 patches:

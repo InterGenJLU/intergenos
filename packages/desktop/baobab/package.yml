@@ -17,5 +17,6 @@ dependencies:
   - adwaita-icon-theme
   - itstool
   - libadwaita1
+  - glib2
   host: []
   runtime: []

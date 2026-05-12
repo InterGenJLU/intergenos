@@ -20,5 +20,8 @@ dependencies:
   - libsoup3
   - fribidi
   - itstool
+  - glib2
+  - gsettings-desktop-schemas
+  - libical
   host: []
   runtime: []

@@ -17,6 +17,9 @@ dependencies:
   - dbus
   - libxslt
   - openssh
+  - glib2
+  - libgcrypt
+  - p11-kit
   host: []
   runtime: []
 configure_flags:

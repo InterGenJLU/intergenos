@@ -19,5 +19,7 @@ dependencies:
   - libgee
   - libsoup3
   - vala
+  - glib2
+  - libxml2
   host: []
   runtime: []

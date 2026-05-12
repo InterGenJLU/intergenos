@@ -14,5 +14,6 @@ dependencies:
   build:
   - glib2
   - vala-pass1
+  - systemd
   host: []
   runtime: []

@@ -11,7 +11,10 @@ source:
 - url: https://download.gnome.org/sources/msgraph/0.3/msgraph-${version}.tar.xz
   sha256: 0731ece6b02b32eeffbbbd98efdc77bc03ddd20651eeae3a4343f0879b04d6c7
 dependencies:
-  build: []
+  build:
+  - glib2
+  - json-glib
+  - libsoup3
   host: []
   runtime:
   - glib2

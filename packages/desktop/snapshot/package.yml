@@ -27,5 +27,7 @@ dependencies:
   - libseccomp
   - rust
   - gst-plugins-bad
+  - glib2
+  - gst-plugins-base-pass2
   host: []
   runtime: []

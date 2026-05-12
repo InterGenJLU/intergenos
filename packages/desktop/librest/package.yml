@@ -20,5 +20,6 @@ dependencies:
   - make-ca
   - glib2
   - vala
+  - libxml2
   host: []
   runtime: []

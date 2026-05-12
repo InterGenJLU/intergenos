@@ -18,5 +18,7 @@ dependencies:
   - gjs
   - gtk4
   - pango
+  - glib2
+  - libadwaita1
   host: []
   runtime: []

@@ -32,5 +32,8 @@ dependencies:
   - modemmanager
   - nss
   - xwayland
+  - glib2
+  - gsettings-desktop-schemas
+  - polkit
   host: []
   runtime: []

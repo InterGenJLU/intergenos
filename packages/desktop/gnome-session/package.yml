@@ -19,5 +19,7 @@ dependencies:
   - docbook-xml
   - libxslt
   - systemd
+  - glib2
+  - gtk4
   host: []
   runtime: []

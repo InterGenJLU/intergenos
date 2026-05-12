@@ -15,5 +15,6 @@ dependencies:
   - gtk3
   - libcanberra
   - libhandy1
+  - glib2
   host: []
   runtime: []

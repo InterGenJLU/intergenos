@@ -19,5 +19,9 @@ dependencies:
   - libhandy1
   - libpwquality
   - libsecret
+  - glib2
+  - gtk3
+  - libnotify
+  - xz
   host: []
   runtime: []

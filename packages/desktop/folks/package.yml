@@ -16,5 +16,6 @@ dependencies:
   - glib2
   - libgee
   - vala
+  - gobject-introspection
   host: []
   runtime: []

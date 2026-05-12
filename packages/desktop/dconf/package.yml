@@ -14,5 +14,7 @@ dependencies:
   build:
   - gtk3
   - vala
+  - dbus
+  - glib2
   host: []
   runtime: []

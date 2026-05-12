@@ -20,5 +20,6 @@ dependencies:
   - systemd
   - dbus
   - glib2
+  - sqlite
   host: []
   runtime: []

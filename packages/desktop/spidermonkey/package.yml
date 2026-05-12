@@ -21,5 +21,6 @@ dependencies:
   - icu
   - readline
   - zlib
+  - pixman
   host: []
   runtime: []

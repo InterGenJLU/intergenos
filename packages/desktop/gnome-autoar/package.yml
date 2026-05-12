@@ -15,5 +15,6 @@ dependencies:
   - gtk3
   - vala
   - libarchive
+  - glib2
   host: []
   runtime: []

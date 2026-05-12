@@ -23,5 +23,6 @@ dependencies:
   - libdvdnav
   - mesa
   - wayland
+  - python
   host: []
   runtime: []

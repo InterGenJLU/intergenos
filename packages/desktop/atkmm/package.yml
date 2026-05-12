@@ -15,5 +15,6 @@ dependencies:
   - at-spi2-core
   - glibmm2
   - glibmm
+  - python
   host: []
   runtime: []

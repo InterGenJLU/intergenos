@@ -21,5 +21,12 @@ dependencies:
   - libportal
   - librest
   - libshumate
+  - gettext
+  - glib2
+  - gobject-introspection
+  - gtk4
+  - json-glib
+  - librsvg
+  - libxml2
   host: []
   runtime: []

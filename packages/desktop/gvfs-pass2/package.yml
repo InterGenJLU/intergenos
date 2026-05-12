@@ -16,5 +16,8 @@ dependencies:
   - gvfs
   - gnome-online-accounts
   - libmsgraph
+  - dbus
+  - glib2
+  - gsettings-desktop-schemas
   host: []
   runtime: []

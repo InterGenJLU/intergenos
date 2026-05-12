@@ -17,5 +17,6 @@ dependencies:
   - libxml2
   - git
   - librsvg
+  - glib2
   host: []
   runtime: []
