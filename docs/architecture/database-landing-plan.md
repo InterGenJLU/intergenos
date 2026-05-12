@@ -68,6 +68,58 @@ full landscape.
 These must land before the database packages can build. Grouped by
 size of the addition and by inter-dep.
 
+### Tier placement (prior art)
+
+All 11 prerequisite packages target `packages/extra/`, matching the
+target tier of every Wave 2 database except sqlite (which is already
+in `packages/core/`). The placement follows our existing internal
+rule that `core/` holds toolchains required at build time by `core/`
+or `desktop/` packages — rust, go, python, and nodejs sit in `core/`
+because the desktop tier and several core packages build against
+them. None of openjdk17, erlang/OTP, or mozjs128 has a `core/` or
+`desktop/` consumer; their downstreams (cassandra, couchdb) live in
+`extra/`, so the toolchains land in the same tier as their
+consumers.
+
+This aligns with how the major from-source / package-tier
+distributions place language runtimes:
+
+| Distribution | JDK / Erlang / SpiderMonkey-128 location |
+|---|---|
+| Arch Linux | `extra/` repository (`jdk-openjdk`, `erlang`, `js128`) |
+| Debian | main archive, Priority: optional |
+| Fedora | Everything repository (no tier split) |
+| Alpine | `community/` repository |
+| Gentoo | `dev-lang/openjdk`, `dev-lang/erlang`, `dev-lang/spidermonkey` |
+| Void Linux | main repo, peer-level with applications |
+
+No mainstream distribution segregates language toolchains into a
+hidden "base toolchain" tier. The two distributions with a tier
+split closest to ours — Arch (`core/` + `extra/`) and Alpine
+(`main/` + `community/`) — both place language runtimes in the
+broader/secondary tier, not the core/base tier. Our `core/` is
+wider than Arch's (we put rust/go/python there) because we treat
+`core/` as "build-time-required by the rest of the tree," which is
+a defensible internal model. But only consumers inside `core/` or
+`desktop/` justify that placement, and the three Wave 1a items
+don't meet that bar.
+
+End-user effect: pkm's dependency-resolution makes tier placement
+transparent at install time — a user running `pkm install cassandra`
+gets `openjdk17` + `ant` pulled in automatically regardless of which
+tier they live in. Tier is a build-pipeline organizing principle,
+not a user-facing concept.
+
+One alternative worth recording: `mozjs128` could land in `desktop/`
+alongside the existing `desktop/spidermonkey` (which tracks 140 and
+serves the GNOME stack). Two reasons we prefer `extra/` instead:
+(a) the consumer (CouchDB) lives in `extra/`, keeping the dep arrow
+within a single tier; (b) `extra/mozjs128` parallels the existing
+`desktop/spidermonkey` without renaming the latter to a versioned
+slug. If a future `desktop/`-tier consumer wants a SpiderMonkey ESR
+other than 140, the renaming question reopens; until then, parallel
+versions can co-exist in different tiers without conflict.
+
 ### Wave 1a — new ecosystem-class toolchains
 
 These are comparable in scope to having added Go or Rust to the tree.
