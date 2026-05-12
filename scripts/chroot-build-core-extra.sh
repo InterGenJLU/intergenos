@@ -620,10 +620,6 @@ run_package "vala-pass1" "vala-pass1" "0.56.18" \
     "vala-0.56.18.tar.xz" \
     "Vala compiler (bootstrap — without valadoc/graphviz)"
 
-run_package "libgudev" "libgudev" "238" \
-    "libgudev-238.tar.xz" \
-    "GObject-based wrapper around libudev"
-
 run_package "libksba" "libksba" "1.6.7" \
     "libksba-1.6.7.tar.bz2" \
     "X.509 and CMS library"
@@ -918,10 +914,6 @@ run_package "libblockdev" "libblockdev" "3.4.0" \
 run_package "nodejs" "nodejs" "22.22.0" \
     "node-v22.22.0.tar.xz" \
     "JavaScript runtime built on V8"
-
-run_package "udisks2" "udisks2" "2.11.1" \
-    "udisks-2.11.1.tar.bz2" \
-    "Disk management D-Bus service"
 
 run_package "wpa_supplicant" "wpa_supplicant" "2.11" \
     "wpa_supplicant-2.11.tar.gz" \
