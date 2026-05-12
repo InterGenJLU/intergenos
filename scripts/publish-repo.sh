@@ -138,11 +138,13 @@ rsync -av --mkpath \
     || { echo "ERROR: rsync to staging failed" >&2; exit 1; }
 echo "  OK — packages + index + signature uploaded"
 
-# Step 4: Atomic promote from staging to live
-# Move .sig BEFORE .db: ensures any client fetching during the promotion
-# window sees either (old .db + old .sig) or (new .db + new .sig), never
-# (new .db + old .sig) which would fail signature verification.
-echo "[4/4] Promoting ${STAGING_DIR} → live..."
+# Step 4: Atomic promote — directory swap (M1 fix, owner-picked option b)
+# Since M2 already creates a per-invocation timestamped staging dir,
+# the promote is a single atomic rename: _staging-YYYYMMDDTHHMMSSZ/ → live/
+# within the same filesystem (POSIX mv is atomic for directories).
+# Clients during the swap see EITHER the old complete dir OR the new
+# complete dir — never a mixed state.
+echo "[4/4] Promoting ${STAGING_DIR} → live (atomic directory swap)..."
 ssh "${REMOTE_USER}@${REMOTE_HOST}" bash -s -- \
     "$REMOTE_PATH" "$STAGING_DIR" << 'SSHEOF' || { echo "ERROR: atomic promote failed" >&2; exit 1; }
 set -e -o pipefail
@@ -155,33 +157,32 @@ if [ ! -d "$STAGING" ]; then
     exit 1
 fi
 
-# Archive previous index for rollback
-if [ -f "$LIVE/InterGenOS.db" ]; then
-    TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
+# Verify staging has the minimum required files
+if [ ! -f "$STAGING/InterGenOS.db" ] || [ ! -f "$STAGING/InterGenOS.db.sig" ]; then
+    echo "ERROR: staging directory missing index or signature" >&2
+    exit 1
+fi
+
+# Archive previous live directory for rollback
+if [ -d "$LIVE/live" ]; then
+    ARCHIVE_TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
     mkdir -p "$LIVE/_previous"
-    cp "$LIVE/InterGenOS.db" "$LIVE/_previous/InterGenOS-${TIMESTAMP}.db"
-    cp "$LIVE/InterGenOS.db.sig" "$LIVE/_previous/InterGenOS-${TIMESTAMP}.db.sig"
+    mv "$LIVE/live" "$LIVE/_previous/live-${ARCHIVE_TIMESTAMP}"
+    echo "  Archived previous live/ → _previous/live-${ARCHIVE_TIMESTAMP}"
 fi
 
-# Move .sig FIRST so client always sees consistent pair
-if [ -f "$STAGING/InterGenOS.db.sig" ]; then
-    mv "$STAGING/InterGenOS.db.sig" "$LIVE/"
-fi
+# Atomic promote: rename staging → live within same filesystem
+mv "$STAGING" "$LIVE/live"
+echo "  Staging promoted to live/"
 
-if [ -f "$STAGING/InterGenOS.db" ]; then
-    mv "$STAGING/InterGenOS.db" "$LIVE/"
-fi
-
-# Move archives (only if files exist — compgen-based guard)
-if compgen -G "$STAGING/*.igos.tar.gz" >/dev/null 2>&1; then
-    mv "$STAGING"/*.igos.tar.gz "$LIVE/"
-fi
-
-rmdir "$STAGING" 2>/dev/null || true
+# Update current symlink atomically (ln + mv-rename pattern)
+# Clients fetch from current/ → they always see a complete snapshot
+ln -sfn "live" "$LIVE/current.new" && mv -T "$LIVE/current.new" "$LIVE/current" 2>/dev/null || true
+echo "  current → live/ symlink updated"
 
 echo "Publish complete: $(date -u)"
-echo "Packages: $(ls "$LIVE"/*.igos.tar.gz 2>/dev/null | wc -l)"
-echo "Index size: $(stat -c%s "$LIVE/InterGenOS.db") bytes"
+echo "Packages: $(ls "$LIVE/live"/*.igos.tar.gz 2>/dev/null | wc -l)"
+echo "Index size: $(stat -c%s "$LIVE/live/InterGenOS.db") bytes"
 SSHEOF
 echo "  OK — promoted to live"
 
