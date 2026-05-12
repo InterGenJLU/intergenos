@@ -97,19 +97,36 @@ def _sha256_file(path):
     return sha.hexdigest()
 
 
+def _resolve_root():
+    """Get project root from env var or autodetect.
+
+    Priority: INTERGENOS_ROOT env → script location
+    Pattern matches scripts/preflight-build-order.py (merged to master @ 13defc1).
+    """
+    env_root = os.environ.get("INTERGENOS_ROOT")
+    if env_root:
+        return Path(env_root)
+    return Path(__file__).resolve().parent.parent
+
+
 def _resolve_package_yml(manifest_name):
-    """Try to find the corresponding package.yml for a manifest."""
-    candidates = [
-        Path("packages") / "desktop" / manifest_name / "package.yml",
-        Path("packages") / "core" / manifest_name / "package.yml",
-        Path("packages") / "extra" / manifest_name / "package.yml",
-        Path("packages") / "base" / manifest_name / "package.yml",
-        Path("packages") / "config" / manifest_name / "package.yml",
-        Path("packages") / "ai" / manifest_name / "package.yml",
-    ]
-    for c in candidates:
-        if c.exists():
-            return c
+    """Try to find the corresponding package.yml for a manifest name.
+
+    Searches all known tiers under packages/. Tier list is derived
+    dynamically from directory listing rather than hardcoded.
+    """
+    root = _resolve_root()
+    packages_root = root / "packages"
+    if not packages_root.is_dir():
+        return None
+
+    # Dynamically discover all tier directories under packages/
+    for tier_dir in sorted(packages_root.iterdir()):
+        if not tier_dir.is_dir():
+            continue
+        candidate = tier_dir / manifest_name / "package.yml"
+        if candidate.exists():
+            return candidate
     return None
 
 

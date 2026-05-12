@@ -6,8 +6,12 @@ produce the signed repository index that pkm clients fetch.
 
 Usage:
     python3 scripts/generate-repodb.py /var/lib/igos/archives/
-    python3 scripts/generate-repodb.py --gpg-key NK2 /path/to/archives/
+    python3 scripts/generate-repodb.py --gpg-key S2 /path/to/archives/
     python3 scripts/generate-repodb.py --no-sign /path/to/archives/
+
+GPG keys (canonical names from pkm/release-keys.json):
+    S1 — primary signing (Nitrokey NK1)  — also accepts legacy alias 'NK1'
+    S2 — off-site backup (Nitrokey NK2) — also accepts legacy alias 'NK2'
 
 Required files in package_dir:
     *.igos.tar.gz — per-package archives (output of E1.B.5 emit-package-archives.py)
@@ -20,6 +24,7 @@ Library functions at pkm/repo.py:414 (generate_index) and :467 (sign_index).
 Schema documented at pkm/repo.py:14-38.
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -31,12 +36,24 @@ if str(_project_root) not in sys.path:
 from pkm.repo import generate_index, sign_index
 
 
-RELEASE_KEYS = {
-    "NK1": "D7AA641D81ACD690C5AD865E7276E14DD8886BFE",
-    "NK2": "81DD223F9BA9B3F2AFBFFC5AFA24B042975F775E",
-    "S1": "D7AA641D81ACD690C5AD865E7276E14DD8886BFE",
-    "S2": "81DD223F9BA9B3F2AFBFFC5AFA24B042975F775E",
-}
+def _load_release_keys():
+    """Load release key fingerprints from pkm/release-keys.json.
+
+    Canonical source: pkm/release-keys.json (referenced by docs/signing-key.md).
+    Returns dict of {key_name: fingerprint, ...} including both canonical
+    names (S1/S2) and legacy aliases (NK1/NK2).
+    """
+    config_path = _project_root / "pkm" / "release-keys.json"
+    if not config_path.exists():
+        return {}
+    with open(config_path) as f:
+        data = json.load(f)
+    keys = {}
+    for name, info in data.get("keys", {}).items():
+        keys[name] = info["fingerprint"]
+        for alias in info.get("aliases", []):
+            keys[alias] = info["fingerprint"]
+    return keys
 
 
 def main():
@@ -54,13 +71,27 @@ def main():
         help="Output path for InterGenOS.db (default: <package_dir>/InterGenOS.db)",
     )
     parser.add_argument(
-        "--gpg-key", default="NK1",
-        choices=list(RELEASE_KEYS.keys()),
-        help="Release key to sign with (default: NK1)",
+        "--gpg-key", default="S1",
+        help="Release key to sign with (default: S1, canonical names from pkm/release-keys.json)",
     )
     parser.add_argument("--no-sign", action="store_true", help="Skip signing")
 
     args = parser.parse_args()
+
+    release_keys = _load_release_keys()
+    if not release_keys:
+        print("ERROR: pkm/release-keys.json not found or empty", file=sys.stderr)
+        sys.exit(1)
+
+    key_choices = sorted(release_keys.keys())
+    # Add --gpg-key choices dynamically
+    parser_help = argparse.ArgumentParser()
+    # Re-parse with choices now known (for accurate usage message)
+    # We already parsed; just validate key
+    gpg_key = args.gpg_key.upper()
+    if gpg_key not in release_keys:
+        print(f"ERROR: unknown GPG key '{args.gpg_key}'. Valid: {', '.join(key_choices)}", file=sys.stderr)
+        sys.exit(1)
 
     package_dir = Path(args.package_dir)
     if not package_dir.is_dir():
@@ -81,8 +112,9 @@ def main():
 
     # Step 2: Sign
     if not args.no_sign:
-        gpg_fp = RELEASE_KEYS[args.gpg_key.upper()]
-        print(f"Signing with {args.gpg_key} ({gpg_fp[:16]}...)...", file=sys.stderr)
+        gpg_fp = release_keys[gpg_key]
+        canonical_name = args.gpg_key.upper()
+        print(f"Signing with {canonical_name} ({gpg_fp[:16]}...)...", file=sys.stderr)
         sig_path = sign_index(str(index_path), gpg_key_id=gpg_fp)
         sig_path = Path(sig_path)
         print(f"Signature: {sig_path} ({sig_path.stat().st_size} bytes)", file=sys.stderr)
