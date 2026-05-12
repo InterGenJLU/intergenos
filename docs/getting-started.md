@@ -1,6 +1,6 @@
 # Getting Started with InterGenOS
 
-Welcome to InterGenOS 1.0-dev. This guide covers how to verify your download, write the installation media, and what to expect during your first boot.
+Welcome to InterGenOS 1.0. This guide covers how to verify your download, write the installation media, and what to expect during your first boot, as well as how to keep your new system up to date.
 
 ## 1. Hardware Requirements
 
@@ -16,14 +16,14 @@ InterGenOS is built for modern 64-bit hardware with the following minimum requir
 Before writing the image to a USB drive, you must verify its integrity. InterGenOS uses a strict "Security-Only Alignment" doctrine; verifying your download protects you against man-in-the-middle attacks or corrupted files.
 
 1.  **Download the signing key:** 
-    Download the canonical release signing key from [docs/signing-key.md](signing-key.md) or `intergenstudios.com/signing-key`.
+    Download the canonical release signing key from [docs/signing-key.md](signing-key.md) or intergenstudios.com/signing-key.
 2.  **Import the key:**
-    `gpg --import intergenos-release-key.asc`
+    gpg --import intergenos-release-key.asc
 3.  **Verify the fingerprint:**
-    Ensure the fingerprint matches the master fingerprint listed in `docs/signing-key.md`:
-    `46DD 1029 F98F D453 1D44  99C3 A2AF 3A36 C5CE F2C3`
+    Ensure the fingerprint matches the master fingerprint exactly:
+    5597 A3E0 587B 2530 06D0  DD7B 8C50 8261 8208 3050
 4.  **Verify the ISO:**
-    `gpg --verify intergenos-1.0-dev.iso.sig intergenos-1.0-dev.iso`
+    gpg --verify intergenos-1.0.iso.sig intergenos-1.0.iso
     You should see a "Good signature" message from the primary key or one of the trusted subkeys ([S1] or [S2]).
 
 ## 3. Writing the Installation Media
@@ -31,10 +31,10 @@ Before writing the image to a USB drive, you must verify its integrity. InterGen
 Once verified, write the ISO to a USB flash drive (8GB or larger).
 
 **On Linux/macOS:**
-```bash
+`ash
 # Replace /dev/sdX with your actual USB device. DOUBLE-CHECK THIS.
-sudo dd if=intergenos-1.0-dev.iso of=/dev/sdX bs=4M status=progress oflag=sync
-```
+sudo dd if=intergenos-1.0.iso of=/dev/sdX bs=4M status=progress oflag=sync
+`
 
 **On Windows:**
 We recommend using [Rufus](https://rufus.ie) or [balenaEtcher](https://balena.io/etcher) in "DD Image" mode.
@@ -48,7 +48,7 @@ We recommend using [Rufus](https://rufus.ie) or [balenaEtcher](https://balena.io
 5.  Follow the prompts to partition your disk, set your hostname, and create your user account.
 6.  **MOK Enrollment:** During installation, Forge will prompt you to enroll the InterGenOS Machine Owner Key (MOK). This is required if you plan to use DKMS or build out-of-tree kernel modules. You must accept this enrollment and follow the on-screen instructions.
 
-*(For a detailed walkthrough of the installation process, see [docs/install-guide.md](install-guide.md) - coming soon).*
+*(For a detailed walkthrough of the installation process, see the [Install Guide](install-guide.md)).*
 
 ## 5. First Boot
 
@@ -58,8 +58,21 @@ On your very first boot, the system will start the **First-Boot Greeter**. This 
 
 For details on what to expect, read the [First-Boot Greeter reference](first-boot-greeter.md).
 
-## 6. Next Steps
+## 6. Keeping Your System Secure and Up To Date
 
-*   **InterGen AI Assistant:** To learn how to use the built-in AI, see the [InterGen User Guide](intergen-user-guide.md) (coming soon).
-*   **Package Management:** To learn how to install software via our secure package manager, read the `pkm(1)` man page or the [PKM Guide](pkm-guide.md) (coming soon).
-*   **FAQ:** Check the [Frequently Asked Questions](faq.md) (coming soon) for common issues and answers.
+Once you're at your desktop, you will use the pkm package manager to pull updates from our canonical mirror at https://repo.intergenos.org/x86_64/.
+
+Your first step should be to run:
+`ash
+sudo pkm sync
+`
+This simple command automatically fetches the InterGenOS.db index, verifies its cryptographic signature against the bundled release key, and securely refreshes your local package metadata so you can begin installing software.
+
+For details on the cryptographic verification your machine performs during every pkm sync, see the [Repository Trust Model](repository-trust.md).
+
+## 7. Next Steps
+
+*   **InterGen AI Assistant:** To learn how to use the built-in AI safely, see the [InterGen User Guide](intergen-user-guide.md).
+*   **Package Management:** To learn how to install software via our secure package manager, read the pkm(1) man page or the [PKM Guide](pkm-guide.md).
+*   **FAQ:** Check the [Frequently Asked Questions](faq.md) for common issues and answers.
+*   **Contribute:** If you want to help develop the OS, see the [Contributor Guide](contributor-guide.md).
