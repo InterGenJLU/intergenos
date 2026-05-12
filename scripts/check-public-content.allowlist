@@ -52,10 +52,11 @@ d6d377161741ada2fab28eed69143277634a2aeb5e3883e50c031588ede48ede
 8ce749e7e77169205e4761d82b48a4333f48cdec2ee0f711b8cff560fe150514
 
 # --- SBOM-emitted SHAs of public files in docker/shim-build/ (added 2026-05-12) ---
-# Computed by scripts/shim-sbom-gen.py over LF-normalized content of:
+# Computed by scripts/shim-sbom-gen.py via `git show HEAD:<path>` over canonical
+# LF content (host-independent; F17 fix in commit 0bad0f34). PEM SHA is the
+# canonical 8ce749e7... entry above; the duplicate orphan added at 4c3644b8 was
+# a Windows-CRLF artifact from a Windows-host SBOM emit and has been scrubbed.
 #   docker/shim-build/sbat/sbat.intergenos.csv
 736d57edd4fe00b9f1aff522b6ff64a95fd197ff39c70fd0cdd4ea7ed786ddf7
-#   docker/shim-build/vendor-cert/intergenos-secure-boot-ca.pem
-620c4ebdb02224c734483949249270539d1086e3bca6d808f46c3013a892664b
 #   docker/shim-build/vendor-cert/intergenos-secure-boot-ca.der
 7b8f2150b5d00c7b28dd518fadd70bc0e837ae43df7b5e23d6185e9c7530c876
