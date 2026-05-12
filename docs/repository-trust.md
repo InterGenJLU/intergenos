@@ -55,7 +55,7 @@ If pkm encounters a verification failure, it is designed to **fail closed**.
 *   **SHA-256 Mismatch:** pkm will reject the individual package archive. This means the file downloaded does not match the signed index. 
 
 **When to STOP:**
-If you encounter a persistent signature failure or hash mismatch that is not resolved by checking your network connection, assume the upstream source is compromised. Halt installations, do not bypass verification checks using --archive-trust=loose, and check the InterGenOS GitHub or community channels for active security advisories. Contact maintainers via the process outlined in SECURITY.md if you suspect a breach.
+If you encounter a persistent signature failure or hash mismatch that is not resolved by checking your network connection, assume the upstream source is compromised (a potential security incident). Halt installations, do not bypass verification checks using --archive-trust=loose, and check the InterGenOS GitHub or community channels for active security advisories. Contact maintainers via the process outlined in SECURITY.md if you suspect a breach.
 
 ## 6. For Redistributors and Mirror Operators
 
