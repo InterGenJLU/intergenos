@@ -1,0 +1,20 @@
+name: maturin
+version: "1.13.1"
+release: 1
+description: PEP 517 build backend for Rust + Python wheels (build dep for python-cryptography)
+license: MIT OR Apache-2.0
+homepage: https://github.com/PyO3/maturin
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/PyO3/maturin/archive/v${version}/maturin-${version}.tar.gz
+  sha256: 2bfb3ec1ef1c15163ac006b09f895d17bd7ce0229416be952cd49065842acfc0
+build_artifacts:
+- name: maturin-${version}-vendor.tar.xz
+  generated_by: cargo-vendor
+dependencies:
+  build:
+  - rust
+  host: []
+  runtime: []

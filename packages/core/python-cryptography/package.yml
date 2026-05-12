@@ -12,7 +12,7 @@ dependencies:
   - openssl
   - rust
   - cffi
-  - setuptools-rust
+  - maturin
   host:
   - setuptools
   - wheel

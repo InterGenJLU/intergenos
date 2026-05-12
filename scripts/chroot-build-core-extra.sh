@@ -838,6 +838,10 @@ run_package "setuptools-rust" "setuptools-rust" "1.10.2" \
     "setuptools_rust-1.10.2.tar.gz" \
     "Setuptools Rust extension plugin"
 
+run_package "maturin" "maturin" "1.13.1" \
+    "maturin-1.13.1.tar.gz" \
+    "PEP 517 build backend for Rust+Python wheels (for python-cryptography)"
+
 run_package "python-cryptography" "python-cryptography" "44.0.0" \
     "cryptography-44.0.0.tar.gz" \
     "Python cryptographic primitives (for systemd ukify)"
