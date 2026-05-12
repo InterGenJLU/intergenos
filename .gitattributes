@@ -33,6 +33,15 @@
 *.rules     text eol=lf
 Makefile    text eol=lf
 
+# Cryptographic text assets — PEM-encoded family (companion to *.der binary).
+# Added 2026-05-12 after F17 surfaced Windows autocrlf=true silently
+# CRLF-transformed docker/shim-build/vendor-cert/intergenos-secure-boot-ca.pem
+# on checkout, producing wrong SHA in SBOM emission. See F17 root-cause
+# investigation in the SBOM-gen patch commit of this 3-commit fix wave.
+*.pem       text eol=lf
+*.crt       text eol=lf
+*.cert      text eol=lf
+
 # Documentation — let platform pick (markdown viewers tolerate either)
 *.md        text
 *.txt       text
