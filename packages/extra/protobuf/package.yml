@@ -1,0 +1,35 @@
+name: protobuf
+version: "29.6"
+release: 1
+description: Google Protocol Buffers compiler (protoc) and libprotobuf runtime
+tier: extra
+license: BSD-3-Clause
+homepage: https://github.com/protocolbuffers/protobuf
+build_style: cmake
+configure():
+- -DCMAKE_BUILD_TYPE=Release
+- -DCMAKE_INSTALL_PREFIX=/usr
+- -DCMAKE_INSTALL_LIBDIR=lib
+- -Dprotobuf_BUILD_SHARED_LIBS=ON
+- -Dprotobuf_BUILD_TESTS=OFF
+- -Dprotobuf_BUILD_CONFORMANCE=OFF
+- -Dprotobuf_BUILD_EXAMPLES=OFF
+- -Dprotobuf_INSTALL=ON
+- -Dprotobuf_ABSL_PROVIDER=package
+- -Dprotobuf_USE_EXTERNAL_GTEST=OFF
+- -B build -G Ninja
+working_dir: build
+source:
+- url: https://github.com/protocolbuffers/protobuf/archive/v${version}/protobuf-${version}.tar.gz
+  sha256: 2af2352d9e89992ae634257a16cff4c5143c8504db972307e49e61ed1047334e
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - pkgconf
+  - abseil-cpp
+  - zlib
+  host: []
+  runtime:
+  - abseil-cpp
+  - zlib
