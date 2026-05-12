@@ -453,6 +453,26 @@ phase_validate() {
         fi
         log "  validator: only known glib2-bootstrap false positive remains (acceptable)"
     }
+
+    # Build-order ordering gate (Scan A): for every run_package "consumer" line,
+    # verify every declared dependencies.build entry is built EARLIER in the
+    # same phase OR in a strictly earlier phase. Catches the class of bug
+    # that halted Build #8 at mitkrb/libgcrypt + rpm/libgcrypt before they
+    # were caught + closed at master 55b4da4. Pure pre-build static analysis
+    # against the repo source tree; no chroot dependency.
+    log "Running preflight-build-order scan (Scan A — ordering violations)..."
+    python3 "${SCRIPTS}/preflight-build-order.py"
+
+    # Silent-feature-loss gate (Scan B): for every package installed in the
+    # prior-build chroot, cross-reference declared deps + BLFS-truth deps
+    # against the configure log to surface declared-but-undetected and
+    # undeclared-required-but-attempted patterns. Canonical case is the
+    # Build #8 systemd-without-15-security-deps finding (master 55b4da4).
+    # SKIPS cleanly when chroot data is absent (first-build / post-revert)
+    # so this gate doesn't block bootstrap scenarios — it only catches
+    # regressions against post-install state from a previous run.
+    log "Running preflight-silent-loss scan (Scan B — silent feature loss)..."
+    python3 "${SCRIPTS}/preflight-silent-loss.py"
 }
 
 phase_verify_sources() {
