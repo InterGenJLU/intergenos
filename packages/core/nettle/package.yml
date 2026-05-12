@@ -16,4 +16,5 @@ dependencies:
   runtime: []
 configure_flags:
 - --prefix=/usr
+- --libdir=/usr/lib
 - --disable-static

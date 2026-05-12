@@ -4,7 +4,11 @@
 
 configure() {
     set -e
+    # --libdir=/usr/lib: nettle's autoconf auto-picks /usr/lib64 on x86_64,
+    # but chroot pkg-config only searches /usr/lib/pkgconfig:/usr/share/pkgconfig
+    # (LFS-13.0 tree is lib-only). Same class as efivar 047c67c.
     ./configure --prefix=/usr \
+                --libdir=/usr/lib \
                 --disable-static
 }
 
