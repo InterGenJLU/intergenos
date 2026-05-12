@@ -11,16 +11,20 @@ Usage:
     python3 scripts/download-sources.py --all --update-checksums    # Download + update package.yml
     python3 scripts/download-sources.py --verify                    # Verify existing tarballs
     python3 scripts/download-sources.py --all --dry-run             # Show what would be downloaded
-    python3 scripts/download-sources.py --mirror-upload             # Upload local cache to VPS mirror
-    python3 scripts/download-sources.py --mirror-upload --mirror-host user@host --mirror-path /path/to/sources/
+    python3 scripts/download-sources.py --mirror-upload user@host:/path/to/sources/   # Upload to VPS mirror
+    python3 scripts/download-sources.py --check-updates             # Check for upstream updates
+    python3 scripts/download-sources.py --check-updates --use-latest  # Download latest versions
 """
 
+import argparse
 import hashlib
+import json
 import os
 import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
@@ -29,6 +33,8 @@ import yaml
 PROJECT_ROOT = Path(__file__).parent.parent
 PACKAGES_DIR = PROJECT_ROOT / "packages"
 SOURCES_DIR = PROJECT_ROOT / "build" / "sources"
+DEFAULT_MIRROR = "intergenos@origin.intergenstudios.com:/home/intergenos/repo/sources"
+DEFAULT_UPDATES_JSON = str(PROJECT_ROOT / "build" / "updates.json")
 
 TIERS = ["toolchain", "core", "base", "desktop", "extra"]
 
@@ -523,56 +529,119 @@ def cmd_mirror_upload(tiers: list[str], mirror_host: str = "", mirror_path: str 
             sys.exit(1)
 
 
-def main():
-    args = sys.argv[1:]
+def cmd_check_updates(tiers: list[str], updates_json: str, use_latest: bool = False):
+    """Check for upstream updates from vps-source-poller's updates.json.
 
-    if not args or "-h" in args or "--help" in args:
-        print(__doc__)
-        sys.exit(0)
-
-    # Parse arguments
-    tiers = []
-    update_checksums = "--update-checksums" in args
-    dry_run = "--dry-run" in args
-    verify_mode = "--verify" in args
-    mirror_upload = "--mirror-upload" in args
-    mirror_host = ""
-    mirror_path = ""
-
-    if "--mirror-host" in args:
-        idx = args.index("--mirror-host")
-        if idx + 1 < len(args):
-            mirror_host = args[idx + 1]
-    if "--mirror-path" in args:
-        idx = args.index("--mirror-path")
-        if idx + 1 < len(args):
-            mirror_path = args[idx + 1]
-
-    if "--all" in args:
-        tiers = TIERS
-    elif "--tier" in args:
-        idx = args.index("--tier")
-        for a in args[idx+1:]:
-            if a.startswith("--"):
-                break
-            if a in TIERS:
-                tiers.append(a)
-            else:
-                print(f"Unknown tier: {a}. Valid: {', '.join(TIERS)}")
-                sys.exit(1)
-
-    if mirror_upload:
-        if not tiers:
-            tiers = TIERS
-        cmd_mirror_upload(tiers, mirror_host=mirror_host, mirror_path=mirror_path, dry_run=dry_run)
+    Consumes the advisory output from scripts/vps-source-poller.py (E1.A.3)
+    to identify packages with newer upstream versions.
+    """
+    updates_path = Path(updates_json)
+    if not updates_path.exists():
+        print(f"WARNING: {updates_path} not found. Run vps-source-poller.py first.", flush=True)
         return
 
-    if verify_mode:
-        if not tiers:
-            tiers = TIERS
+    with open(updates_path) as f:
+        updates = json.load(f)
+
+    packages = load_packages(tiers)
+    pkg_map = {p["name"]: p for p in packages}
+
+    new_updates = []
+    for entry in updates:
+        name = entry.get("pkg", "")
+        current_ver = entry.get("current_ver", "")
+        latest_ver = entry.get("latest_ver", "")
+        if name not in pkg_map or not latest_ver or latest_ver == current_ver:
+            continue
+        new_updates.append(entry)
+
+    if not new_updates:
+        print("No packages with available updates.", flush=True)
+        return
+
+    print(f"{len(new_updates)} packages have updates available:\n")
+    for u in new_updates:
+        print(f"  {u['pkg']}: {u['current_ver']} → {u['latest_ver']}  ({u.get('source_url', '?')})")
+
+    if use_latest:
+        print(f"\nDownloading latest versions to {SOURCES_DIR / '.latest'} ...")
+        latest_dir = SOURCES_DIR / ".latest"
+        latest_dir.mkdir(parents=True, exist_ok=True)
+
+        succeeded = 0
+        for u in new_updates:
+            name = u["pkg"]
+            latest_ver = u["latest_ver"]
+            source_url = u.get("source_url", "")
+            if not source_url:
+                continue
+            filename = source_url.split("/")[-1]
+            dest = latest_dir / filename
+            print(f"  [{succeeded+1}/{len(new_updates)}] {filename} ...", flush=True)
+            if download_file(source_url, str(dest)):
+                print(f"    OK", flush=True)
+                succeeded += 1
+            else:
+                print(f"    FAILED", flush=True)
+        print(f"\nDownloaded {succeeded}/{len(new_updates)} to {latest_dir} (side dir; does NOT modify package.yml)")
+
+
+def _parse_mirror_upload(value: str) -> tuple:
+    """Parse --mirror-upload value in 'user@host:path' format."""
+    if ":" not in value:
+        return "", ""
+    user_host, _, path = value.partition(":")
+    user_host = user_host.strip()
+    path = path.strip()
+    if not user_host or not path:
+        return "", ""
+    return user_host, path
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="InterGenOS Source Tarball Manager",
+        epilog="Without --all or --tier, individual action flags operate on all tiers.",
+    )
+    parser.add_argument("--tier", action="append", choices=TIERS, dest="tiers",
+                        help="Package tier to operate on (repeatable)")
+    parser.add_argument("--all", action="store_true", help="All tiers")
+    parser.add_argument("--verify", action="store_true", help="Verify cached tarballs")
+    parser.add_argument("--update-checksums", action="store_true", help="Update package.yml with computed SHAs")
+    parser.add_argument("--dry-run", action="store_true", help="Show what would be done")
+    parser.add_argument("--mirror-upload", nargs="?", const=DEFAULT_MIRROR, metavar="USER@HOST:PATH",
+                        help="Upload local cache to VPS mirror (default: intergenos@origin.intergenstudios.com:/home/intergenos/repo/sources)")
+    parser.add_argument("--check-updates", action="store_true",
+                        help="Check for upstream updates via vps-source-poller output")
+    parser.add_argument("--updates-json", default=DEFAULT_UPDATES_JSON,
+                        help=f"Path to updates.json (default: {DEFAULT_UPDATES_JSON})")
+    parser.add_argument("--use-latest", action="store_true",
+                        help="Download latest versions to side dir (requires --check-updates)")
+
+    args = parser.parse_args()
+
+    tiers = TIERS if args.all else (args.tiers if args.tiers else TIERS)
+
+    if args.check_updates:
+        cmd_check_updates(tiers, args.updates_json, use_latest=args.use_latest)
+        return
+
+    if args.mirror_upload is not None:
+        user_host, path = _parse_mirror_upload(args.mirror_upload)
+        if not user_host:
+            if "@" not in args.mirror_upload:
+                print("ERROR: --mirror-upload requires 'user@host:path' format")
+                print(f"  Example: --mirror-upload {DEFAULT_MIRROR}")
+                sys.exit(1)
+            user_host = args.mirror_upload
+            path = "/home/intergenos/repo/sources"
+        cmd_mirror_upload(tiers, mirror_host=user_host, mirror_path=path, dry_run=args.dry_run)
+        return
+
+    if args.verify:
         cmd_verify(tiers)
     else:
-        cmd_download(tiers, update_checksums=update_checksums, dry_run=dry_run)
+        cmd_download(tiers, update_checksums=args.update_checksums, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":
