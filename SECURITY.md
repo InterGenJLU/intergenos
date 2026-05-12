@@ -6,7 +6,7 @@ InterGenOS takes security seriously. This document describes how to report vulne
 
 ## Reporting a vulnerability
 
-**Primary:** Email `security@intergenstudios.com`
+**Primary:** Email security@intergenstudios.com
 
 **Alternative:** Open a [private security advisory](https://github.com/InterGenJLU/intergenos/security/advisories/new) on GitHub.
 
@@ -14,7 +14,7 @@ Machine-readable contact info also published at [https://intergenstudios.com/.we
 
 Anonymous reports accepted. We will never retaliate against good-faith reporters.
 
-Plain email is fine for initial contact until v1.0. We will publish a PGP fingerprint for encrypted submissions alongside the v1.0 signing-key ceremony; if you need an encrypted channel before then, say so in your first email and we will arrange one out-of-band.
+Encrypted submissions are fully supported and encouraged. The canonical PGP fingerprint for the project release and encryption keys is published at [docs/signing-key.md](docs/signing-key.md), and you can import the armored public key from [docs/signing-key.asc](docs/signing-key.asc).
 
 ---
 
@@ -51,7 +51,7 @@ Published advisories include:
 
 ## Trust-anchor compromise response
 
-A **signing-key compromise is not a bug — it is a break in the foundation of trust.** The standard framework above does not apply; this track is dedicated and aggressive.
+A **signing-key compromise is not a bug — it is a break in the foundation of trust.** The standard framework above does not apply; this track is dedicated and aggressive. For details on how users should handle these trust failures, see the [Repository Trust Model](docs/repository-trust.md).
 
 ### What counts as "confirmed" compromise
 
@@ -69,7 +69,7 @@ Mere claims route to the standard 48-hour triage and are likely closed without a
 | **Within 12 hours** | Revocation published + new keyring package available |
 | **Simultaneous with revocation** | Public disclosure — no embargo, no delay |
 
-**Target:** users running `pkm update` within 24 hours of the incident receive the new keyring and revoke trust in the compromised key.
+**Target:** users running pkm update within 24 hours of the incident receive the new keyring and revoke trust in the compromised key.
 
 ### Advisory content
 - Fingerprint of compromised key
@@ -85,15 +85,15 @@ Mere claims route to the standard 48-hour triage and are likely closed without a
 - Our update infrastructure must be trustworthy. A compromised signing key means the update path itself is the attack.
 - If there is any doubt about key integrity, we revoke. Re-issuing unnecessarily is preferable to leaving users exposed once.
 
+For full details on the key custody architecture that defends against compromise, see the [Signing Procedure](docs/signing-procedure.md) and [Signing Key Ceremony Procedure](docs/ceremony/signing-key-ceremony-procedure.md).
+
 ---
 
 ## Reporter credit and recognition
 
-**Accepted reports:** we credit reporters in the advisory and on our Hall of Fame page, unless anonymity is requested.
+**Accepted reports:** we credit reporters in the advisory and on our [Hall of Fame](docs/hall-of-fame.md) page, unless anonymity is requested.
 
 **Rejected reports:** default to anonymity. If a reporter wishes to be publicly credited for a rejected or duplicate report, they may request it.
-
-**Hall of Fame:** we will publish a researcher-acknowledgment page alongside the v1.0 launch, listing researchers who have responsibly disclosed vulnerabilities to us (with the option to remain anonymous).
 
 ---
 
@@ -107,9 +107,9 @@ Mere claims route to the standard 48-hour triage and are likely closed without a
 
 This policy applies to:
 - InterGenOS core packages and distribution artifacts
-- The `pkm` package manager and repository infrastructure
+- The pkm package manager and repository infrastructure
 - Signing keys and related trust infrastructure
-- `intergenstudios.com` web properties
+- intergenstudios.com web properties
 
 Out of scope:
 - Upstream projects we package (report to them directly; we will coordinate)
@@ -127,4 +127,4 @@ Known vulnerabilities and our response. InterGenOS ships with mitigations pre-ap
 
 ---
 
-*Last updated: 2026-04-29*
+*Last updated: 2026-05-12*
