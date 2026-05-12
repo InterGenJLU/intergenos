@@ -77,7 +77,7 @@ x86_64/
 | Signing key compromise | Revoke subkey, re-sign index only | Revoke subkey, re-sign index + 700+ per-archive sigs |
 | Mirror server compromise (full disk write) | Atomically promoted directory is all-or-nothing; attacker replacing one archive creates sha256 mismatch caught at install | Per-archive sigs catch tampering at the archive level, before index validation |
 
-## Holy Grail Filter
+## Security-Only Alignment Filter
 
 > "Security is not first — it is ONLY. No trade-offs for convenience."
 
@@ -85,9 +85,9 @@ At first read, this tilts toward Option B (defense-in-depth). But the filter mus
 
 Option A delivers integrity via a single chain: GPG → index → sha256 → archive. Every step is verified at install time. Option B adds a parallel chain: GPG → per-archive sig → archive. Both chains terminate at `gpg --verify`. Both are backed by the same Nitrokey hardware root-of-trust. Adding a second path does not make the first path *stronger* — it makes verification *faster* (sync-time vs install-time) and *more granular* (single archive verification without index dependency).
 
-The Holy Grail filter's application here is: **both options deliver the same security outcome (archive integrity verified against the release key).** The choice is about operational characteristics (signing time, runbook complexity, pkm code-surface growth) — not about *whether* archives are verified.
+The security-only alignment filter's application here is: **both options deliver the same security outcome (archive integrity verified against the release key).** The choice is about operational characteristics (signing time, runbook complexity, pkm code-surface growth) — not about *whether* archives are verified.
 
-**Holy Grail conclusion:** Option A is sufficient for v1.0 because the chain of trust (GPG key → signed index → sha256 per archive) is complete and every link is verified by pkm at install time. Adding Option B's per-archive path is an optimization, not a security gap-closure.
+**Conclusion under the security-only alignment:** Option A is sufficient for v1.0 because the chain of trust (GPG key → signed index → sha256 per archive) is complete and every link is verified by pkm at install time. Adding Option B's per-archive path is an optimization, not a security gap-closure.
 
 ## Recommended Path
 
