@@ -441,14 +441,6 @@ run_package "keyutils" "keyutils" "1.6.3" \
     "keyutils-1.6.3.tar.gz" \
     "Linux kernel key management utilities"
 
-# mitkrb depends on keyutils — keep this immediately after keyutils so the
-# topological order in this file matches the declared build deps. (C2 audit
-# 2026-05-10 caught the prior mis-ordering: mitkrb was at @111 listing
-# keyutils@115 as a build dep, would have halted on a fresh post-base chroot.)
-run_package "mitkrb" "mitkrb" "1.22.2" \
-    "krb5-1.22.2.tar.gz" \
-    "MIT Kerberos V5 authentication"
-
 # mandoc: BSD man-page formatter. Required by efivar's docs/Makefile to
 # convert .mdoc source → traditional man pages at build time. Retiered
 # desktop→core (tier reflects intrinsic nature: man-page formatter,
@@ -772,6 +764,17 @@ run_package "itstool" "itstool" "2.0.7" \
 run_package "openldap" "openldap" "2.6.12" \
     "openldap-2.6.12.tgz" \
     "Open source LDAP directory server and client libraries"
+
+# mitkrb depends on keyutils + e2fsprogs + cracklib + openldap. Earlier
+# ordering kept mitkrb adjacent to keyutils, but mitkrb's configure with
+# --with-cracklib + --with-ldap (added during the Build #7→#8 transition
+# to close silent-feature-loss flagged 2026-05-08) hard-fails when either
+# library is absent. Build #8 halted at this ordering bug 2026-05-11.
+# Topological order requires cracklib (line ~512) AND openldap (above)
+# to land first; gating the move on the later prerequisite is openldap.
+run_package "mitkrb" "mitkrb" "1.22.2" \
+    "krb5-1.22.2.tar.gz" \
+    "MIT Kerberos V5 authentication"
 
 run_package "gnupg2" "gnupg2" "2.5.17" \
     "gnupg-2.5.17.tar.bz2" \
