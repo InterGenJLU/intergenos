@@ -15,6 +15,7 @@ dependencies:
   - enchant
   - icu
   - gtk3
+  - glib2
   host: []
   runtime: []
 

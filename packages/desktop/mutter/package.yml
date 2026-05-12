@@ -37,5 +37,10 @@ dependencies:
   - gnome-settings-daemon
   - libadwaita1
   - xwayland
+  - cairo
+  - colord
+  - gsettings-desktop-schemas
+  - lcms2
+  - pixman
   host: []
   runtime: []

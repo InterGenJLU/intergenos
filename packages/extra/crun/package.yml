@@ -16,6 +16,7 @@ dependencies:
     - automake
     - libtool
     - pkgconf
+    - yajl
   host:
     - glib2
     - libcap

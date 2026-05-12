@@ -19,5 +19,7 @@ dependencies:
   - libxmlb
   - libxslt
   - docbook-xsl-nons
+  - glib2
+  - gperf
   host: []
   runtime: []

@@ -26,6 +26,7 @@ dependencies:
   - libjpeg-turbo
   - libpng
   - libtiff
+  - fontconfig
   host: []
   runtime: []
 configure_flags:

@@ -18,5 +18,6 @@ dependencies:
   - linux-pam
   - lxml
   - systemd
+  - gettext
   host: []
   runtime: []

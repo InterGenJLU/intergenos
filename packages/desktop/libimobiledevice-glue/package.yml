@@ -11,7 +11,8 @@ source:
 - url: https://github.com/libimobiledevice/libimobiledevice-glue/releases/download/${version}/libimobiledevice-glue-${version}.tar.bz2
   sha256: 6489a3411b874ecd81c87815d863603f518b264a976319725e0ed59935546774
 dependencies:
-  build: []
+  build:
+  - libplist
   host: []
   runtime:
   - libplist

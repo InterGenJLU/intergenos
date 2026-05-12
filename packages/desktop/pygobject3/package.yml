@@ -15,5 +15,6 @@ dependencies:
   - pycairo
   - docbook-xsl-nons
   - glib2
+  - libffi
   host: []
   runtime: []

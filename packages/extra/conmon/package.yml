@@ -14,6 +14,8 @@ source:
 dependencies:
   build:
     - pkgconf
+    - glib2
+    - libseccomp
   host:
     - glib2
     - libseccomp

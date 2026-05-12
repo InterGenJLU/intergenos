@@ -31,5 +31,8 @@ dependencies:
   - nss
   - systemd
   - upower
+  - dbus
+  - perl-core
+  - util-linux-core
   host: []
   runtime: []

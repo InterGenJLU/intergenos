@@ -18,6 +18,8 @@ dependencies:
   - json-glib
   - libarchive
   - libyaml
+  - glib2
+  - gperf
   host: []
   runtime: []
 

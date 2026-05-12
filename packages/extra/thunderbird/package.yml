@@ -33,5 +33,6 @@ dependencies:
   - nspr
   - nss
   - alsa-lib
+  - pixman
   host: []
   runtime: []

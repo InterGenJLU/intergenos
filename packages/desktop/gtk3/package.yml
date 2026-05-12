@@ -35,6 +35,8 @@ dependencies:
   - libxslt
   - sassc
   - tinysparql
+  - fribidi
+  - glib2
   host: []
   runtime: []
 

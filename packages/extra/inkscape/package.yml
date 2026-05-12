@@ -29,5 +29,7 @@ dependencies:
   - libcanberra
   - gspell
   - numpy
+  - glib2
+  - libxml2
   host: []
   runtime: []

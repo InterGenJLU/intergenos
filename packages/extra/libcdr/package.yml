@@ -16,5 +16,6 @@ dependencies:
   - icu
   - lcms2
   - boost
+  - zlib
   host: []
   runtime: []

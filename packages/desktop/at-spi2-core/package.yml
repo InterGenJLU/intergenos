@@ -18,5 +18,6 @@ dependencies:
   - dbus
   - glib2
   - gsettings-desktop-schemas
+  - libxml2
   host: []
   runtime: []

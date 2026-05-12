@@ -39,6 +39,12 @@ dependencies:
   - libvpx
   - sassc
   - tinysparql
+  - fribidi
+  - glib2
+  - harfbuzz
+  - libjpeg-turbo
+  - libpng
+  - libtiff
   host: []
   runtime: []
 

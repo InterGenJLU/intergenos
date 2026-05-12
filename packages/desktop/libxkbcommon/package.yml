@@ -16,5 +16,6 @@ dependencies:
   - libxcb
   - wayland
   - wayland-protocols
+  - bison-core
   host: []
   runtime: []

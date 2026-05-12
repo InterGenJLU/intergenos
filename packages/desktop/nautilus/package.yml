@@ -24,5 +24,7 @@ dependencies:
   - glib2
   - libcloudproviders
   - localsearch
+  - gtk4
+  - icu
   host: []
   runtime: []

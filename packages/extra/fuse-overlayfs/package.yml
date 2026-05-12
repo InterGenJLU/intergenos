@@ -17,6 +17,7 @@ dependencies:
     - automake
     - libtool
     - pkgconf
+    - fuse3
   host:
     - fuse3
   runtime:

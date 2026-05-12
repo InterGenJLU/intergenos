@@ -16,6 +16,7 @@ dependencies:
   - libpng
   - brotli
   - which
+  - python
   host: []
   runtime: []
 

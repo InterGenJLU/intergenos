@@ -44,5 +44,6 @@ dependencies:
   - libproxy
   - pciutils
   - alsa-lib
+  - pixman
   host: []
   runtime: []

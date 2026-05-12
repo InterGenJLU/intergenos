@@ -11,7 +11,8 @@ source:
 - url: https://github.com/libmtp/libmtp/releases/download/v${version}/libmtp-${version}.tar.gz
   sha256: 74a2b6e8cb4a0304e95b995496ea3ac644c29371649b892b856e22f12a0bdeed
 dependencies:
-  build: []
+  build:
+  - libusb
   host: []
   runtime:
   - libusb

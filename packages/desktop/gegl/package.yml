@@ -18,6 +18,8 @@ dependencies:
   - graphviz
   - pygments
   - pygobject3
+  - libjpeg-turbo
+  - libpng
   host: []
   runtime: []
 

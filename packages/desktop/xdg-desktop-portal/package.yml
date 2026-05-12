@@ -24,5 +24,7 @@ dependencies:
   - docutils
   - geoclue2
   - libportal
+  - glib2
+  - gst-plugins-base-pass2
   host: []
   runtime: []

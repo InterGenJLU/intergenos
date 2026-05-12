@@ -15,5 +15,7 @@ dependencies:
   - polkit
   - pygobject3
   - upower
+  - glib2
+  - libgudev
   host: []
   runtime: []

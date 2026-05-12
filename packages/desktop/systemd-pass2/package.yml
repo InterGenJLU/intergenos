@@ -33,6 +33,7 @@ dependencies:
   - rpm               # systemd-sysupdate rpmmacrosdir integration.
   - git               # systemd build-tooling probes for git.
   - rsync             # systemd build-tooling probes for rsync.
+  - gperf
   host: []
   runtime: []
 

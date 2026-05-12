@@ -40,6 +40,22 @@ dependencies:
   - lua
   - openjpeg2
   - appstream
+  - cairo
+  - exiv2
+  - freetype2
+  - gdk-pixbuf
+  - glib2
+  - gobject-introspection
+  - json-glib
+  - libX11
+  - libXext
+  - libXfixes
+  - libXmu
+  - libarchive
+  - libjpeg-turbo
+  - libpng
+  - xz
+  - zlib
   host: []
   runtime: []
 

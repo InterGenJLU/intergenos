@@ -13,6 +13,8 @@ source:
 dependencies:
   build:
   - xcb-util
+  - libxcb
+  - xorgproto
   host: []
   runtime: []
 configure_flags:

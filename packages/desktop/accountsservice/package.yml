@@ -16,5 +16,6 @@ dependencies:
   - vala
   - glib2
   - systemd
+  - dbus
   host: []
   runtime: []

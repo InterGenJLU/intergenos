@@ -15,5 +15,6 @@ dependencies:
   - libevdev
   - libwacom
   - mtdev
+  - systemd
   host: []
   runtime: []

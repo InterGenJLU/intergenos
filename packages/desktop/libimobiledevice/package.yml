@@ -13,6 +13,9 @@ source:
 dependencies:
   build:
   - libtatsu
+  - libimobiledevice-glue
+  - libplist
+  - libusbmuxd
   host: []
   runtime:
   - libplist

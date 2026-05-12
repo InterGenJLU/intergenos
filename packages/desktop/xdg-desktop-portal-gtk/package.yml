@@ -15,5 +15,6 @@ dependencies:
   - gnome-desktop
   - gtk3
   - xdg-desktop-portal
+  - glib2
   host: []
   runtime: []

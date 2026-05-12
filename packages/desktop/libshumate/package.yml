@@ -16,5 +16,7 @@ dependencies:
   - libsoup3
   - protobuf-c
   - glib2
+  - cairo
+  - sqlite
   host: []
   runtime: []

@@ -14,6 +14,7 @@ dependencies:
   build:
   - libSM
   - libXt
+  - libICE
   host: []
   runtime: []
 configure_flags:

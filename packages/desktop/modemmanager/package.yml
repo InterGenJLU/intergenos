@@ -18,5 +18,6 @@ dependencies:
   - polkit
   - vala
   - glib2
+  - dbus
   host: []
   runtime: []

@@ -11,7 +11,9 @@ source:
 - url: https://github.com/libimobiledevice/libusbmuxd/releases/download/${version}/libusbmuxd-${version}.tar.bz2
   sha256: 5546f1aba1c3d1812c2b47d976312d00547d1044b84b6a461323c621f396efce
 dependencies:
-  build: []
+  build:
+  - libimobiledevice-glue
+  - libplist
   host: []
   runtime:
   - libplist

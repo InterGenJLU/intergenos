@@ -16,6 +16,7 @@ dependencies:
   - doxygen
   - meson
   - ninja
+  - python
   host:
   - systemd
   - expat
