@@ -283,6 +283,19 @@ GLIBC_PROVIDED_HEADERS = frozenset({  # noqa: E501
     "sys/prctl.h", "sys/personality.h", "sys/eventfd.h", "sys/signalfd.h",
     "sys/timerfd.h", "sys/inotify.h", "sys/fanotify.h", "sys/epoll.h",
     "sys/auxv.h",
+    "sys/timeb.h", "sys/endian.h", "sys/statfs.h", "sys/mount.h",
+    "sys/xattr.h", "sys/sendfile.h", "sys/vfs.h", "sys/acl.h",
+    "sys/soundcard.h", "sys/swap.h", "sys/quota.h", "sys/reboot.h",
+    "sys/sysctl.h", "sys/user.h", "sys/utsname.h", "sys/ptrace.h",
+    "sys/un.h", "sys/un.h",
+    "crypt.h", "pty.h", "mntent.h", "shadow.h", "libutil.h",
+    "argp.h", "argz.h", "envz.h", "obstack.h", "ifaddrs.h",
+    "mqueue.h", "spawn.h", "stdio_ext.h", "sys/cdefs.h",
+    "sys/io.h",
+    # GCC builtin headers — always present in the build environment
+    "cpuid.h", "xmmintrin.h", "emmintrin.h", "smmintrin.h",
+    "immintrin.h", "x86intrin.h", "stdint.h", "stdarg.h", "stddef.h",
+    "stdbool.h", "iso646.h", "limits.h", "float.h",
     # C89/C99/C11/C17 stdlib
     "assert.h", "ctype.h", "errno.h", "float.h", "inttypes.h", "iso646.h",
     "limits.h", "locale.h", "math.h", "setjmp.h", "signal.h", "stdarg.h",
@@ -329,6 +342,8 @@ BUILTIN_PKG_NAMES = frozenset({
     "Threads", "threads", "PkgConfig", "PythonInterp", "PythonLibs",
     # macOS-only — never satisfied on linux, no dep needed
     "appleframeworks", "AppleFrameworks",
+    # Windows-only meson dependency names
+    "gio-windows-2.0", "windows", "windres",
     # Empty / placeholder values from string-construction in meson
     "", "static", "shared",
 })
@@ -360,53 +375,72 @@ def load_aliases(repo: Path) -> dict:
         return DEFAULT_ALIASES
 
 
-def resolve_pkg_config_name(name: str, aliases: dict, known_pkgs: set[str]) -> str | None:
-    """Map a pkg-config name to our package.yml name. Returns None if unresolved."""
-    # Strip version qualifiers like "= 1.0" or ">= 2.5"
+def _validate_alias_target(target, known_pkgs: set[str]):
+    """Return target unchanged if all its in-tree names exist; None otherwise.
+
+    Catches aliases that point to a package we don't have. Such aliases
+    would otherwise resolve to a phantom package, then emit an
+    UNDECLARED-* finding against a nonexistent dep — bad signal.
+    Multi-provider aliases pass if AT LEAST ONE alternate is in tree.
+    """
+    if target is None:
+        return None
+    if isinstance(target, list):
+        in_tree = [t for t in target if t in known_pkgs or t == "glibc"]
+        return in_tree if in_tree else None
+    if target == "glibc" or target in known_pkgs:
+        return target
+    return None
+
+
+def resolve_pkg_config_name(name: str, aliases: dict, known_pkgs: set[str]):
+    """Map a pkg-config name to our package.yml name (or None / list)."""
     name = re.split(r"[<>=!]", name)[0].strip()
     if not name:
         return None
 
     table = aliases.get("pkg-config", {})
     if name in table:
-        return table[name]
+        return _validate_alias_target(table[name], known_pkgs)
     if name in known_pkgs:
         return name
 
-    # Heuristic transforms
     candidates: list[str] = []
-    # Strip "-N.M" or "-NN" version suffix (e.g. glib-2.0 → glib)
     stripped = re.sub(r"-\d+(\.\d+)*$", "", name)
     if stripped != name:
         candidates.append(stripped)
-    # Replace "+" (gtk+ → gtk)
     if "+" in name:
         candidates.append(name.replace("+", ""))
         if stripped != name:
             candidates.append(stripped.replace("+", ""))
-    # Common "lib" prefix
     if name.startswith("lib"):
         candidates.append(name[3:])
 
     for cand in candidates:
         if cand in table:
-            return table[cand]
+            v = _validate_alias_target(table[cand], known_pkgs)
+            if v is not None:
+                return v
         if cand in known_pkgs:
             return cand
 
     return None
 
 
-def resolve_header_name(header: str, aliases: dict) -> str | None:
+def resolve_header_name(header: str, aliases: dict,
+                        known_pkgs: set[str] | None = None) -> str | None:
     table = aliases.get("header", {})
-    return table.get(header)
+    if header in table:
+        if known_pkgs is None:
+            return table[header]
+        return _validate_alias_target(table[header], known_pkgs)
+    return None
 
 
 def resolve_library_name(libname: str, aliases: dict, known_pkgs: set[str]) -> str | None:
     table = aliases.get("library", {})
     if libname in table:
-        return table[libname]
-    # Heuristic: try lib-name as our pkg name
+        return _validate_alias_target(table[libname], known_pkgs)
     if libname in known_pkgs:
         return libname
     if ("lib" + libname) in known_pkgs:
@@ -417,7 +451,7 @@ def resolve_library_name(libname: str, aliases: dict, known_pkgs: set[str]) -> s
 def resolve_program_name(prog: str, aliases: dict, known_pkgs: set[str]) -> str | None:
     table = aliases.get("program", {})
     if prog in table:
-        return table[prog]
+        return _validate_alias_target(table[prog], known_pkgs)
     if prog in known_pkgs:
         return prog
     return None
@@ -1099,7 +1133,7 @@ def scan_package(pkg_name: str, pkg_info: dict, sources: Path, cache: Path,
         if kind == "pkg-config":
             resolved = resolve_pkg_config_name(raw, aliases, known_pkgs)
         elif kind == "header":
-            resolved = resolve_header_name(raw, aliases)
+            resolved = resolve_header_name(raw, aliases, known_pkgs)
         elif kind == "library":
             resolved = resolve_library_name(raw, aliases, known_pkgs)
         elif kind == "program":
