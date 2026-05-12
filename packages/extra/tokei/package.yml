@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
   - url: https://github.com/XAMPPRocky/tokei/archive/v12.1.2/tokei-12.1.2.tar.gz
-    sha256: 0000000000000000000000000000000000000000000000000000000000000000
+    sha256: 81ef14ab8eaa70a68249a299f26f26eba22f342fb8e22fca463b08080f436e50
 build_artifacts:
   - name: tokei-12.1.2-vendor.tar.xz
     generated_by: cargo-vendor

@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
   - url: https://github.com/dbrgn/tealdeer/archive/v1.6.1/tealdeer-1.6.1.tar.gz
-    sha256: 0000000000000000000000000000000000000000000000000000000000000000
+    sha256: d42db25a56a72faec173c86192656c5381281dc197171f385fccffd518930430
 build_artifacts:
   - name: tealdeer-1.6.1-vendor.tar.xz
     generated_by: cargo-vendor

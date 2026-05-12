@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
   - url: https://github.com/gohugoio/hugo/archive/v0.125.4/hugo-0.125.4.tar.gz
-    sha256: 0000000000000000000000000000000000000000000000000000000000000000
+    sha256: 69837126d7bbe720f09c35fc1fed4f525b982b675d779ff2b18946d2e6a1ac87
 build_artifacts:
   - name: hugo-0.125.4-vendor.tar.xz
     generated_by: go-vendor

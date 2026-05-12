@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
   - url: https://github.com/pemistahl/grex/archive/v1.4.5/grex-1.4.5.tar.gz
-    sha256: 0000000000000000000000000000000000000000000000000000000000000000
+    sha256: 4e849b29b387afc583856f24923b76052ad90e320c2caacfc6452e6d9deb6b14
 build_artifacts:
   - name: grex-1.4.5-vendor.tar.xz
     generated_by: cargo-vendor

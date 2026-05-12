@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
   - url: https://github.com/eza-community/eza/archive/v0.18.11/eza-0.18.11.tar.gz
-    sha256: 0000000000000000000000000000000000000000000000000000000000000000
+    sha256: 92d810c36ac67038e2ed3c421087de8793eb0b9de332c9239096df9d52eb30e3
 build_artifacts:
   - name: eza-0.18.11-vendor.tar.xz
     generated_by: cargo-vendor
