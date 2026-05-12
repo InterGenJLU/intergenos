@@ -7,6 +7,9 @@ homepage: https://cryptography.io/
 source:
 - url: https://pypi.org/packages/source/c/cryptography/cryptography-${version}.tar.gz
   sha256: cd4e834f340b4293430701e772ec543b0fbe6c2dea510a5286fe0acabe153a02
+build_artifacts:
+- name: cryptography-${version}-vendor.tar.xz
+  generated_by: cargo-vendor
 dependencies:
   build:
   - openssl
