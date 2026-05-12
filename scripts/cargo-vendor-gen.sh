@@ -43,13 +43,23 @@ SOURCE_EPOCH="${SOURCE_DATE_EPOCH:-0}"
 KEEP_WORK="${KEEP_WORK:-0}"
 
 WORK_DIR=""
+CARGO_LOCK_PATH=""
 
 usage() {
     cat >&2 <<EOF
-Usage: ${SCRIPT_NAME} <pkg-name> <version> <source-url-or-path>
+Usage: ${SCRIPT_NAME} [--cargo-lock <path>] <pkg-name> <version> <source-url-or-path>
 
 Generates a reproducible vendor tarball + Cargo.lock for a Rust package.
 Outputs go to \${OUTPUT_DIR} (default: build/vendor-artifacts/).
+
+Options:
+  --cargo-lock <path>  Inject this Cargo.lock into the project root before vendoring,
+                       overriding any upstream-shipped lockfile. Use this to pin a
+                       previously-emitted side-artifact for byte-reproducible re-runs
+                       (closes the lockfile-non-determinism gap for upstream-lacks-lock
+                       packages like cargo-c). The injected lockfile must be compatible
+                       with the upstream Cargo.toml (cargo vendor --locked will fail
+                       loudly if it isn't).
 
 Arguments:
   pkg-name             Package name (matches package.yml 'name:' field)
@@ -61,8 +71,12 @@ Environment:
   SOURCE_DATE_EPOCH    Mtime for tar entries (default: 0; commit timestamp recommended)
   KEEP_WORK            Set to 1 to retain extracted work tree for inspection
 
-Example:
+Examples:
   ${SCRIPT_NAME} cargo-c 0.10.20 \\
+    https://github.com/lu-zero/cargo-c/archive/v0.10.20/cargo-c-0.10.20.tar.gz
+
+  ${SCRIPT_NAME} --cargo-lock build/vendor-artifacts/cargo-c-0.10.20-Cargo.lock \\
+    cargo-c 0.10.20 \\
     https://github.com/lu-zero/cargo-c/archive/v0.10.20/cargo-c-0.10.20.tar.gz
 EOF
     exit 2
@@ -83,10 +97,40 @@ cleanup() {
 trap cleanup EXIT
 
 # ---------- args + preflight ----------
+# Parse options first, then 3 positional args.
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --cargo-lock)
+            [ "$#" -ge 2 ] || die "--cargo-lock requires a <path> argument"
+            CARGO_LOCK_PATH="$2"
+            shift 2
+            ;;
+        --help|-h)
+            usage
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            die "unknown option: $1 (try --help)"
+            ;;
+        *)
+            break  # positional args
+            ;;
+    esac
+done
+
 [ "$#" -eq 3 ] || usage
 PKG_NAME="$1"
 PKG_VERSION="$2"
 SOURCE_ARG="$3"
+
+# Resolve --cargo-lock to absolute path (cwd changes later) + verify file exists.
+if [ -n "$CARGO_LOCK_PATH" ]; then
+    [ -f "$CARGO_LOCK_PATH" ] || die "--cargo-lock path not a file: $CARGO_LOCK_PATH"
+    CARGO_LOCK_PATH="$(cd "$(dirname "$CARGO_LOCK_PATH")" && pwd)/$(basename "$CARGO_LOCK_PATH")"
+fi
 
 # Validate identifier shape (matches package.yml conventions)
 [[ "$PKG_NAME"    =~ ^[a-zA-Z0-9][a-zA-Z0-9._+-]*$ ]] || die "invalid pkg-name: $PKG_NAME"
@@ -148,11 +192,19 @@ log "project root: $PROJECT_ROOT"
 # ---------- 3. Cargo.lock handling ----------
 LOCK_FILE="$PROJECT_ROOT/Cargo.lock"
 LOCK_ORIGIN="upstream"
-if [ ! -f "$LOCK_FILE" ]; then
+
+if [ -n "$CARGO_LOCK_PATH" ]; then
+    # --cargo-lock injection: override any upstream-shipped lockfile with the
+    # provided one. The injection lets a maintainer pin a previously-emitted
+    # side-artifact for byte-reproducible re-runs.
+    log "injecting --cargo-lock: $CARGO_LOCK_PATH"
+    cp "$CARGO_LOCK_PATH" "$LOCK_FILE"
+    LOCK_ORIGIN="injected"
+elif [ ! -f "$LOCK_FILE" ]; then
     log "Cargo.lock absent from upstream — generating with: cargo generate-lockfile"
     log "  NOTE: generated lockfiles are NON-deterministic (resolves to latest compatible)."
-    log "  For reproducible re-generation, pin Cargo.toml dependencies tightly upstream OR"
-    log "  preserve this Cargo.lock as a side artifact alongside vendor.tar.xz."
+    log "  For reproducible re-generation, preserve this side-artifact + pass it back"
+    log "  on the next run via --cargo-lock <path>."
     (cd "$PROJECT_ROOT" && cargo generate-lockfile) >&2 \
         || die "cargo generate-lockfile failed"
     LOCK_ORIGIN="generated"
