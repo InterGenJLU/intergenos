@@ -19,6 +19,9 @@ dependencies:
     - shadow
     - systemd
     - libtirpc
+    - docbook-xml
+    - docbook-xsl-nons
+    - libxslt
   host: []
   runtime: []
 
