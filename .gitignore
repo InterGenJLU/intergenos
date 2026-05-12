@@ -8,6 +8,7 @@ build/packages/
 build/logs/
 build/checkpoints/
 build/sources/
+build/vendor-artifacts/
 build/archive/
 build/*.db
 *.iso
