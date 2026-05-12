@@ -93,6 +93,24 @@ The repository index (`InterGenOS.db`) and its detached GPG signature (`InterGen
 
 ## Procedure
 
+### Step 0 — Dry-run on synthetic fixture
+
+Before signing or pushing anything real, rehearse the full sign + emit + index chain against synthetic data using throwaway test GPG keys. This validates the tooling chain end-to-end without touching the production signing key, the mirror, or `pkm/release-keys.json`.
+
+```
+bash scripts/dry-run-first-publish.sh
+```
+
+The script generates a throwaway `TESTING-DO-NOT-TRUST` keyring, produces a synthetic archive fixture, runs `generate-repodb.py` against it, signs with the test key, and verifies the GPG signature + `pkm.repo.RepoIndex` parse roundtrip. Expected outcome: exit 0 with `dry-run-report.md` summarising 6/6 checks PASS. No rsync, no origin push, no real key material touched.
+
+If exit is non-zero or any check fails, **halt** before proceeding to Step 1. Triage off `dry-run-report.md` against the tool-chain delta since the last successful dry-run; do not attempt a real-key sign run against a chain that fails on synthetic fixtures. Defense-in-depth at the rehearsal layer is what blocks first-publish surprises from costing real-key signatures.
+
+If Step 1 has already produced a staged archives directory and you want to dry-run against the staged set rather than the synthetic fixture, pass `--archives-dir`:
+
+```
+bash scripts/dry-run-first-publish.sh --archives-dir "$HOST_STAGING/unsigned"
+```
+
 ### Step 1 — Stage Build #9 archives out of the chroot
 
 Build output sits inside the chroot at `/var/lib/igos/archives/`. Stage it out to a clean host directory so the rest of the procedure operates on a stable artifact set that is decoupled from build-chroot lifecycle:
@@ -346,6 +364,7 @@ If the mirror is unreachable for reasons outside the orchestrator's control (ori
 - [`scripts/generate-repodb.py`](../../scripts/generate-repodb.py) — index emitter
 - [`scripts/emit-package-archives.py`](../../scripts/emit-package-archives.py) — per-package archive emitter (build-pipeline integration is the open item between this script and Step 1)
 - [`scripts/check-manifest-signature.sh`](../../scripts/check-manifest-signature.sh) — full Q14-style manifest precheck
+- [`scripts/dry-run-first-publish.sh`](../../scripts/dry-run-first-publish.sh) — pre-publish synthetic-fixture rehearsal (Step 0)
 - [`SECURITY.md`](../../SECURITY.md) — trust-anchor compromise response policy
 
 ## Appendix A — First-launch-only notes
@@ -372,6 +391,7 @@ See the "Open question for first run" note in [Mirror Layout](#mirror-layout). T
 
 A condensed, single-page form of the procedure for use on the publish day. Run the full Prerequisites + Procedure + Validation top-to-bottom; this checklist is a final-pass sanity sweep, not a substitute.
 
+- [ ] **Step 0:** `bash scripts/dry-run-first-publish.sh` — exit 0, `dry-run-report.md` 6/6 PASS
 - [ ] Build complete; archives at `/var/lib/igos/archives/`; manifest emitted
 - [ ] Hardware token plugged + PIN unlocked; `gpg --card-status` lists card; `pkcs11-tool` lists PIV
 - [ ] `INTERGENOS_GPG_KEY_ID` + `INTERGENOS_PKCS11_URI` exported; master-cosign env var set if tagged release
