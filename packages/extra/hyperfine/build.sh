@@ -8,7 +8,7 @@ configure() {
 
 build() {
     set -e
-    cargo build --release
+    cargo build --release --frozen --offline
 }
 
 do_install() {
