@@ -52,7 +52,7 @@ configure() {
         -D gnutls=enabled                   \
         -D libarchive=enabled               \
         -D libcurl=enabled                  \
-        -D bash-completion=true             \
+        -D bashcompletiondir=/usr/share/bash-completion/completions \
         -D docdir=/usr/share/doc/systemd-259.1
 }
 
