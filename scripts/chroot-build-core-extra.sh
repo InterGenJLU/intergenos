@@ -134,6 +134,10 @@ build_core_package() {
     # Clear any previously-defined functions
     unset -f configure build check do_install post_install
 
+    # Refresh env from /etc/profile.d/*.sh so packages installed earlier in
+    # this phase (rust → /opt/rustc/bin via rustc.sh, etc.) are on PATH.
+    source_profile_d
+
     # Source the package build script
     source "$build_script"
 

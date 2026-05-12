@@ -74,6 +74,9 @@ build_ch10_package() {
     local start=$(date +%s)
 
     unset -f configure build check do_install post_install
+    # Refresh env from /etc/profile.d/*.sh so packages installed earlier in
+    # this phase (rust → /opt/rustc/bin via rustc.sh, etc.) are on PATH.
+    source_profile_d
     source "$build_script"
 
     # --- CONFIGURE ---

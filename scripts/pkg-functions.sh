@@ -25,6 +25,32 @@ IGOS_PKG_ARCHIVES="/var/lib/igos/archives"
 IGOS_PKG_STAGING="/tmp/igos-staging"
 
 # ============================================================================
+# Environment refresh — /etc/profile.d/*.sh
+# ============================================================================
+
+# Source every /etc/profile.d/*.sh in the chroot. Login shells do this via
+# /etc/profile; the build pipeline runs commands as non-interactive bash and
+# would otherwise miss PATH augmentations from BLFS-style installs that put
+# their binaries under /opt/<tool>/bin and rely on profile.d to expose them.
+#
+# Originally surfaced by Build #9 resume #8 cargo-c halt (cargo: command not
+# found at exit 127): rust installed cargo to /opt/rustc-1.95.0/bin and wrote
+# /etc/profile.d/rustc.sh to extend PATH, but cargo-c's build.sh — running in
+# a fresh non-interactive subshell — never saw the PATH extension. Same gap
+# would bite future tools (java, go, other /opt/<x>/bin installs).
+#
+# Call this from each phase script's run_package right before sourcing the
+# package's build.sh. Idempotent; safe to call repeatedly.
+source_profile_d() {
+    if [ -d /etc/profile.d ]; then
+        local f
+        for f in /etc/profile.d/*.sh; do
+            [ -f "$f" ] && . "$f"
+        done
+    fi
+}
+
+# ============================================================================
 # Source integrity verification
 # ============================================================================
 

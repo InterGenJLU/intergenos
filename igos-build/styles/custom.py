@@ -25,11 +25,17 @@ class CustomStyle(BuildStyle):
         )
 
     # pkg-functions.sh defines pkg_run_tests (test-allow-list policy wrapper),
-    # verify_source_checksum, etc. — sourced into every phase shell so package
-    # build.sh files can call them. chroot-build-ch8.sh and core-extra source
-    # this at top; Python builder must do the same. Halt #4 (Build #6, cpio
-    # 2.15 [CHECK] exit 127) was the symptom of this gap.
-    _PKG_FUNCS = "source /mnt/intergenos/scripts/pkg-functions.sh && "
+    # verify_source_checksum, source_profile_d, etc. — sourced into every phase
+    # shell so package build.sh files can call them. chroot-build-ch8.sh and
+    # core-extra source this at top; Python builder must do the same. Halt #4
+    # (Build #6, cpio 2.15 [CHECK] exit 127) was the symptom of this gap.
+    #
+    # source_profile_d after sourcing pkg-functions.sh refreshes PATH from
+    # /etc/profile.d/*.sh so packages like rust (installs cargo to
+    # /opt/rustc/bin via /etc/profile.d/rustc.sh) are visible to subsequent
+    # builds. Build #9 resume #8 cargo-c halt (exit 127 "cargo: command not
+    # found") was the symptom of this gap.
+    _PKG_FUNCS = "source /mnt/intergenos/scripts/pkg-functions.sh && source_profile_d && "
 
     def configure(self, pkg: Package) -> BuildPhase:
         script = self._build_sh_path(pkg)
