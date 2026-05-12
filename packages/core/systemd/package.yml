@@ -12,6 +12,7 @@ dependencies:
   build:
     - meson
     - ninja
+    - gperf
   host:
   - jinja2
   - pyelftools
@@ -23,6 +24,9 @@ dependencies:
   - acl
   - expat
   runtime: []
+# gperf added 2026-05-12 (Scan A.2): meson.build:620 requires `gperf`
+# program at configure time. Was transitively present from ch8 (gperf @
+# ch8:452); declaring per real upstream requirement.
 tier: core
 build_style: meson
 

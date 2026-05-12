@@ -13,6 +13,10 @@ source:
 - url: https://0pointer.de/public/libatasmart-${version}.tar.xz
   sha256: 61f0ea345f63d28ab2ff0dc352c22271661b66bf09642db3a4049ac9dbdb0f8d
 dependencies:
-  build: []
+  build:
+  - systemd
   host: []
   runtime: []
+# systemd added 2026-05-12 (Scan A.2): configure.ac:106 requires libudev
+# (provided by systemd). Was transitively present from ch8 (systemd @
+# ch8:648); declaring per real upstream requirement.

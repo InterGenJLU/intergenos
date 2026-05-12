@@ -15,10 +15,14 @@ source:
 dependencies:
   build:
     - glib2-bootstrap
+    - libffi
     - meson
     - ninja
   host: []
   runtime: []
+# libffi added 2026-05-12 (Scan A.2): meson.build:179 requires libffi for
+# girepository's runtime invocation glue. Was transitively present from
+# ch8 (libffi @ ch8:504); declaring per real upstream requirement.
 # First pass of the 2-pass gobject-introspection build. Builds against
 # glib2-bootstrap; provides g-ir-scanner / g-ir-compiler / libgirepository
 # for the full glib2 build (tier:core) to enable introspection.

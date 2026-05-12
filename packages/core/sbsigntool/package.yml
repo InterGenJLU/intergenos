@@ -24,8 +24,13 @@ dependencies:
   - gnu-efi
   - efitools
   - help2man
+  - util-linux-core
   host: []
   runtime: []
+# util-linux-core added 2026-05-12 (Scan A.2): configure.ac:65 requires
+# uuid (libuuid provided by util-linux-core). Was transitively present
+# from ch8 (util-linux-core @ ch8:668); declaring per real upstream
+# requirement.
 bundled_deps:
 - ccan-b35fabb -> lib/ccan.git
 configure_flags:

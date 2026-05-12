@@ -23,8 +23,17 @@ dependencies:
   - libpsl
   - nss
   - libnvme
+  - util-linux-core
+  - dbus
+  - perl-core
   host: []
   runtime: []
+# util-linux-core, dbus, perl-core added 2026-05-12 (Scan A.2):
+# - meson.build:287 dependency('uuid')   → util-linux-core provides libuuid
+# - meson.build:290 dependency('dbus-1') → dbus
+# - meson.build:117 find_program('perl') → perl-core
+# All transitively present from ch8 builds; declaring per real upstream
+# requirement.
 # First pass of the 2-pass NetworkManager build. System networking
 # essentials only — no iptables/polkit/bluez/pygobject3/vala/upower/newt
 # integrations (those are tier:desktop). Provides enough NM to bring up

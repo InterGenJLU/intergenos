@@ -10,10 +10,15 @@ dependencies:
   build:
     - meson
     - ninja
+    - python
   host:
   - systemd
   - expat
   runtime: []
+# python added 2026-05-12 (Scan A.2): meson.build:87 requires `python3`
+# program at configure time. Was transitively present in chroot from
+# earlier ch8 builds (python @ ch8:516); declaring per real upstream
+# requirement.
 tier: core
 build_style: meson
 install_func: do_install
