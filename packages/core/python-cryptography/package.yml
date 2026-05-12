@@ -1,0 +1,25 @@
+name: python-cryptography
+version: "44.0.0"
+release: 1
+description: Python cryptographic recipes and primitives
+license: Apache-2.0 OR BSD-3-Clause
+homepage: https://cryptography.io/
+source:
+- url: https://pypi.org/packages/source/c/cryptography/cryptography-${version}.tar.gz
+  sha256: cd4049e6cf6e7b4b2c509f40e4d4e7b1ae3d63aacc8c70d77f6f3f6c3ba8a16e
+dependencies:
+  build:
+  - openssl
+  - rust
+  - cffi
+  - setuptools-rust
+  host:
+  - setuptools
+  - wheel
+  runtime: []
+tier: core
+build_style: custom
+# Python cryptography package. Has Rust extensions via pyo3/maturin built
+# against OpenSSL. Required at systemd-pass2 build time for the ukify tool
+# (Unified Kernel Image generator + signer). Without cryptography, ukify
+# is disabled.

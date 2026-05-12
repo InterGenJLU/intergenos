@@ -282,9 +282,9 @@ run_package "iotop" "iotop" "1.31" \
     "iotop-1.31.tar.xz" \
     "I/O monitoring tool"
 
-run_package "libtirpc" "libtirpc" "1.3.7" \
-    "libtirpc-1.3.7.tar.bz2" \
-    "Transport-Independent RPC library"
+# libtirpc moved to tier:core (chroot-build-core-extra.sh) 2026-05-11
+# Reason: it's a system library for PAM's RPC backend, not a CLI tool.
+# Original location here was a tier misclassification.
 
 run_package "pax" "pax" "20240817" \
     "paxmirabilis-20240817.tgz" \

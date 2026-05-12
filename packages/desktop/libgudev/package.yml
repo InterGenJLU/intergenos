@@ -13,6 +13,6 @@ source:
 dependencies:
   build:
   - glib2
-  - vala
+  - vala-pass1
   host: []
   runtime: []

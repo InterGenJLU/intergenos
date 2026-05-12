@@ -21,29 +21,38 @@ configure() {
     mkdir -p build
     cd       build
 
-    meson setup ..                \
-        --prefix=/usr             \
-        --libdir=/usr/lib         \
-        --buildtype=release       \
-        -D default-dnssec=no      \
-        -D firstboot=false        \
-        -D install-tests=false    \
-        -D ldconfig=false         \
-        -D sysusers=false         \
-        -D rpmmacrosdir=no        \
-        -D homed=disabled         \
-        -D man=disabled           \
-        -D mode=release           \
-        -D pam=enabled            \
-        -D pamconfdir=/etc/pam.d  \
-        -D dev-kvm-mode=0660      \
-        -D nobody-group=nogroup   \
-        -D sysupdate=disabled     \
-        -D ukify=disabled         \
-        -D apparmor=enabled       \
-        -D tpm2=enabled           \
-        -D libfido2=enabled       \
-        -D xkbcommon=enabled      \
+    meson setup ..                          \
+        --prefix=/usr                       \
+        --libdir=/usr/lib                   \
+        --buildtype=release                 \
+        -D default-dnssec=allow-downgrade   \
+        -D firstboot=false                  \
+        -D install-tests=false              \
+        -D ldconfig=false                   \
+        -D sysusers=false                   \
+        -D rpmmacrosdir=/usr/lib/rpm/macros.d \
+        -D homed=enabled                    \
+        -D man=enabled                      \
+        -D mode=release                     \
+        -D pam=enabled                      \
+        -D pamconfdir=/etc/pam.d            \
+        -D dev-kvm-mode=0660                \
+        -D nobody-group=nogroup             \
+        -D sysupdate=enabled                \
+        -D ukify=enabled                    \
+        -D apparmor=enabled                 \
+        -D tpm2=enabled                     \
+        -D libfido2=enabled                 \
+        -D xkbcommon=enabled                \
+        -D seccomp=enabled                  \
+        -D libcryptsetup=enabled            \
+        -D idn=true                         \
+        -D qrencode=enabled                 \
+        -D gcrypt=enabled                   \
+        -D gnutls=enabled                   \
+        -D libarchive=enabled               \
+        -D libcurl=enabled                  \
+        -D bash-completion=true             \
         -D docdir=/usr/share/doc/systemd-259.1
 }
 

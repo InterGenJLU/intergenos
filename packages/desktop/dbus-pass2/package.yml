@@ -1,0 +1,28 @@
+name: dbus-pass2
+version: "1.16.2"
+release: 1
+description: Message bus system (pass 2 — rebuild with doxygen API docs)
+license: AFL-2.1 OR GPL-2.0-or-later
+homepage: https://www.freedesktop.org/wiki/Software/dbus/
+tier: desktop
+build_style: meson
+install_func: do_install
+direct_install: true
+source:
+- url: https://dbus.freedesktop.org/releases/dbus/dbus-${version}.tar.xz
+  sha256: 0ba2a1a4b16afe7bceb2c07e9ce99a8c2c3508e5dec290dbb643384bd6beb7e2
+dependencies:
+  build:
+  - doxygen
+  - meson
+  - ninja
+  host:
+  - systemd
+  - expat
+  runtime: []
+supersedes:
+  - dbus
+# Pass 2 of the 2-pass dbus build. Pass 1 (tier:core, ch8) is the
+# message bus + libdbus runtime built without doxygen because doxygen
+# (tier:desktop) is not available at ch8 build time. This pass rebuilds
+# with doxygen present so HTML API documentation is generated.

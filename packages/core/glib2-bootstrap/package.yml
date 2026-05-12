@@ -16,5 +16,9 @@ dependencies:
   build:
     - meson
     - ninja
+    - libxml2
+    - libxslt
+    - docbook-xml
+    - docbook-xsl-nons
   host: []
   runtime: []

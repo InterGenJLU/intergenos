@@ -17,5 +17,9 @@ dependencies:
     - gobject-introspection-pass1
     - meson
     - ninja
+    - libxml2
+    - libxslt
+    - docbook-xml
+    - docbook-xsl-nons
   host: []
   runtime: []

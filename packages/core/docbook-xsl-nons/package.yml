@@ -18,6 +18,7 @@ dependencies:
   - docbook-xml
   - libxml2
   - libxslt
-  - ruby
   host: []
   runtime: []
+# ruby removed 2026-05-11: docbook-xsl-nons is data-only (cp + xmlcatalog).
+# No ruby usage anywhere in build.sh. Stale declared dep, not a real dep.

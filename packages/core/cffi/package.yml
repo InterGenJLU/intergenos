@@ -1,0 +1,21 @@
+name: cffi
+version: "1.17.1"
+release: 1
+description: Foreign Function Interface for Python calling C code
+license: MIT
+homepage: https://cffi.readthedocs.io/
+source:
+- url: https://pypi.org/packages/source/c/cffi/cffi-${version}.tar.gz
+  sha256: 1c39c6016c32bc48dd54561950ebd6836e1670f2ae46128f67cf49e789c52824
+dependencies:
+  build:
+  - libffi
+  host:
+  - setuptools
+  - wheel
+  - pycparser
+  runtime: []
+tier: core
+build_style: custom
+# Python C FFI library. Required by python-cryptography (which is required
+# by systemd-pass2's ukify tool).

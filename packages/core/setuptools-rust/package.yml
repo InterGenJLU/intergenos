@@ -1,0 +1,21 @@
+name: setuptools-rust
+version: "1.10.2"
+release: 1
+description: Setuptools Rust extension plugin
+license: MIT
+homepage: https://github.com/PyO3/setuptools-rust
+source:
+- url: https://pypi.org/packages/source/s/setuptools-rust/setuptools_rust-${version}.tar.gz
+  sha256: e7c4c79b67f76b6e4f6d04eccf4eddcd23faa0cbcd91d2ca0b76ec01ee9a7e96
+dependencies:
+  build: []
+  host:
+  - setuptools
+  - setuptools-scm
+  - wheel
+  runtime: []
+tier: core
+build_style: custom
+# Setuptools plugin for building Rust extensions. Required by
+# python-cryptography (whose backends are written in Rust via PyO3) for
+# systemd-pass2's ukify tool.

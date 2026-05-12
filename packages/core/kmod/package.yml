@@ -10,6 +10,7 @@ dependencies:
   build:
     - meson
     - ninja
+    - bash-completion
   host:
   - openssl
   - xz

@@ -17,5 +17,6 @@ dependencies:
     - libtasn1
     - meson
     - ninja
+    - bash-completion
   host: []
   runtime: []

@@ -1,0 +1,19 @@
+name: pycparser
+version: "2.22"
+release: 1
+description: C parser in Python
+license: BSD-3-Clause
+homepage: https://github.com/eliben/pycparser
+source:
+- url: https://pypi.org/packages/source/p/pycparser/pycparser-${version}.tar.gz
+  sha256: 491c8be9c040f5390a5bf44a5b07f4ff09e21e896b58fc40f44bf9da32c14a76
+dependencies:
+  build: []
+  host:
+  - setuptools
+  - wheel
+  runtime: []
+tier: core
+build_style: custom
+# Pure-Python C parser. Required by cffi (which is required by
+# python-cryptography for systemd-pass2's ukify tool).

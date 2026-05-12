@@ -4,7 +4,7 @@ release: 1
 description: Transport-Independent RPC library
 license: BSD-3-Clause
 homepage: https://sourceforge.net/projects/libtirpc/
-tier: base
+tier: core
 build_style: autotools
 
 source:
@@ -12,10 +12,12 @@ source:
     sha256: b47d3ac19d3549e54a05d0019a6c400674da716123858cfdb6d3bdd70a66c702
 
 dependencies:
-  build:
-  - mitkrb
+  build: []
   host: []
   runtime: []
+# mitkrb removed 2026-05-11: libtirpc's build.sh passes --disable-gssapi
+# so Kerberos integration is not built. The declared mitkrb dep was a
+# stale BLFS-optional-listing artifact, not a real dep.
 
 configure_flags:
   - "--prefix=/usr"

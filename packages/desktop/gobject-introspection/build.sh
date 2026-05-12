@@ -1,17 +1,19 @@
 #!/bin/bash
-# gobject-introspection 1.86.0 — GObject type introspection
-# Builds against glib2-bootstrap, provides g-ir-scanner for full glib2 build
-# BLFS 13.0
+# gobject-introspection 1.86.0 — GObject typeinfo (full with cairo)
+# Pass 2 of the 2-pass build. Rebuilds with -Dcairo=enabled and
+# -Ddoctool=enabled now that cairo is available in tier:desktop.
+# Supersedes the pass 1 build at install time.
 
 configure() {
     set -e
     mkdir -p build
-    cd    build
-
+    cd build
     meson setup ..            \
           --prefix=/usr       \
           --libdir=/usr/lib   \
-          --buildtype=release
+          --buildtype=release \
+          -Dcairo=enabled     \
+          -Ddoctool=enabled
 }
 
 build() {

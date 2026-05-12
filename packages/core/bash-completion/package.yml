@@ -4,7 +4,7 @@ release: 1
 description: Programmable tab-completion for Bash
 license: GPL-2.0-or-later
 homepage: https://github.com/scop/bash-completion
-tier: desktop
+tier: core
 build_style: autotools
 install_func: do_install
 source:

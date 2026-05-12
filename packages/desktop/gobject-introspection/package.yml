@@ -1,21 +1,30 @@
 name: gobject-introspection
 version: "1.86.0"
 release: 1
-description: GObject type introspection framework
+description: GObject type introspection framework (full — with cairo + doctool)
 license: LGPL-2.0-or-later
 homepage: https://gi.readthedocs.io/
 tier: desktop
 build_style: custom
 install_func: do_install
-
+direct_install: true
 source:
-  - url: https://download.gnome.org/sources/gobject-introspection/1.86/gobject-introspection-${version}.tar.xz
-    sha256: 920d1a3fcedeadc32acff95c2e203b319039dd4b4a08dd1a2dfd283d19c0b9ae
-
+- url: https://download.gnome.org/sources/gobject-introspection/1.86/gobject-introspection-${version}.tar.xz
+  sha256: 920d1a3fcedeadc32acff95c2e203b319039dd4b4a08dd1a2dfd283d19c0b9ae
 dependencies:
   build:
-    - glib2-bootstrap
-    - meson
-    - ninja
+  - glib2
+  - cairo
+  - meson
+  - ninja
+  - python
+  - libffi
   host: []
   runtime: []
+supersedes:
+  - gobject-introspection-pass1
+# Pass 2 of the 2-pass gobject-introspection build. Pass 1 (tier:core)
+# is built without cairo + doctool because cairo lives in tier:desktop.
+# This pass rebuilds with cairo enabled so cairo .typelib bindings are
+# available to GNOME applications. Supersedes pass1 at install time via
+# migrate-pkm-supersedes.sh.

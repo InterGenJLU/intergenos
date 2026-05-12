@@ -15,15 +15,24 @@ dependencies:
   build:
   - linux-pam
   - polkit
-  - apparmor       # LSM enforcement. Security-critical. Build #5 audit:
-                   # missing from deps → systemd built without libapparmor
-                   # → AppArmor profiles cannot load.
-  - tpm2-tss       # systemd-cryptenroll --tpm2-device, pcrlock, measured boot.
-                   # Security-critical. Build #5 audit: not in package set.
-  - libfido2       # systemd-cryptenroll --fido2-device + LUKS unlock.
-                   # Security-critical. Build #5 audit: not in package set.
-  - libxkbcommon   # vconsole keymap support. Build #5 audit: built after
-                   # systemd-pass2 → vconsole keymap broken.
+  - apparmor          # LSM enforcement. Security-critical.
+  - tpm2-tss          # systemd-cryptenroll --tpm2-device, pcrlock, measured boot.
+  - libfido2          # systemd-cryptenroll --fido2-device + LUKS unlock.
+  - libxkbcommon      # vconsole keymap support.
+  - libseccomp        # syscall-filter sandboxing for systemd services.
+  - libcryptsetup     # systemd-homed + systemd-cryptsetup LUKS support.
+  - libidn2           # IDN handling in systemd-resolved.
+  - libqrencode       # QR-code keyfile recovery for systemd-cryptsetup.
+  - libgcrypt         # cryptographic primitives for resolved/journal.
+  - gnutls            # HTTPS endpoints in systemd-networkd.
+  - libarchive        # container image extraction in systemd-importd.
+  - curl              # systemd-importd, systemd-machined fetchers.
+  - bash-completion   # shell completion for systemctl/journalctl/etc.
+  - python-pefile     # required for ukify (Unified Kernel Image builder).
+  - python-cryptography  # required for ukify signing.
+  - rpm               # systemd-sysupdate rpmmacrosdir integration.
+  - git               # systemd build-tooling probes for git.
+  - rsync             # systemd build-tooling probes for rsync.
   host: []
   runtime: []
 

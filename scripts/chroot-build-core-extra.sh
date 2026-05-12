@@ -291,6 +291,14 @@ run_package "libarchive" "libarchive" "3.8.6" \
     "libarchive-3.8.6.tar.xz" \
     "Multi-format archive and compression library"
 
+run_package "icu" "icu" "78.2" \
+    "icu4c-78.2-sources.tgz" \
+    "International Components for Unicode"
+
+run_package "libxml2" "libxml2" "2.15.1" \
+    "libxml2-2.15.1.tar.xz" \
+    "XML parsing library"
+
 run_package "nghttp2" "nghttp2" "1.68.1" \
     "nghttp2-1.68.1.tar.xz" \
     "HTTP/2 C library"
@@ -300,6 +308,10 @@ run_package "nspr" "nspr" "4.38.2" \
     "Netscape Portable Runtime"
 
 # --- Group C: PAM + sudo ---
+
+run_package "libtirpc" "libtirpc" "1.3.7" \
+    "libtirpc-1.3.7.tar.bz2" \
+    "Transport-Independent RPC library"
 
 run_package "linux-pam" "linux-pam" "1.7.2" \
     "Linux-PAM-1.7.2.tar.xz" \
@@ -319,6 +331,26 @@ run_package "openssh" "openssh" "10.2p1" \
 # Three separate packages break the circular dependency:
 #   glib2-bootstrap (no introspection) → gobject-introspection → glib2 (full)
 # Each is a standard DESTDIR build. No hacks needed.
+
+run_package "libgpg-error" "libgpg-error" "1.59" \
+    "libgpg-error-1.59.tar.bz2" \
+    "GPG error code library"
+
+run_package "libgcrypt" "libgcrypt" "1.12.0" \
+    "libgcrypt-1.12.0.tar.bz2" \
+    "General purpose cryptographic library"
+
+run_package "docbook-xml" "docbook-xml" "4.5" \
+    "docbook-xml-4.5.zip" \
+    "DocBook XML DTD"
+
+run_package "libxslt" "libxslt" "1.1.45" \
+    "libxslt-1.1.45.tar.xz" \
+    "XSLT processor library"
+
+run_package "docbook-xsl-nons" "docbook-xsl-nons" "1.79.2" \
+    "docbook-xsl-nons-1.79.2.tar.bz2" \
+    "DocBook XSL stylesheets"
 
 run_package "glib2-bootstrap" "glib2-bootstrap" "2.88.1" \
     "glib-2.88.1.tar.xz" \
@@ -533,10 +565,6 @@ run_package "highway" "highway" "1.3.0" \
     "highway-1.3.0.tar.gz" \
     "Performance-portable SIMD/vector intrinsics library"
 
-run_package "icu" "icu" "78.2" \
-    "icu4c-78.2-sources.tgz" \
-    "International Components for Unicode"
-
 run_package "iso-codes" "iso-codes" "4.20.1" \
     "iso-codes-v4.20.1.tar.gz" \
     "Country, language, and currency code lists"
@@ -565,17 +593,13 @@ run_package "libatasmart" "libatasmart" "0.19" \
     "libatasmart-0.19.tar.xz" \
     "ATA S.M.A.R.T. disk reporting library"
 
-run_package "libgpg-error" "libgpg-error" "1.59" \
-    "libgpg-error-1.59.tar.bz2" \
-    "GPG error code library"
-
 run_package "libassuan" "libassuan" "3.0.2" \
     "libassuan-3.0.2.tar.bz2" \
     "GnuPG IPC library"
 
-run_package "libgcrypt" "libgcrypt" "1.12.0" \
-    "libgcrypt-1.12.0.tar.bz2" \
-    "General purpose cryptographic library"
+run_package "vala-pass1" "vala-pass1" "0.56.18" \
+    "vala-0.56.18.tar.xz" \
+    "Vala compiler (bootstrap — without valadoc/graphviz)"
 
 run_package "libgudev" "libgudev" "238" \
     "libgudev-238.tar.xz" \
@@ -616,18 +640,6 @@ run_package "libusb" "libusb" "1.0.29" \
 run_package "libpcap-pass1" "libpcap-pass1" "1.10.6" \
     "libpcap-1.10.6.tar.xz" \
     "Packet capture library (bootstrap — without Bluetooth capture)"
-
-run_package "libxml2" "libxml2" "2.15.1" \
-    "libxml2-2.15.1.tar.xz" \
-    "XML parsing library"
-
-run_package "docbook-xml" "docbook-xml" "4.5" \
-    "docbook-xml-4.5.zip" \
-    "DocBook XML DTD"
-
-run_package "libxslt" "libxslt" "1.1.45" \
-    "libxslt-1.1.45.tar.xz" \
-    "XSLT processor library"
 
 run_package "libyaml" "libyaml" "0.2.5" \
     "yaml-0.2.5.tar.gz" \
@@ -672,6 +684,10 @@ run_package "nasm" "nasm" "3.01" \
 run_package "nettle" "nettle" "3.10.2" \
     "nettle-3.10.2.tar.gz" \
     "Low-level cryptographic library"
+
+run_package "slang-pass1" "slang-pass1" "2.3.3" \
+    "slang-2.3.3.tar.bz2" \
+    "S-Lang programming library (bootstrap — without PNG image rendering)"
 
 run_package "newt" "newt" "0.52.25" \
     "newt-0.52.25.tar.gz" \
@@ -728,10 +744,6 @@ run_package "cbindgen" "cbindgen" "0.29.2" \
 run_package "ruby" "ruby" "4.0.1" \
     "ruby-4.0.1.tar.xz" \
     "Ruby programming language"
-
-run_package "docbook-xsl-nons" "docbook-xsl-nons" "1.79.2" \
-    "docbook-xsl-nons-1.79.2.tar.bz2" \
-    "DocBook XSL stylesheets"
 
 run_package "cython" "cython" "3.2.4" \
     "cython-3.2.4.tar.gz" \
@@ -796,6 +808,26 @@ run_package "pyyaml-pass2" "pyyaml-pass2" "6.0.3" \
     "pyyaml-6.0.3.tar.gz" \
     "PyYAML (pass 2 — rebuild with Cython/libyaml C extension)"
 
+run_package "pycparser" "pycparser" "2.22" \
+    "pycparser-2.22.tar.gz" \
+    "C parser in Python (for cffi)"
+
+run_package "cffi" "cffi" "1.17.1" \
+    "cffi-1.17.1.tar.gz" \
+    "Python C FFI (for python-cryptography)"
+
+run_package "setuptools-rust" "setuptools-rust" "1.10.2" \
+    "setuptools_rust-1.10.2.tar.gz" \
+    "Setuptools Rust extension plugin"
+
+run_package "python-cryptography" "python-cryptography" "44.0.0" \
+    "cryptography-44.0.0.tar.gz" \
+    "Python cryptographic primitives (for systemd ukify)"
+
+run_package "python-pefile" "python-pefile" "2024.8.26" \
+    "pefile-2024.8.26.tar.gz" \
+    "Python PE file reader (for systemd ukify)"
+
 run_package "rust-bindgen" "rust-bindgen" "0.72.1" \
     "rust-bindgen-0.72.1.tar.gz" \
     "Rust FFI bindings generator"
@@ -811,10 +843,6 @@ run_package "pluggy" "pluggy" "1.6.0" \
 run_package "sgml-common" "sgml-common" "0.6.3" \
     "sgml-common-0.6.3.tgz" \
     "SGML common files"
-
-run_package "slang-pass1" "slang-pass1" "2.3.3" \
-    "slang-2.3.3.tar.bz2" \
-    "S-Lang programming library (bootstrap — without PNG image rendering)"
 
 run_package "trove-classifiers" "trove-classifiers" "2026.1.14.14" \
     "trove_classifiers-2026.1.14.14.tar.gz" \

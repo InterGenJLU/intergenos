@@ -549,6 +549,14 @@ run_package "meson" "meson" "1.10.1" \
 # 8.60 — 8.73: System utilities + coreutils
 # ============================================================================
 
+# bash-completion (moved from tier:desktop to tier:core 2026-05-11): provides
+# the pkg-config + completion-dir infrastructure that kmod, p11-kit, glib2,
+# and systemd's configure-time probes look for. Without it, those packages
+# silently skip installing their completion files.
+run_package "bash-completion" "bash-completion" "2.17.0" \
+    "bash-completion-2.17.0.tar.xz" \
+    "Programmable tab-completion for Bash"
+
 run_package "kmod" "kmod" "34.2" \
     "kmod-34.2.tar.xz" \
     "Kernel module utilities"
