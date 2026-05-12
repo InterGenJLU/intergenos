@@ -473,6 +473,26 @@ phase_validate() {
     # regressions against post-install state from a previous run.
     log "Running preflight-silent-loss scan (Scan B — silent feature loss)..."
     python3 "${SCRIPTS}/preflight-silent-loss.py"
+
+    # Undeclared-build-dep gate (Scan A.2): for every package's source[0]
+    # tarball, extract build-system files (configure.ac / meson.build /
+    # CMakeLists.txt) and parse for the 5 dep-discovery patterns
+    # (PKG_CHECK_MODULES, AC_CHECK_LIB, AC_CHECK_HEADERS, meson
+    # dependency() / find_program(), cmake find_package(REQUIRED)).
+    # Cross-reference against declared dependencies.build and emit HARD
+    # findings for upstream-required deps that aren't declared. Catches
+    # the class of bug that halted Build #8 at linux-pam (undeclared
+    # docbook → meson xmllint check) and Build #9 at rpm 4.18.2
+    # (undeclared lua → PKG_CHECK_MODULES). Conditional-context tracking
+    # (shell if/fi, meson if/endif, AS_IF/AS_CASE) reduces false-positive
+    # rate; comment-stripping prevents matches inside `#` and `dnl`
+    # comments; build-system filter reads consumer build.sh and only
+    # scans the buildfiles we actually invoke.
+    #
+    # First run extracts source tarballs into <repo>/build/scan-cache/
+    # (~12 min). Subsequent runs hit the cache and complete in ~10s.
+    log "Running preflight-undeclared-deps scan (Scan A.2 — undeclared build deps)..."
+    python3 "${SCRIPTS}/preflight-undeclared-deps.py"
 }
 
 phase_verify_sources() {
