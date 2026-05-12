@@ -1,7 +1,7 @@
 name: hugo
 version: "0.125.4"
 release: 1
-description: The world’s fastest framework for building websites
+description: The world's fastest framework for building websites
 license: Apache-2.0
 homepage: https://gohugo.io
 tier: extra
