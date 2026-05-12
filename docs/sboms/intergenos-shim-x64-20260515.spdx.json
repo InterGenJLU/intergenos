@@ -1,0 +1,172 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "InterGenOS intergenos-shim-x64-20260515",
+  "documentNamespace": "https://intergenstudios.com/sbom/intergenos-shim-x64-20260515-b6c0c2c59cd2c6cc",
+  "creationInfo": {
+    "created": "2026-05-12T03:00:00Z",
+    "creators": [
+      "Tool: scripts/shim-sbom-gen.py-1.0",
+      "Organization: InterGenOS"
+    ],
+    "licenseListVersion": "3.24"
+  },
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-Package-shimx64-efi",
+      "name": "shimx64.efi",
+      "versionInfo": "16.1",
+      "supplier": "Organization: InterGenOS",
+      "downloadLocation": "https://github.com/InterGenJLU/shim-review/tree/intergenos-shim-x64-20260515",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75"
+        }
+      ],
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "copyrightText": "NOASSERTION",
+      "comment": "InterGenOS-built unsigned shim binary, 1020990 bytes. MS-signing happens externally; this artifact is the input to that signing pass. Reproducible byte-for-byte across native-Linux Docker hosts per docker/shim-build/Dockerfile."
+    },
+    {
+      "SPDXID": "SPDXRef-Package-rhboot-shim-source",
+      "name": "rhboot/shim",
+      "versionInfo": "16.1",
+      "supplier": "Organization: rhboot",
+      "downloadLocation": "git+https://github.com/rhboot/shim.git@afc49558b34548644c1cd0ad1b6526a9470182ed",
+      "filesAnalyzed": false,
+      "checksums": [],
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "copyrightText": "NOASSERTION",
+      "comment": "Upstream shim source pinned at git tag 16.1, commit afc49558b34548644c1cd0ad1b6526a9470182ed (40-char SHA assertion enforced in Dockerfile build step)."
+    },
+    {
+      "SPDXID": "SPDXRef-Package-debian-bookworm-slim-base",
+      "name": "debian-bookworm-slim",
+      "versionInfo": "bookworm-slim",
+      "supplier": "Organization: Debian Project",
+      "downloadLocation": "docker://debian:bookworm-slim@sha256:5a2a80d11944804c01b8619bc967e31801ec39bf3257ab80b91070eb23625644",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "5a2a80d11944804c01b8619bc967e31801ec39bf3257ab80b91070eb23625644"
+        }
+      ],
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "comment": "Digest-pinned Debian 12 bookworm-slim container base image. Single-supplier trust anchor for the build environment."
+    },
+    {
+      "SPDXID": "SPDXRef-Package-debian-apt-snapshot",
+      "name": "debian-apt-snapshot-bookworm",
+      "versionInfo": "20260501T000000Z",
+      "supplier": "Organization: Debian Project",
+      "downloadLocation": "http://snapshot.debian.org/archive/debian/20260501T000000Z/",
+      "filesAnalyzed": false,
+      "checksums": [],
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "comment": "snapshot.debian.org timestamp pin 20260501T000000Z; all apt packages installed during build resolve to versions available at this immutable timestamp."
+    },
+    {
+      "SPDXID": "SPDXRef-Package-intergenos-secure-boot-ca",
+      "name": "intergenos-secure-boot-ca",
+      "versionInfo": "v1-2026-05-05-ceremony",
+      "supplier": "Organization: InterGenOS",
+      "downloadLocation": "https://github.com/InterGenJLU/intergenos/tree/master/docker/shim-build/vendor-cert/",
+      "filesAnalyzed": true,
+      "hasFiles": [
+        "SPDXRef-File-vendor-cert-pem",
+        "SPDXRef-File-vendor-cert-der"
+      ],
+      "checksums": [],
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "Copyright (c) InterGenOS",
+      "comment": "InterGenOS Secure Boot CA vendor certificate. Public half embedded in shim's vendor_cert slot; private half hardware-bound to Nitrokey 3 NFC PIV slot 9c, generated on-card during the 2026-05-05 air-gapped Tails ceremony."
+    },
+    {
+      "SPDXID": "SPDXRef-Package-sbat-vendor-entry",
+      "name": "shim.intergenos-sbat-vendor-entry",
+      "versionInfo": "1",
+      "supplier": "Organization: InterGenOS",
+      "downloadLocation": "https://github.com/InterGenJLU/intergenos/blob/master/docker/shim-build/sbat/sbat.intergenos.csv",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "736d57edd4fe00b9f1aff522b6ff64a95fd197ff39c70fd0cdd4ea7ed786ddf7"
+        }
+      ],
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "comment": "SBAT entry concatenated into shim's .sbat section: shim.intergenos,1,InterGenOS,shim,16.1,https://github.com/InterGenJLU/intergenos"
+    }
+  ],
+  "files": [
+    {
+      "SPDXID": "SPDXRef-File-vendor-cert-pem",
+      "fileName": "./intergenos-secure-boot-ca.pem",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "620c4ebdb02224c734483949249270539d1086e3bca6d808f46c3013a892664b"
+        }
+      ],
+      "licenseConcluded": "NOASSERTION",
+      "copyrightText": "Copyright (c) InterGenOS"
+    },
+    {
+      "SPDXID": "SPDXRef-File-vendor-cert-der",
+      "fileName": "./intergenos-secure-boot-ca.der",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "7b8f2150b5d00c7b28dd518fadd70bc0e837ae43df7b5e23d6185e9c7530c876"
+        }
+      ],
+      "licenseConcluded": "NOASSERTION",
+      "copyrightText": "Copyright (c) InterGenOS"
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-Package-shimx64-efi"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-shimx64-efi",
+      "relationshipType": "GENERATED_FROM",
+      "relatedSpdxElement": "SPDXRef-Package-rhboot-shim-source"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-shimx64-efi",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-debian-bookworm-slim-base"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-shimx64-efi",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-debian-apt-snapshot"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-shimx64-efi",
+      "relationshipType": "CONTAINS",
+      "relatedSpdxElement": "SPDXRef-Package-intergenos-secure-boot-ca"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-shimx64-efi",
+      "relationshipType": "CONTAINS",
+      "relatedSpdxElement": "SPDXRef-Package-sbat-vendor-entry"
+    }
+  ]
+}
