@@ -27,7 +27,14 @@ source:
 dependencies:
   # autoconf/automake/libtool/bison/flex/gettext/pkg-config/perl-core are
   # all in the chroot by desktop-phase entry (built in core / core-extra).
-  # No explicit build deps — relies on chroot baseline.
-  build: []
+  #
+  # `which` is the one explicit build-dep we have to declare: apparmor's
+  # common/Make.rules uses `$(shell which awk)` to locate awk, and if
+  # `which` is not in PATH when make runs, the shell call returns empty,
+  # AWK is undefined, and Make.rules:40 bails with the misleading
+  # "awk utility required for build but not available" error. Build #9
+  # halted on this in 2026-05-12 because topo-sort placed apparmor
+  # before which; the explicit dep here pins the ordering.
+  build: [which]
   host: [perl-core, python, bash]
   runtime: []
