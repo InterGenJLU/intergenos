@@ -3,7 +3,7 @@
 **Audience:** end users installing InterGenOS on Secure Boot hardware, and reviewers verifying our key-management posture.
 **Scope:** the full path from a freshly-installed InterGenOS system to a working MOK-enrolled keyring that DKMS / out-of-tree modules can chain against.
 **Last updated:** 2026-05-11
-**Status:** v1 — gating doc for the 2026-05-14 first-light trigger. Real-hardware validation against Build #8 ISO output performed before promotion.
+**Status:** v1 — gating doc for the 2026-05-14 first-light trigger. Real-hardware validation against the validation-target build's ISO output performed before promotion.
 
 This document is the canonical end-user procedure for MOK enrollment on InterGenOS. Companion docs:
 - [docs/ephemeral-module-signing.md](ephemeral-module-signing.md) — how in-tree modules are signed (different key, different lifetime)
@@ -432,24 +432,24 @@ sudo /usr/share/intergenos/scripts/mok-generate.sh
 
 ## 8. Real-hardware test plan
 
-This section is the procedure used to validate the runbook against a real machine. It is what will be run against the Build #8 ISO output as the gating evidence for the 2026-05-14 first-light trigger.
+This section is the procedure used to validate the runbook against a real machine. It is what will be run against the validation-target build's ISO output as the gating evidence for the 2026-05-14 first-light trigger.
 
 ### Test environment
 
 - **Hardware:** HP 14-dq laptop running InterGenOS 1.0-dev (the IGOSC laptop). Pre-existing MOK from prior install present at `/var/lib/intergen/mok/`. Secure Boot enabled in firmware.
-- **Build artifact under test:** Build #8 ISO (path TBD when build completes).
+- **Build artifact under test:** the validation-target build's ISO (path TBD when build completes). Current target: Build #9 (master `0cadd8c`); the Build #N-of-the-moment is what gets validated.
 - **Witness host:** ubuntu2404 (SPOC) — receives copies of validation logs via rsync.
 
 ### Test procedure
 
-1. **Pre-flight baseline — capture from the Build #8 live-ISO env, NOT from the installed host.**
+1. **Pre-flight baseline — capture from the validation-target build's live-ISO env, NOT from the installed host.**
 
    The IGOSC test host's installed OS is a dev-state InterGenOS 1.0-dev build that
-   pre-dates `mokutil`/`sbverify`/`sbsign` landing in the package tree. The Build #8
-   live-ISO env ships these tools as part of the standard image, so baseline capture
-   runs from the live env.
+   pre-dates `mokutil`/`sbverify`/`sbsign` landing in the package tree. The
+   validation-target live-ISO env ships these tools as part of the standard image,
+   so baseline capture runs from the live env.
 
-   - `dd` the Build #8 ISO to USB; boot the laptop from the USB.
+   - `dd` the validation-target ISO to USB; boot the laptop from the USB.
    - At the live shell, run and capture each:
      - `mokutil --list-enrolled` — baseline enrolled-key set (firmware cert store
        + any preexisting MOKs from prior installs on this hardware).
@@ -461,7 +461,7 @@ This section is the procedure used to validate the runbook against a real machin
      "Witness + reproducibility" subsection below so the baseline survives the
      live-env teardown.
 
-2. **Boot Build #8 ISO from USB:**
+2. **Boot the validation-target ISO from USB:**
    - dd the ISO to a USB stick.
    - Boot from USB with Secure Boot enabled.
    - **Pass criterion 1:** ISO boots without disabling Secure Boot. Failure here means shim or kernel signing chain is broken.
@@ -493,7 +493,7 @@ This section is the procedure used to validate the runbook against a real machin
 
 ### Pass/fail criteria summary
 
-The runbook is **validated for the first-light trigger** when criteria 1-6 pass on the Build #8 ISO output. Criterion 7 is a stronger gate that we will run when a DKMS test module is available; not blocking on its own.
+The runbook is **validated for the first-light trigger** when criteria 1-6 pass on the validation-target build's ISO output. Criterion 7 is a stronger gate that we will run when a DKMS test module is available; not blocking on its own.
 
 Failure at any of criteria 1-3 indicates a build / installer bug; failure at 4-6 indicates a documentation gap in this runbook (real-hardware step diverges from what's documented). In both cases, the runbook does not promote past v1 until the gap closes.
 
