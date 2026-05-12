@@ -199,11 +199,14 @@ done
 [ "${#FILTERED_ROWS[@]}" -gt 0 ] || { log "no packages match filters"; exit 0; }
 
 # ---------- report + run ----------
+# Lockfile-discovery precedence (per the cargo-vendor-lockfile-pinning dispatch):
+#   1. packages/<tier>/<pkg>/Cargo.lock      — committed canonical (preferred)
+#   2. ${OUTPUT_DIR}/<pkg>-<version>-Cargo.lock — locally-emitted from prior run
+#   3. (neither) — fresh-gen via cargo generate-lockfile in helper
 log "found ${#FILTERED_ROWS[@]} cargo-vendor package(s)"
-printf '\n%-10s %-20s %-15s %-12s %s\n' "TIER" "NAME" "VERSION" "LOCKFILE" "VENDOR ARTIFACT" >&2
-printf '%-10s %-20s %-15s %-12s %s\n' "----" "----" "-------" "--------" "---------------" >&2
+printf '\n%-10s %-20s %-15s %-12s %-13s %s\n' "TIER" "NAME" "VERSION" "LOCKFILE" "SOURCE" "VENDOR ARTIFACT" >&2
+printf '%-10s %-20s %-15s %-12s %-13s %s\n' "----" "----" "-------" "--------" "------" "---------------" >&2
 
-# Pre-check: for each package, note whether a prior Cargo.lock side artifact exists
 declare -a TODO_NAMES=()
 declare -a TODO_VERSIONS=()
 declare -a TODO_URLS=()
@@ -211,13 +214,24 @@ declare -a TODO_LOCK_PATHS=()
 
 for row in "${FILTERED_ROWS[@]}"; do
     IFS=$'\t' read -r tier name version url vendor_name <<<"$row"
-    lockfile_path="$OUTPUT_DIR/${name}-${version}-Cargo.lock"
-    if [ -f "$lockfile_path" ]; then
+
+    pkg_lockfile="$INTERGENOS_ROOT/packages/$tier/$name/Cargo.lock"
+    out_lockfile="$OUTPUT_DIR/${name}-${version}-Cargo.lock"
+
+    if [ -f "$pkg_lockfile" ]; then
+        lockfile_path="$pkg_lockfile"
         lock_status="pinned"
+        lock_source="packages/"
+    elif [ -f "$out_lockfile" ]; then
+        lockfile_path="$out_lockfile"
+        lock_status="pinned"
+        lock_source="output-dir"
     else
+        lockfile_path=""
         lock_status="fresh-gen"
+        lock_source="-"
     fi
-    printf '%-10s %-20s %-15s %-12s %s\n' "$tier" "$name" "$version" "$lock_status" "$vendor_name" >&2
+    printf '%-10s %-20s %-15s %-12s %-13s %s\n' "$tier" "$name" "$version" "$lock_status" "$lock_source" "$vendor_name" >&2
 
     TODO_NAMES+=("$name")
     TODO_VERSIONS+=("$version")
@@ -248,7 +262,9 @@ for i in "${!TODO_NAMES[@]}"; do
     log "============================================================"
 
     declare -a HELPER_ARGS=()
-    if [ -f "$lockfile" ]; then
+    # lockfile is "" when neither packages/<tier>/<pkg>/Cargo.lock nor the
+    # OUTPUT_DIR side artifact exists; helper will fall through to fresh-gen.
+    if [ -n "$lockfile" ] && [ -f "$lockfile" ]; then
         HELPER_ARGS+=("--cargo-lock" "$lockfile")
     fi
     HELPER_ARGS+=("$name" "$version" "$url")
