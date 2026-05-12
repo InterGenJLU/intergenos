@@ -20,7 +20,7 @@ dependencies:
   - libfido2          # systemd-cryptenroll --fido2-device + LUKS unlock.
   - libxkbcommon      # vconsole keymap support.
   - libseccomp        # syscall-filter sandboxing for systemd services.
-  - libcryptsetup     # systemd-homed + systemd-cryptsetup LUKS support.
+  - cryptsetup        # systemd-homed + systemd-cryptsetup LUKS support (libcryptsetup.so).
   - libidn2           # IDN handling in systemd-resolved.
   - libqrencode       # QR-code keyfile recovery for systemd-cryptsetup.
   - libgcrypt         # cryptographic primitives for resolved/journal.
