@@ -43,8 +43,8 @@ The Prime Directive and the security-only alignment above are complementary: a m
 - **5-distro kernel convergence** — kernel config derived from Ubuntu, Fedora, Arch, Debian, and openSUSE consensus (3,434 universal options)
 - **GNOME desktop** — Wayland-native with dark theme and InterGenOS branding
 - **Forge Secure Boot chain** — signed shim → MOK-signed GRUB → MOK-signed kernel → `MODULE_SIG_FORCE=y` modules. The user's own MOK key is the trust anchor; the installer generates it per machine. See [SECURITY.md](SECURITY.md).
-- **Test harness** — 186 tests in `installer/tests/` covering installer backend, MOK validation, and Class 1 signing-chain verification; Phase A scaffold for GRUB `check_signatures=enforce` empirical validation.
-- **Extra tier** — Node.js plus seven install-helpers for proprietary apps (Brave, Chrome, Claude Code, Discord, Edge, Spotify, VS Code) — proprietary packages fetched transparently via pkm
+- **Test harness** — 324 tests in `installer/tests/` covering installer backend, MOK validation, and Class 1 signing-chain verification; Phase A scaffold for GRUB `check_signatures=enforce` empirical validation. Additional preflight, repo-publish, SBOM, upstream-check, and download-sources test suites live under `tests/`.
+- **Extra tier** — 80 packages spanning seven install-helpers for proprietary software (Brave, Chrome, Claude Code, Discord, Edge, Spotify, VS Code) plus open-source applications (Firefox, LibreOffice, Audacity, GIMP, Inkscape, Thunderbird, MPV, Rhythmbox, Transmission), the Rust CLI suite (ripgrep, bat, eza, fd, hyperfine, just, starship, zoxide, and more), and container runtimes (podman, crun, conmon, netavark). Proprietary packages fetched transparently via pkm.
 - **InterGen** — tiered local AI assistant with permission-gated tool calling, D-Bus activation, and a local LLM stack (llama.cpp). Hardware-detected, fully offline. Text-only by design.
 - **InterGen Sentinel** — Pluggable security-scanner architecture. `Local-Rules` (rule-based, deterministic) + `Local-Qwen` (InterGen-LLM-backed via your local Qwen model) ship by default, fully offline. Six cloud providers are opt-in: Glasswing-Anthropic, Gemini-Google, CoPilot-Microsoft, ChatGPT-OpenAI, Grok-xAI, DeepSeek. Schema-pinning, audit logging, and sandbox enforcement are vendor-neutral local plumbing — they apply regardless of which scanner is active.
 
@@ -128,29 +128,29 @@ intergenos/
 ├── igos-build/          # Build system (Python — parser, graph, builder, tracker)
 ├── pkm/                 # Package manager (Python — install, remove, query, verify)
 ├── installer/           # Forge installer (Python — TUI + backend)
-├── packages/            # 726 package templates (YAML + build.sh)
+├── packages/            # 745 package templates (YAML + build.sh)
 │   ├── toolchain/       # LFS Ch. 5-7 (28 packages)
 │   ├── core/            # LFS Ch. 8 + TLS/PAM/SSH + forge SB primitives (232 packages)
 │   ├── base/            # End-user CLI tools (19 packages)
-│   ├── desktop/         # GNOME desktop stack (383 packages)
+│   ├── desktop/         # GNOME desktop stack (384 packages)
 │   ├── ai/              # Local AI assistant stack (2 packages)
-│   └── extra/           # User-facing applications (62 packages)
+│   └── extra/           # User-facing applications (80 packages)
 ├── scripts/             # Build orchestrator, chroot scripts, BLFS tools
 ├── data/                # Curated metadata (meson option-to-dep mappings)
 ├── config/              # Kernel config, systemd units, gsettings overrides
 ├── build/               # Sources, patches, logs, archives (not committed)
-└── docs/                # LFS/BLFS reference books (not committed)
+└── docs/                # Project documentation, governance, security policy, and research
 ```
 
 ## Status
 
 Active development, pre-1.0. Originally built 2015-2016 (build_001 through build_003 on GitHub). Revived March 2026.
 
-**Now:** 726 package templates across six tiers. First successful GNOME 49.4 desktop boot on Wayland achieved April 7, 2026 — kernel 6.18.10 with config converged from 5-distro analysis, 478 packages built from source. Installer (`forge`) now handles partition → signed boot chain → image deploy → post-install hooks. Test harness covers 186 tests across installer backend, MOK validation, and Class 1 signing-chain verification. Public binary mirror infrastructure provisioned at `repo.intergenos.org`; signing-key ceremony complete (RSA-4096 master with hardware-token signing subs); v1.0 first-publish lands when the current build completes.
+**Now:** 745 package templates across six tiers. First successful GNOME 49.4 desktop boot on Wayland achieved April 7, 2026 — kernel 6.18.10 with config converged from 5-distro analysis. First themed qcow2 image built May 3, 2026 with full GNOME theming applied. Build #9 is in flight and expands the v1.0 archive set ahead of the public mirror's first publish. Installer (`forge`) handles partition → signed boot chain → image deploy → post-install hooks. Test harness covers 324 tests across installer backend, MOK validation, and Class 1 signing-chain verification, plus additional suites under `tests/` (preflight, repo-publish, SBOM, upstream-check, download-sources). Public binary mirror infrastructure provisioned at `repo.intergenos.org`; signing-key ceremony complete (RSA-4096 master with hardware-token signing subs); v1.0 first-publish lands when Build #9 completes.
 
 **External reviews:** Full codebase reviewed by four external LLMs (ChatGPT, DeepSeek, Gemini, Grok) across build system, installer, orchestration, and package management. Initial audit findings all remediated; follow-on hardening continues as new edge cases surface.
 
-Targeting first bare-metal hardware install on an HP laptop and a dual-boot install on a Zephyrus M16.
+First bare-metal install achieved on an HP laptop with the full signed boot chain. Second-target deploy (HP dw0037wm) and end-to-end ISO-installer-path validation are in progress; a dual-boot install on a Zephyrus M16 is planned.
 
 ## Upcoming
 
@@ -176,7 +176,7 @@ Items actively in flight or planned before v1.0:
 
 ## Research
 
-Every major decision is documented. See [docs/research/](docs/research/INDEX.md) — 181 markdown documents (plus supporting diagrams, data files, and external review PDFs) across 24 topical subdirectories covering:
+Every major decision is documented. See [docs/research/](docs/research/INDEX.md) — 205 markdown documents (plus supporting diagrams, data files, and external review PDFs) across 24 topical subdirectories covering:
 
 - Why LFS over Gentoo, Buildroot, NixOS
 - Build system design (9 systems evaluated)
