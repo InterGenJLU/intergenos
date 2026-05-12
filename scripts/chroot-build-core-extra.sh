@@ -307,6 +307,39 @@ run_package "nspr" "nspr" "4.38.2" \
     "nspr-4.38.2.tar.gz" \
     "Netscape Portable Runtime"
 
+# --- Group B-crypto-pre: libgpg-error + libgcrypt ---
+# Moved earlier (from below glib2-bootstrap) because libxslt declares
+# libgcrypt as a build dep (crypto extensions for xsl:cipher). With docbook
+# + libxslt now relocated before linux-pam, the libgcrypt chain has to come
+# even earlier. Scan A enforces this ordering.
+
+run_package "libgpg-error" "libgpg-error" "1.59" \
+    "libgpg-error-1.59.tar.bz2" \
+    "GPG error code library"
+
+run_package "libgcrypt" "libgcrypt" "1.12.0" \
+    "libgcrypt-1.12.0.tar.bz2" \
+    "General purpose cryptographic library"
+
+# --- Group B-extra: XML/XSL doc-processing chain ---
+# Needed by linux-pam (man pages via meson xmllint+RelaxNG), glib2-bootstrap,
+# and other downstream consumers. The xmllint --nonet --relaxng URL → local
+# file mapping requires docbook-xml + docbook-xsl-nons to be installed BEFORE
+# the consuming package configures. Moved from below linux-pam to here per
+# Build #9 halt at linux-pam meson:doc/man/meson.build:42 (2026-05-12).
+
+run_package "docbook-xml" "docbook-xml" "4.5" \
+    "docbook-xml-4.5.zip" \
+    "DocBook XML DTD"
+
+run_package "libxslt" "libxslt" "1.1.45" \
+    "libxslt-1.1.45.tar.xz" \
+    "XSLT processor library"
+
+run_package "docbook-xsl-nons" "docbook-xsl-nons" "1.79.2" \
+    "docbook-xsl-nons-1.79.2.tar.bz2" \
+    "DocBook XSL stylesheets"
+
 # --- Group C: PAM + sudo ---
 
 run_package "libtirpc" "libtirpc" "1.3.7" \
@@ -331,26 +364,6 @@ run_package "openssh" "openssh" "10.2p1" \
 # Three separate packages break the circular dependency:
 #   glib2-bootstrap (no introspection) → gobject-introspection → glib2 (full)
 # Each is a standard DESTDIR build. No hacks needed.
-
-run_package "libgpg-error" "libgpg-error" "1.59" \
-    "libgpg-error-1.59.tar.bz2" \
-    "GPG error code library"
-
-run_package "libgcrypt" "libgcrypt" "1.12.0" \
-    "libgcrypt-1.12.0.tar.bz2" \
-    "General purpose cryptographic library"
-
-run_package "docbook-xml" "docbook-xml" "4.5" \
-    "docbook-xml-4.5.zip" \
-    "DocBook XML DTD"
-
-run_package "libxslt" "libxslt" "1.1.45" \
-    "libxslt-1.1.45.tar.xz" \
-    "XSLT processor library"
-
-run_package "docbook-xsl-nons" "docbook-xsl-nons" "1.79.2" \
-    "docbook-xsl-nons-1.79.2.tar.bz2" \
-    "DocBook XSL stylesheets"
 
 run_package "glib2-bootstrap" "glib2-bootstrap" "2.88.1" \
     "glib-2.88.1.tar.xz" \
