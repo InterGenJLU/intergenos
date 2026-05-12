@@ -1,0 +1,32 @@
+name: wayland-protocols
+version: '1.47'
+release: 1
+description: Wayland protocol extensions
+license: MIT
+homepage: https://wayland.freedesktop.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/wayland/wayland-protocols/-/releases/${version}/downloads/wayland-protocols-${version}.tar.xz
+  sha256: 5fd4349bcbc9bab9a46f8cf77d1f434296a7a052c87440a094f63fcf62a58e20
+dependencies:
+  build:
+  - wayland
+  host: []
+  runtime: []
+# wayland added 2026-05-12 (Scan A.2): meson.build:11
+# `dependency('wayland-scanner', ..., fallback: 'wayland')` is hard-
+# required at configure time, even though the install step only writes
+# .xml files. The yesterday-audit (2026-05-11) removed the dep on the
+# (incorrect) basis that "no compilation step requires libwayland" —
+# true, but configure's pkg-config check is unconditional regardless of
+# what downstream actually compiles. Scan A.2 caught it pre-build.
+#
+# Retiered from core → desktop in same commit (2026-05-12). Was originally
+# at tier:desktop; got swept to core by commit 8dc10cc's 257-package
+# bulk move that misclassified "used-at-build-time-by-others" as
+# "must be at tier:core". All 8 in-tree consumers (gtk3/gtk4/mesa/
+# mutter/gst-plugins-base/xwayland/sdl2/libxkbcommon) are themselves
+# desktop tier, so there is no core-tier consumer; nothing requires
+# wayland-protocols to be at core. Restoring original placement.

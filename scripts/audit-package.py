@@ -556,11 +556,16 @@ def audit(name: str, audited_by: str = "audit-package.py") -> dict:
                 continue
 
             # Known cycles handled by our bootstrap variants — skip:
-            # wayland-protocols → wayland (XML-only, handled in our yml audit)
             # xdg-desktop-portal → portal-gnome/gtk/lxqt (the 2-pass cycle)
             # newt → slang (we satisfy via slang-pass1)
+            #
+            # (wayland-protocols → wayland was previously skipped here
+            # under the incorrect claim that "wayland-protocols is XML-
+            # only, no real dep on wayland". Scan A.2 surfaced 2026-05-12
+            # that meson.build:11 hard-requires wayland-scanner at
+            # configure time. The dep is real; the skip was removed
+            # alongside the core→desktop retier of wayland-protocols.)
             KNOWN_CYCLES = {
-                ("wayland-protocols", "wayland"),
                 ("xdg-desktop-portal", "xdg-desktop-portal-gnome"),
                 ("xdg-desktop-portal", "xdg-desktop-portal-gtk"),
                 ("xdg-desktop-portal", "xdg-desktop-portal-lxqt"),

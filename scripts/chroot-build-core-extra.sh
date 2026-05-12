@@ -894,9 +894,10 @@ run_package "util-macros" "util-macros" "1.20.2" \
     "util-macros-1.20.2.tar.xz" \
     "Xorg autotools macros"
 
-run_package "wayland-protocols" "wayland-protocols" "1.47" \
-    "wayland-protocols-1.47.tar.xz" \
-    "Wayland protocol extensions"
+# wayland-protocols moved to tier:desktop in 2026-05-12 (was originally
+# desktop, swept to core by commit 8dc10cc's bulk move; restored). Now
+# routes through chroot-build-desktop.sh via Python DAG, ordered after
+# wayland per declared deps.build.
 
 run_package "which" "which" "2.23" \
     "which-2.23.tar.gz" \

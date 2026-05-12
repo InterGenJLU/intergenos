@@ -177,8 +177,12 @@ BUILD_TOOLS = {
     "git", "gperf", "intltool", "itstool", "asciidoc", "asciidoctor",
     "docbook-xml", "docbook-xsl", "docbook-xsl-nons",
     "xmlto", "doxygen", "sphinx", "docutils",
-    "util-macros", "xorgproto", "wayland-protocols",
+    "util-macros", "xorgproto",
     "nasm", "yasm",
+    # wayland-protocols removed 2026-05-12: it's GUI substrate (desktop
+    # tier) per its in-tree consumers (all 8 are desktop). Its prior
+    # presence in this BUILD_TOOLS set was the root cause of the bulk
+    # core-retier (commit 8dc10cc) that broke its build order vs wayland.
     "cython", "rpcsvc-proto", "unifdef", "highway",
     "rust-bindgen", "cbindgen",
 }

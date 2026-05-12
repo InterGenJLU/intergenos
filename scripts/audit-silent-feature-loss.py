@@ -48,8 +48,11 @@ BUILD_TOOLS_NO_FLAG = {
     "python3", "gperf", "intltool", "itstool", "asciidoc", "asciidoctor",
     "docbook-xml", "docbook-xsl", "docbook-xsl-nons",
     "xmlto", "doxygen", "sphinx", "docutils",
-    "util-macros", "xorgproto", "wayland-protocols",
+    "util-macros", "xorgproto",
     "nasm", "yasm", "cython", "rpcsvc-proto", "unifdef",
+    # wayland-protocols removed 2026-05-12: see validate-package-tiers.py
+    # for context — wayland-protocols is desktop-tier GUI substrate, not
+    # a build-tool, and was wrongly classified in this set.
     "rust-bindgen", "cbindgen",
     "hatchling", "setuptools", "setuptools-scm", "wheel", "pip",
     "build", "pypa-build", "pyproject_hooks", "pyproject-hooks",
