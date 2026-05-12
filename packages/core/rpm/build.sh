@@ -7,12 +7,13 @@
 
 configure() {
     set -e
+    # NOTE: rpm 4.18 removed --without-lua; lua is a hard build dep via
+    # PKG_CHECK_MODULES at configure.ac:785. lua is declared in package.yml.
     ./configure --prefix=/usr \
                 --sysconfdir=/etc \
                 --localstatedir=/var \
                 --disable-static \
                 --disable-plugins \
-                --without-lua \
                 --without-cap \
                 --without-acl
 }

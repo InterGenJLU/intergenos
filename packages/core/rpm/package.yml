@@ -16,8 +16,14 @@ dependencies:
   build:
     - popt
     - libgcrypt
+    - lua
   host: []
   runtime: []
 # libgcrypt added 2026-05-11 (owner-direct): rpm's configure errored out
 # in Build #7 because libgcrypt was an undeclared real dep. The header
 # is required by rpm's signature-verification code paths.
+# lua added 2026-05-12: rpm 4.18 made lua a hard build dependency
+# (removed --without-lua). configure.ac line 785 does
+# PKG_CHECK_MODULES([LUA], [lua >= 5.2], [], [AC_MSG_ERROR(...)]) which
+# fails configure unconditionally if lua isn't present at pkg-config time.
+# Caught by preflight-undeclared-deps.py (Scan A.2) post-Build-#9 halt.

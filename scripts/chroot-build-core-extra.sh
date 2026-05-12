@@ -515,6 +515,12 @@ run_package "sbsigntool" "sbsigntool" "0.9.5" \
     "sbsigntools-0.9.5.tar.gz" \
     "Tools for signing and verifying EFI binaries with Secure Boot keys"
 
+# lua: moved up from line ~685 so it builds before rpm (which 4.18 hard-
+# requires via PKG_CHECK_MODULES). Caught by Scan A.2 post-Build-#9 halt.
+run_package "lua" "lua" "5.4.8" \
+    "lua-5.4.8.tar.gz" \
+    "Lightweight scripting language"
+
 run_package "rpm" "rpm" "4.18.2" \
     "rpm-4.18.2.tar.bz2" \
     "RPM package manager — provides rpm2cpio for shim-signed extraction"
@@ -682,9 +688,8 @@ run_package "cyrus-sasl" "cyrus-sasl" "2.1.28" \
     "cyrus-sasl-2.1.28.tar.gz" \
     "Cyrus Simple Authentication and Security Layer"
 
-run_package "lua" "lua" "5.4.8" \
-    "lua-5.4.8.tar.gz" \
-    "Lightweight scripting language"
+# lua moved earlier (before rpm at ~line 518) so it builds before rpm's
+# PKG_CHECK_MODULES check. See comment at lua's new position.
 
 run_package "luajit" "luajit" "20260213" \
     "luajit-20260213.tar.xz" \
