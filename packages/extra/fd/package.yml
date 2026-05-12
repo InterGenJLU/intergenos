@@ -1,0 +1,20 @@
+name: fd
+version: "9.0.0"
+release: 1
+description: A simple, fast and user-friendly alternative to find
+license: MIT OR Apache-2.0
+homepage: https://github.com/sharkdp/fd
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/sharkdp/fd/archive/v9.0.0/fd-9.0.0.tar.gz
+    sha256: 0000000000000000000000000000000000000000000000000000000000000000
+build_artifacts:
+  - name: fd-9.0.0-vendor.tar.xz
+    generated_by: cargo-vendor
+dependencies:
+  build:
+  - rust
+  host: []
+  runtime: []

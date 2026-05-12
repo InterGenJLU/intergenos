@@ -1,0 +1,20 @@
+name: ripgrep
+version: "14.1.0"
+release: 1
+description: Line-oriented search tool that recursively searches the current directory for a regex pattern
+license: Unlicense OR MIT
+homepage: https://github.com/BurntSushi/ripgrep
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/BurntSushi/ripgrep/archive/14.1.0/ripgrep-14.1.0.tar.gz
+    sha256: 0000000000000000000000000000000000000000000000000000000000000000
+build_artifacts:
+  - name: ripgrep-14.1.0-vendor.tar.xz
+    generated_by: cargo-vendor
+dependencies:
+  build:
+  - rust
+  host: []
+  runtime: []

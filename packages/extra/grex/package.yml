@@ -1,0 +1,20 @@
+name: grex
+version: "1.4.5"
+release: 1
+description: A command-line tool for generating regular expressions from user-provided test cases
+license: Apache-2.0
+homepage: https://github.com/pemistahl/grex
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/pemistahl/grex/archive/v1.4.5/grex-1.4.5.tar.gz
+    sha256: 0000000000000000000000000000000000000000000000000000000000000000
+build_artifacts:
+  - name: grex-1.4.5-vendor.tar.xz
+    generated_by: cargo-vendor
+dependencies:
+  build:
+  - rust
+  host: []
+  runtime: []
