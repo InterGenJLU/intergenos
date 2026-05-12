@@ -13,6 +13,9 @@ source:
 dependencies:
   build:
   - libXrandr
+  - libX11
+  - libXrender
+  - xorgproto
   host: []
   runtime: []
 configure_flags:

@@ -13,6 +13,10 @@ source:
 dependencies:
   build:
   - libXrender
+  - fontconfig
+  - freetype2
+  - libX11
+  - xorgproto
   host: []
   runtime: []
 configure_flags:

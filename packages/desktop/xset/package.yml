@@ -14,6 +14,8 @@ dependencies:
   build:
   - libXmu
   - libXext
+  - libX11
+  - xorgproto
   host: []
   runtime: []
 configure_flags:

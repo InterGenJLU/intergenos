@@ -15,6 +15,7 @@ dependencies:
   - libX11
   - libSM
   - libICE
+  - xorgproto
   host: []
   runtime: []
 configure_flags:

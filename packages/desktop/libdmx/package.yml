@@ -13,6 +13,8 @@ source:
 dependencies:
   build:
   - libXext
+  - libX11
+  - xorgproto
   host: []
   runtime: []
 configure_flags:

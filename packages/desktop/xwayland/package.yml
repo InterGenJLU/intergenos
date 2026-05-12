@@ -26,5 +26,8 @@ dependencies:
   - libgcrypt
   - libtirpc
   - nettle
+  - libxkbfile
+  - wayland
+  - xorgproto
   host: []
   runtime: []

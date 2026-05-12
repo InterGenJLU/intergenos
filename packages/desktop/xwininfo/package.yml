@@ -14,6 +14,7 @@ dependencies:
   build:
   - libxcb
   - libX11
+  - xorgproto
   host: []
   runtime: []
 configure_flags:

@@ -14,6 +14,9 @@ dependencies:
   build:
   - libXfixes
   - libXrandr
+  - libX11
+  - libXext
+  - xorgproto
   host: []
   runtime: []
 configure_flags:
