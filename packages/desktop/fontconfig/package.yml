@@ -16,7 +16,6 @@ dependencies:
   - curl
   - json-c
   - libxml2
-  - freetype2
   host: []
   runtime: []
 configure_flags:
