@@ -1,0 +1,20 @@
+name: just
+version: "1.26.0"
+release: 1
+description: Just a command runner
+license: CC0-1.0
+homepage: https://github.com/casey/just
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/casey/just/archive/1.26.0/just-1.26.0.tar.gz
+    sha256: 0000000000000000000000000000000000000000000000000000000000000000
+build_artifacts:
+  - name: just-1.26.0-vendor.tar.xz
+    generated_by: cargo-vendor
+dependencies:
+  build:
+  - rust
+  host: []
+  runtime: []

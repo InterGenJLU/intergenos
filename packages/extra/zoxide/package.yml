@@ -1,0 +1,20 @@
+name: zoxide
+version: "0.9.4"
+release: 1
+description: A smarter cd command
+license: MIT
+homepage: https://github.com/ajeetdsouza/zoxide
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/ajeetdsouza/zoxide/archive/v0.9.4/zoxide-0.9.4.tar.gz
+    sha256: 0000000000000000000000000000000000000000000000000000000000000000
+build_artifacts:
+  - name: zoxide-0.9.4-vendor.tar.xz
+    generated_by: cargo-vendor
+dependencies:
+  build:
+  - rust
+  host: []
+  runtime: []
