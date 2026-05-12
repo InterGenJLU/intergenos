@@ -1,0 +1,16 @@
+name: scons
+version: "4.10.1"
+release: 1
+description: Pure-Python software build tool (Make alternative)
+tier: extra
+license: MIT
+homepage: https://scons.org
+build_style: custom
+source:
+- url: https://github.com/SCons/scons/archive/${version}.tar.gz
+  sha256: 086a9cd78847a43c17138c11e7e93234a96985d0d346563521fa8db28f5bee96
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - python3
