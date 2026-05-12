@@ -3,11 +3,14 @@
 Repository Structure:
     https://repo.intergenos.org/
     ├── x86_64/
-    │   ├── InterGenOS.db          # Package index (JSON, gzipped)
-    │   ├── InterGenOS.db.sig      # GPG detached signature of the index
-    │   ├── firefox-138.0-1.igos.tar.gz
-    │   ├── gimp-2.10.38-1.igos.tar.gz
-    │   └── ...
+    │   ├── current/              # Symlink to latest atomic-promoted snapshot
+    │   │   ├── InterGenOS.db     # Package index (JSON, gzipped)
+    │   │   ├── InterGenOS.db.sig # GPG detached signature of the index
+    │   │   ├── firefox-138.0-1.igos.tar.gz
+    │   │   ├── gimp-2.10.38-1.igos.tar.gz
+    │   │   └── ...
+    │   ├── _staging-YYYYMMDDTHHMMSSZ/   # Write-side: per-promote staging dirs
+    │   └── _previous/                   # Archive of prior snapshots
     └── sources/                   # Optional source tarballs
         └── ...
 
@@ -72,7 +75,7 @@ GPG_KEYRING = Path("/etc/pkm/trusted.gpg")
 
 DEFAULT_REPOS = {
     "intergenos": {
-        "url": "https://repo.intergenos.org/x86_64",
+        "url": "https://repo.intergenos.org/x86_64/current",
         "enabled": True,
         "priority": 100,
     }

@@ -163,32 +163,35 @@ if [ ! -f "$STAGING/InterGenOS.db" ] || [ ! -f "$STAGING/InterGenOS.db.sig" ]; t
     exit 1
 fi
 
-# Archive previous live directory for rollback
-if [ -d "$LIVE/live" ]; then
+# Atomic promote: symlink-swap pattern (rename-the-symlink-not-the-directory).
+# The symlink always points at a valid target; no 404 window for clients.
+# 1. Point current.new at the new staging dir (staging is already complete)
+# 2. Atomically rename current.new over current
+# 3. Archive the now-unreferenced old snapshot (if any) — no rush, clients
+#    are already fetching from the new staging dir through current/
+PREVIOUS=$(readlink -f "$LIVE/current" 2>/dev/null || echo "")
+
+ln -sfn "$STAGING_DIR" "$LIVE/current.new"
+mv -T "$LIVE/current.new" "$LIVE/current"
+echo "  current → ${STAGING_DIR}/ symlink swapped"
+
+# Archive the prior snapshot now that clients are on the new one
+if [ -n "$PREVIOUS" ] && [ -d "$PREVIOUS" ]; then
     ARCHIVE_TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
     mkdir -p "$LIVE/_previous"
-    mv "$LIVE/live" "$LIVE/_previous/live-${ARCHIVE_TIMESTAMP}"
-    echo "  Archived previous live/ → _previous/live-${ARCHIVE_TIMESTAMP}"
+    mv "$PREVIOUS" "$LIVE/_previous/${STAGING_DIR}-prev-${ARCHIVE_TIMESTAMP}"
+    echo "  Archived previous snapshot → _previous/"
 fi
 
-# Atomic promote: rename staging → live within same filesystem
-mv "$STAGING" "$LIVE/live"
-echo "  Staging promoted to live/"
-
-# Update current symlink atomically (ln + mv-rename pattern)
-# Clients fetch from current/ → they always see a complete snapshot
-ln -sfn "live" "$LIVE/current.new" && mv -T "$LIVE/current.new" "$LIVE/current" 2>/dev/null || true
-echo "  current → live/ symlink updated"
-
 echo "Publish complete: $(date -u)"
-echo "Packages: $(ls "$LIVE/live"/*.igos.tar.gz 2>/dev/null | wc -l)"
-echo "Index size: $(stat -c%s "$LIVE/live/InterGenOS.db") bytes"
+echo "Packages: $(ls "$LIVE/$STAGING_DIR"/*.igos.tar.gz 2>/dev/null | wc -l)"
+echo "Index size: $(stat -c%s "$LIVE/$STAGING_DIR/InterGenOS.db") bytes"
 SSHEOF
-echo "  OK — promoted to live"
+echo "  OK — promoted via current/ symlink swap"
 
 echo ""
 echo "=== Publish Complete ==="
-echo "Repository: https://repo.intergenos.org/x86_64/"
+echo "Repository: https://repo.intergenos.org/x86_64/current/"
 echo "Index:      InterGenOS.db ($(stat -c%s "$INDEX_PATH") bytes)"
 echo "Signature:  InterGenOS.db.sig ($(stat -c%s "$SIG_PATH") bytes)"
 echo "Packages:   $COUNT published"
