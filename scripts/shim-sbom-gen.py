@@ -7,11 +7,12 @@ bookworm-slim base image, the snapshot.debian.org apt pin, the embedded
 InterGenOS Secure Boot CA vendor cert (DER + PEM), and the embedded SBAT
 vendor entry.
 
-The generator parses repo-on-disk inputs (Dockerfile + SBAT CSV + cert
-files) — it does NOT require the shim binary to be on the local filesystem
-unless --shim-binary is supplied. When supplied, the binary's SHA-256 and
-size are recorded; without it, the canonical SHA-256 from the document
-namespace is required via --shim-sha256 instead.
+The generator parses build-input metadata from the Dockerfile and reads
+the canonical content of repo-resident artifacts (SBAT CSV + cert files)
+via ``git show HEAD:<path>`` — see :func:`sha256_git_blob` for rationale.
+The shim binary itself is read from disk when --shim-binary is supplied,
+recording its SHA-256 + file size; without --shim-binary, the canonical
+SHA-256 must be provided via --shim-sha256 (with --shim-size).
 
 Output: SPDX 2.3 JSON document at the path given by --output, optionally
 PGP-signed-detached (.asc companion file) when --sign is present.
