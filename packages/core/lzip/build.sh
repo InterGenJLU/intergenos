@@ -22,5 +22,9 @@ build() {
 
 do_install() {
     set -e
-    make prefix="$DESTDIR/usr" install
+    # Configure set --prefix=/usr; DESTDIR is the orchestrator-exported
+    # staging root. Use DESTDIR= (not prefix=) for the redirect — overriding
+    # prefix here would compound with DESTDIR and produce doubled paths
+    # (/tmp/igos-staging/.../tmp/igos-staging/.../usr/bin/lzip).
+    make DESTDIR="$DESTDIR" install
 }
