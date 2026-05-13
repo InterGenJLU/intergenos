@@ -11,6 +11,8 @@
 # - AppArmor profile in enforce mode (§5f)
 # - No telemetry, no analytics, no auto-update
 
+BUILD_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+
 PKG_USER=valkey
 PKG_GROUP=valkey
 STATE_DIR=/var/lib/valkey
@@ -67,11 +69,11 @@ do_install() {
 
     # Install systemd unit
     install -d -m 755 "$DESTDIR"/usr/lib/systemd/system
-    install -m 644 valkey.service "$DESTDIR"/usr/lib/systemd/system/
+    install -m 644 "$BUILD_DIR/valkey.service" "$DESTDIR"/usr/lib/systemd/system/
 
     # Install AppArmor profile
     install -d -m 755 "$DESTDIR"/etc/apparmor.d
-    install -m 644 usr.bin.valkey-server "$DESTDIR"/etc/apparmor.d/
+    install -m 644 "$BUILD_DIR/usr.bin.valkey-server" "$DESTDIR"/etc/apparmor.d/
 }
 
 post_install() {

@@ -16,6 +16,8 @@
 # Verified: prost-build + tonic-build generate from .proto source at build
 # time using whichever protoc is on PATH — no ABI-lock to a specific version.
 
+BUILD_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+
 PKG_USER=influxdb
 PKG_GROUP=influxdb
 STATE_DIR=/var/lib/influxdb
@@ -65,7 +67,7 @@ do_install() {
 
     # Config skeleton
     install -d -m 750 "$DESTDIR"/etc/influxdb
-    install -m 640 influxdb.conf "$DESTDIR"/etc/influxdb/influxdb.conf
+    install -m 640 "$BUILD_DIR/influxdb.conf" "$DESTDIR"/etc/influxdb/influxdb.conf
 
     # State + log + runtime
     install -d -m 750 "$DESTDIR"/var/lib/influxdb
@@ -74,11 +76,11 @@ do_install() {
 
     # systemd unit
     install -d -m 755 "$DESTDIR"/usr/lib/systemd/system
-    install -m 644 influxdb.service "$DESTDIR"/usr/lib/systemd/system/
+    install -m 644 "$BUILD_DIR/influxdb.service" "$DESTDIR"/usr/lib/systemd/system/
 
     # AppArmor profile
     install -d -m 755 "$DESTDIR"/etc/apparmor.d
-    install -m 644 usr.bin.influxd "$DESTDIR"/etc/apparmor.d/
+    install -m 644 "$BUILD_DIR/usr.bin.influxd" "$DESTDIR"/etc/apparmor.d/
 }
 
 post_install() {
