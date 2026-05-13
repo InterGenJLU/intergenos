@@ -18,9 +18,11 @@ kickoff before any package compile burns CPU.
 Method:
   1. Parse ``run_package "name" "dir" "version"`` lines from every
      ``scripts/chroot-build-<phase>.sh`` to build {pkg: (phase, line_no, pos)}.
-  2. For each package with a ``package.yml`` ``dependencies.build`` list,
+  2. Walk every ``packages/<tier>/<dir>/package.yml`` to build
+     {yaml_name: [(tier, dir), ...]} for the cross-tier name-collision check.
+  3. For each package with a ``package.yml`` ``dependencies.build`` list,
      check each declared dep against the build-order index.
-  3. Findings:
+  4. Findings:
        - ``SAME-SCRIPT-VIOLATION``: dep wired AFTER consumer in same script
        - ``CROSS-PHASE-VIOLATION``: dep is in a LATER phase script (or
          tier-defaulted into a later phase by the Python DAG builder)
@@ -28,6 +30,13 @@ Method:
        - ``DEP-TIER-UNKNOWN``: dep's tier has no default-phase mapping
        - ``PACKAGE-YML-MISSING``: consumer has no package.yml (shouldn't
          happen post-tier-validator; surfaced for completeness)
+       - ``DUPLICATE-PACKAGE-NAME``: two or more package.yml files declare
+         the same top-level ``name:`` field. The orchestrator's graph
+         loader rejects this at phase entry with
+         ``ValueError: duplicate package 'X'``; catching it here blocks
+         the cherry-pick before push. Surfaced after the 2026-05-12
+         protobuf incident (core/protobuf v33.5 + extra/protobuf v29.6
+         collided at phase_ai entry on Build #9 r#19).
 
 Exit codes:
   0 — clean (no findings)
@@ -169,6 +178,60 @@ def find_package_yml(packages_dir: Path, pkg_name: str) -> Path | None:
     return None
 
 
+def parse_yaml_name(pkg_yml_path: Path) -> str | None:
+    """Extract the top-level ``name:`` field from a package.yml.
+
+    Stdlib-only parse matching the script's existing parse_deps_build style
+    (no PyYAML dependency). Returns the name string, or None if no top-level
+    ``name:`` field is present.
+    """
+    if not pkg_yml_path.is_file():
+        return None
+    with pkg_yml_path.open() as fp:
+        for raw in fp:
+            line = raw.rstrip("\n")
+            stripped = line.lstrip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            indent = len(line) - len(stripped)
+            if indent == 0 and stripped.startswith("name:"):
+                value = stripped[len("name:"):].strip()
+                value = value.strip('"').strip("'")
+                if "#" in value:
+                    value = value.split("#", 1)[0].strip()
+                return value or None
+    return None
+
+
+def scan_yaml_name_collisions(packages_dir: Path) -> dict[str, list[tuple[str, str]]]:
+    """Walk all ``packages/<tier>/<dir>/package.yml`` and return collisions.
+
+    Returns ``{yaml_name: [(tier, dir_name), ...]}`` for ``name:`` fields
+    that appear in 2+ package.yml files. Each entry is a hard error: the
+    orchestrator's graph loader rejects duplicates at phase entry with
+    ``ValueError: duplicate package 'X'``.
+
+    Note: the dir_name is the on-disk directory, which is typically (but
+    not always) equal to the YAML name field. The collision is keyed on the
+    YAML name because that's what the graph loader keys on.
+    """
+    by_name: dict[str, list[tuple[str, str]]] = {}
+    for tier_dir in sorted(packages_dir.iterdir()):
+        if not tier_dir.is_dir():
+            continue
+        for pkg_dir in sorted(tier_dir.iterdir()):
+            if not pkg_dir.is_dir():
+                continue
+            yml = pkg_dir / "package.yml"
+            if not yml.is_file():
+                continue
+            name = parse_yaml_name(yml)
+            if name is None:
+                continue
+            by_name.setdefault(name, []).append((tier_dir.name, pkg_dir.name))
+    return {n: locs for n, locs in by_name.items() if len(locs) > 1}
+
+
 def get_pkg_tier(packages_dir: Path, pkg_name: str) -> str | None:
     for tier_dir in packages_dir.iterdir():
         if not tier_dir.is_dir():
@@ -205,6 +268,19 @@ def scan(repo: Path) -> tuple[dict, list[dict], dict]:
     duplicates = {n: locs for n, locs in pkg_index.items() if len(locs) > 1}
 
     findings: list[dict] = []
+
+    # YAML name-collision sweep across all package.yml files. Each
+    # collision surfaces as a DUPLICATE-PACKAGE-NAME finding so the
+    # gate exit-code reflects it. Sorted location lists for stable
+    # output.
+    yaml_collisions = scan_yaml_name_collisions(packages_dir)
+    for name, locs in sorted(yaml_collisions.items()):
+        findings.append({
+            "type": "DUPLICATE-PACKAGE-NAME",
+            "name": name,
+            "locations": sorted(locs),
+        })
+
     for phase in PHASE_ORDER:
         for pos, (consumer, consumer_line) in enumerate(script_pkgs.get(phase, [])):
             yml = find_package_yml(packages_dir, consumer)
@@ -294,8 +370,9 @@ def emit_summary(script_pkgs: dict, findings: list[dict], duplicates: dict, verb
         print("PASS — no build-order violations against current package.yml deps.")
         return
 
-    for t in ("SAME-SCRIPT-VIOLATION", "CROSS-PHASE-VIOLATION",
-              "DEP-NOT-FOUND", "DEP-TIER-UNKNOWN", "PACKAGE-YML-MISSING"):
+    for t in ("DUPLICATE-PACKAGE-NAME", "SAME-SCRIPT-VIOLATION",
+              "CROSS-PHASE-VIOLATION", "DEP-NOT-FOUND", "DEP-TIER-UNKNOWN",
+              "PACKAGE-YML-MISSING"):
         items = by_type.get(t, [])
         if items:
             print(f"  {t}: {len(items)}")
@@ -321,6 +398,9 @@ def emit_summary(script_pkgs: dict, findings: list[dict], duplicates: dict, verb
                 print(f"  [{f['consumer_phase']}] {f['consumer']} needs {f['dep']} (tier {f['dep_tier']} has no default-phase mapping)")
             elif t == "PACKAGE-YML-MISSING":
                 print(f"  [{f['consumer_phase']}:{f['consumer_line']}] {f['consumer']} (no package.yml)")
+            elif t == "DUPLICATE-PACKAGE-NAME":
+                locs = ", ".join(f"{tier}/{d}" for tier, d in f["locations"])
+                print(f"  name='{f['name']}' in {len(f['locations'])} package.yml files: {locs}")
         if len(items) > 5:
             print(f"  ... ({len(items) - 5} more)")
 
@@ -346,17 +426,25 @@ def write_artifacts(repo: Path, findings: list[dict], script_pkgs: dict,
         "findings": findings,
     }, indent=2))
     with tsv_path.open("w") as fp:
-        fp.write("type\tconsumer\tconsumer_phase\tconsumer_line\tdep\tdep_phase\tdep_line\n")
+        fp.write("type\tconsumer\tconsumer_phase\tconsumer_line\tdep\tdep_phase\tdep_line\tname\tlocations\n")
         for f in findings:
-            fp.write("\t".join([
-                f["type"],
-                f.get("consumer", ""),
-                f.get("consumer_phase", ""),
-                str(f.get("consumer_line", "")),
-                f.get("dep", ""),
-                f.get("dep_phase", ""),
-                str(f.get("dep_line", "")),
-            ]) + "\n")
+            if f["type"] == "DUPLICATE-PACKAGE-NAME":
+                locs = "; ".join(f"{tier}/{d}" for tier, d in f.get("locations", []))
+                fp.write("\t".join([
+                    f["type"], "", "", "", "", "", "",
+                    f.get("name", ""), locs,
+                ]) + "\n")
+            else:
+                fp.write("\t".join([
+                    f["type"],
+                    f.get("consumer", ""),
+                    f.get("consumer_phase", ""),
+                    str(f.get("consumer_line", "")),
+                    f.get("dep", ""),
+                    f.get("dep_phase", ""),
+                    str(f.get("dep_line", "")),
+                    "", "",
+                ]) + "\n")
     return json_path, tsv_path
 
 
