@@ -1,0 +1,44 @@
+# AppArmor profile for influxd — enforce mode
+# landing plan §5f
+
+#include <tunables/global>
+
+profile influxd /usr/bin/influxd {
+    #include <abstractions/base>
+    #include <abstractions/nameservice>
+
+    capability setuid,
+    capability setgid,
+
+    /usr/bin/influxd mr,
+    /etc/influxdb/influxdb.conf r,
+
+    /var/lib/influxdb/ r,
+    /var/lib/influxdb/** rwk,
+
+    /var/log/influxdb/ r,
+    /var/log/influxdb/** rw,
+
+    /run/influxdb/ r,
+    /run/influxdb/** rwk,
+
+    /usr/lib/ r,
+    /usr/lib/** mr,
+    /lib/ r,
+    /lib/** mr,
+    /lib64/ r,
+    /lib64/** mr,
+
+    /usr/share/locale/ r,
+    /usr/share/locale/** r,
+    /etc/localtime r,
+
+    /proc/ r,
+    /proc/*/ r,
+
+    /run/systemd/notify w,
+
+    deny @{PROC}/** rwklx,
+    deny /sys/** rwklx,
+    deny /dev/** rw,
+}

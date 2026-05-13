@@ -1,0 +1,19 @@
+name: influxdb
+version: "3.9.0"
+release: 1
+description: Time-series database (Core edition, Apache-2.0 OR MIT)
+tier: extra
+license: Apache-2.0 OR MIT
+homepage: https://www.influxdata.com
+build_style: custom
+source:
+- url: https://github.com/influxdata/influxdb/archive/v${version}.tar.gz
+  sha256: 23b8a555c6f302da03e7342bd922868a1ff7eeea53537598ef3945c412a47df0
+dependencies:
+  build:
+  - rust
+  - protobuf
+  - cargo-c
+  host: []
+  runtime:
+  - protobuf
