@@ -1,0 +1,20 @@
+name: memcached
+version: "1.6.41"
+release: 1
+description: High-performance distributed in-memory KV cache (default-secure config — bind 127.0.0.1 + UDP off + TLS + seccomp + SASL build-enabled)
+license: BSD-3-Clause
+homepage: https://memcached.org/
+tier: extra
+build_style: autotools
+install_func: do_install
+source:
+- url: http://memcached.org/files/memcached-${version}.tar.gz
+  sha256: e097073c156eeff9e12655b054f446d57374cfba5c132dcdbe7fac64e728286a
+dependencies:
+  build:
+  - openssl
+  - libseccomp
+  - cyrus-sasl
+  - libevent
+  host: []
+  runtime: []
