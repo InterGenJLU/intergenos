@@ -111,18 +111,24 @@ build() {
     # lego 5.0.2 has main.go at the repo root, NOT under cmd/lego/. The
     # cmd/ subdir contains the cobra subcommand handlers (cmd.go etc.) but
     # the entrypoint binary is built from the root module.
+    #
+    # Output name lego.bin (NOT plain `lego`) — the source tree ALSO has a
+    # `lego/` library subdirectory at cwd, and `go build -o lego` would
+    # interpret the existing dir as a target location and stash the binary
+    # at lego/lego instead of cwd/lego.
     CGO_ENABLED=0 GOFLAGS="-mod=vendor" go build                            \
         -trimpath                                                           \
         -ldflags '-s -w'                                                    \
         -buildvcs=false                                                     \
-        -o lego                                                             \
+        -o lego.bin                                                         \
         .
 }
 
 do_install() {
     set -e
-    # Install the binary (built at repo root, not cmd/lego/)
-    install -Dm755 lego "$DESTDIR/usr/bin/lego"
+    # Install the binary (renamed from lego.bin → lego on install per
+    # the build-output naming workaround above)
+    install -Dm755 lego.bin "$DESTDIR/usr/bin/lego"
 
     # Install the sample renewal helper script (documentation +
     # starting template; operator copies + customizes).
