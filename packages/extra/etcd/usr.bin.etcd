@@ -1,0 +1,54 @@
+# AppArmor profile for etcd — enforce mode
+# landing plan §5f
+
+#include <tunables/global>
+
+profile etcd /usr/bin/etcd {
+    #include <abstractions/base>
+    #include <abstractions/nameservice>
+
+    capability setuid,
+    capability setgid,
+    capability net_bind_service,
+
+    # Binary and config
+    /usr/bin/etcd mr,
+    /etc/etcd/etcd.conf.yaml r,
+
+    # Data
+    /var/lib/etcd/ r,
+    /var/lib/etcd/** rwk,
+
+    # Logs
+    /var/log/etcd/ r,
+    /var/log/etcd/** rw,
+
+    # Runtime
+    /run/etcd/ r,
+    /run/etcd/** rwk,
+
+    # Standard library link surface
+    /usr/lib/ r,
+    /usr/lib/** mr,
+    /lib/ r,
+    /lib/** mr,
+    /lib64/ r,
+    /lib64/** mr,
+
+    # Locale + time
+    /usr/share/locale/ r,
+    /usr/share/locale/** r,
+    /etc/localtime r,
+
+    # Proc
+    /proc/ r,
+    /proc/*/ r,
+
+    # Systemd notify socket
+    /run/systemd/notify w,
+
+    # Deny everything else
+    deny @{PROC}/** rwklx,
+    deny /sys/** rwklx,
+    deny /dev/** rw,
+}

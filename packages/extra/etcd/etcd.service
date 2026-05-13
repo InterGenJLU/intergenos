@@ -1,0 +1,47 @@
+[Unit]
+Description=etcd key-value store
+After=network.target
+
+[Service]
+Type=notify
+User=etcd
+Group=etcd
+ExecStart=/usr/bin/etcd --config-file /etc/etcd/etcd.conf.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+TimeoutStartSec=30
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=5
+Environment=ETCD_DATA_DIR=/var/lib/etcd
+Environment=ETCD_LOG_DIR=/var/log/etcd
+
+# Security hardening — landing plan §5e baseline
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+ProtectClock=yes
+ProtectProc=invisible
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=true
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+CapabilityBoundingSet=
+AmbientCapabilities=
+ReadWritePaths=/var/lib/etcd /var/log/etcd /run/etcd
+ReadOnlyPaths=/etc/etcd
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
