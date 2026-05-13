@@ -8,12 +8,12 @@ homepage: https://www.lighttpd.net/
 build_style: custom
 source:
 - url: https://download.lighttpd.net/lighttpd/releases-1.4.x/lighttpd-${version}.tar.xz
-  sha256: 0731118e8e98e21fd54c9abca849f4489579e9c50789ae35e6650e22ea3d83a2
+  sha256: abfe74391f9cbd66ab154ea07e64f194dbe7e906ef4ed47eb3b0f3b46246c962
 dependencies:
   build:
-  - pkgconf
-  host:
   - openssl
   - pcre2
+  - pkgconf
   - zlib
+  host: []
   runtime: []
