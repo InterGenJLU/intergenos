@@ -130,7 +130,6 @@ configure() {
         --libexecdir=/usr/lib/httpd/modules                                \
         --with-mpm=event                                                   \
         --enable-mods-shared=all                                           \
-        --enable-mods-static=mpm_event                                     \
         --enable-ssl                                                       \
         --enable-deflate                                                   \
         --enable-rewrite                                                   \
