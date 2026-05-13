@@ -86,7 +86,7 @@ configure() {
         -Dlibxslt=enabled                                                  \
         -Dplperl=enabled                                                   \
         -Dplpython=enabled                                                 \
-        -Dtcl=disabled                                                     \
+        -Dpltcl=disabled                                                   \
         -Dliburing=disabled
 }
 
