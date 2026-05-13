@@ -20,6 +20,7 @@ CONF_DIR=/etc/lighttpd
 
 configure() {
     set -e
+    ./autogen.sh
     ./configure --prefix=/usr \
                 --sysconfdir="$CONF_DIR" \
                 --libdir=/usr/lib \
