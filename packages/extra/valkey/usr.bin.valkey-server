@@ -1,0 +1,60 @@
+# AppArmor profile for valkey-server — enforce mode
+# landing plan §5f
+
+#include <tunables/global>
+
+profile valkey-server /usr/bin/valkey-server {
+    #include <abstractions/base>
+    #include <abstractions/nameservice>
+
+    capability setuid,
+    capability setgid,
+
+    # Binary and config
+    /usr/bin/valkey-server mr,
+    /etc/valkey/valkey.conf r,
+
+    # State
+    /var/lib/valkey/ r,
+    /var/lib/valkey/** rwk,
+    /var/lib/valkey/.install-meta r,
+
+    # Logs
+    /var/log/valkey/ r,
+    /var/log/valkey/** rw,
+
+    # Runtime
+    /run/valkey/ r,
+    /run/valkey/** rwk,
+
+    # Standard library link surface
+    /usr/lib/ r,
+    /usr/lib/** mr,
+    /lib/ r,
+    /lib/** mr,
+    /lib64/ r,
+    /lib64/** mr,
+
+    # Locale
+    /usr/share/locale/ r,
+    /usr/share/locale/** r,
+
+    # Time
+    /etc/localtime r,
+
+    # Proc
+    /proc/ r,
+    /proc/*/ r,
+    /proc/*/status r,
+    /proc/*/stat r,
+    /proc/sys/kernel/ngroups_max r,
+    /proc/sys/vm/overcommit_memory r,
+
+    # Systemd notify socket
+    /run/systemd/notify w,
+
+    # Deny everything else
+    deny @{PROC}/** rwklx,
+    deny /sys/** rwklx,
+    deny /dev/** rw,
+}
