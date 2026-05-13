@@ -11,6 +11,22 @@ build/sources/
 build/vendor-artifacts/
 build/archive/
 build/*.db
+
+# Operational scripts (per-build/resume kickoff wrappers; generated, not source)
+build/build*-kickoff.sh
+build/build*-rebuild-*.sh
+build/option-*.sh
+
+# Timestamped scanner output at build/ root (regenerate per scan).
+# Pattern matches *-YYYYMMDDTHHMMSSZ.{tsv,json};
+# preserves build/audits/ (tracked per-package audit JSONs)
+# and build/rule5-sweep-results.tsv (tracked classifier output).
+build/*-[0-9]*Z.tsv
+build/*-[0-9]*Z.json
+
+# Transient scanner working directories
+build/scan-cache/
+build/sources-pax-regen/
 *.iso
 *.img
 *.img.gz
