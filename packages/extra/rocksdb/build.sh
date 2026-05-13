@@ -260,7 +260,8 @@ configure() {
           -DWITH_DYNAMIC_EXTENSION=OFF                                      \
           -DWITH_FALLOCATE=ON                                               \
           -DPORTABLE=1                                                      \
-          -DUSE_RTTI=1
+          -DUSE_RTTI=1                                                      \
+          -DFAIL_ON_WARNINGS=OFF
 }
 
 build() {
