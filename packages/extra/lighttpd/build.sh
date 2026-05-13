@@ -47,7 +47,7 @@ do_install() {
 
     install -d -m 750 "$DESTDIR"/etc/lighttpd
     install -d -m 750 "$DESTDIR"/etc/lighttpd/conf.d
-    install -m 644 lighttpd.conf "$DESTDIR"/etc/lighttpd/lighttpd.conf
+    install -m 644 "$BUILD_DIR/lighttpd.conf" "$DESTDIR"/etc/lighttpd/lighttpd.conf
 
     install -d -m 750 "$DESTDIR"/var/lib/lighttpd
     install -d -m 750 "$DESTDIR"/var/log/lighttpd
