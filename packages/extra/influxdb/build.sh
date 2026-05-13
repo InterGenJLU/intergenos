@@ -39,22 +39,21 @@ PKG_GROUP=influxdb
 
 configure() {
     set -e
-    # Extract pre-vendored Rust crates (generated via cargo-vendor-gen.sh)
-    if [ -f "${IGOS_SOURCES}/influxdb-${PKG_VERSION}-vendor.tar.xz" ]; then
-        tar -xf "${IGOS_SOURCES}/influxdb-${PKG_VERSION}-vendor.tar.xz" --strip-components=1
-        mkdir -p .cargo
-        cat > .cargo/config.toml << 'CARGOEOF'
-[source.crates-io]
-replace-with = "vendored-sources"
-
-[source.vendored-sources]
-directory = "vendor"
-CARGOEOF
-    else
+    # Extract pre-vendored Rust crates (generated via cargo-vendor-gen.sh).
+    # The tarball includes .cargo/config.toml with the canonical cargo
+    # vendor stdout — for influxdb that's [source.crates-io] + two
+    # [source."git+..."] redirects for the influxdata/arrow-datafusion +
+    # datafusion-udf-wasm forks + [source.vendored-sources]. We extract
+    # with --strip-components=1 so vendor/ and .cargo/ land at cwd; we
+    # trust the tarball's config (canonical pattern across all other
+    # Rust packages in tree). DO NOT overwrite .cargo/config.toml here —
+    # that would wipe the git-source redirects and break --frozen builds.
+    if [ ! -f "${IGOS_SOURCES}/influxdb-${PKG_VERSION}-vendor.tar.xz" ]; then
         echo "ERROR: influxdb-${PKG_VERSION}-vendor.tar.xz not found in IGOS_SOURCES"
         echo "Run: scripts/cargo-vendor-gen.sh influxdb ${PKG_VERSION} <github-url>"
         exit 1
     fi
+    tar -xf "${IGOS_SOURCES}/influxdb-${PKG_VERSION}-vendor.tar.xz" --strip-components=1
 }
 
 build() {
