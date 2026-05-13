@@ -1,0 +1,85 @@
+# AppArmor profile for Apache httpd — enforce mode
+# landing plan §5f / web-server-landing-plan §3
+
+#include <tunables/global>
+
+profile httpd /usr/sbin/httpd {
+    #include <abstractions/base>
+    #include <abstractions/nameservice>
+    #include <abstractions/openssl>
+    #include <abstractions/ssl_certs>
+
+    capability net_bind_service,
+    capability setuid,
+    capability setgid,
+    capability dac_override,
+    capability dac_read_search,
+    capability sys_resource,
+
+    # Binary + helper tools
+    /usr/sbin/httpd mr,
+    /usr/sbin/rotatelogs rix,
+    /usr/sbin/suexec rix,
+
+    # Config tree (read-only)
+    /etc/httpd/ r,
+    /etc/httpd/** r,
+    /etc/sysconfig/httpd r,
+
+    # SSL cert + key
+    /etc/httpd/ssl/ r,
+    /etc/httpd/ssl/*.pem r,
+    /etc/httpd/ssl/*.key r,
+
+    # DocumentRoot (default)
+    /var/www/ r,
+    /var/www/** r,
+
+    # State / log / runtime dirs
+    /var/log/httpd/ r,
+    /var/log/httpd/** rw,
+    /var/run/httpd/ r,
+    /var/run/httpd/** rwk,
+    /var/lib/httpd/ r,
+    /var/lib/httpd/** rwk,
+
+    # DSO modules — Apache loads modules at startup via dlopen()
+    /usr/lib/httpd/modules/ r,
+    /usr/lib/httpd/modules/*.so mr,
+
+    # Standard library link surface
+    /usr/lib/ r,
+    /usr/lib/** mr,
+    /lib/ r,
+    /lib/** mr,
+    /lib64/ r,
+    /lib64/** mr,
+
+    # MIME types + icons
+    /usr/share/httpd/ r,
+    /usr/share/httpd/** r,
+    /etc/mime.types r,
+
+    # Locale + time
+    /usr/share/locale/ r,
+    /usr/share/locale/** r,
+    /etc/localtime r,
+
+    # Proc
+    /proc/cpuinfo r,
+    /proc/meminfo r,
+    /proc/*/ r,
+    /proc/*/status r,
+    /proc/*/stat r,
+
+    # Systemd notify socket
+    /run/systemd/notify w,
+
+    # Deny everything else
+    deny @{PROC}/sysrq-trigger rwklx,
+    deny /sys/firmware/** rwklx,
+    deny /dev/sd* rw,
+    deny /dev/nvme* rw,
+    deny /etc/shadow r,
+    deny /etc/gshadow r,
+}

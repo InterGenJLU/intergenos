@@ -1,0 +1,28 @@
+name: apache-httpd
+version: "2.4.67"
+release: 1
+description: Apache HTTP Server 2.4.x — heritage HTTP/HTTPS server with mpm_event + DSO modules + default-secure config
+license: Apache-2.0
+homepage: https://httpd.apache.org/
+tier: extra
+build_style: autotools
+install_func: do_install
+source:
+- url: https://archive.apache.org/dist/httpd/httpd-${version}.tar.bz2
+  sha256: 66cd206637b0d5c446fa7dabe75fe03525da8fb55855876c46288cd88b136aa4
+dependencies:
+  build:
+  - apr
+  - apr-util
+  - openssl
+  - pcre2
+  - zlib
+  - libxml2
+  host: []
+  runtime:
+  - apr
+  - apr-util
+  - openssl
+  - pcre2
+  - zlib
+  - libxml2
