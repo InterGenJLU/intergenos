@@ -1,0 +1,32 @@
+# AppArmor profile for lighttpd — enforce mode
+#include <tunables/global>
+
+profile lighttpd /usr/sbin/lighttpd {
+    #include <abstractions/base>
+    #include <abstractions/nameservice>
+    #include <abstractions/ssl_certs>
+    #include <abstractions/ssl_keys>
+
+    capability setuid,
+    capability setgid,
+    capability net_bind_service,
+    capability chown,
+
+    /usr/sbin/lighttpd mr,
+    /etc/lighttpd/lighttpd.conf r,
+    /etc/lighttpd/conf.d/ r,
+    /etc/lighttpd/conf.d/** r,
+
+    /var/lib/lighttpd/ r,
+    /var/lib/lighttpd/** rwk,
+    /var/log/lighttpd/ r,
+    /var/log/lighttpd/** rwk,
+    /run/lighttpd/ r,
+    /run/lighttpd/** rwk,
+
+    /etc/ssl/private/ r,
+    /etc/ssl/private/lighttpd.pem r,
+    /etc/ssl/certs/ r,
+    /usr/share/lighttpd/ r,
+    /usr/share/lighttpd/** r,
+}
