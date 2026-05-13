@@ -1,0 +1,19 @@
+name: lego
+version: "5.0.2"
+release: 1
+description: Go-based ACME client (Let's Encrypt + RFC 8555) — single static binary CLI; Wave W1 web-server-wave cert companion
+license: MIT
+homepage: https://go-acme.github.io/lego/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/go-acme/lego/archive/refs/tags/v${version}.tar.gz
+  sha256: 453efba56358afbd3618002ea2b79826f8f5a923ad36a054c0b30c238fe9d44d
+- url: file://lego-${version}-vendor.tar.xz
+  sha256: fc83c2c0c07bb8e5cc3aba87a4306add8755f366fb49004e350d000a83c170d8
+dependencies:
+  build:
+  - go
+  host: []
+  runtime: []
