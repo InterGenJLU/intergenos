@@ -1,0 +1,39 @@
+name: mariadb
+version: "11.8.6"
+release: 1
+description: MariaDB 11.8 LTS — GPL-2.0 relational database server (MySQL-compatible)
+license: "GPL-2.0 AND LGPL-2.1"
+homepage: https://mariadb.org/
+tier: extra
+build_style: cmake
+install_func: do_install
+source:
+- url: https://archive.mariadb.org/mariadb-${version}/source/mariadb-${version}.tar.gz
+  sha256: b126581a8ca89376d2a3ce63fee97c114c3e15315345e769b9d00c51e1b7d619
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - bison-core
+  - flex
+  - pkgconf
+  - openssl
+  - zlib
+  - readline
+  - ncurses-core
+  - libxml2
+  - pcre2
+  - jemalloc
+  - mitkrb
+  - linux-pam
+  host: []
+  runtime:
+  - openssl
+  - zlib
+  - readline
+  - ncurses-core
+  - libxml2
+  - pcre2
+  - jemalloc
+  - mitkrb
+  - linux-pam
