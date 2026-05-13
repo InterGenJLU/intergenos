@@ -24,4 +24,11 @@ build() {
 do_install() {
     set -e
     make INSTALLPREFIX="$DESTDIR/usr" install
+    # Upstream Makefile sets HEADERS=natpmp.h, omitting natpmp_declspec.h
+    # which natpmp.h #includes at line 52. API consumers (transmission's
+    # libtransmission/port-forwarding-natpmp.cc, etc.) fail with
+    # "fatal error: natpmp_declspec.h: No such file or directory" without
+    # this. Install the missing header explicitly — surfaced 2026-05-13
+    # in Build #9 r#52 transmission 4.1.1 halt.
+    install -m 644 natpmp_declspec.h "$DESTDIR/usr/include/natpmp_declspec.h"
 }
