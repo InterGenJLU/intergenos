@@ -1,0 +1,21 @@
+name: haproxy
+version: "3.2.19"
+release: 1
+description: Reliable, high-performance TCP/HTTP load balancer and proxy (LTS 3.2; default-secure config — loopback bind, stats locked to 127.0.0.1, no admin socket exposed)
+license: GPL-2.0 AND LGPL-2.1
+homepage: https://www.haproxy.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.haproxy.org/download/3.2/src/haproxy-${version}.tar.gz
+  sha256: b08ebbd57f575012e4a5eb5b772721531fbacf6913ffd334f0281736a1ad78b6
+dependencies:
+  build:
+  - openssl
+  - pcre2
+  - zlib
+  - lua
+  - systemd
+  host: []
+  runtime: []

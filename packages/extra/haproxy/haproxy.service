@@ -1,0 +1,73 @@
+# haproxy.service — InterGenOS-hardened systemd unit for HAProxy
+#
+# Applies the database-fleet §5e hardening baseline generalized to the
+# web-server fleet. Bind default is 127.0.0.1 (set in /etc/haproxy/
+# haproxy.cfg). Admin socket lives at /run/haproxy/admin.sock as a
+# unix-domain socket (mode 660 root:haproxy); no TCP admin exposure.
+#
+# Service ships disabled — operator runs `systemctl enable haproxy`
+# consciously after reviewing the sample config and replacing the
+# self-signed cert with a real one.
+
+[Unit]
+Description=HAProxy Load Balancer
+After=network.target
+Documentation=man:haproxy(1)
+
+[Service]
+Type=notify
+EnvironmentFile=-/etc/sysconfig/haproxy
+ExecStartPre=/usr/sbin/haproxy -c -f /etc/haproxy/haproxy.cfg
+ExecStart=/usr/sbin/haproxy -Ws -f /etc/haproxy/haproxy.cfg -p /run/haproxy/haproxy.pid
+ExecReload=/usr/sbin/haproxy -c -f /etc/haproxy/haproxy.cfg
+ExecReload=/bin/kill -USR2 $MAINPID
+KillMode=mixed
+KillSignal=SIGUSR1
+SuccessExitStatus=143
+TimeoutStartSec=120
+
+# --- database-fleet §5e hardening baseline ---
+
+NoNewPrivileges=true
+
+# Filesystem isolation
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ReadWritePaths=/var/log/haproxy /var/lib/haproxy /run/haproxy
+
+# Kernel surface reductions
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectHostname=true
+ProtectClock=true
+ProtectProc=invisible
+
+# Address-family / namespace / realtime / SUID restrictions
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+# Memory protection — haproxy has no JIT, MDWE is safe
+MemoryDenyWriteExecute=true
+RemoveIPC=true
+
+# Syscall surface
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount @swap @reboot
+
+# Capabilities — haproxy needs CAP_NET_BIND_SERVICE (port 443/etc),
+# CAP_SETUID + CAP_SETGID to drop to haproxy user, CAP_SYS_ADMIN for
+# the transparent-proxy / namespace path (unused in our sample config
+# but enabled by upstream defaults; included for forward compat).
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_SETUID CAP_SETGID
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target
