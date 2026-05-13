@@ -119,6 +119,19 @@ post_install() {
 #   work inside the chroot since the loopback interface is always present.
 check() {
     set -e
+    # transmission-show tests compare binary output against golden .show
+    # files that store dates in UTC. transmission-show converts to local
+    # time on display, so without TZ=UTC the tests fail 5 hours off when
+    # the build host is in CDT (US-Eastern variants) — 5 of the
+    # transmission-show-* tests halt with timestamp diffs. Set TZ=UTC
+    # for the test run only; production runtime behavior (local-time
+    # display) is unchanged.
+    #
+    # If more packages surface the same TZ-sensitivity in their test
+    # suites, promote this to builder.py as a build-wide convention
+    # (alongside SOURCE_DATE_EPOCH for reproducibility). For now,
+    # transmission-only.
+    export TZ=UTC
     pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
         ctest --test-dir build --output-on-failure -j${IGOS_JOBS}
 }
