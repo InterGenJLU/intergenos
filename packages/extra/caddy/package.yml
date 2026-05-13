@@ -1,0 +1,16 @@
+name: caddy
+version: "2.11.3"
+release: 1
+description: Modern ACME-aware HTTP/2/3 single-binary web server
+tier: extra
+license: Apache-2.0
+homepage: https://caddyserver.com
+build_style: custom
+source:
+- url: https://github.com/caddyserver/caddy/archive/v${version}.tar.gz
+  sha256: de751e6b7ca769f0dc1f9b0a1949c7b149c115efde3aaf53182da2bf6a94c825
+dependencies:
+  build:
+  - go
+  host: []
+  runtime: []

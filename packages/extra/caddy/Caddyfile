@@ -1,0 +1,13 @@
+# Caddyfile — default-secure config
+# Bind localhost only, TLS via internal staging ACME
+# Operator: remove 'ca' line for production Let's Encrypt
+# Operator: change bind address for network exposure
+
+:443 {
+    bind 127.0.0.1
+    tls internal {
+        ca https://acme-staging-v02.api.letsencrypt.org/directory
+    }
+    root * /var/lib/caddy
+    file_server
+}
