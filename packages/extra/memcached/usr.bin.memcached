@@ -1,0 +1,56 @@
+# /etc/apparmor.d/usr.bin.memcached — InterGenOS AppArmor profile for
+# memcached, shipped in enforce mode per database-landing-plan §5f.
+#
+# Constrains filesystem access to the daemon's own state, log, runtime
+# directories, plus the standard library link surface. Denies arbitrary
+# binary exec, raw device access, raw network sockets, and writes
+# outside the explicit allowlist.
+
+#include <tunables/global>
+
+/usr/bin/memcached flags=(attach_disconnected) {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+  #include <abstractions/openssl>
+
+  capability setuid,
+  capability setgid,
+  capability sys_resource,
+
+  # Binary
+  /usr/bin/memcached mr,
+
+  # Standard library link surface (libc + libssl + libcrypto +
+  # libseccomp + libsasl2 + libevent are pulled in via the abstractions
+  # included above plus the explicit paths below).
+  /usr/lib/libseccomp.so* mr,
+  /usr/lib/libsasl2.so*   mr,
+  /usr/lib/sasl2/**       mr,
+  /usr/lib/libevent*.so*  mr,
+  /usr/lib/libnss_*       mr,
+
+  # Config (read-only)
+  /etc/sysconfig/memcached r,
+  /etc/sasl2/memcached.conf r,
+  /etc/sasl2/                r,
+
+  # State directories (read-write)
+  /var/lib/memcached/        rw,
+  /var/lib/memcached/**      rwk,
+
+  # Log directory (read-write)
+  /var/log/memcached/        rw,
+  /var/log/memcached/**      rwk,
+
+  # Runtime / PID directory (read-write)
+  /run/memcached/            rw,
+  /run/memcached/**          rwk,
+
+  # /proc + /sys reads needed for stats and limits
+  @{PROC}/sys/kernel/ngroups_max r,
+  @{PROC}/sys/kernel/random/uuid r,
+  @{PROC}/@{pid}/limits          r,
+
+  # Deny everything else explicitly to harden against profile-bypass
+  # patterns. AppArmor's default is deny; this comment is documentation.
+}

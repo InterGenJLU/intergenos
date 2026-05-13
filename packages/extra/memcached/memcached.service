@@ -1,0 +1,67 @@
+# memcached.service — InterGenOS-hardened systemd unit for memcached
+#
+# Applies the database-landing-plan §5e systemd hardening baseline. The
+# upstream scripts/memcached.service ships several `##safer##`
+# directives commented out; this unit applies the full baseline by
+# default. Operators wanting to relax any directive use `systemctl edit
+# memcached` and override individually.
+#
+# Bind default is 127.0.0.1 only (set in /etc/sysconfig/memcached
+# OPTIONS). UDP listener default is OFF (memcached 1.6.x compiled
+# default). SASL authentication is build-available but not enabled in
+# the shipped config; operators opt in via OPTIONS.
+
+[Unit]
+Description=memcached daemon
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/sysconfig/memcached
+ExecStart=/usr/bin/memcached -p ${PORT} -u ${USER} -m ${CACHESIZE} -c ${MAXCONN} $OPTIONS
+User=memcached
+Group=memcached
+
+# --- landing-plan §5e hardening baseline ---
+
+# Privilege drop / no-new-privs
+NoNewPrivileges=true
+
+# Filesystem isolation
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ReadWritePaths=/var/lib/memcached /var/log/memcached /run/memcached
+
+# Kernel surface reductions
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectHostname=true
+ProtectClock=true
+ProtectProc=invisible
+
+# Address-family / namespace / realtime / SUID restrictions
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+# Memory protection — memcached has no JIT, MDWE is safe
+MemoryDenyWriteExecute=true
+RemoveIPC=true
+
+# Syscall surface — allow @system-service, deny privileged/resource ops
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount @swap @reboot
+
+# Capabilities — drop all (memcached needs no privileged capability)
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target
