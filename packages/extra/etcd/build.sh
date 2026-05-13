@@ -21,15 +21,26 @@ CONF_DIR=/etc/etcd
 
 configure() {
     set -e
-    true
+    # Extract pre-vendored Go module deps (multi-module workspace:
+    # server/vendor + etcdctl/vendor + etcdutl/vendor). The tarball is
+    # produced by go-vendor-gen on SPOC's host, byte-reproducible against
+    # SOURCE_DATE_EPOCH=master tip + tar reproducibility flags.
+    if [ -f "${IGOS_SOURCES}/etcd-3.6.11-vendor.tar.xz" ]; then
+        tar -xf "${IGOS_SOURCES}/etcd-3.6.11-vendor.tar.xz" --strip-components=1
+    else
+        echo "ERROR: etcd-3.6.11-vendor.tar.xz not found in IGOS_SOURCES"
+        echo "Run: scripts/go-vendor-gen for etcd-3.6.11 prior to build"
+        exit 1
+    fi
 }
 
 build() {
     set -e
-    # Go toolchain from packages/core/go/
     export GOTOOLCHAIN=local
     export CGO_ENABLED=0
-    make build GO_BUILD_FLAGS="-v"
+    # Bypass Makefile (which hardcodes -mod=readonly that would defeat
+    # the vendor pattern); call build.sh directly with -mod=vendor.
+    GO_BUILD_FLAGS="-v -mod=vendor" ./scripts/build.sh
 }
 
 check() {
