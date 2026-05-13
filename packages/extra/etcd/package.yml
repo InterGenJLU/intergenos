@@ -1,0 +1,16 @@
+name: etcd
+version: "3.6.11"
+release: 1
+description: Distributed reliable key-value store for cluster coordination
+tier: extra
+license: Apache-2.0
+homepage: https://etcd.io
+build_style: custom
+source:
+- url: https://github.com/etcd-io/etcd/archive/v${version}.tar.gz
+  sha256: bdc9b21505f4587c81f33235b53b3cb02f28158eb3487ae158f90b9534f0c0f3
+dependencies:
+  build:
+  - go
+  host: []
+  runtime: []

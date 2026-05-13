@@ -1,0 +1,22 @@
+# etcd configuration skeleton — TLS required, auth on, bind localhost
+# Operators must provide certs before starting the service.
+# See: https://etcd.io/docs/latest/op-guide/configuration/
+
+name: default
+data-dir: /var/lib/etcd
+listen-client-urls: https://127.0.0.1:2379
+advertise-client-urls: https://127.0.0.1:2379
+
+# TLS — REQUIRED. Generate certs BEFORE starting the service.
+# cert-file: /etc/etcd/server.crt
+# key-file: /etc/etcd/server.key
+# trusted-ca-file: /etc/etcd/ca.crt
+# client-cert-auth: true
+auto-tls: false
+
+# Auth — enable after initial cluster bootstrap
+# auth-token: simple
+
+logger: zap
+log-level: info
+log-outputs: [/var/log/etcd/etcd.log]
