@@ -728,12 +728,18 @@ ensure_sources_staged() {
     fi
 
     # Step 2: mirror host /mnt/intergenos/build/sources/ -> chroot
-    # /mnt/igos/sources/. cp -an = archive + no-clobber, never overwrites
-    # files already in the chroot. Only newly-fetched tarballs land.
+    # /mnt/igos/sources/. rsync -a = archive + diff-aware: skips files
+    # that are byte-identical on both sides (cheap for unchanged tarballs),
+    # mirrors changes when host file differs from chroot file (size/mtime
+    # delta detection). Replaces the prior cp -an (no-clobber) which only
+    # mirrored NEW filenames — silently preserved stale chroot copies when
+    # a vendor tarball was regenerated without a version bump (i.e.
+    # same filename, different content). First case hit was influxdb
+    # 3.9.0's vendor regen for the cargo-vendor-gen git-source config fix.
     mkdir -p "$IGOS/sources"
     chmod a+wt "$IGOS/sources"
-    cp -an "${SOURCES}"/* "$IGOS/sources/" 2>/dev/null || true
-    cp -an "${PATCHES}"/* "$IGOS/sources/" 2>/dev/null || true
+    rsync -a "${SOURCES}/" "$IGOS/sources/" 2>/dev/null || true
+    rsync -a "${PATCHES}/" "$IGOS/sources/" 2>/dev/null || true
 
     local count=$(ls "$IGOS/sources" 2>/dev/null | wc -l)
     log "  Sources staged: $count files in $IGOS/sources/"
