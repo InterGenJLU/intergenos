@@ -1,0 +1,37 @@
+name: postgresql
+version: "18.3"
+release: 1
+description: PostgreSQL relational database server (default-secure config — listen 127.0.0.1, scram-sha-256 auth, deferred initdb via postgres-setup helper)
+license: PostgreSQL
+homepage: https://www.postgresql.org/
+tier: extra
+build_style: meson
+install_func: do_install
+source:
+- url: https://ftp.postgresql.org/pub/source/v${version}/postgresql-${version}.tar.bz2
+  sha256: d95663fbbf3a80f81a9d98d895266bdcb74ba274bcc04ef6d76630a72dee016f
+dependencies:
+  build:
+  - meson
+  - ninja
+  - pkgconf
+  - perl-core
+  - bison-core
+  - flex
+  - openssl
+  - readline
+  - zlib
+  - lz4
+  - zstd
+  - icu
+  - gettext
+  - libxml2
+  - libxslt
+  - linux-pam
+  - openldap
+  - mitkrb
+  - llvm
+  - python
+  - systemd
+  host: []
+  runtime: []
