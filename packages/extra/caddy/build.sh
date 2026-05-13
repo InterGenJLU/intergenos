@@ -21,14 +21,24 @@ CONF_DIR=/etc/caddy
 
 configure() {
     set -e
-    true
+    # Extract pre-vendored Go module deps (generated via go-vendor-gen on SPOC,
+    # byte-reproducible against SOURCE_DATE_EPOCH = master tip commit time).
+    # Chroot is offline by design — caddy's ~150-module dep tree must be
+    # vendored locally before `go build` runs.
+    if [ -f "${IGOS_SOURCES}/caddy-2.11.3-vendor.tar.xz" ]; then
+        tar -xf "${IGOS_SOURCES}/caddy-2.11.3-vendor.tar.xz" --strip-components=1
+    else
+        echo "ERROR: caddy-2.11.3-vendor.tar.xz not found in IGOS_SOURCES"
+        echo "Run: go-vendor-gen for caddy-2.11.3 prior to build"
+        exit 1
+    fi
 }
 
 build() {
     set -e
     export GOTOOLCHAIN=local
     export CGO_ENABLED=0
-    export GOFLAGS="-buildvcs=false -trimpath"
+    export GOFLAGS="-buildvcs=false -trimpath -mod=vendor"
 
     cd cmd/caddy
     go build -ldflags '-s -w' -o caddy
