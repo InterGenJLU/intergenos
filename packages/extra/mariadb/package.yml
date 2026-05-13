@@ -10,6 +10,9 @@ install_func: do_install
 source:
 - url: https://archive.mariadb.org/mariadb-${version}/source/mariadb-${version}.tar.gz
   sha256: b126581a8ca89376d2a3ce63fee97c114c3e15315345e769b9d00c51e1b7d619
+- url: https://github.com/fmtlib/fmt/releases/download/12.1.0/fmt-12.1.0.zip
+  sha256: 695fd197fa5aff8fc67b5f2bbc110490a875cdf7a41686ac8512fb480fa8ada7
+  extract: false  # cmake ExternalProject expects a zip artifact, not extracted contents
 dependencies:
   build:
   - cmake
