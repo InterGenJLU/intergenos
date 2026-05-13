@@ -313,6 +313,10 @@ run_package "xz" "xz" "5.8.2" \
     "xz-5.8.2.tar.xz" \
     "XZ Utils compression"
 
+run_package "lzip" "lzip" "1.26" \
+    "lzip-1.26.tar.gz" \
+    "Lossless data compressor (LZMA) — companion to xz/bzip2; required for .tar.lz extraction"
+
 run_package "lz4" "lz4" "1.10.0" \
     "lz4-1.10.0.tar.gz" \
     "Fast lossless compression"

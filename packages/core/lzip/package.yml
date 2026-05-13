@@ -1,0 +1,15 @@
+name: lzip
+version: "1.26"
+release: 1
+description: Lossless data compressor based on the LZMA algorithm (companion to xz/bzip2)
+license: GPL-2.0-or-later
+homepage: https://www.nongnu.org/lzip/
+tier: core
+build_style: autotools
+source:
+- url: https://download.savannah.gnu.org/releases/lzip/lzip-${version}.tar.gz
+  sha256: 641cf30961525cbe3b340cc883436c8854e9f5032f459f444de4782b621e6572
+dependencies:
+  build: []
+  host: []
+  runtime: []
