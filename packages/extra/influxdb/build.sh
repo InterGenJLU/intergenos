@@ -14,6 +14,18 @@
 # - Full systemd hardening baseline (§5e)
 # - AppArmor profile in enforce mode (§5f)
 #
+# Pre-staged build inputs (mirrored host→chroot via orchestrator
+# rsync at --start-at entry):
+# - influxdb-3.9.0-vendor.tar.xz       — cargo-vendor output (769
+#   crates including the influxdata datafusion + datafusion-udf-wasm
+#   git-source forks pinned via Cargo.toml [patch.crates-io])
+# - influxdb-3.9.0-wasm-binaries.tar.xz — pre-built WASM ELF binaries
+#   for the iox_query_udf crate's build.rs. Upstream's build.rs runs
+#   at compile time and downloads these from GitHub releases; we
+#   pre-fetch + stage to keep the build offline. See the
+#   iox-query-udf-offline-staging.patch for the build.rs env-var
+#   override that consumes them.
+#
 # InfluxDB 3.x design notes (vs 2.x packaging that preceded this):
 # - Single binary `influxdb3` with subcommands (serve, create, show, ...)
 #   replaces the 2.x split of `influxd` + `influx`
@@ -39,6 +51,7 @@ PKG_GROUP=influxdb
 
 configure() {
     set -e
+
     # Extract pre-vendored Rust crates (generated via cargo-vendor-gen.sh).
     # The tarball includes .cargo/config.toml with the canonical cargo
     # vendor stdout — for influxdb that's [source.crates-io] + two
@@ -54,6 +67,29 @@ configure() {
         exit 1
     fi
     tar -xf "${IGOS_SOURCES}/influxdb-${PKG_VERSION}-vendor.tar.xz" --strip-components=1
+
+    # Apply offline-build patch to iox_query_udf/build.rs. The patched
+    # build.rs honors IOX_QUERY_UDF_STAGED_DIR for pre-fetched wasm
+    # binaries; upstream behavior is preserved when the env var is unset.
+    patch -p0 < "$BUILD_DIR/iox-query-udf-offline-staging.patch"
+
+    # Extract pre-staged wasm binaries for iox_query_udf. The build.rs
+    # checks IOX_QUERY_UDF_STAGED_DIR (exported in build()) for these
+    # files + verifies sha256 against the same checksums upstream uses
+    # for a fresh download. The tarball contains:
+    #   - sha256sum.txt                                                (3.8 KB)
+    #   - datafusion_udf_wasm_python.release.x86_64-unknown-linux-gnu.elf (55.7 MB)
+    if [ ! -f "${IGOS_SOURCES}/influxdb-${PKG_VERSION}-wasm-binaries.tar.xz" ]; then
+        echo "ERROR: influxdb-${PKG_VERSION}-wasm-binaries.tar.xz not found in IGOS_SOURCES"
+        echo "Fetch with:"
+        echo "  BASE=https://github.com/influxdata/datafusion-udf-wasm/releases/download/wasm-binaries%2F2026-01-28T11-46-19%2F89ab4ae6312c3a44859ddd43d9df4d4300d3086a"
+        echo "  curl -L \"\$BASE/sha256sum.txt\" -O"
+        echo "  curl -L \"\$BASE/datafusion_udf_wasm_python.release.x86_64-unknown-linux-gnu.elf\" -O"
+        echo "  tar -cJf influxdb-${PKG_VERSION}-wasm-binaries.tar.xz sha256sum.txt datafusion_udf_wasm_python.release.x86_64-unknown-linux-gnu.elf"
+        exit 1
+    fi
+    mkdir -p wasm-staging
+    tar -xf "${IGOS_SOURCES}/influxdb-${PKG_VERSION}-wasm-binaries.tar.xz" -C wasm-staging
 }
 
 build() {
@@ -62,6 +98,11 @@ build() {
     #   jemalloc_replacing_malloc + azure + gcp + aws + large-strings
     # All of these are wanted shipped surface. Python plugin runtime is
     # gated at runtime via INFLUXDB3_PACKAGE_MANAGER, NOT at compile time.
+    #
+    # IOX_QUERY_UDF_STAGED_DIR points the patched build.rs at the
+    # extracted wasm binaries staged in configure(). Absolute path is
+    # required (cargo runs the build script in OUT_DIR, not cwd).
+    export IOX_QUERY_UDF_STAGED_DIR="$(pwd)/wasm-staging"
     cargo build --release --frozen --offline --bin influxdb3
 }
 

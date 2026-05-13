@@ -12,6 +12,8 @@ source:
 build_artifacts:
   - name: influxdb-${version}-vendor.tar.xz
     generated_by: cargo-vendor
+  - name: influxdb-${version}-wasm-binaries.tar.xz
+    generated_by: manual-fetch  # see iox-query-udf-offline-staging.patch + build.sh comment block for fetch recipe
 dependencies:
   build:
   - rust

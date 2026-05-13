@@ -1,0 +1,41 @@
+Offline-build support for iox_query_udf (InterGenOS packaging).
+
+When the env var IOX_QUERY_UDF_STAGED_DIR is set, the build script looks
+for pre-fetched wasm-binary artifacts there before attempting the network
+download. Candidates are checksum-verified against the same sha256 the
+build script would use to validate a fresh download; mismatches fall
+through to the original download path. When the env var is unset,
+upstream behavior is preserved exactly.
+
+This lets the cargo build complete inside an offline chroot where the
+upstream GitHub-releases download would fail with DNS-lookup errors.
+The fetch_artifact() function is the only change; all download /
+checksum / panic-on-mismatch logic remains intact.
+
+Apply with: patch -p0 (paths are anchored relative to the influxdb
+source root).
+
+--- core/iox_query_udf/build.rs
++++ core/iox_query_udf/build.rs
+@@ -66,6 +66,21 @@
+         return target_file;
+     }
+
++    // OFFLINE-BUILD SUPPORT (InterGenOS packaging):
++    // If IOX_QUERY_UDF_STAGED_DIR is set, look for the artifact there first
++    // and copy it into the cargo OUT_DIR location if it matches the expected
++    // checksum. This allows building inside an offline chroot where the
++    // upstream download would fail with DNS lookup errors. When the env var
++    // is unset, upstream behavior (network download) is preserved exactly.
++    if let Ok(staged_dir) = std::env::var("IOX_QUERY_UDF_STAGED_DIR") {
++        let staged = PathBuf::from(&staged_dir).join(name);
++        if staged.exists() && sha256(&staged) == checksum {
++            std::fs::copy(&staged, &target_file)
++                .expect("failed to copy staged artifact to OUT_DIR");
++            return target_file;
++        }
++    }
++
+     // build timestamp in URL has a specific format:
+     // - the TZ offset is not included (it's always UTC anyways)
+     // - since `:` doesn't work in URLs, `-` is used
