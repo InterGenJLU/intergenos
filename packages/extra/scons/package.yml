@@ -13,4 +13,4 @@ dependencies:
   build: []
   host: []
   runtime:
-  - python3
+  - python
