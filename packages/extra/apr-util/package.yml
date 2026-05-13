@@ -1,0 +1,22 @@
+name: apr-util
+version: "1.6.3"
+release: 1
+description: APR Utilities — DBM/LDAP/XML/crypto helpers layered on top of apr; required by apache-httpd 2.4.x
+license: Apache-2.0
+homepage: https://apr.apache.org/
+tier: extra
+build_style: autotools
+install_func: do_install
+source:
+- url: https://archive.apache.org/dist/apr/apr-util-${version}.tar.bz2
+  sha256: a41076e3710746326c3945042994ad9a4fcac0ce0277dd8fea076fec3c9772b5
+dependencies:
+  build:
+  - apr
+  - expat
+  - openssl
+  host: []
+  runtime:
+  - apr
+  - expat
+  - openssl
