@@ -197,6 +197,21 @@ configure() {
           -DPLUGIN_S3=NO                                                    \
           -DWITH_UNIT_TESTS=OFF                                             \
           -DWITH_EMBEDDED_SERVER=OFF
+
+    # Pre-stage fmt-12.1.0.zip at the path cmake's ExternalProject
+    # expects. mariadb's cmake/libfmt.cmake auto-falls-back to bundled
+    # libfmt when no system libfmt is detected — bundled mode runs
+    # ExternalProject_Add with URL pointed at github.com/fmtlib/fmt
+    # releases. Inside the offline chroot the download fails with DNS
+    # lookup error. cmake's ExternalProject download step checks
+    # URL_MD5 against the pre-existing file; if the file is present
+    # with matching MD5, the download is skipped. We stage the upstream
+    # zip (sha256 695fd197...; MD5 028c6979... matches the URL_MD5
+    # pinned in cmake/libfmt.cmake exactly) after cmake -B build has
+    # created the ExternalProject scaffolding directory.
+    install -d build/extra/libfmt/src
+    install -m644 "${IGOS_SOURCES}/fmt-12.1.0.zip" \
+        build/extra/libfmt/src/fmt-12.1.0.zip
 }
 
 build() {
