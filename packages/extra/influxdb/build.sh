@@ -103,6 +103,17 @@ build() {
     # extracted wasm binaries staged in configure(). Absolute path is
     # required (cargo runs the build script in OUT_DIR, not cwd).
     export IOX_QUERY_UDF_STAGED_DIR="$(pwd)/wasm-staging"
+
+    # influxdb3_process/build.rs embeds the upstream git commit hash
+    # into the binary for `influxdb3 --version` output. Upstream relies
+    # on `git rev-parse HEAD` to read it from the working tree, but
+    # we build from a source tarball (no .git/), so the build.rs panics
+    # with "attempting to embed empty git hash" unless GIT_HASH is
+    # provided via env. We supply the upstream v${PKG_VERSION} tag's
+    # commit sha — same value `git rev-parse HEAD` would produce if
+    # the operator had run `git clone + git checkout v${PKG_VERSION}`.
+    export GIT_HASH=0f1816e0690bbf547ebfefd13d939cfa1de71cb2
+
     cargo build --release --frozen --offline --bin influxdb3
 }
 
