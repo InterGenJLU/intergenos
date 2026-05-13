@@ -175,5 +175,7 @@ check() {
     # postgres-setup happy path on a fresh InterGenOS install to
     # catch regressions.
     cd build
-    ./src/backend/postgres --version | grep -q "PostgreSQL 18.3"
+    # `postgres --version` emits `postgres (PostgreSQL) 18.3` — the
+    # paren after PostgreSQL is part of upstream's --version format.
+    ./src/backend/postgres --version | grep -qE "PostgreSQL.*${PKG_VERSION}"
 }
