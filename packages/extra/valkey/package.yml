@@ -1,0 +1,16 @@
+name: valkey
+version: "9.0.4"
+release: 1
+description: High-performance in-memory KV store (Redis-wire-compatible)
+tier: extra
+license: BSD-3-Clause
+homepage: https://valkey.io
+build_style: custom
+source:
+- url: https://github.com/valkey-io/valkey/archive/${version}.tar.gz
+  sha256: 8d65e12cc9edb14d117b56fd33300e7b8cde2c087356de3f055d44689667670b
+dependencies:
+  build:
+  - pkgconf
+  host: []
+  runtime: []
