@@ -175,20 +175,29 @@ class BuildExecutor(PackageTracker):
                 staging.mkdir(parents=True)
 
                 # Prepare staging directory to match live filesystem layout.
-                # This mirrors what pkg-functions.sh does for bash-built packages:
+                # Mirrors what pkg-functions.sh does for bash-built packages:
                 #   1. Create usr/{bin,lib,sbin} so make install has targets
-                #   2. Symlink /bin→usr/bin, /lib→usr/lib, /sbin→usr/sbin so
-                #      installs through either path land in the same place
-                #   3. Create lib64 on x86_64 (GCC multilib convention)
+                #   2. For bin/lib/sbin/lib64: mirror the running filesystem —
+                #      symlink to usr/<x> when the host has /<x> as a symlink
+                #      (usrmerge convention, modern Ubuntu/Fedora/Arch);
+                #      otherwise create a real dir as fallback (chroot during
+                #      LFS Ch.8 before usrmerge convergence, lib64 only).
+                #
+                # pkg_deploy's dangerous-check (tracker.py:271) rejects staging
+                # that mismatches the running fs: real dir in staging while
+                # the live fs has a symlink would clobber the symlink. Mirror
+                # the running fs and the check passes naturally — and packages
+                # built host-side via igos-build.py --tracked don't trip on
+                # /lib64 → usr/lib64 (latent until lzip 2026-05-13).
                 for d in ("usr/bin", "usr/lib", "usr/sbin"):
                     (staging / d).mkdir(parents=True, exist_ok=True)
                 import platform
-                if platform.machine() == "x86_64":
-                    (staging / "lib64").mkdir(exist_ok=True)
-                for link in ("bin", "lib", "sbin"):
+                for link in ("bin", "lib", "sbin", "lib64"):
                     target = Path(f"/{link}")
                     if target.is_symlink():
                         os.symlink(f"usr/{link}", str(staging / link))
+                    elif link == "lib64" and platform.machine() == "x86_64":
+                        (staging / link).mkdir(exist_ok=True)
                 env["DESTDIR"] = str(staging)
                 env["PATH"] = f"{staging}/usr/bin:{staging}/usr/sbin:" + env["PATH"]
                 # PKG_CONFIG_LIBDIR: staging first, then system — replaces
