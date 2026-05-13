@@ -53,7 +53,7 @@ do_install() {
     local pass
     pass=$(openssl rand -base64 24 2>/dev/null || python3 -c "import secrets; print(secrets.token_hex(24))")
     echo "requirepass $pass" >> "$DESTDIR"/etc/valkey/valkey.conf
-    echo "  Generated random requirepass via openssl rand", file=stderr
+    echo "  Generated random requirepass via openssl rand" >&2
 
     # Bind 127.0.0.1 only — operators edit to expose
     echo "bind 127.0.0.1 -::1" >> "$DESTDIR"/etc/valkey/valkey.conf

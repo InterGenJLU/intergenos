@@ -28,7 +28,6 @@ do_install() {
     python3 setup.py install \
         --prefix=/usr \
         --root="${DESTDIR}" \
-        --no-version-script \
         --standard-lib
 
     # Pre-compile .py files for faster startup
