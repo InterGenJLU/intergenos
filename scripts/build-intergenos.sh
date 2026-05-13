@@ -877,6 +877,8 @@ phase_chroot_prep() {
 }
 
 phase_chroot_tools() {
+    # See clear_per_pkg_resume_env() — unset before chroot-build-*.sh invoke.
+    unset IGOS_START_AT IGOS_STOP_AFTER
     log "Building temporary tools in chroot..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
@@ -912,6 +914,8 @@ sync_chroot_scripts() {
 }
 
 phase_core() {
+    # See clear_per_pkg_resume_env() — unset before chroot-build-*.sh invoke.
+    unset IGOS_START_AT IGOS_STOP_AFTER
     sync_chroot_scripts
     log "Building core system in chroot (Ch 8, LFS order)..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-ch8.sh" 2>&1 | tee -a "$BUILD_LOG"
@@ -928,6 +932,8 @@ phase_config() {
 }
 
 phase_core_extra() {
+    # See clear_per_pkg_resume_env() — unset before chroot-build-*.sh invoke.
+    unset IGOS_START_AT IGOS_STOP_AFTER
     sync_chroot_scripts
     log "Building additional core packages in chroot (BLFS)..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-core-extra.sh" 2>&1 | tee -a "$BUILD_LOG"
@@ -943,36 +949,55 @@ phase_base() {
     # gap — without this phase, 16 base-tier packages were silently skipped
     # at install-time, degrading the user-facing CLI surface against the
     # Prime Directive.
+    #
+    # 2026-05-13 Build #9 audit: phase_base re-wired but ran 0-second because
+    # an ambient IGOS_START_AT in the operator shell leaked through into
+    # chroot-build-base.sh — every run_package returned 0 via the SKIP
+    # logic without building anything. Result: 17 of 19 base packages
+    # missing in chroot, surfaced 18h later when libreoffice configure
+    # couldn't find /usr/bin/zip. See clear_per_pkg_resume_env() — unset
+    # before chroot-build-*.sh invoke.
+    unset IGOS_START_AT IGOS_STOP_AFTER
     sync_chroot_scripts
     log "Building base packages in chroot (end-user CLI tools)..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-base.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_kernel() {
+    # See clear_per_pkg_resume_env() — unset before chroot-build-*.sh invoke.
+    unset IGOS_START_AT IGOS_STOP_AFTER
     sync_chroot_scripts
     log "Building kernel in chroot (Ch 10)..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-ch10.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_desktop() {
+    # See clear_per_pkg_resume_env() — unset before chroot-build-*.sh invoke.
+    unset IGOS_START_AT IGOS_STOP_AFTER
     sync_chroot_scripts
     log "Building desktop packages in chroot (GNOME + dependencies)..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-desktop.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_ai() {
+    # See clear_per_pkg_resume_env() — unset before chroot-build-*.sh invoke.
+    unset IGOS_START_AT IGOS_STOP_AFTER
     sync_chroot_scripts
     log "Building AI tier packages in chroot (InterGen assistant)..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-ai.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_extra() {
+    # See clear_per_pkg_resume_env() — unset before chroot-build-*.sh invoke.
+    unset IGOS_START_AT IGOS_STOP_AFTER
     sync_chroot_scripts
     log "Building extra tier packages in chroot (user applications)..."
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-extra.sh" 2>&1 | tee -a "$BUILD_LOG"
 }
 
 phase_bootloader() {
+    # See clear_per_pkg_resume_env() — unset before chroot-build-*.sh invoke.
+    unset IGOS_START_AT IGOS_STOP_AFTER
     sync_chroot_scripts
     log "Assembling unsigned bootloader artifacts in chroot..."
     log "  (grubx64.efi + initramfs.cpio.gz + igos-live.efi UKI)"
