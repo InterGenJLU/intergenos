@@ -31,5 +31,6 @@ dependencies:
   - libdeflate
   - miniupnpc
   - libnatpmp
+  - libdht
   host: []
   runtime: []

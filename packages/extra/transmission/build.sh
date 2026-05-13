@@ -20,15 +20,18 @@
 # System libraries (USE_SYSTEM_*=ON):
 #   miniupnpc, libnatpmp, libdeflate — packaged as standalone tier:extra
 #     libraries 2026-05-09 (commits authoring libdeflate/miniupnpc/libnatpmp).
-#     Replaces the bundled-libs path through transmission's CMake which is
-#     unreliable: tr_add_external_auto_library() omits BUILD_BYPRODUCTS on its
-#     ExternalProject_Add calls, so the gtk target's link step cannot resolve
-#     the .a output paths. Build #6 hit five distinct halts chasing this
-#     before maintainer approved Option A (system libs) on 2026-05-09.
+#   libdht — packaged 2026-05-13 (Build #9 r#53 transmission halt: "No rule
+#     to make target third-party/dht.bld/pfx/lib/libdht.a"). transmission
+#     4.1.1's tr_add_external_auto_library DOES include BUILD_BYPRODUCTS,
+#     but the gtk target's make-level dependency graph still doesn't see
+#     the ExternalProject byproduct. Same Prime-Directive-aligned answer
+#     as 2026-05-09: unbundle to a first-class system library (jech/dht
+#     pinned to master HEAD 0bbb8f4a). transmission's existing FindDHT.cmake
+#     handles the system path.
 #
 # Bundled libraries kept (no upstream packaging required for the build to
 # succeed; transmission's CMake handles these without ExternalProject pain):
-#   libb64, dht, libutp, fmt, fast_float, rapidjson, small, utfcpp,
+#   libb64, libutp, fmt, fast_float, rapidjson, small, utfcpp,
 #   wide-integer, googletest (tests only).
 # These build cleanly because they're either header-only or compiled directly
 # into libtransmission as in-tree sources rather than via ExternalProject.
@@ -76,7 +79,7 @@ configure() {
         -DUSE_SYSTEM_MINIUPNPC=ON                       \
         -DUSE_SYSTEM_NATPMP=ON                          \
         -DUSE_SYSTEM_DEFLATE=ON                         \
-        -DUSE_SYSTEM_DHT=OFF                            \
+        -DUSE_SYSTEM_DHT=ON                             \
         -DUSE_SYSTEM_UTP=OFF                            \
         -DUSE_SYSTEM_B64=OFF                            \
         -DREBUILD_WEB=OFF                               \

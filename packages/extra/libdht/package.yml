@@ -1,0 +1,17 @@
+name: libdht
+version: "0.27"
+release: 1
+description: BitTorrent Mainline DHT client library (jech/dht)
+license: MIT
+homepage: https://github.com/jech/dht
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/jech/dht/archive/0bbb8f4a5bd914b60de5e9fbb51573aa33a1cf18.tar.gz
+  filename: libdht-0.27.tar.gz
+  sha256: 5f126d158979d14bcc17ed0debf4d875d662e8fc3fb3e71b29a8835e4044fdeb
+dependencies:
+  build: []
+  host: []
+  runtime: []
