@@ -8,6 +8,11 @@ configure() {
 
 build() {
     set -e
+    # onig_sys (transitive Rust crate; bundled Oniguruma C source) has K&R-style
+    # function pointer declarations that GCC 14/15+ rejects under default
+    # -Werror=incompatible-pointer-types. Relax for the C-source compile pass
+    # only; bat's Rust code is unaffected.
+    export CFLAGS="${CFLAGS:-} -Wno-incompatible-pointer-types"
     cargo build --release --frozen --offline
 }
 
