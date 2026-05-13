@@ -1,12 +1,14 @@
 [Unit]
-Description=InfluxDB time-series database
+Description=InfluxDB 3 Core time-series database
+Documentation=https://docs.influxdata.com/influxdb3/core/
 After=network.target
 
 [Service]
 Type=simple
 User=influxdb
 Group=influxdb
-ExecStart=/usr/bin/influxd --config /etc/influxdb/influxdb.conf
+EnvironmentFile=/etc/influxdb/influxdb.env
+ExecStart=/usr/bin/influxdb3 serve
 Restart=on-failure
 RestartSec=5
 

@@ -1,17 +1,17 @@
-# AppArmor profile for influxd — enforce mode
+# AppArmor profile for influxdb3 — enforce mode
 # landing plan §5f
 
 #include <tunables/global>
 
-profile influxd /usr/bin/influxd {
+profile influxdb3 /usr/bin/influxdb3 {
     #include <abstractions/base>
     #include <abstractions/nameservice>
 
     capability setuid,
     capability setgid,
 
-    /usr/bin/influxd mr,
-    /etc/influxdb/influxdb.conf r,
+    /usr/bin/influxdb3 mr,
+    /etc/influxdb/influxdb.env r,
 
     /var/lib/influxdb/ r,
     /var/lib/influxdb/** rwk,

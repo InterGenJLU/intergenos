@@ -9,6 +9,9 @@ build_style: custom
 source:
 - url: https://github.com/influxdata/influxdb/archive/v${version}.tar.gz
   sha256: 23b8a555c6f302da03e7342bd922868a1ff7eeea53537598ef3945c412a47df0
+build_artifacts:
+  - name: influxdb-${version}-vendor.tar.xz
+    generated_by: cargo-vendor
 dependencies:
   build:
   - rust
