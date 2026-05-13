@@ -1,6 +1,6 @@
 name: sqlite
 version: '3510200'
-release: 1
+release: 2
 description: SQL database engine
 license: Public Domain
 source:

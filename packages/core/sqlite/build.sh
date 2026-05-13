@@ -4,6 +4,7 @@
 
 configure() {
     set -e
+    LDFLAGS="-Wl,-soname,libsqlite3.so.0" \
     ./configure --prefix=/usr     \
         --disable-static          \
         --enable-fts4             \
