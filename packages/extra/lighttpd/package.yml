@@ -1,0 +1,19 @@
+name: lighttpd
+version: "1.4.82"
+release: 1
+description: Lightweight event-driven HTTP server (BSD-3)
+tier: extra
+license: BSD-3-Clause
+homepage: https://www.lighttpd.net/
+build_style: custom
+source:
+- url: https://download.lighttpd.net/lighttpd/releases-1.4.x/lighttpd-${version}.tar.xz
+  sha256: 0731118e8e98e21fd54c9abca849f4489579e9c50789ae35e6650e22ea3d83a2
+dependencies:
+  build:
+  - pkgconf
+  host:
+  - openssl
+  - pcre2
+  - zlib
+  runtime: []
