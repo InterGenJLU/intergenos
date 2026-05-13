@@ -1,0 +1,65 @@
+# /etc/apparmor.d/usr.sbin.nginx — InterGenOS AppArmor profile for
+# nginx, shipped in enforce mode.
+#
+# Constrains filesystem access to the config + log + cache + run
+# directories, the standard library link surface, and the TLS cert
+# storage. Denies arbitrary binary exec, raw device, raw socket.
+
+#include <tunables/global>
+
+/usr/sbin/nginx flags=(attach_disconnected) {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+  #include <abstractions/openssl>
+
+  # nginx master needs these capabilities; the worker forks drop them.
+  capability setuid,
+  capability setgid,
+  capability net_bind_service,
+  capability dac_override,
+  capability chown,
+
+  # Binary + module path
+  /usr/sbin/nginx          mr,
+  /usr/lib/nginx/modules/  r,
+  /usr/lib/nginx/modules/**.so mr,
+
+  # Standard library link surface (libc + libssl + libcrypto + libpcre2
+  # + libz are pulled in via abstractions + explicit paths).
+  /usr/lib/libpcre2-*.so*  mr,
+  /usr/lib/libz.so*        mr,
+
+  # Configuration (read-only — config integrity)
+  /etc/nginx/                 r,
+  /etc/nginx/**               r,
+
+  # TLS cert + private-key storage. The key is owned root:root mode 600;
+  # AppArmor mediates the read regardless of file ownership.
+  /etc/nginx/ssl/server.crt   r,
+  /etc/nginx/ssl/server.key   r,
+
+  # Log directory
+  /var/log/nginx/             rw,
+  /var/log/nginx/**           rwk,
+
+  # Cache + temp directories (write-heavy under load)
+  /var/cache/nginx/           rw,
+  /var/cache/nginx/**         rwk,
+
+  # PID + lock files
+  /run/nginx.pid              rwk,
+  /run/lock/nginx.lock        rwk,
+
+  # mime.types via the install layout
+  /etc/nginx/mime.types       r,
+
+  # /proc + /sys reads for worker tuning + sendfile path
+  @{PROC}/sys/kernel/random/boot_id r,
+  @{PROC}/sys/kernel/random/uuid    r,
+  @{PROC}/sys/kernel/ngroups_max    r,
+  @{PROC}/@{pid}/limits             r,
+  @{PROC}/@{pid}/status             r,
+
+  # Deny everything else explicitly. AppArmor's default is deny; this
+  # comment is documentation.
+}

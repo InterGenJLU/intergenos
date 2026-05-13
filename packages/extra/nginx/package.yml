@@ -1,0 +1,19 @@
+name: nginx
+version: "1.29.8"
+release: 1
+description: Modern HTTP server / reverse proxy / load balancer (mainline; default-secure config — bind 127.0.0.1, server_tokens off, TLS-only sample, status locked to loopback)
+license: BSD-2-Clause
+homepage: https://nginx.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://nginx.org/download/nginx-${version}.tar.gz
+  sha256: 7f1b985dace8fe706dfc288b83927c928f0ae60bcb7507c2d4e0025eca7280c3
+dependencies:
+  build:
+  - openssl
+  - pcre2
+  - zlib
+  host: []
+  runtime: []
