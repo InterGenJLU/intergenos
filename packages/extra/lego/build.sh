@@ -108,7 +108,9 @@ configure() {
 
 build() {
     set -e
-    cd cmd/lego
+    # lego 5.0.2 has main.go at the repo root, NOT under cmd/lego/. The
+    # cmd/ subdir contains the cobra subcommand handlers (cmd.go etc.) but
+    # the entrypoint binary is built from the root module.
     CGO_ENABLED=0 GOFLAGS="-mod=vendor" go build                            \
         -trimpath                                                           \
         -ldflags '-s -w'                                                    \
@@ -119,8 +121,8 @@ build() {
 
 do_install() {
     set -e
-    # Install the binary
-    install -Dm755 cmd/lego/lego "$DESTDIR/usr/bin/lego"
+    # Install the binary (built at repo root, not cmd/lego/)
+    install -Dm755 lego "$DESTDIR/usr/bin/lego"
 
     # Install the sample renewal helper script (documentation +
     # starting template; operator copies + customizes).
