@@ -1,5 +1,5 @@
 name: gopls
-version: "0.15.3"
+version: "0.21.1"
 release: 1
 description: The Go language server
 license: BSD-3-Clause
@@ -8,10 +8,10 @@ tier: extra
 build_style: custom
 install_func: do_install
 source:
-  - url: https://github.com/golang/tools/archive/gopls/v0.15.3.tar.gz
-    sha256: 7fb0a43ff5e562089ca0ec3e8e7819dd205977758c02ea9bded05f56d5080a54
+  - url: https://github.com/golang/tools/archive/gopls/v${version}.tar.gz
+    sha256: af211e00c3ffe44fdf2dd3efd557e580791e09f8dbb4284c917bd120bc3c8f9c
 build_artifacts:
-  - name: gopls-0.15.3-vendor.tar.xz
+  - name: gopls-${version}-vendor.tar.xz
     generated_by: go-vendor
 dependencies:
   build:
