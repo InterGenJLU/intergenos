@@ -140,6 +140,13 @@ class BuildLogger:
         self._write(line)
         self._console(line)
 
+    def warning(self, message: str):
+        """Log a warning message (non-fatal — execution continues)."""
+        self._json_event("warning", package=self._pkg_name, message=message)
+        line = f"  WARN: {message}\n"
+        self._write(line)
+        self._console(line)
+
     def _json_event(self, event_type: str, **data):
         """Write a JSON event to the JSONL log file."""
         if not self._json_file:
