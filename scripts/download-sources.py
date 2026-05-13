@@ -36,7 +36,7 @@ SOURCES_DIR = PROJECT_ROOT / "build" / "sources"
 DEFAULT_MIRROR = "intergenos@origin.intergenstudios.com:/home/intergenos/repo/sources"
 DEFAULT_UPDATES_JSON = str(PROJECT_ROOT / "build" / "updates.json")
 
-TIERS = ["toolchain", "core", "base", "desktop", "extra"]
+TIERS = ["toolchain", "core", "base", "desktop", "ai", "extra"]
 
 
 def sha256_file(path: str) -> str:

@@ -340,6 +340,14 @@ run_phase() {
                 log "[INFO ] Refreshing chroot ld.so.cache at --start-at $phase"
                 chroot /mnt/igos /sbin/ldconfig 2>/dev/null || true
             fi
+            # Source-staging sweep at resume entry. phase_setup was skipped
+            # by --start-at, so packages added to master since the last full
+            # phase_setup may have unfetched-or-unchroot-staged source
+            # tarballs. ensure_sources_staged() backfills both. Scoped to
+            # current + downstream tiers via tiers_for_start_at(). Halts
+            # loudly on download failure (set -e propagates). Captured
+            # 2026-05-12 after Build #9 r#21 halted at jemalloc 5.3.1.
+            ensure_sources_staged
         else
             log "[SKIP ] $phase — $description"
             return 0
@@ -656,6 +664,81 @@ PYEOF
     log "verify-sources: all source + patch SHAs verified"
 }
 
+# ==========================================================================
+# Source-staging — idempotent helper used by phase_setup (the full-build path)
+# AND by run_phase at the --start-at resume entry point. Closes the source-
+# stage gap where a resume at --start-at <phase> would skip phase_setup and
+# leave the chroot's /sources/ stale vs packages added to master since the
+# last full phase_setup run.
+#
+# Captured 2026-05-12 after Build #9 r#21 halted at jemalloc 5.3.1 (extra
+# tier, --start-at extra). Today's Wave 1b prereq landings (jemalloc,
+# snappy, gflags, liburing, valkey, memcached, etcd, leveldb, rocksdb,
+# scons) were all on master but their upstream tarballs had never been
+# fetched to the host nor copied into the chroot, because phase_setup
+# never ran on this resume.
+#
+# Historical pattern (POWER memory `feedback_source_stage_gap_on_start_at`)
+# called for a manual `sudo cp` workaround per resume. This replaces that
+# pattern with always-on automation.
+# ==========================================================================
+
+tiers_for_start_at() {
+    # Echo the --tier flag set that download-sources.py needs, based on the
+    # current --start-at value. Walks forward only — backtracking to fetch
+    # sources for tiers that already completed is wasteful (their packages
+    # are already in chroot + pkm-tracked).
+    case "$START_AT" in
+        ""|validate|verify-sources|setup)
+            echo "--all" ;;
+        toolchain|chroot-prep|chroot-tools|core|config|core-extra|base|kernel)
+            echo "--tier core --tier base --tier desktop --tier ai --tier extra" ;;
+        desktop)
+            echo "--tier desktop --tier ai --tier extra" ;;
+        ai)
+            echo "--tier ai --tier extra" ;;
+        extra|bootloader|image|manifest|publish)
+            echo "--tier extra" ;;
+        *)
+            echo "--all" ;;
+    esac
+}
+
+ensure_sources_staged() {
+    # Idempotent: download missing tarballs to host, mirror host -> chroot.
+    # Halts on download failure (set -euo pipefail in effect — non-zero
+    # return propagates).
+    #
+    # Cheap when nothing's missing: download-sources.py is stat-only, cp -an
+    # is no-op on already-present files. Only costs when there's real work.
+    #
+    # Tiers scoped to --start-at via tiers_for_start_at(): only fetch sources
+    # for current + downstream tiers, not the entire tree.
+    local tier_flags
+    read -ra tier_flags <<< "$(tiers_for_start_at)"
+
+    log "  Source-staging sweep (start-at=${START_AT:-<full-build>}, flags: ${tier_flags[*]})..."
+
+    # Step 1: fetch any missing tarballs on the host. download-sources.py is
+    # idempotent (only downloads what isn't cached + sha256-verifies what is)
+    # so a corrupted prior fetch surfaces as a verify failure here.
+    if ! python3 "${SCRIPTS}/download-sources.py" "${tier_flags[@]}" 2>&1 | tee -a "$BUILD_LOG"; then
+        log "ERROR: download-sources.py failed — halting before chroot-stage"
+        return 1
+    fi
+
+    # Step 2: mirror host /mnt/intergenos/build/sources/ -> chroot
+    # /mnt/igos/sources/. cp -an = archive + no-clobber, never overwrites
+    # files already in the chroot. Only newly-fetched tarballs land.
+    mkdir -p "$IGOS/sources"
+    chmod a+wt "$IGOS/sources"
+    cp -an "${SOURCES}"/* "$IGOS/sources/" 2>/dev/null || true
+    cp -an "${PATCHES}"/* "$IGOS/sources/" 2>/dev/null || true
+
+    local count=$(ls "$IGOS/sources" 2>/dev/null | wc -l)
+    log "  Sources staged: $count files in $IGOS/sources/"
+}
+
 phase_setup() {
     # Create build root
     if [ ! -d "$IGOS" ]; then
@@ -716,19 +799,12 @@ phase_setup() {
     # Like build_003: no bind mounts, no tricks. The chroot is self-contained.
     # Everything the chroot needs is physically present on $IGOS.
 
-    # Copy source tarballs (LFS Section 3.1)
-    log "  Copying sources to $IGOS/sources/..."
-    mkdir -pv "$IGOS/sources"
-    chmod -v a+wt "$IGOS/sources"
-    # -a (archive mode) recurses into directories and preserves attrs.
-    # Without it, prior `cp -n` silently dropped directory-shaped sources
-    # (e.g., libreoffice-externals/), surfaced as build halts much later.
-    # 2>/dev/null was suppressing the "-r not specified; omitting directory"
-    # warning that would have caught this; drop it so real errors stay visible.
-    cp -an "${SOURCES}"/* "$IGOS/sources/" || true
-    cp -an "${PATCHES}"/* "$IGOS/sources/" || true
-    local placed=$(ls "$IGOS/sources" | wc -l)
-    log "  Placed $placed files in $IGOS/sources/"
+    # Stage source tarballs + patches into the chroot. Delegates to the
+    # shared ensure_sources_staged() helper so the same logic runs on
+    # --start-at resumes (wired in run_phase at the resume entry point).
+    # ensure_sources_staged() also runs download-sources.py first to
+    # backfill any missing tarballs on the host.
+    ensure_sources_staged
 
     # Copy build infrastructure (scripts, packages, igos-build)
     # Preserves paths so /mnt/intergenos/scripts/... works inside the chroot
