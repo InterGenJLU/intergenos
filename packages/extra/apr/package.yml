@@ -1,0 +1,16 @@
+name: apr
+version: "1.7.6"
+release: 1
+description: Apache Portable Runtime — OS-abstraction library used by apache-httpd 2.4.x
+license: Apache-2.0
+homepage: https://apr.apache.org/
+tier: extra
+build_style: autotools
+install_func: do_install
+source:
+- url: https://archive.apache.org/dist/apr/apr-${version}.tar.bz2
+  sha256: 49030d92d2575da735791b496dc322f3ce5cff9494779ba8cc28c7f46c5deb32
+dependencies:
+  build: []
+  host: []
+  runtime: []
