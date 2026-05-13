@@ -90,6 +90,25 @@ configure() {
     fi
     mkdir -p wasm-staging
     tar -xf "${IGOS_SOURCES}/influxdb-${PKG_VERSION}-wasm-binaries.tar.xz" -C wasm-staging
+
+    # Stage wit/world.wit for the vendored datafusion-udf-wasm-host crate.
+    # The crate's src/bindings.rs uses wasmtime::component::bindgen! with
+    # path = "../wit/world.wit" — relative to CARGO_MANIFEST_DIR. In the
+    # upstream repo (influxdata/datafusion-udf-wasm) `host/` and `wit/`
+    # are sibling directories, so the path resolves correctly. When cargo
+    # vendor packs the `host` crate alone, the sibling `wit/` directory
+    # is lost; the bindgen! macro then produces empty bindings → the
+    # `exports` module is missing → cascade of E0433 + E0277 compile
+    # errors across conversion/mod.rs, component.rs, error.rs, udf.rs.
+    #
+    # Fix: recreate the sibling directory inside vendor/ so the relative
+    # path `../wit/world.wit` from the vendored crate manifest resolves
+    # to the .wit file. world.wit is shipped in this package directory
+    # (datafusion-udf-wasm-host.wit, sha256 565f97f6...) — fetched from
+    # the upstream datafusion-udf-wasm repo at the same commit pinned in
+    # iox_query_udf/build.rs (89ab4ae6...).
+    mkdir -p vendor/wit
+    install -m644 "$BUILD_DIR/datafusion-udf-wasm-host.wit" vendor/wit/world.wit
 }
 
 build() {
