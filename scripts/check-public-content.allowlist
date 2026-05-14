@@ -43,6 +43,8 @@ b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75
 32776256647f3c28d8ac800b299471d5eb593448e4a75097e802ccad17ab5e25
 # Shim binary SHA-256 (post-2026-05-13 RSA-4096 cert regen, pre-MS-signing):
 441f9bd1bb75d5dbfc9c5d2c8451b210c9156573515923786d0a1cc4a2a01e25
+# Shim binary SHA-256 (post-2026-05-13 self-signed via NK#1 PIV slot 9c, for dev/MOK boot):
+6ae0cf03138e2a58fd390bebbf6b69b72dcb3d07ee3575adea944601fe8bd7f0
 # Cross-host divergence reference (Docker Desktop / Windows witness — out-of-scope):
 5875607d10e661bb32330c0af99783fb6ba7d11e5cc10e34d3e4e26bc1161bc6
 8a2fc8e462be1ebbab74bcec1afee1d0f0ef1dbb117a1e207f0dc2c11ee68748
