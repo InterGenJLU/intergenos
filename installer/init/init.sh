@@ -181,9 +181,20 @@ if [ "$MODE" = "live" ]; then
     # spins them in tight loops, drowning the console. Mask each in the
     # overlay so the live boot stays quiet. Installed systems get these
     # back because the masks live only in the tmpfs overlay.
-    for svc in mariadb httpd caddy influxdb etcd valkey lighttpd nginx apache postgresql memcached; do
+    for svc in mariadb httpd caddy influxdb etcd valkey lighttpd nginx apache postgresql memcached \
+               haproxy transmission-daemon atopgpu apparmor systemd-pcrlock-secureboot-policy; do
         ln -sf /dev/null "/newroot/etc/systemd/system/${svc}.service"
     done
+    # NOTE on the last 5 masks: in a normal installed boot, apparmor +
+    # pcrlock-secureboot-policy are part of our security posture and MUST
+    # run. They're masked here only because: apparmor's profile-load fails
+    # against the live squashfs (profile paths the overlay can't satisfy);
+    # pcrlock fails against the virtual TPM that test VMs (swtpm) provide.
+    # haproxy, transmission-daemon, and atopgpu are server-class daemons
+    # that shouldn't be running in a try-it-out live session anyway.
+    # All masks are tmpfs-overlay only — installed targets boot the
+    # underlying squashfs without these overlay symlinks, so the secure
+    # default re-engages on install.
 
     # ---- Liveuser creation -------------------------------------------------
     # busybox-static initramfs lacks `useradd`, so we hand-write the standard
