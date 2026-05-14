@@ -1,0 +1,17 @@
+name: whitesur-icon-theme
+version: "2025-12-27"
+release: 1
+description: WhiteSur icon theme — macOS-inspired icon set with default + light + dark variants
+license: GPL-3.0-or-later
+homepage: https://github.com/vinceliuice/WhiteSur-icon-theme
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: file://whitesur-icon-theme-${version}.tar.gz
+  sha256: 13e919a88c8b4578a4730a36c4c6cafbcb0105afd4b5ed2a9b1a19d383490515
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - hicolor-icon-theme

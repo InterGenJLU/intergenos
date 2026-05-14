@@ -1,0 +1,17 @@
+name: fluent-icon-theme
+version: "2025-08-21"
+release: 1
+description: Fluent icon theme — Microsoft Fluent Design-inspired icon set with default + light + dark variants
+license: GPL-3.0-or-later
+homepage: https://github.com/vinceliuice/Fluent-icon-theme
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: file://fluent-icon-theme-${version}.tar.gz
+  sha256: 553305e3882c896b6f82e12db1dfc9549af63487a8cd26fd5a08303298aedbe3
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - hicolor-icon-theme
