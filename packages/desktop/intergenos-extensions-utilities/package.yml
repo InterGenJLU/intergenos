@@ -1,0 +1,17 @@
+name: intergenos-extensions-utilities
+version: "1.0"
+release: 1
+description: InterGenOS Utilities-category GNOME Shell extensions — AppIndicator, Bluetooth Quick Connect, Caffeine, Vitals, Media Controls, GSConnect, Just Perfection, Desktop Icons NG
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: file://intergenos-extensions-utilities-${version}.tar.xz
+  sha256: 92b4d8d7956f6082e20f42682d990782280510e977307ff2d9e67a1d967bc2db
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - gnome-shell-extensions
