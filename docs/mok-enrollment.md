@@ -2,8 +2,8 @@
 
 **Audience:** end users installing InterGenOS on Secure Boot hardware, and reviewers verifying our key-management posture.
 **Scope:** the full path from a freshly-installed InterGenOS system to a working MOK-enrolled keyring that DKMS / out-of-tree modules can chain against.
-**Last updated:** 2026-05-11
-**Status:** v1 — gating doc for the 2026-05-14 first-light trigger. Real-hardware validation against the validation-target build's ISO output performed before promotion.
+**Last updated:** 2026-05-14
+**Status:** v1.3 — adds pre-reboot boot-order verification (§4 final subsection) and a `BootOrder` failure-mode backstop (§7 (d)) for multi-disk installs where the InterGenOS ESP is on a secondary disk. Prior versions remain valid for single-disk installs.
 
 This document is the canonical end-user procedure for MOK enrollment on InterGenOS. Companion docs:
 - [docs/ephemeral-module-signing.md](ephemeral-module-signing.md) — how in-tree modules are signed (different key, different lifetime)
@@ -152,6 +152,48 @@ mokutil --import /var/lib/intergen/mok/mok.der
 # You will be prompted for a NEW enrollment password (the original is gone).
 # Pick one and write it down — you cannot recover this either.
 ```
+
+### Verifying the boot order before first reboot
+
+The Forge installer creates a new UEFI boot entry pointing at the shim it installed. Most firmwares **prepend** this entry to `BootOrder` so the next reboot lands on InterGenOS and hits the MokManager prompt. A minority of firmwares — particularly on **multi-disk installs** where the InterGenOS ESP lives on a secondary disk — **append** the new entry instead, leaving the previous default (often Windows on Disk 0) first in `BootOrder`. The next reboot then boots back into that previous OS; the queued MOK enrollment never surfaces; and the user concludes "MokManager never appeared" without knowing the firmware never actually loaded the shim.
+
+Before rebooting from the installer's final screen, verify the boot order:
+
+```bash
+sudo efibootmgr -v | grep -E 'BootOrder|InterGenOS'
+```
+
+Expect a `BootNNNN* InterGenOS` line whose ID appears first in `BootOrder`. For example:
+
+```
+BootOrder: 0005,0001,0000,2001,2002,2003
+Boot0005* InterGenOS    HD(2,GPT,...)/File(\EFI\InterGenOS\shimx64.efi)
+Boot0001* Windows Boot Manager   HD(1,GPT,...)/File(\EFI\Microsoft\Boot\bootmgfw.efi)
+```
+
+If the `InterGenOS` entry is NOT first in `BootOrder`, reorder it. Preserve the rest of the order so other OSes remain reachable:
+
+```bash
+# Substitute the IDs you actually saw; the first ID should be the InterGenOS entry.
+sudo efibootmgr -o 0005,0001,0000,2001,2002,2003
+```
+
+Re-verify:
+
+```bash
+sudo efibootmgr | head -1
+# BootOrder: 0005,0001,0000,2001,2002,2003   ← 0005 (InterGenOS) is first
+```
+
+If `efibootmgr` is unavailable in the installer's post-install shell, the same check + reorder can be performed from the live-ISO env before reboot — the live ISO ships `efibootmgr` as part of the standard image:
+
+```bash
+# In the live-ISO terminal, with the target system's ESP mounted at /mnt/boot/efi:
+sudo efibootmgr -v                              # confirm the new entry was created
+sudo efibootmgr -o <InterGenOS-id>,<other-ids>  # reorder if needed
+```
+
+This step is especially important for **multi-disk installs** with a dedicated InterGenOS ESP on a secondary disk — common on Windows-dual-boot hardware where Disk 0's existing ESP is left untouched and InterGenOS gets a fresh ESP on Disk 1. HP, ASUS, and some Dell firmwares append rather than prepend new entries in this configuration.
 
 ---
 
@@ -375,6 +417,14 @@ sudo bootctl status | grep -E "Setup Mode"
 Recovery: in firmware setup, find "Restore factory keys" or "Reset Secure Boot keys" and enable. This re-enrolls the PK and exits setup mode.
 
 **(c) Hardware vendor's firmware skips the MokManager prompt under Secure Boot user-mode.** Rare but documented on some Lenovo ThinkBook and HP ProBook models. Workaround: pop into firmware setup, disable Secure Boot temporarily, boot once (MokManager fires under non-SB shim), enroll, re-enable Secure Boot. Less elegant but works.
+
+**(d) The firmware's `BootOrder` still selects a previous OS instead of the InterGenOS shim.** Common on multi-disk installs where the InterGenOS ESP was created fresh on a secondary disk and the firmware appended rather than prepended the new boot entry. The InterGenOS boot entry was created during install but `BootOrder` was not updated to put it first. Verify with:
+
+```bash
+sudo efibootmgr -v | grep -E 'BootOrder|InterGenOS'
+```
+
+If the `InterGenOS` entry is not first in `BootOrder`, reorder it — see [§4 "Verifying the boot order before first reboot"](#verifying-the-boot-order-before-first-reboot) for the full reorder procedure — and reboot. The MokManager prompt will surface once the firmware actually loads the InterGenOS shim.
 
 ### "Vendor-specific BIOS variants"
 
