@@ -185,22 +185,90 @@ if [ "$MODE" = "live" ]; then
         ln -sf /dev/null "/newroot/etc/systemd/system/${svc}.service"
     done
 
-    # Auto-login root on tty1. Arch-ISO text-mode-live pattern: immediate
-    # console access for demonstration / debugging / installer launch. GDM +
-    # liveuser autologin is a v1.0+ polish arc on top of this — for now,
-    # root shell on tty1 with the build-time root password as the safety net.
-    mkdir -p /newroot/etc/systemd/system/getty@tty1.service.d
-    cat > /newroot/etc/systemd/system/getty@tty1.service.d/autologin.conf <<'AUTOLOGIN'
+    # ---- Liveuser creation -------------------------------------------------
+    # busybox-static initramfs lacks `useradd`, so we hand-write the standard
+    # /etc/{passwd,group,shadow,gshadow} entries. Per-boot ephemeral (overlay
+    # is tmpfs); the underlying squashfs stays clean of the liveuser account,
+    # so installed systems get no leftover ghost user.
+    #
+    # UID/GID 1000 — first human-user range. LFS base layout reserves
+    # < 1000 for system accounts, so 1000 is free in our squashfs.
+    echo 'liveuser:x:1000:1000:Live User:/home/liveuser:/bin/bash' >> /newroot/etc/passwd
+    echo 'liveuser:x:1000:' >> /newroot/etc/group
+    # Password disabled (* in shadow). Console auth via GDM autologin only;
+    # SSH auth is not configured (operator-driven `ssh-copy-id` per boot for
+    # development, by design — no pre-shipped keys).
+    # lastchg=19800 (~2024-03) ensures PAM doesn't treat the account as
+    # expired the moment GDM tries to switch into it.
+    echo 'liveuser:*:19800:0:99999:7:::' >> /newroot/etc/shadow
+    echo 'liveuser:!::' >> /newroot/etc/gshadow
+
+    # Capability groups. LFS base ships each line with empty member list
+    # (trailing colon); appending bare `liveuser` after the `:` produces a
+    # valid first-member entry.
+    for grp in wheel audio video input plugdev render dialout lp users cdrom; do
+        sed -i "/^${grp}:/s/\$/liveuser/" /newroot/etc/group
+    done
+
+    # Home dir + tmpfiles-driven ownership (busybox-static may lack chown;
+    # delegating to systemd-tmpfiles at sysinit.target sidesteps the
+    # dependency).
+    mkdir -p /newroot/home/liveuser
+    cp -a /newroot/etc/skel/. /newroot/home/liveuser/ 2>/dev/null || true
+    cat > /newroot/etc/tmpfiles.d/liveuser-home.conf <<'TMPFILES'
+d /home/liveuser 0755 liveuser liveuser - -
+Z /home/liveuser - liveuser liveuser - -
+TMPFILES
+
+    # ---- GDM autologin to liveuser ------------------------------------------
+    # /etc/gdm/custom.conf is GDM's runtime config. AutomaticLogin lands at
+    # the GNOME session for the named user immediately, no greeter.
+    mkdir -p /newroot/etc/gdm
+    cat > /newroot/etc/gdm/custom.conf <<'GDMCONF'
+[daemon]
+AutomaticLoginEnable=true
+AutomaticLogin=liveuser
+
+[security]
+
+[xdmcp]
+
+[chooser]
+
+[debug]
+GDMCONF
+
+    # display-manager.service -> gdm.service. The 90-gdm.preset shipped by
+    # the gdm package handles this for installed systems via
+    # systemctl preset-all; live overlay re-creates the symlink for belt-
+    # and-suspenders.
+    ln -sf /usr/lib/systemd/system/gdm.service \
+           /newroot/etc/systemd/system/display-manager.service
+
+    # ---- Default target = graphical ----------------------------------------
+    # graphical.target pulls in display-manager.service -> gdm -> Wayland.
+    ln -sf /usr/lib/systemd/system/graphical.target \
+           /newroot/etc/systemd/system/default.target
+
+    # ---- TTY2 root autologin (emergency fallback) --------------------------
+    # GDM claims tty1 for its Wayland greeter/session. tty2 has root-auto
+    # for emergency diagnostics when GDM doesn't come up (bare-metal first
+    # boot, GPU driver gap, etc.). Ctrl-Alt-F2 from any context to reach.
+    mkdir -p /newroot/etc/systemd/system/getty@tty2.service.d
+    cat > /newroot/etc/systemd/system/getty@tty2.service.d/autologin.conf <<'AUTOLOGIN_TTY2'
 [Service]
 ExecStart=
 ExecStart=-/sbin/agetty -o '-p -f -- \\u' --noclear --autologin root --keep-baud 115200,38400,9600 %I $TERM
-AUTOLOGIN
+AUTOLOGIN_TTY2
+    mkdir -p /newroot/etc/systemd/system/getty.target.wants
+    ln -sf /usr/lib/systemd/system/getty@.service \
+           /newroot/etc/systemd/system/getty.target.wants/getty@tty2.service
 
-    # default.target -> multi-user.target. graphical.target requires
-    # display-manager.service which isn't enabled in this image yet, so
-    # attempting graphical would just fail and fall back to multi-user
-    # anyway. Explicit symlink avoids the ambiguity.
-    ln -sf /usr/lib/systemd/system/multi-user.target /newroot/etc/systemd/system/default.target
+    # ---- Root password expiry refresh --------------------------------------
+    # squashfs /etc/shadow root entry has lastchg=0 -> PAM forces a password
+    # change at first console login. Push lastchg into the future so the
+    # tty2 fallback (and any direct console) doesn't prompt.
+    sed -i 's@^root:\([^:]*\):0:@root:\1:19800:@' /newroot/etc/shadow
 fi
 
 # ---- Hand off mode to userspace --------------------------------------------
