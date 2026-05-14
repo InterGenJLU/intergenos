@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# build-uki.sh — assemble a Unified Kernel Image (UKI) from constituent parts.
+# build-uki.sh — assemble a Unified Kernel Image (UKI) via systemd's ukify.
 #
 # UKI = single PE binary containing:
 #   .linux       — vmlinuz
@@ -7,15 +7,22 @@
 #   .cmdline     — kernel cmdline
 #   .osrel       — /etc/os-release
 #   .uname       — kernel version string
+#   .sbat        — SBAT revocation metadata (baked into stub at compile time)
 #
-# The PE wrapper is systemd-stub (provided by the systemd-boot-efi package
-# on Debian-family, or systemd-udeb on RHEL-family). One signature on the
-# resulting PE binary covers everything inside — that's the Holy-Grail
-# integrity property: kernel + initramfs fused under a single firmware-
-# verifiable signature.
+# Wrapped by systemd-stub (the PE host). One signature on the resulting
+# PE binary covers everything inside — the integrity property: kernel +
+# initramfs fused under a single firmware-verifiable signature.
+#
+# IMPORTANT: this uses `ukify` (canonical systemd tool, ships with systemd >= 252).
+# Previous implementation used raw `objcopy --add-section` which produced
+# UKIs with incorrect `SizeOfImage` PE header field — strict UEFI loaders
+# (e.g. Ubuntu's OVMF) reject those with EFI_LOAD_ERROR. ukify computes
+# SizeOfImage correctly to cover all section VMAs. Migration 2026-05-14
+# after Build #9's boot test surfaced the EFI_LOAD_ERROR.
 #
 # Q-INIT resolved 2026-05-05/06: April-10 custom-init stands. UKI wrapping
-# happens here via systemd-stub + objcopy (NOT dracut --uefi).
+# happens here via systemd-stub (NOT dracut --uefi). ukify is the canonical
+# wrapper around systemd-stub; same stub, correct PE assembly.
 #
 # Usage:
 #   VMLINUZ=/path/to/vmlinuz \
@@ -27,6 +34,7 @@
 # Optional env vars:
 #   STUB         — systemd-stub path (default: /usr/lib/systemd/boot/efi/linuxx64.efi.stub)
 #   OS_RELEASE   — os-release file (default: /etc/os-release on chroot/installed system)
+#   UKIFY        — ukify binary path (default: /usr/bin/ukify; override for testing)
 
 set -euo pipefail
 
@@ -37,47 +45,41 @@ OUTPUT="${OUTPUT:?missing OUTPUT env var}"
 
 OS_RELEASE="${OS_RELEASE:-/etc/os-release}"
 STUB="${STUB:-/usr/lib/systemd/boot/efi/linuxx64.efi.stub}"
+UKIFY="${UKIFY:-/usr/bin/ukify}"
 
 [ -f "$VMLINUZ" ]    || { echo "ERROR: VMLINUZ not found: $VMLINUZ" >&2; exit 1; }
 [ -f "$INITRAMFS" ]  || { echo "ERROR: INITRAMFS not found: $INITRAMFS" >&2; exit 1; }
 [ -f "$CMDLINE" ]    || { echo "ERROR: CMDLINE not found: $CMDLINE" >&2; exit 1; }
 [ -f "$OS_RELEASE" ] || { echo "ERROR: OS_RELEASE not found: $OS_RELEASE" >&2; exit 1; }
 [ -f "$STUB" ]       || { echo "ERROR: systemd-stub not found: $STUB" >&2; \
-                          echo "Install systemd-boot-efi (Debian) or systemd-boot (Arch/RHEL) or override STUB env var." >&2; \
+                          echo "Install systemd (built with -D bootloader=enabled) or override STUB env var." >&2; \
+                          exit 1; }
+[ -x "$UKIFY" ]      || { echo "ERROR: ukify not found at $UKIFY" >&2; \
+                          echo "Install systemd-ukify (Debian) or systemd (Arch, includes ukify) or override UKIFY env var." >&2; \
                           exit 1; }
 
-# Extract kernel uname (used by stub for displaying version on boot screen)
+# Extract kernel uname (passed to ukify --uname; embedded in .uname section)
 KVER=$(file "$VMLINUZ" | grep -oP 'version \K[^ ]+' | head -1)
 [ -z "$KVER" ] && KVER="unknown"
 
-# Section addresses per systemd's mkosi/ukify convention
-# These are well-known offsets the systemd-stub expects.
-OFFSET_OSREL=0x20000
-OFFSET_CMDLINE=0x30000
-OFFSET_LINUX=0x2000000
-OFFSET_INITRD=0x4000000
-OFFSET_UNAME=0x40000
-
-UNAME_TXT=$(mktemp -t uki-uname-XXXXXX)
-echo -n "$KVER" > "$UNAME_TXT"
-trap 'rm -f "$UNAME_TXT"' EXIT
-
-echo "Building UKI:"
+echo "Building UKI via ukify:"
 echo "  VMLINUZ:   $VMLINUZ"
 echo "  INITRAMFS: $INITRAMFS"
 echo "  CMDLINE:   $CMDLINE"
 echo "  OS_REL:    $OS_RELEASE"
 echo "  STUB:      $STUB"
+echo "  UKIFY:     $UKIFY ($("$UKIFY" --version 2>&1 | head -1))"
 echo "  KVER:      $KVER"
 echo "  OUTPUT:    $OUTPUT"
 
-objcopy \
-    --add-section .osrel="$OS_RELEASE"   --change-section-vma .osrel=$OFFSET_OSREL \
-    --add-section .cmdline="$CMDLINE"    --change-section-vma .cmdline=$OFFSET_CMDLINE \
-    --add-section .uname="$UNAME_TXT"    --change-section-vma .uname=$OFFSET_UNAME \
-    --add-section .linux="$VMLINUZ"      --change-section-vma .linux=$OFFSET_LINUX \
-    --add-section .initrd="$INITRAMFS"   --change-section-vma .initrd=$OFFSET_INITRD \
-    "$STUB" "$OUTPUT"
+"$UKIFY" build \
+    --linux="$VMLINUZ" \
+    --initrd="$INITRAMFS" \
+    --cmdline=@"$CMDLINE" \
+    --os-release=@"$OS_RELEASE" \
+    --uname="$KVER" \
+    --stub="$STUB" \
+    --output="$OUTPUT"
 
 UKI_SIZE=$(stat -c%s "$OUTPUT")
 UKI_SIZE_MB=$((UKI_SIZE / 1024 / 1024))
