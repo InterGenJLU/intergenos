@@ -1,0 +1,16 @@
+name: macos-cursor-theme
+version: "2.0.1"
+release: 1
+description: macOS XCursor port — Apple-style cursor theme (macOS, the dark variant of ful1e5/apple_cursor)
+license: GPL-3.0-or-later
+homepage: https://github.com/ful1e5/apple_cursor
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: file://macOS.tar.xz
+  sha256: 9c6e5e13b068ce51a9e90a9abd6ce232ec7d25d4ceb05aa8ac76efbb99c76762
+dependencies:
+  build: []
+  host: []
+  runtime: []
