@@ -1,0 +1,26 @@
+name: intergen-welcome
+version: "1.0"
+release: 1
+description: InterGenOS first-boot welcome greeter — GTK4/libadwaita appearance + extensions chooser; auto-launches once per new user account
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: file://intergen-welcome-${version}.tar.xz
+  sha256: f4fb89f6ba2866116e65e83a8b59d0edc09a57e272d48fd714ca299812ad7ddb
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - python
+  - gtk4
+  - intergenos-theme
+  - papirus-icon-theme
+  - bibata-cursor-theme
+  - gnome-shell-extensions
+  - intergenos-extensions-appearance
+  - intergenos-extensions-productivity
+  - intergenos-extensions-layout
+  - intergenos-extensions-utilities
