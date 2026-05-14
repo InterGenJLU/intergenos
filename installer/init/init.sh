@@ -56,14 +56,49 @@ for mod in squashfs overlay loop isofs vfat; do
 done
 
 # ---- Locate ISO live filesystem --------------------------------------------
-# ISO assembly labels the data partition `IGOS_LIVE`. Retry briefly to give
-# USB devices time to enumerate (some firmware is slow).
+# Strategy modeled on Debian-live / Ubuntu / Arch live discovery:
+#   1. Fast path: try canonical label `IGOS_LIVE` via blkid.
+#   2. Slow path: scan block devices for `/live/filesystem.squashfs` — the
+#      authoritative artifact regardless of how the media is labeled.
+# This survives user-renamed media (USB stick reformatted to a different
+# label, etc.) and matches real-distro behavior. Retry loop accommodates
+# slow USB enumeration on some firmware.
+find_live_device() {
+    # Fast path: canonical label
+    local dev
+    dev=$(blkid -L IGOS_LIVE 2>/dev/null)
+    if [ -n "$dev" ]; then
+        echo "$dev"
+        return 0
+    fi
+
+    # Slow path: scan all block devices for /live/filesystem.squashfs
+    local d tmpdir
+    tmpdir=$(mktemp -d 2>/dev/null) || tmpdir=/tmp/scan-live
+    mkdir -p "$tmpdir"
+    for d in /dev/sd[a-z][0-9]* /dev/vd[a-z][0-9]* /dev/sr[0-9]* \
+             /dev/nvme[0-9]n[0-9]p[0-9]* /dev/mmcblk[0-9]p[0-9]*; do
+        [ -b "$d" ] || continue
+        if mount -t auto -o ro "$d" "$tmpdir" 2>/dev/null; then
+            if [ -f "$tmpdir/live/filesystem.squashfs" ]; then
+                umount "$tmpdir" 2>/dev/null
+                rmdir "$tmpdir" 2>/dev/null
+                echo "$d"
+                return 0
+            fi
+            umount "$tmpdir" 2>/dev/null
+        fi
+    done
+    rmdir "$tmpdir" 2>/dev/null
+    return 1
+}
+
 ISO_DEV=""
 for tries in 1 2 3 4 5 6 7 8 9 10; do
-    ISO_DEV=$(blkid -L IGOS_LIVE 2>/dev/null) && break
+    ISO_DEV=$(find_live_device) && [ -n "$ISO_DEV" ] && break
     sleep 1
 done
-[ -z "$ISO_DEV" ] && fatal "IGOS_LIVE label not found on any block device after 10s"
+[ -z "$ISO_DEV" ] && fatal "live media not found: no block device has /live/filesystem.squashfs (canonical label IGOS_LIVE also tried)"
 info "ISO device: $ISO_DEV"
 
 # ---- Mount ISO + squashfs --------------------------------------------------
@@ -85,7 +120,12 @@ mount -t overlay overlay \
 
 # ---- Move mounts into newroot ----------------------------------------------
 # Preserve our virtual + ISO mounts so userspace can find them.
-mkdir -p /newroot/run/iso /newroot/run/squashfs
+# The squashfs is built with -e proc -e sys -e dev -e run -e tmp (those are
+# runtime pseudo-fs paths, intentionally excluded from the static image),
+# so we must create the mount-point directories in /newroot's upper layer
+# (overlayfs upperdir is tmpfs, writable) before mount --move can target them.
+mkdir -p /newroot/run/iso /newroot/run/squashfs \
+         /newroot/sys /newroot/proc /newroot/dev /newroot/tmp
 mount --move /run/iso       /newroot/run/iso
 mount --move /run/squashfs  /newroot/run/squashfs
 mount --move /sys           /newroot/sys
