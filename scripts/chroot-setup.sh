@@ -44,10 +44,49 @@ fi
 
 # --- 7.2: Changing Ownership ---
 echo "--- Changing ownership to root ---"
+
+# Capture setuid + setgid binaries BEFORE chown — POSIX `chown` strips
+# the setuid/setgid bits by default when ownership changes, so any
+# setuid binary (sudo, su, mount, passwd, etc.) installed in /usr by
+# package builds would lose its privileged-escalation bits after the
+# chown below. Discovered in Build #9 dev1 live-VM verification:
+# /usr/bin/sudo was 755 instead of 4755 → sudo refused to elevate.
+# The pre-capture / post-restore pattern is robust to any setuid binary
+# we may add to the package set in the future without code changes.
+SETUID_CAPTURE=$(mktemp)
+find $IGOS/usr $IGOS/var $IGOS/etc $IGOS/tools \
+     \( -type f -a \( -perm -4000 -o -perm -2000 \) \) \
+     -printf '%m\t%p\n' 2>/dev/null > "$SETUID_CAPTURE" || true
+case $(uname -m) in
+    x86_64)
+        find $IGOS/lib64 \
+             \( -type f -a \( -perm -4000 -o -perm -2000 \) \) \
+             -printf '%m\t%p\n' 2>/dev/null >> "$SETUID_CAPTURE" || true
+        ;;
+esac
+SETUID_COUNT=$(wc -l < "$SETUID_CAPTURE")
+echo "  Captured $SETUID_COUNT setuid/setgid binary(s) for post-chown restore"
+
 chown -R root:root $IGOS/{usr,var,etc,tools} 2>/dev/null || true
 case $(uname -m) in
     x86_64) chown -R root:root $IGOS/lib64 2>/dev/null || true ;;
 esac
+
+# Restore setuid/setgid bits stripped by the chown above. Skip silently
+# if the file no longer exists (a defensive guard — shouldn't happen
+# during chroot-setup but cheap to harden).
+RESTORED=0
+while IFS=$'\t' read -r mode path; do
+    if [ -n "$mode" ] && [ -n "$path" ] && [ -e "$path" ]; then
+        chmod "$mode" "$path"
+        RESTORED=$((RESTORED + 1))
+    fi
+done < "$SETUID_CAPTURE"
+rm -f "$SETUID_CAPTURE"
+if [ "$RESTORED" -gt 0 ]; then
+    echo "  Restored setuid/setgid bits on $RESTORED binary(s) post-chown"
+fi
+
 # Fix root directory ownership — the setup phase creates /mnt/igos owned by
 # the build user (needed for unprivileged toolchain). From chroot-prep onward
 # everything runs as root, so fix it now. Without this, systemd-tmpfiles
