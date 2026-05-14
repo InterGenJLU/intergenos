@@ -10,4 +10,7 @@
 enabled-extensions=['user-theme@gnome-shell-extensions.gcampax.github.com', 'appindicatorsupport@rgcjonas.gmail.com', 'CoverflowAltTab@palatis.blogspot.com', 'blur-my-shell@aunetx', 'bluetooth-quick-connect@bjarosze.gmail.com', 'burn-my-windows@schneegans.github.com']
 
 [org.gnome.shell.extensions.user-theme]
-name='Orchis-Dark'
+# Default = the InterGenOS native shell theme. Provided by the
+# intergenos-theme package; references in /usr/share/themes/InterGenOS/.
+# Users can switch via intergen-welcome's appearance page (7 alternates).
+name='InterGenOS'

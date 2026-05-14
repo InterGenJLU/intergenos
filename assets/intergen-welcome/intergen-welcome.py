@@ -260,6 +260,15 @@ def load_css():
 
 THEME_COMBOS = [
     {
+        'name': 'InterGenOS',
+        'description': 'ECG blue on deep navy — the native InterGenOS look',
+        'gtk_theme': 'InterGenOS',
+        'shell_theme': 'InterGenOS',
+        'icon_theme': 'Papirus-Dark',
+        'cursor_theme': 'Bibata-Modern-Classic',
+        'color_scheme': 'prefer-dark',
+    },
+    {
         'name': 'Orchis Dark',
         'description': 'Clean, modern Material Design',
         'gtk_theme': 'adw-gtk3-dark',
