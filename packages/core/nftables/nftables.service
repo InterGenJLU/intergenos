@@ -1,0 +1,21 @@
+[Unit]
+Description=nftables firewall
+Documentation=man:nft(8) http://wiki.nftables.org
+Wants=network-pre.target
+Before=network-pre.target shutdown.target
+DefaultDependencies=no
+Conflicts=shutdown.target
+Conflicts=iptables.service ip6tables.service ebtables.service ipset.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/nftables.conf
+ExecReload=/usr/sbin/nft -f /etc/nftables.conf
+ExecStop=/usr/sbin/nft 'flush ruleset'
+StandardInput=null
+StandardOutput=inherit
+StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target
