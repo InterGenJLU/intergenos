@@ -1,0 +1,17 @@
+name: intergenos-extensions-layout
+version: "1.0"
+release: 1
+description: InterGenOS Layout-category GNOME Shell extensions — Dash to Dock, Dash to Panel, ArcMenu, Show Desktop Button
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: file://intergenos-extensions-layout-${version}.tar.xz
+  sha256: 085bdfaa4a849d6b3e7270b7353da611e102b42c8d9ae7505eec0c9b49a0b613
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - gnome-shell-extensions

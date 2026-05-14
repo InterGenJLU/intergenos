@@ -1,0 +1,17 @@
+name: intergenos-extensions-appearance
+version: "1.0"
+release: 1
+description: InterGenOS Appearance-category GNOME Shell extensions — Blur My Shell, Burn My Windows, Rounded Window Corners, Desktop Cube, Night Theme Switcher
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: file://intergenos-extensions-appearance-${version}.tar.xz
+  sha256: 2bce55c75f280b7165018d4e5f58a0284669772efff15200a2beb746582f4771
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - gnome-shell-extensions

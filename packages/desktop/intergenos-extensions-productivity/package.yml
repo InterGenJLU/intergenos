@@ -1,0 +1,17 @@
+name: intergenos-extensions-productivity
+version: "1.0"
+release: 1
+description: InterGenOS Productivity-category GNOME Shell extensions — Coverflow Alt-Tab, Clipboard Indicator, Tiling Shell, Forge, ddterm, Alphabetical App Grid
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: file://intergenos-extensions-productivity-${version}.tar.xz
+  sha256: db1f9de7b0ff3684cb79b96ca59139b0181b381f3e372b4aaf0aec2fb306f5bd
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - gnome-shell-extensions
