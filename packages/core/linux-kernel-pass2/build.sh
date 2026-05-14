@@ -72,9 +72,13 @@ do_install() {
     make -C "${src_dst}" olddefconfig
     make -C "${src_dst}" modules_prepare
 
-    # Replace build/source symlinks with stable /usr/src/ targets
-    ln -sfv "${src_dst}" "/lib/modules/${pkg_ver}-igos/build"
-    ln -sfv "${src_dst}" "/lib/modules/${pkg_ver}-igos/source"
+    # Replace build/source symlinks with stable /usr/src/ targets.
+    # NOTE: -n is critical — without it, ln -sf with a LINK_NAME that
+    # already exists as a symlink-to-directory (the build symlink
+    # auto-emitted by make modules_install pointing at $PWD) creates
+    # the new link INSIDE that directory rather than replacing it.
+    ln -sfnv "${src_dst}" "/lib/modules/${pkg_ver}-igos/build"
+    ln -sfnv "${src_dst}" "/lib/modules/${pkg_ver}-igos/source"
 
     # Ship the canonical source tarball for byte-identity verification
     # against upstream + clean-rebuild scenarios

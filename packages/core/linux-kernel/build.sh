@@ -90,11 +90,14 @@ do_install() {
     make -C "${src_stage}" modules_prepare
 
     # Replace build/source symlinks (auto-emitted by modules_install
-    # pointing at ephemeral $PWD) with stable /usr/src/ targets
-    ln -sfv "/usr/src/linux-${pkg_ver}" \
-            "${DESTDIR}/lib/modules/${pkg_ver}-igos/build"
-    ln -sfv "/usr/src/linux-${pkg_ver}" \
-            "${DESTDIR}/lib/modules/${pkg_ver}-igos/source"
+    # pointing at ephemeral $PWD) with stable /usr/src/ targets.
+    # NOTE: -n is critical — without it, ln -sf with a LINK_NAME that
+    # already exists as a symlink-to-directory creates the new link
+    # INSIDE that directory rather than replacing it.
+    ln -sfnv "/usr/src/linux-${pkg_ver}" \
+             "${DESTDIR}/lib/modules/${pkg_ver}-igos/build"
+    ln -sfnv "/usr/src/linux-${pkg_ver}" \
+             "${DESTDIR}/lib/modules/${pkg_ver}-igos/source"
 
     # Ship the canonical source tarball for byte-identity verification
     # against upstream + clean-rebuild scenarios
