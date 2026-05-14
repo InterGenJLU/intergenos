@@ -51,4 +51,33 @@ do_install() {
     # LOCALVERSION=-igos (set by config fragments) makes modules
     # install to /lib/modules/6.18.10-igos/ — depmod must match.
     depmod 6.18.10-igos
+
+    # Stage kernel source + .config + Module.symvers for reproducibility
+    # and out-of-tree module builds (DKMS, NVIDIA, VirtualBox, ZFS).
+    # Direct-install package — paths are absolute, no DESTDIR. Idempotent:
+    # safe if pass1 already staged. Aligns with PRIME DIRECTIVE: users
+    # control their machine — they get the source.
+    local pkg_ver="${PKG_VERSION:-6.18.10}"
+    local src_dst="/usr/src/linux-${pkg_ver}"
+    install -v -dm755 /usr/src
+
+    if [ ! -d "${src_dst}" ]; then
+        tar -xf "${IGOS_SOURCES}/linux-${pkg_ver}.tar.xz" -C /usr/src/
+    fi
+
+    # Always refresh .config + Module.symvers (pass2 may have rebuilt with
+    # different fragments than pass1)
+    cp .config "${src_dst}/.config"
+    [ -f Module.symvers ] && cp Module.symvers "${src_dst}/Module.symvers"
+    make -C "${src_dst}" olddefconfig
+    make -C "${src_dst}" modules_prepare
+
+    # Replace build/source symlinks with stable /usr/src/ targets
+    ln -sfv "${src_dst}" "/lib/modules/${pkg_ver}-igos/build"
+    ln -sfv "${src_dst}" "/lib/modules/${pkg_ver}-igos/source"
+
+    # Ship the canonical source tarball for byte-identity verification
+    # against upstream + clean-rebuild scenarios
+    install -vm644 "${IGOS_SOURCES}/linux-${pkg_ver}.tar.xz" \
+        "/usr/src/linux-${pkg_ver}.tar.xz"
 }

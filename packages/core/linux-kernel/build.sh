@@ -66,6 +66,40 @@ do_install() {
     # Install kernel documentation
     install -v -dm755 "${DESTDIR}/usr/share/doc/linux-6.18.10"
     cp -r Documentation/* "${DESTDIR}/usr/share/doc/linux-6.18.10"
+
+    # Stage kernel source + .config + Module.symvers for reproducibility
+    # and out-of-tree module builds (DKMS, NVIDIA, VirtualBox, ZFS).
+    # Without this, /lib/modules/<ver>/build is a dangling symlink to the
+    # ephemeral build work-dir, and DKMS cannot work. Aligns with PRIME
+    # DIRECTIVE: users control their machine — they get the source.
+    local pkg_ver="${PKG_VERSION:-6.18.10}"
+    local src_stage="${DESTDIR}/usr/src/linux-${pkg_ver}"
+    install -v -dm755 "${DESTDIR}/usr/src"
+
+    # Extract fresh source from canonical tarball (byte-identical to upstream)
+    tar -xf "${IGOS_SOURCES}/linux-${pkg_ver}.tar.xz" \
+        -C "${DESTDIR}/usr/src/"
+
+    # Copy our build's .config + Module.symvers (so users get the EXACT
+    # config + symbol versions matching the running kernel)
+    cp .config "${src_stage}/.config"
+    [ -f Module.symvers ] && cp Module.symvers "${src_stage}/Module.symvers"
+
+    # Generate auto-config headers + host scripts so source is DKMS-ready
+    make -C "${src_stage}" olddefconfig
+    make -C "${src_stage}" modules_prepare
+
+    # Replace build/source symlinks (auto-emitted by modules_install
+    # pointing at ephemeral $PWD) with stable /usr/src/ targets
+    ln -sfv "/usr/src/linux-${pkg_ver}" \
+            "${DESTDIR}/lib/modules/${pkg_ver}-igos/build"
+    ln -sfv "/usr/src/linux-${pkg_ver}" \
+            "${DESTDIR}/lib/modules/${pkg_ver}-igos/source"
+
+    # Ship the canonical source tarball for byte-identity verification
+    # against upstream + clean-rebuild scenarios
+    install -vm644 "${IGOS_SOURCES}/linux-${pkg_ver}.tar.xz" \
+        "${DESTDIR}/usr/src/linux-${pkg_ver}.tar.xz"
 }
 
 # Post-install: runs on the live system AFTER deploy

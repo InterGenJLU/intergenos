@@ -1033,26 +1033,32 @@ phase_image() {
     log "  Tearing down chroot mounts..."
     bash "${SCRIPTS}/chroot-teardown.sh" 2>&1 | tee -a "$BUILD_LOG" || true
 
-    # Clean up build artifacts from the target filesystem.
-    # These were placed during setup — the built system doesn't need them.
-    # IMPORTANT: Do NOT remove kernel headers/source — they're needed for
-    # out-of-tree module builds (NVIDIA, VirtualBox, etc.)
+    # Clean build infrastructure from target rootfs.
+    # Kernel source is staged at /usr/src/linux-* by the linux-kernel(-pass2)
+    # package's do_install (NOT under /mnt/intergenos or /sources or /tmp),
+    # so these rm operations don't touch it. See packages/core/linux-kernel*.
     log "  Cleaning build artifacts from target..."
     rm -rf "${IGOS}/mnt/intergenos"
     rm -rf "${IGOS}/sources"
     rm -rf "${IGOS}/tmp"/*
     mkdir -p "${IGOS}/tmp"
     chmod 1777 "${IGOS}/tmp"
-    # Clean build work dirs but preserve kernel source/headers
-    if [ -d "${IGOS}/mnt/intergenos/build/work" ]; then
-        for d in "${IGOS}/mnt/intergenos/build/work"/*/; do
-            case "$(basename "$d")" in
-                linux*|kernel*) log "  Preserving $(basename "$d")" ;;
-                *) rm -rf "$d" ;;
-            esac
-        done
-    fi
     log "  Build artifacts removed"
+
+    # Sanity gate: kernel source MUST be staged to /usr/src/linux-* before
+    # imaging. If missing, the linux-kernel-pass2 package's do_install
+    # regressed — DKMS / out-of-tree modules (NVIDIA, VirtualBox, ZFS)
+    # would not work on the shipped ISO. Fail loudly rather than ship a
+    # broken rootfs.
+    if ! ls -d "${IGOS}/usr/src/linux-"* >/dev/null 2>&1; then
+        log "  ERROR: /usr/src/linux-* missing from chroot — kernel source not staged"
+        log "  This is a regression in packages/core/linux-kernel-pass2/build.sh's do_install."
+        log "  Refusing to image without source. Fix the kernel package + rebuild."
+        exit 1
+    fi
+    local src_dir
+    src_dir=$(ls -d "${IGOS}/usr/src/linux-"*/ | head -1)
+    log "  Sanity gate PASS: kernel source staged at ${src_dir#${IGOS}}"
 
     # Create the image — write to virtiofs-shared path so the host
     # can access it directly without copying through SSH
