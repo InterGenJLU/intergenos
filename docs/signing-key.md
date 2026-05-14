@@ -22,8 +22,8 @@ This page is the **canonical fingerprint publication** for the release signing k
 | Signing subkey [NK#3] | `B34D 3D3F B5EA DFC4 80ED  BDB0 D3C5 DF2C C73B 67ED` (Nitrokey 3 NFC, OpenPGP serial `730D5185`; secondary maintainer's daily-driver) |
 | Signing subkey [NK#4] | `99B3 E755 5064 180D C9CE  3284 32AE E441 15DE AAED` (Nitrokey 3 NFC, OpenPGP serial `CC1D07E3`; secondary maintainer's backup) |
 | EFI-binary signing cert | CN `InterGenOS Secure Boot CA`, on Nitrokey #1 PIV slot 9c |
-| EFI cert fingerprint (SHA-256, DER) | `1E:95:04:69:86:27:1D:A4:9B:DD:B8:44:36:30:19:DE:60:A8:49:50:FF:7F:37:7B:0C:27:F2:90:45:27:25:02` |
-| EFI cert PEM file SHA-256 (transport integrity) | `54e11836e39d6adac37c1de4600dbe7521c1bc32303463b1c5ebfbf3c723bdaa` |
+| EFI cert fingerprint (SHA-256, DER) | `61:8E:74:48:52:B5:8E:5F:01:C9:B0:59:7F:16:04:D4:C8:73:48:38:69:CE:8F:4E:F2:89:9C:36:AA:D9:5B:38` |
+| EFI cert PEM file SHA-256 (transport integrity) | `cd34977e6efa37a572a9835c111a7d563809edbe838b1764be35100279d2c172` |
 | Master expiry | None (revocation cert held in LUKS backup) |
 | Subkey expiry | 2 years from issue (2028-05-04) |
 | UIF (touch-to-sign) | Enabled on signing slot of all four NKs |
