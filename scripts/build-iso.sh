@@ -42,7 +42,9 @@ set -euo pipefail
 
 SHIM="${SHIM:?missing SHIM env var (signed shimx64.efi)}"
 GRUB="${GRUB:?missing GRUB env var (signed grubx64.efi)}"
-UKI="${UKI:?missing UKI env var (signed igos-live.efi)}"
+UKI_LIVE="${UKI_LIVE:?missing UKI_LIVE env var (signed igos-live.efi)}"
+UKI_INSTALL_GUI="${UKI_INSTALL_GUI:?missing UKI_INSTALL_GUI env var (signed igos-install-gui.efi)}"
+UKI_INSTALL_TUI="${UKI_INSTALL_TUI:?missing UKI_INSTALL_TUI env var (signed igos-install-tui.efi)}"
 SQUASHFS="${SQUASHFS:?missing SQUASHFS env var (filesystem.squashfs)}"
 OUTPUT="${OUTPUT:?missing OUTPUT env var (.iso path)}"
 
@@ -74,7 +76,10 @@ fi
 
 [ -f "$SHIM" ]      || { echo "ERROR: SHIM not found: $SHIM" >&2; exit 1; }
 [ -f "$GRUB" ]      || { echo "ERROR: GRUB not found: $GRUB" >&2; exit 1; }
-[ -f "$UKI" ]       || { echo "ERROR: UKI not found: $UKI" >&2; exit 1; }
+for var in UKI_LIVE UKI_INSTALL_GUI UKI_INSTALL_TUI; do
+    path="${!var}"
+    [ -f "$path" ] || { echo "ERROR: $var not found: $path" >&2; exit 1; }
+done
 [ -f "$SQUASHFS" ]  || { echo "ERROR: SQUASHFS not found: $SQUASHFS" >&2; exit 1; }
 [ -f "$GRUB_CFG" ]  || { echo "ERROR: GRUB_CFG not found: $GRUB_CFG" >&2; exit 1; }
 [ -f "$UNICODE_PF2" ] || { echo "ERROR: UNICODE_PF2 not found: $UNICODE_PF2" >&2; \
@@ -91,7 +96,7 @@ fi
 # signing-helper actually wrote PE32+ binaries. Catches truncated writes,
 # wrong-architecture binaries, plain text smuggled in. Full sbverify is
 # correctly out-of-scope (build VM doesn't hold the cert).
-for binary in "$SHIM" "$GRUB" "$UKI"; do
+for binary in "$SHIM" "$GRUB" "$UKI_LIVE" "$UKI_INSTALL_GUI" "$UKI_INSTALL_TUI"; do
     if ! file -b "$binary" | grep -q "PE32+"; then
         echo "ERROR: $binary is not a PE32+ binary" >&2
         echo "       file says: $(file -b "$binary")" >&2
@@ -167,8 +172,12 @@ echo "[build-iso]   SHIM:       $SHIM"
 echo "[build-iso]     sha256:   $(sha256sum "$SHIM" | awk '{print $1}')"
 echo "[build-iso]   GRUB:       $GRUB"
 echo "[build-iso]     sha256:   $(sha256sum "$GRUB" | awk '{print $1}')"
-echo "[build-iso]   UKI:        $UKI"
-echo "[build-iso]     sha256:   $(sha256sum "$UKI" | awk '{print $1}')"
+echo "[build-iso]   UKI_LIVE:        $UKI_LIVE"
+echo "[build-iso]     sha256:        $(sha256sum "$UKI_LIVE" | awk '{print $1}')"
+echo "[build-iso]   UKI_INSTALL_GUI: $UKI_INSTALL_GUI"
+echo "[build-iso]     sha256:        $(sha256sum "$UKI_INSTALL_GUI" | awk '{print $1}')"
+echo "[build-iso]   UKI_INSTALL_TUI: $UKI_INSTALL_TUI"
+echo "[build-iso]     sha256:        $(sha256sum "$UKI_INSTALL_TUI" | awk '{print $1}')"
 echo "[build-iso]   SQUASHFS:   $SQUASHFS"
 echo "[build-iso]     sha256:   $(sha256sum "$SQUASHFS" | awk '{print $1}')"
 echo "[build-iso]   GRUB_CFG:   $GRUB_CFG"
@@ -203,20 +212,26 @@ mkdir -p "${ESP_TREE}/EFI/BOOT" \
 echo "[build-iso] [1/6] staging ESP layout"
 
 # Firmware-fallback path: /EFI/BOOT/BOOTX64.EFI is what the firmware loads
-# when no NVRAM Boot#### entry exists (e.g. fresh install, USB boot, removable
-# media). Per UEFI spec convention this must be the shim — the shim chains
-# to GRUB, GRUB chains to the UKI.
+# when no NVRAM Boot#### entry exists (e.g. fresh install, USB boot,
+# removable media). Per UEFI spec convention this must be the shim. Shim's
+# built-in default chainload target is `grubx64.efi` adjacent to itself —
+# so the standalone GRUB binary must also live in /EFI/BOOT/ for the
+# fallback path to work without UEFI Shell intervention.
 cp "$SHIM" "${ESP_TREE}/EFI/BOOT/BOOTX64.EFI"
+cp "$GRUB" "${ESP_TREE}/EFI/BOOT/grubx64.efi"
 
-# Canonical InterGenOS paths (NVRAM Boot#### entries point here once the
-# system is installed; the live ISO's own NVRAM-less path is /EFI/BOOT/...
-# above, but the binaries are also reachable via these named paths from
-# inside GRUB).
-cp "$SHIM"  "${ESP_TREE}/EFI/InterGenOS/shimx64.efi"
-cp "$GRUB"  "${ESP_TREE}/EFI/InterGenOS/grubx64.efi"
-cp "$UKI"   "${ESP_TREE}/EFI/InterGenOS/igos-live.efi"
-cp "$GRUB_CFG" "${ESP_TREE}/EFI/InterGenOS/grub.cfg"
-cp "$UNICODE_PF2" "${ESP_TREE}/EFI/InterGenOS/fonts/unicode.pf2"
+# Canonical InterGenOS paths. The embedded grub.cfg inside grubx64.efi
+# does `search --label IGOS_ESP` to locate the ESP and then configfiles
+# /EFI/InterGenOS/grub.cfg from there — works whether grub is loaded
+# from /EFI/BOOT/ (fallback) or /EFI/InterGenOS/ (NVRAM Boot#### post-
+# install), because search-by-label is location-independent.
+cp "$SHIM"            "${ESP_TREE}/EFI/InterGenOS/shimx64.efi"
+cp "$GRUB"            "${ESP_TREE}/EFI/InterGenOS/grubx64.efi"
+cp "$UKI_LIVE"        "${ESP_TREE}/EFI/InterGenOS/igos-live.efi"
+cp "$UKI_INSTALL_GUI" "${ESP_TREE}/EFI/InterGenOS/igos-install-gui.efi"
+cp "$UKI_INSTALL_TUI" "${ESP_TREE}/EFI/InterGenOS/igos-install-tui.efi"
+cp "$GRUB_CFG"        "${ESP_TREE}/EFI/InterGenOS/grub.cfg"
+cp "$UNICODE_PF2"     "${ESP_TREE}/EFI/InterGenOS/fonts/unicode.pf2"
 
 if [ -n "$THEME_DIR" ]; then
     cp -r "$THEME_DIR" "${ESP_TREE}/EFI/InterGenOS/themes/"
@@ -250,7 +265,12 @@ dd if=/dev/zero of="$ESP_IMG" bs=1M count="$ESP_MB" status=none
 # volume serials → different ESP_IMG bytes → different ISO bytes.
 # Derive it deterministically from the lower 32 bits of SOURCE_DATE_EPOCH.
 VOLSERIAL=$(printf '%08x' $((SOURCE_DATE_EPOCH & 0xffffffff)))
-mkfs.vfat -F 32 -i "$VOLSERIAL" -n "${VOLID:0:11}" "$ESP_IMG" >/dev/null
+# FAT label: ESP-identification, distinct from ISO9660 VOLID (volume-id).
+# The embedded grub.cfg inside grubx64.efi does `search --label IGOS_ESP`
+# to locate the ESP partition for configfile loading. Decoupling the FAT
+# label from VOLID is semantically correct: FAT label identifies the ESP
+# filesystem; VOLID identifies the ISO image.
+mkfs.vfat -F 32 -i "$VOLSERIAL" -n "IGOS_ESP" "$ESP_IMG" >/dev/null
 
 # Lock every staged-ESP file's mtime to SOURCE_DATE_EPOCH before mcopy reads
 # them. Without this, mcopy bakes in whatever mtime the local `cp` produced
@@ -270,12 +290,15 @@ mmd -i "$ESP_IMG" ::EFI/InterGenOS/themes
 mmd -i "$ESP_IMG" ::EFI/InterGenOS/fonts
 
 # Copy files into ESP image preserving the directory structure
-mcopy -i "$ESP_IMG" "${ESP_TREE}/EFI/BOOT/BOOTX64.EFI"            ::EFI/BOOT/
-mcopy -i "$ESP_IMG" "${ESP_TREE}/EFI/InterGenOS/shimx64.efi"     ::EFI/InterGenOS/
-mcopy -i "$ESP_IMG" "${ESP_TREE}/EFI/InterGenOS/grubx64.efi"     ::EFI/InterGenOS/
-mcopy -i "$ESP_IMG" "${ESP_TREE}/EFI/InterGenOS/igos-live.efi"   ::EFI/InterGenOS/
-mcopy -i "$ESP_IMG" "${ESP_TREE}/EFI/InterGenOS/grub.cfg"        ::EFI/InterGenOS/
-mcopy -i "$ESP_IMG" "${ESP_TREE}/EFI/InterGenOS/fonts/unicode.pf2" ::EFI/InterGenOS/fonts/
+mcopy -i "$ESP_IMG" "${ESP_TREE}/EFI/BOOT/BOOTX64.EFI"                ::EFI/BOOT/
+mcopy -i "$ESP_IMG" "${ESP_TREE}/EFI/BOOT/grubx64.efi"                ::EFI/BOOT/
+mcopy -i "$ESP_IMG" "${ESP_TREE}/EFI/InterGenOS/shimx64.efi"          ::EFI/InterGenOS/
+mcopy -i "$ESP_IMG" "${ESP_TREE}/EFI/InterGenOS/grubx64.efi"          ::EFI/InterGenOS/
+mcopy -i "$ESP_IMG" "${ESP_TREE}/EFI/InterGenOS/igos-live.efi"        ::EFI/InterGenOS/
+mcopy -i "$ESP_IMG" "${ESP_TREE}/EFI/InterGenOS/igos-install-gui.efi" ::EFI/InterGenOS/
+mcopy -i "$ESP_IMG" "${ESP_TREE}/EFI/InterGenOS/igos-install-tui.efi" ::EFI/InterGenOS/
+mcopy -i "$ESP_IMG" "${ESP_TREE}/EFI/InterGenOS/grub.cfg"             ::EFI/InterGenOS/
+mcopy -i "$ESP_IMG" "${ESP_TREE}/EFI/InterGenOS/fonts/unicode.pf2"    ::EFI/InterGenOS/fonts/
 
 if [ -n "$THEME_DIR" ]; then
     # mcopy -s copies recursively
@@ -417,7 +440,9 @@ MANIFEST="${OUTPUT}.manifest"
 SCRIPT_SHA256=$(sha256sum "${BASH_SOURCE[0]}" | awk '{print $1}')
 SHIM_SHA256=$(sha256sum "$SHIM" | awk '{print $1}')
 GRUB_SHA256=$(sha256sum "$GRUB" | awk '{print $1}')
-UKI_SHA256=$(sha256sum "$UKI" | awk '{print $1}')
+UKI_LIVE_SHA256=$(sha256sum "$UKI_LIVE" | awk '{print $1}')
+UKI_INSTALL_GUI_SHA256=$(sha256sum "$UKI_INSTALL_GUI" | awk '{print $1}')
+UKI_INSTALL_TUI_SHA256=$(sha256sum "$UKI_INSTALL_TUI" | awk '{print $1}')
 SQUASHFS_SHA256=$(sha256sum "$SQUASHFS" | awk '{print $1}')
 GRUB_CFG_SHA256=$(sha256sum "$GRUB_CFG" | awk '{print $1}')
 
@@ -434,7 +459,9 @@ MKFS_VFAT_VERSION_LINE=$(mkfs.vfat --help 2>&1 | head -1)
 {
     printf '%s  shim:     %s\n' "$SHIM_SHA256"     "$(basename "$SHIM")"
     printf '%s  grub:     %s\n' "$GRUB_SHA256"     "$(basename "$GRUB")"
-    printf '%s  uki:      %s\n' "$UKI_SHA256"      "$(basename "$UKI")"
+    printf '%s  uki_live:        %s\n' "$UKI_LIVE_SHA256"        "$(basename "$UKI_LIVE")"
+    printf '%s  uki_install_gui: %s\n' "$UKI_INSTALL_GUI_SHA256" "$(basename "$UKI_INSTALL_GUI")"
+    printf '%s  uki_install_tui: %s\n' "$UKI_INSTALL_TUI_SHA256" "$(basename "$UKI_INSTALL_TUI")"
     printf '%s  squashfs: %s\n' "$SQUASHFS_SHA256" "$(basename "$SQUASHFS")"
     printf '%s  grub_cfg: %s\n' "$GRUB_CFG_SHA256" "$(basename "$GRUB_CFG")"
     printf '%s  output:   %s\n' "$ISO_SHA256"      "$(basename "$OUTPUT")"

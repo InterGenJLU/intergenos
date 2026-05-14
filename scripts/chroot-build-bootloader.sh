@@ -47,7 +47,10 @@ VMLINUZ_PATH="/boot/vmlinuz-$FULL_KVER"
 [ -d "/lib/modules/$FULL_KVER" ] || fail "kernel modules not found: /lib/modules/$FULL_KVER"
 
 [ -f /mnt/intergenos/installer/init/init.sh ]      || fail "init script missing: /mnt/intergenos/installer/init/init.sh"
-[ -f /mnt/intergenos/installer/init/cmdline.txt ]  || fail "cmdline missing: /mnt/intergenos/installer/init/cmdline.txt"
+for mode in live install-gui install-tui; do
+    cmdline_file="/mnt/intergenos/installer/init/cmdline.${mode}.txt"
+    [ -f "$cmdline_file" ] || fail "cmdline missing: $cmdline_file"
+done
 [ -f /mnt/intergenos/installer/init/build-initramfs.sh ] || fail "initramfs build script missing"
 
 [ -x /mnt/intergenos/scripts/build-grub-standalone.sh ] || fail "build-grub-standalone.sh missing"
@@ -83,16 +86,27 @@ BUSYBOX=/usr/bin/busybox.static \
 MODULES_DIR="/lib/modules/$FULL_KVER" \
     bash /mnt/intergenos/installer/init/build-initramfs.sh "$FULL_KVER" "$INITRAMFS"
 
-# ---- 3/3: UKI (kernel + initramfs + cmdline + os-release, unsigned) -------
+# ---- 3/3: UKIs (one per boot mode, kernel + initramfs + per-mode cmdline) ----
+# Each UKI carries a sealed `.cmdline` section (igos.mode=...) so the
+# boot-mode decision is cryptographically bound to a signed PE — an attacker
+# editing ESP-side grub.cfg cannot switch modes. init.sh reads `igos.mode=`
+# from /proc/cmdline and dispatches to live / install-gui / install-tui.
 echo ""
-echo "[bootloader 3/3] Building UKI (Unified Kernel Image)..."
-UKI_OUTPUT="$OUT_DIR/igos-live.efi"
-VMLINUZ="$VMLINUZ_PATH" \
-INITRAMFS="$INITRAMFS" \
-CMDLINE=/mnt/intergenos/installer/init/cmdline.txt \
-OUTPUT="$UKI_OUTPUT" \
-STUB="$STUB" \
-    bash /mnt/intergenos/scripts/build-uki.sh
+echo "[bootloader 3/3] Building UKIs (one per boot mode)..."
+for mode in live install-gui install-tui; do
+    UKI_OUTPUT="$OUT_DIR/igos-${mode}.efi"
+    CMDLINE_FILE="/mnt/intergenos/installer/init/cmdline.${mode}.txt"
+    echo ""
+    echo "  -> mode=${mode}"
+    echo "     cmdline: $CMDLINE_FILE"
+    echo "     output:  $UKI_OUTPUT"
+    VMLINUZ="$VMLINUZ_PATH" \
+    INITRAMFS="$INITRAMFS" \
+    CMDLINE="$CMDLINE_FILE" \
+    OUTPUT="$UKI_OUTPUT" \
+    STUB="$STUB" \
+        bash /mnt/intergenos/scripts/build-uki.sh
+done
 
 # ---- Summary --------------------------------------------------------------
 echo ""
@@ -105,9 +119,15 @@ echo "Artifacts (all UNSIGNED):"
 echo "  $OUT_DIR/grubx64.efi"
 echo "  $OUT_DIR/initramfs.cpio.gz"
 echo "  $OUT_DIR/igos-live.efi"
+echo "  $OUT_DIR/igos-install-gui.efi"
+echo "  $OUT_DIR/igos-install-tui.efi"
 echo ""
 echo "SHA-256:"
-sha256sum "$OUT_DIR/grubx64.efi" "$OUT_DIR/initramfs.cpio.gz" "$OUT_DIR/igos-live.efi" 2>/dev/null \
+sha256sum "$OUT_DIR/grubx64.efi" \
+          "$OUT_DIR/initramfs.cpio.gz" \
+          "$OUT_DIR/igos-live.efi" \
+          "$OUT_DIR/igos-install-gui.efi" \
+          "$OUT_DIR/igos-install-tui.efi" 2>/dev/null \
     | sed 's/^/  /'
 echo ""
 echo "----------------------------------------------------------------"

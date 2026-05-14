@@ -1,0 +1,1 @@
+igos.mode=live quiet splash loglevel=3 rd.systemd.show_status=auto

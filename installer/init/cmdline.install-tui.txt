@@ -1,0 +1,1 @@
+igos.mode=install-tui loglevel=3 rd.systemd.show_status=auto
