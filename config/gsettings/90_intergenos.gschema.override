@@ -9,10 +9,15 @@
 [org.gnome.desktop.interface]
 # Default to dark theme — modern, easier on the eyes
 color-scheme='prefer-dark'
-# Theme selections — curated defaults, user can change via Settings or greeter
-gtk-theme='adw-gtk3-dark'
+# Theme selections — curated defaults, user can change via Settings or greeter.
+# Default = InterGenOS metatheme (GTK + GNOME Shell) + Papirus-Dark icons +
+# Bibata-Modern-Classic cursor. The InterGenOS metatheme is the native look
+# (ECG blue on deep navy); the icon + cursor pairings are referenced from
+# its index.theme [X-GNOME-Metatheme] block. Users can switch to any of the
+# 7 alternate combos exposed in intergen-welcome's appearance page.
+gtk-theme='InterGenOS'
 icon-theme='Papirus-Dark'
-cursor-theme='Adwaita'
+cursor-theme='Bibata-Modern-Classic'
 # Font defaults
 font-name='DejaVu Sans 11'
 monospace-font-name='DejaVu Sans Mono 11'
