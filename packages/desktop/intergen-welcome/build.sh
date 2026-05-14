@@ -69,6 +69,21 @@ done_marker="${HOME}/.config/intergen-welcome/done"
 if [ -e "${done_marker}" ] ; then
     exit 0
 fi
+# Force GSK's cairo (software) renderer. GTK4's default GL renderer goes
+# through Mesa, which on virtualized GPUs (QXL, virtio-vga) tries the ZINK
+# Vulkan-on-GL backend and segfaults on context creation when the host
+# can't expose a real Vulkan device:
+#   "MESA: error: ZINK: failed to choose pdev"
+#   -> "libEGL warning: egl: failed to create dri2 screen"
+#   -> Aborted (core dumped)
+# Symptom: the welcomer launches, "Next" works (no context recreation
+# needed), but the first click that triggers a re-paint with a fresh GL
+# context (e.g., a theme preview row, an extension toggle) core-dumps
+# the process. Cairo is software-only — slower, but never touches the
+# GL stack. For a 7-page run-once wizard this is the right trade; on
+# real hardware where the GL renderer works fine, the perceptual cost
+# is negligible and the user only sees the wizard once.
+export GSK_RENDERER=cairo
 python3 /usr/libexec/intergen-welcome/intergen-welcome.py "$@"
 rc=$?
 if [ "${rc}" -eq 0 ] ; then
