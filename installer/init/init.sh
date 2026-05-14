@@ -269,6 +269,52 @@ AUTOLOGIN_TTY2
     # change at first console login. Push lastchg into the future so the
     # tty2 fallback (and any direct console) doesn't prompt.
     sed -i 's@^root:\([^:]*\):0:@root:\1:19800:@' /newroot/etc/shadow
+
+    # ---- Screen-lock disable for live session ------------------------------
+    # liveuser's /etc/shadow entry is `*` (password disabled by design); the
+    # default GNOME idle screen-lock would lock the live session out with no
+    # recovery path. Override via a system-wide dconf keyfile compiled to the
+    # `local` db, with a oneshot systemd unit that runs `dconf update` before
+    # the display manager starts. Per-liveuser semantics are preserved because
+    # this overlay-write only happens in the live-mode if-block; installed
+    # systems boot through the no-MODE path and keep the secure default
+    # (lock-enabled=true).
+    mkdir -p /newroot/etc/dconf/db/local.d
+    cat > /newroot/etc/dconf/db/local.d/00-live-screensaver <<'DCONF_LIVE'
+[org/gnome/desktop/screensaver]
+lock-enabled=false
+idle-activation-enabled=false
+
+[org/gnome/desktop/session]
+idle-delay=uint32 0
+DCONF_LIVE
+
+    mkdir -p /newroot/etc/dconf/profile
+    cat > /newroot/etc/dconf/profile/user <<'DCONF_PROFILE'
+user-db:user
+system-db:local
+DCONF_PROFILE
+
+    cat > /newroot/etc/systemd/system/igos-live-dconf-compile.service <<'DCONF_SVC'
+[Unit]
+Description=Compile dconf databases for InterGenOS live session
+DefaultDependencies=no
+Before=display-manager.service
+After=local-fs.target
+ConditionPathExists=/etc/dconf/db/local.d
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/dconf update
+RemainAfterExit=yes
+
+[Install]
+WantedBy=display-manager.service
+DCONF_SVC
+
+    mkdir -p /newroot/etc/systemd/system/display-manager.service.wants
+    ln -sf /etc/systemd/system/igos-live-dconf-compile.service \
+           /newroot/etc/systemd/system/display-manager.service.wants/igos-live-dconf-compile.service
 fi
 
 # ---- Hand off mode to userspace --------------------------------------------
