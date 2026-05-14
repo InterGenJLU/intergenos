@@ -8,7 +8,7 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: file://dracula-gtk-v${version}.tar.gz
+- url: file:///dracula-gtk-v${version}.tar.gz
   sha256: 462f397f957d8443cfef7cddf5e6b92878c5aeef1af9f581307d43257279eb4c
 dependencies:
   build: []

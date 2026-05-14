@@ -8,7 +8,7 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: file://graphite-gtk-${version}.tar.gz
+- url: file:///graphite-gtk-${version}.tar.gz
   sha256: fb22ae695ca0702a3309a6ed4ed49f4e5a24ba346f0196ce213ad4a217dd9f15
 dependencies:
   build:

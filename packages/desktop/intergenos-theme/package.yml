@@ -8,7 +8,7 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: file://intergenos-theme-${version}.tar.xz
+- url: file:///intergenos-theme-${version}.tar.xz
   sha256: 86397c148e033d575048d870d67e21b14c0fec2dce92b273f51ca3731aa56df5
 dependencies:
   build: []

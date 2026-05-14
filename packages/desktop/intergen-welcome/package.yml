@@ -8,7 +8,7 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: file://intergen-welcome-${version}.tar.xz
+- url: file:///intergen-welcome-${version}.tar.xz
   sha256: f4fb89f6ba2866116e65e83a8b59d0edc09a57e272d48fd714ca299812ad7ddb
 dependencies:
   build: []

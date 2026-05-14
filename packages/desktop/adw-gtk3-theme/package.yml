@@ -8,7 +8,7 @@ tier: desktop
 build_style: meson
 install_func: do_install
 source:
-- url: file://adw-gtk3-v${version}.tar.gz
+- url: file:///adw-gtk3-v${version}.tar.gz
   sha256: fc9fc3b3e89d90d9a0e38bae05445ce9e65faf47acea3ac658e5f42566def473
 dependencies:
   build:

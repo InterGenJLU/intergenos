@@ -8,7 +8,7 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: file://catppuccin-mocha-blue-${version}.tar.xz
+- url: file:///catppuccin-mocha-blue-${version}.tar.xz
   sha256: df1cfc8bdc38b209477d80c0499706b94a08e1d6759e7a8af99be87150a8138c
 dependencies:
   build: []

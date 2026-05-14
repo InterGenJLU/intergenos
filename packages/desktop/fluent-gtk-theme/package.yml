@@ -8,7 +8,7 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: file://fluent-gtk-${version}.tar.gz
+- url: file:///fluent-gtk-${version}.tar.gz
   sha256: bedc51e07ca4edaeb3bdd50e9e2a27c10f1b049f460b10e3b5668d11ff2b03cd
 dependencies:
   build:

@@ -8,7 +8,7 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: file://phinger-cursors-variants.tar.bz2
+- url: file:///phinger-cursors-variants.tar.bz2
   sha256: ddb7310c62bf8e0e2798a24f8a867e4af7b17a39757ba45c85e13f3988f646fc
 dependencies:
   build: []

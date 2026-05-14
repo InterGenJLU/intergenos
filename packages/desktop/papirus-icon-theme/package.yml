@@ -8,7 +8,7 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: file://papirus-icon-theme-${version}.tar.gz
+- url: file:///papirus-icon-theme-${version}.tar.gz
   sha256: 3831a487f813479ad3224fdbfb0c7023f23056899bc78c93737f341aa655558e
 dependencies:
   build:

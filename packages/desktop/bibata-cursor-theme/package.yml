@@ -8,7 +8,7 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: file://bibata-cursor-theme-${version}.tar.xz
+- url: file:///bibata-cursor-theme-${version}.tar.xz
   sha256: b6bacc3b4300c170be0dff79cf539bd964563cfcb77a3cabe4d6966248d9b9b6
 dependencies:
   build: []

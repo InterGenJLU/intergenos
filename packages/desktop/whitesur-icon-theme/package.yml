@@ -8,7 +8,7 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: file://whitesur-icon-theme-${version}.tar.gz
+- url: file:///whitesur-icon-theme-${version}.tar.gz
   sha256: 13e919a88c8b4578a4730a36c4c6cafbcb0105afd4b5ed2a9b1a19d383490515
 dependencies:
   build: []

@@ -8,7 +8,7 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: file://orchis-${version}.tar.gz
+- url: file:///orchis-${version}.tar.gz
   sha256: d479653415e271fe9f3324f1f4f51cf28b1134164667142c6c6a6db41cf4da9b
 dependencies:
   build:

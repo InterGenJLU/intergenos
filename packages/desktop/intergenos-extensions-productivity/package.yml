@@ -8,7 +8,7 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: file://intergenos-extensions-productivity-${version}.tar.xz
+- url: file:///intergenos-extensions-productivity-${version}.tar.xz
   sha256: db1f9de7b0ff3684cb79b96ca59139b0181b381f3e372b4aaf0aec2fb306f5bd
 dependencies:
   build: []

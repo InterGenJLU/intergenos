@@ -8,7 +8,7 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: file://intergenos-extensions-appearance-${version}.tar.xz
+- url: file:///intergenos-extensions-appearance-${version}.tar.xz
   sha256: 2bce55c75f280b7165018d4e5f58a0284669772efff15200a2beb746582f4771
 dependencies:
   build: []

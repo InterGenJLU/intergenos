@@ -8,7 +8,7 @@ tier: desktop
 build_style: custom
 install_func: do_install
 source:
-- url: file://whitesur-gtk-${version}.tar.gz
+- url: file:///whitesur-gtk-${version}.tar.gz
   sha256: 5dff6d1de440923f5495ae5b1663b254248dd7daee6921be6dd2dfd2eb957c68
 dependencies:
   build:
