@@ -35,3 +35,21 @@ do_install() {
     set -e
     make DESTDIR="$DESTDIR" install
 }
+
+post_install() {
+    set -e
+    # tpm2-tss-fapi.conf + tpm-udev.rules reference the `tss` system user/group.
+    # Upstream ships sysusers.d entries (via --with-sysusersdir) that would
+    # create them at first boot if systemd-sysusers runs. Live ISO doesn't run
+    # sysusers, and tmpfiles.d / udev consumers fire before sysusers anyway —
+    # so we create the user explicitly here in post_install (which runs on the
+    # live chroot with DESTDIR unset). Idempotent.
+    if ! getent group tss >/dev/null 2>&1; then
+        groupadd -r tss
+    fi
+    if ! getent passwd tss >/dev/null 2>&1; then
+        useradd -r -g tss -s /sbin/nologin -d /var/lib/tpm \
+                -c "TPM2 Software Stack" tss
+    fi
+    install -dm750 -o tss -g tss /var/lib/tpm 2>/dev/null || true
+}

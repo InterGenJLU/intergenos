@@ -1,0 +1,5 @@
+# InterGenOS systemd preset — nftables.service
+# Enables the netfilter packet filter at boot. The shipped /etc/nftables.conf
+# is a default-deny baseline (loopback + established/related on input;
+# operator extends as needed).
+enable nftables.service

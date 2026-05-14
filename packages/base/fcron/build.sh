@@ -77,5 +77,12 @@ RUNPARTS
 &bootrun 42 4 1 * * root run-parts /etc/cron.monthly
 EOF
 
+    # fcron silently rejects /etc/fcron.conf if owner/perms are wrong.
+    # Upstream installs it root:root mode 600; fcron expects root:fcron 644.
+    if [ -f /etc/fcron.conf ]; then
+        chown root:fcron /etc/fcron.conf
+        chmod 644       /etc/fcron.conf
+    fi
+
     systemctl enable fcron
 }

@@ -1,6 +1,6 @@
 name: gdm
 version: '49.2'
-release: 1
+release: 2
 description: GNOME Display Manager
 license: GPL-2.0-or-later
 homepage: https://wiki.gnome.org/Projects/GDM

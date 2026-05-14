@@ -1,0 +1,6 @@
+# InterGenOS systemd preset — gdm.service
+# Enables GDM by default on installed systems. The live ISO's init.sh
+# overlay does not override this; live boots auto-login a `liveuser` via
+# GDM's AutomaticLogin. Real-distro pattern: ship the preset in the
+# package, let systemctl preset-all do the wiring at install time.
+enable gdm.service

@@ -1,6 +1,6 @@
 name: fcron
 version: "3.4.0"
-release: 1
+release: 2
 description: Periodical command scheduler
 license: GPL-2.0-or-later
 homepage: http://fcron.free.fr/

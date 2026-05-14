@@ -1,6 +1,6 @@
 name: mariadb
 version: "11.8.6"
-release: 1
+release: 2
 description: MariaDB 11.8 LTS — GPL-2.0 relational database server (MySQL-compatible)
 license: "GPL-2.0 AND LGPL-2.1"
 homepage: https://mariadb.org/
