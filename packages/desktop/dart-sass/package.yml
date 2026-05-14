@@ -1,0 +1,16 @@
+name: dart-sass
+version: "1.99.0"
+release: 1
+description: Dart Sass — the official Sass compiler (CSS preprocessor, Dart Native AOT-compiled snapshot)
+license: MIT
+homepage: https://sass-lang.com/dart-sass
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: file:///dart-sass-${version}-linux-x64.tar.gz
+  sha256: f0a32ab99bc0a1eb62ea7140a056a1bca82d534390b7c3dba4f2016eb0077753
+dependencies:
+  build: []
+  host: []
+  runtime: []

@@ -28,7 +28,15 @@ build() {
 do_install() {
     set -e
     install -dm755 "${DESTDIR}/usr/share/themes"
-    bash install.sh -d "${DESTDIR}/usr/share/themes"
+    # WhiteSur's libs/lib-core.sh sets MY_USERNAME via:
+    #   "${SUDO_USER:-$(logname 2>/dev/null || echo "${USER}")}"
+    # In an offline build chroot there is no controlling tty, so logname
+    # returns empty; SUDO_USER and USER are both unset (env -i clears
+    # them in chroot-enter.sh); MY_USERNAME ends up empty; the very next
+    # line `getent passwd "" | cut -d: -f6` exits 2 under `set -Eeo
+    # pipefail`. install.sh dies before printing anything. Provide a
+    # non-empty USER so the fallback chain resolves cleanly.
+    USER=root bash install.sh -d "${DESTDIR}/usr/share/themes"
 }
 
 post_install() {

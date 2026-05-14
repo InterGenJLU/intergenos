@@ -1,0 +1,16 @@
+name: ca-certificates
+version: "2026.04.30"
+release: 1
+description: Mozilla CA root certificate bundle (PEM) for OS-level TLS verification
+license: MPL-2.0
+homepage: https://curl.se/docs/caextract.html
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: file:///ca-certificates-${version}.tar.gz
+  sha256: a38cf629d846eb61f14c7fc27fb8b32611ca28f982ec907a04aee03ddeed9369
+dependencies:
+  build: []
+  host: []
+  runtime: []

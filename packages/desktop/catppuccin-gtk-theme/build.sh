@@ -36,13 +36,21 @@ build() {
 
 do_install() {
     set -e
-    install -dm755 "${DESTDIR}/usr/share/themes"
     local theme_dir="catppuccin-mocha-blue-standard+default"
-    if [ ! -d "${theme_dir}" ] ; then
-        echo "catppuccin-gtk-theme: expected dir '${theme_dir}' missing in source tarball" >&2
+    # Tarball top-level dir is "${theme_dir}/". The builder extracts with
+    # tar --strip-components=1 (builder.py:318), which strips that single
+    # top-level component — so when we land in cwd, the dir itself is gone
+    # and its contents (cinnamon/, gnome-shell/, gtk-3.0/, gtk-4.0/, etc.)
+    # sit at cwd-root. Verify the structure looks right via one of the
+    # expected sub-dirs, then re-create the canonical wrapper dir under
+    # /usr/share/themes/ and copy the extracted contents into it. gschema +
+    # welcomer reference the wrapper-dir name verbatim (literal `+` char).
+    if [ ! -d "gtk-3.0" ] || [ ! -d "gtk-4.0" ]; then
+        echo "catppuccin-gtk-theme: expected gtk-3.0/ + gtk-4.0/ at extract root; tarball layout changed" >&2
         exit 1
     fi
-    cp -a "${theme_dir}" "${DESTDIR}/usr/share/themes/"
+    install -dm755 "${DESTDIR}/usr/share/themes/${theme_dir}"
+    cp -a ./. "${DESTDIR}/usr/share/themes/${theme_dir}/"
 }
 
 post_install() {

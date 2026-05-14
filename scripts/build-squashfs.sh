@@ -116,14 +116,23 @@ else
 log() { echo "  [airootfs] $*"; }
 
 # --- CA trust bundle -------------------------------------------------------
-# Wave B.1 — rebuild /etc/ssl/certs/ca-certificates.crt from the certs
-# package's source data. Fixes "unable to get local issuer certificate" when
-# the live ISO tries curl/wget over TLS.
-if command -v update-ca-certificates >/dev/null 2>&1; then
-    log "update-ca-certificates --fresh"
+# Wave B.1 — verify /etc/ssl/certs/ca-certificates.crt is present + non-empty
+# so curl/wget/git over TLS in the live boot can validate certificates against
+# Mozilla's root store. The ca-certificates package (packages/core/ca-certificates)
+# ships the curl.se snapshot of cacert.pem at this exact path on install, so
+# the file should already be in place by squashfs build time. If it's missing
+# or empty, halt — silently shipping a TLS-broken ISO is worse than a build
+# failure.
+CABUNDLE=/etc/ssl/certs/ca-certificates.crt
+if [ -s "$CABUNDLE" ]; then
+    log "CA bundle present: $CABUNDLE ($(wc -c < "$CABUNDLE") bytes)"
+elif command -v update-ca-certificates >/dev/null 2>&1; then
+    log "CA bundle missing — running update-ca-certificates --fresh"
     update-ca-certificates --fresh 2>&1 | tail -3 || true
+    [ -s "$CABUNDLE" ] || { echo "  [airootfs] FATAL: CA bundle still empty after update-ca-certificates" >&2; exit 1; }
 else
-    log "update-ca-certificates not available — skipping (verify ca-certificates package)"
+    echo "  [airootfs] FATAL: CA bundle missing AND update-ca-certificates unavailable — ca-certificates package not installed?" >&2
+    exit 1
 fi
 
 # --- Dynamic linker cache --------------------------------------------------
