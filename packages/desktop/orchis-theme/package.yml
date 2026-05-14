@@ -1,0 +1,19 @@
+name: orchis-theme
+version: "2025-04-25"
+release: 1
+description: Orchis GTK + gnome-shell theme — Material-Design-inspired (Dark + Light + compact variants); supplies the shell themes referenced by 4 welcomer combos
+license: GPL-3.0-or-later
+homepage: https://github.com/vinceliuice/Orchis-theme
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: file://orchis-${version}.tar.gz
+  sha256: d479653415e271fe9f3324f1f4f51cf28b1134164667142c6c6a6db41cf4da9b
+dependencies:
+  build:
+  - sassc
+  host: []
+  runtime:
+  - gtk3
+  - gtk4

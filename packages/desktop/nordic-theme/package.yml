@@ -1,0 +1,17 @@
+name: nordic-theme
+version: "2.2.0"
+release: 1
+description: Nordic theme — cool Nord-palette GTK and gnome-shell theme by EliverLara
+license: GPL-3.0-or-later
+homepage: https://github.com/EliverLara/Nordic
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: file://nordic-v${version}.tar.gz
+  sha256: ac8624d6f4e12e7e333d083500dbb52fab03553107482391728fcf3dcc0ec25f
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - gtk3

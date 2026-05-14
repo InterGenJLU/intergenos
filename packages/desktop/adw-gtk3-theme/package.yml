@@ -1,0 +1,20 @@
+name: adw-gtk3-theme
+version: "6.5"
+release: 1
+description: adw-gtk3 — libadwaita-styled GTK3 theme (light + dark), upstream of the Orchis Light welcomer GTK + the Orchis Dark welcomer GTK
+license: LGPL-2.1-or-later
+homepage: https://github.com/lassekongo83/adw-gtk3
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: file://adw-gtk3-v${version}.tar.gz
+  sha256: fc9fc3b3e89d90d9a0e38bae05445ce9e65faf47acea3ac658e5f42566def473
+dependencies:
+  build:
+  - meson
+  - ninja
+  - sassc
+  host: []
+  runtime:
+  - gtk3
