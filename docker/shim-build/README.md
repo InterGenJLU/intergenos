@@ -21,7 +21,7 @@ Reference: `docs/research/installer/ms_shim_sponsorship_2026-04-18.md` §9 Step 
 |-----------|--------|-----------|
 | Base image | `debian:bookworm-slim@sha256:5a2a...` | Narrow package set, multi-year ABI stability, Debian-native reproducibility tooling |
 | Shim source | `rhboot/shim` v16.1, commit `afc49558` (pinned) | Tag + exact commit SHA pinned; build asserts SHA match and exits non-zero on mismatch (L3 fix) |
-| Vendor cert | Real ceremony-v2 cert (committed at `vendor-cert/`) | DER fingerprint `7B:8F:21:50:...:C8:76`; private half on NK#1 PIV slot 9c |
+| Vendor cert | Real ceremony-v2 cert, regenerated 2026-05-13 (commit `06fbca71`) | RSA-4096, DER fingerprint `61:8E:74:48:...:5B:38`; private half on NK#1 PIV slot 9c |
 | SBAT vendor entry | `sbat/sbat.intergenos.csv` (committed) | Concatenated to embedded SBAT section via shim's `VENDOR_SBATS` Makefile glob |
 | Build parallelism | `make -j1` | L1 fix — eliminates thread-race ordering as a reproducibility leak |
 | Apt package pinning | `snapshot.debian.org/.../20260501T000000Z` | L2 fix — pins all build-time packages to exact versions; eliminates gcc/libc/binutils version drift |
@@ -112,11 +112,14 @@ sha256sum build-output/intergenos-shim-16.1.tar
 
    Confirm a `Private Key Object` with `ID:02` is reported. Override via
    `PKCS11_KEY_URI` env var if the default doesn't match.
-2. **Multi-host verification: CONFIRMED.** Triple-host reproducibility
-   verified 2026-05-07 across 3 independent hosts (Ubuntu 24.04 + Ubuntu
-   22.04, native Docker 29.x, x86_64). All produce the identical 5-file
-   tarball with sha256:
-   `22ba569ab8543d456e4bf0289b9c63b7c28046ed3d98a0549cc38491322f8e97`.
+2. **Multi-host verification: SINGLE-HOST AS-OF 2026-05-13.** Original
+   triple-host reproducibility was verified 2026-05-07 with the prior
+   RSA-2048 vendor cert (tarball sha256
+   `22ba569ab8543d456e4bf0289b9c63b7c28046ed3d98a0549cc38491322f8e97`).
+   After the 2026-05-13 cert regeneration (commit `06fbca71`), single-host
+   re-attestation on Build Host A produces tarball sha256
+   `32776256647f3c28d8ac800b299471d5eb593448e4a75097e802ccad17ab5e25`.
+   Multi-host re-attestation pending before shim-review submission.
    See `scripts/verify-b2-reproducibility.sh` for the harness and
    `docs/shim-review-submission.md` Q22 for the cross-host comparison
    evidence. **Note:** Docker Desktop (Windows/macOS) is out of scope —

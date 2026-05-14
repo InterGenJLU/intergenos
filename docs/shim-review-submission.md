@@ -117,7 +117,7 @@ Therefore InterGenOS requires its own shim binary signed by Microsoft with the I
 ## 8. Were these binaries created from the 16.1 shim release tar?
 
 
-**Yes.** Build is rooted at `rhboot/shim` git tag `16.1` (commit `afc49558b34548644c1cd0ad1b6526a9470182ed`), per the InterGenOS shim-build Dockerfile committed at `docker/shim-build/Dockerfile` on master. The Dockerfile uses `FROM debian:bookworm-slim@sha256:5a2a80d11944804c01b8619bc967e31801ec39bf3257ab80b91070eb23625644` for reproducibility and pulls the shim source tarball directly from the upstream tag. Reviewer can verify by running `docker build .` against this Dockerfile and comparing the produced `shimx64.efi` SHA-256 against the canonical value in Q25 (`b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75`).
+**Yes.** Build is rooted at `rhboot/shim` git tag `16.1` (commit `afc49558b34548644c1cd0ad1b6526a9470182ed`), per the InterGenOS shim-build Dockerfile committed at `docker/shim-build/Dockerfile` on master. The Dockerfile uses `FROM debian:bookworm-slim@sha256:5a2a80d11944804c01b8619bc967e31801ec39bf3257ab80b91070eb23625644` for reproducibility and pulls the shim source tarball directly from the upstream tag. Reviewer can verify by running `docker build .` against this Dockerfile and comparing the produced `shimx64.efi` SHA-256 against the canonical value in Q25 (`441f9bd1bb75d5dbfc9c5d2c8451b210c9156573515923786d0a1cc4a2a01e25`).
 
 The `SHIM_COMMIT_SHA` artifact emitted by the build records the upstream commit hash and is part of the 9-check `verify-b2-reproducibility.sh` harness output.
 
@@ -345,12 +345,14 @@ The InterGenOS Secure Boot CA (`CN=InterGenOS Secure Boot CA`) is freshly genera
 
 The Dockerfile (`docker/shim-build/Dockerfile` on master, mirrored in the InterGenJLU/shim-review fork per Q9) reproduces the shim binary byte-for-byte from upstream `rhboot/shim` 16.1 (commit `afc49558b34548644c1cd0ad1b6526a9470182ed`) + the embedded InterGenOS vendor cert.
 
+**Note on the 2026-05-13 cert regeneration:** the multi-host attestation tabulated below originally covered the previous RSA-2048 vendor cert. The vendor cert was regenerated 2026-05-13 to RSA-4096 (see Q26 and commit `06fbca71`). The shim was rebuilt against the new cert on Build Host A (this workstation); the resulting SHAs are tabulated below. Build Host B re-attestation is pending coordination with the secondary maintainer before this submission is finalized.
+
 **Cross-host reproducibility evidence (native-Linux Docker):**
 
 | Host | Distro | Docker | Tarball SHA-256 | Shim SHA-256 |
 |---|---|---|---|---|
-| Build host A (Ubuntu 24.04, native `docker.io`) | Ubuntu 24.04.2 LTS | `docker.io 27.5.x` (apt-installed) | `22ba569ab8543d456e4bf0289b9c63b7c28046ed3d98a0549cc38491322f8e97` | `b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75` |
-| Build host B (Ubuntu 22.04, native `docker.io`) | Ubuntu 22.04 LTS | `docker.io 29.1.3` (apt-installed) | `22ba569ab8543d456e4bf0289b9c63b7c28046ed3d98a0549cc38491322f8e97` | `b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75` |
+| Build host A (Ubuntu 24.04, native `docker.io`) | Ubuntu 24.04.2 LTS | `docker.io 27.5.x` (apt-installed) | `32776256647f3c28d8ac800b299471d5eb593448e4a75097e802ccad17ab5e25` | `441f9bd1bb75d5dbfc9c5d2c8451b210c9156573515923786d0a1cc4a2a01e25` |
+| Build host B (Ubuntu 22.04, native `docker.io`) | Ubuntu 22.04 LTS | `docker.io 29.1.3` (apt-installed) | `32776256647f3c28d8ac800b299471d5eb593448e4a75097e802ccad17ab5e25` | `441f9bd1bb75d5dbfc9c5d2c8451b210c9156573515923786d0a1cc4a2a01e25` |
 
 Both hosts produce byte-identical SHAs despite different physical hardware, different apt-snapshot policies, different kernel versions (5.15 vs 6.x), and different docker-engine point releases — confirming the Dockerfile's `apt-snapshot` pin to `20260501T000000Z bookworm`, `SOURCE_DATE_EPOCH=1746489600`, `make -j1`, and content-addressed base image (`debian:bookworm-slim@sha256:5a2a80d11944804c01b8619bc967e31801ec39bf3257ab80b91070eb23625644`) effectively remove host-environment as a leak source.
 
@@ -403,7 +405,7 @@ The Dockerfile + harness script + log files together let any reviewer with a nat
 **Pre-MS-signing SHA-256 of the shim binary submitted for Microsoft signing:**
 
 ```
-b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75  shimx64.efi
+441f9bd1bb75d5dbfc9c5d2c8451b210c9156573515923786d0a1cc4a2a01e25  shimx64.efi
 ```
 
 This is the canonical attestation for the unsigned shim binary that Microsoft will sign. The post-MS-signing SHA will differ (the embedded MS signature changes the binary content); the post-signing SHA is what end-users verify against the signed binary they install. Both pre-signing and post-signing SHAs will be pinned in the InterGenJLU/shim-review fork branch — the pre-signing SHA in this README (the canonical build attestation), the post-signing SHA in a follow-up commit once Microsoft returns the signed binary (~6-8 weeks post-PR-merge per the standard rhboot/shim-review cadence).
@@ -414,8 +416,8 @@ This is the canonical attestation for the unsigned shim binary that Microsoft wi
 
 | Artifact | SHA-256 |
 |---|---|
-| `intergenos-shim-16.1.tar` (full tarball) | `22ba569ab8543d456e4bf0289b9c63b7c28046ed3d98a0549cc38491322f8e97` |
-| `shimx64.efi` (the shim binary) | `b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75` |
+| `intergenos-shim-16.1.tar` (full tarball) | `32776256647f3c28d8ac800b299471d5eb593448e4a75097e802ccad17ab5e25` |
+| `shimx64.efi` (the shim binary) | `441f9bd1bb75d5dbfc9c5d2c8451b210c9156573515923786d0a1cc4a2a01e25` |
 
 The SHA-256 here is the canonical attestation for the shim binary specifically. For the broader OS-image attestation story (per-file SHA-256 across every pkm-tracked artifact, transitively signed via the GPG-signed pkm repository index), see Q22's content-hash discussion. `pkm verify --strict <package>` is the reviewer-runnable on-demand verification path against the signed hash record.
 
@@ -439,7 +441,7 @@ Per `docs/research/installer/signing_key_custody_2026-04-18.md` and the executed
   
   Symmetric custody across both maintainers: each holds one daily-use NK + one hardened-offline NK at separate physical locations. No single-location loss revokes the chain.
 - **Encryption subkey [E]** (`62C7E2C30908823DAF5E4EBF917B649E00F2868C`) — RSA-4096, on-disk in LUKS master backup; not card-bound. Used for PGP-encrypted security reports per `SECURITY.md`.
-- **EFI-binary signing keypair (PIV slot 9c on Nitrokey #1):** RSA-4096, generated on-card via `nitropy nk3 piv --experimental` during the same air-gapped session. Private half never leaves the hardware. Vendor cert DER fingerprint (SHA-256) `7B:8F:21:50:B5:D0:0C:7B:28:DD:51:8F:AD:D7:0B:C0:E8:37:AE:43:DF:7B:5E:23:D6:18:5E:9C:75:30:C8:76`; PEM-file SHA-256 `8ce749e7e77169205e4761d82b48a4333f48cdec2ee0f711b8cff560fe150514` (transport integrity). PIV management key rotated from factory hex to a fresh AES-256 value during the same session; recorded only on the maintainer's paper records.
+- **EFI-binary signing keypair (PIV slot 9c on Nitrokey #1):** RSA-4096, generated on-card via `nitropy nk3 piv --experimental` (originally during the 2026-05-05 air-gapped session; regenerated 2026-05-13 to remediate a cert/keypair desync introduced by the C6 ceremony's chicken-egg workaround — see [commit 06fbca71](https://github.com/InterGenJLU/intergenos/commit/06fbca71)). Private half never leaves the hardware. Vendor cert DER fingerprint (SHA-256) `61:8E:74:48:52:B5:8E:5F:01:C9:B0:59:7F:16:04:D4:C8:73:48:38:69:CE:8F:4E:F2:89:9C:36:AA:D9:5B:38`; PEM-file SHA-256 `cd34977e6efa37a572a9835c111a7d563809edbe838b1764be35100279d2c172` (transport integrity). PIV management key rotated from factory hex to a fresh AES-256 value during the original C6 session; recorded only on the maintainer's paper records.
 - **Key-storage policy:** GNOME Keyring / libsecret on operator hosts (where applicable); never plaintext on disk; never embedded in source code or commit messages.
 - **Ephemeral kernel-module signing keys:** see Q19 — these are NOT stored. Auto-generated per kernel build and reaped at build-completion.
 
@@ -468,7 +470,7 @@ CA properties:
 
 - **CN:** `InterGenOS Secure Boot CA`
 - **Type:** RSA-4096
-- **Generation:** on-card in Nitrokey #1's PIV applet (slot 9c) during the 2026-05-05 air-gapped Tails ceremony, via `nitropy nk3 piv --experimental` (validated 2026-05-02 against NK#4 with full rotate+re-auth+rotate-back cycle PASS, then applied to NK#1). Private half never leaves the hardware token. Vendor cert DER fingerprint (SHA-256) `7B:8F:21:50:B5:D0:0C:7B:28:DD:51:8F:AD:D7:0B:C0:E8:37:AE:43:DF:7B:5E:23:D6:18:5E:9C:75:30:C8:76`; PEM-file SHA-256 `8ce749e7e77169205e4761d82b48a4333f48cdec2ee0f711b8cff560fe150514` (transport integrity check). PIV management key rotated from factory hex to fresh AES-256 during the same session.
+- **Generation:** on-card in Nitrokey #1's PIV applet (slot 9c) via `nitropy nk3 piv --experimental` (validated 2026-05-02 against NK#4 with full rotate+re-auth+rotate-back cycle PASS, then applied to NK#1). Originally generated during the 2026-05-05 air-gapped Tails ceremony, but the C6 procedure had a cert/keypair desync (OpenSC PIV reads `CKA_MODULUS` from the cert object; the ceremony's chicken-egg workaround wrote a dummy cert before the selfsign step, causing the resulting cert to embed the dummy pubkey D rather than the on-card keypair pubkey K). **Regenerated 2026-05-13** on the workstation (NK#1 plugged in directly, mgmt key on paper) using a corrected flow: `nitropy generate-key` → asn1crypto-built TBS → `pkcs11-tool --sign --mechanism SHA256-RSA-PKCS` against slot 9c — all verified end-to-end (`openssl verify -check_ss_sig`, `cryptography.verify_directly_issued_by`, pre-install sign-verify roundtrip, byte-for-byte cert-on-card match, post-install roundtrip). Private half never leaves the hardware token. Current vendor cert DER fingerprint (SHA-256) `61:8E:74:48:52:B5:8E:5F:01:C9:B0:59:7F:16:04:D4:C8:73:48:38:69:CE:8F:4E:F2:89:9C:36:AA:D9:5B:38`; PEM-file SHA-256 `cd34977e6efa37a572a9835c111a7d563809edbe838b1764be35100279d2c172`. PIV management key rotated from factory hex to fresh AES-256 during the original C6 session; unchanged since.
 - **Lifetime:** 2 years (2028-05-04) with documented rotation strategy per Q21
 - **Use:** signs the InterGenOS-built signed GRUB2 binary AND the InterGenOS-built signed kernel image. Does NOT sign kernel modules (those use ephemeral per-build keys, see Q19).
 

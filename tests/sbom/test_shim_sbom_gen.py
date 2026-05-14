@@ -260,7 +260,7 @@ class TestBuildSpdxDoc(unittest.TestCase):
 class TestMain(unittest.TestCase):
     """main() entry point — happy path + missing-args + invalid-sha256-format errors."""
 
-    SHIM_SHA = "b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75"
+    SHIM_SHA = "441f9bd1bb75d5dbfc9c5d2c8451b210c9156573515923786d0a1cc4a2a01e25"
 
     def test_happy_path_with_shim_sha256_writes_output_file(self):
         """--shim-sha256 + --shim-size path produces a valid SPDX JSON output file."""

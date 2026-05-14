@@ -26,7 +26,7 @@ Usage:
 If --shim-binary is omitted:
     python3 scripts/shim-sbom-gen.py \\
         --output docs/sboms/intergenos-shim-x64-20260515.spdx.json \\
-        --shim-sha256 b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75 \\
+        --shim-sha256 441f9bd1bb75d5dbfc9c5d2c8451b210c9156573515923786d0a1cc4a2a01e25 \\
         --shim-size 1020990
 
 Conventions:

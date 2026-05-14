@@ -35,10 +35,14 @@ check-public-content
 # --- Public SHA-256 hashes of public binaries (shim-review submission) ---
 # These are canonical attestation hashes published in the shim-review submission.
 # SHA-256 of a public binary is by definition public; not a secret.
-# Tarball SHA-256 (canonical native-Linux Docker build):
+# Tarball SHA-256 (canonical native-Linux Docker build, pre-2026-05-13 cert regen):
 22ba569ab8543d456e4bf0289b9c63b7c28046ed3d98a0549cc38491322f8e97
-# Shim binary SHA-256 (canonical, pre-MS-signing):
+# Shim binary SHA-256 (canonical, pre-MS-signing, pre-2026-05-13 cert regen):
 b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75
+# Tarball SHA-256 (post-2026-05-13 RSA-4096 cert regen):
+32776256647f3c28d8ac800b299471d5eb593448e4a75097e802ccad17ab5e25
+# Shim binary SHA-256 (post-2026-05-13 RSA-4096 cert regen, pre-MS-signing):
+441f9bd1bb75d5dbfc9c5d2c8451b210c9156573515923786d0a1cc4a2a01e25
 # Cross-host divergence reference (Docker Desktop / Windows witness — out-of-scope):
 5875607d10e661bb32330c0af99783fb6ba7d11e5cc10e34d3e4e26bc1161bc6
 8a2fc8e462be1ebbab74bcec1afee1d0f0ef1dbb117a1e207f0dc2c11ee68748
@@ -48,8 +52,16 @@ b6c0c2c59cd2c6cc8306138ffd58a70210926defab4147b332663c91097ccf75
 afc49558b34548644c1cd0ad1b6526a9470182ed
 # Linux kernel 6.18.10 source tarball SHA-256:
 d6d377161741ada2fab28eed69143277634a2aeb5e3883e50c031588ede48ede
-# Vendor cert PEM-file SHA-256 (transport integrity check, public):
+# Vendor cert PEM-file SHA-256 (transport integrity check, public, pre-2026-05-13 cert regen):
 8ce749e7e77169205e4761d82b48a4333f48cdec2ee0f711b8cff560fe150514
+# Vendor cert PEM-file SHA-256 (interim RSA-2048 reload at 13a74d54, superseded by 06fbca71):
+54e11836e39d6adac37c1de4600dbe7521c1bc32303463b1c5ebfbf3c723bdaa
+# Vendor cert DER-file SHA-256 (interim RSA-2048 reload at 13a74d54, superseded by 06fbca71):
+1e95046986271da49bddb844363019de60a84950ff7f377b0c27f29045272502
+# Vendor cert PEM-file SHA-256 (post-2026-05-13 RSA-4096 cert regen, current at 06fbca71):
+cd34977e6efa37a572a9835c111a7d563809edbe838b1764be35100279d2c172
+# Vendor cert DER-file SHA-256 (post-2026-05-13 RSA-4096 cert regen, current at 06fbca71):
+618e744852b58e5f01c9b0597f1604d4c873483869ce8f4ef2899c36aad95b38
 
 # --- SBOM-emitted SHAs of public files in docker/shim-build/ (added 2026-05-12) ---
 # Computed by scripts/shim-sbom-gen.py via `git show HEAD:<path>` over canonical
