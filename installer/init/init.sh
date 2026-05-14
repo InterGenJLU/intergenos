@@ -132,6 +132,77 @@ mount --move /sys           /newroot/sys
 mount --move /proc          /newroot/proc
 mount --move /dev           /newroot/dev
 
+# ---- Mode-specific overlay setup -------------------------------------------
+# These writes land in the overlayfs upper layer (tmpfs), not the squashfs
+# itself (read-only). systemd in /newroot reads them as if they were always
+# there. Lets us correct squashfs gaps without rebuilding the squashfs.
+#
+# The squashfs is built from the chroot root, which is an INSTALLED-SYSTEM
+# layout — full set of multi-user.target.wants/ symlinks (mariadb, httpd,
+# caddy, influxdb, etcd, valkey, lighttpd, ...) plus the systemd-firstboot
+# machinery for first-boot-of-installed-system flow. Both are wrong context
+# for a live ISO: the persistent services fail because the live filesystem
+# lacks their users / config / mount namespaces, and systemd-firstboot fires
+# the interactive user-creation prompt because the squashfs has no
+# /etc/machine-id. These overlay writes patch the live ISO into something
+# minimally usable WITHOUT modifying the squashfs (which is shared with
+# install modes + ends up on the installed target post-install). Proper
+# live.target architecture is a v1.0 design arc.
+if [ "$MODE" = "live" ]; then
+    info "live mode: writing overlay setup for non-interactive live boot"
+
+    # Generate a valid 32-hex-char machine-id. Writing literal "uninitialized"
+    # TRIGGERS systemd's ConditionFirstBoot=yes path (which fires
+    # systemd-firstboot interactive); a real ID suppresses it. This ID is
+    # per-boot (regenerated each live session) since the overlay is tmpfs.
+    #
+    # Kernel's UUID source produces a 36-char string of form
+    # xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx; sed strips the dashes leaving
+    # the required 32 hex chars. busybox-static in this initramfs has
+    # `cat` and `sed` but not `tr` or `head`, hence this form rather than
+    # the `tr -dc ... | head -c 32 < /dev/urandom` idiom that's common in
+    # full-userland live-init scripts.
+    cat /proc/sys/kernel/random/uuid | sed 's/-//g' > /newroot/etc/machine-id
+
+    # Pre-set hostname so any downstream firstboot machinery has no field
+    # left to prompt for.
+    echo "intergenos-live" > /newroot/etc/hostname
+
+    # Belt-and-suspenders: explicitly mask the firstboot services even
+    # though a valid machine-id should suppress them. Symlink to /dev/null
+    # is systemd's "never start this unit" idiom.
+    ln -sf /dev/null /newroot/etc/systemd/system/systemd-firstboot.service
+    ln -sf /dev/null /newroot/etc/systemd/system/systemd-homed-firstboot.service
+
+    # Mask the Wave 1b databases + webservers that auto-start at
+    # multi-user.target.wants/. In live context they fail noisily with
+    # USER / NAMESPACE errors (the live filesystem has no per-service users,
+    # no /var/log/<svc>/, no Restart=no policy, etc.) and systemd's Restart=
+    # spins them in tight loops, drowning the console. Mask each in the
+    # overlay so the live boot stays quiet. Installed systems get these
+    # back because the masks live only in the tmpfs overlay.
+    for svc in mariadb httpd caddy influxdb etcd valkey lighttpd nginx apache postgresql memcached; do
+        ln -sf /dev/null "/newroot/etc/systemd/system/${svc}.service"
+    done
+
+    # Auto-login root on tty1. Arch-ISO text-mode-live pattern: immediate
+    # console access for demonstration / debugging / installer launch. GDM +
+    # liveuser autologin is a v1.0+ polish arc on top of this — for now,
+    # root shell on tty1 with the build-time root password as the safety net.
+    mkdir -p /newroot/etc/systemd/system/getty@tty1.service.d
+    cat > /newroot/etc/systemd/system/getty@tty1.service.d/autologin.conf <<'AUTOLOGIN'
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty -o '-p -f -- \\u' --noclear --autologin root --keep-baud 115200,38400,9600 %I $TERM
+AUTOLOGIN
+
+    # default.target -> multi-user.target. graphical.target requires
+    # display-manager.service which isn't enabled in this image yet, so
+    # attempting graphical would just fail and fall back to multi-user
+    # anyway. Explicit symlink avoids the ambiguity.
+    ln -sf /usr/lib/systemd/system/multi-user.target /newroot/etc/systemd/system/default.target
+fi
+
 # ---- Hand off mode to userspace --------------------------------------------
 mkdir -p /newroot/run/intergenos
 echo "$MODE" > /newroot/run/intergenos/boot-mode
