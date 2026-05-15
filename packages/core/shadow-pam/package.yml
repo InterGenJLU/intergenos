@@ -17,3 +17,6 @@ dependencies:
     - linux-pam
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/chage
+  - /usr/lib/libsubid.so

@@ -12,3 +12,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: autotools
+verify_paths:
+  - /usr/bin/find
+  - /usr/bin/locate
+  - /var/lib/locate

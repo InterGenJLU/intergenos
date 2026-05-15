@@ -33,3 +33,6 @@ configure_flags:
 # Owner-approved 2026-05-11. (The full pinentry package.yml already
 # carried a `supersedes: pinentry-pass1` field — this commit finally
 # authors the pass1 variant that field was expecting.)
+verify_paths:
+  - /usr/bin/pinentry
+  - /usr/bin/pinentry-curses

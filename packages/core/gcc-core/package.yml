@@ -17,3 +17,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: custom
+verify_paths:
+  - /usr/bin/gcc
+  - /usr/bin/c++
+  - /usr/lib/libcc1.so

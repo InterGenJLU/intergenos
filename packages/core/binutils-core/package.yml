@@ -15,3 +15,6 @@ dependencies:
   runtime: []
 tier: core
 build_style: custom
+verify_paths:
+  - /usr/bin/addr2line
+  - /usr/lib/libbfd.so

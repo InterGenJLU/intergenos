@@ -39,3 +39,7 @@ dependencies:
 
 supersedes:
   - systemd
+verify_paths:
+  - /usr/bin/systemd-ac-power
+  - /usr/bin/bootctl
+  - /usr/lib/libnss_myhostname.so.2

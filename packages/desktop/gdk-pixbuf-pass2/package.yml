@@ -25,3 +25,7 @@ dependencies:
 
 supersedes:
   - gdk-pixbuf
+verify_paths:
+  - /usr/bin/gdk-pixbuf-csource
+  - /usr/bin/gdk-pixbuf-pixdata
+  - /usr/lib/libgdk_pixbuf-2.0.so

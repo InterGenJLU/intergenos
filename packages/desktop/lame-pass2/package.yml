@@ -19,3 +19,7 @@ dependencies:
 
 supersedes:
   - lame
+verify_paths:
+  - /usr/bin/lame
+  - /usr/bin/mp3rtp
+  - /usr/lib/libmp3lame.so

@@ -14,3 +14,6 @@ dependencies:
   runtime: []
 tier: core
 build_style: autotools
+verify_paths:
+  - /usr/bin/tar
+  - /usr/share/doc/tar-1.35

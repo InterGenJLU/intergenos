@@ -28,3 +28,6 @@ configure_flags:
 # --without-png (not --with-png=NO): slang's autoconf treats --with-png=<val>
 # as a literal path prefix, so --with-png=NO would expand to -INO/include
 # + -LNO/lib. --without-png is the correct disable form.
+verify_paths:
+  - /usr/bin/slsh
+  - /usr/lib/libslang.so

@@ -16,3 +16,6 @@ dependencies:
   runtime: []
 tier: core
 build_style: autotools
+verify_paths:
+  - /usr/bin/b2sum
+  - /usr/lib/libstdbuf.so

@@ -41,3 +41,6 @@ dependencies:
 # NetworkManager with desktop integrations lives in tier:desktop and
 # supersedes pass1 at install time via migrate-pkm-supersedes.sh.
 # Owner-approved 2026-05-11.
+verify_paths:
+  - /usr/bin/nmcli
+  - /usr/lib/libnm.so

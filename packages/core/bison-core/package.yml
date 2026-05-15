@@ -12,3 +12,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: autotools
+verify_paths:
+  - /usr/bin/bison
+  - /usr/bin/yacc
+  - /usr/lib/liby.a

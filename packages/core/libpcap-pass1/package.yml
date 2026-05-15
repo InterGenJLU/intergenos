@@ -27,3 +27,6 @@ configure_flags:
 # the full libpcap with --enable-bluetooth lives in tier:desktop and
 # supersedes pass1 at install time via migrate-pkm-supersedes.sh.
 # Owner-approved 2026-05-11.
+verify_paths:
+  - /usr/bin/pcap-config
+  - /usr/lib/libpcap.so

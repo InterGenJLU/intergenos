@@ -12,3 +12,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: custom
+verify_paths:
+  - /usr/bin/ncursesw6-config
+  - /usr/bin/captoinfo
+  - /usr/lib/libcurses.so

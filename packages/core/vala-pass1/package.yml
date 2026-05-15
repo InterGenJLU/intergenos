@@ -21,3 +21,7 @@ dependencies:
 # generate its .vapi bindings at build time. Full vala with valadoc and
 # graphviz support lives in tier:desktop and supersedes pass1 at install
 # time via migrate-pkm-supersedes.sh.
+verify_paths:
+  - /usr/bin/vala
+  - /usr/bin/vala-0.56
+  - /usr/lib/libvala-0.56.so

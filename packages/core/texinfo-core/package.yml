@@ -13,3 +13,6 @@ dependencies:
   runtime: []
 tier: core
 build_style: autotools
+verify_paths:
+  - /usr/bin/info
+  - /usr/lib/MiscXS.so

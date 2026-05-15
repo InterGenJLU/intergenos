@@ -13,3 +13,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: autotools
+verify_paths:
+  - /usr/bin/gawk
+  - /usr/bin/awk
+  - /usr/lib/filefuncs.so
