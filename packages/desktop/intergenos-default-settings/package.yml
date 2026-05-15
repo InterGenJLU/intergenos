@@ -1,0 +1,17 @@
+name: intergenos-default-settings
+version: "1.0.0"
+release: 1
+description: InterGenOS curated dconf system-db defaults — extension settings + system polish, sourced from the canonical-baseline workstation (2026-05-14)
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: file:///intergenos-default-settings-${version}.tar.xz
+  sha256: 6776b330912cf2f65ac9e957c18c402f9d022d41066012aebbd44675289202d5
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - dconf
