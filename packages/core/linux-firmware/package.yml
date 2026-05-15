@@ -26,10 +26,14 @@ dependencies:
 # verify_paths: canary files from the major firmware trees that linux-
 # firmware ships. The pre-squashfs audit checks each path exists on the
 # chroot's disk. linux-firmware isn't in LFS/BLFS books so these are
-# hand-curated. The first entry (carrizo_sdma.bin) is the specific file
-# whose absence broke DS-v2 amdgpu boot in v3+ — keep it as the canary
-# regression check.
+# hand-curated. Note: build.sh uses `make install-xz` so all firmware
+# files install as .xz-compressed. Kernel CONFIG_FW_LOADER_COMPRESS_XZ=y
+# is set unconditionally so the kernel loads either form. iwlwifi files
+# install at /usr/lib/firmware/iwlwifi-*.ucode.xz (flat layout, no
+# iwlwifi/ subdir — kernel firmware historical convention).
+# carrizo_sdma.bin.xz is the specific file whose absence broke DS-v2
+# amdgpu boot in v3+ — keep it as the canary regression check.
 verify_paths:
-  - /usr/lib/firmware/amdgpu/carrizo_sdma.bin
+  - /usr/lib/firmware/amdgpu/carrizo_sdma.bin.xz
   - /usr/lib/firmware/amdgpu
-  - /usr/lib/firmware/iwlwifi
+  - /usr/lib/firmware/iwlwifi-1000-5.ucode.xz
