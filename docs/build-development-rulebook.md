@@ -268,6 +268,37 @@ Each path must start with `/` and have ≥3 segments (e.g., `/usr/bin/x`). Rejec
 
 ---
 
+### Rule 21 — No stubs
+
+> *"We don't want no stubs; a stub is a lie that we'll decode now to see."*
+> — Owner, 2026-05-15 (riffing on TLC, 1999)
+
+**Rule.** A **stub** is any code, comment, service file, config, or path-reference that *claims* a feature/file/component exists or works without actually delivering it. Stubs are forbidden across the entire codebase, not just `build.sh`. Rule 11 covers `build.sh` stubs specifically; this rule generalizes.
+
+Concrete stub patterns to reject:
+
+1. **Aspirational path references** — a comment, ExecStart, ConditionPathExists, autostart Exec, polkit rule, or any code-string referencing a file/binary path that nothing in the tree produces. (Tonight's example: init.sh referenced `/usr/lib/systemd/system-generators/igos-mode-generator` — no such generator exists anywhere.)
+2. **"Almost-empty" install_func / do_install** — covered by Rule 11 for build.sh; same pattern in other scripted installs (post_install hooks, autostart writers, etc.).
+3. **Service files referencing nonexistent binaries** — `forge-tui.service` would have been a stub if `/usr/bin/forge` weren't in tree; this is exactly the kind of bug that surfaced tonight before being fixed.
+4. **Documentation claims without backing** — comments / READMEs / CLAUDE.md statements like "X is wired up to Y" when no wiring code exists. Especially common in dispatched-AI-authored chunks.
+5. **Missing verify_paths on a new package** — gated by Rule 20 + pre-push hook gate 8. A package without verify_paths is a stub in shape: it claims to produce files but doesn't say which.
+
+**Why "a stub is a lie."** Stubs break the trust contract between intent and reality. Future readers (humans OR audit tools) act on the assumption that a referenced path exists or a documented behavior works. When it doesn't, downstream work is built on quicksand and the regression surfaces far from the original lie (tonight's amdgpu failure on DS-v2 → traced back to linux-firmware never being built → traced back to phase_core bash script that doesn't include it → a stub-shape gap in the orchestrator's coverage).
+
+**Detection.** Three layers:
+
+- **Pre-squashfs audit** (Rule 20) catches stubs whose lie is "this file gets installed" — verifies on the chroot.
+- **Code-stub audit** (`scripts/check-aspirational-stubs.py`, scheduled) — greps init.sh / *.service / *.desktop / tmpfiles.d / sysusers.d / polkit rules / dbus configs for path references, cross-checks each against the packages-yml-derived install manifests.
+- **AI-dispatch verification protocol** — every dispatched integration claim must include a verification step proving the claim is real (file lands on disk, command resolves, service activates). No claim-without-evidence merges.
+
+**Failure prevented.** Two tonight: (1) linux-firmware silently dropped from chroot, GPU init failed on DS-v2 hardware. (2) init.sh comment about `igos-mode-generator` that doesn't exist — discovered during install-gui debugging, would have caused continued aspirational drift if not surfaced.
+
+**STOP condition.** You catch yourself writing a comment, service file, or doc that references a path/binary/feature you haven't verified exists in the tree — STOP. Verify first. If the thing should exist but doesn't, file it as work-to-do, don't reference it as if it's done.
+
+**Honoring the source material.** Owner's rule statement is preserved verbatim with attribution because the comedic framing IS load-bearing — "a stub is a lie" is the shortest possible mnemonic for the trust-violation this rule prevents. Future readers should feel the weight.
+
+---
+
 ## Section 2 — Halt-handler decision tree
 
 A halt fired. Before doing anything else:
@@ -310,6 +341,7 @@ These are the workarounds that *look tempting* during a halt. They are out-of-bo
 | Skipping pre-flight tier-coverage check | Rule 17 | N/A — rule new |
 | Skipping manifest reconciliation | Rule 18 | N/A — rule new |
 | Skipping pre-squashfs `verify_paths` audit, or shipping a package.yml without `verify_paths:` (or `pending_acquisition:`) | Rule 20 | 1 (linux-firmware → DS-v2 amdgpu break, 2026-05-15) |
+| Writing comments / services / docs that reference paths or features that don't exist in tree (aspirational stubs) | Rule 21 | 2 tonight (linux-firmware miss; init.sh `igos-mode-generator` reference) |
 
 ---
 

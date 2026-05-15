@@ -26,6 +26,7 @@ Exit codes:
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -118,7 +119,13 @@ def main():
                     missing.append(f'{p} <invalid-shape>')
                     continue
                 full = chroot_path(p, args.chroot)
-                if not (full.exists() or full.is_symlink()):
+                # os.path.lexists is symlink-tolerant + doesn't follow symlinks,
+                # so it doesn't raise EACCES on inaccessible targets the way
+                # Path.exists() does on root-owned chroot files.
+                try:
+                    if not os.path.lexists(str(full)):
+                        missing.append(p)
+                except OSError:
                     missing.append(p)
             if missing:
                 failed_pkgs.append((pkg_id, missing))
