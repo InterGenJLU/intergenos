@@ -17,3 +17,6 @@ dependencies:
   - gtk3
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libsuil-0.so
+  - /usr/lib/pkgconfig/suil-0.pc

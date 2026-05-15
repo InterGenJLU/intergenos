@@ -54,3 +54,6 @@ dependencies:
   - gtk3                 # native file dialogs (wx-GTK3 backend)
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/audacity
+  - /usr/share/audacity

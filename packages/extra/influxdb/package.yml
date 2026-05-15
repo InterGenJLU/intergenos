@@ -22,3 +22,6 @@ dependencies:
   host: []
   runtime:
   - protobuf
+verify_paths:
+  - /usr/bin/influxdb3
+  - /etc/influxdb

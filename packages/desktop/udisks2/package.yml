@@ -26,3 +26,6 @@ configure_flags:
 - --sysconfdir=/etc
 - --localstatedir=/var
 - --disable-static
+verify_paths:
+  - /usr/libexec/udisks2/udisksd
+  - /usr/lib/systemd/system/udisks2.service

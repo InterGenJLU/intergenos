@@ -14,3 +14,6 @@ dependencies:
   - pkgconf
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/valkey-server
+  - /usr/bin/valkey-cli

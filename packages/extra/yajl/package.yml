@@ -16,3 +16,6 @@ dependencies:
     - cmake
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libyajl.so
+  - /usr/bin/json_verify

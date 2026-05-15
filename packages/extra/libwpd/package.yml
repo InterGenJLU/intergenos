@@ -15,3 +15,6 @@ dependencies:
   - librevenge
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libwpd-0.10.so
+  - /usr/lib/pkgconfig/libwpd-0.10.pc

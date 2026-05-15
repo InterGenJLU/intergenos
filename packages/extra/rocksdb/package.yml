@@ -32,3 +32,6 @@ dependencies:
   - lz4
   - zstd
   - bzip2
+verify_paths:
+  - /usr/lib/librocksdb.so
+  - /usr/include/rocksdb

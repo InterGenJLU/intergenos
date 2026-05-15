@@ -16,3 +16,6 @@ dependencies:
   - pkgconf
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libtdb.so
+  - /usr/bin/tdbtool

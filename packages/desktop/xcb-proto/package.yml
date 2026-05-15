@@ -16,3 +16,6 @@ dependencies:
   runtime: []
 configure_flags:
 - --prefix=/usr
+verify_paths:
+  - /usr/lib/pkgconfig/xcb-proto.pc
+  - /usr/share/xcb

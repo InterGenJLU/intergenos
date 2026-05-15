@@ -16,3 +16,6 @@ dependencies:
   runtime: []
 configure_flags:
 - --prefix=/usr
+verify_paths:
+  - /usr/share/pkgconfig/xtrans.pc
+  - /usr/include/X11/Xtrans

@@ -19,3 +19,6 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 - --disable-static
+verify_paths:
+  - /usr/lib/libxcb-render-util.so
+  - /usr/lib/pkgconfig/xcb-renderutil.pc

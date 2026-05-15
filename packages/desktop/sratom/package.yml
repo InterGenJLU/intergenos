@@ -23,3 +23,6 @@ dependencies:
   - serd
   - sord
   - lv2
+verify_paths:
+  - /usr/lib/libsratom-0.so
+  - /usr/lib/pkgconfig/sratom-0.pc

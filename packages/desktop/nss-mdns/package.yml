@@ -15,3 +15,6 @@ dependencies:
   - avahi
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libnss_mdns.so.2
+  - /usr/lib/libnss_mdns_minimal.so.2

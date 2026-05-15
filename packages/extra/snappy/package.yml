@@ -24,3 +24,6 @@ dependencies:
   - ninja
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libsnappy.so
+  - /usr/include/snappy.h

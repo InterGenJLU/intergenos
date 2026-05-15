@@ -18,3 +18,6 @@ dependencies:
   - libtiff
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libopenjp2.so
+  - /usr/bin/opj_compress

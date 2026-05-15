@@ -15,3 +15,6 @@ dependencies:
   - util-macros
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libpciaccess.so
+  - /usr/lib/pkgconfig/pciaccess.pc

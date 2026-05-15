@@ -17,3 +17,6 @@ dependencies:
   - pkgconf
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libzix-0.so
+  - /usr/lib/pkgconfig/zix-0.pc

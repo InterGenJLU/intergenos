@@ -18,3 +18,6 @@ dependencies:
   runtime:
   - ladspa-sdk
   - fftw
+verify_paths:
+  - /usr/lib/ladspa
+  - /usr/share/ladspa

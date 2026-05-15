@@ -23,3 +23,6 @@ tests:
   enabled: true
   failure_policy: known_failures
   reason: "libvisio's testsuite has two tests: unittest (passes cleanly) and importtest (fails). importtest performs a Visio-document import roundtrip against a corpus of .vsd/.vsdx fixtures, comparing the SAX-event stream against expected XML reference output. The failure is not a code defect — it's a known upstream-tooling/chroot environmental issue: importtest depends on locale + path conventions that don't match the offline build chroot's locale (POSIX) and FHS layout. The library itself compiles, links, and unittests pass. Same shape as libfido2 (no FIDO2 hw), tpm2-tss (no TPM2 simulator), flac (CAP_DAC_OVERRIDE bypass) — chroot-environmental, not code-quality."
+verify_paths:
+  - /usr/lib/libvisio-0.1.so
+  - /usr/lib/pkgconfig/libvisio-0.1.pc

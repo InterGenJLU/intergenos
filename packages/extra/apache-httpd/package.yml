@@ -26,3 +26,6 @@ dependencies:
   - pcre2
   - zlib
   - libxml2
+verify_paths:
+  - /usr/sbin/httpd
+  - /etc/httpd/httpd.conf

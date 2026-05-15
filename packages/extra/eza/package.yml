@@ -18,3 +18,5 @@ dependencies:
   - rust
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/eza

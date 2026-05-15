@@ -16,3 +16,6 @@ dependencies:
   host: []
   runtime:
   - hicolor-icon-theme
+verify_paths:
+  - /usr/share/icons/Papirus
+  - /usr/share/icons/Papirus-Dark

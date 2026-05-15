@@ -17,3 +17,5 @@ dependencies:
     - libtool
   host: []
   runtime: []
+verify_paths:
+  - /usr/libexec/podman/catatonit

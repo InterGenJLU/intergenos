@@ -15,3 +15,6 @@ dependencies:
   - libarchive
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/yapp
+  - /usr/lib/perl5/site_perl/Parse/Yapp.pm

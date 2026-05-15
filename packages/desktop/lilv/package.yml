@@ -19,3 +19,6 @@ dependencies:
   - sratom
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/liblilv-0.so
+  - /usr/bin/lilv-bench

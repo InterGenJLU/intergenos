@@ -46,3 +46,6 @@ dependencies:
   - tdb
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/rhythmbox
+  - /usr/lib/rhythmbox/plugins

@@ -22,3 +22,6 @@ dependencies:
   runtime:
   - zix
   - serd
+verify_paths:
+  - /usr/lib/libsord-0.so
+  - /usr/bin/sordi

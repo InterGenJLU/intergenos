@@ -17,3 +17,6 @@ dependencies:
   - zlib
   host: []
   runtime: []
+verify_paths:
+  - /usr/sbin/lighttpd
+  - /etc/lighttpd/lighttpd.conf

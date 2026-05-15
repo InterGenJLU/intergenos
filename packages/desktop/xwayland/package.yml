@@ -31,3 +31,5 @@ dependencies:
   - xorgproto
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/Xwayland

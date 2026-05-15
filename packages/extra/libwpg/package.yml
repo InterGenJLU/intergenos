@@ -16,3 +16,6 @@ dependencies:
   - libwpd
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libwpg-0.3.so
+  - /usr/lib/pkgconfig/libwpg-0.3.pc

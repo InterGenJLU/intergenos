@@ -17,3 +17,6 @@ dependencies:
   - zlib
   host: []
   runtime: []
+verify_paths:
+  - /usr/sbin/nginx
+  - /etc/nginx/nginx.conf

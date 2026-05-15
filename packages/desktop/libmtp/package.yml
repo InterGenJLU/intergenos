@@ -20,3 +20,6 @@ configure_flags:
 - --prefix=/usr
 - --disable-static
 - --with-udev=/usr/lib/udev
+verify_paths:
+  - /usr/lib/libmtp.so
+  - /usr/bin/mtp-detect

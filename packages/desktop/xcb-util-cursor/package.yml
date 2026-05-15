@@ -20,3 +20,6 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 - --disable-static
+verify_paths:
+  - /usr/lib/libxcb-cursor.so
+  - /usr/lib/pkgconfig/xcb-cursor.pc

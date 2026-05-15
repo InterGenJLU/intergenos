@@ -24,3 +24,6 @@ dependencies:
   - pixman
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libmozjs-128.so
+  - /usr/bin/js128

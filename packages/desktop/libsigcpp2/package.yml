@@ -15,3 +15,6 @@ dependencies:
   - python
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libsigc-2.0.so
+  - /usr/lib/pkgconfig/sigc++-2.0.pc

@@ -17,3 +17,5 @@ dependencies:
   runtime: []
 configure_flags:
 - --prefix=/usr
+verify_paths:
+  - /usr/include/X11/bitmaps

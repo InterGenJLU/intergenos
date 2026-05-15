@@ -16,3 +16,6 @@ dependencies:
   - libsndfile
   host: []
   runtime: []
+verify_paths:
+  - /usr/include/lv2
+  - /usr/lib/pkgconfig/lv2.pc

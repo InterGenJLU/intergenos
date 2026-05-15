@@ -16,3 +16,6 @@ dependencies:
   - curl
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libtatsu.so
+  - /usr/lib/pkgconfig/libtatsu-1.0.pc

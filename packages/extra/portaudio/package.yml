@@ -21,3 +21,6 @@ configure_flags:
 - --with-alsa
 - --without-jack
 - --without-oss
+verify_paths:
+  - /usr/lib/libportaudio.so
+  - /usr/lib/pkgconfig/portaudio-2.0.pc

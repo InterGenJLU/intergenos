@@ -19,3 +19,6 @@ dependencies:
   - pkgconf
   host: []
   runtime: []
+verify_paths:
+  - /usr/include/rapidjson
+  - /usr/lib/pkgconfig/RapidJSON.pc

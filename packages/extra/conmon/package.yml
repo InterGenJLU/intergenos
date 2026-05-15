@@ -22,3 +22,5 @@ dependencies:
     - systemd
   runtime:
     - glib2
+verify_paths:
+  - /usr/libexec/podman/conmon

@@ -18,3 +18,5 @@ dependencies:
   - go
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/gopls

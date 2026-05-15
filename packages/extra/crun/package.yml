@@ -24,3 +24,5 @@ dependencies:
     - systemd
     - yajl
   runtime: []
+verify_paths:
+  - /usr/bin/crun

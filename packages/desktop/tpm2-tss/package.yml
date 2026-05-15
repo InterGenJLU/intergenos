@@ -22,3 +22,6 @@ tests:
   enabled: true
   failure_policy: known_failures
   reason: "tpm2-tss test suite (`make check`) requires a TPM2 simulator (swtpm or Microsoft reference simulator) running on a Unix socket or character device — per upstream README: 'this test suite should only be run against a TPM simulator. If executed against a TPM other than the software simulator it may cause damage to the TPM (NV storage wear out, etc.).' Our chroot has neither a real TPM2 device (no /dev/tpm[rm]?[0-9]) nor a swtpm daemon running, so TCTI initialization aborts at test setup before any test logic executes. Same shape as libuv (refuses-root) and libarchive (nobody+abs-paths) — chroot-environmental, not a code defect."
+verify_paths:
+  - /usr/lib/libtss2-esys.so
+  - /usr/lib/pkgconfig/tss2-esys.pc

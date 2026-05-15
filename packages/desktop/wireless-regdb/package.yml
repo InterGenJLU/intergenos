@@ -14,3 +14,6 @@ dependencies:
   build: []
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/firmware/regulatory.db
+  - /usr/lib/firmware/regulatory.db.p7s

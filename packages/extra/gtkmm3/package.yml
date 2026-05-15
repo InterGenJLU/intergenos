@@ -17,3 +17,6 @@ dependencies:
   - pangomm1
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libgtkmm-3.0.so
+  - /usr/lib/pkgconfig/gtkmm-3.0.pc

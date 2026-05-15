@@ -18,3 +18,6 @@ dependencies:
   - libffi
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/gi
+  - /usr/lib/girepository-1.0

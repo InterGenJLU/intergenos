@@ -28,3 +28,6 @@ dependencies:
   - glib2
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libwx_baseu-3.2.so
+  - /usr/bin/wx-config

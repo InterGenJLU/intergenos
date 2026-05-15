@@ -16,3 +16,6 @@ dependencies:
             # found, TLS support disabled silently.
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libnfs.so
+  - /usr/lib/pkgconfig/libnfs.pc

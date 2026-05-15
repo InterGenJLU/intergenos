@@ -45,3 +45,6 @@ dependencies:
   - woff2
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libwebkit2gtk-4.1.so
+  - /usr/bin/WebKitWebDriver

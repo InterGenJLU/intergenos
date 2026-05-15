@@ -17,3 +17,6 @@ dependencies:
   host: []
   runtime:
   - snappy
+verify_paths:
+  - /usr/lib/libleveldb.so
+  - /usr/include/leveldb

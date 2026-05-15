@@ -22,3 +22,5 @@ dependencies:
     - fuse3
   runtime:
     - fuse3
+verify_paths:
+  - /usr/bin/fuse-overlayfs

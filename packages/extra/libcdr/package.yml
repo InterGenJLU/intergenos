@@ -19,3 +19,6 @@ dependencies:
   - zlib
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libcdr-0.1.so
+  - /usr/lib/pkgconfig/libcdr-0.1.pc

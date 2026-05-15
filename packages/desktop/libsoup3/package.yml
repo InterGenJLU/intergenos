@@ -25,3 +25,6 @@ dependencies:
   - glib2
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libsoup-3.0.so
+  - /usr/lib/pkgconfig/libsoup-3.0.pc

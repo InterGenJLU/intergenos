@@ -14,3 +14,6 @@ dependencies:
   build: []
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libjemalloc.so
+  - /usr/bin/jemalloc-config

@@ -15,3 +15,5 @@ dependencies:
   - libxcrypt
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libcrypt.so.1

@@ -19,3 +19,6 @@ dependencies:
   runtime:
   - alsa-lib
 configure_flags: []
+verify_paths:
+  - /usr/lib/libportmidi.so
+  - /usr/include/portmidi.h

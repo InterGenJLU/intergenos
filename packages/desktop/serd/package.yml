@@ -17,3 +17,6 @@ dependencies:
   - pkgconf
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libserd-0.so
+  - /usr/bin/serdi

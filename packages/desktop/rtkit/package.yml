@@ -18,3 +18,6 @@ dependencies:
   - systemd
   host: []
   runtime: []
+verify_paths:
+  - /usr/libexec/rtkit-daemon
+  - /usr/lib/systemd/system/rtkit-daemon.service

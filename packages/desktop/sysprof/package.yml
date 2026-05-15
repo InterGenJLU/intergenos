@@ -19,3 +19,6 @@ dependencies:
           # the UI was silently dropped (CLI-only sysprof shipped).
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/sysprof
+  - /usr/lib/libsysprof-6.so

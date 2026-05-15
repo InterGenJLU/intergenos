@@ -13,3 +13,6 @@ dependencies:
   build: []
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/liborc-0.4.so
+  - /usr/bin/orcc

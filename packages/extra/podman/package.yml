@@ -35,3 +35,6 @@ dependencies:
 tests:
   enabled: false
   reason: "podman's `make localunit` requires ginkgo (Go's BDD test framework) at ./bin/ginkgo which the project's Makefile expects to be installed in-tree. The chroot doesn't have ginkgo installed and the offline build can't `go install` it. Beyond that, podman's unit tests exercise live container operations (network namespaces, cgroup creation, OCI runtime invocation) that depend on a working kernel + runtime context the chroot doesn't have. The build itself (`make BUILDTAGS=...`) succeeds and produces working podman + podmansh binaries. Same chroot-environmental shape as btrfs-progs (loop devices), libfido2 (no FIDO2 hw), tpm2-tss (no TPM2 simulator)."
+verify_paths:
+  - /usr/bin/podman
+  - /etc/containers/registries.conf

@@ -18,3 +18,6 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 - --disable-static
+verify_paths:
+  - /usr/lib/libxshmfence.so
+  - /usr/lib/pkgconfig/xshmfence.pc

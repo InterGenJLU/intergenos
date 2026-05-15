@@ -15,3 +15,6 @@ dependencies:
   - cmake
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libgflags.so
+  - /usr/include/gflags

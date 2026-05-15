@@ -21,3 +21,6 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 - --disable-static
+verify_paths:
+  - /usr/lib/libusbmuxd-2.0.so
+  - /usr/bin/iproxy
