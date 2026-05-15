@@ -44,3 +44,7 @@ dependencies:
   - pixman
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/mutter
+  - /usr/bin/gdctl
+  - /usr/lib/libmutter-17.so

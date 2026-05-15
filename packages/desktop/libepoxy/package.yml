@@ -15,3 +15,5 @@ dependencies:
   - mesa
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libepoxy.so

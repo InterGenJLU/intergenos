@@ -19,3 +19,6 @@ dependencies:
 
 configure_flags:
   - "--prefix=/usr"
+verify_paths:
+  - /usr/bin/ed
+  - /usr/bin/red

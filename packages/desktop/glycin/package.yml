@@ -28,3 +28,6 @@ dependencies:
   - libjxl
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/glycin-thumbnailer
+  - /usr/lib/libglycin-2.so

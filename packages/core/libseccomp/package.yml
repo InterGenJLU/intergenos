@@ -18,3 +18,6 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 - --disable-static
+verify_paths:
+  - /usr/bin/scmp_sys_resolver
+  - /usr/lib/libseccomp.so

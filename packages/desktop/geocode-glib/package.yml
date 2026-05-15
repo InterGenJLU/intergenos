@@ -17,3 +17,5 @@ dependencies:
   - glib2
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libgeocode-glib-2.so

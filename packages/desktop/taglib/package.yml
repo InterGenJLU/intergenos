@@ -16,3 +16,6 @@ dependencies:
   - utfcpp
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/taglib-config
+  - /usr/lib/libtag.so

@@ -23,3 +23,7 @@ dependencies:
   - openssh
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/gcr-viewer
+  - /usr/bin/gcr-viewer-gtk4
+  - /usr/lib/libgck-1.so

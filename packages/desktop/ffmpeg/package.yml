@@ -44,3 +44,7 @@ dependencies:
   - vulkan-loader
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/ffmpeg
+  - /usr/bin/ffplay
+  - /usr/lib/libavcodec.so

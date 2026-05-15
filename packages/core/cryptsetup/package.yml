@@ -18,3 +18,7 @@ dependencies:
   - libpwquality
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/cryptsetup
+  - /usr/bin/integritysetup
+  - /usr/lib/libcryptsetup.so

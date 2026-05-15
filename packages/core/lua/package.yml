@@ -17,3 +17,7 @@ dependencies:
   build: []
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/lua
+  - /usr/bin/luac
+  - /usr/lib/liblua.so

@@ -18,3 +18,7 @@ dependencies:
   - libtiff
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/qpdf
+  - /usr/bin/fix-qdf
+  - /usr/lib/libqpdf.so

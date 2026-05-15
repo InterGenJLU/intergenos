@@ -16,3 +16,6 @@ dependencies:
   - docbook-xsl-nons
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/pygmentize
+  - /usr/include/pycairo

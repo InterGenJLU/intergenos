@@ -26,3 +26,5 @@ tests:
   enabled: true
   failure_policy: known_failures
   reason: "no network/SSH server in chroot — libssh2 test suite requires a running OpenSSH server on localhost for handshake/auth/channel tests (test_simple, test_auth_keyboard_interactive, test_sshd, etc.)."
+verify_paths:
+  - /usr/lib/libssh2.so

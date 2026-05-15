@@ -20,3 +20,6 @@ dependencies:
 # systemd added 2026-05-12 (Scan A.2): configure.ac:106 requires libudev
 # (provided by systemd). Was transitively present from ch8 (systemd @
 # ch8:648); declaring per real upstream requirement.
+verify_paths:
+  - /usr/bin/skdump
+  - /usr/lib/libatasmart.so

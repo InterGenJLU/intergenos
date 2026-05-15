@@ -15,3 +15,6 @@ dependencies:
   - nasm
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/dav1d
+  - /usr/lib/libdav1d.so

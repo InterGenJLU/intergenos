@@ -16,3 +16,6 @@ dependencies:
   build: []
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/nspr-config
+  - /usr/lib/libnspr4.so

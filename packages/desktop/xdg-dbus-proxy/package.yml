@@ -17,3 +17,5 @@ dependencies:
   - docbook-xml
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/xdg-dbus-proxy

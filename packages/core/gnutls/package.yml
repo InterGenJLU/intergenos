@@ -26,3 +26,7 @@ configure_flags:
 - --prefix=/usr
 - --disable-static
 - '--with-default-trust-store-pkcs11=pkcs11:'
+verify_paths:
+  - /usr/bin/gnutls-cli
+  - /usr/bin/certtool
+  - /usr/lib/libgnutls.so

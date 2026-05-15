@@ -17,3 +17,6 @@ dependencies:
   - libmbim
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/qmicli
+  - /usr/lib/libqmi-glib.so

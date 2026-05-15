@@ -19,3 +19,6 @@ dependencies:
   - hwdata
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/gusbcmd
+  - /usr/lib/libgusb.so

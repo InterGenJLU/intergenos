@@ -16,3 +16,6 @@ dependencies:
   - python
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/xb-tool
+  - /usr/lib/libxmlb.so

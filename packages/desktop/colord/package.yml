@@ -23,3 +23,6 @@ dependencies:
   - sqlite
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/cd-create-profile
+  - /usr/lib/libcolord.so

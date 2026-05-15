@@ -20,3 +20,5 @@ dependencies:
   - libxslt
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libdrm_amdgpu.so

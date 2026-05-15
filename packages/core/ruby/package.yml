@@ -19,3 +19,7 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 - --enable-shared
+verify_paths:
+  - /usr/bin/ruby
+  - /usr/bin/bundle
+  - /usr/lib/libruby.so

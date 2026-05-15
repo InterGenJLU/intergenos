@@ -46,3 +46,5 @@ dependencies:
   - woff2
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libjavascriptcoregtk-4.1.so

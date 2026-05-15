@@ -19,3 +19,5 @@ configure_flags:
 - --prefix=/usr
 - --sysconfdir=/etc
 - --disable-static
+verify_paths:
+  - /usr/lib/libgnome-menu-3.so

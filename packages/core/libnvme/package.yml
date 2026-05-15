@@ -18,3 +18,5 @@ dependencies:
   - keyutils
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libnvme.so

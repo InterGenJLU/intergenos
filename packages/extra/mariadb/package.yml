@@ -40,3 +40,7 @@ dependencies:
   - jemalloc
   - mitkrb
   - linux-pam
+verify_paths:
+  - /usr/bin/mariadb
+  - /usr/bin/aria_chk
+  - /usr/lib/libmariadb.a

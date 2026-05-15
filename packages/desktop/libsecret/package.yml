@@ -21,3 +21,6 @@ dependencies:
   - gnutls
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/secret-tool
+  - /usr/lib/libsecret-1.so

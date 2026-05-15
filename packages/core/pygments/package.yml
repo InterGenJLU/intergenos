@@ -15,3 +15,6 @@ dependencies:
   - hatchling
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/pygmentize
+  - /usr/lib/python3.14/site-packages/pygments

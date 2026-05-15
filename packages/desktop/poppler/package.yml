@@ -30,3 +30,6 @@ dependencies:
   - gpgme
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/pdfattach
+  - /usr/lib/libpoppler.so

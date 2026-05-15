@@ -17,3 +17,7 @@ dependencies:
   - which
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/aspell
+  - /usr/bin/aspell-import
+  - /usr/lib/libaspell.so

@@ -15,3 +15,5 @@ dependencies:
   - glib2
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libgraphene-1.0.so

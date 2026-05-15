@@ -23,3 +23,6 @@ dependencies:
   - gperf
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/appstreamcli
+  - /usr/lib/libappstream.so

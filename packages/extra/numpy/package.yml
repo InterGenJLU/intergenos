@@ -17,3 +17,6 @@ dependencies:
   - pyproject-metadata
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/f2py
+  - /usr/lib/python3.14/site-packages/numpy

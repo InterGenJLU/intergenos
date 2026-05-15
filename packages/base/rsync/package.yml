@@ -27,3 +27,7 @@ tests:
   enabled: true
   failure_policy: known_failures
   reason: "subset of rsync tests rely on ssh/network round-trips and on root-owned setuid bits; not reproducible in offline unprivileged build chroot"
+verify_paths:
+  - /usr/bin/rsync
+  - /usr/bin/rsync-ssl
+  - /usr/share/doc/rsync-3.4.1

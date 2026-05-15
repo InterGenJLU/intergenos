@@ -16,3 +16,7 @@ dependencies:
   build: []
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/cpio
+  - /usr/bin/mt
+  - /usr/share/doc/cpio-2.15

@@ -24,3 +24,7 @@ dependencies:
   - libxkbcommon
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/freerdp-proxy
+  - /usr/bin/freerdp-shadow-cli
+  - /usr/lib/libfreerdp3.so

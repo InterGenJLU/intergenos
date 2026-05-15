@@ -22,3 +22,14 @@ dependencies:
 # installed-artifact impact = OK to drop." If parallel/rdfind are present
 # in the chroot at install time, the build.sh may use them; if absent,
 # the build falls back to plain cp/no-dedup.
+#
+# verify_paths: canary files from the major firmware trees that linux-
+# firmware ships. The pre-squashfs audit checks each path exists on the
+# chroot's disk. linux-firmware isn't in LFS/BLFS books so these are
+# hand-curated. The first entry (carrizo_sdma.bin) is the specific file
+# whose absence broke DS-v2 amdgpu boot in v3+ — keep it as the canary
+# regression check.
+verify_paths:
+  - /usr/lib/firmware/amdgpu/carrizo_sdma.bin
+  - /usr/lib/firmware/amdgpu
+  - /usr/lib/firmware/iwlwifi

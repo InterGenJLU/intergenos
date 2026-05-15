@@ -26,3 +26,6 @@ configure_flags:
 # pkm package manager replaces pass1 with this full build, so the
 # installed system has full libpcap with Bluetooth packet capture.
 # Owner-approved 2026-05-11.
+verify_paths:
+  - /usr/bin/pcap-config
+  - /usr/lib/libpcap.so

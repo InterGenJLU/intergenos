@@ -19,3 +19,6 @@ dependencies:
   build: []
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/gif2rgb
+  - /usr/lib/libgif.so

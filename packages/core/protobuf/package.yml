@@ -16,3 +16,6 @@ dependencies:
   - cmake
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/protoc
+  - /usr/lib/libprotobuf.so

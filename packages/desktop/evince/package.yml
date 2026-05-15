@@ -28,3 +28,7 @@ dependencies:
   - gdk-pixbuf
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/evince
+  - /usr/bin/evince-previewer
+  - /usr/lib/libevdocument3.so

@@ -16,3 +16,5 @@ dependencies:
   - cmake
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libwoff2common.so

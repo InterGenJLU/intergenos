@@ -22,3 +22,5 @@ tests:
   enabled: true
   failure_policy: known_failures
   reason: "no GPU in chroot — libplacebo's GPU test harness requires Vulkan/OpenGL hardware acceleration unavailable during build."
+verify_paths:
+  - /usr/lib/libplacebo.so

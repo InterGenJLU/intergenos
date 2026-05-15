@@ -32,3 +32,6 @@ dependencies:
   - wayland-protocols
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/gst-device-monitor-1.0
+  - /usr/lib/libgstallocators-1.0.so

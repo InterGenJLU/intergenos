@@ -28,3 +28,7 @@ dependencies:
   - pcre2
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/vte-2.91
+  - /usr/bin/vte-2.91-gtk4
+  - /usr/lib/libvte-2.91.so

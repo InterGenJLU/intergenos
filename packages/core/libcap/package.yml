@@ -13,3 +13,6 @@ dependencies:
   runtime: []
 tier: core
 build_style: make
+verify_paths:
+  - /usr/bin/capsh
+  - /usr/lib/libcap.so

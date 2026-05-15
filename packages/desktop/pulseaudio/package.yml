@@ -25,3 +25,7 @@ dependencies:
   - sbc
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/pulseaudio
+  - /usr/bin/pacat
+  - /usr/lib/libpulse.so

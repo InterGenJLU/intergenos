@@ -36,3 +36,7 @@ dependencies:
 configure_flags:
 - --wrap-mode=nofallback
 - -Dsession-managers=[]
+verify_paths:
+  - /usr/bin/pipewire
+  - /usr/bin/pw-cat
+  - /usr/lib/libpipewire-0.3.so

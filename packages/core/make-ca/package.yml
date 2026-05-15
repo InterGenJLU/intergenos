@@ -19,3 +19,5 @@ dependencies:
   host: []
   runtime:
     - p11-kit
+verify_paths:
+  - /usr/bin/make-ca

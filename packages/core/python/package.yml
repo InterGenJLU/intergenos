@@ -20,3 +20,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: custom
+verify_paths:
+  - /usr/bin/python3
+  - /usr/bin/idle3
+  - /usr/lib/libpython3.14.so

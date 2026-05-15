@@ -17,3 +17,6 @@ dependencies:
   - glib2
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/upower
+  - /usr/lib/libupower-glib.so

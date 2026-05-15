@@ -25,3 +25,5 @@ dependencies:
   - xz
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/gnome-disk-image-mounter

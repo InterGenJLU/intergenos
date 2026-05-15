@@ -19,3 +19,5 @@ dependencies:
   - libgudev
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/powerprofilesctl

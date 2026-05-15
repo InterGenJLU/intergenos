@@ -20,3 +20,6 @@ dependencies:
   - gnutls
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/ldapadd
+  - /usr/lib/liblber.so

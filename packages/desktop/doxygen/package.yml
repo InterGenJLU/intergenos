@@ -18,3 +18,7 @@ dependencies:
   - llvm
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/doxygen
+  - /usr/bin/optionally
+  - /usr/share/doc/doxygen-1.16.1

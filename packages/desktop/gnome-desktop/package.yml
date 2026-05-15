@@ -26,3 +26,5 @@ dependencies:
   - gdk-pixbuf
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libgnome-bg-4.so

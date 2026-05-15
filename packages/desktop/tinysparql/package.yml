@@ -22,3 +22,6 @@ dependencies:
   - libxml2
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/tinysparql
+  - /usr/lib/libtinysparql-3.0.so

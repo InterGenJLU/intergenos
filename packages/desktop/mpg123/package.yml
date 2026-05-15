@@ -18,3 +18,7 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 - --disable-static
+verify_paths:
+  - /usr/bin/mpg123
+  - /usr/bin/mpg123-id3dump
+  - /usr/lib/libmpg123.so

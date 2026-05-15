@@ -25,3 +25,6 @@ tests:
   enabled: true
   failure_policy: known_failures
   reason: "libvpx test suite downloads ~1GB of reference vectors over HTTP from downloads.webmproject.org; chroot is offline"
+verify_paths:
+  - /usr/bin/vpxdec
+  - /usr/lib/libvpx.so

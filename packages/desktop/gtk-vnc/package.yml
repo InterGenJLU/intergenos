@@ -24,3 +24,6 @@ dependencies:
   - zlib
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/gvnccapture
+  - /usr/lib/libgtk-vnc-2.0.so

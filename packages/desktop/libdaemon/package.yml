@@ -15,3 +15,5 @@ dependencies:
   - lynx
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libdaemon.so

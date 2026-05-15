@@ -13,3 +13,6 @@ dependencies:
   runtime: []
 tier: core
 build_style: custom
+verify_paths:
+  - /usr/bin/wheel
+  - /usr/lib/python3.14/site-packages/wheel

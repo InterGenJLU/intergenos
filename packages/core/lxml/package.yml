@@ -27,3 +27,6 @@ dependencies:
 # Cython. The spurious entries are residue of the BLFS dep importer's
 # contaminated-rows bug class (same shape as the hatch-pair self-cycle
 # fixed in 7554f7b).
+verify_paths:
+  - /usr/bin/mako-render
+  - /usr/lib/python3.14/site-packages/lxml

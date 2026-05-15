@@ -13,3 +13,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: autotools
+verify_paths:
+  - /usr/bin/automake
+  - /usr/bin/aclocal
+  - /usr/share/aclocal-1.18

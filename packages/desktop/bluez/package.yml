@@ -24,3 +24,6 @@ configure_flags:
 - --localstatedir=/var
 - --enable-library
 - --disable-manpages
+verify_paths:
+  - /usr/bin/bluemoon
+  - /usr/lib/libbluetooth.so

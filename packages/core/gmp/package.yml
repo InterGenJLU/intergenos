@@ -12,3 +12,5 @@ dependencies:
   runtime: []
 tier: core
 build_style: custom
+verify_paths:
+  - /usr/lib/libgmp.so

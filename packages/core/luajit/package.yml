@@ -14,3 +14,7 @@ dependencies:
   build: []
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/luajit
+  - /usr/bin/luajit-2.1.ROLLING
+  - /usr/lib/libluajit-5.1.so

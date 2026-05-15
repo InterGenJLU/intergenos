@@ -25,3 +25,6 @@ dependencies:
   - libwebp
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/dvipdf
+  - /usr/lib/libgs.so

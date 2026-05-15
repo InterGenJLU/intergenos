@@ -19,3 +19,6 @@ dependencies:
   - dbus
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/accounts-daemon
+  - /usr/lib/libaccountsservice.so

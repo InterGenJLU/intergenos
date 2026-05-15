@@ -14,3 +14,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: custom
+verify_paths:
+  - /usr/bin/nano
+  - /usr/bin/rnano
+  - /usr/share/nano

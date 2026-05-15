@@ -21,3 +21,7 @@ dependencies:
   - gettext
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/wireplumber
+  - /usr/bin/wpctl
+  - /usr/lib/libwireplumber-0.5.so

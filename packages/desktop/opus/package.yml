@@ -18,3 +18,5 @@ configure_flags:
 - --prefix=/usr
 - --buildtype=release
 - -D docdir=/usr/share/doc/opus-1.6.1
+verify_paths:
+  - /usr/lib/libopus.so

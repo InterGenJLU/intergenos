@@ -17,3 +17,6 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 - --sysconfdir=/etc
+verify_paths:
+  - /usr/bin/rpcgen
+  - /usr/include/rpcsvc

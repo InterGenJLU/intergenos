@@ -21,3 +21,5 @@ dependencies:
   - pcre2
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libgtksourceview-5.so

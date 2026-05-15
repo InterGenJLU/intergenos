@@ -30,3 +30,5 @@ dependencies:
 # mutter/gst-plugins-base/xwayland/sdl2/libxkbcommon) are themselves
 # desktop tier, so there is no core-tier consumer; nothing requires
 # wayland-protocols to be at core. Restoring original placement.
+verify_paths:
+  - /usr/share/wayland-protocols

@@ -15,3 +15,5 @@ dependencies:
   host: []
   runtime: []
 configure_flags: []
+verify_paths:
+  - /usr/share/icons/hicolor

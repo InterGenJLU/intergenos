@@ -17,3 +17,6 @@ dependencies:
   - help2man
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/mbimcli
+  - /usr/lib/libmbim-glib.so

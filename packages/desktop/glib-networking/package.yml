@@ -21,3 +21,5 @@ dependencies:
               # libproxy support. libproxy moved to desktop tier in same batch.
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libgiognomeproxy.so

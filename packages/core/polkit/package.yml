@@ -20,3 +20,7 @@ dependencies:
   - linux-pam
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/polkitd
+  - /usr/bin/pkaction
+  - /usr/lib/libpolkit-agent-1.so

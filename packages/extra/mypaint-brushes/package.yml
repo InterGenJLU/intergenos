@@ -16,3 +16,5 @@ dependencies:
   host: []
   runtime:
   - libmypaint
+verify_paths:
+  - /usr/share/mypaint-data

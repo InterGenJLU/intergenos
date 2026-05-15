@@ -24,3 +24,6 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 - --disable-static
+verify_paths:
+  - /usr/bin/sndfile-cmp
+  - /usr/lib/libsndfile.so

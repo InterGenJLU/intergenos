@@ -19,3 +19,7 @@ configure_flags:
 - --prefix=/usr
 - --enable-mp3rtp
 - --disable-static
+verify_paths:
+  - /usr/bin/lame
+  - /usr/bin/mp3rtp
+  - /usr/lib/libmp3lame.so

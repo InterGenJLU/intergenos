@@ -13,3 +13,6 @@ dependencies:
   runtime: []
 tier: core
 build_style: autotools
+verify_paths:
+  - /usr/bin/sqlite3
+  - /usr/lib/libsqlite3.so

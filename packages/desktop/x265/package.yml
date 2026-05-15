@@ -16,3 +16,6 @@ dependencies:
   - cmake
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/x265
+  - /usr/lib/libx265.so

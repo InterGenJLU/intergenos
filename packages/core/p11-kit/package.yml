@@ -20,3 +20,7 @@ dependencies:
     - bash-completion
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/p11-kit
+  - /usr/bin/trust
+  - /usr/lib/libp11-kit.so

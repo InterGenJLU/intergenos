@@ -40,3 +40,7 @@ dependencies:
   - vala
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/samba-log-parser
+  - /usr/bin/cifsdd
+  - /usr/lib/libdcerpc-binding.so

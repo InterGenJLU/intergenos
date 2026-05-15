@@ -48,3 +48,6 @@ dependencies:
   - pulseaudio
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/gnome-control-center
+  - /usr/share/gnome-control-center

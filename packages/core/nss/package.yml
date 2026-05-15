@@ -22,3 +22,7 @@ dependencies:
 patches:
   - file: nss-standalone-1.patch
     sha256: 87bb1af0b11fd41311b9899187f6e4b3fca9940651123c7bc836ec7497d2da84
+verify_paths:
+  - /usr/bin/nss-config
+  - /usr/bin/certutil
+  - /usr/lib/libcrmf.a

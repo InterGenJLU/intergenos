@@ -14,3 +14,6 @@ dependencies:
   build: []
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/dec265
+  - /usr/lib/libde265.so

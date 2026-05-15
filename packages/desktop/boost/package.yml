@@ -16,3 +16,5 @@ dependencies:
   - which
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libboost_atomic.so

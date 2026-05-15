@@ -18,3 +18,5 @@ dependencies:
   - python
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libpangomm-1.4.so

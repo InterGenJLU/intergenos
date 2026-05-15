@@ -18,3 +18,5 @@ dependencies:
   host: []
   runtime:
   - libdvdread
+verify_paths:
+  - /usr/lib/libdvdnav.so

@@ -16,3 +16,6 @@ dependencies:
   - hatch-vcs
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/pybabel
+  - /usr/lib/python3.14/site-packages/attr

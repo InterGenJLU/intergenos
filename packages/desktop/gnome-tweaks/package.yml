@@ -22,3 +22,6 @@ dependencies:
   - gobject-introspection
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/gnome-tweaks
+  - /usr/lib/python3.14/site-packages/gtweak

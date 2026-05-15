@@ -21,3 +21,6 @@ dependencies:
   - gtk4
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/gnome-weather
+  - /usr/share/org.gnome.Weather

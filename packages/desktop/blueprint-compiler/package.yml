@@ -19,3 +19,7 @@ dependencies:
   - lynx
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/blueprint-compiler
+  - /usr/bin/pyproject-build
+  - /usr/lib/python3.14/site-packages/blueprint-compiler

@@ -22,3 +22,6 @@ dependencies:
   - json-glib
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/lvm-cache-stats
+  - /usr/lib/libbd_btrfs.so

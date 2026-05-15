@@ -17,3 +17,5 @@ dependencies:
   - libsigcpp2
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libgiomm-2.4.so

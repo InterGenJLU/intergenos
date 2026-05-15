@@ -23,3 +23,5 @@ configure_flags:
 # Added 2026-05-11 (audit-surfaced gap): taglib uses utfcpp for proper
 # UTF-8 string handling in audio metadata tags. Header-only library;
 # the build just installs headers + a CMake config package to /usr/include.
+verify_paths:
+  - /usr/include/utf8cpp

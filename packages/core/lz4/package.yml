@@ -12,3 +12,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: make
+verify_paths:
+  - /usr/bin/lz4
+  - /usr/bin/lz4c
+  - /usr/lib/liblz4.so

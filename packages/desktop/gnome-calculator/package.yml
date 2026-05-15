@@ -23,3 +23,7 @@ dependencies:
   - libxml2
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/gnome-calculator
+  - /usr/bin/gcalccmd
+  - /usr/lib/libgcalc-2.so

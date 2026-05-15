@@ -17,3 +17,7 @@ dependencies:
     - linux-pam
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/screen
+  - /usr/bin/screen-5.0.1
+  - /usr/share/screen

@@ -15,3 +15,7 @@ dependencies:
   host:
   - zlib
   runtime: []
+verify_paths:
+  - /usr/bin/tclsh
+  - /usr/bin/tclsh8.6
+  - /usr/lib/libtcl8.6.so

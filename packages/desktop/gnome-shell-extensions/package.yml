@@ -16,3 +16,5 @@ dependencies:
   - libgtop
   host: []
   runtime: []
+verify_paths:
+  - /usr/share/gnome-shell/extensions

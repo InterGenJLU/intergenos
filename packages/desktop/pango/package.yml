@@ -29,3 +29,7 @@ tests:
   enabled: true
   failure_policy: known_failures
   reason: "no display in chroot — three tests (test-font-data, test-font, test-layout) known to fail per BLFS; same display/font-cache root cause as gtk3/gtk4"
+verify_paths:
+  - /usr/bin/pango-list
+  - /usr/bin/pango-segmentation
+  - /usr/lib/libpango-1.0.so

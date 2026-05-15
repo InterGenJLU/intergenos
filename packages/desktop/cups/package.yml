@@ -20,3 +20,7 @@ dependencies:
   - xdg-utils
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/cupsaccept
+  - /usr/bin/cancel
+  - /usr/lib/libcupsimage.so

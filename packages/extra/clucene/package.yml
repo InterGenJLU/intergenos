@@ -19,3 +19,5 @@ dependencies:
   - boost
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libclucene-contribs-lib.so

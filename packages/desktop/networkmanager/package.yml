@@ -36,3 +36,6 @@ dependencies:
   - util-linux-core
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/nmcli
+  - /usr/lib/libnm.so

@@ -13,3 +13,6 @@ dependencies:
   runtime: []
 tier: core
 build_style: autotools
+verify_paths:
+  - /usr/bin/chacl
+  - /usr/lib/libacl.so

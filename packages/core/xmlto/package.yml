@@ -19,3 +19,7 @@ dependencies:
   runtime: []
 configure_flags:
 - --prefix=/usr
+verify_paths:
+  - /usr/bin/xmlto
+  - /usr/bin/xmlif
+  - /usr/share/xmlto

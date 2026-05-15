@@ -48,3 +48,6 @@ dependencies:
   - gstreamer
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/gst-transcoder-1.0
+  - /usr/lib/libgstadaptivedemux-1.0.so

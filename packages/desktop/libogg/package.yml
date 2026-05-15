@@ -18,3 +18,5 @@ configure_flags:
 - --prefix=/usr
 - --disable-static
 - --docdir=/usr/share/doc/libogg-${version}
+verify_paths:
+  - /usr/lib/libogg.so

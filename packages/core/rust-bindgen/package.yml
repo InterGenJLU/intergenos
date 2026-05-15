@@ -19,3 +19,5 @@ dependencies:
   - llvm
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/bindgen

@@ -15,3 +15,6 @@ dependencies:
   - pygments
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/bscalc
+  - /usr/lib/libbytesize.so

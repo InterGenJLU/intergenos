@@ -20,3 +20,5 @@ dependencies:
   host: []
   runtime:
   - xdg-desktop-portal-gtk
+verify_paths:
+  - /usr/share/xdg-desktop-portal

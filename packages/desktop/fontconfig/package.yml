@@ -28,3 +28,6 @@ tests:
   enabled: true
   failure_policy: known_failures
   reason: "BLFS notes one test failure is expected; additional tests download fonts over the network — chroot is offline"
+verify_paths:
+  - /usr/bin/fc-cache
+  - /usr/lib/libfontconfig.so

@@ -16,3 +16,6 @@ dependencies:
   - cmake
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/SvtAv1EncApp
+  - /usr/lib/libSvtAv1Enc.so

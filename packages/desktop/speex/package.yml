@@ -17,3 +17,7 @@ dependencies:
   - libogg
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/speexenc
+  - /usr/bin/speexdec
+  - /usr/lib/libspeex.so

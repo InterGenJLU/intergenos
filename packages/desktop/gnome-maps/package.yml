@@ -30,3 +30,6 @@ dependencies:
   - libxml2
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/gnome-maps
+  - /usr/lib/libgnome-maps.so

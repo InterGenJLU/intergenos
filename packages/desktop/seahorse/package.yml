@@ -26,3 +26,5 @@ dependencies:
   - gtk3
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/seahorse

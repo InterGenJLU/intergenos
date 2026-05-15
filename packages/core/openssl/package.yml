@@ -13,3 +13,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: custom
+verify_paths:
+  - /usr/bin/openssl
+  - /usr/bin/c_rehash
+  - /usr/lib/libcrypto.so

@@ -14,3 +14,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: autotools
+verify_paths:
+  - /usr/bin/pcre2grep
+  - /usr/bin/pcre2test
+  - /usr/lib/libpcre2-8.so

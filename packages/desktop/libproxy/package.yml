@@ -24,3 +24,6 @@ tests:
   enabled: true
   failure_policy: known_failures
   reason: "PAC/WPAD discovery tests fetch from network and probe DBus/GSettings on a live session bus; offline chroot has neither"
+verify_paths:
+  - /usr/bin/proxy
+  - /usr/lib/libproxy.so

@@ -37,3 +37,5 @@ dependencies:
   - polkit
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libgsd.so

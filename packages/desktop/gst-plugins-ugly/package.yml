@@ -22,3 +22,5 @@ dependencies:
   - gstreamer
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/gstreamer-1.0

@@ -24,3 +24,6 @@ dependencies:
   - libwebp
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/benchmark_xl
+  - /usr/lib/libjxl.so

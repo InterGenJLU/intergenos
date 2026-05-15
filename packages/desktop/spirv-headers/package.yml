@@ -15,3 +15,5 @@ dependencies:
   - cmake
   host: []
   runtime: []
+verify_paths:
+  - /usr/include/spirv

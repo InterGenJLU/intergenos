@@ -21,3 +21,6 @@ dependencies:
   - libssh2
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/cargo-capi
+  - /usr/bin/cargo-cbuild

@@ -35,3 +35,7 @@ dependencies:
   - systemd
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/postgres
+  - /usr/bin/clusterdb
+  - /usr/lib/libpgcommon.a

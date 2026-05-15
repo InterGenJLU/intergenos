@@ -24,3 +24,6 @@ dependencies:
   - libxml2
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/gnome-connections
+  - /usr/include/gnome-connections

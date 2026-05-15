@@ -47,3 +47,7 @@ dependencies:
   - pixman
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/firefox
+  - /usr/lib/firefox/firefox
+  - /usr/lib/firefox/libxul.so

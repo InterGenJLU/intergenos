@@ -21,3 +21,5 @@ dependencies:
   runtime: []
 configure_flags:
 - --prefix=/usr
+verify_paths:
+  - /usr/lib/ctl_arcam_av

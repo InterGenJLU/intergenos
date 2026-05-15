@@ -19,3 +19,5 @@ configure_flags:
 - --prefix=/usr
 - --enable-shared
 - --disable-cli
+verify_paths:
+  - /usr/lib/libx264.so

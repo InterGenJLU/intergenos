@@ -23,3 +23,5 @@ dependencies:
   # libva ↔ mesa cycle because the graph treats both kinds as edges. Audit-fix
   # 04e36a7 added mesa → libva (build) for VAAPI gallium driver; that single
   # direction is what's needed.
+verify_paths:
+  - /usr/lib/libva-drm.so

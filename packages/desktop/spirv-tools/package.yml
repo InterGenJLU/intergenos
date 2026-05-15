@@ -16,3 +16,6 @@ dependencies:
   - cmake
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/spirv-as
+  - /usr/lib/libSPIRV-Tools-diff.so

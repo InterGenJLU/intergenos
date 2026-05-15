@@ -37,3 +37,7 @@ dependencies:
   - python
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/gnome-shell
+  - /usr/bin/gnome-extensions
+  - /usr/lib/gnome-shell

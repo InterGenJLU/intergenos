@@ -24,3 +24,6 @@ dependencies:
   - systemd
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/bluetooth-sendto
+  - /usr/lib/libgnome-bluetooth-3.0.so

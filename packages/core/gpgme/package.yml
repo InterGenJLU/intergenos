@@ -19,3 +19,7 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 - --disable-static
+verify_paths:
+  - /usr/bin/gpgme-json
+  - /usr/bin/gnupg-key-manage
+  - /usr/lib/libgpgme.so

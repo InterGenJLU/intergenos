@@ -16,3 +16,5 @@ dependencies:
   - libcap
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/bwrap

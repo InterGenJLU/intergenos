@@ -14,3 +14,6 @@ dependencies:
   build: []
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/apr-1-config
+  - /usr/lib/libapr-1.so

@@ -16,3 +16,6 @@ dependencies:
   - libxml2
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/wpa_supplicant
+  - /usr/bin/wpa_passphrase

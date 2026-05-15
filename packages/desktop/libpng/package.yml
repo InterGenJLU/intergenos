@@ -20,3 +20,7 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 - --disable-static
+verify_paths:
+  - /usr/bin/libpng-config
+  - /usr/bin/libpng16-config
+  - /usr/lib/libpng.so

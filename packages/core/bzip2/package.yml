@@ -12,3 +12,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: custom
+verify_paths:
+  - /usr/bin/bzip2
+  - /usr/bin/bunzip2
+  - /usr/lib/libbz2.so

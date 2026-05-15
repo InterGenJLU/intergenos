@@ -35,3 +35,6 @@ dependencies:
   - libgudev
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/localsearch
+  - /usr/lib/localsearch-3.0

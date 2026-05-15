@@ -20,3 +20,7 @@ dependencies:
   - glib2
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/libwacom-list-devices
+  - /usr/bin/libwacom-list-local-devices
+  - /usr/lib/libwacom.so

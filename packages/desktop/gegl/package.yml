@@ -27,3 +27,7 @@ tests:
   enabled: true
   failure_policy: known_failures
   reason: "no display in chroot — gegl image-processing tests render to display surfaces and fail without a display server."
+verify_paths:
+  - /usr/bin/gegl
+  - /usr/bin/gegl-imgcmp
+  - /usr/lib/libgegl-0.4.so

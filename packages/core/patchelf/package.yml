@@ -22,3 +22,5 @@ configure_flags:
 # so they load correctly under the system loader. patchelf has zero
 # system deps beyond the LFS Ch 8 toolchain (g++, make, autoconf,
 # automake, gcc); fast build, ships a single binary.
+verify_paths:
+  - /usr/bin/patchelf

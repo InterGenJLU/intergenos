@@ -15,3 +15,7 @@ dependencies:
   - pkgconf
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/fftw-wisdom
+  - /usr/bin/fftw-wisdom-to-conf
+  - /usr/lib/libfftw3.so

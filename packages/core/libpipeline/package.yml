@@ -17,3 +17,5 @@ tests:
   enabled: true
   failure_policy: known_failures
   reason: "libpipeline test suite requires the Check unit-testing library (libcheck), which LFS 13.0 does not include. Tests are skipped/empty without it; suite exits non-zero on missing harness."
+verify_paths:
+  - /usr/lib/libpipeline.so

@@ -16,3 +16,5 @@ dependencies:
   - spirv-llvm-translator
   host: []
   runtime: []
+verify_paths:
+  - /usr/include/clc

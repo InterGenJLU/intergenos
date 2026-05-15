@@ -31,3 +31,5 @@ dependencies:
   - openldap
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libcamel-1.2.so

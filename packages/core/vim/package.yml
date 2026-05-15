@@ -13,3 +13,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: custom
+verify_paths:
+  - /usr/bin/vi
+  - /usr/bin/ex
+  - /usr/share/vim

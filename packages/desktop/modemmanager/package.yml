@@ -21,3 +21,6 @@ dependencies:
   - dbus
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/mmcli
+  - /usr/lib/libmm-glib.so

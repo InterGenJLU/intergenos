@@ -15,3 +15,6 @@ dependencies:
   host:
   - tcl
   runtime: []
+verify_paths:
+  - /usr/bin/expect
+  - /usr/lib/libexpect5.45.4.so

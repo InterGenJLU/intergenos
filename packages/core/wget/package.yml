@@ -28,3 +28,5 @@ tests:
   enabled: true
   failure_policy: known_failures
   reason: "no network in chroot — wget Perl-based test suite (tests/Test-*.px) spins up local HTTP/HTTPS/FTP test servers and requires Perl modules (HTTP::Daemon, IO::Socket::SSL) plus unrestricted localhost networking that the chroot does not provide."
+verify_paths:
+  - /usr/bin/wget

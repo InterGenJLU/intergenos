@@ -18,3 +18,7 @@ dependencies:
   - rust
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/maturin
+  - /usr/bin/markdown_py
+  - /usr/lib/python3.14/site-packages/maturin

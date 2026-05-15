@@ -25,3 +25,6 @@ tests:
   enabled: true
   failure_policy: known_failures
   reason: "no network in chroot — libpsl test suite includes test-fetch and test-builtin variants that fetch the live Public Suffix List from publicsuffix.org and compare against the embedded copy."
+verify_paths:
+  - /usr/bin/psl
+  - /usr/lib/libpsl.so

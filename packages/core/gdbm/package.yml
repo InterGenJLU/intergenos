@@ -13,3 +13,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: autotools
+verify_paths:
+  - /usr/bin/gdbm_dump
+  - /usr/bin/gdbm_load
+  - /usr/lib/libgdbm.so

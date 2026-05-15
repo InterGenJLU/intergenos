@@ -18,3 +18,7 @@ configure_flags:
 - --prefix=/usr
 - --libdir=/usr/lib
 - --disable-static
+verify_paths:
+  - /usr/bin/nettle-hash
+  - /usr/bin/nettle-lfib-stream
+  - /usr/lib/libhogweed.so

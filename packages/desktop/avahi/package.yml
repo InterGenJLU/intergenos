@@ -21,3 +21,7 @@ dependencies:
   - libevent
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/avahi-autoipd
+  - /usr/bin/avahi-browse
+  - /usr/lib/libavahi-client.so

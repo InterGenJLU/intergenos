@@ -14,3 +14,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: autotools
+verify_paths:
+  - /usr/bin/intltool-extract
+  - /usr/bin/intltool-merge
+  - /usr/share/doc/intltool-0.51.0

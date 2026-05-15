@@ -19,3 +19,6 @@ dependencies:
   - bison-core
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/xkbcli
+  - /usr/lib/libxkbcommon.so

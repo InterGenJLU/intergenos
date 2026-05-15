@@ -28,3 +28,7 @@ dependencies:
   - icu
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/nautilus
+  - /usr/bin/nautilus-autorun-software
+  - /usr/lib/libnautilus-extension.so

@@ -21,3 +21,5 @@ dependencies:
   - libxml2
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libatk-1.0.so

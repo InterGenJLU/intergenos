@@ -24,3 +24,5 @@ dependencies:
   - vala
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libgweather-4.so

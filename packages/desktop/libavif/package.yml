@@ -18,3 +18,5 @@ dependencies:
   - libaom
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libavif.so

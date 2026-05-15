@@ -31,3 +31,6 @@ dependencies:
   - gst-plugins-base-pass2
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/snapshot
+  - /usr/share/snapshot

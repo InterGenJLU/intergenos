@@ -15,3 +15,6 @@ dependencies:
   host:
   - expect
   runtime: []
+verify_paths:
+  - /usr/bin/dejagnu
+  - /usr/bin/runtest

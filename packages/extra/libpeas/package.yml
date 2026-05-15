@@ -19,3 +19,6 @@ dependencies:
   - gobject-introspection
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/peas-demo
+  - /usr/lib/libpeas-1.0.so

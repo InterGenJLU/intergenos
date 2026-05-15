@@ -15,3 +15,6 @@ dependencies:
   - hwdata
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/di-edid-decode
+  - /usr/lib/libdisplay-info.so

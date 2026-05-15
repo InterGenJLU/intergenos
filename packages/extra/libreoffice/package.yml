@@ -48,3 +48,6 @@ dependencies:
   - zstd
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/libreoffice
+  - /usr/bin/lobase

@@ -40,3 +40,7 @@ dependencies:
 tests:
   enabled: false
   reason: "btrfs-progs's testsuite (test-fsck, test-cli, test-mkfs) creates loopback mounts at tests/mnt and runs live mkfs.btrfs/mount/umount operations. Beyond the chroot-environmental failures these tests produce (no kernel btrfs driver loaded, no reliable loop-device support — same shape as libfido2/tpm2-tss/libvisio), the bigger problem is that even with failure_policy=known_failures the orchestrator's post-test work-dir cleanup hits `OSError: [Errno 16] Device or resource busy: '.../tests/mnt'` because the tests left mounts active. tests:enabled:false avoids both the failures and the cleanup hazard. Library build (libbtrfs/, libbtrfsutil) and binaries (mkfs.btrfs, btrfs, btrfs-convert) compile and link cleanly without tests."
+verify_paths:
+  - /usr/bin/btrfs
+  - /usr/bin/btrfs-convert
+  - /usr/lib/libbtrfs.so

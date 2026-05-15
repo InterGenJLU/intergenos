@@ -32,3 +32,5 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 - --disable-static
+verify_paths:
+  - /usr/lib/libcupsfilters.so

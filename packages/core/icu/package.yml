@@ -14,3 +14,7 @@ dependencies:
   build: []
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/icu-config
+  - /usr/bin/derb
+  - /usr/lib/libicudata.so

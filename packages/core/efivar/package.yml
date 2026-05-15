@@ -15,3 +15,7 @@ dependencies:
   - mandoc
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/efivar
+  - /usr/bin/efisecdb
+  - /usr/lib/libefiboot.so

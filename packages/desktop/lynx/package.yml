@@ -29,3 +29,6 @@ configure_flags:
 - --with-ssl
 - --with-screen=ncursesw
 - --enable-locale-charset
+verify_paths:
+  - /usr/bin/lynx
+  - /usr/share/doc/lynx-2.9.2

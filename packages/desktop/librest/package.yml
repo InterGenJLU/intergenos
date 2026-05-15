@@ -23,3 +23,6 @@ dependencies:
   - libxml2
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/librest-demo
+  - /usr/lib/librest-1.0.so

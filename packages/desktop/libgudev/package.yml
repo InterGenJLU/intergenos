@@ -17,3 +17,5 @@ dependencies:
   - systemd
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libgudev-1.0.so

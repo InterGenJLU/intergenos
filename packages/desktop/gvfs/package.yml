@@ -42,3 +42,5 @@ dependencies:
   - gsettings-desktop-schemas
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libgvfscommon.so

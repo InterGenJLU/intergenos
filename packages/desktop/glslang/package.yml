@@ -17,3 +17,7 @@ dependencies:
   - cmake
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/glslang
+  - /usr/bin/glslang-validator
+  - /usr/lib/libglslang.so

@@ -27,3 +27,6 @@ configure_flags:
 - --prefix=/usr
 - --disable-static
 - --disable-oss
+verify_paths:
+  - /usr/bin/canberra-boot
+  - /usr/lib/libcanberra-gtk3.so

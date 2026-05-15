@@ -18,3 +18,7 @@ dependencies:
   - trove-classifiers
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/hatchling
+  - /usr/bin/maturin
+  - /usr/lib/python3.14/site-packages/hatchling

@@ -22,3 +22,6 @@ dependencies:
            # rendering quality.
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/hb-info
+  - /usr/lib/libharfbuzz.so

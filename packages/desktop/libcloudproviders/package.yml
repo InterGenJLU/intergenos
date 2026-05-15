@@ -16,3 +16,5 @@ dependencies:
   - vala
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libcloudproviders.so

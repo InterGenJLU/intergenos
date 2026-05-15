@@ -21,3 +21,6 @@ configure_flags:
 - --prefix=/usr
 - --disable-alsaconf
 - --with-udev-rules-dir=/usr/lib/udev/rules.d
+verify_paths:
+  - /usr/bin/aconnect
+  - /usr/lib/alsa-topology

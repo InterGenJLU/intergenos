@@ -13,3 +13,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: autotools
+verify_paths:
+  - /usr/bin/gettext
+  - /usr/bin/autopoint
+  - /usr/lib/libasprintf.so

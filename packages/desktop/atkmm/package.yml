@@ -18,3 +18,5 @@ dependencies:
   - python
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libatkmm-1.6.so

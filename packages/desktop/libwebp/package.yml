@@ -24,3 +24,6 @@ configure_flags:
 - --enable-libwebpmux
 - --enable-libwebpdemux
 - --enable-libwebpdecoder
+verify_paths:
+  - /usr/bin/cwebp
+  - /usr/lib/libsharpyuv.so

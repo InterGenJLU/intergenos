@@ -34,3 +34,7 @@ dependencies:
   - libdht
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/transmission-create
+  - /usr/bin/transmission-daemon
+  - /usr/share/transmission

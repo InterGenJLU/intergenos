@@ -12,3 +12,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: autotools
+verify_paths:
+  - /usr/bin/libtool
+  - /usr/bin/libtoolize
+  - /usr/lib/libltdl.so

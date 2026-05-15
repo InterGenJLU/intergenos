@@ -14,3 +14,6 @@ dependencies:
   host: []
   runtime:
   - python
+verify_paths:
+  - /usr/bin/scons
+  - /usr/bin/scons-configure-cache

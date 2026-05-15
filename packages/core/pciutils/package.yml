@@ -15,3 +15,6 @@ dependencies:
   host: []
   runtime:
   - hwdata
+verify_paths:
+  - /usr/bin/lspci
+  - /usr/lib/libpci.so

@@ -16,3 +16,6 @@ dependencies:
   - popt
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/efibootmgr
+  - /usr/bin/efibootdump

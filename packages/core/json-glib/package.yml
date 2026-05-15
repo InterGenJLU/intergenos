@@ -16,3 +16,7 @@ dependencies:
   - docutils
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/json-glib-format
+  - /usr/bin/json-glib-validate
+  - /usr/lib/libjson-glib-1.0.so

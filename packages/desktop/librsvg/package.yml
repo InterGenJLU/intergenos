@@ -26,3 +26,6 @@ dependencies:
   - rust
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/rsvg-convert
+  - /usr/lib/librsvg-2.so

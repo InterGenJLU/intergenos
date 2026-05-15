@@ -22,3 +22,7 @@ dependencies:
     - openldap
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/exim
+  - /usr/bin/exicyclog
+  - /usr/share/doc/exim-4.99.1

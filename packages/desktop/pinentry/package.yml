@@ -28,3 +28,6 @@ configure_flags:
 - --enable-pinentry-tty
 - --enable-pinentry-curses
 - --enable-pinentry-gnome3
+verify_paths:
+  - /usr/bin/pinentry
+  - /usr/bin/pinentry-curses

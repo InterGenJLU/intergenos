@@ -16,3 +16,5 @@ dependencies:
   - libxml2
   host: []
   runtime: []
+verify_paths:
+  - /usr/share/xml/docbook/xml-dtd-4.5

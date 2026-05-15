@@ -36,3 +36,6 @@ dependencies:
   - pixman
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/thunderbird
+  - /usr/lib/thunderbird

@@ -18,3 +18,7 @@ dependencies:
 configure_flags:
 - -Dtests=disabled
 - -Ddocumentation=disabled
+verify_paths:
+  - /usr/bin/libevdev-tweak-device
+  - /usr/bin/mouse-dpi-tool
+  - /usr/lib/libevdev.so

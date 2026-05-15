@@ -63,3 +63,7 @@ tests:
   enabled: true
   failure_policy: known_failures
   reason: "no display in chroot — save-and-export, single-window-mode, and ui tests require a display server (BLFS-known)."
+verify_paths:
+  - /usr/bin/gimp-3.0
+  - /usr/bin/gimp-console-3.0
+  - /usr/lib/libgimp-3.0.so

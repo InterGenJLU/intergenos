@@ -20,3 +20,6 @@ configure_flags:
 - --prefix=/usr
 - --sysconfdir=/etc
 - --with-readline=gnu
+verify_paths:
+  - /usr/bin/slsh
+  - /usr/lib/libslang.so

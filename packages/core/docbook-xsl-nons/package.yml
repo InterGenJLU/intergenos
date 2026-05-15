@@ -22,3 +22,5 @@ dependencies:
   runtime: []
 # ruby removed 2026-05-11: docbook-xsl-nons is data-only (cp + xmlcatalog).
 # No ruby usage anywhere in build.sh. Stale declared dep, not a real dep.
+verify_paths:
+  - /usr/share/xml/docbook/xsl-stylesheets-nons-1.79.2

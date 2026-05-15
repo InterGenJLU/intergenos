@@ -26,3 +26,7 @@ configure_flags:
 - --prefix=/usr
 - --host=${IGOS_TARGET}
 patches: []
+verify_paths:
+  - /usr/bin/bash
+  - /usr/bin/bashbug
+  - /usr/include/bash

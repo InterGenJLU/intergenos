@@ -25,3 +25,7 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 - --with-pam-dir=/usr/lib/security
+verify_paths:
+  - /usr/bin/gnome-keyring
+  - /usr/bin/gnome-keyring-3
+  - /usr/lib/gnome-keyring-pkcs11.so

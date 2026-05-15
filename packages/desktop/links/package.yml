@@ -15,3 +15,6 @@ dependencies:
   - libevent
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/links
+  - /usr/share/doc/links-2.30

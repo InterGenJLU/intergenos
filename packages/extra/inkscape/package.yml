@@ -33,3 +33,7 @@ dependencies:
   - libxml2
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/inkscape
+  - /usr/bin/inkview
+  - /usr/lib/libinkscape_base.so

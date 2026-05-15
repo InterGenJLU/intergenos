@@ -12,3 +12,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: autotools
+verify_paths:
+  - /usr/bin/pkgconf
+  - /usr/bin/pkg-config
+  - /usr/lib/libpkgconf.so

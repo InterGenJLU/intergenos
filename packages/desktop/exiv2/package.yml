@@ -18,3 +18,6 @@ dependencies:
   - cmake
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/exiv2
+  - /usr/lib/libexiv2.so

@@ -15,3 +15,7 @@ dependencies:
   - llvm
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/potrace
+  - /usr/bin/mkbitmap
+  - /usr/lib/libpotrace.so

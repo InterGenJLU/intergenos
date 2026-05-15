@@ -21,3 +21,5 @@ dependencies:
   - vala
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libportal.so

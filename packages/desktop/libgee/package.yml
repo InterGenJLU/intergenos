@@ -19,3 +19,5 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 - --disable-static
+verify_paths:
+  - /usr/lib/libgee-0.8.so

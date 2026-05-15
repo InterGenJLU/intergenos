@@ -26,3 +26,7 @@ tests:
   enabled: true
   failure_policy: known_failures
   reason: "no network in chroot — curl test suite spins up live HTTP/HTTPS/FTP/SSH test servers and exercises real protocol round-trips. Hundreds of tests in tests/data/test* require unrestricted localhost networking + port binding."
+verify_paths:
+  - /usr/bin/curl
+  - /usr/bin/curl-config
+  - /usr/lib/libcurl.so

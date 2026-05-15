@@ -23,3 +23,5 @@ dependencies:
   - dbus
   host: []
   runtime: []
+verify_paths:
+  - /usr/lib/libgoa-1.0.so

@@ -24,3 +24,6 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 - --with-gpm-support
+verify_paths:
+  - /usr/bin/whiptail
+  - /usr/lib/libnewt.so
