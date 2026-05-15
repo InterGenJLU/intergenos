@@ -519,6 +519,16 @@ phase_verify_sources() {
     # the artifact on disk. Missing sha256 or mismatch = HARD FAIL.
     # build_artifacts: entries are NOT checked here — those are
     # audited at the manifest phase (IGOSC Step 4).
+
+    # Stage locally-vendored sources first. Packages whose source: is an
+    # in-tree directory snapshot (currently: forge, which packages the
+    # `installer/` tree + `man/forge.1`) need their tarball regenerated
+    # to reflect the current on-disk content before SHA verification runs,
+    # otherwise edits to installer/* are silently shadowed by the stale
+    # snapshot. Same shape as chroot-rsync-coverage-gap.
+    log "Staging locally-vendored sources (forge tarball)..."
+    bash "$SCRIPTS/build-forge-tarball.sh"
+
     log "Verifying pinned source + patch SHAs against on-disk artifacts..."
 
     local PYSCRIPT PYEXIT UNPINNED MISMATCHES

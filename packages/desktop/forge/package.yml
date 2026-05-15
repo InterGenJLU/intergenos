@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: file:///forge-1.0.0.tar.xz
-  sha256: 650007abe6c25848e15de79b081d448227f839fdd538408e6acfe7fc83466986
+  sha256: 8e83caa043eb356b958c19960b46af87e9de4e119ecf25b6e310ed2b429bf9f9
 dependencies:
   build: []
   host: []
