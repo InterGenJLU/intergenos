@@ -181,6 +181,13 @@ fi
 # mandb is large + slow; skip if not installed. Operators wanting it can
 # run `mandb -c` on first boot.
 if command -v mandb >/dev/null 2>&1; then
+    # /var/cache/man/ is normally created at boot by systemd-tmpfiles via
+    # /usr/lib/tmpfiles.d/man-db.conf. We run mandb pre-boot inside the
+    # chroot, so apply that rule manually here — otherwise mandb fails with
+    # "can't create index cache ... No such file or directory".
+    if [ -f /usr/lib/tmpfiles.d/man-db.conf ] && command -v systemd-tmpfiles >/dev/null 2>&1; then
+        systemd-tmpfiles --create /usr/lib/tmpfiles.d/man-db.conf 2>&1 | tail -3 || true
+    fi
     log "mandb -q (background-quiet)"
     mandb -q 2>&1 | tail -3 || true
 fi
