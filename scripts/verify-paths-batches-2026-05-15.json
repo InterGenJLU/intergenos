@@ -1,0 +1,1553 @@
+{
+  "first_party": [
+    {
+      "tier": "ai",
+      "name": "intergen",
+      "path": "packages/ai/intergen/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "pkm",
+      "path": "packages/core/pkm/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "shim-signed",
+      "path": "packages/core/shim-signed/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "forge",
+      "path": "packages/desktop/forge/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "intergen-welcome",
+      "path": "packages/desktop/intergen-welcome/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "intergenos-default-settings",
+      "path": "packages/desktop/intergenos-default-settings/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "intergenos-theme",
+      "path": "packages/desktop/intergenos-theme/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "brave-helper",
+      "path": "packages/extra/brave-helper/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "chrome-helper",
+      "path": "packages/extra/chrome-helper/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "claude-code-helper",
+      "path": "packages/extra/claude-code-helper/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "discord-helper",
+      "path": "packages/extra/discord-helper/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "edge-helper",
+      "path": "packages/extra/edge-helper/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "go-md2man",
+      "path": "packages/extra/go-md2man/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "spotify-helper",
+      "path": "packages/extra/spotify-helper/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "vscode-helper",
+      "path": "packages/extra/vscode-helper/package.yml"
+    }
+  ],
+  "batch_a": [
+    {
+      "tier": "ai",
+      "name": "llama-cpp",
+      "path": "packages/ai/llama-cpp/package.yml"
+    },
+    {
+      "tier": "base",
+      "name": "atop",
+      "path": "packages/base/atop/package.yml"
+    },
+    {
+      "tier": "base",
+      "name": "btop",
+      "path": "packages/base/btop/package.yml"
+    },
+    {
+      "tier": "base",
+      "name": "htop",
+      "path": "packages/base/htop/package.yml"
+    },
+    {
+      "tier": "base",
+      "name": "iotop",
+      "path": "packages/base/iotop/package.yml"
+    },
+    {
+      "tier": "base",
+      "name": "parallel",
+      "path": "packages/base/parallel/package.yml"
+    },
+    {
+      "tier": "base",
+      "name": "perl-file-fcntllock",
+      "path": "packages/base/perl-file-fcntllock/package.yml"
+    },
+    {
+      "tier": "base",
+      "name": "rdfind",
+      "path": "packages/base/rdfind/package.yml"
+    },
+    {
+      "tier": "base",
+      "name": "strace",
+      "path": "packages/base/strace/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "apparmor",
+      "path": "packages/core/apparmor/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "bash-completion",
+      "path": "packages/core/bash-completion/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "busybox-static",
+      "path": "packages/core/busybox-static/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "ca-certificates",
+      "path": "packages/core/ca-certificates/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "cffi",
+      "path": "packages/core/cffi/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "cyrus-sasl",
+      "path": "packages/core/cyrus-sasl/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "dbus",
+      "path": "packages/core/dbus/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "efitools",
+      "path": "packages/core/efitools/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "elfutils",
+      "path": "packages/core/elfutils/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "fuse3",
+      "path": "packages/core/fuse3/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "glib2",
+      "path": "packages/core/glib2/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "glib2-bootstrap",
+      "path": "packages/core/glib2-bootstrap/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "gnu-efi",
+      "path": "packages/core/gnu-efi/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "gnupg2",
+      "path": "packages/core/gnupg2/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "go",
+      "path": "packages/core/go/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "gobject-introspection-pass1",
+      "path": "packages/core/gobject-introspection-pass1/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "hatch-vcs",
+      "path": "packages/core/hatch-vcs/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "help2man",
+      "path": "packages/core/help2man/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "iana-etc",
+      "path": "packages/core/iana-etc/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "intel-ucode",
+      "path": "packages/core/intel-ucode/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "iso-codes",
+      "path": "packages/core/iso-codes/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "iucode-tool",
+      "path": "packages/core/iucode-tool/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "libnftnl",
+      "path": "packages/core/libnftnl/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "linux-kernel",
+      "path": "packages/core/linux-kernel/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "linux-kernel-pass2",
+      "path": "packages/core/linux-kernel-pass2/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "lzip",
+      "path": "packages/core/lzip/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "man-pages",
+      "path": "packages/core/man-pages/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "mandoc",
+      "path": "packages/core/mandoc/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "mitkrb",
+      "path": "packages/core/mitkrb/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "mokutil",
+      "path": "packages/core/mokutil/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "nftables",
+      "path": "packages/core/nftables/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "nodejs",
+      "path": "packages/core/nodejs/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "pycparser",
+      "path": "packages/core/pycparser/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "pyelftools",
+      "path": "packages/core/pyelftools/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "python-cryptography",
+      "path": "packages/core/python-cryptography/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "python-pefile",
+      "path": "packages/core/python-pefile/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "rpm",
+      "path": "packages/core/rpm/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "rust",
+      "path": "packages/core/rust/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "sbsigntool",
+      "path": "packages/core/sbsigntool/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "setuptools-rust",
+      "path": "packages/core/setuptools-rust/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "setuptools-scm",
+      "path": "packages/core/setuptools-scm/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "util-macros",
+      "path": "packages/core/util-macros/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "which",
+      "path": "packages/core/which/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "xml-parser",
+      "path": "packages/core/xml-parser/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "xorgproto",
+      "path": "packages/core/xorgproto/package.yml"
+    },
+    {
+      "tier": "core",
+      "name": "xxhash",
+      "path": "packages/core/xxhash/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "a52dec",
+      "path": "packages/desktop/a52dec/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "adw-gtk3-theme",
+      "path": "packages/desktop/adw-gtk3-theme/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "argcomplete",
+      "path": "packages/desktop/argcomplete/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "bdftopcf",
+      "path": "packages/desktop/bdftopcf/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "bibata-cursor-theme",
+      "path": "packages/desktop/bibata-cursor-theme/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "cairomm",
+      "path": "packages/desktop/cairomm/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "catppuccin-gtk-theme",
+      "path": "packages/desktop/catppuccin-gtk-theme/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "cdparanoia",
+      "path": "packages/desktop/cdparanoia/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "dart-sass",
+      "path": "packages/desktop/dart-sass/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "dbus-pass2",
+      "path": "packages/desktop/dbus-pass2/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "dbus-python",
+      "path": "packages/desktop/dbus-python/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "dconf",
+      "path": "packages/desktop/dconf/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "dracula-gtk-theme",
+      "path": "packages/desktop/dracula-gtk-theme/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "editorconfig-core-c",
+      "path": "packages/desktop/editorconfig-core-c/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "encodings",
+      "path": "packages/desktop/encodings/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "fluent-gtk-theme",
+      "path": "packages/desktop/fluent-gtk-theme/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "fluent-icon-theme",
+      "path": "packages/desktop/fluent-icon-theme/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "folks",
+      "path": "packages/desktop/folks/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "font-alias",
+      "path": "packages/desktop/font-alias/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "font-cursor-misc",
+      "path": "packages/desktop/font-cursor-misc/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "font-dejavu",
+      "path": "packages/desktop/font-dejavu/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "font-misc-misc",
+      "path": "packages/desktop/font-misc-misc/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "font-noto",
+      "path": "packages/desktop/font-noto/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "font-util",
+      "path": "packages/desktop/font-util/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "freetype2",
+      "path": "packages/desktop/freetype2/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "freetype2-pass1",
+      "path": "packages/desktop/freetype2-pass1/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "gcr4",
+      "path": "packages/desktop/gcr4/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "geoclue2",
+      "path": "packages/desktop/geoclue2/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "glibmm2",
+      "path": "packages/desktop/glibmm2/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "gnome-calendar",
+      "path": "packages/desktop/gnome-calendar/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "gnome-characters",
+      "path": "packages/desktop/gnome-characters/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "gnome-clocks",
+      "path": "packages/desktop/gnome-clocks/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "gnome-contacts",
+      "path": "packages/desktop/gnome-contacts/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "gnome-font-viewer",
+      "path": "packages/desktop/gnome-font-viewer/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "gnome-music",
+      "path": "packages/desktop/gnome-music/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "gnome-text-editor",
+      "path": "packages/desktop/gnome-text-editor/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "gnome-user-docs",
+      "path": "packages/desktop/gnome-user-docs/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "gobject-introspection",
+      "path": "packages/desktop/gobject-introspection/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "graphite-gtk-theme",
+      "path": "packages/desktop/graphite-gtk-theme/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "grilo",
+      "path": "packages/desktop/grilo/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "grilo-plugins",
+      "path": "packages/desktop/grilo-plugins/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "gtk3",
+      "path": "packages/desktop/gtk3/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "gtk4",
+      "path": "packages/desktop/gtk4/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "gtkmm4",
+      "path": "packages/desktop/gtkmm4/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "iceauth",
+      "path": "packages/desktop/iceauth/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "imagemagick",
+      "path": "packages/desktop/imagemagick/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "intergenos-extensions-appearance",
+      "path": "packages/desktop/intergenos-extensions-appearance/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "intergenos-extensions-layout",
+      "path": "packages/desktop/intergenos-extensions-layout/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "intergenos-extensions-productivity",
+      "path": "packages/desktop/intergenos-extensions-productivity/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "intergenos-extensions-utilities",
+      "path": "packages/desktop/intergenos-extensions-utilities/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "ladspa-sdk",
+      "path": "packages/desktop/ladspa-sdk/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "lcms2",
+      "path": "packages/desktop/lcms2/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libFS",
+      "path": "packages/desktop/libFS/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libICE",
+      "path": "packages/desktop/libICE/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libSM",
+      "path": "packages/desktop/libSM/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libX11",
+      "path": "packages/desktop/libX11/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXScrnSaver",
+      "path": "packages/desktop/libXScrnSaver/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXaw",
+      "path": "packages/desktop/libXaw/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXcomposite",
+      "path": "packages/desktop/libXcomposite/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXcursor",
+      "path": "packages/desktop/libXcursor/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXdamage",
+      "path": "packages/desktop/libXdamage/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXext",
+      "path": "packages/desktop/libXext/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXfixes",
+      "path": "packages/desktop/libXfixes/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXfont2",
+      "path": "packages/desktop/libXfont2/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXft",
+      "path": "packages/desktop/libXft/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXi",
+      "path": "packages/desktop/libXi/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXinerama",
+      "path": "packages/desktop/libXinerama/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXmu",
+      "path": "packages/desktop/libXmu/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXpm",
+      "path": "packages/desktop/libXpm/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXpresent",
+      "path": "packages/desktop/libXpresent/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXrandr",
+      "path": "packages/desktop/libXrandr/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXrender",
+      "path": "packages/desktop/libXrender/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXt",
+      "path": "packages/desktop/libXt/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXtst",
+      "path": "packages/desktop/libXtst/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXv",
+      "path": "packages/desktop/libXv/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXvMC",
+      "path": "packages/desktop/libXvMC/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXxf86dga",
+      "path": "packages/desktop/libXxf86dga/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libXxf86vm",
+      "path": "packages/desktop/libXxf86vm/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libadwaita1",
+      "path": "packages/desktop/libadwaita1/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libbluray",
+      "path": "packages/desktop/libbluray/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libcbor",
+      "path": "packages/desktop/libcbor/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libcdio-paranoia",
+      "path": "packages/desktop/libcdio-paranoia/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libdex",
+      "path": "packages/desktop/libdex/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libdmx",
+      "path": "packages/desktop/libdmx/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libfido2",
+      "path": "packages/desktop/libfido2/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libfontenc",
+      "path": "packages/desktop/libfontenc/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libgphoto2",
+      "path": "packages/desktop/libgphoto2/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libhandy1",
+      "path": "packages/desktop/libhandy1/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libimobiledevice",
+      "path": "packages/desktop/libimobiledevice/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libimobiledevice-glue",
+      "path": "packages/desktop/libimobiledevice-glue/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libmediaart",
+      "path": "packages/desktop/libmediaart/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libmsgraph",
+      "path": "packages/desktop/libmsgraph/package.yml"
+    }
+  ],
+  "batch_b": [
+    {
+      "tier": "desktop",
+      "name": "libmtp",
+      "path": "packages/desktop/libmtp/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libnfs",
+      "path": "packages/desktop/libnfs/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libpciaccess",
+      "path": "packages/desktop/libpciaccess/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libplist",
+      "path": "packages/desktop/libplist/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libsigcpp2",
+      "path": "packages/desktop/libsigcpp2/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libsigcpp3",
+      "path": "packages/desktop/libsigcpp3/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libsoup3",
+      "path": "packages/desktop/libsoup3/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libspelling",
+      "path": "packages/desktop/libspelling/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libtatsu",
+      "path": "packages/desktop/libtatsu/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libusbmuxd",
+      "path": "packages/desktop/libusbmuxd/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libxkbfile",
+      "path": "packages/desktop/libxkbfile/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "libxshmfence",
+      "path": "packages/desktop/libxshmfence/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "lilv",
+      "path": "packages/desktop/lilv/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "lv2",
+      "path": "packages/desktop/lv2/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "macos-cursor-theme",
+      "path": "packages/desktop/macos-cursor-theme/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "mkfontscale",
+      "path": "packages/desktop/mkfontscale/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "nordic-theme",
+      "path": "packages/desktop/nordic-theme/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "nss-mdns",
+      "path": "packages/desktop/nss-mdns/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "openjpeg2",
+      "path": "packages/desktop/openjpeg2/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "orc",
+      "path": "packages/desktop/orc/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "orchis-theme",
+      "path": "packages/desktop/orchis-theme/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "papirus-icon-theme",
+      "path": "packages/desktop/papirus-icon-theme/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "perl-parse-yapp",
+      "path": "packages/desktop/perl-parse-yapp/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "phinger-cursors",
+      "path": "packages/desktop/phinger-cursors/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "poppler-data",
+      "path": "packages/desktop/poppler-data/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "pygobject3",
+      "path": "packages/desktop/pygobject3/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "raptor2",
+      "path": "packages/desktop/raptor2/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "rtkit",
+      "path": "packages/desktop/rtkit/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "sdl2",
+      "path": "packages/desktop/sdl2/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "sdl2-ttf",
+      "path": "packages/desktop/sdl2-ttf/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "serd",
+      "path": "packages/desktop/serd/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "sessreg",
+      "path": "packages/desktop/sessreg/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "setxkbmap",
+      "path": "packages/desktop/setxkbmap/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "shaderc",
+      "path": "packages/desktop/shaderc/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "smproxy",
+      "path": "packages/desktop/smproxy/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "sord",
+      "path": "packages/desktop/sord/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "spidermonkey",
+      "path": "packages/desktop/spidermonkey/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "sratom",
+      "path": "packages/desktop/sratom/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "suil",
+      "path": "packages/desktop/suil/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "swh-plugins",
+      "path": "packages/desktop/swh-plugins/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "sysprof",
+      "path": "packages/desktop/sysprof/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "tdb",
+      "path": "packages/desktop/tdb/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "tela-icon-theme",
+      "path": "packages/desktop/tela-icon-theme/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "tpm2-tss",
+      "path": "packages/desktop/tpm2-tss/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "twolame",
+      "path": "packages/desktop/twolame/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "udisks2",
+      "path": "packages/desktop/udisks2/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "user-theme",
+      "path": "packages/desktop/user-theme/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "wavpack",
+      "path": "packages/desktop/wavpack/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "webkitgtk-gtk3",
+      "path": "packages/desktop/webkitgtk-gtk3/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "whitesur-gtk-theme",
+      "path": "packages/desktop/whitesur-gtk-theme/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "whitesur-icon-theme",
+      "path": "packages/desktop/whitesur-icon-theme/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "wireless-regdb",
+      "path": "packages/desktop/wireless-regdb/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xauth",
+      "path": "packages/desktop/xauth/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xbitmaps",
+      "path": "packages/desktop/xbitmaps/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xcb-proto",
+      "path": "packages/desktop/xcb-proto/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xcb-util-cursor",
+      "path": "packages/desktop/xcb-util-cursor/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xcb-util-image",
+      "path": "packages/desktop/xcb-util-image/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xcb-util-keysyms",
+      "path": "packages/desktop/xcb-util-keysyms/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xcb-util-renderutil",
+      "path": "packages/desktop/xcb-util-renderutil/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xcb-util-wm",
+      "path": "packages/desktop/xcb-util-wm/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xcursorgen",
+      "path": "packages/desktop/xcursorgen/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xdg-desktop-portal",
+      "path": "packages/desktop/xdg-desktop-portal/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xdpyinfo",
+      "path": "packages/desktop/xdpyinfo/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xdriinfo",
+      "path": "packages/desktop/xdriinfo/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xev",
+      "path": "packages/desktop/xev/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xhost",
+      "path": "packages/desktop/xhost/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xinput",
+      "path": "packages/desktop/xinput/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xkbcomp",
+      "path": "packages/desktop/xkbcomp/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xkeyboard-config",
+      "path": "packages/desktop/xkeyboard-config/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xmodmap",
+      "path": "packages/desktop/xmodmap/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xprop",
+      "path": "packages/desktop/xprop/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xrandr",
+      "path": "packages/desktop/xrandr/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xrdb",
+      "path": "packages/desktop/xrdb/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xset",
+      "path": "packages/desktop/xset/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xtrans",
+      "path": "packages/desktop/xtrans/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xwayland",
+      "path": "packages/desktop/xwayland/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "xwininfo",
+      "path": "packages/desktop/xwininfo/package.yml"
+    },
+    {
+      "tier": "desktop",
+      "name": "zix",
+      "path": "packages/desktop/zix/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "aardvark-dns",
+      "path": "packages/extra/aardvark-dns/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "apache-httpd",
+      "path": "packages/extra/apache-httpd/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "audacity",
+      "path": "packages/extra/audacity/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "bat",
+      "path": "packages/extra/bat/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "bottom",
+      "path": "packages/extra/bottom/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "caddy",
+      "path": "packages/extra/caddy/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "cairomm1",
+      "path": "packages/extra/cairomm1/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "catatonit",
+      "path": "packages/extra/catatonit/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "celluloid",
+      "path": "packages/extra/celluloid/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "conmon",
+      "path": "packages/extra/conmon/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "containers-common",
+      "path": "packages/extra/containers-common/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "cppunit",
+      "path": "packages/extra/cppunit/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "crun",
+      "path": "packages/extra/crun/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "dust",
+      "path": "packages/extra/dust/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "etcd",
+      "path": "packages/extra/etcd/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "eza",
+      "path": "packages/extra/eza/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "fd",
+      "path": "packages/extra/fd/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "fuse-overlayfs",
+      "path": "packages/extra/fuse-overlayfs/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "gflags",
+      "path": "packages/extra/gflags/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "gopls",
+      "path": "packages/extra/gopls/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "grex",
+      "path": "packages/extra/grex/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "gtkmm3",
+      "path": "packages/extra/gtkmm3/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "haproxy",
+      "path": "packages/extra/haproxy/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "hugo",
+      "path": "packages/extra/hugo/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "hyperfine",
+      "path": "packages/extra/hyperfine/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "influxdb",
+      "path": "packages/extra/influxdb/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "jemalloc",
+      "path": "packages/extra/jemalloc/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "just",
+      "path": "packages/extra/just/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "lazygit",
+      "path": "packages/extra/lazygit/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "lego",
+      "path": "packages/extra/lego/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "leveldb",
+      "path": "packages/extra/leveldb/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "libcdr",
+      "path": "packages/extra/libcdr/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "libdeflate",
+      "path": "packages/extra/libdeflate/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "libdht",
+      "path": "packages/extra/libdht/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "libid3tag",
+      "path": "packages/extra/libid3tag/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "libnatpmp",
+      "path": "packages/extra/libnatpmp/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "librevenge",
+      "path": "packages/extra/librevenge/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "liburing",
+      "path": "packages/extra/liburing/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "libvisio",
+      "path": "packages/extra/libvisio/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "libwpd",
+      "path": "packages/extra/libwpd/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "libwpg",
+      "path": "packages/extra/libwpg/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "libxcrypt-compat",
+      "path": "packages/extra/libxcrypt-compat/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "lighttpd",
+      "path": "packages/extra/lighttpd/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "memcached",
+      "path": "packages/extra/memcached/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "miniupnpc",
+      "path": "packages/extra/miniupnpc/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "ncurses-compat",
+      "path": "packages/extra/ncurses-compat/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "netavark",
+      "path": "packages/extra/netavark/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "nginx",
+      "path": "packages/extra/nginx/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "opusfile",
+      "path": "packages/extra/opusfile/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "pangomm1",
+      "path": "packages/extra/pangomm1/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "passt",
+      "path": "packages/extra/passt/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "perl-archive-zip",
+      "path": "packages/extra/perl-archive-zip/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "podman",
+      "path": "packages/extra/podman/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "portaudio",
+      "path": "packages/extra/portaudio/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "portmidi",
+      "path": "packages/extra/portmidi/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "rapidjson",
+      "path": "packages/extra/rapidjson/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "rhythmbox",
+      "path": "packages/extra/rhythmbox/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "ripgrep",
+      "path": "packages/extra/ripgrep/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "rocksdb",
+      "path": "packages/extra/rocksdb/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "sd",
+      "path": "packages/extra/sd/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "snappy",
+      "path": "packages/extra/snappy/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "starship",
+      "path": "packages/extra/starship/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "tealdeer",
+      "path": "packages/extra/tealdeer/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "tokei",
+      "path": "packages/extra/tokei/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "valkey",
+      "path": "packages/extra/valkey/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "wxwidgets",
+      "path": "packages/extra/wxwidgets/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "xh",
+      "path": "packages/extra/xh/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "yajl",
+      "path": "packages/extra/yajl/package.yml"
+    },
+    {
+      "tier": "extra",
+      "name": "zoxide",
+      "path": "packages/extra/zoxide/package.yml"
+    }
+  ]
+}
