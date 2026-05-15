@@ -8,8 +8,9 @@ account for.
 Phase 6 scope: text entry for the device path + a confirm-destructive
 checkbox. Real disk-detection (lsblk parse → table widget with size +
 model + filesystem) lands in a later visual-polish phase. The TUI's
-`prompt_install_io` does the same for now (with a `disks.list_candidates()`
-fallback to text input).
+`prompt_install_io` calls `disks.detect_disks()` to enumerate
+candidates into a dialog menu and falls back to plain text input when
+the enumeration returns empty.
 """
 
 from gi.repository import Gtk

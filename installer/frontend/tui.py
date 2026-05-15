@@ -342,32 +342,30 @@ def prompt_install_io():
     Returns (disk, root_password, username, user_password, mok_password) or
     None if the user cancelled.
     """
-    # Disk selection — list candidates from disks.list_candidates() (existing
-    # backend helper). Filter out the live media device.
-    try:
-        candidates = disks.list_candidates()
-    except AttributeError:
-        # If list_candidates doesn't exist yet, fall back to a plain text input.
-        # TODO Q1 (per dispatch): SPOC will weigh in on disk-detection logic
-        # in a follow-up phase; sketching as TODO here.
-        rc, raw = _ask_input(
-            "Target disk",
-            "Enter the disk device to install to (e.g. /dev/nvme0n1, /dev/sda):",
-            "/dev/sda",
-        )
-        if rc != 0 or not raw:
-            return None
-        disk = raw
-    else:
-        items = [(d.path, f"{d.size_gb} GB — {d.model}") for d in candidates]
-        if not items:
-            print("ERROR: no disks detected. Aborting.", file=sys.stderr)
-            return None
+    # Disk selection — enumerate via disks.detect_disks() (returns list of
+    # Disk dataclass instances with .path / .size_human / .model). Live media
+    # is excluded by detect_disks (root-disk filter in backend/disks.py:113).
+    # If detection returns no candidates (timeout or no eligible disks),
+    # fall back to plain text input so the install path stays openable
+    # on edge hardware.
+    candidates = disks.detect_disks()
+    if candidates:
+        items = [(d.path, f"{d.size_human} — {d.model}") for d in candidates]
         rc, disk = _ask_menu("Target disk",
                              "Select the disk to install to (DESTRUCTIVE):",
                              items)
         if rc != 0 or not disk:
             return None
+    else:
+        rc, raw = _ask_input(
+            "Target disk",
+            "No disks auto-detected. Enter the disk device to install to "
+            "(e.g. /dev/nvme0n1, /dev/sda):",
+            "/dev/sda",
+        )
+        if rc != 0 or not raw:
+            return None
+        disk = raw
 
     # Confirm destructive op
     if not _ask_yesno(

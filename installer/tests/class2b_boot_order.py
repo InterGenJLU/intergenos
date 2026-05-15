@@ -16,9 +16,12 @@ Scope (Class 2b — "did the install register a real Boot#### entry?"):
 
 Why this matters: `installer/backend/bootloader.py` calls `efibootmgr
 --create` during install, but that call is best-effort and soft-fails
-when efivars isn't reachable (documented TODO at bootloader.py:189).
-Class 2b exists specifically to catch the silent failure mode where the
-installer thought it succeeded but the boot entry never got written.
+on the rc != 0 fallback path (bootloader.py:202-218) — host without
+EFI firmware (build VM), read-only efivars, firmware bugs. The
+fallback logs a manual-registration command but does not propagate
+the failure into install rc. Class 2b exists specifically to catch
+that silent-success failure mode where the installer thought it
+succeeded but the boot entry never got written.
 
 Data source: `efibootmgr -v` output. Reasons for not going straight to
 raw efivars: `Boot####` entries are EFI_LOAD_OPTION-formatted binary

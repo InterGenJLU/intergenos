@@ -80,8 +80,10 @@ Class 2b proves the installer *left behind a discoverable InterGenOS
 entry* — so firmware boots it automatically rather than relying on the
 `/EFI/BOOT/bootx64.efi` removable-media fallback path. Catches the
 silent failure mode where `efibootmgr --create` in the installer soft-
-failed but the install otherwise appeared successful (see
-`installer/backend/bootloader.py:189` TODO).
+failed but the install otherwise appeared successful (the rc != 0
+fallback at `installer/backend/bootloader.py:202-218` logs a manual
+registration command but does not propagate the failure into install
+rc).
 
 Three probes:
 
