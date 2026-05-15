@@ -43,9 +43,11 @@ class InstallerState:
     timezone: str = "UTC"
 
     # --- Disk screen ---
+    # v1 ships fresh-install only. Backend has alongside-install primitives
+    # (disks.partition_disk_alongside, detect_shrinkable_ntfs, shrink_ntfs)
+    # kept for future wiring once the alongside UX/recovery story is
+    # designed.
     target_disk: Optional[str] = None
-    install_mode: str = "fresh"  # one of: fresh, alongside
-    alongside_partition: Optional[str] = None  # only used when install_mode=="alongside"
     confirm_destructive: bool = False
 
     # --- User screen ---
@@ -168,8 +170,6 @@ class InstallerState:
           disk, username, user_password, root_password
         Optional keys honoured by the orchestrator:
           mok_password (triggers MOK enrollment queue on EFI installs)
-          install_mode (currently informational; alongside-partition flow
-            not yet wired through orchestrator)
           user_groups (default groups applied if absent)
 
         Empty / None values are preserved verbatim so that the
@@ -184,8 +184,6 @@ class InstallerState:
         }
         if self.mok_password:
             io["mok_password"] = self.mok_password
-        if self.install_mode and self.install_mode != "fresh":
-            io["install_mode"] = self.install_mode
         return io
 
     def to_run_install_kwargs(

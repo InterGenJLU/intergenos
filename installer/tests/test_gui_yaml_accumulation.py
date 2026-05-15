@@ -215,23 +215,6 @@ class TestToInstallIo:
         io = state.to_install_io()
         assert io["mok_password"] == "mokmokmok"
 
-    def test_omits_install_mode_when_default_fresh(self):
-        """`fresh` is the default; the orchestrator doesn't need it
-        explicitly. Only forward when the user picked alongside (not yet
-        wired but kept in the contract for the future flow)."""
-        state = InstallerState()
-        _populate_full(state)
-        state.install_mode = "fresh"
-        io = state.to_install_io()
-        assert "install_mode" not in io
-
-    def test_includes_install_mode_when_alongside(self):
-        state = InstallerState()
-        _populate_full(state)
-        state.install_mode = "alongside"
-        io = state.to_install_io()
-        assert io.get("install_mode") == "alongside"
-
 
 class TestToRunInstallKwargs:
     def test_bundles_all_required_args(self):

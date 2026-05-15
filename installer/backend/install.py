@@ -218,7 +218,7 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         yaml_path: path to install.yaml (TUI-emitted or GUI-emitted).
         install_io: dict with 'disk', 'username', 'user_password',
                     'root_password' (required); 'mok_password',
-                    'install_mode', 'user_groups' (optional).
+                    'user_groups' (optional).
         archive_dir: path to .igos.tar.gz package archives.
         packages_dir: path to packages/ for tier mapping + post-install
                       hooks. Optional; some flows pass None.

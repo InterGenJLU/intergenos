@@ -189,6 +189,15 @@ def is_bitlocker_encrypted(partition_path):
     return "bitlocker" in result.stdout.strip().lower()
 
 
+# --- Alongside-install primitives (post-v1 wiring) ---
+# detect_shrinkable_ntfs / detect_bitlocker_partitions / shrink_ntfs /
+# partition_disk_alongside form a complete primitive set for the
+# alongside-Windows install flow. They are kept here as deliberate
+# future-wiring surface; v1 ships with no UI/orchestrator caller so the
+# functions are intentionally unused. Adding callers is the work; the
+# primitives themselves are validated.
+
+
 def detect_shrinkable_ntfs(disk, min_free_bytes=ALONGSIDE_MIN_ROOT_BYTES):
     """Find an NTFS partition that can be shrunk to make room.
 
