@@ -35,4 +35,10 @@ do_install() {
     set -e
     pip3 install --no-index --no-user --root="$DESTDIR" --no-deps \
         --find-links dist pyelftools
+
+    # Ship the InterGenOS-authored man page alongside the module install.
+    local pkg_dir
+    pkg_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+    install -Dm644 "$pkg_dir/pyelftools.1" \
+        "$DESTDIR/usr/share/man/man1/pyelftools.1"
 }

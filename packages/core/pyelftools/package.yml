@@ -19,3 +19,4 @@ build_style: custom
 
 verify_paths:
   - /usr/lib/python3.14/site-packages
+  - /usr/share/man/man1/pyelftools.1

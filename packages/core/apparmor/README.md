@@ -39,9 +39,11 @@ as the InterGenOS MAC framework).
      ensures zero default credentials.
 
 6. **Complain-mode marker** — `/usr/share/intergenos-apparmor/default_mode`
-   contains `complain`. The first-boot orchestrator reads this after the
-   kernel boots with the apparmor LSM available and runs `aa-complain` on
-   every profile in `/etc/apparmor.d/`.
+   contains `complain`. This declares the InterGenOS posture intent
+   (profiles ship in learning/complain mode for graceful rollout). NOTE:
+   as of 2026-05-15 there is no first-boot orchestrator wired to read
+   this file; activation of complain mode is tracked separately. The
+   marker is a documented policy declaration only.
 
 ## Posture: complain-by-default
 

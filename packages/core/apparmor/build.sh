@@ -20,10 +20,10 @@
 #      ourselves in build().
 #   5. Custom IGOS profiles (intergen-mcp, pkm, forge, first-boot-greeter)
 #      shipped in $PKG_DIR/profiles/ alongside this script.
-#   6. Complain-mode marker file used by the first-boot orchestrator to
-#      mass-apply complain mode after the kernel boots with apparmor LSM.
-#      Per Prime Directive: graceful rollout, log-only by default until
-#      profiles graduate to enforce per-profile in future releases.
+#   6. Complain-mode marker file declaring InterGenOS's posture intent
+#      (log-only by default until profiles graduate to enforce per-profile
+#      in future releases). NOTE: marker is read by no orchestrator as of
+#      2026-05-15 — wiring tracked separately. See do_install() step 6.
 
 PKG_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
@@ -137,10 +137,12 @@ do_install() {
     install -vm 644 "${PKG_DIR}/profiles/usr.libexec.intergenos.first-boot-greeter" \
         "${DESTDIR}/etc/apparmor.d/"
 
-    # 6. Complain-mode default marker. First-boot orchestrator reads this
-    #    after kernel boots with apparmor LSM and runs aa-complain on every
-    #    profile in /etc/apparmor.d/. Per Prime Directive: graceful rollout,
-    #    profiles graduate to enforce per-profile in future releases.
+    # 6. Complain-mode default marker. Declares InterGenOS's posture intent
+    #    (profiles ship in learning/complain mode for graceful rollout).
+    #    NOTE: as of 2026-05-15 no first-boot orchestrator reads this file
+    #    and runs aa-complain on /etc/apparmor.d/* — the marker is a
+    #    documented policy declaration only. Wiring it to the first-boot
+    #    flow is tracked separately (Rule 21 stub-hunt 2026-05-15).
     install -vdm 755 "${DESTDIR}/usr/share/intergenos-apparmor/"
     echo "complain" > "${DESTDIR}/usr/share/intergenos-apparmor/default_mode"
 }
