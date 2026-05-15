@@ -26,3 +26,4 @@ verify_paths:
   - /usr/share/applications/forge-gui.desktop
   - /usr/share/man/man1/forge.1
   - /usr/share/polkit-1/actions/org.intergenos.forge.policy
+  - /usr/share/polkit-1/rules.d/49-intergenos-forge.rules
