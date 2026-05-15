@@ -375,15 +375,22 @@ FORGEGUI
 fi
 
 # ---- Hand off mode to userspace --------------------------------------------
+# Diagnostic-only marker. Not a routing input — see comment below. Useful for
+# post-mortem of install or live-session failures (`cat /run/intergenos/boot-mode`
+# tells you which kernel cmdline mode the system actually came up in).
 mkdir -p /newroot/run/intergenos
 echo "$MODE" > /newroot/run/intergenos/boot-mode
 
 # ---- Switch root and exec PID 1 --------------------------------------------
-# systemd reads /run/intergenos/boot-mode via a generator (installed by the
-# squashfs payload at /usr/lib/systemd/system-generators/igos-mode-generator)
-# and selects the appropriate target:
-#   live         -> graphical.target with autologin
-#   install-gui  -> graphical.target with forge-gui.service overlay
-#   install-tui  -> multi-user.target with forge-tui@tty1.service
+# Mode dispatch happens at two layers, both upstream of switch_root:
+#   live + install-gui: this script's overlay-write block above installs the
+#     liveuser+GDM+autologin scaffold (and, for install-gui only, an XDG
+#     autostart for `forge --mode gui`). graphical.target is the default in
+#     the squashfs payload, so systemd reaches GDM and the liveuser session
+#     fires whichever autostart wins.
+#   install-tui: this script skips the live-class scaffold. The squashfs
+#     payload contains `forge-tui.service` (shipped by `packages/desktop/forge`)
+#     gated by `ConditionKernelCommandLine=igos.mode=install-tui`; the unit
+#     fires on tty1 once multi-user.target is reached.
 info "switching root to /newroot, PID 1 = systemd"
 exec switch_root /newroot /sbin/init

@@ -22,3 +22,5 @@ verify_paths:
   - /usr/bin/forge
   - /usr/lib/python3.14/site-packages/installer
   - /usr/lib/systemd/system/forge-tui.service
+  - /usr/share/applications/forge-gui.desktop
+  - /usr/share/man/man1/forge.1
