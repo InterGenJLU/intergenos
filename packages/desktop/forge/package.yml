@@ -14,7 +14,7 @@ dependencies:
   build: []
   host: []
   runtime:
-  - python3
+  - python
   - gtk4
   - libadwaita1
-  - python-gobject
+  - pygobject3
