@@ -231,6 +231,43 @@ Halt with diff if the YAML-promise set ≠ chroot-reality set ∪ deferred-set.
 
 ---
 
+### Rule 20 — Every package declares its load-bearing files via `verify_paths:`
+
+**Rule.** Every `packages/<tier>/<name>/package.yml` declares a `verify_paths:` field listing 2-3 load-bearing files the package produces on disk. The pre-squashfs audit (`scripts/pre-squashfs-audit.py`, run from `scripts/build-squashfs.sh` step 4.5) checks each declared path exists on the chroot; missing paths halt the squashfs build.
+
+```yaml
+# packages/core/bzip2/package.yml
+name: bzip2
+version: "1.0.8"
+# ... rest of the package definition ...
+verify_paths:
+  - /usr/bin/bzip2
+  - /usr/bin/bunzip2
+  - /usr/lib/libbz2.so
+```
+
+**Exemption.** Deliberately-deferred packages (waiting on an upstream that hasn't shipped yet — e.g., `shim-signed` pending Microsoft UEFI CA sponsorship) declare `pending_acquisition: "<reason>"` instead. The audit treats those as known-not-installed and skips them.
+
+**Fallback.** If `verify_paths:` is absent, the audit falls back to an `auto-verify-paths.json` sidecar that the builder emits automatically from the build-time filesystem snapshot (see `igos-build/verify_paths_derive.py`). The sidecar is a build-host fallback; the package.yml field is the human-curated source of truth.
+
+**Failure prevented.** The linux-firmware-class regression — a package recipe present in the tree, the build orchestrator reporting success, but the install function silently produced zero files (e.g., `phase_core` bash scripts don't include linux-firmware → entire amdgpu firmware tree absent → DS-v2 GPU init fails at boot). With this rule, the audit halts at squashfs time with `linux-firmware: MISSING /usr/lib/firmware/amdgpu/carrizo_sdma.bin` instead of letting the broken ISO ship.
+
+**Authoring guidance — picking verify_paths.** Pick 2-3 paths that prove the package landed:
+
+1. **Primary binary** at `/usr/bin/<name>` or `/usr/sbin/<name>` — strongest identity signal.
+2. **Primary library** at `/usr/lib/lib<name>.so*` — for lib-only packages.
+3. **Canonical directory** at `/usr/share/<name>/`, `/usr/lib/<name>/`, `/etc/<name>/`, or `/usr/lib/firmware/<...>/` — for data/firmware/config packages.
+4. For Perl/Python module packages, use the site_perl / site-packages path.
+5. For the kernel, declare `/boot/vmlinuz-<version>` + `/usr/lib/modules/<version>`.
+
+Each path must start with `/` and have ≥3 segments (e.g., `/usr/bin/x`). Reject descriptive single-word entries that aren't actual filenames.
+
+**Enforced by.** Pre-push hook gate 8 (`.githooks/pre-push`) refuses to push a *new* `package.yml` file without either `verify_paths:` or `pending_acquisition:`. Existing missing-verify_paths packages (the historical backlog) are tracked separately; the gate stops the bleeding for net-new packages.
+
+**STOP condition.** Pre-squashfs audit reports MISSING paths — STOP. Two possible causes: (a) the package wasn't actually built/installed (regression — investigate); (b) the declared verify_paths are wrong (correct the field). Don't ship the build.
+
+---
+
 ## Section 2 — Halt-handler decision tree
 
 A halt fired. Before doing anything else:
@@ -272,6 +309,7 @@ These are the workarounds that *look tempting* during a halt. They are out-of-bo
 | Build invocation without `--checkpoint` | Rule 16 | 0 |
 | Skipping pre-flight tier-coverage check | Rule 17 | N/A — rule new |
 | Skipping manifest reconciliation | Rule 18 | N/A — rule new |
+| Skipping pre-squashfs `verify_paths` audit, or shipping a package.yml without `verify_paths:` (or `pending_acquisition:`) | Rule 20 | 1 (linux-firmware → DS-v2 amdgpu break, 2026-05-15) |
 
 ---
 
