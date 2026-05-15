@@ -119,7 +119,6 @@ Icon=preferences-desktop-personal
 Categories=GTK;Settings;
 OnlyShowIn=GNOME;
 StartupNotify=false
-X-GNOME-Autostart-Phase=Applications
 NoDisplay=true
 AUTOSTART
 }
