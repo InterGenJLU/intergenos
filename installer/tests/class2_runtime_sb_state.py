@@ -13,8 +13,9 @@ Scope (Class 2 — "is the running system actually in secure posture?"):
   - mokutil --sb-state: SUPPLEMENTARY — user-space convenience check that
     should agree with the EFI variable but goes through a different code
     path (shim's MOK database rather than firmware directly)
-  - UEFI boot-order (efibootmgr): DEFERRED — separate concern, belongs in
-    the Class 2b "did the install register an entry?" probe (TODO)
+  - UEFI boot-order (efibootmgr): DEFERRED — separate concern, lives in
+    the Class 2b "did the install register an entry?" probe at
+    `installer/tests/class2b_boot_order.py`
   - Kernel module sigs (MODULE_SIG): DEFERRED to Class 5
 
 EFI variable binary format (Linux /sys/firmware/efi/efivars/<Name>-<GUID>):
