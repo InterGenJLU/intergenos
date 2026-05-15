@@ -47,6 +47,30 @@ def chroot_path(path, chroot_root):
     return Path(chroot_root) / path.lstrip('/')
 
 
+def assert_root_traversal(chroot_root):
+    """Refuse to run unprivileged.
+
+    os.path.lexists silently returns False when the calling user lacks +x
+    on a parent dir — which the audit then misclassifies as "file missing."
+    The chroot at /mnt/igos contains root-only-traversable dirs like
+    /etc/caddy (0750), /etc/sudoers.d, /root, and ssh host-key dirs;
+    every file beneath them would report as missing to a non-root audit.
+    Categorical refusal is the simplest correct fix.
+    """
+    if os.geteuid() == 0:
+        return
+    sys.stderr.write(
+        "ERROR: pre-squashfs-audit must run as root.\n"
+        "  Reason: chroot contains 0750/0700 dirs (e.g. /etc/caddy) whose\n"
+        "  contents silently report as missing to an unprivileged audit\n"
+        "  (os.path.lexists returns False when parent lacks +x). Without\n"
+        "  root, the audit emits false positives that look identical to\n"
+        "  the linux-firmware-class regression signal.\n"
+        "  Re-invoke with sudo.\n"
+    )
+    sys.exit(2)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--chroot', default='/',
@@ -64,6 +88,8 @@ def main():
     if not pkgs_dir.is_dir():
         sys.stderr.write(f"ERROR: packages dir not found: {pkgs_dir}\n")
         sys.exit(2)
+
+    assert_root_traversal(args.chroot)
 
     total = 0
     checked = 0
@@ -119,9 +145,13 @@ def main():
                     missing.append(f'{p} <invalid-shape>')
                     continue
                 full = chroot_path(p, args.chroot)
-                # os.path.lexists is symlink-tolerant + doesn't follow symlinks,
-                # so it doesn't raise EACCES on inaccessible targets the way
-                # Path.exists() does on root-owned chroot files.
+                # os.path.lexists is symlink-tolerant and doesn't follow
+                # symlinks. It still requires +x on every parent dir to
+                # reach the entry — when a parent lacks +x, lexists
+                # silently returns False (no exception). That false-
+                # negative is why assert_root_traversal() above refuses
+                # to run unprivileged: as root we have CAP_DAC_READ_SEARCH
+                # equivalent, so traversal can't fail this way.
                 try:
                     if not os.path.lexists(str(full)):
                         missing.append(p)
