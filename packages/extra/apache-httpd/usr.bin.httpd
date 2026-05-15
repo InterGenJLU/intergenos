@@ -3,7 +3,7 @@
 
 #include <tunables/global>
 
-profile httpd /usr/sbin/httpd {
+profile httpd /usr/bin/httpd {
     #include <abstractions/base>
     #include <abstractions/nameservice>
     #include <abstractions/openssl>
@@ -17,9 +17,9 @@ profile httpd /usr/sbin/httpd {
     capability sys_resource,
 
     # Binary + helper tools
-    /usr/sbin/httpd mr,
-    /usr/sbin/rotatelogs rix,
-    /usr/sbin/suexec rix,
+    /usr/bin/httpd mr,
+    /usr/bin/rotatelogs rix,
+    /usr/bin/suexec rix,
 
     # Config tree (read-only)
     /etc/httpd/ r,

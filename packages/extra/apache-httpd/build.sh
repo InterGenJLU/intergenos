@@ -158,8 +158,8 @@ do_install() {
     # secure drop-in config + sysconfig defaults.
     install -Dm644 "$BUILD_DIR/httpd.service" \
         "$DESTDIR/usr/lib/systemd/system/httpd.service"
-    install -Dm644 "$BUILD_DIR/usr.sbin.httpd" \
-        "$DESTDIR/etc/apparmor.d/usr.sbin.httpd"
+    install -Dm644 "$BUILD_DIR/usr.bin.httpd" \
+        "$DESTDIR/etc/apparmor.d/usr.bin.httpd"
 
     # Drop-in default-secure config. The upstream-shipped
     # /etc/httpd/httpd.conf at /etc/httpd/httpd.conf will Include this
@@ -240,7 +240,7 @@ post_install() {
     # Reload systemd + AppArmor. Best-effort; install succeeds even
     # if these aren't running (chroot install / first-boot path).
     systemctl daemon-reload                              2>/dev/null || true
-    apparmor_parser -r /etc/apparmor.d/usr.sbin.httpd    2>/dev/null || true
+    apparmor_parser -r /etc/apparmor.d/usr.bin.httpd     2>/dev/null || true
 
     cat <<-EOF
 		[apache-httpd installed]
