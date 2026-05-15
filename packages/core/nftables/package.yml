@@ -24,3 +24,7 @@ configure_flags:
 - --with-json
 - --disable-man-doc
 - --with-cli=readline
+
+verify_paths:
+  - /usr/lib/systemd/system/nftables.service
+  - /usr/lib/systemd/system-preset/90-nftables.preset

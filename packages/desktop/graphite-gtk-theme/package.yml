@@ -17,3 +17,6 @@ dependencies:
   runtime:
   - gtk3
   - gtk4
+
+verify_paths:
+  - /usr/share/themes/Graphite-Dark

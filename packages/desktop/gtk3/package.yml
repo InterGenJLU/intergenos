@@ -44,3 +44,7 @@ tests:
   enabled: true
   failure_policy: known_failures
   reason: "no display in chroot — GTK 3 widget tests require X11/Wayland session per BLFS; same root cause as gtk4"
+
+verify_paths:
+  - /usr/lib/libgtk-3.so
+  - /usr/bin/gtk3-demo

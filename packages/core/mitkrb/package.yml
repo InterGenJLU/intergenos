@@ -21,3 +21,7 @@ dependencies:
   - openldap
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/bin/krb5-config
+  - /usr/lib/libkrb5.so

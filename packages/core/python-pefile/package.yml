@@ -18,3 +18,6 @@ build_style: custom
 # Pure-Python module. Required at systemd-pass2 build time for the ukify
 # tool (Unified Kernel Image generator). Without pefile, ukify is disabled
 # and the bootloader's signed-UKI workflow loses its upstream tooling.
+
+verify_paths:
+  - /usr/lib/python3.13/site-packages

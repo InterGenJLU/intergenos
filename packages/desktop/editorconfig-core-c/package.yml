@@ -15,3 +15,7 @@ dependencies:
   build: []
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/lib/libeditorconfig.so
+  - /usr/bin/editorconfig

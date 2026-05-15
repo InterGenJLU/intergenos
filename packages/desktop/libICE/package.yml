@@ -20,3 +20,6 @@ configure_flags:
 - --prefix=/usr
 - --disable-static
 - ICE_LIBS=-lpthread
+
+verify_paths:
+  - /usr/lib/libICE.so

@@ -15,3 +15,6 @@ dependencies:
   host: []
   runtime:
   - perl-core
+
+verify_paths:
+  - /usr/bin/parallel

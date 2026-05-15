@@ -23,3 +23,7 @@ dependencies:
   - which
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/bin/node
+  - /usr/bin/npm

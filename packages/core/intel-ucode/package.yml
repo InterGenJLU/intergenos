@@ -15,3 +15,6 @@ dependencies:
   - iucode-tool
   host: []
   runtime: []
+
+verify_paths:
+  - /lib/firmware/intel-ucode

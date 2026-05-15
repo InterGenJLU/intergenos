@@ -26,3 +26,6 @@ dependencies:
   - gobject-introspection
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/bin/gnome-music

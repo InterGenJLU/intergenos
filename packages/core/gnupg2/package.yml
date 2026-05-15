@@ -28,3 +28,7 @@ configure_flags:
 - --prefix=/usr
 - --localstatedir=/var
 - --sysconfdir=/etc
+
+verify_paths:
+  - /usr/bin/gpg
+  - /usr/bin/gpgconf

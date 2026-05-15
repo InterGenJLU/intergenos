@@ -14,3 +14,7 @@ dependencies:
   build: []
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/bin/xxhsum
+  - /usr/lib/libxxhash.so

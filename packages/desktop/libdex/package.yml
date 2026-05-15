@@ -16,3 +16,6 @@ dependencies:
   - vala
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/lib/libdex-1.so

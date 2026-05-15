@@ -15,3 +15,6 @@ dependencies:
   - libcdio
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/lib/libcdio_paranoia.so

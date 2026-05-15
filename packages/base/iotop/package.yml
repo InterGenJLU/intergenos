@@ -17,3 +17,7 @@ dependencies:
   host:
     - ncurses
   runtime: []
+
+verify_paths:
+  - /usr/sbin/iotop
+  - /usr/share/man/man8/iotop.8

@@ -24,3 +24,6 @@ dependencies:
   - openssh
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/lib/libgcr-4.so

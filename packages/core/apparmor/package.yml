@@ -38,3 +38,8 @@ dependencies:
   build: [which]
   host: [perl-core, python, bash]
   runtime: []
+
+verify_paths:
+  - /usr/lib/apparmor
+  - /usr/lib/systemd/system
+  - /usr/share/intergenos-apparmor

@@ -19,3 +19,6 @@ tier: core
 build_style: custom
 # Python C FFI library. Required by python-cryptography (which is required
 # by systemd-pass2's ukify tool).
+
+verify_paths:
+  - /usr/lib/python3.13/site-packages

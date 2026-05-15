@@ -19,3 +19,6 @@ dependencies:
   - gobject-introspection
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/lib/libfolks.so

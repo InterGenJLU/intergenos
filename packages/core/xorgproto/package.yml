@@ -16,3 +16,6 @@ dependencies:
   - libxslt
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/share/pkgconfig/xorgproto.pc

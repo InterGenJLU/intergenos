@@ -18,3 +18,6 @@ dependencies:
   host: []
   runtime:
   - gtk3
+
+verify_paths:
+  - /usr/share/themes/adw-gtk3-dark

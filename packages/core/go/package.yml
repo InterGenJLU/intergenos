@@ -19,3 +19,8 @@ dependencies:
     - gcc-core
     - glibc
     - make-ca
+
+verify_paths:
+  - /usr/lib/go
+  - /usr/lib/go/pkg/obj
+  - /usr/lib/go/pkg/bootstrap

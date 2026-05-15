@@ -22,3 +22,6 @@ dependencies:
   - libadwaita1
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/bin/gnome-characters

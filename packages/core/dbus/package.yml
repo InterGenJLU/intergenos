@@ -22,3 +22,7 @@ dependencies:
 tier: core
 build_style: meson
 install_func: do_install
+
+verify_paths:
+  - /usr/bin/dbus-daemon
+  - /etc/dbus-1/system.d

@@ -25,3 +25,7 @@ dependencies:
   - libssh2
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/bin/rustc
+  - /usr/bin/cargo

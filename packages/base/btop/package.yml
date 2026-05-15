@@ -17,3 +17,6 @@ dependencies:
     - cmake
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/bin/btop

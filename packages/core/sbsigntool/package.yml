@@ -36,3 +36,7 @@ bundled_deps:
 configure_flags:
 - --prefix=/usr
 - --sysconfdir=/etc
+
+verify_paths:
+  - /usr/bin/sbsign
+  - /usr/bin/sbverify

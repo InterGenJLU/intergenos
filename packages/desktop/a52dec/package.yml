@@ -19,3 +19,6 @@ configure_flags:
 - --mandir=/usr/share/man
 - --enable-shared
 - --disable-static
+
+verify_paths:
+  - /usr/include/a52dec

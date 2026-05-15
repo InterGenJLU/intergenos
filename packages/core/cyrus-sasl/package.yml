@@ -19,3 +19,6 @@ dependencies:
   - linux-pam
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/lib/libsasl2.so

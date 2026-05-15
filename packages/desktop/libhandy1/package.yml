@@ -16,3 +16,6 @@ dependencies:
   - vala
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/lib/libhandy-1.so

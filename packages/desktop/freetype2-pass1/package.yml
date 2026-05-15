@@ -17,3 +17,6 @@ dependencies:
   - python
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/lib/libfreetype.so

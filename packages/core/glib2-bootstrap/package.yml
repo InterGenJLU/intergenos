@@ -22,3 +22,6 @@ dependencies:
     - docbook-xsl-nons
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/lib/libglib-2.0.so

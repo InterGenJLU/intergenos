@@ -28,3 +28,7 @@ supersedes:
 # This pass rebuilds with cairo enabled so cairo .typelib bindings are
 # available to GNOME applications. Supersedes pass1 at install time via
 # migrate-pkm-supersedes.sh.
+
+verify_paths:
+  - /usr/lib/libgirepository-1.0.so
+  - /usr/bin/g-ir-scanner

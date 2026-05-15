@@ -16,3 +16,7 @@ dependencies:
   build: []
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/bin/busybox.static
+  - /usr/share/man/man1/busybox-static.1

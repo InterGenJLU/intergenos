@@ -35,3 +35,6 @@ dependencies:
 #
 # Owner-approved 2026-05-11 — completes the bootstrap chain
 # (glib2-bootstrap → gobject-introspection-pass1 → glib2 full → ...).
+
+verify_paths:
+  - /usr/lib/libgirepository-1.0.so

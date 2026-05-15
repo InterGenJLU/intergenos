@@ -27,3 +27,6 @@ supersedes:
 # message bus + libdbus runtime built without doxygen because doxygen
 # (tier:desktop) is not available at ch8 build time. This pass rebuilds
 # with doxygen present so HTML API documentation is generated.
+
+verify_paths:
+  - /usr/bin/dbus-daemon

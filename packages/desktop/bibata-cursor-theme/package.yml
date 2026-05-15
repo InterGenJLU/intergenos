@@ -14,3 +14,6 @@ dependencies:
   build: []
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/share/icons/Bibata-Modern-Classic

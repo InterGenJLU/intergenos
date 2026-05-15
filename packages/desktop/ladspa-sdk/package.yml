@@ -16,3 +16,6 @@ dependencies:
   host: []
   runtime:
   - libsndfile
+
+verify_paths:
+  - /usr/lib/ladspa

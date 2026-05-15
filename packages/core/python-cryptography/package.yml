@@ -26,3 +26,6 @@ build_style: custom
 # against OpenSSL. Required at systemd-pass2 build time for the ukify tool
 # (Unified Kernel Image generator + signer). Without cryptography, ukify
 # is disabled.
+
+verify_paths:
+  - /usr/lib/python3.13/site-packages

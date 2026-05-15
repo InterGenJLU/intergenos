@@ -27,3 +27,8 @@ dependencies:
 # PKG_CHECK_MODULES([LUA], [lua >= 5.2], [], [AC_MSG_ERROR(...)]) which
 # fails configure unconditionally if lua isn't present at pkg-config time.
 # Caught by preflight-undeclared-deps.py (Scan A.2) post-Build-#9 halt.
+
+verify_paths:
+  - /usr/bin/rpm
+  - /usr/bin/rpmdb
+  - /usr/bin/rpmkeys

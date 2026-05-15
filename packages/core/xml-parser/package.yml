@@ -15,3 +15,6 @@ dependencies:
 tier: core
 build_style: custom
 install_func: do_install
+
+verify_paths:
+  - /usr/lib/perl5/site_perl

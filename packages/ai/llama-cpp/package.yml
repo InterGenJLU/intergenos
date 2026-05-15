@@ -16,3 +16,7 @@ dependencies:
   - curl
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/bin/llama-cli
+  - /usr/bin/llama-server

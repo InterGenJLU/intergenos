@@ -12,3 +12,7 @@ dependencies:
   runtime: []
 tier: core
 build_style: make
+
+verify_paths:
+  - /etc/protocols
+  - /etc/services

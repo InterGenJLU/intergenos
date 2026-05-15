@@ -16,3 +16,6 @@ dependencies:
   - pangomm
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/lib/libgtkmm-4.0.so

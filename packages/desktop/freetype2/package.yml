@@ -27,3 +27,6 @@ dependencies:
 # the canonical short name on the successor side.
 supersedes:
   - freetype2-pass1
+
+verify_paths:
+  - /usr/lib/libfreetype.so

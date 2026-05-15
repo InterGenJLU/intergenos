@@ -16,3 +16,6 @@ dependencies:
 
 tier: core
 build_style: custom
+
+verify_paths:
+  - /usr/lib/python3.13/site-packages

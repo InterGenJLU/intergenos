@@ -15,3 +15,6 @@ dependencies:
   - nettle
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/bin/rdfind

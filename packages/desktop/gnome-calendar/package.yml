@@ -25,3 +25,6 @@ dependencies:
   - libical
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/bin/gnome-calendar

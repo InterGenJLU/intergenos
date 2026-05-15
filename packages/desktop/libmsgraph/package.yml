@@ -21,3 +21,6 @@ dependencies:
   - json-glib
   - libsoup3
   - gnome-online-accounts
+
+verify_paths:
+  - /usr/lib/libmsgraph-1.so

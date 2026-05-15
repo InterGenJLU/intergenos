@@ -16,3 +16,6 @@ dependencies:
   - setuptools-scm
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/lib/python3.13/site-packages

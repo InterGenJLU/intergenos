@@ -17,3 +17,6 @@ dependencies:
   - vala
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/lib/libmediaart-2.0.so

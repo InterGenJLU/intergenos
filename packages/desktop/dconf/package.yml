@@ -18,3 +18,7 @@ dependencies:
   - glib2
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/bin/dconf
+  - /usr/lib/libdconf.so

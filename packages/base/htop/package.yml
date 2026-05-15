@@ -24,3 +24,6 @@ tests:
   enabled: true
   failure_policy: known_failures
   reason: "process-introspection tests need full /proc with running processes; chroot /proc is minimal and tty/cgroup state differs from a live system"
+
+verify_paths:
+  - /usr/bin/htop

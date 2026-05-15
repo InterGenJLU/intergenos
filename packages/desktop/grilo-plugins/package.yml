@@ -21,3 +21,6 @@ dependencies:
   - libxml2
   host: []
   runtime: []
+
+verify_paths:
+  - /usr/lib/grilo-0.3

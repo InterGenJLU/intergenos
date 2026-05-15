@@ -15,3 +15,6 @@ dependencies:
   host: []
   runtime:
   - gtk3
+
+verify_paths:
+  - /usr/share/themes/Catppuccin-Mocha-Standard-Blue-Dark

@@ -14,3 +14,8 @@ dependencies:
   build: []
   host: []
   runtime: []
+
+verify_paths:
+  - /etc/ssl/cert.pem
+  - /etc/pki/tls/certs
+  - /etc/pki/ca-trust/source/anchors

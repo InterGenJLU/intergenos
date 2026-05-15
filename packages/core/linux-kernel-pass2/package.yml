@@ -19,3 +19,7 @@ dependencies:
 
 supersedes:
   - linux-kernel
+
+verify_paths:
+  - /boot/vmlinuz-6.18.10-igos
+  - /usr/lib/modules/6.18.10-igos

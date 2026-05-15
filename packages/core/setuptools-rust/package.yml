@@ -19,3 +19,6 @@ build_style: custom
 # Setuptools plugin for building Rust extensions. Required by
 # python-cryptography (whose backends are written in Rust via PyO3) for
 # systemd-pass2's ukify tool.
+
+verify_paths:
+  - /usr/lib/python3.13/site-packages

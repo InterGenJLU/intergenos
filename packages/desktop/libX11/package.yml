@@ -23,3 +23,6 @@ configure_flags:
 - --sysconfdir=/etc
 - --localstatedir=/var
 - --disable-static
+
+verify_paths:
+  - /usr/lib/libX11.so

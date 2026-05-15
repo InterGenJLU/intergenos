@@ -22,3 +22,6 @@ configure_flags:
 - --prefix=/usr
 - --disable-static
 - --with-appdefaultdir=/etc/X11/app-defaults
+
+verify_paths:
+  - /usr/lib/libXt.so

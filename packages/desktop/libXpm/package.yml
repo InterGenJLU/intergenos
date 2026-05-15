@@ -22,3 +22,6 @@ configure_flags:
 - --prefix=/usr
 - --disable-static
 - --disable-open-zfile
+
+verify_paths:
+  - /usr/lib/libXpm.so
