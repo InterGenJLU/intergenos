@@ -35,9 +35,31 @@ build() {
 
 do_install() {
     set -e
+
+    # ---- dconf system-db defaults --------------------------------------
     install -dm755 "${DESTDIR}/etc/dconf/db/local.d"
     install -m644 ./01-intergenos-defaults \
         "${DESTDIR}/etc/dconf/db/local.d/01-intergenos-defaults"
+
+    # ---- burn-my-windows file-based profile ----------------------------
+    # burn-my-windows v48 stores profile config in
+    # ~/.config/burn-my-windows/profiles/<microsecond-id>.conf files —
+    # NOT in dconf paths alone. The dconf path
+    # /org/gnome/shell/extensions/burn-my-windows/profile-close-0/ is a
+    # mirror that the extension's ProfileManager.js generates FROM the
+    # .conf files it discovers; the .conf is the authoritative source.
+    # Without this file present, the extension generates an empty default
+    # profile at first session start ("default settings" appearance even
+    # when our dconf defaults are loaded). Shipping via /etc/skel ensures
+    # every freshly-created user (including liveuser via init.sh's
+    # `cp -a /etc/skel/. /home/liveuser/`) gets the curated profile
+    # before the extension's first-run profile-init can write a blank.
+    # Filename matches the canonical-baseline workstation's profile ID
+    # for byte-level consistency; the extension treats filenames as
+    # opaque microsecond-stamped IDs.
+    install -dm755 "${DESTDIR}/etc/skel/.config/burn-my-windows/profiles"
+    install -m644 ./1775735161994164.conf \
+        "${DESTDIR}/etc/skel/.config/burn-my-windows/profiles/1775735161994164.conf"
 }
 
 post_install() {
