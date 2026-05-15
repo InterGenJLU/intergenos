@@ -1,0 +1,20 @@
+name: forge
+version: "1.0.0"
+release: 1
+description: InterGenOS system installer (Forge) — GTK4/libadwaita GUI + declarative-builder TUI; entry point dispatched via igos.mode= kernel cmdline
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: file:///forge-1.0.0.tar.xz
+  sha256: 650007abe6c25848e15de79b081d448227f839fdd538408e6acfe7fc83466986
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - python3
+  - gtk4
+  - libadwaita1
+  - python-gobject
