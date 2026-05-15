@@ -72,7 +72,11 @@ check_signing_manifest_signature() {
 }
 
 check_signing_audit_log() {
-    local log="/var/lib/igos/audit/integrity-events.jsonl"
+    # The hash-chained JSONL audit log produced by integrity.append_event()
+    # and copied onto the installed target by integrity.copy_audit_log_to_target().
+    # Path matches backend/integrity.py + frontend/{tui.py,gui/screens/progress.py}
+    # INTEGRITY_AUDIT_LOG constants (single source of truth).
+    local log="/var/log/igos-integrity-override.log"
 
     if [ ! -f "$log" ]; then
         check_skip "sign/audit-log" "$log not present (manifest verification didn't run on this install)"
