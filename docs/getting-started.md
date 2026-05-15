@@ -31,10 +31,10 @@ Before writing the image to a USB drive, you must verify its integrity. InterGen
 Once verified, write the ISO to a USB flash drive (8GB or larger).
 
 **On Linux/macOS:**
-`ash
+```bash
 # Replace /dev/sdX with your actual USB device. DOUBLE-CHECK THIS.
 sudo dd if=intergenos-1.0.iso of=/dev/sdX bs=4M status=progress oflag=sync
-`
+```
 
 **On Windows:**
 We recommend using [Rufus](https://rufus.ie) or [balenaEtcher](https://balena.io/etcher) in "DD Image" mode.
@@ -48,7 +48,7 @@ We recommend using [Rufus](https://rufus.ie) or [balenaEtcher](https://balena.io
 5.  Follow the prompts to partition your disk, set your hostname, and create your user account.
 6.  **MOK Enrollment:** During installation, Forge will prompt you to enroll the InterGenOS Machine Owner Key (MOK). This is required if you plan to use DKMS or build out-of-tree kernel modules. You must accept this enrollment and follow the on-screen instructions.
 
-*(For a detailed walkthrough of the installation process, see the [Install Guide](install-guide.md)).*
+*(For details on Forge's installer architecture, see the [Forge component reference](components/forge.md)).*
 
 ## 5. First Boot
 
@@ -63,16 +63,16 @@ For details on what to expect, read the [First-Boot Greeter reference](first-boo
 Once you're at your desktop, you will use the pkm package manager to pull updates from our canonical mirror at https://repo.intergenos.org/x86_64/.
 
 Your first step should be to run:
-`ash
+```bash
 sudo pkm sync
-`
+```
 This simple command automatically fetches the InterGenOS.db index, verifies its cryptographic signature against the bundled release key, and securely refreshes your local package metadata so you can begin installing software.
 
 For details on the cryptographic verification your machine performs during every pkm sync, see the [Repository Trust Model](repository-trust.md).
 
 ## 7. Next Steps
 
-*   **InterGen AI Assistant:** To learn how to use the built-in AI safely, see the [InterGen User Guide](intergen-user-guide.md).
-*   **Package Management:** To learn how to install software via our secure package manager, read the pkm(1) man page or the [PKM Guide](pkm-guide.md).
+*   **InterGen AI Assistant:** To understand the AI assistant runtime, see the [InterGen component reference](components/intergen.md).
+*   **Package Management:** To learn how to install software via our secure package manager, read the pkm(1) man page or the [Package Management user guide](users/package-management.md).
 *   **FAQ:** Check the [Frequently Asked Questions](faq.md) for common issues and answers.
 *   **Contribute:** If you want to help develop the OS, see the [Contributor Guide](contributor-guide.md).

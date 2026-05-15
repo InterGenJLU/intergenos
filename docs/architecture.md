@@ -67,27 +67,29 @@ The `Forge` installer (`installer/`) is the mechanism for deploying the compiled
 
 *   **Frontends**: A text-based UI (`installer/frontend/tui.py`) and a graphical GTK4 UI (`installer/frontend/gui/`) capture user intents (disk selection, locale, usernames, passwords). Both frontends produce a declarative YAML state.
 *   **Verification Gate (PHASE_VERIFY)**: Before touching the disk, the backend executes an anti-supply-chain integrity gate. It verifies the cryptographic signatures of the package archives against a trusted manifest. This ensures the install media hasn't been tampered with.
-*   **Backend Execution (`installer/backend/install.py`)**: The backend consumes the YAML intent and executes an 11-phase pipeline:
+*   **Backend Execution (`installer/backend/install.py`)**: The backend consumes the YAML intent and executes a 13-phase pipeline:
     1.  Validate inputs.
     2.  Verify archive integrity.
     3.  Partition and format the target disk.
-    4.  Mount the target and virtual filesystems.
-    5.  Install packages via `pkm` (queue-threaded).
-    6.  Generate system configuration (fstab, locale, timezone).
-    7.  Configure users and passwords.
-    8.  Generate MOK keys (for Secure Boot, if EFI).
-    9.  Install the bootloader (GRUB).
-    10. Run post-install hooks.
-    11. Enable system services.
+    4.  Mount the target filesystems.
+    5.  Set up virtual filesystem bind-mounts (`/dev`, `/proc`, `/sys`).
+    6.  Install packages via `pkm` (queue-threaded).
+    7.  Generate system configuration (fstab, locale, timezone).
+    8.  Configure users and passwords.
+    9.  Generate MOK keys (for Secure Boot, if EFI).
+    10. Install the bootloader (GRUB).
+    11. Run post-install hooks.
+    12. Enable system services.
+    13. Cleanup — unmount virtual + target filesystems.
 
 ## InterGen AI-Runtime Stack
 
 The distinguishing feature of InterGenOS is its deeply integrated AI assistant, designed to operate entirely locally.
 
-*   **Hardware-Tier Model Catalog**: The system provisions models based on local hardware capabilities:
-    *   Tier 1 (2B parameters): Optimized for basic interactions and constrained memory.
-    *   Tier 2 (9B parameters): The standard capable model for coding and reasoning.
-    *   Tier 3 (35B+ parameters): High-end models for advanced analysis.
+*   **Hardware-Tier Model Catalog**: The system provisions Qwen3.5 models based on local hardware capabilities (canonical catalog in `intergen/model_manager.py`):
+    *   Tier 1 (Qwen3.5-2B): Optimized for basic interactions and constrained memory (<8 GB RAM).
+    *   Tier 2 (Qwen3.5-9B): The standard capable model for coding and reasoning (8-15 GB RAM).
+    *   Tier 3 (Qwen3.5-35B-A3B MoE): High-end model for advanced analysis (16 GB+ RAM, discrete GPU).
 *   **Llama Manager (`intergen/llama_manager.py`)**: Handles the lifecycle (start, stop, load, unload) of the `llama.cpp` inference engine.
 *   **Priority Router (`intergen/router.py`)**: A critical component managing concurrent demands on the AI engine. It utilizes an 8-priority queue system to arbitrate requests (e.g., user-interactive chat vs. background log summarization).
 *   **Safety Classifier**: All prompts and outputs pass through a safety classifier that determines actionability (AUTO, CONFIRM, BLOCKED) based on the user-control posture.

@@ -31,7 +31,7 @@ The Adwaita widget theme ships as the GTK4 baseline and is customized through a 
 
 ## 2. What's Installed by Default
 
-The desktop-tier installation (~383 packages) provides a fully functional workstation out of the box. Here are the headline applications:
+The desktop-tier installation (~400 packages) provides a fully functional workstation out of the box. Here are the headline applications:
 
 | Application | Purpose |
 |---|---|

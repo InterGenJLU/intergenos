@@ -10,11 +10,11 @@ This document details `InterGen`, the locally-hosted AI assistant embedded direc
 
 ## Model Catalog & Hardware Tiers
 
-InterGen is dynamically scaled according to the hardware it detects on the host. `llama_manager.py` loads models corresponding to these tiers:
+InterGen is dynamically scaled according to the hardware it detects on the host. `llama_manager.py` loads models corresponding to these tiers (canonical catalog in `intergen/model_manager.py`):
 
-*   **Tier 1 (2B - Basic)**: e.g., Gemma 2B or similar. Used on systems with < 8GB RAM. Limited to basic semantic matching, system querying, and keyword extraction. Not authorized for complex code generation.
-*   **Tier 2 (9B - Standard)**: e.g., Llama 3 8B or similar. Requires 16GB+ RAM. The default daily driver capable of coding, system configuration, and reasoning.
-*   **Tier 3 (35B+ - Advanced)**: e.g., Command R+ or Llama 3 70B (quantized). Requires 32GB+ to 64GB+ RAM. Used for deep, multi-file codebase analysis and complex architectural reasoning.
+*   **Tier 1 (2B - Basic)**: Qwen3.5-2B Q4_K_M (~1.5 GB). Used on systems with <8 GB RAM. Limited to basic semantic matching, system querying, and keyword extraction. Not authorized for complex code generation.
+*   **Tier 2 (9B - Standard)**: Qwen3.5-9B Q4_K_M. Requires 16 GB+ RAM. The default daily driver capable of coding, system configuration, and reasoning.
+*   **Tier 3 (35B - Advanced)**: Qwen3.5-35B-A3B Q4_K_M (MoE). Requires 32 GB+ RAM. Used for deep, multi-file codebase analysis and complex architectural reasoning.
 
 ## The Priority Router (`intergen/router.py`)
 

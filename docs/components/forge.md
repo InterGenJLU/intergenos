@@ -28,7 +28,7 @@ A modern GTK4 / `libadwaita` application.
 
 ## The Backend Orchestrator (`installer/backend/install.py`)
 
-The `run_install()` function is the entry point for the backend. It consumes the YAML state and executes the following 11-phase pipeline (`PHASE_ORDER`):
+The `run_install()` function is the entry point for the backend. It consumes the YAML state and executes the following 13-phase pipeline (`PHASE_ORDER`):
 
 1.  **Validate (`PHASE_VALIDATE`)**: Verifies the YAML configuration structure and executes deep validations (e.g., regex validation of the requested hostname via `_validators.py`).
 2.  **Verify (`PHASE_VERIFY`)**: *Crucial security gate*. Computes the SHA-256 hash of every `.igos.tar.gz` package archive intended for deployment and verifies it against the `intergenos-archive-manifest.txt`, which is cryptographically signed by the release keys. A mismatch halts the installer *before* partitioning begins, unless the user provides explicit, typed confirmation to override.

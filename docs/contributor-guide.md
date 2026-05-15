@@ -41,18 +41,20 @@ If the standard build styles are insufficient, a package can declare `build_styl
 
 ## Pre-Push Gates
 
-The repository is protected by a strict set of client-side git hooks (`.githooks/pre-push`). You must run `scripts/setup-githooks.sh` after cloning the repository. The pre-push hook enforces the following gates:
+The repository is protected by a strict set of client-side git hooks (`.githooks/pre-push`). You must run `scripts/setup-githooks.sh` after cloning the repository. The pre-push hook enforces the following gates (numbered as in the script):
 
-1.  **Force-Push Block**: Absolute block on force-pushing to the `master` branch. Master history is sacred.
-2.  **Public-Content Audit**: Scans the to-be-pushed bytes (`HEAD`, not the working tree) to ensure internal vocabulary (like "Holy Grail" or "Prime Directive") and agent abbreviations are not leaked into published documentation or code comments. Use public-safe terms like "anti-supply-chain" or "user-control posture".
-3.  **Stale-Master Check**: Rejects pushes if your local master is behind `origin/master`. You must rebase first.
-4.  **Syntax Checks**: Runs `bash -n` on modified shell scripts and `python3 -m py_compile` on modified Python files to prevent pushing broken syntax.
-5.  **Documentation Scope Gate**: If a commit changes more than 50 lines in a file, that file *must* be mentioned in the commit message body to prevent under-documented architectural shifts.
-6.  **Conventional Commits**: Enforces the subject line format.
-7.  **Co-Authored-By Enforcement**: Enforces the provenance trailer on large commits.
+0.  **Force-Push Block**: Absolute block on force-pushing to the `master` branch. Master history is sacred.
+1.  **Public-Content Audit**: Scans the to-be-pushed bytes (`HEAD`, not the working tree) to ensure internal vocabulary and agent abbreviations are not leaked into published documentation or code comments. Use public-safe terms like "anti-supply-chain" or "user-control posture".
+2.  **Stale-Master Check**: Rejects pushes if your local master is behind `origin/master`. You must rebase first.
+3.  **Syntax Checks**: Runs `bash -n` on modified shell scripts and `python3 -m py_compile` on modified Python files to prevent pushing broken syntax.
+4.  **Documentation Scope Gate**: If a commit changes more than 50 lines in a file, that file *must* be mentioned in the commit message body to prevent under-documented architectural shifts.
+5.  **Conventional Commits**: Enforces the subject line format.
+6.  **Co-Authored-By Enforcement**: Enforces the provenance trailer on large commits.
+7.  **Commit-Message Public-Content Audit**: Scans commit subject and body for internal vocabulary or agent abbreviations.
+8.  **`verify_paths` Declaration**: Any new `package.yml` must declare `verify_paths:` (or `pending_acquisition:`) per build-development rulebook Rule 20.
 
 ### The NO-GATE Escape Hatch
-If you are performing a legitimate bulk-mechanical change (e.g., mass renaming, applying formatting tools) where gates 5, 6, or 7 are inappropriate, you may bypass them by including the text `NO-GATE: <reason>` anywhere in the commit message body. Use this sparingly.
+If you are performing a legitimate bulk-mechanical change (e.g., mass renaming, applying formatting tools) where gates 4, 5, or 6 are inappropriate, you may bypass them by including the text `NO-GATE: <reason>` anywhere in the commit message body. Use this sparingly.
 
 ## Common Contributor Tasks
 
@@ -61,7 +63,7 @@ If you are performing a legitimate bulk-mechanical change (e.g., mass renaming, 
 2.  Create a new directory: `packages/<tier>/<package-name>/`.
 3.  Create a `package.yml` detailing the source URL, SHA-256 checksum, dependencies, and build style.
 4.  If using `build_style: custom`, create a `build.sh` script containing the build functions and starting with `set -euo pipefail`.
-5.  Test the build locally using the orchestrator: `python3 igos-build/builder.py <package-name>`.
+5.  Test the build locally using the orchestrator: `python3 igos-build.py --build --only <package-name>`.
 
 ### How to Add a Test
 *   Top-level integration tests live in `tests/`. 

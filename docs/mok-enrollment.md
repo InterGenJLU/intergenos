@@ -254,7 +254,7 @@ The next boot reads the MOK list into kernel keyring before any modules load. Fr
 
 ## 6. Post-enrollment validation
 
-After the post-MokManager reboot, log in and run the validation commands below. The Forge installer also installs a post-install smoke test (see [installer/smoke/](../installer/smoke/)) that automates most of these — `intergenos-smoke-test` runs them and emits a pass/fail summary.
+After the post-MokManager reboot, log in and run the validation commands below. A post-install smoke-test framework lives at [installer/smoke/](../installer/smoke/) (entrypoint `smoke-test.sh`); the install-time wiring that drops it onto the target as `/usr/bin/intergenos-smoke-test` is in progress.
 
 ### Confirm Secure Boot is on and shim is loaded
 
@@ -424,8 +424,10 @@ Or wipe the local state entirely (you will need to re-generate and re-enroll):
 
 ```bash
 sudo rm -rf /var/lib/intergen/mok/
-# Re-run the installer's MOK setup step, or generate manually:
-sudo /usr/share/intergenos/scripts/mok-generate.sh
+# Re-run the installer's MOK setup step from a recovery boot, or invoke
+# the same logic directly from a Python shell with installer/backend/mok.py:
+#   from backend.mok import generate_mok_keypair
+#   generate_mok_keypair("/")
 ```
 
 ---
@@ -482,7 +484,7 @@ This section is the procedure used to validate the runbook against a real machin
    - `mokutil --list-enrolled` includes the new MOK CN.
    - `sudo keyctl list %:.secondary_trusted_keys` shows the MOK pubkey.
    - `cat /proc/sys/kernel/module_sig_enforce` returns `1`.
-   - Run `intergenos-smoke-test` — all signing-chain checks must PASS or WARN, none FAIL.
+   - Run the smoke-test framework at `installer/smoke/smoke-test.sh` — all signing-chain checks must PASS or WARN, none FAIL.
    - **Pass criterion 6:** all of the above.
 
 6. **DKMS chain end-to-end (optional, if a DKMS module is available in the test build):**

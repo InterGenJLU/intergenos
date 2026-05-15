@@ -101,9 +101,9 @@ Hardware-detected, fully local, no cloud. Text-only by design — the AI helps y
 
 | Tier | Hardware | LLM | Capability |
 |------|----------|-----|------------|
-| 1 | 4GB RAM, any CPU | Qwen3-0.6B Q4 (397MB) | Lightweight assistant — answers, simple commands |
-| 2 | 8-15GB RAM, 4+ cores | Qwen3-1.7B Q4 (1.3GB) on CPU; Qwen3-9B Q4 with discrete GPU | Multi-turn reasoning, file analysis, package management |
-| 3 | 16GB+ RAM, discrete GPU | Qwen3-9B+ Q4 (4.9GB+) | Full local-AI capabilities — long-context reasoning, complex orchestration |
+| 1 | <8GB RAM, no/integrated GPU | Qwen3.5-2B Q4_K_M (~1.5GB) | Lightweight assistant — answers, simple commands |
+| 2 | 8-15GB RAM, any GPU | Qwen3.5-9B Q4_K_M (~5.5GB) | Multi-turn reasoning, file analysis, package management |
+| 3 | 16GB+ RAM, discrete GPU | Qwen3.5-35B-A3B MoE Q4_K_M (~21GB) | Full local-AI capabilities — long-context reasoning, complex orchestration |
 
 **Key design decisions:**
 - Installer detects hardware tier automatically

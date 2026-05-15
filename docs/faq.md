@@ -31,7 +31,7 @@ Regularly run sudo pkm sync followed by sudo pkm update. See the "Keeping Your S
 ## 3. Boot and Kernel Security
 
 **How does Secure Boot work in InterGenOS?**
-InterGenOS uses a Microsoft-signed shim to anchor the trust chain. The shim validates our own InterGenOS-signed grubx64.efi bootloader, which in turn loads our signed mlinuz kernel. If Secure Boot is enabled, the kernel automatically triggers lockdown=integrity mode.
+InterGenOS uses a Microsoft-signed shim to anchor the trust chain. The shim validates our own InterGenOS-signed grubx64.efi bootloader, which in turn loads our signed vmlinuz kernel. If Secure Boot is enabled, the kernel automatically triggers lockdown=integrity mode.
 
 **Do I need to enroll a Machine Owner Key (MOK) to boot the OS?**
 No. The core OS components (shim, grub, kernel, and in-tree modules) are trusted automatically by the system. The kernel modules are signed with an ephemeral key generated dynamically during the build and embedded into the kernel image.
@@ -42,7 +42,7 @@ If you need to load out-of-tree modules (like proprietary graphics drivers), you
 ## 4. The InterGen AI Assistant
 
 **How do I use the built-in AI?**
-The InterGen assistant is available natively via the intergen CLI and its background D-Bus daemon. It is tightly integrated into the GNOME desktop via a conversational overlay. For detailed usage instructions and examples, read the [InterGen User Guide](intergen-user-guide.md).
+The InterGen assistant is available natively via the intergen CLI and its background D-Bus daemon. It is tightly integrated into the GNOME desktop via a conversational overlay. For detailed component documentation, read the [InterGen component reference](components/intergen.md).
 
 **Is the AI tracking what I do?**
 No. The AI's state caching and diagnostic tools are strictly confined locally. There is no cloud-syncing or background telemetry.

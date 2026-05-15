@@ -40,7 +40,7 @@ InterGenOS does not rely on post-installation hardening scripts. The environment
 
 ## 3. The Signed Binary Mirror
 
-When you install software, you pull from epo.intergenos.org. This mirror is signed end-to-end to prevent tampering.
+When you install software, you pull from repo.intergenos.org. This mirror is signed end-to-end to prevent tampering.
 
 Every time you run pkm sync, your machine cryptographically verifies the InterGenOS.db index signature against the offline-generated InterGenOS master release key. When downloading a package, pkm validates the file's SHA-256 hash locally before installation. We enforce an index-only signature trust model for our v1.0 release, ensuring a centralized, undeniable source of truth.
 
