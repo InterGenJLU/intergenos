@@ -12,6 +12,16 @@ After=intergen-firstboot.service
 # Idempotency: do nothing on subsequent boots once the flag is written.
 ConditionPathExists=!/etc/intergenos/first-boot-completed
 
+# Live-installer mode guard. The squashfs is shared between live-boot and
+# installed-system rootfs, so this unit ships enabled in both contexts. On
+# live-ISO boot the kernel cmdline carries `igos.mode=live`, `=install-gui`
+# or `=install-tui` (per installer/init/cmdline.*.txt); the greeter must NOT
+# fire there — those flows claim tty1 themselves (forge-tui.service on tty1
+# for install-tui, GDM/forge-gui session on graphical.target for live and
+# install-gui). Negated bare-word match: condition is TRUE only when the
+# cmdline has no `igos.mode` assignment, which is the installed-system case.
+ConditionKernelCommandLine=!igos.mode
+
 DefaultDependencies=no
 Conflicts=getty@tty1.service
 Before=getty@tty1.service
