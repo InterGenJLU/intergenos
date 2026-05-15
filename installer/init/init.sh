@@ -109,6 +109,27 @@ mount -o ro "$ISO_DEV" /run/iso || fatal "cannot mount ISO at $ISO_DEV"
 
 SQUASHFS_PATH=/run/iso/live/filesystem.squashfs
 [ -f "$SQUASHFS_PATH" ] || fatal "squashfs not found at $SQUASHFS_PATH"
+
+# ---- SHA256 verify squashfs against shipped hash ---------------------------
+# The UKI signature (Secure Boot) covers init.sh + initramfs + cmdline only.
+# /live/filesystem.squashfs lives outside the UKI; without independent
+# verification, an attacker swapping the squashfs on the media yields a
+# trusted-boot to malicious payload. scripts/build-iso.sh writes
+# /live/filesystem.sha256 alongside the squashfs at every ISO build; this
+# block verifies the on-media squashfs matches before mounting.
+#
+# busybox-static's sha256sum applet does the heavy lift. Fatal on any of:
+# missing hash file (suggests media corruption or pre-`build-iso` build),
+# unreadable hash (same), digest mismatch (active tampering or media decay).
+SHA256_FILE=/run/iso/live/filesystem.sha256
+[ -f "$SHA256_FILE" ] || fatal "missing $SHA256_FILE — cannot verify squashfs integrity"
+EXPECTED=$(awk '{print $1}' "$SHA256_FILE")
+[ -n "$EXPECTED" ] || fatal "could not parse expected sha256 from $SHA256_FILE"
+info "verifying squashfs sha256 (this takes a few seconds)..."
+ACTUAL=$(sha256sum "$SQUASHFS_PATH" | awk '{print $1}')
+[ "$EXPECTED" = "$ACTUAL" ] || fatal "squashfs sha256 mismatch: expected $EXPECTED got $ACTUAL"
+info "squashfs sha256 verified ($EXPECTED)"
+
 mount -t squashfs -o ro,loop "$SQUASHFS_PATH" /run/squashfs || fatal "cannot mount squashfs"
 
 # ---- Set up overlayfs root -------------------------------------------------
