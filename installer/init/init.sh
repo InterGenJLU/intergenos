@@ -149,59 +149,68 @@ mount --move /dev           /newroot/dev
 # install modes + ends up on the installed target post-install). Proper
 # live.target architecture is a v1.0 design arc.
 #
-# install-gui mode shares the SAME overlay scaffold (machine-id, hostname,
-# firstboot/AppArmor masks, liveuser+GDM autologin, dconf-screen-lock) —
-# the install-gui graphical session runs from the same squashfs as live;
-# only the user-facing autostart differs (Forge GUI replaces the welcomer).
-# install-tui mode does NOT need GDM/Wayland scaffolding (forge-tui.service
-# claims tty1); it is handled in its own block below.
+# All three live-ISO modes share a minimal base scaffold (machine-id,
+# hostname, firstboot masks, noisy-server masks). Without these, ANY
+# live-ISO boot of the shared squashfs would: (a) trigger
+# systemd-firstboot interactively because the squashfs ships /etc/
+# machine-id == "uninitialized" — fatal on install-tui because the
+# prompt competes with forge-tui.service for tty1 — and (b) fire the
+# server-class Wave 1b daemons (mariadb, httpd, ...) which fail in
+# tight Restart= loops and drown the boot console.
+#
+# Live + install-gui then add the GDM-class scaffold on top (liveuser,
+# automatic GDM login, graphical.target default, tty2 root autologin,
+# dconf screen-lock disable). install-tui doesn't need any of that —
+# forge-tui.service claims tty1 directly under multi-user.target.
+info "$MODE mode: writing shared base scaffold (machine-id, firstboot/noisy-service masks)"
+
+# Generate a valid 32-hex-char machine-id. Writing literal "uninitialized"
+# TRIGGERS systemd's ConditionFirstBoot=yes path (which fires
+# systemd-firstboot interactive); a real ID suppresses it. This ID is
+# per-boot (regenerated each live session) since the overlay is tmpfs.
+#
+# Kernel's UUID source produces a 36-char string of form
+# xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx; sed strips the dashes leaving
+# the required 32 hex chars. busybox-static in this initramfs has
+# `cat` and `sed` but not `tr` or `head`, hence this form rather than
+# the `tr -dc ... | head -c 32 < /dev/urandom` idiom that's common in
+# full-userland live-init scripts.
+cat /proc/sys/kernel/random/uuid | sed 's/-//g' > /newroot/etc/machine-id
+
+# Pre-set hostname so any downstream firstboot machinery has no field
+# left to prompt for.
+echo "intergenos-live" > /newroot/etc/hostname
+
+# Belt-and-suspenders: explicitly mask the firstboot services even
+# though a valid machine-id should suppress them. Symlink to /dev/null
+# is systemd's "never start this unit" idiom.
+ln -sf /dev/null /newroot/etc/systemd/system/systemd-firstboot.service
+ln -sf /dev/null /newroot/etc/systemd/system/systemd-homed-firstboot.service
+
+# Mask the Wave 1b databases + webservers that auto-start at
+# multi-user.target.wants/. In live context they fail noisily with
+# USER / NAMESPACE errors (the live filesystem has no per-service users,
+# no /var/log/<svc>/, no Restart=no policy, etc.) and systemd's Restart=
+# spins them in tight loops, drowning the console. Mask each in the
+# overlay so the live boot stays quiet. Installed systems get these
+# back because the masks live only in the tmpfs overlay.
+for svc in mariadb httpd caddy influxdb etcd valkey lighttpd nginx apache postgresql memcached \
+           haproxy transmission-daemon atopgpu apparmor systemd-pcrlock-secureboot-policy; do
+    ln -sf /dev/null "/newroot/etc/systemd/system/${svc}.service"
+done
+# NOTE on the last 5 masks: in a normal installed boot, apparmor +
+# pcrlock-secureboot-policy are part of our security posture and MUST
+# run. They're masked here only because: apparmor's profile-load fails
+# against the live squashfs (profile paths the overlay can't satisfy);
+# pcrlock fails against the virtual TPM that test VMs (swtpm) provide.
+# haproxy, transmission-daemon, and atopgpu are server-class daemons
+# that shouldn't be running in a try-it-out live session anyway.
+# All masks are tmpfs-overlay only — installed targets boot the
+# underlying squashfs without these overlay symlinks, so the secure
+# default re-engages on install.
+
 if [ "$MODE" = "live" ] || [ "$MODE" = "install-gui" ]; then
-    info "$MODE mode: writing overlay setup (live-class scaffold: machine-id, masks, liveuser+GDM autologin)"
-
-    # Generate a valid 32-hex-char machine-id. Writing literal "uninitialized"
-    # TRIGGERS systemd's ConditionFirstBoot=yes path (which fires
-    # systemd-firstboot interactive); a real ID suppresses it. This ID is
-    # per-boot (regenerated each live session) since the overlay is tmpfs.
-    #
-    # Kernel's UUID source produces a 36-char string of form
-    # xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx; sed strips the dashes leaving
-    # the required 32 hex chars. busybox-static in this initramfs has
-    # `cat` and `sed` but not `tr` or `head`, hence this form rather than
-    # the `tr -dc ... | head -c 32 < /dev/urandom` idiom that's common in
-    # full-userland live-init scripts.
-    cat /proc/sys/kernel/random/uuid | sed 's/-//g' > /newroot/etc/machine-id
-
-    # Pre-set hostname so any downstream firstboot machinery has no field
-    # left to prompt for.
-    echo "intergenos-live" > /newroot/etc/hostname
-
-    # Belt-and-suspenders: explicitly mask the firstboot services even
-    # though a valid machine-id should suppress them. Symlink to /dev/null
-    # is systemd's "never start this unit" idiom.
-    ln -sf /dev/null /newroot/etc/systemd/system/systemd-firstboot.service
-    ln -sf /dev/null /newroot/etc/systemd/system/systemd-homed-firstboot.service
-
-    # Mask the Wave 1b databases + webservers that auto-start at
-    # multi-user.target.wants/. In live context they fail noisily with
-    # USER / NAMESPACE errors (the live filesystem has no per-service users,
-    # no /var/log/<svc>/, no Restart=no policy, etc.) and systemd's Restart=
-    # spins them in tight loops, drowning the console. Mask each in the
-    # overlay so the live boot stays quiet. Installed systems get these
-    # back because the masks live only in the tmpfs overlay.
-    for svc in mariadb httpd caddy influxdb etcd valkey lighttpd nginx apache postgresql memcached \
-               haproxy transmission-daemon atopgpu apparmor systemd-pcrlock-secureboot-policy; do
-        ln -sf /dev/null "/newroot/etc/systemd/system/${svc}.service"
-    done
-    # NOTE on the last 5 masks: in a normal installed boot, apparmor +
-    # pcrlock-secureboot-policy are part of our security posture and MUST
-    # run. They're masked here only because: apparmor's profile-load fails
-    # against the live squashfs (profile paths the overlay can't satisfy);
-    # pcrlock fails against the virtual TPM that test VMs (swtpm) provide.
-    # haproxy, transmission-daemon, and atopgpu are server-class daemons
-    # that shouldn't be running in a try-it-out live session anyway.
-    # All masks are tmpfs-overlay only — installed targets boot the
-    # underlying squashfs without these overlay symlinks, so the secure
-    # default re-engages on install.
+    info "$MODE mode: writing live-class scaffold (liveuser+GDM autologin+graphical.target)"
 
     # ---- Liveuser creation -------------------------------------------------
     # busybox-static initramfs lacks `useradd`, so we hand-write the standard

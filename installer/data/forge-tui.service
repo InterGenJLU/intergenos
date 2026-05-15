@@ -5,6 +5,14 @@ After=multi-user.target
 Wants=multi-user.target
 ConditionKernelCommandLine=igos.mode=install-tui
 
+# Claim /dev/tty1 exclusively. Without these, getty@tty1.service from
+# the default getty.target.wants/ set would race us for tty1; agetty
+# typically wins, leaving forge-tui without a usable terminal.
+# Conflicts= stops the getty unit when we start; Before= sequences us
+# to start first so the getty never gets the chance.
+Conflicts=getty@tty1.service
+Before=getty@tty1.service
+
 [Service]
 Type=oneshot
 RemainAfterExit=no
