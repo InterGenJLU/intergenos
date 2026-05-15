@@ -244,6 +244,34 @@ for mnt in proc sys dev run tmp; do
 done
 
 # ----------------------------------------------------------------------------
+# Step 4.5: pre-squashfs audit — verify every declared package landed
+# ----------------------------------------------------------------------------
+# Each packages/<tier>/<name>/package.yml declares verify_paths: — load-
+# bearing files the package produces. Audit fails if any are missing from
+# the chroot. This catches the linux-firmware-class regression where a
+# package recipe exists in tree but the build silently produced no files
+# (orchestrator-skip-built footgun, build-host-state-dependency, etc.).
+# See feedback_orchestrator_skip_built_footgun memory.
+AUDIT_SCRIPT="$(dirname "$0")/pre-squashfs-audit.py"
+if [ -x "$AUDIT_SCRIPT" ] || [ -f "$AUDIT_SCRIPT" ]; then
+    log "[4.5/5] pre-squashfs audit (verify_paths) against chroot..."
+    # Resolve packages-dir relative to the script's project root (one level up).
+    PKGS_DIR="$(cd "$(dirname "$0")/.." && pwd)/packages"
+    if python3 "$AUDIT_SCRIPT" --packages-dir "$PKGS_DIR" --chroot "$CHROOT" --quiet; then
+        log "  audit PASS — all declared verify_paths present"
+    else
+        rc=$?
+        log "  audit FAILED with exit $rc — refusing to build squashfs"
+        log "  Either fix the regression (build the missing packages) or"
+        log "  correct the verify_paths declarations. Run the audit script"
+        log "  directly to see the full diagnostic."
+        exit $rc
+    fi
+else
+    log "[4.5/5] pre-squashfs audit SKIPPED (script not found at $AUDIT_SCRIPT)"
+fi
+
+# ----------------------------------------------------------------------------
 # Step 5: mksquashfs
 # ----------------------------------------------------------------------------
 log "[5/5] running mksquashfs..."

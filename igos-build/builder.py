@@ -19,6 +19,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .parser import Package
+from . import verify_paths_derive
 
 
 def _url_basename(url: str) -> str:
@@ -604,6 +605,7 @@ class BuildExecutor(PackageTracker):
                     self.logger.end_phase("track", 1)
                 else:
                     self.logger.end_phase("track", 0)
+                    self._auto_derive_verify_paths(pkg, new_files)
             else:
                 # DESTDIR staging: manifest, archive, deploy, verify, register.
                 # pkm SQLite write-through happens at gate-3 (after deploy
@@ -628,6 +630,7 @@ class BuildExecutor(PackageTracker):
                     self.logger.end_phase("track", 1)
                 else:
                     self.logger.end_phase("track", 0)
+                    self._auto_derive_verify_paths_from_staging(pkg, staging_dir)
 
         # --- Post-install (runs on live filesystem, after deploy) ---
         # post_install hooks handle things like catalog registration, systemd
@@ -656,6 +659,48 @@ class BuildExecutor(PackageTracker):
         self.logger.end_package(success)
         self.summary.record(pkg.name, pkg.version, success, elapsed)
         return success
+
+    def _auto_derive_verify_paths(self, pkg, new_files):
+        """Best-effort auto-derive verify_paths sidecar from direct_install diff.
+
+        Failures are non-fatal — sidecar is a fallback, not a gate.
+        """
+        try:
+            written = verify_paths_derive.derive_and_write_sidecar(pkg, new_files)
+            if written:
+                self.logger.info(
+                    f"  auto-derived verify_paths sidecar written for {pkg.name}"
+                )
+        except Exception as e:
+            # Don't let sidecar derivation break a successful build
+            self.logger.info(
+                f"  auto-derive verify_paths sidecar skipped for {pkg.name}: {e}"
+            )
+
+    def _auto_derive_verify_paths_from_staging(self, pkg, staging_dir):
+        """Best-effort auto-derive verify_paths sidecar from DESTDIR staging.
+
+        Walks the staging directory to build the installed-file list and
+        delegates to verify_paths_derive. Failures are non-fatal.
+        """
+        try:
+            staging_path = Path(staging_dir)
+            if not staging_path.is_dir():
+                return
+            file_list = []
+            for root, _dirs, files in os.walk(staging_path):
+                for f in files:
+                    rel = os.path.relpath(os.path.join(root, f), staging_path)
+                    file_list.append(rel)
+            written = verify_paths_derive.derive_and_write_sidecar(pkg, file_list)
+            if written:
+                self.logger.info(
+                    f"  auto-derived verify_paths sidecar written for {pkg.name}"
+                )
+        except Exception as e:
+            self.logger.info(
+                f"  auto-derive verify_paths sidecar skipped for {pkg.name}: {e}"
+            )
 
     def build_all(self, packages: list[Package], halt_on_failure: bool = True) -> bool:
         """Build all packages in the given order.

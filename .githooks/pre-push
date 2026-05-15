@@ -280,5 +280,66 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ] && [ -f scri
     fi
 fi
 
+# ---- 8. New package.yml MUST declare verify_paths -----------------------
+# Stop-the-bleeding gate for the linux-firmware-class regression: any new
+# packages/<tier>/<name>/package.yml file in the to-be-pushed commits must
+# declare a `verify_paths:` field (or `pending_acquisition:` for deliberately-
+# deferred packages). This forces every NEW package to self-document the
+# files it produces, so the pre-squashfs audit has teeth from day one.
+# Existing packages without verify_paths (the 294-package backlog) are
+# tracked separately and not gated here — modifications to those won't
+# fail this gate. Override: NO-GATE keyword in commit body.
+if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+    BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
+    # Check each commit in the push range; collect NO-GATE-exempted shas
+    NEW_YMLS=()
+    for sha in $(git rev-list --no-merges --reverse "$BASE".."$LOCAL"); do
+        msg=$(git log -1 --format=%B "$sha")
+        if echo "$msg" | grep -qE '^NO-GATE:'; then
+            continue
+        fi
+        # Find files ADDED in this commit (status A) matching packages/*/*/package.yml
+        while IFS=$'\t' read -r status file; do
+            if [ "$status" = "A" ] && [[ "$file" =~ ^packages/[^/]+/[^/]+/package\.yml$ ]]; then
+                NEW_YMLS+=("$sha:$file")
+            fi
+        done < <(git show --name-status --format='' "$sha")
+    done
+
+    BAD_PKGS=()
+    for entry in "${NEW_YMLS[@]:-}"; do
+        [ -z "$entry" ] && continue
+        sha="${entry%%:*}"
+        file="${entry#*:}"
+        # Read the file at the version that was committed
+        content=$(git show "$sha:$file" 2>/dev/null)
+        if ! echo "$content" | grep -qE '^(verify_paths|pending_acquisition)\s*:'; then
+            BAD_PKGS+=("$sha:$file")
+        fi
+    done
+
+    if [ "${#BAD_PKGS[@]}" -gt 0 ]; then
+        echo "[pre-push] BLOCK: new package.yml file(s) without verify_paths:"
+        for entry in "${BAD_PKGS[@]}"; do
+            sha="${entry%%:*}"
+            file="${entry#*:}"
+            echo "    $file  (in commit $sha)"
+        done
+        echo ""
+        echo "  Reason: every new package must self-document load-bearing files"
+        echo "  (verify_paths:) so the pre-squashfs audit has teeth. This catches"
+        echo "  the linux-firmware-class regression (package recipe present,"
+        echo "  package installs silently nothing) before it reaches a built ISO."
+        echo ""
+        echo "  Resolve options:"
+        echo "    (a) Add a verify_paths: field declaring 2-3 load-bearing files"
+        echo "        the package installs (see existing package.yml examples)."
+        echo "    (b) For deliberately-deferred packages: use pending_acquisition:"
+        echo "        with a reason (see core/shim-signed/package.yml)."
+        echo "    (c) NO-GATE: <reason> in commit body for legitimate exemptions."
+        exit 1
+    fi
+fi
+
 echo "[pre-push] all gates PASS"
 exit 0
