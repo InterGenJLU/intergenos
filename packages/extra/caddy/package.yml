@@ -16,4 +16,5 @@ dependencies:
   runtime: []
 verify_paths:
   - /usr/bin/caddy
+  - /etc/apparmor.d/usr.bin.caddy
   - /etc/caddy/Caddyfile

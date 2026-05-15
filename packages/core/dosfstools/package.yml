@@ -15,4 +15,4 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/bin/fatlabel
+  - /usr/sbin/fatlabel

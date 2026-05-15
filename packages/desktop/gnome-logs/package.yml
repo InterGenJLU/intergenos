@@ -22,4 +22,5 @@ dependencies:
   runtime: []
 verify_paths:
   - /usr/bin/gnome-logs
-  - /usr/share/gnome-logs
+  - /usr/share/help/C/gnome-logs/media/gnome-logs-3-34.png
+  - /usr/share/help/ca/gnome-logs/media/gnome-logs-3-34.png

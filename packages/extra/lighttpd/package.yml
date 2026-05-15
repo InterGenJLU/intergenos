@@ -19,4 +19,5 @@ dependencies:
   runtime: []
 verify_paths:
   - /usr/sbin/lighttpd
-  - /etc/lighttpd/lighttpd.conf
+  - /usr/sbin/lighttpd-angel
+  - /etc/apparmor.d/usr.sbin.lighttpd

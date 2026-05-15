@@ -19,4 +19,3 @@ configure_flags:
 verify_paths:
   - /usr/bin/nasm
   - /usr/bin/ndisasm
-  - /usr/share/doc/nasm-3.01

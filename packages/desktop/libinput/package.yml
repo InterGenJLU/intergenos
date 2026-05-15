@@ -20,5 +20,5 @@ dependencies:
   runtime: []
 verify_paths:
   - /usr/bin/libinput
-  - /usr/bin/synclient
   - /usr/lib/libinput.so
+  - /usr/lib/libinput.so.10

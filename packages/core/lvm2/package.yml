@@ -19,6 +19,6 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/bin/lvm
-  - /usr/bin/blkdeactivate
+  - /usr/sbin/lvm
+  - /usr/sbin/blkdeactivate
   - /usr/lib/libdevmapper.so

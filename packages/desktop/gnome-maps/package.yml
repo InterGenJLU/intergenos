@@ -32,4 +32,5 @@ dependencies:
   runtime: []
 verify_paths:
   - /usr/bin/gnome-maps
-  - /usr/lib/libgnome-maps.so
+  - /usr/lib/gnome-maps/libgnome-maps.so
+  - /usr/lib/gnome-maps/libgnome-maps.so.0

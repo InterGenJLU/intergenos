@@ -21,4 +21,6 @@ configure_flags:
 - --prefix=/usr
 
 verify_paths:
-  - /usr/share/fonts/X11/misc-misc
+  - /usr/share/fonts/X11/misc/10x20-ISO8859-1.pcf.gz
+  - /usr/share/fonts/X11/misc/10x20-ISO8859-10.pcf.gz
+  - /usr/share/fonts/X11/misc/10x20-ISO8859-11.pcf.gz

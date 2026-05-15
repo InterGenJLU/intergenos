@@ -20,4 +20,4 @@ build_style: custom
 # and the bootloader's signed-UKI workflow loses its upstream tooling.
 
 verify_paths:
-  - /usr/lib/python3.13/site-packages
+  - /usr/lib/python3.14/site-packages

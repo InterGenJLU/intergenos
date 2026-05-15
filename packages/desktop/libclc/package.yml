@@ -17,4 +17,6 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/include/clc
+  - /usr/share/pkgconfig/libclc.pc
+  - /usr/share/clc/amdgcn--amdhsa.bc
+  - /usr/share/clc/aruba-r600--.bc

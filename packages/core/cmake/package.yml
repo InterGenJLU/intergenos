@@ -28,4 +28,4 @@ tests:
 verify_paths:
   - /usr/bin/cmake
   - /usr/bin/ccmake
-  - /usr/share/cmake-4.2
+  - /usr/share/cmake-4.3

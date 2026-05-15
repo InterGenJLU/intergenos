@@ -24,6 +24,6 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/bin/gdm
+  - /usr/sbin/gdm
   - /usr/bin/gdm-config
   - /usr/lib/libgdm.so

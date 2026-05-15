@@ -28,4 +28,4 @@ configure_flags:
 verify_paths:
   - /usr/bin/gnome-keyring
   - /usr/bin/gnome-keyring-3
-  - /usr/lib/gnome-keyring-pkcs11.so
+  - /usr/bin/gnome-keyring-daemon

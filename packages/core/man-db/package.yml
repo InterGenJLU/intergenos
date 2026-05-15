@@ -17,5 +17,4 @@ tier: core
 build_style: autotools
 verify_paths:
   - /usr/bin/man
-  - /usr/bin/accessdb
-  - /usr/lib/libman.so
+  - /usr/sbin/accessdb

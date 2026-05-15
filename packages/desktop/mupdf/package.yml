@@ -22,5 +22,5 @@ dependencies:
   runtime: []
 verify_paths:
   - /usr/bin/mupdf
-  - /usr/bin/mupdf-gl
-  - /usr/lib/libmupdf.so
+  - /usr/bin/mupdf-x11
+  - /usr/lib/libmupdf-third.a

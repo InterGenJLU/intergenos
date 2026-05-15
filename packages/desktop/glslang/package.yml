@@ -19,5 +19,5 @@ dependencies:
   runtime: []
 verify_paths:
   - /usr/bin/glslang
-  - /usr/bin/glslang-validator
-  - /usr/lib/libglslang.so
+  - /usr/bin/glslangValidator
+  - /usr/lib/libglslang-default-resource-limits.so

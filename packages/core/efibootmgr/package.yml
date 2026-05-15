@@ -17,5 +17,5 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/bin/efibootmgr
-  - /usr/bin/efibootdump
+  - /usr/sbin/efibootmgr
+  - /usr/sbin/efibootdump

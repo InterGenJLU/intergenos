@@ -20,5 +20,6 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
+  - /etc/bash_completion.d/lilv
   - /usr/lib/liblilv-0.so
-  - /usr/bin/lilv-bench
+  - /usr/lib/liblilv-0.so.0

@@ -16,4 +16,4 @@ tier: core
 build_style: autotools
 verify_paths:
   - /usr/bin/free
-  - /usr/lib/libproc-2.so
+  - /usr/lib/libproc2.so

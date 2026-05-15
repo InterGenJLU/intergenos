@@ -25,4 +25,5 @@ dependencies:
   runtime: []
 verify_paths:
   - /usr/bin/file-roller
-  - /usr/lib/libnautilus-fileroller.so
+  - /usr/libexec/file-roller/isoinfo.sh
+  - /usr/libexec/file-roller/rpm2cpio

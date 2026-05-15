@@ -23,4 +23,5 @@ dependencies:
   runtime:
     - glib2
 verify_paths:
-  - /usr/libexec/podman/conmon
+  - /usr/bin/conmon
+  - /usr/share/man/man8/conmon.8

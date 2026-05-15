@@ -17,4 +17,4 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/lib/perl5/site_perl/Archive/Zip.pm
+  - /usr/lib/perl5/5.42/site_perl/Archive/Zip.pm

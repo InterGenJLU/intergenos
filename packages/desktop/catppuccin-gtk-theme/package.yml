@@ -17,4 +17,6 @@ dependencies:
   - gtk3
 
 verify_paths:
-  - /usr/share/themes/Catppuccin-Mocha-Standard-Blue-Dark
+  - /usr/share/themes/catppuccin-mocha-blue-standard+default/cinnamon/cinnamon.css
+  - /usr/share/themes/catppuccin-mocha-blue-standard+default/cinnamon/thumbnail.png
+  - /usr/share/themes/catppuccin-mocha-blue-standard+default/gnome-shell/gnome-shell.css

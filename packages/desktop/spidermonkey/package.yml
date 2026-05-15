@@ -25,5 +25,6 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/lib/libmozjs-128.so
-  - /usr/bin/js128
+  - /usr/bin/js140
+  - /usr/bin/js140-config
+  - /usr/lib/libmozjs-140.so

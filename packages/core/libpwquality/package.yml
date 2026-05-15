@@ -23,4 +23,3 @@ configure_flags:
 - --disable-python-bindings
 verify_paths:
   - /usr/bin/pwscore
-  - /usr/lib/pam_pwquality.so

@@ -18,4 +18,5 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/libexec/podman/catatonit
+  - /usr/bin/catatonit
+  - /usr/share/man/man1/catatonit.1

@@ -29,6 +29,4 @@ dependencies:
 # Caught by preflight-undeclared-deps.py (Scan A.2) post-Build-#9 halt.
 
 verify_paths:
-  - /usr/bin/rpm
-  - /usr/bin/rpmdb
-  - /usr/bin/rpmkeys
+  - /usr/bin/rpm2archive

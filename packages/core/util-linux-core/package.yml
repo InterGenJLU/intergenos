@@ -16,5 +16,5 @@ dependencies:
 tier: core
 build_style: custom
 verify_paths:
-  - /usr/bin/addpart
+  - /usr/sbin/addpart
   - /usr/lib/libblkid.so

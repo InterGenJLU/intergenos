@@ -35,5 +35,5 @@ dependencies:
   runtime: []
 verify_paths:
   - /usr/bin/inkscape
-  - /usr/bin/inkview
-  - /usr/lib/libinkscape_base.so
+  - /usr/share/bash-completion/completions/inkscape
+  - /usr/lib/inkscape/libinkscape_base.so

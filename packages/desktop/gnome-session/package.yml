@@ -26,4 +26,4 @@ dependencies:
 verify_paths:
   - /usr/bin/gnome-session
   - /usr/bin/gnome-session-inhibit
-  - /usr/share/doc/gnome-session-49.2
+  - /usr/bin/gnome-session-quit

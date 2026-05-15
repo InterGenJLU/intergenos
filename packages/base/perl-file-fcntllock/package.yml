@@ -19,4 +19,4 @@ dependencies:
   runtime: []
 
 verify_paths:
-  - /usr/lib/perl5/site_perl
+  - /usr/lib/perl5/5.42/site_perl

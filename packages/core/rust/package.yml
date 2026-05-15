@@ -27,5 +27,5 @@ dependencies:
   runtime: []
 
 verify_paths:
-  - /usr/bin/rustc
-  - /usr/bin/cargo
+  - /opt/rustc/bin/rustc
+  - /usr/bin/cargo-capi

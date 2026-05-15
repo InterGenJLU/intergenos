@@ -17,4 +17,4 @@ dependencies:
   runtime: []
 verify_paths:
   - /usr/bin/yapp
-  - /usr/lib/perl5/site_perl/Parse/Yapp.pm
+  - /usr/lib/perl5/5.42/site_perl/Parse/Yapp.pm

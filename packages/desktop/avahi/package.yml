@@ -22,6 +22,6 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/bin/avahi-autoipd
+  - /usr/sbin/avahi-autoipd
   - /usr/bin/avahi-browse
   - /usr/lib/libavahi-client.so

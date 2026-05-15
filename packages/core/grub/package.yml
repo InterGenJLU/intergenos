@@ -13,6 +13,6 @@ dependencies:
 tier: core
 build_style: custom
 verify_paths:
-  - /usr/bin/grub-bios-setup
+  - /usr/sbin/grub-bios-setup
   - /usr/bin/grub-editenv
   - /usr/lib/grub

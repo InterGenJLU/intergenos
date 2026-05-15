@@ -17,5 +17,5 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/bin/wpa_supplicant
-  - /usr/bin/wpa_passphrase
+  - /usr/sbin/wpa_supplicant
+  - /usr/sbin/wpa_passphrase

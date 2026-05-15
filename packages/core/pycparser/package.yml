@@ -19,4 +19,4 @@ build_style: custom
 # python-cryptography for systemd-pass2's ukify tool).
 
 verify_paths:
-  - /usr/lib/python3.13/site-packages
+  - /usr/lib/python3.14/site-packages

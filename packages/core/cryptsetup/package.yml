@@ -19,6 +19,6 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/bin/cryptsetup
-  - /usr/bin/integritysetup
+  - /usr/sbin/cryptsetup
+  - /usr/sbin/integritysetup
   - /usr/lib/libcryptsetup.so

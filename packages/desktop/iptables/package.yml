@@ -26,6 +26,6 @@ configure_flags:
 - --prefix=/usr
 - --enable-nftables
 verify_paths:
-  - /usr/bin/iptables
-  - /usr/bin/ip6tables
+  - /usr/sbin/iptables
+  - /usr/sbin/ip6tables
   - /usr/lib/libip4tc.so

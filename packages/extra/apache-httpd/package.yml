@@ -27,5 +27,5 @@ dependencies:
   - zlib
   - libxml2
 verify_paths:
-  - /usr/sbin/httpd
+  - /usr/bin/httpd
   - /etc/httpd/httpd.conf

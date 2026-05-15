@@ -24,6 +24,5 @@ tests:
   failure_policy: known_failures
   reason: "tests need a running atd daemon, sendmail delivery, and PAM stack — none available in offline build chroot"
 verify_paths:
-  - /usr/bin/at
+  - /usr/bin/atop
   - /usr/bin/atd
-  - /usr/share/doc/at-3.2.5

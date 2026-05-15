@@ -22,4 +22,6 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/lib/libgiognomeproxy.so
+  - /usr/share/locale/ab/LC_MESSAGES/glib-networking.mo
+  - /usr/share/locale/an/LC_MESSAGES/glib-networking.mo
+  - /usr/share/locale/ar/LC_MESSAGES/glib-networking.mo

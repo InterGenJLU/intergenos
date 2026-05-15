@@ -16,4 +16,4 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/lib/libabsl_bad_any_cast_impl.so
+  - /usr/lib/libabsl_base.so

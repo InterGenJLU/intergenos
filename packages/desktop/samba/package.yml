@@ -42,5 +42,5 @@ dependencies:
   runtime: []
 verify_paths:
   - /usr/bin/samba-log-parser
-  - /usr/bin/cifsdd
-  - /usr/lib/libdcerpc-binding.so
+  - /usr/bin/samba-regedit
+  - /usr/bin/samba-tool

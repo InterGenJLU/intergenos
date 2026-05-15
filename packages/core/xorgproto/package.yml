@@ -18,4 +18,5 @@ dependencies:
   runtime: []
 
 verify_paths:
-  - /usr/share/pkgconfig/xorgproto.pc
+  - /usr/share/pkgconfig/xproto.pc
+  - /usr/include/X11/SM

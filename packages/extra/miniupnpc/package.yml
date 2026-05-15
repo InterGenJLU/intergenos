@@ -16,5 +16,6 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
+  - /usr/lib/libminiupnpc.a
   - /usr/lib/libminiupnpc.so
-  - /usr/bin/upnpc
+  - /usr/lib/libminiupnpc.so.2.3.3

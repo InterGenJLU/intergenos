@@ -42,5 +42,5 @@ dependencies:
   - linux-pam
 verify_paths:
   - /usr/bin/mariadb
-  - /usr/bin/aria_chk
-  - /usr/lib/libmariadb.a
+  - /etc/logrotate.d/mariadb
+  - /usr/bin/mariadb-access

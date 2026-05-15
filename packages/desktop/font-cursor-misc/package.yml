@@ -21,4 +21,5 @@ configure_flags:
 - --prefix=/usr
 
 verify_paths:
-  - /usr/share/fonts/X11/cursor-misc
+  - /usr/share/fonts/X11/misc/cursor.pcf.gz
+  - /usr/share/fonts/X11/misc/fonts.dir

@@ -14,4 +14,4 @@ dependencies:
 tier: core
 build_style: custom
 verify_paths:
-  - /usr/lib/python3.14/site-packages/MarkupSafe-3.0.3.dist-info
+  - /usr/lib/python3.14/site-packages/markupsafe

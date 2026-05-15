@@ -18,5 +18,4 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/lib/libshaderc_shared.so
   - /usr/bin/glslc

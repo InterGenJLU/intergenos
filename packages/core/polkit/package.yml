@@ -21,6 +21,6 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/bin/polkitd
+  - /usr/lib/polkit-1/polkitd
   - /usr/bin/pkaction
   - /usr/lib/libpolkit-agent-1.so

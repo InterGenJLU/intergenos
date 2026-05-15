@@ -20,4 +20,4 @@ dependencies:
   runtime:
     - p11-kit
 verify_paths:
-  - /usr/bin/make-ca
+  - /usr/sbin/make-ca

@@ -15,5 +15,6 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
+  - /usr/lib/libqrencode.a
+  - /usr/lib/pkgconfig/libqrencode.pc
   - /usr/bin/qrencode
-  - /usr/lib/libqrencode.so

@@ -19,6 +19,6 @@ configure_flags:
 - --disable-static
 - --with-default-dict=/usr/lib/cracklib/pw_dict
 verify_paths:
-  - /usr/bin/cracklib-check
-  - /usr/bin/cracklib-format
+  - /usr/sbin/cracklib-check
+  - /usr/sbin/cracklib-format
   - /usr/lib/libcrack.so

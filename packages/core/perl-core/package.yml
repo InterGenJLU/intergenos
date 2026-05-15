@@ -17,4 +17,3 @@ build_style: custom
 verify_paths:
   - /usr/bin/perl
   - /usr/bin/corelist
-  - /usr/lib/here

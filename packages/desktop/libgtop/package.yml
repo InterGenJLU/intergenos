@@ -20,6 +20,6 @@ configure_flags:
 - --prefix=/usr
 - --disable-static
 verify_paths:
-  - /usr/bin/libgtop_daemon2
-  - /usr/bin/libgtop_server2
   - /usr/lib/libgtop-2.0.so
+  - /usr/lib/libgtop-2.0.so.11
+  - /usr/lib/libgtop-2.0.so.11.1.0

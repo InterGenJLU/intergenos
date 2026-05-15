@@ -22,4 +22,6 @@ configure_flags:
 - --disable-static
 
 verify_paths:
-  - /usr/lib/libXScrnSaver.so
+  - /usr/lib/libXss.so
+  - /usr/lib/libXss.so.1
+  - /usr/lib/libXss.so.1.0.0

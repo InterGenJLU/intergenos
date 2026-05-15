@@ -14,5 +14,5 @@ dependencies:
 tier: core
 build_style: make
 verify_paths:
-  - /usr/bin/capsh
+  - /usr/sbin/capsh
   - /usr/lib/libcap.so

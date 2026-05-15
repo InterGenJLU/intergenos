@@ -23,6 +23,6 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/bin/exim
-  - /usr/bin/exicyclog
+  - /usr/sbin/exim
+  - /usr/sbin/exicyclog
   - /usr/share/doc/exim-4.99.1

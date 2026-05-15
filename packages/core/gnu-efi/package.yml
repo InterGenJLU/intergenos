@@ -18,4 +18,5 @@ dependencies:
   runtime: []
 
 verify_paths:
-  - /usr/lib/gnuefi
+  - /usr/lib/pkgconfig/gnu-efi.pc
+  - /usr/lib/libefiboot.so.1

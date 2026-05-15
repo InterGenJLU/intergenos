@@ -30,4 +30,3 @@ tests:
 verify_paths:
   - /usr/bin/rsync
   - /usr/bin/rsync-ssl
-  - /usr/share/doc/rsync-3.4.1

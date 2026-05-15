@@ -16,5 +16,5 @@ dependencies:
   runtime: []
 verify_paths:
   - /usr/bin/markdown_py
-  - /usr/bin/smartypants
-  - /usr/lib/python3.14/site-packages/markdown
+  - /usr/lib/python3.14/site-packages/markdown-3.10.2.dist-info/INSTALLER
+  - /usr/lib/python3.14/site-packages/markdown-3.10.2.dist-info/METADATA

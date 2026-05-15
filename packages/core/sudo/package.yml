@@ -25,4 +25,4 @@ tests:
 verify_paths:
   - /usr/bin/sudo
   - /usr/bin/cvtsudoers
-  - /usr/lib/audit_json.so
+  - /usr/lib/sudo/audit_json.so

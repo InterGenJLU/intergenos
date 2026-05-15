@@ -22,5 +22,5 @@ dependencies:
 
 verify_paths:
   - /usr/lib/go
-  - /usr/lib/go/pkg/obj
-  - /usr/lib/go/pkg/bootstrap
+  - /usr/lib/go/pkg
+  - /usr/lib/go/bin

@@ -20,5 +20,6 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 verify_paths:
-  - /usr/bin/ogg123
-  - /usr/share/doc/vorbis-tools-1.4.3
+  - /usr/bin/oggdec
+  - /usr/bin/oggenc
+  - /usr/bin/ogginfo

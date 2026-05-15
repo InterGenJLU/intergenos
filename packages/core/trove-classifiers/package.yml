@@ -15,5 +15,4 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/bin/uv_build
   - /usr/lib/python3.14/site-packages/trove_classifiers

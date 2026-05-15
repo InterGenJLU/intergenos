@@ -16,5 +16,4 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/bin/cm2html
-  - /usr/lib/python3.14/site-packages/PyYAML-0.2.5.dist-info
+  - /usr/lib/python3.14/site-packages/yaml

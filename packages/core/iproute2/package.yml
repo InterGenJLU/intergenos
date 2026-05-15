@@ -14,6 +14,6 @@ dependencies:
 tier: core
 build_style: make
 verify_paths:
-  - /usr/bin/ip
-  - /usr/bin/bridge
+  - /usr/sbin/ip
+  - /usr/sbin/bridge
   - /usr/lib/tc

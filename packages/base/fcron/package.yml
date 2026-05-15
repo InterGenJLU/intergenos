@@ -19,6 +19,6 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/bin/fcron
+  - /usr/sbin/fcron
   - /usr/bin/fcrondyn
   - /usr/share/doc/fcron-3.4.0

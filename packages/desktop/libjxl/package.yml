@@ -25,5 +25,6 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/bin/benchmark_xl
   - /usr/lib/libjxl.so
+  - /usr/lib/libjxl.so.0.11
+  - /usr/lib/libjxl.so.0.11.2

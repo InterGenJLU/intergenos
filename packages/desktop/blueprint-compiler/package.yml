@@ -21,5 +21,5 @@ dependencies:
   runtime: []
 verify_paths:
   - /usr/bin/blueprint-compiler
-  - /usr/bin/pyproject-build
-  - /usr/lib/python3.14/site-packages/blueprint-compiler
+  - /usr/share/pkgconfig/blueprint-compiler.pc
+  - /usr/lib/python3.14/site-packages/blueprintcompiler/__init__.py

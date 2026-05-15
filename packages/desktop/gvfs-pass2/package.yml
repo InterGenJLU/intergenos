@@ -22,4 +22,6 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/lib/libgvfscommon.so
+  - /usr/lib/gio/modules/libgioremote-volume-monitor.so
+  - /usr/lib/gio/modules/libgvfsdbus.so
+  - /usr/lib/gvfs/libgvfscommon.so

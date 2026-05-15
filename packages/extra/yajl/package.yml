@@ -18,4 +18,5 @@ dependencies:
   runtime: []
 verify_paths:
   - /usr/lib/libyajl.so
-  - /usr/bin/json_verify
+  - /usr/lib/libyajl.so.2
+  - /usr/lib/libyajl.so.2.1.0

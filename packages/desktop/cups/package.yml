@@ -21,6 +21,6 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/bin/cupsaccept
+  - /usr/sbin/cupsaccept
   - /usr/bin/cancel
   - /usr/lib/libcupsimage.so

@@ -17,5 +17,6 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 verify_paths:
-  - /usr/lib/pkgconfig/xcb-proto.pc
-  - /usr/share/xcb
+  - /usr/share/pkgconfig/xcb-proto.pc
+  - /usr/share/xcb/bigreq.xml
+  - /usr/share/xcb/composite.xml

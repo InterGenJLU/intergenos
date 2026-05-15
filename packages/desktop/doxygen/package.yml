@@ -20,5 +20,4 @@ dependencies:
   runtime: []
 verify_paths:
   - /usr/bin/doxygen
-  - /usr/bin/optionally
-  - /usr/share/doc/doxygen-1.16.1
+  - /usr/share/man/man1/doxygen.1

@@ -18,4 +18,3 @@ dependencies:
 verify_paths:
   - /usr/bin/docutils
   - /usr/bin/rst2html4
-  - /usr/lib/python3.14/site-packages/doxypypy

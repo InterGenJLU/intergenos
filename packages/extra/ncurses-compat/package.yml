@@ -16,5 +16,6 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/lib/libncurses.so.5
-  - /usr/lib/libtinfo.so.5
+  - /usr/lib/libform.so.5
+  - /usr/lib/libform.so.5.9
+  - /usr/lib/libmenu.so.5

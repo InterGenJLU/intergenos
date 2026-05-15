@@ -22,4 +22,6 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 verify_paths:
-  - /usr/lib/ctl_arcam_av
+  - /usr/lib/alsa-lib/libasound_module_conf_pulse.so
+  - /usr/lib/alsa-lib/libasound_module_ctl_arcam_av.so
+  - /usr/lib/alsa-lib/libasound_module_ctl_oss.so

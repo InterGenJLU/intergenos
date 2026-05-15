@@ -15,5 +15,5 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /etc/containers/registries.conf
-  - /etc/containers/policy.json
+  - /usr/share/containers/containers.conf
+  - /usr/share/containers/seccomp.json

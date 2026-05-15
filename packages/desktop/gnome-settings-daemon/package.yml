@@ -38,4 +38,6 @@ dependencies:
   host: []
   runtime: []
 verify_paths:
-  - /usr/lib/libgsd.so
+  - /usr/share/GConf/gsettings/gnome-settings-daemon.convert
+  - /usr/lib/pkgconfig/gnome-settings-daemon.pc
+  - /usr/lib/udev/rules.d/61-gnome-settings-daemon-rfkill.rules

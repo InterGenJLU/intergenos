@@ -18,4 +18,6 @@ configure_flags:
 - --prefix=/usr
 
 verify_paths:
-  - /usr/share/fonts/X11/alias
+  - /usr/share/fonts/X11/100dpi/fonts.alias
+  - /usr/share/fonts/X11/75dpi/fonts.alias
+  - /usr/share/fonts/X11/cyrillic/fonts.alias

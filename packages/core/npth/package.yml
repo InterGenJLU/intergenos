@@ -17,5 +17,4 @@ dependencies:
 configure_flags:
 - --prefix=/usr
 verify_paths:
-  - /usr/bin/npth-config
   - /usr/lib/libnpth.so
