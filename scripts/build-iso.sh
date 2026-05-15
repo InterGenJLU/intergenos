@@ -40,13 +40,42 @@ set -euo pipefail
 # Inputs + defaults
 # --------------------------------------------------------------------------
 
+# UNSIGNED_TEST=1 — build a test-only ISO from unsigned grub + UKIs. Owner-
+# authorized 2026-05-15 to facilitate Option A pre-signing-ceremony smoke
+# tests. The script does NOT validate signatures (xorriso just packages
+# files), so this flag relaxes only the documentation contract and adds a
+# loud banner + a marker on the output filename so an unsigned-test ISO
+# cannot be silently confused with a release ISO. Secure Boot OFF is
+# required on any VM booting an unsigned-test ISO; SB ON will reject the
+# unsigned grub/UKI at firmware-verify time.
+UNSIGNED_TEST="${UNSIGNED_TEST:-0}"
+if [ "$UNSIGNED_TEST" = "1" ]; then
+    echo "================================================================" >&2
+    echo "  build-iso.sh: UNSIGNED-TEST MODE" >&2
+    echo "  ISO will boot ONLY on VMs/hosts with Secure Boot DISABLED." >&2
+    echo "  Output filename will carry an .unsigned-test marker suffix." >&2
+    echo "  Do NOT release this artifact; release builds require signing." >&2
+    echo "================================================================" >&2
+fi
+
 SHIM="${SHIM:?missing SHIM env var (signed shimx64.efi)}"
-GRUB="${GRUB:?missing GRUB env var (signed grubx64.efi)}"
-UKI_LIVE="${UKI_LIVE:?missing UKI_LIVE env var (signed igos-live.efi)}"
-UKI_INSTALL_GUI="${UKI_INSTALL_GUI:?missing UKI_INSTALL_GUI env var (signed igos-install-gui.efi)}"
-UKI_INSTALL_TUI="${UKI_INSTALL_TUI:?missing UKI_INSTALL_TUI env var (signed igos-install-tui.efi)}"
+GRUB="${GRUB:?missing GRUB env var (signed grubx64.efi or unsigned grubx64.efi if UNSIGNED_TEST=1)}"
+UKI_LIVE="${UKI_LIVE:?missing UKI_LIVE env var (signed igos-live.efi or unsigned if UNSIGNED_TEST=1)}"
+UKI_INSTALL_GUI="${UKI_INSTALL_GUI:?missing UKI_INSTALL_GUI env var}"
+UKI_INSTALL_TUI="${UKI_INSTALL_TUI:?missing UKI_INSTALL_TUI env var}"
 SQUASHFS="${SQUASHFS:?missing SQUASHFS env var (filesystem.squashfs)}"
 OUTPUT="${OUTPUT:?missing OUTPUT env var (.iso path)}"
+
+# Append the unsigned-test marker to the OUTPUT path so a release ISO and
+# a test ISO cannot share a filename even if the caller forgot to scope it.
+if [ "$UNSIGNED_TEST" = "1" ]; then
+    case "$OUTPUT" in
+        *.unsigned-test.iso) ;;                       # already marked
+        *.iso) OUTPUT="${OUTPUT%.iso}.unsigned-test.iso" ;;
+        *)     OUTPUT="${OUTPUT}.unsigned-test.iso"   ;;
+    esac
+    echo "[build-iso] UNSIGNED-TEST output path: $OUTPUT" >&2
+fi
 
 GRUB_CFG="${GRUB_CFG:-installer/iso/grub/grub.cfg}"
 THEME_DIR="${THEME_DIR:-}"
