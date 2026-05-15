@@ -49,7 +49,7 @@ PATCHES=/mnt/intergenos/build/patches
 LOGS=/mnt/intergenos/build/logs
 PHASE_FILE="${LOGS}/.build-phase"
 STOP_FILE="${IGOS}/.build-stop"
-CHECKPOINT_DIR="/mnt/intergenos/build/checkpoints"
+CHECKPOINT_DIR="/mnt/intergenos/checkpoints"
 BUILD_LOG="${LOGS}/build-intergenos-$(date '+%Y%m%d-%H%M%S').log"
 
 PHASES=(
