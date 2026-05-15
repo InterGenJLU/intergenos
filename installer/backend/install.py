@@ -427,7 +427,7 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
                 result.warnings.append(msg)
                 _emit(PHASE_MOK, 12, f"warning: {msg}")
 
-        # 13: cleanup (unmount in reverse + copy integrity audit log to target)
+        # 13: cleanup (unmount in reverse + copy integrity artifacts to target)
         _emit(PHASE_CLEANUP, 12, "unmounting target")
         if verify_config is not None:
             try:
@@ -445,6 +445,26 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
                     f"({type(e).__name__}: {e}); review "
                     f"{verify_config.audit_log_path} on the install media "
                     f"manually before retiring it"
+                )
+                result.warnings.append(msg)
+                _emit(PHASE_CLEANUP, 12, f"warning: {msg}")
+            # Preserve manifest + signature + release key onto the
+            # target's /var/lib/igos/manifest/ so the post-install smoke
+            # check (installer/smoke/checks/signing.sh) can revalidate
+            # the chain independently of the install media still being
+            # around. Best-effort: same failure-mode posture as the
+            # audit-log copy above (warning, not install-fail).
+            try:
+                integrity.copy_signed_manifest_to_target(
+                    Path(verify_config.manifest_path),
+                    Path(verify_config.public_key_path),
+                    Path(target),
+                )
+            except Exception as e:
+                msg = (
+                    f"signed manifest not copied to target "
+                    f"({type(e).__name__}: {e}); post-install smoke "
+                    f"check sign/manifest will skip"
                 )
                 result.warnings.append(msg)
                 _emit(PHASE_CLEANUP, 12, f"warning: {msg}")

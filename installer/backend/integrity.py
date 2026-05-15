@@ -28,6 +28,7 @@ function signature, two different presentation surfaces.
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -431,3 +432,35 @@ def copy_audit_log_to_target(audit_log_path: Path, target: Path) -> None:
     target_log = target / "var" / "log" / "igos-integrity-override.log"
     target_log.parent.mkdir(parents=True, exist_ok=True)
     target_log.write_bytes(audit_log_path.read_bytes())
+
+
+def copy_signed_manifest_to_target(
+    manifest_path: Path,
+    public_key_path: Path,
+    target: Path,
+) -> None:
+    """Copy signed manifest + detached signature + release key to target.
+
+    Called from PHASE_CLEANUP. The live install media ships the trust
+    artifacts at /install/intergenos-archive-manifest.txt(+.sig) +
+    /install/intergenos-release-key.asc. Preserving them at
+    /var/lib/igos/manifest/ on the installed system lets the post-install
+    smoke check (installer/smoke/checks/signing.sh
+    check_signing_manifest_signature) revalidate the chain at any time
+    after install — independent of whether the live media is still
+    around.
+
+    Signature path is `<manifest_path>.sig` (matches scripts/sign-
+    release.sh naming convention).
+
+    Idempotent — overwrites if target already has stale copies (rerun
+    install over previous attempt is supported by design).
+    Missing source files are silently skipped; caller surfaces the
+    warning if a complete trust set wasn't copied.
+    """
+    sig_path = Path(str(manifest_path) + ".sig")
+    target_dir = target / "var" / "lib" / "igos" / "manifest"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    for src in (manifest_path, sig_path, public_key_path):
+        if src.exists():
+            shutil.copy2(src, target_dir / src.name)
