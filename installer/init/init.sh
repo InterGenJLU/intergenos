@@ -47,7 +47,9 @@ esac
 info "boot mode: $MODE"
 
 # ---- Load required modules -------------------------------------------------
-# These modules are present in the initramfs cpio (see build-initramfs.sh).
+# These modules are present in the initramfs cpio (see
+# installer/init/build-initramfs.sh — sibling file in this directory; invoked
+# from scripts/chroot-build-bootloader.sh during phase_bootloader).
 # squashfs: read-only root filesystem
 # overlay:  writable upper layer over squashfs
 # loop:     squashfs is loop-mounted off the ISO
