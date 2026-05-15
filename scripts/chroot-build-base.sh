@@ -200,6 +200,7 @@ fi
 run_package() {
     local pkg_dir="$1"
     local name="$2"
+    local version="$3"
 
     if $SKIP; then
         if [ "$name" = "$IGOS_START_AT" ] || [ "$pkg_dir" = "$IGOS_START_AT" ]; then
@@ -211,13 +212,14 @@ run_package() {
         fi
     fi
 
-    # Skip if already tracked. Mirrors chroot-build-desktop.sh's BASE_DEPS
-    # pre-check: if the desktop phase pre-built cpio/libtirpc/popt/which via
-    # the Python builder's --only fallback, those packages already have a
-    # /var/lib/igos/packages/<name>-<version> manifest and don't need to be
-    # rebuilt by this phase. Bash compgen returns 0 if any match exists.
-    if compgen -G "/var/lib/igos/packages/${name}-*" > /dev/null 2>&1; then
-        log "  Skipping: $name (already tracked at /var/lib/igos/packages/)"
+    # Skip if already tracked. Must be exact <name>-<version> match.
+    # Prior `compgen -G "${name}-*"` greedy-globbed: `at-*` silently matched
+    # `at-spi2-core-2.58.3` (built earlier in desktop tier), causing the
+    # base/at package to be skipped entirely with no error. Same shape
+    # affects any short-prefix package whose name is a prefix of another
+    # tracked package's name. Exact match eliminates the entire class.
+    if [ -d "/var/lib/igos/packages/${name}-${version}" ]; then
+        log "  Skipping: $name (already tracked at /var/lib/igos/packages/${name}-${version})"
         return 0
     fi
 

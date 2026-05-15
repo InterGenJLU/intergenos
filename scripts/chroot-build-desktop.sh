@@ -69,8 +69,14 @@ cd /mnt/intergenos
 # of Fedora's MS-signed shim binary.
 BASE_DEPS="cpio libtirpc popt which"
 
+# Skip-if-tracked check uses a directory glob expand: bash globs the
+# expression and `-d` tests against the first match. To avoid the
+# greedy-prefix class (see chroot-build-base.sh:run_package — `at-*`
+# silently matched `at-spi2-core-2.58.3`), require a digit immediately
+# after the dash so we only match `<name>-<version>` patterns, not
+# `<name>-<sibling-pkg-suffix>`. Versions always start with a digit.
 for dep in $BASE_DEPS; do
-    if [ -f "/var/lib/igos/packages/${dep}-"* ] 2>/dev/null; then
+    if compgen -G "/var/lib/igos/packages/${dep}-[0-9]*" >/dev/null 2>&1; then
         log "  $dep: already tracked — skipping"
     else
         log "  $dep: building..."
