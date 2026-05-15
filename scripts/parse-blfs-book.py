@@ -379,25 +379,81 @@ def parse_tests(section):
     return None
 
 
-def parse_installed_content(section):
-    """Extract installed programs, libraries, directories."""
-    content = []
-    content_div = section.find('div', class_='content')
-    if not content_div:
-        return content
+def _segs_in_range(start_node, stop_node):
+    """Collect div.seg elements appearing between start_node and stop_node
+    in document order, exclusive of stop_node. If stop_node is None,
+    collect to end of document.
+    """
+    segs = []
+    cur = start_node.find_next('div', class_='seg')
+    while cur is not None:
+        if stop_node is not None:
+            # Are we past stop_node? Compare via sourcepos when both available.
+            try:
+                cs = (cur.sourceline or 0, cur.sourcepos or 0)
+                ss = (stop_node.sourceline or 0, stop_node.sourcepos or 0)
+                if cs >= ss:
+                    break
+            except AttributeError:
+                pass
+        segs.append(cur)
+        cur = cur.find_next('div', class_='seg')
+    return segs
 
-    for seg in content_div.find_all('div', class_='seg'):
+
+def parse_installed_content(section, anchor_tag=None):
+    """Extract installed programs, libraries, directories.
+
+    Strategy differs between books:
+    - BLFS: each package is its own div.sect1; all segs live inside it.
+      A direct find_all under the sect1 catches them.
+    - LFS:  packages are flat inside a single div.chapter (no per-package
+      sect1). Each package's "Contents of X" segs live AFTER the section
+      passed in, bounded by the next package's h2 title.
+
+    Combine both: gather segs inside the section, AND walk forward from
+    the section/anchor until the next h2.title (i.e., next package).
+    """
+    # Segs inside the section (BLFS direct hit)
+    inside = list(section.find_all('div', class_='seg')) if section else []
+
+    # Walk forward from the section (or anchor_tag) until next h2.title
+    seed = section if section else anchor_tag
+    forward = []
+    if seed is not None:
+        # Find the NEXT h2 with class="title" — that's the start of the
+        # next package's section.
+        def is_next_pkg_h2(tag):
+            return (tag.name == 'h2'
+                    and 'title' in (tag.get('class') or []))
+        next_h2 = seed.find_next(is_next_pkg_h2)
+        forward = _segs_in_range(seed, next_h2)
+
+    # Dedupe while preserving order
+    seen_ids = set()
+    all_segs = []
+    for seg in inside + forward:
+        sid = id(seg)
+        if sid in seen_ids:
+            continue
+        seen_ids.add(sid)
+        all_segs.append(seg)
+
+    content = []
+    for seg in all_segs:
         title_tag = seg.find('strong', class_='segtitle')
         body_tag = seg.find('span', class_='segbody')
         if title_tag and body_tag:
-            title = extract_text(title_tag).rstrip(':')
+            title_l = extract_text(title_tag).rstrip(':').lower()
             body = extract_text(body_tag)
             if body and body.lower() != 'none':
-                if 'Program' in title:
+                # Title-case varies between LFS (lowercase) and BLFS
+                # (Title Case) — compare lower-cased.
+                if 'program' in title_l:
                     content.append({'content_type': 'programs', 'items': body})
-                elif 'Librar' in title:
+                elif 'librar' in title_l:
                     content.append({'content_type': 'libraries', 'items': body})
-                elif 'Director' in title:
+                elif 'director' in title_l:
                     content.append({'content_type': 'directories', 'items': body})
     return content
 
@@ -457,9 +513,39 @@ def scan_igos_packages(packages_dir):
 # Main parser
 # ---------------------------------------------------------------------------
 
-def parse_blfs_book(book_path, db_path, packages_dir):
-    """Parse the BLFS HTML book and populate the SQLite database."""
-    print(f"Loading BLFS book: {book_path}")
+# LFS uses "8.7. Bzip2-1.0.8" — strip leading section number prefix.
+LFS_SECTION_PREFIX_RE = re.compile(r'^\d+(\.\d+)*\.\s*')
+
+
+def normalize_package_name(raw):
+    """Clean a name extracted from book header text.
+
+    LFS: "8.7. Bzip2" -> "Bzip2"
+    BLFS: "Bzip2" -> "Bzip2" (no-op)
+    """
+    return LFS_SECTION_PREFIX_RE.sub('', raw).strip()
+
+
+def init_db(db_path):
+    """Initialize the database fresh (drop existing, apply schema)."""
+    os.makedirs(os.path.dirname(db_path) or '.', exist_ok=True)
+    if os.path.exists(db_path):
+        os.remove(db_path)
+    conn = sqlite3.connect(db_path)
+    conn.executescript(SCHEMA)
+    return conn
+
+
+def parse_book_into_db(book_path, conn):
+    """Parse one LFS/BLFS HTML book and INSERT package rows into the db.
+
+    Both LFS and BLFS use the same DocBook-derived HTML structure for
+    package sections — only the anchor naming convention differs (LFS:
+    `ch-system-bzip2` + `contents-bzip2`; BLFS: free-form anchor IDs).
+    Anchor-detection is heuristic (look for any anchor whose next text
+    matches Name-Version) so it works for both.
+    """
+    print(f"Loading book: {book_path}")
     print(f"  (this may take a moment — it's a large file)")
 
     with open(book_path, 'r', encoding='utf-8') as f:
@@ -479,6 +565,11 @@ def parse_blfs_book(book_path, db_path, packages_dir):
         # Skip very short IDs that are section markers
         if len(aid) < 2:
             continue
+        # Skip the LFS "contents-X" anchors — those are subsections of a
+        # package, not the package definition itself. They're parsed as
+        # part of the parent section's find_section() bounding region.
+        if aid.startswith('contents-'):
+            continue
 
         # Check if followed by text matching Name-Version pattern
         next_text = a.next_sibling
@@ -487,14 +578,6 @@ def parse_blfs_book(book_path, db_path, packages_dir):
                 package_anchors.append((aid, next_text.strip(), a))
 
     print(f"  Found {len(package_anchors)} package entries")
-
-    # Set up database
-    os.makedirs(os.path.dirname(db_path) or '.', exist_ok=True)
-    if os.path.exists(db_path):
-        os.remove(db_path)
-
-    conn = sqlite3.connect(db_path)
-    conn.executescript(SCHEMA)
 
     # Parse each package
     parsed = 0
@@ -512,7 +595,7 @@ def parse_blfs_book(book_path, db_path, packages_dir):
             skipped += 1
             continue
 
-        name = m.group(1).strip()
+        name = normalize_package_name(m.group(1))
         version = m.group(2)
 
         # Extract all data
@@ -522,7 +605,7 @@ def parse_blfs_book(book_path, db_path, packages_dir):
         patches = parse_patches(section)
         commands = parse_build_commands(section)
         test_info = parse_tests(section)
-        content = parse_installed_content(section)
+        content = parse_installed_content(section, anchor_tag)
         blfs_section = find_section_name(anchor_tag)
 
         # Insert package
@@ -590,6 +673,13 @@ def parse_blfs_book(book_path, db_path, packages_dir):
 
         parsed += 1
 
+    conn.commit()
+    print(f"  Parsed: {parsed}, skipped: {skipped}")
+    return parsed, skipped
+
+
+def finalize_db(conn, packages_dir, db_path):
+    """Add IGOS cross-reference, aliases, and print summary. Closes conn."""
     # Cross-reference with our packages
     igos = scan_igos_packages(packages_dir)
     for pkg_name, data in igos.items():
@@ -649,16 +739,21 @@ def parse_blfs_book(book_path, db_path, packages_dir):
     patch_count = conn.execute("SELECT COUNT(*) FROM patches").fetchone()[0]
     test_count = conn.execute("SELECT COUNT(*) FROM tests").fetchone()[0]
     igos_count = conn.execute("SELECT COUNT(*) FROM igos_status").fetchone()[0]
+    content_count = conn.execute("SELECT COUNT(*) FROM installed_content").fetchone()[0]
+    pkgs_with_content = conn.execute(
+        "SELECT COUNT(DISTINCT package_id) FROM installed_content"
+    ).fetchone()[0]
 
     conn.close()
 
     print(f"\n  Database created: {db_path}")
-    print(f"  Packages:     {pkg_count}")
-    print(f"  Dependencies: {dep_count}")
-    print(f"  Patches:      {patch_count}")
-    print(f"  Test entries: {test_count}")
-    print(f"  IGOS status:  {igos_count}")
-    print(f"  Skipped:      {skipped}")
+    print(f"  Packages:                  {pkg_count}")
+    print(f"  Dependencies:              {dep_count}")
+    print(f"  Patches:                   {patch_count}")
+    print(f"  Test entries:              {test_count}")
+    print(f"  Installed-content rows:    {content_count}")
+    print(f"  Pkgs with installed_content: {pkgs_with_content}")
+    print(f"  IGOS status:               {igos_count}")
 
 
 # ---------------------------------------------------------------------------
@@ -666,26 +761,42 @@ def parse_blfs_book(book_path, db_path, packages_dir):
 # ---------------------------------------------------------------------------
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Parse BLFS 13.0 HTML into SQLite')
-    parser.add_argument('--book', default='docs/lfs-13.0/BLFS-BOOK-13.0-systemd.html',
-                        help='Path to BLFS HTML book')
+    parser = argparse.ArgumentParser(description='Parse LFS/BLFS 13.0 HTML into SQLite')
+    parser.add_argument('--book', action='append', dest='books',
+                        help='Path to an LFS or BLFS HTML book (repeatable). '
+                             'Default: both LFS-BOOK-13.0-SYSD.html and '
+                             'BLFS-BOOK-13.0-systemd.html under docs/lfs-13.0/')
     parser.add_argument('--db', default='build/blfs-packages.db',
                         help='Output SQLite database path')
     parser.add_argument('--packages-dir', default='packages/',
                         help='InterGenOS packages directory for cross-reference')
     args = parser.parse_args()
 
-    # Resolve paths relative to project root
     project_root = Path(__file__).parent.parent
-    book_path = project_root / args.book
+
+    # Default: parse both LFS and BLFS books
+    if not args.books:
+        args.books = [
+            'docs/lfs-13.0/LFS-BOOK-13.0-SYSD.html',
+            'docs/lfs-13.0/BLFS-BOOK-13.0-systemd.html',
+        ]
+
+    # Resolve book paths
+    book_paths = []
+    for b in args.books:
+        bp = project_root / b
+        if not bp.exists():
+            bp = Path(b)
+            if not bp.exists():
+                print(f"ERROR: book not found at {b}")
+                sys.exit(1)
+        book_paths.append(bp)
+
     db_path = project_root / args.db
     packages_dir = project_root / args.packages_dir
 
-    if not book_path.exists():
-        # Try absolute path
-        book_path = Path(args.book)
-        if not book_path.exists():
-            print(f"ERROR: BLFS book not found at {args.book}")
-            sys.exit(1)
-
-    parse_blfs_book(str(book_path), str(db_path), str(packages_dir))
+    # Initialize DB once, parse each book, finalize once
+    conn = init_db(str(db_path))
+    for bp in book_paths:
+        parse_book_into_db(str(bp), conn)
+    finalize_db(conn, str(packages_dir), str(db_path))
