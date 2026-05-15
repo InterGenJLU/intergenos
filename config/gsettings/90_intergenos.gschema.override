@@ -29,7 +29,7 @@ button-layout='close,minimize,maximize:'
 
 [org.gnome.shell]
 # Default dock favorites
-favorite-apps=['org.gnome.Settings.desktop', 'org.gnome.tweaks.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.Epiphany.desktop', 'org.gnome.TextEditor.desktop']
+favorite-apps=['org.gnome.Settings.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Terminal.desktop', 'firefox.desktop', 'org.gnome.TextEditor.desktop']
 
 [org.gnome.Terminal.Legacy.Profile]
 # White on black, green cursor, generous scrollback
