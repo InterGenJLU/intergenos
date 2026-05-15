@@ -129,6 +129,53 @@ All host-tool / env-var defaults verified against build VM:
 
 ---
 
-## Lane status
+## Lane status (Phase 1)
 
 **Stub-hunt-image-pipeline: 1 real finding (forge verify_paths), 1 minor doc fix (init.sh comment).** No mass-stub fallout. Ready to apply both fixes once forge round-trip clears the path-hold; init.sh fix can land independently.
+
+---
+
+# Phase 2 — Full-Codebase Stub Hunt (per 14:55Z scope correction)
+
+After Phase 1 closed, owner-directed scope expansion: full-codebase audit per Rule 21. WC's Phase 2 lane: `scripts/*.sh` not in IGOSC's sign/host/source/audit/check/fleet/dev lane + top-level `CLAUDE.md` + `docs/governance/` + `docs/research/installer/` claim-vs-code-state drift.
+
+## Phase 2 findings
+
+### F1' — Top-level `CLAUDE.md` is absent (meta-finding)
+
+The 14:55Z dispatch scope item 2 says: "Top-level `CLAUDE.md` — verify every path reference, every 'X is at Y' claim, every package count." No `CLAUDE.md` exists at top-level (verified via `Glob **/CLAUDE.md` + `ls` of repo root: present are CHANGELOG, CODE_OF_CONDUCT, CONTRIBUTING, CREDITS, LICENSE, README, SECURITY).
+
+**Disposition:** flagged for SPOC. Either (a) authoring a top-level CLAUDE.md is itself a pending task — in which case its absence ≠ Rule 21 violation (no claim to a non-existent file), OR (b) it has lived elsewhere historically and the dispatch references a stale location.
+
+### F2' — `docs/research/installer/live_session_and_installer_FINAL_2026-04-10.md` has multiple drifts vs. current code state
+
+The doc is labeled "FINALIZED — APPROVED" + "All decisions made. Ready for formal implementation plan." A reader treats it as canonical truth. Three significant drifts found:
+
+**F2'.a — Section 5 sample init.sh script** uses paths `/mnt/media/LiveOS/filesystem.squashfs` and `/mnt/squashfs`; actual `installer/init/init.sh` uses `/run/iso/live/filesystem.squashfs` and `/run/squashfs` + the multi-mode dispatch + overlayfs scaffold. The sample is illustrative but a reader inferring "this is what init.sh does" gets a wrong mental model.
+
+**F2'.b — SHA256-verification-before-mount claim (Sections 5 + 6.3) is NOT implemented in current `installer/init/init.sh`.** The doc claims (line 328): "the SHA256 is verified BEFORE the squashfs is mounted. A mismatch halts boot with a clear security warning and drops to rescue shell. The user never sees a desktop from tampered media." `scripts/build-iso.sh:317-319` DOES write `filesystem.sha256` to the ISO, but no consumer reads it at boot. **Security-relevant drift — flagging to SPOC for review-and-fix decision (lie-fix doc vs reality-fix init.sh).**
+
+**F2'.c — Squashfs source claim (Section 6) says "Clean Deployed Image (NOT Raw Chroot)"** with the "Critical decision from review" framing. Current `scripts/build-squashfs.sh:42` defaults to `OUTPUT="${OUTPUT:-${CHROOT}/mnt/intergenos/build/filesystem.squashfs}"` and squashes directly from the build chroot at `/mnt/igos`. The `-e mnt/intergenos -e sources -e var/cache -e var/log/journal` exclusions in `mksquashfs` (lines 309-322) approximate the "clean image" effect via exclusion-list rather than via the deployed-image path the doc specifies.
+
+**Disposition:** REPORT-only for Phase 2; F2'.b is the security-relevant one needing SPOC review. F2'.a and F2'.c are design-doc maintenance debt; appropriate fix is doc-annotation, not code change.
+
+### F3' — `scripts/*.sh` audited subset
+
+Verified clean (no path stubs / ExecStart stubs / aspirational binary references):
+- `scripts/setup-githooks.sh` — `.githooks/` exists; references resolve
+- `scripts/refresh-worktree-against-head.sh` — pure git-state operations, no path stubs
+- `scripts/download-theming.sh` — external URLs (github.com, extensions.gnome.org) + local `${CACHE_DIR}` writes, no internal stubs
+- `scripts/publish-repo.sh` — `pkm.repo.generate_index` and `sign_index` exist at `pkm/repo.py:417,470`; remote endpoints + key fingerprints declared explicitly
+- `scripts/build-intergenos.sh` (1260 lines, grep-audited for script invocations + path references) — references to `sign-release.sh` (exists) and `publish-repo.sh` (exists) clean
+
+Skipped per the 14:56Z parallel-lane overlap (sign-*, host-check, audit-*, check-*, fleet-*, dev-* are owned by the installer/admin lane). chroot-build-* is in the package-tier parallel-subagent scope.
+
+### F4' — `docs/governance/succession.md` — clean
+
+External links to SECURITY.md (present at repo top-level) and docs/research/ (present). No path drift.
+
+## Phase 2 status
+
+**Findings: 1 real-stub (F2'.b SHA256 boot-time verification missing) + 2 design-doc drift annotations (F2'.a, F2'.c) + 1 meta (F1' CLAUDE.md absence).** F2'.b is security-relevant — flagged for SPOC review. Other findings are documentation hygiene; appropriate disposition is annotate-the-doc rather than rebuild-the-code.
+
+WC-scope scripts verified clean. CLAUDE.md absence flagged.
