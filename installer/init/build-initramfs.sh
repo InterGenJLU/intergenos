@@ -45,7 +45,7 @@ chmod +x "$WORK/init"
 cp "$BUSYBOX" "$WORK/bin/busybox"
 chmod +x "$WORK/bin/busybox"
 
-APPLETS="sh mount umount switch_root awk blkid sleep modprobe mkdir cp ln echo cat printf grep sed find"
+APPLETS="sh mount umount switch_root awk blkid sleep modprobe mkdir cp ln echo cat printf grep sed find sha256sum"
 for applet in $APPLETS; do
     ln -sf busybox "$WORK/bin/$applet"
 done
