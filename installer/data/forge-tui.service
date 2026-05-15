@@ -3,7 +3,7 @@ Description=InterGenOS Forge Installer — Declarative Builder TUI
 Documentation=https://github.com/InterGenJLU/intergenos/blob/main/installer/README.md
 After=multi-user.target
 Wants=multi-user.target
-ConditionKernelCommandLine=igos.installer=tui
+ConditionKernelCommandLine=igos.mode=install-tui
 
 [Service]
 Type=oneshot
