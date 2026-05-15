@@ -352,11 +352,15 @@ fi
 #
 # Two overlay writes for install-gui:
 #   1. /home/liveuser/.config/autostart/forge-gui.desktop — XDG autostart
-#      entry that fires forge --mode gui at session start. Passing --mode
-#      explicitly bypasses Forge's igos.installer=/igos.mode= cmdline
-#      param-name mismatch (the UKI ships `igos.mode=install-gui` but
-#      Forge's parse_cmdline_installer_mode() reads `igos.installer=gui`).
-#      Squashfs already has /usr/bin/forge installed.
+#      entry that fires `pkexec /usr/bin/forge --mode gui` at session start.
+#      Passing --mode explicitly bypasses Forge's
+#      igos.installer=/igos.mode= cmdline param-name mismatch (the UKI
+#      ships `igos.mode=install-gui` but Forge's
+#      parse_cmdline_installer_mode() reads `igos.installer=gui`).
+#      Squashfs already has /usr/bin/forge + the polkit rule installed by
+#      the forge package; the rule grants passwordless YES to
+#      subject.user=="liveuser" so the GDM autologin session fires the
+#      installer without a credential prompt.
 #   2. /etc/xdg/autostart/intergen-welcome.desktop -> /dev/null — masks
 #      the welcomer's system-wide autostart so it doesn't fire on top of
 #      Forge GUI in install-gui sessions. Live mode is unaffected.
@@ -369,7 +373,7 @@ if [ "$MODE" = "install-gui" ]; then
 Type=Application
 Name=InterGenOS Forge Installer
 Comment=Install InterGenOS to disk
-Exec=forge --mode gui --archives /var/lib/igos/archives --packages /var/lib/igos/packages
+Exec=pkexec /usr/bin/forge --mode gui --archives /var/lib/igos/archives --packages /var/lib/igos/packages
 Icon=system-software-install
 Categories=System;Settings;
 OnlyShowIn=GNOME;

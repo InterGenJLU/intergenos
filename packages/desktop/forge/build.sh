@@ -10,6 +10,8 @@
 #   /usr/bin/forge                                    — shell wrapper
 #   /usr/lib/python3.14/site-packages/installer/      — Python module tree
 #   /usr/lib/systemd/system/forge-tui.service         — TUI install service
+#   /usr/share/polkit-1/actions/...forge.policy       — pkexec action
+#   /usr/share/polkit-1/rules.d/49-...-forge.rules    — liveuser-YES rule
 #   /usr/share/applications/forge-gui.desktop         — Live-mode launcher
 #   /usr/share/man/man1/forge.1                       — manpage
 #
@@ -59,6 +61,20 @@ FORGE
     install -m644 ./installer/data/forge-tui.service \
         "${DESTDIR}/usr/lib/systemd/system/forge-tui.service"
 
+    # ---- polkit policy + rule (pkexec elevation for liveuser) ---------------
+    # The autostart and launcher both invoke forge via pkexec because
+    # /usr/bin/forge itself requires uid=0 (installer/__main__.py). The
+    # liveuser account has no password (shadow entry = `*`), so the polkit
+    # rule grants passwordless YES when subject.user == "liveuser"; the
+    # policy file defaults to auth_admin_keep so installed-system invocations
+    # require a real admin password.
+    install -dm755 "${DESTDIR}/usr/share/polkit-1/actions"
+    install -m644 ./installer/data/org.intergenos.forge.policy \
+        "${DESTDIR}/usr/share/polkit-1/actions/org.intergenos.forge.policy"
+    install -dm755 "${DESTDIR}/usr/share/polkit-1/rules.d"
+    install -m644 ./installer/data/49-intergenos-forge.rules \
+        "${DESTDIR}/usr/share/polkit-1/rules.d/49-intergenos-forge.rules"
+
     # ---- /usr/share/applications launcher (live-mode click-to-install) -----
     install -dm755 "${DESTDIR}/usr/share/applications"
     cat > "${DESTDIR}/usr/share/applications/forge-gui.desktop" <<'LAUNCHER'
@@ -66,7 +82,7 @@ FORGE
 Type=Application
 Name=Install InterGenOS
 Comment=Install InterGenOS to disk
-Exec=forge --mode gui --archives /var/lib/igos/archives --packages /var/lib/igos/packages
+Exec=pkexec /usr/bin/forge --mode gui --archives /var/lib/igos/archives --packages /var/lib/igos/packages
 Icon=system-software-install
 Categories=System;Settings;
 OnlyShowIn=GNOME;
