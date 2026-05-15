@@ -46,6 +46,29 @@ do_install() {
             exit 1
         fi
     done
+
+    # libadwaita bridge — every libadwaita app ignores the system gtk-theme
+    # gsetting by design (the Adwaita stylesheet is compiled into the
+    # library). The single CSS hook libadwaita honors is the per-user
+    # ~/.config/gtk-4.0/gtk.css, which it prepends to its compiled
+    # stylesheet at app startup. Our InterGenOS theme uses @define-color
+    # overrides for the libadwaita semantic palette — these only take
+    # effect through this bridge file. Without it, Settings / Files /
+    # Text Editor / Calculator / Weather / Calendar / Clocks / Contacts
+    # / Music render with stock Adwaita.
+    #
+    # Ship the bridge via /etc/skel so every new user (installed-system
+    # useradd OR live-mode init.sh `cp -a /etc/skel/. /home/liveuser/`)
+    # gets the symlink in their freshly-created home. cp -a preserves
+    # symlinks (does NOT dereference) so the symlink-to-theme-CSS pattern
+    # transfers correctly. gtk-3 gets the same treatment for the legacy-
+    # GTK3 app surface that does not go through libadwaita.
+    install -dm755 "${DESTDIR}/etc/skel/.config/gtk-4.0"
+    install -dm755 "${DESTDIR}/etc/skel/.config/gtk-3.0"
+    ln -snf /usr/share/themes/InterGenOS/gtk-4.0/gtk.css \
+        "${DESTDIR}/etc/skel/.config/gtk-4.0/gtk.css"
+    ln -snf /usr/share/themes/InterGenOS/gtk-3.0/gtk.css \
+        "${DESTDIR}/etc/skel/.config/gtk-3.0/gtk.css"
 }
 
 post_install() {
