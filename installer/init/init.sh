@@ -148,8 +148,15 @@ mount --move /dev           /newroot/dev
 # minimally usable WITHOUT modifying the squashfs (which is shared with
 # install modes + ends up on the installed target post-install). Proper
 # live.target architecture is a v1.0 design arc.
-if [ "$MODE" = "live" ]; then
-    info "live mode: writing overlay setup for non-interactive live boot"
+#
+# install-gui mode shares the SAME overlay scaffold (machine-id, hostname,
+# firstboot/AppArmor masks, liveuser+GDM autologin, dconf-screen-lock) —
+# the install-gui graphical session runs from the same squashfs as live;
+# only the user-facing autostart differs (Forge GUI replaces the welcomer).
+# install-tui mode does NOT need GDM/Wayland scaffolding (forge-tui.service
+# claims tty1); it is handled in its own block below.
+if [ "$MODE" = "live" ] || [ "$MODE" = "install-gui" ]; then
+    info "$MODE mode: writing overlay setup (live-class scaffold: machine-id, masks, liveuser+GDM autologin)"
 
     # Generate a valid 32-hex-char machine-id. Writing literal "uninitialized"
     # TRIGGERS systemd's ConditionFirstBoot=yes path (which fires
@@ -326,6 +333,45 @@ DCONF_SVC
     mkdir -p /newroot/etc/systemd/system/display-manager.service.wants
     ln -sf /etc/systemd/system/igos-live-dconf-compile.service \
            /newroot/etc/systemd/system/display-manager.service.wants/igos-live-dconf-compile.service
+fi
+
+# ---- install-gui mode: Forge GUI autostart for liveuser --------------------
+# Live + install-gui share the same liveuser+GDM scaffold above (Wayland
+# session under graphical.target). What differs is what auto-starts in
+# that session: live mode wants intergen-welcome; install-gui mode wants
+# Forge GUI to fire instead.
+#
+# Two overlay writes for install-gui:
+#   1. /home/liveuser/.config/autostart/forge-gui.desktop — XDG autostart
+#      entry that fires forge --mode gui at session start. Passing --mode
+#      explicitly bypasses Forge's igos.installer=/igos.mode= cmdline
+#      param-name mismatch (the UKI ships `igos.mode=install-gui` but
+#      Forge's parse_cmdline_installer_mode() reads `igos.installer=gui`).
+#      Squashfs already has /usr/bin/forge installed.
+#   2. /etc/xdg/autostart/intergen-welcome.desktop -> /dev/null — masks
+#      the welcomer's system-wide autostart so it doesn't fire on top of
+#      Forge GUI in install-gui sessions. Live mode is unaffected.
+if [ "$MODE" = "install-gui" ]; then
+    info "install-gui mode: Forge GUI autostart + welcomer mask"
+
+    mkdir -p /newroot/home/liveuser/.config/autostart
+    cat > /newroot/home/liveuser/.config/autostart/forge-gui.desktop <<'FORGEGUI'
+[Desktop Entry]
+Type=Application
+Name=InterGenOS Forge Installer
+Comment=Install InterGenOS to disk
+Exec=forge --mode gui --archives /var/lib/igos/archives --packages /var/lib/igos/packages
+Icon=system-software-install
+Categories=System;Settings;
+OnlyShowIn=GNOME;
+StartupNotify=false
+NoDisplay=true
+FORGEGUI
+
+    # Mask welcomer system-wide autostart for this session only (overlay
+    # tmpfs, evaporates on next boot). Installed systems are unaffected.
+    ln -sf /dev/null \
+           /newroot/etc/xdg/autostart/intergen-welcome.desktop
 fi
 
 # ---- Hand off mode to userspace --------------------------------------------
