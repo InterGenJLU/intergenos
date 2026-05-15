@@ -318,6 +318,15 @@ sha256sum "${ISO_ROOT}/live/filesystem.squashfs" \
     | awk '{print $1, "filesystem.squashfs"}' \
     > "${ISO_ROOT}/live/filesystem.sha256"
 
+# init.sh hard-requires this file at boot — verify it landed non-empty here
+# so a silent sha256sum/awk/redirect failure surfaces at ISO build time
+# rather than as a kernel-panic-class `fatal "missing filesystem.sha256"`
+# in the initramfs of a shipped ISO.
+[ -s "${ISO_ROOT}/live/filesystem.sha256" ] || {
+    echo "FAIL: filesystem.sha256 empty or missing after sha256sum" >&2
+    exit 1
+}
+
 # A volume marker file at the root makes it trivial for an external test or
 # a recovery initramfs to identify "yes this is the InterGenOS live ISO".
 echo "${VOLID}" > "${ISO_ROOT}/IGOS_LIVE"
