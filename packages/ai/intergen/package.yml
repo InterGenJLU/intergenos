@@ -16,3 +16,6 @@ dependencies:
   - llama-cpp
   - pyyaml
   - numpy
+verify_paths:
+  - /usr/lib/python3.14/site-packages/intergen
+  - /usr/lib/python3.14/site-packages/intergen/tools

@@ -13,3 +13,5 @@ dependencies:
   host: []
   runtime:
   - nodejs
+verify_paths:
+  - /usr/bin/igos-install-vscode

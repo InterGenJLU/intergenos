@@ -18,3 +18,7 @@ dependencies:
   - gtk4
   - papirus-icon-theme
   - bibata-cursor-theme
+verify_paths:
+  - /usr/share/themes/InterGenOS
+  - /etc/skel/.config/gtk-3.0
+  - /etc/skel/.config/gtk-4.0

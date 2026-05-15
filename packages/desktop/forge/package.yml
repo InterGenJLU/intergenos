@@ -18,3 +18,7 @@ dependencies:
   - gtk4
   - libadwaita1
   - pygobject3
+verify_paths:
+  - /usr/bin/forge
+  - /usr/lib/python3.14/site-packages/installer
+  - /usr/lib/systemd/system/forge-tui.service

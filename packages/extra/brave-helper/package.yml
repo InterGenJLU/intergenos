@@ -12,3 +12,5 @@ dependencies:
   build: []
   host: []
   runtime: []
+verify_paths:
+  - /usr/bin/igos-install-brave

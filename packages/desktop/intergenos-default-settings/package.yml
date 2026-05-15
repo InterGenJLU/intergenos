@@ -15,3 +15,6 @@ dependencies:
   host: []
   runtime:
   - dconf
+verify_paths:
+  - /etc/dconf/db/local.d/01-intergenos-defaults
+  - /etc/skel/.config/burn-my-windows/profiles/1775735161994164.conf

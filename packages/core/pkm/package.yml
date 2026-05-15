@@ -20,3 +20,7 @@ dependencies:
   - python
   runtime:
   - python
+verify_paths:
+  - /usr/bin/pkm
+  - /usr/lib/python3.14/site-packages/pkm
+  - /etc/pkm/repos.conf

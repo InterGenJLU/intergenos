@@ -24,3 +24,7 @@ dependencies:
   - intergenos-extensions-productivity
   - intergenos-extensions-layout
   - intergenos-extensions-utilities
+verify_paths:
+  - /usr/bin/intergen-welcome
+  - /usr/libexec/intergen-welcome/intergen-welcome.py
+  - /usr/share/applications/intergen-welcome.desktop
