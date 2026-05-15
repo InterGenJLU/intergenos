@@ -28,3 +28,4 @@ verify_paths:
   - /usr/bin/intergen-welcome
   - /usr/libexec/intergen-welcome/intergen-welcome.py
   - /usr/share/applications/intergen-welcome.desktop
+  - /etc/xdg/autostart/intergen-welcome.desktop

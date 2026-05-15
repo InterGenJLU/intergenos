@@ -17,3 +17,4 @@ dependencies:
   - gnome-shell
 verify_paths:
   - /usr/share/gnome-shell/extensions/user-theme@gnome-shell-extensions.gcampax.github.com
+  - /usr/share/glib-2.0/schemas/org.gnome.shell.extensions.user-theme.gschema.xml

@@ -97,8 +97,12 @@ LAUNCHER
 
 post_install() {
     set -e
-    # No-op: forge-tui.service is gated by ConditionKernelCommandLine, not
-    # WantedBy/preset, so no symlink wiring is needed at install time. The
-    # service only fires when igos.mode=install-tui appears on /proc/cmdline.
-    :
+    # Enable forge-tui.service so systemd creates the
+    # /etc/systemd/system/multi-user.target.wants/forge-tui.service symlink.
+    # ConditionKernelCommandLine=igos.mode=install-tui still gates ACTUAL
+    # invocation to install-tui boots only — but the enable is required for
+    # systemd to "reach" the unit at all (an un-enabled unit is never
+    # considered, condition-check or not). 2>/dev/null||true so this stays
+    # idempotent on rebuilds and tolerates non-chroot install paths.
+    systemctl enable forge-tui.service 2>/dev/null || true
 }

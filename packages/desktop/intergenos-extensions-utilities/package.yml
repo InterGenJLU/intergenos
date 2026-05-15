@@ -17,4 +17,11 @@ dependencies:
   - gnome-shell-extensions
 
 verify_paths:
-  - /usr/share/gnome-shell/extensions
+  - /usr/share/gnome-shell/extensions/appindicatorsupport@rgcjonas.gmail.com
+  - /usr/share/gnome-shell/extensions/bluetooth-quick-connect@bjarosze.gmail.com
+  - /usr/share/gnome-shell/extensions/caffeine@patapon.info
+  - /usr/share/gnome-shell/extensions/Vitals@CoreCoding.com
+  - /usr/share/gnome-shell/extensions/mediacontrols@cliffniff.github.com
+  - /usr/share/gnome-shell/extensions/gsconnect@andyholmes.github.io
+  - /usr/share/gnome-shell/extensions/just-perfection-desktop@just-perfection
+  - /usr/share/gnome-shell/extensions/ding@rastersoft.com

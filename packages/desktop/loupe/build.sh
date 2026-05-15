@@ -41,5 +41,4 @@ do_install() {
     set -e
     cd build
     DESTDIR="$DESTDIR" ninja install
-    rm -fv ${DESTDIR}/usr/share/applications/org.gnome.eog.desktop 2>/dev/null || true
 }

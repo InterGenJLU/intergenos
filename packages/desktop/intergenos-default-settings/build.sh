@@ -8,12 +8,18 @@
 # baseline workstation (2026-05-14).
 #
 # Mechanism: install a keyfile into /etc/dconf/db/local.d/ + run
-# `dconf update` at post_install to regenerate /etc/dconf/db/local. The
-# local profile is wired in /etc/dconf/profile/user (shipped by base GNOME
-# packages — chain is `user-db:user` then `system-db:local`) and overlays
-# the user dconf db with our defaults. Users can still override any
-# individual key via Settings / extension prefs / gsettings — system db
-# only supplies the DEFAULTS users see on first session.
+# `dconf update` at post_install to regenerate /etc/dconf/db/local. We
+# also author /etc/dconf/profile/user (chain `user-db:user` then
+# `system-db:local`) so the system local db actually overlays the user
+# dconf db — without this profile, dconf does NOT consult the system db
+# at all and the keyfile is dormant. dconf upstream ships an empty
+# /etc/dconf/profile/ directory; the `user` profile is a distro decision,
+# and we own it here because we own what the system db should layer over
+# the empty-by-default user db.
+#
+# Users can still override any individual key via Settings / extension
+# prefs / gsettings — system db only supplies the DEFAULTS users see on
+# first session.
 #
 # Real-distro precedent: Linux Mint mint-default-settings, Pop!_OS
 # pop-default-settings, elementary elementary-default-settings, Fedora
@@ -35,6 +41,18 @@ build() {
 
 do_install() {
     set -e
+
+    # ---- dconf profile (wires the local system-db into user lookups) ---
+    # Authored inline because the only sane content is two well-known
+    # lines and the tarball doesn't need to carry it. Without this file,
+    # dconf reads only the user db and the local.d keyfile below is
+    # dormant — defaults never surface to apps.
+    install -dm755 "${DESTDIR}/etc/dconf/profile"
+    cat > "${DESTDIR}/etc/dconf/profile/user" <<'DCONFPROFILE'
+user-db:user
+system-db:local
+DCONFPROFILE
+    chmod 644 "${DESTDIR}/etc/dconf/profile/user"
 
     # ---- dconf system-db defaults --------------------------------------
     install -dm755 "${DESTDIR}/etc/dconf/db/local.d"

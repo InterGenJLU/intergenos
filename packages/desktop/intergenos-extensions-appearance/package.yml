@@ -17,4 +17,8 @@ dependencies:
   - gnome-shell-extensions
 
 verify_paths:
-  - /usr/share/gnome-shell/extensions
+  - /usr/share/gnome-shell/extensions/blur-my-shell@aunetx
+  - /usr/share/gnome-shell/extensions/burn-my-windows@schneegans.github.com
+  - /usr/share/gnome-shell/extensions/rounded-window-corners@fxgn
+  - /usr/share/gnome-shell/extensions/desktop-cube@schneegans.github.com
+  - /usr/share/gnome-shell/extensions/nightthemeswitcher@romainvigier.fr

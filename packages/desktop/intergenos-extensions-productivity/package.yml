@@ -17,4 +17,9 @@ dependencies:
   - gnome-shell-extensions
 
 verify_paths:
-  - /usr/share/gnome-shell/extensions
+  - /usr/share/gnome-shell/extensions/CoverflowAltTab@palatis.blogspot.com
+  - /usr/share/gnome-shell/extensions/clipboard-indicator@tudmotu.com
+  - /usr/share/gnome-shell/extensions/tilingshell@ferrarodomenico.com
+  - /usr/share/gnome-shell/extensions/forge@jmmaranan.com
+  - /usr/share/gnome-shell/extensions/ddterm@amezin.github.com
+  - /usr/share/gnome-shell/extensions/AlphabeticalAppGrid@stuarthayhurst
