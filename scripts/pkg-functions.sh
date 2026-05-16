@@ -495,6 +495,35 @@ pkg_deploy() {
         return 1
     fi
 
+    # Setuid/setgid/sticky safety-net. The tar pipeline above SHOULD preserve
+    # these bits when running as root. Empirically (May 16 2026 verification)
+    # it does. But the May 12 2026 deploy of polkit/util-linux/shadow/sudo
+    # dropped setuid on every binary they ship (pkexec, su, sudo, mount,
+    # umount, passwd, chfn, chsh, newgrp, gpasswd, chage, expiry,
+    # newuidmap, newgidmap), discovered when Forge GUI elevation failed in
+    # the cycle-2 smoke test with "pkexec must be setuid root". Root cause
+    # not pinpointed to a specific stripping operation. This loop closes the
+    # loop regardless: re-applies any setuid/setgid/sticky bit present in
+    # the package's staging directory to the deployed file. Idempotent —
+    # if the tar pipeline preserved correctly, this is a no-op.
+    while IFS= read -r -d '' staged_file; do
+        local rel="${staged_file#${dest}}"
+        local deployed_file="/${rel}"
+        if [ -f "$deployed_file" ]; then
+            local staged_mode
+            staged_mode=$(stat -c '%a' "$staged_file" 2>/dev/null || echo "")
+            if [ -n "$staged_mode" ] && [ "${#staged_mode}" -eq 4 ]; then
+                # 4-digit mode means setuid/setgid/sticky present in high bit
+                local deployed_mode
+                deployed_mode=$(stat -c '%a' "$deployed_file" 2>/dev/null || echo "")
+                if [ "$deployed_mode" != "$staged_mode" ]; then
+                    chmod "$staged_mode" "$deployed_file"
+                    pkg_log "  setuid-restore: ${deployed_file} -> ${staged_mode}"
+                fi
+            fi
+        fi
+    done < <(find "$dest" -type f \( -perm -4000 -o -perm -2000 -o -perm -1000 \) -print0)
+
     pkg_log "Deployed ${name}-${version}"
     return 0
 }

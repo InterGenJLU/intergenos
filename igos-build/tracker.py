@@ -17,6 +17,7 @@ owned but the new package didn't touch stay retired with the supersedee.
 
 import os
 import shutil
+import stat
 import subprocess
 import time
 from pathlib import Path
@@ -335,6 +336,34 @@ class PackageTracker:
                 f"    sudo tar -C / -xf {archive_path} --no-overwrite-dir --keep-directory-symlink"
             )
             return False
+
+        # Setuid/setgid/sticky safety-net — mirrors pkm/installer.py:169-184
+        # and scripts/pkg-functions.sh's pkg_deploy. The tar pipeline above
+        # SHOULD preserve these bits when running as root. The May 12 2026
+        # chroot deploy dropped setuid on every binary in polkit/util-linux/
+        # shadow/sudo (pkexec, su, sudo, mount, etc.), discovered when Forge
+        # GUI elevation failed in the May 15 smoke test. Root cause not
+        # pinpointed to a specific stripping operation. This loop re-applies
+        # any setuid/setgid/sticky bit present in staging to the deployed
+        # file. Idempotent — no-op when the tar pipeline preserved correctly.
+        try:
+            for staged_path in staging_dir.rglob("*"):
+                if not staged_path.is_file() or staged_path.is_symlink():
+                    continue
+                staged_mode = staged_path.stat().st_mode
+                if staged_mode & (stat.S_ISUID | stat.S_ISGID | stat.S_ISVTX):
+                    rel = staged_path.relative_to(staging_dir)
+                    deployed_path = Path("/") / rel
+                    if deployed_path.exists() and not deployed_path.is_symlink():
+                        deployed_mode = deployed_path.stat().st_mode
+                        if (deployed_mode & 0o7777) != (staged_mode & 0o7777):
+                            deployed_path.chmod(staged_mode & 0o7777)
+                            self.logger.info(
+                                f"  setuid-restore: {deployed_path} -> "
+                                f"{oct(staged_mode & 0o7777)}"
+                            )
+        except (OSError, ValueError) as e:
+            self.logger.warning(f"  setuid restore pass failed: {e}")
 
         self.logger.info(f"Deployed {pkg.name}-{pkg.version} to live filesystem")
         shutil.rmtree(staging_dir, ignore_errors=True)
