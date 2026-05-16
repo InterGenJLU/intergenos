@@ -503,6 +503,79 @@ log "  preset-all applied; multi-user.target.wants/ contents:"
 ls /etc/systemd/system/multi-user.target.wants/ 2>/dev/null | sed 's/^/    /'
 
 # ============================================================================
+# 9.X — dbus capability override (close setgroups EPERM)
+# ============================================================================
+#
+# Upstream dbus 1.16.2's shipped dbus.service uses:
+#   User=messagebus
+#   Group=messagebus
+#   AmbientCapabilities=CAP_AUDIT_WRITE
+#
+# systemd switches UID to messagebus before invoking dbus-daemon. The
+# daemon then tries `setgroups(0, NULL)` to drop supplementary groups as
+# a self-hardening step. Without CAP_SETGID in the inherited cap set,
+# setgroups returns EPERM, which dbus logs as:
+#   dbus-daemon[404]: Failed to drop supplementary groups: Operation
+#   not permitted
+# Surfaced in cycle-3 smoke test serial log. Non-fatal (dbus continues)
+# but spurious — owner-direct 2026-05-16: no half-assing, no
+# "non-blocking" framing; fix the warning.
+#
+# Fix: drop-in service override at
+# /etc/systemd/system/dbus.service.d/intergenos-capabilities.conf adding
+# CAP_SETGID to AmbientCapabilities. Lives in /etc rather than /usr/lib
+# so it survives a dbus package upgrade (overrides under /etc trump
+# package-shipped files).
+log "--- Installing dbus.service capability override (CAP_SETGID) ---"
+mkdir -p /etc/systemd/system/dbus.service.d
+cat > /etc/systemd/system/dbus.service.d/intergenos-capabilities.conf <<'EOF'
+# Closes the "Failed to drop supplementary groups: Operation not
+# permitted" boot-time warning. dbus-daemon, running as messagebus,
+# needs CAP_SETGID to perform setgroups(0, NULL). See
+# scripts/chroot-config-ch9.sh for the full root-cause trace.
+[Service]
+AmbientCapabilities=CAP_AUDIT_WRITE CAP_SETGID
+EOF
+chmod 644 /etc/systemd/system/dbus.service.d/intergenos-capabilities.conf
+log "  /etc/systemd/system/dbus.service.d/intergenos-capabilities.conf"
+
+# ============================================================================
+# 9.X — TSS2 log-noise suppression for TPM-init services
+# ============================================================================
+#
+# systemd-tpm2-setup and systemd-pcrextend re-initialize NV PCR slots at
+# each boot. When the slots are already present (every boot after the
+# first), the TPM returns TPM2_RC_NV_DEFINED (0x14c — "NV Index or
+# persistent object already defined"). systemd handles this gracefully
+# ("1 NvPCRs were already initialized") and the unit finishes [OK].
+#
+# But the TSS2 library underneath doesn't know the caller treats this
+# response as success — it logs the response as:
+#   WARNING:esys:... Esys_NV_DefineSpace_Finish() Received TPM Error
+#   ERROR:esys:... Esys_NV_DefineSpace() Esys Finish ErrorCode (0x0000014c)
+# Spurious noise in every boot's journal. Surfaced in cycle-3 smoke test.
+# Owner-direct 2026-05-16: no "benign" framing; fix the noise.
+#
+# Fix: drop-ins set TSS2_LOG=all+critical for the two services that hit
+# this path. Suppresses WARNING + ERROR for known-handled cases, keeps
+# CRITICAL for genuinely unrecoverable TPM faults.
+log "--- Installing TSS2 log-level overrides for tpm2-init services ---"
+for svc in systemd-tpm2-setup systemd-pcrextend; do
+    mkdir -p /etc/systemd/system/${svc}.service.d
+    cat > /etc/systemd/system/${svc}.service.d/intergenos-tss2-loglevel.conf <<'EOF'
+# TSS2 library emits WARNING/ERROR on TPM2_RC_NV_DEFINED (0x14c — "NV
+# already defined"), a benign re-init case at every boot after the
+# first. systemd handles it cleanly. Suppress library-level noise so
+# only CRITICAL faults reach the journal. See chroot-config-ch9.sh
+# for the full root-cause trace.
+[Service]
+Environment=TSS2_LOG=all+CRITICAL
+EOF
+    chmod 644 /etc/systemd/system/${svc}.service.d/intergenos-tss2-loglevel.conf
+    log "  /etc/systemd/system/${svc}.service.d/intergenos-tss2-loglevel.conf"
+done
+
+# ============================================================================
 # 9.X — Register all installed packages with pkm SQLite DB
 # ============================================================================
 #
