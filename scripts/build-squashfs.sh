@@ -317,12 +317,51 @@ if [ "$DERIVE_EXCLUSIONS" = "1" ] && [ -x /mnt/intergenos/scripts/derive-iso-exc
         --output "$EXCLUSION_FILE" 2>&1 | sed 's/^/  /'
 fi
 
-EF_ARG=()
+# Enumerate the patterns the original -wildcards excludes covered. mksquashfs
+# refuses to mix -wildcards with -ef when -ef paths contain `/`, even when the
+# paths don't have a `/`-prefix (mksquashfs bug or undocumented restriction
+# surfaced 2026-05-16). Workaround: drop -wildcards and enumerate the wildcard
+# targets via shell. Then mksquashfs treats both -e args and -ef entries as
+# literal paths, accepting the 53369-path MIRROR-package exclusion list.
+EXTRA_EXCLUDES=()
+# gid_Module_* — LibreOffice build-time artifacts that leaked to chroot root
+for f in "$CHROOT"/gid_Module_*; do
+    [ -e "$f" ] || continue
+    EXTRA_EXCLUDES+=(-e "${f#"$CHROOT"/}")
+done
+# /home/*/.bash_history (only if /home users exist)
+for h in "$CHROOT"/home/*/; do
+    [ -d "$h" ] || continue
+    user_dir="${h#"$CHROOT"/}"
+    user_dir="${user_dir%/}"
+    if [ -f "$CHROOT/$user_dir/.bash_history" ]; then
+        EXTRA_EXCLUDES+=(-e "$user_dir/.bash_history")
+    fi
+done
+# /root/.bash_history (always check)
+[ -f "$CHROOT/root/.bash_history" ] && EXTRA_EXCLUDES+=(-e 'root/.bash_history')
+
 if [ -f "$EXCLUSION_FILE" ] && [ -s "$EXCLUSION_FILE" ]; then
     log "       mksquashfs exclusion file: $EXCLUSION_FILE ($(wc -l <"$EXCLUSION_FILE") paths)"
     EF_ARG=(-ef "$EXCLUSION_FILE")
+else
+    EF_ARG=()
 fi
 
+# Note: -wildcards INTENTIONALLY OMITTED — see comment above. The tmp/*,
+# var/tmp/*, proc/*, sys/*, dev/*, run/* patterns the prior version of
+# this script used were defensive against pre-unmount leftovers, but
+# step-3 cleanup already truncates those dirs so excluding the dir
+# itself is sufficient. Mount-point preservation is enforced by the
+# audit at the end of this script; if mksquashfs accidentally drops a
+# mount-point dir, that audit catches the regression.
+#
+# Note: -ef MUST come BEFORE any -e flags. Confirmed empirically
+# 2026-05-16 with mksquashfs from squashfs-tools: when -e args precede
+# -ef on the command line, the -ef file contents are silently ignored
+# (no warning, no error, just zero exclusions). When -ef comes first,
+# everything works. Likely an argument-parsing bug in squashfs-tools'
+# option handler.
 mksquashfs "$CHROOT" "$OUTPUT" \
     $NOAPPEND \
     -comp "$COMP" \
@@ -330,21 +369,20 @@ mksquashfs "$CHROOT" "$OUTPUT" \
     -Xbcj x86 \
     -processors "$JOBS" \
     -no-progress \
-    -wildcards \
+    "${EF_ARG[@]}" \
     -e mnt/intergenos \
     -e sources \
     -e var/cache \
     -e var/log/journal \
-    -e 'tmp/*' \
-    -e 'var/tmp/*' \
-    -e 'proc/*' \
-    -e 'sys/*' \
-    -e 'dev/*' \
-    -e 'run/*' \
-    -e 'gid_Module_*' \
-    -e 'root/.bash_history' \
-    -e 'home/*/.bash_history' \
-    "${EF_ARG[@]}"
+    -e tmp/lost+found \
+    -e var/tmp/lost+found \
+    "${EXTRA_EXCLUDES[@]}"
+
+# Force the squashfs's data + metadata to disk before unsquashfs reads it.
+# Without this, unsquashfs occasionally races with the still-flushing
+# mksquashfs write and reports the mount-point dirs as missing — false-
+# positive observed 2026-05-16 (squashfs verified correct on second read).
+sync
 
 # Post-build sanity check: verify the mount-point dirs are present in the
 # output (this is the regression detector for feedback_mksquashfs_keep_pseudofs_dirs).
