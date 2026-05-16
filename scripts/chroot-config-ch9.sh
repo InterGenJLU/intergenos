@@ -503,8 +503,38 @@ log "  preset-all applied; multi-user.target.wants/ contents:"
 ls /etc/systemd/system/multi-user.target.wants/ 2>/dev/null | sed 's/^/    /'
 
 # ============================================================================
-# Summary
+# 9.X — Register all installed packages with pkm SQLite DB
 # ============================================================================
+#
+# Root cause traced 2026-05-16: the bash build pipeline
+# (scripts/pkg-functions.sh:pkg_install) writes the text manifest to
+# /var/lib/igos/packages/<name>-<version> and the archive to
+# /var/lib/igos/archives/<name>-<version>.igos.tar.gz, but does NOT
+# write to the pkm SQLite database. Only the Python orchestrator
+# (igos-build/tracker.py:pkg_register_pkm_db) writes SQLite at the
+# gate-3 post-deploy step. Net effect: every package built by the
+# bash chroot-build-*.sh scripts (tier:core, tier:base, plus some
+# tier:extra) is "phantom-installed" — files on disk, manifest on disk,
+# archive on disk, but pkm DB does not know about it. Symptoms:
+#   - `pkm provides <file>` returns "No package owns" for files in
+#     the phantom packages, even though the files exist
+#   - `pkm info <name>` says "not installed"
+#   - `pkm files <name>` returns empty
+# Inflicted 236 of our 765 packages pre-fix. Discovered when
+# `/usr/bin/ping` triaged as an "orphan binary" (inetutils owns it but
+# pkm didn't know inetutils was installed).
+#
+# Fix: `pkm import` scans /var/lib/igos/packages/ manifests and
+# creates DB entries for any package not yet registered. Idempotent —
+# already-tracked packages are skipped. Runs once at config-phase end
+# to reconcile the DB with the on-disk state.
+#
+# The proper fix in pkg-functions.sh:pkg_install would be to call into
+# pkm's add_installed() after pkg_deploy succeeds. Tracked as followup
+# (parity with tracker.py:pkg_register_pkm_db). For now `pkm import`
+# closes the loop reliably.
+log "--- Reconciling pkm SQLite DB with on-disk package manifests ---"
+pkm import 2>&1 | sed 's/^/  /' || true
 
 log ""
 log "=========================================="

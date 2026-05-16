@@ -672,6 +672,20 @@ pkg_install() {
     # Deploy to live filesystem
     pkg_deploy "$name" "$version" || return 1
 
+    # Register in pkm SQLite database. Mirrors the Python orchestrator's
+    # tracker.py:pkg_register_pkm_db gate-3 step. Pre-fix (2026-05-16), the
+    # bash pkg_install wrote the text manifest + archive but never wrote
+    # SQLite, leaving 236 packages "phantom-installed" — files + manifest +
+    # archive on disk, but `pkm provides <file>` / `pkm info <name>` /
+    # `pkm files <name>` blind. Discovered when /usr/bin/ping triaged as
+    # an orphan binary (inetutils owned it but pkm didn't know inetutils
+    # was installed). `pkm import` reads the manifest we just wrote and
+    # registers it in SQLite. Idempotent — re-running on an already-
+    # registered package is a no-op.
+    if command -v pkm >/dev/null 2>&1; then
+        pkm import 2>&1 | sed 's/^/  /' || pkg_log "  (pkm import non-fatal)"
+    fi
+
     # Clean up staging directory
     pkg_cleanup "$name" "$version"
 
