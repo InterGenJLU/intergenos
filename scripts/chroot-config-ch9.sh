@@ -474,6 +474,12 @@ cat > /usr/lib/systemd/system-preset/80-intergenos-enable.preset <<'EOF'
 enable NetworkManager.service
 enable apparmor.service
 enable systemd-oomd.service
+
+# forge-tui.service has ConditionKernelCommandLine=igos.mode=install-tui
+# so it only fires in install-tui mode. In live + install-gui modes the
+# condition is not met and the unit is a no-op. Enabling here so it's
+# in multi-user.target.wants/ for install-tui boots to find.
+enable forge-tui.service
 EOF
 chmod 644 /usr/lib/systemd/system-preset/80-intergenos-enable.preset
 
