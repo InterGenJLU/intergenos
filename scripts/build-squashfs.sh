@@ -379,21 +379,64 @@ mksquashfs "$CHROOT" "$OUTPUT" \
     "${EXTRA_EXCLUDES[@]}"
 
 # Force the squashfs's data + metadata to disk before unsquashfs reads it.
-# Without this, unsquashfs occasionally races with the still-flushing
-# mksquashfs write and reports the mount-point dirs as missing — false-
-# positive observed 2026-05-16 (squashfs verified correct on second read).
 sync
 
-# Post-build sanity check: verify the mount-point dirs are present in the
-# output (this is the regression detector for feedback_mksquashfs_keep_pseudofs_dirs).
+# Post-build sanity check (regression detector for
+# feedback_mksquashfs_keep_pseudofs_dirs).
+#
+# Earlier version called `unsquashfs -l` 5x in a loop with `2>/dev/null`,
+# producing false-positive FATALs when unsquashfs hit a transient read
+# error: stderr was suppressed, empty stdout → grep failed silently → loop
+# concluded dirs were "missing". This verifier is now brutally honest:
+#   - single cached listing (one read, not five)
+#   - retry-with-backoff on transient unreadable + short-listing
+#   - stderr is captured and printed on failure (no silent failures)
+#   - distinguishes "file unreadable" from "dirs missing" (different fixes)
+#   - sanity-check listing length (>100 entries) before trusting it
 log ""
 log "verifying mount-point directories in output..."
+
+LISTING_FILE=$(mktemp)
+STDERR_FILE=$(mktemp)
+trap 'rm -f "$LISTING_FILE" "$STDERR_FILE"' EXIT
+
+ATTEMPT_SUCCESS=0
+for attempt in 1 2 3; do
+    : >"$LISTING_FILE"
+    : >"$STDERR_FILE"
+    if unsquashfs -l "$OUTPUT" >"$LISTING_FILE" 2>"$STDERR_FILE"; then
+        LINES=$(wc -l <"$LISTING_FILE")
+        if [ "$LINES" -gt 100 ]; then
+            log "  unsquashfs -l attempt $attempt: SUCCESS ($LINES entries)"
+            ATTEMPT_SUCCESS=1
+            break
+        fi
+        log "  unsquashfs -l attempt $attempt: short listing ($LINES lines) — possible flush race"
+    else
+        rc=$?
+        log "  unsquashfs -l attempt $attempt: failed (rc=$rc); stderr follows:"
+        sed 's/^/    /' "$STDERR_FILE" >&2 || true
+    fi
+    if [ "$attempt" -lt 3 ]; then
+        log "  retrying in 2s after sync"
+        sync
+        sleep 2
+    fi
+done
+
+if [ "$ATTEMPT_SUCCESS" -ne 1 ]; then
+    die "unsquashfs -l produced no complete listing after 3 attempts — squashfs may be unreadable, corrupt, or still flushing"
+fi
+
 MISSING=""
 for mnt in proc sys dev run tmp; do
-    if ! unsquashfs -l "$OUTPUT" 2>/dev/null | grep -qE "^squashfs-root/${mnt}\$"; then
+    if ! grep -qE "^squashfs-root/${mnt}\$" "$LISTING_FILE"; then
         MISSING="$MISSING $mnt"
     fi
 done
+rm -f "$LISTING_FILE" "$STDERR_FILE"
+trap - EXIT
+
 if [ -n "$MISSING" ]; then
     die "mount-point dirs MISSING from squashfs:$MISSING — regression of feedback_mksquashfs_keep_pseudofs_dirs"
 fi
