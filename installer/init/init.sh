@@ -375,15 +375,20 @@ fi
 #
 # Two overlay writes for install-gui:
 #   1. /home/liveuser/.config/autostart/forge-gui.desktop — XDG autostart
-#      entry that fires `pkexec /usr/bin/forge --mode gui` at session start.
-#      Passing --mode explicitly bypasses Forge's
-#      igos.installer=/igos.mode= cmdline param-name mismatch (the UKI
-#      ships `igos.mode=install-gui` but Forge's
-#      parse_cmdline_installer_mode() reads `igos.installer=gui`).
-#      Squashfs already has /usr/bin/forge + the polkit rule installed by
-#      the forge package; the rule grants passwordless YES to
-#      subject.user=="liveuser" so the GDM autologin session fires the
-#      installer without a credential prompt.
+#      entry that fires `/usr/bin/forge-gui-launch` at session start.
+#      The launcher is the liveuser-side half of a two-stage flow that
+#      captures the calling session's DISPLAY / WAYLAND_DISPLAY /
+#      XAUTHORITY / XDG_RUNTIME_DIR / DBUS_SESSION_BUS_ADDRESS into a
+#      file in /run/user/1000, then pkexecs /usr/bin/forge-gui-runner
+#      which restores those env vars under root and execs forge in GUI
+#      mode. The mode + archive + packages args are hardcoded in
+#      forge-gui-runner so the passwordless polkit grant covers only
+#      this exact root invocation — liveuser can't tamper with the
+#      .desktop file to invoke forge with alternate args.
+#      Squashfs already has /usr/bin/forge + forge-gui-launch +
+#      forge-gui-runner + the polkit policy + rule installed by the
+#      forge package; the rule grants passwordless YES to
+#      subject.user=="liveuser" for the run-installer action.
 #   2. /home/liveuser/.config/autostart/intergen-welcome.desktop with
 #      `Hidden=true` — per the XDG Autostart spec, a user-level autostart
 #      entry shadows the system-wide one at /etc/xdg/autostart/. Setting
@@ -404,7 +409,7 @@ if [ "$MODE" = "install-gui" ]; then
 Type=Application
 Name=InterGenOS Forge Installer
 Comment=Install InterGenOS to disk
-Exec=pkexec /usr/bin/forge --mode gui --archives /var/lib/igos/archives --packages /var/lib/igos/packages
+Exec=/usr/bin/forge-gui-launch
 Icon=system-software-install
 Categories=System;Settings;
 OnlyShowIn=GNOME;

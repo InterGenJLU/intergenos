@@ -1,0 +1,48 @@
+#!/bin/sh
+# /usr/bin/forge-gui-launch — Live-ISO Forge GUI launcher (runs as liveuser).
+#
+# Step 1 of the two-stage pkexec flow that brings up Forge's GTK4/libadwaita
+# GUI as root while preserving access to the calling liveuser session's
+# display server, X authority, runtime directory, and D-Bus session bus.
+#
+# pkexec scrubs the caller's environment to a tiny whitelist on invocation
+# (LANG/LC_*, PATH, SHELL, USER, USERNAME, LOGNAME, HOME — and, when the
+# action's allow_gui annotation is set, DISPLAY and XAUTHORITY). It does
+# NOT preserve WAYLAND_DISPLAY, XDG_RUNTIME_DIR, or
+# DBUS_SESSION_BUS_ADDRESS, so a root child process cannot reach the user
+# session's wayland socket or D-Bus session bus by default. Forge's
+# top-level GTK4 window can render via implicit fallbacks, but the
+# moment it makes an xdg-desktop-portal call (file chooser, partition
+# picker, account assistant), D-Bus auto-activation spawns a fresh
+# xdg-desktop-portal-gtk process in root's session-less context where
+# DISPLAY/WAYLAND_DISPLAY are unset. Portal-gtk fails with
+# "cannot open display:" and the calling portal client times out at 120s.
+#
+# This script captures the relevant env vars to a file in the caller's
+# /run/user/$UID directory (mode 0700, only owner-uid and root can read),
+# then execs the root-side runner via pkexec. The runner reads the file
+# (root reads regardless of mode), restores the env, and execs forge.
+
+set -eu
+
+UID_NUM="$(id -u)"
+RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${UID_NUM}}"
+ENV_FILE="${RUNTIME_DIR}/forge-gui.env"
+
+# Write the env-restoration file. Format: KEY=VALUE one per line, no shell
+# quoting (the values are well-defined: socket paths, file paths, display
+# tokens). Empty values are written explicitly so the runner knows to skip
+# (vs. trying to export an undefined name).
+umask 0177
+{
+    printf 'DISPLAY=%s\n'                  "${DISPLAY:-}"
+    printf 'WAYLAND_DISPLAY=%s\n'          "${WAYLAND_DISPLAY:-}"
+    printf 'XAUTHORITY=%s\n'               "${XAUTHORITY:-}"
+    printf 'XDG_RUNTIME_DIR=%s\n'          "${RUNTIME_DIR}"
+    printf 'XDG_SESSION_TYPE=%s\n'         "${XDG_SESSION_TYPE:-}"
+    printf 'DBUS_SESSION_BUS_ADDRESS=%s\n' "${DBUS_SESSION_BUS_ADDRESS:-unix:path=${RUNTIME_DIR}/bus}"
+    printf 'GDK_BACKEND=%s\n'              "${GDK_BACKEND:-}"
+    printf 'GTK_USE_PORTAL=1\n'
+} > "${ENV_FILE}"
+
+exec pkexec /usr/bin/forge-gui-runner

@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: file:///forge-1.0.0.tar.xz
-  sha256: 984e77fbbd80d3cdeba4b5a80eb4d4ebb986691658b51579de0111bc12c594d9
+  sha256: e93564e16c0506cd7648e30fac837a0d46bcd069f68bd8d2a6e3b44596c5d566
 dependencies:
   build: []
   host: []
@@ -21,6 +21,8 @@ dependencies:
   - polkit
 verify_paths:
   - /usr/bin/forge
+  - /usr/bin/forge-gui-launch
+  - /usr/bin/forge-gui-runner
   - /usr/lib/python3.14/site-packages/installer
   - /usr/lib/systemd/system/forge-tui.service
   - /usr/share/applications/forge-gui.desktop

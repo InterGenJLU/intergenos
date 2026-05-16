@@ -56,6 +56,21 @@ exec /usr/bin/python3 -m installer "$@"
 FORGE
     chmod 755 "${DESTDIR}/usr/bin/forge"
 
+    # ---- Live-ISO GUI launcher pair (env-preservation across pkexec) -------
+    # Two-stage shim that captures the calling liveuser session's display +
+    # bus environment, then pkexec's into forge as root with that env
+    # restored. Required because pkexec scrubs the environment to a tiny
+    # whitelist; without this xdg-desktop-portal-gtk fails to render any
+    # cross-session dialog (file chooser, partition picker, account
+    # assistant) because the D-Bus-auto-activated portal-gtk process
+    # inherits root's session-less env. The launcher runs as liveuser
+    # (from the .desktop Exec= line); the runner runs as root (from
+    # pkexec, with the polkit-rule passwordless YES for liveuser).
+    install -m755 ./installer/data/forge-gui-launch \
+        "${DESTDIR}/usr/bin/forge-gui-launch"
+    install -m755 ./installer/data/forge-gui-runner \
+        "${DESTDIR}/usr/bin/forge-gui-runner"
+
     # ---- systemd service: forge-tui.service ---------------------------------
     install -dm755 "${DESTDIR}/usr/lib/systemd/system"
     install -m644 ./installer/data/forge-tui.service \
@@ -82,7 +97,7 @@ FORGE
 Type=Application
 Name=Install InterGenOS
 Comment=Install InterGenOS to disk
-Exec=pkexec /usr/bin/forge --mode gui --archives /var/lib/igos/archives --packages /var/lib/igos/packages
+Exec=/usr/bin/forge-gui-launch
 Icon=system-software-install
 Categories=System;Settings;
 OnlyShowIn=GNOME;

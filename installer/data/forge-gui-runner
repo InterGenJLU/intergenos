@@ -1,0 +1,52 @@
+#!/bin/sh
+# /usr/bin/forge-gui-runner — Live-ISO Forge GUI runner (runs as root after pkexec).
+#
+# Step 2 of the two-stage pkexec flow. Reads the env-restoration file the
+# liveuser-side launcher wrote to /run/user/$PKEXEC_UID/forge-gui.env,
+# restores the relevant display/bus environment variables, and execs
+# /usr/bin/forge with the fixed GUI install arguments.
+#
+# This script is the actual polkit-action target (see
+# /usr/share/polkit-1/actions/org.intergenos.forge.policy
+# exec.path annotation); the rule at
+# /usr/share/polkit-1/rules.d/49-intergenos-forge.rules grants
+# passwordless YES to subject.user == "liveuser" for the
+# org.intergenos.forge.run-installer action. The arguments passed to
+# forge are hardcoded here rather than accepted from argv: the
+# passwordless polkit grant covers only this exact root invocation, so
+# liveuser cannot inject alternate arguments (e.g. --mode tui in a way
+# that bypasses GUI consent) by tampering with the .desktop file or
+# autostart entry.
+
+set -eu
+
+# PKEXEC_UID is set by pkexec to the calling user's uid. Refuse to run
+# outside a pkexec context — a direct root invocation would either crash
+# on the missing env file or restore env from a wrong /run/user/<uid>.
+PKEXEC_UID="${PKEXEC_UID:-}"
+if [ -z "${PKEXEC_UID}" ]; then
+    printf 'forge-gui-runner: PKEXEC_UID unset; refusing to run outside pkexec.\n' >&2
+    exit 1
+fi
+
+ENV_FILE="/run/user/${PKEXEC_UID}/forge-gui.env"
+if [ ! -r "${ENV_FILE}" ]; then
+    printf 'forge-gui-runner: env file %s missing or unreadable.\n' "${ENV_FILE}" >&2
+    exit 1
+fi
+
+# Parse and export. We deliberately do NOT `. file` (which would expand
+# shell metacharacters in values). Allow-list the env vars we propagate;
+# anything else in the file is ignored.
+while IFS='=' read -r key value; do
+    [ -z "${key}" ] && continue
+    case "${key}" in
+        DISPLAY|WAYLAND_DISPLAY|XAUTHORITY|XDG_RUNTIME_DIR|XDG_SESSION_TYPE|DBUS_SESSION_BUS_ADDRESS|GDK_BACKEND|GTK_USE_PORTAL)
+            export "${key}=${value}"
+            ;;
+    esac
+done < "${ENV_FILE}"
+
+exec /usr/bin/forge --mode gui \
+    --archives /var/lib/igos/archives \
+    --packages /var/lib/igos/packages
