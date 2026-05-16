@@ -5,6 +5,7 @@ description: A very fast implementation of tldr in Rust
 license: MIT OR Apache-2.0
 homepage: https://github.com/dbrgn/tealdeer
 tier: extra
+iso_include: true  # see docs/extra-tier-classification.md
 build_style: custom
 install_func: do_install
 source:

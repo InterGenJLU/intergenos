@@ -5,6 +5,7 @@ description: A simple, fast and user-friendly alternative to find
 license: MIT OR Apache-2.0
 homepage: https://github.com/sharkdp/fd
 tier: extra
+iso_include: true  # see docs/extra-tier-classification.md
 build_style: custom
 install_func: do_install
 source:

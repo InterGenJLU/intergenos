@@ -5,6 +5,7 @@ description: Mozilla Firefox web browser
 license: MPL-2.0
 homepage: https://www.mozilla.org/firefox/
 tier: extra
+iso_include: true  # see docs/extra-tier-classification.md
 build_style: custom
 install_func: do_install
 source:

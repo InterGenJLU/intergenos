@@ -5,6 +5,7 @@ description: A modern, maintained replacement for ls
 license: EUPL-1.2
 homepage: https://github.com/eza-community/eza
 tier: extra
+iso_include: true  # see docs/extra-tier-classification.md
 build_style: custom
 install_func: do_install
 source:

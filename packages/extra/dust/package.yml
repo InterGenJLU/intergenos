@@ -5,6 +5,7 @@ description: A more intuitive version of du in rust
 license: Apache-2.0
 homepage: https://github.com/bootandy/dust
 tier: extra
+iso_include: true  # see docs/extra-tier-classification.md
 build_style: custom
 install_func: do_install
 source:

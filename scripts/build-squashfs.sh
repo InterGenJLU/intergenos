@@ -298,6 +298,30 @@ NOAPPEND="-noappend"
 #   - var/tmp/*         — package-build tmpfs target
 #   - proc/*, sys/*     — defensive (should be empty post-unmount anyway)
 #   - dev/*, run/*      — defensive (same)
+#
+# ISO/MIRROR scoping (owner-direct 2026-05-16, classification at
+# docs/extra-tier-classification.md): packages with iso_include=false
+# (default for tier:extra unless overridden) DO NOT ship in the ISO —
+# they're built + signed + published to the InterGenOS mirror and
+# pulled via `pkm install <name>` post-install. Their on-disk file
+# paths are derived from pkm manifests by scripts/derive-iso-exclusions.py
+# and fed to mksquashfs via -ef.
+
+EXCLUSION_FILE="${EXCLUSION_FILE:-/tmp/iso-exclusions.txt}"
+DERIVE_EXCLUSIONS="${DERIVE_EXCLUSIONS:-1}"
+if [ "$DERIVE_EXCLUSIONS" = "1" ] && [ -x /mnt/intergenos/scripts/derive-iso-exclusions.py ]; then
+    log "[5/5] deriving ISO exclusions for tier:extra MIRROR packages..."
+    python3 /mnt/intergenos/scripts/derive-iso-exclusions.py \
+        --chroot "$CHROOT" \
+        --packages /mnt/intergenos/packages \
+        --output "$EXCLUSION_FILE" 2>&1 | sed 's/^/  /'
+fi
+
+EF_ARG=()
+if [ -f "$EXCLUSION_FILE" ] && [ -s "$EXCLUSION_FILE" ]; then
+    log "       mksquashfs exclusion file: $EXCLUSION_FILE ($(wc -l <"$EXCLUSION_FILE") paths)"
+    EF_ARG=(-ef "$EXCLUSION_FILE")
+fi
 
 mksquashfs "$CHROOT" "$OUTPUT" \
     $NOAPPEND \
@@ -319,7 +343,8 @@ mksquashfs "$CHROOT" "$OUTPUT" \
     -e 'run/*' \
     -e 'gid_Module_*' \
     -e 'root/.bash_history' \
-    -e 'home/*/.bash_history'
+    -e 'home/*/.bash_history' \
+    "${EF_ARG[@]}"
 
 # Post-build sanity check: verify the mount-point dirs are present in the
 # output (this is the regression detector for feedback_mksquashfs_keep_pseudofs_dirs).

@@ -5,6 +5,7 @@ description: Yet another cross-platform graphical process/system monitor
 license: MIT
 homepage: https://github.com/ClementTsang/bottom
 tier: extra
+iso_include: true  # see docs/extra-tier-classification.md
 build_style: custom
 install_func: do_install
 source:

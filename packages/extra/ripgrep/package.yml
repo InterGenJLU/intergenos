@@ -5,6 +5,7 @@ description: Line-oriented search tool that recursively searches the current dir
 license: Unlicense OR MIT
 homepage: https://github.com/BurntSushi/ripgrep
 tier: extra
+iso_include: true  # see docs/extra-tier-classification.md
 build_style: custom
 install_func: do_install
 source:

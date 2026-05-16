@@ -62,7 +62,13 @@ class Package:
     build_style: str                 # autotools, cmake, meson, make, custom
 
     # Classification
-    tier: str = "core"               # toolchain, core, base, desktop
+    tier: str = "core"               # toolchain, core, base, desktop, extra, ai
+
+    # ISO inclusion. tier:extra default = False (MIRROR — pkm install on
+    # demand from the InterGenOS mirror). All other tiers default = True
+    # (shipped in the squashfs). Explicit override available per-package.
+    # See docs/extra-tier-classification.md for the v1.0 ISO whitelist.
+    iso_include: bool | None = None  # None => apply tier-based default at parse time
 
     # Optional metadata
     homepage: str | None = None
@@ -322,6 +328,15 @@ def parse_template(template_path: Path) -> Package:
             raise TemplateError(template_path, f"supersedes[{i}]: '{entry}' — a package cannot supersede itself")
         supersedes.append(entry)
 
+    # ISO inclusion: explicit override wins, otherwise apply tier-based
+    # default. `tier: extra` defaults to MIRROR (iso_include=False); all
+    # other tiers ship in the ISO (iso_include=True).
+    iso_include_raw = raw.get("iso_include", None)
+    if iso_include_raw is None:
+        iso_include = (tier != "extra")
+    else:
+        iso_include = bool(iso_include_raw)
+
     return Package(
         name=name,
         version=version,
@@ -332,6 +347,7 @@ def parse_template(template_path: Path) -> Package:
         dependencies=dependencies,
         build_style=build_style,
         tier=tier,
+        iso_include=iso_include,
         homepage=raw.get("homepage"),
         configure_flags=configure_flags,
         patches=patches,
