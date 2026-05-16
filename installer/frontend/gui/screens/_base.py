@@ -109,12 +109,24 @@ def _labeled(label_text: str, widget: Gtk.Widget) -> Gtk.Widget:
 def _toast(window, text: str):
     """Surface a transient message via the window's overlay.
 
-    Falls through to stderr-equivalent print on the headless smoke-test
-    path where window.toast_overlay is None. This keeps validation paths
-    working even when the GUI is imported by tests without a display.
+    Headless test surface: when `window.toast_overlay` is None (smoke
+    test path that constructs screens without a display), the message
+    appends to `window.test_toasts` instead of writing to stdout. Tests
+    assert against `window.test_toasts` directly; no stdout pollution,
+    no print-capture fixture needed. The attribute is auto-created on
+    first toast so existing test fixtures don't need to pre-initialize.
     """
     if getattr(window, "toast_overlay", None) is None:
-        print(f"forge: {text}")
+        toasts = getattr(window, "test_toasts", None)
+        if toasts is None:
+            toasts = []
+            try:
+                window.test_toasts = toasts
+            except AttributeError:
+                # Read-only window proxy (unlikely but possible in some
+                # mock fixtures) — silently drop rather than crash.
+                return
+        toasts.append(text)
         return
     toast = Adw.Toast(title=text, timeout=4)
     window.toast_overlay.add_toast(toast)

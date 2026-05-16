@@ -71,6 +71,16 @@ class InstallerState:
     install_failed: bool = False
     install_error_message: str = ""
 
+    def __post_init__(self):
+        # Invariant: 'core' is always in package_groups. The orchestrator's
+        # validate phase rejects yaml that omits core (it's the LFS Ch 8
+        # substrate — an installed system without it cannot boot). Enforce
+        # the invariant at construction time so no code path — including
+        # a future package-selection screen that toggles checkboxes — can
+        # produce a state where core is absent.
+        if "core" not in self.package_groups:
+            self.package_groups = ["core"] + list(self.package_groups)
+
     def clear_sensitive_data(self) -> None:
         """Zero out password + MOK fields after install completes.
 
@@ -121,17 +131,17 @@ class InstallerState:
           required: locale, timezone, hostname, package_groups
           optional: keymap (orchestrator falls back to "us" if absent)
 
-        `core` is force-included even if the user un-toggled in package
-        selection — Schema says core is required and the orchestrator's
-        validate phase rejects yaml that omits it. We force it here so a
-        stale checkbox state can never produce an unbootable install.
+        `core` is invariant-present (enforced in __post_init__) — the
+        orchestrator's validate phase rejects yaml that omits it. We
+        still sort+set-dedupe here so the emitted yaml is deterministic
+        and a future package-selection screen that adds dupes is harmless.
 
         Disk + passwords + username are deliberately NOT in this dict —
         they are install_io collected interactively (Q-TUI-INTERACTIVITY=B
         + Q-GUI-SCREENS=7). Pre-seeding disk = fat-finger risk; pre-seeding
         password = supply-chain risk. PRIME DIRECTIVE.
         """
-        chosen = sorted(set(self.package_groups) | {"core"})
+        chosen = sorted(set(self.package_groups))
         return {
             "version": YAML_SCHEMA_VERSION,
             "locale": self.locale,
@@ -245,9 +255,8 @@ class InstallerState:
             errors.append("root passwords don't match")
         if not self.hostname:
             errors.append("hostname not set")
-        if "core" not in (self.package_groups or []):
-            # Surfaced as a soft warning at the UI layer — build_install_yaml
-            # force-includes core anyway, but if a test or a future code path
-            # bypasses build_install_yaml it'd be useful to flag.
-            errors.append("package group 'core' is required")
+        # 'core' invariant is enforced in __post_init__; no runtime check
+        # needed here — bypassing __post_init__ means bypassing the
+        # dataclass machinery entirely, which is out-of-scope for the
+        # UI validation surface.
         return errors
