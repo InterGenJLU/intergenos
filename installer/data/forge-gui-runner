@@ -35,18 +35,26 @@ if [ ! -r "${ENV_FILE}" ]; then
     exit 1
 fi
 
-# Parse and export. We deliberately do NOT `. file` (which would expand
-# shell metacharacters in values). Allow-list the env vars we propagate;
-# anything else in the file is ignored.
+# Diagnostic logging: runner appends to its own log too so we know whether
+# pkexec actually launched us and what env we received.
+exec >>/tmp/forge-gui-runner.log 2>&1
+echo "=== forge-gui-runner invoked $(date -Iseconds) uid=$(id -u) PKEXEC_UID=${PKEXEC_UID} ==="
+
+# Parse and export. Allow-list the env vars we propagate. Skip empty values
+# (IGOSC's 2026-05-16 H1: empty GDK_BACKEND breaks GTK4 init paths). The
+# launcher now omits empty entries, so this is belt-and-suspenders.
 while IFS='=' read -r key value; do
     [ -z "${key}" ] && continue
+    [ -z "${value}" ] && continue
     case "${key}" in
         DISPLAY|WAYLAND_DISPLAY|XAUTHORITY|XDG_RUNTIME_DIR|XDG_SESSION_TYPE|DBUS_SESSION_BUS_ADDRESS|GDK_BACKEND|GTK_USE_PORTAL)
             export "${key}=${value}"
+            echo "exported ${key}=${value}"
             ;;
     esac
 done < "${ENV_FILE}"
 
+echo "execing /usr/bin/forge --mode gui ..."
 exec /usr/bin/forge --mode gui \
     --archives /var/lib/igos/archives \
     --packages /var/lib/igos/packages

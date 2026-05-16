@@ -403,19 +403,27 @@ fi
 if [ "$MODE" = "install-gui" ]; then
     info "install-gui mode: Forge GUI autostart + welcomer shadow"
 
+    # Minimal autostart entry. NoDisplay + OnlyShowIn dropped 2026-05-16 because
+    # cycle-4 install-GUI smoke test confirmed: autostart never fired with those
+    # filters. Now plain Type=Application + Exec= so any XDG-autostart consumer
+    # honors it. Sh-wrapper writes a marker file at /tmp/forge-autostart-fired
+    # so post-mortem can distinguish "autostart never fired" from "forge-gui-launch
+    # crashed early". Also written system-wide under /etc/xdg/autostart for
+    # belt-and-suspenders coverage.
     mkdir -p /newroot/home/liveuser/.config/autostart
     cat > /newroot/home/liveuser/.config/autostart/forge-gui.desktop <<'FORGEGUI'
 [Desktop Entry]
 Type=Application
 Name=InterGenOS Forge Installer
-Comment=Install InterGenOS to disk
-Exec=/usr/bin/forge-gui-launch
-Icon=system-software-install
-Categories=System;Settings;
-OnlyShowIn=GNOME;
-StartupNotify=false
-NoDisplay=true
+Exec=sh -c 'touch /tmp/forge-autostart-fired; exec /usr/bin/forge-gui-launch'
+Terminal=false
 FORGEGUI
+
+    # System-wide copy — fires regardless of XDG_CONFIG_HOME or user-vs-system
+    # autostart-dir preference of the session manager.
+    mkdir -p /newroot/etc/xdg/autostart
+    cp /newroot/home/liveuser/.config/autostart/forge-gui.desktop \
+       /newroot/etc/xdg/autostart/forge-gui.desktop
 
     # Shadow the system-wide welcomer autostart with a Hidden=true user-
     # level entry. This session only (overlay tmpfs evaporates on next

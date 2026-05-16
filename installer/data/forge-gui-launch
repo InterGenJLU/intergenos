@@ -23,26 +23,41 @@
 # then execs the root-side runner via pkexec. The runner reads the file
 # (root reads regardless of mode), restores the env, and execs forge.
 
+# Diagnostic logging: every invocation appends to /tmp/forge-gui-launch.log so
+# post-mortem can confirm whether autostart fired and where it died.
+exec >>/tmp/forge-gui-launch.log 2>&1
+echo "=== forge-gui-launch invoked $(date -Iseconds) uid=$(id -u) ==="
+trap 'echo "EXIT line=$LINENO rc=$?"' EXIT
+
 set -eu
 
 UID_NUM="$(id -u)"
 RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/${UID_NUM}}"
 ENV_FILE="${RUNTIME_DIR}/forge-gui.env"
 
-# Write the env-restoration file. Format: KEY=VALUE one per line, no shell
-# quoting (the values are well-defined: socket paths, file paths, display
-# tokens). Empty values are written explicitly so the runner knows to skip
-# (vs. trying to export an undefined name).
+# Defensive: ensure RUNTIME_DIR exists before write. logind creates it at
+# session start but XDG autostart can race with the dir-create step.
+mkdir -p "${RUNTIME_DIR}"
+
+# Write env-restoration file. Skip empty values entirely so the runner never
+# exports empty-string vars (IGOSC's 2026-05-16 H1: GDK_BACKEND='' is NOT the
+# same as unset to GTK4 init; some paths interpret empty as "no match" and
+# silently fail). Only key=value lines for vars that are actually set.
 umask 0177
 {
-    printf 'DISPLAY=%s\n'                  "${DISPLAY:-}"
-    printf 'WAYLAND_DISPLAY=%s\n'          "${WAYLAND_DISPLAY:-}"
-    printf 'XAUTHORITY=%s\n'               "${XAUTHORITY:-}"
-    printf 'XDG_RUNTIME_DIR=%s\n'          "${RUNTIME_DIR}"
-    printf 'XDG_SESSION_TYPE=%s\n'         "${XDG_SESSION_TYPE:-}"
-    printf 'DBUS_SESSION_BUS_ADDRESS=%s\n' "${DBUS_SESSION_BUS_ADDRESS:-unix:path=${RUNTIME_DIR}/bus}"
-    printf 'GDK_BACKEND=%s\n'              "${GDK_BACKEND:-}"
-    printf 'GTK_USE_PORTAL=1\n'
+    [ -n "${DISPLAY:-}" ]                  && printf 'DISPLAY=%s\n'                  "$DISPLAY"
+    [ -n "${WAYLAND_DISPLAY:-}" ]          && printf 'WAYLAND_DISPLAY=%s\n'          "$WAYLAND_DISPLAY"
+    [ -n "${XAUTHORITY:-}" ]               && printf 'XAUTHORITY=%s\n'               "$XAUTHORITY"
+                                              printf 'XDG_RUNTIME_DIR=%s\n'          "$RUNTIME_DIR"
+    [ -n "${XDG_SESSION_TYPE:-}" ]         && printf 'XDG_SESSION_TYPE=%s\n'         "$XDG_SESSION_TYPE"
+                                              printf 'DBUS_SESSION_BUS_ADDRESS=%s\n' "${DBUS_SESSION_BUS_ADDRESS:-unix:path=${RUNTIME_DIR}/bus}"
+    [ -n "${GDK_BACKEND:-}" ]              && printf 'GDK_BACKEND=%s\n'              "$GDK_BACKEND"
+    # GTK_USE_PORTAL=1 intentionally always set (file-chooser portal handoff).
+                                              printf 'GTK_USE_PORTAL=1\n'
 } > "${ENV_FILE}"
 
+echo "env file written: ${ENV_FILE} ($(wc -l <"${ENV_FILE}") lines)"
+cat "${ENV_FILE}" | sed 's/^/  /'
+
+echo "calling pkexec /usr/bin/forge-gui-runner"
 exec pkexec /usr/bin/forge-gui-runner
