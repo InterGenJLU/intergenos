@@ -429,6 +429,23 @@ Hidden=true
 WELCOMEHIDE
 fi
 
+# ---- install-tui mode: mask GDM so forge-tui owns tty1 ---------------------
+# forge-tui.service has Conflicts=getty@tty1.service but NOT
+# Conflicts=gdm.service. In install-tui mode the squashfs's enabled GDM
+# starts on tty1 BEFORE forge-tui gets a chance (gdm.service has earlier
+# target dependency satisfaction than forge-tui's multi-user.target).
+# Net: cycle-4 install-tui smoke test landed at GDM's "Username:" prompt
+# on tty1, with forge-tui never running.
+#
+# Fix: in install-tui mode, mask gdm.service via overlay symlink to
+# /dev/null so systemd refuses to start it. Live + install-gui still
+# need GDM, so this is mode-gated.
+if [ "$MODE" = "install-tui" ]; then
+    info "install-tui mode: masking gdm.service so forge-tui owns tty1"
+    mkdir -p /newroot/etc/systemd/system
+    ln -sf /dev/null /newroot/etc/systemd/system/gdm.service
+fi
+
 # ---- Hand off mode to userspace --------------------------------------------
 # Diagnostic-only marker. Not a routing input — see comment below. Useful for
 # post-mortem of install or live-session failures (`cat /run/intergenos/boot-mode`
