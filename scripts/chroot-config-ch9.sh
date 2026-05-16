@@ -427,16 +427,80 @@ SCRIPT
 chmod 755 /usr/bin/lsb_release
 
 # ============================================================================
-# 9.X — Disable unneeded systemd targets
+# 9.X — Systemd preset policy: default-disable + explicit-enable
 # ============================================================================
 
-# machines.target and remote-fs.target are enabled by systemd defaults but
-# not needed for a desktop system. They can cause boot hangs waiting for
-# network mounts or container services that don't exist.
-log "--- Disabling unneeded systemd targets ---"
-rm -f /etc/systemd/system/multi-user.target.wants/remote-fs.target 2>/dev/null || true
-rm -f /etc/systemd/system/multi-user.target.wants/machines.target 2>/dev/null || true
-log "  remote-fs.target and machines.target removed from multi-user.target.wants"
+# Background: systemd's `systemctl preset-all` (run by core/systemd/build.sh
+# post_install) enables every service with `WantedBy=multi-user.target` in
+# its [Install] section UNLESS an earlier-sorted preset file explicitly
+# disables it. The implicit default is "enable on no match." Without a
+# catch-all `disable *`, the live ISO ends up with 40+ auto-starting
+# services including httpd, nginx, mariadb, postgres, memcached, etcd,
+# valkey, influxdb, transmission, caddy, haproxy — every "extra" tier
+# server flips on automatically.
+#
+# That's a Holy Grail violation (security-only alignment requires that
+# every running service be deliberately chosen) and the May-15 smoke test
+# surfaced the impact on the live ISO. Root-caused 2026-05-16: missing
+# default-disable catch-all preset.
+#
+# Fix: ship a 99-intergenos-default-disable.preset with `disable *` plus
+# an 80-intergenos-enable.preset listing services we deliberately want
+# on by default. Then re-run preset-all to apply.
+#
+# What stays enabled after this preset policy lands:
+#   - gdm.service              (90-gdm.preset)
+#   - nftables.service         (90-nftables.preset)
+#   - NetworkManager.service   (80-intergenos-enable.preset, this file)
+#   - apparmor.service         (80-intergenos-enable.preset, this file)
+#   - systemd-oomd.service     (80-intergenos-enable.preset, this file)
+#   - systemd-*                (upstream 90-systemd.preset for core systemd
+#                               infrastructure: remote-*.target,
+#                               systemd-homed.service, systemd-networkd.service,
+#                               etc.)
+log "--- Installing InterGenOS systemd preset policy ---"
+
+cat > /usr/lib/systemd/system-preset/80-intergenos-enable.preset <<'EOF'
+# InterGenOS — explicit-enable list.
+# Services we deliberately want active by default on installed systems.
+# Add new lines here when you want a service auto-enabled on first boot;
+# add nothing here for "user installs it, user enables it" semantics.
+#
+# Already covered by other preset files:
+#   - gdm.service          (90-gdm.preset)
+#   - nftables.service     (90-nftables.preset)
+#   - systemd-* services   (90-systemd.preset, upstream)
+
+enable NetworkManager.service
+enable apparmor.service
+enable systemd-oomd.service
+EOF
+chmod 644 /usr/lib/systemd/system-preset/80-intergenos-enable.preset
+
+cat > /usr/lib/systemd/system-preset/99-intergenos-default-disable.preset <<'EOF'
+# InterGenOS — default-disable catch-all.
+# Anything not explicitly enabled by an earlier-sorted preset (80- or
+# 90-) lands here and stays disabled. Without this catch-all, systemd's
+# implicit default of "enable on no match" auto-enables every service
+# with `WantedBy=multi-user.target` in its [Install] section. That was
+# the May-12 root cause for 40+ servers (httpd, nginx, postgres, mariadb,
+# memcached, etc.) auto-starting on the live ISO — a Holy Grail
+# violation. Closing the loop here means "user installs, user enables."
+
+disable *
+EOF
+chmod 644 /usr/lib/systemd/system-preset/99-intergenos-default-disable.preset
+
+log "  /usr/lib/systemd/system-preset/80-intergenos-enable.preset"
+log "  /usr/lib/systemd/system-preset/99-intergenos-default-disable.preset"
+
+# Apply the new preset policy. preset-all walks all units and applies
+# the policy from the .preset files. Symlinks for now-disabled services
+# get removed; explicit-enabled services land in *.target.wants/.
+log "--- Re-running systemctl preset-all under new policy ---"
+systemctl preset-all 2>&1 | sed 's/^/  /' || true
+log "  preset-all applied; multi-user.target.wants/ contents:"
+ls /etc/systemd/system/multi-user.target.wants/ 2>/dev/null | sed 's/^/    /'
 
 # ============================================================================
 # Summary
@@ -467,9 +531,10 @@ log "    /usr/bin/lsb_release"
 log "    /etc/systemd/system/getty@tty1.service.d/noclear.conf"
 log "    /etc/systemd/coredump.conf.d/maxuse.conf"
 log ""
-log "  Disabled targets:"
-log "    remote-fs.target — not needed for desktop"
-log "    machines.target — not needed for desktop"
+log "  Systemd preset policy:"
+log "    80-intergenos-enable.preset       — explicit-enable list"
+log "    99-intergenos-default-disable.preset — disable * catch-all"
+log "    preset-all applied at chapter-9 config time"
 log ""
 log "  Not created (by design):"
 log "    /etc/resolv.conf — managed by systemd-resolved"
