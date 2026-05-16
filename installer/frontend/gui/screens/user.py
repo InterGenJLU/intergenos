@@ -14,6 +14,8 @@ can re-enroll via mokutil from the running install.
 
 from gi.repository import Gtk
 
+from installer.backend._validators import validate_hostname, validate_username
+
 from ._base import _ForgePage, _labeled, _toast
 
 
@@ -64,11 +66,11 @@ class UserPage(_ForgePage):
         state.root_password_confirm = self._root_pw_confirm_entry.get_text()
         state.mok_password = self._mok_pw_entry.get_text()
 
-        if not state.username:
-            _toast(self._window, "Username is required.")
+        username_err = validate_username(state.username)
+        if username_err:
+            _toast(self._window, f"Username: {username_err}")
             return False
 
-        from installer.backend._validators import validate_hostname
         hostname_err = validate_hostname(state.hostname)
         if hostname_err:
             _toast(self._window, f"Hostname: {hostname_err}")

@@ -78,6 +78,16 @@ class ProgressPage(_ForgePage):
         self._phases_total = None  # cached on first event so test rigs can mock
 
     def on_load(self, state):
+        # Re-entry guard. NavigationView allows back/forward; on_load can
+        # fire more than once for the same page-instance lifetime. We MUST
+        # spawn the install worker only once — a second thread on the
+        # same target disk in parallel with the first would corrupt the
+        # in-progress partition/chroot/package writes catastrophically.
+        # `_worker_thread` is set in this method; if it's already a Thread
+        # object (running or completed), refuse to spawn a second one.
+        if self._worker_thread is not None:
+            return
+
         state.install_started = True
 
         try:

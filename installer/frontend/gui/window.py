@@ -48,25 +48,61 @@ class ForgeMainWindow(Adw.ApplicationWindow):
         # same widget instance the user previously saw — Gtk entries
         # remember their text without re-loading from InstallerState.
         self._screens = [cls(self) for cls in SCREEN_ORDER]
-        self._screen_index = 0
+
+        # In-flight nav-button gating. Adw.NavigationView's push/pop
+        # animations are async; without this flag, a rapid double-click
+        # on Back can fire navigate_back twice — the first pop is still
+        # in progress when the second arrives, so we'd pop twice but
+        # only one visual transition lands. Block re-entry until the
+        # `popped`/`pushed` signal confirms the previous transition is
+        # done.
+        self._nav_busy = False
+        self._nav_view.connect("popped", self._on_nav_popped)
+        self._nav_view.connect("pushed", self._on_nav_pushed)
 
         first = self._screens[0]
         first.on_load(self.state)
         self._nav_view.push(first)
 
+    @property
+    def _current_screen_index(self):
+        """Index of the currently-visible screen in `_screens`.
+
+        Derived from `_nav_view.get_visible_page()` rather than tracked
+        as a separate counter, so we can never desync from the visual
+        stack on rapid-click race.
+        """
+        visible = self._nav_view.get_visible_page()
+        for i, page in enumerate(self._screens):
+            if page is visible:
+                return i
+        # If NavigationView hasn't pushed anything yet (constructor race),
+        # the first screen is implicit.
+        return 0
+
+    def _on_nav_pushed(self, _view):
+        self._nav_busy = False
+
+    def _on_nav_popped(self, _view, _page):
+        self._nav_busy = False
+
     def navigate_next(self):
-        if self._screen_index >= len(self._screens) - 1:
+        if self._nav_busy:
             return
-        self._screen_index += 1
-        next_page = self._screens[self._screen_index]
+        idx = self._current_screen_index
+        if idx >= len(self._screens) - 1:
+            return
+        self._nav_busy = True
+        next_page = self._screens[idx + 1]
         next_page.on_load(self.state)
         self._nav_view.push(next_page)
 
     def navigate_back(self):
-        if self._screen_index <= 0:
+        if self._nav_busy:
             return
-        self._screen_index -= 1
-        # NavigationView handles the visual pop; we just track the index.
+        if self._current_screen_index <= 0:
+            return
+        self._nav_busy = True
         self._nav_view.pop()
 
 
