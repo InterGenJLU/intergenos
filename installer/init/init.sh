@@ -384,11 +384,19 @@ fi
 #      the forge package; the rule grants passwordless YES to
 #      subject.user=="liveuser" so the GDM autologin session fires the
 #      installer without a credential prompt.
-#   2. /etc/xdg/autostart/intergen-welcome.desktop -> /dev/null — masks
-#      the welcomer's system-wide autostart so it doesn't fire on top of
-#      Forge GUI in install-gui sessions. Live mode is unaffected.
+#   2. /home/liveuser/.config/autostart/intergen-welcome.desktop with
+#      `Hidden=true` — per the XDG Autostart spec, a user-level autostart
+#      entry shadows the system-wide one at /etc/xdg/autostart/. Setting
+#      Hidden=true prevents the entry from firing. Replaces the prior
+#      `ln -sf /dev/null /etc/xdg/autostart/intergen-welcome.desktop`
+#      technique, which produced `gnome-session-service: Desktop file ...
+#      couldn't be parsed` warnings on every install-gui boot (gnome-
+#      session reads /dev/null, parses nothing, fails). Hidden=true is
+#      spec-compliant and emits no warning. Confirmed in xdg-autostart
+#      spec: "If the .desktop file has Hidden set to true, the file MUST
+#      be ignored. Otherwise, the entries in Hidden are honored."
 if [ "$MODE" = "install-gui" ]; then
-    info "install-gui mode: Forge GUI autostart + welcomer mask"
+    info "install-gui mode: Forge GUI autostart + welcomer shadow"
 
     mkdir -p /newroot/home/liveuser/.config/autostart
     cat > /newroot/home/liveuser/.config/autostart/forge-gui.desktop <<'FORGEGUI'
@@ -404,10 +412,16 @@ StartupNotify=false
 NoDisplay=true
 FORGEGUI
 
-    # Mask welcomer system-wide autostart for this session only (overlay
-    # tmpfs, evaporates on next boot). Installed systems are unaffected.
-    ln -sf /dev/null \
-           /newroot/etc/xdg/autostart/intergen-welcome.desktop
+    # Shadow the system-wide welcomer autostart with a Hidden=true user-
+    # level entry. This session only (overlay tmpfs evaporates on next
+    # boot); installed systems unaffected.
+    cat > /newroot/home/liveuser/.config/autostart/intergen-welcome.desktop <<'WELCOMEHIDE'
+[Desktop Entry]
+Type=Application
+Name=InterGenOS Welcome (shadowed in install-gui mode)
+Exec=true
+Hidden=true
+WELCOMEHIDE
 fi
 
 # ---- Hand off mode to userspace --------------------------------------------
