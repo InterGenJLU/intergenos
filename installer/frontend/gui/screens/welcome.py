@@ -18,7 +18,7 @@ class WelcomePage(_ForgePage):
         page.set_icon_name("system-software-install-symbolic")
         page.set_title("Welcome to InterGenOS")
         page.set_description(
-            "Forge will guide you through the installation in seven short steps. "
+            "Forge will guide you through the installation in eight short steps. "
             "You can go back at any time before the install begins."
         )
         return page

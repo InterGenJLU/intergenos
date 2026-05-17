@@ -69,6 +69,7 @@ class InstallerState:
     install_started: bool = False
     install_completed: bool = False
     install_failed: bool = False
+    install_cancelled: bool = False
     install_error_message: str = ""
 
     def __post_init__(self):
@@ -204,6 +205,7 @@ class InstallerState:
         progress_callback: Optional[Callable] = None,
         dry_run: bool = False,
         target: Optional[str] = None,
+        cancel_event=None,
     ) -> Dict[str, Any]:
         """Glue: bundle everything `run_install` needs into a single kwargs dict.
 
@@ -215,6 +217,7 @@ class InstallerState:
                 packages_dir=self._window.packages_dir,
                 progress_callback=self._on_progress_event,
                 dry_run=self._window.dry_run,
+                cancel_event=self._cancel_event,
             )
             result = run_install(**kwargs)
         """
@@ -228,6 +231,8 @@ class InstallerState:
         }
         if target is not None:
             kwargs["target"] = target
+        if cancel_event is not None:
+            kwargs["cancel_event"] = cancel_event
         return kwargs
 
     def validation_errors(self) -> List[str]:

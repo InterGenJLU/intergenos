@@ -40,7 +40,24 @@ class DonePage(_ForgePage):
         self._on_success_path = True
 
     def on_load(self, state):
-        if state.install_failed:
+        if getattr(state, "install_cancelled", False):
+            # Cancelled path: distinct from failure (user-initiated, not
+            # a crash) and distinct from success (target may be in an
+            # indeterminate state depending on which phase the cancel
+            # landed in).
+            self._on_success_path = False
+            self._status.set_icon_name("process-stop-symbolic")
+            self._status.set_title("Install cancelled")
+            err = state.install_error_message or "(no phase captured)"
+            self._status.set_description(
+                f"The install was cancelled before it completed:\n\n{err}\n\n"
+                "If the cancel landed after the partition phase the target "
+                "disk's partition table is modified. Reboot to the live "
+                "media and run the installer again from scratch, or open "
+                "a terminal in the live session to inspect the target."
+            )
+            self.next_button.set_label("Quit")
+        elif state.install_failed:
             self._on_success_path = False
             self._status.set_icon_name("dialog-error-symbolic")
             self._status.set_title("Install failed")

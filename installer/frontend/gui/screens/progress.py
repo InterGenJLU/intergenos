@@ -36,7 +36,7 @@ just the status label (no fraction bump — stays within the current phase).
 
 import threading
 
-from gi.repository import GLib, Gtk
+from gi.repository import Adw, GLib, Gtk
 
 from ._base import _ForgePage
 
@@ -64,6 +64,16 @@ class ProgressPage(_ForgePage):
         self._status_label.set_selectable(True)
         box.append(self._status_label)
 
+        # Cancel button — left-aligned in the page body so it's visually
+        # separate from the Next button in the page footer. Adw.NavigationView
+        # doesn't expose a "tertiary action" slot, so an in-body button
+        # is the cleanest placement.
+        self._cancel_button = Gtk.Button(label="Cancel install")
+        self._cancel_button.set_halign(Gtk.Align.START)
+        self._cancel_button.add_css_class("destructive-action")
+        self._cancel_button.connect("clicked", self._on_cancel_clicked)
+        box.append(self._cancel_button)
+
         return box
 
     def __init__(self, window):
@@ -76,6 +86,12 @@ class ProgressPage(_ForgePage):
 
         self._worker_thread = None
         self._phases_total = None  # cached on first event so test rigs can mock
+        # Cancellation: threading.Event set by the Cancel button, polled by
+        # the backend orchestrator at every phase boundary. Created once
+        # per page-instance lifetime; reset between back-then-forward navs
+        # would let the install resume past a cancel, but the worker-thread
+        # re-entry guard (F4) prevents re-spawn anyway.
+        self._cancel_event = threading.Event()
 
     def on_load(self, state):
         # Re-entry guard. NavigationView allows back/forward; on_load can
@@ -110,6 +126,7 @@ class ProgressPage(_ForgePage):
             packages_dir=self._window.packages_dir,
             progress_callback=self._on_progress_from_worker,
             dry_run=getattr(self._window, "dry_run", False),
+            cancel_event=self._cancel_event,
         )
 
         # Inject install-time integrity verification if signed manifest is on
@@ -222,9 +239,35 @@ class ProgressPage(_ForgePage):
 
     def _on_install_complete(self, state, result):
         """Runs on the GTK main loop on orchestrator return."""
-        if result.success:
+        # Cancel + failure paths both disable the Cancel button — the
+        # install thread is gone, nothing left to interrupt.
+        self._cancel_button.set_sensitive(False)
+
+        if getattr(result, "cancelled", False):
+            # Cancel-routed completion: distinct from both success and
+            # generic failure. State markers + status string both signal
+            # cancel so the Done page renders the cancelled outcome.
+            state.install_cancelled = True
+            state.install_completed = False
+            state.install_failed = False
+            state.install_error_message = (
+                result.error_message or "install cancelled by user"
+            )
+            state.clear_sensitive_data()
+            self._progress_bar.set_text("Install cancelled")
+            phase_str = (
+                f" after {result.phase_completed}"
+                if result.phase_completed else ""
+            )
+            self._status_label.set_label(
+                f"Install CANCELLED{phase_str}.\n\n"
+                "Click Continue for next steps."
+            )
+            self.next_button.set_sensitive(True)
+        elif result.success:
             state.install_completed = True
             state.install_failed = False
+            state.install_cancelled = False
             # Drop password references from state now that they've been
             # consumed by the orchestrator. Defense-in-depth against
             # crash-dump / core-file credential leakage.
@@ -269,7 +312,9 @@ class ProgressPage(_ForgePage):
     def _on_install_failed(self, state, error_message, phase_completed=None):
         state.install_failed = True
         state.install_completed = False
+        state.install_cancelled = False
         state.install_error_message = error_message
+        self._cancel_button.set_sensitive(False)
         # Drop password references on failure too — credentials were captured
         # but install didn't complete. We don't want them sitting in state
         # while the user is on the Done page reading the error message.
@@ -284,3 +329,37 @@ class ProgressPage(_ForgePage):
         # surfaces the install_error_message + a retry-via-live-media hint.
         self.next_button.set_sensitive(True)
         return False  # one-shot idle_add
+
+    # ------------------------------------------------------------------
+    # Cancel handler — fires on Cancel button click.
+    # ------------------------------------------------------------------
+
+    def _on_cancel_clicked(self, _button):
+        """Signal the backend orchestrator to abort at the next phase boundary.
+
+        Granularity is phase-boundary, not mid-syscall — the in-flight
+        phase finishes its work (so disk state stays consistent) then
+        the orchestrator returns InstallResult(cancelled=True). The
+        worker thread's completion routes through _on_install_complete
+        which renders the cancelled outcome.
+
+        Single-click cancel (no confirm dialog) — the button is already
+        labelled "Cancel install" with destructive-action styling, and
+        adding a confirm dialog would add friction in a recovery path
+        the user has presumably thought about before clicking.
+
+        Idempotent — clicking twice while the worker hasn't yet hit the
+        next phase boundary just re-asserts the already-set event.
+        """
+        if self._cancel_event.is_set():
+            return  # already cancelled; click ignored
+        self._cancel_event.set()
+        self._cancel_button.set_sensitive(False)
+        self._cancel_button.set_label("Cancelling…")
+        # Update status so the user sees acknowledgment even though the
+        # worker may not hit the next phase boundary for some seconds.
+        current_status = self._status_label.get_label() or ""
+        self._status_label.set_label(
+            f"{current_status}\n\n"
+            "Cancel requested — install will stop at the next phase boundary."
+        )

@@ -87,6 +87,16 @@ _PHASES_NEEDING_UNMOUNT = {
 _PHASES_NEEDING_VIRTFS_UNMOUNT = _PHASES_NEEDING_UNMOUNT - {PHASE_MOUNT}
 
 
+class _CancelRequested(Exception):
+    """Sentinel raised inside run_install when cancel_event has been set.
+
+    args[0] is the PHASE_* string of the phase boundary that observed the
+    cancel. Caught by run_install's outer except to populate
+    InstallResult.cancelled + run the same best-effort cleanup the
+    generic-failure path runs.
+    """
+
+
 @dataclass
 class VerifyConfig:
     """Configuration for the install-time integrity verification phase.
@@ -140,6 +150,11 @@ class InstallResult:
                      the user on the done screen even when success=True.
                      Examples: audit-log copy failed during cleanup; MOK
                      enrollment queueing failed but system is bootable.
+    cancelled: True iff the install was cancelled via the cancel_event arg
+                     before completion. When True, success is False and
+                     phase_completed names the last phase that finished
+                     before the cancel was honored. error_message names
+                     the phase boundary at which the cancel landed.
     """
     success: bool
     phase_completed: Optional[str] = None
@@ -150,6 +165,7 @@ class InstallResult:
     integrity_overrides_granted: int = 0
     integrity_aborted_at: Optional[str] = None
     warnings: list = field(default_factory=list)
+    cancelled: bool = False
 
 
 def load_yaml_config(yaml_path):
@@ -211,7 +227,7 @@ def validate_install_inputs(cfg, install_io):
 
 def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
                 progress_callback=None, dry_run=False, target=DEFAULT_TARGET,
-                verify_config=None):
+                verify_config=None, cancel_event=None):
     """Run the full Forge install pipeline.
 
     Args:
@@ -234,6 +250,16 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
                        to skip the phase (dev/test contexts without a signed
                        manifest). Production install media always provides
                        this — anti-supply-chain v1.0 ship-gate.
+        cancel_event: optional threading.Event (or any object with .is_set()
+                      method). Polled at every phase boundary. When set,
+                      the orchestrator returns early with
+                      InstallResult(cancelled=True). Cancellation granularity
+                      is phase-boundary, not mid-phase — once a destructive
+                      phase has started (PHASE_PARTITION onward), the
+                      operation in flight completes before cancel is honored.
+                      None disables cancellation (TUI + headless flows pass
+                      None; the GUI passes a threading.Event tied to the
+                      Cancel button).
 
     Returns:
         InstallResult dataclass.
@@ -249,6 +275,17 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         if progress_callback:
             progress_callback(phase, idx, total, message)
 
+    def _check_cancel(at_phase):
+        """Raise _CancelRequested if cancel_event has been set.
+
+        Called at every phase boundary except PHASE_CLEANUP (cleanup must
+        always run to unmount the target safely, regardless of cancel
+        intent). Exception path routes through the outer except block
+        which performs best-effort unmount based on `result.phase_completed`.
+        """
+        if cancel_event is not None and cancel_event.is_set():
+            raise _CancelRequested(at_phase)
+
     partitions = None
     mok_keypair = None
 
@@ -259,6 +296,8 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         validate_install_inputs(cfg, install_io)
         result.phase_completed = PHASE_VALIDATE
         _emit(PHASE_VALIDATE, 1, "config valid")
+
+        _check_cancel(PHASE_VERIFY)
 
         # 2: verify (signed-manifest integrity check before any disk write)
         if verify_config is not None:
@@ -293,12 +332,19 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
             # Verify skipped — log a single event for observability.
             _emit(PHASE_VERIFY, 2, "verify phase skipped (no verify_config)")
 
+        _check_cancel(PHASE_PARTITION)
+
         # 3: partition + format (partition_disk does both)
+        # NOTE: this is the last chance to cancel before any destructive
+        # disk write. Once partition_disk runs, the target disk is
+        # modified and cancel-cleanup cannot undo the change.
         _emit(PHASE_PARTITION, 2, f"partitioning {install_io['disk']}")
         efi = disks.is_efi()
         partitions = disks.partition_disk(install_io["disk"], efi=efi)
         result.phase_completed = PHASE_PARTITION
         _emit(PHASE_PARTITION, 3, "partitioned + formatted")
+
+        _check_cancel(PHASE_MOUNT)
 
         # 4: mount target
         _emit(PHASE_MOUNT, 3, f"mounting target {target}")
@@ -306,11 +352,15 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         result.phase_completed = PHASE_MOUNT
         _emit(PHASE_MOUNT, 4, "target mounted")
 
+        _check_cancel(PHASE_VIRTUAL_FS)
+
         # 5: mount virtual fs (proc/sys/dev) for chroot operations
         _emit(PHASE_VIRTUAL_FS, 4, "mounting virtual filesystems")
         hooks.mount_virtual_fs(target)
         result.phase_completed = PHASE_VIRTUAL_FS
         _emit(PHASE_VIRTUAL_FS, 5, "virtual fs mounted")
+
+        _check_cancel(PHASE_PACKAGES)
 
         # 6: install packages (queue-threaded for supersede ordering)
         _emit(PHASE_PACKAGES, 5,
@@ -340,6 +390,8 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         result.phase_completed = PHASE_PACKAGES
         _emit(PHASE_PACKAGES, 6, f"{ok_count} packages installed")
 
+        _check_cancel(PHASE_CONFIG)
+
         # 7: system config
         _emit(PHASE_CONFIG, 6, "generating system config")
         config.generate_all(
@@ -351,6 +403,8 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         )
         result.phase_completed = PHASE_CONFIG
         _emit(PHASE_CONFIG, 7, "system config written")
+
+        _check_cancel(PHASE_USERS)
 
         # 8: users (root + first user)
         _emit(PHASE_USERS, 7, "configuring root + user accounts")
@@ -364,6 +418,8 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         result.phase_completed = PHASE_USERS
         _emit(PHASE_USERS, 8, "accounts configured")
 
+        _check_cancel(PHASE_MOK)
+
         # 9: MOK keypair (EFI only — bootloader needs it to sign GRUB)
         if efi:
             _emit(PHASE_MOK, 8, "generating MOK keypair (Secure Boot)")
@@ -373,6 +429,8 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         else:
             _emit(PHASE_MOK, 9, "MOK skipped (BIOS install)")
             result.phase_completed = PHASE_MOK
+
+        _check_cancel(PHASE_BOOTLOADER)
 
         # 10: bootloader (signs binaries with mok_keypair on EFI)
         _emit(PHASE_BOOTLOADER, 9, "installing bootloader")
@@ -385,6 +443,8 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         result.phase_completed = PHASE_BOOTLOADER
         _emit(PHASE_BOOTLOADER, 10, "bootloader installed")
 
+        _check_cancel(PHASE_HOOKS)
+
         # 11: post-install hooks
         _emit(PHASE_HOOKS, 10, "running post-install hooks")
         hooks.run_post_install_hooks(
@@ -396,6 +456,8 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         )
         result.phase_completed = PHASE_HOOKS
         _emit(PHASE_HOOKS, 11, "post-install hooks complete")
+
+        _check_cancel(PHASE_SERVICES)
 
         # 12: services
         _emit(PHASE_SERVICES, 11, "enabling services")
@@ -473,6 +535,27 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         result.phase_completed = PHASE_CLEANUP
         result.success = True
         _emit(PHASE_CLEANUP, 13, "install complete")
+
+    except _CancelRequested as cr:
+        # User-requested cancel via cancel_event. The phase boundary that
+        # observed the cancel is in cr.args[0]; we never started that
+        # phase's work, so result.phase_completed correctly names the
+        # last phase that DID finish. Same best-effort cleanup as the
+        # generic-failure path runs.
+        result.cancelled = True
+        cancel_at = cr.args[0] if cr.args else "unknown phase"
+        result.error_message = f"install cancelled by user at {cancel_at}"
+        _emit(cancel_at, total, f"cancelled at {cancel_at}")
+        try:
+            if result.phase_completed in _PHASES_NEEDING_VIRTFS_UNMOUNT:
+                hooks.unmount_virtual_fs(target)
+        except Exception:
+            pass
+        try:
+            if result.phase_completed in _PHASES_NEEDING_UNMOUNT:
+                disks.unmount_target(target)
+        except Exception:
+            pass
 
     except Exception as e:
         result.error_message = f"{type(e).__name__}: {e}"
