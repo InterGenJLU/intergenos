@@ -347,3 +347,45 @@ Each entry uses this shape:
   - Operator may build / boot / ship ISOs WITHOUT InterGen during the K15 implementation window — the gate only fires when InterGen is included in the squashfs.
 
 - **Status:** ACTIVE — **CLASS A v1.0 SHIP-BLOCK** (blocks ISO/qcow2 creation when InterGen is included in the artifact until v1.0 minimum gate compliance is verified)
+
+---
+
+## D-009 — Universal development checklist (research → planning → no stubs → validation bar → completion gate → peer review)
+
+- **Issued:** 2026-05-18T23:43:20Z by owner
+- **Context:** Codification of standards that emerged during the D-001 EXPERIMENTAL wiring sprint earlier the same evening. Trigger events: (1) build-system coordinator's 23:12:47Z "D-001 EXPERIMENTAL wiring complete + contract verified" broadcast was premature — operator's question "no more phantom packages that will keep it from working?" exposed 3 phantom packages (cryptsetup-static + tpm2-tools-static + fido2-tools-static landed in source tree but unwired in `scripts/chroot-build-core-extra.sh`) + research-uninformed build flags across all 3 packages (4 invalid cryptsetup flags + silently-invalid `--with-tcti=device` for tpm2-tss 4.x + fully-static fido2-tools would have halted at link time on missing libudev.a); (2) operator's escalation "WE'VE WASTED AN ENTIRE DAY BECAUSE OF IT, AND I CAN NOT AFFORD TO KEEP DOING THIS CRAZY DANCE" + "STOP HALF-ASSING IT"; (3) operator's clarification "I WANT IT ALL PRESENT, ACCOUNTED FOR, CODED, AND AT LEAST WORKING IN THEORY (until we've tested to validate it)". Wording drafted by operator, iterated with build-system coordinator (typo fix + item 4 stub-pattern expansion + item 6 validation-bar definition + new item 7 completion-claims-prohibited + doc-scope inclusion in lead-in + research-grounding-for-docs in item 1).
+- **Verbatim:**
+
+  > OWNER DIRECTIVE: ANY development done for this project — INCLUDING CODE, BUILD-SYSTEM WIRING, PACKAGES, PATCHES, AND DOCUMENTATION — MUST use the following checklist to ensure its validity:
+  >
+  > PROPER RESEARCH DONE TO IDENTIFY ALL NECESSARY REQUIREMENTS. FOR CODE: BUILD-TIME REQUIREMENTS (DEPENDENCIES, SOURCES, FLAGS) AND RUNTIME REQUIREMENTS (DSO BUNDLING, KERNEL MODULES, PATHS, PRE-FLIGHT CHECKS). FOR DOCUMENTATION: GROUNDING AGAINST THE AS-IMPLEMENTED CODE — NOT ASPIRATIONAL OR ASSUMED BEHAVIOR.
+  >
+  > PROPER PLANNING DONE TO ENSURE IMPLEMENTATION IS COMPLETED IN AN AUDITABLE, PROGRAMMATIC FASHION.
+  >
+  > PROPER PLANNING INCLUDES ENSURING ALL NEEDED PACKAGES, PATCHES, CODE, AND BUILD-PIPELINE WIRING ARE ACCOUNTED FOR.
+  >
+  > CODE STUBS ARE NOT AUTHORIZED IN ANY FORM. THIS INCLUDES: PLACEHOLDER FUNCTIONS THAT RETURN SUCCESS WITHOUT PERFORMING THE WORK; SCRIPTS THAT EXIT EARLY WITHOUT EXECUTING THEIR DECLARED PURPOSE; PACKAGES THAT BUILD BUT INSTALL NO ARTIFACTS; DOCUMENTATION THAT DESCRIBES BEHAVIOR THE CODE DOES NOT IMPLEMENT. A STUB IS A LIE — IN ANY ARTIFACT TYPE.
+  >
+  > DEFERMENT WITHOUT EXPLICIT DIRECTION FROM THE OPERATOR IS UNAUTHORIZED.
+  >
+  > THE VALIDATION BAR IS "WORKING IN THEORY PENDING REAL-HARDWARE TESTING" — RESEARCH-BACKED + PIPELINE-WIRED + AUDIT-PASS. ACTUAL BUILD AND HARDWARE-VALIDATION TESTS ARE A SEPARATE PHASE AND DO NOT GATE THIS CHECKLIST. ALL OTHER ITEMS MUST BE VERIFIABLY COMPLETE.
+  >
+  > COMPLETION CLAIMS ARE PROHIBITED UNTIL EVERY CHECKLIST ITEM IS VERIFIED. "DONE", "COMPLETE", "READY", AND EQUIVALENT FRAMINGS ARE OPERATOR-FACING COMMITMENTS — DO NOT USE THEM BEFORE THE CHECKLIST CLOSES.
+  >
+  > CODE, PACKAGES, PATCHES, WIRING, AND DOCUMENTATION ARE TO BE SUMMARIZED AND PRESENTED AFTER VALIDATION, AND PEER-REVIEWED WHEN POSSIBLE.
+
+- **Scope:** ALL development on this project — code, build-system wiring, packages, patches, documentation. No artifact type is exempt.
+
+- **Composes with (additive, no supersession):**
+  - 21:00Z standing rule on self-directed deferrals (operator-direct profanity-grade escalation 2026-05-18 ~21:00Z; ACK'd by all coordinators) — item 5 codifies the same posture as canonical policy across all lanes.
+  - Project rule "A stub is a lie" (owner-coined 2026-05-15; Rule 21 in canonical rulebook) — item 4 expands the rule with concrete pattern enumeration (placeholder functions, early-exit scripts, install-no-artifacts packages, doc-describes-behavior-code-doesn't-implement).
+  - Project rule "Don't leave things half-baked" (operator-direct multiple sessions; complete-over-defer posture) — items 5 + 7 codify the operator-direction-required posture for any defer or "done" claim.
+  - Project rule "Research online before iterating" (operator-direct profanity-grade 2026-05-13) — item 1 codifies upstream + distro-precedent research as a precondition for new package authoring, not a follow-on activity.
+
+- **Supersedes:** None wholesale. Codifies prior ad-hoc enforcement of patterns that had been bus-message + standing-rule scattered.
+
+- **Class A enforcement:** No mechanical gate (no `check-d009-compliance.sh`-style script) — checklist is a discipline + completion-claim gate, not a build-pipeline gate. Self-audit + peer-review enforced via per-deliverable summary presentation (item 8). Build-system coordinator may extend pre-push hook to scan commit messages for "complete"/"done"/"ready" tokens without companion checklist-pass evidence, but operator decision pending on whether to enable that.
+
+- **First application:** Operator-requested T0-2 audit immediately after directive issuance. T0-2 audit findings recorded separately per audit chain (build-system coordinator's audit response posted on bus thread `d001-experimental-wiring` and / or new T0-2-audit thread).
+
+- **Status:** ACTIVE — STANDING DIRECTIVE applies to all future development.
