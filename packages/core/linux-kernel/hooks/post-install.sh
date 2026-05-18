@@ -47,6 +47,27 @@ MOK_KEY="/var/lib/intergen/mok/mok.key"
 MOK_CERT="/var/lib/intergen/mok/mok.crt"
 CMDLINE_FILE="/etc/kernel/cmdline"
 
+# D-005 Phase D: LUKS install detection. Presence of /etc/crypttab implies
+# Forge wired LUKS at install time (per D-001 opt-in LUKS-at-install).
+# When LUKS install is detected the UKI must bundle the FDE-initramfs
+# (busybox + cryptsetup-static + dm_crypt + ext4 + storage drivers + the
+# fde-init.sh entry point from installer/init/fde-init.sh) instead of the
+# plain-install minimal microcode cpio.
+#
+# Phase D ACTIVATION DEPENDENCY: the FDE initramfs cpio must be built and
+# staged at FDE_INITRD_PATH by build-fde-initramfs.sh (not yet in tree —
+# see installer/init/fde-init.sh module header for the full activation
+# chain). Until the packager + cryptsetup-static package land, this hook
+# detects LUKS, logs the gap, and falls back to the plain UKI build (the
+# UKI will boot but without LUKS unlock — recovery via grub-loads-vmlinuz
+# with a manually-provided initramfs).
+FDE_INITRD_PATH="/usr/lib/intergen/fde-initramfs.cpio.gz"
+IS_LUKS_INSTALL="no"
+if [ -f /etc/crypttab ] && grep -qE "^[^#]" /etc/crypttab 2>/dev/null; then
+    IS_LUKS_INSTALL="yes"
+    log "LUKS install detected (/etc/crypttab has active entries)"
+fi
+
 # Required tool: ukify (ships with systemd; systemd-pass2 has -D ukify=enabled).
 # If absent, the system is on the pre-D-005 grub-loads-vmlinuz path (which
 # D-005 explicitly preserves as recovery-fallback per directive). Bail clean.
@@ -83,8 +104,29 @@ UKIFY_ARGS=(
 )
 # Intel microcode: load FIRST so it's applied before kernel init
 [ -f "$UCODE" ] && UKIFY_ARGS+=("--initrd=$UCODE")
-# Generic initramfs (per current install pattern; Phase D will diverge for LUKS)
-[ -f "$INITRD" ] && UKIFY_ARGS+=("--initrd=$INITRD")
+
+# D-005 Phase D: initramfs selection.
+# LUKS install: bundle the FDE-initramfs cpio (fde-init.sh + busybox +
+#   cryptsetup-static + dm_crypt + ext4 + storage drivers) — required for
+#   the kernel to unlock the encrypted root before switch_root.
+# Plain install: kernel-builtin storage drivers + PARTUUID + rootwait
+#   handle root mount (per 2026-04-09 ratification narrowed by D-005);
+#   the only initramfs bundled is the optional /boot/initramfs.img if
+#   one was produced by Forge (which on plain installs is minimal /
+#   empty — present for the few edge-case modules that benefit from
+#   early-userspace handling without making the kernel-builtin set even
+#   larger).
+if [ "$IS_LUKS_INSTALL" = "yes" ]; then
+    if [ -f "$FDE_INITRD_PATH" ]; then
+        UKIFY_ARGS+=("--initrd=$FDE_INITRD_PATH")
+        log "bundling FDE initramfs ($FDE_INITRD_PATH) into UKI"
+    else
+        log "LUKS install but $FDE_INITRD_PATH missing — Phase D activation chain incomplete. UKI will be built WITHOUT FDE initramfs; root unlock at boot will fail until build-fde-initramfs.sh + cryptsetup-static package land. grub-loads-vmlinuz fallback path with manual cryptsetup unlock is the operator recovery."
+    fi
+else
+    # Plain install — generic initramfs.img is optional
+    [ -f "$INITRD" ] && UKIFY_ARGS+=("--initrd=$INITRD")
+fi
 
 # Sign with user MOK if present (D-005 user-MOK signing model — InterGenOS
 # PIV slot 9c key NEVER touches user systems; only the user's local MOK).
