@@ -86,7 +86,67 @@ Each scanned decision gets categorized so the matrix sorts cleanly:
 
 ## Build-system-coordinator findings
 
-_(empty — sub-agents populating now)_
+**Scan posture:** iter-1 via 5 parallel topic sub-agents (host-local memory + carryovers, in-repo docs, operator's living tracker + archives, VPS resources, SSH host-key regression hunt) + a commit-history sweep. Mostly concurs with the installed-system-coordinator's class-A drift list above. Unique contribution this iteration is the **regression-introduction forensics for T0-4 SSH host-key baking** plus a pattern observation that bears on the broader trust-calibration question.
+
+### Headline — SSH host-key baking regression-introduction forensics
+
+Two distinct sites generate the host keys; both predate the explicit POWER RULE memory (2026-05-14) by 5-6 weeks. Same model co-author trailer in both commits. Same mental-model bug: the author believed `post_install` hooks and image-creation steps run on the user's installed system; they run in the build chroot.
+
+| # | Site | Commit | Date | Path | Effect |
+|---|---|---|---|---|---|
+| 1 | OpenSSH `post_install` hook | `ff9ed5f3` | 2026-04-05 | `packages/core/openssh/build.sh:82` | `ssh-keygen -A` writes `/etc/ssh/ssh_host_{rsa,ecdsa,ed25519}_key{,.pub}` into chroot during `core-extra` phase |
+| 2 | image-creation chroot block | `27ce4ca9` | 2026-04-08 | `scripts/create-image.sh:280` | `chroot $MOUNT_POINT /bin/bash -c 'ssh-keygen -A 2>/dev/null'` writes same keys into the mounted target rootfs |
+
+**The defensive layer already exists** at `config/systemd/sshd.service:29`:
+
+```ini
+ExecStartPre=/bin/bash -c 'test -f /etc/ssh/ssh_host_ed25519_key || ssh-keygen -A'
+```
+
+This was committed in the same `ff9ed5f3` and is the correct fix. Removing both `ssh-keygen -A` build-time invocations would let `ExecStartPre=` self-bootstrap unique host keys on each user's first boot. Currently the `test -f` guard succeeds (pre-baked keys present) and first-boot keygen is bypassed.
+
+**Squashfs scrub absent.** `scripts/build-squashfs.sh` "Clean runtime trash" step truncates `/var/log/*`, removes `/tmp/*`, resets `/etc/machine-id` to `uninitialized`, and removes bash history — but does NOT scrub `/etc/ssh/ssh_host_*`. Adding that scrub closes the defense-in-depth gap at the squashfs-pack layer.
+
+**Pattern hunt (parallel violations of the same directive).** Cross-checked the codebase for every other class enumerated in the directive memory:
+
+- `authorized_keys` / `ssh-ed25519 AAAA…` literals in build path: **none** (only an operator-side fetch key in `scripts/download-sources.py:511`, not baked into deliverable)
+- Hardcoded default user/root passwords: **retired** at `7900c941` (Path 4). **Residual** `intergenos` password in `packages/core/shadow/build.sh:70` is a package-level not-stripped — this matches the installed-system coordinator's F-004 finding.
+- Pre-set liveuser account in squashfs: **clean** — `installer/init/init.sh:246` writes liveuser to overlay only (live mode), squashfs itself has no entry; comment at `init.sh:250` explicitly states "no pre-shipped keys" design intent
+- API keys / webhooks / phone-home endpoints: **none** in build path
+- Borderline: `make-ca -g` in `create-image.sh:286-289` generates `/etc/ssl/certs/ca-certificates.crt` from the bundled trust store — likely fine (standard Mozilla bundle) but worth confirming the bundle excludes any InterGenOS release-signing roots from the system trust store
+
+### Cross-pattern audit recommendation (load-bearing for trust calibration)
+
+Both regression commits carry the same model co-author trailer and exhibit the same wrong-execution-context mental model. The bug class is: assuming `post_install()` runs on the user's installed system when it actually runs inside the build chroot at package-install time. **The cross-pattern audit shape:**
+
+```sh
+grep -A 20 'post_install()' packages/*/*/build.sh | \
+    grep -E 'keygen|generate|/etc/.*write|chpasswd|mkstemp|mktemp|first.boot'
+```
+
+Any post-install hook that does state-mutation against `/etc` or generates per-machine identity material — regardless of the package — is suspect for the same misread. Surfacing for operator review; not for autonomous fix.
+
+### Trigger-case verdicts (concur with installed-system coordinator)
+
+- **T0-2 shim path** → **Class A drift.** Concurs with installed-system coordinator's finding. Adds: commit history shows `977db9b3` (2026-05-03, "Path A" wiring) ratifying the Fedora-piggyback bootstrap arm; `docs/shim-review-submission.md` (637 lines) is in-tree evidence for the own-MS-shim arm. Both arms pre-authorized. Cycle-5 ISO wires neither.
+- **T0-3 dracut vs PARTUUID** → **Class A drift.** Concurs. Adds: three Q-INIT commits (`77b0b453` + `cfcdc82e` + `a12216a5`, all 2026-05-06) explicitly rejected dracut-uefi: *"Q-INIT resolved 2026-05-05/06: April-10 custom-init stands. UKI wraps via systemd-stub + objcopy, NOT dracut --uefi."*
+- **T0-4 SSH host-key baking** → **Class A drift.** Two-site regression-introduction forensics above. The directive PRE-DATES the explicit POWER RULE memory in Prime Directive + Holy Grail; the explicit memory codified what was already covered.
+
+### Additional commit-history ratifications (complement IGOSC's tables)
+
+| Category | Topic | Status | Provenance |
+|---|---|---|---|
+| BOOT | UKI envelope signing (not vmlinuz) | RATIFIED | `a12216a5` 2026-05-06 "phase5: pivot from vmlinuz signing to UKI signing" |
+| BOOT | 3-UKI sealed-cmdline (live / install-gui / install-tui) | RATIFIED | Operator tracker 2026-05-14: *"Holy-Grail win on cmdline integrity"* |
+| PACKAGE-MGR | Supersedes schema RFC v1 Phase 1 | RATIFIED | `4a73e16b` 2026-05-01 (4/4 PASS verdicts) |
+| PACKAGE-MGR | S1/S2 canonical signing keys (NK1/NK2 alias-only) | RATIFIED | `c4c8ee02` 2026-05-12 |
+| PACKAGE-MGR | Mirror promote: atomic directory-swap | RATIFIED | `5e998029` 2026-05-11 (owner-direct 23:46Z) |
+| PACKAGE-MGR | Per-archive sig: v1.0 = NO, v1.1+ deferred | RATIFIED | `d6b3946a` 2026-05-12 (closure commit) |
+| AI/INTERGEN | Voice descoped | RATIFIED | `docs/VISION.md:113` "Text interaction only — voice evaluated and dropped to keep the assistant simple and predictable" |
+
+### Notes on vocabulary
+
+Commit-message corpus uses "owner-direct" (~25 instances) consistently; "operator-direct" returns zero hits. Public-content audit gate should reconcile vocabulary to a single canonical term.
 
 ---
 
@@ -385,5 +445,6 @@ _(Final pass — once matrix is populated, walk every item in `2026-05-18-remedi
 
 | Date/time | Agent | Action |
 |---|---|---|
-| 2026-05-18 ~07:00 CDT | SPOC | Matrix scaffolded. Dispatching SPOC sub-agents + IGOSC + WC. |
-| 2026-05-18 ~07:50 CDT | IGOSC | iter-1 installed-system-coordinator scan landed: ~150 findings across 11 categories via 5 parallel topic sub-agents. 3 drift triggers (T0-2 / T0-3 / T0-4) confirmed Class A with verbatim memory + commit provenance. 12 cross-cluster Class A rows surfaced for synthesis pass. 16 genuinely-open questions enumerated for operator-decision queue. Iter-2 cross-check + iter-3 gap-pass to follow. |
+| 2026-05-18 ~07:00 CDT | build-system coordinator | Matrix scaffolded. Dispatching build-system sub-agents + installed-system + Windows-host coordinators. |
+| 2026-05-18 ~07:50 CDT | installed-system coordinator | iter-1 scan landed: ~150 findings across 11 categories via 5 parallel topic sub-agents. 3 drift triggers (T0-2 / T0-3 / T0-4) confirmed Class A with verbatim memory + commit provenance. 12 cross-cluster Class A rows surfaced for synthesis pass. 16 genuinely-open questions enumerated for operator-decision queue. Iter-2 cross-check + iter-3 gap-pass to follow. |
+| 2026-05-18 ~08:00 CDT | build-system coordinator | iter-1 scan landed: 6 parallel sub-agents (host-local memory + carryovers, in-repo docs, operator tracker + archives, VPS canonical+reference, SSH host-key regression hunt PRIORITY, commit-history grep) + main-thread VPS canonical+reference reads. Concurs with installed-system coordinator's class-A drift list. Unique contribution: T0-4 SSH host-key regression-introduction forensics — two-site regression (commits `ff9ed5f3` 2026-04-05 + `27ce4ca9` 2026-04-08), both same-model co-author trailer, same mental-model bug. Defensive `ExecStartPre=` guard already in tree at `sshd.service:29`; fix is mechanical. Cross-pattern audit recommended across all `post_install()` hooks. |
