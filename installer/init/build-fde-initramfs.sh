@@ -43,6 +43,8 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 INIT_SCRIPT="${INIT_SCRIPT:-$SCRIPT_DIR/fde-init.sh}"
 BUSYBOX="${BUSYBOX:-/usr/bin/busybox.static}"
 CRYPTSETUP_STATIC="${CRYPTSETUP_STATIC:-/usr/lib/intergen/cryptsetup-static}"
+TPM2_TOOLS_DIR="${TPM2_TOOLS_DIR:-/usr/lib/intergen/tpm2-tools-static}"
+FIDO2_TOOLS_DIR="${FIDO2_TOOLS_DIR:-/usr/lib/intergen/fido2-tools-static}"
 MODULES_SRC="${MODULES_DIR:-/lib/modules/$KVER}"
 
 [ -f "$INIT_SCRIPT" ] || { echo "ERROR: FDE init script not found: $INIT_SCRIPT" >&2; exit 1; }
@@ -54,6 +56,22 @@ MODULES_SRC="${MODULES_DIR:-/lib/modules/$KVER}"
     exit 1
 }
 [ -d "$MODULES_SRC" ] || { echo "ERROR: kernel modules not found: $MODULES_SRC" >&2; exit 1; }
+
+# D-001 EXPERIMENTAL unlock methods (operator Option A 2026-05-18T22:52Z):
+# tpm2-tools-static + fido2-tools-static are SOFT dependencies. Plain
+# passphrase-unlock installs do not need them, and a Phase-D-only
+# environment may not yet have the build-system coordinator's S-B + S-C
+# packages installed. Probe + log + skip; the runtime fde-init.sh has
+# matching `command -v` checks that gracefully fall through to passphrase
+# when the binaries are absent.
+HAVE_TPM2_TOOLS="no"
+HAVE_FIDO2_TOOLS="no"
+if [ -d "$TPM2_TOOLS_DIR" ] && [ -x "$TPM2_TOOLS_DIR/tpm2_unseal" ]; then
+    HAVE_TPM2_TOOLS="yes"
+fi
+if [ -d "$FIDO2_TOOLS_DIR" ] && [ -x "$FIDO2_TOOLS_DIR/fido2-assert" ]; then
+    HAVE_FIDO2_TOOLS="yes"
+fi
 
 WORK=$(mktemp -d -t igos-fde-initramfs-XXXXXX)
 trap 'rm -rf "$WORK"' EXIT
@@ -72,7 +90,7 @@ chmod +x "$WORK/init"
 cp "$BUSYBOX" "$WORK/bin/busybox"
 chmod +x "$WORK/bin/busybox"
 
-APPLETS="sh mount umount switch_root awk blkid sleep modprobe mkdir cp ln echo cat printf grep sed find sha256sum"
+APPLETS="sh mount umount mountpoint switch_root awk blkid sleep modprobe mkdir rm head cp ln echo cat printf grep sed find sha256sum"
 for applet in $APPLETS; do
     ln -sf busybox "$WORK/bin/$applet"
 done
@@ -91,6 +109,52 @@ cp "$CRYPTSETUP_STATIC" "$WORK/sbin/cryptsetup"
 chmod +x "$WORK/sbin/cryptsetup"
 ln -sf "/sbin/cryptsetup" "$WORK/bin/cryptsetup"
 
+# D-001 EXPERIMENTAL TPM2 unlock — bundle tpm2-tools-static if present.
+# fde-init.sh's try_tpm2_unlock invokes bare `tpm2_load` + `tpm2_unseal`
+# via PATH; placing the binaries at /sbin keeps the convention with
+# cryptsetup and stays out of /bin (which is busybox applets). Skipped
+# silently if the build-system coordinator's S-B output is absent — runtime falls through to
+# passphrase per fde-init.sh's `command -v` check.
+if [ "$HAVE_TPM2_TOOLS" = "yes" ]; then
+    echo "  D-001/I-D: bundling tpm2-tools-static (EXPERIMENTAL TPM2 unlock)"
+    for tool in tpm2_createprimary tpm2_create tpm2_load tpm2_unseal tpm2_flushcontext; do
+        if [ -x "$TPM2_TOOLS_DIR/$tool" ]; then
+            cp "$TPM2_TOOLS_DIR/$tool" "$WORK/sbin/$tool"
+            chmod +x "$WORK/sbin/$tool"
+            ln -sf "/sbin/$tool" "$WORK/bin/$tool"
+        fi
+    done
+else
+    echo "  D-001/I-D: tpm2-tools-static absent at $TPM2_TOOLS_DIR — TPM2 unlock NOT bundled (LUKS installs fall through to passphrase)"
+fi
+
+# D-001 EXPERIMENTAL FIDO2 unlock — bundle fido2-tools-static if present.
+if [ "$HAVE_FIDO2_TOOLS" = "yes" ]; then
+    echo "  D-001/I-D: bundling fido2-tools-static (EXPERIMENTAL FIDO2 unlock)"
+    for tool in fido2-token fido2-cred fido2-assert; do
+        if [ -x "$FIDO2_TOOLS_DIR/$tool" ]; then
+            cp "$FIDO2_TOOLS_DIR/$tool" "$WORK/sbin/$tool"
+            chmod +x "$WORK/sbin/$tool"
+            ln -sf "/sbin/$tool" "$WORK/bin/$tool"
+        fi
+    done
+else
+    echo "  D-001/I-D: fido2-tools-static absent at $FIDO2_TOOLS_DIR — FIDO2 unlock NOT bundled (LUKS installs fall through to passphrase)"
+fi
+
+# xxd needed by fde-init.sh to hex-decode fido2-assert hmac-secret output
+# into raw key bytes for cryptsetup --key-file=-. busybox xxd is NOT in
+# the default applet set; pull from host's vim-common (xxd is part of
+# vim/vim-common) if available, else expect the caller's environment.
+if [ "$HAVE_FIDO2_TOOLS" = "yes" ]; then
+    if [ -x /usr/bin/xxd ]; then
+        cp /usr/bin/xxd "$WORK/bin/xxd"
+        chmod +x "$WORK/bin/xxd"
+    else
+        echo "  WARNING: /usr/bin/xxd not present in chroot — FIDO2 unlock path needs xxd to hex-decode hmac-secret output."
+    fi
+fi
+
 # ---- Kernel modules — required for LUKS unlock + ext4 root mount ----------
 # Modules and their transitive dependencies must be physically present in
 # the cpio (initramfs has no module-loader fallback to disk).
@@ -108,6 +172,18 @@ ln -sf "/sbin/cryptsetup" "$WORK/bin/cryptsetup"
 #   nvme         — NVMe SSDs (most modern laptops including IGOSC's HP)
 #   usb_storage  — USB block-device LUKS targets (rare but supported)
 REQUIRED_MODULES="dm_crypt dm_mod ext4 sd_mod virtio_blk virtio_pci ahci nvme usb_storage"
+
+# D-001 EXPERIMENTAL unlock modules (operator Option A 2026-05-18T22:52Z).
+# TPM2 path needs tpm (core) + tpm_tis (TIS/MMIO interface, most modern
+# hardware) + tpm_crb (CRB interface, alternate). FIDO2 path needs
+# usbhid + hid_generic for the USB FIDO2 token to appear as /dev/hidraw*.
+# Added unconditionally to REQUIRED_MODULES — the fixed-point closure
+# (audit E-005 fix) absorbs absent modules silently (modinfo returns
+# "(builtin)" or empty path, BFS walk skips). If the kernel build set
+# these as built-in (CONFIG_TCG_TIS=y etc.), no .ko copy; if =m, they
+# get bundled. Either way, fde-init.sh's runtime modprobe + /dev/tpmrm0
+# / /dev/hidraw* check handle the dynamic state.
+REQUIRED_MODULES="$REQUIRED_MODULES tpm tpm_tis tpm_crb usbhid hid_generic vfat fat"
 
 MOD_DEST="$WORK/lib/modules/$KVER"
 mkdir -p "$MOD_DEST"
