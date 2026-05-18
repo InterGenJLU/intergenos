@@ -1,0 +1,34 @@
+name: cryptsetup-static
+version: "2.8.4"
+release: 1
+description: Statically-linked cryptsetup for early-boot LUKS unlock (initramfs)
+license: GPL-2.0-or-later
+homepage: https://gitlab.com/cryptsetup/cryptsetup
+tier: core
+build_style: custom
+install_func: do_install
+
+# Multi-source: builder auto-extracts source[0] (cryptsetup); build.sh
+# extracts the remaining tarballs from ${IGOS_SOURCES}/. Versions are pinned
+# to the existing dynamic packages so the same source bytes serve both lanes
+# (single sha to verify per upstream, no version drift between static + dyn).
+source:
+  - url: https://www.kernel.org/pub/linux/utils/cryptsetup/v2.8/cryptsetup-${version}.tar.xz
+    sha256: 443e46f8964c9acc780f455afbb8e23aa0e8ed7ec504cfc59e04f406fa1e8a83
+  - url: https://s3.amazonaws.com/json-c_releases/releases/json-c-0.18-nodoc.tar.gz
+    sha256: 602cdefc1d2aab8318fc0814b7ce7d59e72514d4276ca3eff92f35f86cf1c160
+  - url: https://ftp.osuosl.org/pub/rpm/popt/releases/popt-1.x/popt-1.19.tar.gz
+    sha256: c25a4838fc8e4c1c8aacb8bd620edb3084a3d63bf8987fdad3ca2758c63240f9
+  - url: https://sourceware.org/ftp/lvm2/LVM2.2.03.38.tgz
+    sha256: 322d44bf40de318e6e6b52c56999aaeb86b16c8267187ac2e01a44d4dc526960
+
+dependencies:
+  # cmake required for json-c static build. autotools/make/gcc/pkg-config all
+  # in the chroot by core-phase entry; same posture as busybox-static.
+  build:
+    - cmake
+  host: []
+  runtime: []
+
+verify_paths:
+  - /usr/lib/intergen/cryptsetup-static
