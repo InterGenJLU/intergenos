@@ -44,6 +44,35 @@ GRUB_BINARY = "grubx64.efi"
 BOOTLOADER_ID = "InterGenOS"
 
 
+def verify_shim_assets_present():
+    """Pre-flight check: shim-signed binaries must exist in the live ISO.
+
+    Called before partition_disk() on EFI installs (C-003 audit row;
+    T0-2 closure dispatch 2026-05-18T20:25:59Z). Fails closed so a
+    regression in the live-ISO build pipeline (e.g. shim-signed package
+    not wired through chroot-build-core-extra.sh — A-001) is caught
+    BEFORE the destructive partition write rather than after, when the
+    target disk is already modified.
+
+    Raises:
+        RuntimeError if shimx64.efi or mmx64.efi are missing from
+        SHIM_SOURCE_DIR.
+    """
+    missing = []
+    for binary in (SHIM_BINARY, MOKMANAGER_BINARY):
+        if not Path(SHIM_SOURCE_DIR, binary).is_file():
+            missing.append(f"{SHIM_SOURCE_DIR}/{binary}")
+    if missing:
+        raise RuntimeError(
+            "shim-signed binaries missing from live ISO: "
+            + ", ".join(missing)
+            + ". The shim-signed package is not wired into this build. "
+            "Aborting BEFORE partitioning to preserve disk state. "
+            "Re-run install on a build where the shim-signed package "
+            "is wired through phase_image (audit row A-001)."
+        )
+
+
 def install_bootloader(target, disk, partitions, mok_keypair=None):
     """Install bootloader on the target system.
 

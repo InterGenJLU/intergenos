@@ -340,6 +340,12 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         # modified and cancel-cleanup cannot undo the change.
         _emit(PHASE_PARTITION, 2, f"partitioning {install_io['disk']}")
         efi = disks.is_efi()
+        if efi:
+            # C-003 pre-flight: shim-signed binaries must exist on the
+            # live ISO before we touch the target disk. Fails closed if
+            # the live ISO build pipeline regressed (audit A-001). Raises
+            # RuntimeError so the destructive partition_disk() never runs.
+            bootloader.verify_shim_assets_present()
         partitions = disks.partition_disk(install_io["disk"], efi=efi)
         result.phase_completed = PHASE_PARTITION
         _emit(PHASE_PARTITION, 3, "partitioned + formatted")
