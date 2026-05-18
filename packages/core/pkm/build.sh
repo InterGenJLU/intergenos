@@ -29,18 +29,21 @@ do_install() {
 exec /usr/bin/python3 -m pkm "$@"
 SHIM
 
-    # Default repo configuration — points at the bootstrapped VPS mirror
-    # (Component 1). Components 2 and 3 of the source-mirror buildout are
-    # tracked for post-v1.0.
+    # Default repo configuration — points at the public binary package
+    # mirror at repo.intergenos.org. Hosting infrastructure live since
+    # 2026-05-11 (DNS + LE cert + SSH + docroot); build-pipeline emission
+    # of per-package archives + signed index + first publish is the
+    # remaining Half-B work tracked in the project tracker.
     install -Dm644 /dev/stdin "${DESTDIR}/etc/pkm/repos.conf" << 'REPOS'
 # InterGenOS package-manager repository configuration.
 #
 # Each repository is a stanza with a name, a base URL, and optional
-# trust settings. The default shipped repo is the official mirror at
-# intergenstudios.com. User-added repos can be appended below.
+# trust settings. The default shipped repo is the InterGenOS public
+# binary mirror at repo.intergenos.org. User-added repos can be
+# appended below.
 
 [intergenos-current]
-url = https://intergenstudios.com/intergenos/sources/current/
+url = https://repo.intergenos.org/x86_64/current/
 enabled = true
 # gpg_verify = true — enable once the signing-key ceremony completes
 REPOS
