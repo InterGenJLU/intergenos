@@ -48,11 +48,15 @@ No InterGenOS ISO has been shipped publicly yet (still in development); the oper
 
 ### 1. In-tree kernel patches
 
-Three new patches in `packages/core/linux-kernel/patches/`, sourced verbatim from upstream mainline (consistent with the existing `CVE-2026-31431-copy-fail.patch` convention):
+Three new patches in `packages/core/linux-kernel/patches/`:
 
-- `CVE-2026-43284-xfrm-esp-shared-frags.patch` (commit `f4c50a4034e6`)
-- `CVE-2026-43500-rxrpc-shared-frags.patch` (commit `aa54b1d27fe0`)
-- `CVE-2026-46300-fragnesia-skbuff-coalesce.patch` (commit `f84eca581739`)
+- `CVE-2026-43284-xfrm-esp-shared-frags.patch` (mainline commit `f4c50a4034e6`, applies cleanly to 6.18.10)
+- `CVE-2026-43500-rxrpc-shared-frags.patch` (**InterGenOS-specific 6.18.10 backport** — see note below)
+- `CVE-2026-46300-fragnesia-skbuff-coalesce.patch` (mainline commit `f84eca581739`, applies cleanly to 6.18.10)
+
+**CVE-2026-43500 disposition (revised 2026-05-18 evening).** The upstream mainline commit `aa54b1d27fe0` modifies `net/rxrpc/call_event.c` and `net/rxrpc/conn_event.c`. Those file locations correspond to a refactor introduced by upstream commit `d0d5c0cd1e71` ("rxrpc: Use skb_unshare() rather than skb_cow_data()") which post-dates 6.18.10 — in 6.18.10's source those files contain zero `skb_cloned` / `skb_unshare` references and the vulnerable code path the mainline patch modifies simply does not exist there. The structurally equivalent vulnerable site in 6.18.10 lives in `net/rxrpc/io_thread.c` (`rxrpc_input_packet()`, DATA case) and in the RESPONSE-packet code path that flows through `rxrpc_process_event()` → `security->verify_response()` → `rxkad_decrypt_response()` in-place. The shipped patch is an InterGenOS-authored custom backport targeting `io_thread.c` — widening the unshare-or-copy gate in both the DATA case and (new) the server-side RESPONSE case to call `skb_copy()` whenever `skb_has_frag_list()` or `skb_has_shared_frag()` is true, regardless of `skb_cloned()` status. Patch provenance, full reasoning, and the disposition for replacing it with upstream stable's 6.18.y backport (when issued) are documented in the patch file header itself.
+
+Patch kernel version pin: 6.18.10 is the InterGenOS v1.0 kernel; the operator pin is binding. Backport rather than kernel bump is the v1.0 path.
 
 Applied automatically by `packages/core/linux-kernel/build.sh` on kernel build. **Mitigation requires a kernel rebuild** — the patches are not active on existing built artifacts until the kernel is rebuilt and the resulting `vmlinuz` + UKI replace what's currently on disk.
 
@@ -96,7 +100,7 @@ The kernel patches above remain in effect even with the blacklist removed — op
 
 - **CVE-2026-31431 (copy-fail)** — pre-existing patch in tree (April 29, 2026). Unrelated to this cluster but the same upstream-patch pattern.
 - **D-007** (SSH + root + credentials posture) — orthogonal. D-007 closes remote-rootable paths via SSH credential exposure; this advisory closes local-PE-to-root paths via kernel data structures.
-- **E-001 microcode kernel-config gap** — fixed in the same commit. Adds `CONFIG_MICROCODE_INTEL=y`, `CONFIG_MICROCODE_AMD=y`, `CONFIG_MICROCODE_LATE_LOADING=y` to `config/kernel/fragments/99-intergenos-overrides.config`. Pre-fix verdict: `CONFIG_MICROCODE=y` was set but the vendor sub-flags defaulted to `n` — microcode framework was compiled in but no actual microcode updates loaded on any CPU.
+- **E-001 microcode kernel-config gap** — fixed across two commits. Initial fix (`ed09604d`) added `CONFIG_MICROCODE_INTEL=y` + `CONFIG_MICROCODE_AMD=y` + `CONFIG_MICROCODE_LATE_LOADING=y` to `config/kernel/fragments/99-intergenos-overrides.config`. **Post-rebuild discovery (IGOSC, 2026-05-18 19:29Z):** kernel 6.18 Kconfig refactored away the separate `MICROCODE_INTEL`/`MICROCODE_AMD` symbols — they no longer exist as independent options. `MICROCODE` now `depends on CPU_SUP_AMD || CPU_SUP_INTEL`. `olddefconfig` silently dropped the obsolete vendor flags. Microcode loading actually became live through the inherited baseline `CPU_SUP_*` defaults, not through the explicit symbols we set. **Corrective fix:** `99-intergenos-overrides.config` now explicitly declares `CONFIG_CPU_SUP_INTEL=y` + `CONFIG_CPU_SUP_AMD=y` + `CONFIG_MICROCODE_LATE_LOADING=y` as the 6.18-correct chain. IGOSC verified post-reboot: `dmesg` shows `microcode: Updated early from: 0x000000a8 -> Current revision: 0x000000c6` — microcode actually reaching the CPU for the first time in InterGenOS history. SRBDS + GDS mitigations now active via microcode (not just kernel-side software workarounds).
 - **F-005 AMD microcode early-load** — fixed in the same commit. `scripts/create-image.sh` now generates `/boot/amd-ucode.img` and patches grub.cfg with the AMD initrd line (mirror of the existing Intel path). `linux-firmware` already shipped the AMD microcode blobs at `/lib/firmware/amd-ucode/`; only the early-load image assembly was missing.
 
 ## Required action for InterGenOS builds going forward
