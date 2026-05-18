@@ -506,7 +506,7 @@ These are rows where my scan found NO prior ratification in memory or repo. They
 3. **I-010 semantic layer disposition** (build deps / user venv / drop). No memory entry. Remediation item #16.
 4. **I-015 large-model live-mode policy** (refuse vs warn for 21 GB Tier-3 on tmpfs). No memory entry. Remediation item #17.
 5. **P-016 Qwen license vs alternative default model** (Tongyi Qianwen license non-compliance vs substitute). Couples to I-006/I-010 service-model decisions.
-6. **F-013 MOK TPM sealing v1.0 stance** (genuine gap; Phase A decision #7).
+6. **F-013 MOK TPM sealing v1.0 stance** (genuine gap; Phase A decision #7). **SUPERSEDED-BY D-001 (2026-05-18):** TPM-sealed unlock is v1.0 EXPERIMENTAL feature per `docs/owner-directives.md` D-001. F-013 no longer open.
 7. **G-005 default firewall service surface** (Phase A decision #10).
 8. **F-023 password aging / faillock policy** (Phase A decision #8).
 9. **F-007 forge polkit scoping** (Phase A decision #9).
