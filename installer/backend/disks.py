@@ -1,10 +1,31 @@
 """Disk detection and partitioning for InterGenOS installer.
 
-Supports two install modes:
-- 'fresh': wipe the entire disk and create a clean GPT layout.
-- 'alongside': shrink an existing NTFS partition (Windows) and install
-  InterGenOS into the freed space, preserving Windows + its EFI partition
-  for dual-boot via shared ESP.
+v1.0 scope — fresh-install only. partition_disk() wipes the target disk
+selected in the installer and lays down a clean GPT (ESP + root). The
+installer never touches a disk the user did not select.
+
+Dual-boot via boot-selection IS supported on v1.0: the user installs
+Windows on one disk/partition and InterGenOS on another, and the
+firmware boot menu (or a user-installed third-party boot manager) picks
+between them at power-on. The InterGenOS installer plays no role in
+configuring or detecting the other OS — it just installs cleanly onto
+its own target.
+
+What's deferred to v1.x — automated alongside-install (shrink a working
+Windows partition to make room for InterGenOS on the same drive, then
+wire dual-boot into a shared ESP). That workflow requires a full UX
+flow, partition-loss recovery semantics, and a test matrix on real
+Windows partitions (including BitLocker detection). The 2026-05-15
+defer ratification (commit f3d33e3b) is the source-of-truth on this
+scope decision.
+
+The primitives below — detect_shrinkable_ntfs, is_bitlocker_encrypted,
+detect_bitlocker_partitions, shrink_ntfs, partition_disk_alongside —
+are v1.x preparation surface, intentionally unwired in v1.0. They are
+not reachable from any frontend or orchestrator caller and ship no
+visible UI. Their continued presence is deliberate: the alongside
+workflow will be implemented on top of them in v1.x; rewriting them
+from scratch at that point would discard validated detection logic.
 """
 
 import json
@@ -14,9 +35,14 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 
+# v1.x-prep — InstallMode is currently unused. The v1.0 fresh-install
+# path doesn't branch on mode (partition_disk is the only caller).
+# Retained alongside the v1.x alongside-install primitives below; will
+# be threaded through install_io + state.py when alongside is wired
+# in v1.x. See module docstring for the scope decision.
 class InstallMode(Enum):
     FRESH = "fresh"          # wipe disk, clean slate
-    ALONGSIDE = "alongside"  # shrink existing OS partition, share ESP
+    ALONGSIDE = "alongside"  # shrink existing OS partition, share ESP (v1.x)
 
 
 # Minimum free space we require for an InterGenOS root partition (250 GB)
