@@ -70,6 +70,8 @@ PHASES=(
     bootloader
     image
     manifest
+    squashfs
+    iso
 )
 
 # ==========================================================================
@@ -1009,13 +1011,72 @@ phase_bootloader() {
     # See clear_per_pkg_resume_env() — unset before chroot-build-*.sh invoke.
     unset IGOS_START_AT IGOS_STOP_AFTER
     sync_chroot_scripts
+
+    # B-003 (T0-2 2026-05-18): wipe stale .signed before rebuilding. The
+    # signing-ceremony output writes .signed files alongside the unsigned
+    # .efi; on a fresh phase_bootloader run those .signed reflect a prior
+    # cycle's artifacts. Re-signing a fresh build against stale .signed
+    # in the directory would silently mix lineages — the cycle-5 manifest
+    # vs ESP-content mismatch class. Always start a bootloader rebuild
+    # from a clean directory.
+    local host_bootloader_dir="/mnt/intergenos/build/bootloader"
+    if [ -d "$host_bootloader_dir" ]; then
+        local stale_signed=()
+        while IFS= read -r -d '' s; do
+            stale_signed+=( "$s" )
+        done < <(find "$host_bootloader_dir" -maxdepth 1 -name '*.efi.signed' -print0 2>/dev/null)
+        if (( ${#stale_signed[@]} > 0 )); then
+            log "  B-003: wiping ${#stale_signed[@]} stale .signed artifact(s) before rebuild"
+            rm -f "${stale_signed[@]}"
+        fi
+    fi
+
     log "Assembling unsigned bootloader artifacts in chroot..."
     log "  (grubx64.efi + initramfs.cpio.gz + igos-live.efi UKI)"
     log ""
     bash "${SCRIPTS}/chroot-enter.sh" "${SCRIPTS}/chroot-build-bootloader.sh" 2>&1 | tee -a "$BUILD_LOG"
     log ""
     log "  Bootloader artifacts at: ${IGOS}/mnt/intergenos/build/bootloader/"
+
+    # Copy bootloader artifacts from chroot to host-visible build dir so
+    # phase_iso (and operator ceremony scripts at /mnt/intergenos/build/
+    # bootloader/) can access them after phase_image cleans the chroot.
+    # The chroot is a self-contained copy of the target filesystem (no
+    # bind mount), so the copy is mandatory.
+    local chroot_bootloader_dir="${IGOS}/mnt/intergenos/build/bootloader"
+    mkdir -p "$host_bootloader_dir"
+    if [ -d "$chroot_bootloader_dir" ]; then
+        cp -av "$chroot_bootloader_dir"/*.efi "$host_bootloader_dir/" 2>&1 | tee -a "$BUILD_LOG" || true
+        # Also copy initramfs.cpio.gz if present (UKI is the canonical path,
+        # but the standalone initramfs is useful for diagnostic boots).
+        [ -f "$chroot_bootloader_dir/initramfs.cpio.gz" ] && \
+            cp -av "$chroot_bootloader_dir/initramfs.cpio.gz" "$host_bootloader_dir/" 2>&1 | tee -a "$BUILD_LOG"
+        log "  Bootloader artifacts copied to host: $host_bootloader_dir/"
+    else
+        log "  WARN: chroot bootloader dir missing: $chroot_bootloader_dir"
+        log "  phase_iso will fail unless bootloader artifacts are placed at $host_bootloader_dir/"
+    fi
     log ""
+
+    # A-002 (T0-2): UNSIGNED_TEST=1 lets the orchestrator run end-to-end
+    # without an operator ceremony pause. The .unsigned-test.iso variant
+    # is for dev iteration on Secure Boot OFF VMs; release ISOs still
+    # require the operator-only signing ceremony described below.
+    if [ "${UNSIGNED_TEST:-0}" = "1" ]; then
+        log "================================================================"
+        log "  UNSIGNED_TEST=1 — skipping operator-only ceremony pause"
+        log "================================================================"
+        log ""
+        log "  The orchestrator will continue through phase_image,"
+        log "  phase_manifest, phase_squashfs, and phase_iso to produce"
+        log "  an .unsigned-test.iso artifact (Secure Boot OFF required)."
+        log ""
+        log "  For release-grade signed ISOs, re-run without UNSIGNED_TEST=1"
+        log "  to hit the ceremony pause below."
+        log ""
+        return 0
+    fi
+
     log "================================================================"
     log "  ENFORCED PAUSE: bootloader artifacts are UNSIGNED"
     log "================================================================"
@@ -1030,7 +1091,7 @@ phase_bootloader() {
     log ""
     log "  Operator workflow:"
     log "    1. Run scripts/sign-release.sh on the signing workstation."
-    log "    2. Place signed artifacts back where phase_image expects them."
+    log "    2. Place signed artifacts back at $host_bootloader_dir/."
     log "    3. Resume with: sudo bash $0 --user $BUILD_USER --start-at image"
     log ""
     exit 0
@@ -1180,6 +1241,150 @@ phase_manifest() {
     log "  at /install/ via build-iso.sh inputs (per design doc §5.2)."
 }
 
+phase_squashfs() {
+    # A-002 (T0-2 2026-05-18): wire build-squashfs.sh into the orchestrator
+    # pipeline. Previously the script existed but was operator-driven via
+    # build/spoc-*.sh kickoffs; ops doc 02 framed orchestrator end-to-end
+    # ISO build as if it worked, but neither phase_squashfs nor phase_iso
+    # existed. Runs AFTER phase_image (which cleans build infrastructure
+    # from the chroot — /mnt/intergenos, /sources, /tmp/*) so the squashfs
+    # captures only the bootable end-user filesystem.
+    log "Building live-ISO root filesystem squashfs from cleaned chroot..."
+    OUTPUT="/mnt/intergenos/build/filesystem.squashfs" \
+        bash "${SCRIPTS}/build-squashfs.sh" 2>&1 | tee -a "$BUILD_LOG"
+
+    if [ ! -f "/mnt/intergenos/build/filesystem.squashfs" ]; then
+        log "  ERROR: squashfs not produced at /mnt/intergenos/build/filesystem.squashfs"
+        return 1
+    fi
+    local squashfs_size
+    squashfs_size=$(stat -c '%s' "/mnt/intergenos/build/filesystem.squashfs")
+    log "  squashfs at /mnt/intergenos/build/filesystem.squashfs (size=$squashfs_size bytes)"
+}
+
+phase_iso() {
+    # A-002 (T0-2 2026-05-18): wire build-iso.sh into the orchestrator. The
+    # bootloader artifacts come from phase_bootloader's host copy at
+    # /mnt/intergenos/build/bootloader/ — either the unsigned originals
+    # (UNSIGNED_TEST=1 path) or the .signed variants placed there by the
+    # operator after running scripts/sign-release.sh on the signing
+    # workstation.
+    log "Assembling live ISO from bootloader artifacts + squashfs..."
+
+    local bootloader_dir="/mnt/intergenos/build/bootloader"
+    local squashfs="/mnt/intergenos/build/filesystem.squashfs"
+    local iso_out="/mnt/intergenos/build/intergenos-1.0-dev1.iso"
+
+    if [ ! -d "$bootloader_dir" ]; then
+        log "  ERROR: bootloader dir missing: $bootloader_dir"
+        log "  phase_bootloader copies artifacts there. If running --start-at iso,"
+        log "  place signed (or unsigned-test) shimx64.efi/grubx64.efi/igos-live.efi/"
+        log "  igos-install-gui.efi/igos-install-tui.efi at $bootloader_dir/ first."
+        return 1
+    fi
+    if [ ! -f "$squashfs" ]; then
+        log "  ERROR: squashfs missing at $squashfs"
+        log "  phase_squashfs must complete before phase_iso. Run --start-at squashfs."
+        return 1
+    fi
+
+    # Select shim/grub/UKI input filenames by signed state. The .signed
+    # extension is sign-release.sh / sign-bootloader.sh's output convention.
+    local shim grub uki_live uki_install_gui uki_install_tui
+    if [ "${UNSIGNED_TEST:-0}" = "1" ]; then
+        shim="$bootloader_dir/shimx64.efi"
+        grub="$bootloader_dir/grubx64.efi"
+        uki_live="$bootloader_dir/igos-live.efi"
+        uki_install_gui="$bootloader_dir/igos-install-gui.efi"
+        uki_install_tui="$bootloader_dir/igos-install-tui.efi"
+    else
+        shim="$bootloader_dir/shimx64.efi.signed"
+        grub="$bootloader_dir/grubx64.efi.signed"
+        uki_live="$bootloader_dir/igos-live.efi.signed"
+        uki_install_gui="$bootloader_dir/igos-install-gui.efi.signed"
+        uki_install_tui="$bootloader_dir/igos-install-tui.efi.signed"
+    fi
+
+    local missing=()
+    for f in "$shim" "$grub" "$uki_live" "$uki_install_gui" "$uki_install_tui"; do
+        [ -f "$f" ] || missing+=( "$f" )
+    done
+    if (( ${#missing[@]} > 0 )); then
+        log "  ERROR: required bootloader artifact(s) missing:"
+        for f in "${missing[@]}"; do
+            log "    - $f"
+        done
+        if [ "${UNSIGNED_TEST:-0}" = "1" ]; then
+            log "  Re-run phase_bootloader to regenerate unsigned artifacts."
+        else
+            log "  Run scripts/sign-release.sh on the signing workstation, then"
+            log "  copy the .signed files to $bootloader_dir/ before resuming."
+        fi
+        return 1
+    fi
+
+    UNSIGNED_TEST="${UNSIGNED_TEST:-0}" \
+    SHIM="$shim" \
+    GRUB="$grub" \
+    UKI_LIVE="$uki_live" \
+    UKI_INSTALL_GUI="$uki_install_gui" \
+    UKI_INSTALL_TUI="$uki_install_tui" \
+    SQUASHFS="$squashfs" \
+    OUTPUT="$iso_out" \
+        bash "${SCRIPTS}/build-iso.sh" 2>&1 | tee -a "$BUILD_LOG"
+
+    # build-iso.sh appends .unsigned-test.iso suffix when UNSIGNED_TEST=1,
+    # so the actual output filename depends on mode.
+    local actual_iso="$iso_out"
+    if [ "${UNSIGNED_TEST:-0}" = "1" ]; then
+        actual_iso="${iso_out%.iso}.unsigned-test.iso"
+    fi
+    if [ ! -f "$actual_iso" ]; then
+        log "  ERROR: ISO not found at $actual_iso post-build (check build-iso.sh output)"
+        return 1
+    fi
+    local iso_size
+    iso_size=$(stat -c '%s' "$actual_iso")
+    log "  ISO at $actual_iso (size=$iso_size bytes)"
+
+    # B-018 + B-034 (T0-2 2026-05-18): atomic provenance manifest. The
+    # cycle-5 ISO's manifest carried input-SHAs that did not match the
+    # UKIs actually written into the ESP — i.e. the manifest existed for
+    # a different build than the ISO. Re-emit at the moment of ISO
+    # finalization (post-build-iso.sh success) so input-SHAs always
+    # match what xorriso just consumed. Manifest filename mirrors the
+    # ISO basename so lineage is unambiguous even when both .iso and
+    # .unsigned-test.iso coexist in build/.
+    local manifest_file="${actual_iso}.manifest"
+    log "  Emitting build provenance manifest: $manifest_file"
+    {
+        printf '# InterGenOS ISO build provenance manifest\n'
+        printf '# ISO basename: %s\n' "$(basename "$actual_iso")"
+        printf '# Generated: %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+        printf '# Build mode: %s\n' \
+            "$([ "${UNSIGNED_TEST:-0}" = "1" ] && echo "UNSIGNED_TEST" || echo "signed")"
+        [ -n "${SOURCE_DATE_EPOCH:-}" ] && \
+            printf '# SOURCE_DATE_EPOCH: %s\n' "$SOURCE_DATE_EPOCH"
+        printf '# Build host: %s\n' "$(hostname -f 2>/dev/null || hostname)"
+        printf '# Manifest-version: 1\n'
+        printf '#\n'
+        printf '# Input artifacts (SHAs as fed into build-iso.sh):\n'
+        for input in "$shim" "$grub" "$uki_live" "$uki_install_gui" \
+                     "$uki_install_tui" "$squashfs"; do
+            local _sha
+            _sha=$(sha256sum "$input" | awk '{print $1}')
+            printf 'SHA256 (input %s) = %s\n' "$(basename "$input")" "$_sha"
+        done
+        printf '#\n'
+        printf '# Output ISO:\n'
+        local _iso_sha
+        _iso_sha=$(sha256sum "$actual_iso" | awk '{print $1}')
+        printf 'SHA256 (output %s) = %s\n' "$(basename "$actual_iso")" "$_iso_sha"
+        printf '# End of manifest.\n'
+    } > "$manifest_file"
+    log "  Manifest written: $manifest_file"
+}
+
 phase_publish() {
     # Post-build publish hook (E1.B.8). Publishes the binary repository to
     # repo.intergenos.org if --publish flag was passed.
@@ -1253,6 +1458,8 @@ run_phase "extra"       "Build extra tier (applications)"     phase_extra
 run_phase "bootloader"  "Assemble unsigned bootloader artifacts" phase_bootloader
 run_phase "image"       "Package bootable disk image"         phase_image
 run_phase "manifest"    "Emit archive integrity manifest"     phase_manifest
+run_phase "squashfs"    "Build live-ISO root filesystem squashfs" phase_squashfs
+run_phase "iso"         "Assemble live ISO (signed or unsigned-test)" phase_iso
 if $PUBLISH; then
     run_phase "publish" "Publish binary repository to repo.intergenos.org" phase_publish
 fi
