@@ -128,3 +128,45 @@ Each entry uses this shape:
   - `docs/audit/2026-05-18-remediation-plan.md` owner-decision-queue item #24 L-007 per-archive `.sig` (annotated RESOLVED via D-004)
   - `docs/audit/2026-05-18-design-decisions-matrix.md` reconciliation-walk row #24 (annotated to cite D-004)
 - **Status:** ACTIVE
+
+---
+
+## D-005 — Installed-system boot architecture: Option A (UKI parity, signed by user's MOK)
+
+- **Issued:** 2026-05-18T14:39:52Z by owner
+- **Context:** Item 2.2 of build-system coordinator's matrix-scan 5-item walk. After D-001 narrowed the no-installed-system-initramfs ratification to make room for LUKS, the residual question was: should installed systems use UKI parity with the live ISO (Option A) or stay on grub-loads-vmlinuz (Option B)? Coordinator's initial Option-A presentation muddled key boundaries; owner caught the bug ("We're not going to expose our signing infrastructure to users"). Coordinator clarified: the InterGenOS PIV slot 9c key stays at HQ; per-machine signing uses the user's own MOK (same trust pattern DKMS already uses on InterGenOS). Subsequent web research validated Option A is the documented Arch Linux Secure-Boot pattern (mature, production-grade tooling: `ukify`, `sbsigntool`, `mkinitcpio` post-hooks, `sbctl`) and aligns with Fedora's Phase 2 UKI roadmap. Owner ratified.
+- **Verbatim:**
+
+  > OWNER DIRECTIVE: Option A wins for UKI. Arch is already there, Fedora is on the way, and everyone else is playing catch up. We're going to start on the right foot with this one, and possibly be the first to automate it :)
+
+- **Decision-Encoded:**
+  - **Installed systems use UKI parity with the live ISO.** Per-kernel UKI on the ESP. shim → GRUB → UKI chain (matches existing live ISO chain shape); shim-direct-to-UKI is a future-option, not v1.0 baseline.
+  - **User-MOK signing.** The user's machine-local MOK key (Forge generates this at install time; user enrolls via MokManager at first boot — existing Forge flow) signs UKIs at kernel install + upgrade time. **The InterGenOS PIV slot 9c key NEVER leaves HQ.** No InterGenOS signing material lives on user systems.
+  - **Forge installs UKI-build tooling** on the installed system: `ukify`, `sbsigntool`. NOT the InterGenOS vendor cert/key — only the user's MOK material exists on the user's machine.
+  - **`packages/core/linux-kernel` post_install hook** runs `ukify` + sign-with-user-MOK on every kernel install and upgrade. Old UKIs cleaned up on kernel removal (`pkm remove linux-kernel-X.Y.Z`).
+  - **ESP sizing.** Forge enforces minimum ESP headroom for multiple UKI generations (per-kernel UKI ~80-150 MB; default keep-2-old-kernels target ~500 MB minimum ESP).
+  - **Fallback path** on UKI signing failure: kernel + initrd remain on disk; the build-system ships a grub-loads-vmlinuz boot entry as a recovery fallback. Fails closed but recoverable.
+
+- **Composition with D-001 (no conflict — they compose):**
+  - LUKS installs (per D-001): UKI's bundled initramfs IS the tiny FDE-only initramfs (busybox + cryptsetup; passphrase prompt). UKI loads → FDE initramfs unlocks → root mounts → kernel handoff.
+  - Plain (non-LUKS) installs: UKI's bundled initramfs is empty / minimal (just microcode cpio, no FDE userspace needed). Kernel-builtin storage drivers + PARTUUID + rootwait still work as ratified 2026-04-09. No change to plain-install root-mount semantics.
+
+- **Supersedes:**
+  - `docs/audit/2026-05-18-design-decisions-matrix.md` BOOT row "UKI / GRUB model" (formerly "UKI for live-ISO; GRUB-with-shim chainload for installed-system" — now "UKI for both")
+  - `docs/audit/2026-05-18-design-decisions-matrix.md` BOOT row "UKI vs grub — installed system" (formerly PROPOSED)
+  - `docs/audit/2026-05-18-design-decisions-matrix.md` reconciliation-walk row #3 (B-008 / B-026)
+  - `docs/audit/2026-05-18-remediation-plan.md` owner-decision-queue item #3 B-008 / B-026 installed-system boot architecture
+  - Matrix B-047 vmlinuz signing path drift (was Class B doc/code drift: doc said distro-EFI signs vmlinuz; code MOK-signed at install — D-005 collapses to a single scheme: user-MOK signs UKIs at install + kernel upgrade)
+  - Windows-host iter-2 W-B12 / W-B13 (UKI live-ISO vs grub-loads-vmlinuz installed-system Class B cross-time conflict) — RESOLVED via UKI everywhere
+
+- **Implementation backlog (informational, not directive surface):**
+  - `packages/core/linux-kernel` post_install hook authoring with edge-case handling (kernel-update mid-LUKS-unlock; partial download; ESP-full; MOK key missing → fall back to grub-loads-vmlinuz; signing failure → fall back)
+  - Forge UKI-tooling installation step (ukify, sbsigntool ship in installed system; MOK material generated locally)
+  - Forge ESP sizing enforcement at partition stage
+  - GRUB menu generation that picks up UKIs from `/EFI/Linux/` (or `/boot/efi/EFI/<vendor>/`) per UAPI conventions
+  - Recovery-fallback grub entry generation
+  - Microcode-in-UKI fix (E-001/E-002 in T0-1 cluster) — must land for live ISO regardless; D-005 inherits the fix
+  - User-facing docs in `docs/users/security-defaults.md` covering UKI-update workflow + recovery story
+  - `packages/core/linux-kernel` post_remove hook to clean up stale UKIs
+
+- **Status:** ACTIVE
