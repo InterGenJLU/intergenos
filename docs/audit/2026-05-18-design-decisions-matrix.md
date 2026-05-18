@@ -1346,7 +1346,7 @@ Walk of the 38-item owner-decision queue from `2026-05-18-remediation-plan.md`. 
 
 | # | Plan item | Status | Citation / narrower residual |
 |---|---|---|---|
-| 1 | B-001 SHIM path | **ALREADY RATIFIED** | D1-7 piggyback + own-MS-shim arms pre-authorized 2026-04-18. Remediation is fix-the-drift (wire one of the two arms). |
+| 1 | B-001 SHIM path | **RATIFIED via D-002 2026-05-18** | D1-7 piggyback + own-MS-shim arms pre-authorized 2026-04-18; confirmed + vaporized from open queue via D-002 (`docs/owner-directives.md`). Remediation is fix-the-drift (wire one of the two arms). |
 | 2 | B-006 measured-boot scope | **RATIFIED via D-001 2026-05-18** | TPM-sealed unlock + FIDO2 = v1.0 EXPERIMENTAL features, flagged in installer UI. See `docs/owner-directives.md` D-001. |
 | 3 | B-008 / B-026 installed-system boot architecture | **REFRAME** | No-initramfs + PARTUUID RATIFIED 2026-04-08/09 + reaffirmed 2026-04-10 + 2026-05-06 Q-INIT. Narrower residual: "installer/backend/config.py:154-155 emits `root=UUID=` — fix to PARTUUID parity" (one-line). Plus: UKI parity for installed-system vs grub-loads-vmlinuz is GENUINELY OPEN as a separate question. |
 | 4 | A-002 / A-028 QCOW2 retirement | **GENUINELY OPEN** | Forge plan treats qcow2 as build-stage intermediate; no explicit RETIRE decision captured. |
@@ -1367,9 +1367,9 @@ Walk of the 38-item owner-decision queue from `2026-05-18-remediation-plan.md`. 
 | 19 | T0-6 / P-015 ffmpeg-nonfree-helper | **GENUINELY OPEN** | HG ship-blocker. |
 | 20 | D-014 GDM session-type | **REFRAME** | Wayland-only RATIFIED `VISION.md:212`; if question is about GREETER session-type specifically, reword. Otherwise vaporize. |
 | 21 | J-008 / J-009 / J-014 theming SSOT | **REFRAME** | Theme CHOICES RATIFIED 2026-05-03 A33 (InterGenOS theme + Cybernetic Blue + Bibata + prefer-dark). Narrower residual: MECHANISM (gschema vs dconf-system-db vs install-theming.sh as SSOT writer) GENUINELY OPEN. |
-| 22 | B-015 shim-review PR timing | **ALREADY RATIFIED** | 2026-05-22 stable across all surfaces; couples to #1. Vaporize or narrow to "do we slip" only. |
+| 22 | B-015 shim-review PR timing | **RATIFIED via D-003 2026-05-18** | 2026-05-22 stable across all surfaces; couples to D-002. Vaporized from open queue via D-003. |
 | 23 | L-005 publish workflow / hostname | **REFRAME** | `repo.intergenos.org` hostname RATIFIED 2026-05-11 (TRACKER:100); 3 doc surfaces have drift on DNS state (K-022/L-003 — Class A) — fix the drift. Script-choice (publish-repo.sh vs mirror-publish.sh) GENUINELY OPEN. |
-| 24 | L-007 per-archive `.sig` | **ALREADY RATIFIED** | Signed-index-only v1.0; v1.1+ deferred. Closure commit `d6b3946a` 2026-05-12; `docs/architecture/per-archive-sig-decision.md`. Plus: 3-artifact propagation drift (Class B above) is fix-the-drift not re-decision. |
+| 24 | L-007 per-archive `.sig` | **RATIFIED via D-004 2026-05-18** | Signed-index-only v1.0; v1.1+ deferred. Closure commit `d6b3946a` 2026-05-12; `docs/architecture/per-archive-sig-decision.md`. Vaporized from open queue via D-004. Plus: 4-artifact propagation drift (Class B + WC iter-2 finding) is fix-the-drift not re-decision. |
 | 25 | O-011 release-channel model | **GENUINELY OPEN** | No prior ratification. |
 | 26 | L-022 DR scope | **GENUINELY OPEN** | VPS DR endpoint exists; nightly-rsync scope genuinely open. |
 | 27 | P-001 GPL §6 path | **GENUINELY OPEN** | HG-class legal blocker; absence of `SOURCES.md` / `COPYING.offer`. |

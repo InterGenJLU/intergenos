@@ -479,7 +479,7 @@ P-007 SPDX headers + P-008 AUTHORS + P-011 README License expansion + P-018 DCO 
 
 Decisions blocking remediation start (or substantively affecting scope). Numbered for owner reference:
 
-1. **B-001 SHIM path.** Fedora-piggyback shim (immediate) vs MS-signed shim via shim-review (6-12 wk dep) vs self-signed CA + mandatory user enrollment.
+1. ~~**B-001 SHIM path.** Fedora-piggyback shim (immediate) vs MS-signed shim via shim-review (6-12 wk dep) vs self-signed CA + mandatory user enrollment.~~ **RESOLVED 2026-05-18 via D-002 (`docs/owner-directives.md`):** Ratified 2026-04-18 D1-7 — ship Fedora-piggyback shim AND pursue own MS-signed shim via rhboot/shim-review PR in parallel. Both arms pre-authorized day-0. Cycle-5 wiring drift is implementation backlog, not a fresh decision.
 2. ~~**B-006 measured-boot scope.** Implement `systemd-cryptenroll` LUKS+TPM2 OR drop "measured boot" from docs.~~ **RESOLVED 2026-05-18 via D-001 (`docs/owner-directives.md`):** TPM-sealed unlock + FIDO2 unlock = v1.0 EXPERIMENTAL features, flagged in installer UI (Ubuntu 24.04 precedent). Implementation is `systemd-cryptenroll` LUKS+TPM2/FIDO2 backed by the v1.0 LUKS baseline.
 3. **B-008 / B-026 installed-system boot architecture.** UKI parity OR traditional grub-loads-vmlinuz; initramfs generator selection.
 4. **A-002 / A-028 QCOW2 retirement** (recommended) vs dual-output transitional.
@@ -500,9 +500,9 @@ Decisions blocking remediation start (or substantively affecting scope). Numbere
 19. **T0-6 / P-015 ffmpeg-nonfree-helper** mirror tier or out entirely.
 20. **D-014 GDM session-type policy** (Wayland-only / Wayland-preferred / upstream-default).
 21. **J-008 / J-009 / J-014 theming canonical single-source-of-truth.**
-22. **B-015 shim-review PR timing** (close gated items NOW or accept further slip).
+22. ~~**B-015 shim-review PR timing** (close gated items NOW or accept further slip).~~ **RESOLVED 2026-05-18 via D-003:** Target 2026-05-22 stands; couples to D-002.
 23. **L-005 publish workflow** (publish-repo.sh vs mirror-publish.sh); hostname (repo.intergenos.org vs intergenstudios.com/mirror/).
-24. **L-007 per-archive `.sig`** v1.0 omit / v1.1+ defer / implement now.
+24. ~~**L-007 per-archive `.sig`** v1.0 omit / v1.1+ defer / implement now.~~ **RESOLVED 2026-05-18 via D-004:** Signed-index-only for v1.0; per-archive sigs deferred to v1.1+. The 2026-05-12 closure (commit `d6b3946a`) stands. Artifact-sweep across 4 doc/script surfaces is implementation backlog.
 25. **O-011 release-channel model** (single-repo vs stable/testing/edge); per-package channel pinning.
 26. **L-022 DR scope** (nightly off-VPS backup + secondary mirror).
 27. **P-001 GPL §6 path** (written offer in LICENSE vs network access via mirror).
