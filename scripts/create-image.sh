@@ -234,6 +234,15 @@ if [ -f "${MOUNT_POINT}/boot/intel-ucode.img" ]; then
     log "  GRUB config: Intel microcode early-load initrd added"
 fi
 
+# Add AMD microcode early-load initrd if the image exists (audit F-005 fix)
+# The kernel selects the right microcode image at boot based on CPU vendor ID,
+# so shipping both Intel and AMD images is safe on either vendor's hardware.
+if [ -f "${MOUNT_POINT}/boot/amd-ucode.img" ]; then
+    sed -i '/^[[:space:]]*linux /a\\tinitrd /boot/amd-ucode.img' \
+        "${MOUNT_POINT}/boot/grub/grub.cfg"
+    log "  GRUB config: AMD microcode early-load initrd added"
+fi
+
 # Unmount bind mounts and ESP
 umount "${MOUNT_POINT}/sys"
 umount "${MOUNT_POINT}/proc"
@@ -305,6 +314,40 @@ if [ -x "${MOUNT_POINT}/usr/bin/iucode_tool" ] && \
     fi
 else
     log "  Intel microcode: iucode_tool or firmware not installed — skipping"
+fi
+
+# Generate AMD CPU microcode early-load image (audit F-005 fix, 2026-05-18)
+# AMD's early-load format differs from Intel's: kernel expects
+# /kernel/x86/microcode/AuthenticAMD.bin inside a cpio archive, where
+# AuthenticAMD.bin is the concatenation of all amd-ucode/*.bin files
+# (the kernel walks the resulting blob and picks matching family/model).
+# linux-firmware already ships the per-family blobs at /lib/firmware/amd-ucode/.
+if [ -d "${MOUNT_POINT}/lib/firmware/amd-ucode" ]; then
+    chroot "$MOUNT_POINT" /bin/bash -c '
+        set -e
+        WORK=$(mktemp -d)
+        trap "rm -rf $WORK" EXIT
+        mkdir -p "$WORK/kernel/x86/microcode"
+        # Concatenate all AMD family blobs into a single AuthenticAMD.bin.
+        # Decompress .xz blobs if linux-firmware was installed compressed.
+        for blob in /lib/firmware/amd-ucode/microcode_amd*.bin /lib/firmware/amd-ucode/microcode_amd*.bin.xz; do
+            [ -f "$blob" ] || continue
+            case "$blob" in
+                *.xz) xz -dc "$blob" >> "$WORK/kernel/x86/microcode/AuthenticAMD.bin" ;;
+                *)    cat "$blob" >> "$WORK/kernel/x86/microcode/AuthenticAMD.bin" ;;
+            esac
+        done
+        if [ -s "$WORK/kernel/x86/microcode/AuthenticAMD.bin" ]; then
+            ( cd "$WORK" && find kernel | cpio --create --quiet --format=newc ) > /boot/amd-ucode.img
+        fi
+    ' 2>/dev/null || true
+    if [ -f "${MOUNT_POINT}/boot/amd-ucode.img" ] && [ -s "${MOUNT_POINT}/boot/amd-ucode.img" ]; then
+        log "  AMD microcode image generated (/boot/amd-ucode.img)"
+    else
+        log "  AMD microcode: no amd-ucode blobs found in linux-firmware — skipping"
+    fi
+else
+    log "  AMD microcode: /lib/firmware/amd-ucode not present — skipping"
 fi
 
 # Create kernel symlink (GRUB expects /boot/vmlinuz)

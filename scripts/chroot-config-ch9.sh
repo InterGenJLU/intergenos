@@ -615,6 +615,58 @@ done
 log "--- Reconciling pkm SQLite DB with on-disk package manifests ---"
 pkm import 2>&1 | sed 's/^/  /' || true
 
+# ============================================================================
+# 9.X — Dirty Frag / Fragnesia mitigation modprobe blacklist (2026-05-18)
+# ============================================================================
+#
+# Defense-in-depth alongside the in-tree kernel patches at
+# packages/core/linux-kernel/patches/CVE-2026-{43284,43500,46300}-*.patch.
+#
+# The kernel patches close the three known CVEs (Dirty Frag xfrm-ESP,
+# Dirty Frag rxrpc, Fragnesia shared-frag-marker). Fragnesia is itself
+# evidence that the original Dirty Frag patch did not cover the related
+# code path — exactly the failure-mode defense-in-depth pays for. If a
+# "Fragnesia-2" CVE emerges in the same code area before we ship a
+# fresh kernel, this blacklist blocks the modules from loading entirely.
+#
+# Filter applied: PRIME DIRECTIVE + HOLY GRAIL.
+# - User control preserved — blacklist lives in /etc/modprobe.d/, plainly
+#   visible, user-editable. Any user who needs IPsec ESP or OpenAFS
+#   (rxrpc) can rm the file or `modprobe esp4` manually. Documentation
+#   at docs/security/advisories/dirty-frag-fragnesia.md covers the
+#   opt-out path.
+# - Modern consumer VPNs (WireGuard, OpenVPN) do not use esp4/esp6;
+#   rxrpc is OpenAFS-only. Disabling these by default breaks essentially
+#   no v1.0 user workflow.
+log "--- Installing Dirty Frag / Fragnesia mitigation modprobe blacklist ---"
+mkdir -p /etc/modprobe.d
+cat > /etc/modprobe.d/igos-dirty-frag-mitigation.conf <<'EOF'
+# InterGenOS — Dirty Frag / Fragnesia mitigation (2026-05-18)
+#
+# Defense-in-depth alongside kernel patches CVE-2026-43284 / CVE-2026-43500
+# / CVE-2026-46300 (in packages/core/linux-kernel/patches/). The three
+# CVEs all exploit in-place decryption paths in IPsec ESP + rxrpc receive
+# code. The kernel patches close the known holes; this blacklist refuses
+# to load the modules at all, blocking any future related CVE before a
+# kernel update can land.
+#
+# Coverage rationale: modern consumer VPNs (WireGuard, OpenVPN) do NOT
+# use these modules. esp4/esp6 are kernel-mode IPsec ESP (traditional
+# enterprise/site-to-site VPN). rxrpc is the OpenAFS / Andrew File
+# System protocol — extremely niche on desktop Linux.
+#
+# Opt-out: if you actually use IPsec ESP or OpenAFS, remove this file
+# (or comment out the relevant line) and reload the modules. The
+# kernel patches above still apply; you lose the defense-in-depth but
+# regain the functionality. See docs/security/advisories/
+# dirty-frag-fragnesia.md for the full rationale.
+install esp4 /bin/false
+install esp6 /bin/false
+install rxrpc /bin/false
+EOF
+chmod 644 /etc/modprobe.d/igos-dirty-frag-mitigation.conf
+log "  /etc/modprobe.d/igos-dirty-frag-mitigation.conf"
+
 log ""
 log "=========================================="
 log "  Chapter 9 Configuration Complete"
