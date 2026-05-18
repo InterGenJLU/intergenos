@@ -25,7 +25,27 @@
 # from /etc/kernel/cmdline; falls back to /proc/cmdline if unset).
 
 set -uo pipefail
-log() { echo "[linux-kernel:post-install] $*" >&2; }
+
+# Dedicated persistent log file for kernel install/upgrade operations.
+# Kernel install is security-critical (UKI signing, FDE initramfs regen,
+# Secure Boot composition) and users + ops need a stable place to look
+# when boot-time troubleshooting (per docs/users/full-disk-encryption.md
+# troubleshooting table). log() writes to BOTH stderr (so pkm's terminal
+# / journalctl surface keeps showing it live) and this file (so a
+# subsequent boot or recovery session can read the trail without re-
+# running the failing operation). Append-only; rotation is left to the
+# host's standard logrotate stack.
+LOGFILE=/var/log/intergen-kernel-postinstall.log
+mkdir -p "$(dirname "$LOGFILE")" 2>/dev/null || true
+
+log() {
+    local msg="[linux-kernel:post-install] $*"
+    echo "$msg" >&2
+    # Best-effort persistent append. Never let a logging failure
+    # break the install — chmod issues, full-disk, ESP-mounted-ro,
+    # etc. silently fall through to stderr-only.
+    echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') $msg" >> "$LOGFILE" 2>/dev/null || true
+}
 
 # Identify the newly-installed kernel — pick the most-recently-modified
 # /boot/vmlinuz-*-igos image. Forge install + pkm install land vmlinuz
