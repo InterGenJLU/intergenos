@@ -2,16 +2,25 @@
 # sign-bootloader.sh — Sign InterGenOS bootloader EFI binaries via NK#1 PIV slot 9c
 # using sbsign + libengine-pkcs11 + patched OpenSC 0.27.1 (RSA-4096 cert).
 #
-# Inputs:
-#   /tmp/c6r2-bootloader/grubx64.efi   (unsigned, copied from build VM)
-#   /tmp/c6r2-bootloader/igos-live.efi (unsigned, copied from build VM)
+# Inputs (in /tmp/c6r2-bootloader/):
+#   grubx64.efi             (unsigned, copied from build VM)
+#   igos-live.efi           (live ISO UKI)
+#   igos-install-gui.efi    (Forge GUI installer UKI; B-036 T0-2)
+#   igos-install-tui.efi    (Forge TUI installer UKI; B-036 T0-2)
 #   PIV User PIN (prompted via read -s; short, low fat-finger risk)
 #
 # Outputs (in /tmp/c6r2-bootloader/):
 #   grubx64.efi.signed
 #   igos-live.efi.signed
+#   igos-install-gui.efi.signed
+#   igos-install-tui.efi.signed
 #
 # Verifies each with sbverify before declaring success.
+#
+# B-036 (T0-2 2026-05-18): expanded from 2-binary loop to 4-binary loop
+# so install-gui + install-tui UKIs are signed by this ceremony path.
+# Pre-fix the hardcoded `grubx64.efi igos-live.efi` loop silently dropped
+# the install UKIs, matching the B-002 glob gap in sign-release.sh.
 
 set -euo pipefail
 
@@ -71,9 +80,11 @@ REPO_MODULUS=$(openssl x509 -in "$VENDOR_CERT" -noout -modulus | sed 's/Modulus=
     || die "Slot 9c cert modulus differs from repo cert modulus. Signing against wrong key?"
 ok "Slot 9c cert modulus matches repo vendor cert"
 
-# Verify sbsigntool's binaries
-[[ -f "$BOOTLOADER_DIR/grubx64.efi" ]] || die "Missing $BOOTLOADER_DIR/grubx64.efi"
-[[ -f "$BOOTLOADER_DIR/igos-live.efi" ]] || die "Missing $BOOTLOADER_DIR/igos-live.efi"
+# Verify sbsigntool's binaries (B-036 T0-2: 4-binary set)
+BOOTLOADER_BINARIES=( grubx64.efi igos-live.efi igos-install-gui.efi igos-install-tui.efi )
+for B in "${BOOTLOADER_BINARIES[@]}"; do
+    [[ -f "$BOOTLOADER_DIR/$B" ]] || die "Missing $BOOTLOADER_DIR/$B"
+done
 ok "Bootloader artifacts present:"
 ls -la "$BOOTLOADER_DIR"/*.efi
 
@@ -98,8 +109,12 @@ banner "FINAL CONFIRMATION"
 cat <<EOF
 
 This script will:
-  1. Sign grubx64.efi and igos-live.efi via NK#1 PIV slot 9c
-     using sbsign + libengine-pkcs11 + patched OpenSC 0.27.1
+  1. Sign 4 binaries via NK#1 PIV slot 9c using sbsign + libengine-pkcs11
+     + patched OpenSC 0.27.1:
+       - grubx64.efi
+       - igos-live.efi
+       - igos-install-gui.efi
+       - igos-install-tui.efi
   2. Verify each signed binary with sbverify against the vendor cert
   3. Stage signed outputs at $BOOTLOADER_DIR/*.signed
 
@@ -146,7 +161,7 @@ ok "OPENSSL_CONF set to $SSL_CONF; engine should load patched OpenSC"
 # ============================================================
 PKCS11_URI="pkcs11:id=%02;type=private;pin-value=$PIN"
 
-for BINARY in grubx64.efi igos-live.efi; do
+for BINARY in "${BOOTLOADER_BINARIES[@]}"; do
     banner "Signing $BINARY"
 
     UNSIGNED="$BOOTLOADER_DIR/$BINARY"
@@ -186,6 +201,8 @@ cat <<EOF
 Signed binaries staged at:
   $BOOTLOADER_DIR/grubx64.efi.signed
   $BOOTLOADER_DIR/igos-live.efi.signed
+  $BOOTLOADER_DIR/igos-install-gui.efi.signed
+  $BOOTLOADER_DIR/igos-install-tui.efi.signed
 
 SHAs:
 $(cd "$BOOTLOADER_DIR" && sha256sum *.signed)
@@ -196,8 +213,9 @@ To deliver to build VM (manual step — script will not auto-copy):
   # (or wherever the orchestrator expects them)
 
 Verification on build VM (or any host with sbverify + the vendor cert):
-  sbverify --cert intergenos-secure-boot-ca.pem grubx64.efi.signed
-  sbverify --cert intergenos-secure-boot-ca.pem igos-live.efi.signed
+  for B in grubx64 igos-live igos-install-gui igos-install-tui; do
+    sbverify --cert intergenos-secure-boot-ca.pem \$B.efi.signed
+  done
 
 Bundle update (optional, for next ceremony's audit trail):
   cp $BOOTLOADER_DIR/*.signed \\

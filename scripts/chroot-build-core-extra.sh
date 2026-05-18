@@ -529,6 +529,13 @@ run_package "rpm" "rpm" "4.18.2" \
     "rpm-4.18.2.tar.bz2" \
     "RPM package manager — provides rpm2cpio for shim-signed extraction"
 
+# T0-2 A-001 (2026-05-18): wire shim-signed per D-002 ratified day-0.
+# Fedora-piggyback MS-signed shim ships to /usr/share/shim-signed/; Forge
+# copies to ESP at install time. Depends on rpm (rpm2cpio) + cpio.
+run_package "shim-signed" "shim-signed" "16.1" \
+    "shim-x64-16.1-2.x86_64.rpm" \
+    "Microsoft-signed UEFI shim bootloader (Fedora-piggyback per D-002)"
+
 run_package "mokutil" "mokutil" "0.7.2" \
     "mokutil-0.7.2.tar.gz" \
     "Tool for managing Machine Owner Keys (MOK) for Secure Boot"

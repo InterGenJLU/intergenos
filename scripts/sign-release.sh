@@ -71,6 +71,11 @@ GPG_KEY_ID="${INTERGENOS_GPG_KEY_ID:-}"
 GPG_MASTER_KEY_ID="${INTERGENOS_GPG_MASTER_KEY_ID:-}"
 PKCS11_URI="${INTERGENOS_PKCS11_URI:-}"
 VENDOR_CERT="${INTERGENOS_VENDOR_CERT:-/etc/intergenos/signing/vendor-cert.pem}"
+# B-005 (T0-2): patched OpenSC 0.27.1 PKCS#11 module is required for
+# RSA-4096 PIV support — stock OpenSC fails at first UKI sign. The
+# patched module lives at /usr/local/lib/opensc-pkcs11.so on a properly
+# provisioned signing workstation (see docs/signing-procedure.md).
+PKCS11_MODULE="${INTERGENOS_PKCS11_MODULE:-/usr/local/lib/opensc-pkcs11.so}"
 STRICT=0
 MANIFEST_PATH=""
 
@@ -82,6 +87,7 @@ while [[ $# -gt 0 ]]; do
         --gpg-key-id)        GPG_KEY_ID="$2"; shift 2 ;;
         --gpg-master-key-id) GPG_MASTER_KEY_ID="$2"; shift 2 ;;
         --pkcs11-uri)        PKCS11_URI="$2"; shift 2 ;;
+        --pkcs11-module)     PKCS11_MODULE="$2"; shift 2 ;;
         --vendor-cert)       VENDOR_CERT="$2"; shift 2 ;;
         --manifest)          MANIFEST_PATH="$2"; shift 2 ;;
         --strict)            STRICT=1; shift ;;
@@ -124,7 +130,7 @@ trap 'rm -rf "$OUTPUT_STAGING"' EXIT
 
 # -------- cert pre-positioning check (SR3) --------
 shopt -s nullglob
-_uki_check=( "$ARTIFACTS"/*.uki.efi "$ARTIFACTS"/igos-live.efi )
+_uki_check=( "$ARTIFACTS"/*.uki.efi "$ARTIFACTS"/igos-live.efi "$ARTIFACTS"/*-live.efi "$ARTIFACTS"/igos-install-*.efi )
 if [[ ${#_uki_check[@]} -gt 0 ]] || [[ -f "$ARTIFACTS/grubx64.efi" ]]; then
     [[ -f "$VENDOR_CERT" ]] || die "vendor cert not found: $VENDOR_CERT" 2
 fi
@@ -151,6 +157,75 @@ fi
 # -------- key-material configuration check --------
 [[ -n "$GPG_KEY_ID"  ]] || die "GPG key id not set (flag or \$INTERGENOS_GPG_KEY_ID)"  2
 [[ -n "$PKCS11_URI"  ]] || die "PKCS#11 URI not set (flag or \$INTERGENOS_PKCS11_URI)" 2
+
+# B-049 (T0-2): refuse PIN-in-URI. PIN as a URI fragment leaks into
+# process listings, env dumps, and any error output that echoes the URI.
+# Canonical URI per docs/signing-procedure.md is `pkcs11:id=%02;type=private`;
+# the OpenSSL pkcs11 engine prompts for PIN interactively from the
+# operator's terminal during the signing ceremony.
+if [[ "$PKCS11_URI" == *"pin-value="* ]] || [[ "$PKCS11_URI" == *"pin-source="* ]]; then
+    die "PKCS11_URI must not embed PIN material (B-049). Use canonical 'pkcs11:id=%02;type=private' and let the engine prompt." 2
+fi
+
+# B-005 (T0-2): verify patched OpenSC PKCS#11 module is present. The
+# stock OpenSC build packaged with most distros pre-0.27.1 cannot drive
+# RSA-4096 PIV — sbsign fails at the first UKI. The patched module
+# lives at $PKCS11_MODULE (see signing-procedure.md for build steps).
+if [[ ! -f "$PKCS11_MODULE" ]]; then
+    die "patched OpenSC PKCS#11 module not found at $PKCS11_MODULE (B-005). See docs/signing-procedure.md." 2
+fi
+
+# B-023 (T0-2): modulus-match guard. The cert stored at $VENDOR_CERT
+# (which we'll pass to sbsign as --cert and which clients use as
+# `sbverify --cert`) MUST match the key currently on PIV slot 9c by
+# modulus. If they diverge we'd produce signatures against an unknown
+# key — a silent ceremony failure that wouldn't show up until first
+# Secure Boot verification by a user. Catch it before the first sign.
+if command -v pkcs11-tool >/dev/null 2>&1 && command -v openssl >/dev/null 2>&1; then
+    _card_cert_der="$OUTPUT_STAGING/.card-cert.der"
+    _card_cert_pem="$OUTPUT_STAGING/.card-cert.pem"
+    if pkcs11-tool --module "$PKCS11_MODULE" --read-object --type cert --id 02 \
+            -o "$_card_cert_der" >/dev/null 2>&1; then
+        openssl x509 -inform DER -in "$_card_cert_der" -outform PEM -out "$_card_cert_pem" 2>/dev/null
+        _card_modulus=$(openssl x509 -in "$_card_cert_pem" -noout -modulus 2>/dev/null | sed 's/Modulus=//')
+        _repo_modulus=$(openssl x509 -in "$VENDOR_CERT" -noout -modulus 2>/dev/null | sed 's/Modulus=//')
+        if [[ -z "$_card_modulus" ]] || [[ -z "$_repo_modulus" ]]; then
+            die "modulus extraction failed (card or vendor cert unreadable) — refusing to sign" 2
+        fi
+        if [[ "$_card_modulus" != "$_repo_modulus" ]]; then
+            die "modulus mismatch: PIV slot 9c cert does not match $VENDOR_CERT (B-023). Signing would produce verify-broken artifacts." 2
+        fi
+        echo "[OK] modulus match: PIV slot 9c <-> $VENDOR_CERT"
+        rm -f "$_card_cert_der" "$_card_cert_pem"
+    else
+        echo "warning: could not read cert from PIV slot 9c via $PKCS11_MODULE; skipping modulus guard" >&2
+    fi
+else
+    echo "warning: pkcs11-tool or openssl not available; skipping B-023 modulus guard" >&2
+fi
+
+# B-005 (T0-2 continued): set OPENSSL_CONF to load the patched OpenSC
+# module via the pkcs11 engine. Without this, OpenSSL picks up the
+# system pkcs11 provider config which on most workstations points at
+# unpatched OpenSC.
+_ssl_conf="$OUTPUT_STAGING/.openssl-pkcs11.cnf"
+cat > "$_ssl_conf" <<CONF
+openssl_conf = openssl_init
+
+[openssl_init]
+engines = engine_section
+
+[engine_section]
+pkcs11 = pkcs11_section
+
+[pkcs11_section]
+engine_id = pkcs11
+dynamic_path = /usr/lib/x86_64-linux-gnu/engines-3/pkcs11.so
+MODULE_PATH = $PKCS11_MODULE
+init = 0
+CONF
+export OPENSSL_CONF="$_ssl_conf"
+export LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH:-}"
 
 # -------- step 1: pkm repo index --------
 # Distro GPG key signs the pkm repository index. One touch per sign.
@@ -183,13 +258,22 @@ fi
 # only via the UKI envelope.
 #
 # UKI naming conventions accepted in artifacts dir:
-#   *.uki.efi       — explicit UKI suffix (preferred for build pipelines)
-#   igos-live.efi   — convention used by ESP grub.cfg menu entries
-#   *-live.efi      — variants for other live-mode UKIs (recovery, etc.)
+#   *.uki.efi              — explicit UKI suffix (preferred for build pipelines)
+#   igos-live.efi          — convention used by ESP grub.cfg menu entries
+#   *-live.efi             — variants for other live-mode UKIs (recovery, etc.)
+#   igos-install-gui.efi   — Forge GUI installer UKI (B-002 T0-2)
+#   igos-install-tui.efi   — Forge TUI installer UKI (B-002 T0-2)
+#   igos-install-*.efi     — future installer UKI variants
+#
+# B-002 (T0-2): the install-gui + install-tui globs were added 2026-05-18.
+# Pre-fix shipped ISOs had unsigned install UKIs because the glob silently
+# dropped them while the signing loop reported success.
 #
 # Verifies post-sign that the signed binary still has .linux + .initrd
-# sections (UKI shape preserved through the sign operation).
-ukis=( "$ARTIFACTS"/*.uki.efi "$ARTIFACTS"/igos-live.efi "$ARTIFACTS"/*-live.efi )
+# sections (UKI shape preserved through the sign operation). The post-loop
+# count assertion (B-025) catches future regressions where a new UKI
+# class is added to the build but the glob is not extended.
+ukis=( "$ARTIFACTS"/*.uki.efi "$ARTIFACTS"/igos-live.efi "$ARTIFACTS"/*-live.efi "$ARTIFACTS"/igos-install-*.efi )
 # Deduplicate (e.g., igos-live.efi may match multiple globs)
 declare -A _seen=()
 unique_ukis=()
@@ -201,6 +285,7 @@ for u in "${ukis[@]}"; do
     unique_ukis+=( "$u" )
 done
 unset _seen
+signed_uki_count=0
 if [[ ${#unique_ukis[@]} -gt 0 ]]; then
     for uki in "${unique_ukis[@]}"; do
         uname=$(basename "$uki")
@@ -224,9 +309,18 @@ if [[ ${#unique_ukis[@]} -gt 0 ]]; then
             die "post-sign UKI shape broken for $uname (.linux missing)" 3
         fi
         echo "    -> $OUTPUT_STAGING/$uname"
+        signed_uki_count=$((signed_uki_count + 1))
     done
+    # B-025 (T0-2): per-loop count assertion — every UKI we enumerated
+    # pre-sign MUST have produced a signed artifact post-sign. If
+    # signed_uki_count diverges from ${#unique_ukis[@]}, a future loop
+    # body change silently short-circuited a sign step.
+    if (( signed_uki_count != ${#unique_ukis[@]} )); then
+        die "post-sign UKI count mismatch: enumerated ${#unique_ukis[@]} input UKIs but signed $signed_uki_count (B-025)" 3
+    fi
+    echo "[OK] B-025 UKI count: signed $signed_uki_count of ${#unique_ukis[@]} input"
 elif [[ "$STRICT" == "1" ]]; then
-    die "strict: no UKI files (*.uki.efi / igos-live.efi / *-live.efi) in $ARTIFACTS" 4
+    die "strict: no UKI files (*.uki.efi / igos-live.efi / *-live.efi / igos-install-*.efi) in $ARTIFACTS" 4
 else
     echo "[-] skipping UKIs (none present)"
 fi
@@ -327,10 +421,30 @@ else
     echo "[-] skipping archive manifest (not present at $MANIFEST)"
 fi
 
+# -------- B-025 (T0-2) cross-cutting .efi count assertion --------
+# Final defensive check: every .efi input in $ARTIFACTS must have produced
+# a corresponding .efi output in $OUTPUT_STAGING. Catches the case where
+# a new EFI artifact class is added to the build but no signing branch is
+# added to this script. (Distinct from the per-loop assertion above which
+# guards the UKI loop alone.)
+shopt -s nullglob
+_in_efi=( "$ARTIFACTS"/*.efi )
+_out_efi=( "$OUTPUT_STAGING"/*.efi )
+if (( ${#_in_efi[@]} != ${#_out_efi[@]} )); then
+    _in_names=$(cd "$ARTIFACTS" && ls *.efi 2>/dev/null | sort | tr '\n' ' ')
+    _out_names=$(cd "$OUTPUT_STAGING" && ls *.efi 2>/dev/null | sort | tr '\n' ' ')
+    die "post-sign .efi count mismatch: ${#_in_efi[@]} input(s) [$_in_names] vs ${#_out_efi[@]} output(s) [$_out_names] (B-025)" 3
+fi
+echo "[OK] B-025 .efi count: ${#_out_efi[@]} signed = ${#_in_efi[@]} input"
+
 # -------- atomic promotion (SR1) --------
 mv "$OUTPUT_STAGING"/* "$OUTPUT/" 2>/dev/null || true
 rmdir "$OUTPUT_STAGING" 2>/dev/null || true
 trap - EXIT
+
+# Clean up transient OPENSSL_CONF (no secrets, but no need to persist)
+rm -f "$_ssl_conf" 2>/dev/null || true
+unset OPENSSL_CONF
 
 # -------- done --------
 echo

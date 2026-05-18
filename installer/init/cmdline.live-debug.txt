@@ -1,0 +1,1 @@
+igos.mode=live loglevel=7 systemd.show_status=true systemd.journald.forward_to_console=1

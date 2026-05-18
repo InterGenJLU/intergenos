@@ -1,26 +1,21 @@
 name: shim-signed
 version: "16.1"
 release: 1
-description: Microsoft-signed UEFI shim bootloader (piggyback from Fedora until our own MS-signed shim ships)
+description: Microsoft-signed UEFI shim bootloader (Fedora-piggyback per D-002, dual-tracked with own shim-review PR per D-003)
 license: BSD-2-Clause-Patent
 homepage: https://github.com/rhboot/shim
 tier: core
 build_style: custom
 install_func: do_install
-# Maintainer direction 2026-05-09: shim-signed remains DEFERRED in build
-# wiring until either (a) we have our own Microsoft-pre-signed shim binary
-# acquired through the Microsoft UEFI CA sponsorship process, or (b) the
-# maintainer chooses to begin shipping with the Fedora-piggyback shim. In
-# the interim, users boot via the MOK-with-Fedora workflow which requires
-# `mokutil` on the installed system (mokutil IS wired). Preflight Rule 17
-# treats this `pending_acquisition` field as authorized non-wiring; the
-# package is NOT a Rule 2 silent-skip orphan.
-pending_acquisition: "Microsoft-pre-signed shim binary not yet acquired. Users boot via the MOK-with-Fedora workflow in the interim (mokutil + Fedora's shim from this RPM extracted at install time). Wiring blocked until either MS UEFI CA sponsorship completes or maintainer authorizes Fedora-shim-piggyback shipping."
+# D-002 (2026-05-18, owner-ratified) authorizes Fedora-piggyback shipping
+# day-0. D-003 ratifies the own-MS-signed shim arm via rhboot/shim-review
+# PR (target 2026-05-22). Legal cover for redistribution recorded at
+# docs/governance/fedora-shim-redistribution.md (P-009 closure).
+#
 # Vendor-pinned shim from Fedora, signed by Microsoft. We piggyback on
-# Fedora's MS-signed shim as a minimum-viable Secure Boot path, since the
-# Fedora shim accepts our MOK at first-boot enrollment via MokManager.
-# A parallel track gets our own MS-signed shim through the Microsoft
-# UEFI CA sponsorship process (typically 6-12 weeks; sponsor required).
+# Fedora's MS-signed shim as the v1.0 shipping path; users' machines
+# accept the shim via Fedora's vendor_db and enroll their per-install
+# user-MOK (per D-005) via MokManager at first boot.
 #
 # Source vendoring rationale: the primary URL is our own source mirror
 # (controlled, verified, sha256-locked). The fallback URL is upstream
