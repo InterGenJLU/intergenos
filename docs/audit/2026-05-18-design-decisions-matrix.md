@@ -539,6 +539,88 @@ These are rows where my scan found NO prior ratification in memory or repo. They
 33. **HG Rule 9 canonical enumeration** — 2026-04-18 carryover references "HG Rule 9 / reproducible builds" but iter-1 mentions only "10 rules" with examples. Where is the canonical numbered enumeration of all 10?
 34. **Permission posture deny-list audit** — `defaultMode: bypassPermissions` + 61-entry deny list — audited for completeness recently? 2026-04-18 pattern-bug episode suggests policy fragility against future engine changes.
 
+### Iter-3 closure-grade results (cross-coordinator coverage + cheap-to-resolve probes)
+
+1 sub-agent at master `f78aa1c0` — post-synthesis (so the synthesis pass at `8554ac85` is INPUT, not output). Three goals: cross-coordinator coverage check, cheap-to-resolve probes on iter-2 open questions, closure-grade delta.
+
+#### Cross-coordinator coverage check
+
+**Class A drifts captured by build-system or Windows-host coordinator that installed-system-coordinator missed** (11 items — informs final synthesis amend):
+
+- repos.conf JSON-vs-INI silent fallthrough with Prime-Directive framing (W-B coord)
+- master GPG fingerprint hardcoded as signer at `mirror-publish.sh:23/60` (W-B coord L-002/L-027)
+- PIV slot 9c reference drift for GPG signing (W-B coord L-018)
+- `systemctl --global enable intergen.service` violates AI-opt-in (W-B coord I-012)
+- Model SHA256 TOFU — MODEL_CATALOG sha256="" for all four models (W-B coord I-005 HG)
+- `pkm reinstall` error-message references non-existent subcommand (W-B coord H-010)
+- Atomic-promote symlink-vs-directory contradiction in `publish-repo.sh:141-145` vs L172-184 (W-B coord L-009/L-017)
+- Orchestrator never invokes shim-signed / never builds ISO with the 80+ ad-hoc `build/spoc-*.sh` as production-pipeline framing (W-B coord A-001/A-002)
+- Reflexive Rule 21 violation — rulebook documents `scripts/check-aspirational-stubs.py` that doesn't exist (W-B coord K-023+M-009)
+- `repo.intergenos.org` DNS state contested across 3 doc surfaces (W-B coord K-022/L-003)
+- Bus-relay legacy `?key=` form documented in operational memory vs canonical `X-Bus-Key:` header (W-B coord)
+- SSH host-key two-commit regression forensics: `ff9ed5f3` 2026-04-05 OpenSSH `post_install` + `27ce4ca9` 2026-04-08 `create-image.sh:280` (build-system coord); squashfs scrub absent at `scripts/build-squashfs.sh` (build-system coord)
+
+**Class A drifts captured by installed-system-coordinator that the other two missed** (8 items):
+
+- Microcode early-load never reaches the UKI (E-001/E-002 HG, F-001): ukify single `--initrd=` skips Intel microcode cpio; cmdline path-typo `iucode_tool` vs `iucode-tool`; AMD microcode path never authored
+- SBAT.csv ships only 3 of 6 ratified entries (F-028) — Q-SBAT 2026-05-06 ratified 6-line block
+- MokManager Pattern A interim UX has no choreography (B-043)
+- Hardcoded `root:intergenos` residual in `packages/core/shadow/build.sh:70` (F-004 HG) — Path 4 retired orchestrator default but did NOT strip package-level residual
+- SBOMs claim wider than evidence (P-007): security-defaults.md:55 claims SPDX coverage; zero SPDX headers in 228 InterGenOS-authored files
+- Helper packages mislabel proprietary downstream as GPL-3 (P-006)
+- 22-pkg → 21-pkg theming wave + all 22 packages fail `verify-sources` (J-018)
+- libadwaita bridge as SYMLINKS (J-005)
+
+**Reconciliation contradictions** (probed in Goal 2):
+
+- 17-phase wiring (iter-1 says skip; runbook says invokes) — probe-resolved below
+- 2-tier vs 3-tier safety classifier (iter-2 framing wrong) — probe-resolved below
+
+#### Cheap-to-resolve probes — iter-2 open questions CLOSED
+
+**Q#21 (17-phase squashfs/iso wiring) — CLOSED.** Probe of `scripts/build-intergenos.sh` at lines 1039-1085 + PHASES array at 55-73: orchestrator SKIPS phase_squashfs + phase_iso. PHASES array enumerates 17 phases (`validate, verify-sources, setup, toolchain, chroot-prep, chroot-tools, core, config, core-extra, base, kernel, desktop, ai, extra, bootloader, image, manifest`) plus conditional `publish`. `phase_image` (line 1076) ONLY invokes `${SCRIPTS}/create-image.sh "$image_path" 500G`. `scripts/build-squashfs.sh` and `scripts/build-iso.sh` exist as files but are never invoked anywhere in `build-intergenos.sh` or `create-image.sh` (grep confirms zero matches). **`docs/operations/02-running-the-builder.md:62` is ASPIRATIONAL.** Both iter-1 ("orchestrator skips") and Windows-host A-001/A-002 framings stand. The runbook claim needs to be either retracted or have the wiring back-filled.
+
+**Q#28 (CPU-only Tier 2 → 2B drift) — CLOSED.** Probe of `intergen/model_manager.py:30-58` + `intergen/hardware.py:53-79`: code WIRES R27 correctly. `hardware.py:54-56` defines `TIER_MODELS_CPU_ONLY = {HardwareTierLevel.TIER_2: {"name": "Qwen3.5-2B", ...}}` with explicit benchmark rationale. `hardware.py:74-79` fallback: `if not has_discrete and tier in TIER_MODELS_CPU_ONLY: model_info = TIER_MODELS_CPU_ONLY[tier]`. The R27 2026-04-17 ratification IS honored. `model_manager.py:30-56` MODEL_CATALOG is the download catalog only; runtime tier selection happens in `hardware.py:detect()`. **Closure note (Class C-style fragility):** the wiring is non-local — a future contributor editing only `model_manager.MODEL_CATALOG` could break R27 without touching `hardware.py`. Worth a code-comment near `MODEL_CATALOG` pointing at `hardware.py` for the CPU-only fallback.
+
+**Q#18 (2-tier vs 3-tier safety classifier) — CLOSED.** Probe of `intergen/interfaces/types.py:9-12` + `intergen/safety.py:131-169` + `intergen/tools/run_command.py:120-153` + `intergen/tools/write_file.py:66` + `intergen/tool_registry.py:99-115`: **code has 3 tiers consistently** (`SafetyTier(Enum)` = AUTO, CONFIRM, BLOCKED; `safety.classify_command()` returns all 3 with section banners; `run_command.classify_safety()` returns all 3). `docs/architecture.md:95` (3 tiers) is CORRECT. The iter-2 claim that `safety.py:91-128` codes only 2 tiers was a misread — lines 91-128 are `_BLOCKED_COMMANDS` + `_BLOCKED_PATTERNS` constant tables (which only enumerate Tier 3 by definition), but the `classify_command()` function starting at line 131 returns all 3. **The real drift is enforcement, not the tier-count taxonomy:** `tool_registry.execute()` line 110 calls `tool.execute(arguments)` for both AUTO and CONFIRM without prompting — this matches audit I-027 HG "CONFIRM tier never enforced", already captured.
+
+**Q#30 (build/sign split topology — 2026-04-18 ratified VM-build + workstation-sign) — CLOSED.** `phase_bootloader` at `build-intergenos.sh:1019-1037` does a HARD-CODED PAUSE ("operator-only and cannot be skipped via flag") and tells operator to run `scripts/sign-release.sh on the signing workstation`. Build orchestrator enforces the workstation split at this phase.
+
+#### Closure-grade delta — 2 ratifications iter-2 missed (must be added to formal matrix)
+
+These should join the Installed-system-coordinator findings (or migrate to the Conflicts-to-surface-to-owner section for synthesis amendment):
+
+**1. Install-integrity-verification 7-step ship-gate (RATIFIED 2026-05-07 ~04:50 CDT).** `docs/research/security/install-integrity-verification.md` header line 3: "APPROVED — project lead ratified 2026-05-07 (all 5 §10 questions answered, locked in)". §2 line 19: "Decision (owner-ratified 2026-05-07 ~04:50 CDT)". Line 340: owner-direct decision on `security@intergenstudios.com` email destination. Implemented in `phase_manifest` at `build-intergenos.sh:1087-1167`. Soft-warn-typed-override + per-mismatch ack + hash-chained audit log. v1.0 ship-gate. Matrix had no row capturing this 2026-05-07 ratification.
+
+**2. Two additional ceremony POWER rules from `docs/research/ceremony/lessons-learned-2026-05-05.md`:**
+- Line 217: "no in-flight edits to paused critical-path code — edits go to post-op backlog" (operator-ratified during 2026-05-05 signing ceremony).
+- Line 221: "contingencies for ceremony failures must always be patch + retry, refactor from known-good, or narrower automated wrapper. Never owner-runs-each-step-by-hand." (same provenance).
+
+Both repo-side; neither in the matrix PROCESS table.
+
+#### Pre-2026-03-30 ratifications
+
+**None.** Repo inception `7bea03a4` is 2026-03-30. `git log --reverse` confirms 2026-03-30 is the first day. No ratifications predate inception in the repo scope. (The "revival" wording in the inception commit suggests pre-repo history exists elsewhere — operator memory or a prior project — but nothing carried into matrix scope.)
+
+#### Orphan-arc items reconciliation
+
+- **Certbot v1.x followup** — NOT orphan. Documented in `docs/architecture/web-server-landing-plan.md:155,315-319,350,372`. Captured as future-package with v1/v2 rotation pattern.
+- **DR plan** — confirmed genuinely open. Matrix row `PACKAGE-MGR | DR / off-VPS backup` already captures (Class C, no prior ratification).
+- **M4 email canary** — `security@intergenstudios.com` IS confirmed-exists at `install-integrity-verification.md:340`. Whether "M4 email canary" is the canary protocol or specifically the email IS the canary signal is unclear from probe; no in-repo ratification of an M4-specific canary surfaced.
+- **Signing-workstation v1.0** — captured via 2026-05-05 ceremony rows; iter-2 Q#30 closed above.
+- **Ceremony v2 storage/transit/publish lane** — no matrix row captures this. `lessons-learned-2026-05-05.md` provides the v1 baseline; whether storage/transit/publish lanes need a v2 procedure was not surfaced.
+
+#### Final recommendation
+
+**Iter-3 closes. No iter-4 needed.** What remains are genuinely-open operator-decision items + the iter-2 questions that require operator memory rather than probe (#26 InterGen-the-product pronouns; #29 9B-on-GPU evaluation outcome; #32 3PM cron R1/R2 status; #33 HG-Rule-9 canonical enumeration; #34 permission posture deny-list audit).
+
+**Recommended synthesis amendments** (for follow-up synthesis sweep, since 13:10:39Z synthesis pass did not see iter-2 + iter-3):
+
+1. **Add 2 ratified rows missing from matrix:** install-integrity-verification 2026-05-07 ship-gate + the 2 ceremony POWER rules (no-in-flight-edits-during-pause; no-owner-runs-each-step).
+2. **Close iter-2 open questions #18 / #21 / #28 / #30** with probe-result annotations as captured above.
+3. **Update Conflicts-to-surface-to-owner section** to add: code-organization fragility on CPU-only Tier 2 wiring (R27 wired but non-local; needs a code-comment near `MODEL_CATALOG`).
+4. **Update Reconciliation against remediation plan:** the 11 Class A drifts captured by other coordinators that installed-system missed (above) should appear in the reconciliation walk (most are already present from those coordinators' own sections, but ensure they're not lost in synthesis dedup).
+
 ---
 
 ## Windows-host-coordinator findings
@@ -1115,3 +1197,4 @@ H. **Six governance/legal-posture doc gaps** — PRIVACY.md / TRADEMARK.md / EXP
 | 2026-05-18 ~08:10 CDT | Windows-host coordinator | iter-1 scan landed: 6 parallel topic sub-agents (BOOT+signing / SECURITY+PROCESS / PARTITION+INSTALLER / PACKAGE-MGR+LEGAL / AI+DESKTOP / BUILD+DOCS). 28 Class A drift rows + 5 Class B cross-time conflicts + 17 Class C memory-only + 2 Class D repo-only. Explicit synthesis notes prepared at line 763 for build-system coordinator's final reconciliation pass. Scrub gate-trip patterns in follow-up commit `f6db7da3`. |
 | 2026-05-18 ~08:20 CDT | build-system coordinator | Iter-1 synthesis pass: populated `## Conflicts to surface to owner` section (cross-coordinator deduplicated Class A/B/C/D list keyed to remediation-plan clusters) + populated `## Reconciliation against remediation plan` (walk of all 33 numbered owner-decisions plus 8 newly-surfaced items). Net true open backlog ~38 items but with substantially different composition than the original plan queue: half of the original queue was already-ratified re-litigation; ~20% of genuine open work was missing from the queue entirely. |
 | 2026-05-18 ~08:25 CDT | installed-system coordinator | iter-2 cross-check + gap-pass (post-synthesis): 3 sub-agents (drift-claim verification + pre-April archive archaeology + repo-doc-tree sweep). ALL 12 iter-1 cross-cluster Class A claims VALIDATED at master `039a30b9`. ~50 new rows from gap-pass (pre-April ratifications + repo-doc-tree ratifications). 6 cross-tree doc/doc contradictions surfaced (2-tier vs 3-tier safety; README MOK-signed-GRUB vs canonical EFI-X.509; 6h vs 12h trust-anchor SLA; 17-phase phase_image scope; Wayland-only policy vs D-014 mechanism; CLAUDE.md absence at repo root). 7 supersession chains documented. ~18 new Class A drift rows + framing corrections (22-pkg→21-pkg theming wave; SOURCE_DATE_EPOCH supersession). 18 additional open questions surfaced — net additions that landed AFTER the 08:20 CDT synthesis pass and should inform a follow-up synthesis sweep. |
+| 2026-05-18 ~08:45 CDT | installed-system coordinator | iter-3 final-sweep closure: 1 sub-agent at master `f78aa1c0` (post-synthesis). Cross-coordinator coverage: 11 Class A drifts surfaced by build-system or Windows-host that installed-system missed; 8 Class A drifts uniquely surfaced by installed-system; 0 inter-coordinator contradictions on ratification status. 4 iter-2 open questions CLOSED by first-hand probe: #18 (2-tier-vs-3-tier safety classifier — code has 3 tiers, iter-2 framing was a misread of constant tables; real drift is CONFIRM-enforcement, already captured as I-027); #21 (17-phase squashfs/iso wiring — orchestrator does SKIP phase_squashfs + phase_iso, `docs/operations/02-running-the-builder.md:62` is aspirational); #28 (CPU-only Tier 2 → 2B drift — code WIRES R27 correctly via `hardware.py:54-79` fallback; `model_manager.py` MODEL_CATALOG is download catalog only); #30 (build/sign split — enforced at `phase_bootloader`'s hard-coded pause). 2 ratifications surfaced for synthesis amendment: install-integrity-verification 2026-05-07 7-step ship-gate; 2 ceremony POWER rules from `lessons-learned-2026-05-05.md`. Iter-3 closes; no iter-4 needed. |
