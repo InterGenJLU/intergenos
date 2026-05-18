@@ -4,7 +4,7 @@
 
 ## Goal
 
-Take a known-clean build VM (topic 01 + topic 07 golden snapshot) through the full 17-phase build pipeline that ends with a bootable disk image at `/mnt/intergenos/build/intergenos.qcow2`, plus all the surgical-rebuild tools for iterating on a partial set of packages without re-running the full chain.
+Take a known-clean build VM (topic 01 + topic 07 golden snapshot) through the full 19-phase build pipeline that ends with a bootable disk image at `/mnt/intergenos/build/intergenos.qcow2` plus a bootable hybrid ISO at `/mnt/intergenos/build/intergenos-<version>.iso`, plus all the surgical-rebuild tools for iterating on a partial set of packages without re-running the full chain.
 
 The canonical entry point is `scripts/build-intergenos.sh` running inside the build VM. It delegates to two lower layers:
 
@@ -58,10 +58,18 @@ The orchestrator writes its log to `build/logs/build-intergenos-<timestamp>.log`
 | 13 | `ai` | Tier `ai` packages | `igos-build.py --tier ai` |
 | 14 | `extra` | Tier `extra` packages | `igos-build.py --tier extra` |
 | 15 | `bootloader` | shim + grub + UKI assembly (unsigned outputs; signing happens out-of-band via topic 03) | `scripts/chroot-build-bootloader.sh` |
-| 16 | `image` | `create-image.sh` → qcow2 disk image + `build-squashfs.sh` + `build-iso.sh` | host-side scripts |
+| 16 | `image` | `create-image.sh` → qcow2 disk image; runs `scripts/check-d007-compliance.sh` as a Class A ship-gate (blocks on violation per D-007) | `scripts/create-image.sh` |
 | 17 | `manifest` | Rule 18 manifest reconciliation: chroot packages vs package.yml-declared vs deferred — halt-with-diff if they disagree | n/a |
+| 18 | `squashfs` | `build-squashfs.sh` — live-ISO root filesystem squashfs; runs AFTER `phase_image` cleans the chroot | `scripts/build-squashfs.sh` |
+| 19 | `iso` | `build-iso.sh` — assembles the live ISO (signed-release or unsigned-test mode); consumes signed bootloader artifacts produced out-of-band via topic 03 | `scripts/build-iso.sh` |
 
-Optional 18th phase: `publish` (gated by `--publish` flag) — runs `scripts/publish-repo.sh` to push the signed repo to the VPS.
+Optional 20th phase: `publish` (gated by `--publish` flag) — runs `scripts/publish-repo.sh` to push the signed repo to the VPS.
+
+Phases 18 (`squashfs`) + 19 (`iso`) were wired into the orchestrator at commit `23940db9`. Prior to that commit, the orchestrator ended at `phase_manifest` and the operator ran `build-squashfs.sh` + `build-iso.sh` by hand outside the orchestrator. Resume-from-failure semantics: `--start-at squashfs` skips phases 1-17 and resumes at squashfs; `--start-at iso` skips through 18 and resumes at iso. Both phases preserve resume state in `build/logs/.build-phase`.
+
+### Per-build artifact lineage (cycleN)
+
+Each full-build run writes its artifacts to a per-cycle directory under `build/` to preserve lineage: unsigned bootloader inputs, signed outputs, the manifest emitted atomically with the final ISO, and the ISO itself live in one identifiable per-build set. Prior to commit `23940db9` the manifest was emitted before final ISO assembly, with the result that the manifest's input-SHAs could record a different generation than the ISO they were intended to describe (the cycle-5 ISO at `build/intergenos-1.0-dev1-smoke.unsigned-test.iso` exhibited this exact drift — manifest input-SHAs referenced an earlier generation of UKIs than the ones the ESP shipped). The per-build cycleN layout + atomic manifest emit closes that class of build-provenance brokenness (audit B-018 + B-034).
 
 ## Surgical-rebuild invocations
 
@@ -129,11 +137,13 @@ Walks every `packages/<tier>/<name>/package.yml` and reports any package not rea
 
 A clean full build produces:
 
-- `build/intergenos.qcow2` — bootable disk image (topic 06 boots it).
-- `build/intergenos-<version>.iso` — bootable hybrid ISO with signed UKIs (after topic 03 signing pass).
-- `build/manifest-reconciliation-<timestamp>.txt` — Rule 18 reconciliation, no unaccounted diffs.
+- `build/intergenos.qcow2` — bootable disk image (topic 06 boots it). Produced by `phase_image`.
+- `build/intergenos-<version>.iso` — bootable hybrid ISO with signed UKIs. Produced by `phase_iso` after `phase_squashfs` lands the live filesystem and the topic-03 signing pass has produced signed bootloader artifacts.
+- `build/manifest-reconciliation-<timestamp>.txt` — Rule 18 reconciliation, no unaccounted diffs. Produced by `phase_manifest`.
 - `build/logs/build-intergenos-<timestamp>.log` — full log, no FATAL entries, no "STOP" halt entries past phase boundaries.
-- The pre-squashfs audit (step 4.5 of `build-squashfs.sh`) passes cleanly during `phase_image`.
+- The pre-squashfs audit (step 4.5 of `build-squashfs.sh`) passes cleanly during `phase_squashfs`.
+- Per-build cycleN artifact directory (per the lineage scheme above) contains the unsigned bootloader inputs, signed outputs, manifest, and ISO from this run — traceable end-to-end.
+- D-007 compliance gate passes during `phase_image` (`scripts/check-d007-compliance.sh` returns 0; no SSH/root/credentials violations).
 
 ## Common failures + troubleshooting
 
