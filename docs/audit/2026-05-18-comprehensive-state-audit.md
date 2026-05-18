@@ -69,7 +69,7 @@
 
 | Agent | Lanes | Initial scan | Iteration 2 | Iteration 3 | Notes |
 |---|---|---|---|---|---|
-| SPOC | A, B, C, E, M | in-progress | | | |
+| SPOC | A, B, C, E, M | A: complete (45 findings, 3 iters) — B/C/E/M in flight | A: complete | A: complete | A: pushed 5391290d |
 | IGOSC | D, F, G, I, J | dispatched | | | |
 | WC | H, K, L, N, O, P | dispatched | | | |
 
@@ -328,5 +328,6 @@ _(WC sub-agent population)_
 | Date/time | Agent | Action |
 |---|---|---|
 | 2026-05-18 ~00:50 CDT | SPOC | Tracker created. Seeded with tonight's 4-agent stubs sweep findings. Lane assignments dispatched. |
+| 2026-05-18 ~01:20 CDT | SPOC | Lane A complete: 45 findings across 3 iterations (commits 882f4892 → 5391290d). Headlines: A-001 Holy-Grail (shim-signed package builds but never invoked → SB broken on every install), A-002 Critical (orchestrator NEVER builds the bootable ISO — phase_image only produces QCOW2; squashfs+ISO are operator-script-driven; ops doc 05 makes a false claim). Cross-refs: A-001↔C-003, A-003↔C-001/C-002, A-011↔H-001+Lane O, A-020↔Lane E, A-031↔Lane H/F. |
 | 2026-05-18 ~01:30 CDT | SPOC sub-agent (Lane M) | Pass 1: 25 Lane M findings populated. Inventory: 38 Python test files, 3 shell test scripts, 1 GitHub workflow (public-content only). Critical findings: M-001 (install smoke is mocked top-to-bottom), M-002 (no test of installer-required binaries in chroot — root cause class of C-001/F-001), M-003/M-004 (cycle-5 3-lane validation is screenshot-only), M-006 (signed-boot chain not tested on real ISO artifacts). |
 | 2026-05-18 ~02:10 CDT | SPOC sub-agent (Lane M) | Pass 2: 17 additional findings (M-026..M-042). New critical: M-026 (cycle-5 3-lane validator has ZERO pass/fail assertions — exit 0 even if VM never booted). New highs: M-027 (pkm CLI 14 subcommands 0-test), M-028 (pkm/remover.py 0-test), M-029 (pkm/repo.py consumer-side 0-test), M-030 (hooks.py post-install framework 0-test), M-031 (5 of 9 audit/preflight scripts 0-test), M-032 (verify_paths sidecar derive 0-test), M-033 (pre-squashfs-audit itself 0-test). |
