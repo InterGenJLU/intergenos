@@ -1365,7 +1365,7 @@ Walk of the 38-item owner-decision queue from `2026-05-18-remediation-plan.md`. 
 | 17 | I-015 large-model live-mode policy | **GENUINELY OPEN** | No prior ratification. |
 | 18 | T0-5 / P-016 Qwen substitute | **GENUINELY OPEN** | HG ship-blocker; Phi-4-mini mentioned `VISION.md:234` as candidate but not ratified as substitute. |
 | 19 | T0-6 / P-015 ffmpeg-nonfree-helper | **GENUINELY OPEN** | HG ship-blocker. |
-| 20 | D-014 GDM session-type | **REFRAME** | Wayland-only RATIFIED `VISION.md:212`; if question is about GREETER session-type specifically, reword. Otherwise vaporize. |
+| 20 | D-014 GDM session-type | **VAPORIZED 2026-05-18 (operator chat greenlight)** | Wayland-only RATIFIED `VISION.md:212`. Operator response "vaporize" at 2026-05-18T14:46Z. Implementation default: ship explicit `WaylandEnable=true` in `/etc/gdm/custom.conf` (packages/desktop/gdm). Coordinator-level packaging call; not encoded as D-NNN (no `OWNER DIRECTIVE:` prefix); available for batch-encoding at end-of-walk if operator authorizes. |
 | 21 | J-008 / J-009 / J-014 theming SSOT | **REFRAME** | Theme CHOICES RATIFIED 2026-05-03 A33 (InterGenOS theme + Cybernetic Blue + Bibata + prefer-dark). Narrower residual: MECHANISM (gschema vs dconf-system-db vs install-theming.sh as SSOT writer) GENUINELY OPEN. |
 | 22 | B-015 shim-review PR timing | **RATIFIED via D-003 2026-05-18** | 2026-05-22 stable across all surfaces; couples to D-002. Vaporized from open queue via D-003. |
 | 23 | L-005 publish workflow / hostname | **REFRAME** | `repo.intergenos.org` hostname RATIFIED 2026-05-11 (TRACKER:100); 3 doc surfaces have drift on DNS state (K-022/L-003 — Class A) — fix the drift. Script-choice (publish-repo.sh vs mirror-publish.sh) GENUINELY OPEN. |

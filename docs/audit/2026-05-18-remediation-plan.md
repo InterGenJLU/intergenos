@@ -498,7 +498,7 @@ Decisions blocking remediation start (or substantively affecting scope). Numbere
 17. **I-015 large-model live-mode policy** (refuse OR warn).
 18. **T0-5 / P-016 Qwen default model substitute** (Llama-3.1-8B / Mistral-7B / Phi-3-Mini).
 19. **T0-6 / P-015 ffmpeg-nonfree-helper** mirror tier or out entirely.
-20. **D-014 GDM session-type policy** (Wayland-only / Wayland-preferred / upstream-default).
+20. ~~**D-014 GDM session-type policy** (Wayland-only / Wayland-preferred / upstream-default).~~ **VAPORIZED 2026-05-18 (operator chat greenlight):** Wayland-only is ratified `docs/VISION.md:212`. Implementation default: ship explicit `WaylandEnable=true` in `/etc/gdm/custom.conf` (packages/desktop/gdm). Not encoded as D-NNN; available for batch-encoding at end-of-walk.
 21. **J-008 / J-009 / J-014 theming canonical single-source-of-truth.**
 22. ~~**B-015 shim-review PR timing** (close gated items NOW or accept further slip).~~ **RESOLVED 2026-05-18 via D-003:** Target 2026-05-22 stands; couples to D-002.
 23. **L-005 publish workflow** (publish-repo.sh vs mirror-publish.sh); hostname (repo.intergenos.org vs intergenstudios.com/mirror/).
