@@ -1,0 +1,44 @@
+name: fido2-tools-static
+version: "1.17.0"
+release: 1
+description: Statically-linked libfido2 tools subset for early-boot LUKS FIDO2 unlock (initramfs, EXPERIMENTAL)
+license: BSD-2-Clause
+homepage: https://github.com/Yubico/libfido2
+tier: core
+build_style: custom
+install_func: do_install
+
+# Multi-source. Builder auto-extracts source[0] (libfido2); build.sh extracts
+# libcbor from ${IGOS_SOURCES}/ manually (same pattern as cryptsetup-static
+# + tpm2-tools-static).
+#
+# Versions pinned to existing packages/desktop/ packages so source bytes are
+# shared. openssl + zlib supplied via system static archives (no source-list
+# entry — system /usr/lib/libcrypto.a + libssl.a + libz.a).
+source:
+  - url: https://github.com/Yubico/libfido2/archive/refs/tags/${version}.tar.gz
+    filename: libfido2-${version}.tar.gz
+    sha256: ace062d14a482ff9325410ff63d06c8b5fe87e79ebc18dda07add2bc0188c77f
+  - url: https://github.com/PJK/libcbor/archive/refs/tags/v0.13.0.tar.gz
+    filename: libcbor-0.13.0.tar.gz
+    sha256: 95a7f0dd333fd1dce3e4f92691ca8be38227b27887599b21cd3c4f6d6a7abb10
+
+dependencies:
+  # cmake required for libcbor + libfido2 (both CMake-based). openssl in
+  # chroot by core-phase entry (static archives retained as of precursor
+  # fix); zlib similarly available.
+  build:
+    - cmake
+    - openssl
+    - zlib
+  host: []
+  runtime: []
+
+# D-001 EXPERIMENTAL FIDO2 unlock — the FDE init script needs 2 operations:
+# fido2-cred (generate credential at enrollment) and fido2-assert (replay
+# at boot via hmac-secret extension). fido2-token (manage authenticators)
+# is also useful for the recovery shell. Ship 3 statically-linked binaries.
+verify_paths:
+  - /usr/lib/intergen/fido2-tools-static/fido2-cred
+  - /usr/lib/intergen/fido2-tools-static/fido2-assert
+  - /usr/lib/intergen/fido2-tools-static/fido2-token

@@ -1,0 +1,43 @@
+name: tpm2-tools-static
+version: "5.7"
+release: 1
+description: Statically-linked tpm2-tools subset for early-boot LUKS TPM2 unlock (initramfs, EXPERIMENTAL)
+license: BSD-3-Clause
+homepage: https://github.com/tpm2-software/tpm2-tools
+tier: core
+build_style: custom
+install_func: do_install
+
+# Multi-source. Builder auto-extracts source[0] (tpm2-tools); build.sh extracts
+# tpm2-tss + json-c from ${IGOS_SOURCES}/ manually (same pattern as
+# packages/core/cryptsetup-static).
+#
+# Versions pinned to existing dynamic packages where they exist so source
+# bytes are shared (single tarball, multiple consumers).
+source:
+  - url: https://github.com/tpm2-software/tpm2-tools/releases/download/${version}/tpm2-tools-${version}.tar.gz
+    sha256: 3810d36b5079256f4f2f7ce552e22213d43b1031c131538df8a2dbc3c570983a
+  - url: https://github.com/tpm2-software/tpm2-tss/releases/download/4.1.3/tpm2-tss-4.1.3.tar.gz
+    sha256: 37f1580200ab78305d1fc872d89241aaee0c93cbe85bc559bf332737a60d3be8
+  - url: https://s3.amazonaws.com/json-c_releases/releases/json-c-0.18-nodoc.tar.gz
+    sha256: 602cdefc1d2aab8318fc0814b7ce7d59e72514d4276ca3eff92f35f86cf1c160
+
+dependencies:
+  # cmake required for json-c static build. autotools/make/gcc/pkg-config
+  # all in the chroot by core-phase entry. openssl required for static
+  # archives (libcrypto.a + libssl.a — retained as of precursor fix that
+  # removed the INSTALL_LIBS sed strip).
+  build:
+    - cmake
+    - openssl
+  host: []
+  runtime: []
+
+# D-001 EXPERIMENTAL TPM2 unlock — only need 4 operations in the FDE
+# initramfs: createprimary, create, load, unseal. ship a directory of
+# statically-linked tpm2_<verb> binaries with the static tpm2-tss embedded.
+verify_paths:
+  - /usr/lib/intergen/tpm2-tools-static/tpm2_createprimary
+  - /usr/lib/intergen/tpm2-tools-static/tpm2_create
+  - /usr/lib/intergen/tpm2-tools-static/tpm2_load
+  - /usr/lib/intergen/tpm2-tools-static/tpm2_unseal
