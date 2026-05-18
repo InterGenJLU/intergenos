@@ -499,7 +499,7 @@ Decisions blocking remediation start (or substantively affecting scope). Numbere
 18. **T0-5 / P-016 Qwen default model substitute** (Llama-3.1-8B / Mistral-7B / Phi-3-Mini).
 19. **T0-6 / P-015 ffmpeg-nonfree-helper** mirror tier or out entirely.
 20. ~~**D-014 GDM session-type policy** (Wayland-only / Wayland-preferred / upstream-default).~~ **VAPORIZED 2026-05-18 (operator chat greenlight):** Wayland-only is ratified `docs/VISION.md:212`. Implementation default: ship explicit `WaylandEnable=true` in `/etc/gdm/custom.conf` (packages/desktop/gdm). Not encoded as D-NNN; available for batch-encoding at end-of-walk.
-21. **J-008 / J-009 / J-014 theming canonical single-source-of-truth.**
+21. ~~**J-008 / J-009 / J-014 theming canonical single-source-of-truth.**~~ **RESOLVED 2026-05-18 via D-006 (`docs/owner-directives.md`):** `intergenos-default-settings` gschema-override package is the SSoT. Retire `scripts/install-theming.sh` + `/etc/dconf/db/system.d/` overrides. Closes J-001/J-005/J-018/D-021/D-026/J-027 cluster. J-021 firewall logic (currently buried in install-theming.sh) needs a separate owner — flagged as out-of-scope follow-on.
 22. ~~**B-015 shim-review PR timing** (close gated items NOW or accept further slip).~~ **RESOLVED 2026-05-18 via D-003:** Target 2026-05-22 stands; couples to D-002.
 23. **L-005 publish workflow** (publish-repo.sh vs mirror-publish.sh); hostname (repo.intergenos.org vs intergenstudios.com/mirror/).
 24. ~~**L-007 per-archive `.sig`** v1.0 omit / v1.1+ defer / implement now.~~ **RESOLVED 2026-05-18 via D-004:** Signed-index-only for v1.0; per-archive sigs deferred to v1.1+. The 2026-05-12 closure (commit `d6b3946a`) stands. Artifact-sweep across 4 doc/script surfaces is implementation backlog.

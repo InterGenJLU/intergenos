@@ -170,3 +170,46 @@ Each entry uses this shape:
   - `packages/core/linux-kernel` post_remove hook to clean up stale UKIs
 
 - **Status:** ACTIVE
+
+---
+
+## D-006 — Theming canonical single-source-of-truth: gschema package
+
+- **Issued:** 2026-05-18T14:50:39Z by owner
+- **Context:** Item 2.4 of build-system coordinator's matrix-scan 5-item walk. Three theming dconf-key writers fighting (gschema package, `/etc/dconf/db/system.d/`, `scripts/install-theming.sh`) had caused: theming dead-letter on installed systems (D-021/D-026), libadwaita bridge regular-file-instead-of-symlink (J-005), divergent `intergen-welcome` path (J-001), intra-gschema button-layout conflict (90_intergenos vs 92_intergenos-desktop opposite values), 22-package theming wave fail-verify-sources (J-018), firewall posture inversion (J-021). Owner ratified Option 1 (gschema package as SSoT; retire the other two writers).
+- **Verbatim:**
+
+  > OWNER DIRECTIVE: gschema package as SSoT. Retire install-theming.sh and the dconf-system-db overrides.
+
+- **Decision-Encoded:**
+  - **`intergenos-default-settings` gschema-override package is THE canonical SSoT for theming defaults.**
+  - Theme choices (InterGenOS GTK theme, Cybernetic Blue icons, Bibata-Modern-Classic cursor, prefer-dark color scheme, button-layout, favorites, welcomer behavior — per A33 2026-05-03) ship as `.gschema.override` files under `/usr/share/glib-2.0/schemas/`; `glib-compile-schemas` runs at package install.
+  - Industry pattern (Pop_OS `pop-default-settings`, Ubuntu `ubuntu-default-settings`, Fedora gnome-shell extensions).
+  - **Defaults, not locks.** User can override per-account via `gsettings` / gnome-tweaks / dconf-editor. Prime Directive aligned.
+  - **`scripts/install-theming.sh` is retired.** All theming-related `gsettings set ...` writes from that script migrate into the gschema-override package.
+  - **`/etc/dconf/db/system.d/` overrides are retired** as a theming mechanism. The system-wide dconf-db approach is NOT the SSoT.
+
+- **Supersedes:**
+  - `docs/audit/2026-05-18-design-decisions-matrix.md` reconciliation-walk row #21 (J-008 / J-009 / J-014 theming SSoT)
+  - `docs/audit/2026-05-18-remediation-plan.md` owner-decision-queue item #21
+  - Class A drift rows resolved by the SSoT decision (annotations applied by other coordinators in their sections as they encounter them):
+    - J-001 `install-theming.sh` divergent `intergen-welcome` path (the script is retired)
+    - J-005 libadwaita bridge regular-file copy (the bridge files ship via the gschema-override package as symlinks)
+    - J-018 22-package theming wave fail-verify-sources (routed through the SSoT package)
+    - D-021 / D-026 `intergenos-default-settings` dead-letter on installed systems (the package is now the SSoT — installs correctly via `pkm install`)
+    - J-027 Firefox dock favourite pinned in gschema but `firefox` is tier:extra (resolves via the SSoT package gating favorites by package-presence)
+
+- **Out-of-scope follow-on (NOT covered by D-006 — separate decisions or coordinator-level calls):**
+  - J-021 firewall posture inversion: `install-theming.sh` writes a policy=drop nftables ruleset conflicting with canonical `core/nftables` policy=accept. With `install-theming.sh` retired, the firewall logic needs a new owner — likely `packages/core/nftables` post_install OR a separate `packages/security/intergenos-firewall-defaults/` package. Coordinator-level call (this is separate from theming SSoT). Surfaced for follow-on.
+
+- **Implementation backlog (not directive surface):**
+  - Author/finalize `packages/desktop/intergenos-default-settings/` recipe with full `.gschema.override` content
+  - Migrate every theming-related dconf key from `install-theming.sh` and any `/etc/dconf/db/system.d/` files into the canonical gschema-override files
+  - Reconcile intra-gschema button-layout conflict (single canonical value in the SSoT package)
+  - Ship libadwaita bridge as symlinks via the SSoT package (fixes J-005)
+  - Re-tarball the 21-package theming wave (J-018 missing tarball generators) — every package routes through the SSoT
+  - Delete `scripts/install-theming.sh` after migration is complete + verified
+  - Add a pre-push gate or audit script that flags any new dconf-key writer outside the SSoT package
+  - Route the now-orphaned firewall logic per the out-of-scope follow-on above
+
+- **Status:** ACTIVE
