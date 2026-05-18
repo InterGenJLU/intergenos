@@ -61,7 +61,7 @@
 3. C-003 — installer fails closed with clear error before partitioning when shim missing.
 4. B-002 + B-025 — extend sign-release.sh glob to `igos-install-*.efi` + post-sign count assertion.
 5. B-005 + B-004 + B-023 + B-049 — all sign-*.sh default to `/usr/local/lib/opensc-pkcs11.so`, port modulus-match guard, drop PIN-in-URI.
-6. B-026 + B-041 + B-042 — wire dracut (or mkinitcpio); Forge runs it pre-grub-mkconfig; ALSO sign vmlinuz with InterGenOS distro CA at build time (vendor_db verifiable before MOK enroll).
+6. B-026 + B-041 + B-042 — **Dracut/mkinitcpio NOT an option** (RATIFIED-AGAINST 2026-04-08/09 + 2026-04-10 + 2026-05-05/06 Q-INIT; reaffirmed via D-005). Fix is one-line PARTUUID parity in `installer/backend/config.py:155` (root=UUID= → root=PARTUUID=) — see T0-3 sub-cluster 4. B-042 vmlinuz signing handled by D-005's per-kernel UKI signing path (no separate build-time distro CA signing needed once UKI parity lands).
 7. B-001 owner-decision (below).
 8. B-043 — print MOK password to persistent file + first-boot service prompts user; OR pre-stage cert into shim vendor_db (F-024).
 9. B-003 + B-018 + B-034 — wipe stale `.signed`, regenerate manifest atomically with ISO, per-build `build/cycleN/{unsigned,signed,iso}/` lineage.
@@ -74,7 +74,7 @@
 **Owner decisions needed.**
 - **B-001 SHIM PATH.** (a) Fedora-piggyback shim (already packaged) ships immediately + shim-review PR filed in parallel — RECOMMENDED. (b) Wait for MS-signed shim. (c) Self-signed CA + mandatory MOK enrollment UX. June 27 2026 MS UEFI 2011 CA expiry adds further pressure.
 - **B-006 measured-boot scope.** Implement `systemd-cryptenroll` LUKS+TPM2 OR drop "measured boot" claim from docs.
-- **B-008 / B-026 installed-system boot architecture.** UKI parity OR traditional grub-loads-vmlinuz. Initramfs generator (dracut vs mkinitcpio) follows.
+- ~~**B-008 / B-026 installed-system boot architecture.** UKI parity OR traditional grub-loads-vmlinuz. Initramfs generator (dracut vs mkinitcpio) follows.~~ **RESOLVED 2026-05-18 via D-005** (UKI parity, signed by user's MOK); initramfs question already-settled by 2026-04-09 ratification + D-001 narrowing (no installed-system initramfs for plain installs; tiny FDE-only initramfs bundled inside UKI for LUKS installs). No dracut, no mkinitcpio — RATIFIED-AGAINST multiple times.
 
 ---
 
@@ -90,16 +90,16 @@
 **Remediation summary.** The cycle-5 ISO declared "installer ready" cannot install on real hardware. C-001/A-003 parted missing; C-002 partprobe missing (same package); C-003 bootloader.py raises RuntimeError on shim staging (root cause = A-001); C-004 post-install hooks NEVER fire — `packages_dir=/var/lib/igos/packages` is flat manifest dir of 765 text files, not source tree; C-005 retry cp corrupts nesting; C-006 virtual_fs double-mounts leak; C-007 `ai` group selectable in TUI but undefined in `GROUPS`; C-008 install-time signing smoke check uses wrong field names (always fails, silently masks audit-log breaks); C-009 smoke framework lands under `site-packages/installer/smoke/` not `/usr/lib/intergenos/`; C-010 + J-026 locale-conf written but `localedef` never invoked → silent fallback to C; C-065 empty `archive_dir` succeeds as zero-package install. A-005 xfsprogs missing; A-006 mdadm missing. B-026 no initramfs generator; B-041 `root=UUID=` cmdline.
 
 **Sub-cluster ordering:**
-1. **Package set:** parted (A-003), partprobe (auto), xfsprogs (A-005), mdadm (A-006), dialog (A-004 — optional), ntfs-3g (A-008 / C-014), os-prober (C-054), dracut (B-026), gptfdisk (A-007).
+1. **Package set:** parted (A-003), partprobe (auto), xfsprogs (A-005), mdadm (A-006), dialog (A-004 — optional), ntfs-3g (A-008 / C-014), os-prober (C-054), gptfdisk (A-007). **Dracut is NOT in this list and never will be** — RATIFIED-AGAINST 2026-04-08/09 (PARTUUID + no-installed-system-initramfs), reaffirmed 2026-04-10 ("No casper, no dracut, no mkinitcpio"), Q-INIT commits `77b0b453`/`cfcdc82e`/`a12216a5` 2026-05-05/06 explicitly rejected dracut-uefi, NARROWED-BY D-001 + D-005 (custom busybox+cryptsetup FDE-initramfs bundled inside UKI; plain installs use minimal/empty initramfs in UKI). The B-026 "no initramfs generator" finding is the WRONG framing — there is intentionally no generator; the fix lives in sub-cluster 4 below.
 2. **Chroot wiring:** `chroot-health-check.sh` + `scripts/check-installer-runtime-deps.py` (M-002).
 3. **Installer code fixes:** C-003 through C-010 + C-021 + C-065 + J-026 localedef wire.
-4. **Boot architecture:** B-026 dracut OR PARTUUID switch (B-041) — couples to T0-2.
+4. **Boot architecture: Forge install-time PARTUUID parity** (B-026 + B-041). One-line fix: `installer/backend/config.py:155` currently emits `root=UUID=<fs-uuid>` — must emit `root=PARTUUID=<part-uuid>` to match the ratified image-time path (`scripts/create-image.sh:148-150,177`). Fstab in `config.py:22,32` likewise. NOT a dracut-vs-PARTUUID decision — that was settled 2026-04-08/09. See `docs/audit/2026-05-18-design-decisions-matrix.md:160,650` for the matrix-scan call.
 
 **Verification approach.** M-001 real install harness — extend `secboot_vm_profile.py` to attach blank target, autotype TUI through Confirm, reboot, `pkm verify --fast` on installed root. M-002 chroot-binary-presence gate. M-005 unit-test floor for disks.py + bootloader.py + hooks.py.
 
 **Estimated wall time.** 2-3 weeks (concurrent with T0-2).
 
-**Owner decisions needed.** Dracut vs PARTUUID-only no-initramfs path. Alongside-install primitives keep + complete (C-014) OR delete as v1.x deferred.
+**Owner decisions needed.** Alongside-install primitives keep + complete (C-014) OR delete as v1.x deferred. (Dracut-vs-PARTUUID is NOT an open decision and never has been within this project's lifetime — see sub-cluster 4 above.)
 
 ---
 
@@ -523,7 +523,7 @@ Decisions blocking remediation start (or substantively affecting scope). Numbere
 - **WC:** T0-5 keyring + repo URL + config format (steps 1-2); T0-6 ffmpeg-nonfree audit + Qwen license-UX design (steps 1-2); T0-6 SPDX-headers + per-package LICENSE bundling background.
 
 **Phase B — weeks 2-3** (T0-2 + T0-3 + T0-5 in parallel):
-- **SPOC:** T0-3 package-set authoring (parted/xfsprogs/mdadm/dracut/os-prober/ntfs-3g/gptfdisk); T0-2 steps 3-7 (signing-script hardening + installed-system boot fix); T1-1 orchestrator hygiene.
+- **SPOC:** T0-3 package-set authoring (parted/xfsprogs/mdadm/os-prober/ntfs-3g/gptfdisk — NO dracut, RATIFIED-AGAINST); T0-3 sub-cluster 4 PARTUUID parity one-liner; T0-2 steps 3-7 (signing-script hardening + installed-system boot fix); T1-1 orchestrator hygiene.
 - **IGOSC:** T0-3 installer code fixes (C-003..C-010 + C-065 + C-021); T1-2 service hygiene walk; T0-7 tarball generators (D-003 / D-004 / J-003 / J-018 / J-019); T0-4 intergen safety re-architecture (I-027 / I-028 / I-029 / I-030 / I-035).
 - **WC:** T0-5 trust-chain hardening (anti-rollback / schema-version / tar path-traversal); T0-5 mirror infrastructure ratification + deployment (L-005 / L-006); T0-5 CLI + DB integrity (H-004 / H-007 / H-008 / K-017); T0-6 P-017 trademark + P-002 / P-003.
 
