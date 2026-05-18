@@ -60,6 +60,15 @@ class InstallerState:
     luks_passphrase: str = ""
     luks_passphrase_confirm: str = ""
 
+    # --- D-001 EXPERIMENTAL unlock methods (operator Option A 2026-05-18T22:52Z) ---
+    # tpm2_enabled / fido2_enabled compose with luks_enabled. Backend
+    # disks.py adds a TPM2-sealed key + FIDO2 hmac-secret HMAC as
+    # additional LUKS keyslots; fde-init.sh tries those before falling
+    # through to the passphrase prompt. Both labeled EXPERIMENTAL in
+    # the UI.
+    tpm2_enabled: bool = False
+    fido2_enabled: bool = False
+
     # --- User screen ---
     hostname: str = "intergenos"
     username: str = ""
@@ -226,6 +235,12 @@ class InstallerState:
         if self.luks_enabled:
             io["luks_enabled"] = True
             io["luks_passphrase"] = self.luks_passphrase
+            # D-001 EXPERIMENTAL unlock methods compose with LUKS only
+            # (backend validates this); thread through when enrolled.
+            if self.tpm2_enabled:
+                io["tpm2_enabled"] = True
+            if self.fido2_enabled:
+                io["fido2_enabled"] = True
         return io
 
     def to_run_install_kwargs(

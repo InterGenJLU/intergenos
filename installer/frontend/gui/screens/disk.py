@@ -143,12 +143,67 @@ class DiskPage(_ForgePage):
             "notify::text", self._on_luks_passphrase_changed
         )
 
+        # ------------------------------------------------------------------
+        # D-001 EXPERIMENTAL unlock methods (operator Option A 2026-05-18T22:52Z)
+        # ------------------------------------------------------------------
+        # Sub-checkboxes for TPM2 + FIDO2 unlock. Both compose with LUKS
+        # (the passphrase remains the canonical fallback at boot per
+        # fde-init.sh's TPM2 → FIDO2 → passphrase chain). Sub-checkboxes
+        # are sensitive only when the parent LUKS checkbox is active;
+        # toggling LUKS off clears the EXPERIMENTAL selections.
+        from installer.backend import disks as _disks
+        self._tpm2_present = _disks.tpm2_present()
+        self._tpm2_tools_ok = _disks.tpm2_tools_available()
+        self._fido2_tools_ok = _disks.fido2_tools_available()
+
+        self._tpm2_check = Gtk.CheckButton(
+            label="Unlock with TPM2 (EXPERIMENTAL)"
+        )
+        if not self._tpm2_present or not self._tpm2_tools_ok:
+            self._tpm2_check.set_sensitive(False)
+            reason = (
+                "no TPM2 device detected on this hardware"
+                if not self._tpm2_present
+                else "tpm2-tools-static not installed in the live ISO"
+            )
+            self._tpm2_check.set_tooltip_text(reason)
+        self._tpm2_check.set_visible(False)
+        box.append(self._tpm2_check)
+
+        self._fido2_check = Gtk.CheckButton(
+            label="Unlock with FIDO2 token (EXPERIMENTAL)"
+        )
+        if not self._fido2_tools_ok:
+            self._fido2_check.set_sensitive(False)
+            self._fido2_check.set_tooltip_text(
+                "fido2-tools-static not installed in the live ISO"
+            )
+        self._fido2_check.set_visible(False)
+        box.append(self._fido2_check)
+
+        self._experimental_hint = Gtk.Label(
+            label="EXPERIMENTAL: failure modes documented in "
+                  "docs/users/full-disk-encryption.md. "
+                  "Passphrase always remains a valid unlock path."
+        )
+        self._experimental_hint.set_wrap(True)
+        self._experimental_hint.set_xalign(0)
+        self._experimental_hint.add_css_class("dim-label")
+        self._experimental_hint.set_visible(False)
+        box.append(self._experimental_hint)
+
         return box
 
     def _on_luks_toggled(self, check):
         active = check.get_active()
         self._luks_passphrase_row.set_visible(active)
         self._luks_passphrase_confirm_row.set_visible(active)
+        # D-001 EXPERIMENTAL sub-checkboxes — only meaningful when LUKS
+        # is active. Toggle visibility together; clear selection when
+        # LUKS toggles off so reopening doesn't carry stale opt-in state.
+        self._tpm2_check.set_visible(active)
+        self._fido2_check.set_visible(active)
+        self._experimental_hint.set_visible(active)
         if not active:
             # Drop any captured plaintext when toggling off so the next
             # toggle-on starts from a clean state. Same idiom as the
@@ -156,6 +211,8 @@ class DiskPage(_ForgePage):
             self._luks_passphrase_entry.set_text("")
             self._luks_passphrase_confirm_entry.set_text("")
             self._luks_strength_label.set_visible(False)
+            self._tpm2_check.set_active(False)
+            self._fido2_check.set_active(False)
         else:
             self._luks_passphrase_entry.grab_focus()
 
@@ -302,6 +359,22 @@ class DiskPage(_ForgePage):
         self._luks_passphrase_confirm_entry.set_text("")
         self._luks_strength_label.set_visible(False)
 
+        # D-001 EXPERIMENTAL — restore opt-in state for sub-checkboxes
+        # alongside LUKS visibility. Hardware/tools sensitivity already
+        # set in _build_body; back-then-forward navigation only changes
+        # the checked state.
+        self._tpm2_check.set_visible(state.luks_enabled)
+        self._fido2_check.set_visible(state.luks_enabled)
+        self._experimental_hint.set_visible(state.luks_enabled)
+        # Don't restore tpm2/fido2 checked state if hardware/tools went
+        # absent since last visit (e.g. operator unplugged FIDO2 token).
+        self._tpm2_check.set_active(
+            state.tpm2_enabled and self._tpm2_present and self._tpm2_tools_ok
+        )
+        self._fido2_check.set_active(
+            state.fido2_enabled and self._fido2_tools_ok
+        )
+
     def on_next(self, state):
         # Resolve target_disk from list selection (preferred) or manual entry.
         selected = self._listbox.get_selected_row()
@@ -363,6 +436,12 @@ class DiskPage(_ForgePage):
         state.luks_enabled = luks_enabled
         state.luks_passphrase = luks_passphrase
         state.luks_passphrase_confirm = luks_passphrase if luks_enabled else ""
+
+        # D-001 EXPERIMENTAL — capture sub-checkbox state. Only meaningful
+        # when LUKS active; backend validates the composition and would
+        # reject tpm2/fido2 without luks anyway.
+        state.tpm2_enabled = bool(luks_enabled and self._tpm2_check.get_active())
+        state.fido2_enabled = bool(luks_enabled and self._fido2_check.get_active())
         return True
 
 

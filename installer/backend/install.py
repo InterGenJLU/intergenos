@@ -231,6 +231,18 @@ def validate_install_inputs(cfg, install_io):
                 "passphrase before invoking the backend)"
             )
 
+    # D-001 EXPERIMENTAL TPM2 / FIDO2 unlock methods compose with LUKS:
+    # enabling either without luks_enabled is incoherent (no LUKS
+    # keyslot to add the derived key to). Hardware + tools pre-flight
+    # happens in disks.partition_disk where the live state can be
+    # tested.
+    if install_io.get("tpm2_enabled") or install_io.get("fido2_enabled"):
+        if not install_io.get("luks_enabled"):
+            errors.append(
+                "install_io tpm2_enabled / fido2_enabled require luks_enabled=True "
+                "(EXPERIMENTAL unlock methods bind to LUKS slots)"
+            )
+
     if errors:
         raise ValueError(
             "install validation failed:\n  - " + "\n  - ".join(errors)
@@ -365,13 +377,29 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         # NB: do NOT log luks_passphrase; the _emit message logs only the
         # disk + the LUKS-enabled flag.
         luks_enabled = bool(install_io.get("luks_enabled"))
+        tpm2_enabled = bool(install_io.get("tpm2_enabled"))
+        fido2_enabled = bool(install_io.get("fido2_enabled"))
         if luks_enabled:
-            _emit(PHASE_PARTITION, 2, f"LUKS opt-in: wrapping root in LUKS2 (argon2id)")
+            extra = []
+            if tpm2_enabled:
+                extra.append("TPM2-EXPERIMENTAL")
+            if fido2_enabled:
+                extra.append("FIDO2-EXPERIMENTAL")
+            tail = f" + {' + '.join(extra)}" if extra else ""
+            _emit(PHASE_PARTITION, 2,
+                  f"LUKS opt-in: wrapping root in LUKS2 (argon2id){tail}")
+
+        def _fido2_status(msg):
+            _emit(PHASE_PARTITION, 2, f"FIDO2 enrollment: {msg}")
+
         partitions = disks.partition_disk(
             install_io["disk"],
             efi=efi,
             luks_enabled=luks_enabled,
             luks_passphrase=install_io.get("luks_passphrase") if luks_enabled else None,
+            tpm2_enabled=tpm2_enabled,
+            fido2_enabled=fido2_enabled,
+            fido2_progress_callback=_fido2_status if fido2_enabled else None,
         )
         result.phase_completed = PHASE_PARTITION
         _emit(PHASE_PARTITION, 3, "partitioned + formatted")

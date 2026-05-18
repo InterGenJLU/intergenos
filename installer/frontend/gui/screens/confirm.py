@@ -44,11 +44,16 @@ class ConfirmPage(_ForgePage):
         return box
 
     def on_load(self, state):
-        luks_line = (
-            "ENABLED (passphrase prompt at every boot)"
-            if state.luks_enabled
-            else "disabled"
-        )
+        if state.luks_enabled:
+            extras = []
+            if state.tpm2_enabled:
+                extras.append("TPM2-EXPERIMENTAL")
+            if state.fido2_enabled:
+                extras.append("FIDO2-EXPERIMENTAL")
+            tail = f" + {' + '.join(extras)}" if extras else ""
+            luks_line = f"ENABLED{tail}"
+        else:
+            luks_line = "disabled"
         text = (
             f"Disk: {state.target_disk}\n"
             f"Full-disk encryption (LUKS): {luks_line}\n"

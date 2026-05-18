@@ -140,11 +140,16 @@ def _show_confirm_summary(cfg, install_io):
     """Show a summary dialog before the destructive install begins.
     Returns True if the user confirms, False if they cancel."""
     disk = install_io.get("disk", "unknown")
-    luks_line = (
-        "LUKS encryption: ENABLED (passphrase required at every boot)"
-        if install_io.get("luks_enabled")
-        else "LUKS encryption: disabled"
-    )
+    if install_io.get("luks_enabled"):
+        unlock_extras = []
+        if install_io.get("tpm2_enabled"):
+            unlock_extras.append("TPM2-EXPERIMENTAL")
+        if install_io.get("fido2_enabled"):
+            unlock_extras.append("FIDO2-EXPERIMENTAL")
+        extras_tail = f" + {' + '.join(unlock_extras)}" if unlock_extras else ""
+        luks_line = f"LUKS encryption: ENABLED{extras_tail}"
+    else:
+        luks_line = "LUKS encryption: disabled"
     lines = [
         f"Target disk:     {disk} (ALL DATA WILL BE ERASED)",
         luks_line,
@@ -395,6 +400,8 @@ def prompt_install_io():
         "Recommended for laptops + portable devices.",
     )
     luks_passphrase = ""
+    tpm2_enabled = False
+    fido2_enabled = False
     if luks_enabled:
         # Pre-prompt guidance — character-class diversity + length both
         # increase argon2id cost relative to a brute-force attacker. 12+
@@ -440,6 +447,32 @@ def prompt_install_io():
             del pp1, pp2
             break
 
+        # D-001 EXPERIMENTAL unlock methods (operator Option A
+        # 2026-05-18T22:52Z). TPM2 + FIDO2 compose with the passphrase
+        # slot — passphrase always remains a valid fallback. Frontend
+        # surfaces both as opt-in with explicit "(EXPERIMENTAL)" markers.
+        from installer.backend import disks as _disks
+        if _disks.tpm2_present() and _disks.tpm2_tools_available():
+            tpm2_enabled = _ask_yesno(
+                "Unlock with TPM2 (EXPERIMENTAL)",
+                "Also enroll a TPM2-sealed key bound to the firmware + Secure\n"
+                "Boot state (PCR0+PCR7)? On normal boots the system unlocks\n"
+                "without a passphrase prompt. Firmware update OR Secure Boot\n"
+                "policy change invalidates the seal — falls through to the\n"
+                "passphrase prompt automatically.\n\n"
+                "EXPERIMENTAL. See docs/users/full-disk-encryption.md.",
+            )
+        if _disks.fido2_tools_available():
+            fido2_enabled = _ask_yesno(
+                "Unlock with FIDO2 token (EXPERIMENTAL)",
+                "Also enroll a FIDO2 security token? On boot, plug + touch\n"
+                "the token to unlock without typing the passphrase. Token\n"
+                "lost / not-plugged / firmware update falls through to the\n"
+                "passphrase prompt automatically. You will be prompted to\n"
+                "plug + touch the token now during install enrollment.\n\n"
+                "EXPERIMENTAL. See docs/users/full-disk-encryption.md.",
+            )
+
     # Root password
     rc, root_pw = _ask_password("Root password", "Enter the root password:")
     if rc != 0 or not root_pw:
@@ -480,6 +513,10 @@ def prompt_install_io():
     if luks_enabled:
         install_io["luks_enabled"] = True
         install_io["luks_passphrase"] = luks_passphrase
+        if tpm2_enabled:
+            install_io["tpm2_enabled"] = True
+        if fido2_enabled:
+            install_io["fido2_enabled"] = True
     return install_io
 
 

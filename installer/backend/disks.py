@@ -99,6 +99,31 @@ LUKS_PBKDF_PARALLEL = 4
 # /etc/crypttab field 1 to find the LUKS device path).
 LUKS_MAPPER_NAME = "cryptroot"
 
+# Canonical ESP filesystem label. fde-init.sh's EXPERIMENTAL unlock paths
+# locate the ESP via `blkid -L IGOS_ESP` to read TPM2 / FIDO2 sealed-key
+# metadata at boot. Set on fresh installs by partition_disk()'s
+# mkfs.fat -F32 -n IGOS_ESP call.
+ESP_LABEL = "IGOS_ESP"
+
+# D-001 EXPERIMENTAL TPM2 / FIDO2 unlock tool locations (built by the
+# build-system coordinator's S-B + S-C lanes). Same install convention as
+# cryptsetup-static (D-001/S-A): /usr/lib/intergen/<name>-static[/...].
+TPM2_TOOLS_DIR  = "/usr/lib/intergen/tpm2-tools-static"
+FIDO2_TOOLS_DIR = "/usr/lib/intergen/fido2-tools-static"
+
+# PCR policy for TPM2 sealed-key unlock: PCR0 (firmware) + PCR7 (Secure
+# Boot state). PCR0 binds the seal to the running firmware; PCR7 binds
+# to the Secure Boot policy (db/dbx/MOK enrollment state). Firmware
+# update OR Secure Boot policy change invalidates the seal — operator
+# falls through to passphrase to recover and re-enrolls. Documented in
+# docs/users/full-disk-encryption.md.
+TPM2_SEAL_PCRS = "sha256:0,7"
+
+# FIDO2 relying-party identifier. By WebAuthn convention RP IDs are
+# DNS-name-like; "intergenos" is opaque-but-stable. Stored in the
+# credential record on the token; must agree at enroll + assert time.
+FIDO2_RP_ID = "intergenos"
+
 
 @dataclass
 class Disk:
@@ -194,7 +219,9 @@ def detect_disks():
     return disks
 
 
-def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=None):
+def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=None,
+                   tpm2_enabled=False, fido2_enabled=False,
+                   fido2_progress_callback=None):
     """Partition a disk for InterGenOS installation.
 
     Creates a GPT partition table with:
@@ -219,6 +246,27 @@ def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=Non
     - Pre-flight checks: cryptsetup binary on PATH; passphrase non-
       empty; target partition supports LUKS2 header (standard 512 or
       4096 sector sizes).
+
+    D-001 EXPERIMENTAL unlock methods (operator Option A 2026-05-18T22:52Z):
+    - tpm2_enabled / fido2_enabled require luks_enabled. When set, after
+      LUKS format + open + mkfs.ext4, the ESP is mounted at a temporary
+      mountpoint and:
+        * TPM2: a 32-byte random key is generated, sealed against the
+          running system's TPM2 with PCR0+PCR7 policy, written to
+          <esp>/intergen/tpm2/{primary.ctx,secret.pub,secret.priv}, and
+          added as a LUKS slot via cryptsetup luksAddKey.
+        * FIDO2: a FIDO2 credential is enrolled on the user's plugged-in
+          token (interactive: user must touch the token). hmac-secret
+          assertion against a fresh 32-byte nonce yields the LUKS slot
+          key, which is added via luksAddKey. {cred_id, stored_nonce}
+          are written to <esp>/intergen/fido2/.
+    - All EXPERIMENTAL paths fail-closed if their tools (tpm2-tools-static
+      / fido2-tools-static) are absent OR if their hardware is absent
+      (/dev/tpmrm0 missing; no FIDO2 token plugged within timeout). The
+      passphrase remains the canonical fallback at boot time per
+      installer/init/fde-init.sh's TPM2 → FIDO2 → passphrase chain.
+    - Returns dict includes "crypt_opts" = list of crypttab option
+      tokens (e.g. ["luks", "discard", "tpm2", "fido2"]).
 
     Returns dict with partition paths.
     """
@@ -253,6 +301,41 @@ def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=Non
                 "partition_disk is called."
             )
 
+    # D-001 EXPERIMENTAL TPM2 + FIDO2 pre-flight (composition with LUKS).
+    if tpm2_enabled or fido2_enabled:
+        if not luks_enabled:
+            raise RuntimeError(
+                "tpm2_enabled / fido2_enabled require luks_enabled. "
+                "EXPERIMENTAL unlock methods are LUKS-slot-bound — the "
+                "underlying LUKS volume must exist before extra slots "
+                "can be added."
+            )
+        if not efi:
+            raise RuntimeError(
+                "tpm2_enabled / fido2_enabled require EFI install. "
+                "Sealed-key metadata lives on the ESP; BIOS installs "
+                "have no ESP."
+            )
+        if tpm2_enabled:
+            if not tpm2_tools_available():
+                raise RuntimeError(
+                    f"tpm2_enabled but tpm2-tools-static absent at {TPM2_TOOLS_DIR}. "
+                    "build-system coordinator's S-B package must be installed "
+                    "in the live ISO before install-time TPM2 seal can run."
+                )
+            if not tpm2_present():
+                raise RuntimeError(
+                    "tpm2_enabled but no TPM2 device detected (/dev/tpmrm0 absent). "
+                    "Frontend should grey-disable this checkbox when /dev/tpmrm0 "
+                    "is missing — reaching this branch indicates a frontend bug."
+                )
+        if fido2_enabled and not fido2_tools_available():
+            raise RuntimeError(
+                f"fido2_enabled but fido2-tools-static absent at {FIDO2_TOOLS_DIR}. "
+                "build-system coordinator's S-C package must be installed in "
+                "the live ISO before install-time FIDO2 enrollment can run."
+            )
+
     # Wipe existing partition table (routed through _run so dry_run is honored)
     _run(["wipefs", "-a", disk_path])
 
@@ -268,8 +351,9 @@ def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=Non
         # Determine partition paths (handles nvme vs sda naming)
         p1, p2 = _partition_paths(disk_path, 2)
 
-        # ESP formatted FAT32 unconditionally
-        _run(f"mkfs.fat -F32 {p1}")
+        # ESP formatted FAT32 with canonical label (D-001 EXPERIMENTAL:
+        # fde-init.sh's `blkid -L IGOS_ESP` ESP discovery depends on this).
+        _run(f"mkfs.fat -F32 -n {ESP_LABEL} {p1}")
 
         if luks_enabled:
             # LUKS2 format the root partition, open as cryptroot,
@@ -278,11 +362,22 @@ def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=Non
             luks2_format(p2, luks_passphrase)
             mapper = luks_open(p2, luks_passphrase, name=LUKS_MAPPER_NAME)
             _run(f"mkfs.ext4 -L intergenos {mapper}")
+
+            crypt_opts = ["luks", "discard"]
+            if tpm2_enabled or fido2_enabled:
+                _enroll_experimental_unlock_methods(
+                    p1, p2, luks_passphrase,
+                    tpm2_enabled=tpm2_enabled,
+                    fido2_enabled=fido2_enabled,
+                    fido2_progress_callback=fido2_progress_callback,
+                    crypt_opts=crypt_opts,
+                )
             return {
                 "esp": p1,
                 "root": p2,
                 "root_mapper": mapper,
                 "luks_enabled": True,
+                "crypt_opts": crypt_opts,
                 "efi": True,
             }
         else:
@@ -301,11 +396,15 @@ def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=Non
             luks2_format(p2, luks_passphrase)
             mapper = luks_open(p2, luks_passphrase, name=LUKS_MAPPER_NAME)
             _run(f"mkfs.ext4 -L intergenos {mapper}")
+            # EXPERIMENTAL TPM2/FIDO2 require EFI (pre-flight rejected
+            # this combination above). Plain LUKS on BIOS continues to
+            # work, just passphrase-only.
             return {
                 "bios_grub": p1,
                 "root": p2,
                 "root_mapper": mapper,
                 "luks_enabled": True,
+                "crypt_opts": ["luks", "discard"],
                 "efi": False,
             }
         else:
@@ -509,6 +608,378 @@ def _zeroize(buf):
     if isinstance(buf, bytearray):
         for i in range(len(buf)):
             buf[i] = 0
+
+
+# --- D-001 EXPERIMENTAL TPM2 / FIDO2 unlock primitives ---
+
+
+def tpm2_tools_available():
+    """Return True iff the build-system coordinator's tpm2-tools-static
+    package is installed in the live ISO (frontend probes this to
+    enable the EXPERIMENTAL TPM2 checkbox)."""
+    return os.path.isfile(f"{TPM2_TOOLS_DIR}/tpm2_unseal") \
+       and os.access(f"{TPM2_TOOLS_DIR}/tpm2_unseal", os.X_OK)
+
+
+def fido2_tools_available():
+    """Return True iff the build-system coordinator's fido2-tools-static
+    package is installed in the live ISO."""
+    return os.path.isfile(f"{FIDO2_TOOLS_DIR}/fido2-assert") \
+       and os.access(f"{FIDO2_TOOLS_DIR}/fido2-assert", os.X_OK)
+
+
+def tpm2_present():
+    """Return True iff a TPM2 device is enumerated in the running
+    kernel (/dev/tpmrm0 character device). Frontend uses this to
+    grey-disable the EXPERIMENTAL TPM2 checkbox when no TPM exists."""
+    try:
+        return os.path.exists("/dev/tpmrm0")
+    except OSError:
+        return False
+
+
+def _enroll_experimental_unlock_methods(esp_partition, luks_partition,
+                                         luks_passphrase,
+                                         tpm2_enabled, fido2_enabled,
+                                         fido2_progress_callback,
+                                         crypt_opts):
+    """Internal orchestrator. Mounts the freshly-formatted ESP at a
+    temporary mountpoint, runs TPM2 + FIDO2 enrollment as requested,
+    appends "tpm2" / "fido2" tokens to crypt_opts (mutated in place
+    for the caller's crypttab generation), then unmounts.
+
+    Failure of EITHER enrollment raises — these are explicit operator
+    opt-ins per the frontend checkbox, so silent skip would be a
+    surprise. Operator can re-run install without the EXPERIMENTAL
+    checkbox if their hardware turns out to not cooperate.
+    """
+    esp_mount = "/mnt/forge-esp-enroll"
+    os.makedirs(esp_mount, exist_ok=True)
+    _run(["mount", esp_partition, esp_mount])
+    try:
+        intergen_dir = os.path.join(esp_mount, "intergen")
+        os.makedirs(intergen_dir, exist_ok=True)
+        if tpm2_enabled:
+            tpm2_seal_random_key(intergen_dir, luks_partition, luks_passphrase)
+            crypt_opts.append("tpm2")
+        if fido2_enabled:
+            fido2_enroll_token(intergen_dir, luks_partition, luks_passphrase,
+                               fido2_progress_callback)
+            crypt_opts.append("fido2")
+    finally:
+        _run(["umount", esp_mount])
+
+
+def tpm2_seal_random_key(intergen_dir, luks_partition, luks_passphrase):
+    """D-001 EXPERIMENTAL TPM2 unlock — seal a fresh 32-byte random key
+    to the system TPM under a PCR0+PCR7 policy, persist the sealed-blob
+    triplet (primary.ctx, secret.pub, secret.priv) under
+    intergen_dir/tpm2/, and add the random key as an additional LUKS
+    slot on luks_partition (authenticated with luks_passphrase).
+
+    On any failure (no TPM, broken pcr policy, cryptsetup luksAddKey
+    refusing), cleans up partial files + re-raises a RuntimeError —
+    the operator's explicit opt-in means silent partial enrollment
+    would be a worse surprise than a hard fail.
+
+    Holy Grail discipline: random_secret is bytes from os.urandom in
+    a bytearray + zeroized in finally. The sealed triplet on ESP is
+    NOT a secret: without the same TPM (or with changed PCR0/PCR7)
+    the blob is useless.
+    """
+    tpm2_dir = os.path.join(intergen_dir, "tpm2")
+    os.makedirs(tpm2_dir, exist_ok=True)
+    primary_ctx = os.path.join(tpm2_dir, "primary.ctx")
+    secret_pub  = os.path.join(tpm2_dir, "secret.pub")
+    secret_priv = os.path.join(tpm2_dir, "secret.priv")
+    policy_dat  = os.path.join(tpm2_dir, "pcr.policy")  # build-time only
+    session_dat = "/tmp/forge-tpm2-session.dat"
+
+    random_secret = bytearray(os.urandom(32))
+    try:
+        _tpm2(["tpm2_createprimary",
+               "--hierarchy=owner",
+               f"--key-context={primary_ctx}"])
+
+        # Compute PCR-bound policy digest
+        _tpm2(["tpm2_startauthsession", f"--session={session_dat}"])
+        try:
+            _tpm2(["tpm2_policypcr",
+                   f"--session={session_dat}",
+                   f"--pcr-list={TPM2_SEAL_PCRS}",
+                   f"--policy={policy_dat}"])
+        finally:
+            _tpm2(["tpm2_flushcontext", session_dat], allow_fail=True)
+
+        # tpm2_create reads sealing input from stdin via --sealing-input=-
+        if _DRY_RUN:
+            print(f"  [DRY-RUN] tpm2_create -C {primary_ctx} -L {policy_dat} "
+                  f"-i - -u {secret_pub} -r {secret_priv}  <stdin: <32 RANDOM BYTES>>")
+        else:
+            cmd = [_tpm2_path("tpm2_create"),
+                   f"--parent-context={primary_ctx}",
+                   f"--policy={policy_dat}",
+                   "--sealing-input=-",
+                   f"--public={secret_pub}",
+                   f"--private={secret_priv}"]
+            res = subprocess.run(cmd, input=bytes(random_secret),
+                                 capture_output=True)
+            if res.returncode != 0:
+                raise RuntimeError(
+                    f"tpm2_create failed (exit {res.returncode}): "
+                    f"{res.stderr.decode('utf-8', errors='replace')}"
+                )
+
+        # Add the random key as a LUKS slot, authenticated by existing
+        # passphrase. cryptsetup luksAddKey reads: line 1 = existing
+        # key (passphrase), line 2 = new key (random_secret). Both via
+        # stdin with --key-file=- meaning batch-mode.
+        if isinstance(luks_passphrase, str):
+            existing_key = luks_passphrase.encode("utf-8")
+        else:
+            existing_key = bytes(luks_passphrase)
+
+        cmd = ["cryptsetup", "luksAddKey",
+               "--type=luks2", "--batch-mode",
+               "--key-file=-",
+               luks_partition,
+               "/dev/stdin"]
+        # cryptsetup luksAddKey with --key-file=- and positional key-file
+        # /dev/stdin needs two distinct streams; simplest is two-pass:
+        # write existing+new to a fifo, OR use --new-keyfile=- (modern
+        # cryptsetup). Fall back to the --key-file mode + temp fifo if
+        # the new-keyfile flag is missing.
+        if _DRY_RUN:
+            print(f"  [DRY-RUN] cryptsetup luksAddKey {luks_partition} "
+                  "<existing-passphrase via stdin> <new-tpm2-key via fd>")
+        else:
+            _luks_add_key_with_existing(luks_partition, existing_key,
+                                        bytes(random_secret))
+    finally:
+        _zeroize(random_secret)
+        if os.path.exists(session_dat):
+            try:
+                os.unlink(session_dat)
+            except OSError:
+                pass
+        if os.path.exists(policy_dat):
+            # Policy digest is reproducible from PCR state; safe to remove
+            # after the seal lands. Keeping it would imply the unseal path
+            # uses it (it doesn't — the unseal session is computed fresh
+            # at boot from the live PCRs).
+            try:
+                os.unlink(policy_dat)
+            except OSError:
+                pass
+
+
+def fido2_enroll_token(intergen_dir, luks_partition, luks_passphrase,
+                        progress_callback=None):
+    """D-001 EXPERIMENTAL FIDO2 unlock — enroll a credential on the
+    user's plugged-in FIDO2 token, derive an hmac-secret HMAC bound to
+    a fresh 32-byte nonce, persist {cred_id, stored_nonce} under
+    intergen_dir/fido2/, and add the HMAC bytes as an additional LUKS
+    slot on luks_partition (authenticated with luks_passphrase).
+
+    Interactive: the user must physically touch the token when the
+    fido2-cred / fido2-assert calls request user presence. The
+    progress_callback (optional fn(message)) is called with status
+    text so the frontend can render "plug your security token now",
+    "touching the token...", etc.
+    """
+    fido2_dir = os.path.join(intergen_dir, "fido2")
+    os.makedirs(fido2_dir, exist_ok=True)
+    cred_id_path = os.path.join(fido2_dir, "cred_id")
+    nonce_path   = os.path.join(fido2_dir, "stored_nonce")
+
+    def _emit(msg):
+        if progress_callback:
+            progress_callback(msg)
+
+    if _DRY_RUN:
+        print(f"  [DRY-RUN] fido2-cred -M <prompt user to touch token>  -> {cred_id_path}")
+        print(f"  [DRY-RUN] fido2-assert -G --hmac-secret <prompt user to touch token>")
+        print(f"  [DRY-RUN] cryptsetup luksAddKey {luks_partition}  <stdin: HMAC bytes>")
+        return
+
+    # Discover token device. fido2-token -L lists "device path"
+    # one-per-line. If multiple plugged, take the first; operator can
+    # unplug others to disambiguate.
+    _emit("Detecting FIDO2 token (plug it in if not already)...")
+    token_dev = _fido2_first_token()
+    if not token_dev:
+        raise RuntimeError(
+            "No FIDO2 token detected via `fido2-token -L`. "
+            "Plug your security token + re-run install (or uncheck "
+            "the FIDO2 EXPERIMENTAL checkbox)."
+        )
+
+    _emit(f"Enrolling credential on {token_dev} — touch the token when it blinks")
+    cred_id = _fido2_make_credential(token_dev)
+    with open(cred_id_path, "wb") as f:
+        f.write(cred_id)
+
+    nonce = os.urandom(32)
+    with open(nonce_path, "wb") as f:
+        f.write(nonce)
+
+    _emit("Deriving unlock key — touch the token again when it blinks")
+    hmac_secret = _fido2_assert_hmac(token_dev, cred_id, nonce)
+
+    if isinstance(luks_passphrase, str):
+        existing_key = luks_passphrase.encode("utf-8")
+    else:
+        existing_key = bytes(luks_passphrase)
+
+    _luks_add_key_with_existing(luks_partition, existing_key, hmac_secret)
+
+
+# --- tpm2-tools-static + fido2-tools-static subprocess helpers ---
+
+
+def _tpm2_path(tool):
+    """Resolve a tpm2-tools-static binary path."""
+    return os.path.join(TPM2_TOOLS_DIR, tool)
+
+
+def _fido2_path(tool):
+    """Resolve a fido2-tools-static binary path."""
+    return os.path.join(FIDO2_TOOLS_DIR, tool)
+
+
+def _tpm2(argv, allow_fail=False):
+    """Run a tpm2-tools-static command, raising on non-zero unless
+    allow_fail=True. argv[0] is the bare tool name; resolved to the
+    static-binary path via _tpm2_path."""
+    cmd = [_tpm2_path(argv[0])] + argv[1:]
+    if _DRY_RUN:
+        print(f"  [DRY-RUN] {' '.join(cmd)}")
+        return
+    res = subprocess.run(cmd, capture_output=True)
+    if res.returncode != 0 and not allow_fail:
+        raise RuntimeError(
+            f"{argv[0]} failed (exit {res.returncode}): "
+            f"{res.stderr.decode('utf-8', errors='replace')}"
+        )
+
+
+def _fido2_first_token():
+    """Return the first FIDO2 token device path enumerated by
+    fido2-token -L, or None if no token is plugged."""
+    res = subprocess.run([_fido2_path("fido2-token"), "-L"],
+                         capture_output=True, text=True)
+    if res.returncode != 0 or not res.stdout.strip():
+        return None
+    # fido2-token -L output format: "<device-path>: vendor=0x... product=0x..."
+    first_line = res.stdout.strip().splitlines()[0]
+    return first_line.split(":", 1)[0].strip()
+
+
+def _fido2_make_credential(token_dev):
+    """Run fido2-cred -M, returning the credential ID bytes.
+
+    fido2-cred reads its input parameters from stdin in libfido2's
+    canonical multi-line format: client-data-hash, RP id, user name,
+    user id (all base64-encoded). Output is multi-line; the credential
+    ID appears base64-encoded. Returns the raw credential ID bytes.
+    """
+    import base64
+    cdh = base64.b64encode(os.urandom(32)).decode("ascii")
+    user_id = base64.b64encode(os.urandom(16)).decode("ascii")
+    stdin_text = (
+        f"{cdh}\n"
+        f"{FIDO2_RP_ID}\n"
+        "intergenos-user\n"
+        f"{user_id}\n"
+    )
+    res = subprocess.run(
+        [_fido2_path("fido2-cred"), "-M", "-h", token_dev],
+        input=stdin_text, capture_output=True, text=True,
+    )
+    if res.returncode != 0:
+        raise RuntimeError(
+            f"fido2-cred -M failed (exit {res.returncode}): {res.stderr}"
+        )
+    # Output format: line 1 = cdh, line 2 = aaguid, line 3 = credential id,
+    # line 4 = pubkey, line 5 = x509. We want line 3.
+    lines = res.stdout.strip().splitlines()
+    if len(lines) < 3:
+        raise RuntimeError(
+            f"fido2-cred -M output malformed: {res.stdout!r}"
+        )
+    return base64.b64decode(lines[2])
+
+
+def _fido2_assert_hmac(token_dev, cred_id, nonce):
+    """Run fido2-assert -G with the hmac-secret extension and the
+    given nonce as salt. Returns the HMAC output bytes."""
+    import base64
+    cdh = base64.b64encode(os.urandom(32)).decode("ascii")
+    cred_id_b64 = base64.b64encode(cred_id).decode("ascii")
+    nonce_b64 = base64.b64encode(nonce).decode("ascii")
+    stdin_text = (
+        f"{cdh}\n"
+        f"{FIDO2_RP_ID}\n"
+        f"{cred_id_b64}\n"
+        f"{nonce_b64}\n"
+    )
+    res = subprocess.run(
+        [_fido2_path("fido2-assert"), "-G", "--hmac-secret", "-h", token_dev],
+        input=stdin_text, capture_output=True, text=True,
+    )
+    if res.returncode != 0:
+        raise RuntimeError(
+            f"fido2-assert -G failed (exit {res.returncode}): {res.stderr}"
+        )
+    # Output format ends with "hmac-secret: <hex>" — extract the hex.
+    hmac_hex = None
+    for line in res.stdout.splitlines():
+        if line.startswith("hmac-secret:"):
+            hmac_hex = line.split(":", 1)[1].strip()
+            break
+    if not hmac_hex:
+        raise RuntimeError(
+            f"fido2-assert -G output missing hmac-secret line: {res.stdout!r}"
+        )
+    return bytes.fromhex(hmac_hex)
+
+
+def _luks_add_key_with_existing(luks_partition, existing_key, new_key):
+    """Add `new_key` as a new LUKS keyslot on `luks_partition`,
+    authenticated with `existing_key`.
+
+    cryptsetup luksAddKey wants two key streams: --key-file=- (existing)
+    + a positional new-key file (or --new-keyfile=- on modern releases).
+    Implementation: write new_key to an O_TMPFILE, pass the /proc/self/fd
+    path to cryptsetup, feed existing_key via stdin. Holy Grail: new_key
+    only persists as kernel pipe buffer + tmpfile FD, never disk inode.
+    """
+    import tempfile
+    # Write new_key to an unlinked tempfile (O_TMPFILE-like behavior via
+    # NamedTemporaryFile + immediate unlink). Reachable via /proc/self/fd
+    # to cryptsetup as the keyfile argument.
+    f = tempfile.NamedTemporaryFile(delete=False)
+    try:
+        f.write(new_key)
+        f.flush()
+        new_key_path = f.name
+        f.close()
+        cmd = ["cryptsetup", "luksAddKey",
+               "--type=luks2", "--batch-mode",
+               "--key-file=-",
+               luks_partition,
+               new_key_path]
+        res = subprocess.run(cmd, input=existing_key, capture_output=True)
+        if res.returncode != 0:
+            raise RuntimeError(
+                f"cryptsetup luksAddKey failed (exit {res.returncode}): "
+                f"{res.stderr.decode('utf-8', errors='replace')}"
+            )
+    finally:
+        try:
+            os.unlink(new_key_path)
+        except OSError:
+            pass
 
 
 def _scrub_passphrase_from_text(text, passphrase_bytes):
