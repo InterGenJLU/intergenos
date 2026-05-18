@@ -556,7 +556,8 @@ def run_declarative(yaml_path, install_io, archive_dir, packages_dir, dry_run):
             for n, msg in result.failed_packages:
                 print(f"         FAILED: {n}: {msg}")
         print("       Reboot, remove the install media, and (if EFI) follow the")
-        print("       MokManager prompts to enroll the InterGenOS vendor cert.")
+        print("       MokManager prompts to enroll your machine's MOK with the")
+        print("       firmware. See docs/users/secure-boot-and-mok.md.")
         return 0
 
     if result.integrity_aborted_at:

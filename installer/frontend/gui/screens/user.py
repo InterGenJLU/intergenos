@@ -46,8 +46,12 @@ class UserPage(_ForgePage):
         box.append(_labeled("Root password", self._root_pw_entry))
         box.append(_labeled("Confirm root password", self._root_pw_confirm_entry))
         box.append(_labeled(
-            "Secure Boot MOK enrollment password (one-time, EFI only — leave "
-            "empty to skip)",
+            "MOK enrollment password (one-time, EFI only — leave empty to "
+            "skip MOK enrollment). Forge generates a per-machine MOK at "
+            "install; this password is what you type at first boot when "
+            "MokManager prompts you, to register your MOK with the "
+            "firmware. See docs/users/secure-boot-and-mok.md for the full "
+            "first-boot walkthrough.",
             self._mok_pw_entry,
         ))
 

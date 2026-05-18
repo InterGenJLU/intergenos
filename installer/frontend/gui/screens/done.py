@@ -27,8 +27,10 @@ class DonePage(_ForgePage):
         self._status.set_title("Install complete")
         self._status.set_description(
             "Remove the install media and click Reboot now. On EFI systems "
-            "you'll be prompted to enroll the InterGenOS vendor cert via "
-            "MokManager on first boot."
+            "the firmware will run MokManager at first boot — enter your "
+            "MOK enrollment password to register your machine's signing "
+            "key. See docs/users/secure-boot-and-mok.md for the full "
+            "first-boot walkthrough."
         )
         return self._status
 
