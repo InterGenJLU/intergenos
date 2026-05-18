@@ -7,7 +7,7 @@ It is written for users who want to understand the encryption model — what is 
 ## The 30-second version
 
 - Full disk encryption is **opt-in**, not default. The Forge installer asks; you choose.
-- The format is **LUKS2** with a passphrase. TPM2-sealed unlock and FIDO2-token unlock are ratified as **EXPERIMENTAL** v1.0 sub-options but are not yet wired into the installer UI in the first v1.0 cut; the passphrase path is the only opt-in available right now.
+- The format is **LUKS2** with a passphrase. TPM2-sealed unlock and FIDO2-token unlock are wired as **EXPERIMENTAL** v1.0 sub-options that compose with the passphrase — pick any combination; the passphrase slot is always retained as the unconditional fallback.
 - Your passphrase is **never written to disk** outside the LUKS header slot itself, never logged, and never sent anywhere. There is no InterGenOS-side recovery key escrow.
 - The encrypted volume holds the entire root filesystem. The ESP (the small boot partition) is not encrypted — it cannot be, because the firmware needs to read it before any operating system is running. Secure Boot signature verification on the UKI handles the integrity of that surface.
 - At boot, a small InterGenOS-branded prompt asks for your passphrase. Three attempts, then a recovery shell.
@@ -43,21 +43,26 @@ When you run the Forge installer (TUI or GUI), the partitioning stage offers an 
 
 The passphrase you type is held only in memory while the install runs. It is piped to `cryptsetup` via stdin (never on the command line, never in argv), zeroized after use, and cleared from the installer's state on both the success and the failure path. No copy is written to disk except in the LUKS header slot itself.
 
-The two EXPERIMENTAL unlock methods that D-001 ratifies — TPM2-sealed unlock and FIDO2-token unlock — are described below. They are part of the ratified v1.0 scope but are *not yet wired into the installer UI* in the first v1.0 cut. The passphrase path is the only opt-in available right now; the EXPERIMENTAL sub-options will appear as additional checkboxes in a later release without changing the passphrase-path behavior.
+Two EXPERIMENTAL unlock methods compose with the passphrase: **TPM2-sealed unlock** (sub-checkbox under the encryption opt-in) and **FIDO2-token unlock** (separate sub-checkbox). Both add an additional LUKS key slot at install time *alongside* the passphrase slot — the passphrase is never replaced, only augmented. The TPM2 sub-checkbox is greyed out with a tooltip if your hardware does not expose a TPM (`/dev/tpmrm0` absent) or if the live ISO is missing the static TPM2 tools. The FIDO2 sub-checkbox is always visible when LUKS is selected; the token does not need to be plugged in at the moment the checkbox appears, only when enrollment runs (you will be prompted to plug + touch it).
 
-### EXPERIMENTAL — TPM2-sealed unlock (planned, not yet wired)
+### EXPERIMENTAL — TPM2-sealed unlock
 
-When the **Unlock with TPM2 (EXPERIMENTAL)** checkbox appears in a future release, Forge will seal a random key against the current measured-boot state (specific PCR values that include the firmware, the bootloader, and the kernel). The system will unlock automatically as long as that boot path is unchanged.
+If you tick **Unlock with TPM2 (EXPERIMENTAL)**, Forge seals a fresh 32-byte random key against the current measured-boot state, adds that key as an additional LUKS slot, and writes the sealed-blob triplet `{primary.ctx, secret.pub, secret.priv}` to the ESP under `/intergen/tpm2/`. The seal is bound to a PCR0 + PCR7 policy: **PCR0** tracks the firmware (BIOS/UEFI code), and **PCR7** tracks Secure Boot policy state (the db/dbx/KEK/MOK enrollment status). On normal boots the system unlocks automatically without prompting for a passphrase.
 
-This is flagged EXPERIMENTAL for v1.0 because the failure modes are subtle: a firmware update, a Secure Boot reconfiguration, or even certain GRUB updates change the PCRs and invalidate the seal, at which point the system falls back to the passphrase. The user-experience cost of *thinking* you are TPM-unlocked and then suddenly being prompted is real, and we want more bake time before recommending this for general use.
+This is flagged EXPERIMENTAL for v1.0 because the failure modes are subtle. A firmware update changes PCR0; an MS-signed kernel update that touches your shim/MOK state can change PCR7; a Secure Boot reconfiguration changes PCR7. Any of these invalidates the seal, and the boot falls through to the next configured method (FIDO2, if enrolled) and ultimately to the passphrase prompt. The user-experience cost of *thinking* you are TPM-unlocked and then suddenly being prompted is real, and we want more bake time before recommending this for general use.
 
-The passphrase slot will stay in the LUKS header; the TPM seal is added, not substituted. If the TPM rejects the unseal, the boot prompt asks for the passphrase exactly as in the passphrase-only flow.
+The sealed blob written to the ESP is not a secret: without the specific TPM that performed the seal (and with the same PCR0/PCR7 state), the blob is useless. You can copy it for backup if you want, but it cannot be unsealed on any other machine. The passphrase slot remains untouched; if the TPM rejects the unseal, the boot prompt asks for the passphrase exactly as in the passphrase-only flow.
 
-### EXPERIMENTAL — FIDO2-token unlock (planned, not yet wired)
+### EXPERIMENTAL — FIDO2-token unlock
 
-When the **Unlock with FIDO2 (EXPERIMENTAL)** checkbox appears in a future release, Forge will derive a key from a token-signed challenge against a FIDO2 security token (YubiKey, Solo, Nitrokey, etc.) and add a LUKS key slot for it. At boot, the unlock step will expect the token to be plugged in; touching the token will release the key.
+If you tick **Unlock with FIDO2 token (EXPERIMENTAL)**, Forge enrolls a credential on a FIDO2 security token (YubiKey, Solo, Nitrokey, etc.) plugged in during the install. Enrollment runs in two interactive steps:
 
-This is flagged EXPERIMENTAL for the same reasons as the TPM2 path: the failure modes (lost token, dead battery on the token, firmware changes on the token) are recoverable but unfamiliar. The passphrase slot will stay in the LUKS header for fallback.
+1. **Generate credential**: `fido2-cred -M` creates a new credential on the token. You will be prompted to touch the token when it blinks.
+2. **Derive unlock key**: a fresh 32-byte random nonce is generated, `fido2-assert -G --hmac-secret` is invoked with that nonce as salt, and the token returns an HMAC output bound to the credential and the nonce. You will be prompted to touch the token a second time. The HMAC is added as an additional LUKS slot.
+
+Forge writes `{cred_id, stored_nonce}` to the ESP under `/intergen/fido2/`. Neither file is a secret: without the physical token, the credential ID and the salt are useless. The relying-party ID is `intergenos`. At boot, the same `fido2-assert` call against the same nonce yields the same HMAC bytes, which unlock the slot.
+
+This is flagged EXPERIMENTAL for the same family of reasons as the TPM2 path: a lost token, a firmware update on the token that rotates the underlying credential storage, or a token swap all invalidate the slot. The passphrase slot stays in the LUKS header for fallback.
 
 ## The boot-time flow
 
@@ -76,6 +81,22 @@ When an encrypted InterGenOS system boots, the path looks like this:
         │
         ▼
    InterGenOS — encrypted root unlock
+        │
+        │  read /etc/crypttab options (field 4) for "tpm2" / "fido2"
+        │  mount ESP read-only at /esp (by IGOS_ESP label, fallback scan)
+        ▼
+   Try TPM2 unlock (if enrolled + /dev/tpmrm0 present)
+        │  tpm2_load + tpm2_unseal against PCR0+PCR7 policy
+        │  → pipe unsealed bytes to cryptsetup-static --key-file=-
+        │  on any failure: fall through
+        ▼
+   Try FIDO2 unlock (if enrolled + tools available)
+        │  wait up to 30s for the token to enumerate
+        │  fido2-assert -G --hmac-secret against stored nonce
+        │  → pipe HMAC to cryptsetup-static --key-file=-
+        │  on any failure: fall through
+        ▼
+   Passphrase prompt (always the final fallback)
    Enter passphrase: _              (three attempts; the prompt lives in
         │                            installer/init/fde-init.sh and runs
         │  cryptsetup open           inside the signed UKI envelope)
@@ -87,7 +108,7 @@ When an encrypted InterGenOS system boots, the path looks like this:
    systemd PID 1 — normal boot continues
 ```
 
-The prompt you see at boot is plain text:
+If neither TPM2 nor FIDO2 was enrolled, the chain skips straight to the passphrase prompt — the unlock path is identical to a passphrase-only install. The prompt you see in that case is plain text:
 
 ```
   InterGenOS — encrypted root unlock
@@ -97,7 +118,19 @@ Enter passphrase for /dev/disk/by-uuid/<uuid>:
 
 Three wrong attempts drops you into a recovery shell with `cryptsetup` available. From the recovery shell you can retry the unlock manually, inspect `/etc/crypttab`, or reboot.
 
-The FDE initramfs is tiny — a static `cryptsetup` binary, a static `busybox`, the `dm_crypt` and `ext4` kernel modules, and the storage drivers needed to see your disk. It does no logging, no telemetry, no network. Its only job is to prompt you, unlock the LUKS volume, mount the root filesystem, and hand off to systemd.
+The FDE initramfs is tiny — a static `cryptsetup` binary, a static `busybox`, the `dm_crypt` and `ext4` kernel modules, and the storage drivers needed to see your disk. When TPM2 or FIDO2 unlock is enrolled, the initramfs also carries the static `tpm2-tools` / `fido2-tools` binaries and the corresponding kernel modules (`tpm`/`tpm_tis`/`tpm_crb` for TPM2; `usbhid`/`hid_generic` for FIDO2). It does no logging to disk, no telemetry, no network — its only job is to attempt the unlock chain, mount the root filesystem, and hand off to systemd.
+
+### Debugging the unlock chain
+
+The fde-init script emits journal-grep-friendly prefixes when running EXPERIMENTAL methods. From a recovery shell or post-boot, you can correlate each attempt by searching for the prefix:
+
+| Prefix | What it means |
+|---|---|
+| `[fde-init][EXPERIMENTAL TPM2]` | TPM2 unlock attempt — outcomes include `skipping` (no `/dev/tpmrm0`, no tools, or no sealed blob on ESP), `attempting unlock via sealed key (PCR0+PCR7)`, `tpm2_load failed`, `tpm2_unseal | cryptsetup failed (PCR drift? broken seal?)`, or `unlock succeeded`. |
+| `[fde-init][EXPERIMENTAL FIDO2]` | FIDO2 unlock attempt — outcomes include `skipping` (no tools or no metadata), `attempting unlock — plug your security token + touch when it blinks`, `no FIDO2 token detected within 30s`, `fido2-assert | cryptsetup failed (token-not-touched? wrong token? firmware changed?)`, or `unlock succeeded`. |
+| `[fde-init]` (no `EXPERIMENTAL` suffix) | Passphrase prompt path, the recovery-shell drop, and root-mount errors. |
+
+These messages go to the console during early boot. After the system is up, they are also captured by systemd-journald and remain available via `journalctl -b | grep fde-init`.
 
 ## Composition with Secure Boot
 
@@ -197,8 +230,8 @@ The recovery shell has no network access and no logs. It is intentionally minima
 | Boot prompt asks for passphrase but every attempt fails | Wrong passphrase, or keyboard layout differs at boot from inside the OS | Confirm the layout. The FDE initramfs uses the US-QWERTY layout by default; if your passphrase contains layout-sensitive characters, type the QWERTY equivalents. |
 | Boot drops straight to the FDE recovery shell with "no LUKS volume specified" | `/etc/crypttab` was not written, or the install did not complete the encryption stage | From the recovery shell, inspect `/etc/crypttab` (`cat /etc/crypttab`). If empty, the install did not enable encryption; boot a live ISO and reinstall. |
 | Boot drops to the FDE recovery shell with "LUKS volume not found after 30s wait" | The disk did not enumerate in time (failing drive, USB-attached storage, RAID controller slow init) | From the recovery shell, run `ls /dev/disk/by-uuid/` to see what is visible. If the volume appears, retry `cryptsetup open` manually. If not, the disk is the problem. |
-| TPM2-sealed unlock prompts for passphrase instead of unsealing (applies once TPM2 unlock is wired — see EXPERIMENTAL above) | PCRs have changed (firmware update, GRUB update, Secure Boot reconfiguration) | Enter the passphrase to boot, then re-seal: see the TPM2-reseal runbook (separate document). |
-| FIDO2 unlock does not detect the token (applies once FIDO2 unlock is wired — see EXPERIMENTAL above) | Token not plugged in early enough, or token battery dead | The FDE initramfs waits up to 30 seconds for the device to enumerate. Plug the token in before boot. For battery-dead tokens, fall back to the passphrase. |
+| TPM2-sealed unlock falls through to passphrase | PCR0 or PCR7 has changed (firmware update, Secure Boot reconfiguration, shim/MOK update) | Enter the passphrase to boot. To re-seal against the new PCRs, see the TPM2-reseal runbook (separate document). Check journal: `journalctl -b | grep '\[EXPERIMENTAL TPM2\]'` for the specific outcome (`tpm2_load failed` vs `tpm2_unseal | cryptsetup failed (PCR drift?)`). |
+| FIDO2 unlock does not detect the token | Token not plugged in early enough, or token battery dead | The FDE initramfs waits up to 30 seconds for the device to enumerate. Plug the token in before boot. For battery-dead tokens, fall back to the passphrase. Check journal: `journalctl -b | grep '\[EXPERIMENTAL FIDO2\]'`. |
 | `cryptsetup luksAddKey` says "No key available with this passphrase" | The passphrase you entered does not match any existing slot | Try other passphrases you have set. If none work, you are in the [forgot-passphrase](#i-forgot-my-passphrase) case. |
 | The ESP filled up on a kernel upgrade and the new UKI was not written | UKI generation logs ESP-full and skips; the previous kernel's UKI remains the default | `pkm remove linux-kernel-<old-version>` to free space, then re-run the post-install hook for the current kernel. See `/var/log/intergen-kernel-postinstall.log` for the underlying messages. |
 
