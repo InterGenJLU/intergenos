@@ -2,17 +2,31 @@
 
 **Audience:** maintainers who hold the signing token and need to sign a release-grade artifact set after a clean build.
 
+## Scope (what this doc covers vs. what it doesn't)
+
+This doc covers **release-grade artifact signing** — the artifacts that ship in the public ISO + index. It does NOT cover:
+
+- **Shim signing** — InterGenOS ships Fedora's pre-signed shim (Fedora-piggyback path ratified day-0 per `docs/owner-directives.md` D-002). We do not sign our own shim for v1.0 ship; the parallel `rhboot/shim-review` PR submission produces our own MS-signed shim for later releases.
+- **Installed-system per-kernel UKI signing** — Installed systems regenerate + sign UKIs at kernel install/upgrade time using the **user's local MOK key**, not the release PIV slot 9c (per `docs/owner-directives.md` D-005, UKI parity Option A). That flow runs inside `packages/core/linux-kernel`'s post_install hook on the user's machine; the InterGenOS PIV slot 9c key NEVER leaves HQ.
+- **Module signing** — Runs inside the kernel build with an ephemeral per-build key that never touches the hardware token. See topic 02 for kernel-build context.
+
 ## Goal
 
 Sign three classes of release artifact, on an offline signing workstation, with hardware-backed keys:
 
 1. **pkm repo index** (`InterGenOS.db`) — GPG detached signature with the release subkey (release-grade PGP).
-2. **Kernel UKI binaries** (`igos-live.efi`, `igos-install-gui.efi`, `igos-install-tui.efi`) — Authenticode signatures via `sbsign` against the vendor X.509 cert backed by the PIV applet, slot 9c.
+2. **Kernel UKI binaries** (`igos-live.efi`, `igos-install-gui.efi`, `igos-install-tui.efi`) — Authenticode signatures via `sbsign` against the vendor X.509 cert backed by the PIV applet, slot 9c. The 3-UKI scope is canonical (live ISO + install-gui + install-tui) — this matches the live ISO output of `scripts/build-iso.sh`. Earlier versions of `sign-release.sh` silently skipped the install-gui + install-tui UKIs due to an incomplete glob; this regression class is closed by the post-sign count assertion described in step 4 below.
 3. **GRUB EFI binary** (`grubx64.efi`) — Authenticode signature with the same PIV key.
 
-Module signing is not handled here — it runs inside the kernel build with an ephemeral per-build key that never touches the hardware token (see topic 02 for kernel-build context).
-
 The entry point is `scripts/sign-release.sh`. The script accepts staged unsigned artifacts and emits signed artifacts plus detached signatures to a clean output directory.
+
+## Composes with directives
+
+This ceremony composes with these binding ratifications at `docs/owner-directives.md`:
+
+- **D-002** — Fedora-piggyback shim is the v1.0 ship path. We do not sign our own shim during this ceremony (see Scope).
+- **D-005** — Installed-system per-kernel UKIs are signed by the user's local MOK at the user's machine, NOT here. This ceremony signs the live ISO + install-* UKIs that ship in the public ISO.
+- **D-007** — SSH/root posture is enforced as a Class A ship-gate by `scripts/check-d007-compliance.sh` wired into `scripts/build-iso.sh phase_image`. That gate runs at ISO build time, separate from this release-signing ceremony. The signed artifacts produced here are consumed by the ISO build that runs the D-007 gate.
 
 ## Prerequisites
 
@@ -97,12 +111,14 @@ The script:
 
 1. Confirms token presence + PKCS#11 enumeration succeed.
 2. Confirms `--vendor-cert` X.509 matches the PKCS#11 key (avoids signing with the wrong key against the right cert — a class of error that previously cost about a day of debugging).
-3. For each artifact:
+3. Enumerates input UKIs by the canonical glob set (`*.uki.efi`, `igos-live.efi`, `igos-install-gui.efi`, `igos-install-tui.efi`, future `igos-install-*.efi` variants). Records the input count.
+4. For each artifact:
    - **InterGenOS.db** → `gpg --detach-sign --armor --local-user $GPG_KEY_ID InterGenOS.db` → emits `InterGenOS.db.asc` (the detached ASCII-armored signature).
-   - **UKI binaries** → `sbsign --engine pkcs11 --key "$INTERGENOS_PKCS11_URI" --cert "$VENDOR_CERT" --output <out>.efi <in>.efi` → emits the signed UKI.
+   - **UKI binaries** → `sbsign --engine pkcs11 --key "$INTERGENOS_PKCS11_URI" --cert "$VENDOR_CERT" --output <out>.efi <in>.efi` → emits the signed UKI. UKI shape is preserved through the sign operation (signature lands in the existing PE32+ certificate-table; `.linux`/`.initrd`/`.cmdline`/etc. sections untouched).
    - **grubx64.efi** → same sbsign invocation → emits the signed GRUB binary.
-4. Validates each signed binary with `sbverify --cert "$VENDOR_CERT"` and aborts if any verify-step fails.
-5. Writes a per-artifact log to `${OUTPUT}/sign.log` recording timestamp, input SHA, output SHA, signer identity.
+5. **Post-sign count assertion** — verifies `signed_uki_count == input_uki_count`. Catches the regression class where a new UKI variant is added (e.g., a future `igos-recovery.efi`) but the signing glob isn't extended; the assertion fires and the ceremony aborts rather than shipping with unsigned UKIs that the build-iso phase would then refuse-or-warn on.
+6. Validates each signed binary with `sbverify --cert "$VENDOR_CERT"` and aborts if any verify-step fails.
+7. Writes a per-artifact log to `${OUTPUT}/sign.log` recording timestamp, input SHA, output SHA, signer identity.
 
 ### 5. Verify the signed artifacts before transport
 
@@ -147,4 +163,6 @@ Same path as the unsigned-transport mechanism, in reverse. The signed bundle is 
 - `scripts/sign-release.sh` — canonical reference
 - `scripts/build-uki.sh` — produces the UKI envelope that gets signed
 - `scripts/build-grub-standalone.sh` — produces the unsigned grubx64.efi
+- `scripts/check-d007-compliance.sh` — Class A ship-gate at ISO build time per D-007; consumes the artifacts this ceremony produces
+- `docs/owner-directives.md` — D-002 (Fedora-piggyback shim), D-005 (installed-system UKI parity, user-MOK signing), D-007 (SSH/root/credentials posture)
 - The scdaemon-conf and no-manual-ceremony-steps operational notes — referenced above; read them before any signing pass
