@@ -49,6 +49,21 @@ class InstallMode(Enum):
 # Per Q6 partition math (signing_key_custody discussion).
 ALONGSIDE_MIN_ROOT_BYTES = 250 * 1024**3
 
+# ESP sizing — D-005 Phase B enforcement. Per directive: "ESP sizing.
+# Forge enforces minimum ESP headroom for multiple UKI generations
+# (per-kernel UKI ~80-150 MB; default keep-2-old-kernels target ~500 MB
+# minimum ESP)." 1 GB chosen as the canonical Forge default (industry
+# norm: Pop_OS uses 1 GB, Fedora 600 MB, Ubuntu 512 MB; D-005 + Phase D
+# LUKS FDE-initramfs raises the high-water mark, so 1 GB protects future
+# headroom without scope-creep).
+ESP_SIZE_MIB = 1024
+
+# Minimum disk size for an InterGenOS fresh install (v1.0). ESP + root
+# + a 16 GB user-data baseline. Forge refuses to partition disks smaller
+# than this; the operator picks a different target. Per D-005 Phase B
+# Forge ESP enforcement.
+FRESH_INSTALL_MIN_DISK_BYTES = 32 * 1024**3
+
 
 @dataclass
 class Disk:
@@ -148,20 +163,40 @@ def partition_disk(disk_path, efi=False):
     """Partition a disk for InterGenOS installation.
 
     Creates a GPT partition table with:
-    - EFI mode: ESP (512MB FAT32) + root (rest, ext4)
+    - EFI mode: ESP (1 GB FAT32, per D-005 Phase B sizing for UKI
+      retention) + root (rest, ext4)
     - BIOS mode: bios_grub (1MB) + root (rest, ext4)
+
+    Pre-checks (D-005 Phase B Forge ESP-size enforcement):
+    - Disk size MUST be >= FRESH_INSTALL_MIN_DISK_BYTES (32 GB). Smaller
+      targets fail closed with a clear RuntimeError before any
+      destructive write — the operator picks a different disk.
 
     Returns dict with partition paths.
     """
+    # D-005 Phase B pre-check: disk size sufficient for ESP + meaningful root
+    disk_size = _disk_size_bytes(disk_path)
+    if disk_size < FRESH_INSTALL_MIN_DISK_BYTES:
+        raise RuntimeError(
+            f"target disk {disk_path} is {_human_size(disk_size)} — "
+            f"below the v1.0 minimum of "
+            f"{_human_size(FRESH_INSTALL_MIN_DISK_BYTES)}. The D-005 "
+            f"UKI parity model needs ESP headroom for multiple kernel "
+            f"generations + LUKS FDE initramfs (Phase D). Pick a larger "
+            f"target disk."
+        )
+
     # Wipe existing partition table (routed through _run so dry_run is honored)
     _run(["wipefs", "-a", disk_path])
 
     if efi:
-        # GPT + EFI System Partition + root
+        # GPT + EFI System Partition + root. ESP sized per ESP_SIZE_MIB
+        # (D-005 Phase B). End offset = 1 MiB header + ESP_SIZE_MIB.
+        esp_end_mib = 1 + ESP_SIZE_MIB
         _run(f"parted -s {disk_path} mklabel gpt")
-        _run(f"parted -s {disk_path} mkpart ESP fat32 1MiB 513MiB")
+        _run(f"parted -s {disk_path} mkpart ESP fat32 1MiB {esp_end_mib}MiB")
         _run(f"parted -s {disk_path} set 1 esp on")
-        _run(f"parted -s {disk_path} mkpart root ext4 513MiB 100%")
+        _run(f"parted -s {disk_path} mkpart root ext4 {esp_end_mib}MiB 100%")
 
         # Determine partition paths (handles nvme vs sda naming)
         p1, p2 = _partition_paths(disk_path, 2)
@@ -436,6 +471,25 @@ def _partition_paths(disk_path, count):
     # NVMe drives use 'p' separator
     sep = "p" if "nvme" in disk_path or "mmcblk" in disk_path else ""
     return tuple(f"{disk_path}{sep}{i}" for i in range(1, count + 1))
+
+
+def _disk_size_bytes(disk_path):
+    """Return the size of a block device in bytes via lsblk.
+
+    Used by partition_disk()'s D-005 Phase B pre-check. Returns 0 on
+    lookup failure (lsblk error, missing device, parse error); callers
+    treat 0 as below the minimum threshold and abort cleanly.
+    """
+    try:
+        result = subprocess.run(
+            ["lsblk", "-bdn", "-o", "SIZE", disk_path],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode != 0:
+            return 0
+        return int(result.stdout.strip() or 0)
+    except (subprocess.TimeoutExpired, ValueError):
+        return 0
 
 
 def _human_size(bytes_val):
