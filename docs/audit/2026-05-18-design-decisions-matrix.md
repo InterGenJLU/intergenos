@@ -1011,7 +1011,134 @@ These are decisions captured in operational memory (or in the research staging a
 - #24 per-archive `.sig` (ratified 2026-05-12 deferral; remediation is artifact-sweep in `docs/mirror/design.md` + `mirror-publish.sh` + `apache-userdata-snippet.conf`)
 - (consider) #1 SHIM path (ratified 2026-04-18 direction-of-travel + interim; the "decide between (a)/(b)/(c)" framing is fresh-decision shape; should be reframed as fix-the-drift OR explicit confirmation of pivot)
 
-**Iter-2 will cross-check / FP-classify these 185 rows. Iter-3 will close gaps.**
+### Iter-2 verification + cross-check
+
+**Method:** 6 parallel sub-agents (matching iter-1 bucket split). Each verified all iter-1 rows in their bucket at cited code/doc/memory/git-log source; FP-hunted VIOLATED rows; produced UPSHIFT/DOWNSHIFT recommendations; cross-checked against installed-system + build-system iter-1 sections; surfaced adjacent gaps.
+
+**Topline iter-2:**
+- Rows verified at cited source: **100% — ZERO false positives across 218 iter-1 rows.** Sweep quality holds at cross-check.
+- UPSHIFT recommended: 6 (2 to HG ship-blocker; 4 to Class A drift)
+- DOWNSHIFT: 0
+- Reframes: 3 (D-002 wording / D-014 framing / decision #23 framing)
+- New adjacent rows: ~50 across all 6 buckets
+- Strong cross-coordinator concurrence: 7 items (three-way alignment on T0-2/T0-3/T0-4 + root-password + audit-style-hardening meta-rule + signing-key hardcoded + install-theming.sh divestment)
+- Cross-coordinator disagreement: 4 framing-only items (resolutions noted below)
+
+#### Iter-2 Upshifts
+
+**To HG ship-blocker (2):**
+1. **W-M-008 orchestrator never invokes shim-signed / never builds ISO** — 4-filter HG-grade: zero end-to-end attestation possible; shim-review Q22 reproducibility claim unsupportable; compounds W-K-014 (first-publish runbook describes never-exercised procedure). Currently T1-1 Critical → recommend HG. Two load-bearing distribution-side claims (orchestrator + publish runbook) are aspirational.
+2. **H-002 / L-015 / O-004 repos.conf INI vs JSON** — Prime Directive violation: `pkm/repo.py:148` JSON parse on INI shipped file → `JSONDecodeError` swallowed by bare except → silent fallthrough to `DEFAULT_REPOS`. User-added stanzas (private mirror, `gpg_verify = true`, disable upstream) are invisible. Failing closed to vendor-chosen URL with NO signal = hidden state. Security alignment doctrine rule 10 inverse-deny (denies user choice while forcing vendor fetch). Currently High → recommend HG.
+
+**To Class A drift (4):**
+3. **W-B13 installed-system signing-chain inversion** (was PROPOSED). `installer/backend/bootloader.py:117-148` signs grubx64 + every vmlinuz with **MOK private key** (per-machine user key) instead of distro EFI signing key from PIV slot 9c (matching `docs/mok-enrollment.md:26-50` ratified chain). Doctrinal inversion — per-machine user key vouches for distro chain instead of offline release-signing chain vouching for itself. Security alignment doctrine rules 3+8 violation. Recommend Class A drift; couples to T0-2 closure.
+4. **I-012 systemctl --global enable intergen.service** (was Low audit / downstream conflict). Direct violation of `docs/VISION.md:110` "AI is an optional service" ratification. Every newly-created user has intergen auto-enabled at package install. Combined with I-004 (no main loop) every user-login produces failing unit AND violates ratified posture. Recommend Class A drift; goes into trust-calibration list.
+5. **Alongside-install module docstring lies** (was DEFERRED). `installer/backend/disks.py:1-8` advertises both modes (`"Supports two install modes: 'fresh' ... 'alongside'"`); `install.py:343` hard-codes fresh-wipe; state.py lacks `mode` field. Audit N-001/N-002. **The deferral is ratified; the *advertising-as-supported* is the drift.** No-stub doctrine (Rule 21) violation. Recommend Class A drift-pair with N-001.
+6. **Audit-style hardening — per-finding NEVER bulk-apply** (was Class C memory-only). This is the **load-bearing meta-governor** for executing TODAY's remediation plan. If sub-agents act on the matrix's 28+ Class A items without per-finding operator ratification, the meta-rule itself becomes the next bug-window. Operationally-critical-for-RIGHT-NOW. Recommend Class A load-bearing.
+
+#### Iter-2 Reframes
+
+- **D-002 first-boot greeter "binary stub doesn't exist"** → "binary exists as 153-line bash script; unit ratified for DELETE per operator directive" (per installed-system iter-2 framing).
+- **D-014 GDM session-type policy** → NOT "decide between Wayland/Xorg/upstream." Wayland-only is RATIFIED in `docs/VISION.md:212` ("GNOME 49, KDE 6.8, COSMIC are all Wayland-only in 2026"). What remains is "explicit `WaylandEnable=true` belt-and-suspenders vs trust upstream default" — a 3-line config write, not an architectural fork. Recommend remove decision #20 from owner-queue or reframe.
+- **Decision #23 mirror hostname** → NOT a "two-option choice." Reality is **two complete competing implementations + 6 contradictory doc surfaces**: `scripts/publish-repo.sh` (repo.intergenos.org, subkey signing, symlink-swap) vs `scripts/mirror-publish.sh` (intergenstudios.com/mirror, MASTER fingerprint default, directory-rename). Plus `pkm/repo.py:78` + `README.md:161` + `docs/architecture/public-hosting-plan.md:16-18` + `docs/mirror/design.md:17-39` (which EXPLICITLY ratifies intergenstudios.com/mirror and rejects repo.intergenos.org — never-executed action item). **Decision IS ratified in design.md.** Remediation = artifact-sweep + delete one of two scripts. Same pattern as per-archive-sig sweep.
+
+#### Iter-2 high-signal new adjacent rows
+
+**Defensive-layer-bypass pattern (PROCESS — new Class A category recommendation).** Recurs at three known sites:
+- `config/systemd/sshd.service:29` `ExecStartPre=/bin/bash -c 'test -f /etc/ssh/ssh_host_ed25519_key || ssh-keygen -A'` first-boot keygen EXISTS but BYPASSED by build-time bake at `packages/core/openssh/build.sh:82` + `scripts/create-image.sh:280` (build-system iter-1 forensic). Squashfs-scrub also absent at `scripts/build-squashfs.sh:200-227` (third contributing site).
+- AppArmor enforce-mode profiles ship without `apparmor_parser -r` wiring (F-039 HG).
+- `safety.classify_command` imported but never invoked at `intergen/router.py:31` (I-029 HG); `intergen/tool_registry.py:99-115` checks only BLOCKED tier.
+
+Pattern shape: correct runtime defensive layer + earlier writer pre-populating protected state = layer disarmed. Worth its own matrix-discipline category.
+
+**SECURITY — NOPASSWD wheel-sudo on installed default user.** Operational docs prescribe NOPASSWD on build VM; no doctrine ratification of NOPASSWD on installed default user. Couples with I-035 (manage_services auto-sudoes) + F-004 (hardcoded password) + I-027 (CONFIRM tier never enforced) = LLM has root-equivalence one D-Bus message away. Confirmed at `installer/backend/users.py:18-21` regex-comment.
+
+**SECURITY — sshd `PermitRootLogin yes` BAKED at openssh package build.** `packages/core/openssh/build.sh:79` sed-replaces upstream `PermitRootLogin prohibit-password` to `yes` in post_install. Same package author + commit `ff9ed5f3` 2026-04-05 as the SSH host-key baking — same wrong-execution-context bug class per build-system iter-1 forensics. Drift FROM doctrine rule 4 + `docs/users/security-defaults.md:38-39`.
+
+**SECURITY — safetytier classifier consistency drift.** `intergen/safety.py:91-128` and `intergen/tools/run_command.py:26-67` ship DIFFERENT classifiers (mount / sudo / chmod / chown disagree). Doctrine implies a single classifier wired into all tool dispatch paths.
+
+**SECURITY — sshd.service ProtectSystem omission rationale (carveout).** `config/systemd/sshd.service:13-15` explicitly omits `ProtectSystem` / `ProtectKernelTunables` with rationale "SSH spawns user sessions that inherit the service's mount namespace — restricting the filesystem here would make the system unmanageable over SSH." This is a separately-considered tradeoff for sshd; the VIOLATED status against intergen.service (F-038) stands, but iter-1's blanket reading is over-broad. Recommend "doctrine-with-rationale-carveouts" row.
+
+**BOOT — installed-system kernel + GRUB signing key identity inversion** (Class A — was conflated with UKI-parity row). `installer/backend/bootloader.py:117-169` MOK-signs distro binaries instead of using PIV slot 9c distro EFI key.
+
+**BOOT — sbat.csv entry coverage on cycle-5 ISO.** `packages/core/grub/sbat.csv:1-3` ships 3 lines (SBAT Version + grub + grub.intergenos); missing shim, shim.intergenos, linux, kernel.intergenos per ratified 5-entry SBAT block. Also blocks UKI revocation (B-038).
+
+**BOOT — os-prober policy fork between Forge install (`config.py:167` ENABLED) vs create-image.sh QCOW2 (`:180` DISABLED).** RATIFIED-for-Forge-arm only; create-image.sh side unclear.
+
+**BUILD — create-image.sh has zero SOURCE_DATE_EPOCH discipline.** While `scripts/build-iso.sh` is EXEMPLARY (asserts SDE set, derives VOLID from it, locks every file mtime, computes deterministic VOLSERIAL), `scripts/create-image.sh` has zero references. Every Forge-installed disk image is non-reproducible. Third violation site beyond installed-system's A-012/A-025/A-044.
+
+**BUILD — build-squashfs.sh silent SOURCE_DATE_EPOCH fallback.** Line 46: `SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(date +%s)}"`. Unlike build-iso.sh which WARNS when SDE unset, build-squashfs silently consumes "now" — every two squashfs builds will differ by seconds elapsed. Squashfs goes INTO ISO; ISO reproducibility contingent on squashfs reproducibility; silent SDE fallback poisons chain upstream of build-iso's strict assertion.
+
+**BUILD — build-squashfs.sh does not scrub /etc/ssh/ssh_host_*.** `scripts/build-squashfs.sh:200-227` Clean-trash step truncates logs, empties /tmp, resets machine-id, clears bash history — but does NOT scrub SSH host keys. Third contributing site to F-002/F-008/G-004 persisted-key chain. Adding `rm -f "$CHROOT"/etc/ssh/ssh_host_*` to Clean-trash closes defense-in-depth gap.
+
+**BUILD — CI/CD posture essentially nil.** `.github/workflows/` contains a SINGLE workflow (`public-content-audit.yml`) running one audit script. No bash/python syntax CI, no build-orchestrator CI, no test-suite invocation, no SHA-pin verification, no reproducibility witness. Pre-push gate is the only authoritative check; `--no-verify` bypass catches nothing on the GitHub side.
+
+**BUILD — mirror-publish.sh embeds OFFLINE master fingerprint as DEFAULT.** `scripts/mirror-publish.sh:23` `GPG_KEY_FP="${GPG_KEY_FP:-5597A3E0...}"`. Master fingerprint is supposed to stay OFFLINE per `docs/signing-key.md` canon; release artifacts sign with subkeys S1-S4. Default operates against canon.
+
+**DOCS/MIRROR — Apache snippet IS the 4th per-archive-sig artifact.** `docs/mirror/apache-userdata-snippet.conf:80-83` has a dedicated `<FilesMatch "\.igos\.tar\.gz\.sig$">` cache rule that immutable-caches per-archive sigs for 1 week. Adjusts L-007 sweep accounting: **4 artifacts** to clean (design.md §3 + design.md §6 + mirror-publish.sh:115 + apache-userdata-snippet.conf:80-83), not 3 as iter-1 surfaced.
+
+**DOCS/MIRROR — Mirror-publish 6-surface fragmentation, not 3.** `scripts/mirror-publish.sh` vs `scripts/publish-repo.sh` disagree on EVERY axis (hostname, docroot, cPanel user, signing key, atomic-promote shape). Plus 4 doc surfaces (`pkm/repo.py:78`, `README.md:161`, `docs/architecture/public-hosting-plan.md:16-18`, `docs/mirror/design.md:17-39`). Decision #23 is wrong-framed; actual situation = "two competing implementations; pick one, delete other." Single owner-decision; multi-surface execution.
+
+**DOCS/MIRROR — `docs/operations/02-running-the-builder.md` (authored by this coordinator 2026-05-15) is itself a Rule 21 violation.** Line 7 + 155-156: describes `phase_image` invoking squashfs + ISO. `scripts/build-intergenos.sh:55-73` PHASES ends at `manifest`; no `phase_image` exists. The runbook violates the same rule (no-stubs) that triggered K-023/M-009. Self-audit catches the meta-pattern: documentation can drift faster than code when authoring is async + dispatched.
+
+**DOCS/MIRROR — `docs/operations/` vs `docs/operational/` directory drift.** 11 fleet docs at plural `docs/operations/` (authored 2026-05-15); singular `docs/operational/first-publish-runbook.md` from an earlier era. Two parallel namespaces; pick one and redirect/delete other.
+
+**INSTALLER — Locale generation gap (J-026 / C-010 Critical).** Installer collects locale, writes `locale.conf`, but never runs `localedef -i <base> -f UTF-8 <locale>` after `generate_locale()`. Audit row in T0-3 cluster; absent from this coordinator's INSTALLER section in iter-1.
+
+**INSTALLER — Phase ordering canonical drift.** `install.py:11-15` docstring says 12 phases; `install.py:17` misorders VERIFY; frontend `progress.py:25` says 12; canonical PHASE_ORDER at `install.py:52-66` is 13 phases. C-006 + C-048 audit refs.
+
+**INSTALLER — Hook framework source path (C-004 Critical).** `installer/backend/hooks.py:151-243` + `install.py:451` use flat manifest dir as `packages_dir`; post_install hooks never fire.
+
+**INSTALLER — Microcode initrd injection at install** (cross-bucket from BOOT). `create-image.sh:228-235` emits `initrd /boot/intel-ucode.img` in grub.cfg post-grub-mkconfig; `installer/backend/bootloader.py` does NOT mirror. Would propagate F-001 fix.
+
+**PARTITION — `/home` creation policy at install time.** No dedicated /home partition; `useradd -m` creates `/home/<user>` on root ext4. RATIFIED-implicit (v1.0 single-root scope); audit N-004 Medium.
+
+**PARTITION — `/var/log` policy.** Default-on root partition; journald handles rotation; no separate /var partition, no log size cap, no `/etc/journald.conf` override. UNKNOWN / RATIFIED-by-default; couples with doctrine rule 4.
+
+**PARTITION — `/tmp` on installed system.** No tmpfs `/tmp` mount unit shipped; installed-system uses default ext4 root for /tmp. UNKNOWN ratification; absence in `config.py` (no fstab tmpfs entry) + `packages/core/systemd/` (no tmp.mount override). Couples with N-003 swap (no swap + no tmpfs limit = OOM exposure).
+
+**AI/UX — intra-gschema button-layout conflict** (J-009 / J-028). `config/gsettings/90_intergenos.gschema.override:28` sets `button-layout='close,minimize,maximize:'` (close LEFT); `config/gsettings/92_intergenos-desktop.gschema.override:14` sets `'appmenu:minimize,maximize,close'` (close RIGHT). 92 wins lexicographically. Internal contradiction in gschema canon.
+
+**AI/UX — icon-theme contradiction in declared canon** (J-008 / J-029). Three layers declare three different icon themes: 90_intergenos.gschema `Papirus-Dark`; install-theming.sh writes dconf system-db `Cybernetic - Blue`; intergenos-theme/build.sh references Papirus-Dark in `[X-GNOME-Metatheme]`.
+
+**AI/UX — installer never invokes `xdg-user-dirs-update` for created users** (J-030). `create-image.sh:347-350` runs under live-mode `IMAGE_USER` chroot; `installer/backend/users.create_user()` runs no equivalent. Installed-system first-GNOME-login has empty Nautilus sidebar.
+
+**AI/UX — No `/etc/xdg/mimeapps.list`** (J-031). Default browser, PDF viewer, mailto handler all non-deterministic. Cross-cuts J-027 (firefox-broken-favorite) — single owner-decision should cover both.
+
+**AI/UX — GDM greeter dconf-defaults never shipped** (J-032). `90_intergenos.gschema.override:57-60` sets `banner-message-enable=true` / `banner-message-text='Welcome to InterGenOS'` under `[org.gnome.login-screen]`, but no `/etc/gdm/greeter.dconf-defaults` or `/etc/dconf/db/gdm.d/` ships. Login screen is plain upstream GDM.
+
+**AI/UX — Full UX absence at boot.** Three RATIFIED-INTENT artifacts (D-001 firstboot animation, D-030 Plymouth boot-splash, I-008 Sentinel UX) each individually flagged; COMBINED finding: freshly-installed InterGenOS bare-metal first boot shows bare kernel/systemd console → vanilla GDM → vanilla GNOME 49. None of the ECG-pulse / branded greeter / curated theme / Sentinel introduction fire on v1.0 path.
+
+**PROCESS — Forensic regression-introduction provenance audit standard.** When VIOLATED row identified, drift-introduction commit + author/agent + date-vs-doctrine arithmetic should be standard field. T0-4 SSH host-key forensic: 2 commits (`ff9ed5f3` 2026-04-05 openssh + `27ce4ca9` 2026-04-08 create-image), same agent model (Opus 4.6 1M context), 3 days apart, 5-6 weeks before doctrine ratification. Recommend matrix-discipline extension.
+
+**PROCESS — Vocabulary reconciliation.** Commit corpus "owner-direct" ~25 instances vs matrix "operator" throughout vs dispatch directive "owner-direct" — all refer to same human. Recommend keep "operator" in matrix-internal usage; commit-message vocabulary grandfathered.
+
+#### Iter-2 cross-coordinator concurrence (strong signals)
+
+- **T0-2 shim drift** — Windows-host + installed-system + build-system concur Class A. Build-system added `977db9b3` ratification commit + `docs/shim-review-submission.md` (637 lines) as in-tree evidence for own-MS-shim arm.
+- **T0-3 PARTUUID + no-installed-initramfs** — three-coordinator concur. Q-INIT commits `77b0b453`/`cfcdc82e`/`a12216a5` (all 2026-05-06) explicitly rejected dracut-uefi.
+- **T0-4 SSH host-key drift** — three-coordinator concur. Build-system uniquely surfaced 2-site forensics (`ff9ed5f3` + `27ce4ca9`) + disarmed ExecStartPre defensive layer at `config/systemd/sshd.service:29`.
+- **Root password hardcoded** (`packages/core/shadow/build.sh:70`) — three-coordinator concur. Path-4 retirement (`7900c94` 2026-04-29) stopped orchestrator default; package-level residual not stripped.
+- **Audit-style hardening per-finding rule** — three-coordinator concur on load-bearing meta-governor for executing today's plan.
+- **GPG trust topology hardcoded master fingerprint** — Windows-host + installed-system + build-system concur via multiple sites (`pkm/release-keys.json` only S1+S2 / `scripts/mirror-publish.sh:23` / `docs/mirror/design.md:147`).
+- **install-theming.sh divestment** — three-coordinator concur as cross-lane parking-lot needing unwinding (T0-7 cluster).
+
+#### Iter-2 cross-coordinator disagreement (resolution recommendations)
+
+1. **Path 4 retirement scope.** Windows-host iter-1 treated `7900c94` as fully closing root-password literal. Installed-system: orchestrator default stopped; package-level residual at `packages/core/shadow/build.sh:70` not stripped. **Resolution: adopt installed-system framing; Windows-host row should call out package-level residual explicitly.**
+2. **Per-archive `.sig` status framing.** Windows-host: RATIFIED with Class C drift to 3 artifacts. Installed-system: RATIFIED but design.md + apache snippet + mirror-publish.sh still aspirational. **Resolution: synonymous — adopt installed-system narrative wording.**
+3. **sshd.service hardening universality.** Windows-host iter-1 implies VIOLATED across all daemons including sshd. `config/systemd/sshd.service:13-15` rationale is deliberate (mount namespace inheritance for user sessions). **Resolution: matrix needs explicit "doctrine-with-rationale-carveouts" row.**
+4. **Swap default.** Windows-host: UNKNOWN. Installed-system: RATIFIED-implicit 2026-04-09 (2GB swap supported on bare metal; not default-on). **Resolution: Class B path-asymmetry — `create-image.sh` has 2GB swapfile; installer has none. Two paths, two policies.**
+
+#### Iter-2 synthesis notes for cross-coordinator reconciliation
+
+- **The HG-grade meta-finding for synthesis:** Two competing mirror-publish architectures (`publish-repo.sh` + `mirror-publish.sh`), neither ever executed, conflicting on every axis. Before first publish runs, exactly one must be canonical, the other deleted (or `_archive/`-dated). Mechanically more important than re-deciding hostname; **absence of a deletion is the bug.**
+- **Defensive-layer-bypass pattern** recurs across SECURITY (sshd keygen ExecStartPre), SECURITY (AppArmor enforce mode), AI/INTERGEN (safety.py classifier). Worth its own matrix-discipline category. Pattern shape: correct runtime layer + earlier writer pre-populating protected state = layer disarmed.
+- **Channel-is-truth-memory-is-cache** + **Audit-style hardening per-finding** rules together govern remediation-plan execution. Synthesis pre-condition: any "open" framing must show repo+memory+channel probe found no prior ratification; any apply must be per-finding ratified by operator with evidence.
+- **Decisions framed as choices that should be sweeps** (3 found): #3 (initramfs — already RATIFIED 2026-04-09; fix-the-drift in `installer/backend/config.py:155`); #23 (hostname — already RATIFIED in design.md; sweep 6 doc surfaces + delete one of 2 scripts); #24 (per-archive-sig — already RATIFIED 2026-05-12; sweep 4 artifacts).
+- **T1-1 wall-time estimate** (1-2 weeks in remediation plan) is likely **under-scoped**. Adding the 6-surface mirror-publish drift sweep + 2 SOURCE_DATE_EPOCH-discipline sites + runbook self-violation cleanup likely extends T1-1 to 2-3 weeks under per-finding-review discipline.
+
+**Iter-3 (gap-find — EXHAUSTIVE pass) dispatching next per established pattern.**
 
 ---
 
