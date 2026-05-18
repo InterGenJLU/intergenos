@@ -54,18 +54,57 @@ CMDLINE_FILE="/etc/kernel/cmdline"
 # fde-init.sh entry point from installer/init/fde-init.sh) instead of the
 # plain-install minimal microcode cpio.
 #
-# Phase D ACTIVATION DEPENDENCY: the FDE initramfs cpio must be built and
-# staged at FDE_INITRD_PATH by build-fde-initramfs.sh (not yet in tree —
-# see installer/init/fde-init.sh module header for the full activation
-# chain). Until the packager + cryptsetup-static package land, this hook
-# detects LUKS, logs the gap, and falls back to the plain UKI build (the
-# UKI will boot but without LUKS unlock — recovery via grub-loads-vmlinuz
-# with a manually-provided initramfs).
+# Phase D activation chain (now landed):
+#   /usr/lib/intergen/build-fde-initramfs.sh   — the packager (staged by
+#                                                scripts/chroot-build-bootloader.sh)
+#   /usr/lib/intergen/fde-init.sh              — the runtime entry point
+#                                                (staged by chroot-build)
+#   /usr/lib/intergen/cryptsetup-static        — statically-linked
+#                                                cryptsetup binary (output
+#                                                of packages/core/cryptsetup-static)
+#   /usr/lib/intergen/fde-initramfs.cpio.gz    — the cpio this hook bundles
+#                                                (regenerated per-kernel
+#                                                on every hook fire so pkm
+#                                                upgrade of linux-kernel
+#                                                stays in sync with new
+#                                                /lib/modules/$KVER)
+#
+# Regeneration on every hook fire ensures freshness across pkm-upgrade
+# kernel changes (the build-time cpio's modules would be stale otherwise).
+# If the packager or cryptsetup-static are absent (Phase D activation
+# chain incomplete on this host), the existing /usr/lib/intergen/
+# fde-initramfs.cpio.gz (if any) is used as-is; if no cpio exists, the
+# UKI is built without an FDE initramfs and the LUKS install will fail
+# to unlock at boot — recovery via grub-loads-vmlinuz with a manually-
+# provided initramfs per D-005 fallback semantics.
 FDE_INITRD_PATH="/usr/lib/intergen/fde-initramfs.cpio.gz"
+FDE_BUILDER="/usr/lib/intergen/build-fde-initramfs.sh"
+CRYPTSETUP_STATIC="/usr/lib/intergen/cryptsetup-static"
 IS_LUKS_INSTALL="no"
 if [ -f /etc/crypttab ] && grep -qE "^[^#]" /etc/crypttab 2>/dev/null; then
     IS_LUKS_INSTALL="yes"
     log "LUKS install detected (/etc/crypttab has active entries)"
+
+    # Regenerate FDE initramfs against the freshly-installed kernel's
+    # /lib/modules/$NEW_KVER. Required for pkm-upgrade correctness;
+    # build-time cpio is keyed to the original install's KVER and would
+    # ship stale modules after kernel upgrade. Graceful degrade if the
+    # activation-chain pieces are absent — fall through to whatever
+    # cpio (if any) exists at FDE_INITRD_PATH.
+    if [ -x "$FDE_BUILDER" ] && [ -x "$CRYPTSETUP_STATIC" ]; then
+        log "regenerating FDE initramfs for $NEW_KVER via $FDE_BUILDER"
+        if INIT_SCRIPT=/usr/lib/intergen/fde-init.sh \
+           BUSYBOX=/usr/bin/busybox.static \
+           CRYPTSETUP_STATIC="$CRYPTSETUP_STATIC" \
+           MODULES_DIR="/lib/modules/$NEW_KVER" \
+           "$FDE_BUILDER" "$NEW_KVER" "$FDE_INITRD_PATH" >/dev/null 2>&1; then
+            log "FDE initramfs regenerated at $FDE_INITRD_PATH"
+        else
+            log "WARNING: $FDE_BUILDER failed (exit $?) — using existing $FDE_INITRD_PATH if present"
+        fi
+    else
+        log "Phase D activation chain incomplete on this host (missing $FDE_BUILDER or $CRYPTSETUP_STATIC) — using existing $FDE_INITRD_PATH if present"
+    fi
 fi
 
 # Required tool: ukify (ships with systemd; systemd-pass2 has -D ukify=enabled).
@@ -121,7 +160,7 @@ if [ "$IS_LUKS_INSTALL" = "yes" ]; then
         UKIFY_ARGS+=("--initrd=$FDE_INITRD_PATH")
         log "bundling FDE initramfs ($FDE_INITRD_PATH) into UKI"
     else
-        log "LUKS install but $FDE_INITRD_PATH missing — Phase D activation chain incomplete. UKI will be built WITHOUT FDE initramfs; root unlock at boot will fail until build-fde-initramfs.sh + cryptsetup-static package land. grub-loads-vmlinuz fallback path with manual cryptsetup unlock is the operator recovery."
+        log "LUKS install but $FDE_INITRD_PATH missing AND regen-chain absent. UKI will be built WITHOUT FDE initramfs; root unlock at boot will fail. grub-loads-vmlinuz fallback path with manual cryptsetup unlock is the operator recovery per D-005 fallback semantics."
     fi
 else
     # Plain install — generic initramfs.img is optional

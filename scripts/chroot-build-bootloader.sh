@@ -52,6 +52,8 @@ for mode in live install-gui install-tui; do
     [ -f "$cmdline_file" ] || fail "cmdline missing: $cmdline_file"
 done
 [ -f /mnt/intergenos/installer/init/build-initramfs.sh ] || fail "initramfs build script missing"
+[ -f /mnt/intergenos/installer/init/build-fde-initramfs.sh ] || fail "FDE initramfs build script missing (D-005 Phase D activation)"
+[ -f /mnt/intergenos/installer/init/fde-init.sh ]      || fail "fde-init.sh missing (D-005 Phase D foundational artifact)"
 
 [ -x /mnt/intergenos/scripts/build-grub-standalone.sh ] || fail "build-grub-standalone.sh missing"
 [ -x /mnt/intergenos/scripts/build-uki.sh ]             || fail "build-uki.sh missing"
@@ -85,6 +87,44 @@ INIT_SCRIPT=/mnt/intergenos/installer/init/init.sh \
 BUSYBOX=/usr/bin/busybox.static \
 MODULES_DIR="/lib/modules/$FULL_KVER" \
     bash /mnt/intergenos/installer/init/build-initramfs.sh "$FULL_KVER" "$INITRAMFS"
+
+# ---- 2.5/3: FDE installed-system machinery (D-005 Phase D activation) -----
+# Stage fde-init.sh + build-fde-initramfs.sh into the chroot root at
+# /usr/lib/intergen/ so the installed system has both the runtime entry
+# point (baked into the FDE cpio) and the regen script (called by the
+# linux-kernel post-install hook on pkm-upgrade kernel changes). These
+# ship to every install regardless of whether LUKS was selected — they
+# are inert on plain-install systems (post-install hook detects absent
+# /etc/crypttab and skips the FDE path).
+#
+# Additionally, if cryptsetup-static is present in the chroot
+# (packages/core/cryptsetup-static landed by the build-system coordinator's
+# Phase D activation lane), bake the initial FDE initramfs cpio against
+# the freshly-built kernel so first-install LUKS systems boot without a
+# regeneration round-trip. Absent cryptsetup-static, log + skip — Phase
+# D activation chain is incomplete and the runtime hook will surface the
+# gap; plain installs are unaffected.
+echo ""
+echo "[bootloader 2.5/3] Staging FDE installed-system machinery..."
+mkdir -p /usr/lib/intergen
+cp -p /mnt/intergenos/installer/init/fde-init.sh           /usr/lib/intergen/fde-init.sh
+cp -p /mnt/intergenos/installer/init/build-fde-initramfs.sh /usr/lib/intergen/build-fde-initramfs.sh
+chmod +x /usr/lib/intergen/fde-init.sh /usr/lib/intergen/build-fde-initramfs.sh
+echo "  staged: /usr/lib/intergen/fde-init.sh"
+echo "  staged: /usr/lib/intergen/build-fde-initramfs.sh"
+
+if [ -x /usr/lib/intergen/cryptsetup-static ]; then
+    echo "  cryptsetup-static present — baking FDE initramfs for $FULL_KVER"
+    INIT_SCRIPT=/usr/lib/intergen/fde-init.sh \
+    BUSYBOX=/usr/bin/busybox.static \
+    CRYPTSETUP_STATIC=/usr/lib/intergen/cryptsetup-static \
+    MODULES_DIR="/lib/modules/$FULL_KVER" \
+        bash /usr/lib/intergen/build-fde-initramfs.sh "$FULL_KVER" \
+            /usr/lib/intergen/fde-initramfs.cpio.gz
+else
+    echo "  cryptsetup-static absent — D-005 Phase D activation chain incomplete; skipping FDE initramfs bake."
+    echo "  Plain installs unaffected. LUKS installs will fail to unlock at boot until packages/core/cryptsetup-static lands + chroot rebuild."
+fi
 
 # ---- 3/3: UKIs (one per boot mode, kernel + initramfs + per-mode cmdline) ----
 # Each UKI carries a sealed `.cmdline` section (igos.mode=...) so the
