@@ -805,25 +805,173 @@ These are decisions captured in operational memory (or in the research staging a
 
 ## Conflicts to surface to owner
 
-_(populated during synthesis pass — items where ratified decisions disagree, OR where shipped code violates a ratified decision)_
+Cross-coordinator synthesis of iter-1. Each coordinator's section above carries the full per-row evidence; this section is the consolidated, deduplicated list keyed to remediation-plan items.
 
 ### Class A — Drift FROM stated directives (highest priority — trust calibration)
-_(empty)_
+
+Grouped by remediation-plan cluster. Where multiple coordinators surfaced the same drift, the consolidated row cites all sources.
+
+**T0-2 cluster (signed boot chain):**
+1. **Shipped ISO ships SELF-SIGNED shim** (B-001 HG). RATIFIED 2026-04-18 D1-7 with both Fedora-piggyback bootstrap AND own MS-shim arms pre-authorized; cycle-5 wires neither. (Installed-system + Windows-host coordinators)
+2. **SBAT.csv ships only 3 of 6 ratified entries** (F-028). 6-line block ratified at Q-SBAT 2026-05-06. (Installed-system)
+3. **MokManager interim UX has no choreography** (B-043). Pattern A interim RATIFIED 2026-05-06. (Installed-system)
+
+**T0-3 cluster (installed-system boot):**
+4. **`installer/backend/config.py:154-155` emits `root=UUID=`** (B-041 Critical, B-026, B-028). PARTUUID + no-installed-system-initramfs RATIFIED 2026-04-08/09 + reinforced 2026-04-10 + 2026-05-06. `scripts/create-image.sh:148-150,177` correctly emits PARTUUID; Forge install-time diverges. **Operationally-open is fixing one line.** (Installed-system + Windows-host + build-system coordinators)
+5. **Microcode early-load never reaches the UKI** (E-001/E-002 HG, F-001). RATIFIED 2026-04-09 with `iucode_tool` early-load cpio at `/boot/intel-ucode.img`; `ukify` invocation only passes single `--initrd=` arg; cmdline path-typo `iucode_tool` vs `iucode-tool`. AMD microcode path GENUINELY OPEN (no `packages/core/amd-ucode/` ever authored). (Installed-system)
+
+**T0-4 cluster (default credentials + SSH posture + safety alignment):**
+6. **SSH host keys baked at build time** (F-002 / F-008 / G-004 HG). Two-site regression: `packages/core/openssh/build.sh:82` (`ff9ed5f3` 2026-04-05) + `scripts/create-image.sh:280` (`27ce4ca9` 2026-04-08). Both same model co-author trailer, same `post_install` mental-model bug. Defensive `ExecStartPre=` guard already in tree at `sshd.service:29` — fix is mechanical. **Squashfs scrub absent** — adding closes defense-in-depth gap. Cross-pattern audit needed across all `post_install()` hooks. (Build-system + installed-system + Windows-host coordinators)
+7. **Hardcoded `root:intergenos` residual in `packages/core/shadow/build.sh:70`** (F-004 HG). Path 4 retirement at `7900c941` stopped orchestrator default but did NOT strip package-level residual. (Installed-system + Windows-host)
+8. **sshd default-on post-install** (W-B32 / B-030, F-003 / G-021). `installer/backend/users.py:97` enables `sshd.service` unconditionally; `PermitRootLogin=yes` default. Combined with #6 = brute-force window on every install. (Windows-host)
+9. **AppArmor profiles ship without transitions** (F-039 HG, F-038, F-048, F-049). Enforce mode + aggressive daemon hardening baseline RATIFIED 2026-04-29; profiles in tree but no `apparmor_parser -r` wired; every InterGenOS-authored service violates the hardening baseline. (Installed-system + Windows-host)
+10. **nftables policy=accept on every chain** (G-005 HG). Doctrine rule 10 default-deny. (Installed-system + Windows-host)
+11. **Firewall posture inversion in install-theming.sh** (J-021, F-035). `install-theming.sh` writes policy=drop conflicting with canonical `core/nftables` policy=accept — two writers, opposite postures, sequence-dependent winner. (Installed-system + Windows-host)
+12. **intergen safety model is fiction** (I-005, I-027, I-028, I-029, I-030, I-035 HG, F-038). CONFIRM tier never enforced; env-var blanket loop accepts cloud-redirect; safety.py imported never invoked; D-Bus zero per-caller auth; `manage_services` auto-sudoes via passwordless wheel-sudo; `intergen.service` runs as root with zero systemd sandboxing. Aggregate: prompt-injected web-search result becomes root-on-disk one D-Bus message away. (Windows-host)
+13. **`systemctl --global enable intergen.service` violates AI-opt-in** (I-012). `VISION.md:110` "AI is an optional service" RATIFIED. Every newly-created user gets intergen auto-enabled at package install. (Windows-host)
+14. **Model SHA256 TOFU** (I-005 HG). All four shipped models have `sha256=""`; `verify_model()` records-and-trusts on first download — drift from supply-chain-no-TOFU doctrine rules 4+9. (Windows-host)
+
+**T0-5 cluster (pkm + mirror trust):**
+15. **`repos.conf` format collision** (H-002 / L-015 / O-004). `pkm/repo.py:148` parses with `json.load()` + bare `except` swallows `JSONDecodeError` → silent fallthrough to `DEFAULT_REPOS`. Removes user override path with no visible signal — Prime Directive violation. (Windows-host)
+16. **Mirror layout flat vs nested** (L-016). `docs/mirror/design.md` §2 + `pkm/repo.py:327-328` flat; `docs/operational/first-publish-runbook.md:79-93` nested `/packages/<pkg>`. (Windows-host)
+17. **Atomic-promote symlink vs directory** (L-009 / L-017). `docs/mirror/design.md` §6.7 ratified directory-rename; `publish-repo.sh:141-145` comment claims "directory swap" but L172-184 is symlink-swap. (Windows-host)
+18. **GPG trust topology — master fingerprint hardcoded as signer** (L-002 / L-027). Master-never-signs-releases RATIFIED 2026-05-05; `scripts/mirror-publish.sh:23` + `docs/mirror/design.md:147` hardcode master fingerprint as `GPG_KEY_FP`; `pkm/release-keys.json` only S1+S2, missing S3+S4. (Installed-system + Windows-host)
+19. **PIV slot 9c reference drift** (L-018). `docs/signing-key.md:20,24` — NK#1 slot 9c is X.509 EFI vendor cert (sbsign), NOT GPG; `scripts/mirror-publish.sh:60,148` + `docs/mirror/design.md:107,149` cite slot 9c for GPG signing. (Windows-host)
+20. **First-publish runbook never exercised** (L-001 HG, paired). Mirror signing/publishing infrastructure is fiction until first publish lands. (Windows-host)
+21. **`pkm sync` doc-vs-code drift** (K-017 Critical). 11+ user-doc invocations of `sudo pkm sync`; `pkm/cli.py:47` registers only `update`. (Windows-host)
+22. **`pkm reinstall` error-message drift** (H-010 ≈ O-001). `pkm/installer.py:71,76` prints "Use 'pkm reinstall'" — subcommand does not exist. (Windows-host)
+23. **Per-archive sig artifact propagation drift** (Class B above). RATIFIED 2026-05-12 v1.1+ deferral; `docs/mirror/design.md` + `mirror-publish.sh` + apache snippet still design for it. (Windows-host)
+
+**T0-6 cluster (legal posture):**
+24. **ffmpeg `license:` vs build flags** (P-015 HG ship-blocker). `package.yml:5` declares `LGPL-2.1-or-later`; `build.sh:13-33` invokes `--enable-gpl --enable-nonfree --enable-libfdk-aac` — non-redistributable. (Installed-system + Windows-host)
+25. **InterGenOS brand under default GPL-3** (P-017 Critical). No `TRADEMARK.md`; `assets/intergen-mark/` falls under root LICENSE — fork+rebrand+malware path. (Installed-system + Windows-host)
+26. **SBOMs claim wider than evidence** (P-007 — SPDX claim in `security-defaults.md:55`). Zero SPDX headers in 228 InterGenOS-authored source files; SBOM exists only for shim. (Installed-system)
+27. **Helper packages mislabel proprietary downstream** (P-006). 2026-04-05 design-pattern ratification: helper scripts under GPL-3, proprietary downstream not redistributed. Helper packages currently no `payload_license:` field, no EULA acceptance. (Installed-system)
+
+**T0-7 / theming cluster:**
+28. **22-package theming wave fail verify-sources** (J-018). RATIFIED 2026-05-14; all 22 missing tarball generators. (Installed-system)
+29. **libadwaita bridge as SYMLINKS** (J-005). RATIFIED 2026-05-14; `install-theming.sh:382-389` writes regular-file copy. (Installed-system)
+30. **`intergenos-default-settings` dead-letter on installed systems** (J-002 / J-017 / J-029, D-021 / D-026 High/Critical). 3 gschema override files copied only by `create-image.sh`; no package ships them; installer's `generate_all()` never copies them; build-squashfs.sh never runs `dconf update`; no `/etc/dconf/profile/user` lands in squashfs. (Windows-host)
+31. **install-theming.sh writes divergent `intergen-welcome` path** (J-001). Canonical `/usr/libexec/intergen-welcome/` established by package. (Windows-host)
+32. **First-boot greeter unit DELETE not executed** (D-002). RATIFIED 2026-05-17; .service + binary stub still in tree. (Installed-system + Windows-host)
+33. **Firefox dock favourite broken at install-tier** (J-027). Pinned in gschema (`d969f99a`); `firefox` is `tier:extra`, not in default install. (Windows-host)
+
+**Cross-cutting:**
+34. **`SOURCE_DATE_EPOCH` discipline violated** (A-012 / A-025 / A-044). POWER RULE 2026-05-14; `pkg-functions.sh:420` + `tracker.py:151,756` use plain `tar -czf`. (Installed-system)
+35. **Orchestrator never invokes squashfs / never builds ISO** (A-001 / A-002). `phase_squashfs` + `phase_iso` are operator-driven not orchestrator-driven — contradicts README phase-list framing. 80+ ad-hoc `build/spoc-*.sh` + `build/run-*.sh` kickoffs are the actual production pipeline. (Windows-host)
+36. **Reflexive Rule 21 violation in rulebook** (K-023 + M-009). `docs/build-development-rulebook.md:285` describes `scripts/check-aspirational-stubs.py` as part of Rule 21's detection apparatus — Glob returns no file. Rule-against-stubs is itself documented via a stub. (Windows-host)
+37. **`repo.intergenos.org` DNS state contested across 3 doc surfaces** (K-022 / L-003). `public-hosting-plan.md:16-18` claims provisioned 2026-05-11; audit L-003 asserts no DNS; `README.md:161` adds third framing. (Windows-host)
+38. **Bus-relay legacy ?key= form documented** (operational memory only — pre-push gate doesn't catch). Canonical is `X-Bus-Key:` header. (Windows-host)
+
+**META — channel-is-truth/memory-is-cache violation:** POWER RULE RATIFIED 2026-05-01. Remediation-plan synthesis pass defaulted to memory-recall instead of provenance-probe. **This matrix exists because of that drift.** Future "open" framings must show a memory-and-repo probe that returned no prior ratification. (Installed-system)
 
 ### Class B — Conflicting decisions across time (need owner re-ratification)
-_(empty)_
+
+1. **UKI live-ISO vs grub-loads-vmlinuz installed system** (W-B12 / W-B13). Two boot architectures coexist; only live ISO has UKI implementation. Owner-decision needed: extend Forge to emit + sign per-kernel UKI (parity) OR explicitly scope UKI to live ISO only. Couples to B-008 + B-013 + T0-5 step 5. (Windows-host)
+2. **Qwen3.5 tiered catalog vs P-016 license-refusal**. Two ratifications collide; until #18 lands, every audit reference to "Qwen3.5 tiers" is PENDING RE-RATIFICATION. (Windows-host)
+3. **F-037 verbose live cmdline** (KERN_DEBUG + journal-to-console). Was deliberate 2026-05-14 diagnostic; not v1.0-shippable. Owner-decision: strip for v1.0 OR route via separate `cmdline.live-debug.txt` flavor. (Build-system)
+4. **Alongside-install scope** (C-014). RATIFIED 2026-04-18 with non-trivial code (ntfs-3g, ntfsresize, parted, BitLocker detection); partially stripped 2026-05-15 in `f3d33e3b` "lie-fix install_mode/alongside_partition dead code." Current state ambiguous. (Build-system + installed-system)
+5. **vmlinuz signing path** (Class A class-borderline). `mok-enrollment.md` says distro-EFI X.509 signs; `bootloader.py` MOK-signs at install. Doc/code drift; which is ratified? (Installed-system)
+6. **Git-hygiene gate count drift** (7 vs 8). Operational memory cites 7; audit Lane M reports 8 active. Likely additions; memory needs update. (Windows-host)
 
 ### Class C — Decisions captured in memory but never reached the repo
-_(empty)_
+
+Items requiring `docs/operational-notes/` mirror or canonical-doc landing to close lifespan-of-decision risk:
+
+1. rEFInd kit shape (consensus-locked 2026-05-14) — no repo-side `packages/extra/refind/` or `docs/refind.md`
+2. Native-Linux witness boundary (Q22 reproducibility) — POWER rule 2026-05-06; shim-review PR's Q22 claim lacks public-doc backing
+3. Verify-link-graph-not-just-hash — POWER rule 2026-05-13; canonical audit script lives off-repo
+4. Audit-style hardening per-finding NEVER bulk-apply — POWER rule 2026-05-08 operator-direct ALL CAPS; no entry in build-development-rulebook
+5. Parallel sub-agent audit pattern — POWER rule 2026-05-18; memory-only
+6. Verify-procedure-on-fresh-state — POWER rule 2026-05-14; memory-only
+7. CRLF normalization reasoning (F17) — `.gitattributes` landed; reasoning in commit + memory only
+8. Bus-relay failover semantics (CF-403 retry-MCP-first + legacy-POST ghost-entry) — operationally critical; not in docs/operations/
+9. Per-archive-sig RFC AGREE provenance — chain of peer-review verdicts not in repo decision-log
+10. VPS source-tarball mirror as GPL §6 vehicle — described in research doc + consumed by code; no `SOURCES.md` or `COPYING.offer` entry
+11. ESP-on-Disk-1 Option B (multi-vantage RFC 2026-05-14) — no in-repo design doc declares the placement decision
+12. Zephyrus dual-disk install-target choice — no in-repo doc records v1.0 first-light target hardware
+13. No-initramfs-required kernel posture (kernel `=y` commits 2026-04 series) — encoded in commits; no consolidated design doc
+14. Dev-keys 4-filter chain pre-commit grep — tripwire patterns in memory; not wired as `.githooks/`
+15. `intergenos-keyring` package pattern — referenced 3× in `docs/repository-trust.md`; package does not exist in `packages/**`
+16. SSH host-key directive against baking — POWER memory 2026-05-14; canonical 10 covers fleet-secrets but NOT end-user host-keys explicitly; `docs/research/build_system/bare_metal_boot_issues_2026-04-08.md` still recommends the now-violating pattern. Stale research doc needs retraction stamp. (Build-system + Windows-host)
+17. Diagnostic flavor flag concept — only in build/ kickoff scripts; no doc treatment
+18. Microcode-load policy — only in old research docs; no canonical doc or operations doc surface
+19. Six governance/legal-posture doc gaps (PRIVACY.md / TRADEMARK.md / EXPORT-NOTICE.md / DCO.md / license-policy.md / SOURCES.md / THIRD-PARTY-NOTICES.md) — all absent
+20. Most other POWER rules — operator-only-ceremonies, complete-over-defer, verify-claimed-fixes, channel-is-truth, READ-channel-before-EVERY-post, etc. — live in coordinator memory with no repo-side doc
 
 ### Class D — Decisions in the repo but no provenance in memory
-_(empty)_
+
+1. mok-enrollment-runbook v1.3 amend §7 efibootmgr-verification scope — `5b1ac24d`; provenance likely held by another coordinator
+2. 2026-04 kernel `=y` commit series rationale — commit messages cite review chains; full deliberation trail likely in build-system coordinator memory
 
 ---
 
 ## Reconciliation against remediation plan
 
-_(Final pass — once matrix is populated, walk every item in `2026-05-18-remediation-plan.md` and mark each as: ALREADY RATIFIED (vaporize from open queue), CONFLICTS WITH RATIFIED (needs owner re-decision), or GENUINELY OPEN (proceed as plan item).)_
+Walk of the 38-item owner-decision queue from `2026-05-18-remediation-plan.md`. Each row tagged:
+
+- **ALREADY RATIFIED** — decision was made; remediation is fix-the-drift, not fresh decision. Vaporize from queue.
+- **REFRAME** — partially ratified; rewrite the question to the narrower residual.
+- **GENUINELY OPEN** — no prior ratification found in any coordinator's scope; proceed as plan item.
+
+| # | Plan item | Status | Citation / narrower residual |
+|---|---|---|---|
+| 1 | B-001 SHIM path | **ALREADY RATIFIED** | D1-7 piggyback + own-MS-shim arms pre-authorized 2026-04-18. Remediation is fix-the-drift (wire one of the two arms). |
+| 2 | B-006 measured-boot scope | **REFRAME** | TPM2+FIDO2 plumbed at systemd-pass2 (`04e36a75` 2026-05-08, Holy-Grail-tagged); only ACTIVATION policy genuinely open. |
+| 3 | B-008 / B-026 installed-system boot architecture | **REFRAME** | No-initramfs + PARTUUID RATIFIED 2026-04-08/09 + reaffirmed 2026-04-10 + 2026-05-06 Q-INIT. Narrower residual: "installer/backend/config.py:154-155 emits `root=UUID=` — fix to PARTUUID parity" (one-line). Plus: UKI parity for installed-system vs grub-loads-vmlinuz is GENUINELY OPEN as a separate question. |
+| 4 | A-002 / A-028 QCOW2 retirement | **GENUINELY OPEN** | Forge plan treats qcow2 as build-stage intermediate; no explicit RETIRE decision captured. |
+| 5 | A-004 dialog vs whiptail | **GENUINELY OPEN** | No prior ratification. |
+| 6 | C-014 alongside-install | **CONFLICTS** | RATIFIED keep+complete 2026-04-18 with non-trivial code; partially stripped 2026-05-15 in `f3d33e3b`. Current state ambiguous — operator re-ratification needed. |
+| 7 | F-013 / B-050 MOK TPM sealing | **GENUINELY OPEN** | Couples to #2. |
+| 8 | F-023 password aging | **GENUINELY OPEN** | Constrained by Path 3+4 zero-defaults posture; specific aging policy open. |
+| 9 | F-007 forge polkit scoping | **GENUINELY OPEN** | No prior ratification. |
+| 10 | G-005 default firewall service surface | **GENUINELY OPEN** | nftables service is in tree but default policy=accept VIOLATES Holy-Grail rule 10. Open: default-deny policy shape. |
+| 11 | E-018 SMT default | **GENUINELY OPEN** | No prior ratification. |
+| 12 | E-030 io_uring | **GENUINELY OPEN** | No prior ratification. |
+| 13 | E-040 BT_BREDR | **GENUINELY OPEN** | No prior ratification. |
+| 14 | E-032 LIVEPATCH | **GENUINELY OPEN** | No prior ratification. |
+| 15 | I-006 intergen service model | **GENUINELY OPEN** | Couples to #18. |
+| 16 | I-010 semantic layer disposition | **GENUINELY OPEN** | Couples to #15. |
+| 17 | I-015 large-model live-mode policy | **GENUINELY OPEN** | No prior ratification. |
+| 18 | T0-5 / P-016 Qwen substitute | **GENUINELY OPEN** | HG ship-blocker; Phi-4-mini mentioned `VISION.md:234` as candidate but not ratified as substitute. |
+| 19 | T0-6 / P-015 ffmpeg-nonfree-helper | **GENUINELY OPEN** | HG ship-blocker. |
+| 20 | D-014 GDM session-type | **REFRAME** | Wayland-only RATIFIED `VISION.md:212`; if question is about GREETER session-type specifically, reword. Otherwise vaporize. |
+| 21 | J-008 / J-009 / J-014 theming SSOT | **REFRAME** | Theme CHOICES RATIFIED 2026-05-03 A33 (InterGenOS theme + Cybernetic Blue + Bibata + prefer-dark). Narrower residual: MECHANISM (gschema vs dconf-system-db vs install-theming.sh as SSOT writer) GENUINELY OPEN. |
+| 22 | B-015 shim-review PR timing | **ALREADY RATIFIED** | 2026-05-22 stable across all surfaces; couples to #1. Vaporize or narrow to "do we slip" only. |
+| 23 | L-005 publish workflow / hostname | **REFRAME** | `repo.intergenos.org` hostname RATIFIED 2026-05-11 (TRACKER:100); 3 doc surfaces have drift on DNS state (K-022/L-003 — Class A) — fix the drift. Script-choice (publish-repo.sh vs mirror-publish.sh) GENUINELY OPEN. |
+| 24 | L-007 per-archive `.sig` | **ALREADY RATIFIED** | Signed-index-only v1.0; v1.1+ deferred. Closure commit `d6b3946a` 2026-05-12; `docs/architecture/per-archive-sig-decision.md`. Plus: 3-artifact propagation drift (Class B above) is fix-the-drift not re-decision. |
+| 25 | O-011 release-channel model | **GENUINELY OPEN** | No prior ratification. |
+| 26 | L-022 DR scope | **GENUINELY OPEN** | VPS DR endpoint exists; nightly-rsync scope genuinely open. |
+| 27 | P-001 GPL §6 path | **GENUINELY OPEN** | HG-class legal blocker; absence of `SOURCES.md` / `COPYING.offer`. |
+| 28 | K-017 `pkm sync` resolution | **GENUINELY OPEN** | Doc-vs-code drift heavily weighted toward alias-add (11+ user-doc invocations vs `cli.py:47` only registers `update`). |
+| 29 | P-002 LFS/BLFS attribution | **GENUINELY OPEN** | Version drift (`CREDITS` says 2.0; LFS book is 3.0 today) + commercial incompatibility (NC clause). |
+| 30 | P-003 fdk-aac | **GENUINELY OPEN** | Couples to #19. |
+| 31 | P-017 USPTO wordmark | **GENUINELY OPEN** | TRADEMARK.md gap is Class C; USPTO timing is separately open. |
+| 32 | N-018 encryption-at-rest at install | **GENUINELY OPEN** | LUKS / FDE not v1.0 per `installer_design_plan_2026-04-05.md`; whether to KEEP that deferral or PROMOTE for v1.0 is the open question. |
+| 33 | N-003 swap default | **GENUINELY OPEN** | Swap supported (2GB validated 2026-04-09); default-on policy open. |
+
+### Items NOT in the original queue that should be added (surfaced by matrix scan)
+
+These are decisions the matrix scan surfaced as needing operator input but the remediation plan did not enumerate:
+
+A. **sshd default posture** — `PermitRootLogin yes` and sshd-enabled-by-default have NO prior ratification either direction. Class-A-adjacent.
+B. **NOPASSWD wheel-sudo on installed default user** — operational docs cover build VM only; installed-system policy has NO ratification. Class-A-adjacent given I-035 manage_services auto-sudo path.
+C. **tty2 root-autologin in live mode (F-006)** — "emergency fallback" code-only; no memory provenance.
+D. **vmlinuz signing path doc/code drift** — `mok-enrollment.md` says distro-EFI X.509 signs; `bootloader.py` MOK-signs at install. Which is canonical?
+E. **F-037 verbose live cmdline** — diagnostic flag was deliberate for 2026-05-14 boot-UX iteration; v1.0 disposition needs explicit decision (strip or route to `cmdline.live-debug.txt` flavor).
+F. **Diagnostic-flavor flag concept** — proposed in audit context; "operator concurred" per memory but never reached canonical doc.
+G. **AMD microcode path** — `packages/core/amd-ucode/` never authored; T0-1 plan said "Owner decisions: None" but this is a real gap.
+H. **Six governance/legal-posture doc gaps** — PRIVACY.md / TRADEMARK.md / EXPORT-NOTICE.md / DCO.md / license-policy.md / SOURCES.md (Class C cluster).
+
+### Summary
+
+- **ALREADY RATIFIED (vaporize):** #1, #22, #24 — 3 items.
+- **REFRAME (narrow residual):** #2, #3, #20, #21, #23 — 5 items.
+- **CONFLICTS (operator re-ratification):** #6 — 1 item.
+- **GENUINELY OPEN (proceed as plan items):** #4, #5, #7, #8, #9, #10, #11, #12, #13, #14, #15, #16, #17, #18, #19, #25, #26, #27, #28, #29, #30, #31, #32, #33 — 24 items.
+- **NEW open items surfaced (add to queue):** A–H — 8 items.
+
+**Net true open backlog: roughly 24 confirmed + 5 reframed-narrower + 1 re-ratification + 8 newly-surfaced = ~38 actual operator-decision points, with substantially different composition than the original queue.** The remediation plan's owner-decision count was numerically similar but had the wrong items in it — half of the original queue was re-litigation of already-ratified decisions, while ~20% of the genuine open work was missing from the queue entirely.
 
 ---
 
@@ -834,3 +982,5 @@ _(Final pass — once matrix is populated, walk every item in `2026-05-18-remedi
 | 2026-05-18 ~07:00 CDT | build-system coordinator | Matrix scaffolded. Dispatching build-system sub-agents + installed-system + Windows-host coordinators. |
 | 2026-05-18 ~07:50 CDT | installed-system coordinator | iter-1 scan landed: ~150 findings across 11 categories via 5 parallel topic sub-agents. 3 drift triggers (T0-2 / T0-3 / T0-4) confirmed Class A with verbatim memory + commit provenance. 12 cross-cluster Class A rows surfaced for synthesis pass. 16 genuinely-open questions enumerated for operator-decision queue. Iter-2 cross-check + iter-3 gap-pass to follow. |
 | 2026-05-18 ~08:00 CDT | build-system coordinator | iter-1 scan landed: 6 parallel sub-agents (host-local memory + carryovers, in-repo docs, operator tracker + archives, VPS canonical+reference, SSH host-key regression hunt PRIORITY, commit-history grep) + main-thread VPS canonical+reference reads. Concurs with installed-system coordinator's class-A drift list. Unique contribution: T0-4 SSH host-key regression-introduction forensics — two-site regression (commits `ff9ed5f3` 2026-04-05 + `27ce4ca9` 2026-04-08), both same-model co-author trailer, same mental-model bug. Defensive `ExecStartPre=` guard already in tree at `sshd.service:29`; fix is mechanical. Cross-pattern audit recommended across all `post_install()` hooks. |
+| 2026-05-18 ~08:10 CDT | Windows-host coordinator | iter-1 scan landed: 6 parallel topic sub-agents (BOOT+signing / SECURITY+PROCESS / PARTITION+INSTALLER / PACKAGE-MGR+LEGAL / AI+DESKTOP / BUILD+DOCS). 28 Class A drift rows + 5 Class B cross-time conflicts + 17 Class C memory-only + 2 Class D repo-only. Explicit synthesis notes prepared at line 763 for build-system coordinator's final reconciliation pass. Scrub gate-trip patterns in follow-up commit `f6db7da3`. |
+| 2026-05-18 ~08:20 CDT | build-system coordinator | Iter-1 synthesis pass: populated `## Conflicts to surface to owner` section (cross-coordinator deduplicated Class A/B/C/D list keyed to remediation-plan clusters) + populated `## Reconciliation against remediation plan` (walk of all 33 numbered owner-decisions plus 8 newly-surfaced items). Net true open backlog ~38 items but with substantially different composition than the original plan queue: half of the original queue was already-ratified re-litigation; ~20% of genuine open work was missing from the queue entirely. |
