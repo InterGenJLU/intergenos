@@ -194,11 +194,32 @@ InterGenOS is built on the foundation of [Linux From Scratch](https://www.linuxf
 
 All included packages carry their own licenses as tracked in their package templates. See [CREDITS](CREDITS) for full attribution.
 
-## License
+## Legal
 
-InterGenOS build system, tools, and templates: [GNU General Public License v3.0 or later](LICENSE).
+InterGenOS ships under a layered licensing posture. The summary table
+below points you to the operative document for each layer; nothing
+here is a substitute for those documents.
 
-Individual packages retain their respective upstream licenses as declared in each `package.yml`.
+| Layer | License | Reference |
+|---|---|---|
+| Build system, tools, package templates, pkm, Forge, InterGen wrapper, scripts (InterGenOS-authored code) | GPL-3.0-or-later | [LICENSE](LICENSE) |
+| Individual upstream packages (the 794 build targets) | Upstream's own license (SPDX in each `package.yml`) | [CREDITS](CREDITS), [docs/governance/license-policy.md](docs/governance/license-policy.md) |
+| GPL source availability | §6d network access + §6b 3-year written offer | [SOURCES.md](SOURCES.md) |
+| Brand assets (name, logo, color palette, shell-theme name) | Common-law trademark; **carved out of GPL-3** | [TRADEMARK.md](TRADEMARK.md) |
+| AGPL-licensed packages shipped (ghostscript, mupdf) | AGPL-3.0-or-later, with project posture not exposing as network service | [docs/governance/license-policy.md](docs/governance/license-policy.md) § 3 |
+| Patent-encumbered codecs (FDK-AAC, H.264/H.265 — opt-in) | Various; default ISO ships without FDK-AAC linkage | [docs/legal/PATENTS.md](docs/legal/PATENTS.md) |
+| Proprietary-fetched helpers (Chrome, Edge, VS Code, Spotify, Discord, Brave, Claude Code) | Each vendor's EULA, accepted at install time | [docs/legal/payload-licenses.md](docs/legal/payload-licenses.md) |
+| Fetched-at-runtime LLM weights (Qwen via InterGen) | Tongyi Qianwen License, accepted at first launch | [docs/legal/payload-licenses.md](docs/legal/payload-licenses.md) |
+| Privacy posture | Local-first, no telemetry; GDPR / CCPA disclosures | [PRIVACY.md](PRIVACY.md) |
+| Export-control posture | ECCN 5D002 self-classified, TSU + ENC license exceptions | [EXPORT-NOTICE.md](EXPORT-NOTICE.md) |
+| Contributor sign-off | Developer Certificate of Origin 1.1; `Signed-off-by:` trailer required | [DCO.md](DCO.md) |
+| Vulnerability disclosure | Responsible-disclosure flow | [SECURITY.md](SECURITY.md) |
+| Contributing | Issue + PR workflow | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Project contributor record | Real-person identity list | [AUTHORS](AUTHORS) |
+
+For redistributors: you inherit the project's source-availability,
+trademark, and export-control obligations in your own distribution
+channel. The respective documents explain what that means for you.
 
 ## Author
 

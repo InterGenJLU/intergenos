@@ -9,7 +9,7 @@ InterGenOS core is built following the Linux From Scratch 13.0 methodology.
 
     LFS 13.0 (systemd edition)
     Copyright (C) 1999-2026 Gerard Beekmans et al.
-    Licensed under Creative Commons Attribution-NonCommercial-ShareAlike 2.0
+    Licensed under Creative Commons Attribution-NonCommercial-ShareAlike 3.0
     https://www.linuxfromscratch.org/lfs/
 
 LFS provides the foundational build methodology, package selection, and
@@ -22,12 +22,34 @@ InterGenOS desktop and extended packages follow BLFS 13.0 guidance.
 
     BLFS 13.0 (systemd edition)
     Copyright (C) 1999-2026 The BLFS Development Team
-    Licensed under Creative Commons Attribution-NonCommercial-ShareAlike 2.0
+    Licensed under Creative Commons Attribution-NonCommercial-ShareAlike 3.0
     https://www.linuxfromscratch.org/blfs/
 
 BLFS provides build instructions, dependency information, and configuration
 guidance for packages beyond the base LFS system. Our desktop tier follows
 BLFS 13.0 with documented deviations.
+
+Methodology vs. verbatim text
+-----------------------------
+
+InterGenOS *follows the methodology* of LFS and BLFS — the package
+selection, the build ordering, the dependency analysis, the
+configuration conventions. Procedural facts of this kind are not
+copyrightable, and following them does not implicate the LFS / BLFS
+books' CC-BY-NC-SA license.
+
+What is copyrightable is the books' prose: the explanatory text,
+example narrative, and editorial choices that make the books readable
+documents rather than bare instruction sequences. InterGenOS **does
+not redistribute verbatim LFS or BLFS prose** in shipped binaries,
+release ISOs, or any installed-system artifact. Citations to the
+books in our `docs/` are fair use as commentary and educational
+reference.
+
+If you redistribute InterGenOS commercially, the methodology
+inheritance carries no CC-BY-NC-SA encumbrance. If you redistribute
+the LFS or BLFS books verbatim alongside InterGenOS, the books' own
+license terms apply to that redistribution independently.
 
 ## LFS/BLFS Patches
 
@@ -184,6 +206,11 @@ All extensions downloaded from extensions.gnome.org (GNOME 49 compatible).
     Fluent Icon Theme — vinceliuice (Vince Liuice)
     License: GPL-3.0 | https://github.com/vinceliuice/Fluent-icon-theme
 
+    Cybernetic Icon Theme — SethStormR
+    License: GPL-3.0 (per upstream LICENSE; verify on each refresh)
+    https://github.com/SethStormR/Cybernetic
+    Bundled at assets/theming/icon-themes/Cybernetic.tar.gz.
+
 ## Cursor Themes
 
     Bibata Cursor — ful1e5 (Kaiz Khatri)
@@ -197,6 +224,52 @@ All extensions downloaded from extensions.gnome.org (GNOME 49 compatible).
 
     WhiteSur Cursors — vinceliuice (Vince Liuice)
     License: GPL-3.0 | https://github.com/vinceliuice/WhiteSur-cursors
+
+## Fonts
+
+    Noto fonts family — Google Inc. (Google Fonts)
+    License: OFL-1.1 (SIL Open Font License 1.1)
+    https://github.com/notofonts/notofonts.github.io
+    Bundled via packages/desktop/font-noto.
+    OFL-1.1 § 2 requires the Font Software be redistributed under
+    its license; the LICENSE text ships at
+    /usr/share/licenses/font-noto/LICENSE on the installed system.
+    Reserved Font Names: "Noto".
+
+    DejaVu fonts family — DejaVu Fonts Project (multiple contributors)
+    License: Bitstream-Vera (with DejaVu extensions)
+    https://dejavu-fonts.github.io
+    Bundled via packages/desktop/font-dejavu.
+    The Bitstream Vera permission notice + the DejaVu changes
+    notice ship at /usr/share/licenses/font-dejavu/.
+
+## Sounds
+
+    Freedesktop sound theme — Freedesktop.org (multiple contributors)
+    License: CC-BY-SA-3.0 (with per-file attribution where noted)
+    https://www.freedesktop.org/wiki/Specifications/sound-theme-spec/
+    Bundled via packages/desktop/sound-theme-freedesktop.
+    Per-file attribution ships at
+    /usr/share/licenses/sound-theme-freedesktop/.
+
+## Wallpapers
+
+    GNOME Backgrounds — GNOME Project + contributing photographers
+    License: CC-BY-SA-3.0 / CC-BY-3.0 (per-image; see upstream CREDITS)
+    https://gitlab.gnome.org/GNOME/gnome-backgrounds
+    Bundled via packages/desktop/gnome-backgrounds.
+    The upstream per-image CREDITS file ships at
+    /usr/share/backgrounds/gnome/CREDITS, preserving photographer
+    attribution per the license requirements.
+
+## InterGenOS Shell Theme
+
+    InterGenOS Shell Theme — InterGenJLU
+    License: GPL-3.0-or-later (the theme code).
+    Brand identifiers — the theme's "Name=", the canonical color
+    palette, and the canonical icon mark — are carved out of GPL-3
+    under the trademark policy at TRADEMARK.md.
+    Source: assets/intergen-shell-theme/
 
 ## InterGenOS
 

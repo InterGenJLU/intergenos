@@ -1,0 +1,93 @@
+InterGenOS Authors
+==================
+
+This file lists the contributors to InterGenOS — the people whose work
+appears in the project's git history. It is maintained alongside the
+CREDITS file (which lists upstream projects InterGenOS builds upon)
+and SOURCES.md (the GPL source-availability commitment).
+
+Order within a section is roughly chronological by first contribution.
+Contributors are welcome to amend their entry (preferred name, email,
+role) by pull request.
+
+Copyright statement
+-------------------
+
+Aggregate copyright on the InterGenOS-authored portion of the
+codebase is held jointly by the individuals listed below, under the
+terms of GPL-3.0-or-later. See LICENSE for the operative license
+text. Per the DCO 1.1 (see DCO.md), each commit's Signed-off-by
+trailer attests authorship and right-to-submit for that commit.
+
+Project lead and maintainer
+---------------------------
+
+* InterGenJLU
+  Operator, maintainer, and project lead since the original
+  2015–2016 build cycles (`github.com/InterGenOS/build_001` through
+  `build_003`) and the 2026 revival cycle.
+  Trades as InterGen Studios <intergenstudios.com>.
+
+Coordinator roles
+-----------------
+
+The project uses an AI-coordinator fleet for routine build, audit,
+documentation, and verification work. Coordinator commits are
+operator-signed (per DCO.md §4) and carry a `Co-Authored-By:` trailer
+identifying the coordinator role. Coordinators do not hold
+independent authorship for purposes of this AUTHORS file; the
+operator's Signed-off-by is the load-bearing contributor record.
+
+* build-system coordinator
+  Build VM and chroot pipeline work, mirror/signing infrastructure,
+  release engineering. Coordinator role since 2026-03-30.
+
+* installed-system coordinator
+  Installed-system hardening, intergen safety architecture, kernel
+  and service hygiene. Coordinator role since 2026-04 (approx).
+
+* windows-host coordinator
+  Cross-host integration, documentation surfaces, repository trust
+  architecture, supply-chain audit. Coordinator role since 2026-04
+  (approx).
+
+External contributors
+---------------------
+
+External contributors who have submitted patches accepted to master
+under the DCO will be listed here. As of the 2026-05-18 publication
+of this AUTHORS file, no external contributors have submitted
+accepted patches. Future contributors will be added by pull request
+or by the maintainer as commits land.
+
+How to be added
+---------------
+
+If you have contributed to InterGenOS and your Signed-off-by trailer
+has landed on master, you are welcome to send a pull request adding
+your entry here under "External contributors" using the format:
+
+    * Preferred Name <email@example.com>
+      Brief one-line role / area of contribution.
+
+We accept pseudonyms under the same conditions as the DCO (DCO.md §4)
+— consistent across the contributor's body of work, with a working
+reachable email.
+
+License of this file
+--------------------
+
+This AUTHORS file itself is licensed CC0-1.0 (public domain
+dedication). The list of contributors is a factual record;
+contributors are credited under the terms of GPL-3.0-or-later as
+declared in LICENSE.
+
+Provenance
+----------
+
+Authored 2026-05-18 as part of the InterGenOS v1.0 legal-readiness
+sprint, closing audit finding P-008 (Medium: no AUTHORS /
+CONTRIBUTORS.md file at root) from the 2026-05-18 comprehensive
+state audit.
+
+— InterGenJLU

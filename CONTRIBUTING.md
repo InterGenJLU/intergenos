@@ -84,7 +84,37 @@ See the [README](README.md) for build system overview. The build requires:
 - Python 3.12+ with PyYAML for the build system
 - All LFS 13.0 host requirements (run python3 scripts/host-check.py to verify)
 
-## License
+## License and Sign-Off
 
-By contributing, you agree that your contributions will be licensed under the
-[GNU General Public License v3.0 or later](LICENSE).
+InterGenOS contributions are licensed under the
+[GNU General Public License v3.0 or later](LICENSE) — the project's
+outbound license. Contributions are accepted under this same license
+(inbound = outbound; no separate Contributor License Agreement).
+
+The contributor authorship and right-to-submit attestation is the
+**Developer Certificate of Origin (DCO) version 1.1**. By appending
+a `Signed-off-by:` trailer to each commit, you certify the DCO 1.1
+statements (see [DCO.md](DCO.md) for the verbatim text and full
+context).
+
+```sh
+git commit -s
+```
+
+(or `--signoff`) adds the trailer automatically using your `user.name`
+and `user.email` git configuration. Every commit in a pull request
+must carry the trailer; pull requests whose commits are not all
+signed off will fail the public-content + DCO audit workflow and
+cannot merge until the trailer is added.
+
+To add the trailer to existing commits retroactively:
+
+```sh
+git rebase --signoff main      # all commits on this branch
+git commit --amend --signoff   # the latest commit only
+```
+
+Pre-existing commits in the repository (those made before
+**2026-05-18**, when the DCO was adopted) are grandfathered under
+the prior implicit-CLA model; the DCO applies from that date
+forward.
