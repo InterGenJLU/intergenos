@@ -276,9 +276,14 @@ if [ -f "${MOUNT_POINT}/usr/libexec/polkit-agent-helper-1" ]; then
 fi
 log "  setuid bits restored for all critical binaries"
 
-# Generate SSH host keys (sshd won't start without them)
-chroot "$MOUNT_POINT" /bin/bash -c 'ssh-keygen -A 2>/dev/null'
-log "  SSH host keys generated"
+# D-007 — SSH host keys are generated at first boot, NOT at build time.
+# Generating them here would bake the SAME keys into every qcow2 image
+# (trivially-exploitable impersonation across every installed system).
+# The sshd.service unit at config/systemd/sshd.service:29 has the
+# canonical guarded first-boot keygen
+# ('test -f /etc/ssh/ssh_host_ed25519_key || ssh-keygen -A').
+# Source-of-truth: docs/owner-directives.md D-007 (2026-05-18).
+log "  SSH host keys: deferred to first boot (D-007 compliance)"
 
 # Initialize CA certificates (HTTPS/TLS requires this)
 # make-ca needs network to download certdata.txt — may fail in chroot without
@@ -387,23 +392,17 @@ NETEOF
 ln -sf /run/systemd/resolve/stub-resolv.conf "${MOUNT_POINT}/etc/resolv.conf"
 
 # Set root password — REQUIRED via ROOT_PASSWORD env var. No default.
-# Path 4 (S1/S2 design decision A 2026-04-29): the literal "intergenos" default
-# has been retired permanently. build-intergenos.sh requires
-# --root-password to be provided and exports ROOT_PASSWORD before invoking
-# this script. Path 3's first-boot greeter overwrites this on the end
-# user's first boot — the value here is a brief-window fallback nobody
-# normally encounters.
-if [ -z "${ROOT_PASSWORD:-}" ]; then
-    err "ROOT_PASSWORD env var is required (no default permitted)"
-    err "  Invoke via build-intergenos.sh --root-password <value> ..."
-    err "  Or set ROOT_PASSWORD=<value> in the environment if calling this script directly."
-    exit 1
-fi
-echo "root:${ROOT_PASSWORD}" | chroot "$MOUNT_POINT" chpasswd
-# Note: passwd --expire is NOT used here. GDM cannot handle forced
-# password changes at the login screen — it just fails. Path 3
-# first-boot greeter (systemd unit + tty prompt) handles the user-side
-# change on first boot.
+# D-007 — root is locked on every shipped artifact (ISO, qcow2,
+# installed system). No password, no SSH-as-root, no console-as-root
+# via known credential. Privilege escalation routes exclusively through
+# the user-chosen sudo-capable account (Forge TUI/GUI install) or the
+# build-pipeline-created sudo-capable user (qcow2 IMAGE_USER, below).
+# The pre-D-007 ROOT_PASSWORD env-var requirement is retired; the
+# previously-required --root-password flag on build-intergenos.sh is
+# no longer used and can be removed in a follow-on cleanup.
+# Source-of-truth: docs/owner-directives.md D-007 (2026-05-18).
+chroot "$MOUNT_POINT" passwd -l root
+log "  root: locked (D-007 — sudo-only escalation path)"
 
 # Create default user account — IMAGE_USER name can default; password CANNOT.
 IMAGE_USER="${IMAGE_USER:-intergenos}"

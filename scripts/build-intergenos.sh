@@ -1039,6 +1039,20 @@ phase_bootloader() {
 phase_image() {
     log "Packaging chroot into bootable disk image..."
 
+    # D-007 compliance gate — refuse to assemble any shippable artifact
+    # until SSH/credentials posture is correct. See
+    # docs/owner-directives.md D-007 (Class A gate).
+    log "  Running D-007 compliance gate..."
+    if ! bash "${SCRIPTS}/check-d007-compliance.sh" 2>&1 | tee -a "$BUILD_LOG"; then
+        log ""
+        log "  ERROR: D-007 compliance gate FAILED."
+        log "  Refusing to assemble disk image with SSH/credentials posture violations."
+        log "  See docs/owner-directives.md D-007 for the canonical requirements."
+        log "  Fix violations and re-run phase_image."
+        exit 1
+    fi
+    log "  D-007 compliance gate PASS"
+
     # Tear down chroot mounts before imaging
     log "  Tearing down chroot mounts..."
     bash "${SCRIPTS}/chroot-teardown.sh" 2>&1 | tee -a "$BUILD_LOG" || true

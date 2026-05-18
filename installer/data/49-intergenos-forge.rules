@@ -1,18 +1,19 @@
 // InterGenOS — passwordless invocation of /usr/bin/forge as root for the
-// live-ISO `liveuser` account only. On installed systems no `liveuser`
-// account exists, so this rule never matches and `pkexec forge` falls
-// through to the auth_admin_keep default in org.intergenos.forge.policy
-// (i.e. installed-system reinstall attempts prompt for a real admin
-// password — secure default preserved).
+// live-ISO `intergenos` account only. On installed systems no `intergenos`
+// live account exists (Forge prompts the user for a username + password
+// during install — D-007), so this rule never matches and `pkexec forge`
+// falls through to the auth_admin_keep default in
+// org.intergenos.forge.policy (i.e. installed-system reinstall attempts
+// prompt for the user's sudo password — secure default preserved).
 //
-// The liveuser shadow entry is `*` (password disabled by design), so
-// auth_admin_keep would block the live-ISO install path with no recovery.
-// This rule is what makes click-to-install from the live GNOME desktop
-// work without prompting.
+// The live `intergenos` user is sudo-capable with password `intergenos`
+// per D-007 (docs/owner-directives.md). Live-ISO click-to-install runs
+// Forge as root via this rule without re-prompting (the user has already
+// authenticated to the live GNOME session via GDM autologin).
 
 polkit.addRule(function(action, subject) {
     if (action.id == "org.intergenos.forge.run-installer" &&
-        subject.user == "liveuser") {
+        subject.user == "intergenos") {
         return polkit.Result.YES;
     }
 });

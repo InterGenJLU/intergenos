@@ -65,10 +65,14 @@ post_install() {
     # Set default group for new users
     useradd -D --gid 999
 
-    # Set temporary root password (non-interactive for automated build)
-    # Forces password change on first interactive login
-    echo "root:intergenos" | chpasswd
-    passwd -e root
+    # D-007 — root is locked on shipped installed systems. No valid
+    # password, no SSH-as-root (enforced by sshd_config.d drop-in
+    # shipped by core/openssh), no console-as-root with a known
+    # credential. Privilege escalation happens via the user-chosen
+    # sudo-capable account created by Forge (TUI/GUI install) or via
+    # the `intergenos` sudo-capable user on the live ISO.
+    # Source-of-truth: docs/owner-directives.md D-007 (2026-05-18).
+    passwd -l root
 
     # Create tester user for running test suites as non-root
     # (LFS uses this for packages like gcc, coreutils, findutils)

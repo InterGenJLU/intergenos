@@ -2,7 +2,7 @@
 # /usr/bin/forge-gui-runner — Live-ISO Forge GUI runner (runs as root after pkexec).
 #
 # Step 2 of the two-stage pkexec flow. Reads the env-restoration file the
-# liveuser-side launcher wrote to /run/user/$PKEXEC_UID/forge-gui.env,
+# intergenos-side launcher wrote to /run/user/$PKEXEC_UID/forge-gui.env,
 # restores the relevant display/bus environment variables, and execs
 # /usr/bin/forge with the fixed GUI install arguments.
 #
@@ -10,11 +10,11 @@
 # /usr/share/polkit-1/actions/org.intergenos.forge.policy
 # exec.path annotation); the rule at
 # /usr/share/polkit-1/rules.d/49-intergenos-forge.rules grants
-# passwordless YES to subject.user == "liveuser" for the
+# passwordless YES to subject.user == "intergenos" for the
 # org.intergenos.forge.run-installer action. The arguments passed to
 # forge are hardcoded here rather than accepted from argv: the
 # passwordless polkit grant covers only this exact root invocation, so
-# liveuser cannot inject alternate arguments (e.g. --mode tui in a way
+# intergenos cannot inject alternate arguments (e.g. --mode tui in a way
 # that bypasses GUI consent) by tampering with the .desktop file or
 # autostart entry.
 

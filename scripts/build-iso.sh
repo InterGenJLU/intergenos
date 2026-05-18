@@ -37,6 +37,22 @@
 set -euo pipefail
 
 # --------------------------------------------------------------------------
+# D-007 compliance gate (Class A — blocks ISO assembly on violation)
+# --------------------------------------------------------------------------
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -x "${SCRIPT_DIR}/check-d007-compliance.sh" ]; then
+    echo "[build-iso] Running D-007 compliance gate..." >&2
+    if ! "${SCRIPT_DIR}/check-d007-compliance.sh"; then
+        echo "" >&2
+        echo "[build-iso] ERROR: D-007 compliance gate FAILED." >&2
+        echo "[build-iso] Refusing to assemble ISO with SSH/credentials posture violations." >&2
+        echo "[build-iso] See docs/owner-directives.md D-007 for canonical requirements." >&2
+        exit 1
+    fi
+    echo "[build-iso] D-007 compliance gate PASS" >&2
+fi
+
+# --------------------------------------------------------------------------
 # Inputs + defaults
 # --------------------------------------------------------------------------
 

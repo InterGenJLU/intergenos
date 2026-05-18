@@ -74,13 +74,35 @@ post_install() {
     sed -i '/pam_lastlog\.so/d' /etc/pam.d/sshd
     chmod 644 /etc/pam.d/sshd
 
-    # Enable PAM and root login in sshd_config
+    # Enable PAM in sshd_config
     echo "UsePAM yes" >> /etc/ssh/sshd_config
-    sed -i 's/^#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 
-    # Generate host keys if they don't exist
-    ssh-keygen -A
+    # D-007 — explicitly disable root SSH login. Ship a drop-in rather
+    # than sed-replacing upstream sshd_config so future upstream rebases
+    # cannot silently revert the posture.
+    install -dm755 /etc/ssh/sshd_config.d
+    cat > /etc/ssh/sshd_config.d/00-intergenos-d007.conf << "EOF"
+# InterGenOS — D-007 SSH posture
+# Source-of-truth: docs/owner-directives.md D-007 (2026-05-18)
+#
+# SSH is enabled for the user account only. Root SSH is not permitted
+# on any lane (live ISO, qcow2, installed system). This drop-in ships
+# in /etc/ssh/sshd_config.d/ so future upstream-config rebases cannot
+# silently revert the posture.
 
-    # Enable sshd service
+PermitRootLogin no
+EOF
+    chmod 644 /etc/ssh/sshd_config.d/00-intergenos-d007.conf
+
+    # D-007 — NO pre-installed SSH host keys. Host keys are generated
+    # at first boot by sshd.service's ExecStartPre guard
+    # ('test -f /etc/ssh/ssh_host_ed25519_key || ssh-keygen -A').
+    # Generating host keys at build time would bake the SAME keys into
+    # every shipped install — trivially-exploitable impersonation
+    # across every installed system. Removed per D-007.
+
+    # Enable sshd service. SSH is on by default; root login is blocked
+    # by the drop-in above; only the user-chosen sudo-capable account
+    # (Forge) or the live `intergenos` user can SSH in.
     systemctl enable sshd.service
 }

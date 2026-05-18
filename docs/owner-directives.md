@@ -213,3 +213,76 @@ Each entry uses this shape:
   - Route the now-orphaned firewall logic per the out-of-scope follow-on above
 
 - **Status:** ACTIVE
+
+---
+
+## D-007 — SSH + root posture + live/install user credentials (Class A gate; blocks ISO creation)
+
+- **Issued:** 2026-05-18T16:10:52Z by owner
+- **Context:** Walk item 4 cross-pattern `post_install()` audit sweep surfaced a remote-rootable-fresh-install exposure cluster: predictable SSH host keys baked at build time (`packages/core/openssh/build.sh:82` + `scripts/create-image.sh:280`), `PermitRootLogin yes` baked at build time (`packages/core/openssh/build.sh:79`), and a hardcoded root password `intergenos` baked at build time (`packages/core/shadow/build.sh:70`). Combined effect: every shipped install was remotely-rootable with publicly-known credentials over an SSH server with publicly-known host keys before the user logged in once. Owner-issued binding directive to lock down the SSH/credentials posture and gate ISO creation on compliance.
+- **Verbatim:**
+
+  > OWNER DIRECTIVE:
+  > SSH enabled for USER ONLY, NOT root.
+  > NO SSH BY ROOT ALLOWED ON ANY LANE.
+  > NO PRE-INSTALLED SSH KEYS AT ANY TIME, ON ANY LANE, EVER.
+  > For the LIVE USER: sudo capable user, username: intergenos, password: intergenos. This removes the apparently confusing randomly-generated password situation, and follows what I've personally observed other distros do for their 'live versions' (if they even use a password).
+  > For TUI AND GUI install lanes: sudo capable user, username and password are chosen by the user DURING install.
+  > Anything other than what is described above is a VIOLATION and needs to be vaporized immediately. Please capture that this is now a gate, and that our code needs to reflect this before another ISO can be created.
+
+- **Decision-Encoded:**
+
+  **SSH server posture (every lane: live ISO, qcow2, installed system):**
+  - `sshd` enabled (USER may SSH in)
+  - `sshd_config` MUST contain `PermitRootLogin no` explicitly (not commented; not relying on upstream default)
+  - **No SSH host keys may be pre-generated at build time.** First-boot keygen path via `sshd.service` ExecStartPre is the only acceptable host-key origin. Build-time `ssh-keygen -A` calls are violations.
+  - **No `authorized_keys` files may be pre-installed anywhere.** No `/root/.ssh/`, no `/home/*/.ssh/`, no SPOC/coordinator dev keys, no GitHub deploy keys, no SaaS keys — nothing baked.
+
+  **Root-account state (operator-confirmed in same session, 2026-05-18T16:30Z):**
+  - Root is **locked** on shipped installed systems (`*` in `/etc/shadow`; no valid password).
+  - **User-sudo is the only acceptable path to root privileges.** No password-based root login, no SSH-as-root (covered above), no console-as-root via a known credential.
+  - Build-VM chroot may retain whatever password the build pipeline needs for internal operations; the squashfs delivery must ship root locked.
+  - **Distro precedent:** Matches Ubuntu and Fedora defaults — both lock root and route all privilege escalation through the user-chosen sudo-capable account. This is the mainstream secure-default pattern in production today; build-system coordinator confirmed no more-secure alternative pattern exists at issuance.
+
+  **LIVE ISO user account:**
+  - Username: `intergenos`
+  - Password: `intergenos`
+  - Sudo-capable (`wheel` group; configured sudoers entry)
+  - **No randomly-generated passwords. No empty passwords. No tty root-autologin.** The live ISO's existing tty2 root-autologin in `installer/init/init.sh:303-315` is a violation under D-007 and must be either deleted or replaced with `intergenos`-user-autologin.
+  - **Distro precedent:** This pattern matches Debian Live (`user:live` for 15+ years). It is a minority pattern vs the Ubuntu/Fedora/Mint empty-password+passwordless-sudo+auto-login majority pattern, but it is well-established and NOT opposite of any existing case.
+
+  **TUI and GUI install lanes:**
+  - Forge installer prompts the user for **username + password during install**.
+  - That user is sudo-capable (`wheel` group).
+  - The installer must not pre-populate a default username or password.
+  - Root remains locked on the installed system per above.
+
+  **Gate enforcement:**
+  - This directive is a **Class A gate** that blocks ISO/qcow2 creation. Any artifact built before all code is brought into D-007 compliance is non-shippable.
+  - Build-system coordinator authors a pre-build / pre-ISO gate script (`scripts/check-d007-compliance.sh`) wired into `scripts/build-intergenos.sh` `phase_image` (and any ISO-assembly script) that fails the build if violations are present.
+  - Gate checks at minimum: (a) no `ssh-keygen -A` outside a first-boot service unit; (b) `sshd_config` ships with `PermitRootLogin no` explicitly; (c) no `chpasswd` or `usermod -p` writes outside `scripts/create-image.sh` env-var-driven paths AND no hardcoded password literals in any `chpasswd` invocation across the tree; (d) no pre-installed `authorized_keys` files anywhere; (e) live-mode `intergenos:intergenos` credential setup is present in `installer/init/init.sh`.
+
+- **Supersedes:**
+  - `packages/core/openssh/build.sh:79` `sed -i 's/^#PermitRootLogin prohibit-password/PermitRootLogin yes/'` — coordinator strips this sed and ships an explicit `PermitRootLogin no` config
+  - `packages/core/openssh/build.sh:82` `ssh-keygen -A` at build time — coordinator deletes
+  - `scripts/create-image.sh:280` `chroot ... ssh-keygen -A` — coordinator deletes (qcow2 path)
+  - `packages/core/shadow/build.sh:70-71` `echo "root:intergenos" | chpasswd` + `passwd -e root` — coordinator replaces with `passwd -l root` (lock root)
+  - `scripts/create-image.sh:402` `ROOT_PASSWORD` env-var chpasswd — coordinator replaces with `passwd -l root` (qcow2 path)
+  - `installer/init/init.sh:303-315` tty2 root-autologin — coordinator replaces with `intergenos`-user-autologin OR deletes (see decision-encoded above; F-006 HG-class audit row)
+  - `installer/init/init.sh:236-272` live-mode user-setup section — coordinator replaces randomly-generated-password / empty-password logic with explicit `intergenos:intergenos` credential setup
+  - Audit `docs/audit/2026-05-18-comprehensive-state-audit.md` rows: F-004 (hardcoded root password), F-006 (tty2 root-autologin), L-001-adjacent and any "live user randomly-generated password" surface
+  - Any prior coordinator memory or reference doc that framed a "randomly-generated live password" or "empty live password" as the v1.0 approach
+
+- **Composes with:**
+  - **D-005** (UKI parity Option A) — the SSH/credentials directive is orthogonal to boot architecture; both compose cleanly
+  - **D-001** (LUKS-at-install v1.0 scope) — root-lock on installed system composes with LUKS unlock semantics (LUKS handles pre-root-mount auth; user account handles post-root-mount auth)
+  - **`feedback_no_dev_keys_in_shipped_iso`** (existing POWER memory 2026-05-14) — D-007 elevates this from coordinator-internal feedback to operator-ratified canonical, expanding "no SPOC dev keys" to "NO pre-installed SSH keys AT ANY TIME ON ANY LANE EVER"
+
+- **Implementation backlog (informational; gate enforcement makes this the ISO-blocking path until done):**
+  - Code fixes per the supersession list above
+  - `scripts/check-d007-compliance.sh` authoring + wiring into `phase_image` + ISO-build path
+  - Forge installer review: confirm user/password prompt + wheel-group assignment + root-lock are all live in installer flow
+  - `sshd_config` audit: ensure `PermitRootLogin no` is the shipped state (consider a drop-in at `/etc/ssh/sshd_config.d/00-intergenos-d007.conf` so future upstream-config-rebases don't silently revert)
+  - TRACKER.md gate entry under v1.0 ship-blockers
+
+- **Status:** ACTIVE — **CLASS A GATE; blocks ISO/qcow2 creation until compliance verified**

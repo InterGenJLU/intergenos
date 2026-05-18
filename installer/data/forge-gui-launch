@@ -1,8 +1,8 @@
 #!/bin/sh
-# /usr/bin/forge-gui-launch — Live-ISO Forge GUI launcher (runs as liveuser).
+# /usr/bin/forge-gui-launch — Live-ISO Forge GUI launcher (runs as intergenos).
 #
 # Step 1 of the two-stage pkexec flow that brings up Forge's GTK4/libadwaita
-# GUI as root while preserving access to the calling liveuser session's
+# GUI as root while preserving access to the calling intergenos session's
 # display server, X authority, runtime directory, and D-Bus session bus.
 #
 # pkexec scrubs the caller's environment to a tiny whitelist on invocation

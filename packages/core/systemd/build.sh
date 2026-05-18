@@ -82,8 +82,17 @@ do_install() {
 # Post-install: runs on the live system AFTER deploy
 post_install() {
     set -e
-    # Create machine ID (unique per machine, never bake into a package)
-    systemd-machine-id-setup
+    # Machine-id is generated at first boot by systemd's first-boot
+    # path (systemd-tmpfiles + systemd-machine-id-commit.service).
+    # Running `systemd-machine-id-setup` here would bake a single
+    # machine-id into the squashfs — every install would share the
+    # same identity-bearing value (used by dbus, journal,
+    # systemd-resolved, network leases). The historical comment on
+    # this line read "unique per machine, never bake into a package"
+    # — correct intent but the code ran at build-chroot time and
+    # contradicted the intent. Removed during the 2026-05-18
+    # cross-pattern post_install sweep alongside the D-007
+    # SSH/credentials cluster.
 
     # Enable/disable services per preset policy
     systemctl preset-all

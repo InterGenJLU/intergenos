@@ -35,7 +35,7 @@ mount -t devtmpfs -o nosuid             devtmpfs  /dev
 
 # ---- Parse cmdline ---------------------------------------------------------
 # `igos.mode=` selects the userspace dispatch:
-#   live         -> live GNOME desktop (liveuser autologin)
+#   live         -> live GNOME desktop (intergenos autologin)
 #   install-gui  -> auto-launch Forge GUI installer (skips GNOME shell)
 #   install-tui  -> auto-launch Forge TUI declarative-builder on tty1
 MODE=$(awk -v RS=' ' '/^igos\.mode=/ {sub(/^igos\.mode=/, ""); print}' /proc/cmdline)
@@ -181,7 +181,7 @@ mount --move /dev           /newroot/dev
 # server-class Wave 1b daemons (mariadb, httpd, ...) which fail in
 # tight Restart= loops and drown the boot console.
 #
-# Live + install-gui then add the GDM-class scaffold on top (liveuser,
+# Live + install-gui then add the GDM-class scaffold on top (intergenos,
 # automatic GDM login, graphical.target default, tty2 root autologin,
 # dconf screen-lock disable). install-tui doesn't need any of that —
 # forge-tui.service claims tty1 directly under multi-user.target.
@@ -233,51 +233,58 @@ done
 # default re-engages on install.
 
 if [ "$MODE" = "live" ] || [ "$MODE" = "install-gui" ]; then
-    info "$MODE mode: writing live-class scaffold (liveuser+GDM autologin+graphical.target)"
+    info "$MODE mode: writing live-class scaffold (intergenos+GDM autologin+graphical.target)"
 
     # ---- Liveuser creation -------------------------------------------------
     # busybox-static initramfs lacks `useradd`, so we hand-write the standard
     # /etc/{passwd,group,shadow,gshadow} entries. Per-boot ephemeral (overlay
-    # is tmpfs); the underlying squashfs stays clean of the liveuser account,
+    # is tmpfs); the underlying squashfs stays clean of the intergenos account,
     # so installed systems get no leftover ghost user.
     #
     # UID/GID 1000 — first human-user range. LFS base layout reserves
     # < 1000 for system accounts, so 1000 is free in our squashfs.
-    echo 'liveuser:x:1000:1000:Live User:/home/liveuser:/bin/bash' >> /newroot/etc/passwd
-    echo 'liveuser:x:1000:' >> /newroot/etc/group
-    # Password disabled (* in shadow). Console auth via GDM autologin only;
-    # SSH auth is not configured (operator-driven `ssh-copy-id` per boot for
-    # development, by design — no pre-shipped keys).
+    echo 'intergenos:x:1000:1000:Live User:/home/intergenos:/bin/bash' >> /newroot/etc/passwd
+    echo 'intergenos:x:1000:' >> /newroot/etc/group
+    # D-007 — Live user has password `intergenos` (matches username).
+    # SHA-512 crypt hash pre-computed with a fixed salt for reproducibility;
+    # plaintext is "intergenos" (the same value documented at
+    # docs/owner-directives.md D-007). The crypt hash is no less secret
+    # than the plaintext — anyone with the live ISO has access to
+    # /etc/shadow — but ships in the standard format PAM expects.
+    # User is sudo-capable via wheel group membership below.
+    # SSH host keys are NOT pre-shipped (D-007); first-boot keygen via
+    # sshd.service generates them; SSH-as-root is rejected at sshd_config.d
+    # drop-in level.
     # lastchg=19800 (~2024-03) ensures PAM doesn't treat the account as
     # expired the moment GDM tries to switch into it.
-    echo 'liveuser:*:19800:0:99999:7:::' >> /newroot/etc/shadow
-    echo 'liveuser:!::' >> /newroot/etc/gshadow
+    echo 'intergenos:$6$intergenos-live-$3gWlwq1iWriNpH7iHxdNMrm5jV5FDPrF5qA9hQ57lmnbWR6ClXunbubhDGOEJxIt9As3EpNWMPdyQpNUVGaZu0:19800:0:99999:7:::' >> /newroot/etc/shadow
+    echo 'intergenos:!::' >> /newroot/etc/gshadow
 
     # Capability groups. LFS base ships each line with empty member list
-    # (trailing colon); appending bare `liveuser` after the `:` produces a
+    # (trailing colon); appending bare `intergenos` after the `:` produces a
     # valid first-member entry.
     for grp in wheel audio video input plugdev render dialout lp users cdrom; do
-        sed -i "/^${grp}:/s/\$/liveuser/" /newroot/etc/group
+        sed -i "/^${grp}:/s/\$/intergenos/" /newroot/etc/group
     done
 
     # Home dir + tmpfiles-driven ownership (busybox-static may lack chown;
     # delegating to systemd-tmpfiles at sysinit.target sidesteps the
     # dependency).
-    mkdir -p /newroot/home/liveuser
-    cp -a /newroot/etc/skel/. /newroot/home/liveuser/ 2>/dev/null || true
-    cat > /newroot/etc/tmpfiles.d/liveuser-home.conf <<'TMPFILES'
-d /home/liveuser 0755 liveuser liveuser - -
-Z /home/liveuser - liveuser liveuser - -
+    mkdir -p /newroot/home/intergenos
+    cp -a /newroot/etc/skel/. /newroot/home/intergenos/ 2>/dev/null || true
+    cat > /newroot/etc/tmpfiles.d/intergenos-home.conf <<'TMPFILES'
+d /home/intergenos 0755 intergenos intergenos - -
+Z /home/intergenos - intergenos intergenos - -
 TMPFILES
 
-    # ---- GDM autologin to liveuser ------------------------------------------
+    # ---- GDM autologin to intergenos ------------------------------------------
     # /etc/gdm/custom.conf is GDM's runtime config. AutomaticLogin lands at
     # the GNOME session for the named user immediately, no greeter.
     mkdir -p /newroot/etc/gdm
     cat > /newroot/etc/gdm/custom.conf <<'GDMCONF'
 [daemon]
 AutomaticLoginEnable=true
-AutomaticLogin=liveuser
+AutomaticLogin=intergenos
 
 [security]
 
@@ -300,32 +307,26 @@ GDMCONF
     ln -sf /usr/lib/systemd/system/graphical.target \
            /newroot/etc/systemd/system/default.target
 
-    # ---- TTY2 root autologin (emergency fallback) --------------------------
-    # GDM claims tty1 for its Wayland greeter/session. tty2 has root-auto
-    # for emergency diagnostics when GDM doesn't come up (bare-metal first
-    # boot, GPU driver gap, etc.). Ctrl-Alt-F2 from any context to reach.
-    mkdir -p /newroot/etc/systemd/system/getty@tty2.service.d
-    cat > /newroot/etc/systemd/system/getty@tty2.service.d/autologin.conf <<'AUTOLOGIN_TTY2'
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty -o '-p -f -- \\u' --noclear --autologin root --keep-baud 115200,38400,9600 %I $TERM
-AUTOLOGIN_TTY2
+    # ---- TTY2 emergency-shell fallback (D-007 compliant) -------------------
+    # GDM claims tty1 for its Wayland greeter/session. Enable getty@tty2 so
+    # the operator can Ctrl-Alt-F2 if GDM hangs (bare-metal first boot, GPU
+    # driver gap, etc.) and log in as `intergenos:intergenos`. No
+    # autologin override — D-007 forbids root-autologin (and the live ISO's
+    # root account is locked anyway per core/shadow's D-007 fix).
     mkdir -p /newroot/etc/systemd/system/getty.target.wants
     ln -sf /usr/lib/systemd/system/getty@.service \
            /newroot/etc/systemd/system/getty.target.wants/getty@tty2.service
 
-    # ---- Root password expiry refresh --------------------------------------
-    # squashfs /etc/shadow root entry has lastchg=0 -> PAM forces a password
-    # change at first console login. Push lastchg into the future so the
-    # tty2 fallback (and any direct console) doesn't prompt.
-    sed -i 's@^root:\([^:]*\):0:@root:\1:19800:@' /newroot/etc/shadow
+    # Root password expiry refresh removed per D-007 — root is locked on
+    # all lanes (no password, no console login as root); there is no
+    # password-expiry state to refresh.
 
     # ---- Screen-lock disable for live session ------------------------------
-    # liveuser's /etc/shadow entry is `*` (password disabled by design); the
+    # intergenos's /etc/shadow entry is `*` (password disabled by design); the
     # default GNOME idle screen-lock would lock the live session out with no
     # recovery path. Override via a system-wide dconf keyfile compiled to the
     # `local` db, with a oneshot systemd unit that runs `dconf update` before
-    # the display manager starts. Per-liveuser semantics are preserved because
+    # the display manager starts. Per-intergenos semantics are preserved because
     # this overlay-write only happens in the live-mode if-block; installed
     # systems boot through the no-MODE path and keep the secure default
     # (lock-enabled=true).
@@ -367,29 +368,29 @@ DCONF_SVC
            /newroot/etc/systemd/system/display-manager.service.wants/igos-live-dconf-compile.service
 fi
 
-# ---- install-gui mode: Forge GUI autostart for liveuser --------------------
-# Live + install-gui share the same liveuser+GDM scaffold above (Wayland
+# ---- install-gui mode: Forge GUI autostart for intergenos --------------------
+# Live + install-gui share the same intergenos+GDM scaffold above (Wayland
 # session under graphical.target). What differs is what auto-starts in
 # that session: live mode wants intergen-welcome; install-gui mode wants
 # Forge GUI to fire instead.
 #
 # Two overlay writes for install-gui:
-#   1. /home/liveuser/.config/autostart/forge-gui.desktop — XDG autostart
+#   1. /home/intergenos/.config/autostart/forge-gui.desktop — XDG autostart
 #      entry that fires `/usr/bin/forge-gui-launch` at session start.
-#      The launcher is the liveuser-side half of a two-stage flow that
+#      The launcher is the intergenos-side half of a two-stage flow that
 #      captures the calling session's DISPLAY / WAYLAND_DISPLAY /
 #      XAUTHORITY / XDG_RUNTIME_DIR / DBUS_SESSION_BUS_ADDRESS into a
 #      file in /run/user/1000, then pkexecs /usr/bin/forge-gui-runner
 #      which restores those env vars under root and execs forge in GUI
 #      mode. The mode + archive + packages args are hardcoded in
 #      forge-gui-runner so the passwordless polkit grant covers only
-#      this exact root invocation — liveuser can't tamper with the
+#      this exact root invocation — intergenos can't tamper with the
 #      .desktop file to invoke forge with alternate args.
 #      Squashfs already has /usr/bin/forge + forge-gui-launch +
 #      forge-gui-runner + the polkit policy + rule installed by the
 #      forge package; the rule grants passwordless YES to
-#      subject.user=="liveuser" for the run-installer action.
-#   2. /home/liveuser/.config/autostart/intergen-welcome.desktop with
+#      subject.user=="intergenos" for the run-installer action.
+#   2. /home/intergenos/.config/autostart/intergen-welcome.desktop with
 #      `Hidden=true` — per the XDG Autostart spec, a user-level autostart
 #      entry shadows the system-wide one at /etc/xdg/autostart/. Setting
 #      Hidden=true prevents the entry from firing. Replaces the prior
@@ -410,8 +411,8 @@ if [ "$MODE" = "install-gui" ]; then
     # so post-mortem can distinguish "autostart never fired" from "forge-gui-launch
     # crashed early". Also written system-wide under /etc/xdg/autostart for
     # belt-and-suspenders coverage.
-    mkdir -p /newroot/home/liveuser/.config/autostart
-    cat > /newroot/home/liveuser/.config/autostart/forge-gui.desktop <<'FORGEGUI'
+    mkdir -p /newroot/home/intergenos/.config/autostart
+    cat > /newroot/home/intergenos/.config/autostart/forge-gui.desktop <<'FORGEGUI'
 [Desktop Entry]
 Type=Application
 Name=InterGenOS Forge Installer
@@ -422,13 +423,13 @@ FORGEGUI
     # System-wide copy — fires regardless of XDG_CONFIG_HOME or user-vs-system
     # autostart-dir preference of the session manager.
     mkdir -p /newroot/etc/xdg/autostart
-    cp /newroot/home/liveuser/.config/autostart/forge-gui.desktop \
+    cp /newroot/home/intergenos/.config/autostart/forge-gui.desktop \
        /newroot/etc/xdg/autostart/forge-gui.desktop
 
     # Shadow the system-wide welcomer autostart with a Hidden=true user-
     # level entry. This session only (overlay tmpfs evaporates on next
     # boot); installed systems unaffected.
-    cat > /newroot/home/liveuser/.config/autostart/intergen-welcome.desktop <<'WELCOMEHIDE'
+    cat > /newroot/home/intergenos/.config/autostart/intergen-welcome.desktop <<'WELCOMEHIDE'
 [Desktop Entry]
 Type=Application
 Name=InterGenOS Welcome (shadowed in install-gui mode)
@@ -464,9 +465,9 @@ echo "$MODE" > /newroot/run/intergenos/boot-mode
 # ---- Switch root and exec PID 1 --------------------------------------------
 # Mode dispatch happens at two layers, both upstream of switch_root:
 #   live + install-gui: this script's overlay-write block above installs the
-#     liveuser+GDM+autologin scaffold (and, for install-gui only, an XDG
+#     intergenos+GDM+autologin scaffold (and, for install-gui only, an XDG
 #     autostart for `forge --mode gui`). graphical.target is the default in
-#     the squashfs payload, so systemd reaches GDM and the liveuser session
+#     the squashfs payload, so systemd reaches GDM and the intergenos session
 #     fires whichever autostart wins.
 #   install-tui: this script skips the live-class scaffold. The squashfs
 #     payload contains `forge-tui.service` (shipped by `packages/desktop/forge`)
