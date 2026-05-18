@@ -69,7 +69,7 @@ Calamares remains a future option if we need a polished GUI quickly, but the bac
   - EFI: ESP (512MB FAT32) + root (ext4)
   - BIOS: bios_grub (1MB) + root (ext4)
   - Optional: swap partition
-- Future: LVM, LUKS encryption
+- ~~Future: LVM, LUKS encryption~~ **LUKS SUPERSEDED-BY 2026-05-18 D-001 (`docs/owner-directives.md`):** LUKS-at-install promoted to v1.0 baseline (opt-in passphrase-only LUKS2). LVM remains future-scope until a new directive ratifies.
 
 ### Screen 3: System Configuration
 - Hostname (default: "intergenos")
@@ -250,7 +250,7 @@ installer/
 - Advanced partitioning (resize, dual-boot, LVM)
 - Multiple DE support
 - Hardware detection + AI tier inference
-- Encryption (LUKS2)
+- ~~Encryption (LUKS2)~~ **SUPERSEDED-BY 2026-05-18 D-001 (`docs/owner-directives.md`):** LUKS2 promoted to v1.0 baseline (opt-in passphrase-only). TPM-sealed unlock + FIDO2 are v1.0 EXPERIMENTAL.
 - Network installation (download packages during install)
 
 ### Phase 3: Installation Media

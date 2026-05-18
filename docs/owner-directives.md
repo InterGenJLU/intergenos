@@ -47,4 +47,25 @@ Each entry uses this shape:
 
 ## Entries
 
-_(awaiting first entry — protocol scaffold pushed 2026-05-18 ~13:50 UTC; first owner directive will land here.)_
+## D-001 — LUKS-at-install is v1.0 scope
+
+- **Issued:** 2026-05-18T14:06:42Z by owner
+- **Context:** Matrix-scan-2026-05-18 reconciliation; owner response to build-system coordinator's measured-boot scope question. Live test of the `OWNER DIRECTIVE:` protocol established at `bb91efee` earlier the same day.
+- **Verbatim:**
+
+  > LUKS-at-install is v1.0 scope. Opt-in encryption checkbox in Forge; passphrase-only LUKS2 baseline. TPM-sealed unlock + FIDO2 unlock available as EXPERIMENTAL features, flagged as such in the installer UI (Ubuntu 24.04 precedent). LUKS installs get a tiny FDE-only initramfs (busybox + cryptsetup); plain installs keep the no-installed-system-initramfs path. Supersedes the 2026-04-05 LUKS deferral, the 2026-05-14 "LUKS is post-v1.0" tracker note, and the 2026-05-15 measured-boot P7-parking.
+
+- **Supersedes:**
+  - `docs/research/installer/installer_design_plan_2026-04-05.md` lines 67-72 + 248-253 — LUKS+LVM listed under "Future" / Phase 2
+  - Owner-home tracker `TRACKER.md:1254` (2026-05-14 "LUKS is post-v1.0" rEFInd note) — NOT edited by coordinator (home-drive content per project rule); surfaced to owner for tracker update
+  - `docs/audit/2026-05-18-design-decisions-matrix.md` rows: BOOT "Measured-boot scope (TPM)" DEFERRED 2026-05-15 P7-parking; PARTITION "LUKS / LVM / BTRFS / ZFS / FDE" DEFERRED 2026-04-05; SECURITY "LUKS / FDE at install time" UNKNOWN/DEFERRED-to-v1.x; PARTITION "LUKS / encryption-at-rest for v1.0" UNKNOWN; BOOT "Measured-boot scope (PCR / TPM-sealing)" PROPOSED
+  - `docs/audit/2026-05-18-remediation-plan.md` items #2 measured-boot scope, #7 F-013/B-050 MOK TPM sealing v1.0 ship-decision, #32 N-018 encryption-at-rest
+- **Narrows (does NOT fully supersede):**
+  - 2026-04-09 "no installed-system initramfs" ratification — STILL ACTIVE for plain installs. LUKS installs get a tiny FDE-only initramfs (busybox + cryptsetup) as a narrow exception. This is a NARROWING, not a supersession.
+- **Implementation scope (informational — execution backlog, not directive surface):**
+  - Forge UI: opt-in encryption checkbox at partition stage; passphrase entry; EXPERIMENTAL banner on TPM-seal + FIDO2 sub-options
+  - Kernel: `CONFIG_DM_CRYPT=y` + crypto API built-in (not module)
+  - Live ISO: `cryptsetup` available to the installer
+  - FDE initramfs: custom busybox + cryptsetup-static; ~50 lines of init in the spirit of `installer/init/init.sh`; only built and installed for LUKS-enabled installs
+  - Recovery story documented in `docs/users/security-defaults.md`
+- **Status:** ACTIVE

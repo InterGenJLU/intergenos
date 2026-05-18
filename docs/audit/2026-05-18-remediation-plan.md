@@ -480,12 +480,12 @@ P-007 SPDX headers + P-008 AUTHORS + P-011 README License expansion + P-018 DCO 
 Decisions blocking remediation start (or substantively affecting scope). Numbered for owner reference:
 
 1. **B-001 SHIM path.** Fedora-piggyback shim (immediate) vs MS-signed shim via shim-review (6-12 wk dep) vs self-signed CA + mandatory user enrollment.
-2. **B-006 measured-boot scope.** Implement `systemd-cryptenroll` LUKS+TPM2 OR drop "measured boot" from docs.
+2. ~~**B-006 measured-boot scope.** Implement `systemd-cryptenroll` LUKS+TPM2 OR drop "measured boot" from docs.~~ **RESOLVED 2026-05-18 via D-001 (`docs/owner-directives.md`):** TPM-sealed unlock + FIDO2 unlock = v1.0 EXPERIMENTAL features, flagged in installer UI (Ubuntu 24.04 precedent). Implementation is `systemd-cryptenroll` LUKS+TPM2/FIDO2 backed by the v1.0 LUKS baseline.
 3. **B-008 / B-026 installed-system boot architecture.** UKI parity OR traditional grub-loads-vmlinuz; initramfs generator selection.
 4. **A-002 / A-028 QCOW2 retirement** (recommended) vs dual-output transitional.
 5. **A-004 dialog** add vs standardize whiptail.
 6. **C-014 alongside-install** keep + complete (ntfs-3g+ntfsresize) vs delete as v1.x deferred.
-7. **F-013 / B-050 MOK TPM sealing** v1.0 ship-decision — couples to B-006.
+7. ~~**F-013 / B-050 MOK TPM sealing** v1.0 ship-decision — couples to B-006.~~ **RESOLVED 2026-05-18 via D-001:** TPM-sealed unlock is v1.0 EXPERIMENTAL per the directive; sealing the MOK key to TPM is in scope as part of the same EXPERIMENTAL feature surface.
 8. **F-023 password aging policy** chage defaults vs document "no aging by design."
 9. **F-007 forge polkit rule scoping** cmdline-gate vs liveuser-namespace-rename.
 10. **G-005 default firewall service surface** loopback-only? Opt-in sshd? mDNS for printer discovery?
@@ -510,7 +510,7 @@ Decisions blocking remediation start (or substantively affecting scope). Numbere
 29. **P-002 LFS/BLFS attribution** posture (methodology vs verbatim text disclaimer).
 30. **P-003 fdk-aac** keep in default vs opt-in/non-free vs drop.
 31. **P-017 USPTO wordmark registration timing.**
-32. **N-018 encryption-at-rest** explicit v1.0 non-goal vs v1.x roadmap LUKS milestone.
+32. ~~**N-018 encryption-at-rest** explicit v1.0 non-goal vs v1.x roadmap LUKS milestone.~~ **RESOLVED 2026-05-18 via D-001:** LUKS-at-install is v1.0 baseline (opt-in passphrase-only LUKS2). Forge gets an encryption checkbox at the partition stage; plain installs unchanged. FDE-only initramfs (busybox + cryptsetup) is the narrow exception to the no-installed-system-initramfs ratification.
 33. **N-003 swap default** (swapfile vs zram).
 
 ---
