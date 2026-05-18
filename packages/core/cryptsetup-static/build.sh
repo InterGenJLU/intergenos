@@ -29,6 +29,7 @@ PKG_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 JSON_C_VER="0.18"
 POPT_VER="1.19"
 LVM2_VER="2.03.38"
+UTIL_LINUX_VER="2.41.3"
 
 # Scratch staging dir for static archives + headers from the secondary deps.
 # Sits inside the per-package work dir (sibling to src/, which holds extracted
@@ -146,50 +147,75 @@ build() {
         make install_device-mapper
     )
 
-    # === 4. cryptsetup itself, statically linked ===
-    # Now that staging holds libjson-c.a / libpopt.a / libdevmapper.a +
-    # matching .pc files + headers, configure cryptsetup with the staging
-    # prefix on PKG_CONFIG_PATH + a static LDFLAGS push.
+    # === 4. libuuid (from util-linux tree) ===
+    # cryptsetup's configure.ac line ~ does AC_CHECK_LIB(uuid, uuid_clear,…)
+    # UNCONDITIONALLY — no --without-uuid escape. Without staging libuuid.a
+    # the configure halts with "libuuid required". Build just libuuid from
+    # the util-linux tree, no other util-linux programs/libs needed.
+    echo "[cryptsetup-static] Building libuuid from util-linux-${UTIL_LINUX_VER} static..."
+    local util_linux_dir
+    util_linux_dir="$(_extract_secondary "util-linux-${UTIL_LINUX_VER}.tar.xz" "util-linux-${UTIL_LINUX_VER}")"
+    (
+        cd "${util_linux_dir}"
+        ./configure \
+            --prefix="${STAGING_DIR}" \
+            --libdir="${STAGING_DIR}/lib" \
+            --disable-all-programs \
+            --enable-libuuid \
+            --enable-static \
+            --disable-shared
+        make -j"${IGOS_JOBS}"
+        make install
+    )
+
+    # === 5. cryptsetup itself, statically linked ===
+    # Staging now holds: libjson-c.a + libpopt.a + libdevmapper.a + libuuid.a
+    # + their .pc files + headers. Cryptsetup configure.ac auto-detects
+    # static archives via the staged PKG_CONFIG_PATH + AC_CHECK_LIB.
     #
-    # --with-crypto_backend=kernel → AF_ALG (no userspace crypto lib needed)
-    # --enable-internal-argon2     → bundled libargon2 (LUKS2 PBKDF)
-    # --enable-static-cryptsetup   → produce cryptsetup.static binary
-    # --disable-shared             → don't build libcryptsetup.so (not needed)
-    # --disable-asciidoc           → no manpage generation (no asciidoc dep)
-    # --disable-ssh-token          → no SSH key tokens (not needed in initrd)
-    # --disable-pwquality          → passphrase strength enforced in installer,
-    #                                 not initrd; avoids libpwquality static dep
-    # --disable-external-tokens    → no plugin loader in static binary
-    # --disable-luks2-reencryption → reencrypt is installer-level, not initrd
-    # --disable-keyring            → no kernel-keyring path (initrd unlock
-    #                                 uses passphrase, not stored keys)
-    # --disable-veritysetup        → dm-verity not used by LUKS2 unlock
-    # --disable-integritysetup     → dm-integrity standalone tool not needed
-    # --disable-cryptsetup-reencrypt → legacy reencrypt tool, installer-only
+    # Flag rationale (verified against cryptsetup 2.8.4 configure.ac):
+    # --enable-static-cryptsetup   → produce cryptsetup.static; configure
+    #                                 injects -static into LIBS itself; do NOT
+    #                                 set LDFLAGS=-static (double-static link)
+    # --with-crypto_backend=kernel → AF_ALG kernel crypto (no openssl/gcrypt
+    #                                 userspace static dep). Argon2 KDF for
+    #                                 LUKS2 is internal (default; do NOT pass
+    #                                 --enable-internal-argon2 — that flag
+    #                                 does not exist; internal is default and
+    #                                 the external opt-in is --enable-libargon2)
+    # --disable-blkid              → drop libblkid dep (default-on requires
+    #                                 staging libblkid.a; we don't need fs
+    #                                 detection for unlock-only initrd path)
+    # --disable-asciidoc           → no manpage generation
+    # --disable-ssh-token          → no SSH plugin (dlopen-based, incompatible
+    #                                 with static binary)
+    # --disable-external-tokens    → no plugin loader at all (TPM2/FIDO2 are
+    #                                 piped-key paths via cryptsetup --key-file=-,
+    #                                 not via cryptsetup's plugin model)
+    # --disable-luks2-reencryption → installer-tier operation, not initrd
+    # --disable-keyring            → no kernel-keyring path (passphrase via stdin)
+    # --disable-veritysetup        → dm-verity standalone, not LUKS2 unlock
+    # --disable-integritysetup     → dm-integrity standalone, not LUKS2 unlock
+    # --disable-nls                → no gettext runtime (smaller static binary)
     echo "[cryptsetup-static] Configuring cryptsetup-${version}..."
     cd "${cryptsetup_src}"
 
     export PKG_CONFIG_PATH="${STAGING_DIR}/lib/pkgconfig"
     export CFLAGS="-I${STAGING_DIR}/include ${CFLAGS:-}"
-    # LDFLAGS=-static forces a fully-static link of the final binary; the
-    # -L pushes the staging archives ahead of system shared libs.
-    export LDFLAGS="-L${STAGING_DIR}/lib -static ${LDFLAGS:-}"
 
     ./configure \
         --prefix=/usr \
         --enable-static-cryptsetup \
-        --disable-shared \
         --with-crypto_backend=kernel \
-        --enable-internal-argon2 \
+        --disable-blkid \
         --disable-asciidoc \
         --disable-ssh-token \
-        --disable-pwquality \
         --disable-external-tokens \
         --disable-luks2-reencryption \
         --disable-keyring \
         --disable-veritysetup \
         --disable-integritysetup \
-        --disable-cryptsetup-reencrypt
+        --disable-nls
 
     echo "[cryptsetup-static] Building cryptsetup.static..."
     make -j"${IGOS_JOBS}" cryptsetup.static

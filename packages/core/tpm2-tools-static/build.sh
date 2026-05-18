@@ -85,25 +85,33 @@ build() {
     )
 
     # === 2. tpm2-tss static (ESYS + device-TCTI only, no FAPI/no dlopen) ===
-    # --disable-fapi          : drops libcurl + libgcrypt deps (Feature API
-    #                            we don't use). ESYS layer is enough for
+    #
+    # Flag rationale (verified against tpm2-tss 4.1.3 configure.ac):
+    # --disable-fapi          → drops libcurl + libgcrypt deps (Feature API
+    #                            we don't use). ESYS layer is sufficient for
     #                            seal/unseal operations.
-    # --disable-shared        : no .so emission; archives only
-    # --enable-static         : produces libtss2-*.a archives
-    # --with-tcti=device      : compile in only the /dev/tpmrm0 TCTI;
-    #                            avoids dlopen-based TCTI module loader
-    # --disable-doxygen-doc   : no doc build (no doxygen dep)
-    # --disable-tcti-libtpms  : drops libtpms simulator TCTI (only for tests)
-    # --disable-tcti-mssim    : drops Microsoft TPM simulator TCTI
-    # --disable-tcti-swtpm    : drops swtpm simulator TCTI
-    # --disable-tcti-pcap     : drops PCAP wrapper TCTI
-    # --disable-tcti-cmd      : drops command-pipe TCTI
+    # --disable-shared        → no .so emission; archives only
+    # --enable-static         → produces libtss2-*.a archives
+    # --enable-tcti-device    → device TCTI (talks /dev/tpmrm0 directly);
+    #                            default-on but explicit-for-audit-clarity.
+    #                            NOTE: --with-tcti=<name> was 1.x/2.x syntax
+    #                            and is silently ignored in 4.x; use
+    #                            per-TCTI --enable/--disable flags.
+    # --disable-doxygen-doc   → no doc build (no doxygen dep)
+    # --disable-tcti-libtpms  → drops libtpms simulator TCTI (tests only)
+    # --disable-tcti-mssim    → drops Microsoft TPM simulator TCTI
+    # --disable-tcti-swtpm    → drops swtpm simulator TCTI
+    # --disable-tcti-pcap     → drops PCAP wrapper TCTI
+    # --disable-tcti-cmd      → drops command-pipe TCTI
+    #
+    # NOTE: release tarballs come pre-bootstrapped (pre-generated configure +
+    # VERSION). Do NOT run ./bootstrap — it expects git-clone consumers
+    # (git describe for VERSION emit) and will print noise to logs.
     echo "[tpm2-tools-static] Building tpm2-tss-${TPM2_TSS_VER} static (ESYS + device-TCTI)..."
     local tpm2_tss_dir
     tpm2_tss_dir="$(_extract_secondary "tpm2-tss-${TPM2_TSS_VER}.tar.gz" "tpm2-tss-${TPM2_TSS_VER}")"
     (
         cd "${tpm2_tss_dir}"
-        ./bootstrap || true   # may already be bootstrapped in tarball
         PKG_CONFIG_PATH="${STAGING_DIR}/lib/pkgconfig" \
         CFLAGS="-I${STAGING_DIR}/include" \
         LDFLAGS="-L${STAGING_DIR}/lib" \
@@ -113,7 +121,7 @@ build() {
             --disable-shared \
             --enable-static \
             --disable-fapi \
-            --with-tcti=device \
+            --enable-tcti-device \
             --disable-doxygen-doc \
             --disable-tcti-libtpms \
             --disable-tcti-mssim \
@@ -136,7 +144,8 @@ build() {
     echo "[tpm2-tools-static] Configuring tpm2-tools-${version}..."
     cd "${tpm2_tools_src}"
 
-    ./bootstrap || true   # may already be bootstrapped in tarball
+    # tpm2-tools release tarballs are pre-bootstrapped — do NOT run
+    # ./bootstrap (same as tpm2-tss above).
 
     export PKG_CONFIG_PATH="${STAGING_DIR}/lib/pkgconfig"
     export CFLAGS="-I${STAGING_DIR}/include ${CFLAGS:-}"

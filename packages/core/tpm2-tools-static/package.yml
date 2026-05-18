@@ -26,10 +26,13 @@ dependencies:
   # cmake required for json-c static build. autotools/make/gcc/pkg-config
   # all in the chroot by core-phase entry. openssl required for static
   # archives (libcrypto.a + libssl.a — retained as of precursor fix that
-  # removed the INSTALL_LIBS sed strip).
+  # removed the INSTALL_LIBS sed strip). curl required by tpm2-tools per
+  # upstream INSTALL.md "Curl library and headers" (REQUIRED, not optional;
+  # tpm2-tools links libcurl directly regardless of FAPI status).
   build:
     - cmake
     - openssl
+    - curl
   host: []
   runtime: []
 

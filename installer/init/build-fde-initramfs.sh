@@ -155,6 +155,86 @@ if [ "$HAVE_FIDO2_TOOLS" = "yes" ]; then
     fi
 fi
 
+# libudev.so.1 — fido2-tools-static binaries are mostly-static (static
+# libfido2.a + libcbor.a + libcrypto.a + libssl.a + libz.a) but link
+# libudev DYNAMICALLY because libudev only ships as a .so (systemd meson
+# static-libudev option is off by default in our packages/core/systemd
+# build). Every shipping distro pairs static libfido2 + dynamic libudev
+# for FIDO2 tools; matches Alpine + Fedora dracut + Arch mkinitcpio
+# precedent. Bundle libudev.so.1 + its transitive deps so the runtime
+# loader resolves them inside the FDE initramfs envelope.
+if [ "$HAVE_FIDO2_TOOLS" = "yes" ]; then
+    mkdir -p "$WORK/usr/lib" "$WORK/lib64"
+    # libudev.so.1 — fido2-tools-static binaries are mostly-static (static
+    # libfido2.a + libcbor.a + libcrypto.a + libssl.a + libz.a) but link
+    # libudev DYNAMICALLY because libudev only ships as a .so (systemd
+    # meson static-libudev option is off by default in our packages/core/
+    # systemd build). Every shipping distro pairs static libfido2 + dynamic
+    # libudev for FIDO2 tools (Alpine, Fedora dracut, Arch mkinitcpio
+    # precedent). Bundle libudev.so.1 + ld-linux + any transitive .so deps
+    # so the runtime loader resolves them inside the FDE initramfs envelope.
+    for libudev_path in /usr/lib/libudev.so.1 /usr/lib/x86_64-linux-gnu/libudev.so.1 /lib/x86_64-linux-gnu/libudev.so.1; do
+        if [ -e "$libudev_path" ]; then
+            cp -L "$libudev_path" "$WORK/usr/lib/libudev.so.1"
+            chmod 755 "$WORK/usr/lib/libudev.so.1"
+            echo "  D-001/I-D: bundled libudev.so.1 from $libudev_path (fido2-tools-static dynamic dep)"
+            break
+        fi
+    done
+    if [ ! -e "$WORK/usr/lib/libudev.so.1" ]; then
+        echo "  WARNING: libudev.so.1 not present in chroot — fido2-tools-static binaries will FAIL with 'libudev.so.1: cannot open shared object' at boot. systemd package provides it; verify chroot-build-ch8.sh:656 ran successfully."
+    fi
+    # ld-linux — fido2 binaries' ELF interpreter. The kernel reads the
+    # interpreter path from the binary's PT_INTERP segment at execve()
+    # time and fails if it's missing. Static binaries (busybox-static,
+    # cryptsetup-static, tpm2-tools-static) don't need this; mostly-static
+    # fido2-tools do. Glibc ships ld-linux at /usr/lib/ld-linux-x86-64.so.2
+    # with /lib64 symlinks; copy to both paths so PT_INTERP resolves
+    # regardless of which path the binary was linked with.
+    for ld_path in /lib64/ld-linux-x86-64.so.2 /usr/lib/ld-linux-x86-64.so.2 /lib/ld-linux-x86-64.so.2; do
+        if [ -e "$ld_path" ]; then
+            cp -L "$ld_path" "$WORK/lib64/ld-linux-x86-64.so.2"
+            chmod 755 "$WORK/lib64/ld-linux-x86-64.so.2"
+            # /usr/lib symlink for binaries linked against the /usr/lib path
+            ln -sf /lib64/ld-linux-x86-64.so.2 "$WORK/usr/lib/ld-linux-x86-64.so.2"
+            echo "  D-001/I-D: bundled ld-linux-x86-64.so.2 from $ld_path (mostly-static binary PT_INTERP)"
+            break
+        fi
+    done
+    if [ ! -e "$WORK/lib64/ld-linux-x86-64.so.2" ]; then
+        echo "  WARNING: ld-linux-x86-64.so.2 not found — mostly-static fido2 binaries will FAIL execve()."
+    fi
+    # libc.so.6 — fido2 binaries link glibc dynamically by default (static
+    # link of glibc requires -static at build time, which the libfido2 cmake
+    # doesn't honor for tools). Bundle libc.so.6 + nss/resolv shims that
+    # glibc reaches for at startup.
+    for libc_path in /lib64/libc.so.6 /usr/lib/libc.so.6 /usr/lib/x86_64-linux-gnu/libc.so.6; do
+        if [ -e "$libc_path" ]; then
+            cp -L "$libc_path" "$WORK/usr/lib/libc.so.6"
+            chmod 755 "$WORK/usr/lib/libc.so.6"
+            ln -sf /usr/lib/libc.so.6 "$WORK/lib64/libc.so.6"
+            echo "  D-001/I-D: bundled libc.so.6 from $libc_path (mostly-static glibc dep)"
+            break
+        fi
+    done
+    # Capture any remaining transitive .so deps via ldd-on-the-bundled-binary
+    # after the libudev + ld-linux + libc bundling above. Catches future-
+    # systemd-adds-deps cases without changing the script.
+    for fido_bin in fido2-cred fido2-assert fido2-token; do
+        [ -x "$WORK/sbin/$fido_bin" ] || continue
+        ldd "$WORK/sbin/$fido_bin" 2>/dev/null | awk '/=>/ && $3 ~ /^\/.*\.so/ { print $3 }' | while read -r so; do
+            so_name="$(basename "$so")"
+            [ -e "$WORK/usr/lib/$so_name" ] && continue
+            case "$so_name" in
+                linux-vdso*|ld-linux*) continue ;;
+            esac
+            cp -L "$so" "$WORK/usr/lib/$so_name"
+            chmod 755 "$WORK/usr/lib/$so_name"
+            echo "  D-001/I-D: bundled $so_name (transitive dep of fido2-tools-static)"
+        done
+    done
+fi
+
 # ---- Kernel modules — required for LUKS unlock + ext4 root mount ----------
 # Modules and their transitive dependencies must be physically present in
 # the cpio (initramfs has no module-loader fallback to disk).

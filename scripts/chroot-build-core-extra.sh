@@ -448,6 +448,27 @@ run_package "busybox-static" "busybox-static" "1.37.0" \
     "busybox-1.37.0.tar.bz2" \
     "Statically-linked busybox userland for initramfs"
 
+# --- Group F.1: FDE initramfs prerequisites (D-001 LUKS activation chain) ---
+# Statically-linked binaries bundled into the FDE initramfs for LUKS unlock.
+# Same posture as busybox-static (no chroot runtime deps; can be placed
+# anywhere in the build order AFTER openssl since the EXPERIMENTAL pair
+# link against system libcrypto.a). All three are tier:core; wiring here
+# is REQUIRED — tier:core packages are not topo-sort-built by the Python
+# builder; phase_core_extra runs this bash script in hardcoded order.
+# Silent-skip pattern (Rulebook Rule 2) if absent from this list.
+
+run_package "cryptsetup-static" "cryptsetup-static" "2.8.4" \
+    "cryptsetup-2.8.4.tar.xz" \
+    "Statically-linked cryptsetup for early-boot LUKS unlock"
+
+run_package "tpm2-tools-static" "tpm2-tools-static" "5.7" \
+    "tpm2-tools-5.7.tar.gz" \
+    "Statically-linked tpm2-tools subset for EXPERIMENTAL TPM2 LUKS unlock"
+
+run_package "fido2-tools-static" "fido2-tools-static" "1.17.0" \
+    "libfido2-1.17.0.tar.gz" \
+    "Statically-linked libfido2 tools for EXPERIMENTAL FIDO2 LUKS unlock"
+
 # --- Group G: Core libraries previously misclassified or silent-skipped ---
 # Authored 2026-05-10 to address Build #6 audit findings. Each entry below
 # was either:

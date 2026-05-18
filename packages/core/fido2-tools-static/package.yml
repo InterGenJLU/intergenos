@@ -26,11 +26,19 @@ source:
 dependencies:
   # cmake required for libcbor + libfido2 (both CMake-based). openssl in
   # chroot by core-phase entry (static archives retained as of precursor
-  # fix); zlib similarly available.
+  # fix). zlib similarly available. systemd provides libudev.so + libudev.pc
+  # which libfido2 1.17.0 requires UNCONDITIONALLY on Linux per upstream
+  # CMakeLists.txt line 248 (pkg_search_module UDEV libudev REQUIRED).
+  # USE_HIDAPI=OFF does NOT remove this dep — HIDAPI is additive on Linux,
+  # not a replacement. systemd is built in Ch.8 (chroot-build-ch8.sh:656)
+  # which runs before chroot-build-core-extra.sh, so libudev.so is present
+  # at link time. systemd-pass2 (desktop tier) rebuilds with PAM; not needed
+  # for this static-tools build.
   build:
     - cmake
     - openssl
     - zlib
+    - systemd
   host: []
   runtime: []
 
