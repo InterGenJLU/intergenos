@@ -103,11 +103,26 @@ do_install() {
     # against upstream + clean-rebuild scenarios
     install -vm644 "${IGOS_SOURCES}/linux-${pkg_ver}.tar.xz" \
         "${DESTDIR}/usr/src/linux-${pkg_ver}.tar.xz"
+
+    # Ship the D-005 UKI rebuild hook. pkm/installer.py fires
+    # /var/lib/pkm/hooks/<pkgname>/post-install after deploy on the
+    # target system (Forge install + pkm upgrade alike). The hook
+    # rebuilds the UKI from the new kernel + signs it with the user's
+    # local MOK per D-005 Option A.
+    install -v -dm755 "${DESTDIR}/var/lib/pkm/hooks/linux-kernel"
+    install -vm755 "/mnt/intergenos/packages/core/linux-kernel/hooks/post-install.sh" \
+        "${DESTDIR}/var/lib/pkm/hooks/linux-kernel/post-install"
 }
 
 # Post-install: runs on the live system AFTER deploy
+# NOTE: this build.sh post_install is invoked by scripts/chroot-build-ch10.sh
+# at PACKAGE BUILD time inside the build chroot — NOT at user-install time.
+# The user-install-time hook is shipped via do_install above to
+# /var/lib/pkm/hooks/linux-kernel/post-install and fired by pkm/installer.py.
 post_install() {
     set -e
-    # Regenerate module dependency files
-    depmod 6.18.10
+    # Regenerate module dependency files for the package's KERNELRELEASE
+    # (matches the modules-dir created by `make modules_install`, i.e.
+    # 6.18.10-igos per CONFIG_LOCALVERSION="-igos").
+    depmod 6.18.10-igos
 }

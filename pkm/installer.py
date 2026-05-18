@@ -231,6 +231,13 @@ class PackageInstaller:
                 supersedes=superseded_names,
             )
 
+            # D-005 Phase A: fire per-package post-install runtime hook if
+            # shipped. Hook lives at <root>/var/lib/pkm/hooks/<name>/post-install
+            # (executable). Used by linux-kernel to rebuild + sign the UKI on
+            # every install/upgrade per D-005 Option A. Failure is non-fatal —
+            # deploy + DB commit already happened; hook is a side-channel.
+            self._run_post_install_hook(name, version)
+
             file_count = len([f for f in file_list if not f.endswith("/")])
             extra = ""
             if superseded_names:
@@ -239,6 +246,46 @@ class PackageInstaller:
 
         finally:
             shutil.rmtree(staging, ignore_errors=True)
+
+    def _run_post_install_hook(self, name, version):
+        """Fire per-package post-install runtime hook if shipped.
+
+        Pkm-runtime hook surface for packages that need to do work on the
+        live system after deploy (UKI rebuild per D-005, cache regeneration,
+        depmod, etc.). Hook lives at
+        <root>/var/lib/pkm/hooks/<name>/post-install (executable).
+
+        Environment provided to the hook:
+            PKM_PACKAGE_NAME      — package name
+            PKM_PACKAGE_VERSION   — package version
+            PKM_PACKAGE_ROOT      — install root (e.g. "/" or a chroot)
+
+        Failure is non-fatal: log + continue. The deploy + DB transaction
+        already committed; the hook is a side-channel that can be re-run
+        manually if it fails.
+        """
+        hook = self.root / "var" / "lib" / "pkm" / "hooks" / name / "post-install"
+        if not hook.is_file() or not os.access(str(hook), os.X_OK):
+            return
+        env = os.environ.copy()
+        env["PKM_PACKAGE_NAME"] = name
+        env["PKM_PACKAGE_VERSION"] = version
+        env["PKM_PACKAGE_ROOT"] = str(self.root)
+        try:
+            result = subprocess.run([str(hook)], env=env)
+            if result.returncode != 0:
+                print(
+                    f"  WARNING: post-install hook for {name} exited "
+                    f"{result.returncode}; install proceeds (hook is "
+                    f"non-fatal). Re-run manually: {hook}",
+                    file=sys.stderr,
+                )
+        except (OSError, subprocess.SubprocessError) as e:
+            print(
+                f"  WARNING: post-install hook for {name} could not "
+                f"execute: {e}; install proceeds (hook is non-fatal).",
+                file=sys.stderr,
+            )
 
     # ------------------------------------------------------------------
     # Helpers — manifest reading + predecessor validation + hash building
