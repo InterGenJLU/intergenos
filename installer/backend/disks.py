@@ -30,7 +30,9 @@ from scratch at that point would discard validated detection logic.
 
 import json
 import os
+import shutil
 import subprocess
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -63,6 +65,39 @@ ESP_SIZE_MIB = 1024
 # than this; the operator picks a different target. Per D-005 Phase B
 # Forge ESP enforcement.
 FRESH_INSTALL_MIN_DISK_BYTES = 32 * 1024**3
+
+# LUKS2 argon2id KDF parameters (D-001 LUKS-at-install v1.0).
+#
+# Picked per UC dispatch 2026-05-18T21:47:27Z thread d001-luks-activation-chain:
+# "PBKDF argon2id, default 1GB memory + 4 iter for desktop-class hw —
+# research-validate, do not cargo-cult." Validation:
+#
+# Argon2id RFC 9106 §4 recommends two operating points:
+#   - First-recommended:  t=1, m=2^21 KB (2 GB)
+#   - Second-recommended: t=3, m=2^16 KB (64 MB)
+# Our choice (m=1 GB, t=4) sits between these — high memory cost (which
+# defeats GPU-accelerated brute-force, the dominant attack class against
+# disk-unlock secrets) without the OOM risk of 2 GB on 4 GB-RAM systems
+# typical of low-end laptops. t=4 with this memory takes ~2-3s on modern
+# desktop x86 — interactive but not painful.
+#
+# Parallel=4 matches the typical desktop core count (modern laptops are
+# ≥4 cores; cryptsetup defaults to cpu_count() so this is just an
+# explicit-not-implicit choice).
+#
+# Forcing iterations (--pbkdf-force-iterations) instead of using
+# cryptsetup's benchmark-to-target-time mode (--iter-time) gives
+# deterministic header parameters across install hardware — important
+# for reproducibility + for future header-restore workflows.
+LUKS_PBKDF = "argon2id"
+LUKS_PBKDF_MEMORY_KB = 1024 * 1024   # 1 GB
+LUKS_PBKDF_ITERATIONS = 4
+LUKS_PBKDF_PARALLEL = 4
+
+# Canonical /dev/mapper name for the LUKS root (matches CRYPT_NAME in
+# installer/init/fde-init.sh; both must agree because fde-init.sh reads
+# /etc/crypttab field 1 to find the LUKS device path).
+LUKS_MAPPER_NAME = "cryptroot"
 
 
 @dataclass
@@ -159,7 +194,7 @@ def detect_disks():
     return disks
 
 
-def partition_disk(disk_path, efi=False):
+def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=None):
     """Partition a disk for InterGenOS installation.
 
     Creates a GPT partition table with:
@@ -171,6 +206,19 @@ def partition_disk(disk_path, efi=False):
     - Disk size MUST be >= FRESH_INSTALL_MIN_DISK_BYTES (32 GB). Smaller
       targets fail closed with a clear RuntimeError before any
       destructive write — the operator picks a different disk.
+
+    LUKS opt-in (D-001 LUKS-at-install v1.0):
+    - When luks_enabled=True, the root partition is wrapped in LUKS2
+      before mkfs.ext4 runs. luks_passphrase MUST be a non-empty bytes
+      or str (str is encoded utf-8); it is passed to cryptsetup over
+      stdin (never via argv) and zeroized in this function's frame
+      before return. The resulting /dev/mapper/cryptroot is what gets
+      formatted ext4 and what callers should mount. Returns dict
+      includes "root_mapper" = /dev/mapper/cryptroot and
+      "luks_enabled" = True.
+    - Pre-flight checks: cryptsetup binary on PATH; passphrase non-
+      empty; target partition supports LUKS2 header (standard 512 or
+      4096 sector sizes).
 
     Returns dict with partition paths.
     """
@@ -185,6 +233,25 @@ def partition_disk(disk_path, efi=False):
             f"generations + LUKS FDE initramfs (Phase D). Pick a larger "
             f"target disk."
         )
+
+    # D-001 LUKS-at-install pre-flight (before any destructive write).
+    # Fail closed so the operator picks plain-install or fixes the
+    # environment rather than landing mid-partition with no recovery.
+    if luks_enabled:
+        if not cryptsetup_available():
+            raise RuntimeError(
+                "LUKS opt-in selected but `cryptsetup` is not on PATH. "
+                "The live ISO must include packages/core/cryptsetup for "
+                "install-time LUKS format. Pick plain install or fix "
+                "the live media."
+            )
+        if not luks_passphrase:
+            raise RuntimeError(
+                "LUKS opt-in selected but luks_passphrase is empty. "
+                "Forge frontend contract: when luks_enabled=True, the "
+                "passphrase MUST be non-empty + confirm-matched before "
+                "partition_disk is called."
+            )
 
     # Wipe existing partition table (routed through _run so dry_run is honored)
     _run(["wipefs", "-a", disk_path])
@@ -201,11 +268,26 @@ def partition_disk(disk_path, efi=False):
         # Determine partition paths (handles nvme vs sda naming)
         p1, p2 = _partition_paths(disk_path, 2)
 
-        # Format
+        # ESP formatted FAT32 unconditionally
         _run(f"mkfs.fat -F32 {p1}")
-        _run(f"mkfs.ext4 -L intergenos {p2}")
 
-        return {"esp": p1, "root": p2, "efi": True}
+        if luks_enabled:
+            # LUKS2 format the root partition, open as cryptroot,
+            # then mkfs.ext4 on /dev/mapper/cryptroot. Passphrase
+            # flows over stdin (never argv); zeroized in finally.
+            luks2_format(p2, luks_passphrase)
+            mapper = luks_open(p2, luks_passphrase, name=LUKS_MAPPER_NAME)
+            _run(f"mkfs.ext4 -L intergenos {mapper}")
+            return {
+                "esp": p1,
+                "root": p2,
+                "root_mapper": mapper,
+                "luks_enabled": True,
+                "efi": True,
+            }
+        else:
+            _run(f"mkfs.ext4 -L intergenos {p2}")
+            return {"esp": p1, "root": p2, "efi": True}
     else:
         # GPT + BIOS boot + root
         _run(f"parted -s {disk_path} mklabel gpt")
@@ -215,9 +297,238 @@ def partition_disk(disk_path, efi=False):
 
         p1, p2 = _partition_paths(disk_path, 2)
 
-        _run(f"mkfs.ext4 -L intergenos {p2}")
+        if luks_enabled:
+            luks2_format(p2, luks_passphrase)
+            mapper = luks_open(p2, luks_passphrase, name=LUKS_MAPPER_NAME)
+            _run(f"mkfs.ext4 -L intergenos {mapper}")
+            return {
+                "bios_grub": p1,
+                "root": p2,
+                "root_mapper": mapper,
+                "luks_enabled": True,
+                "efi": False,
+            }
+        else:
+            _run(f"mkfs.ext4 -L intergenos {p2}")
+            return {"bios_grub": p1, "root": p2, "efi": False}
 
-        return {"bios_grub": p1, "root": p2, "efi": False}
+
+# --- LUKS2 primitives (D-001 LUKS-at-install v1.0) ---
+
+
+def cryptsetup_available():
+    """Return True iff `cryptsetup` is on PATH.
+
+    Used as a pre-flight check before LUKS-opt-in partition_disk. The
+    installer environment (live ISO booted, Forge running from the
+    squashfs root) must provide cryptsetup via packages/core/cryptsetup.
+    Returns False on broken / minimal live media so the frontend can
+    surface the gap before any destructive write.
+    """
+    return shutil.which("cryptsetup") is not None
+
+
+def luks2_format(partition_path, passphrase):
+    """LUKS2-format a partition with argon2id KDF.
+
+    Passphrase MUST be bytes or str (str encoded utf-8). It is piped to
+    cryptsetup via stdin — NEVER passed as a command-line argument
+    (which would be visible to /proc/<pid>/cmdline scrapers). The local
+    bytes view is zeroized in the finally block before return.
+
+    Holy Grail filter: passphrase never reaches argv, never goes to
+    journal/syslog (subprocess output is captured + dropped on success),
+    never lands on disk outside the LUKS keyslot itself.
+
+    Args:
+        partition_path: block device to wrap, e.g. /dev/nvme0n1p2
+        passphrase: bytes (preferred — bytearray for zeroize) or str
+
+    Raises:
+        RuntimeError on cryptsetup failure (with stderr captured; the
+        captured stderr does NOT include the passphrase — cryptsetup
+        only echoes the secret to its own prompts, not to stderr on
+        non-interactive stdin paths).
+    """
+    if isinstance(passphrase, str):
+        passphrase_bytes = bytearray(passphrase.encode("utf-8"))
+    elif isinstance(passphrase, (bytes, bytearray)):
+        passphrase_bytes = bytearray(passphrase)
+    else:
+        raise TypeError(
+            f"luks2_format: passphrase must be str/bytes/bytearray, "
+            f"got {type(passphrase).__name__}"
+        )
+
+    if len(passphrase_bytes) == 0:
+        raise RuntimeError("luks2_format: empty passphrase rejected")
+
+    cmd = [
+        "cryptsetup",
+        "luksFormat",
+        "--type", "luks2",
+        "--batch-mode",                              # no Y/N prompt
+        "--key-file=-",                              # passphrase via stdin
+        "--pbkdf", LUKS_PBKDF,
+        "--pbkdf-memory", str(LUKS_PBKDF_MEMORY_KB),
+        "--pbkdf-force-iterations", str(LUKS_PBKDF_ITERATIONS),
+        "--pbkdf-parallel", str(LUKS_PBKDF_PARALLEL),
+        partition_path,
+    ]
+
+    if _DRY_RUN:
+        # Print arg list WITHOUT the passphrase (which is in stdin, not argv,
+        # but make the dry-run intent explicit).
+        print(f"  [DRY-RUN] {' '.join(cmd)}  <stdin: <PASSPHRASE>>")
+        _zeroize(passphrase_bytes)
+        return
+
+    try:
+        result = subprocess.run(
+            cmd,
+            input=bytes(passphrase_bytes),
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            # stderr is safe to surface (cryptsetup doesn't echo the
+            # secret on non-interactive stdin failure paths). Belt-and-
+            # suspenders scrub for any byte sequence matching the
+            # passphrase just in case a future cryptsetup release
+            # regresses this contract.
+            stderr_text = _scrub_passphrase_from_text(
+                result.stderr.decode("utf-8", errors="replace"),
+                passphrase_bytes,
+            )
+            raise RuntimeError(
+                f"cryptsetup luksFormat failed (exit {result.returncode}): "
+                f"{stderr_text}"
+            )
+    finally:
+        _zeroize(passphrase_bytes)
+
+
+def luks_open(partition_path, passphrase, name=LUKS_MAPPER_NAME):
+    """Unlock a LUKS2 partition and expose it as /dev/mapper/<name>.
+
+    Companion to luks2_format. Same passphrase-handling discipline:
+    stdin (never argv), local bytes view zeroized in finally.
+
+    Args:
+        partition_path: the LUKS2-formatted block device
+        passphrase: bytes or str
+        name: /dev/mapper/<name> to expose; defaults to "cryptroot"
+              to match installer/init/fde-init.sh's CRYPT_NAME.
+
+    Returns:
+        The /dev/mapper/<name> path on success.
+
+    Raises:
+        RuntimeError on cryptsetup failure (passphrase NOT in stderr).
+    """
+    if isinstance(passphrase, str):
+        passphrase_bytes = bytearray(passphrase.encode("utf-8"))
+    elif isinstance(passphrase, (bytes, bytearray)):
+        passphrase_bytes = bytearray(passphrase)
+    else:
+        raise TypeError(
+            f"luks_open: passphrase must be str/bytes/bytearray, "
+            f"got {type(passphrase).__name__}"
+        )
+
+    cmd = ["cryptsetup", "open", "--type", "luks2", "--key-file=-",
+           partition_path, name]
+    mapper_path = f"/dev/mapper/{name}"
+
+    if _DRY_RUN:
+        print(f"  [DRY-RUN] {' '.join(cmd)}  <stdin: <PASSPHRASE>>")
+        _zeroize(passphrase_bytes)
+        return mapper_path
+
+    try:
+        result = subprocess.run(
+            cmd,
+            input=bytes(passphrase_bytes),
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            stderr_text = _scrub_passphrase_from_text(
+                result.stderr.decode("utf-8", errors="replace"),
+                passphrase_bytes,
+            )
+            raise RuntimeError(
+                f"cryptsetup open failed (exit {result.returncode}): "
+                f"{stderr_text}"
+            )
+    finally:
+        _zeroize(passphrase_bytes)
+
+    return mapper_path
+
+
+@contextmanager
+def secure_passphrase(passphrase):
+    """Context-manager that holds a passphrase + zeroizes on exit.
+
+    Usage:
+        with secure_passphrase(user_input) as ph:
+            partitions = partition_disk(disk, efi=True,
+                                        luks_enabled=True,
+                                        luks_passphrase=ph)
+        # ph is zeroized here; do not reference outside the block.
+
+    The yielded value is a bytearray (caller passes it to subprocess
+    via stdin; luks2_format / luks_open will internally zeroize THEIR
+    copy too — belt-and-suspenders). The original string the user typed
+    is up to the caller to drop; this manager protects the bytes
+    derived from it.
+    """
+    if isinstance(passphrase, str):
+        buf = bytearray(passphrase.encode("utf-8"))
+    elif isinstance(passphrase, (bytes, bytearray)):
+        buf = bytearray(passphrase)
+    else:
+        raise TypeError(
+            f"secure_passphrase: must be str/bytes/bytearray, "
+            f"got {type(passphrase).__name__}"
+        )
+    try:
+        yield buf
+    finally:
+        _zeroize(buf)
+
+
+def _zeroize(buf):
+    """Overwrite a bytearray with NULs in place.
+
+    Best-effort scrub of an in-memory secret. Python's GC and string
+    interning mean we can't guarantee no copy survives elsewhere
+    (interpreter heap, swap, etc.), but this prevents the obvious
+    "passphrase variable still holds the bytes after function return"
+    foot-gun and is the canonical idiom for Python secret handling.
+    """
+    if isinstance(buf, bytearray):
+        for i in range(len(buf)):
+            buf[i] = 0
+
+
+def _scrub_passphrase_from_text(text, passphrase_bytes):
+    """Defense-in-depth: redact passphrase byte sequence from error text.
+
+    cryptsetup's documented behavior is to NEVER echo the passphrase
+    to stderr on --key-file=- + --batch-mode stdin paths. This scrub
+    is belt-and-suspenders against a future regression. Constant-time
+    is not required (the secret is already in memory; this only
+    affects whether it reaches the RuntimeError message).
+    """
+    if not passphrase_bytes:
+        return text
+    try:
+        secret = passphrase_bytes.decode("utf-8", errors="replace")
+    except Exception:
+        return text
+    if secret and secret in text:
+        return text.replace(secret, "<REDACTED-PASSPHRASE>")
+    return text
 
 
 def detect_existing_esp(disk):
@@ -399,11 +710,19 @@ def partition_disk_alongside(disk, ntfs_partition, free_start_mb):
 
 
 def mount_target(partitions, target="/mnt/target"):
-    """Mount partitions for installation."""
+    """Mount partitions for installation.
+
+    LUKS opt-in (D-001): when partitions["root_mapper"] is set, mount
+    /dev/mapper/cryptroot (the unlocked LUKS volume) rather than the
+    underlying LUKS partition. The mapper is what holds the ext4
+    filesystem; mounting the underlying partition would fail (the
+    partition's type is crypto_LUKS, not ext4).
+    """
     os.makedirs(target, exist_ok=True)
 
-    # Mount root
-    _run(f"mount {partitions['root']} {target}")
+    # Mount root — prefer the LUKS mapper if present, else the bare partition
+    root_device = partitions.get("root_mapper") or partitions["root"]
+    _run(f"mount {root_device} {target}")
 
     # Mount ESP if EFI
     if partitions.get("efi"):

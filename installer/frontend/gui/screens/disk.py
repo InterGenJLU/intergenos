@@ -77,7 +77,102 @@ class DiskPage(_ForgePage):
         )
         box.append(self._confirm_check)
 
+        # ------------------------------------------------------------------
+        # D-001 LUKS-at-install opt-in
+        # ------------------------------------------------------------------
+        # Encryption is opt-in per D-001 ratified semantics ("opt-in not
+        # default"). When the checkbox is active the passphrase entry +
+        # confirm entry become visible. The passphrase is captured here
+        # and threaded through state.luks_passphrase → install_io →
+        # disks.partition_disk where it pipes to cryptsetup via stdin
+        # (never argv) and is zeroized after use. The plaintext is held
+        # in state only as long as the install is running; ProgressPage's
+        # clear_sensitive_data() drops it on completion (success or
+        # failure path).
+        luks_separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        luks_separator.set_margin_top(12)
+        box.append(luks_separator)
+
+        luks_heading = Gtk.Label(label="Full-disk encryption (LUKS)")
+        luks_heading.add_css_class("title-4")
+        luks_heading.set_halign(Gtk.Align.START)
+        luks_heading.set_margin_top(6)
+        box.append(luks_heading)
+
+        self._luks_check = Gtk.CheckButton(
+            label="Encrypt the root filesystem with LUKS2."
+        )
+        self._luks_check.connect("toggled", self._on_luks_toggled)
+        box.append(self._luks_check)
+
+        luks_hint = Gtk.Label(
+            label="If enabled, you will be asked for a passphrase at every "
+                  "boot. If you forget the passphrase, your data is "
+                  "unrecoverable."
+        )
+        luks_hint.set_wrap(True)
+        luks_hint.set_xalign(0)
+        luks_hint.add_css_class("dim-label")
+        box.append(luks_hint)
+
+        self._luks_passphrase_entry = Gtk.PasswordEntry()
+        self._luks_passphrase_entry.set_show_peek_icon(True)
+        self._luks_passphrase_row = _labeled(
+            "Passphrase", self._luks_passphrase_entry
+        )
+        self._luks_passphrase_row.set_visible(False)
+        box.append(self._luks_passphrase_row)
+
+        self._luks_passphrase_confirm_entry = Gtk.PasswordEntry()
+        self._luks_passphrase_confirm_entry.set_show_peek_icon(True)
+        self._luks_passphrase_confirm_row = _labeled(
+            "Confirm passphrase", self._luks_passphrase_confirm_entry
+        )
+        self._luks_passphrase_confirm_row.set_visible(False)
+        box.append(self._luks_passphrase_confirm_row)
+
+        self._luks_strength_label = Gtk.Label()
+        self._luks_strength_label.set_wrap(True)
+        self._luks_strength_label.set_xalign(0)
+        self._luks_strength_label.add_css_class("dim-label")
+        self._luks_strength_label.set_visible(False)
+        box.append(self._luks_strength_label)
+
+        # Live strength feedback as the user types.
+        self._luks_passphrase_entry.connect(
+            "notify::text", self._on_luks_passphrase_changed
+        )
+
         return box
+
+    def _on_luks_toggled(self, check):
+        active = check.get_active()
+        self._luks_passphrase_row.set_visible(active)
+        self._luks_passphrase_confirm_row.set_visible(active)
+        if not active:
+            # Drop any captured plaintext when toggling off so the next
+            # toggle-on starts from a clean state. Same idiom as the
+            # manual-disk-entry deselection above.
+            self._luks_passphrase_entry.set_text("")
+            self._luks_passphrase_confirm_entry.set_text("")
+            self._luks_strength_label.set_visible(False)
+        else:
+            self._luks_passphrase_entry.grab_focus()
+
+    def _on_luks_passphrase_changed(self, _entry, _pspec):
+        pp = self._luks_passphrase_entry.get_text()
+        if not pp:
+            self._luks_strength_label.set_visible(False)
+            return
+        warning = _luks_passphrase_strength(pp)
+        if warning:
+            self._luks_strength_label.set_label(warning)
+            self._luks_strength_label.add_css_class("warning")
+            self._luks_strength_label.set_visible(True)
+        else:
+            self._luks_strength_label.set_label("Passphrase length looks reasonable.")
+            self._luks_strength_label.remove_css_class("warning")
+            self._luks_strength_label.set_visible(True)
 
     # ------------------------------------------------------------------
     # Helpers
@@ -194,6 +289,19 @@ class DiskPage(_ForgePage):
 
         self._confirm_check.set_active(state.confirm_destructive)
 
+        # LUKS state restoration. Restore the checkbox + visibility, but
+        # NEVER pre-fill the passphrase entries — back-and-forth
+        # navigation should re-prompt for the secret to avoid stale
+        # plaintext persisting across screen visits. The user types it
+        # again; state.luks_passphrase will be updated on next-button
+        # the next time through.
+        self._luks_check.set_active(state.luks_enabled)
+        self._luks_passphrase_row.set_visible(state.luks_enabled)
+        self._luks_passphrase_confirm_row.set_visible(state.luks_enabled)
+        self._luks_passphrase_entry.set_text("")
+        self._luks_passphrase_confirm_entry.set_text("")
+        self._luks_strength_label.set_visible(False)
+
     def on_next(self, state):
         # Resolve target_disk from list selection (preferred) or manual entry.
         selected = self._listbox.get_selected_row()
@@ -231,6 +339,57 @@ class DiskPage(_ForgePage):
                    "Confirm the destructive operation to continue.")
             return False
 
+        # D-001 LUKS validation. When opt-in is active, passphrase must
+        # be non-empty + match its confirm. Soft strength warning was
+        # already surfaced inline; we don't block on it (operator's
+        # call) but we do block on hard-empty + mismatch.
+        luks_enabled = self._luks_check.get_active()
+        luks_passphrase = ""
+        if luks_enabled:
+            pp = self._luks_passphrase_entry.get_text()
+            confirm = self._luks_passphrase_confirm_entry.get_text()
+            if not pp:
+                _toast(self._window,
+                       "Enter a LUKS passphrase, or uncheck encryption.")
+                return False
+            if pp != confirm:
+                _toast(self._window,
+                       "LUKS passphrases don't match. Re-enter both.")
+                return False
+            luks_passphrase = pp
+
         state.target_disk = target
         state.confirm_destructive = True
+        state.luks_enabled = luks_enabled
+        state.luks_passphrase = luks_passphrase
+        state.luks_passphrase_confirm = luks_passphrase if luks_enabled else ""
         return True
+
+
+def _luks_passphrase_strength(passphrase):
+    """Mirror of installer.frontend.tui._luks_passphrase_warning.
+
+    Returns a single human-readable warning string for a weak LUKS
+    passphrase, or empty string if no warning fires. Kept in sync with
+    the TUI version (same heuristics so both frontends surface the
+    same guidance).
+    """
+    if not passphrase:
+        return "Empty passphrases are not accepted."
+    if len(passphrase) < 8:
+        return (
+            f"Passphrase is {len(passphrase)} characters — well under the "
+            "8-character floor. Short passphrases fall to dictionary "
+            "attack quickly even with argon2id KDF cost."
+        )
+    classes = sum(
+        bool(any(test(c) for c in passphrase))
+        for test in (str.isupper, str.islower, str.isdigit,
+                     lambda c: not c.isalnum())
+    )
+    if len(passphrase) < 12 and classes < 2:
+        return (
+            f"Passphrase is {len(passphrase)} characters with only one "
+            "character class. Consider lengthening it or mixing types."
+        )
+    return ""

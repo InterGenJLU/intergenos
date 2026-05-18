@@ -140,8 +140,14 @@ def _show_confirm_summary(cfg, install_io):
     """Show a summary dialog before the destructive install begins.
     Returns True if the user confirms, False if they cancel."""
     disk = install_io.get("disk", "unknown")
+    luks_line = (
+        "LUKS encryption: ENABLED (passphrase required at every boot)"
+        if install_io.get("luks_enabled")
+        else "LUKS encryption: disabled"
+    )
     lines = [
         f"Target disk:     {disk} (ALL DATA WILL BE ERASED)",
+        luks_line,
         f"Hostname:        {cfg.get('hostname', '?')}",
         f"Locale:          {cfg.get('locale', '?')}",
         f"Timezone:        {cfg.get('timezone', '?')}",
@@ -375,6 +381,65 @@ def prompt_install_io():
     ):
         return None
 
+    # D-001 LUKS opt-in. Default = unencrypted (matches D-001 ratified
+    # "opt-in not default" semantics). When the user opts in, capture
+    # passphrase + confirm, surface entropy guidance + a forgotten-passphrase
+    # warning. The passphrase is NEVER stored to disk by the TUI — it
+    # rides the install_io dict to disks.partition_disk which pipes it
+    # to cryptsetup via stdin (not argv) and zeroizes its copy after use.
+    luks_enabled = _ask_yesno(
+        "Full-disk encryption (LUKS)",
+        "Encrypt the root filesystem with LUKS2?\n\n"
+        "If yes, you will be asked for the passphrase at every boot.\n"
+        "If you forget the passphrase, your data is unrecoverable.\n\n"
+        "Recommended for laptops + portable devices.",
+    )
+    luks_passphrase = ""
+    if luks_enabled:
+        # Pre-prompt guidance — character-class diversity + length both
+        # increase argon2id cost relative to a brute-force attacker. 12+
+        # characters with at least 3 character classes is the standard
+        # NIST 800-63B baseline for memorized secrets; passphrases of
+        # 4+ unrelated words (the diceware pattern) also work well.
+        while True:
+            rc, pp1 = _ask_password(
+                "FDE passphrase",
+                "Enter the disk-encryption passphrase.\n\n"
+                "Length matters more than complexity: 12+ characters,\n"
+                "or 4+ unrelated dictionary words, are good baselines.",
+            )
+            if rc != 0 or not pp1:
+                return None
+            rc, pp2 = _ask_password(
+                "Confirm FDE passphrase",
+                "Re-enter the same passphrase to confirm:",
+            )
+            if rc != 0 or pp2 is None:
+                return None
+            if pp1 != pp2:
+                # Mismatch — surface + retry. Don't keep either copy.
+                _dialog("--title", "Passphrase mismatch", "--msgbox",
+                        "The two passphrases did not match. Try again.",
+                        "10", "70")
+                pp1 = pp2 = ""
+                continue
+            warning = _luks_passphrase_warning(pp1)
+            if warning:
+                # Soft-warning path — operator can accept or re-enter.
+                # "No" returns them to the entry prompt. "Yes" accepts.
+                accept = _ask_yesno(
+                    "Weak passphrase",
+                    f"{warning}\n\nAccept this passphrase anyway?",
+                )
+                if not accept:
+                    pp1 = pp2 = ""
+                    continue
+            luks_passphrase = pp1
+            # Drop the local references to the confirm copy + intermediate
+            # variable promptly so the in-memory residue is minimized.
+            del pp1, pp2
+            break
+
     # Root password
     rc, root_pw = _ask_password("Root password", "Enter the root password:")
     if rc != 0 or not root_pw:
@@ -405,13 +470,54 @@ def prompt_install_io():
         if rc != 0 or not mok_pw:
             return None
 
-    return {
+    install_io = {
         "disk": disk,
         "root_password": root_pw,
         "username": username,
         "user_password": user_pw,
         "mok_password": mok_pw,
     }
+    if luks_enabled:
+        install_io["luks_enabled"] = True
+        install_io["luks_passphrase"] = luks_passphrase
+    return install_io
+
+
+def _luks_passphrase_warning(passphrase):
+    """Return a single human-readable warning string for a weak LUKS
+    passphrase, or empty string if no warning fires.
+
+    Heuristics (not a hard reject — operator decides):
+      - Length < 8: surface as critically weak
+      - Length 8-11 with only one character class: surface as marginal
+      - Otherwise: no warning
+
+    NIST 800-63B + LUKS argon2id cost (1 GB memory, t=4) together make
+    "long-enough" passphrases the dominant defense. We don't try to
+    score complexity beyond character-class counting + length — that
+    would be cargo-cult security theater (most real passphrase entropy
+    estimators are weak heuristics dressed up as math).
+    """
+    if not passphrase:
+        return "Empty passphrases are not accepted."
+    if len(passphrase) < 8:
+        return (
+            f"Passphrase is {len(passphrase)} characters — well under the "
+            "8-character floor. Even with argon2id KDF cost, short "
+            "passphrases fall to dictionary attack quickly."
+        )
+    classes = sum(
+        bool(any(test(c) for c in passphrase))
+        for test in (str.isupper, str.islower, str.isdigit,
+                     lambda c: not c.isalnum())
+    )
+    if len(passphrase) < 12 and classes < 2:
+        return (
+            f"Passphrase is {len(passphrase)} characters with only one "
+            "character class. Consider lengthening it or adding mixed "
+            "character types."
+        )
+    return ""
 
 
 # --------------------------------------------------------------------------

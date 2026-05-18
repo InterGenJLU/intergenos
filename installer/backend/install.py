@@ -219,6 +219,18 @@ def validate_install_inputs(cfg, install_io):
         if field_name not in install_io or not install_io[field_name]:
             errors.append(f"install_io missing required field: {field_name}")
 
+    # D-001 LUKS opt-in: when luks_enabled is truthy, luks_passphrase
+    # MUST be present + non-empty. Pre-flight cryptsetup-available check
+    # lives in disks.partition_disk so the live media's actual state is
+    # tested — we only validate the frontend contract here.
+    if install_io.get("luks_enabled"):
+        if not install_io.get("luks_passphrase"):
+            errors.append(
+                "install_io luks_enabled=True but luks_passphrase missing/empty "
+                "(D-001 LUKS-at-install contract: frontend MUST capture + confirm "
+                "passphrase before invoking the backend)"
+            )
+
     if errors:
         raise ValueError(
             "install validation failed:\n  - " + "\n  - ".join(errors)
@@ -346,7 +358,21 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
             # the live ISO build pipeline regressed (audit A-001). Raises
             # RuntimeError so the destructive partition_disk() never runs.
             bootloader.verify_shim_assets_present()
-        partitions = disks.partition_disk(install_io["disk"], efi=efi)
+        # D-001 LUKS opt-in: pass through luks_enabled + luks_passphrase
+        # if frontend captured them. partition_disk's pre-flight rejects
+        # malformed combinations (luks_enabled with empty passphrase, or
+        # luks_enabled without cryptsetup on PATH) before any disk write.
+        # NB: do NOT log luks_passphrase; the _emit message logs only the
+        # disk + the LUKS-enabled flag.
+        luks_enabled = bool(install_io.get("luks_enabled"))
+        if luks_enabled:
+            _emit(PHASE_PARTITION, 2, f"LUKS opt-in: wrapping root in LUKS2 (argon2id)")
+        partitions = disks.partition_disk(
+            install_io["disk"],
+            efi=efi,
+            luks_enabled=luks_enabled,
+            luks_passphrase=install_io.get("luks_passphrase") if luks_enabled else None,
+        )
         result.phase_completed = PHASE_PARTITION
         _emit(PHASE_PARTITION, 3, "partitioned + formatted")
 

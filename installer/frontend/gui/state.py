@@ -50,6 +50,16 @@ class InstallerState:
     target_disk: Optional[str] = None
     confirm_destructive: bool = False
 
+    # --- LUKS-at-install opt-in (D-001) ---
+    # When luks_enabled=True, partition_disk wraps the root partition in
+    # LUKS2 (argon2id, 1 GB memory, 4 iter) before mkfs.ext4. The
+    # passphrase rides install_io to the backend; never persisted to
+    # state.yaml or any disk artifact. Cleared by clear_sensitive_data
+    # after install completes (success OR failure path).
+    luks_enabled: bool = False
+    luks_passphrase: str = ""
+    luks_passphrase_confirm: str = ""
+
     # --- User screen ---
     hostname: str = "intergenos"
     username: str = ""
@@ -105,12 +115,26 @@ class InstallerState:
         self.root_password = ""
         self.root_password_confirm = ""
         self.mok_password = ""
+        # D-001: LUKS passphrase + confirm cleared too. The backend has
+        # already piped the passphrase to cryptsetup over stdin and
+        # zeroized its local copy by the time we reach here.
+        self.luks_passphrase = ""
+        self.luks_passphrase_confirm = ""
 
     def is_ready_for_install(self) -> bool:
         """All required fields populated + destructive op confirmed.
 
         The Confirm screen calls this before transitioning to Progress.
         """
+        # D-001: when LUKS is opted-in, passphrase must be non-empty +
+        # match its confirm. Otherwise the LUKS fields are irrelevant.
+        luks_ok = (
+            (not self.luks_enabled)
+            or (
+                bool(self.luks_passphrase)
+                and self.luks_passphrase == self.luks_passphrase_confirm
+            )
+        )
         return (
             self.target_disk is not None
             and self.confirm_destructive
@@ -119,6 +143,7 @@ class InstallerState:
             and self.user_password == self.user_password_confirm
             and bool(self.root_password)
             and self.root_password == self.root_password_confirm
+            and luks_ok
         )
 
     # ----------------------------------------------------------------------
@@ -195,6 +220,12 @@ class InstallerState:
         }
         if self.mok_password:
             io["mok_password"] = self.mok_password
+        # D-001 LUKS opt-in: only thread through when the user opted in;
+        # absent keys are equivalent to luks_enabled=False per the
+        # backend's install_io.get("luks_enabled") read pattern.
+        if self.luks_enabled:
+            io["luks_enabled"] = True
+            io["luks_passphrase"] = self.luks_passphrase
         return io
 
     def to_run_install_kwargs(
@@ -260,6 +291,12 @@ class InstallerState:
             errors.append("root passwords don't match")
         if not self.hostname:
             errors.append("hostname not set")
+        # D-001 LUKS validation (mirrors is_ready_for_install)
+        if self.luks_enabled:
+            if not self.luks_passphrase:
+                errors.append("LUKS passphrase not set (encryption opt-in active)")
+            elif self.luks_passphrase != self.luks_passphrase_confirm:
+                errors.append("LUKS passphrases don't match")
         # 'core' invariant is enforced in __post_init__; no runtime check
         # needed here — bypassing __post_init__ means bypassing the
         # dataclass machinery entirely, which is out-of-scope for the
