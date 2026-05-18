@@ -286,3 +286,64 @@ Each entry uses this shape:
   - TRACKER.md gate entry under v1.0 ship-blockers
 
 - **Status:** ACTIVE — **CLASS A GATE; blocks ISO/qcow2 creation until compliance verified**
+
+---
+
+## D-008 — InterGen provenance-gated tool dispatcher (Class A v1.0 ship-block; blocks ISO creation when InterGen is included)
+
+- **Issued:** 2026-05-18T16:49:42Z by owner
+- **Context:** Walk item 5B (InterGen `manage_services` LLM-root-equivalence) generalized by owner during the walk to a broader prompt-injection defense. Owner-proposed concept: any ingress-directional action (tool calls sourced from content the user did not author) gets presented for explicit user review before execution. Build-system coordinator confirmed the concept maps to published LLM-security research (Anthropic + Microsoft spotlighting / instruction-hierarchy work) and is complementary to D-007 Option A (pkexec for authentication). Owner greenlit v1.0 minimum scope; build-system coordinator drafted RFC at `docs/architecture/intergen-provenance-gate-design.md` (commit `b3949b24` 2026-05-18) and surfaced the directive text for owner firing. Owner fired the directive at this timestamp.
+- **Verbatim:**
+
+  > OWNER DIRECTIVE:
+  >
+  > InterGen ships a provenance-gated tool dispatcher. Every tool call carries a declared and verified provenance label (user_direct / user_implied / ingress_derived). Actions sourced from ingress content the user did not author are held for explicit user review before execution, with the proposed action + source content displayed for the user's decision. Privileged actions then route through pkexec for authentication (composes with D-007), so prompt injection plus credential-cache ride is gated by two independent human-decision points.
+  >
+  > Canonical design: docs/architecture/intergen-provenance-gate-design.md.
+  >
+  > Scope: v1.0 minimum is required for ship — the gate, the dispatcher, the review modal, the mechanical ingress-tool watermark, the audit log. v1.0 InterGen ISO does not ship until this lands; reuse the D-007 gate pattern (compliance check script + phase_image hook) to enforce. v1.x full (spotlighting of retrieved content, per-conversation trust state, output-side pattern scanning) is top-of-ToDo and tracked at TRACKER K16. Closes audit I-027 (SafetyTier.CONFIRM not enforced) and I-035 (manage_services LLM-root-equivalence) as the architectural resolution path; partially closes I-029. No code lands until installed-system + Windows-host + build-system coordinator peer review converges on the RFC.
+  >
+  > Anything that ships InterGen tool dispatch without this gate is a VIOLATION and must be vaporized before the next ISO is created.
+
+- **Decision-Encoded:**
+
+  **Architectural commitment:** InterGen's tool dispatcher is rewritten to gate every tool call by a declared-and-verified provenance label. The canonical design document at `docs/architecture/intergen-provenance-gate-design.md` is the source-of-truth for the dispatcher's shape, the taxonomy, the verification mechanism, the UX, and the v1.0-vs-v1.x scope split. Any departure from that design requires either an RFC amendment (with peer review) or a superseding directive.
+
+  **v1.0 minimum scope (required for ship):**
+  - Three-category provenance taxonomy on every tool call (`user_direct` / `user_implied` / `ingress_derived`); no-fallback policy at dispatcher
+  - Dispatcher gate with the behavior matrix at RFC §6 (read-only auto-allowed; state-changing user-scope held for non-`user_direct`; privileged state-changing held + pkexec on allow)
+  - Mechanical ingress-tool-watermark verification (RFC §5.1) — LLM self-declaration is necessary but not sufficient; if any ingress tool fired earlier in the turn the heuristic escalates the effective label by one tier
+  - Review modal with proposed action + source content + LLM reasoning available to the user; Allow once / Allow for this conversation / Deny
+  - Notification fallback for held actions when session is locked (RFC §7.2)
+  - System-prompt extension requiring `source_of_request` field on every tool call (RFC §8)
+  - Per-tool-call audit log at `$XDG_STATE_HOME/intergen/tool-dispatch.jsonl` (RFC §9)
+  - Integration with D-007 pkexec gate — provenance gate runs BEFORE pkexec; both must pass for privileged actions
+  - Compliance check script + `phase_image` hook (same pattern as `scripts/check-d007-compliance.sh`); refuses to assemble ISO if InterGen is included without the gate
+
+  **v1.x full scope (top-of-ToDo backlog at TRACKER K16):**
+  - Spotlighting of retrieved content — `<UNTRUSTED-INGRESS source="...">...</UNTRUSTED-INGRESS>` markers wrapping all ingress-tool output in the LLM's context window
+  - Per-conversation trust state (denied tool+source combinations stay denied for the conversation)
+  - Cross-conversation policy (user-set allowlists / denylists)
+  - Output-side scanning — elevate the v1.0 advisory pattern-detection (RFC §5.2) to gating after FP rate calibration
+  - `intergen tool-log` CLI for user review of their dispatch history
+
+  **Composition with prior directives:**
+  - D-001 (LUKS v1.0) — orthogonal
+  - D-005 (UKI parity) — orthogonal
+  - D-006 (theming SSoT) — orthogonal
+  - D-007 (SSH + root + credentials) — **composes**. Provenance gate is upstream of pkexec; pkexec is upstream of execution. Together: intent-verified + authentication-verified. Two independent human-decision points for any privileged action sourced from ingress content.
+
+  **Peer-review gate:** No InterGen tool-dispatch code lands until installed-system coordinator (technical review of dispatcher + tool-call schema + system-prompt extension) + Windows-host coordinator (cross-host review + documentation surface) + build-system coordinator (integration with pkexec + ISO compliance gate) converge on the RFC. RFC v0.1 currently at `docs/architecture/intergen-provenance-gate-design.md` commit `b3949b24`; review may produce v0.2 with deltas before code begins.
+
+- **Supersedes:**
+  - audit `docs/audit/2026-05-18-comprehensive-state-audit.md` row I-027 (`SafetyTier.CONFIRM` never enforced) — the provenance gate IS the proper CONFIRM-tier implementation; the existing broken `safety == BLOCKED`-only check at `intergen/tool_registry.py:99-115` is rewritten as part of K15
+  - audit row I-035 (`manage_services` sudo credential-cache ride) — two-layer fix: D-007 already locked the F-004 wheel-NOPASSWD assumption; K15 routes manage_services through pkexec with policy forcing per-action password + MANAGEABLE_SERVICES allow-list + critical-unit refusal (firewalld, NetworkManager, dbus, polkit, systemd-logind, sshd)
+  - audit row I-029 (`safety.classify_command` imported never invoked) — partial; gate dispatcher consults the tier so dead code becomes live. Residual decision on canonical classifier flagged for installed-system coordinator during K15 peer review
+  - Any prior framing of InterGen's tool dispatch as "ships secure-by-default" without explicit provenance verification — that framing is retired
+
+- **Class A enforcement:**
+  - This directive is a **Class A v1.0 ship-block**: ISO assembly that includes InterGen without the v1.0 minimum gate fails. Enforcement mirrors D-007's pattern.
+  - Build-system coordinator authors `scripts/check-d008-compliance.sh` (or extends `check-d007-compliance.sh`) and wires it into `phase_image` + `build-iso.sh` as part of K15 implementation work.
+  - Operator may build / boot / ship ISOs WITHOUT InterGen during the K15 implementation window — the gate only fires when InterGen is included in the squashfs.
+
+- **Status:** ACTIVE — **CLASS A v1.0 SHIP-BLOCK** (blocks ISO/qcow2 creation when InterGen is included in the artifact until v1.0 minimum gate compliance is verified)
