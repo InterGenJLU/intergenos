@@ -3,6 +3,7 @@ version: "1.0"
 release: 1
 description: Helper to download and install Google Chrome
 license: GPL-3.0-or-later
+payload_license: LicenseRef-Google-Chrome-ToS
 homepage: https://www.google.com/chrome/
 tier: extra
 build_style: custom

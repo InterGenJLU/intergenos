@@ -3,6 +3,7 @@ version: "1.0"
 release: 1
 description: Helper to download and install Microsoft Edge
 license: GPL-3.0-or-later
+payload_license: LicenseRef-Microsoft-Edge-EULA
 homepage: https://www.microsoft.com/edge
 tier: extra
 build_style: custom

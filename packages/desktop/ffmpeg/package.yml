@@ -1,8 +1,8 @@
 name: ffmpeg
 version: '8.0.1'
-release: 1
-description: Complete multimedia framework
-license: LGPL-2.1-or-later
+release: 2
+description: Complete multimedia framework — redistributable build (no nonfree codecs); use ffmpeg-nonfree-helper for opt-in FDK-AAC
+license: "GPL-3.0-or-later"
 homepage: https://ffmpeg.org/
 tier: desktop
 build_style: custom
@@ -22,7 +22,6 @@ dependencies:
   - nasm
   - alsa-lib
   - dav1d
-  - fdk-aac
   - lame
   - libvpx
   - svt-av1

@@ -1,0 +1,29 @@
+name: ffmpeg-nonfree-helper
+version: "1.0"
+release: 1
+description: Opt-in helper to install ffmpeg with patent-encumbered nonfree codecs (FDK-AAC) to /opt/ffmpeg-nonfree/
+license: GPL-3.0-or-later
+payload_license: "GPL-3.0-or-later AND FDK-AAC"
+homepage: https://ffmpeg.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - gcc-core
+  - make
+  - nasm
+  - pkgconf
+  - fdk-aac
+  - x264
+  - x265
+  - lame
+  - libvpx
+  - opus
+  - openssl
+  - zlib
+verify_paths:
+  - /usr/bin/igos-install-ffmpeg-nonfree

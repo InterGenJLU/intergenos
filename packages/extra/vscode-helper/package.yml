@@ -3,6 +3,7 @@ version: "1.0"
 release: 1
 description: Helper to download and install Microsoft Visual Studio Code
 license: GPL-3.0-or-later
+payload_license: LicenseRef-Microsoft-VSCode-Software-License
 homepage: https://code.visualstudio.com/
 tier: extra
 build_style: custom

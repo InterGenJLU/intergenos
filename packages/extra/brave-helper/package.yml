@@ -3,6 +3,7 @@ version: "1.0"
 release: 1
 description: Helper to download and install Brave Browser
 license: GPL-3.0-or-later
+payload_license: LicenseRef-Brave-EULA
 homepage: https://brave.com/
 tier: extra
 build_style: custom

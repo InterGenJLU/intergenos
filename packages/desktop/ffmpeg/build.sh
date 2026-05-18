@@ -10,16 +10,20 @@ configure() {
     sed -e '/adaptive/c\ param->aq_mode = 0;' \
         -i libavcodec/libsvtav1.c
 
+    # Default ffmpeg build — REDISTRIBUTABLE under LGPL-2.1+ with --enable-gpl
+    # for x264/x265 (themselves GPL-2). Patent-encumbered nonfree codecs
+    # (FDK-AAC) are NOT linked here; they are available via the
+    # opt-in `ffmpeg-nonfree-helper` package (see docs/legal/PATENTS.md
+    # and audit P-015). The in-tree AAC encoder provides functional AAC
+    # support without the FDK linkage.
     ./configure --prefix=/usr        \
                 --enable-gpl         \
                 --enable-version3    \
-                --enable-nonfree     \
                 --disable-static     \
                 --enable-shared      \
                 --disable-debug      \
                 --enable-libaom      \
                 --enable-libass      \
-                --enable-libfdk-aac  \
                 --enable-libfreetype \
                 --enable-libmp3lame  \
                 --enable-libopus     \
@@ -30,6 +34,7 @@ configure() {
                 --enable-openssl     \
                 --enable-libdav1d    \
                 --enable-libsvtav1   \
+                --enable-encoder=aac \
                 --docdir=/usr/share/doc/ffmpeg-${version}
 }
 

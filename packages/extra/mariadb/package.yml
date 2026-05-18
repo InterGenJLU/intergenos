@@ -1,8 +1,8 @@
 name: mariadb
 version: "11.8.6"
 release: 2
-description: MariaDB 11.8 LTS — GPL-2.0 relational database server (MySQL-compatible)
-license: "GPL-2.0 AND LGPL-2.1"
+description: MariaDB 11.8 LTS — GPL-2.0 relational database server (MySQL-compatible); statically bundles fmt (MIT) via CMake ExternalProject
+license: "GPL-2.0 AND LGPL-2.1 AND MIT"
 homepage: https://mariadb.org/
 tier: extra
 build_style: cmake
