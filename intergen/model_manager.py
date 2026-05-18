@@ -6,6 +6,19 @@ downloaded models in a JSON manifest.
 
 Model storage: /var/lib/intergen/models/llm/
 Manifest:      /var/lib/intergen/models/manifest.json
+
+License gate (P-016):
+Qwen models ship under the Tongyi Qianwen License — a source-available
+license with use-restrictions and attribution requirements. Before
+download_model() will fetch a Qwen-family model, the user MUST have
+recorded acceptance of the model's license at
+$XDG_DATA_HOME/intergen/legal/<filename>-accepted.json (per-user) or
+at /var/lib/intergen/legal/<filename>-accepted.json (system-wide,
+used by Forge if the user accepts at install time). Callers that need
+to drive the acceptance flow interactively should catch
+LicenseNotAcceptedError and surface the license content to the user.
+See docs/legal/payload-licenses.md (LicenseRef-Tongyi-Qianwen) and
+PRIVACY.md § 5.2.
 """
 
 from __future__ import annotations
@@ -13,6 +26,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import urllib.request
 from pathlib import Path
 from typing import Any, Callable
@@ -24,6 +38,59 @@ log = logging.getLogger(__name__)
 
 MODEL_DIR = Path("/var/lib/intergen/models/llm")
 MANIFEST_PATH = Path("/var/lib/intergen/models/manifest.json")
+
+# License gate paths
+SYSTEM_LEGAL_DIR = Path("/var/lib/intergen/legal")
+
+
+def _user_legal_dir() -> Path:
+    """Per-user acceptance directory under XDG_DATA_HOME."""
+    xdg = os.environ.get("XDG_DATA_HOME")
+    if xdg:
+        return Path(xdg) / "intergen" / "legal"
+    return Path.home() / ".local" / "share" / "intergen" / "legal"
+
+
+# Model-family license refs (must match docs/legal/payload-licenses.md
+# and docs/governance/license-policy.md § 7.5).
+QWEN_LICENSE_REF = "LicenseRef-Tongyi-Qianwen"
+QWEN_LICENSE_URL = (
+    "https://github.com/QwenLM/Qwen3.5/blob/main/LICENSE"
+)
+APACHE_LICENSE_REF = "Apache-2.0"
+
+
+def _model_license_ref(model: ModelInfo) -> str:
+    """Return the SPDX LicenseRef for a model based on its repo_id.
+
+    Qwen family → Tongyi Qianwen License (requires acceptance).
+    nomic-embed-text → Apache-2.0 (no acceptance gate; permissive).
+    """
+    repo = (model.repo_id or "").lower()
+    if "qwen" in repo:
+        return QWEN_LICENSE_REF
+    if "nomic" in repo:
+        return APACHE_LICENSE_REF
+    # Default: treat unknown as requiring acceptance — conservative.
+    return f"LicenseRef-Unknown-{model.repo_id}"
+
+
+class LicenseNotAcceptedError(Exception):
+    """Raised when a model download is attempted but the model's license
+    has not been accepted by the user. Callers should catch this,
+    surface the license content + canonical URL to the user, write an
+    acceptance record on user consent, and retry.
+    """
+
+    def __init__(self, model: ModelInfo, license_ref: str,
+                 canonical_url: str) -> None:
+        self.model = model
+        self.license_ref = license_ref
+        self.canonical_url = canonical_url
+        super().__init__(
+            f"License not accepted for {model.name} ({license_ref}). "
+            f"See {canonical_url} and record acceptance before retry."
+        )
 
 # SHA256 hashes will be populated when models are finalized.
 # For now, verification downloads the hash from HuggingFace.
@@ -80,9 +147,85 @@ class ModelManager(ModelManagerInterface):
         self._manifest: dict[str, dict[str, Any]] = {}
         self._load_manifest()
 
+    def check_license_acceptance(self, model: ModelInfo) -> bool:
+        """Return True if the user has previously accepted the model's license.
+
+        Acceptance is recorded at one of two paths:
+        - $XDG_DATA_HOME/intergen/legal/<filename>-accepted.json (per-user)
+        - /var/lib/intergen/legal/<filename>-accepted.json (system-wide,
+          written by Forge at install time if the user accepts then)
+
+        Apache-2.0 and other permissive licenses are treated as
+        auto-accepted (returns True). Restrictive licenses (Tongyi
+        Qianwen and unknown) require explicit acceptance.
+        """
+        license_ref = _model_license_ref(model)
+        # Permissive licenses are auto-accepted.
+        if license_ref == APACHE_LICENSE_REF:
+            return True
+        acceptance_filename = f"{model.filename}-accepted.json"
+        for d in (_user_legal_dir(), SYSTEM_LEGAL_DIR):
+            if (d / acceptance_filename).exists():
+                return True
+        return False
+
+    def record_license_acceptance(self, model: ModelInfo, *,
+                                  accepted_by: str = "") -> None:
+        """Record that the user has accepted the model's license.
+
+        Called by the UI/CLI layer after the user has been shown the
+        license text and clicks/types accept. Writes the acceptance
+        record under the user's XDG data dir.
+        """
+        license_ref = _model_license_ref(model)
+        if license_ref == APACHE_LICENSE_REF:
+            return  # Apache models don't need acceptance records
+        import datetime
+        legal_dir = _user_legal_dir()
+        legal_dir.mkdir(parents=True, exist_ok=True)
+        acceptance_filename = f"{model.filename}-accepted.json"
+        record = {
+            "model": model.name,
+            "filename": model.filename,
+            "repo_id": model.repo_id,
+            "license_ref": license_ref,
+            "canonical_url": (
+                QWEN_LICENSE_URL if license_ref == QWEN_LICENSE_REF
+                else "unknown"
+            ),
+            "accepted_at": datetime.datetime.now(
+                datetime.timezone.utc
+            ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "accepted_by": accepted_by or os.environ.get("USER", "unknown"),
+        }
+        target = legal_dir / acceptance_filename
+        target.write_text(json.dumps(record, indent=2) + "\n")
+        log.info("License acceptance recorded for %s at %s",
+                 model.name, target)
+
     def download_model(self, model: ModelInfo, *,
                        progress_callback: Callable | None = None) -> bool:
-        """Download model from Hugging Face and verify SHA256."""
+        """Download model from Hugging Face and verify SHA256.
+
+        Raises LicenseNotAcceptedError if the model's license requires
+        acceptance and none is on record. Callers should catch this,
+        drive the acceptance flow (display license, get user consent,
+        call record_license_acceptance), and retry.
+        """
+        # License gate (P-016) — fail-closed before any network activity.
+        if not self.check_license_acceptance(model):
+            license_ref = _model_license_ref(model)
+            canonical_url = (
+                QWEN_LICENSE_URL if license_ref == QWEN_LICENSE_REF
+                else f"(see docs/legal/payload-licenses.md for {license_ref})"
+            )
+            log.warning(
+                "License not accepted for %s (%s). "
+                "Refusing to download until acceptance is recorded.",
+                model.name, license_ref,
+            )
+            raise LicenseNotAcceptedError(model, license_ref, canonical_url)
+
         self._model_dir.mkdir(parents=True, exist_ok=True)
         local_path = self._model_dir / model.filename
 
