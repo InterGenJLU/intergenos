@@ -70,7 +70,7 @@ The MOK is yours. It lives at `/var/lib/intergen/mok/` on the installed system. 
 
 When you run the Forge installer (TUI or GUI), the bootloader stage does the following without asking you any further questions:
 
-1. **Generates a per-machine MOK keypair** (RSA-4096 or Ed25519) at `/var/lib/intergen/mok/mok.key` + `/var/lib/intergen/mok/mok.der`.
+1. **Generates a per-machine MOK keypair** (RSA-4096 or Ed25519) at `/var/lib/intergen/mok/mok.key` (private key), `/var/lib/intergen/mok/mok.crt` (PEM-format X.509 cert, used by `sbsign` for UKI signing), and `/var/lib/intergen/mok/mok.der` (DER-format X.509 cert, the binary form MokManager wants for enrollment).
 2. **Generates an enrollment password** (12 characters; random) and stores it for the first-boot enrollment step.
 3. **Stages the MOK for enrollment** so MokManager picks it up on the next reboot.
 4. **Installs `ukify` and `sbsigntool`** into the target system so the linux-kernel package's post-install hook can build and sign UKIs at kernel install or upgrade time.
@@ -99,7 +99,7 @@ When you install or upgrade a kernel via `pkm install linux-kernel-X.Y.Z` (or an
 
 1. Reads the kernel, the standard initramfs (and an additional FDE initramfs if your system is LUKS-encrypted — see below), and the canonical command-line for your system.
 2. Runs `ukify build` to bundle them into a single UKI in the systemd-stub envelope.
-3. Runs `sbsign --key /var/lib/intergen/mok/mok.key --cert /var/lib/intergen/mok/mok.der` to sign the UKI.
+3. Runs `sbsign --key /var/lib/intergen/mok/mok.key --cert /var/lib/intergen/mok/mok.crt` to sign the UKI. (`sbsign` reads PEM-format certificates; the `.der` form generated alongside is for MokManager enrollment only, not signing.)
 4. Writes the signed UKI to `/boot/efi/EFI/InterGenOS/igos-<version>.efi` (or the GRUB-compatible path your boot configuration uses).
 5. Updates the GRUB menu so the new kernel is the default boot entry.
 6. Retains a configurable number of old kernels (default: 2) and their UKIs as fallback entries.
