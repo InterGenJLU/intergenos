@@ -69,7 +69,7 @@
 
 | Agent | Lanes | Initial scan | Iteration 2 | Iteration 3 | Notes |
 |---|---|---|---|---|---|
-| SPOC | A, B, C, E, M | A: complete (45 findings, 3 iters); C: complete (70 findings, 3 passes); E: complete (43 findings, 3 passes) — B in flight; M: complete (57 findings, 3 iters) | A: complete; C: complete; E: complete; M: complete | A: complete; C: complete; E: complete; M: complete | A: pushed 5391290d; C: pushed 2c8be99e+63ff4a49+683195ca+1698a492+f5913d76; E: pushed 608181b7+f1dec75a+pass3; M: pushed 014ac9c0+1ed8541a+pass3 |
+| SPOC | A, B, C, E, M | A: complete (45 findings, 3 iters); B: complete (53 findings, 3 iters); C: complete (70 findings, 3 passes); E: complete (43 findings, 3 passes); M: complete (57 findings, 3 iters) | A: complete; B: complete; C: complete; E: complete; M: complete | A: complete; B: complete; C: complete; E: complete; M: complete | A: pushed 5391290d; B: pushed da4e2a04+e867b4f9+0169f21a; C: pushed 2c8be99e+63ff4a49+683195ca+1698a492+f5913d76; E: pushed 608181b7+f1dec75a+pass3; M: pushed 014ac9c0+1ed8541a+pass3 |
 | IGOSC | D, F, G, I, J | complete | | | iter-1 surfaced 93 new findings (D+12, F+28, G+25, I+13, J+15); Holy-Grail-class: F-002/F-003/F-004/F-005/F-006, G-004 (twin of F-002), G-005, I-005 |
 | WC | H, K, L, N, O, P | dispatched | | | |
 
