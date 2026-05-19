@@ -162,6 +162,51 @@ igos_helper_commit
         self.assertNotIn("partial", data)
         self.assertEqual(data["files"], ["/opt/okpkg/bin"])
 
+    def test_user_cleanup_runs_on_crash_before_sidecar(self):
+        # BLOCKING-D fix verification: helper sets IGOS_HELPER_USER_CLEANUP
+        # instead of installing its own `trap ... EXIT`. On crash, the
+        # cleanup runs + the partial sidecar still gets written.
+        sentinel = self.tmp / "user-cleanup-ran-on-crash"
+        body = f"""
+IGOS_HELPER_USER_CLEANUP="touch {sentinel}"
+igos_helper_init "ucleanup-crashpkg"
+igos_helper_set_version "1.0.0"
+igos_helper_record_file /opt/ucleanup-crashpkg/bin
+exit 1
+"""
+        proc = self._run(body)
+        self.assertEqual(proc.returncode, 1)
+        self.assertTrue(
+            sentinel.exists(),
+            f"user cleanup must run on crash; sentinel missing: {proc.stderr}",
+        )
+        partial = self.manifest_dir / "ucleanup-crashpkg.manifest.partial"
+        self.assertTrue(partial.is_file(), "sidecar must still be written on crash")
+
+    def test_user_cleanup_runs_on_successful_commit(self):
+        # BLOCKING-D fix verification: trap stays installed even after
+        # commit; commit sets IGOS_HELPER_COMMITTED=1 which short-
+        # circuits the sidecar write but still runs user cleanup at
+        # script exit.
+        sentinel = self.tmp / "user-cleanup-ran-on-success"
+        body = f"""
+IGOS_HELPER_USER_CLEANUP="touch {sentinel}"
+igos_helper_init "ucleanup-okpkg"
+igos_helper_set_version "2.0.0"
+igos_helper_record_file /opt/ucleanup-okpkg/bin
+igos_helper_commit
+"""
+        proc = self._run(body)
+        self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+        self.assertTrue(
+            sentinel.exists(),
+            f"user cleanup must run on successful commit; sentinel missing: {proc.stderr}",
+        )
+        canonical = self.manifest_dir / "ucleanup-okpkg.manifest"
+        self.assertTrue(canonical.is_file(), "canonical manifest must be written")
+        partial = self.manifest_dir / "ucleanup-okpkg.manifest.partial"
+        self.assertFalse(partial.is_file(), "no sidecar on success")
+
     def test_crash_then_successful_retry_supersedes_partial(self):
         crash_body = """
 igos_helper_init "retrypkg"

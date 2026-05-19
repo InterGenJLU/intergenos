@@ -23,7 +23,12 @@ set -e
 source /usr/share/igos/helpers/helper-lib.sh
 
 TMPDIR=$(mktemp -d)
-trap "rm -rf $TMPDIR" EXIT
+# BLOCKING-D fix (2026-05-19): register TMPDIR cleanup via the
+# helper-lib's IGOS_HELPER_USER_CLEANUP env var instead of `trap EXIT`.
+# Installing a native trap would collide with the one igos_helper_init
+# installs for partial-manifest sidecar emission (bash trap-replace
+# semantics; no native composition).
+IGOS_HELPER_USER_CLEANUP="rm -rf $TMPDIR"
 
 echo ""
 echo "  InterGenOS Brave Browser Installer"

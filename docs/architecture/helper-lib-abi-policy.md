@@ -89,6 +89,33 @@ on the sidecar shape (same schema + `partial: true`) for crash
 detection. Future major versions may change the sidecar location or
 naming scheme via the same SUPERSEDES mechanism.
 
+### `IGOS_HELPER_USER_CLEANUP` env-var contract
+
+Because bash `trap ... EXIT` semantics REPLACE prior traps (no native
+composition), helpers MUST NOT install their own EXIT trap when they
+source `helper-lib.sh`. Doing so would collide with the sidecar trap
+that `igos_helper_init` installs -- one trap wins, the other is
+silently dropped depending on call ordering.
+
+To register a cleanup command (typically `rm -rf "$TMPDIR"`),
+helpers SHOULD assign the command string to the
+`IGOS_HELPER_USER_CLEANUP` shell variable instead. The library's
+internal EXIT handler runs `eval "$IGOS_HELPER_USER_CLEANUP"` on
+every exit (both success and crash paths) before doing any
+sidecar-related work. The variable is read at exit time, so helpers
+may assign it any time before script termination.
+
+```bash
+TMPDIR=$(mktemp -d)
+IGOS_HELPER_USER_CLEANUP="rm -rf $TMPDIR"
+```
+
+This contract is part of the v1 API surface: helpers MAY rely on
+the library running their assigned cleanup on exit; the library
+guarantees the assignment is honored on both success and crash
+paths. Changes to the variable name or eval semantics go through
+SUPERSEDES.
+
 ## Manifest schema version
 
 The JSON manifest written by `igos_helper_commit` carries its own

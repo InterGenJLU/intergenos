@@ -118,10 +118,26 @@ igos_helper_init() {
 
 _igos_helper_emit_partial() {
     # Internal: invoked by the EXIT trap installed in igos_helper_init.
-    # Writes a `<name>.manifest.partial` sidecar capturing whatever
-    # staging state survives at process exit if commit was not called.
-    # Best-effort: failures here are suppressed so a crashing helper
-    # is not further obscured by the trap.
+    # Two responsibilities (BLOCKING-D fix 2026-05-19):
+    #
+    #   1. Always run the helper-set IGOS_HELPER_USER_CLEANUP command
+    #      (typically `rm -rf "$TMPDIR"`). This is how helpers register
+    #      cleanup WITHOUT installing their own `trap ... EXIT`, which
+    #      would collide with init's trap via bash trap-replace
+    #      semantics (one trap per signal -- no native composition).
+    #
+    #   2. On crash (IGOS_HELPER_COMMITTED != 1), write a
+    #      `<name>.manifest.partial` sidecar capturing the staged
+    #      state so pkm's reader can surface the orphan file list.
+    #      On success commit clears the staging tmpdir but leaves
+    #      IGOS_HELPER_COMMITTED=1 + the trap installed so this
+    #      function still runs and executes user cleanup on exit.
+    #
+    # Best-effort: failures suppressed so a crashing helper is not
+    # further obscured by the trap.
+    if [ -n "${IGOS_HELPER_USER_CLEANUP:-}" ]; then
+        eval "$IGOS_HELPER_USER_CLEANUP" 2>/dev/null || true
+    fi
     if [ "${IGOS_HELPER_COMMITTED:-0}" = "1" ]; then
         return 0
     fi
@@ -370,16 +386,24 @@ PYEOF
     mv -f "$tmp" "$final"
     chmod 644 "$final"
 
-    # Decision D: clear the committed flag + untrap EXIT so the
-    # partial-manifest trap is a no-op on success.
+    # Decision D BLOCKING-D fix 2026-05-19: mark committed but KEEP
+    # the EXIT trap installed. `_igos_helper_emit_partial` sees
+    # IGOS_HELPER_COMMITTED=1 + short-circuits the sidecar write, but
+    # still runs the helper's IGOS_HELPER_USER_CLEANUP (e.g., TMPDIR
+    # removal). This is how user cleanup runs on BOTH success and
+    # crash paths without colliding with the helper installing its
+    # own native `trap ... EXIT` (bash trap-replace semantics would
+    # otherwise break one or the other depending on call ordering).
     IGOS_HELPER_COMMITTED=1
-    trap - EXIT
 
-    # Also clean any pre-existing .partial sidecar for this package
-    # (e.g. from a prior crashed run) so successful retry leaves no
-    # stale signal for the pkm reader.
+    # Clean any pre-existing .partial sidecar for this package (e.g.
+    # from a prior crashed run) so successful retry leaves no stale
+    # signal for the pkm reader.
     rm -f "$dest_dir/$IGOS_HELPER_NAME.manifest.partial" 2>/dev/null || true
 
     rm -rf "$IGOS_HELPER_STAGING"
-    unset IGOS_HELPER_STAGING IGOS_HELPER_NAME IGOS_HELPER_COMMITTED
+    unset IGOS_HELPER_STAGING IGOS_HELPER_NAME
+    # NOTE: IGOS_HELPER_COMMITTED + IGOS_HELPER_USER_CLEANUP are
+    # intentionally NOT unset -- the EXIT trap reads both at script
+    # termination to drive the user-cleanup pass.
 }
