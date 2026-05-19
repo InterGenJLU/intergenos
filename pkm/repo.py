@@ -288,9 +288,20 @@ class RepoManager:
         self.repos = self._load_repos()
         self.indexes = {}  # name -> RepoIndex
 
-        # Ensure cache dirs exist
+        # Ensure cache dirs exist with restrictive permissions (L-021:
+        # mode 0700 on /var/cache/pkm/packages so non-root local users
+        # can't write or stage attacker archives between SHA256 verify
+        # and tar extract). chmod is required because mkdir(mode=) is
+        # masked by umask; explicit chmod sets the bits unconditionally.
         REPO_DB_CACHE.mkdir(parents=True, exist_ok=True)
         REPO_PKG_CACHE.mkdir(parents=True, exist_ok=True)
+        try:
+            os.chmod(str(REPO_PKG_CACHE), 0o700)
+        except OSError:
+            # Non-fatal: chmod may fail on filesystems that don't
+            # support POSIX modes (e.g. Windows test runs). Production
+            # pkm runs as root on a POSIX filesystem so chmod succeeds.
+            pass
 
     def _load_repos(self):
         """Load repository configuration from /etc/pkm/repos.conf.

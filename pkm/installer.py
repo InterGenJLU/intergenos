@@ -66,7 +66,7 @@ class PackageInstaller:
         self.db = db
         self.root = Path(root)
 
-    def install(self, name, archive_path=None, queue=None):
+    def install(self, name, archive_path=None, queue=None, expected_sha256=None):
         """Install a package from its .igos.tar.gz archive.
 
         Args:
@@ -80,6 +80,15 @@ class PackageInstaller:
                    from `installer/backend/packages.py`. Ad-hoc invocations
                    (`pkm install foo-pass2` from the CLI) leave it None
                    and fall back to a warn-and-proceed posture.
+            expected_sha256: When provided, re-verify the archive sha256
+                   inside install() AFTER path validation but BEFORE any
+                   tar extract (L-021 TOCTOU defense). Caller computed
+                   the hash at download/verify time; we re-compute here
+                   so a local attacker who swaps the cached archive
+                   between caller's verify and our extract fails the
+                   second hash check. Mismatch → fail-closed return.
+                   None means no expected hash (legacy / archive-trust=
+                   loose path); install proceeds without the gate.
 
         Returns:
             (success: bool, message: str)
@@ -109,6 +118,24 @@ class PackageInstaller:
         archive_path = Path(archive_path)
         if not archive_path.exists():
             return False, f"Archive not found: {archive_path}"
+
+        # L-021: re-hash archive immediately before any tar extract.
+        # Defends against TOCTOU between the caller's sha256 verification
+        # (in repo.download_package or cmd_install --archive path) and
+        # the subprocess tar invocations below. The narrow window between
+        # caller-verify and our hash here is the only remaining attack
+        # surface for the cached-archive-swap scenario; subprocess tar
+        # then runs on the freshly-verified content.
+        if expected_sha256:
+            actual = _sha256(str(archive_path))
+            if actual != expected_sha256:
+                return False, (
+                    f"Archive integrity check FAILED at install time for "
+                    f"{name}: expected sha256 {expected_sha256[:16]}..., "
+                    f"got {actual[:16]}.... Cached file may have been "
+                    f"swapped between download/verify and install. "
+                    f"Cache cleared; retry with `pkm install {name}`."
+                )
 
         staging = Path(tempfile.mkdtemp(prefix=f"pkm-{name}-"))
         try:

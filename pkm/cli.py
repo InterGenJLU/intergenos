@@ -282,7 +282,12 @@ def cmd_install(db, args):
             elif trust_mode == "loose":
                 print(f"  WARNING: --archive-trust=loose — skipping repo verification.")
                 print(f"  Verify SHA256 independently before trusting this archive.")
-        ok, msg = installer.install(pkg_name, archive_path=archive)
+        # L-021: pass the SHA256 we computed for --archive path through
+        # to installer.install for the TOCTOU re-verification gate.
+        ok, msg = installer.install(
+            pkg_name, archive_path=archive,
+            expected_sha256=(archive_sha if archive else None),
+        )
         if ok:
             print(f"  {msg}")
             continue
@@ -306,7 +311,14 @@ def cmd_install(db, args):
                     print(f"  ERROR: {dl_result}", file=sys.stderr)
                     sys.exit(1)
 
-                inst_ok, inst_msg = installer.install(dep_name, archive_path=dl_result)
+                # L-021: extract expected sha256 from repo index for the
+                # installer-side TOCTOU re-verification gate.
+                dep_pkg = repo.get_package(dep_name)
+                dep_sha = dep_pkg.get("sha256") if dep_pkg else None
+                inst_ok, inst_msg = installer.install(
+                    dep_name, archive_path=dl_result,
+                    expected_sha256=dep_sha,
+                )
                 if inst_ok:
                     print(f"  {inst_msg}")
                 else:
