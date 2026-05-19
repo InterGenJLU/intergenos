@@ -292,6 +292,7 @@ Each entry uses this shape:
 ## D-008 — InterGen provenance-gated tool dispatcher (Class A v1.0 ship-block; blocks ISO creation when InterGen is included)
 
 - **Issued:** 2026-05-18T16:49:42Z by owner
+- **Amended:** 2026-05-19T21:47:58Z by owner — RFC §10 v1.0/v1.x scope split revised. Spotlighting of retrieved content (RFC §10 v1.x item 2) AND per-conversation trust state (RFC §10 v1.x item 3) PULLED INTO v1.0 minimum scope; they are foundational defense-in-depth and baseline UX. v1.x remains: cross-conversation policy, output-side scanning, RFC §5.2 advisory-to-gating elevation (telemetry-blocked — needs v1.0 advisory live in users' hands first). RFC §10 + §11 (LoC estimate) must be updated in the same commit that lands the v1.0 implementation. The Class A v1.0 ship-block now covers the expanded scope. Amendment context: build-system coordinator surfaced §10 items 2+3 as miscategorized during T0-7+T0-4 dispatch design surface 2026-05-19 ~21:Z (post-D-009 no-defers principle absorbed); items have small surface (~50-200 LoC for spotlighting; ~20-50 LoC for per-conv state) and high security value (spotlighting is the actual prompt-injection vector defense; per-conv state is the gate-UX baseline without which denials don't propagate). Operator-issued the amendment verbatim.
 - **Context:** Walk item 5B (InterGen `manage_services` LLM-root-equivalence) generalized by owner during the walk to a broader prompt-injection defense. Owner-proposed concept: any ingress-directional action (tool calls sourced from content the user did not author) gets presented for explicit user review before execution. Build-system coordinator confirmed the concept maps to published LLM-security research (Anthropic + Microsoft spotlighting / instruction-hierarchy work) and is complementary to D-007 Option A (pkexec for authentication). Owner greenlit v1.0 minimum scope; build-system coordinator drafted RFC at `docs/architecture/intergen-provenance-gate-design.md` (commit `b3949b24` 2026-05-18) and surfaced the directive text for owner firing. Owner fired the directive at this timestamp.
 - **Verbatim:**
 
@@ -390,3 +391,142 @@ Each entry uses this shape:
 - **First application:** Operator-requested T0-2 audit immediately after directive issuance. T0-2 audit findings recorded separately per audit chain (build-system coordinator's audit response posted on bus thread `d001-experimental-wiring` and / or new T0-2-audit thread).
 
 - **Status:** ACTIVE — STANDING DIRECTIVE applies to all future development.
+
+---
+
+## D-010 — InterGen AI opt-in posture (no auto-enable; Forge prompts; Class A gate)
+
+- **Issued:** 2026-05-19T21:47:58Z by owner
+- **Context:** T0-7 + T0-4 dispatch design surface — operator-followup-failure class identified by owner. Audit T0-4 #13 / I-012 surfaced that `packages/ai/intergen/build.sh` post_install ran `systemctl --global enable intergen.service`, auto-enabling InterGen for every new user account on the system. This violated `VISION.md:113` ("AI is an optional service") and Prime Directive (user control). Owner verbatim 2026-05-19 ~21:35Z: *"that's how I asked for it to be done initially. If that wasn't captured, I do take responsibility for not following through with it. That's an owner-followup-failure in my book."* The original direction had been given but never landed as a directive, canonical doc, or audit gate — verbal-only directives rot. D-010 codifies the opt-in posture with mechanical enforcement.
+- **Verbatim:**
+
+  > OWNER DIRECTIVE:
+  >
+  > InterGen is an OPT-IN service. NO AUTO-ENABLE.
+  >
+  > The intergen package MUST NOT call systemctl --global enable intergen.service or any equivalent at package-install time. NO PRE-ENABLEMENT FOR ANY USER ON ANY LANE.
+  >
+  > Forge prompts the user during install: "Enable the InterGen AI assistant? (default: NO)". On YES, Forge calls systemctl --global enable intergen.service post-chroot — once, at explicit user-opt-in time. On NO, the service stays disabled.
+  >
+  > Users who install without Forge (manual install / power-user paths) enable the service themselves via systemctl --user enable intergen.service. WE DON'T PRESUME.
+  >
+  > Anything that ships intergen auto-enabled without explicit user opt-in is a VIOLATION and must be vaporized before the next ISO is created. Please capture that this is now a gate.
+
+- **Decision-Encoded:**
+
+  **Package-install posture (`packages/ai/intergen/`):**
+  - `build.sh` post_install MUST NOT call `systemctl --global enable intergen.service` or any equivalent (`systemctl enable --global`, `systemctl preset --global`, manual symlink writes into `/etc/systemd/user/`, etc.).
+  - The package SHIPS the unit file at `/usr/lib/systemd/user/intergen.service` but does NOT enable it.
+  - **Distro precedent:** Matches the Ubuntu pattern for optional `--user`-scope services and the Fedora pattern for `Wants=`/`WantedBy=` user units left unenabled by default. Mainstream desktop/workstation posture.
+
+  **Forge installer posture (TUI + GUI lanes):**
+  - During install, Forge presents a clear opt-in prompt: "Enable the InterGen AI assistant? (default: NO)".
+  - Prompt MUST default to NO (un-checked checkbox / default-cursor-on-NO).
+  - On YES: Forge calls `systemctl --global enable intergen.service` once, post-chroot, at user-opt-in time. (`--global` IS the correct tool at this moment — it enables for every user account on this system, which is the user's explicit choice.)
+  - On NO: Forge does not enable; service stays disabled. User may enable later via `systemctl --user enable intergen.service` if they change their mind.
+  - **Distro precedent:** Matches macOS Siri OOBE prompt, Windows Cortana OOBE prompt, iOS/Android assistant setup prompts. Every major platform that ships an AI assistant asks before turning it on. None ship default-on without prompting.
+
+  **Manual / non-Forge install paths:**
+  - A user who installs without Forge (chroot install, automation, future scripted paths) does not see the prompt and must enable the service themselves via `systemctl --user enable intergen.service`.
+  - WE DON'T PRESUME — no first-boot magic that auto-enables based on package-presence.
+
+  **Gate enforcement:**
+  - This directive is a **Class A gate** that blocks ISO/qcow2 creation. Any artifact built before code is brought into D-010 compliance is non-shippable.
+  - Build-system coordinator authors `scripts/check-d010-compliance.sh` (or extends an existing compliance gate) wired into `scripts/build-intergenos.sh` `phase_image` (and `scripts/build-iso.sh`) that fails the build if violations are present.
+  - Gate checks at minimum: (a) `packages/ai/intergen/build.sh` post_install contains NO `systemctl --global enable` invocations and NO equivalent `systemctl enable --global` / `systemctl preset --global` / symlink writes; (b) Forge installer code path includes the opt-in prompt + default-NO behavior + post-YES `systemctl --global enable` call; (c) intergen unit file is shipped but unenabled in the chroot pre-ISO assembly.
+
+- **Supersedes:**
+  - Any prior `systemctl --global enable intergen.service` invocation in `packages/ai/intergen/build.sh` post_install — coordinator deletes
+  - Audit `docs/audit/2026-05-18-comprehensive-state-audit.md` row I-012 (`systemctl --global enable intergen.service` violates AI-opt-in)
+  - Any prior coordinator memory or reference doc that framed intergen as "auto-enabled on package install" — that framing is retired
+
+- **Composes with:**
+  - **D-007** (SSH + root + credentials) — orthogonal to AI service posture; user is in control of both surfaces
+  - **D-008** (InterGen provenance-gated dispatcher) — D-008 gates what the running service does; D-010 gates whether the service is running at all. Two layers of opt-in.
+  - **`VISION.md:113`** — "AI is an optional service" — D-010 is the mechanical capture of that prior-stated commitment
+  - **`feedback_owner_followup_failure_class`** — D-010 is the canonical example of the failure class + its remediation pattern
+
+- **Implementation backlog (informational; gate enforcement makes this the ISO-blocking path until done):**
+  - `packages/ai/intergen/build.sh` post_install fix — strip `systemctl --global enable intergen.service` call
+  - Forge installer prompt authoring (TUI + GUI variants) + post-chroot `systemctl --global enable` wire-through on YES path
+  - `scripts/check-d010-compliance.sh` authoring + wiring into `phase_image` + ISO-build path
+  - TRACKER.md gate entry under v1.0 ship-blockers
+
+- **Status:** ACTIVE — **CLASS A GATE; blocks ISO/qcow2 creation until compliance verified**
+
+---
+
+## D-011 — Default-deny firewall + SSH-closed-by-default (Class A gate; blocks ISO creation)
+
+- **Issued:** 2026-05-19T21:47:58Z by owner
+- **Context:** T0-7 + T0-4 dispatch design surface. Audit T0-4 #10 (G-005 HG) surfaced `policy=accept` on every nftables chain (default-allow), and audit T0-7 #3 / J-021 surfaced firewall posture inversion — `install-theming.sh:436-516` wrote `policy=drop` while canonical `packages/core/nftables/nftables.conf` shipped `policy=accept`. Two writers, opposite postures, sequence-dependent winner. D-006 retired `install-theming.sh` but explicitly left firewall ownership for a separate directive. The Holy-Grail security-only alignment requires default-deny on every shipped install; the operationally-open question was where the policy lives (upstream nftables package vs separate distribution-defaults package). Owner chose the separate-package shape on 2026-05-19 to match the mainstream pattern at our size (Fedora firewalld, Ubuntu ufw, openSUSE SuSEfirewall2 — all separate from their underlying firewall tool).
+- **Verbatim:**
+
+  > OWNER DIRECTIVE:
+  >
+  > Default-deny firewall on every shipped install. INPUT and FORWARD chains DROP by default.
+  >
+  > Allowed inbound: established + related (so outbound connections continue working), loopback (lo), ICMP echo-request (ping), ICMP fragmentation-needed (path-MTU discovery). Everything else inbound DROPS.
+  >
+  > SSH inbound (port 22) CLOSED by default. Users who want SSH server open it themselves. WE DO NOT LISTEN BY DEFAULT.
+  >
+  > Outbound allowed; forward DROPS unless the user adds container/VM bridging rules.
+  >
+  > The InterGenOS firewall posture is a separate package — packages/core/intergenos-firewall-defaults/ — distinct from the upstream nftables tool. Users may pkm remove intergenos-firewall-defaults to take their firewall in hand without losing the tool.
+  >
+  > Anything that ships InterGenOS with policy=accept or with port 22 open by default is a VIOLATION and must be vaporized before the next ISO is created.
+
+- **Decision-Encoded:**
+
+  **Ruleset content (`/etc/nftables.conf` shipped by `intergenos-firewall-defaults`):**
+  - `table inet filter` with three chains: `input`, `forward`, `output`.
+  - **`input` chain:** policy `drop`. Accept rules:
+    - `ct state established,related accept`
+    - `iif lo accept` (loopback)
+    - `icmp type echo-request accept` (IPv4 ping)
+    - `icmpv6 type echo-request accept` (IPv6 ping)
+    - `icmp type destination-unreachable code fragmentation-needed accept` (path-MTU discovery, IPv4)
+    - `icmpv6 type packet-too-big accept` (path-MTU discovery, IPv6)
+    - `icmpv6 type {nd-router-advert, nd-neighbor-solicit, nd-neighbor-advert} accept` (IPv6 neighbor discovery — required for IPv6 to work)
+  - **`forward` chain:** policy `drop`. No default accept rules; user adds container/VM bridging rules if needed.
+  - **`output` chain:** policy `accept`. (Outbound allowed.)
+
+  **SSH inbound:**
+  - Port 22 is NOT in the default allowed-services list.
+  - Users who want SSH server open it themselves via direct `nft` edit, future GUI control panel, or `intergenos-firewall-defaults`-shipped helper command (e.g., `intergenos-firewall-allow ssh`).
+  - **Distro precedent:** matches Fedora Workstation (firewalld FedoraWorkstation zone blocks 22 by default), Ubuntu Desktop (ufw default-deny when enabled, user runs `ufw allow ssh`), macOS (SSH closed unless user toggles in System Settings), Windows (SSH service not even running by default). Mainstream desktop/workstation posture.
+
+  **Package shape (`packages/core/intergenos-firewall-defaults/`):**
+  - New package separate from `packages/core/nftables/`.
+  - Ships `/etc/nftables.conf` (the default-deny ruleset above).
+  - Ships an enabled `nftables.service` symlink in `/etc/systemd/system/multi-user.target.wants/`.
+  - Optionally ships an `intergenos-firewall-allow` helper script for common toggles (SSH, mDNS, etc.) — implementation backlog, not gate-blocking.
+  - User can `pkm remove intergenos-firewall-defaults` to retire the InterGenOS policy without removing the nftables tool itself. `packages/core/nftables/` stays as just the upstream tool.
+
+  **Composition with `install-theming.sh` retirement (T0-7-B):**
+  - The firewall write block at `install-theming.sh:436-516` is removed when `install-theming.sh` is retired per D-006. `intergenos-firewall-defaults` becomes the sole writer of `/etc/nftables.conf` and the sole enabler of `nftables.service`. The two-writers / inverted-defaults situation is structurally resolved.
+
+  **Gate enforcement:**
+  - This directive is a **Class A gate** that blocks ISO/qcow2 creation. Any artifact built before code is brought into D-011 compliance is non-shippable.
+  - Build-system coordinator authors `scripts/check-d011-compliance.sh` (or extends an existing compliance gate) wired into `scripts/build-intergenos.sh` `phase_image` (and `scripts/build-iso.sh`) that fails the build if violations are present.
+  - Gate checks at minimum: (a) `/etc/nftables.conf` in the assembled rootfs ships with `policy drop` on `input` AND `forward` chains; (b) port 22 is NOT in the default accept rules; (c) `nftables.service` is enabled in the systemd multi-user target; (d) `install-theming.sh` does NOT contain the firewall write block (retired per D-006); (e) `packages/core/nftables/nftables.conf` does NOT ship a `policy=accept` default (upstream-tool package stays policy-neutral).
+
+- **Supersedes:**
+  - `packages/core/nftables/nftables.conf` `policy=accept` defaults — coordinator strips policy from upstream-tool package; `intergenos-firewall-defaults` owns policy
+  - `scripts/install-theming.sh:436-516` firewall write block — coordinator deletes (composes with `install-theming.sh` retirement under D-006)
+  - Audit `docs/audit/2026-05-18-comprehensive-state-audit.md` rows: G-005 HG (nftables policy=accept), J-021 (firewall inversion in install-theming.sh)
+  - Any prior coordinator memory or reference doc that framed `policy=accept` as the InterGenOS default — that framing is retired
+
+- **Composes with:**
+  - **D-006** (theming SSoT — `install-theming.sh` retired) — D-011 picks up the firewall ownership D-006 explicitly left for separate ratification
+  - **D-007** (SSH + root + credentials) — D-007 hardens the SSH server posture (root locked, PermitRootLogin no, no host keys baked); D-011 closes inbound port 22 at the firewall layer. Two layers of SSH-inbound defense
+  - **Holy-Grail security-only alignment rule 10** — default-deny — D-011 is the mechanical capture of that rule for the network layer
+
+- **Implementation backlog (informational; gate enforcement makes this the ISO-blocking path until done):**
+  - `packages/core/intergenos-firewall-defaults/` authoring — `build.sh` + `nftables.conf` + post_install hook + package.yml
+  - `packages/core/nftables/nftables.conf` policy strip (upstream-tool stays policy-neutral)
+  - `scripts/install-theming.sh:436-516` firewall block removal (under T0-7-B)
+  - `scripts/check-d011-compliance.sh` authoring + wiring into `phase_image` + ISO-build path
+  - TRACKER.md gate entry under v1.0 ship-blockers
+
+- **Status:** ACTIVE — **CLASS A GATE; blocks ISO/qcow2 creation until compliance verified**
