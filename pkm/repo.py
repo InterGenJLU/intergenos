@@ -87,6 +87,40 @@ DEFAULT_REPOS = {
 INDEX_MAX_AGE = 3600  # 1 hour
 
 
+# L-025: pinned release-key fingerprints (canonical source: pkm/release-keys.json).
+# _verify_signature parses gpg --status-fd 1 VALIDSIG output and requires
+# the signing fingerprint be in this pinned set, even when gpg's verify
+# returns success. Defends against the local-root attack where
+# /etc/pkm/trusted.gpg is swapped to attacker's keyring and the
+# attacker-signed index validates "successfully" against the attacker's
+# key. Pin set lives in code (loaded once at module import), not in a
+# mutable on-disk file, so local-root can't pivot the pin set without
+# rebuilding pkm itself.
+_RELEASE_KEYS_PATH = Path(__file__).parent / "release-keys.json"
+
+
+def _load_pinned_fingerprints():
+    """Return frozenset of pinned release-key fingerprints (40-char hex).
+
+    Reads pkm/release-keys.json at module-import time. Returns empty
+    frozenset if the file is unreadable or malformed — in which case
+    _verify_signature will reject ALL signatures (fail-closed posture
+    matches the L-025 audit row intent).
+    """
+    try:
+        data = json.loads(_RELEASE_KEYS_PATH.read_text())
+        return frozenset(
+            entry["fingerprint"].upper().replace(" ", "")
+            for entry in data.get("keys", {}).values()
+            if "fingerprint" in entry
+        )
+    except (OSError, ValueError, KeyError):
+        return frozenset()
+
+
+PINNED_RELEASE_FINGERPRINTS = _load_pinned_fingerprints()
+
+
 # L-020: schema-version + signature-format envelope.
 # Parser refuses to load indexes outside this envelope per Holy-Grail
 # fail-closed posture. Without these gates, an attacker with mirror-write
@@ -331,13 +365,50 @@ class RepoManager:
                 shutil.copyfileobj(resp, f)
 
     def _verify_signature(self, data_path, sig_path):
-        """Verify GPG detached signature."""
+        """Verify GPG detached signature against PINNED_RELEASE_FINGERPRINTS.
+
+        L-025: even if gpg-verify returns success against the on-disk
+        keyring (which a local-root attacker can swap), we require the
+        signing fingerprint to be in the pinned release-keys.json set
+        baked into pkm at import time. --status-fd 1 produces a parseable
+        VALIDSIG line carrying the signing-key fingerprint; we match
+        against the frozenset PINNED_RELEASE_FINGERPRINTS.
+
+        Returns True iff gpg --verify succeeds AND signing fingerprint
+        is pinned. Fails closed in all other cases (gpg failure, no
+        VALIDSIG line, non-pinned fingerprint, empty pin set).
+        """
         result = subprocess.run(
             ["gpg", "--no-default-keyring", "--keyring", str(GPG_KEYRING),
+             "--status-fd", "1",
              "--verify", str(sig_path), str(data_path)],
             capture_output=True, text=True
         )
-        return result.returncode == 0
+        if result.returncode != 0:
+            return False
+
+        # Status-fd line shape (per gpg(1) DETAILS): [GNUPG:] VALIDSIG
+        # <FP> <SIGDATE> <SIGTIME> <EXPIREDATE> <SIG-VERSION> <RESERVED>
+        # <PUBKEY-ALGO> <HASH-ALGO> <SIG-CLASS> <PRIMARY-KEY-FP>
+        for line in result.stdout.splitlines():
+            if not line.startswith("[GNUPG:] VALIDSIG "):
+                continue
+            parts = line.split()
+            if len(parts) < 3:
+                continue
+            signing_fp = parts[2].upper()
+            # Prefer primary-key FP at parts[10] when present (handles
+            # subkey-signed artifacts — common with hardware tokens).
+            if len(parts) >= 11:
+                primary_fp = parts[10].upper()
+                if primary_fp in PINNED_RELEASE_FINGERPRINTS:
+                    return True
+            if signing_fp in PINNED_RELEASE_FINGERPRINTS:
+                return True
+
+        # gpg-verify succeeded but no pinned fingerprint found in the
+        # status-fd stream. Local-root keyring-swap class attack defeated.
+        return False
 
     def _parse_index(self, name, url, db_path):
         """Parse a gzipped JSON repository index.
