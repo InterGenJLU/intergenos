@@ -865,35 +865,29 @@ class PackageInstaller:
         if result.returncode != 0:
             return False, f"Install helper failed (exit {result.returncode})"
 
-        # H-007: read + validate the manifest the helper-lib wrote.
+        # H-007 Phase B: read + validate the manifest the helper-lib
+        # wrote. Phase A's WARN-continue grace period is now closed —
+        # all bundled extra-tier helpers (chrome, vscode, edge, brave,
+        # discord, spotify, claude-code) source
+        # /usr/share/igos/helpers/helper-lib.sh and call the API. A
+        # missing or invalid manifest indicates either a third-party
+        # helper that has not migrated, a helper script that aborted
+        # before igos_helper_commit, or a tampered manifest — all of
+        # which warrant fail-closed handling so the user does not end
+        # up with on-disk files pkm cannot track or remove.
         manifest, err = _read_helper_manifest(name)
         if manifest is None:
-            # Phase A grace period: register the package without file
-            # tracking + warn the user that footprint tracking is
-            # unavailable for this helper-installed package. Operator
-            # decision (D-009 item 5) flips this to a hard failure
-            # when all bundled helpers have migrated.
-            print(
-                f"  WARNING: install-helper for '{name}' did not write a "
-                f"trackable manifest ({err}). pkm files/verify/remove "
-                f"for this package will not see helper-installed files. "
-                f"Helper authors: source /usr/share/igos/helpers/helper-lib.sh "
-                f"and call igos_helper_init + record_file + commit (see "
-                f"docs/architecture/helper-manifest-spec-v1.md).",
-                file=sys.stderr,
-            )
-            self.db.add_installed(
-                name=name,
-                version="latest",
-                install_method="helper",
-                archive_path=str(helper_path),
-            )
-            self.db.log_operation(
-                "install", name, new_version="latest", method="helper",
-            )
-            return True, (
-                f"Installed {name} via helper ({helper_path.name}) "
-                f"— footprint tracking unavailable (no manifest)"
+            return False, (
+                f"Install helper '{name}' did not write a trackable "
+                f"manifest ({err}). Refusing to register the package "
+                f"without file tracking — pkm files/verify/remove "
+                f"would be broken for this install. If you authored a "
+                f"third-party helper, source "
+                f"/usr/share/igos/helpers/helper-lib.sh and call "
+                f"igos_helper_init + record_file + commit (see "
+                f"docs/architecture/helper-manifest-spec-v1.md). The "
+                f"helper-deposited files remain on disk; remove them "
+                f"manually if you want a clean slate before re-running."
             )
 
         # Manifest present + validated: wire files + depends through the

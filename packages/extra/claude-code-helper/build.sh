@@ -26,8 +26,13 @@ do_install() {
 #
 # Installs Claude Code CLI and VS Code extension from Anthropic.
 # License: https://code.claude.com/docs/en/legal-and-compliance
+#
+# H-007 Phase B migration: records the install footprint via the
+# /usr/share/igos/helpers/helper-lib.sh API.
 
 set -e
+
+source /usr/share/igos/helpers/helper-lib.sh
 
 echo ""
 echo "  InterGenOS Claude Code Installer"
@@ -43,16 +48,48 @@ if ! command -v npm >/dev/null 2>&1; then
     exit 1
 fi
 
+igos_helper_init "claude-code"
+
 echo "  Installing Claude Code CLI via npm..."
 npm install -g @anthropic-ai/claude-code
+
+# Capture installed version + npm global root for footprint recording.
+CLAUDE_VERSION=$(npm list -g @anthropic-ai/claude-code 2>/dev/null \
+                  | grep '@anthropic-ai/claude-code@' \
+                  | sed 's/.*@anthropic-ai\/claude-code@//' \
+                  | head -1)
+igos_helper_set_version "${CLAUDE_VERSION:-unknown}"
+
+NPM_GLOBAL_ROOT=$(npm root -g 2>/dev/null || echo "/usr/lib/node_modules")
+CLAUDE_DIR="$NPM_GLOBAL_ROOT/@anthropic-ai/claude-code"
+
+# H-007: record every file under the npm-installed module dir. npm's
+# global prefix typically lands under /usr/lib/node_modules which
+# matches the manifest's /usr/ allowlist.
+if [ -d "$CLAUDE_DIR" ]; then
+    while IFS= read -r f; do
+        igos_helper_record_file "$f"
+    done < <(find "$CLAUDE_DIR" -type f -o -type l 2>/dev/null)
+fi
 
 # Verify installation
 if command -v claude >/dev/null 2>&1; then
     echo "  Claude Code CLI installed: $(claude --version 2>/dev/null || echo 'OK')"
+    # npm creates a symlink at <prefix>/bin/claude pointing into the
+    # module dir. Record it so pkm remove unlinks the binary surface.
+    CLAUDE_BIN=$(command -v claude)
+    CLAUDE_TARGET=$(readlink -f "$CLAUDE_BIN" 2>/dev/null || echo "$CLAUDE_BIN")
+    if [ -L "$CLAUDE_BIN" ]; then
+        igos_helper_record_symlink "$CLAUDE_BIN" "$CLAUDE_TARGET"
+    elif [ -f "$CLAUDE_BIN" ]; then
+        igos_helper_record_file "$CLAUDE_BIN"
+    fi
 else
     echo "  WARNING: claude command not found in PATH"
     echo "  You may need to add npm's global bin directory to your PATH"
 fi
+
+igos_helper_record_dep nodejs
 
 # Install VS Code extension if VS Code or Code-OSS is available
 if command -v code >/dev/null 2>&1; then
@@ -66,6 +103,15 @@ elif command -v code-oss >/dev/null 2>&1; then
     echo "  You may need to download the .vsix from the VS Code Marketplace"
     echo "  and install with: code-oss --install-extension claude-code.vsix"
 fi
+
+# Record the VS Code extension install as a descriptive post-install
+# action (the extension files live under the user's home directory,
+# which is outside the manifest's path allowlist; pkm doesn't track
+# per-user state in v1.0).
+igos_helper_record_post_install_action \
+    "VS Code extension anthropic.claude-code installed (per-user; not pkm-tracked)"
+
+igos_helper_commit
 
 echo ""
 echo "  Claude Code installed!"

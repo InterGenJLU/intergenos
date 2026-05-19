@@ -14,8 +14,13 @@ do_install() {
 #
 # Downloads and installs Brave from official source.
 # License: https://brave.com/terms-of-use/
+#
+# H-007 Phase B migration: records the install footprint via the
+# /usr/share/igos/helpers/helper-lib.sh API.
 
 set -e
+
+source /usr/share/igos/helpers/helper-lib.sh
 
 TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT
@@ -32,6 +37,8 @@ if [ "$(id -u)" -ne 0 ]; then
     echo "  ERROR: Must run as root (sudo igos-install-brave)"
     exit 1
 fi
+
+igos_helper_init "brave"
 
 echo "  Finding latest Brave release..."
 # Official Brave apt distribution — the only accepted source.
@@ -54,6 +61,10 @@ if [ -z "$DEB_NAME" ]; then
     exit 1
 fi
 
+# Extract version from the .deb filename (brave-browser_VERSION_amd64.deb)
+BRAVE_VERSION=$(echo "$DEB_NAME" | sed 's/^brave-browser_//; s/_amd64\.deb$//')
+igos_helper_set_version "${BRAVE_VERSION:-unknown}"
+
 echo "  Downloading ${DEB_NAME}..."
 wget -q --show-progress -O "$TMPDIR/brave.deb" "${BRAVE_REPO}${DEB_NAME}"
 
@@ -67,9 +78,26 @@ cp -a opt/brave.com /opt/
 cp -a usr/share/applications/* /usr/share/applications/ 2>/dev/null || true
 cp -a usr/share/icons/* /usr/share/icons/ 2>/dev/null || true
 
+# H-007: record deposited files under /opt/brave.com/brave plus the
+# .desktop launcher copied system-wide.
+while IFS= read -r f; do
+    igos_helper_record_file "$f"
+done < <(find /opt/brave.com/brave -type f -o -type l 2>/dev/null)
+for f in /usr/share/applications/brave-browser*.desktop; do
+    if [ -f "$f" ]; then
+        igos_helper_record_file "$f"
+    fi
+done
+
 ln -sf /opt/brave.com/brave/brave-browser /usr/bin/brave-browser
+igos_helper_record_symlink /usr/bin/brave-browser /opt/brave.com/brave/brave-browser
+
+igos_helper_record_dep glibc
 
 gtk-update-icon-cache /usr/share/icons/hicolor 2>/dev/null || true
+igos_helper_record_post_install_action "gtk-update-icon-cache /usr/share/icons/hicolor"
+
+igos_helper_commit
 
 echo ""
 echo "  Brave Browser installed successfully!"

@@ -12,6 +12,8 @@ source: []
 dependencies:
   build: []
   host: []
-  runtime: []
+  runtime:
+  # H-007 Phase B: edge-helper sources /usr/share/igos/helpers/helper-lib.sh.
+  - intergenos-helper-lib
 verify_paths:
   - /usr/bin/igos-install-edge

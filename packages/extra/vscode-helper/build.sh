@@ -26,8 +26,13 @@ do_install() {
 #
 # Downloads and installs VS Code from Microsoft's official source.
 # License: https://code.visualstudio.com/license
+#
+# H-007 Phase B migration: records the install footprint via the
+# /usr/share/igos/helpers/helper-lib.sh API.
 
 set -e
+
+source /usr/share/igos/helpers/helper-lib.sh
 
 VSCODE_URL="https://code.visualstudio.com/sha/download?build=stable&os=linux-x64"
 TMPDIR=$(mktemp -d)
@@ -47,6 +52,9 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+igos_helper_init "vscode"
+igos_helper_set_version "latest"
+
 echo "  Downloading Visual Studio Code..."
 wget -q --show-progress -O "$TMPDIR/vscode.tar.gz" "$VSCODE_URL"
 
@@ -55,8 +63,14 @@ rm -rf /opt/vscode
 mkdir -p /opt/vscode
 tar -xzf "$TMPDIR/vscode.tar.gz" -C /opt/vscode --strip-components=1
 
+# H-007: record everything deposited under /opt/vscode.
+while IFS= read -r f; do
+    igos_helper_record_file "$f"
+done < <(find /opt/vscode -type f -o -type l 2>/dev/null)
+
 # Create symlink
 ln -sf /opt/vscode/bin/code /usr/bin/code
+igos_helper_record_symlink /usr/bin/code /opt/vscode/bin/code
 
 # Desktop file
 mkdir -p /usr/share/applications
@@ -80,6 +94,11 @@ Name=New Empty Window
 Exec=/opt/vscode/code --new-window %F
 Icon=/opt/vscode/resources/app/resources/linux/code.png
 DESKTOP
+igos_helper_record_file /usr/share/applications/code.desktop
+
+igos_helper_record_dep glibc
+
+igos_helper_commit
 
 echo ""
 echo "  Visual Studio Code installed successfully!"

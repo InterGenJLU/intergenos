@@ -2,8 +2,10 @@
 
 **Status:** LIVE — Phase A authored alongside this document. Phase B
 (migration of the remaining extra-tier helpers + flip from
-WARN-continue to required-manifest) is queued as the next WC-lane
-work block.
+WARN-continue to required-manifest) landed in the commit that touched
+this paragraph; all 7 bundled extra-tier helpers (chrome, vscode,
+edge, brave, discord, spotify, claude-code) now source the helper-lib
+and call the API.
 
 **Audit row:** H-007. Install-helper path never registers files or
 dependencies. Helpers (chrome, vscode, edge, brave, discord, spotify,
@@ -194,16 +196,17 @@ the manifest wire-up lands.
 
 ## Phase A vs Phase B
 
-| | Phase A (this commit cluster) | Phase B (next commit cluster) |
+| | Phase A | Phase B (this commit cluster) |
 |---|---|---|
-| Missing manifest | WARN-continue (legacy helpers still work without footprint tracking) | Hard failure (`return False`) — all bundled helpers must have migrated |
+| Missing manifest | WARN-continue (legacy helpers still worked without footprint tracking) | Hard failure (`return False`) — all bundled helpers have migrated |
 | chrome-helper | Migrated (canary) | Already migrated in Phase A |
-| Other 6 helpers | Legacy | Migrated to the lib API |
-| Phase A peer-review focus | Helper-lib infrastructure correctness; pkm-side read+wire correctness; canary chrome migration | Per-helper mechanical migrations |
+| Other 6 helpers | Legacy | Migrated to the lib API (vscode, edge, brave, discord, spotify, claude-code) |
+| Peer-review focus | Helper-lib infrastructure correctness; pkm-side read+wire correctness; canary chrome migration | Per-helper mechanical migrations + the WARN→hard-fail flip |
 
-Phase B's required-manifest flip + the 6 remaining helper
-migrations land as a single commit per audit-multi-wiring
-discipline.
+Both phases landed as single commits per audit-multi-wiring
+discipline. Third-party helpers that have not migrated are now hard-
+refused at `_run_helper`; their authors must source the helper-lib
+and call the API to install through `pkm install-helper`.
 
 ## Out of Scope (v1.0)
 

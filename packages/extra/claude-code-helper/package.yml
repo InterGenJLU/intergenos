@@ -13,6 +13,8 @@ dependencies:
   build: []
   host: []
   runtime:
+  # H-007 Phase B: claude-code-helper sources /usr/share/igos/helpers/helper-lib.sh.
+  - intergenos-helper-lib
   - nodejs
 verify_paths:
   - /usr/bin/igos-install-claude-code

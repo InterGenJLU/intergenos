@@ -13,6 +13,9 @@ dependencies:
   build: []
   host: []
   runtime:
+  # H-007 Phase B: vscode-helper sources /usr/share/igos/helpers/helper-lib.sh
+  # at the top of the install-helper script.
+  - intergenos-helper-lib
   - nodejs
 verify_paths:
   - /usr/bin/igos-install-vscode
