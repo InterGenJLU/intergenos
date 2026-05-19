@@ -15,6 +15,26 @@ set -euo pipefail
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT"
 
+# ---- Python interpreter detection (host-portable) ------------------------
+# Python invocation is portable across hosts:
+#   - Linux/macOS:    python3 (typical)
+#   - Windows mingw:  py launcher (Windows installer adds this)
+#   - Windows fallback: python (if Python 3 is the only python on PATH)
+# The bare `python3` path on Windows often resolves to the MS Store install
+# stub, which prompts an install + exits non-zero (caught 2026-05-06 via
+# cross-host clone validation; py-compile gate at gate 3 hit the same trap
+# again 2026-05-19 from a Windows clone). The detection chain routes around it.
+# Computed ONCE at hook start and reused by all gates that need Python.
+if python3 --version >/dev/null 2>&1; then
+    PY_BIN=python3
+elif command -v py >/dev/null 2>&1; then
+    PY_BIN=py
+elif python --version 2>&1 | grep -q "Python 3"; then
+    PY_BIN=python
+else
+    PY_BIN=""
+fi
+
 # Read stdin (pre-push hook receives refs being pushed):
 #   <local_ref> <local_sha> <remote_ref> <remote_sha>
 # Captured into PUSH_REFS array so later gates can inspect for force-push to master.
@@ -56,26 +76,12 @@ done
 # Fix: --from-ref HEAD reads each file via `git show HEAD:<file>` so the
 # audit operates on the same content that's about to be pushed.
 #
-# Python invocation is portable across hosts:
-#   - Linux/macOS:    python3 (typical)
-#   - Windows mingw:  py launcher (Windows installer adds this)
-#   - Windows fallback: python (if Python 3 is the only python on PATH)
-# The bare `python3` path on Windows often resolves to the MS Store install
-# stub, which prompts an install + exits non-zero (caught 2026-05-06 via
-# cross-host clone validation). The detection chain below routes around that.
+# Uses PY_BIN computed at hook start (host-portable Python detection).
 if [ -f scripts/check-public-content.py ]; then
-    if python3 --version >/dev/null 2>&1; then
-        PY=python3
-    elif command -v py >/dev/null 2>&1; then
-        PY=py
-    elif python --version 2>&1 | grep -q "Python 3"; then
-        PY=python
-    else
+    if [ -z "$PY_BIN" ]; then
         echo "[pre-push] WARN: no Python 3 interpreter found; skipping audit"
-        PY=""
-    fi
-    if [ -n "$PY" ]; then
-        if ! "$PY" scripts/check-public-content.py --from-ref HEAD; then
+    else
+        if ! "$PY_BIN" scripts/check-public-content.py --from-ref HEAD; then
             echo "[pre-push] BLOCK: public-content audit failed (see above)"
             exit 1
         fi
@@ -147,9 +153,13 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
             case "$f" in
                 */__pycache__/*|*/.venv/*|*/build/*) continue ;;
             esac
-            if ! python3 -m py_compile "$f" 2>/dev/null; then
+            if [ -z "$PY_BIN" ]; then
+                echo "[pre-push] WARN: no Python 3 interpreter; cannot py-compile $f"
+                continue
+            fi
+            if ! "$PY_BIN" -m py_compile "$f" 2>/dev/null; then
                 echo "[pre-push] BLOCK: Python syntax error in $f"
-                python3 -m py_compile "$f" || true
+                "$PY_BIN" -m py_compile "$f" || true
                 exit 1
             fi
         fi
@@ -259,15 +269,7 @@ fi
 # the message body. This gate scans messages of pushed commits with the same
 # patterns gate 1 uses on file content.
 if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ] && [ -f scripts/check-public-content.py ]; then
-    if python3 --version >/dev/null 2>&1; then
-        PY7=python3
-    elif command -v py >/dev/null 2>&1; then
-        PY7=py
-    elif python --version 2>&1 | grep -q "Python 3"; then
-        PY7=python
-    else
-        PY7=""
-    fi
+    PY7="$PY_BIN"
     if [ -n "$PY7" ]; then
         BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
         if ! "$PY7" scripts/check-public-content.py --commit-msgs "${BASE}..${LOCAL}"; then
