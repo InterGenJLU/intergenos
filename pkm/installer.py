@@ -22,6 +22,7 @@ from the staged tree before deploy. Per RFC v2 §2g and the §8 OQ4 resolution
 generation, so the content-hash property has no NULL-checksum holes.
 """
 
+import json
 import os
 import re
 import stat
@@ -68,6 +69,111 @@ HELPER_ENV_ALLOWLIST = frozenset({
     "LANG", "LC_ALL", "LC_CTYPE", "TERM",
     "TMPDIR", "SHELL",
 })
+
+
+# H-007: install-helper manifest schema for footprint tracking.
+#
+# Helpers write /var/lib/igos/helpers/<name>.manifest as JSON via the
+# /usr/share/igos/helpers/helper-lib.sh API (packages/extra/intergenos-
+# helper-lib). pkm reads the manifest on helper success and threads the
+# file list through PackageDB.add_files / add_depends so pkm
+# files/verify/remove work for helper-installed packages.
+#
+# See docs/architecture/helper-manifest-spec-v1.md for the contract.
+HELPER_MANIFEST_DIR = Path("/var/lib/igos/helpers")
+HELPER_MANIFEST_SCHEMA_VERSION = 1
+
+# Path-prefix allowlist: files in the helper manifest MUST live under
+# one of these directories. The allowlist defends against a buggy or
+# malicious helper that claims ownership of system-critical paths
+# outside its territory (e.g. /etc/passwd, /boot/vmlinuz). Allowlist
+# violation refuses the wire-up + warns but does NOT remove the
+# deposited files — operator triages.
+HELPER_PATH_ALLOWLIST_PREFIXES = ("/usr/", "/opt/", "/etc/", "/var/lib/")
+
+# Reasonable upper bound on manifest entries (files + symlinks combined)
+# to defend against a runaway helper recording millions of paths.
+HELPER_MANIFEST_MAX_ENTRIES = 10000
+
+
+def _read_helper_manifest(name):
+    """Read + validate the helper manifest produced by helper-lib.sh.
+
+    H-007. Returns (manifest_dict, None) on success or
+    (None, error_message) on absent/malformed/disallowed manifest.
+    Phase A grace-period semantics: a missing manifest is NOT an
+    error from pkm's perspective — _run_helper falls back to the
+    legacy "register only add_installed + log_operation" behavior
+    and warns once on the operation log. Phase B flips the missing-
+    manifest case to a hard failure once all bundled helpers have
+    migrated to the helper-lib API.
+    """
+    manifest_path = HELPER_MANIFEST_DIR / f"{name}.manifest"
+    if not manifest_path.is_file():
+        return None, f"no manifest at {manifest_path}"
+
+    try:
+        with open(str(manifest_path), "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        return None, f"manifest unreadable: {e}"
+
+    # Schema-version envelope + required fields.
+    if not isinstance(manifest, dict):
+        return None, "manifest root is not a JSON object"
+    if manifest.get("version") != HELPER_MANIFEST_SCHEMA_VERSION:
+        return None, (
+            f"unsupported schema version {manifest.get('version')!r}; "
+            f"expected {HELPER_MANIFEST_SCHEMA_VERSION}"
+        )
+    if not isinstance(manifest.get("name"), str) or not manifest["name"]:
+        return None, "missing or non-string `name` field"
+    if not isinstance(manifest.get("files", []), list):
+        return None, "`files` is not a list"
+    if not isinstance(manifest.get("symlinks", []), list):
+        return None, "`symlinks` is not a list"
+    if not isinstance(manifest.get("depends", []), list):
+        return None, "`depends` is not a list"
+
+    files = manifest.get("files", [])
+    symlinks = manifest.get("symlinks", [])
+
+    # DoS cap: combined files + symlinks count.
+    total_entries = len(files) + len(symlinks)
+    if total_entries > HELPER_MANIFEST_MAX_ENTRIES:
+        return None, (
+            f"manifest entry count {total_entries} exceeds DoS cap "
+            f"{HELPER_MANIFEST_MAX_ENTRIES}"
+        )
+
+    # Path-prefix allowlist: every tracked path must live under one of
+    # the accepted prefixes. Collect violations (up to 5 for the
+    # operator-facing error) and bail on first failure.
+    bad_paths = []
+    for path in files:
+        if (not isinstance(path, str)) or (
+            not any(path.startswith(p) for p in HELPER_PATH_ALLOWLIST_PREFIXES)
+        ):
+            bad_paths.append(path)
+            if len(bad_paths) >= 5:
+                break
+    for entry in symlinks:
+        if not isinstance(entry, dict) or "path" not in entry:
+            return None, f"symlink entry malformed: {entry!r}"
+        link = entry.get("path", "")
+        if not isinstance(link, str) or not any(
+            link.startswith(p) for p in HELPER_PATH_ALLOWLIST_PREFIXES
+        ):
+            bad_paths.append(link)
+            if len(bad_paths) >= 5:
+                break
+    if bad_paths:
+        return None, (
+            "path(s) outside helper-manifest allowlist (accepts only "
+            f"{', '.join(HELPER_PATH_ALLOWLIST_PREFIXES)}): {bad_paths!r}"
+        )
+
+    return manifest, None
 
 
 def _safe_extract_tar(archive_path, dest, exclude_paths=None):
@@ -731,10 +837,21 @@ class PackageInstaller:
         Subprocess env is stripped to HELPER_ENV_ALLOWLIST (H-024) so
         inherited variables like LD_PRELOAD / LD_LIBRARY_PATH / *_PROXY
         / PYTHONPATH cannot redirect the helper's execution or downloads.
+
+        H-007: on helper success, read the manifest that the helper-lib
+        igos_helper_commit wrote at /var/lib/igos/helpers/<name>.manifest
+        and thread its files[] + symlinks[] + depends[] through
+        PackageDB.add_files / add_depends so pkm files/verify/remove
+        work for helper-installed packages. Phase A grace period: a
+        missing manifest WARNs but does not fail the install (legacy
+        helpers that have not yet migrated to the helper-lib API still
+        function, just without footprint tracking). Phase B (next
+        commit cluster) flips missing-manifest to a hard failure once
+        all bundled helpers have migrated.
         """
         print(f"  No local archive for '{name}' — using install helper")
         print(f"  Running: {helper_path}")
-        print(f"  {'─' * 50}")
+        print(f"  {'-' * 50}")
 
         helper_env = {k: v for k, v in os.environ.items() if k in HELPER_ENV_ALLOWLIST}
 
@@ -743,19 +860,105 @@ class PackageInstaller:
             env=helper_env,
         )
 
-        print(f"  {'─' * 50}")
+        print(f"  {'-' * 50}")
 
-        if result.returncode == 0:
+        if result.returncode != 0:
+            return False, f"Install helper failed (exit {result.returncode})"
+
+        # H-007: read + validate the manifest the helper-lib wrote.
+        manifest, err = _read_helper_manifest(name)
+        if manifest is None:
+            # Phase A grace period: register the package without file
+            # tracking + warn the user that footprint tracking is
+            # unavailable for this helper-installed package. Operator
+            # decision (D-009 item 5) flips this to a hard failure
+            # when all bundled helpers have migrated.
+            print(
+                f"  WARNING: install-helper for '{name}' did not write a "
+                f"trackable manifest ({err}). pkm files/verify/remove "
+                f"for this package will not see helper-installed files. "
+                f"Helper authors: source /usr/share/igos/helpers/helper-lib.sh "
+                f"and call igos_helper_init + record_file + commit (see "
+                f"docs/architecture/helper-manifest-spec-v1.md).",
+                file=sys.stderr,
+            )
             self.db.add_installed(
                 name=name,
                 version="latest",
                 install_method="helper",
                 archive_path=str(helper_path),
             )
-            self.db.log_operation("install", name, new_version="latest", method="helper")
-            return True, f"Installed {name} via helper ({helper_path.name})"
-        else:
-            return False, f"Install helper failed (exit {result.returncode})"
+            self.db.log_operation(
+                "install", name, new_version="latest", method="helper",
+            )
+            return True, (
+                f"Installed {name} via helper ({helper_path.name}) "
+                f"— footprint tracking unavailable (no manifest)"
+            )
+
+        # Manifest present + validated: wire files + depends through the
+        # DB inside a single BEGIN/COMMIT so the install record stays
+        # atomic with the file/depend rows.
+        version = manifest.get("version_installed") or "latest"
+        manifest_files = manifest.get("files", [])
+        manifest_symlinks = manifest.get("symlinks", [])
+        manifest_depends = manifest.get("depends", [])
+        action_log = manifest.get("post_install_actions_log", [])
+
+        # Combine files[] + symlink-path-only into a single tracking list.
+        # POSIX unlink semantics mean os.remove() on a symlink unlinks the
+        # symlink itself, not the target — so pkm/remover.py's iteration
+        # of db.get_files(name) cleanly handles both. Targets of symlinks
+        # are NOT auto-deleted on remove (the helper's record_file calls
+        # cover any target files that should also be tracked).
+        all_paths = list(manifest_files) + [
+            s.get("path", "") for s in manifest_symlinks
+        ]
+        # PackageDB stores POSIX-relative paths (no leading slash). The
+        # add_files signature expects "usr/bin/foo" not "/usr/bin/foo"
+        # and the remover reconstructs absolute via "/" + path.
+        rel_paths = [p.lstrip("/") for p in all_paths]
+
+        self.db.conn.execute("BEGIN")
+        try:
+            pkg_id = self.db.add_installed(
+                name=name,
+                version=version,
+                install_method="helper",
+                archive_path=str(helper_path),
+                commit=False,
+            )
+            if rel_paths:
+                self.db.add_files(pkg_id, rel_paths, commit=False)
+            if manifest_depends:
+                dep_tuples = [(d, "runtime") for d in manifest_depends if isinstance(d, str)]
+                if dep_tuples:
+                    self.db.add_depends(pkg_id, dep_tuples, commit=False)
+            self.db.log_operation(
+                "install", name, new_version=version, method="helper",
+            )
+            self.db.conn.commit()
+        except Exception:
+            self.db.conn.rollback()
+            raise
+
+        # post_install_actions_log entries are transparency artifacts
+        # only in v1.0 (per H-007 design Q3): printed to the user +
+        # logged via the operation history; never replayed on remove.
+        # Teardown for helper-installed side effects (icon caches, mime
+        # databases, etc.) is a future audit row's surface.
+        if action_log:
+            print(f"  Helper recorded {len(action_log)} post-install action(s):")
+            for action in action_log:
+                print(f"    - {action}")
+
+        summary = (
+            f"Installed {name} {version} via helper "
+            f"({helper_path.name}) — {len(rel_paths)} files tracked"
+        )
+        if manifest_depends:
+            summary += f", {len(manifest_depends)} dep(s) recorded"
+        return True, summary
 
     # ------------------------------------------------------------------
     # Helpers — text manifest write-out

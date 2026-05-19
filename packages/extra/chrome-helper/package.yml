@@ -13,6 +13,10 @@ dependencies:
   build: []
   host: []
   runtime:
+  # H-007: chrome-helper sources /usr/share/igos/helpers/helper-lib.sh
+  # at the top of the install-helper script. intergenos-helper-lib
+  # must be installed before this helper is invoked.
+  - intergenos-helper-lib
   - nodejs
 verify_paths:
   - /usr/bin/igos-install-chrome

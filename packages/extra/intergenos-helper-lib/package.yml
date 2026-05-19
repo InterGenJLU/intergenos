@@ -1,0 +1,16 @@
+name: intergenos-helper-lib
+version: "1.0.0"
+release: 1
+description: Sourceable bash library for pkm install helpers — gives helpers an API for recording installed files / symlinks / depends to a manifest pkm reads at install time. Closes H-007.
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: core
+build_style: custom
+source: []
+dependencies:
+  build: []
+  host:
+    - python
+    - coreutils
+verify_paths:
+  - /usr/share/igos/helpers/helper-lib.sh
