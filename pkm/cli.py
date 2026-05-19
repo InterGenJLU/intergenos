@@ -349,6 +349,15 @@ def main():
         "--all", action="store_true", dest="cache_all",
         help="Remove every cached archive. Subsequent installs re-download.",
     )
+    p_cache_clean_mode.add_argument(
+        "--rollback", action="store_true", dest="cache_rollback",
+        help="Operate on /var/cache/pkm/rollback/ instead of the packages "
+             "cache. Per package: keep the most recent rollback archive for "
+             "installed packages; remove older entries (and all entries for "
+             "packages no longer installed). Each `pkm upgrade` writes a "
+             "fresh archive here, so without periodic cleanup the directory "
+             "grows unbounded.",
+    )
 
     args = parser.parse_args()
 
@@ -1747,7 +1756,13 @@ def cmd_cache_clean(db, args):
                     wants more than one rollback target available.
     --all           Remove every cached archive. Subsequent installs
                     re-download.
+    --rollback      Switch target to /var/cache/pkm/rollback/: keep
+                    most-recent per installed package; remove older
+                    entries + entries for packages no longer installed.
     """
+    if getattr(args, "cache_rollback", False):
+        return _cache_clean_rollback(db)
+
     import re
     from .repo import REPO_PKG_CACHE
 
@@ -1837,6 +1852,90 @@ def cmd_cache_clean(db, args):
     total_bytes = sum(p.stat().st_size for p in to_remove)
     print(
         f"  Removing {len(to_remove)} archive(s) "
+        f"({total_bytes / (1024 * 1024):.1f} MiB):"
+    )
+    for p in sorted(to_remove):
+        print(f"    {p.name}")
+    any_failed = False
+    for p in to_remove:
+        try:
+            p.unlink()
+        except OSError as e:
+            print(f"  WARN: failed to remove {p}: {e}", file=sys.stderr)
+            any_failed = True
+    return 1 if any_failed else 0
+
+
+def _cache_clean_rollback(db):
+    """Prune /var/cache/pkm/rollback/ to one archive per installed package.
+
+    Each `pkm upgrade` writes a fresh archive to REPO_ROLLBACK_DIR via
+    _save_rollback_archive (pkm/cli.py:1321) so the old version can be
+    restored on install failure. Without periodic cleanup, the directory
+    grows unbounded -- every upgrade ever performed leaves a stale
+    rollback target behind.
+
+    Policy (matches the spirit of --keep-current on the pkg cache):
+      - For installed packages: keep the most-recent archive by mtime
+        (the freshest pre-upgrade snapshot); remove older entries.
+      - For packages no longer installed: remove all their rollback
+        archives -- no install state left to roll back to.
+
+    Files in REPO_ROLLBACK_DIR that do not match the
+    <name>-<version>-<release>.igos.tar.gz shape are left untouched
+    with a single WARN.
+    """
+    import re
+    from .repo import REPO_ROLLBACK_DIR
+
+    if not REPO_ROLLBACK_DIR.exists():
+        print(f"  Rollback directory {REPO_ROLLBACK_DIR} does not exist; "
+              "nothing to clean.")
+        return 0
+
+    archives = sorted(REPO_ROLLBACK_DIR.glob("*.igos.tar.gz"))
+    if not archives:
+        print("  Rollback cache is empty; nothing to clean.")
+        return 0
+
+    pattern = re.compile(r"^(.+)-([^-]+)-(\d+)\.igos\.tar\.gz$")
+    by_pkg = {}
+    unmatched = []
+    for path in archives:
+        m = pattern.match(path.name)
+        if not m:
+            unmatched.append(path)
+            continue
+        name, version, release = m.group(1), m.group(2), int(m.group(3))
+        by_pkg.setdefault(name, []).append(
+            (path, version, release, path.stat().st_mtime),
+        )
+
+    if unmatched:
+        print(
+            f"  WARN: {len(unmatched)} file(s) in {REPO_ROLLBACK_DIR} did "
+            "not match the <name>-<version>-<release>.igos.tar.gz shape; "
+            "leaving them untouched.",
+            file=sys.stderr,
+        )
+
+    to_remove = []
+    for name, entries in by_pkg.items():
+        installed = db.get_installed(name)
+        if not installed:
+            to_remove.extend(e[0] for e in entries)
+            continue
+        entries.sort(key=lambda e: e[3], reverse=True)
+        to_remove.extend(e[0] for e in entries[1:])
+
+    if not to_remove:
+        print("  Rollback cache state matches policy "
+              "(one archive per installed package); nothing to clean.")
+        return 0
+
+    total_bytes = sum(p.stat().st_size for p in to_remove)
+    print(
+        f"  Removing {len(to_remove)} rollback archive(s) "
         f"({total_bytes / (1024 * 1024):.1f} MiB):"
     )
     for p in sorted(to_remove):
