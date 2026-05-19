@@ -319,12 +319,14 @@ def main():
     # -- cache -- (O-013 cache GC)
     p_cache = sub.add_parser(
         "cache",
-        help="Manage the pkm download cache",
+        help="Manage the pkm download + rollback caches",
         description=(
-            "Inspect and prune /var/cache/pkm/packages/. The cache grows "
-            "unbounded otherwise — every upgrade adds a new archive and "
-            "the old one stays. Three subcommands: clean (remove archives "
-            "per policy)."
+            "Inspect and prune the pkm caches under /var/cache/pkm/: "
+            "packages/ (each upgrade adds a new archive and the old one "
+            "stays) and rollback/ (each `pkm upgrade` writes a "
+            "pre-upgrade snapshot so failed installs can be reverted). "
+            "One subcommand: clean (remove archives per policy; "
+            "--rollback switches target to the rollback cache)."
         ),
     )
     p_cache_sub = p_cache.add_subparsers(dest="cache_action", metavar="action")
@@ -1724,11 +1726,18 @@ def cmd_check_updates(db, args, output_path=None):
 
 
 def cmd_cache(db, args):
-    """pkm cache <action> — manage the /var/cache/pkm/packages/ archive cache.
+    """pkm cache <action> — manage the pkm download + rollback caches.
+
+    Two cache directories under /var/cache/pkm/:
+      packages/   each upgrade adds a fresh archive (the primary
+                  download cache that `pkm install` reads).
+      rollback/   each `pkm upgrade` writes a pre-upgrade snapshot
+                  so failed installs can be reverted.
 
     Subcommands:
-      clean   Remove cached archives by policy (--keep-current default,
-              --keep N, or --all).
+      clean   Remove cached archives by policy. Default target is the
+              packages/ cache (--keep-current, --keep N, or --all);
+              --rollback switches target to the rollback/ cache.
 
     No subcommand: print usage hint.
     """
@@ -1740,11 +1749,15 @@ def cmd_cache(db, args):
 
 
 def cmd_cache_clean(db, args):
-    """pkm cache clean [--keep-current | --keep N | --all].
+    """pkm cache clean [--keep-current | --keep N | --all | --rollback].
 
-    Walks /var/cache/pkm/packages/, parses each archive filename into
-    (name, version, release), groups by package name, and applies the
-    selected policy. Default behavior (no flag) is --keep-current.
+    Default target: walks /var/cache/pkm/packages/, parses each archive
+    filename into (name, version, release), groups by package name, and
+    applies the selected policy. Default behavior (no flag) is
+    --keep-current. With --rollback, the target switches to
+    /var/cache/pkm/rollback/ and the policy is fixed: keep most-recent
+    archive per installed package; remove older entries + all entries
+    for packages no longer installed.
 
     --keep-current  Per package: keep the archive matching the installed
                     version (the one that can serve `pkm reinstall`);
