@@ -136,16 +136,21 @@ def materialize_pkmnew_sidecars(pkmnew_writes):
     return written
 
 
-def ratchet_baselines(db, update_baselines):
+def ratchet_baselines(db, update_baselines, commit=True):
     """Update recorded original_checksum for unedited paths after deploy.
 
     Args:
         db: PackageDB instance.
         update_baselines: dict {rel_path: new_sha256} from
             prepare_config_protection.
+        commit: passed through to db.update_original_checksum so the
+            upgrade orchestration can call this inside an outer
+            BEGIN/COMMIT transaction (commit=False) and have the ratchets
+            ride that transaction instead of auto-committing per-row.
+            Defaults to True (auto-commit each ratchet) for standalone use.
     """
     for rel, new_sha in update_baselines.items():
-        db.update_original_checksum(rel, new_sha)
+        db.update_original_checksum(rel, new_sha, commit=commit)
 
 
 def summary_lines(written_pkmnew):

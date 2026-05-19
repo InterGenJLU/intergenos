@@ -45,6 +45,12 @@ from .hooks import (
     run_archive_lifecycle_hook,
     format_hook_summary,
 )
+from .configprotect import (
+    prepare_config_protection,
+    materialize_pkmnew_sidecars,
+    ratchet_baselines,
+    summary_lines,
+)
 
 # H-008: archive-bundled metadata files (provenance + key=value pkginfo) are
 # read at install time for the DB metadata population, but must NOT be
@@ -211,19 +217,37 @@ class PackageInstaller:
                     f"collide with root symlinks: {' '.join(dangerous)}"
                 )
 
+            # Q4 (O-006 + O-021) config protection: classify each archive
+            # /etc/* path against the recorded baseline + live content. Three
+            # buckets: first-install (no live; deploys normally), unedited
+            # (live matches baseline → deploys; baseline ratchets after
+            # COMMIT), user-edited (live diverged → exclude from tar deploy,
+            # write .pkmnew sidecar after deploy, baseline NOT ratcheted so
+            # subsequent upgrades continue to detect the edit). Runs against
+            # the staging tree before the tar deploy so we know what to
+            # --exclude up front.
+            config_plan = prepare_config_protection(
+                staging, file_list, self.root, self.db,
+            )
+
             # Deploy to target filesystem. This is the gate-3 line: if the
             # tar succeeds, the supersede transaction below records the
             # ownership transfer; if it fails, no DB changes happen and
             # predecessors keep their records.
+            tar_argv = [
+                "tar", "-xzf", str(archive_path), "-C", str(self.root),
+                "--no-overwrite-dir", "--keep-directory-symlink",
+                "--no-same-owner", "--no-same-permissions",
+                # H-008: archive-level provenance/metadata files are not
+                # deployed to the target — pkm reads them in-staging.
+                "--exclude=.PKGINFO", "--exclude=package.yml",
+            ]
+            # Q4: protect user-edited /etc/* files from overwrite.
+            for protected_rel in config_plan["protect"]:
+                tar_argv.append(f"--exclude={protected_rel}")
             try:
                 result = subprocess.run(
-                    ["tar", "-xzf", str(archive_path), "-C", str(self.root),
-                     "--no-overwrite-dir", "--keep-directory-symlink",
-                     "--no-same-owner", "--no-same-permissions",
-                     # H-008: archive-level provenance/metadata files are not
-                     # deployed to the target — pkm reads them in-staging.
-                     "--exclude=.PKGINFO", "--exclude=package.yml"],
-                    capture_output=True, text=True, check=True
+                    tar_argv, capture_output=True, text=True, check=True,
                 )
             except subprocess.CalledProcessError as e:
                 return False, f"Failed to deploy: {e.stderr}"
@@ -299,6 +323,14 @@ class PackageInstaller:
                     "install", name, new_version=version, method="archive",
                     commit=False,
                 )
+                # Q4 ratchet: for unedited /etc/* paths that deployed
+                # normally, advance the recorded baseline to the new stock
+                # so subsequent upgrades treat new stock as the comparison
+                # surface. Rides this BEGIN/COMMIT transaction (commit=False)
+                # so any DB-side failure rolls back the ratchets too.
+                ratchet_baselines(
+                    self.db, config_plan["update_baselines"], commit=False,
+                )
                 self.db.conn.execute("COMMIT")
             except Exception as e:
                 self.db.conn.execute("ROLLBACK")
@@ -307,6 +339,16 @@ class PackageInstaller:
                     f"after deploy. DB rolled back; filesystem may have partial "
                     f"changes. Re-run 'pkm install {name}' to recover. Error: {e}"
                 )
+
+            # Q4 materialize: copy each staging→<live>.pkmnew for the
+            # protected paths. Runs AFTER the DB commit because (a) it is
+            # purely filesystem-side and not transactional, (b) an orphan
+            # .pkmnew written when the DB transaction subsequently rolled
+            # back would mislead the user; placing it after COMMIT means
+            # the sidecar only exists when the package row really landed.
+            pkmnew_written = materialize_pkmnew_sidecars(
+                config_plan["pkmnew_writes"],
+            )
 
             # Generate text manifest reflecting the supersede outcome.
             self._write_manifest(
@@ -361,6 +403,12 @@ class PackageInstaller:
             msg = f"Installed {name} {version} ({file_count} files){extra}"
             if hook_summary:
                 msg = msg + "\n" + hook_summary
+            # Q4: surface .pkmnew sidecars in the success message so the
+            # operator sees pending config-merge work without scrolling
+            # back through per-package output.
+            pkmnew_summary = summary_lines(pkmnew_written)
+            if pkmnew_summary:
+                msg = msg + "\n" + pkmnew_summary
             return True, msg
 
         finally:
