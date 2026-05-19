@@ -180,7 +180,19 @@ try_tpm2_unlock() {
         echo "[fde-init][EXPERIMENTAL TPM2] tpm2_load failed — falling through"
         return 1
     fi
-    if tpm2_unseal -c /tmp/sealed.ctx \
+    # tpm2_unseal needs PCR-policy auth since the seal was created with
+    # --policy=<pcr_policy> at install time (disks.py:_tpm2_seal_random_key
+    # tpm2_create --policy={PCR_POLICY}). Without -p pcr:..., tpm2_unseal
+    # returns policy-check failure on PCR-bound objects regardless of
+    # whether the live PCRs actually match. Per tpm2-tools man page
+    # canonical PCR-policy unseal example: `tpm2_unseal -c seal.ctx -p
+    # pcr:sha256:0,1,2,3` — the -p arg satisfies the policy directly
+    # without needing a separate tpm2_startauthsession at unseal time.
+    #
+    # PCR set MUST match install-time TPM2_SEAL_PCRS constant in
+    # installer/backend/disks.py:120 ("sha256:0,7" = PCR0 firmware +
+    # PCR7 Secure Boot state).
+    if tpm2_unseal -c /tmp/sealed.ctx -p "pcr:sha256:0,7" \
             | cryptsetup open --key-file=- "$CRYPT_DEV" "$CRYPT_NAME" 2>/dev/null; then
         echo "[fde-init][EXPERIMENTAL TPM2] unlock succeeded"
         rm -f /tmp/sealed.ctx 2>/dev/null || true
@@ -238,23 +250,58 @@ try_fido2_unlock() {
         return 1
     fi
 
-    # fido2-assert hmac-secret call. The credential ID + stored nonce
-    # were captured at enrollment; assertion against same nonce + same
-    # token yields the same HMAC bytes (which is the LUKS keyslot key).
-    # The fido2-assert CLI reads its input parameters from stdin in a
-    # well-defined multi-line format; the wrapper below feeds them
-    # directly. RP id "intergenos" by convention; salt is the stored
-    # nonce; output is the assertion blob with hmac-secret on a known
-    # line which we sed-extract.
-    if fido2-assert -G -h "$token_dev" \
-            < "$fido2_dir/stored_nonce" 2>/dev/null \
-            | awk '/^hmac-secret/ {print $2}' \
-            | xxd -r -p 2>/dev/null \
+    # fido2-assert hmac-secret call. Per libfido2 fido2-assert(1) man page
+    # (Yubico/libfido2 main man/fido2-assert.1), input format with -h /
+    # --hmac-secret is 4 stdin lines:
+    #   1. client data hash (base64 blob)
+    #   2. relying party id (UTF-8 string)
+    #   3. credential id (base64 blob)
+    #   4. hmac salt (base64 blob)
+    # Output format is 7 lines, NO field prefixes, all base64 (except
+    # line 2 = RP id UTF-8). Line 6 (1-indexed) is the hmac secret
+    # (base64 blob).
+    #
+    # Earlier implementation had THREE defects: missing --hmac-secret
+    # flag (extension never invoked); stdin was raw nonce file (single
+    # line, wrong shape); output parsed via `awk /^hmac-secret/` +
+    # `xxd -r -p` (no such prefix exists + output is base64 not hex).
+    # Result: FIDO2 unlock fell through silently at every boot. Fixed
+    # per windows-docs-coordinator 2026-05-19T01:35:56Z FDE self-audit
+    # + verbatim libfido2 man-page re-fetch.
+    cdh_b64=$(head -c 32 /dev/urandom | base64 | tr -d '\n')
+    cred_id_b64=$(base64 -w 0 < "$fido2_dir/cred_id")
+    nonce_b64=$(base64 -w 0 < "$fido2_dir/stored_nonce")
+    if [ -z "$cdh_b64" ] || [ -z "$cred_id_b64" ] || [ -z "$nonce_b64" ]; then
+        echo "[fde-init][EXPERIMENTAL FIDO2] failed to build fido2-assert stdin (empty cdh/cred_id/nonce) — falling through"
+        return 1
+    fi
+
+    fido2_out=$(printf '%s\n%s\n%s\n%s\n' \
+            "$cdh_b64" "intergenos" "$cred_id_b64" "$nonce_b64" \
+        | fido2-assert -G --hmac-secret -h "$token_dev" 2>/dev/null) || {
+        echo "[fde-init][EXPERIMENTAL FIDO2] fido2-assert returned non-zero (token-not-touched? wrong token? firmware changed?) — falling through"
+        return 1
+    }
+
+    # Output line 6 (0-indexed via sed: line 6) = base64 hmac secret.
+    # Defensive: verify output has at least 6 lines + that line 6 is
+    # non-empty before piping to base64 -d → cryptsetup.
+    hmac_b64=$(printf '%s\n' "$fido2_out" | sed -n '6p')
+    if [ -z "$hmac_b64" ]; then
+        line_count=$(printf '%s\n' "$fido2_out" | wc -l)
+        echo "[fde-init][EXPERIMENTAL FIDO2] fido2-assert output line 6 empty (got $line_count lines; expected >=6 with --hmac-secret) — falling through"
+        return 1
+    fi
+
+    # base64 -d + cryptsetup open in a single pipeline so cryptsetup
+    # never sees an empty stream (which would be a non-failure no-op
+    # before triggering the passphrase fallback).
+    if printf '%s' "$hmac_b64" | base64 -d 2>/dev/null \
             | cryptsetup open --key-file=- "$CRYPT_DEV" "$CRYPT_NAME" 2>/dev/null; then
         echo "[fde-init][EXPERIMENTAL FIDO2] unlock succeeded"
         return 0
     fi
-    echo "[fde-init][EXPERIMENTAL FIDO2] fido2-assert | cryptsetup failed (token-not-touched? wrong token? firmware changed?) — falling through"
+    echo "[fde-init][EXPERIMENTAL FIDO2] base64 decode or cryptsetup open failed (wrong token? slot mismatch?) — falling through"
     return 1
 }
 

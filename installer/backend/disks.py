@@ -911,8 +911,33 @@ def _fido2_make_credential(token_dev):
 
 
 def _fido2_assert_hmac(token_dev, cred_id, nonce):
-    """Run fido2-assert -G with the hmac-secret extension and the
-    given nonce as salt. Returns the HMAC output bytes."""
+    """Run fido2-assert -G with the hmac-secret extension. Returns the
+    HMAC output bytes (32 bytes for HMAC-SHA256).
+
+    Per libfido2 fido2-assert(1) man page (Yubico/libfido2 main
+    man/fido2-assert.1):
+
+    Input format (4 lines via stdin) when --hmac-secret is enabled:
+      1. client data hash (base64 blob)
+      2. relying party id (UTF-8 string)
+      3. credential id (base64 blob)
+      4. hmac salt (base64 blob)
+
+    Output format (7 lines on stdout, NO field prefixes):
+      1. client data hash (base64)
+      2. relying party id (UTF-8)
+      3. CBOR-encoded authenticator data (base64)
+      4. assertion signature (base64)
+      5. user id if resident credential (base64)
+      6. hmac secret (base64) — THIS is what we extract
+      7. largeBlobKey if requested (base64)
+
+    Earlier implementation parsed for an "hmac-secret:" PREFIX line that
+    libfido2 does not emit + decoded the value as hex (output is base64).
+    Both defects surfaced via windows-docs-coordinator 2026-05-19T01:35:56Z
+    FDE self-audit; fixed per verbatim libfido2 man-page re-fetch (the
+    patch-transcription-verbatim-re-fetch POWER RULE).
+    """
     import base64
     cdh = base64.b64encode(os.urandom(32)).decode("ascii")
     cred_id_b64 = base64.b64encode(cred_id).decode("ascii")
@@ -931,17 +956,33 @@ def _fido2_assert_hmac(token_dev, cred_id, nonce):
         raise RuntimeError(
             f"fido2-assert -G failed (exit {res.returncode}): {res.stderr}"
         )
-    # Output format ends with "hmac-secret: <hex>" — extract the hex.
-    hmac_hex = None
-    for line in res.stdout.splitlines():
-        if line.startswith("hmac-secret:"):
-            hmac_hex = line.split(":", 1)[1].strip()
-            break
-    if not hmac_hex:
+    lines = res.stdout.splitlines()
+    if len(lines) < 6:
         raise RuntimeError(
-            f"fido2-assert -G output missing hmac-secret line: {res.stdout!r}"
+            f"fido2-assert -G output has {len(lines)} lines; expected "
+            f">=6 (cdh / RP_id / authdata / sig / [user_id] / hmac-secret). "
+            f"--hmac-secret extension may not have fired. stdout: {res.stdout!r}"
         )
-    return bytes.fromhex(hmac_hex)
+    hmac_b64 = lines[5].strip()
+    if not hmac_b64:
+        raise RuntimeError(
+            f"fido2-assert -G hmac-secret line (idx 5) is empty. "
+            f"stdout: {res.stdout!r}"
+        )
+    try:
+        hmac_bytes = base64.b64decode(hmac_b64)
+    except Exception as e:
+        raise RuntimeError(
+            f"fido2-assert -G hmac-secret line not valid base64: {e}. "
+            f"line: {hmac_b64!r}"
+        )
+    if len(hmac_bytes) != 32:
+        raise RuntimeError(
+            f"fido2-assert -G hmac-secret has unexpected length "
+            f"{len(hmac_bytes)} (expected 32 bytes for HMAC-SHA256). "
+            f"hmac-secret extension may have returned wrong-size output."
+        )
+    return hmac_bytes
 
 
 def _luks_add_key_with_existing(luks_partition, existing_key, new_key):

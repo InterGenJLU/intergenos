@@ -90,7 +90,7 @@ chmod +x "$WORK/init"
 cp "$BUSYBOX" "$WORK/bin/busybox"
 chmod +x "$WORK/bin/busybox"
 
-APPLETS="sh mount umount mountpoint switch_root awk blkid sleep modprobe mkdir rm head cp ln echo cat printf grep sed find sha256sum"
+APPLETS="sh mount umount mountpoint switch_root awk blkid sleep modprobe mkdir rm head cp ln echo cat printf grep sed find sha256sum base64 wc tr"
 for applet in $APPLETS; do
     ln -sf busybox "$WORK/bin/$applet"
 done
@@ -142,18 +142,13 @@ else
     echo "  D-001/I-D: fido2-tools-static absent at $FIDO2_TOOLS_DIR — FIDO2 unlock NOT bundled (LUKS installs fall through to passphrase)"
 fi
 
-# xxd needed by fde-init.sh to hex-decode fido2-assert hmac-secret output
-# into raw key bytes for cryptsetup --key-file=-. busybox xxd is NOT in
-# the default applet set; pull from host's vim-common (xxd is part of
-# vim/vim-common) if available, else expect the caller's environment.
-if [ "$HAVE_FIDO2_TOOLS" = "yes" ]; then
-    if [ -x /usr/bin/xxd ]; then
-        cp /usr/bin/xxd "$WORK/bin/xxd"
-        chmod +x "$WORK/bin/xxd"
-    else
-        echo "  WARNING: /usr/bin/xxd not present in chroot — FIDO2 unlock path needs xxd to hex-decode hmac-secret output."
-    fi
-fi
+# NOTE: xxd-bundling (previously here) was REMOVED. The earlier code
+# assumed fido2-assert hmac-secret output was hex-encoded and used
+# `xxd -r -p` to decode. Per windows-docs-coordinator 2026-05-19T01:35:56Z
+# FDE self-audit + verbatim libfido2 man-page re-fetch: the output is
+# actually base64 (line 6 of 7-line output, no prefix). fde-init.sh's
+# try_fido2_unlock now uses base64 (busybox applet, added to APPLETS
+# above) instead of xxd. xxd is no longer needed in the FDE initramfs.
 
 # libudev.so.1 — fido2-tools-static binaries are mostly-static (static
 # libfido2.a + libcbor.a + libcrypto.a + libssl.a + libz.a) but link
