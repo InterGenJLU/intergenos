@@ -62,6 +62,11 @@ import urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
 
+# L-020: _parse_index references __version__ for the min_pkm_version
+# envelope check. pkm/__init__.py:20 defines __version__ = "0.1.0".
+# Importing via the package surface keeps this single-sourced.
+from . import __version__
+
 from .database import PackageDB
 
 
