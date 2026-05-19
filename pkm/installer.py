@@ -41,6 +41,18 @@ from .database import (
 )
 
 
+# Environment allowlist for install-helper subprocess execution (H-024).
+# Default-deny per Holy-Grail-aligned security posture. Anything outside this
+# set is dropped before exec to prevent inherited-variable attacks via e.g.
+# LD_PRELOAD / LD_LIBRARY_PATH / LD_AUDIT (library injection), *_PROXY (MitM
+# of helper-time upstream downloads), PYTHONPATH (Python-module hijack).
+HELPER_ENV_ALLOWLIST = frozenset({
+    "PATH", "HOME", "USER", "LOGNAME",
+    "LANG", "LC_ALL", "LC_CTYPE", "TERM",
+    "TMPDIR", "SHELL",
+})
+
+
 class PackageInstaller:
     """Install packages from pre-built archives."""
 
@@ -267,7 +279,11 @@ class PackageInstaller:
         hook = self.root / "var" / "lib" / "pkm" / "hooks" / name / "post-install"
         if not hook.is_file() or not os.access(str(hook), os.X_OK):
             return
-        env = os.environ.copy()
+        # H-024 (same vulnerability class as _run_helper): strip env to
+        # HELPER_ENV_ALLOWLIST. Hook executes as the install process; inherited
+        # LD_PRELOAD / *_PROXY / PYTHONPATH would let an attacker who can set
+        # parent-env vars compromise hook execution.
+        env = {k: v for k, v in os.environ.items() if k in HELPER_ENV_ALLOWLIST}
         env["PKM_PACKAGE_NAME"] = name
         env["PKM_PACKAGE_VERSION"] = version
         env["PKM_PACKAGE_ROOT"] = str(self.root)
@@ -478,14 +494,19 @@ class PackageInstaller:
         """Run an install helper script with transparent output.
 
         The user sees exactly what the helper is doing — no hidden steps.
+        Subprocess env is stripped to HELPER_ENV_ALLOWLIST (H-024) so
+        inherited variables like LD_PRELOAD / LD_LIBRARY_PATH / *_PROXY
+        / PYTHONPATH cannot redirect the helper's execution or downloads.
         """
         print(f"  No local archive for '{name}' — using install helper")
         print(f"  Running: {helper_path}")
         print(f"  {'─' * 50}")
 
+        helper_env = {k: v for k, v in os.environ.items() if k in HELPER_ENV_ALLOWLIST}
+
         result = subprocess.run(
             [str(helper_path)],
-            env=os.environ.copy(),
+            env=helper_env,
         )
 
         print(f"  {'─' * 50}")
