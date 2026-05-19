@@ -6,13 +6,27 @@ from pathlib import Path
 
 
 def generate_fstab(target, partitions):
-    """Generate /etc/fstab from partition UUIDs.
+    """Generate /etc/fstab — PARTUUID for plain installs, UUID-of-mapper for LUKS.
 
-    LUKS opt-in (D-001): when partitions["root_mapper"] is set, the
-    root entry uses the ext4 filesystem UUID from /dev/mapper/cryptroot
-    (NOT the underlying LUKS partition UUID, which is the crypttab's
-    job). The kernel can mount the mapper by UUID once the crypttab-
-    declared cryptsetup-unlock has completed at boot time (fde-init.sh).
+    Ratified boot design (2026-04-08/09 + reaffirmed 2026-04-10 FINAL +
+    Q-INIT 2026-05-05/06): PARTUUID + rootwait + no-installed-system-
+    initramfs for plain installs. The kernel reads PARTUUID from the
+    partition table directly without needing userland blkid; that is the
+    whole reason for choosing PARTUUID over filesystem UUID.
+
+    LUKS opt-in (D-001) narrowing: when partitions["root_mapper"] is set,
+    /etc/fstab references the unlocked filesystem UUID (NOT the underlying
+    LUKS partition's PARTUUID; that PARTUUID points at the encrypted
+    container which is not directly mountable). The FDE initramfs runs
+    fde-init.sh which uses /etc/crypttab to unlock, then exposes
+    /dev/mapper/cryptroot whose ext4 UUID this fstab entry references.
+
+    B-041 (T0-2 sub-cluster 6): closes the install-time drift from the
+    ratified image-time path (scripts/create-image.sh:148-150 + 177 emit
+    PARTUUID). Pre-fix this file emitted root=UUID= for both plain and
+    LUKS installs, which would have caused plain installs to halt at
+    first boot with "VFS: Unable to mount root fs" — no initramfs means
+    no userland blkid means kernel can't resolve filesystem UUID.
     """
     fstab_path = Path(target) / "etc" / "fstab"
     fstab_path.parent.mkdir(parents=True, exist_ok=True)
@@ -23,22 +37,30 @@ def generate_fstab(target, partitions):
         "# <file system>  <mount point>  <type>  <options>         <dump>  <pass>",
     ]
 
-    # Root partition (use the LUKS mapper if present — fstab references
-    # the unlocked filesystem, not the underlying LUKS container)
-    root_device = partitions.get("root_mapper") or partitions["root"]
-    root_uuid = _get_uuid(root_device)
-    if root_uuid:
-        lines.append(f"UUID={root_uuid}  /              ext4    defaults          1       1")
+    # Root entry: LUKS uses unlocked-mapper filesystem UUID; plain uses
+    # PARTUUID of the partition holding the filesystem.
+    if partitions.get("root_mapper"):
+        root_mapper = partitions["root_mapper"]
+        root_uuid = _get_uuid(root_mapper)
+        if root_uuid:
+            lines.append(f"UUID={root_uuid}  /              ext4    defaults          1       1")
+        else:
+            lines.append(f"{root_mapper}  /              ext4    defaults          1       1")
     else:
-        lines.append(f"{root_device}  /              ext4    defaults          1       1")
+        root_partuuid = _get_partuuid(partitions["root"])
+        if root_partuuid:
+            lines.append(f"PARTUUID={root_partuuid}  /              ext4    defaults          1       1")
+        else:
+            lines.append(f"{partitions['root']}  /              ext4    defaults          1       1")
 
-    # EFI System Partition
-    # umask=0077 hides ESP contents from non-root users (HG: signing keys
-    # may be staged here transiently during signed-boot updates)
+    # EFI System Partition — PARTUUID per ratified boot design (firmware
+    # reads partition table directly; PARTUUID is the canonical key).
+    # umask=0077 hides ESP contents from non-root users (signing keys may
+    # be staged here transiently during signed-boot updates).
     if partitions.get("efi") and partitions.get("esp"):
-        esp_uuid = _get_uuid(partitions["esp"])
-        if esp_uuid:
-            lines.append(f"UUID={esp_uuid}  /boot/efi      vfat    umask=0077        0       2")
+        esp_partuuid = _get_partuuid(partitions["esp"])
+        if esp_partuuid:
+            lines.append(f"PARTUUID={esp_partuuid}  /boot/efi      vfat    umask=0077        0       2")
         else:
             lines.append(f"{partitions['esp']}  /boot/efi      vfat    umask=0077        0       2")
 
@@ -213,22 +235,23 @@ def generate_crypttab(target, partitions):
 def generate_grub_defaults(target, partitions):
     """Generate /etc/default/grub.
 
-    LUKS opt-in (D-001): when LUKS is enabled, GRUB_CMDLINE_LINUX points
-    at the ext4 filesystem UUID on /dev/mapper/cryptroot (NOT the LUKS
-    partition UUID). The UKI boot path (D-005 Phase D) handles unlock
-    via fde-init.sh; this grub.cfg is the fallback path. The fallback
-    boots vmlinuz + a generic initramfs that does NOT include cryptsetup
-    — operator recovery via grub-loads-vmlinuz + manual unlock per
-    D-005 fallback semantics. Documented in the user FDE guide.
+    Ratified boot design: GRUB_CMDLINE_LINUX uses PARTUUID for plain
+    installs (no installed-system initramfs → kernel resolves root from
+    partition table without userland). LUKS installs use the unlocked
+    /dev/mapper/cryptroot UUID; the FDE initramfs (D-005) ignores root=
+    cmdline and runs cryptsetup via /etc/crypttab, but this fallback
+    cmdline is what the grub-loads-vmlinuz recovery path uses (manual
+    unlock required for LUKS recovery — documented in the user FDE guide).
+
+    B-041 (T0-2): closes the install-time drift from the ratified image-
+    time path. Pre-fix this emitted root=UUID= for both plain + LUKS;
+    plain installs would have halted at first boot with "VFS: Unable
+    to mount root fs" — same fix mechanism as generate_fstab.
     """
     etc_default = Path(target) / "etc" / "default"
     etc_default.mkdir(parents=True, exist_ok=True)
 
-    # Use mapper-fs UUID when LUKS active; underlying partition UUID
-    # for plain installs.
-    root_device = partitions.get("root_mapper") or partitions["root"]
-    root_uuid = _get_uuid(root_device)
-    root_arg = f"root=UUID={root_uuid}" if root_uuid else f"root={root_device}"
+    root_arg = _root_arg_for_cmdline(partitions)
 
     # OS_PROBER=false so other OSes (Windows alongside install, other Linux
     # distros on additional partitions) get menu entries automatically.
@@ -239,9 +262,73 @@ def generate_grub_defaults(target, partitions):
         "GRUB_TIMEOUT=5\n"
         'GRUB_DISTRIBUTOR="InterGenOS"\n'
         'GRUB_CMDLINE_LINUX_DEFAULT=""\n'
-        f'GRUB_CMDLINE_LINUX="{root_arg}"\n'
+        f'GRUB_CMDLINE_LINUX="{root_arg} rootwait"\n'
         "GRUB_DISABLE_OS_PROBER=false\n"
     )
+
+
+def _root_arg_for_cmdline(partitions):
+    """Resolve the canonical `root=` kernel-cmdline fragment for an install.
+
+    Plain installs: `root=PARTUUID=<part-uuid-of-root>` — the kernel reads
+    PARTUUID from the partition table at mount time without needing an
+    initramfs or userland blkid. This is the ratified design (2026-04-08/
+    09 + 2026-04-10 FINAL + Q-INIT).
+
+    LUKS installs: `root=UUID=<fs-uuid-of-mapper>` — the FDE initramfs
+    handles the actual unlock via /etc/crypttab and exposes the mapper
+    node; the kernel root= is informational on this path because
+    fde-init.sh has already done switch_root by the time the kernel-level
+    root= resolution would fire. Kept consistent with the fstab entry.
+
+    Returns a string like `root=PARTUUID=abc-123` or `root=UUID=def-456`.
+    Falls back to `root=<raw-device-path>` only when blkid fails — last-
+    resort path that should not be exercised on a healthy install.
+    """
+    if partitions.get("root_mapper"):
+        root_mapper = partitions["root_mapper"]
+        root_uuid = _get_uuid(root_mapper)
+        return f"root=UUID={root_uuid}" if root_uuid else f"root={root_mapper}"
+    root_partuuid = _get_partuuid(partitions["root"])
+    if root_partuuid:
+        return f"root=PARTUUID={root_partuuid}"
+    return f"root={partitions['root']}"
+
+
+def generate_kernel_cmdline(target, partitions):
+    """Write /etc/kernel/cmdline — UKI source-of-truth cmdline (B-041 + D-005).
+
+    The linux-kernel package's post_install hook (D-005 Phase A) bakes
+    /etc/kernel/cmdline into the UKI's .cmdline section via ukify. Without
+    this file the hook falls back to /proc/cmdline (post-install.sh:141-145)
+    which at install time is the LIVE ISO's cmdline (`root=live-iso-stuff
+    igos.mode=live ...`). That would land in the first installed-system
+    UKI and cause boot failure.
+
+    Writing /etc/kernel/cmdline here is the install-time half of the B-041
+    resolution explicitly anticipated by the post-install hook comment
+    "B-041 cmdline drift: resolves via UKI .cmdline section bundling
+    (sourced from /etc/kernel/cmdline; falls back to /proc/cmdline if
+    unset)".
+
+    Cmdline contents:
+      root=PARTUUID=...  (or root=UUID=... for LUKS — see
+                          _root_arg_for_cmdline rationale)
+      rootwait           — wait for storage to enumerate (required for
+                          no-initramfs path; matches image-time create-
+                          image.sh:177 emission)
+      quiet splash       — operator-default quiet boot UX
+      loglevel=3         — surface warnings + errors but suppress noise
+                          (matches installer/init/cmdline.live.txt
+                          posture for the installed system)
+    """
+    kernel_dir = Path(target) / "etc" / "kernel"
+    kernel_dir.mkdir(parents=True, exist_ok=True)
+
+    root_arg = _root_arg_for_cmdline(partitions)
+    cmdline = f"{root_arg} rootwait quiet splash loglevel=3"
+
+    (kernel_dir / "cmdline").write_text(cmdline + "\n")
 
 
 def generate_all(target, partitions, hostname="intergenos",
@@ -249,6 +336,7 @@ def generate_all(target, partitions, hostname="intergenos",
     """Generate all system configuration files."""
     generate_fstab(target, partitions)
     generate_crypttab(target, partitions)   # D-001 LUKS-at-install
+    generate_kernel_cmdline(target, partitions)  # B-041 UKI source-of-truth
     generate_hostname(target, hostname)
     generate_locale(target, locale)
     generate_vconsole(target, keymap)
@@ -263,6 +351,25 @@ def _get_uuid(device):
     """Get filesystem UUID for a device."""
     result = subprocess.run(
         ["blkid", "-s", "UUID", "-o", "value", device],
+        capture_output=True, text=True
+    )
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+def _get_partuuid(device):
+    """Get GPT/MBR PARTUUID for a partition.
+
+    Required for the ratified PARTUUID + rootwait + no-installed-system-
+    initramfs boot path (B-041 resolution). The kernel reads PARTUUID
+    from the partition table directly at mount time, without needing
+    userland blkid or an initramfs — that is the whole point of choosing
+    PARTUUID over filesystem UUID for plain installs.
+
+    Returns None on blkid failure (e.g., MBR partition without disk
+    signature) — callers fall back to the raw device path.
+    """
+    result = subprocess.run(
+        ["blkid", "-s", "PARTUUID", "-o", "value", device],
         capture_output=True, text=True
     )
     return result.stdout.strip() if result.returncode == 0 else None
