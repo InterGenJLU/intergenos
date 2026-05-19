@@ -50,7 +50,17 @@
 # patch release. Breaking changes go through SUPERSEDES per RFC §11
 # (helper-lib-v2 supersedes helper-lib-v1; the v1 library stays
 # available during the supersede overlap window). See
-# docs/architecture/helper-manifest-spec-v1.md for the spec.
+# docs/architecture/helper-manifest-spec-v1.md for the manifest
+# schema spec + docs/architecture/helper-lib-abi-policy.md for the
+# full ABI stability policy.
+
+# API version marker. Monotonically incremented across major API
+# versions (v1=1, v2=2, ...). Helpers MAY assert against this
+# constant immediately after sourcing to refuse incompatible majors.
+# Within a major version, additive changes (new optional functions
+# or trailing-defaulted parameters) do NOT bump the constant.
+IGOS_HELPER_LIB_API_VERSION=1
+export IGOS_HELPER_LIB_API_VERSION
 
 # ---- Internal state -----------------------------------------------------
 #
