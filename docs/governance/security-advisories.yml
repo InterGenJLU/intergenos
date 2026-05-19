@@ -1,10 +1,9 @@
 # InterGenOS security advisories — hand-curated CVE annotations
 #
-# Per Q7 (operator-greenlit 2026-05-19) and F-002 (v1.1 deferral ledger):
-# v1.0 ships this hand-curated file populated as InterGenOS maintainers
-# patch CVEs. v1.1 (F-002) will replace this with an automated pipeline
-# that ingests upstream CVE feeds (NVD, OSV, Debian Security Tracker,
-# distro-specific feeds) and emits the same on-wire shape.
+# Per Q7 (operator-greenlit 2026-05-19): InterGenOS maintainers add
+# entries to this file as they patch CVEs. Hand-curation is the only
+# mechanism the project currently commits to; we know which packages
+# we patched for which CVEs because we patched them ourselves.
 #
 # Format (consumed by scripts/generate-repodb.py at index-generation time):
 #

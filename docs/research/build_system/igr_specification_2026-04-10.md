@@ -220,6 +220,14 @@ Before any community template is merged:
 
 ### Security Update Automation
 
+> **RESEARCH PROPOSAL — NOT IMPLEMENTED.** The pipeline below is one
+> possible design surface explored during 2026-04-10 build-system
+> research. InterGenOS is not committed to delivering any of it.
+> v1.0 ships hand-curated security-advisory authoring (see
+> `docs/governance/security-advisories.yml`) as the only mechanism
+> the project currently commits to. The block below is preserved as
+> research history; do not read it as a roadmap.
+
 ```
 Cron (daily)
   → Monitor upstream security advisories (CVE feeds, distro-watch)

@@ -985,10 +985,10 @@ def generate_index(package_dir, arch="x86_64", output=None,
 
     # Q7 (O-030): apply hand-curated security advisories. Match each
     # advisory key <name>-<version> against packages[name]["version"];
-    # on hit, stamp security=true + cves=[...]. F-002 (v1.1) replaces
-    # this with automated CVE-feed ingestion + per-version severity
-    # scoring — the on-wire shape stays the same so future automation
-    # is a pure substrate swap.
+    # on hit, stamp security=true + cves=[...]. Hand-curation is the
+    # only mechanism InterGenOS currently commits to -- maintainers
+    # add entries to docs/governance/security-advisories.yml as they
+    # patch CVEs.
     advisories = security_advisories or {}
     for adv_key, adv_entry in advisories.items():
         if not isinstance(adv_key, str) or "-" not in adv_key:

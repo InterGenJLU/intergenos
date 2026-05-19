@@ -122,7 +122,7 @@ Hardware-detected, fully local, no cloud. Text-only by design — the AI helps y
 InterGen Sentinel is the security-scanning layer for the local assistant: a vendor-neutral, pluggable provider chain that classifies installed packages, configurations, and runtime activity for known and emerging risks.
 
 **Default chain (always available, fully local):**
-- `Local-Rules` — rule-based classifier (CVE feeds, known-bad-pattern matchers, supply-chain checks)
+- `Local-Rules` — rule-based classifier (known-bad-pattern matchers, supply-chain checks)
 - `Local-Qwen` — local-LLM-backed safety review using the same tier model already loaded for the AI assistant
 
 **Optional cloud providers (opt-in, off by default):** Glasswing-Anthropic, Gemini-Google, CoPilot-Microsoft, ChatGPT-OpenAI, Grok-xAI, DeepSeek. Each provider is a discrete plug-in; users select zero or more, and credentials are stored in GNOME Keyring (libsecret) — never plaintext.

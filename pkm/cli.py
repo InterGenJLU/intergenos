@@ -149,8 +149,9 @@ def main():
     p_upgrade.add_argument(
         "--security-only", action="store_true", dest="upgrade_security_only",
         help="Filter upgrade candidates to entries flagged security=true in "
-             "the repository index (Q7 hand-curated; F-002 v1.1 will replace "
-             "with automated CVE feed ingestion).",
+             "the repository index. The flag is set at index-generation time "
+             "from docs/governance/security-advisories.yml, which InterGenOS "
+             "maintainers hand-curate as patches land.",
     )
     p_upgrade.add_argument(
         "--allow-kernel-replace", action="store_true",
