@@ -2,11 +2,12 @@
 
 Per the operator-greenlit O-033 Phase 1: at upgrade time, surface which
 installed packages reverse-depend on the target so the user knows what
-will be affected. Phase 2 (per-library SONAME tracking + refuse-upgrade
-on SONAME bump without --allow-soname-break) is tracked as F-003 in
-docs/v1.1-deferred-followups.md — it requires a SONAME column in the
-files table plus build-time SONAME extraction, which is its own design
-surface.
+will be affected. The Phase 1 informational warning is what InterGenOS
+commits to for v1.0. Alternate SONAME-aware mechanisms (per-library
+SONAME column in the files table, build-time SONAME extraction at the
+parser, refuse-on-SONAME-bump semantics with --allow-soname-break
+override) are non-committed scope; landing any of them would require
+explicit operator authorization to scope a design pass.
 
 Phase 1 is informational: pkm reads the existing depends table (the
 add_depends infrastructure landed at H-004 / dbdb9533) and renders a
