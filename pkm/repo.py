@@ -606,13 +606,30 @@ class RepoManager:
 
     # ----- Query -----
 
+    def _indexes_by_priority(self):
+        """Return self.indexes values sorted by repo priority (descending).
+
+        O-028: dedup logic in search / get_package / list_available iterates
+        indexes in priority order so higher-priority repos win on name
+        collision. Pre-fix the iteration order was dict-insertion which
+        meant a third-party repo loaded before official intergenos could
+        shadow it purely by happen-stance of load order. Priority defaults
+        to 0 when unset so repos without an explicit priority sort last.
+        """
+        return sorted(
+            self.indexes.values(),
+            key=lambda idx: self.repos.get(idx.name, {}).get("priority", 0),
+            reverse=True,
+        )
+
     def search(self, term):
         """Search across all synced repos."""
         self._ensure_synced()
         results = []
-        for index in self.indexes.values():
+        for index in self._indexes_by_priority():
             results.extend(index.search(term))
-        # Deduplicate — higher priority repo wins
+        # Deduplicate — higher priority repo wins (O-028: iteration is
+        # priority-ordered so first-seen is highest-priority).
         seen = {}
         for r in results:
             if r["name"] not in seen:
@@ -620,20 +637,24 @@ class RepoManager:
         return list(seen.values())
 
     def get_package(self, name):
-        """Find a package across all repos."""
+        """Find a package across all repos. Higher-priority repos win on
+        name collision (O-028).
+        """
         self._ensure_synced()
-        for index in self.indexes.values():
+        for index in self._indexes_by_priority():
             pkg = index.get_package(name)
             if pkg:
                 return pkg
         return None
 
     def list_available(self, tier=None):
-        """List all available packages, optionally filtered by tier."""
+        """List all available packages, optionally filtered by tier.
+        Higher-priority repos win on name collision (O-028).
+        """
         self._ensure_synced()
         results = []
         seen = set()
-        for index in self.indexes.values():
+        for index in self._indexes_by_priority():
             if tier:
                 pkgs = index.list_by_tier(tier)
             else:
