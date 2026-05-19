@@ -87,9 +87,57 @@ def generate_hostname(target, hostname):
 
 
 def generate_locale(target, locale="en_US.UTF-8"):
-    """Generate /etc/locale.conf."""
+    """Generate /etc/locale.conf AND compile the locale into the target glibc.
+
+    C-010 + J-026 combined fix: previously only wrote /etc/locale.conf, which
+    pointed LANG at a locale that didn't exist on the target — glibc-core/
+    build.sh:69-74 bakes only C.UTF-8 / en_US / en_US.UTF-8, so any other
+    user-picked locale (fr_FR.UTF-8, de_DE.UTF-8, ja_JP.UTF-8, ...) silently
+    fell back to C at every login.
+
+    Fix: after writing /etc/locale.conf, invoke localedef in the target chroot
+    to compile the locale into /usr/lib/locale/<locale>/ on the installed
+    system. localedef parses the locale name as <base>.<encoding> (e.g.
+    "fr_FR.UTF-8" → base="fr_FR" + encoding="UTF-8") and reads the matching
+    locale definition file under /usr/share/i18n/locales/ + the charmap under
+    /usr/share/i18n/charmaps/.
+
+    Skipped for locales without an encoding suffix (C, POSIX, single-name)
+    — these are always-present in the glibc-core baked set; localedef would
+    fail with "cannot read character map" since they don't have a separate
+    encoding step.
+
+    Skipped for malformed locale strings (empty base or encoding after the
+    partition) — locale.conf is still written so the user can hand-fix
+    post-install, but localedef gets garbage input on malformed names.
+
+    Orchestrator owns virtual_fs lifecycle (C-006); this runs during
+    PHASE_CONFIG which is between PHASE_VIRTUAL_FS and PHASE_CLEANUP, so
+    the chroot is mountable.
+    """
+    from .hooks import run_chroot
     etc = Path(target) / "etc"
     (etc / "locale.conf").write_text(f"LANG={locale}\n")
+
+    # C / POSIX / single-name locale — always-present in baked set; nothing
+    # to compile. localedef would fail with "cannot read character map".
+    if "." not in locale:
+        return
+
+    base, _, encoding = locale.partition(".")
+    if not base or not encoding:
+        # Malformed locale string ("foo.", ".bar", ".") — locale.conf
+        # already written; don't run localedef on garbage.
+        return
+
+    cmd = f"localedef -i {base} -f {encoding} {locale}"
+    rc, stdout, stderr = run_chroot(str(target), cmd)
+    if rc != 0:
+        raise RuntimeError(
+            f"localedef failed for locale {locale!r} "
+            f"(base={base!r}, encoding={encoding!r}): "
+            f"{(stderr or '').strip()}"
+        )
 
 
 def generate_vconsole(target, keymap="us"):

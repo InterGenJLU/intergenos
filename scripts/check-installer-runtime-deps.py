@@ -64,6 +64,15 @@ SHELL_REQUIRED_BINARIES: set[str] = {
     "mdadm", "mdmon",
     "dialog",
     "os-prober", "linux-boot-prober",
+    # C-010 + J-026: generate_locale invokes localedef in the target
+    # chroot via run_chroot to compile user-picked locales (fr_FR.UTF-8 /
+    # de_DE.UTF-8 / etc.) into /usr/lib/locale/. localedef ships with
+    # glibc-core so it's guaranteed-present in any valid InterGenOS
+    # chroot, but explicit-when-known per the 2026-05-19 windows-docs-
+    # coordinator peer-review observation (the Python scan does catch
+    # run_chroot string-form invocations but the curated SHELL set is
+    # complement-not-replacement for shell-script-invoked binaries).
+    "localedef",
 }
 
 # Chroot search paths in priority order. Match LFS-standard layout +
