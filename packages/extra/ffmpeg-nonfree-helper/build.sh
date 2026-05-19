@@ -126,9 +126,19 @@ fi
 # Must come before any record_* call.
 igos_helper_init "ffmpeg-nonfree"
 
-# Record the acceptance artifact so pkm files / verify / remove track
-# the user-given patent-posture consent record alongside the binaries.
-igos_helper_record_file "$ACCEPTANCE_FILE"
+# Row F decision (2026-05-19): DELIBERATELY do NOT track the acceptance
+# JSON in the manifest. The acceptance is a durable patent-posture
+# consent record stored at /var/lib/intergen/legal/ (per docs/legal/
+# PATENTS.md). `pkm remove ffmpeg-nonfree` should leave the file in
+# place so a subsequent reinstall reads the existing acceptance and
+# skips the patent-posture re-prompt (per the if-acceptance-exists
+# branch above). Treating the consent record like a manifest-managed
+# payload would silently void prior consent on every uninstall +
+# force re-consent on every reinstall, which is user-hostile UX for
+# what is by design a durable legal-trail artifact. The
+# post_install_action below captures the consent event in pkm's
+# operation log as transparency-log content without making the file
+# itself manifest-managed.
 igos_helper_record_post_install_action \
     "User accepted FDK-AAC patent posture (acceptance artifact at $ACCEPTANCE_FILE)"
 
