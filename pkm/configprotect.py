@@ -79,15 +79,30 @@ def prepare_config_protection(staging, file_list, live_root, db):
             continue  # symlink or special; tar handles natively
 
         new_sha = _sha256(str(staging_path))
+        recorded = db.get_original_checksum(rel)
 
         if not live_path.is_file():
-            # First install of this config path. The tar deploy installs
-            # the new file; the add_files / config_files INSERT records
-            # new_sha as the original_checksum via the normal install path.
-            # No .pkmnew protection logic needed.
+            # Live file is absent. Two sub-cases:
+            #   (a) Truly first install — no recorded baseline yet. The
+            #       tar deploy installs new content; add_files records
+            #       new_sha via the INSERT branch of the ON CONFLICT.
+            #       Nothing to plan here.
+            #   (b) Stale-baseline state — recorded baseline exists but
+            #       live was removed by a previous remove operation
+            #       (cmd_upgrade's current remove-then-install pattern
+            #       on unedited configs; resolves once install-new-first
+            #       ordering lands per Q1). The ON CONFLICT clause
+            #       preserves the stale baseline, so without explicit
+            #       ratchet here the post-deploy live (new stock) would
+            #       diverge from the recorded baseline (old stock) and
+            #       the next upgrade would wrongly classify as
+            #       user-edited. Plan the ratchet so post-deploy state
+            #       is internally consistent regardless of the caller's
+            #       upgrade-orchestration shape.
+            if recorded is not None:
+                update_baselines[rel] = new_sha
             continue
 
-        recorded = db.get_original_checksum(rel)
         live_sha = _sha256(str(live_path))
 
         if recorded is None or live_sha == recorded:

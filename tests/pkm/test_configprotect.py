@@ -208,6 +208,27 @@ class TestPrepareConfigProtection(unittest.TestCase):
         self.assertEqual(plan["update_baselines"], {})
         self.assertEqual(plan["pkmnew_writes"], [])
 
+    def test_stale_baseline_live_missing_ratchets(self):
+        # Sub-case (b) of live-missing: a recorded baseline exists from a
+        # prior install (config_files row persisted across remove via
+        # ON DELETE SET NULL on package_id), but live was removed by the
+        # previous remove operation. Without the ratchet plan, the post-
+        # deploy live (new stock) would diverge from the recorded baseline
+        # (old stock) and the NEXT upgrade would wrongly classify as
+        # user-edited. Caught in peer-review of windows-host coordinator's
+        # d65081b4 installer wiring.
+        sha_v1 = self._register_baseline("etc/foo.conf", "stock-v1")
+        # Live file removed by prior remove operation (simulated by not
+        # creating the live file). Staging ships stock-v2.
+        self._stage("etc/foo.conf", "stock-v2")
+        plan = prepare_config_protection(
+            self.staging, ["etc/foo.conf"], self.live_root, self.db
+        )
+        self.assertEqual(plan["protect"], [])
+        self.assertEqual(plan["pkmnew_writes"], [])
+        # Ratchet planned — baseline will advance to stock-v2 after deploy.
+        self.assertEqual(plan["update_baselines"], {"etc/foo.conf": _sha_of("stock-v2")})
+
     def test_unedited_plans_baseline_ratchet(self):
         # Live + baseline both equal "stock-v1"; staging ships "stock-v2".
         # User hasn't edited → unedited path, baseline ratchets to v2 sha.
