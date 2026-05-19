@@ -47,7 +47,60 @@ InterGenOS builds from source and uses a robust vendor-tarball pipeline to ensur
 
 The subkeys used to sign packages operate on a 2-year cadence. When a key is rotated, the new keys will be distributed via a intergenos-keyring package update during a 30-day overlap window. The rollover announcements are signed by the offline master key, and the procedure is detailed in the [Signing Key Ceremony Procedure](ceremony/signing-key-ceremony-procedure.md).
 
-## 5. Failure Modes and Recovery
+## 5. Transparency Log Cross-Check (L-024)
+
+Every signed repository index publish appends an entry to an append-only git-backed transparency log. The log entry carries the published index's SHA-256, archive size, signer subkey fingerprint, and a link to the previous log entry — providing public-record evidence that pkm clients can use to detect mirror-swap or signer-compromise scenarios that the GPG signature chain alone cannot surface.
+
+### v1.0 Substrate
+
+The transparency log is published to a co-maintainer-accessible git repository. Each publish operation runs the existing `scripts/publish-repo.sh` which appends a commit containing:
+
+*   `index_sha256` — SHA-256 of the published `InterGenOS.db`
+*   `index_size` — byte count of the index
+*   `signer_fingerprint` — the signing subkey fingerprint used for this publish
+*   `previous_entry_hash` — SHA-256 of the prior log commit's payload (chain integrity)
+*   `log_version` — log format version (v1 today)
+
+### How to Cross-Check (Co-Maintainers)
+
+A co-maintainer with access to the transparency log repository can verify that the index they just synced has a corresponding log entry:
+
+```
+# 1. Compute the SHA-256 of your locally-synced index:
+sha256sum /var/cache/pkm/db/intergenos-current.db
+
+# 2. Clone the transparency log repository (path is co-maintainer-internal):
+git clone <transparency-log-remote> ~/.intergenos-transparency-log
+
+# 3. Grep the commit log for the matching SHA-256:
+cd ~/.intergenos-transparency-log
+git log --grep="<sha256-from-step-1>" --all
+```
+
+A matching entry confirms the index you fetched was the one canonically published. No matching entry means either (a) your local sync raced ahead of the log push (rare, retry in a few minutes) or (b) the index you have is NOT the canonically-published one — investigate.
+
+### v1.0 End-User Limitation
+
+The v1.0 transparency log substrate is a co-maintainer-accessible git repository, not yet a public-clone-able log. End users cannot directly perform the cross-check above without co-maintainer credentials. This is the audit row L-024 "minimum-viable" substrate (per the row's `git repo with co-maintainer pushes works; rekor is the proper tool` framing).
+
+**End-user-facing transparency cross-check is queued for v1.1**, with two design surfaces under consideration:
+
+1.  **Public mirror of the transparency log** — a read-only HTTP-accessible mirror of the log commits, suitable for end-user clone + verify.
+2.  **Rekor / Sigstore integration** — sign each publish into the Sigstore public-good transparency log via cosign with a Fulcio identity for the `InterGenOS-Release-Bot`. Rekor v2 (GA October 2025) is the gold-standard substrate with witness-managed append-only guarantees.
+
+Until either v1.1 substrate ships, end users rely on the existing GPG signature chain + master-fingerprint cross-check (Section 2 above) for trust enforcement. The transparency log adds defense-in-depth for co-maintainers monitoring for the signer-compromise / mirror-swap class of attacks that the signature chain alone cannot detect.
+
+### Configuration
+
+No client-side configuration is required for v1.0. Publish-side configuration (for mirror operators):
+
+*   `PUBLISH_TRANSPARENCY_REMOTE` — git remote URL for the log repository
+*   `PUBLISH_TRANSPARENCY_LOCAL` — local clone path (default `$HOME/.intergenos-transparency-log`)
+*   `--skip-transparency` — emergency override flag on `scripts/publish-repo.sh` (fail-closed by default)
+
+See [scripts/publish-repo.sh](../scripts/publish-repo.sh) for the publish-side implementation, landed alongside the L-022 DR backup substrate (single git repo, dual coverage — L-022 frames the WHY, L-024 frames the HOW).
+
+## 6. Failure Modes and Recovery
 
 If pkm encounters a verification failure, it is designed to **fail closed**.
 
@@ -57,7 +110,7 @@ If pkm encounters a verification failure, it is designed to **fail closed**.
 **When to STOP:**
 If you encounter a persistent signature failure or hash mismatch that is not resolved by checking your network connection, assume the upstream source is compromised. Halt installations, do not bypass verification checks using --archive-trust=loose, and check the InterGenOS GitHub or community channels for active security advisories. Contact maintainers via the process outlined in SECURITY.md if you suspect a breach.
 
-## 6. For Redistributors and Mirror Operators
+## 7. For Redistributors and Mirror Operators
 
 If you are operating a mirror for InterGenOS packages, you must preserve the exact directory structure, including:
 *   The raw .igos.tar.gz package archives.
