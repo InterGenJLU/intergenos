@@ -40,6 +40,11 @@ from .database import (
     _parse_manifest_line,
 )
 from .repo import _read_package_meta
+from .hooks import (
+    run_canonical_hooks,
+    run_archive_lifecycle_hook,
+    format_hook_summary,
+)
 
 # H-008: archive-bundled metadata files (provenance + key=value pkginfo) are
 # read at install time for the DB metadata population, but must NOT be
@@ -313,15 +318,50 @@ class PackageInstaller:
             # D-005 Phase A: fire per-package post-install runtime hook if
             # shipped. Hook lives at <root>/var/lib/pkm/hooks/<name>/post-install
             # (executable). Used by linux-kernel to rebuild + sign the UKI on
-            # every install/upgrade per D-005 Option A. Failure is non-fatal —
-            # deploy + DB commit already happened; hook is a side-channel.
+            # every install/upgrade per D-005 Option A. Pre-Q2-framework path;
+            # kept for backward compatibility with linux-kernel's existing wiring.
             self._run_post_install_hook(name, version)
+
+            # Q2 hook framework (operator-greenlit 2026-05-19): archive-side
+            # lifecycle hook (.scripts/post_install.sh inside the archive,
+            # opt-in for bespoke packages) followed by content-triggered
+            # canonical hooks scanning file_list for patterns that trigger
+            # depmod/ldconfig/glib-compile-schemas/apparmor-reload/etc.
+            archive_hook_result = run_archive_lifecycle_hook(
+                staging, "post_install", name, version, self.root,
+            )
+            canonical_result = run_canonical_hooks(
+                self.root, file_list, name, version, "install",
+            )
+            hook_summary = format_hook_summary(archive_hook_result, canonical_result)
 
             file_count = len([f for f in file_list if not f.endswith("/")])
             extra = ""
             if superseded_names:
                 extra = f" — superseded {', '.join(superseded_names)}"
-            return True, f"Installed {name} {version} ({file_count} files){extra}"
+
+            critical_hook_ids = (
+                archive_hook_result.critical_failures
+                + canonical_result.critical_failures
+            )
+            if critical_hook_ids:
+                # Critical hook failure surfaces install as failed-with-rollback-
+                # required. Deploy + DB commit already happened; the caller
+                # (cmd_install / cmd_upgrade) decides whether to invoke the Q1
+                # rollback flow. Hook summary is included so the user can see
+                # which hook failed and why before deciding.
+                return False, (
+                    f"Installed {name} {version} ({file_count} files){extra}, "
+                    f"but critical post-install hook(s) FAILED: "
+                    f"{', '.join(critical_hook_ids)}. Live system state may "
+                    f"diverge from package metadata. Rollback recommended.\n"
+                    f"{hook_summary}"
+                )
+
+            msg = f"Installed {name} {version} ({file_count} files){extra}"
+            if hook_summary:
+                msg = msg + "\n" + hook_summary
+            return True, msg
 
         finally:
             shutil.rmtree(staging, ignore_errors=True)
