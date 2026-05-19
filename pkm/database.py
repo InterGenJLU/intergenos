@@ -119,6 +119,10 @@ class PackageDB:
     """Package database interface."""
 
     def __init__(self, db_path=None, root="/"):
+        # NOTE: manifest paths are stored POSIX-relative ("usr/bin/bash",
+        # not "/usr/bin/bash"). Do not pass leading-slash paths through
+        # self.root / path constructions — pathlib's absolute-right-operand
+        # rule silently drops self.root, breaking install-target scenarios.
         self.db_path = Path(db_path) if db_path else DB_PATH
         self.root = Path(root)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)

@@ -369,8 +369,19 @@ class PackageTracker:
         shutil.rmtree(staging_dir, ignore_errors=True)
         return True
 
-    def pkg_verify(self, pkg: Package) -> bool:
-        """Verify every file in the manifest exists on the live filesystem."""
+    def pkg_verify(self, pkg: Package, root="/") -> bool:
+        """Verify every file in the manifest exists on the live filesystem.
+
+        Args:
+            pkg: Package object (name + version used to locate manifest).
+            root: Filesystem root for path reconstruction (default "/").
+                  Pass a non-"/" root when verifying a chroot from outside
+                  it (e.g. build-host verifying a build-target chroot).
+                  Manifest paths are stored POSIX-relative; passing a
+                  leading-slash path through Path(root) / path will silently
+                  drop the root (pathlib absolute-right-operand rule).
+        """
+        root_path = Path(root)
         manifest_path = self.pkg_db / f"{pkg.name}-{pkg.version}"
         if not manifest_path.exists():
             self.logger.error(f"Manifest not found: {manifest_path}")
@@ -392,7 +403,7 @@ class PackageTracker:
                 # surfaced this — files like "brcmfmac43455-sdio.Raspberry Pi
                 # Foundation-Raspberry Pi 4 Model B.txt.xz" have spaces.
                 path, _h = _parse_manifest_line(line)
-                filepath = "/" + path
+                filepath = str(root_path / path)
                 if not os.path.lexists(filepath):
                     missing.append(filepath)
 
