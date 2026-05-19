@@ -158,6 +158,16 @@ def cmd_install(db, args):
     installer = PackageInstaller(db)
     repo = RepoManager()
 
+    if args.archive and len(args.packages) > 1:
+        print(
+            f"  ERROR: --archive {args.archive} cannot be used with multiple "
+            f"packages ({', '.join(args.packages)}). The archive is a "
+            f"single-package artifact. Run separately per package, or omit "
+            f"--archive to fetch all packages from the repo.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     for pkg_name in args.packages:
         archive = args.archive if len(args.packages) == 1 else None
 
