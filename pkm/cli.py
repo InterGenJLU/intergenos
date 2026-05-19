@@ -493,6 +493,20 @@ def cmd_upgrade(db, args):
         remover.remove(installed_pkg["name"], force=True)
         ok, msg = installer.install(remote_pkg["name"], archive_path=dl_result)
         if ok:
+            # O-009: record the upgrade as its own history row with old/new
+            # version linkage so `pkm history` shows the version transition
+            # explicitly. The constituent remove/install rows still land
+            # (logged inside PackageRemover.remove and PackageInstaller.install
+            # respectively); this entry sits above them as the upgrade-aware
+            # summary. Tag-or-suppress of the constituent rows is intentionally
+            # out-of-scope per the audit row remediation note.
+            db.log_operation(
+                "upgrade",
+                remote_pkg["name"],
+                old_version=installed_pkg["version"],
+                new_version=remote_pkg["version"],
+                method="archive",
+            )
             print(f"  Upgraded {remote_pkg['name']} to {remote_pkg['version']}")
         else:
             print(f"  ERROR upgrading {remote_pkg['name']}: {msg}", file=sys.stderr)
