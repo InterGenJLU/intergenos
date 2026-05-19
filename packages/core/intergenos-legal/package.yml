@@ -1,0 +1,15 @@
+name: intergenos-legal
+version: "0.1.0"
+release: 1
+description: InterGenOS legal documents — LICENSE + SOURCES.md (GPL §6 source-availability commitment) installed to /usr/share/doc/intergenos/
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: core
+build_style: custom
+source: []
+dependencies:
+  build: []
+  host: []
+verify_paths:
+  - /usr/share/doc/intergenos/LICENSE
+  - /usr/share/doc/intergenos/SOURCES.md
