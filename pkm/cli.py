@@ -113,7 +113,26 @@ def main():
 
     # -- upgrade --
     p_upgrade = sub.add_parser("upgrade", help="Upgrade installed packages")
-    p_upgrade.add_argument("packages", nargs="*", metavar="package", help="Specific packages (default: all)")
+    p_upgrade.add_argument(
+        "packages", nargs="*", metavar="package",
+        help="Specific packages to upgrade. With no packages and no --all, "
+             "pkm refuses to mass-modify the system.",
+    )
+    p_upgrade.add_argument(
+        "--all", action="store_true", dest="upgrade_all",
+        help="Upgrade every upgradable package. Required (with positional "
+             "packages as the alternative) for non-empty scope; bare "
+             "`pkm upgrade` refuses to act per Q3 confirmation gate.",
+    )
+    p_upgrade.add_argument(
+        "--yes", "-y", action="store_true", dest="upgrade_yes",
+        help="Skip the [y/N] confirmation prompt after the plan summary "
+             "prints. Non-tty stdin + no --yes = hard error.",
+    )
+    p_upgrade.add_argument(
+        "--dry-run", action="store_true", dest="upgrade_dry_run",
+        help="Print the plan summary and exit 0 without modifying anything.",
+    )
     p_upgrade.add_argument(
         "--allow-downgrade", action="store_true",
         help="Treat any version mismatch as upgradable, including repo-older-than-installed "
@@ -588,6 +607,21 @@ def cmd_update(db, args):
 def cmd_upgrade(db, args):
     from .version import is_upgradable, VersionParseError
 
+    # Q3 (O-027): refuse bare `pkm upgrade` invocations. Bare = no
+    # positional packages AND no --all. Default-deny on destructive
+    # mass-mutate — silent mass-modify is the opposite of "when in
+    # doubt, deny."
+    upgrade_all = getattr(args, "upgrade_all", False)
+    if not args.packages and not upgrade_all:
+        print(
+            "  ERROR: bare `pkm upgrade` refuses to mass-modify the system. "
+            "Pass --all to upgrade everything (a plan summary + "
+            "confirmation prompt follows), or name specific packages to "
+            "upgrade. Add --dry-run to preview without modifying anything.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     repo = RepoManager()
     installer = PackageInstaller(db)
     allow_downgrade = getattr(args, "allow_downgrade", False)
@@ -614,6 +648,7 @@ def cmd_upgrade(db, args):
             )
             continue
 
+    held_excluded_names = []
     if args.packages:
         # Filter to requested packages
         names = set(args.packages)
@@ -634,28 +669,33 @@ def cmd_upgrade(db, args):
                 sys.exit(1)
         upgradable = [(i, r) for i, r in upgradable if i["name"] in names]
     elif not ignore_holds:
-        # Q9: bare `pkm upgrade` filters held packages with informational
+        # Q9: --all `pkm upgrade` filters held packages with informational
         # notice. --ignore-holds bypasses for emergency security override.
-        held_upgradable = [
-            pkg for pkg, _ in upgradable if pkg["name"] in held_set
-        ]
-        if held_upgradable:
-            held_names = sorted(p["name"] for p in held_upgradable)
-            print(
-                f"  Skipping {len(held_names)} held package(s): "
-                f"{', '.join(held_names)} (run `pkm unhold <name>` to release)"
-            )
+        held_excluded_names = sorted(
+            p["name"] for p, _ in upgradable if p["name"] in held_set
+        )
+        if held_excluded_names:
             upgradable = [
                 (i, r) for i, r in upgradable if i["name"] not in held_set
             ]
 
     if not upgradable:
-        print("  Everything is up to date.")
+        if held_excluded_names:
+            print(
+                f"  Nothing to upgrade — the only candidates "
+                f"({', '.join(held_excluded_names)}) are held. Run "
+                f"`pkm unhold <name>` to release, or pass --ignore-holds."
+            )
+        else:
+            print("  Everything is up to date.")
         return
 
-    print(f"  {len(upgradable)} package(s) to upgrade:")
-    for installed_pkg, remote_pkg in upgradable:
-        print(f"    {installed_pkg['name']}: {installed_pkg['version']} → {remote_pkg['version']}")
+    # Q3: plan summary + Q5 service-restart classification integration.
+    _print_upgrade_plan_summary(upgradable, held_excluded_names, db)
+
+    # Q3: confirmation gate.
+    if not _confirm_upgrade(args):
+        return
 
     for installed_pkg, remote_pkg in upgradable:
         dl_ok, dl_result = repo.download_package(remote_pkg["name"])
@@ -1053,6 +1093,110 @@ def _render_restart_results(results):
               file=sys.stderr)
         return 1
     return 0
+
+
+def _print_upgrade_plan_summary(upgradable, held_excluded_names, db):
+    """Q3: structured plan summary printed before the confirmation gate.
+
+    Args:
+        upgradable: list of (installed_pkg, remote_pkg) tuples.
+        held_excluded_names: list of held package names that were filtered.
+        db: PackageDB for per-package file_list lookups (Q5 classification).
+    """
+    from .services import classify_restart_requirement
+
+    n = len(upgradable)
+    print(f"  Upgrade plan: {n} package(s)")
+    for installed_pkg, remote_pkg in upgradable:
+        print(
+            f"    {installed_pkg['name']:30s} "
+            f"{installed_pkg['version']:15s} -> {remote_pkg['version']}"
+        )
+
+    # Download size summary — sum repo-declared sizes for packages where
+    # the repo index provides one. Missing size is treated as 0 (no warn).
+    total_size = sum(int(r.get("size") or 0) for _, r in upgradable)
+    if total_size > 0:
+        mb = total_size / (1024 * 1024)
+        print(f"  Download size: ~{mb:.1f} MiB")
+
+    if held_excluded_names:
+        print(
+            f"  Excluded (held): {', '.join(held_excluded_names)} "
+            f"(use --ignore-holds to override)"
+        )
+
+    # Q5 integration: classify each upgrade target against the currently-
+    # installed file_list. This is approximate (the new file_list may differ
+    # post-supersede) but service-unit paths rarely change between versions,
+    # so this gives a good pre-upgrade estimate of what'll need restart.
+    reboot_pkgs = []
+    restart_services_combined = []
+    for installed_pkg, _ in upgradable:
+        files = db.get_files(installed_pkg["name"])
+        file_list = [
+            f["path"] + ("/" if f["is_dir"] else "") for f in files
+        ]
+        classification = classify_restart_requirement(
+            installed_pkg["name"], file_list,
+        )
+        if classification["requirement"] == "reboot":
+            reboot_pkgs.append(installed_pkg["name"])
+        elif classification["requirement"] == "restart":
+            restart_services_combined.extend(classification["services"])
+
+    if reboot_pkgs:
+        print(
+            f"  REBOOT REQUIRED after upgrade for: {', '.join(reboot_pkgs)}"
+        )
+    if restart_services_combined:
+        # Dedupe preserving discovery order.
+        seen = set()
+        unique = [
+            s for s in restart_services_combined
+            if not (s in seen or seen.add(s))
+        ]
+        print(
+            f"  Services needing restart after upgrade: {', '.join(unique)}"
+        )
+        print(f"    (after upgrade: pkm restart-services --all)")
+
+    # Q4 sidecar reminder — exact count requires staging-extraction which
+    # happens inside installer.install; surfaced per-package in the install
+    # output. Plan summary lets the user know to watch for sidecars.
+    print(
+        "  Configuration-file changes (.pkmnew sidecars) are reported "
+        "per-package at install time; review them at end of upgrade."
+    )
+
+
+def _confirm_upgrade(args):
+    """Q3 confirmation gate.
+
+    Returns True if the upgrade should proceed; False if the user
+    declined OR --dry-run was passed (preview only). Calls sys.exit(1)
+    on non-tty stdin without --yes (hard error per dispatch text).
+    """
+    if getattr(args, "upgrade_dry_run", False):
+        print("  --dry-run: plan only; nothing modified.")
+        return False
+    if getattr(args, "upgrade_yes", False):
+        return True
+    if not sys.stdin.isatty():
+        print(
+            "  ERROR: stdin is not a tty. Pass --yes to confirm "
+            "non-interactively, or --dry-run to preview without changes.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    try:
+        answer = input("  Proceed with upgrade? [y/N] ").strip().lower()
+    except EOFError:
+        answer = ""
+    if answer != "y":
+        print("  Aborted.")
+        return False
+    return True
 
 
 def cmd_hold(db, args):
