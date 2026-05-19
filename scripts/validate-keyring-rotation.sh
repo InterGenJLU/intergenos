@@ -21,12 +21,11 @@
 #       signature (gpg-layer trust-anchor gate working before the L-025
 #       pin-set check even fires)
 #
-# Bash-only orchestration: avoids the Windows-side gpg-agent IPC
-# constraint where Python's subprocess.run cannot bind agent sockets at
-# C:/... paths. Runs natively on Linux + Windows (Git Bash). A
-# corresponding pytest-side unit test for the pkm.repo._verify_signature
-# Python wrapper that exercises a real-key fixture is registered as a
-# v1.1 dev-tooling enhancement in docs/v1.1-deferred-followups.md.
+# Bash-only orchestration: end-to-end exercise of the keyring rotation
+# substrate via gpg(1) directly. Companion pytest-side unit test for
+# the pkm.repo._verify_signature Python wrapper landed at
+# tests/pkm/test_repo_verify_signature.py (Linux-only via ephemeral
+# GPG fixture; both validators exercise the same three links).
 #
 # Gates:
 #   GREEN-1: ephemeral master+subkey generated

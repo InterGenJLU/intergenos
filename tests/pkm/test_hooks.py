@@ -32,18 +32,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-# Linux-only tests in this module rely on shell-script stubs invoked
-# through `/bin/sh`-style execution + subprocess argv inspection that
-# behaves differently on Windows (executables resolve through PATHEXT;
-# shell stubs need `bash` not `sh`; chmod +x is a no-op on NTFS).
-# Decorate class-level so the pure-Python tests
-# (TestFormatHookSummary / TestLifecycleEventsCoverage) still run
-# cross-platform.
-_LINUX_ONLY = unittest.skipUnless(
-    sys.platform.startswith("linux"),
-    "Linux-only: invokes shell stubs + subprocess argv inspection that "
-    "depends on POSIX shell semantics + chmod +x on the test filesystem",
-)
+# Hook tests in this module rely on shell-script stubs invoked through
+# `/bin/sh`-style execution + subprocess argv inspection. InterGenOS
+# commits to Linux-only dev/test (2026-05-19) so these tests run
+# unconditionally.
 
 from pkm.hooks import (
     HOOK_ENV_ALLOWLIST,
@@ -76,7 +68,6 @@ def _make_fake_bin(bindir, name, exit_code=0):
     return path, log, env_log
 
 
-@_LINUX_ONLY
 class TestRunCanonicalHooks(unittest.TestCase):
     """Direct unit tests for run_canonical_hooks with fake bin dir."""
 
@@ -204,7 +195,6 @@ class TestRunCanonicalHooks(unittest.TestCase):
         self.assertIn("usr.bin.bar", invocation)
 
 
-@_LINUX_ONLY
 class TestArchiveLifecycleHook(unittest.TestCase):
 
     def setUp(self):
@@ -271,7 +261,6 @@ class TestArchiveLifecycleHook(unittest.TestCase):
             run_archive_lifecycle_hook(self.staging, "post_oops", "foo", "1.0", "/")
 
 
-@_LINUX_ONLY
 class TestHookEnvHygiene(unittest.TestCase):
     """Verify HOOK_ENV_ALLOWLIST does its job — LD_PRELOAD / PYTHONPATH never
     reach hook execution; PKM_* vars are present with expected values."""

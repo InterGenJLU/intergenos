@@ -327,11 +327,6 @@ class TestMaterializeSidecars(unittest.TestCase):
     def test_empty_input_returns_empty(self):
         self.assertEqual(materialize_pkmnew_sidecars([]), [])
 
-    @unittest.skipUnless(
-        sys.platform.startswith("linux"),
-        "Linux-only: uses /proc/ path to force a write failure; Windows lacks "
-        "an equivalent always-unwritable absolute path",
-    )
     def test_failure_continues_with_remaining(self):
         # First entry has unwritable dest (path under /); second succeeds.
         src_a = Path(self.tmp) / "a"

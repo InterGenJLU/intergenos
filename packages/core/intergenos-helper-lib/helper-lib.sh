@@ -150,20 +150,12 @@ _igos_helper_emit_partial() {
     local dest_dir="${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}"
     mkdir -p "$dest_dir" 2>/dev/null || return 0
     local partial="$dest_dir/$IGOS_HELPER_NAME.manifest.partial"
-    local pybin=""
-    for candidate in python3 python; do
-        if command -v "$candidate" >/dev/null 2>&1 && \
-           "$candidate" --version >/dev/null 2>&1; then
-            pybin="$candidate"
-            break
-        fi
-    done
-    if [ -z "$pybin" ]; then
+    if ! command -v python3 >/dev/null 2>&1; then
         return 0
     fi
     IGOS_HELPER_STAGING="$IGOS_HELPER_STAGING" \
     IGOS_HELPER_NAME="$IGOS_HELPER_NAME" \
-    "$pybin" - "$partial" 2>/dev/null <<'PYEOF' || true
+    python3 - "$partial" 2>/dev/null <<'PYEOF' || true
 import json, os, sys
 staging = os.environ["IGOS_HELPER_STAGING"]
 name = os.environ["IGOS_HELPER_NAME"]
@@ -310,28 +302,18 @@ igos_helper_commit() {
 
     # Use python for JSON assembly so we don't have to handle quoting
     # edge cases in shell + so the schema field shape stays in lock-step
-    # with pkm's reader (both are Python-side). Prefer `python3` (Linux
-    # convention); fall back to `python` if python3 is missing or is the
-    # Microsoft Store stub (which exists on PATH but exits with a
-    # "Python was not found" message). A real interpreter responds to
-    # `--version` with exit 0; the stub returns non-zero.
-    local pybin=""
-    for candidate in python3 python; do
-        if command -v "$candidate" >/dev/null 2>&1 && \
-           "$candidate" --version >/dev/null 2>&1; then
-            pybin="$candidate"
-            break
-        fi
-    done
-    if [ -z "$pybin" ]; then
-        echo "igos_helper_commit: no working python interpreter found in PATH (tried python3, python)" >&2
+    # with pkm's reader (both are Python-side). InterGenOS commits to
+    # Linux-only dev/test (2026-05-19); python3 is always available on
+    # InterGenOS systems.
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "igos_helper_commit: python3 not found in PATH" >&2
         rm -rf "$IGOS_HELPER_STAGING"
         unset IGOS_HELPER_STAGING IGOS_HELPER_NAME
         return 1
     fi
     IGOS_HELPER_STAGING="$IGOS_HELPER_STAGING" \
     IGOS_HELPER_NAME="$IGOS_HELPER_NAME" \
-    "$pybin" - "$tmp" <<'PYEOF'
+    python3 - "$tmp" <<'PYEOF'
 import json, os, sys
 staging = os.environ["IGOS_HELPER_STAGING"]
 name = os.environ["IGOS_HELPER_NAME"]

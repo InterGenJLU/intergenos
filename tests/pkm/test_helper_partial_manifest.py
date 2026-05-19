@@ -83,8 +83,8 @@ class ReadPartialManifestSummaryTests(unittest.TestCase):
 
 
 @unittest.skipUnless(
-    sys.platform.startswith("linux") and HELPER_LIB_SH.is_file(),
-    "helper-lib.sh end-to-end tests need Linux + the library file in tree",
+    HELPER_LIB_SH.is_file(),
+    "helper-lib.sh end-to-end tests need the library file in tree",
 )
 class HelperLibPartialManifestEndToEndTests(unittest.TestCase):
     """Integration tests subprocess-invoking helper-lib.sh from bash."""
