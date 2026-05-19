@@ -81,6 +81,12 @@ REPO_CONFIG_PATH = Path("/etc/pkm/repos.conf")
 REPO_CACHE_DIR = Path("/var/cache/pkm")
 REPO_DB_CACHE = REPO_CACHE_DIR / "db"
 REPO_PKG_CACHE = REPO_CACHE_DIR / "packages"
+# Q1 (O-002 + O-007): per-package rollback archive cache. Before each
+# upgrade target's remove step, the current archive at REPO_PKG_CACHE
+# is copied here so the old version can be restored on install failure.
+# Survives REPO_PKG_CACHE GC (separate directory) but lives on the same
+# filesystem as REPO_CACHE_DIR so shutil.move on restore stays atomic.
+REPO_ROLLBACK_DIR = REPO_CACHE_DIR / "rollback"
 GPG_KEYRING = Path("/etc/pkm/trusted.gpg")
 
 DEFAULT_REPOS = {

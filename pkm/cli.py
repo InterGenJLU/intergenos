@@ -152,6 +152,13 @@ def main():
              "the repository index (Q7 hand-curated; F-002 v1.1 will replace "
              "with automated CVE feed ingestion).",
     )
+    p_upgrade.add_argument(
+        "--allow-kernel-replace", action="store_true",
+        dest="upgrade_allow_kernel_replace",
+        help="Required to upgrade `linux-kernel`. Kernel upgrades can leave "
+             "a system unbootable on partial failure (O-002); pkm refuses to "
+             "touch the running kernel package without this explicit flag.",
+    )
 
     # -- search --
     p_search = sub.add_parser("search", aliases=["find"], help="Search packages")
@@ -793,6 +800,29 @@ def cmd_upgrade(db, args):
     if not _confirm_upgrade(args):
         return
 
+    # Q1 (O-002): kernel-replace gate. Refuse `linux-kernel` upgrades
+    # without --allow-kernel-replace. The running kernel image stays
+    # loaded in memory until reboot, so a partial-failure kernel
+    # upgrade can leave the system unbootable (modules deleted, new
+    # vmlinuz not yet signed/installed, etc.). Explicit operator
+    # intent required.
+    allow_kernel_replace = getattr(args, "upgrade_allow_kernel_replace", False)
+    KERNEL_REPLACE_GATED = frozenset({"linux-kernel"})
+    if not allow_kernel_replace:
+        gated_in_queue = [
+            p["name"] for p, _ in upgradable if p["name"] in KERNEL_REPLACE_GATED
+        ]
+        if gated_in_queue:
+            print(
+                f"  ERROR: refusing to upgrade {', '.join(gated_in_queue)} "
+                f"without --allow-kernel-replace. Kernel upgrades can leave "
+                f"the system unbootable on partial failure; pass the flag "
+                f"to confirm intent. Other packages in the queue are not "
+                f"upgraded.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
     for installed_pkg, remote_pkg in upgradable:
         # O-005: install any new dependencies the upgrade introduces
         # BEFORE touching the upgrade target. resolve_dependencies
@@ -865,11 +895,63 @@ def cmd_upgrade(db, args):
             print(f"  ERROR downloading {remote_pkg['name']}: {dl_result}", file=sys.stderr)
             continue
 
+        # Q1 (O-007): save the old archive to the rollback cache BEFORE
+        # remove. The current pkg-cache archive at REPO_PKG_CACHE/<name>-
+        # <oldver>-<rel>.igos.tar.gz becomes the restore source on
+        # install-failure (covered below). Missing archive (cache was
+        # cleared) → rollback unavailable → WARN but proceed.
+        rollback_archive = _save_rollback_archive(
+            installed_pkg["name"],
+            installed_pkg["version"],
+            installed_pkg.get("release", 1),
+        )
+        if rollback_archive is None:
+            print(
+                f"  WARN: no cached archive for {installed_pkg['name']} "
+                f"{installed_pkg['version']}; rollback unavailable if the "
+                f"install fails. Run `pkm cache clean --keep-current` to "
+                f"keep installed-version archives in future.",
+                file=sys.stderr,
+            )
+
         # Remove old, install new
         from .remover import PackageRemover
         remover = PackageRemover(db)
         remover.remove(installed_pkg["name"], force=True)
-        ok, msg = installer.install(remote_pkg["name"], archive_path=dl_result)
+        ok, msg = installer.install(
+            remote_pkg["name"], archive_path=dl_result,
+            # Q9: preserve install_reason across the upgrade so an
+            # autoremove-eligible dependency stays dependency-marked.
+            install_reason=installed_pkg.get("install_reason", "manual"),
+        )
+        # Q1 (O-007): install-failure rollback. If installer.install
+        # returned not-ok, the old package is gone (removed) and the new
+        # package didn't land. Reinstall from the rollback archive to
+        # leave the system at its pre-upgrade state.
+        if not ok and rollback_archive is not None and rollback_archive.exists():
+            print(
+                f"  Install of {remote_pkg['name']} {remote_pkg['version']} "
+                f"failed; restoring {installed_pkg['name']} "
+                f"{installed_pkg['version']} from rollback cache...",
+                file=sys.stderr,
+            )
+            rb_ok, rb_msg = installer.install(
+                installed_pkg["name"], archive_path=str(rollback_archive),
+                install_reason=installed_pkg.get("install_reason", "manual"),
+            )
+            if rb_ok:
+                print(
+                    f"  Rollback succeeded: {installed_pkg['name']} "
+                    f"{installed_pkg['version']} restored."
+                )
+            else:
+                print(
+                    f"  CRITICAL: rollback of {installed_pkg['name']} also "
+                    f"failed: {rb_msg}. System may be in a partially-upgraded "
+                    f"state. Manual recovery: `pkm install "
+                    f"{installed_pkg['name']} --archive={rollback_archive}`",
+                    file=sys.stderr,
+                )
         if ok:
             # O-009: record the upgrade as its own history row with old/new
             # version linkage so `pkm history` shows the version transition
@@ -1234,6 +1316,38 @@ def cmd_restart_services(db, args):
     print("    --all        Restart every active service owned by a pkm package")
     print("    <service>    Restart specific systemd unit name(s)")
     return 0
+
+
+def _save_rollback_archive(name, version, release):
+    """Q1 (O-007): copy the installed-version's archive from the pkg
+    cache to the rollback cache so it survives upgrade-time cache
+    cleanup + is available for automatic restore on install failure.
+
+    Args:
+        name: package name.
+        version: version string of the currently-installed package.
+        release: integer release counter (defaults to 1 if unset).
+
+    Returns:
+        Path to the rollback archive on success, or None when the
+        old archive is not in REPO_PKG_CACHE (cache was cleared,
+        --archive install never cached, etc.). Caller treats None
+        as "rollback unavailable; proceed with WARN."
+    """
+    import shutil
+    from .repo import REPO_PKG_CACHE, REPO_ROLLBACK_DIR
+
+    archive_name = f"{name}-{version}-{int(release or 1)}.igos.tar.gz"
+    src = REPO_PKG_CACHE / archive_name
+    if not src.exists():
+        return None
+    try:
+        REPO_ROLLBACK_DIR.mkdir(parents=True, exist_ok=True)
+        dest = REPO_ROLLBACK_DIR / archive_name
+        shutil.copy2(str(src), str(dest))
+        return dest
+    except (OSError, IOError):
+        return None
 
 
 def _render_restart_results(results):

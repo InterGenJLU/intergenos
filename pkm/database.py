@@ -210,17 +210,18 @@ class PackageDB:
         """
         if tier:
             rows = self.conn.execute(
-                "SELECT name, version, release, tier, description FROM installed "
-                "WHERE tier = ? ORDER BY name",
+                "SELECT name, version, release, tier, description, install_reason "
+                "FROM installed WHERE tier = ? ORDER BY name",
                 (tier,)
             ).fetchall()
         else:
             rows = self.conn.execute(
-                "SELECT name, version, release, tier, description FROM installed "
-                "ORDER BY name"
+                "SELECT name, version, release, tier, description, install_reason "
+                "FROM installed ORDER BY name"
             ).fetchall()
         return [
-            {"name": r[0], "version": r[1], "release": r[2], "tier": r[3], "description": r[4]}
+            {"name": r[0], "version": r[1], "release": r[2], "tier": r[3],
+             "description": r[4], "install_reason": r[5] or "manual"}
             for r in rows
         ]
 
