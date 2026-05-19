@@ -234,7 +234,10 @@ class PackageInstaller:
                     tier=pkginfo.get("tier"),
                     description=pkginfo.get("description"),
                     license_=pkginfo.get("license"),
-                    build_date=pkginfo.get("builddate"),
+                    # _parse_pkginfo renames the on-disk `builddate` key
+                    # to `build_date` (pkm/repo.py:593-595). Look up the
+                    # post-rename key.
+                    build_date=pkginfo.get("build_date"),
                     commit=False,
                 )
                 self.db.add_files(pkg_id, file_list, hashes=hashes_for_db, commit=False)
