@@ -26,7 +26,7 @@ from .repo import RepoManager
 # (Holy-Grail-aligned posture: prefer fail-loud over queue-and-hope).
 PKM_LOCK_PATH = Path("/var/lock/pkm.lock")
 PKM_MUTATING_COMMANDS = frozenset({
-    "install", "install-helper", "remove", "update", "upgrade", "import",
+    "install", "install-helper", "remove", "reinstall", "update", "upgrade", "import",
 })
 
 
@@ -94,6 +94,10 @@ def main():
     p_remove = sub.add_parser("remove", aliases=["uninstall"], help="Remove a package")
     p_remove.add_argument("package")
     p_remove.add_argument("--force", action="store_true", help="Remove even if others depend on it")
+
+    # -- reinstall --
+    p_reinstall = sub.add_parser("reinstall", help="Remove + reinstall a package (repo-fetched)")
+    p_reinstall.add_argument("packages", nargs="+", metavar="package")
 
     # -- list --
     p_list = sub.add_parser("list", aliases=["ls"], help="List packages")
@@ -182,6 +186,8 @@ def main():
                 cmd_install_helper(db, args)
             elif args.command == "remove":
                 cmd_remove(db, args)
+            elif args.command == "reinstall":
+                cmd_reinstall(db, args)
             elif args.command == "update":
                 cmd_update(db, args)
             elif args.command == "upgrade":
@@ -347,6 +353,56 @@ def cmd_install_helper(db, args):
     else:
         print(f"  ERROR: {msg}", file=sys.stderr)
         sys.exit(1)
+
+
+def cmd_reinstall(db, args):
+    """Remove + reinstall packages from the repo (O-001).
+
+    Closes audit row O-001 (subcommand never existed) + H-010 (the error
+    messages at installer.py:83 + :88 directed users to a non-existent
+    `pkm reinstall` subcommand; that guidance is now correct).
+
+    Atomic-ish caveat: filesystem deploy + DB are separate concerns.
+    If install fails after remove succeeds, the package is GONE; recovery
+    is `pkm install <name>`. Matches the existing cmd_upgrade gap (H-019);
+    a future btrfs-snapshot pre-mutation snapshot pass (O-007 scope) will
+    address both paths together.
+    """
+    installer = PackageInstaller(db)
+    remover = PackageRemover(db)
+
+    for pkg_name in args.packages:
+        existing = db.get_installed(pkg_name)
+        if not existing:
+            print(
+                f"  ERROR: '{pkg_name}' is not installed; nothing to reinstall. "
+                f"Use 'pkm install {pkg_name}' instead.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        print(f"  Reinstalling {pkg_name} ({existing['version']})...")
+
+        ok, rmsg = remover.remove(pkg_name, force=True)
+        if not ok:
+            print(f"  ERROR: remove step failed for {pkg_name}: {rmsg}", file=sys.stderr)
+            sys.exit(1)
+        print(f"    {rmsg}")
+
+        ok, imsg = installer.install(pkg_name)
+        if not ok:
+            print(
+                f"  ERROR: install step failed after remove for {pkg_name}: "
+                f"{imsg}",
+                file=sys.stderr,
+            )
+            print(
+                f"  System is in degraded state — {pkg_name} is removed but "
+                f"not reinstalled. Run 'pkm install {pkg_name}' to recover.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        print(f"    {imsg}")
 
 
 def cmd_remove(db, args):
