@@ -36,6 +36,14 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # subprocess call. Handles both bare binary ("parted") and absolute path
 # ("/usr/sbin/parted"). Matches subprocess.run / .call / .check_output /
 # .check_call / .Popen + the installer's own _run wrapper.
+#
+# COVERAGE BOUNDARY (list-form only): this regex catches list-form invocations
+# only. STRING-form calls — subprocess.run("parted /dev/sda", shell=True) or
+# os.system("parted /dev/sda") — are NOT auto-discovered. Installer code does
+# not currently use string-form (shell-injection anti-pattern) but new code
+# using those forms would fall outside this scan. If a binary lives in
+# installer code under string-form invocation, declare it explicitly in
+# SHELL_REQUIRED_BINARIES below or refactor to list-form.
 PY_CALL_PATTERN = re.compile(
     r"""(?:subprocess\.(?:run|call|check_output|check_call|Popen)|_run)\s*\(\s*
         \[\s*["']([^"']+)["']""",
@@ -73,6 +81,23 @@ SHELL_REQUIRED_BINARIES: set[str] = {
     # run_chroot string-form invocations but the curated SHELL set is
     # complement-not-replacement for shell-script-invoked binaries).
     "localedef",
+    # D-001 LUKS install path (cryptsetup-static is the FDE-initramfs-
+    # bundled static binary; cryptsetup is the installer-side tool that
+    # the install-time path invokes for LUKS volume creation + FIDO2/
+    # TPM2 enrollment per D-001). MUST be present in the live ISO chroot
+    # before any LUKS-enabled install attempt.
+    "cryptsetup",
+    # installer/frontend/tui.py:64 probes for `dialog` THEN `whiptail` as
+    # fallback. If dialog is missing but whiptail is, the TUI still
+    # launches — but if BOTH are missing the installer can't enter TUI
+    # mode at all. Both binaries must be verified present.
+    "whiptail",
+    # D-007 user-account install path (installer/backend/users.py). The
+    # Python scan typically catches these via list-form subprocess calls,
+    # but explicit-when-known per the M-002 audit recommendation
+    # ("verifies each against the chroot ... the curated SHELL set is a
+    # complement-not-replacement for the Python scan").
+    "useradd", "usermod", "passwd", "chpasswd",
 }
 
 # Chroot search paths in priority order. Match LFS-standard layout +
