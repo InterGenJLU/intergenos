@@ -26,6 +26,7 @@ InstallResult.error_message; phase_completed names the last successful
 phase so the frontend can render which step we got to.
 """
 
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
@@ -67,6 +68,19 @@ PHASE_ORDER = [
 
 REQUIRED_YAML_FIELDS = ("locale", "timezone", "hostname", "package_groups")
 REQUIRED_INSTALL_IO_FIELDS = ("disk", "username", "user_password", "root_password")
+
+# C-021 pre-flight (live-ISO PATH check before PHASE_PARTITION). These are
+# binaries the install pipeline invokes directly from the LIVE env (not via
+# run_chroot into target — those are validated by the M-002 chroot-binary-
+# presence gate at build time). Missing them means the live ISO is broken
+# and the install would die mid-partition with cryptic stderr; pre-flight
+# catches it BEFORE the destructive disk write.
+PREFLIGHT_LIVE_BINARIES_ALWAYS = (
+    "parted", "wipefs",
+    "mkfs.ext4", "mkfs.fat",
+    "blkid", "mount", "umount", "chroot", "lsblk",
+)
+PREFLIGHT_LIVE_BINARIES_LUKS = ("cryptsetup",)
 
 DEFAULT_TARGET = "/mnt/target"
 
@@ -181,6 +195,78 @@ def load_yaml_config(yaml_path):
             f"yaml config must be a top-level mapping, got {type(cfg).__name__}"
         )
     return cfg
+
+
+def preflight_check_binaries(install_io):
+    """C-021 pre-flight: verify required binaries are on the live-ISO PATH.
+
+    Called from PHASE_VALIDATE (before PHASE_PARTITION). PHASE_PARTITION
+    onward invokes parted/wipefs/mkfs.*/cryptsetup directly via subprocess
+    on the live env. Missing binaries surface as "command not found"
+    wrapped in mid-phase RuntimeError with cryptic stderr; this pre-flight
+    catches them upfront so the operator gets a clear "live ISO is broken"
+    message BEFORE any destructive write to the target disk.
+
+    Conditional sets:
+      - PREFLIGHT_LIVE_BINARIES_LUKS adds cryptsetup when luks_enabled
+        (D-001 LUKS-at-install opt-in)
+
+    Target-chroot binaries (efibootmgr / mokutil / sbsign / openssl /
+    localedef / chpasswd / etc.) are NOT checked here — they live in the
+    target chroot via packages installed during PHASE_PACKAGES + are
+    validated at build time by the M-002 chroot-binary-presence gate
+    (scripts/check-installer-runtime-deps.py).
+
+    Raises:
+        RuntimeError listing every missing binary if any are absent.
+    """
+    required = set(PREFLIGHT_LIVE_BINARIES_ALWAYS)
+    if install_io.get("luks_enabled"):
+        required.update(PREFLIGHT_LIVE_BINARIES_LUKS)
+    missing = sorted(b for b in required if shutil.which(b) is None)
+    if missing:
+        raise RuntimeError(
+            f"live-ISO is missing required installer-runtime binaries: "
+            f"{', '.join(missing)}. This live media cannot drive an install — "
+            f"re-create the ISO from a build that includes all "
+            f"installer-runtime packages (T0-3 sub-cluster 1)."
+        )
+
+
+def preflight_check_archive_availability(cfg, archive_dir, packages_dir):
+    """C-021 (extended): verify each selected package group resolves to >=1 archive.
+
+    Composes with C-065's PHASE_PACKAGES hard-fail (belt-and-suspenders):
+    C-065 catches the empty-archive-dir case AFTER PHASE_PARTITION has
+    already modified the target disk. This pre-flight catches the
+    per-group case BEFORE any destructive write — operator can fix the
+    live ISO without recovering from a partial install.
+
+    Per windows-docs-coordinator 2026-05-19T01:07:32Z peer-review proposal
+    on the T0-3 sub-cluster 3 plan (absorbed into C-021 scope at this
+    commit per feedback_audit_multi_wiring_lands_single_commit).
+
+    Raises:
+        RuntimeError listing every group with zero matching archives.
+    """
+    selected_groups = cfg.get("package_groups", []) or []
+    empty_groups = []
+    for group in selected_groups:
+        # get_group_packages returns [(name, version, archive_path), ...].
+        # Empty list = no archives matched (either group unknown to GROUPS,
+        # tier dir absent, or no archives in archive_dir for the tier).
+        result = packages.get_group_packages(
+            [group], archive_dir, packages_dir
+        )
+        if not result:
+            empty_groups.append(group)
+    if empty_groups:
+        raise RuntimeError(
+            f"selected package group(s) {empty_groups!r} resolve to zero "
+            f"archives on this live ISO (archive_dir={archive_dir!r}, "
+            f"packages_dir={packages_dir!r}). Either pick a different "
+            f"group set or use an ISO that includes the missing tier(s)."
+        )
 
 
 def validate_install_inputs(cfg, install_io):
@@ -318,6 +404,17 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         _emit(PHASE_VALIDATE, 0, "loading + validating install config")
         cfg = load_yaml_config(yaml_path)
         validate_install_inputs(cfg, install_io)
+
+        # C-021: live-ISO PATH pre-flight + per-group archive availability.
+        # Both raise BEFORE PHASE_PARTITION so a broken live ISO or empty
+        # archive_dir is caught without modifying the target disk. Composes
+        # with C-065's PHASE_PACKAGES hard-fail (belt-and-suspenders for
+        # the unlikely case the pre-flight is bypassed).
+        _emit(PHASE_VALIDATE, 1, "pre-flight: live-ISO binaries + archive availability")
+        preflight_check_binaries(install_io)
+        if archive_dir:
+            preflight_check_archive_availability(cfg, archive_dir, packages_dir)
+
         result.phase_completed = PHASE_VALIDATE
         _emit(PHASE_VALIDATE, 1, "config valid")
 

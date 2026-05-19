@@ -156,6 +156,13 @@ class _RunInstallTestBase(unittest.TestCase):
             patch("installer.backend.install.mok"),
             patch("installer.backend.install.bootloader"),
             patch("installer.backend.install.hooks"),
+            # C-021 pre-flight uses shutil.which against PATH; in test env
+            # parted/wipefs/mkfs.*/etc. are not present so pre-flight would
+            # raise + halt the orchestrator before the assertions under
+            # test run. Mock shutil.which to always-found so orchestrator-
+            # wiring tests stay focused on orchestrator wiring; pre-flight
+            # behavior is covered in tests/test_install_preflight.py.
+            patch("installer.backend.install.shutil"),
         ]
         self.disks = self._patches[0].start()
         self.packages = self._patches[1].start()
@@ -164,6 +171,8 @@ class _RunInstallTestBase(unittest.TestCase):
         self.mok = self._patches[4].start()
         self.bootloader = self._patches[5].start()
         self.hooks = self._patches[6].start()
+        self.shutil = self._patches[7].start()
+        self.shutil.which.return_value = "/usr/bin/fake-binary"
 
         self.disks.is_efi.return_value = True
         self.disks.partition_disk.return_value = self.partitions
@@ -197,7 +206,18 @@ class TestRunInstallHappyPath(_RunInstallTestBase):
             self.yaml_path, VALID_INSTALL_IO,
             str(self.archive_dir), str(self.packages_dir),
         )
-        self.disks.partition_disk.assert_called_once_with("/dev/sda", efi=True)
+        # D-001 LUKS added new kwargs to partition_disk; happy-path test
+        # asserts only the always-passed positional + efi flag, with LUKS
+        # opt-in kwargs defaulting to False/None (no opt-in in VALID_INSTALL_IO).
+        self.disks.partition_disk.assert_called_once_with(
+            "/dev/sda",
+            efi=True,
+            luks_enabled=False,
+            luks_passphrase=None,
+            tpm2_enabled=False,
+            fido2_enabled=False,
+            fido2_progress_callback=None,
+        )
         self.disks.mount_target.assert_called_once()
         self.hooks.mount_virtual_fs.assert_called_once()
         self.packages.install_packages.assert_called_once()
