@@ -36,6 +36,16 @@ GROUPS = {
         "required": False,
         "default": False,
     },
+    # C-007: "ai" was selectable in TUI PACKAGE_GROUP_CHOICES (frontend/tui.py:221)
+    # but had no entry here, so get_group_packages did GROUPS.get("ai") → None →
+    # tiers stayed empty → user-checked AI group installed zero packages silently.
+    # packages/ai/ ships intergen + llama-cpp (text-only per D-008 InterGen scope).
+    "ai": {
+        "description": "Local AI runtime (intergen + llama-cpp; text-only)",
+        "tiers": ["ai"],
+        "required": False,
+        "default": False,
+    },
 }
 
 
