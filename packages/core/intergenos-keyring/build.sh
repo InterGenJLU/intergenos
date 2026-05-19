@@ -36,6 +36,29 @@ do_install() {
         --keyring "${DESTDIR}/etc/pkm/trusted.gpg" \
         --import /mnt/intergenos/docs/signing-key.asc
 
+    # Defensive assert: verify the imported keyring contains the canonical
+    # master fingerprint. If docs/signing-key.asc ever drifts (key rotation
+    # without coordinating updates, accidental different-key commit, or
+    # silent file corruption gpg tolerates) this halts the build rather
+    # than shipping a wrong-key keyring. The fingerprint is the canonical
+    # InterGenOS master release-signing key as published in
+    # docs/signing-key.md and pinned at pkm/release-keys.json.
+    # Composes with the artifact-integrity ≠ behavioral-integrity discipline
+    # — verify what's emitted, not just that the emit-step ran.
+    EXPECTED_FP="5597A3E0587B253006D0DD7B8C50826182083050"
+    if ! GNUPGHOME="$TMPHOME" gpg \
+            --no-permission-warning \
+            --no-default-keyring \
+            --keyring "${DESTDIR}/etc/pkm/trusted.gpg" \
+            --with-colons \
+            --list-keys \
+        | grep -q "^fpr:::::::::${EXPECTED_FP}:"; then
+        echo "FATAL: intergenos-keyring did not import the canonical master fingerprint." >&2
+        echo "Expected: $EXPECTED_FP" >&2
+        echo "Check docs/signing-key.asc — possible drift from canonical key." >&2
+        exit 1
+    fi
+
     # Trust DB lockfiles emitted by gpg in the destination dir are
     # transient — strip them so the package only ships the keyring itself.
     rm -f "${DESTDIR}/etc/pkm/trusted.gpg~" \
