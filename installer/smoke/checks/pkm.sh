@@ -19,17 +19,20 @@ check_pkm_list() {
 }
 
 check_pkm_verify() {
-    local mode="--fast"
-    [ "$SMOKE_STRICT" = "1" ] && mode="--strict"
+    # Pass --all explicitly per H-006: bare `pkm verify` returns exit 2
+    # (usage error) post-fix. Smoke must pass --all to perform a real
+    # system-wide verify.
+    local mode="--fast --all"
+    [ "$SMOKE_STRICT" = "1" ] && mode="--strict --all"
 
     verbose "running: pkm verify $mode"
     local out rc=0
     out="$(pkm verify $mode 2>&1)" || rc=$?
 
     case "$rc" in
-        0) check_pass "pkm/verify" "all files match (${mode#--} mode)" ;;
+        0) check_pass "pkm/verify" "all files match (${mode%% --all} mode)" ;;
         1) check_fail "pkm/verify" "$(echo "$out" | head -3 | tr '\n' ';')" ;;
-        2) check_warn "pkm/verify" "superseded packages present (expected on long-lived system)" ;;
+        2) check_fail "pkm/verify" "usage error — smoke invocation regression: missing --all or package arg" ;;
         *) check_fail "pkm/verify" "unexpected exit $rc: $(echo "$out" | head -1)" ;;
     esac
 }

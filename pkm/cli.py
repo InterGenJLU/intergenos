@@ -469,13 +469,19 @@ def cmd_provides(db, args):
 
 
 def cmd_verify(db, args):
+    # Exit codes (CLI-local; differ from verifier.py API EXIT_* dict codes):
+    #   0 = OK (incl. single-pkg routed-to-superseded-successor message)
+    #   1 = verification problems found (missing or modified files)
+    #   2 = usage error (no package + no --all)
+    # API-level EXIT_SUPERSEDED=2 is a dict-level informational code and is
+    # NEVER propagated as sys.exit; CLI translates it to message + exit 0.
     verifier = PackageVerifier(db)
     mode = getattr(args, "verify_mode", "strict")
 
     if args.verify_all or not args.package:
         if not args.verify_all and not args.package:
             print("  Usage: pkm verify <package> or pkm verify --all")
-            return
+            sys.exit(2)
         results = verifier.verify_all(mode=mode)
         ok_count = 0
         problem_count = 0
@@ -486,6 +492,8 @@ def cmd_verify(db, args):
             else:
                 ok_count += 1
         print(f"\n  Verified ({mode}): {ok_count} OK, {problem_count} with issues")
+        if problem_count > 0:
+            sys.exit(1)
         return
 
     result = verifier.verify(args.package, mode=mode)
@@ -509,6 +517,7 @@ def cmd_verify(db, args):
         print(f"  MODIFIED ({len(result['modified'])}):")
         for f in result["modified"][:20]:
             print(f"    /{f}")
+    sys.exit(1)
 
 
 def cmd_depends(db, args):
