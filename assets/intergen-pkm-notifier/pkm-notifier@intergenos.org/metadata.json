@@ -1,0 +1,8 @@
+{
+    "uuid": "pkm-notifier@intergenos.org",
+    "name": "pkm Notifier",
+    "description": "Tray indicator showing available pkm package upgrades. Reads /var/lib/pkm/available-updates.json (written by the pkm-check-updates.timer-driven service) and surfaces an icon in the top bar when upgrades are available. Click to open a terminal pre-typed with `pkm upgrade --all --dry-run` for review. NEVER auto-upgrades; the user explicitly invokes the upgrade to act on the notification.",
+    "shell-version": ["47", "48"],
+    "url": "https://github.com/InterGenJLU/intergenos",
+    "settings-schema": "org.gnome.shell.extensions.pkm-notifier"
+}
