@@ -59,7 +59,7 @@ import sys
 import tempfile
 import urllib.request
 import urllib.error
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # L-020: _parse_index references __version__ for the min_pkm_version
@@ -90,6 +90,75 @@ DEFAULT_REPOS = {
 
 # Max age before forcing a re-sync (seconds)
 INDEX_MAX_AGE = 3600  # 1 hour
+
+
+# L-019: anti-rollback + freshness state.
+# After every successful sync, the index's `generated` timestamp is
+# persisted under PKM_STATE_DIR/<repo>.json. Subsequent syncs refuse
+# any new index whose `generated` is OLDER than the recorded last-seen
+# value (replay-attack defense even when signature + sha256 are valid).
+# A separate ROLLBACK_MAX_AGE bounds how stale ANY index can be (even
+# on first sync with no recorded state); operators get a hard refusal
+# rather than silently consuming a 6-month-old snapshot.
+PKM_STATE_DIR = Path(os.environ.get("PKM_STATE_DIR", "/var/lib/pkm/state"))
+# 7 days: matches the audit row's softer alternative (vs 1h hard limit
+# which would aggressively fail-closed for users who can't sync hourly).
+ROLLBACK_MAX_AGE_SECONDS = 7 * 24 * 3600
+
+
+def _parse_iso8601(s):
+    """Parse an ISO8601 timestamp string to a timezone-aware datetime.
+
+    Accepts the common Z-suffix shape (e.g. "2026-05-19T04:50:00Z") plus
+    the explicit +00:00 form. Returns None on parse failure (caller
+    treats absent timestamp as fail-closed).
+    """
+    if not s:
+        return None
+    try:
+        # datetime.fromisoformat handles "+00:00" but not "Z" in <3.11.
+        # Normalize the trailing Z form for cross-version safety.
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        return datetime.fromisoformat(s)
+    except (ValueError, TypeError):
+        return None
+
+
+def _load_last_seen_state(repo_name):
+    """Return the persisted last-seen `generated` timestamp string for
+    a repo, or None if no state file exists yet."""
+    state_path = PKM_STATE_DIR / f"{repo_name}.json"
+    try:
+        data = json.loads(state_path.read_text())
+        return data.get("last_seen_generated")
+    except (OSError, ValueError):
+        return None
+
+
+def _save_last_seen_state(repo_name, generated):
+    """Persist the `generated` timestamp for a repo. Atomic write via
+    write-to-temp + rename to prevent torn-write windows."""
+    try:
+        PKM_STATE_DIR.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return False
+    state_path = PKM_STATE_DIR / f"{repo_name}.json"
+    tmp_path = state_path.with_suffix(".json.tmp")
+    payload = json.dumps({
+        "last_seen_generated": generated,
+        "last_seen_at": datetime.now(timezone.utc).isoformat(),
+    })
+    try:
+        tmp_path.write_text(payload)
+        os.replace(str(tmp_path), str(state_path))
+        return True
+    except OSError:
+        try:
+            tmp_path.unlink()
+        except OSError:
+            pass
+        return False
 
 
 # L-025: pinned release-key fingerprints (canonical source: pkm/release-keys.json).
@@ -421,6 +490,11 @@ class RepoManager:
         L-020: enforces schema-version + min_pkm_version +
         signature_format envelope. Raises IndexFormatError on any
         out-of-envelope value; caller treats as fail-closed sync error.
+
+        L-019: enforces anti-rollback (`generated` monotonic vs persisted
+        last-seen state) + freshness window (ROLLBACK_MAX_AGE_SECONDS) +
+        Valid-Until (signed expiry). Raises IndexFormatError on rollback
+        attempt, stale index, or expired Valid-Until.
         """
         with gzip.open(db_path, "rt", encoding="utf-8") as f:
             data = json.load(f)
@@ -460,6 +534,65 @@ class RepoManager:
                 f"parse — sigstore / cosign / ed25519 migration "
                 f"requires a pkm version that explicitly opts in."
             )
+
+        # L-019 (a): anti-rollback. The `generated` timestamp must be
+        # parseable + monotonically non-decreasing across syncs.
+        generated_str = data.get("generated")
+        generated_dt = _parse_iso8601(generated_str)
+        if generated_dt is None:
+            raise IndexFormatError(
+                f"index '{name}' has missing or malformed `generated` "
+                f"timestamp ({generated_str!r}); refusing to parse — "
+                f"freshness check requires ISO8601 timestamp."
+            )
+        now = datetime.now(timezone.utc)
+        last_seen = _load_last_seen_state(name)
+        last_seen_dt = _parse_iso8601(last_seen)
+        if last_seen_dt is not None and generated_dt < last_seen_dt:
+            raise IndexFormatError(
+                f"index '{name}' generated={generated_str} is OLDER "
+                f"than last-seen={last_seen}. Rollback attempt refused; "
+                f"check mirror integrity + investigate whether the "
+                f"published index was reverted intentionally."
+            )
+
+        # L-019 (b): freshness window — index too stale even on first
+        # sync. Bounds the worst-case "served a 6-month-old snapshot
+        # via cached mirror" scenario.
+        age_seconds = (now - generated_dt).total_seconds()
+        if age_seconds > ROLLBACK_MAX_AGE_SECONDS:
+            raise IndexFormatError(
+                f"index '{name}' generated={generated_str} is "
+                f"{age_seconds / 86400:.1f} days old (max allowed: "
+                f"{ROLLBACK_MAX_AGE_SECONDS // 86400} days). Mirror "
+                f"may be abandoned or attacker-controlled. Refusing."
+            )
+
+        # L-019 (c): Valid-Until signed expiry. Generators emit this
+        # alongside `generated` to bound the window during which an
+        # index is considered authoritative (matches apt's Valid-Until
+        # convention). Absence means no expiry declared (backward-
+        # compatible with pre-L-019 generators).
+        valid_until_str = data.get("valid_until")
+        if valid_until_str:
+            valid_until_dt = _parse_iso8601(valid_until_str)
+            if valid_until_dt is None:
+                raise IndexFormatError(
+                    f"index '{name}' has malformed `valid_until` "
+                    f"({valid_until_str!r}); refusing to parse."
+                )
+            if now > valid_until_dt:
+                raise IndexFormatError(
+                    f"index '{name}' valid_until={valid_until_str} "
+                    f"has expired ({now.isoformat()} > "
+                    f"{valid_until_str}). Mirror operator must publish "
+                    f"a fresh index; refusing stale snapshot."
+                )
+
+        # All envelope + freshness gates passed. Persist last-seen
+        # state AFTER all checks succeed so a failed parse doesn't
+        # poison subsequent runs.
+        _save_last_seen_state(name, generated_str)
 
         return RepoIndex(name, url, data)
 
@@ -672,6 +805,12 @@ def generate_index(package_dir, arch="x86_64", output=None):
             name = meta.pop("name", pkg_file.stem.split("-")[0])
             packages[name] = meta
 
+    # L-019: emit Valid-Until alongside generated. 24h default window
+    # bounds the trust horizon for any individual snapshot; mirror
+    # operators publish a fresh index daily for routine signing.
+    generated_dt = datetime.now(timezone.utc)
+    valid_until_dt = generated_dt + timedelta(hours=24)
+
     index = {
         "version": 1,
         # L-020: signature_format + min_pkm_version envelope fields.
@@ -681,7 +820,10 @@ def generate_index(package_dir, arch="x86_64", output=None):
         # parser-side SUPPORTED_INDEX_VERSIONS / SUPPORTED_SIGNATURE_FORMATS.
         "signature_format": "gpg-detached-armored",
         "min_pkm_version": "0.1.0",
-        "generated": datetime.now(timezone.utc).isoformat(),
+        "generated": generated_dt.isoformat(),
+        # L-019: anti-rollback + Valid-Until pair. The parser-side check
+        # requires ISO8601 timestamps + monotonic non-decreasing generated.
+        "valid_until": valid_until_dt.isoformat(),
         "arch": arch,
         "package_count": len(packages),
         "packages": packages,
