@@ -14,19 +14,27 @@
 #   PUBLISH_REMOTE_USER       (default: intergenos)
 #   PUBLISH_REMOTE_HOST       (default: origin.intergenstudios.com)
 #   PUBLISH_REMOTE_PATH       (default: /home/intergenos/repo/x86_64)
+#   PUBLISH_SOURCES_DIR       (default: build/sources-archives — where
+#                              build-source-archives.py emits .igos.src.tar.gz
+#                              corresponding-source archives for each package)
 #
 # Prerequisites:
 #   - Packages built and archived at /var/lib/igos/archives/
 #   - SSH key auth to origin.intergenstudios.com configured
 #   - NK#1 (or NK#2) release key available to GPG
+#   - Source archives generated via scripts/build-source-archives.py
+#     (the source-availability commitment in SOURCES.md §6d depends on
+#     these landing in <host>/x86_64/current/sources/ alongside the binaries)
 set -e -o pipefail
 
 ARCHIVE_DIR="/var/lib/igos/archives"
+SOURCES_DIR="${PUBLISH_SOURCES_DIR:-build/sources-archives}"
 REMOTE_USER="${PUBLISH_REMOTE_USER:-intergenos}"
 REMOTE_HOST="${PUBLISH_REMOTE_HOST:-origin.intergenstudios.com}"
 REMOTE_PATH="${PUBLISH_REMOTE_PATH:-/home/intergenos/repo/x86_64}"
 GPG_KEY="NK1"
 DRY_RUN=false
+SKIP_SOURCES=false
 
 # Release key fingerprints
 declare -A GPG_KEY_FPS
@@ -36,7 +44,19 @@ GPG_KEY_FPS[S1]="D7AA641D81ACD690C5AD865E7276E14DD8886BFE"
 GPG_KEY_FPS[S2]="81DD223F9BA9B3F2AFBFFC5AFA24B042975F775E"
 
 usage() {
-    echo "Usage: $0 [--dry-run] [--archive-dir DIR] [--gpg-key NK1|NK2]"
+    cat <<EOF
+Usage: $0 [--dry-run] [--archive-dir DIR] [--gpg-key NK1|NK2] [--skip-sources]
+
+  --dry-run        Show what would be uploaded; don't actually publish.
+  --archive-dir    Override binary archive directory (default: $ARCHIVE_DIR).
+  --gpg-key        Sign with NK1 (primary) or NK2 (backup). Default: NK1.
+  --skip-sources   Emergency override — publish binaries without their
+                   corresponding-source archives. Use only when source
+                   generation is a known follow-on (not normal flow);
+                   defaults to fail-closed so binary publish always
+                   accompanies its SOURCES.md §6d source-availability
+                   commitment.
+EOF
     exit 1
 }
 
@@ -45,6 +65,7 @@ while [ $# -gt 0 ]; do
         --dry-run)      DRY_RUN=true; shift ;;
         --archive-dir)  ARCHIVE_DIR="$2"; shift 2 ;;
         --gpg-key)      GPG_KEY="$2"; shift 2 ;;
+        --skip-sources) SKIP_SOURCES=true; shift ;;
         -h|--help)      usage ;;
         *) echo "Unknown option: $1"; usage ;;
     esac
@@ -119,6 +140,16 @@ if [ "$DRY_RUN" = true ]; then
     echo "  $ARCHIVE_DIR/*.igos.tar.gz  →  $REMOTE_HOST:staging/"
     echo "  $INDEX_PATH                 →  $REMOTE_HOST:staging/InterGenOS.db"
     echo "  $SIG_PATH                   →  $REMOTE_HOST:staging/InterGenOS.db.sig"
+    if [ "$SKIP_SOURCES" = true ]; then
+        echo "  (source archives intentionally omitted via --skip-sources)"
+    else
+        SRC_GLOB_DRY=( "$SOURCES_DIR"/*.igos.src.tar.gz )
+        if [ -e "${SRC_GLOB_DRY[0]}" ]; then
+            echo "  $SOURCES_DIR/*.igos.src.tar.gz  →  $REMOTE_HOST:staging/sources/  (${#SRC_GLOB_DRY[@]} archives)"
+        else
+            echo "  (NO source archives in $SOURCES_DIR/ — real publish would fail-closed)"
+        fi
+    fi
     echo "  Then: promote staging/ → live/"
     exit 0
 fi
@@ -137,6 +168,36 @@ rsync -av --mkpath \
     "$STAGING_RSYNC/" \
     || { echo "ERROR: rsync to staging failed" >&2; exit 1; }
 echo "  OK — packages + index + signature uploaded"
+
+# Source archives — deliver against the SOURCES.md §6d corresponding-source
+# commitment. Land them at <staging>/sources/ so they're reachable at
+# repo.intergenos.org/x86_64/current/sources/ post-promote. Fail-closed
+# if absent — publishing binaries without their corresponding source
+# violates the SOURCES.md binding commitment. The --skip-sources flag
+# is the operator escape hatch for known follow-on cases.
+if [ "$SKIP_SOURCES" = true ]; then
+    echo "  SKIP — --skip-sources flag set; source archives intentionally omitted."
+    echo "         Re-run scripts/build-source-archives.py + publish again before"
+    echo "         considering this snapshot SOURCES.md-compliant."
+else
+    SRC_GLOB=( "$SOURCES_DIR"/*.igos.src.tar.gz )
+    if [ ! -e "${SRC_GLOB[0]}" ]; then
+        echo "ERROR: no .igos.src.tar.gz in $SOURCES_DIR/" >&2
+        echo "       publishing binaries without their corresponding-source archives" >&2
+        echo "       violates the SOURCES.md §6d commitment. Run:" >&2
+        echo "         scripts/build-source-archives.py" >&2
+        echo "       to generate them, then re-run this publish. Override:" >&2
+        echo "         scripts/publish-repo.sh --skip-sources  (emergency only)" >&2
+        exit 1
+    fi
+    SRC_COUNT=${#SRC_GLOB[@]}
+    echo "  uploading $SRC_COUNT source archives to ${STAGING_DIR}/sources/..."
+    rsync -av --mkpath \
+        "${SRC_GLOB[@]}" \
+        "$STAGING_RSYNC/sources/" \
+        || { echo "ERROR: source archive rsync failed" >&2; exit 1; }
+    echo "  OK — $SRC_COUNT source archives uploaded to sources/"
+fi
 
 # Step 4: Atomic promote — directory swap (M1 fix, owner-picked option b)
 # Since M2 already creates a per-invocation timestamped staging dir,
