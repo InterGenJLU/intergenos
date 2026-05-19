@@ -1,0 +1,7 @@
+Blog post: Defending Against Indirect Prompt Injection — A Survey
+
+Greshake et al. (2023) introduced a taxonomy of indirect prompt-injection techniques where an attacker plants instructions in content the LLM will later read. The 2025 follow-up work expanded the taxonomy to cover delimiter-confusion attacks and encoding-based bypasses.
+
+The defense surface has three layers: input filtering, output filtering, and provenance tracking. Provenance tracking — where the system distinguishes "what the user asked" from "what the LLM read" — emerged as the most robust defense in adversarial benchmarks.
+
+Reference implementations are scarce; most production deployments rely on input-side regex scanning as the primary defense.

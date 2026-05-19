@@ -1,0 +1,15 @@
+man page excerpt: rsync(1)
+
+OPTIONS
+
+       --exclude=PATTERN
+              This option allows the user to specify a pattern to exclude files matching that pattern from the transfer. The pattern syntax is described in the FILTER RULES section below.
+
+       --ignore-existing
+              This tells rsync to skip updating files that already exist on the destination (this does not ignore existing directories, or nothing would get done).
+
+       --override
+              In some contexts this allows mode bits to override the default. See chmod(1) for details on numeric mode specifications.
+
+       --delete
+              This tells rsync to delete extraneous files from the destination side.

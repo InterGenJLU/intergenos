@@ -1,0 +1,209 @@
+{
+  "version": "0.1",
+  "spec_reference": "docs/architecture/intergen-provenance-gate-design.md §5.2 + line 274",
+  "description": "Canonical prompt-injection detection corpus for InterGen's RFC v0.1 §5.2 advisory-pattern scanner. Each pattern is ADVISORY ONLY — hits surface in the review modal but do not by themselves block (false-positive rate too high; the §5.1 ingress watermark is the load-bearing mechanism). Coverage spans documented injection techniques from OWASP LLM Top 10 (LLM01:2025) + Greshake et al. 2023 (indirect prompt injection) + delimiter-confusion attacks observed in production deployments. Expanded as new techniques are documented in the literature.",
+  "consumed_by": [
+    "intergen.provenance (RFC §5.2 advisory tagging)",
+    "intergen.mcp_client SentinelGuard.validate_tool_description (OWASP MCP02 scanning; uses the substring subset)",
+    "intergen.safety get_blocked_response (command-injection short-list)",
+    "tests/intergen/test_injection_corpus.py (integration tests; IGOSC Step 12)"
+  ],
+  "categories": {
+    "instruction-override": {
+      "description": "Explicit attempts to override prior LLM instructions",
+      "advisory_only": true,
+      "false_positive_risk": "medium",
+      "patterns": [
+        {
+          "id": "ignore-previous-explicit",
+          "regex": "(?i)\\bignore\\s+(?:all\\s+)?(?:previous|prior|above|earlier)\\s+(?:instructions?|directives?|context|prompts?|rules?)\\b",
+          "fixture": "instruction_override_01_explicit.txt"
+        },
+        {
+          "id": "disregard-instructions",
+          "regex": "(?i)\\bdisregard\\s+(?:all\\s+|your\\s+|the\\s+)?(?:previous\\s+|prior\\s+|above\\s+|earlier\\s+|your\\s+)*(?:instructions?|directives?|context|rules?)\\b",
+          "fixture": "instruction_override_02_disregard.txt"
+        },
+        {
+          "id": "forget-instructions",
+          "regex": "(?i)\\bforget\\s+(?:your|all|the|previous|prior)\\s+(?:instructions?|directives?|context|training|rules?)\\b",
+          "fixture": "instruction_override_03_forget.txt"
+        },
+        {
+          "id": "new-instructions-replace",
+          "regex": "(?i)\\bnew\\s+(?:instructions?|directives?|rules?|prompt)\\s*[:.]?\\s*(?:you\\s+(?:are|must|will|should))",
+          "fixture": "instruction_override_04_new_instructions.txt"
+        },
+        {
+          "id": "override-system",
+          "regex": "(?i)\\boverride\\s+(?:your\\s+)?(?:system\\s+)?(?:prompt|instructions?|directives?|safeguards?|guardrails?)\\b",
+          "fixture": "instruction_override_05_override.txt"
+        }
+      ]
+    },
+    "tool-coercion": {
+      "description": "Attempts to coerce the LLM into invoking specific tools",
+      "advisory_only": true,
+      "false_positive_risk": "high",
+      "patterns": [
+        {
+          "id": "then-run-command",
+          "regex": "(?i)\\bthen\\s+(?:also\\s+)?(?:run|execute|invoke|call)\\s+(?:the\\s+)?(?:following|command|tool|script)\\b",
+          "fixture": "tool_coercion_01_then_run.txt"
+        },
+        {
+          "id": "you-must-execute",
+          "regex": "(?i)\\byou\\s+must\\s+(?:also\\s+)?(?:run|execute|invoke|call|perform)\\b",
+          "fixture": "tool_coercion_02_imperative.txt"
+        },
+        {
+          "id": "as-part-of-this-task",
+          "regex": "(?i)\\bas\\s+part\\s+of\\s+(?:this\\s+)?(?:task|request|response|summary)\\s*[,.]?\\s*(?:also\\s+)?(?:run|execute|call|invoke|do)\\b",
+          "fixture": "tool_coercion_03_as_part_of.txt"
+        },
+        {
+          "id": "before-responding-execute",
+          "regex": "(?i)\\bbefore\\s+(?:responding|answering|continuing)\\b[^.\\n]{0,80}?(?:please\\s+)?\\b(?:run|execute|invoke|call)\\b",
+          "fixture": "tool_coercion_04_before_responding.txt"
+        }
+      ]
+    },
+    "exfil-prefix": {
+      "description": "Data exfiltration attempts via URL, email, or webhook payload",
+      "advisory_only": true,
+      "false_positive_risk": "low",
+      "patterns": [
+        {
+          "id": "send-to-webhook",
+          "regex": "(?i)\\b(?:send|post|submit|forward)\\s+(?:the\\s+)?(?:contents?|results?|output|data|response|conversation)\\b[^.\\n]{0,80}?\\b(?:to|at)\\s+(?:https?://|webhook|api)",
+          "fixture": "exfil_prefix_01_webhook.txt"
+        },
+        {
+          "id": "email-credentials",
+          "regex": "(?i)\\b(?:email|mail|send|forward)\\s+(?:the\\s+|your\\s+|my\\s+)?(?:\\S+\\s+){0,3}?(?:credentials?|tokens?|keys?|passwords?|secrets?|environment\\s+variables?)\\s+to\\b",
+          "fixture": "exfil_prefix_02_email.txt"
+        },
+        {
+          "id": "curl-post-data",
+          "regex": "(?is)\\bcurl\\s+(?:-X\\s+)?POST\\s+.*?(?:-d|--data|--data-raw|--data-binary)",
+          "fixture": "exfil_prefix_03_curl_post.txt"
+        }
+      ]
+    },
+    "system-prompt-leak": {
+      "description": "Attempts to extract or leak the LLM's system prompt",
+      "advisory_only": true,
+      "false_positive_risk": "low",
+      "patterns": [
+        {
+          "id": "reveal-system-prompt",
+          "regex": "(?i)\\b(?:reveal|show|print|output|display|repeat|tell\\s+me)\\s+(?:your|the)\\s+(?:system\\s+)?(?:prompt|instructions?|initial\\s+message|training\\s+message)\\b",
+          "fixture": "system_prompt_leak_01_reveal.txt"
+        },
+        {
+          "id": "your-instructions-are",
+          "regex": "(?i)\\b(?:repeat|recite|paste)\\s+(?:everything\\s+)?(?:above|before\\s+this|in\\s+your\\s+context)\\b",
+          "fixture": "system_prompt_leak_02_recite.txt"
+        }
+      ]
+    },
+    "role-confusion": {
+      "description": "Attempts to change the LLM's role or persona",
+      "advisory_only": true,
+      "false_positive_risk": "high",
+      "patterns": [
+        {
+          "id": "you-are-now",
+          "regex": "(?i)\\byou\\s+are\\s+now\\s+(?:a\\s+|an\\s+|the\\s+)?(?:different|new|unrestricted|jailbroken|developer|admin|root|expert)\\b",
+          "fixture": "role_confusion_01_you_are_now.txt"
+        },
+        {
+          "id": "pretend-to-be",
+          "regex": "(?i)\\b(?:pretend|act|roleplay)\\s+(?:to\\s+be|as|like\\s+you\\s+are)\\s+(?:a\\s+|an\\s+|the\\s+)?(?:hacker|admin|root|jailbroken|unrestricted|different\\s+ai|sudo|developer\\s+mode)\\b",
+          "fixture": "role_confusion_02_pretend.txt"
+        },
+        {
+          "id": "developer-mode",
+          "regex": "(?i)\\b(?:enable|activate|enter|switch\\s+to)\\s+(?:developer|admin|root|sudo|debug|dan|jailbreak|unrestricted)\\s+mode\\b",
+          "fixture": "role_confusion_03_developer_mode.txt"
+        }
+      ]
+    },
+    "authority-spoof": {
+      "description": "False claims of speaking as the user, admin, or system operator",
+      "advisory_only": true,
+      "false_positive_risk": "medium",
+      "patterns": [
+        {
+          "id": "admin-says",
+          "regex": "(?i)\\b(?:the\\s+)?(?:administrator|admin|sysadmin|operator|owner|root)\\s+(?:says|told\\s+(?:you|me)|wants|requires|authorizes|has\\s+authorized)\\b",
+          "fixture": "authority_spoof_01_admin.txt"
+        },
+        {
+          "id": "user-actually-meant",
+          "regex": "(?i)\\b(?:the\\s+user|the\\s+human|the\\s+operator)\\s+(?:actually\\s+)?(?:meant|wants|intended|asked\\s+for|requires)\\s+(?:for\\s+)?(?:you\\s+to\\s+)?(?:run|execute|do|invoke|delete|remove|modify|change|disable|enable|drop)\\b",
+          "fixture": "authority_spoof_02_user_meant.txt"
+        }
+      ]
+    },
+    "delimiter-attack": {
+      "description": "Use of special tokens or delimiters to confuse prompt boundaries",
+      "advisory_only": true,
+      "false_positive_risk": "low",
+      "patterns": [
+        {
+          "id": "im-start-token",
+          "regex": "<\\|im_start\\|>|<\\|im_end\\|>|<\\|system\\|>|<\\|user\\|>|<\\|assistant\\|>",
+          "fixture": "delimiter_attack_01_im_start.txt"
+        },
+        {
+          "id": "system-tag",
+          "regex": "(?i)\\[(?:SYSTEM|INST|/INST|ADMIN|ROOT|OVERRIDE)\\]",
+          "fixture": "delimiter_attack_02_system_tag.txt"
+        },
+        {
+          "id": "fake-conversation-turn",
+          "regex": "(?i)(?:Human|User|Assistant|System)\\s*:\\s*(?:ignore|disregard|forget|now\\s+execute)",
+          "fixture": "delimiter_attack_03_fake_turn.txt"
+        }
+      ]
+    },
+    "encoding-attack": {
+      "description": "Encoded payloads designed to bypass plaintext pattern scanning",
+      "advisory_only": true,
+      "false_positive_risk": "medium",
+      "patterns": [
+        {
+          "id": "base64-decode-and-run",
+          "regex": "(?i)\\b(?:base64|b64)\\s*(?:-d|--decode|decode)\\s*(?:[|<]|\\$\\()",
+          "fixture": "encoding_attack_01_base64.txt"
+        },
+        {
+          "id": "decode-this-string",
+          "regex": "(?i)\\b(?:decode|deobfuscate|unescape)\\s+(?:this|the\\s+following)\\s+(?:string|payload|content)\\s+(?:and|then)\\s+(?:run|execute|invoke|follow)\\b",
+          "fixture": "encoding_attack_02_decode_then_run.txt"
+        }
+      ]
+    }
+  },
+  "benign_negatives": [
+    {
+      "id": "documentation-mentions-ignore",
+      "description": "Legitimate technical documentation that mentions 'ignore' or 'override' in non-injection context",
+      "fixture": "benign_01_documentation.txt",
+      "should_not_match_any_pattern": true
+    },
+    {
+      "id": "security-research-discussion",
+      "description": "Security research / blog post discussing injection techniques (meta-discussion, not actual injection)",
+      "fixture": "benign_02_security_research.txt",
+      "should_not_match_any_pattern": true
+    },
+    {
+      "id": "shell-script-documentation",
+      "description": "Shell-script documentation mentioning curl, base64, sudo in legitimate context",
+      "fixture": "benign_03_shell_docs.txt",
+      "should_not_match_any_pattern": true
+    }
+  ]
+}
