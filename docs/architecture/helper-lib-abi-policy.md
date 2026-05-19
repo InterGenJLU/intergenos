@@ -68,6 +68,27 @@ The v1 API consists of seven shell functions:
 Any function not in this table is **not** part of the v1 API surface
 and MAY be removed or restructured without a v2 supersede.
 
+## Crash recovery: partial-manifest sidecar
+
+When `igos_helper_init` runs, it installs an `EXIT` trap that, on
+abnormal process exit (helper crash, `set -e` abort, kill signal),
+writes a `<name>.manifest.partial` JSON sidecar at the manifest dir
+capturing whatever was staged. The sidecar carries the same schema
+as the canonical manifest plus a `"partial": true` flag. pkm's
+`_run_helper` detects the sidecar after a non-zero helper exit and
+surfaces the orphan file list to the user in the install-failed
+error message. `igos_helper_commit` clears `IGOS_HELPER_COMMITTED` +
+removes the EXIT trap before doing its work, so the sidecar is only
+written on crash. A subsequent successful `igos_helper_init` of the
+same package cleans any prior `.manifest.partial` so a retried
+install does not leave a stale orphan-state signal.
+
+This recovery surface is part of the v1 contract: helpers MAY rely
+on the trap being installed by `igos_helper_init`; tooling MAY rely
+on the sidecar shape (same schema + `partial: true`) for crash
+detection. Future major versions may change the sidecar location or
+naming scheme via the same SUPERSEDES mechanism.
+
 ## Manifest schema version
 
 The JSON manifest written by `igos_helper_commit` carries its own

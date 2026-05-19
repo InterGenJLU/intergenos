@@ -74,6 +74,14 @@ igos_helper_init() {
     # Initialize a helper manifest staging area for package <name>.
     # Must be called once at the top of a helper script before any
     # record_* call. Exports IGOS_HELPER_STAGING + IGOS_HELPER_NAME.
+    #
+    # H-007 orphan-file recovery (Decision D, 2026-05-19): installs an
+    # EXIT trap that writes a `<name>.manifest.partial` sidecar if the
+    # helper aborts before igos_helper_commit runs. pkm's reader at
+    # _run_helper detects the sidecar + surfaces the partial-recorded
+    # file list so the user knows what was deposited but never
+    # tracked. igos_helper_commit clears IGOS_HELPER_COMMITTED + untraps
+    # EXIT before its work so the sidecar is only written on crash.
     local name="$1"
     if [ -z "$name" ]; then
         echo "igos_helper_init: usage: igos_helper_init <package-name>" >&2
@@ -89,12 +97,96 @@ igos_helper_init() {
     esac
     IGOS_HELPER_STAGING=$(mktemp -d -t igos-helper-XXXXXXXX)
     IGOS_HELPER_NAME="$name"
-    export IGOS_HELPER_STAGING IGOS_HELPER_NAME
+    IGOS_HELPER_COMMITTED=0
+    export IGOS_HELPER_STAGING IGOS_HELPER_NAME IGOS_HELPER_COMMITTED
     : > "$IGOS_HELPER_STAGING/files"
     : > "$IGOS_HELPER_STAGING/symlinks"
     : > "$IGOS_HELPER_STAGING/depends"
     : > "$IGOS_HELPER_STAGING/post_install_actions"
     : > "$IGOS_HELPER_STAGING/version"
+
+    # Clean any pre-existing .partial sidecar for this package -- a
+    # fresh init means we're starting over; a prior crash is being
+    # retried + the operator wants the partial-state superseded.
+    local dest_dir="${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}"
+    rm -f "$dest_dir/$name.manifest.partial" 2>/dev/null || true
+
+    # Install the EXIT trap. _igos_helper_emit_partial is a no-op when
+    # commit has already cleared IGOS_HELPER_COMMITTED.
+    trap '_igos_helper_emit_partial' EXIT
+}
+
+_igos_helper_emit_partial() {
+    # Internal: invoked by the EXIT trap installed in igos_helper_init.
+    # Writes a `<name>.manifest.partial` sidecar capturing whatever
+    # staging state survives at process exit if commit was not called.
+    # Best-effort: failures here are suppressed so a crashing helper
+    # is not further obscured by the trap.
+    if [ "${IGOS_HELPER_COMMITTED:-0}" = "1" ]; then
+        return 0
+    fi
+    if [ -z "${IGOS_HELPER_STAGING:-}" ] || [ -z "${IGOS_HELPER_NAME:-}" ]; then
+        return 0
+    fi
+    if [ ! -d "$IGOS_HELPER_STAGING" ]; then
+        return 0
+    fi
+    local dest_dir="${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}"
+    mkdir -p "$dest_dir" 2>/dev/null || return 0
+    local partial="$dest_dir/$IGOS_HELPER_NAME.manifest.partial"
+    local pybin=""
+    for candidate in python3 python; do
+        if command -v "$candidate" >/dev/null 2>&1 && \
+           "$candidate" --version >/dev/null 2>&1; then
+            pybin="$candidate"
+            break
+        fi
+    done
+    if [ -z "$pybin" ]; then
+        return 0
+    fi
+    IGOS_HELPER_STAGING="$IGOS_HELPER_STAGING" \
+    IGOS_HELPER_NAME="$IGOS_HELPER_NAME" \
+    "$pybin" - "$partial" 2>/dev/null <<'PYEOF' || true
+import json, os, sys
+staging = os.environ["IGOS_HELPER_STAGING"]
+name = os.environ["IGOS_HELPER_NAME"]
+out_path = sys.argv[1]
+
+def read_lines(rel):
+    p = os.path.join(staging, rel)
+    if not os.path.exists(p):
+        return []
+    with open(p, "r", encoding="utf-8") as f:
+        return [line.rstrip("\n") for line in f if line.strip()]
+
+version = ""
+vfile = os.path.join(staging, "version")
+if os.path.exists(vfile):
+    with open(vfile, "r", encoding="utf-8") as f:
+        version = f.read().strip()
+
+symlinks = []
+for line in read_lines("symlinks"):
+    if "\t" in line:
+        link_path, target = line.split("\t", 1)
+        symlinks.append({"path": link_path, "target": target})
+
+partial = {
+    "version": 1,
+    "name": name,
+    "version_installed": version,
+    "files": read_lines("files"),
+    "symlinks": symlinks,
+    "depends": read_lines("depends"),
+    "post_install_actions_log": read_lines("post_install_actions"),
+    "partial": True,
+    "build_date": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+}
+with open(out_path, "w", encoding="utf-8") as f:
+    json.dump(partial, f, indent=2)
+PYEOF
+    return 0
 }
 
 igos_helper_set_version() {
@@ -271,10 +363,23 @@ PYEOF
 
     # Atomic mv .tmp -> final. A helper that aborts after init but
     # before commit leaves nothing at the final path; pkm will not see
-    # a stale half-finished manifest.
+    # a stale half-finished manifest. (Decision D, 2026-05-19: if the
+    # helper crashes between init + commit, the EXIT trap installed
+    # by init writes a `<name>.manifest.partial` sidecar so pkm can
+    # surface the orphan file list to the user.)
     mv -f "$tmp" "$final"
     chmod 644 "$final"
 
+    # Decision D: clear the committed flag + untrap EXIT so the
+    # partial-manifest trap is a no-op on success.
+    IGOS_HELPER_COMMITTED=1
+    trap - EXIT
+
+    # Also clean any pre-existing .partial sidecar for this package
+    # (e.g. from a prior crashed run) so successful retry leaves no
+    # stale signal for the pkm reader.
+    rm -f "$dest_dir/$IGOS_HELPER_NAME.manifest.partial" 2>/dev/null || true
+
     rm -rf "$IGOS_HELPER_STAGING"
-    unset IGOS_HELPER_STAGING IGOS_HELPER_NAME
+    unset IGOS_HELPER_STAGING IGOS_HELPER_NAME IGOS_HELPER_COMMITTED
 }

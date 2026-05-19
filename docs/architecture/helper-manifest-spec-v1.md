@@ -35,6 +35,15 @@ supersedes `helper-lib-v1`; the v1 library remains available during
 the supersede overlap window so existing helpers keep working).
 Silent removal of an API function is not a permitted change shape.
 
+**Crash-recovery sidecar variant (v1.0 addition):** when a helper
+crashes between `igos_helper_init` and `igos_helper_commit`, an EXIT
+trap installed by init writes a `<name>.manifest.partial` JSON
+sidecar at the manifest dir. The sidecar uses the same schema as the
+canonical manifest plus a `"partial": true` boolean flag.
+`igos_helper_commit` removes any prior sidecar on success. See
+[`docs/architecture/helper-lib-abi-policy.md`](helper-lib-abi-policy.md#crash-recovery-partial-manifest-sidecar)
+for the full mechanism.
+
 ## Manifest Schema (v1)
 
 JSON document at `/var/lib/igos/helpers/<name>.manifest`:

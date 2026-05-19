@@ -96,6 +96,45 @@ HELPER_PATH_ALLOWLIST_PREFIXES = ("/usr/", "/opt/", "/etc/", "/var/lib/")
 HELPER_MANIFEST_MAX_ENTRIES = 10000
 
 
+def _read_partial_manifest_summary(name):
+    """Return summary dict for the helper's partial-manifest sidecar.
+
+    H-007 Decision D, 2026-05-19: when a helper crashes between
+    igos_helper_init + igos_helper_commit, the EXIT trap installed by
+    init writes a `<name>.manifest.partial` JSON sidecar at
+    HELPER_MANIFEST_DIR. _run_helper surfaces the orphan file list to
+    the user in the install-failed error message via this helper.
+
+    Returns None when no sidecar exists or it cannot be parsed.
+    On success returns: {"path": Path, "count": int, "sample": [str],
+    "version_installed": str}.
+    """
+    partial_path = HELPER_MANIFEST_DIR / f"{name}.manifest.partial"
+    if not partial_path.is_file():
+        return None
+    try:
+        with open(str(partial_path), "r", encoding="utf-8") as f:
+            partial = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(partial, dict):
+        return None
+    files = partial.get("files", [])
+    if not isinstance(files, list):
+        files = []
+    symlink_paths = []
+    for s in (partial.get("symlinks", []) or []):
+        if isinstance(s, dict) and isinstance(s.get("path"), str):
+            symlink_paths.append(s["path"])
+    paths = list(files) + symlink_paths
+    return {
+        "path": partial_path,
+        "count": len(paths),
+        "sample": paths[:10],
+        "version_installed": partial.get("version_installed", ""),
+    }
+
+
 def _read_helper_manifest(name):
     """Read + validate the helper manifest produced by helper-lib.sh.
 
@@ -863,6 +902,24 @@ class PackageInstaller:
         print(f"  {'-' * 50}")
 
         if result.returncode != 0:
+            # Decision D (2026-05-19): if the helper crashed between
+            # igos_helper_init + igos_helper_commit, the EXIT trap
+            # wrote a `<name>.manifest.partial` sidecar. Surface the
+            # orphan-file list so the user knows what was deposited
+            # but never tracked.
+            summary = _read_partial_manifest_summary(name)
+            if summary is not None:
+                return False, (
+                    f"Install helper '{name}' aborted with exit "
+                    f"{result.returncode} after depositing "
+                    f"{summary['count']} file(s) on disk that pkm has "
+                    f"NOT tracked. Partial manifest sidecar at "
+                    f"{summary['path']}.\n"
+                    f"  Recorded paths (first 10): {summary['sample']}\n"
+                    f"  Remove the orphans manually or fix the helper "
+                    f"+ re-run (a successful re-run supersedes the "
+                    f"partial state)."
+                )
             return False, f"Install helper failed (exit {result.returncode})"
 
         # H-007 Phase B: read + validate the manifest the helper-lib
@@ -875,6 +932,18 @@ class PackageInstaller:
         # before igos_helper_commit, or a tampered manifest — all of
         # which warrant fail-closed handling so the user does not end
         # up with on-disk files pkm cannot track or remove.
+        # Decision D defensive cleanup: if a stale partial sidecar
+        # exists alongside a successful run, the helper-lib commit
+        # path already tried to unlink it -- but a permission edge
+        # case could leave it behind. Clean up best-effort so pkm
+        # verify doesn't keep surfacing a phantom partial-state warning.
+        stale_partial = HELPER_MANIFEST_DIR / f"{name}.manifest.partial"
+        if stale_partial.is_file():
+            try:
+                stale_partial.unlink()
+            except OSError:
+                pass
+
         manifest, err = _read_helper_manifest(name)
         if manifest is None:
             return False, (
