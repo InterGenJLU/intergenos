@@ -60,12 +60,32 @@ log "regenerating UKI for kernel $NEW_KVER (PKM package: ${PKM_PACKAGE_NAME:-?} 
 
 VMLINUZ="/boot/vmlinuz-$NEW_KVER"
 INITRD="/boot/initramfs.img"
-UCODE="/boot/intel-ucode.img"
+UCODE_INTEL="/boot/intel-ucode.img"
+UCODE_AMD="/boot/amd-ucode.img"
 ESP_UKI_DIR="/boot/efi/EFI/Linux"
 UKI="$ESP_UKI_DIR/intergenos-$NEW_KVER.efi"
 MOK_KEY="/var/lib/intergen/mok/mok.key"
 MOK_CERT="/var/lib/intergen/mok/mok.crt"
 CMDLINE_FILE="/etc/kernel/cmdline"
+MICROCODE_HELPER="/usr/lib/intergen/build-microcode-cpio.sh"
+
+# Regenerate microcode early-load cpios. The intel-ucode package's
+# post-install would already have written /boot/intel-ucode.img after its
+# own install, but linux-firmware ships AMD microcode blobs without a
+# parallel cpio-generation step — the helper covers both vendors and is
+# idempotent. Best-effort: failure here drops back to whatever cpios
+# (if any) already exist at /boot/ from prior runs or intel-ucode's
+# install-time generation.
+if [ -x "$MICROCODE_HELPER" ]; then
+    log "regenerating microcode early-load cpios via $MICROCODE_HELPER"
+    if OUTPUT_DIR=/boot "$MICROCODE_HELPER" >/dev/null 2>&1; then
+        log "microcode cpios refreshed (intel=$( [ -f "$UCODE_INTEL" ] && echo yes || echo no ), amd=$( [ -f "$UCODE_AMD" ] && echo yes || echo no ))"
+    else
+        log "WARNING: $MICROCODE_HELPER failed (exit $?) — falling back to existing /boot/{intel,amd}-ucode.img if present"
+    fi
+else
+    log "$MICROCODE_HELPER absent — using existing /boot/{intel,amd}-ucode.img if present (intel-ucode package may have written intel-ucode.img; amd-ucode.img is only produced when the helper is staged)"
+fi
 
 # D-005 Phase D: LUKS install detection. Presence of /etc/crypttab implies
 # Forge wired LUKS at install time (per D-001 opt-in LUKS-at-install).
@@ -161,8 +181,16 @@ UKIFY_ARGS=(
     "--cmdline=$CMDLINE"
     "--output=$UKI"
 )
-# Intel microcode: load FIRST so it's applied before kernel init
-[ -f "$UCODE" ] && UKIFY_ARGS+=("--initrd=$UCODE")
+# Microcode: load FIRST (each --initrd= in declaration order) so the
+# selected blob is applied before kernel init touches CPU features. Order:
+# Intel then AMD — matches scripts/chroot-build-bootloader.sh's order
+# (chosen to mirror Arch mkinitcpio's ALL_microcode default ordering). The
+# kernel scans the concatenated microcode cpio at early-firmware load and
+# picks the blob matching the running CPU vendor; including both is the
+# canonical pattern for installation media + system images intended to
+# boot on either Intel or AMD silicon.
+[ -f "$UCODE_INTEL" ] && UKIFY_ARGS+=("--initrd=$UCODE_INTEL")
+[ -f "$UCODE_AMD" ]   && UKIFY_ARGS+=("--initrd=$UCODE_AMD")
 
 # D-005 Phase D: initramfs selection.
 # LUKS install: bundle the FDE-initramfs cpio (fde-init.sh + busybox +

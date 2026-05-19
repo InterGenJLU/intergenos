@@ -35,6 +35,13 @@
 #   STUB         — systemd-stub path (default: /usr/lib/systemd/boot/efi/linuxx64.efi.stub)
 #   OS_RELEASE   — os-release file (default: /etc/os-release on chroot/installed system)
 #   UKIFY        — ukify binary path (default: /usr/bin/ukify; override for testing)
+#   MICROCODE    — optional space-separated list of microcode cpio paths
+#                  (e.g. "/boot/intel-ucode.img /boot/amd-ucode.img"). Each
+#                  is passed as an additional --initrd= ARGUMENT BEFORE
+#                  $INITRAMFS so it loads first; ukify concatenates the
+#                  --initrd inputs into one .initrd section in the order
+#                  given (systemd ukify.py join_initrds()). Missing files
+#                  are an error — caller must verify presence before passing.
 
 set -euo pipefail
 
@@ -46,6 +53,7 @@ OUTPUT="${OUTPUT:?missing OUTPUT env var}"
 OS_RELEASE="${OS_RELEASE:-/etc/os-release}"
 STUB="${STUB:-/usr/lib/systemd/boot/efi/linuxx64.efi.stub}"
 UKIFY="${UKIFY:-/usr/bin/ukify}"
+MICROCODE="${MICROCODE:-}"
 
 [ -f "$VMLINUZ" ]    || { echo "ERROR: VMLINUZ not found: $VMLINUZ" >&2; exit 1; }
 [ -f "$INITRAMFS" ]  || { echo "ERROR: INITRAMFS not found: $INITRAMFS" >&2; exit 1; }
@@ -58,6 +66,16 @@ UKIFY="${UKIFY:-/usr/bin/ukify}"
                           echo "Install systemd-ukify (Debian) or systemd (Arch, includes ukify) or override UKIFY env var." >&2; \
                           exit 1; }
 
+# Build --initrd= argument list. Microcode cpios load FIRST (kernel reads
+# the .initrd section sequentially; microcode must be applied before kernel
+# init touches CPU features). $INITRAMFS is the main initramfs and goes last.
+INITRD_ARGS=()
+for ucode in $MICROCODE; do
+    [ -f "$ucode" ] || { echo "ERROR: microcode cpio not found: $ucode" >&2; exit 1; }
+    INITRD_ARGS+=( --initrd="$ucode" )
+done
+INITRD_ARGS+=( --initrd="$INITRAMFS" )
+
 # Extract kernel uname (passed to ukify --uname; embedded in .uname section)
 KVER=$(file "$VMLINUZ" | grep -oP 'version \K[^ ]+' | head -1)
 [ -z "$KVER" ] && KVER="unknown"
@@ -65,6 +83,7 @@ KVER=$(file "$VMLINUZ" | grep -oP 'version \K[^ ]+' | head -1)
 echo "Building UKI via ukify:"
 echo "  VMLINUZ:   $VMLINUZ"
 echo "  INITRAMFS: $INITRAMFS"
+echo "  MICROCODE: ${MICROCODE:-<none>}"
 echo "  CMDLINE:   $CMDLINE"
 echo "  OS_REL:    $OS_RELEASE"
 echo "  STUB:      $STUB"
@@ -74,7 +93,7 @@ echo "  OUTPUT:    $OUTPUT"
 
 "$UKIFY" build \
     --linux="$VMLINUZ" \
-    --initrd="$INITRAMFS" \
+    "${INITRD_ARGS[@]}" \
     --cmdline=@"$CMDLINE" \
     --os-release=@"$OS_RELEASE" \
     --uname="$KVER" \

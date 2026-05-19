@@ -109,9 +109,11 @@ echo "[bootloader 2.5/3] Staging FDE installed-system machinery..."
 mkdir -p /usr/lib/intergen
 cp -p /mnt/intergenos/installer/init/fde-init.sh           /usr/lib/intergen/fde-init.sh
 cp -p /mnt/intergenos/installer/init/build-fde-initramfs.sh /usr/lib/intergen/build-fde-initramfs.sh
-chmod +x /usr/lib/intergen/fde-init.sh /usr/lib/intergen/build-fde-initramfs.sh
+cp -p /mnt/intergenos/scripts/build-microcode-cpio.sh       /usr/lib/intergen/build-microcode-cpio.sh
+chmod +x /usr/lib/intergen/fde-init.sh /usr/lib/intergen/build-fde-initramfs.sh /usr/lib/intergen/build-microcode-cpio.sh
 echo "  staged: /usr/lib/intergen/fde-init.sh"
 echo "  staged: /usr/lib/intergen/build-fde-initramfs.sh"
+echo "  staged: /usr/lib/intergen/build-microcode-cpio.sh"
 
 if [ -x /usr/lib/intergen/cryptsetup-static ]; then
     echo "  cryptsetup-static present — baking FDE initramfs for $FULL_KVER"
@@ -125,6 +127,39 @@ else
     echo "  cryptsetup-static absent — D-005 Phase D activation chain incomplete; skipping FDE initramfs bake."
     echo "  Plain installs unaffected. LUKS installs will fail to unlock at boot until packages/core/cryptsetup-static lands + chroot rebuild."
 fi
+
+# ---- 2.7/3: Microcode early-load cpios (Intel + AMD) ----------------------
+# Generate the microcode cpio archives that will be bundled into each UKI's
+# .initrd section. Audit row T0-3 #5 "Microcode early-load never reaches
+# the UKI" (matrix 2026-05-18 line 583): the previous single-arg
+# `--initrd=$INITRAMFS` call to build-uki.sh skipped microcode entirely on
+# both live-ISO and initial-install UKIs. Reconciliation item G "AMD
+# microcode path" lands here too — same helper produces both Intel + AMD
+# cpios from linux-firmware blobs that are already present in the chroot.
+#
+# The cpios are kept under $OUT_DIR (alongside the UKIs themselves) so the
+# whole bootloader artifact set lives in one directory for the signing
+# ceremony + ISO assembly to pull from. Per-host CPU-vendor selection is
+# the kernel's job — including both cpios in every UKI is the canonical
+# pattern (matches Arch mkinitcpio's ALL_microcode = (intel-ucode amd-ucode)
+# default + Fedora's dracut microcode_ctl module behavior).
+echo ""
+echo "[bootloader 2.7/3] Building microcode early-load cpios..."
+OUTPUT_DIR="$OUT_DIR" \
+    bash /mnt/intergenos/scripts/build-microcode-cpio.sh
+
+# Compose the MICROCODE env var for build-uki.sh from whichever cpios were
+# produced (helper omits missing-firmware cases). Order: Intel first, then
+# AMD — matches the kernel's expected scan order and Arch's ALL_microcode
+# default ordering.
+MICROCODE_ARGS=""
+[ -f "$OUT_DIR/intel-ucode.img" ] && MICROCODE_ARGS="$MICROCODE_ARGS $OUT_DIR/intel-ucode.img"
+[ -f "$OUT_DIR/amd-ucode.img" ]   && MICROCODE_ARGS="$MICROCODE_ARGS $OUT_DIR/amd-ucode.img"
+# Trim leading whitespace; build-uki.sh's `for ucode in $MICROCODE` is
+# space-tolerant but the printed log line "${MICROCODE:-<none>}" looks
+# cleaner without the leading space.
+MICROCODE_ARGS="${MICROCODE_ARGS# }"
+echo "  microcode list passed to UKI build: ${MICROCODE_ARGS:-<none>}"
 
 # ---- 3/3: UKIs (one per boot mode, kernel + initramfs + per-mode cmdline) ----
 # Each UKI carries a sealed `.cmdline` section (igos.mode=...) so the
@@ -145,6 +180,7 @@ for mode in live install-gui install-tui; do
     CMDLINE="$CMDLINE_FILE" \
     OUTPUT="$UKI_OUTPUT" \
     STUB="$STUB" \
+    MICROCODE="$MICROCODE_ARGS" \
         bash /mnt/intergenos/scripts/build-uki.sh
 done
 

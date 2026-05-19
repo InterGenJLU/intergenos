@@ -302,52 +302,35 @@ if [ -x "${MOUNT_POINT}/usr/sbin/make-ca" ]; then
         log "  CA certificates: make-ca failed (no network) — will initialize on first boot"
 fi
 
-# Generate Intel CPU microcode early-load image
-if [ -x "${MOUNT_POINT}/usr/bin/iucode_tool" ] && \
-   [ -d "${MOUNT_POINT}/lib/firmware/intel-ucode" ]; then
-    chroot "$MOUNT_POINT" /bin/bash -c \
-        'iucode_tool -S /lib/firmware/intel-ucode/ --write-earlyfw=/boot/intel-ucode.img 2>/dev/null'
+# Generate Intel + AMD CPU microcode early-load images via the canonical
+# helper at scripts/build-microcode-cpio.sh. Centralizing the cpio
+# assembly here means image-build, chroot-build-bootloader's UKI path, and
+# the kernel post-install hook all use the same logic — no drift between
+# the GRUB-loaded path (this script) and the UKI-bundled path
+# (build-uki.sh + chroot-build-bootloader.sh + post-install.sh).
+#
+# Helper is staged into the chroot's /tmp temporarily because /mnt/intergenos
+# isn't mounted in MOUNT_POINT (this is the assembled image filesystem,
+# not the build chroot). cp -p preserves executable bit; rm on the way out
+# leaves no trace in the final image.
+HELPER_SRC=/mnt/intergenos/scripts/build-microcode-cpio.sh
+HELPER_DST=/tmp/build-microcode-cpio.sh.tmp
+if [ -x "$HELPER_SRC" ]; then
+    cp -p "$HELPER_SRC" "${MOUNT_POINT}${HELPER_DST}"
+    chroot "$MOUNT_POINT" /bin/bash -c "OUTPUT_DIR=/boot $HELPER_DST" >/dev/null 2>&1 || true
+    rm -f "${MOUNT_POINT}${HELPER_DST}"
     if [ -f "${MOUNT_POINT}/boot/intel-ucode.img" ]; then
         log "  Intel microcode image generated (/boot/intel-ucode.img)"
     else
-        log "  Intel microcode: iucode_tool ran but no matching CPU signatures found (non-Intel CPU?)"
+        log "  Intel microcode: iucode_tool or firmware not installed in image — skipping"
     fi
-else
-    log "  Intel microcode: iucode_tool or firmware not installed — skipping"
-fi
-
-# Generate AMD CPU microcode early-load image (audit F-005 fix, 2026-05-18)
-# AMD's early-load format differs from Intel's: kernel expects
-# /kernel/x86/microcode/AuthenticAMD.bin inside a cpio archive, where
-# AuthenticAMD.bin is the concatenation of all amd-ucode/*.bin files
-# (the kernel walks the resulting blob and picks matching family/model).
-# linux-firmware already ships the per-family blobs at /lib/firmware/amd-ucode/.
-if [ -d "${MOUNT_POINT}/lib/firmware/amd-ucode" ]; then
-    chroot "$MOUNT_POINT" /bin/bash -c '
-        set -e
-        WORK=$(mktemp -d)
-        trap "rm -rf $WORK" EXIT
-        mkdir -p "$WORK/kernel/x86/microcode"
-        # Concatenate all AMD family blobs into a single AuthenticAMD.bin.
-        # Decompress .xz blobs if linux-firmware was installed compressed.
-        for blob in /lib/firmware/amd-ucode/microcode_amd*.bin /lib/firmware/amd-ucode/microcode_amd*.bin.xz; do
-            [ -f "$blob" ] || continue
-            case "$blob" in
-                *.xz) xz -dc "$blob" >> "$WORK/kernel/x86/microcode/AuthenticAMD.bin" ;;
-                *)    cat "$blob" >> "$WORK/kernel/x86/microcode/AuthenticAMD.bin" ;;
-            esac
-        done
-        if [ -s "$WORK/kernel/x86/microcode/AuthenticAMD.bin" ]; then
-            ( cd "$WORK" && find kernel | cpio --create --quiet --format=newc ) > /boot/amd-ucode.img
-        fi
-    ' 2>/dev/null || true
-    if [ -f "${MOUNT_POINT}/boot/amd-ucode.img" ] && [ -s "${MOUNT_POINT}/boot/amd-ucode.img" ]; then
+    if [ -f "${MOUNT_POINT}/boot/amd-ucode.img" ]; then
         log "  AMD microcode image generated (/boot/amd-ucode.img)"
     else
-        log "  AMD microcode: no amd-ucode blobs found in linux-firmware — skipping"
+        log "  AMD microcode: no amd-ucode blobs found in image — skipping"
     fi
 else
-    log "  AMD microcode: /lib/firmware/amd-ucode not present — skipping"
+    log "  WARNING: $HELPER_SRC missing — microcode cpios not generated"
 fi
 
 # Create kernel symlink (GRUB expects /boot/vmlinuz)
