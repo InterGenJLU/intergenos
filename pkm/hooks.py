@@ -141,6 +141,15 @@ def _update_mime_database_cmd(root, matched):
     return ["update-mime-database", str(Path(root) / "usr/share/mime")]
 
 
+def _systemctl_daemon_reload_cmd(root, matched):
+    # daemon-reload is a system-wide operation that re-parses unit
+    # definitions; only meaningful when the install target IS the live
+    # system. Chroot installs don't have a running systemd to refresh.
+    if str(root) != "/":
+        return None
+    return ["systemctl", "daemon-reload"]
+
+
 CANONICAL_HOOKS = [
     CanonicalHook(
         id="depmod",
@@ -205,6 +214,20 @@ CANONICAL_HOOKS = [
         cmd_fn=_update_mime_database_cmd,
         critical=False,
     ),
+    CanonicalHook(
+        # Reloads systemd's view of unit definitions when a .service file
+        # is installed/updated; orthogonal to the Q5 notify-only policy for
+        # actually restarting services (which remains user-driven). Cosmetic
+        # class because a stale unit cache surfaces as deferred-effect
+        # rather than broken state, and the user-driven restart will see
+        # the new definition via Q5's pkm restart-services. Cross-reference
+        # peer-review observation at IGOSC 2026-05-19T11:46:59Z.
+        id="systemd-daemon-reload",
+        description="systemd unit definition reload",
+        pattern=re.compile(r"^(usr/lib|etc)/systemd/system/[^/]+\.service$"),
+        cmd_fn=_systemctl_daemon_reload_cmd,
+        critical=False,
+    ),
 ]
 
 
@@ -237,6 +260,18 @@ def run_canonical_hooks(root, file_list, name, version, operation):
         cosmetic_failures (list of hook ids that warn-and-continue), messages
         (human-readable per-hook status lines for surfacing in install output).
     """
+    # Defensive contract assertion: file_list entries must be relative
+    # (no leading slash; dirs end in "/"), matching installer.py's
+    # os.walk-relpath output. A caller that accidentally passes absolute
+    # paths would silently no-match every canonical pattern, masking real
+    # hook firings. Fail loud at the boundary instead.
+    for p in file_list:
+        if p.startswith("/"):
+            raise ValueError(
+                f"run_canonical_hooks: file_list entries must be relative; "
+                f"got absolute path: {p!r}"
+            )
+
     root = Path(root)
     env = _build_hook_env(name, version, root, operation)
     critical_failures = []

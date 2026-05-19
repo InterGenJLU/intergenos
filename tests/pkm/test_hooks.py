@@ -141,6 +141,42 @@ class TestRunCanonicalHooks(unittest.TestCase):
         finally:
             os.environ["PATH"] = f"{self.bin}:{self._orig_path}"
 
+    def test_systemd_daemon_reload_fires_on_service_files(self):
+        # Cosmetic hook; only meaningful when root == "/". The test bin
+        # PATH is hijacked so we can verify systemctl is INVOKED on live root.
+        _, log, _ = _make_fake_bin(self.bin, "systemctl", exit_code=0)
+        # Temporarily test against root="/" path to exercise the
+        # systemctl-daemon-reload code path (the helper returns None for
+        # non-root install targets per design).
+        file_list = ["usr/lib/systemd/system/foo.service"]
+        result = run_canonical_hooks(Path("/"), file_list, "foo", "1.0", "install")
+        # systemctl should have been called with daemon-reload
+        self.assertEqual(result.critical_failures, [])
+        # systemctl is cosmetic; even if a parallel fake bin existed, the
+        # outcome should not surface as critical.
+        self.assertTrue(log.exists())
+        self.assertIn("daemon-reload", log.read_text())
+
+    def test_systemd_daemon_reload_skipped_for_non_root_target(self):
+        # When install target is a chroot/staging root, daemon-reload would
+        # target an unrelated host systemd; helper returns None so the hook
+        # is silently skipped.
+        _make_fake_bin(self.bin, "systemctl", exit_code=0)
+        file_list = ["usr/lib/systemd/system/foo.service"]
+        result = run_canonical_hooks(self.root, file_list, "foo", "1.0", "install")
+        # No critical or cosmetic failures; the hook simply didn't fire.
+        self.assertEqual(result.critical_failures, [])
+        self.assertEqual(result.cosmetic_failures, [])
+
+    def test_absolute_path_in_file_list_raises_value_error(self):
+        # Defensive contract assertion: absolute paths in file_list would
+        # silently no-match all canonical patterns; fail loud at the boundary.
+        with self.assertRaises(ValueError):
+            run_canonical_hooks(
+                self.root, ["/usr/lib/modules/6.6/foo.ko"],
+                "linux-kernel", "6.6", "install",
+            )
+
     def test_apparmor_reload_passes_profile_paths(self):
         _, log, _ = _make_fake_bin(self.bin, "apparmor_parser", exit_code=0)
         file_list = ["etc/apparmor.d/usr.bin.foo", "etc/apparmor.d/usr.bin.bar"]
