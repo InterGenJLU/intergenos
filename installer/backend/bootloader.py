@@ -23,7 +23,6 @@ import subprocess
 from pathlib import Path
 
 from .hooks import (
-    virtual_fs,
     run_chroot,
     mount_efivars,
     unmount_efivars,
@@ -97,19 +96,23 @@ def install_bootloader(target, disk, partitions, mok_keypair=None):
             "to sign the GRUB binary"
         )
 
-    with virtual_fs(target):
-        if efi:
-            _install_signed_efi_chain(target, partitions, mok_keypair)
-        else:
-            _install_bios_grub(target, disk)
+    # C-006: orchestrator (install.py PHASE_VIRTUAL_FS) owns virtual_fs
+    # lifecycle. This function runs between PHASE_VIRTUAL_FS and
+    # PHASE_CLEANUP so /dev /proc /sys /run /dev/pts are already bind-
+    # mounted into target; re-mounting here stacks them and leaks on
+    # cleanup (unmount only removes the top layer).
+    if efi:
+        _install_signed_efi_chain(target, partitions, mok_keypair)
+    else:
+        _install_bios_grub(target, disk)
 
-        # Generate GRUB config (both modes)
-        # os-prober enables detection of other OSes (Windows alongside install)
-        rc, _, stderr = run_chroot(target,
-            "GRUB_DISABLE_OS_PROBER=false grub-mkconfig -o /boot/grub/grub.cfg"
-        )
-        if rc != 0:
-            raise RuntimeError(f"grub-mkconfig failed: {stderr}")
+    # Generate GRUB config (both modes)
+    # os-prober enables detection of other OSes (Windows alongside install)
+    rc, _, stderr = run_chroot(target,
+        "GRUB_DISABLE_OS_PROBER=false grub-mkconfig -o /boot/grub/grub.cfg"
+    )
+    if rc != 0:
+        raise RuntimeError(f"grub-mkconfig failed: {stderr}")
 
 
 def _install_signed_efi_chain(target, partitions, mok_keypair):

@@ -195,57 +195,58 @@ def run_post_install_hooks(target, packages_dir, progress_callback=None):
     if total == 0:
         return 0
 
-    with virtual_fs(target):
-        # Copy packages directory into target for hook access. Returncode-
-        # checked: a silent cp failure (disk full / permission denied) means
-        # no hook source files reach the chroot, so every per-hook source
-        # would fail with file-not-found; we skip the hooks loop entirely
-        # and surface the failure via progress_callback so the orchestrator
-        # frontend can render the warning.
-        target_pkg_dir = target / "tmp" / "installer-packages"
-        cp_result = subprocess.run(
-            ["cp", "-a", str(packages_dir), str(target_pkg_dir)],
-            capture_output=True, text=True,
-        )
-        if cp_result.returncode != 0:
-            stderr = (cp_result.stderr or "").strip()
-            log.warning("cp -a packages-dir failed: %s", stderr)
-            if progress_callback:
-                progress_callback(
-                    0, total,
-                    "warning: cannot copy packages — hooks skipped",
-                )
-            return 0
-
-        executed = 0
-        try:
-            for i, hook in enumerate(hooks, 1):
-                if progress_callback:
-                    progress_callback(i, total, hook["name"])
-
-                # Build the chroot command
-                import shlex
-                pkg_path = (
-                    f"/tmp/installer-packages/"
-                    f"{shlex.quote(hook['tier'])}/"
-                    f"{shlex.quote(hook['name'])}/build.sh"
-                )
-                cmd = (
-                    f"export PKG_VERSION={shlex.quote(hook['version'])} && "
-                    f"export version={shlex.quote(hook['version'])} && "
-                    f"source {pkg_path} && "
-                    f"post_install"
-                )
-
-                rc, stdout, stderr = run_chroot(target, cmd)
-                if rc == 0:
-                    executed += 1
-                # Don't fail on hook errors — some hooks expect services
-                # that aren't running yet (systemctl, etc.)
-
-        finally:
-            subprocess.run(
-                ["rm", "-rf", str(target_pkg_dir)], capture_output=True
+    # C-006: orchestrator (install.py PHASE_VIRTUAL_FS) owns virtual_fs
+    # lifecycle. This function executes between PHASE_VIRTUAL_FS and
+    # PHASE_CLEANUP so the mount is guaranteed live; do not re-mount
+    # (stacks bind/proc/sysfs mounts that leak on cleanup).
+    #
+    # C-005: shutil.copytree with explicit rmtree-first; cp -a on a
+    # pre-existing target produced target_pkg_dir/<basename(packages_dir)>/
+    # nesting on retry instead of replacing in place, leaving every per-hook
+    # source path pointing into a missing file (silent no-op for every hook).
+    import shutil
+    target_pkg_dir = target / "tmp" / "installer-packages"
+    if target_pkg_dir.exists():
+        shutil.rmtree(target_pkg_dir, ignore_errors=True)
+    try:
+        shutil.copytree(str(packages_dir), str(target_pkg_dir))
+    except (OSError, shutil.Error) as e:
+        log.warning("copytree packages-dir failed: %s", e)
+        if progress_callback:
+            progress_callback(
+                0, total,
+                "warning: cannot copy packages — hooks skipped",
             )
+        return 0
+
+    executed = 0
+    try:
+        for i, hook in enumerate(hooks, 1):
+            if progress_callback:
+                progress_callback(i, total, hook["name"])
+
+            # Build the chroot command
+            import shlex
+            pkg_path = (
+                f"/tmp/installer-packages/"
+                f"{shlex.quote(hook['tier'])}/"
+                f"{shlex.quote(hook['name'])}/build.sh"
+            )
+            cmd = (
+                f"export PKG_VERSION={shlex.quote(hook['version'])} && "
+                f"export version={shlex.quote(hook['version'])} && "
+                f"source {pkg_path} && "
+                f"post_install"
+            )
+
+            rc, stdout, stderr = run_chroot(target, cmd)
+            if rc == 0:
+                executed += 1
+            # Don't fail on hook errors — some hooks expect services
+            # that aren't running yet (systemctl, etc.)
+
+    finally:
+        if target_pkg_dir.exists():
+            shutil.rmtree(target_pkg_dir, ignore_errors=True)
 
     return executed

@@ -6,7 +6,12 @@ import shlex
 import subprocess
 from pathlib import Path
 
-from .hooks import virtual_fs, run_chroot, run_chroot_stdin
+from .hooks import run_chroot, run_chroot_stdin
+
+# C-006: orchestrator (install.py PHASE_VIRTUAL_FS) owns virtual_fs
+# lifecycle. set_root_password / create_user / enable_services all run
+# between PHASE_VIRTUAL_FS and PHASE_CLEANUP — virtual_fs is already
+# mounted into target by the time we get here, do not re-mount.
 
 log = logging.getLogger(__name__)
 
@@ -23,11 +28,10 @@ _SUDOERS_WHEEL_COMMENTED_RE = re.compile(
 
 def set_root_password(target, password):
     """Set the root password on the target system."""
-    with virtual_fs(target):
-        # Feed password via stdin to avoid process table exposure
-        run_chroot_stdin(target, "chpasswd", f"root:{password}\n")
-        # Remove password expiry for initial setup
-        run_chroot(target, "passwd -x 99999 root")
+    # Feed password via stdin to avoid process table exposure
+    run_chroot_stdin(target, "chpasswd", f"root:{password}\n")
+    # Remove password expiry for initial setup
+    run_chroot(target, "passwd -x 99999 root")
 
 
 def create_user(target, username, password, groups=None):
@@ -42,63 +46,61 @@ def create_user(target, username, password, groups=None):
     if groups is None:
         groups = ["wheel", "audio", "video", "cdrom", "input"]
 
-    with virtual_fs(target):
-        # Create group 'wheel' if it doesn't exist (for sudo)
-        run_chroot(target, "getent group wheel >/dev/null 2>&1 || groupadd wheel")
+    # Create group 'wheel' if it doesn't exist (for sudo)
+    run_chroot(target, "getent group wheel >/dev/null 2>&1 || groupadd wheel")
 
-        # Create user with home directory
-        group_str = ",".join(groups)
-        rc, stdout, stderr = run_chroot(target,
-            f"useradd -m -G {shlex.quote(group_str)} -s /bin/bash {shlex.quote(username)}"
+    # Create user with home directory
+    group_str = ",".join(groups)
+    rc, stdout, stderr = run_chroot(target,
+        f"useradd -m -G {shlex.quote(group_str)} -s /bin/bash {shlex.quote(username)}"
+    )
+    if rc != 0 and "already exists" not in stderr:
+        raise RuntimeError(f"Failed to create user {username}: {stderr}")
+
+    # Set password via stdin (avoids process table exposure)
+    run_chroot_stdin(target, "chpasswd", f"{username}:{password}\n")
+
+    # Enable sudo for wheel group (if sudoers exists). Stage to
+    # /etc/sudoers.new + run visudo -c -f for syntax-check before
+    # committing — a malformed sudoers locks the user out of sudo
+    # entirely. If verification fails, leave sudoers unchanged and
+    # log a warning rather than fail the install (user can still
+    # gain root via initial password and hand-edit sudoers).
+    sudoers = Path(target) / "etc" / "sudoers"
+    if sudoers.exists():
+        content = sudoers.read_text()
+        new_content = _SUDOERS_WHEEL_COMMENTED_RE.sub(
+            '%wheel ALL=(ALL:ALL) ALL', content
         )
-        if rc != 0 and "already exists" not in stderr:
-            raise RuntimeError(f"Failed to create user {username}: {stderr}")
-
-        # Set password via stdin (avoids process table exposure)
-        run_chroot_stdin(target, "chpasswd", f"{username}:{password}\n")
-
-        # Enable sudo for wheel group (if sudoers exists). Stage to
-        # /etc/sudoers.new + run visudo -c -f for syntax-check before
-        # committing — a malformed sudoers locks the user out of sudo
-        # entirely. If verification fails, leave sudoers unchanged and
-        # log a warning rather than fail the install (user can still
-        # gain root via initial password and hand-edit sudoers).
-        sudoers = Path(target) / "etc" / "sudoers"
-        if sudoers.exists():
-            content = sudoers.read_text()
-            new_content = _SUDOERS_WHEEL_COMMENTED_RE.sub(
-                '%wheel ALL=(ALL:ALL) ALL', content
+        if new_content != content:
+            staging = Path(target) / "etc" / "sudoers.new"
+            staging.write_text(new_content)
+            rc, _, stderr = run_chroot(
+                target, "visudo -c -f /etc/sudoers.new"
             )
-            if new_content != content:
-                staging = Path(target) / "etc" / "sudoers.new"
-                staging.write_text(new_content)
-                rc, _, stderr = run_chroot(
-                    target, "visudo -c -f /etc/sudoers.new"
+            if rc == 0:
+                staging.replace(sudoers)
+            else:
+                staging.unlink(missing_ok=True)
+                log.warning(
+                    "sudoers regex-sed produced syntactically-invalid "
+                    "file (visudo: %s); leaving sudoers unchanged",
+                    (stderr or "").strip(),
                 )
-                if rc == 0:
-                    staging.replace(sudoers)
-                else:
-                    staging.unlink(missing_ok=True)
-                    log.warning(
-                        "sudoers regex-sed produced syntactically-invalid "
-                        "file (visudo: %s); leaving sudoers unchanged",
-                        (stderr or "").strip(),
-                    )
 
 
 def enable_services(target):
     """Enable essential systemd services on the target."""
-    with virtual_fs(target):
-        services = [
-            "systemd-networkd.service",
-            "systemd-resolved.service",
-            "sshd.service",
-        ]
-        for svc in services:
-            run_chroot(target, f"systemctl enable {svc} 2>/dev/null || true")
+    services = [
+        "systemd-networkd.service",
+        "systemd-resolved.service",
+        "sshd.service",
+    ]
+    for svc in services:
+        run_chroot(target, f"systemctl enable {svc} 2>/dev/null || true")
 
-        # Enable serial console for VM/server use
-        run_chroot(target,
-            "ln -sf /usr/lib/systemd/system/serial-getty@.service "
-            "/etc/systemd/system/getty.target.wants/serial-getty@ttyS0.service"
-        )
+    # Enable serial console for VM/server use
+    run_chroot(target,
+        "ln -sf /usr/lib/systemd/system/serial-getty@.service "
+        "/etc/systemd/system/getty.target.wants/serial-getty@ttyS0.service"
+    )

@@ -22,8 +22,6 @@ import subprocess
 from pathlib import Path
 
 from .hooks import (
-    mount_virtual_fs,
-    unmount_virtual_fs,
     mount_efivars,
     unmount_efivars,   # batch 1 fix: C1 efivars mount around mokutil
     run_chroot,
