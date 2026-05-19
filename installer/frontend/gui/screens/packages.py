@@ -51,7 +51,62 @@ class PackagesPage(_ForgePage):
             row = self._build_group_row(name, spec)
             box.append(row)
 
+        # --- Optional services subsection (D-010 InterGen AI opt-in) ---
+        # AI opt-in is NOT a package group (package_groups is a list of
+        # tier names that select what to install); it's a service-enable
+        # decision that flows through install_io.intergen_ai_enable. The
+        # subheading disambiguates UI semantics so the user understands
+        # this row is different from the group rows above.
+        services_heading = Gtk.Label(label="Optional services")
+        services_heading.add_css_class("heading")
+        services_heading.set_halign(Gtk.Align.START)
+        services_heading.set_margin_top(18)
+        box.append(services_heading)
+
+        intergen_row = self._build_intergen_row()
+        box.append(intergen_row)
+
         return box
+
+    def _build_intergen_row(self):
+        """D-010 InterGen AI opt-in row.
+
+        Default OFF per the operator directive. The state field
+        `intergen_ai_enable` carries the choice; PHASE_SERVICES
+        conditionally runs `systemctl --global enable
+        intergen.service` in the target chroot on YES.
+        """
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        row.set_margin_top(6)
+        row.set_margin_bottom(6)
+
+        check = Gtk.CheckButton()
+        check.set_valign(Gtk.Align.START)
+        check.set_active(False)  # D-010: default NO
+        row.append(check)
+        self._intergen_check = check
+
+        text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+
+        title_label = Gtk.Label(
+            label="Enable the InterGen AI assistant? (default: NO)"
+        )
+        title_label.set_xalign(0)
+        title_label.add_css_class("heading")
+        text_box.append(title_label)
+
+        desc_label = Gtk.Label(
+            label="When enabled, the InterGen AI assistant starts "
+                  "at first login. You can opt in later by running "
+                  "`systemctl --user enable intergen.service`."
+        )
+        desc_label.set_xalign(0)
+        desc_label.set_wrap(True)
+        desc_label.add_css_class("dim-label")
+        text_box.append(desc_label)
+
+        row.append(text_box)
+        return row
 
     def _build_group_row(self, name, spec):
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
@@ -104,6 +159,9 @@ class PackagesPage(_ForgePage):
             else:
                 check.set_active(name in state.package_groups)
 
+        # D-010 InterGen AI opt-in row — restore state on back-then-forward
+        self._intergen_check.set_active(state.intergen_ai_enable)
+
     def on_next(self, state):
         chosen = []
         for name, check in self._checks.items():
@@ -120,4 +178,6 @@ class PackagesPage(_ForgePage):
             chosen = ["core"] + chosen
 
         state.package_groups = chosen
+        # D-010: record the InterGen opt-in choice
+        state.intergen_ai_enable = self._intergen_check.get_active()
         return True

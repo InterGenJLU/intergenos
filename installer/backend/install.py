@@ -639,6 +639,24 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         # 12: services
         _emit(PHASE_SERVICES, 11, "enabling services")
         users.enable_services(target)
+
+        # D-010 InterGen AI opt-in: per the operator-directive, the
+        # AI assistant is opt-in. The Forge prompt at install time
+        # (Packages screen — GUI; walking sequence — TUI) writes
+        # `intergen_ai_enable` into install_io. The YES path enables
+        # the user service in the target's chroot; the NO path leaves
+        # the service installed-but-disabled (user can opt in later
+        # via `systemctl --user enable intergen.service`). The
+        # packages/ai/intergen/build.sh post_install path no longer
+        # enables the service unconditionally; the gate enforces this
+        # at ISO build time via scripts/check-d010-compliance.sh.
+        if install_io.get("intergen_ai_enable"):
+            _emit(PHASE_SERVICES, 11, "enabling InterGen AI assistant (opt-in)")
+            hooks.run_chroot(
+                target,
+                "systemctl --global enable intergen.service 2>/dev/null || true",
+            )
+
         result.phase_completed = PHASE_SERVICES
         _emit(PHASE_SERVICES, 12, "services enabled")
 

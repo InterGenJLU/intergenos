@@ -135,7 +135,13 @@ DBUS
 
 post_install() {
     set -e
-    # Enable the systemd user service for all users
-    systemctl --global enable intergen.service 2>/dev/null || true
+    # D-010 (2026-05-19 owner-direct, docs/owner-directives.md): InterGen
+    # is opt-in. This package_install path MUST NOT enable the user
+    # service. The Forge installer prompts at install time (default NO);
+    # the YES path runs `systemctl --global enable intergen.service` in
+    # the chroot from installer/backend/install.py PHASE_SERVICES.
+    # scripts/check-d010-compliance.sh is a Class A ship-gate that
+    # blocks ISO assembly if any package_install or autostart path
+    # would re-enable intergen by default.
     echo "InterGen installed. Run 'intergen setup' to configure your AI model."
 }

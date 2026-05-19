@@ -53,6 +53,21 @@ if [ -x "${SCRIPT_DIR}/check-d007-compliance.sh" ]; then
 fi
 
 # --------------------------------------------------------------------------
+# D-010 compliance gate (Class A — blocks ISO assembly on violation)
+# --------------------------------------------------------------------------
+if [ -x "${SCRIPT_DIR}/check-d010-compliance.sh" ]; then
+    echo "[build-iso] Running D-010 compliance gate..." >&2
+    if ! "${SCRIPT_DIR}/check-d010-compliance.sh"; then
+        echo "" >&2
+        echo "[build-iso] ERROR: D-010 compliance gate FAILED." >&2
+        echo "[build-iso] Refusing to assemble ISO with InterGen AI opt-in posture violations." >&2
+        echo "[build-iso] See docs/owner-directives.md D-010 for canonical requirements." >&2
+        exit 1
+    fi
+    echo "[build-iso] D-010 compliance gate PASS" >&2
+fi
+
+# --------------------------------------------------------------------------
 # Inputs + defaults
 # --------------------------------------------------------------------------
 

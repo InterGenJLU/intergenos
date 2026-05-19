@@ -131,8 +131,13 @@ def _ask_checklist(title, prompt, items):
     return _dialog(*args)
 
 
-def _ask_yesno(title, prompt):
-    rc, _ = _dialog("--title", title, "--yesno", prompt, "10", "70")
+def _ask_yesno(title, prompt, default_no=False):
+    """Yes/no dialog. `default_no=True` highlights NO (dialog --defaultno)."""
+    args = ["--title", title]
+    if default_no:
+        args.append("--defaultno")
+    args.extend(["--yesno", prompt, "10", "70"])
+    rc, _ = _dialog(*args)
     return rc == 0
 
 
@@ -296,12 +301,27 @@ def walking():
     if groups is None:
         return None
 
+    # D-010 InterGen AI opt-in (default NO per owner directive). The choice
+    # is part of walking() for UX symmetry with the GUI Packages screen,
+    # but it threads through install_io rather than the yaml: it's a
+    # service-enable choice, not a yaml-schema field. main() copies the
+    # value from answers into install_io before run_declarative.
+    intergen_ai_enable = _ask_yesno(
+        "Enable the InterGen AI assistant?",
+        "Enable the InterGen AI assistant? (default: NO)\n\n"
+        "When enabled, the AI assistant starts at first login. You "
+        "can opt in later by running `systemctl --user enable "
+        "intergen.service`.",
+        default_no=True,
+    )
+
     return {
         "version": 1,
         "locale": locale,
         "timezone": timezone,
         "hostname": hostname,
         "package_groups": groups,
+        "intergen_ai_enable": intergen_ai_enable,
     }
 
 
@@ -769,6 +789,13 @@ def run_installer(archive_dir, packages_dir=None, dry_run=False):
         install_io = prompt_install_io()
         if install_io is None:
             return _cleanup_on_abort(yaml_path=str(yaml_path))
+
+        # D-010: thread the InterGen AI opt-in choice from walking()
+        # answers into install_io. walking() collected it for UX
+        # symmetry with the GUI Packages screen; install_io is where
+        # the backend PHASE_SERVICES reads it.
+        if answers.get("intergen_ai_enable"):
+            install_io["intergen_ai_enable"] = True
 
         # Confirm summary — last chance before destructive install
         if not _show_confirm_summary(answers, install_io):

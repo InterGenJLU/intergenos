@@ -84,6 +84,15 @@ class InstallerState:
         default_factory=lambda: ["core", "base", "desktop-gnome"]
     )
 
+    # --- D-010 InterGen AI opt-in (default NO per owner directive) ---
+    # When True, PHASE_SERVICES runs `systemctl --global enable
+    # intergen.service` in the target chroot so the assistant starts
+    # at first login. Default OFF: the service is installed but
+    # remains disabled; the user can opt in later via
+    # `systemctl --user enable intergen.service`. The Forge Packages
+    # screen + TUI walking sequence both surface this prompt.
+    intergen_ai_enable: bool = False
+
     # --- Progress screen state ---
     install_started: bool = False
     install_completed: bool = False
@@ -232,6 +241,12 @@ class InstallerState:
         }
         if self.mok_password:
             io["mok_password"] = self.mok_password
+        # D-010 InterGen AI opt-in: thread through only when the user
+        # opted in; absent key is equivalent to intergen_ai_enable=False
+        # per the backend's install_io.get("intergen_ai_enable") read
+        # pattern in PHASE_SERVICES.
+        if self.intergen_ai_enable:
+            io["intergen_ai_enable"] = True
         # D-001 LUKS opt-in: only thread through when the user opted in;
         # absent keys are equivalent to luks_enabled=False per the
         # backend's install_io.get("luks_enabled") read pattern.

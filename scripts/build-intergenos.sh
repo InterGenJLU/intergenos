@@ -1114,6 +1114,20 @@ phase_image() {
     fi
     log "  D-007 compliance gate PASS"
 
+    # D-010 compliance gate — refuse to assemble any shippable artifact
+    # if the InterGen AI assistant is enabled by default at any layer.
+    # See docs/owner-directives.md D-010 (Class A gate).
+    log "  Running D-010 compliance gate..."
+    if ! bash "${SCRIPTS}/check-d010-compliance.sh" 2>&1 | tee -a "$BUILD_LOG"; then
+        log ""
+        log "  ERROR: D-010 compliance gate FAILED."
+        log "  Refusing to assemble disk image with InterGen AI opt-in posture violations."
+        log "  See docs/owner-directives.md D-010 for the canonical requirements."
+        log "  Fix violations and re-run phase_image."
+        exit 1
+    fi
+    log "  D-010 compliance gate PASS"
+
     # Tear down chroot mounts before imaging
     log "  Tearing down chroot mounts..."
     bash "${SCRIPTS}/chroot-teardown.sh" 2>&1 | tee -a "$BUILD_LOG" || true
