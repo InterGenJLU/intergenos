@@ -63,11 +63,43 @@ REPOS
     # Man page
     install -Dm644 /mnt/intergenos/packages/core/pkm/pkm.1 \
         "${DESTDIR}/usr/share/man/man1/pkm.1"
+
+    # Q8 Phase B — systemd timer + service for daily check-updates.
+    # The service runs `pkm check-updates --quiet` which writes a JSON
+    # summary of available upgrades to /var/lib/pkm/available-updates.json.
+    # Consumers: intergen-pkm-notifier GNOME extension (Phase C, in its
+    # own package), /etc/update-motd.d/90-pkm-pending (Phase D, below).
+    install -Dm644 /mnt/intergenos/packages/core/pkm/pkm-check-updates.service \
+        "${DESTDIR}/usr/lib/systemd/system/pkm-check-updates.service"
+    install -Dm644 /mnt/intergenos/packages/core/pkm/pkm-check-updates.timer \
+        "${DESTDIR}/usr/lib/systemd/system/pkm-check-updates.timer"
+
+    # Q8 Phase D — MOTD line for non-desktop installs. pam_motd invokes
+    # /etc/update-motd.d/* on tty login; this script reads the JSON
+    # substrate and prints "N package update(s) available" if count > 0.
+    # Silent on the common "everything up to date" path.
+    install -Dm755 /mnt/intergenos/packages/core/pkm/motd-pkm-pending \
+        "${DESTDIR}/etc/update-motd.d/90-pkm-pending"
+
+    # Q8 Phase A — runtime state directory for available-updates.json.
+    # pkm check-updates creates it via mkdir parents=True on first run
+    # too, but pre-create here so the systemd-timer's first fire on a
+    # fresh install has the directory ready.
+    install -dm755 "${DESTDIR}/var/lib/pkm"
 }
 
 post_install() {
     set -e
-    # Nothing to do — directories exist, database self-initialises on
-    # first invocation, no systemd service to enable.
-    :
+    # Enable pkm-check-updates.timer system-wide so daily check-updates
+    # fires automatically per the Q8 design. Users can disable per their
+    # preference (`systemctl disable pkm-check-updates.timer`) — PRIME
+    # DIRECTIVE: notify-only + user controls their machine.
+    #
+    # Guard: only fires when chroot has a usable systemctl (post-systemd
+    # install path); pre-systemd build phases that import pkm directly
+    # don't have systemd available, and chroot-internal systemctl in
+    # those contexts is a no-op anyway.
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl enable pkm-check-updates.timer 2>/dev/null || true
+    fi
 }

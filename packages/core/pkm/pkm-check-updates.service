@@ -1,0 +1,40 @@
+# pkm-check-updates.service — Q8 Phase B (notification-surface substrate)
+#
+# Oneshot service that runs `pkm check-updates --quiet`, which writes a
+# JSON summary of available upgrades to /var/lib/pkm/available-updates.json.
+# Consumed by:
+#   - GNOME shell extension intergen-pkm-notifier (Q8 Phase C)
+#   - /etc/update-motd.d/90-pkm-pending (Q8 Phase D)
+#
+# NEVER auto-upgrades — informational only per the operator-greenlit Q8
+# design. The CLI in pkm Phase A only writes the JSON; consumers decide
+# what UX to render. User explicitly invokes `pkm upgrade --all` to act.
+#
+# Schedule: pkm-check-updates.timer fires this service daily with a 4h
+# randomized delay (avoid mirror thundering-herd at midnight UTC).
+#
+# Runs as root because /var/lib/pkm/ + the trust store + the pkm DB are
+# all root-owned. check-updates is a read-only operation against repo
+# index + installed DB; it does not mutate package state.
+
+[Unit]
+Description=Check for available pkm package upgrades
+Documentation=man:pkm(1)
+# Wait for network so the index sync inside pkm check-updates can reach
+# the mirror. network-online.target is the conventional "we have actual
+# routing" marker (vs network.target which only means "interfaces up").
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/pkm check-updates --quiet
+# Stdout/stderr to journal so `journalctl -u pkm-check-updates.service`
+# shows the WARN-and-skip messages from VersionParseError edge cases.
+StandardOutput=journal
+StandardError=journal
+# No Restart=: the timer is the schedule controller. A transient failure
+# (network blip, mirror 503) just means this run produced no JSON update;
+# next timer fire retries. A persistent failure surfaces in journalctl
+# and via no-JSON-update via the consumer surfaces.

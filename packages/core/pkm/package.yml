@@ -24,3 +24,7 @@ verify_paths:
   - /usr/bin/pkm
   - /usr/lib/python3.14/site-packages/pkm
   - /etc/pkm/repos.conf
+  # Q8 notification surface (Phase B + D)
+  - /usr/lib/systemd/system/pkm-check-updates.service
+  - /usr/lib/systemd/system/pkm-check-updates.timer
+  - /etc/update-motd.d/90-pkm-pending

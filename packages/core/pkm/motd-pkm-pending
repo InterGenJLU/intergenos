@@ -1,0 +1,44 @@
+#!/bin/bash
+# /etc/update-motd.d/90-pkm-pending — Q8 Phase D (non-desktop notification)
+#
+# Invoked by pam_motd on tty login. Reads /var/lib/pkm/available-updates.json
+# (written by the pkm-check-updates.timer-driven service per Q8 Phase B) and
+# prints "N package update(s) available" if count > 0. Silent otherwise —
+# no MOTD line spam on the common "everything up to date" case.
+#
+# Desktop installs see the same information via the intergen-pkm-notifier
+# GNOME shell extension (Q8 Phase C); MOTD covers tty / SSH / server installs
+# where no desktop shell renders the notifier.
+#
+# NEVER auto-upgrades — informational only per Q8 design. User runs
+# `pkm upgrade --all` explicitly to act.
+
+set -e
+
+JSON=/var/lib/pkm/available-updates.json
+
+# No JSON yet (first boot before timer fires) OR JSON not readable.
+# Silent exit — pam_motd should never fail a login.
+if [ ! -r "$JSON" ]; then
+    exit 0
+fi
+
+# Use python3 (already pkm's runtime dependency — guaranteed present
+# on any system with pkm installed). Any error reading or parsing the
+# JSON yields 0 so we silently skip rather than spam the MOTD with
+# an error on every login.
+COUNT=$(python3 -c '
+import json
+try:
+    with open("'"$JSON"'") as f:
+        print(json.load(f).get("count", 0))
+except Exception:
+    print(0)
+' 2>/dev/null || echo 0)
+
+# Defensive: only print if COUNT is a positive integer. The 2>/dev/null
+# guard on the test means malformed COUNT values (somehow non-integer)
+# produce no MOTD line rather than a shell error.
+if [ "$COUNT" -gt 0 ] 2>/dev/null; then
+    printf "\n  %s package update(s) available — run \`pkm upgrade --all\` to review\n\n" "$COUNT"
+fi
