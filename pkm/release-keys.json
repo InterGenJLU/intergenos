@@ -10,6 +10,16 @@
       "fingerprint": "81DD223F9BA9B3F2AFBFFC5AFA24B042975F775E",
       "role": "off-site backup signing (Nitrokey NK2 serial 43D33126)",
       "aliases": ["NK2"]
+    },
+    "S3": {
+      "fingerprint": "B34D3D3FB5EADFC480EDBDB0D3C5DF2CC73B67ED",
+      "role": "secondary maintainer daily-driver signing (Nitrokey NK3 serial 730D5185)",
+      "aliases": ["NK3"]
+    },
+    "S4": {
+      "fingerprint": "99B3E7555064180DC9CE328432AEE44115DEAAED",
+      "role": "secondary maintainer backup signing (Nitrokey NK4 serial CC1D07E3)",
+      "aliases": ["NK4"]
     }
   }
 }
