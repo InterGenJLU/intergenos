@@ -46,15 +46,19 @@ class _VerifierTestBase(unittest.TestCase):
     """Common setup: per-test temp tree + isolated SQLite DB + verifier."""
 
     def setUp(self):
-        # tempfile.mkdtemp gives an absolute path under /tmp; the DB
-        # stores file paths relative to root and `verify_package`
-        # reconstructs the absolute path via `"/" + path`. That lines
-        # up with our actual files on disk because the temp paths
-        # already start with /tmp/...
+        # tempfile.mkdtemp gives an absolute path. The DB stores file
+        # paths relative to its install root and `verify_package`
+        # reconstructs the absolute path via `Path(self.root) / path`
+        # (H-011 remediation). Pass root=tempdir so the verifier walks
+        # the test tree rather than the host's filesystem — necessary
+        # on Windows where lstripping the "/" off an absolute path
+        # produces a still-absolute string (C:\... has no leading
+        # slash to strip) that would otherwise confuse the legacy
+        # `"/" + path` reconstruction pattern.
         self._tempdir = tempfile.mkdtemp(prefix="pkm-verifier-test-")
         self.tempdir = Path(self._tempdir)
         db_path = self.tempdir / "pkm.db"
-        self.db = PackageDB(db_path=str(db_path))
+        self.db = PackageDB(db_path=str(db_path), root=str(self.tempdir))
         self.verifier = PackageVerifier(self.db)
 
     def tearDown(self):
@@ -70,17 +74,15 @@ class _VerifierTestBase(unittest.TestCase):
     def _write_file(self, relative_path: str, content: bytes) -> str:
         """Write a file at <tempdir>/<relative_path>; return DB-shape relative path.
 
-        DB-shape relative path strips a leading "/" (matching the convention
-        in `pkm/installer.py`'s file_list collection). The actual file lives
-        at an absolute path that begins with the tempdir; verifier's
-        `"/" + path` reconstruction lands at the same absolute path.
+        DB-shape relative path is the path relative to PackageDB.root
+        (i.e. relative to self.tempdir). The verifier reconstructs the
+        absolute path via Path(self.root) / relative_path which lands
+        on the same on-disk file cross-platform.
         """
         abs_path = self.tempdir / relative_path
         abs_path.parent.mkdir(parents=True, exist_ok=True)
         abs_path.write_bytes(content)
-        # The DB key is the absolute path with the leading "/" stripped,
-        # so the verifier's reconstruction reaches the same file.
-        return str(abs_path).lstrip("/")
+        return relative_path
 
     def _install_package(self, name: str, version: str, files: dict[str, bytes]):
         """Register a package + its files in the DB.
@@ -181,7 +183,7 @@ class TestSupersedeRouting(_VerifierTestBase):
         # pass2 writes the same path with new content. Simulate the
         # post-deploy on-disk state (pass1's file now has pass2's bytes).
         pass2_content = b"pass2 content\n"
-        target = Path("/" + shared_path)
+        target = self.tempdir / shared_path
         target.write_bytes(pass2_content)
         pass2_hash = _sha256_bytes(pass2_content)
 

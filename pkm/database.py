@@ -316,7 +316,11 @@ class PackageDB:
         # edited (see pkm.configprotect.ratchet_baselines).
         config_paths = [p for p in file_list if p.startswith("etc/") and not p.endswith("/")]
         for cp in config_paths:
-            abs_path = "/" + cp
+            # H-021: use self.root / cp so config_files baselines hash
+            # the live file under the actual install root (matters for
+            # Forge installer running with root=/mnt/target before chroot
+            # pivot) rather than the build host's /etc/.
+            abs_path = str(self.root / cp)
             checksum = (hashes or {}).get(cp)
             if checksum is None and os.path.isfile(abs_path):
                 checksum = _sha256(abs_path)

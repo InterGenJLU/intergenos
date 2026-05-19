@@ -10,8 +10,23 @@ from .database import PackageDB, MANIFEST_DIR, _sha256
 class PackageRemover:
     """Remove packages safely, respecting dependencies and config files."""
 
-    def __init__(self, db: PackageDB):
+    def __init__(self, db: PackageDB, root=None):
+        """Initialize the remover.
+
+        H-011 cross-cut: ``root`` is the install-root prefix used to
+        reconstruct absolute paths from the DB's POSIX-relative file
+        entries. Defaults to ``db.root`` so callers that already pass a
+        chroot-aware PackageDB don't have to thread the value twice.
+        Explicit override available for the rare case of operating on a
+        DB whose root differs from the live filesystem (e.g. recovery
+        tooling). Default to "/" if the DB has no root attribute
+        (legacy compatibility — pre-Q9 PackageDB instances).
+        """
         self.db = db
+        if root is not None:
+            self.root = Path(root)
+        else:
+            self.root = Path(getattr(db, "root", "/"))
 
     def remove(self, name, force=False):
         """Remove an installed package.
@@ -59,9 +74,12 @@ class PackageRemover:
         removed_count = 0
         preserved_configs = []
 
-        # Remove files (not directories yet)
+        # Remove files (not directories yet). H-011: use self.root / path
+        # for absolute-path reconstruction so Forge-installer scenarios
+        # (root=/mnt/target before chroot pivot) and test fixtures
+        # (root=tempdir) work alongside the live-system common case.
         for f in file_paths:
-            abs_path = "/" + f["path"]
+            abs_path = str(self.root / f["path"])
 
             # Config file protection
             if f["path"].startswith("etc/"):
@@ -91,15 +109,17 @@ class PackageRemover:
 
         # Remove empty directories (only if they're empty after file removal)
         for d in dir_paths:
-            abs_path = "/" + d["path"]
+            abs_path = str(self.root / d["path"])
             try:
                 if os.path.isdir(abs_path) and not os.listdir(abs_path):
                     os.rmdir(abs_path)
             except (OSError, PermissionError):
                 pass  # Directory not empty or permission denied — leave it
 
-        # Remove manifest file
-        manifest = MANIFEST_DIR / f"{name}-{pkg['version']}"
+        # Remove manifest file. MANIFEST_DIR is the on-disk pkm state
+        # directory; rebase under self.root so Forge / test scenarios
+        # find the manifest under the install root rather than the host's.
+        manifest = self.root / MANIFEST_DIR.relative_to("/") / f"{name}-{pkg['version']}"
         if manifest.exists():
             manifest.unlink()
 
