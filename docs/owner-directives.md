@@ -530,3 +530,57 @@ Each entry uses this shape:
   - TRACKER.md gate entry under v1.0 ship-blockers
 
 - **Status:** ACTIVE — **CLASS A GATE; blocks ISO/qcow2 creation until compliance verified**
+
+---
+
+## D-012 — Fleet-wide PreToolUse hook distribution (no-deferment programmatic enforcement)
+
+- **Issued:** 2026-05-19T22:01:30Z by owner
+- **Context:** The `block-deferral-framing.sh` PreToolUse hook was installed SPOC-local 2026-05-19 ~16:55 CDT in response to operator-direct standing direction *"I WANT EVERY SINGLE POSSIBLE INVOCATION OF THE IDEA OF [DEFERMENT] TO BE PROGRAMMATICALLY BLOCKED"* during the T0-3 sprint deferment-disguise arc. The hook fires on `Write`/`Edit`/`Bash`/`mcp__*post_message` for 100+ patterns across 18 categories. SPOC-only installation left IGOSC + WC ungated — a deferment-write surface that could ship to git before peer-review. Build-system coordinator proposed fleet-wide distribution via git; operator pushed back: `.claude/` is gitignored because other distros' research showed they emphatically do not advertise AI involvement in development. Solution: directive-based distribution. SPOC broadcasts the canonical hook content via bus; each coordinator writes locally and registers in their settings.json. The hook never enters the public artifact.
+- **Verbatim:**
+
+  > OWNER DIRECTIVE:
+  >
+  > The block-deferral-framing.sh PreToolUse hook is installed across all three coordinators. The build-system coordinator, the installed-system coordinator, and the Windows-host coordinator each install the hook in their host-local .claude/hooks/ directory and register it as a PreToolUse entry in their host-local settings.json.
+  >
+  > The build-system coordinator broadcasts the canonical hook content via the message bus (the hook is gitignored; it does not ship in public artifacts under any condition). Each coordinator writes their copy locally, registers it, and ACKs installation + a verification test (an edit containing a known-blocked pattern must be denied).
+  >
+  > The hook + its pattern list stay out of the public repo. AI involvement does not advertise in shipped artifacts. This is a development-process tool, not a product artifact.
+  >
+  > Future amendments to the pattern list or exempt paths follow the same distribution path: the build-system coordinator broadcasts, peers absorb locally. Coordinators may extend exempt-paths for host-local workflow shapes; pattern additions stay synchronized via the message bus.
+
+- **Decision-Encoded:**
+
+  **Distribution mechanism:**
+  - SPOC holds the canonical hook content at `/mnt/intergenos/.claude/hooks/block-deferral-framing.sh` (gitignored; shared filesystem visible to IGOSC; visible to WC via overlay network).
+  - SPOC broadcasts the hook + SHA256 + install instructions via bus on initial fleet rollout. The hook content itself transmits via direct filesystem read on each coordinator's host (broadcast is metadata + sha; full content already on the shared FS).
+  - Each coordinator copies the hook into their HOST-LOCAL `.claude/hooks/` (NOT the shared `/mnt/intergenos/.claude/hooks/` — host-local installation lets each coordinator extend exempt-paths without colliding with peers).
+  - Each coordinator registers the hook as a `PreToolUse` entry in their HOST-LOCAL `settings.json` with the matcher `Write|Edit|Bash|mcp__.*post_message`.
+  - Each coordinator ACKs installation via bus + a verification test (attempt an edit containing a known-blocked pattern; confirm the hook denies it).
+
+  **Pattern list ownership:**
+  - SPOC owns the canonical pattern list. Pattern additions or removals are SPOC-authored and broadcast via bus; peers update their local copies on receipt.
+  - Each coordinator MAY extend their LOCAL exempt-paths list for host-local workflow shapes (e.g., paths to host-specific staging directories). Local exempt-path extensions do not propagate to peers.
+
+  **Public-artifact discipline:**
+  - The hook and its pattern list stay out of the public git repository under all conditions.
+  - Bus broadcasts about the hook are fleet-internal coordination; they do not ship in any public deliverable.
+  - Commit messages may reference the hook by filename (`block-deferral-framing.sh`) since the hook's self-reference exemption catches that pattern and it is a single short string with low information leakage. Commit messages MUST NOT include the hook's content or pattern list.
+
+- **Supersedes:**
+  - SPOC-only installation of the hook (2026-05-19 ~16:55 CDT) — D-012 expands distribution to all three coordinators.
+  - Earlier dispatch broadcast (2026-05-19T21:55:46Z) language framing the hook as SPOC-local — superseded by D-012's fleet-wide posture.
+
+- **Composes with:**
+  - **D-009** (Universal development checklist) — item 5 prohibits deferment in any form without operator direction. D-012 is the mechanical enforcement of D-009 item 5 across the fleet (D-009 is the policy, D-012 is the gate).
+  - **Operator-direct 2026-05-19 ~16:55 CDT** — original verbal directive ("PROGRAMMATICALLY BLOCKED") that drove the hook authoring. D-012 elevates that verbal direction from SPOC-internal tooling to fleet-wide canonical mechanism.
+  - **`feedback_owner_followup_failure_class`** — D-012 is a direct application: operator's original direction (fleet-wide enforcement, not SPOC-only) might have stayed verbal-only and rotted; capturing as D-NNN is the antidote.
+
+- **Implementation backlog:**
+  - SPOC: bus broadcast with hook SHA256 + install instructions (immediate follow-on to this directive landing)
+  - IGOSC: install + register + ACK with verification test
+  - WC: install + register + ACK with verification test
+  - SPOC: confirm fleet-wide installation via aggregated ACK reading
+  - Pattern-list version-tracking: optional future enhancement (currently hook content + SHA is the version; bus archive is the change log)
+
+- **Status:** ACTIVE — fleet-wide installation pending IGOSC + WC ACKs; SPOC installation already live since 2026-05-19 ~16:55 CDT.
