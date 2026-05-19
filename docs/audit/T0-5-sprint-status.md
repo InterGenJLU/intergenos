@@ -62,10 +62,13 @@
 | L-020 | `0e265392` | index schema-envelope validation — version + min_pkm_version + signature_format gates |
 | L-020 sibling fix | `f01afd8e` | follow-on for SPOC-caught `__version__` import missing — `from . import __version__` at pkm/repo.py:68 |
 | L-025 | `0c71c27f` | pin release-key fingerprints (S1-S4 from release-keys.json); reject non-pinned signatures via gpg --status-fd parse |
+| L-019 | `b274080a` | Holy-Grail anti-rollback + 7d freshness + 24h Valid-Until envelope; per-repo last-seen state at /var/lib/pkm/state |
+| L-021 | `09e20a68` | Critical TOCTOU — re-hash archive inside `installer.install` before tar extract; cache dir 0700 perms |
+| L-024 (verify-side, doc-only) | `a90b3ef4` | docs/repository-trust.md §5 Transparency Log Cross-Check — co-maintainer cross-check procedure + v1.0 end-user LIMITATION honestly framed (Rekor v2 queued for v1.1) |
 
 ### installed-system coordinator lane (this session)
 
-Peer-reviews delivered (APPROVE in all cases): `ed4cfa2a` keyring, `f2b3cf87` H-009, `9d85139e` H-005, `8b10ad46` H-011/H-021, `45953dd0` H-006/H-018, `aa41dcbf` tracker.py hygiene, `48e33d4d` H-024, `81609e30` H-023, `69db547d` O-001/H-010, `a2caacec` H-008 (PARTIAL APPROVE — caught build_date BLOCKING bug, fixed in `13b58c0a`), `13b58c0a` H-008 follow-on, `dbdb9533` H-004. Plus inline observations on `0c71c27f` L-025 + `0e265392` L-020 (SPOC primary). Two BLOCKING runtime-semantic bugs caught at peer-review pre-close (H-008 build_date + L-020 __version__) — cross-coordinator review pattern working. Memory addendum saved on caller-vs-implementation contract class.
+Peer-reviews delivered (APPROVE in all cases): `ed4cfa2a` keyring, `f2b3cf87` H-009, `9d85139e` H-005, `8b10ad46` H-011/H-021, `45953dd0` H-006/H-018, `aa41dcbf` tracker.py hygiene, `48e33d4d` H-024, `81609e30` H-023, `69db547d` O-001/H-010, `a2caacec` H-008 (PARTIAL APPROVE — caught build_date BLOCKING bug, fixed in `13b58c0a`), `13b58c0a` H-008 follow-on, `dbdb9533` H-004. Plus inline observations on `0c71c27f` L-025 + `0e265392` L-020 + `b274080a` L-019 + `a90b3ef4` L-024 (SPOC primary). Two BLOCKING runtime-semantic bugs caught at peer-review pre-close (H-008 build_date + L-020 __version__) — cross-coordinator review pattern working. Memory addendum saved on caller-vs-implementation contract class. Also diagnosed the 2 GUI-state test failures SPOC surfaced from `installer/tests/` pytest run — pre-existing pre-T0-5 drift, fix proposal queued for operator scope authorization.
 
 ---
 
@@ -75,8 +78,8 @@ Peer-reviews delivered (APPROVE in all cases): `ed4cfa2a` keyring, `f2b3cf87` H-
 |---|---|---|
 | **SC1** Trust-chain preconditions | L-008/H-001/A-031 keyring + H-002/L-015/O-004 repos.conf + L-027 fingerprints | **All 3 rows landed** |
 | **SC2** Mirror infrastructure | RESOLVED via 2026-05-18 mirror-sweep (`941d8b6c`); residual is L-001 first-publish actually running (operator action) | RESOLVED |
-| **SC3** Trust-chain hardening | L-019 anti-rollback + L-020 schema-version + L-021 TOCTOU + H-022 tar-traversal + L-024 verify-side + L-025 trust-anchor pin | **2 rows landed** (L-020 + L-025); 4 remaining: L-019 anti-rollback (state-persistence-class; WC engaging next) + L-021 TOCTOU + L-024 verify-side + H-022 tar-traversal |
-| **SC4** CLI + DB integrity | ~12 H-rows + O-001 reinstall + H-007/H-008 helpers | **12 rows landed** (H-004 + H-005 + H-006/H-018 + H-008+sibling + H-009 + H-010 + H-011/H-021 + H-013 + H-023 + H-024 + O-001) + tracker hygiene chore; ~2 remaining: H-007 helper manifest spec + H-022 PEP 706 |
+| **SC3** Trust-chain hardening | L-019 anti-rollback + L-020 schema-version + L-021 TOCTOU + H-022 tar-traversal + L-024 verify-side + L-025 trust-anchor pin | **🏁 COMPLETE — all 5 rows landed** (L-019 + L-020 + L-021 + L-024 + L-025; both Holy-Grails closed). H-022 originally listed here but is actually SC4 per audit-row taxonomy. |
+| **SC4** CLI + DB integrity | ~12 H-rows + O-001 reinstall + H-007/H-008 helpers | **12 rows landed** (H-004 + H-005 + H-006/H-018 + H-008+sibling + H-009 + H-010 + H-011/H-021 + H-013 + H-023 + H-024 + O-001) + tracker hygiene chore; ~2 remaining: H-007 helper manifest spec + H-022 PEP 706 tarfile filter |
 | **SC5** Upgrade safety | ~17 O-rows (--yes/--dry-run + install-new-first + hook execution + kernel re-sign + autoremove + retry+backoff + failover + needrestart) | **0 rows landed** — WC tier 5; engaged after SC4 + SC3 close |
 | **SC6** DR + transparency + GPL source | L-022 + L-023 + L-024 + P-001 (3 items) | **All 6 rows landed** (L-022 workstation+repo, L-023 mirror-verify.sh, L-024 transparency-log push, P-001 LICENSE pointer + intergenos-legal pkg + source-archive generator) |
 | **SC7** User doc sweep | Was K-017 follow-up | RESOLVED (callout landed at `95928a52`; docs were already mostly aligned post-`f4b45135`) |
@@ -96,9 +99,9 @@ What is NOT reasonable overnight:
 - L-001 first-publish actually executing (operator-owned action — ceremony + DNS + key)
 - Final integration + peer-review pass (D-009 item 8) requires the implementation to converge first
 
-**Honest projection at session-end (revised, mid-arc):** sub-cluster level — SC1, SC2, SC6, SC7 fully closed; SC4 ~85% closed (12 of 14); SC3 ~33% closed (2 of 6); SC5 0% / partial; that's ~70% sub-cluster coverage. At per-row level — ~18-22 rows landed out of ~50 audit rows in the sprint scope (excluding pre-resolved K-017 + matrix annotations), roughly 35-45% closure. SC5 remains the bulk of unclosed work + the hardest design surface.
+**Honest projection at session-end (refresh #3, post-SC3-complete):** sub-cluster level — SC1, SC2, SC3, SC6, SC7 fully closed (🏁); SC4 ~85% closed (12 of 14, only H-007 + H-022 remaining); SC5 untouched. That's 5 of 7 sub-clusters fully closed (~71% sub-cluster coverage). At per-row level — ~22-25 audit rows landed plus 2 sibling fixes + 1 hygiene chore + 1 infra fix; closer to ~45-50% of total T0-5 row scope. SC5 (17 upgrade-safety rows) remains the bulk of unclosed work + the hardest design surface; not realistically reachable in the remaining overnight window.
 
-**Important fleet-discipline observation:** 2 BLOCKING bugs caught at peer-review pre-close-claim — H-008 build_date dict-key rename (caught by installed-system coordinator) + L-020 `__version__` import missing (caught by build-system coordinator). Both ran py_compile + import-resolution clean while failing at runtime. D-009 item 7 (no completion claim until peer-reviewed) + item 8 (peer-review when possible) doing concrete work. Memory addendum saved on caller-vs-implementation contract class so the pattern doesn't repeat.
+**Important fleet-discipline observation:** 2 BLOCKING bugs caught at peer-review pre-close-claim — H-008 build_date dict-key rename (caught by installed-system coordinator) + L-020 `__version__` import missing (caught by build-system coordinator). Both ran py_compile + import-resolution clean while failing at runtime. D-009 item 7 (no completion claim until peer-reviewed) + item 8 (peer-review when possible) doing concrete work. Memory addendum saved on caller-vs-implementation contract class. Integration-style validation script BEFORE commit (GREEN + RED paths exercised) is now standard practice for any commit touching cross-module data contracts — applied empirically in L-019 (6 scenarios) + L-021 (3 scenarios).
 
 ---
 
