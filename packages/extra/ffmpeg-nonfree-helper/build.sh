@@ -30,6 +30,9 @@ do_install() {
 
 set -e
 
+# H-007: source the helper-lib API for footprint tracking.
+source /usr/share/igos/helpers/helper-lib.sh
+
 ACCEPTANCE_DIR="/var/lib/intergen/legal"
 ACCEPTANCE_FILE="$ACCEPTANCE_DIR/ffmpeg-nonfree-helper-1.0-accepted.json"
 FFMPEG_VERSION="8.0.1"
@@ -119,6 +122,16 @@ JSON
     echo "Acceptance recorded at $ACCEPTANCE_FILE"
 fi
 
+# H-007: initialize the manifest now that root + acceptance are confirmed.
+# Must come before any record_* call.
+igos_helper_init "ffmpeg-nonfree"
+
+# Record the acceptance artifact so pkm files / verify / remove track
+# the user-given patent-posture consent record alongside the binaries.
+igos_helper_record_file "$ACCEPTANCE_FILE"
+igos_helper_record_post_install_action \
+    "User accepted FDK-AAC patent posture (acceptance artifact at $ACCEPTANCE_FILE)"
+
 TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT
 
@@ -132,6 +145,9 @@ echo ""
 echo "Extracting and building..."
 tar xf ffmpeg.tar.xz
 cd "ffmpeg-${FFMPEG_VERSION}"
+
+# H-007: record the upstream ffmpeg version on the manifest.
+igos_helper_set_version "$FFMPEG_VERSION"
 
 ./configure --prefix="$PREFIX"      \
             --enable-gpl            \
@@ -150,6 +166,15 @@ cd "ffmpeg-${FFMPEG_VERSION}"
 make -j"$(nproc)"
 make install
 
+# H-007: record every file + symlink under the install prefix so
+# pkm files / verify / remove see the deposited ffmpeg-nonfree
+# footprint. The find walk catches binaries, shared libraries,
+# headers, pkg-config files, and man pages — everything make install
+# placed under /opt/ffmpeg-nonfree/.
+while IFS= read -r f; do
+    igos_helper_record_file "$f"
+done < <(find /opt/ffmpeg-nonfree -type f -o -type l 2>/dev/null)
+
 # Wrapper at /usr/local/bin/ffmpeg-nonfree
 mkdir -p /usr/local/bin
 cat > /usr/local/bin/ffmpeg-nonfree <<WRAPPER
@@ -157,6 +182,27 @@ cat > /usr/local/bin/ffmpeg-nonfree <<WRAPPER
 exec ${PREFIX}/bin/ffmpeg "\$@"
 WRAPPER
 chmod 755 /usr/local/bin/ffmpeg-nonfree
+
+# H-007: record the /usr/local/bin/ffmpeg-nonfree wrapper.
+igos_helper_record_file /usr/local/bin/ffmpeg-nonfree
+
+# H-007: record runtime deps so pkm reverse-dep tracking warns the
+# user before glibc or any codec lib gets removed while
+# ffmpeg-nonfree still links against it.
+igos_helper_record_dep glibc
+igos_helper_record_dep fdk-aac
+igos_helper_record_dep x264
+igos_helper_record_dep x265
+igos_helper_record_dep lame
+igos_helper_record_dep libvpx
+igos_helper_record_dep opus
+igos_helper_record_dep openssl
+igos_helper_record_dep zlib
+
+# H-007: finalize the manifest. Atomic mv ensures pkm sees either the
+# complete manifest or nothing at all — never a half-finished
+# intermediate state.
+igos_helper_commit
 
 cat <<DONE
 
