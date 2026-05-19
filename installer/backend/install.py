@@ -541,6 +541,26 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         result.package_success_count = ok_count
         result.package_fail_count = fail_count
         result.failed_packages = failed
+
+        # C-065 hard-fail: if PHASE_PACKAGES installed zero packages despite
+        # the user requesting one or more groups, halt the install loudly
+        # rather than continuing on to bootloader phase with an empty
+        # target ("successful" install with nothing on disk). C-021's
+        # extended pre-flight (preflight_check_archive_availability)
+        # should catch this case BEFORE PHASE_PARTITION; reaching here
+        # indicates a regression or race. The legitimate "0 packages
+        # requested" case (empty package_groups) stays no-op — the
+        # `cfg.get("package_groups")` truthiness guard handles it.
+        if ok_count == 0 and fail_count == 0 and cfg.get("package_groups"):
+            raise RuntimeError(
+                f"PHASE_PACKAGES installed zero packages despite "
+                f"{len(cfg['package_groups'])} package group(s) requested "
+                f"({cfg['package_groups']!r}). archive_dir={archive_dir!r} "
+                f"resolved to no archives. C-021 pre-flight should have "
+                f"caught this at PHASE_VALIDATE; reaching here indicates "
+                f"a pre-flight regression or race condition."
+            )
+
         if fail_count:
             _emit(PHASE_PACKAGES, ok_count + fail_count,
                   f"{fail_count} package(s) failed; continuing")

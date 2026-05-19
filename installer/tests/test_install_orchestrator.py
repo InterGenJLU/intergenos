@@ -299,6 +299,55 @@ class TestRunInstallProgressCallback(_RunInstallTestBase):
         self.assertTrue(result.success, msg=result.error_message)
 
 
+class TestRunInstallC065ZeroPackageHardFail(_RunInstallTestBase):
+    """C-065 PHASE_PACKAGES hard-fail tests.
+
+    When install_packages returns (0, 0, []) AND cfg has non-empty
+    package_groups, the orchestrator must raise rather than silently
+    continue to bootloader phase on an empty target. Empty-groups case
+    stays no-op.
+    """
+
+    def test_zero_install_with_non_empty_groups_raises(self):
+        self.packages.install_packages.return_value = (0, 0, [])
+        result = run_install(
+            self.yaml_path, VALID_INSTALL_IO,
+            str(self.archive_dir), str(self.packages_dir),
+        )
+        self.assertFalse(result.success)
+        self.assertEqual(result.phase_completed, PHASE_VIRTUAL_FS)
+        self.assertIn("zero packages", result.error_message)
+        self.assertIn("C-021 pre-flight", result.error_message)
+        # Bootloader phase must NOT have been reached.
+        self.bootloader.install_bootloader.assert_not_called()
+
+    def test_nonzero_install_no_raise(self):
+        # Normal success case from _RunInstallTestBase: (5, 0, []).
+        # This is the same as TestRunInstallHappyPath's setup — confirms
+        # the C-065 guard only fires on (0, 0, []).
+        result = run_install(
+            self.yaml_path, VALID_INSTALL_IO,
+            str(self.archive_dir), str(self.packages_dir),
+        )
+        self.assertTrue(result.success, msg=result.error_message)
+
+    def test_some_fail_some_succeed_no_raise(self):
+        # Partial-success case: 3 ok + 2 failed. C-065 guard checks for
+        # ok_count==0 AND fail_count==0; partial failure has fail_count>0
+        # so guard doesn't fire. Falls through to existing
+        # "{fail_count} package(s) failed; continuing" warning behavior.
+        self.packages.install_packages.return_value = (
+            3, 2, [("a", "x"), ("b", "y")]
+        )
+        result = run_install(
+            self.yaml_path, VALID_INSTALL_IO,
+            str(self.archive_dir), str(self.packages_dir),
+        )
+        self.assertTrue(result.success, msg=result.error_message)
+        self.assertEqual(result.package_success_count, 3)
+        self.assertEqual(result.package_fail_count, 2)
+
+
 class TestRunInstallPackageFailureNonFatal(_RunInstallTestBase):
     def test_package_failures_surface_but_dont_abort(self):
         self.packages.install_packages.return_value = (
