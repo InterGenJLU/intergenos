@@ -915,8 +915,9 @@ class PackageInstaller:
             s.get("path", "") for s in manifest_symlinks
         ]
         # PackageDB stores POSIX-relative paths (no leading slash). The
-        # add_files signature expects "usr/bin/foo" not "/usr/bin/foo"
-        # and the remover reconstructs absolute via "/" + path.
+        # add_files signature expects "usr/bin/foo" not "/usr/bin/foo";
+        # PackageRemover reconstructs absolute paths via self.root / path
+        # (rebased on install-root per H-011 closure at aff8b729).
         rel_paths = [p.lstrip("/") for p in all_paths]
 
         self.db.conn.execute("BEGIN")
