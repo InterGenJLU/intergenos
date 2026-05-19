@@ -27,6 +27,7 @@ GREEN + RED paths through the real code.
 
 import hashlib
 import os
+import sys
 import shutil
 import tempfile
 import unittest
@@ -255,8 +256,8 @@ class TestPrepareConfigProtection(unittest.TestCase):
         self.assertEqual(plan["update_baselines"], {})
         self.assertEqual(len(plan["pkmnew_writes"]), 1)
         src, dest = plan["pkmnew_writes"][0]
-        self.assertTrue(src.endswith("staging/etc/foo.conf"))
-        self.assertTrue(dest.endswith("root/etc/foo.conf.pkmnew"))
+        self.assertTrue(src.endswith(os.path.join("staging", "etc", "foo.conf")))
+        self.assertTrue(dest.endswith(os.path.join("root", "etc", "foo.conf.pkmnew")))
 
     def test_no_baseline_treated_as_unedited(self):
         # No config_files row yet, but live file exists. Treat as unedited
@@ -326,6 +327,11 @@ class TestMaterializeSidecars(unittest.TestCase):
     def test_empty_input_returns_empty(self):
         self.assertEqual(materialize_pkmnew_sidecars([]), [])
 
+    @unittest.skipUnless(
+        sys.platform.startswith("linux"),
+        "Linux-only: uses /proc/ path to force a write failure; Windows lacks "
+        "an equivalent always-unwritable absolute path",
+    )
     def test_failure_continues_with_remaining(self):
         # First entry has unwritable dest (path under /); second succeeds.
         src_a = Path(self.tmp) / "a"

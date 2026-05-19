@@ -24,9 +24,20 @@ sanity check standard for any cross-module data-contract surface.
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+# systemctl-driven tests in this module use fake-bin PATH overrides to
+# intercept the systemctl subprocess. The fake-bin pattern needs POSIX
+# shell semantics (sh script with shebang + chmod +x) which doesn't
+# translate cleanly to Windows where executables resolve via PATHEXT.
+# Decorate class-level so the pure-Python helper tests still run.
+_LINUX_ONLY = unittest.skipUnless(
+    sys.platform.startswith("linux"),
+    "Linux-only: systemctl fake-bin pattern needs POSIX shell + chmod +x",
+)
 
 from pkm.services import (
     REBOOT_TRIGGER_PACKAGES,
@@ -132,6 +143,7 @@ class TestScanManifestForServices(unittest.TestCase):
         self.assertEqual(units, [])
 
 
+@_LINUX_ONLY
 class TestQueryActiveServices(unittest.TestCase):
 
     def setUp(self):
@@ -166,6 +178,7 @@ class TestQueryActiveServices(unittest.TestCase):
             os.environ["PATH"] = f"{self.bin}:{self._orig_path}"
 
 
+@_LINUX_ONLY
 class TestClassifyRestartRequirement(unittest.TestCase):
 
     def setUp(self):
@@ -253,6 +266,7 @@ class TestFormatServiceSummary(unittest.TestCase):
         self.assertIn("pkm restart-services", s)
 
 
+@_LINUX_ONLY
 class TestRunRestartServices(unittest.TestCase):
 
     def setUp(self):
