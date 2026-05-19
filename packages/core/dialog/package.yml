@@ -1,0 +1,26 @@
+name: dialog
+version: "1.3-20260107"
+release: 1
+description: Display dialog boxes from shell scripts (libdialog + dialog binary)
+license: LGPL-2.1-or-later
+homepage: https://invisible-island.net/dialog/
+tier: core
+build_style: custom
+install_func: do_install
+# T0-3 sub-cluster 1 — installer TUI runtime dep. installer/frontend/tui.py:64
+# probes for `dialog` or `whiptail`; we standardize on dialog (richer widget set
+# and the only one with libdialog shared lib for embedding). Configure flags
+# mirror Debian's cdialog package (dialog upstream maintainer = Thomas Dickey =
+# original Debian packager, so the flag set is canonical).
+source:
+- url: https://invisible-island.net/archives/dialog/dialog-${version}.tgz
+  sha256: 78b3dd18d95e50f0be8f9b9c1e7cffe28c9bf1cdf20d5b3ef17279c4da35c5b5
+dependencies:
+  build:
+    - ncurses-core      # ncursesw — wide-char ncurses for UTF-8 TUI
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/dialog
+  - /usr/lib/libdialog.so
+  - /usr/include/dialog.h

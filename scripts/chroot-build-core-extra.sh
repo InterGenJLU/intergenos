@@ -967,6 +967,58 @@ run_package "xorgproto" "xorgproto" "2025.1" \
     "xorgproto-2025.1.tar.xz" \
     "X11 protocol headers"
 
+# --- Group T0-3: Installer runtime dependencies ---
+# Authored 2026-05-19 against audit M-002 (chroot-binary-presence gap that hid
+# parted/sgdisk/mkfs.xfs/etc. absence) + remediation plan T0-3 sub-cluster 1.
+# All nine packages are tier:core; wiring here is REQUIRED per the phantom-
+# package class (Rulebook Rule 2 + D-009 item 3) — tier:core packages are not
+# topo-sort-built by the Python builder; phase_core_extra runs this bash script
+# in hardcoded order. Silent-skip if absent from this list.
+#
+# Ordering rationale:
+#   - inih + liburcu build first (xfsprogs deps, both standalone libs)
+#   - mdadm/parted/dialog/ntfs-3g/gptfdisk are leaf-or-near-leaf (deps already
+#     present from earlier groups: lvm2 G+H, popt earlier, ncurses-core earlier)
+#   - xfsprogs depends on inih+liburcu (declared above)
+#   - os-prober is last (runtime-deps on ntfs-3g + util-linux-core, both built
+#     by now)
+
+run_package "inih" "inih" "62" \
+    "inih-r62.tar.gz" \
+    "Simple INI file parser (xfsprogs + exiv2 dep)"
+
+run_package "liburcu" "liburcu" "0.15.3" \
+    "userspace-rcu-0.15.3.tar.bz2" \
+    "Userspace RCU (read-copy-update) library — xfsprogs dep"
+
+run_package "mdadm" "mdadm" "4.4" \
+    "mdadm-4.4.tar.xz" \
+    "Linux MD software RAID administration utility"
+
+run_package "parted" "parted" "3.7" \
+    "parted-3.7.tar.xz" \
+    "GNU Parted disk partition manipulation (parted, partprobe, libparted)"
+
+run_package "dialog" "dialog" "1.3-20260107" \
+    "dialog-1.3-20260107.tgz" \
+    "TUI dialog-box widget library + binary (libdialog + dialog) — installer TUI dep"
+
+run_package "ntfs-3g" "ntfs-3g" "2026.2.25" \
+    "ntfs-3g_ntfsprogs-2026.2.25.tgz" \
+    "NTFS driver + ntfsprogs utilities (ntfsresize, ntfsfix, mkntfs) — installer NTFS probe dep"
+
+run_package "gptfdisk" "gptfdisk" "1.0.10" \
+    "gptfdisk-1.0.10.tar.gz" \
+    "GPT fdisk partition tools (sgdisk, cgdisk, gdisk, fixparts) — installer GPT op dep"
+
+run_package "xfsprogs" "xfsprogs" "7.0.0" \
+    "xfsprogs-7.0.0.tar.xz" \
+    "XFS filesystem utilities (mkfs.xfs, xfs_repair, xfs_admin, etc.)"
+
+run_package "os-prober" "os-prober" "1.84" \
+    "os-prober-1.84.tar.gz" \
+    "Detect other OSes for grub dual-boot menu generation (grub-mkconfig dep)"
+
 # ============================================================================
 # Summary
 # ============================================================================

@@ -1,0 +1,36 @@
+name: os-prober
+version: "1.84"
+release: 1
+description: Detect other operating systems for grub dual-boot menu entries
+license: GPL-2.0-or-later
+homepage: https://salsa.debian.org/installer-team/os-prober
+tier: core
+build_style: custom
+install_func: do_install
+# T0-3 sub-cluster 1 — installer runtime dep. grub-mkconfig invokes
+# `os-prober` to detect existing OS installations on adjacent disks/partitions
+# (Windows + other Linux) so it can generate chainload menu entries in the
+# Forge-installed system's grub.cfg. Source from Debian salsa (canonical
+# upstream — os-prober has never had a non-Debian release).
+#
+# Build layout from Debian's debian/os-prober.install + debian/rules:
+#   newns C binary → /usr/lib/os-prober/
+#   os-prober + linux-boot-prober shell scripts → /usr/bin/
+#   common.sh → /usr/share/os-prober/
+#   probe scripts (common + x86) → /usr/lib/{os-probes,linux-boot-probes}/...
+source:
+- url: https://salsa.debian.org/installer-team/os-prober/-/archive/${version}/os-prober-${version}.tar.gz
+  sha256: 83cdc5b5938856f62b58c3ea80884d08a1b6161b8ba7560c2472543ac8f9e792
+dependencies:
+  build: []
+  host: []
+  runtime:
+    - ntfs-3g                 # used by os-probes/mounted/x86/20microsoft for Windows partition reads
+    - util-linux-core         # mount(8), losetup, etc. — invoked by probe scripts
+verify_paths:
+  - /usr/bin/os-prober
+  - /usr/bin/linux-boot-prober
+  - /usr/lib/os-prober/newns
+  - /usr/share/os-prober/common.sh
+  - /usr/lib/os-probes
+  - /usr/lib/linux-boot-probes

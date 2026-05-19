@@ -1,0 +1,26 @@
+name: liburcu
+version: "0.15.3"
+release: 1
+description: Userspace RCU (read-copy-update) library for lockless synchronization
+license: LGPL-2.1-or-later
+homepage: https://liburcu.org/
+tier: core
+build_style: custom
+install_func: do_install
+# Required build dep for xfsprogs 7.x (BLFS xfsprogs page lists liburcu-0.15.3
+# alongside inih as the two unconditional required deps for xfsprogs build).
+source:
+- url: https://lttng.org/files/urcu/userspace-rcu-${version}.tar.bz2
+  sha256: 26687ec84e3e114759454c884a08abeaf79dec09b041895ddf4c45ec150acb6d
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/liburcu.so
+  - /usr/lib/liburcu-cds.so
+  - /usr/lib/liburcu-bp.so
+  - /usr/lib/liburcu-mb.so
+  - /usr/lib/liburcu-qsbr.so
+  - /usr/lib/liburcu-memb.so
+  - /usr/include/urcu.h

@@ -1,0 +1,37 @@
+name: xfsprogs
+version: "7.0.0"
+release: 1
+description: XFS filesystem utilities (mkfs.xfs, xfs_repair, xfs_admin, xfs_growfs, etc.)
+license: GPL-2.0-only
+homepage: https://xfs.org/
+tier: core
+build_style: custom
+install_func: do_install
+# T0-3 sub-cluster 1 — installer runtime dep. Provides mkfs.xfs/xfs_repair for
+# users opting into XFS as root filesystem (we default ext4 but XFS is the only
+# alternative we'll support at v1.0 given its kernel-builtin status). BLFS 13.0
+# reference: postlfs/xfsprogs — explicitly lists inih + liburcu as required
+# unconditional deps. Build uses bare make with BLFS-recommended env vars (no
+# autotools-style ./configure step at the top level).
+source:
+- url: https://www.kernel.org/pub/linux/utils/fs/xfs/xfsprogs/xfsprogs-${version}.tar.xz
+  sha256: c05930b04e7a0e6c9115cf891cd4e973231d7066b2d6b2993d23705089678988
+dependencies:
+  build:
+    - inih          # required (BLFS-listed) — xfs config file parser
+    - liburcu       # required (BLFS-listed) — userspace RCU for xfs_io threading
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/sbin/mkfs.xfs
+  - /usr/sbin/xfs_admin
+  - /usr/sbin/xfs_growfs
+  - /usr/sbin/xfs_repair
+  - /usr/sbin/xfs_db
+  - /usr/sbin/xfs_io
+  - /usr/sbin/xfs_logprint
+  - /usr/sbin/xfs_quota
+  - /usr/sbin/xfs_bmap
+  - /usr/sbin/xfs_copy
+  - /usr/sbin/xfs_spaceman
+  - /usr/lib/libhandle.so

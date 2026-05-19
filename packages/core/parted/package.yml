@@ -1,0 +1,28 @@
+name: parted
+version: "3.7"
+release: 1
+description: GNU Parted disk partition manipulation program (parted, partprobe, libparted)
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/parted/
+tier: core
+build_style: custom
+install_func: do_install
+# T0-3 sub-cluster 1 — installer runtime dep. installer/backend/disks.py invokes
+# `parted` (line 1238 reference) + `partprobe` for the partitioning phase.
+# BLFS 13.0 reference: postlfs/parted (--disable-static; depends on lvm2 for
+# device-mapper support; e2fsprogs already in chroot).
+source:
+- url: https://ftp.gnu.org/gnu/parted/parted-${version}.tar.xz
+  sha256: 008de57561a4f3c25a0648e66ed11e7b30be493889b64334a6d70f2c1951ef7b
+dependencies:
+  build:
+    - lvm2          # libdevmapper.so for device-mapper support
+    - e2fsprogs     # libuuid (also provided by util-linux-core in ch8)
+    - readline      # interactive shell support
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/sbin/parted
+  - /usr/sbin/partprobe
+  - /usr/lib/libparted.so
+  - /usr/lib/libparted-fs-resize.so

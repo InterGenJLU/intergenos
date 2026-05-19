@@ -1,0 +1,39 @@
+name: ntfs-3g
+version: "2026.2.25"
+release: 1
+description: NTFS read/write driver + ntfsprogs userspace utilities (ntfsresize, ntfsfix, etc.)
+license: GPL-2.0-or-later
+homepage: https://www.tuxera.com/community/open-source-ntfs-3g/
+tier: core
+build_style: custom
+install_func: do_install
+# T0-3 sub-cluster 1 — installer runtime dep. installer/backend/disks.py:1071
+# invokes `ntfsresize --info --no-action` for NTFS partition probing; os-prober
+# (when looking for Windows installs) reads NTFS via the kernel NTFS3 driver
+# (linux ≥5.15 has built-in NTFS3 which we use for mounts) but our installer
+# needs the userspace ntfsprogs tools regardless. --with-fuse=internal uses
+# bundled FUSE-2 (BLFS-recommended; our chroot ships fuse3 only and ntfs-3g
+# needs FUSE-2 for user-mounts).
+source:
+- url: https://tuxera.com/opensource/ntfs-3g_ntfsprogs-${version}.tgz
+  sha256: 7754f3b32e8baf9c472459b4e9c981e3ae0f5039107cdd8d8201aed0a949008a
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/ntfs-3g
+  - /usr/bin/ntfsresize
+  - /usr/bin/ntfsfix
+  - /usr/bin/ntfsinfo
+  - /usr/bin/ntfslabel
+  - /usr/bin/ntfsls
+  - /usr/bin/ntfscat
+  - /usr/bin/ntfsclone
+  - /usr/bin/ntfscp
+  - /usr/bin/ntfscluster
+  - /usr/bin/ntfscmp
+  - /usr/bin/ntfsundelete
+  - /usr/sbin/mkntfs
+  - /usr/sbin/mount.ntfs
+  - /usr/lib/libntfs-3g.so
