@@ -87,6 +87,48 @@ DEFAULT_REPOS = {
 INDEX_MAX_AGE = 3600  # 1 hour
 
 
+# L-020: schema-version + signature-format envelope.
+# Parser refuses to load indexes outside this envelope per Holy-Grail
+# fail-closed posture. Without these gates, an attacker with mirror-write
+# access (or compromised signing key during a key-rotation window) can
+# publish a `version: 2` index that lies about packages to a client that
+# silently misparses, OR a `signature_format: cosign` index that bypasses
+# the GPG verification path entirely. Defenders need explicit opt-in
+# before schema/signature-format migrations are honored.
+SUPPORTED_INDEX_VERSIONS = frozenset({1})
+SUPPORTED_SIGNATURE_FORMATS = frozenset({"gpg-detached-armored"})
+
+
+class IndexFormatError(Exception):
+    """Repository index format outside this pkm's supported envelope.
+
+    Raised by RepoManager._parse_index when an index declares a version,
+    min_pkm_version, or signature_format the current pkm cannot
+    safely handle. Caller treats this as a per-repo sync failure
+    (fail-closed) rather than a transparent fallback.
+    """
+
+
+def _semver_ge(actual, required):
+    """Return True iff actual >= required under simple semver comparison.
+
+    Both are dotted-numeric strings (e.g. "0.1.0", "1.2.3-beta" — beta
+    suffix ignored). Used by L-020 min_pkm_version envelope.
+    Falls back to string comparison if parsing fails (conservative).
+    """
+    def _parts(s):
+        head = s.split("-", 1)[0]
+        try:
+            return tuple(int(x) for x in head.split("."))
+        except ValueError:
+            return None
+    a = _parts(actual)
+    r = _parts(required)
+    if a is None or r is None:
+        return actual >= required
+    return a >= r
+
+
 # ---------------------------------------------------------------------------
 # Repository index operations
 # ---------------------------------------------------------------------------
@@ -263,6 +305,11 @@ class RepoManager:
                     f"generated {index.generated}"
                 ))
 
+            except IndexFormatError as e:
+                # L-020: schema-envelope rejection. Fail-closed per-repo;
+                # leave the cached artifact in place so an operator can
+                # inspect what was rejected without re-downloading.
+                results.append((name, False, f"index rejected: {e}"))
             except urllib.error.URLError as e:
                 results.append((name, False, f"network error: {e.reason}"))
                 db_path.unlink(missing_ok=True)
@@ -293,9 +340,51 @@ class RepoManager:
         return result.returncode == 0
 
     def _parse_index(self, name, url, db_path):
-        """Parse a gzipped JSON repository index."""
+        """Parse a gzipped JSON repository index.
+
+        L-020: enforces schema-version + min_pkm_version +
+        signature_format envelope. Raises IndexFormatError on any
+        out-of-envelope value; caller treats as fail-closed sync error.
+        """
         with gzip.open(db_path, "rt", encoding="utf-8") as f:
             data = json.load(f)
+
+        # Schema-version: must be in supported set. Pre-fix: any value
+        # silently accepted (including future versions that may carry
+        # restructured packages dict or new fields the client misparses).
+        version = data.get("version")
+        if version not in SUPPORTED_INDEX_VERSIONS:
+            raise IndexFormatError(
+                f"index '{name}' declares version={version!r}; this "
+                f"pkm only supports versions "
+                f"{sorted(SUPPORTED_INDEX_VERSIONS)}. Refusing to parse "
+                f"— upgrade pkm or contact the mirror operator."
+            )
+
+        # min_pkm_version: server may require newer pkm. Absence means
+        # no minimum required.
+        min_required = data.get("min_pkm_version")
+        if min_required and not _semver_ge(__version__, min_required):
+            raise IndexFormatError(
+                f"index '{name}' requires pkm >= {min_required}; this "
+                f"pkm is {__version__}. Upgrade pkm before syncing "
+                f"this index."
+            )
+
+        # signature_format: cryptographic agility envelope. Today's
+        # accepted set is just gpg-detached-armored; sigstore / cosign
+        # / ed25519 migrations require a pkm version that explicitly
+        # opts in by extending SUPPORTED_SIGNATURE_FORMATS.
+        sig_format = data.get("signature_format", "gpg-detached-armored")
+        if sig_format not in SUPPORTED_SIGNATURE_FORMATS:
+            raise IndexFormatError(
+                f"index '{name}' declares signature_format="
+                f"{sig_format!r}; this pkm only supports "
+                f"{sorted(SUPPORTED_SIGNATURE_FORMATS)}. Refusing to "
+                f"parse — sigstore / cosign / ed25519 migration "
+                f"requires a pkm version that explicitly opts in."
+            )
+
         return RepoIndex(name, url, data)
 
     # ----- Query -----
@@ -509,6 +598,13 @@ def generate_index(package_dir, arch="x86_64", output=None):
 
     index = {
         "version": 1,
+        # L-020: signature_format + min_pkm_version envelope fields.
+        # Emitting them now keeps generator/parser aligned; current
+        # values are the only ones SUPPORTED_SIGNATURE_FORMATS + the
+        # active pkm version allow. Field set must coordinate with
+        # parser-side SUPPORTED_INDEX_VERSIONS / SUPPORTED_SIGNATURE_FORMATS.
+        "signature_format": "gpg-detached-armored",
+        "min_pkm_version": "0.1.0",
         "generated": datetime.now(timezone.utc).isoformat(),
         "arch": arch,
         "package_count": len(packages),
