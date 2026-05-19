@@ -34,32 +34,32 @@ def main():
     p_helper.add_argument("package", help="Package to install (e.g., chrome, vscode, claude-code)")
 
     # -- remove --
-    p_remove = sub.add_parser("remove", help="Remove a package")
+    p_remove = sub.add_parser("remove", aliases=["uninstall"], help="Remove a package")
     p_remove.add_argument("package")
     p_remove.add_argument("--force", action="store_true", help="Remove even if others depend on it")
 
     # -- list --
-    p_list = sub.add_parser("list", help="List packages")
+    p_list = sub.add_parser("list", aliases=["ls"], help="List packages")
     p_list.add_argument("what", choices=["installed", "available", "upgradable"], nargs="?", default="installed")
     p_list.add_argument("--tier", help="Filter by tier")
 
     # -- update --
-    sub.add_parser("update", help="Sync package index from repositories")
+    sub.add_parser("update", aliases=["sync", "refresh"], help="Sync package index from repositories")
 
     # -- upgrade --
     p_upgrade = sub.add_parser("upgrade", help="Upgrade installed packages")
     p_upgrade.add_argument("packages", nargs="*", metavar="package", help="Specific packages (default: all)")
 
     # -- search --
-    p_search = sub.add_parser("search", help="Search packages")
+    p_search = sub.add_parser("search", aliases=["find"], help="Search packages")
     p_search.add_argument("term")
 
     # -- info --
-    p_info = sub.add_parser("info", help="Show package details")
+    p_info = sub.add_parser("info", aliases=["show"], help="Show package details")
     p_info.add_argument("package")
 
     # -- files --
-    p_files = sub.add_parser("files", help="List files in a package")
+    p_files = sub.add_parser("files", aliases=["contents"], help="List files in a package")
     p_files.add_argument("package")
 
     # -- provides --
@@ -82,7 +82,7 @@ def main():
     p_verify.set_defaults(verify_mode="strict")
 
     # -- depends --
-    p_depends = sub.add_parser("depends", help="Show dependencies")
+    p_depends = sub.add_parser("depends", aliases=["deps"], help="Show dependencies")
     p_depends.add_argument("package")
     p_depends.add_argument("--reverse", action="store_true", help="Show reverse dependencies")
 
@@ -94,6 +94,23 @@ def main():
     p_import = sub.add_parser("import", help="Import existing text manifests into database")
 
     args = parser.parse_args()
+
+    # Natural-language aliases — pkm's "Natural-language CLI" positioning
+    # (README.md:39) accepts what users naturally type. Each alias resolves
+    # to its canonical command name before dispatch so the if/elif chain
+    # below stays single-name-per-operation.
+    _COMMAND_ALIASES = {
+        "sync": "update", "refresh": "update",
+        "uninstall": "remove",
+        "find": "search",
+        "show": "info",
+        "ls": "list",
+        "contents": "files",
+        "deps": "depends",
+    }
+    if args.command in _COMMAND_ALIASES:
+        args.command = _COMMAND_ALIASES[args.command]
+
     if not args.command:
         parser.print_help()
         return
