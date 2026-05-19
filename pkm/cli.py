@@ -110,6 +110,11 @@ def main():
     # -- upgrade --
     p_upgrade = sub.add_parser("upgrade", help="Upgrade installed packages")
     p_upgrade.add_argument("packages", nargs="*", metavar="package", help="Specific packages (default: all)")
+    p_upgrade.add_argument(
+        "--allow-downgrade", action="store_true",
+        help="Treat any version mismatch as upgradable, including repo-older-than-installed "
+             "(used to roll back after a bad release).",
+    )
 
     # -- search --
     p_search = sub.add_parser("search", aliases=["find"], help="Search packages")
@@ -437,17 +442,31 @@ def cmd_update(db, args):
 
 
 def cmd_upgrade(db, args):
+    from .version import is_upgradable, VersionParseError
+
     repo = RepoManager()
     installer = PackageInstaller(db)
+    allow_downgrade = getattr(args, "allow_downgrade", False)
 
-    # Compare installed versions against repo
+    # O-010: route (version, release) compare through pkm.version so that
+    # 1.10 sorts above 1.9, release-suffix bumps are detected, and the
+    # downgrade case requires explicit --allow-downgrade.
     installed = db.list_installed()
     upgradable = []
 
     for pkg in installed:
         remote = repo.get_package(pkg["name"])
-        if remote and remote["version"] != pkg["version"]:
-            upgradable.append((pkg, remote))
+        if not remote:
+            continue
+        try:
+            if is_upgradable(pkg, remote, allow_downgrade=allow_downgrade):
+                upgradable.append((pkg, remote))
+        except VersionParseError as e:
+            print(
+                f"  WARN: cannot compare versions for {pkg['name']}: {e}",
+                file=sys.stderr,
+            )
+            continue
 
     if args.packages:
         # Filter to requested packages
@@ -502,14 +521,26 @@ def cmd_list(db, args):
             desc = f" — {pkg.get('description', '')[:50]}" if pkg.get("description") else ""
             print(f"    {pkg['name']:30s} {pkg['version']:15s}{tier}{desc}")
     elif args.what == "upgradable":
+        from .version import is_upgradable, VersionParseError
         repo = RepoManager()
         installed = db.list_installed()
         count = 0
         for pkg in installed:
             remote = repo.get_package(pkg["name"])
-            if remote and remote["version"] != pkg["version"]:
-                print(f"    {pkg['name']:30s} {pkg['version']:15s} → {remote['version']}")
-                count += 1
+            if not remote:
+                continue
+            try:
+                # O-010: same version-aware compare as cmd_upgrade. Listing
+                # has no --allow-downgrade surface, so default (upgrades only).
+                if is_upgradable(pkg, remote):
+                    print(f"    {pkg['name']:30s} {pkg['version']:15s} → {remote['version']}")
+                    count += 1
+            except VersionParseError as e:
+                print(
+                    f"  WARN: cannot compare versions for {pkg['name']}: {e}",
+                    file=sys.stderr,
+                )
+                continue
         if count == 0:
             print("  Everything is up to date.")
 

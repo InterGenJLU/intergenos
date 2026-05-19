@@ -168,17 +168,28 @@ class PackageDB:
         return dict(zip(cols, row))
 
     def list_installed(self, tier=None):
-        """List all installed packages. Optionally filter by tier."""
+        """List all installed packages. Optionally filter by tier.
+
+        Returns dicts with name/version/release/tier/description. release
+        is included so callers doing version-aware compare (see pkm.version)
+        can disambiguate same-version-different-release upgrades without
+        an extra get_installed roundtrip per package.
+        """
         if tier:
             rows = self.conn.execute(
-                "SELECT name, version, tier, description FROM installed WHERE tier = ? ORDER BY name",
+                "SELECT name, version, release, tier, description FROM installed "
+                "WHERE tier = ? ORDER BY name",
                 (tier,)
             ).fetchall()
         else:
             rows = self.conn.execute(
-                "SELECT name, version, tier, description FROM installed ORDER BY name"
+                "SELECT name, version, release, tier, description FROM installed "
+                "ORDER BY name"
             ).fetchall()
-        return [{"name": r[0], "version": r[1], "tier": r[2], "description": r[3]} for r in rows]
+        return [
+            {"name": r[0], "version": r[1], "release": r[2], "tier": r[3], "description": r[4]}
+            for r in rows
+        ]
 
     def add_installed(self, name, version, release=1, tier=None, description=None,
                       license_=None, build_date=None, install_method="archive",
