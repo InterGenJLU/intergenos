@@ -575,9 +575,19 @@ class RepoManager:
         if result.returncode != 0:
             return False
 
-        # Status-fd line shape (per gpg(1) DETAILS): [GNUPG:] VALIDSIG
-        # <FP> <SIGDATE> <SIGTIME> <EXPIREDATE> <SIG-VERSION> <RESERVED>
-        # <PUBKEY-ALGO> <HASH-ALGO> <SIG-CLASS> <PRIMARY-KEY-FP>
+        # Status-fd line shape (per gpg(1) DETAILS), 0-based token indexing:
+        #   parts[0]  = "[GNUPG:]"
+        #   parts[1]  = "VALIDSIG"
+        #   parts[2]  = SIGNING-KEY-FP    (the subkey that produced the sig)
+        #   parts[3]  = SIGDATE
+        #   parts[4]  = SIGTIME
+        #   parts[5]  = EXPIREDATE
+        #   parts[6]  = SIG-VERSION
+        #   parts[7]  = RESERVED
+        #   parts[8]  = PUBKEY-ALGO
+        #   parts[9]  = HASH-ALGO
+        #   parts[10] = SIG-CLASS         (typically "00" for binary sig)
+        #   parts[11] = PRIMARY-KEY-FP    (the master that certifies the subkey)
         for line in result.stdout.splitlines():
             if not line.startswith("[GNUPG:] VALIDSIG "):
                 continue
@@ -585,10 +595,13 @@ class RepoManager:
             if len(parts) < 3:
                 continue
             signing_fp = parts[2].upper()
-            # Prefer primary-key FP at parts[10] when present (handles
-            # subkey-signed artifacts — common with hardware tokens).
-            if len(parts) >= 11:
-                primary_fp = parts[10].upper()
+            # Prefer primary-key FP at parts[11] when present (handles
+            # subkey-signed artifacts — common with hardware tokens that
+            # carry signing subkeys of a master that is the long-term
+            # trust anchor). Requires at least 12 tokens so parts[11]
+            # exists.
+            if len(parts) >= 12:
+                primary_fp = parts[11].upper()
                 if primary_fp in PINNED_RELEASE_FINGERPRINTS:
                     return True
             if signing_fp in PINNED_RELEASE_FINGERPRINTS:

@@ -164,7 +164,7 @@ if [ "$PRIMARY_FP_IN_VALIDSIG" != "$EPH_FP" ]; then
         exit 1
     fi
 fi
-echo "GREEN-5 PASS: gpg --verify emits VALIDSIG carrying ephemeral FP ${EPH_FP:0:16}... (matches the status-fd line shape pkm.repo._verify_signature parses at repo.py:582-595)"
+echo "GREEN-5 PASS: gpg --verify emits VALIDSIG carrying ephemeral FP ${EPH_FP:0:16}... (matches the status-fd line shape pkm.repo._verify_signature parses)"
 
 # --- RED-1: canonical-only keyring (without ephemeral) refuses verify ---
 CANONICAL_ONLY_KEYRING="$TMPDIR/canonical-only.gpg"
