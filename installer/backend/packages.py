@@ -147,7 +147,7 @@ def install_packages(target, archive_dir, groups, package_dir=None,
     success = 0
     failed = []
 
-    with PackageDB(str(db_path)) as db:
+    with PackageDB(str(db_path), root=target) as db:
         installer = PackageInstaller(db, root=target)
 
         # Build the install queue once so the per-package install() call can

@@ -118,8 +118,9 @@ CREATE TABLE IF NOT EXISTS config_files (
 class PackageDB:
     """Package database interface."""
 
-    def __init__(self, db_path=None):
+    def __init__(self, db_path=None, root="/"):
         self.db_path = Path(db_path) if db_path else DB_PATH
+        self.root = Path(root)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(str(self.db_path))
         self.conn.execute("PRAGMA foreign_keys = ON")
@@ -230,7 +231,7 @@ class PackageDB:
             is_config = path.startswith("etc/") and not is_dir
             checksum = (hashes or {}).get(path)
             if not is_dir and not is_config and checksum is None:
-                abs_path = "/" + path
+                abs_path = str(self.root / path)
                 if os.path.isfile(abs_path):
                     try:
                         checksum = _sha256(abs_path)
@@ -532,7 +533,7 @@ class PackageDB:
         modified = []
 
         for path, is_dir, expected_checksum in rows:
-            abs_path = "/" + path
+            abs_path = str(self.root / path)
             if not os.path.lexists(abs_path):
                 missing.append(path)
             elif strict and expected_checksum:
