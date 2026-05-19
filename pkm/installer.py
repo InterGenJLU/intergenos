@@ -70,6 +70,65 @@ HELPER_ENV_ALLOWLIST = frozenset({
 })
 
 
+def _safe_extract_tar(archive_path, dest, exclude_paths=None):
+    """Extract a .tar.gz archive to dest using the PEP 706 'data' filter.
+
+    H-022: path-traversal hardening for archive extraction.
+    Replaces the legacy subprocess `tar -xzf` invocation which had no built-in
+    protection against `../` members, absolute-path members, or escape-via-
+    symlink. The 'data' filter (PEP 706, available since Python 3.12 and
+    default in 3.14+) blocks:
+      - members with absolute paths (after leading-slash strip)
+      - members whose resolved path escapes dest
+      - hard/symbolic links targeting outside dest
+      - device/character/block/fifo special files
+      - setuid/setgid/sticky bits (caller restores selectively where the
+        original archive metadata indicates the bit is intentional)
+      - uid/gid/uname/gname (set to None — matches the legacy
+        --no-same-owner GNU tar flag)
+      - non-rw group/other permissions on regular files (matches the
+        legacy --no-same-permissions GNU tar flag)
+
+    Fail-closed: any FilterError aborts extraction and returns
+    (False, message). The on-disk state at failure may be partially-
+    extracted; the caller is responsible for cleanup (typically the staging
+    tmpdir which gets rmtree'd in the finally clause of install()).
+
+    Args:
+        archive_path: Path to .tar.gz archive.
+        dest: Path to extraction root (must exist).
+        exclude_paths: Optional iterable of archive-relative member names
+            to skip. Used by the deploy-extract path to drop .PKGINFO +
+            package.yml (H-008 archive-metadata files) and Q4
+            config-protected /etc/* paths.
+
+    Returns:
+        (success: bool, message: str). On success, message is empty. On
+        FilterError, message names the offending member; on other
+        tar/OS errors, message includes the underlying error text.
+    """
+    exclude_set = frozenset(exclude_paths or ())
+
+    def member_filter(member, path):
+        if member.name in exclude_set:
+            return None
+        return tarfile.data_filter(member, path)
+
+    try:
+        with tarfile.open(str(archive_path), "r:gz") as tf:
+            tf.extractall(path=str(dest), filter=member_filter)
+        return True, ""
+    except tarfile.FilterError as e:
+        offending_member = getattr(e, "member", None)
+        offending = offending_member.name if offending_member is not None else "<unknown>"
+        return False, (
+            f"Archive contains unsafe member ({offending}): {e}. "
+            "Refusing to extract — archive may be malicious or corrupt."
+        )
+    except (tarfile.TarError, OSError) as e:
+        return False, f"Failed to extract archive: {e}"
+
+
 class PackageInstaller:
     """Install packages from pre-built archives."""
 
@@ -158,17 +217,16 @@ class PackageInstaller:
 
         staging = Path(tempfile.mkdtemp(prefix=f"pkm-{name}-"))
         try:
-            # Extract archive to staging for inspection. Hardened tar flags:
-            # --no-same-owner: don't preserve UID/GID from archive
-            # --no-same-permissions: apply umask instead of archive perms
-            try:
-                result = subprocess.run(
-                    ["tar", "-xzf", str(archive_path), "-C", str(staging),
-                     "--no-same-owner", "--no-same-permissions"],
-                    capture_output=True, text=True, check=True
-                )
-            except subprocess.CalledProcessError as e:
-                return False, f"Failed to extract archive: {e.stderr}"
+            # H-022: extract archive to staging via Python
+            # tarfile + PEP 706 'data' filter. Path-traversal, absolute-path,
+            # escape-via-symlink, and device-file members are rejected; the
+            # filter also strips uid/gid/uname/gname and setuid/setgid/sticky
+            # bits (the latter are selectively restored further down based on
+            # original archive metadata). Fail-closed: any FilterError aborts
+            # the install with a message naming the offending member.
+            ok, err = _safe_extract_tar(archive_path, staging)
+            if not ok:
+                return False, err
 
             # Read staged manifest (if present): SUPERSEDES + file list + hashes.
             supersedes_decl, manifest_files, manifest_hashes = self._read_staged_manifest(staging, name)
@@ -239,26 +297,35 @@ class PackageInstaller:
             )
 
             # Deploy to target filesystem. This is the gate-3 line: if the
-            # tar succeeds, the supersede transaction below records the
+            # extract succeeds, the supersede transaction below records the
             # ownership transfer; if it fails, no DB changes happen and
             # predecessors keep their records.
-            tar_argv = [
-                "tar", "-xzf", str(archive_path), "-C", str(self.root),
-                "--no-overwrite-dir", "--keep-directory-symlink",
-                "--no-same-owner", "--no-same-permissions",
-                # H-008: archive-level provenance/metadata files are not
-                # deployed to the target — pkm reads them in-staging.
-                "--exclude=.PKGINFO", "--exclude=package.yml",
-            ]
-            # Q4: protect user-edited /etc/* files from overwrite.
-            for protected_rel in config_plan["protect"]:
-                tar_argv.append(f"--exclude={protected_rel}")
-            try:
-                result = subprocess.run(
-                    tar_argv, capture_output=True, text=True, check=True,
-                )
-            except subprocess.CalledProcessError as e:
-                return False, f"Failed to deploy: {e.stderr}"
+            #
+            # H-022: tarfile + PEP 706 'data' filter (path-traversal /
+            # absolute-path / escape-via-symlink hardening). The exclude
+            # set covers (a) H-008 archive-metadata files which are
+            # provenance only and not deployed to the target, and (b) Q4
+            # config-protected /etc/* paths the user has diverged from
+            # baseline (handled via .pkmnew sidecars after deploy).
+            #
+            # Behavioral note on legacy --no-overwrite-dir and
+            # --keep-directory-symlink: the 'data' filter sets directory
+            # mode to None so existing directories are not chmod-overwritten
+            # (matches --no-overwrite-dir); tarfile.makedir catches
+            # FileExistsError silently so an existing directory-symlink
+            # (e.g. /lib → /usr/lib for usr-merge) is preserved and
+            # subsequent file members traverse through it (matches
+            # --keep-directory-symlink). The top-level usr-merge collision
+            # safety check above remains the strict-fail line for
+            # archive-vs-host filesystem-shape mismatches.
+            deploy_excludes = (
+                _ARCHIVE_METADATA_FILES | set(config_plan["protect"])
+            )
+            ok, err = _safe_extract_tar(
+                archive_path, self.root, exclude_paths=deploy_excludes,
+            )
+            if not ok:
+                return False, f"Failed to deploy: {err}"
 
             # Restore setuid/setgid/sticky bits that hardened-tar dropped.
             try:
