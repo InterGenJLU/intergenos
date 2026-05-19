@@ -29,7 +29,7 @@ do_install() {
     set -e
     install -dm755 "${DESTDIR}/usr/share/igos/helpers"
     install -m644 \
-        "${IGOS_SOURCE_ROOT:-/mnt/intergenos}/packages/extra/intergenos-helper-lib/helper-lib.sh" \
+        "${IGOS_SOURCE_ROOT:-/mnt/intergenos}/packages/core/intergenos-helper-lib/helper-lib.sh" \
         "${DESTDIR}/usr/share/igos/helpers/helper-lib.sh"
 
     # Defensive assert: the installed library exports the documented
@@ -51,7 +51,7 @@ do_install() {
     for fn in "${REQUIRED_FUNCTIONS[@]}"; do
         if ! grep -q "^${fn}()" "${DESTDIR}/usr/share/igos/helpers/helper-lib.sh"; then
             echo "FATAL: intergenos-helper-lib is missing required API function: $fn" >&2
-            echo "Edit packages/extra/intergenos-helper-lib/helper-lib.sh to restore it, OR" >&2
+            echo "Edit packages/core/intergenos-helper-lib/helper-lib.sh to restore it, OR" >&2
             echo "land a SUPERSEDES path per RFC §11 if the change is intentional." >&2
             exit 1
         fi

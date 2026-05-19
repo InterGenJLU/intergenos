@@ -74,7 +74,7 @@ HELPER_ENV_ALLOWLIST = frozenset({
 # H-007: install-helper manifest schema for footprint tracking.
 #
 # Helpers write /var/lib/igos/helpers/<name>.manifest as JSON via the
-# /usr/share/igos/helpers/helper-lib.sh API (packages/extra/intergenos-
+# /usr/share/igos/helpers/helper-lib.sh API (packages/core/intergenos-
 # helper-lib). pkm reads the manifest on helper success and threads the
 # file list through PackageDB.add_files / add_depends so pkm
 # files/verify/remove work for helper-installed packages.

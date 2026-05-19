@@ -231,7 +231,7 @@ as future audit rows or registered v1.1 deferrals:
 
 ## References
 
-- [`packages/extra/intergenos-helper-lib/`](../../packages/extra/intergenos-helper-lib/) — the package shipping `helper-lib.sh`
+- [`packages/core/intergenos-helper-lib/`](../../packages/core/intergenos-helper-lib/) — the package shipping `helper-lib.sh`
 - [`packages/extra/chrome-helper/`](../../packages/extra/chrome-helper/) — Phase A canary migration
 - [`pkm/installer.py`](../../pkm/installer.py) — `_run_helper` (helper invocation + manifest read), `_read_helper_manifest` (schema + allowlist + DoS validation)
 - [`pkm/remover.py`](../../pkm/remover.py) — `db.get_files(name)` iteration cleanly handles helper-installed files via the existing remove path
