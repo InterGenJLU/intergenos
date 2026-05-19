@@ -343,5 +343,60 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
     fi
 fi
 
+# ---- 9. v1.1 deferred-followup consistency -------------------------------
+# Per the O-030-followup mechanism (operator greenlit 2026-05-19): every
+# commit that defers scope to v1.1 must register the deferral in
+# docs/v1.1-deferred-followups.md, so the ledger of v1.0/v1.1 scope splits
+# stays auditable and the work cannot be silently lost. The gate scans
+# commit bodies in the push range for future-version-deferral framing; each
+# flagged commit must either reference an existing F-NNN entry by ID OR
+# modify docs/v1.1-deferred-followups.md in the same commit. Override:
+# NO-GATE keyword in commit body (use sparingly; flag operator).
+if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+    BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
+    V11_VIOLATIONS=()
+    for sha in $(git rev-list --no-merges --reverse "$BASE".."$LOCAL"); do
+        msg=$(git log -1 --format=%B "$sha")
+        if echo "$msg" | grep -qE '^NO-GATE:'; then
+            continue
+        fi
+        # Patterns that flag a v1.1 / post-v1.0 deferral
+        if echo "$msg" | grep -qiE 'deferred to v1\.1|post-v1\.0|in v1\.1|v1\.1 follow-?up|defer.{0,40}v1\.1'; then
+            has_fnnn=0
+            has_doc_mod=0
+            if echo "$msg" | grep -qE 'F-[0-9]{3,}'; then
+                has_fnnn=1
+            fi
+            if git show --name-only --format='' "$sha" | grep -qx 'docs/v1.1-deferred-followups.md'; then
+                has_doc_mod=1
+            fi
+            if [ "$has_fnnn" -eq 0 ] && [ "$has_doc_mod" -eq 0 ]; then
+                V11_VIOLATIONS+=("$sha")
+            fi
+        fi
+    done
+    if [ "${#V11_VIOLATIONS[@]:-0}" -gt 0 ]; then
+        echo "[pre-push] BLOCK: v1.1 deferral(s) without ledger entry:"
+        for sha in "${V11_VIOLATIONS[@]}"; do
+            subj=$(git log -1 --format=%s "$sha")
+            echo "    $sha  $subj"
+        done
+        echo ""
+        echo "  Reason: every commit that defers scope to v1.1 must register"
+        echo "  the deferral in docs/v1.1-deferred-followups.md so the work"
+        echo "  is auditable and cannot be silently lost. See the doc header"
+        echo "  for the entry shape."
+        echo ""
+        echo "  Resolve options:"
+        echo "    (a) Add an F-NNN entry to docs/v1.1-deferred-followups.md"
+        echo "        in this commit set, then reference its ID in the body."
+        echo "    (b) Reference an existing F-NNN entry by ID if one already"
+        echo "        covers this deferral."
+        echo "    (c) NO-GATE: <reason> in commit body for legitimate edge"
+        echo "        cases (operator-direct authorization advised)."
+        exit 1
+    fi
+fi
+
 echo "[pre-push] all gates PASS"
 exit 0
