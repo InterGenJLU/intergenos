@@ -343,50 +343,22 @@ glib-compile-schemas /usr/share/glib-2.0/schemas/ 2>/dev/null || true
 log "  Done"
 
 # ============================================================================
-# System-wide theming defaults (dconf + libadwaita override for /etc/skel)
+# System-wide theming defaults — OWNED BY packages/core/intergenos-default-settings
 #
-# Without this, themes/icons are *available* but GNOME falls back to the
-# gsettings-schema baseline (Adwaita/adw-gtk3-dark). Lock in the canonical
-# InterGenOS look as the system default for every new user.
+# Per D-006 owner directive 2026-05-18 + the T0-7-A/T0-7-C ratification
+# commit chain, system-wide GNOME defaults + libadwaita /etc/skel bridge
+# are owned by the intergenos-default-settings package as the canonical
+# SSoT. The package ships:
+#   - /usr/share/glib-2.0/schemas/90_intergenos.gschema.override
+#   - /usr/share/glib-2.0/schemas/91_intergenos-extensions.gschema.override
+#   - /usr/share/glib-2.0/schemas/92_intergenos-desktop.gschema.override
+#   - /etc/skel/.config/gtk-4.0/gtk.css (symlink to canonical theme stylesheet
+#     per audit row J-005)
+# post_install runs glib-compile-schemas.
 #
-# libadwaita apps (gnome-control-center, etc.) ignore gtk-theme by default;
-# they read ~/.config/gtk-4.0/gtk.css instead. Putting the InterGenOS gtk-4.0
-# stylesheet into /etc/skel/.config makes new users automatically inherit it.
+# This block (formerly install-theming.sh:345-389) is retired here per
+# the D-006 SSoT consolidation.
 # ============================================================================
-
-log ""
-log "=== Configuring system-wide theming defaults ==="
-
-# 1. dconf profile + system-wide defaults
-mkdir -p /etc/dconf/profile /etc/dconf/db/local.d
-cat > /etc/dconf/profile/user << 'DCONFPROF'
-user-db:user
-system-db:local
-DCONFPROF
-
-cat > /etc/dconf/db/local.d/00-intergenos-defaults << 'DCONFDEF'
-[org/gnome/desktop/interface]
-gtk-theme='InterGenOS'
-icon-theme='Cybernetic - Blue'
-cursor-theme='Bibata-Modern-Classic'
-color-scheme='prefer-dark'
-
-[org/gnome/shell/extensions/user-theme]
-name='InterGenOS'
-DCONFDEF
-
-dconf update 2>/dev/null || true
-log "  dconf defaults written: gtk=InterGenOS, icons=Cybernetic - Blue, cursor=Bibata-Modern-Classic"
-
-# 2. libadwaita override for new users (gnome-control-center, etc.)
-if [ -f /usr/share/themes/InterGenOS/gtk-4.0/gtk.css ]; then
-    mkdir -p /etc/skel/.config/gtk-4.0
-    cp /usr/share/themes/InterGenOS/gtk-4.0/gtk.css \
-       /etc/skel/.config/gtk-4.0/gtk.css
-    log "  libadwaita override staged in /etc/skel/.config/gtk-4.0/gtk.css"
-else
-    warn "  /usr/share/themes/InterGenOS/gtk-4.0/gtk.css missing — libadwaita override skipped"
-fi
 
 # ============================================================================
 # Welcome greeter autostart
@@ -433,87 +405,25 @@ BMWEOF
 log "  Burn My Windows TV effect configured in /etc/skel"
 
 # ============================================================================
-# nftables firewall
+# nftables firewall — OWNED BY packages/core/intergenos-firewall-defaults
+#
+# Per D-011 owner directive 2026-05-19, /etc/nftables.conf is shipped by
+# the intergenos-firewall-defaults package as the canonical SSoT for
+# system-wide firewall policy. Default-deny INPUT/FORWARD; SSH closed by
+# default; established/related + loopback + ICMP echo-request +
+# fragmentation-needed + IPv6 ND allowed. The upstream packages/core/
+# nftables/ package stays policy-neutral (ships the tool + service unit
+# only).
+#
+# This block (formerly install-theming.sh:435-516) is retired here per
+# the D-011 ratification — install-theming.sh was a second writer with
+# inverted defaults (audit row J-021). The firewall-defaults package is
+# the sole writer now.
+#
+# The nftables.service unit + 90-nftables.preset are still shipped by
+# packages/core/nftables/ (preset enables nftables.service at install
+# time; no explicit enable needed here).
 # ============================================================================
-
-log ""
-log "=== Installing nftables firewall ==="
-cat > /etc/nftables.conf << 'NFTEOF'
-#!/usr/sbin/nft -f
-# InterGenOS default firewall — deny inbound, allow outbound
-
-flush ruleset
-
-table inet filter {
-    chain input {
-        type filter hook input priority filter; policy drop;
-
-        # Loopback
-        iif "lo" accept
-
-        # Drop invalid connections early
-        ct state invalid drop
-
-        # Established/related connections
-        ct state established,related accept
-
-        # ICMP — rate-limited to prevent ping floods
-        ip protocol icmp icmp type echo-request limit rate 10/second accept
-        ip protocol icmp accept
-        ip6 nexthdr ipv6-icmp icmpv6 type { echo-request } limit rate 10/second accept
-        ip6 nexthdr ipv6-icmp icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, nd-router-solicit, nd-router-advert, mld-listener-query, mld-listener-report, mld-listener-done, mld2-listener-report } accept
-
-        # IPv4 multicast group membership (IGMP) — required for mDNS/SSDP/etc. group joins
-        ip protocol igmp accept
-
-        # SSH — rate-limited to prevent brute force
-        tcp dport 22 ct state new limit rate 15/minute burst 5 accept
-
-        # mDNS (Avahi zero-conf)
-        udp dport 5353 accept
-
-        # DHCP client (IPv4 + IPv6)
-        udp sport 67 udp dport 68 accept
-        udp sport 547 udp dport 546 accept
-
-        # Log and drop — rate-limited to prevent log flooding
-        limit rate 10/minute burst 5 log prefix "nftables-drop: "
-        drop
-    }
-
-    chain forward {
-        type filter hook forward priority filter; policy drop;
-    }
-
-    chain output {
-        type filter hook output priority filter; policy accept;
-    }
-}
-NFTEOF
-chmod 644 /etc/nftables.conf
-
-cat > /usr/lib/systemd/system/nftables.service << 'SVCEOF'
-[Unit]
-Description=nftables firewall
-Documentation=man:nft(8)
-Before=network-pre.target
-Wants=network-pre.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/sbin/nft -f /etc/nftables.conf
-ExecReload=/usr/sbin/nft -f /etc/nftables.conf
-ExecStop=/usr/sbin/nft flush ruleset
-
-[Install]
-WantedBy=multi-user.target
-SVCEOF
-
-ln -sf /usr/lib/systemd/system/nftables.service \
-    /etc/systemd/system/multi-user.target.wants/nftables.service 2>/dev/null || true
-
-log "  nftables firewall installed and enabled"
 
 # ============================================================================
 # Cleanup

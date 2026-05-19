@@ -1,0 +1,16 @@
+name: intergenos-firewall-defaults
+version: "1.0.0"
+release: 1
+description: InterGenOS default-deny nftables policy per D-011 owner directive. Ships /etc/nftables.conf with default-drop INPUT/FORWARD + established/related + loopback + ICMP echo-request + fragmentation-needed allowed. SSH closed by default.
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: core
+build_style: custom
+source: []
+dependencies:
+  build: []
+  host:
+    - nftables
+    - coreutils
+verify_paths:
+  - /etc/nftables.conf

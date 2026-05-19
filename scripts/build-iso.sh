@@ -68,6 +68,21 @@ if [ -x "${SCRIPT_DIR}/check-d010-compliance.sh" ]; then
 fi
 
 # --------------------------------------------------------------------------
+# D-011 compliance gate (Class A — blocks ISO assembly on violation)
+# --------------------------------------------------------------------------
+if [ -x "${SCRIPT_DIR}/check-d011-compliance.sh" ]; then
+    echo "[build-iso] Running D-011 compliance gate..." >&2
+    if ! "${SCRIPT_DIR}/check-d011-compliance.sh"; then
+        echo "" >&2
+        echo "[build-iso] ERROR: D-011 compliance gate FAILED." >&2
+        echo "[build-iso] Refusing to assemble ISO with firewall-policy violations." >&2
+        echo "[build-iso] See docs/owner-directives.md D-011 for canonical requirements." >&2
+        exit 1
+    fi
+    echo "[build-iso] D-011 compliance gate PASS" >&2
+fi
+
+# --------------------------------------------------------------------------
 # Inputs + defaults
 # --------------------------------------------------------------------------
 

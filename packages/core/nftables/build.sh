@@ -37,10 +37,10 @@ do_install() {
     install -Dm644 "$BUILD_DIR/nftables.service" \
                    "$DESTDIR/usr/lib/systemd/system/nftables.service"
 
-    # Ship a permissive default ruleset at /etc/nftables.conf so the
-    # service has something to load on first start. Operators tighten
-    # the default-accept policies to default-drop + explicit allow
-    # rules as their network exposure model requires.
-    install -Dm644 "$BUILD_DIR/nftables.conf" \
-                   "$DESTDIR/etc/nftables.conf"
+    # /etc/nftables.conf is OWNED BY packages/core/intergenos-firewall-defaults
+    # since the D-011 ratification commit (2026-05-19). This upstream-tool
+    # package stays policy-neutral per the directive — Fedora / Ubuntu /
+    # openSUSE pattern at our size. Users who `pkm remove intergenos-
+    # firewall-defaults` lose /etc/nftables.conf entirely (intentional;
+    # they're explicitly taking firewall in hand).
 }

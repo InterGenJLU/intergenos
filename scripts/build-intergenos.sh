@@ -1128,6 +1128,20 @@ phase_image() {
     fi
     log "  D-010 compliance gate PASS"
 
+    # D-011 compliance gate — refuse to assemble any shippable artifact
+    # until default-deny firewall posture is correct. See
+    # docs/owner-directives.md D-011 (Class A gate).
+    log "  Running D-011 compliance gate..."
+    if ! bash "${SCRIPTS}/check-d011-compliance.sh" 2>&1 | tee -a "$BUILD_LOG"; then
+        log ""
+        log "  ERROR: D-011 compliance gate FAILED."
+        log "  Refusing to assemble disk image with firewall-policy violations."
+        log "  See docs/owner-directives.md D-011 for the canonical requirements."
+        log "  Fix violations and re-run phase_image."
+        exit 1
+    fi
+    log "  D-011 compliance gate PASS"
+
     # Tear down chroot mounts before imaging
     log "  Tearing down chroot mounts..."
     bash "${SCRIPTS}/chroot-teardown.sh" 2>&1 | tee -a "$BUILD_LOG" || true
