@@ -794,6 +794,72 @@ def cmd_upgrade(db, args):
         return
 
     for installed_pkg, remote_pkg in upgradable:
+        # O-005: install any new dependencies the upgrade introduces
+        # BEFORE touching the upgrade target. resolve_dependencies
+        # short-circuits on already-installed, so call it once per
+        # direct dep + union the topo-sorted install orders. Failure
+        # to resolve / download / install a new dep skips this upgrade
+        # (treated as one transactional unit per the audit-row remediation).
+        new_deps_to_install = []
+        seen_new = set()
+        dep_resolution_failed = False
+        for direct_dep in (remote_pkg.get("depends", []) or []):
+            if db.get_installed(direct_dep):
+                continue
+            dep_ok, chain = repo.resolve_dependencies(direct_dep, db)
+            if not dep_ok:
+                print(
+                    f"  WARN: cannot resolve new dep '{direct_dep}' for "
+                    f"{remote_pkg['name']}: {chain}",
+                    file=sys.stderr,
+                )
+                dep_resolution_failed = True
+                break
+            for d in chain:
+                if d not in seen_new:
+                    seen_new.add(d)
+                    new_deps_to_install.append(d)
+        if dep_resolution_failed:
+            print(
+                f"  Skipping upgrade of {remote_pkg['name']}: new "
+                f"dependency resolution failed (see WARN above).",
+                file=sys.stderr,
+            )
+            continue
+
+        dep_install_failed = False
+        for new_dep in new_deps_to_install:
+            dl_ok, dl_result = repo.download_package(new_dep)
+            if not dl_ok:
+                print(
+                    f"  ERROR downloading new dep {new_dep}: {dl_result}",
+                    file=sys.stderr,
+                )
+                dep_install_failed = True
+                break
+            new_dep_pkg = repo.get_package(new_dep)
+            new_dep_sha = new_dep_pkg.get("sha256") if new_dep_pkg else None
+            dep_ok, dep_msg = installer.install(
+                new_dep, archive_path=dl_result,
+                expected_sha256=new_dep_sha,
+                install_reason="dependency",
+            )
+            if not dep_ok:
+                print(
+                    f"  ERROR installing new dep {new_dep}: {dep_msg}",
+                    file=sys.stderr,
+                )
+                dep_install_failed = True
+                break
+            print(f"  Installed new dep for {remote_pkg['name']}: {new_dep}")
+        if dep_install_failed:
+            print(
+                f"  Skipping upgrade of {remote_pkg['name']} due to new "
+                f"dependency install failure.",
+                file=sys.stderr,
+            )
+            continue
+
         dl_ok, dl_result = repo.download_package(remote_pkg["name"])
         if not dl_ok:
             print(f"  ERROR downloading {remote_pkg['name']}: {dl_result}", file=sys.stderr)
@@ -1220,6 +1286,22 @@ def _print_upgrade_plan_summary(upgradable, held_excluded_names, db):
         print(
             f"  Excluded (held): {', '.join(held_excluded_names)} "
             f"(use --ignore-holds to override)"
+        )
+
+    # O-005: surface new dependencies the upgrades will pull in so the
+    # user knows what they're consenting to before the [y/N] prompt.
+    # Walk each remote_pkg.depends list; entries not in the installed
+    # set are new deps. Transitive deps may add more at install time;
+    # those surface in per-package install output.
+    installed_name_set = {p["name"] for p in db.list_installed()}
+    new_dep_set = set()
+    for _, remote_pkg in upgradable:
+        for d in (remote_pkg.get("depends", []) or []):
+            if d not in installed_name_set:
+                new_dep_set.add(d)
+    if new_dep_set:
+        print(
+            f"  New dependencies to install: {', '.join(sorted(new_dep_set))}"
         )
 
     # Q5 integration: classify each upgrade target against the currently-
