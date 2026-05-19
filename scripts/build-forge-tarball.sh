@@ -53,6 +53,40 @@ rsync -a --exclude='__pycache__' --exclude='*.pyc' \
     "$INSTALLER_DIR/" "$STAGE_DIR/installer/"
 cp "$MANPAGE_SRC" "$STAGE_DIR/forge.1"
 
+# C-004 fix: stage per-package post_install hook content (build.sh +
+# package.yml only — NOT source tarballs / patches) at installer-hooks/
+# in the tarball. Shipping into /usr/share/intergenos/installer-hooks/ via
+# forge package's do_install gives run_post_install_hooks a source-tree
+# shape to iterate (tier_dir/pkg_dir/build.sh) — fixes the long-standing
+# silent-no-op against the flat pkm manifest dir at /var/lib/igos/packages.
+#
+# Same path also serves packages.install_packages's tier-filtering at
+# packages.py:90-99 — single packages_dir argument feeds both consumers.
+HOOKS_STAGE="$STAGE_DIR/installer-hooks"
+mkdir -p "$HOOKS_STAGE"
+HOOK_PKG_COUNT=0
+for tier_dir in "$REPO_ROOT/packages"/*/; do
+    tier_name=$(basename "$tier_dir")
+    # Skip toolchain — these are bootstrap-only packages with no
+    # install-time post_install relevance (executed during chroot
+    # construction, never at user-install time).
+    [ "$tier_name" = "toolchain" ] && continue
+    for pkg_dir in "$tier_dir"*/; do
+        [ -d "$pkg_dir" ] || continue
+        pkg_name=$(basename "$pkg_dir")
+        build_sh="$pkg_dir/build.sh"
+        [ -f "$build_sh" ] || continue
+        dest="$HOOKS_STAGE/$tier_name/$pkg_name"
+        mkdir -p "$dest"
+        cp "$build_sh" "$dest/build.sh"
+        if [ -f "$pkg_dir/package.yml" ]; then
+            cp "$pkg_dir/package.yml" "$dest/package.yml"
+        fi
+        HOOK_PKG_COUNT=$((HOOK_PKG_COUNT+1))
+    done
+done
+echo "[build-forge-tarball] staged installer-hooks for $HOOK_PKG_COUNT package(s)"
+
 mkdir -p "$SOURCES_DIR"
 
 # Force-overwrite if a stale tarball exists.

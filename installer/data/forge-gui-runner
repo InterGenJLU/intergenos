@@ -57,4 +57,4 @@ done < "${ENV_FILE}"
 echo "execing /usr/bin/forge --mode gui ..."
 exec /usr/bin/forge --mode gui \
     --archives /var/lib/igos/archives \
-    --packages /var/lib/igos/packages
+    --packages /usr/share/intergenos/installer-hooks

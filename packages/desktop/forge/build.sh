@@ -46,6 +46,39 @@ do_install() {
     # to /usr/lib/systemd/system, not into the Python module tree.
     rm -rf "${DESTDIR}/usr/lib/python3.14/site-packages/installer/data"
 
+    # C-009: smoke tree lives canonically at /usr/lib/intergenos/ (see
+    # smoke-test.sh:13-16 header). Drop the site-packages duplicate so the
+    # /usr/lib/intergenos/ copy is the only invocable framework — avoids
+    # drift between two trees + matches the documented runtime location.
+    rm -rf "${DESTDIR}/usr/lib/python3.14/site-packages/installer/smoke"
+
+    # ---- C-004: installer post_install hook source tree --------------------
+    # run_post_install_hooks scans packages_dir for tier/pkg/build.sh shape.
+    # The pkm manifest dir at /var/lib/igos/packages has flat <name>-<ver>/
+    # layout (no tier shape) — hooks never fired prior to this. The forge
+    # tarball stages packages/*/<pkg>/{build.sh,package.yml} at
+    # ./installer-hooks/ (see scripts/build-forge-tarball.sh); ship that to
+    # /usr/share/intergenos/installer-hooks/ and point forge-tui.service +
+    # forge-gui-runner at the new path via their ExecStart lines.
+    install -dm755 "${DESTDIR}/usr/share/intergenos"
+    cp -a ./installer-hooks "${DESTDIR}/usr/share/intergenos/installer-hooks"
+
+    # ---- C-009: smoke tree at canonical /usr/lib/intergenos/ ---------------
+    # smoke-test.sh:25-27 self-locates via readlink so it runs from either
+    # the source tree or the installed path. Install the framework files
+    # + create the /usr/bin/intergenos-smoke-test symlink that the
+    # smoke-test.sh header documents as the user-facing entry point.
+    install -dm755 "${DESTDIR}/usr/lib/intergenos"
+    install -m755 ./installer/smoke/smoke-test.sh \
+        "${DESTDIR}/usr/lib/intergenos/smoke-test.sh"
+    install -m644 ./installer/smoke/lib.sh \
+        "${DESTDIR}/usr/lib/intergenos/lib.sh"
+    install -dm755 "${DESTDIR}/usr/lib/intergenos/checks"
+    install -m644 ./installer/smoke/checks/*.sh \
+        "${DESTDIR}/usr/lib/intergenos/checks/"
+    ln -sf /usr/lib/intergenos/smoke-test.sh \
+        "${DESTDIR}/usr/bin/intergenos-smoke-test"
+
     # ---- /usr/bin/forge wrapper ---------------------------------------------
     install -dm755 "${DESTDIR}/usr/bin"
     cat > "${DESTDIR}/usr/bin/forge" <<'FORGE'

@@ -16,7 +16,7 @@ Before=getty@tty1.service
 [Service]
 Type=oneshot
 RemainAfterExit=no
-ExecStart=/usr/bin/forge --mode tui --archives /var/lib/igos/archives --packages /var/lib/igos/packages
+ExecStart=/usr/bin/forge --mode tui --archives /var/lib/igos/archives --packages /usr/share/intergenos/installer-hooks
 StandardInput=tty
 StandardOutput=tty
 TTYPath=/dev/tty1

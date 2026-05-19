@@ -23,9 +23,12 @@ verify_paths:
   - /usr/bin/forge
   - /usr/bin/forge-gui-launch
   - /usr/bin/forge-gui-runner
+  - /usr/bin/intergenos-smoke-test
+  - /usr/lib/intergenos/smoke-test.sh
   - /usr/lib/python3.14/site-packages/installer
   - /usr/lib/systemd/system/forge-tui.service
   - /usr/share/applications/forge-gui.desktop
+  - /usr/share/intergenos/installer-hooks
   - /usr/share/man/man1/forge.1
   - /usr/share/polkit-1/actions/org.intergenos.forge.policy
   - /usr/share/polkit-1/rules.d/49-intergenos-forge.rules
