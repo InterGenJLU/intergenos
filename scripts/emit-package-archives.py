@@ -31,6 +31,82 @@ DEFAULT_MANIFEST_DIR = "/var/lib/igos/packages"
 DEFAULT_CHROOT = "/mnt/igos"
 
 
+def _read_pkg_yml_fields(yml_path):
+    """Extract flat top-level scalar fields from a package.yml for .PKGINFO.
+
+    Targets: tier, license, release. Other fields (name/version/description)
+    are already populated by _read_manifest from the prose manifest.
+
+    Hand-parses the YAML rather than depending on PyYAML; only top-level
+    scalars are recognized (`key: value` lines outside any block scope).
+    Lines starting with `#`, blank lines, and block continuations (e.g.
+    `depends:` followed by indented entries) are tolerated by skipping.
+
+    Returns: dict with present-keys-only (no defaults).
+    """
+    fields = {}
+    if not yml_path or not yml_path.exists():
+        return fields
+    targets = {"tier", "license", "release", "description", "name", "version"}
+    block_open = False
+    try:
+        for line in yml_path.read_text().splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            # A non-comment indented line means we're inside a block scope;
+            # skip until we return to column 0.
+            if line[:1] in (" ", "\t"):
+                continue
+            block_open = False
+            if ":" not in stripped:
+                continue
+            key, _, value = stripped.partition(":")
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if not value:
+                # Bare `key:` line opens a block (e.g. depends:)
+                block_open = True
+                continue
+            if key in targets:
+                fields[key] = value
+    except OSError:
+        pass
+    return fields
+
+
+def _render_pkginfo(meta, yml_fields):
+    """Compose canonical lowercase Arch-style .PKGINFO key=value content.
+
+    H-008 + Path A (ratified 2026-05-19 cross-coordinator). pkm._parse_pkginfo
+    at pkm/repo.py:575 already expects this format with builddate→build_date
+    and size→installed_size mappings.
+    """
+    name = meta.get("name", "unknown")
+    version = meta.get("version", "unknown")
+    description = (
+        yml_fields.get("description") or meta.get("description", "")
+    )
+    license_ = yml_fields.get("license", "")
+    tier = yml_fields.get("tier", "")
+    release = yml_fields.get("release", "1")
+    build_date = meta.get("build_date", "")
+    installed_size = meta.get("installed_size", 0)
+    file_count = len(meta.get("files", []))
+    lines = [
+        f"pkgname={name}",
+        f"pkgver={version}",
+        f"pkgrel={release}",
+        f"pkgdesc={description}",
+        f"license={license_}",
+        f"tier={tier}",
+        f"builddate={build_date}",
+        f"size={installed_size}",
+        f"filecount={file_count}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def _read_manifest(manifest_path):
     """Parse a Slackware-style manifest file.
 
@@ -157,22 +233,30 @@ def emit_archive(manifest_path, chroot, output_dir):
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # H-008: source tier/license/release/description fields from package.yml
+    # (since the prose manifest doesn't carry these). pkm._parse_pkginfo at
+    # pkm/repo.py:575 reads the resulting .PKGINFO at install time and
+    # populates the installed table's tier/description/license/build_date
+    # columns. Path A — lowercase Arch-style keys ratified 2026-05-19.
+    pkg_yml = _resolve_package_yml(name)
+    yml_fields = _read_pkg_yml_fields(pkg_yml)
+    pkginfo_content = _render_pkginfo(meta, yml_fields)
+
     # Build archive using Python tarfile (no shell, per Rule #6)
     with tarfile.open(archive_path, "w:gz") as tar:
         # Add installed files at their correct paths
         for arcname, fullpath in files_to_add:
             tar.add(fullpath, arcname=arcname)
 
-        # Add the manifest itself (as .PKGINFO for pkm compatibility)
-        manifest_content = manifest_path.read_text()
+        # Add canonical .PKGINFO (H-008 Path A: key=value, not the prose
+        # manifest_content this used to write; pkm consumes via _parse_pkginfo)
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp:
-            tmp.write(manifest_content)
+            tmp.write(pkginfo_content)
             tmp.flush()
             tar.add(tmp.name, arcname=".PKGINFO")
             os.unlink(tmp.name)
 
         # Add package.yml if we can find it (provenance)
-        pkg_yml = _resolve_package_yml(name)
         if pkg_yml:
             tar.add(pkg_yml, arcname="package.yml")
 

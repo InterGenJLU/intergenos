@@ -131,6 +131,26 @@ class PackageTracker:
             f"{len(file_hashes)} hashed)"
         )
 
+        # H-008: write canonical .PKGINFO key=value alongside the staged tree.
+        # pkg_archive (next gate) packs staging_dir/. into the archive, so
+        # .PKGINFO travels with the artifact. pkm._parse_pkginfo at
+        # pkm/repo.py:575 expects lowercase Arch-style keys; format
+        # ratified 2026-05-19 cross-coordinator (Path A). Build-time fields
+        # (tier/license/description) come from pkg.* dataclass; size +
+        # builddate computed above.
+        pkginfo_lines = [
+            f"pkgname={pkg.name}",
+            f"pkgver={pkg.version}",
+            f"pkgrel={pkg.release}",
+            f"pkgdesc={pkg.description}",
+            f"license={pkg.license}",
+            f"tier={pkg.tier}",
+            f"builddate={datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}",
+            f"size={total_size}",
+            f"filecount={len(file_paths)}",
+        ]
+        (staging_dir / ".PKGINFO").write_text("\n".join(pkginfo_lines) + "\n")
+
         # Stash for pkg_register_pkm_db, which the builder calls at gate-3
         # (after pkg_deploy succeeds). Writing the DB here would violate
         # RFC §4a — a deploy failure would leave pkm with a record for an

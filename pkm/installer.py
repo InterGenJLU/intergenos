@@ -39,6 +39,12 @@ from .database import (
     _sha256,
     _parse_manifest_line,
 )
+from .repo import _read_package_meta
+
+# H-008: archive-bundled metadata files (provenance + key=value pkginfo) are
+# read at install time for the DB metadata population, but must NOT be
+# tracked as installed files on the target filesystem.
+_ARCHIVE_METADATA_FILES = frozenset({".PKGINFO", "package.yml"})
 
 
 # Environment allowlist for install-helper subprocess execution (H-024).
@@ -121,9 +127,16 @@ class PackageInstaller:
             # Read staged manifest (if present): SUPERSEDES + file list + hashes.
             supersedes_decl, manifest_files, manifest_hashes = self._read_staged_manifest(staging, name)
 
+            # H-008: read canonical .PKGINFO key=value for tier/description/
+            # license/build_date population at add_installed below. Falls back
+            # to empty dict for archives built before .PKGINFO ratification.
+            pkginfo = _read_package_meta(archive_path) or {}
+
             # Build canonical file list from the staged tree itself; the
             # manifest's file list is a transparency artifact, not the
-            # authoritative ownership record.
+            # authoritative ownership record. Skip archive-level metadata
+            # files (.PKGINFO + package.yml) — they're provenance/metadata,
+            # not installed-system payload.
             file_list = []
             for root, dirs, files in os.walk(staging):
                 for d in sorted(dirs):
@@ -132,6 +145,8 @@ class PackageInstaller:
                         file_list.append(rel + "/")
                 for f in sorted(files):
                     rel = os.path.relpath(os.path.join(root, f), staging)
+                    if rel in _ARCHIVE_METADATA_FILES:
+                        continue
                     file_list.append(rel)
 
             # Predecessor validation. Missing or already-superseded predecessors
@@ -172,7 +187,10 @@ class PackageInstaller:
                 result = subprocess.run(
                     ["tar", "-xzf", str(archive_path), "-C", str(self.root),
                      "--no-overwrite-dir", "--keep-directory-symlink",
-                     "--no-same-owner", "--no-same-permissions"],
+                     "--no-same-owner", "--no-same-permissions",
+                     # H-008: archive-level provenance/metadata files are not
+                     # deployed to the target — pkm reads them in-staging.
+                     "--exclude=.PKGINFO", "--exclude=package.yml"],
                     capture_output=True, text=True, check=True
                 )
             except subprocess.CalledProcessError as e:
@@ -207,9 +225,17 @@ class PackageInstaller:
             # REPLACE handles re-registration.
             self.db.conn.execute("BEGIN")
             try:
+                # H-008: populate tier/description/license/build_date from
+                # archive .PKGINFO. pkm._parse_pkginfo returned an empty dict
+                # for pre-H-008 archives so this stays backward-compatible.
                 pkg_id = self.db.add_installed(
                     name=name, version=version, install_method="archive",
-                    archive_path=str(archive_path), commit=False,
+                    archive_path=str(archive_path),
+                    tier=pkginfo.get("tier"),
+                    description=pkginfo.get("description"),
+                    license_=pkginfo.get("license"),
+                    build_date=pkginfo.get("builddate"),
+                    commit=False,
                 )
                 self.db.add_files(pkg_id, file_list, hashes=hashes_for_db, commit=False)
 
