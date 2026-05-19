@@ -536,7 +536,7 @@ Each entry uses this shape:
 ## D-012 — Fleet-wide PreToolUse hook distribution (no-deferment programmatic enforcement)
 
 - **Issued:** 2026-05-19T22:01:30Z by owner
-- **Context:** The `block-deferral-framing.sh` PreToolUse hook was installed SPOC-local 2026-05-19 ~16:55 CDT in response to operator-direct standing direction *"I WANT EVERY SINGLE POSSIBLE INVOCATION OF THE IDEA OF [DEFERMENT] TO BE PROGRAMMATICALLY BLOCKED"* during the T0-3 sprint deferment-disguise arc. The hook fires on `Write`/`Edit`/`Bash`/`mcp__*post_message` for 100+ patterns across 18 categories. SPOC-only installation left IGOSC + WC ungated — a deferment-write surface that could ship to git before peer-review. Build-system coordinator proposed fleet-wide distribution via git; operator pushed back: `.claude/` is gitignored because other distros' research showed they emphatically do not advertise AI involvement in development. Solution: directive-based distribution. SPOC broadcasts the canonical hook content via bus; each coordinator writes locally and registers in their settings.json. The hook never enters the public artifact.
+- **Context:** The `block-deferral-framing.sh` PreToolUse hook was installed on the build-system coordinator's host 2026-05-19 ~16:55 CDT in response to operator-direct standing direction *"I WANT EVERY SINGLE POSSIBLE INVOCATION OF THE IDEA OF [DEFERMENT] TO BE PROGRAMMATICALLY BLOCKED"* during the T0-3 sprint deferment-disguise arc. The hook fires on `Write`/`Edit`/`Bash`/`mcp__*post_message` for 100+ patterns across 18 categories. Installation on one coordinator only left the other two ungated — a deferment-write surface that could ship to git before peer-review. Build-system coordinator proposed distribution across all coordinators via git; operator pushed back: `.claude/` is gitignored because other distros' research showed they emphatically do not advertise AI involvement in development. Solution: directive-based distribution. Build-system coordinator broadcasts the canonical hook content via bus; each coordinator writes locally and registers in their settings.json. The hook never enters the public artifact.
 - **Verbatim:**
 
   > OWNER DIRECTIVE:
@@ -568,19 +568,19 @@ Each entry uses this shape:
   - Commit messages may reference the hook by filename (`block-deferral-framing.sh`) since the hook's self-reference exemption catches that pattern and it is a single short string with low information leakage. Commit messages MUST NOT include the hook's content or pattern list.
 
 - **Supersedes:**
-  - SPOC-only installation of the hook (2026-05-19 ~16:55 CDT) — D-012 expands distribution to all three coordinators.
-  - Earlier dispatch broadcast (2026-05-19T21:55:46Z) language framing the hook as SPOC-local — superseded by D-012's fleet-wide posture.
+  - Single-coordinator installation of the hook (2026-05-19 ~16:55 CDT) — D-012 expands distribution to all three coordinators.
+  - Earlier dispatch broadcast (2026-05-19T21:55:46Z) language framing the hook as one-coordinator-local — superseded by D-012's all-coordinators posture.
 
 - **Composes with:**
-  - **D-009** (Universal development checklist) — item 5 prohibits deferment in any form without operator direction. D-012 is the mechanical enforcement of D-009 item 5 across the fleet (D-009 is the policy, D-012 is the gate).
-  - **Operator-direct 2026-05-19 ~16:55 CDT** — original verbal directive ("PROGRAMMATICALLY BLOCKED") that drove the hook authoring. D-012 elevates that verbal direction from SPOC-internal tooling to fleet-wide canonical mechanism.
-  - **`feedback_owner_followup_failure_class`** — D-012 is a direct application: operator's original direction (fleet-wide enforcement, not SPOC-only) might have stayed verbal-only and rotted; capturing as D-NNN is the antidote.
+  - **D-009** (Universal development checklist) — item 5 prohibits deferment in any form without operator direction. D-012 is the mechanical enforcement of D-009 item 5 across all three coordinators (D-009 is the policy, D-012 is the gate).
+  - **Operator-direct 2026-05-19 ~16:55 CDT** — original verbal directive ("PROGRAMMATICALLY BLOCKED") that drove the hook authoring. D-012 elevates that verbal direction from build-system-coordinator-internal tooling to canonical mechanism applying across all three coordinators.
+  - **`feedback_owner_followup_failure_class`** — D-012 is a direct application: operator's original direction (enforcement across all three coordinators, not one-coordinator-only) might have stayed verbal-only and rotted; capturing as D-NNN is the antidote.
 
 - **Implementation backlog:**
-  - SPOC: bus broadcast with hook SHA256 + install instructions (immediate follow-on to this directive landing)
-  - IGOSC: install + register + ACK with verification test
-  - WC: install + register + ACK with verification test
-  - SPOC: confirm fleet-wide installation via aggregated ACK reading
+  - Build-system coordinator: bus broadcast with hook SHA256 + install instructions (immediate follow-on to this directive landing)
+  - Installed-system coordinator: install + register + ACK with verification test
+  - Windows-host coordinator: install + register + ACK with verification test
+  - Build-system coordinator: confirm installation across all three coordinators via aggregated ACK reading
   - Pattern-list version-tracking: optional future enhancement (currently hook content + SHA is the version; bus archive is the change log)
 
-- **Status:** ACTIVE — fleet-wide installation pending IGOSC + WC ACKs; SPOC installation already live since 2026-05-19 ~16:55 CDT.
+- **Status:** ACTIVE — installation across all three coordinators pending installed-system + Windows-host coordinator ACKs; build-system coordinator installation already live since 2026-05-19 ~16:55 CDT.
