@@ -57,6 +57,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.request
 import urllib.error
 from datetime import datetime, timedelta, timezone
@@ -353,6 +354,14 @@ class RepoManager:
             }
             if parser.has_option(section, "gpg_verify"):
                 cfg["gpg_verify"] = parser.getboolean(section, "gpg_verify")
+            # Q6 (O-031): optional `mirrors = url1, url2, ...` failover list.
+            # Primary url is tried first; mirrors are walked in declaration
+            # order after the primary's retry budget exhausts. Static
+            # priority — no active probing per the operator-greenlit spec.
+            if parser.has_option(section, "mirrors"):
+                raw = parser.get(section, "mirrors")
+                mirrors = [m.strip() for m in raw.split(",") if m.strip()]
+                cfg["mirrors"] = mirrors
             repos[section] = cfg
 
         if not repos:
@@ -437,14 +446,103 @@ class RepoManager:
 
         return results
 
-    def _download(self, url, dest):
-        """Download a file with progress indication."""
-        req = urllib.request.Request(url, headers={
-            "User-Agent": "pkm/1.0 (InterGenOS)"
-        })
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            with open(dest, "wb") as f:
-                shutil.copyfileobj(resp, f)
+    # Q6 (O-024): retry + exponential backoff schedule. Three attempts
+    # per mirror with 2s / 8s / 30s gaps. Each retry attempts HTTP Range
+    # resume from previously-written bytes, so a flaky connection that
+    # dropped at 95% does NOT restart from byte 0.
+    _DOWNLOAD_RETRY_BACKOFF = (2, 8, 30)
+    _DOWNLOAD_TIMEOUT_SECONDS = 30
+
+    def _download(self, url, dest, max_retries=None, backoff_seq=None,
+                  partial_path=None):
+        """Download a file with retry + exponential backoff + Range resume.
+
+        Args:
+            url: source URL.
+            dest: final destination path. The completed download is moved
+                here atomically once the full body is received.
+            max_retries: override attempts (default: 3 per
+                _DOWNLOAD_RETRY_BACKOFF).
+            backoff_seq: override sleep schedule (default: 2s, 8s, 30s).
+            partial_path: optional Path for the resumable partial. Default
+                is REPO_CACHE_DIR/partial/<dest.name>.part so concurrent
+                mirror failover attempts can share progress.
+
+        Raises:
+            urllib.error.URLError / OSError after all retries exhaust.
+        """
+        max_retries = max_retries or len(self._DOWNLOAD_RETRY_BACKOFF)
+        backoff_seq = backoff_seq or self._DOWNLOAD_RETRY_BACKOFF
+
+        dest = Path(dest)
+        if partial_path is None:
+            partial_dir = REPO_CACHE_DIR / "partial"
+            partial_dir.mkdir(parents=True, exist_ok=True)
+            partial_path = partial_dir / (dest.name + ".part")
+        else:
+            partial_path = Path(partial_path)
+            partial_path.parent.mkdir(parents=True, exist_ok=True)
+
+        last_exc = None
+        for attempt in range(max_retries):
+            if attempt > 0:
+                sleep_sec = backoff_seq[min(attempt - 1, len(backoff_seq) - 1)]
+                time.sleep(sleep_sec)
+            try:
+                offset = partial_path.stat().st_size if partial_path.exists() else 0
+                headers = {"User-Agent": f"pkm/{__version__} (InterGenOS)"}
+                if offset > 0:
+                    headers["Range"] = f"bytes={offset}-"
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(
+                    req, timeout=self._DOWNLOAD_TIMEOUT_SECONDS,
+                ) as resp:
+                    # 206 Partial Content honors our Range request — append.
+                    # 200 OK means the server ignored Range — restart from 0
+                    # (re-truncate partial). Some mirrors serve identical
+                    # content via 200 regardless; safer to start fresh than
+                    # concatenate two full bodies.
+                    if offset > 0 and resp.status == 206:
+                        mode = "ab"
+                    else:
+                        mode = "wb"
+                    with open(partial_path, mode) as f:
+                        shutil.copyfileobj(resp, f)
+                # Atomic-on-same-filesystem move once the body is complete.
+                shutil.move(str(partial_path), str(dest))
+                return
+            except (urllib.error.URLError, urllib.error.HTTPError, OSError) as e:
+                last_exc = e
+                continue
+
+        # Retries exhausted. Leave the partial in place for the NEXT
+        # mirror's attempt OR for a future call that may resume — the
+        # range request will pick up wherever the bytes stopped.
+        raise last_exc if last_exc else urllib.error.URLError(
+            f"download failed after {max_retries} retries with no exception"
+        )
+
+    def _mirror_urls_for_pkg(self, pkg, filename):
+        """Build the ordered URL list for downloading `filename` from `pkg`.
+
+        Returns:
+            list[str] — primary URL first, then any mirror URLs declared
+            on the repo stanza. Each URL is the fully-qualified archive
+            location (base + "/" + filename, normalized for trailing /).
+        """
+        repo_cfg = self.repos.get(pkg.get("repo"), {})
+        urls = []
+        # Primary URL: either the package's repo URL or pkg['repo'] when
+        # the package metadata itself carries the absolute URL form.
+        if "://" in pkg.get("repo", ""):
+            base = pkg["repo"]
+        else:
+            base = repo_cfg.get("url", "")
+        if base:
+            urls.append(f"{base.rstrip('/')}/{filename}")
+        for mirror in repo_cfg.get("mirrors", []):
+            urls.append(f"{mirror.rstrip('/')}/{filename}")
+        return urls
 
     def _verify_signature(self, data_path, sig_path):
         """Verify GPG detached signature against PINNED_RELEASE_FINGERPRINTS.
@@ -696,6 +794,12 @@ class RepoManager:
     def download_package(self, name):
         """Download a package archive, verify checksum.
 
+        Q6 (O-024 + O-031): _download retries 3x with 2s/8s/30s backoff
+        per mirror; this method walks the primary URL + repos.conf
+        `mirrors = ...` list in declaration order, failing over after
+        each mirror's retry budget exhausts. Final all-mirrors-exhausted
+        error surfaces the last per-mirror failure reason.
+
         Returns:
             (success, local_path_or_error_message)
         """
@@ -707,8 +811,12 @@ class RepoManager:
         if not filename:
             filename = f"{name}-{pkg['version']}-{pkg.get('release', 1)}.igos.tar.gz"
 
-        url = f"{pkg['repo']}/{filename}" if "://" in pkg.get("repo", "") else \
-              f"{self.repos[pkg['repo']]['url'].rstrip('/')}/{filename}"
+        urls = self._mirror_urls_for_pkg(pkg, filename)
+        if not urls:
+            return False, (
+                f"no download URL available for {name} (repo "
+                f"{pkg.get('repo')!r} has no url + no mirrors)"
+            )
 
         local_path = REPO_PKG_CACHE / filename
 
@@ -719,10 +827,23 @@ class RepoManager:
             else:
                 local_path.unlink()  # Stale/corrupt cache or missing sha256
 
-        try:
-            self._download(url, local_path)
-        except Exception as e:
-            return False, f"download failed: {e}"
+        # Q6: walk mirrors in priority order; each mirror gets the full
+        # retry-with-backoff budget before failover.
+        per_mirror_failures = []
+        for url in urls:
+            try:
+                self._download(url, local_path)
+                break
+            except Exception as e:
+                per_mirror_failures.append(f"{url}: {e}")
+                continue
+        else:
+            # All mirrors exhausted — surface each failure so the user
+            # can see which mirrors were tried and why each one failed.
+            lines = "\n  ".join(per_mirror_failures)
+            return False, (
+                f"download failed across {len(urls)} mirror(s):\n  {lines}"
+            )
 
         # Verify checksum
         expected = pkg.get("sha256")

@@ -466,6 +466,24 @@ def cmd_install(db, args):
             if len(deps) > 1:
                 print(f"  Will install {len(deps)} packages: {', '.join(deps)}")
 
+            # Q6 (O-025): free-disk preflight across the resolved-dep queue.
+            from . import preflight
+            from .repo import REPO_PKG_CACHE
+            dep_sizes = []
+            for d in deps:
+                dpkg = repo.get_package(d)
+                if dpkg:
+                    dep_sizes.append(int(dpkg.get("size") or 0))
+            if any(s > 0 for s in dep_sizes):
+                required = preflight.estimate_required_space(dep_sizes)
+                check = preflight.check_free_space(required, REPO_PKG_CACHE)
+                if not check["ok"]:
+                    print(
+                        f"  ERROR: {preflight.format_preflight_failure(check, REPO_PKG_CACHE)}",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+
             for dep_name in deps:
                 dl_ok, dl_result = repo.download_package(dep_name)
                 if not dl_ok:
@@ -689,6 +707,24 @@ def cmd_upgrade(db, args):
         else:
             print("  Everything is up to date.")
         return
+
+    # Q6 (O-025): free-disk preflight. Sum repo-declared compressed
+    # sizes across the queue; refuse if /var/cache/pkm/ can't hold the
+    # extraction estimate with safety margin. Run BEFORE plan summary +
+    # confirmation prompt so the user isn't asked to confirm an upgrade
+    # that's going to fail mid-extraction.
+    from . import preflight
+    from .repo import REPO_PKG_CACHE
+    archive_sizes = [int(r.get("size") or 0) for _, r in upgradable]
+    if any(s > 0 for s in archive_sizes):
+        required = preflight.estimate_required_space(archive_sizes)
+        check = preflight.check_free_space(required, REPO_PKG_CACHE)
+        if not check["ok"]:
+            print(
+                f"  ERROR: {preflight.format_preflight_failure(check, REPO_PKG_CACHE)}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     # Q3: plan summary + Q5 service-restart classification integration.
     _print_upgrade_plan_summary(upgradable, held_excluded_names, db)
