@@ -1895,11 +1895,16 @@ def _cache_clean_rollback(db):
       - For packages no longer installed: remove all their rollback
         archives -- no install state left to roll back to.
 
-    Files in REPO_ROLLBACK_DIR that do not match the
-    <name>-<version>-<release>.igos.tar.gz shape are left untouched
-    with a single WARN.
+    Implementation note (db-driven longest-prefix-match): the rollback
+    filename shape is `<name>-<version>-<release>.igos.tar.gz` where
+    both `<name>` and `<version>` may contain hyphens (9 in-tree
+    packages today including dialog `1.3-20260107` and imagemagick
+    `7.1.2-13` plus 7 desktop themes with date-shaped versions). A
+    single regex cannot disambiguate the boundary, so this routine
+    asks the DB for the set of known installed package names + uses
+    longest-prefix-match against each rollback file to assign it to a
+    package. Files that match no installed name are orphans + removed.
     """
-    import re
     from .repo import REPO_ROLLBACK_DIR
 
     if not REPO_ROLLBACK_DIR.exists():
@@ -1912,34 +1917,36 @@ def _cache_clean_rollback(db):
         print("  Rollback cache is empty; nothing to clean.")
         return 0
 
-    pattern = re.compile(r"^(.+)-([^-]+)-(\d+)\.igos\.tar\.gz$")
-    by_pkg = {}
-    unmatched = []
+    # Sort installed names longest-first so longest-prefix-match wins
+    # (e.g. `dialog-tui` wins over `dialog` for a `dialog-tui-1.0-1...`
+    # file when both packages are installed).
+    installed_names = sorted(
+        (row["name"] for row in db.list_installed()),
+        key=len,
+        reverse=True,
+    )
+
+    by_pkg = {}      # installed_name -> list of (path, mtime)
+    orphans = []     # files whose name-prefix matches no installed package
     for path in archives:
-        m = pattern.match(path.name)
-        if not m:
-            unmatched.append(path)
-            continue
-        name, version, release = m.group(1), m.group(2), int(m.group(3))
-        by_pkg.setdefault(name, []).append(
-            (path, version, release, path.stat().st_mtime),
-        )
+        fname = path.name
+        matched = None
+        for name in installed_names:
+            if fname.startswith(name + "-"):
+                matched = name
+                break
+        if matched is None:
+            orphans.append(path)
+        else:
+            by_pkg.setdefault(matched, []).append(
+                (path, path.stat().st_mtime),
+            )
 
-    if unmatched:
-        print(
-            f"  WARN: {len(unmatched)} file(s) in {REPO_ROLLBACK_DIR} did "
-            "not match the <name>-<version>-<release>.igos.tar.gz shape; "
-            "leaving them untouched.",
-            file=sys.stderr,
-        )
-
-    to_remove = []
+    to_remove = list(orphans)
     for name, entries in by_pkg.items():
-        installed = db.get_installed(name)
-        if not installed:
-            to_remove.extend(e[0] for e in entries)
-            continue
-        entries.sort(key=lambda e: e[3], reverse=True)
+        # Keep the most-recent (freshest pre-upgrade snapshot); remove
+        # older entries for the same installed package.
+        entries.sort(key=lambda e: e[1], reverse=True)
         to_remove.extend(e[0] for e in entries[1:])
 
     if not to_remove:

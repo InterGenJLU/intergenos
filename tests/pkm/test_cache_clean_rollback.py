@@ -120,27 +120,25 @@ class CacheCleanRollbackTests(unittest.TestCase):
         self.assertFalse(ghost_a.exists())
         self.assertFalse(ghost_b.exists())
 
-    def test_unparseable_filename_left_untouched_with_warn(self):
+    def test_orphan_archive_with_no_matching_prefix_removed(self):
+        # File with .igos.tar.gz suffix but no installed-name prefix is
+        # treated as orphan + removed under the db-driven inversion.
+        # Previous regex-parsing impl had "leave alone with WARN"
+        # semantics for unparseable shapes; the new impl uses db.
+        # list_installed() as ground-truth + cleans anything not owned.
         self.db.add_installed("glibc", "2.40", release=1, tier="core")
         kept = _touch_archive(self.rollback_dir, "glibc", "2.40", release=1, age_offset_s=10)
-        # Caught by the glob (.igos.tar.gz suffix matches) but the regex
-        # for <name>-<version>-<release> does not match -- triggers the
-        # unmatched WARN path.
-        weird = self.rollback_dir / "no-version-or-release.igos.tar.gz"
-        weird.write_bytes(b"weird")
-        import io
-        buf = io.StringIO()
-        with patch.object(sys, "stderr", buf):
-            rc = _cache_clean_rollback(self.db)
+        orphan = self.rollback_dir / "no-version-or-release.igos.tar.gz"
+        orphan.write_bytes(b"weird")
+        rc = _cache_clean_rollback(self.db)
         self.assertEqual(rc, 0)
-        self.assertTrue(weird.exists())
+        self.assertFalse(orphan.exists())  # orphan removed
         self.assertTrue(kept.exists())
-        self.assertIn("did not match", buf.getvalue())
 
     def test_dashed_package_name_parses_correctly(self):
-        # linux-firmware has a dash in the name + dashed version.
-        # The regex must be non-greedy on name capture so the
-        # trailing -<release>.igos.tar.gz anchors correctly.
+        # linux-firmware has a dash in the name. With db-driven inversion,
+        # the longest-prefix-match correctly identifies the file's owner
+        # without ambiguity.
         self.db.add_installed("linux-firmware", "20251001", release=1, tier="core")
         old = _touch_archive(self.rollback_dir, "linux-firmware", "20240901", release=1, age_offset_s=200)
         new = _touch_archive(self.rollback_dir, "linux-firmware", "20251001", release=1, age_offset_s=10)
@@ -148,6 +146,63 @@ class CacheCleanRollbackTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertFalse(old.exists())
         self.assertTrue(new.exists())
+
+    def test_hyphenated_version_dialog_archetype_kept(self):
+        # BLOCKING-A regression test (dialog 1.3-20260107 archetype).
+        # Before db-driven inversion the regex
+        # `^(.+)-([^-]+)-(\d+)\.igos\.tar\.gz$` would greedy-backtrack
+        # on `dialog-1.3-20260107-1.igos.tar.gz` yielding
+        # name=`dialog-1.3`, version=`20260107`, release=1. The
+        # destructive "package dialog-1.3 not installed -> remove
+        # all archives" path then deleted the real dialog rollback.
+        # With db-driven inversion the file's "dialog-" prefix matches
+        # the actually-installed "dialog" name + is correctly grouped.
+        self.db.add_installed("dialog", "1.3-20260107", release=1, tier="core")
+        kept = _touch_archive(
+            self.rollback_dir, "dialog", "1.3-20260107", release=1, age_offset_s=10,
+        )
+        rc = _cache_clean_rollback(self.db)
+        self.assertEqual(rc, 0)
+        self.assertTrue(kept.exists())
+
+    def test_hyphenated_version_imagemagick_archetype_kept(self):
+        # BLOCKING-A regression test (imagemagick 7.1.2-13 archetype).
+        # Same destructive parse path as dialog above; the
+        # 7.1.2-13-style version with a single-trailing-hyphen-number
+        # is a different hyphen distribution but the same failure mode.
+        self.db.add_installed("imagemagick", "7.1.2-13", release=1, tier="desktop")
+        kept = _touch_archive(
+            self.rollback_dir, "imagemagick", "7.1.2-13", release=1, age_offset_s=10,
+        )
+        rc = _cache_clean_rollback(self.db)
+        self.assertEqual(rc, 0)
+        self.assertTrue(kept.exists())
+
+    def test_hyphenated_name_longest_prefix_match(self):
+        # When "dialog" + "dialog-tui" (hypothetical) are both installed,
+        # a file `dialog-tui-X.igos.tar.gz` groups under `dialog-tui`
+        # via longest-prefix-match, not `dialog`. Each grouping
+        # independently keeps most-recent + removes older.
+        self.db.add_installed("dialog", "1.0", release=1, tier="core")
+        self.db.add_installed("dialog-tui", "2.0", release=1, tier="extra")
+        dialog_old = _touch_archive(
+            self.rollback_dir, "dialog", "0.9", release=1, age_offset_s=200,
+        )
+        dialog_new = _touch_archive(
+            self.rollback_dir, "dialog", "1.0", release=1, age_offset_s=10,
+        )
+        dtui_old = _touch_archive(
+            self.rollback_dir, "dialog-tui", "1.9", release=1, age_offset_s=200,
+        )
+        dtui_new = _touch_archive(
+            self.rollback_dir, "dialog-tui", "2.0", release=1, age_offset_s=10,
+        )
+        rc = _cache_clean_rollback(self.db)
+        self.assertEqual(rc, 0)
+        self.assertFalse(dialog_old.exists())   # older dialog removed
+        self.assertTrue(dialog_new.exists())    # newest dialog kept
+        self.assertFalse(dtui_old.exists())     # older dialog-tui removed (grouped separately)
+        self.assertTrue(dtui_new.exists())      # newest dialog-tui kept
 
 
 if __name__ == "__main__":
