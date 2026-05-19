@@ -127,7 +127,7 @@ The fde-init script emits journal-grep-friendly prefixes when running EXPERIMENT
 | Prefix | What it means |
 |---|---|
 | `[fde-init][EXPERIMENTAL TPM2]` | TPM2 unlock attempt — outcomes include `skipping` (no `/dev/tpmrm0`, no tools, or no sealed blob on ESP), `attempting unlock via sealed key (PCR0+PCR7)`, `tpm2_load failed`, `tpm2_unseal | cryptsetup failed (PCR drift? broken seal?)`, or `unlock succeeded`. |
-| `[fde-init][EXPERIMENTAL FIDO2]` | FIDO2 unlock attempt — outcomes include `skipping` (no tools or no metadata), `attempting unlock — plug your security token + touch when it blinks`, `no FIDO2 token detected within 30s`, `fido2-assert | cryptsetup failed (token-not-touched? wrong token? firmware changed?)`, or `unlock succeeded`. |
+| `[fde-init][EXPERIMENTAL FIDO2]` | FIDO2 unlock attempt — outcomes include `skipping` (no tools or no metadata), `attempting unlock — plug your security token + touch when it blinks`, `no FIDO2 token detected within 30s`, a specific diagnostic from the fido2-assert + base64 + cryptsetup pipeline (4 possible variants: subprocess non-zero / output-line-6 empty / base64-decode-or-cryptsetup-open failed / stdin-build failed — see `installer/init/fde-init.sh` for the exact text), or `unlock succeeded`. |
 | `[fde-init]` (no `EXPERIMENTAL` suffix) | Passphrase prompt path, the recovery-shell drop, and root-mount errors. |
 
 These messages go to the console during early boot. After the system is up, they are also captured by systemd-journald and remain available via `journalctl -b | grep fde-init`.
