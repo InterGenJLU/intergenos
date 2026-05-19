@@ -1,0 +1,15 @@
+name: intergenos-keyring
+version: "0.1.0"
+release: 1
+description: InterGenOS GPG release keyring — populates /etc/pkm/trusted.gpg with the master pubkey so pkm can verify signed index downloads
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: core
+build_style: custom
+source: []
+dependencies:
+  build: []
+  host:
+    - gnupg
+verify_paths:
+  - /etc/pkm/trusted.gpg

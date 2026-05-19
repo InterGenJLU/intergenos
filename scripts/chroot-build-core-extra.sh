@@ -503,6 +503,10 @@ run_package "pkm" "pkm" "0.1.0" \
     "" \
     "InterGenOS package manager — install, remove, query, verify"
 
+run_package "intergenos-keyring" "intergenos-keyring" "0.1.0" \
+    "" \
+    "InterGenOS GPG release keyring — /etc/pkm/trusted.gpg"
+
 run_package "help2man" "help2man" "1.49.3" \
     "help2man-1.49.3.tar.xz" \
     "Generate man pages from --help output"
