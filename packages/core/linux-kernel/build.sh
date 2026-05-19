@@ -68,10 +68,22 @@ do_install() {
     cp -r Documentation/* "${DESTDIR}/usr/share/doc/linux-6.18.10"
 
     # Stage kernel source + .config + Module.symvers for reproducibility
-    # and out-of-tree module builds (DKMS, NVIDIA, VirtualBox, ZFS).
-    # Without this, /lib/modules/<ver>/build is a dangling symlink to the
-    # ephemeral build work-dir, and DKMS cannot work. Aligns with PRIME
-    # DIRECTIVE: users control their machine — they get the source.
+    # and to keep /lib/modules/<ver>/build as a valid symlink target for
+    # manual out-of-tree module builds. Without this staged source tree,
+    # /lib/modules/<ver>/build is a dangling symlink to the ephemeral
+    # build work-dir and out-of-tree builds cannot resolve kernel headers.
+    #
+    # Automated rebuild-on-kernel-upgrade (DKMS-style triggers for
+    # NVIDIA / VirtualBox / ZFS / other proprietary modules) is NOT
+    # wired in this release. Users running manually-built kernel modules
+    # must rebuild them against the new kernel after each `pkm upgrade
+    # linux-kernel` until automated rebuild support is added. Per Rule 21
+    # (no stub claims), this file used to claim "supports DKMS" — the
+    # claim was aspirational; the comment now describes what is actually
+    # shipped. Closes O-034.
+    #
+    # Aligns with PRIME DIRECTIVE: users control their machine — they get
+    # the source.
     local pkg_ver="${PKG_VERSION:-6.18.10}"
     local src_stage="${DESTDIR}/usr/src/linux-${pkg_ver}"
     install -v -dm755 "${DESTDIR}/usr/src"
