@@ -83,17 +83,25 @@ check_signing_audit_log() {
         return
     fi
 
-    # Each line is a JSON event with prev_hash + this_hash + event payload.
-    # Walk the chain: every line N's prev_hash must equal line (N-1)'s this_hash.
-    # Genesis line's prev_hash is the all-zeros sentinel.
+    # Each line is a JSON event with prev + entry_sha256 + event payload.
+    # Walk the chain: every line N's prev must equal line (N-1)'s entry_sha256.
+    # Genesis line's prev is the "GENESIS" sentinel (per integrity.py:_last_chain_hash).
+    #
+    # C-008: integrity.py is the source-of-truth for field names ("prev" +
+    # "entry_sha256" at integrity.py:227-235 + :269-276). Earlier this check
+    # read "prev_hash" + "this_hash" which never matched any audit-log entry,
+    # so every smoke run with a real audit log hit "missing this_hash" → fail
+    # — silently masking any actual chain break. Renaming integrity.py fields
+    # instead would break prior installs' audit logs; check side updated to
+    # match the on-disk schema.
     local lineno=0 prev="" expected=""
     while IFS= read -r line; do
         lineno=$((lineno+1))
         local ph th
-        ph="$(printf '%s' "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('prev_hash',''))" 2>/dev/null)"
-        th="$(printf '%s' "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('this_hash',''))" 2>/dev/null)"
+        ph="$(printf '%s' "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('prev',''))" 2>/dev/null)"
+        th="$(printf '%s' "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('entry_sha256',''))" 2>/dev/null)"
         if [ -z "$th" ]; then
-            check_fail "sign/audit-log" "line $lineno missing this_hash"
+            check_fail "sign/audit-log" "line $lineno missing entry_sha256"
             return
         fi
         if [ -n "$expected" ] && [ "$ph" != "$expected" ]; then
