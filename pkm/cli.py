@@ -1,7 +1,16 @@
 """pkm CLI — Natural-language command interface for InterGenOS package management."""
 
 import argparse
+import contextlib
 import sys
+from pathlib import Path
+
+try:
+    import fcntl
+    _HAS_FLOCK = True
+except ImportError:
+    fcntl = None
+    _HAS_FLOCK = False
 
 from . import __version__
 from .database import PackageDB
@@ -9,6 +18,54 @@ from .installer import PackageInstaller
 from .remover import PackageRemover
 from .verifier import PackageVerifier
 from .repo import RepoManager
+
+
+# H-023: serialize concurrent pkm mutations via fcntl.flock on /var/lock/pkm.lock.
+# Mutating subcommands acquire LOCK_EX | LOCK_NB at top of dispatch; second
+# concurrent mutator gets immediate failure with a hint, not a silent wait
+# (Holy-Grail-aligned posture: prefer fail-loud over queue-and-hope).
+PKM_LOCK_PATH = Path("/var/lock/pkm.lock")
+PKM_MUTATING_COMMANDS = frozenset({
+    "install", "install-helper", "remove", "update", "upgrade", "import",
+})
+
+
+@contextlib.contextmanager
+def _pkm_mutation_lock(command):
+    """Acquire fcntl.flock on PKM_LOCK_PATH for the duration of a mutating
+    subcommand. No-op for read-only commands or platforms without fcntl
+    (e.g. test runs on Windows where fcntl is unavailable; production pkm
+    only runs on Linux). Raises sys.exit(1) on lock-contention.
+    """
+    if command not in PKM_MUTATING_COMMANDS or not _HAS_FLOCK:
+        yield
+        return
+    try:
+        PKM_LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        print(f"  ERROR: cannot create lock-file parent dir {PKM_LOCK_PATH.parent}: {e}",
+              file=sys.stderr)
+        sys.exit(1)
+    fd = open(str(PKM_LOCK_PATH), "w")
+    try:
+        try:
+            fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except (BlockingIOError, OSError):
+            fd.close()
+            print(
+                f"  ERROR: another pkm operation is in progress (lock held on "
+                f"{PKM_LOCK_PATH}). Wait for it to complete, or check for stale "
+                f"pkm processes (`fuser {PKM_LOCK_PATH}` or `lsof {PKM_LOCK_PATH}`).",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        yield
+    finally:
+        try:
+            fcntl.flock(fd.fileno(), fcntl.LOCK_UN)
+        except OSError:
+            pass
+        fd.close()
 
 
 def main():
@@ -118,34 +175,35 @@ def main():
     db = PackageDB(args.db)
 
     try:
-        if args.command == "install":
-            cmd_install(db, args)
-        elif args.command == "install-helper":
-            cmd_install_helper(db, args)
-        elif args.command == "remove":
-            cmd_remove(db, args)
-        elif args.command == "update":
-            cmd_update(db, args)
-        elif args.command == "upgrade":
-            cmd_upgrade(db, args)
-        elif args.command == "list":
-            cmd_list(db, args)
-        elif args.command == "search":
-            cmd_search(db, args)
-        elif args.command == "info":
-            cmd_info(db, args)
-        elif args.command == "files":
-            cmd_files(db, args)
-        elif args.command == "provides":
-            cmd_provides(db, args)
-        elif args.command == "verify":
-            cmd_verify(db, args)
-        elif args.command == "depends":
-            cmd_depends(db, args)
-        elif args.command == "history":
-            cmd_history(db, args)
-        elif args.command == "import":
-            cmd_import(db, args)
+        with _pkm_mutation_lock(args.command):
+            if args.command == "install":
+                cmd_install(db, args)
+            elif args.command == "install-helper":
+                cmd_install_helper(db, args)
+            elif args.command == "remove":
+                cmd_remove(db, args)
+            elif args.command == "update":
+                cmd_update(db, args)
+            elif args.command == "upgrade":
+                cmd_upgrade(db, args)
+            elif args.command == "list":
+                cmd_list(db, args)
+            elif args.command == "search":
+                cmd_search(db, args)
+            elif args.command == "info":
+                cmd_info(db, args)
+            elif args.command == "files":
+                cmd_files(db, args)
+            elif args.command == "provides":
+                cmd_provides(db, args)
+            elif args.command == "verify":
+                cmd_verify(db, args)
+            elif args.command == "depends":
+                cmd_depends(db, args)
+            elif args.command == "history":
+                cmd_history(db, args)
+            elif args.command == "import":
+                cmd_import(db, args)
     finally:
         db.close()
 
