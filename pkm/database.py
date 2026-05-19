@@ -8,6 +8,7 @@ import hashlib
 import os
 import re
 import sqlite3
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
