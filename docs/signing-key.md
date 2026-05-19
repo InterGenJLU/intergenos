@@ -122,6 +122,35 @@ Subkeys rotate on a 2-year cadence; next rotation 2028-05-04.
 
 Emergency rollover (compromise): see the trust-anchor compromise policy in [SECURITY.md](../SECURITY.md). 6-hour-to-revocation SLA applies; the orderly 30-day overlap does not.
 
+### Multi-Key Trust Window (Operator Procedure)
+
+The 30-day overlap window above requires the end-user-side keyring + pkm verifier to trust both the outgoing and incoming subkeys simultaneously. Two coordinated artifacts make this work:
+
+| Artifact | What changes during overlap | What changes after overlap |
+|---|---|---|
+| `docs/signing-key-next.asc` | Operator commits this file containing the incoming subkey's ASCII-armored pubkey (signed by master per step 3 above). `packages/core/intergenos-keyring/build.sh` imports it into `/etc/pkm/trusted.gpg` alongside `docs/signing-key.asc` when present. | Operator removes this file and re-exports `docs/signing-key.asc` with only the new subkey active. |
+| `pkm/release-keys.json` `keys` dict | Operator adds a new entry (e.g. `S5`) with the incoming subkey's 40-char fingerprint, role label, and aliases. `pkm/repo.py:_load_pinned_fingerprints` natively unions all entries — no parser change required. | Operator removes the retired subkey's entry (the one whose key was revoked at step 6). |
+
+Step-by-step (apply between steps 4 and 5 of the §Rollover procedure above, then again after step 6):
+
+**Begin overlap window** (after the new subkey has been published and cross-attested):
+
+1. ASCII-armor-export the incoming subkey pubkey to `docs/signing-key-next.asc` (signed by master so transparency-log verifiers can chain the rotation evidence — see [repository-trust.md §4 Key Rotation](repository-trust.md#4-key-rotation) and §5 transparency log).
+2. Add a new entry under `keys` in `pkm/release-keys.json`, naming it `S5` (or the next available slot) with the incoming subkey's fingerprint, role label (e.g. "transition signing (Nitrokey NK5 serial XXXXXXXX)"), and aliases.
+3. Commit both files in a single coordinated commit so reviewers see the artifact + the pin update together.
+4. Bump `packages/core/intergenos-keyring/package.yml` version (e.g. `0.1.0` → `0.2.0`) so end users pick up the dual-key keyring via `pkm upgrade intergenos-keyring`.
+5. Rebuild + publish `intergenos-keyring` through the normal release pipeline.
+
+**End overlap window** (after the outgoing subkey has been revoked at step 6):
+
+1. Delete `docs/signing-key-next.asc`.
+2. Re-export `docs/signing-key.asc` with only the new subkey active (the old subkey is revoked at the master keyring level, so its presence in the bundle no longer implies trust — but cleaning it from the bundle removes the failed-trust-decision noise from `gpg --verify` output).
+3. Remove the retired subkey's entry from `pkm/release-keys.json`.
+4. Bump `intergenos-keyring` version again (e.g. `0.2.0` → `0.3.0`).
+5. Rebuild + publish.
+
+End-user effect: across the rotation window, `pkm update` clients fetch the dual-key `intergenos-keyring` package once, then quietly accept signatures from either the outgoing or the incoming subkey until the overlap ends. No client-side configuration change required. No `pkm` CLI surface for trust-anchor management — rotation flows through git commits + standard package upgrades, keeping the trust state inspectable and audit-friendly per the Prime Directive.
+
 ## Contact
 
 Security reports: `security@intergenstudios.com` — see [SECURITY.md](../SECURITY.md) for the full disclosure policy and PGP-encryption expectations.

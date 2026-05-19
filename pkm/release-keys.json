@@ -1,5 +1,5 @@
 {
-  "comment": "InterGenOS release signing keys. Canonical source of fingerprint data. docs/signing-key.md references this file.",
+  "comment": "InterGenOS release signing keys. Canonical source of fingerprint data. docs/signing-key.md references this file. During subkey rotation per docs/signing-key.md Rollover (30-day overlap window), the operator adds transition entries (e.g. S5, S6) for incoming subkey fingerprints alongside the existing S1..S4 entries; pkm/repo.py _load_pinned_fingerprints unions all values under `keys`, so any signature from either the outgoing or incoming subkey verifies. After the overlap ends and the outgoing subkey is revoked, the operator removes the retired entries. Master fingerprint does not appear here (master signs cross-attestations; only signing subkeys sign releases) and does not rotate in the subkey-rotation flow.",
   "keys": {
     "S1": {
       "fingerprint": "D7AA641D81ACD690C5AD865E7276E14DD8886BFE",

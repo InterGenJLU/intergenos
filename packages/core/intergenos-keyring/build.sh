@@ -36,13 +36,43 @@ do_install() {
         --keyring "${DESTDIR}/etc/pkm/trusted.gpg" \
         --import /mnt/intergenos/docs/signing-key.asc
 
+    # Q10 subkey-rotation transition: during the 30-day overlap window
+    # described in docs/signing-key.md §Rollover, the operator stages the
+    # incoming subkey at docs/signing-key-next.asc as a separate armored
+    # bundle. When present, import it into the SAME keyring so
+    # /etc/pkm/trusted.gpg holds BOTH the outgoing AND incoming subkeys
+    # for the duration of the overlap. The master-fingerprint assert
+    # below stays unchanged: the master does not rotate in the v1.0
+    # subkey-only rotation flow (master rotation is a compromise-triggered
+    # ceremony with a separate operator runbook). After the overlap ends
+    # and the outgoing subkey is revoked, the operator removes
+    # docs/signing-key-next.asc and re-exports docs/signing-key.asc with
+    # only the new subkey active.
+    #
+    # The pkm-side pin set in pkm/release-keys.json must be extended with
+    # the incoming subkey's fingerprint (a new entry under `keys` — e.g.
+    # S5/S6) before this conditional import takes effect at end-user
+    # install time; otherwise the verifier rejects new-subkey signatures
+    # via the L-025 pinned-fingerprint check even though gpg's own trust
+    # decision passes.
+    NEXT_KEY="/mnt/intergenos/docs/signing-key-next.asc"
+    if [ -f "$NEXT_KEY" ]; then
+        GNUPGHOME="$TMPHOME" gpg \
+            --no-permission-warning \
+            --no-default-keyring \
+            --keyring "${DESTDIR}/etc/pkm/trusted.gpg" \
+            --import "$NEXT_KEY"
+    fi
+
     # Defensive assert: verify the imported keyring contains the canonical
     # master fingerprint. If docs/signing-key.asc ever drifts (key rotation
     # without coordinating updates, accidental different-key commit, or
     # silent file corruption gpg tolerates) this halts the build rather
     # than shipping a wrong-key keyring. The fingerprint is the canonical
     # InterGenOS master release-signing key as published in
-    # docs/signing-key.md and pinned at pkm/release-keys.json.
+    # docs/signing-key.md and pinned at pkm/release-keys.json. The Q10
+    # subkey-rotation flow above does NOT change the master fingerprint
+    # so this assert is unchanged across the rotation window.
     # Composes with the artifact-integrity ≠ behavioral-integrity discipline
     # — verify what's emitted, not just that the emit-step ran.
     EXPECTED_FP="5597A3E0587B253006D0DD7B8C50826182083050"

@@ -45,7 +45,9 @@ InterGenOS builds from source and uses a robust vendor-tarball pipeline to ensur
 
 ## 4. Key Rotation
 
-The subkeys used to sign packages operate on a 2-year cadence. When a key is rotated, the new keys will be distributed via a intergenos-keyring package update during a 30-day overlap window. The rollover announcements are signed by the offline master key, and the procedure is detailed in the [Signing Key Ceremony Procedure](ceremony/signing-key-ceremony-procedure.md).
+The subkeys used to sign packages operate on a 2-year cadence. When a key is rotated, the new keys will be distributed via a intergenos-keyring package update during a 30-day overlap window. The rollover announcements are signed by the offline master key, and the procedure is detailed in the [Signing Key Ceremony Procedure](ceremony/signing-key-ceremony-procedure.md). The operator-side multi-key trust window (parallel `docs/signing-key.asc` + `docs/signing-key-next.asc` keyring bundles, additive `pkm/release-keys.json` entries) is documented in [docs/signing-key.md §Multi-Key Trust Window](signing-key.md#multi-key-trust-window-operator-procedure).
+
+Rotation evidence appears in the §5 transparency log: every signed-by-the-master cross-attestation of an incoming subkey, and every revocation announcement at the end of the overlap window, lands as a transparency-log entry alongside the regular release-publish entries. Co-maintainers cross-checking via the §5 procedure can therefore detect rotation events that were not authorized by the master (i.e. an attacker-published "new subkey" that the legitimate master never signed) — the missing transparency-log entry is the tell.
 
 ## 5. Transparency Log Cross-Check (L-024)
 
