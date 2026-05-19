@@ -184,6 +184,24 @@ def main():
     p_refresh.add_argument("paths", nargs="+", metavar="path",
                            help="One or more /etc/* paths (absolute or relative)")
 
+    # -- check-updates -- (Q8 Phase A notification-surface substrate)
+    p_check = sub.add_parser(
+        "check-updates",
+        help="Check for available package upgrades; write JSON summary",
+        description=(
+            "Compares installed package versions against the configured repos "
+            "and writes a structured JSON summary to "
+            "/var/lib/pkm/available-updates.json. Consumed by the systemd "
+            "timer (Q8 Phase B) + GNOME notification extension (Q8 Phase C) + "
+            "MOTD line (Q8 Phase D). NEVER auto-upgrades — informational only "
+            "per the operator-greenlit Q8 design."
+        ),
+    )
+    p_check.add_argument(
+        "--quiet", action="store_true",
+        help="Suppress stdout; write JSON only (default for unattended timer use)",
+    )
+
     # -- restart-services -- (Q5 user-driven service restart per O-029)
     p_restart = sub.add_parser(
         "restart-services",
@@ -332,6 +350,8 @@ def main():
                 cmd_mark(db, args)
             elif args.command == "autoremove":
                 cmd_autoremove(db, args)
+            elif args.command == "check-updates":
+                cmd_check_updates(db, args)
     finally:
         db.close()
 
@@ -1125,6 +1145,137 @@ def cmd_autoremove(db, args):
             print(f"  ERROR removing {o['name']}: {msg}", file=sys.stderr)
             any_failed = True
     return 1 if any_failed else 0
+
+
+# Q8 Phase A: notification-surface substrate. The systemd timer +
+# GNOME extension + MOTD line (Phases B/C/D, landing in a follow-on
+# bundle commit) all read this JSON file. Atomic write via tmp +
+# rename so concurrent readers never see a partial JSON document.
+# Path is module-level for production use; cmd_check_updates accepts
+# an `output_path` kwarg so tests can target a temp directory without
+# touching system state.
+AVAILABLE_UPDATES_PATH = Path("/var/lib/pkm/available-updates.json")
+
+
+def cmd_check_updates(db, args, output_path=None):
+    """Compare installed packages against repos; write JSON summary.
+
+    Substrate for the Q8 notification surface. NEVER auto-upgrades —
+    informational only per the operator-greenlit Q8 design. The
+    consumers (systemd timer + GNOME extension + MOTD line) read the
+    written JSON; this function only writes it.
+
+    JSON shape:
+        {
+            "timestamp": "2026-05-19T07:24:00Z",
+            "checked_at": 1748254800,
+            "count": 3,
+            "packages": [
+                {
+                    "name": "firefox",
+                    "installed_version": "138.0",
+                    "installed_release": 1,
+                    "remote_version": "139.0",
+                    "remote_release": 1
+                },
+                ...
+            ]
+        }
+
+    Returns 0 on success, exits with 1 on write failure (so the
+    systemd timer's Restart=on-failure policy sees the error). The
+    --quiet flag suppresses stdout output for unattended timer runs;
+    the JSON is always written regardless of --quiet.
+    """
+    import json
+    import os
+    import time
+    from .version import is_upgradable, VersionParseError
+
+    if output_path is None:
+        output_path = AVAILABLE_UPDATES_PATH
+    output_path = Path(output_path)
+
+    repo = RepoManager()
+    installed = db.list_installed()
+    packages = []
+
+    for pkg in installed:
+        remote = repo.get_package(pkg["name"])
+        if not remote:
+            continue
+        try:
+            if is_upgradable(pkg, remote):
+                packages.append({
+                    "name": pkg["name"],
+                    "installed_version": pkg["version"],
+                    "installed_release": pkg.get("release", 1),
+                    "remote_version": remote["version"],
+                    "remote_release": remote.get("release", 1),
+                })
+        except VersionParseError:
+            # WARN-and-skip per the O-010 cmd_upgrade pattern — corrupted
+            # version on a single package doesn't block the whole check.
+            # Silent in --quiet mode; visible otherwise.
+            if not getattr(args, "quiet", False):
+                print(
+                    f"  WARN: cannot compare versions for {pkg['name']}; skipping",
+                    file=sys.stderr,
+                )
+            continue
+
+    # Sort packages alphabetically by name so JSON output is stable
+    # across runs against the same install state — readers can diff
+    # successive JSONs to see which packages newly appeared.
+    packages.sort(key=lambda p: p["name"])
+
+    now = time.time()
+    summary = {
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now)),
+        "checked_at": int(now),
+        "count": len(packages),
+        "packages": packages,
+    }
+
+    # Atomic write: write to .tmp sibling then os.replace (atomic on POSIX
+    # within the same filesystem). Readers never observe a partial JSON.
+    try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        print(
+            f"  ERROR: cannot create {output_path.parent}: {e}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    tmp_path = output_path.with_name(output_path.name + ".tmp")
+    try:
+        with open(tmp_path, "w") as f:
+            json.dump(summary, f, indent=2, sort_keys=True)
+        os.replace(str(tmp_path), str(output_path))
+    except (OSError, IOError) as e:
+        print(
+            f"  ERROR: cannot write {output_path}: {e}",
+            file=sys.stderr,
+        )
+        try:
+            tmp_path.unlink()
+        except OSError:
+            pass
+        sys.exit(1)
+
+    if not getattr(args, "quiet", False):
+        if summary["count"] == 0:
+            print("  Everything is up to date.")
+        else:
+            print(f"  {summary['count']} package(s) have updates available:")
+            for p in packages:
+                print(
+                    f"    {p['name']:30s} {p['installed_version']:15s} "
+                    f"→ {p['remote_version']}"
+                )
+            print(f"  Run `pkm upgrade --all` to install.")
+        print(f"  Wrote {output_path}")
 
 
 if __name__ == "__main__":
