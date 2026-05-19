@@ -1,0 +1,58 @@
+# InterGenOS security advisories — hand-curated CVE annotations
+#
+# Per Q7 (operator-greenlit 2026-05-19) and F-002 (v1.1 deferral ledger):
+# v1.0 ships this hand-curated file populated as InterGenOS maintainers
+# patch CVEs. v1.1 (F-002) will replace this with an automated pipeline
+# that ingests upstream CVE feeds (NVD, OSV, Debian Security Tracker,
+# distro-specific feeds) and emits the same on-wire shape.
+#
+# Format (consumed by scripts/generate-repodb.py at index-generation time):
+#
+#   <package-name>-<version>:
+#     cves:
+#       - CVE-YYYY-NNNNN
+#       - CVE-YYYY-MMMMM
+#
+# At generate-index time, the matching package version receives two new
+# fields in InterGenOS.db:
+#
+#   security: true
+#   cves: [list of CVE IDs from this file]
+#
+# `pkm upgrade --security-only` filters the upgrade candidate list to
+# entries where `security: true`. Holy-Grail-aligned posture: users can
+# apply security-only fixes quickly without committing to a full system
+# upgrade — especially relevant near hard-deadline windows (e.g. the
+# 2026-06-27 MS UEFI 2011 CA deadline).
+#
+# How to add a new advisory:
+#
+#   1. Identify the package + version that contains the patch.
+#   2. Add a `<name>-<version>:` entry below with the CVE ID(s).
+#   3. Re-run the index generator (scripts/generate-repodb.py) — the
+#      next published index will carry the security: true flag.
+#
+# How to retire an advisory:
+#
+#   Do NOT delete the entry — it documents the security patch lineage.
+#   Once the affected versions are no longer in the public index,
+#   the entry has no effect on the on-wire shape.
+#
+# Examples (commented out — replace with real advisories as patches land):
+#
+# firefox-139.0:
+#   cves:
+#     - CVE-2026-12345
+#     - CVE-2026-12346
+#
+# glibc-2.41:
+#   cves:
+#     - CVE-2026-67890
+#
+# linux-kernel-6.18.10:
+#   cves:
+#     - CVE-2026-43284   # Dirty Frag class
+#     - CVE-2026-43500   # backported via K22 microcode chain
+#     - CVE-2026-46300
+
+# (no live advisories at v1.0 ship; populate as patches land)

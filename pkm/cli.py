@@ -144,6 +144,12 @@ def main():
              "for emergency security upgrades; surface a justification when "
              "using this flag in scripted contexts.",
     )
+    p_upgrade.add_argument(
+        "--security-only", action="store_true", dest="upgrade_security_only",
+        help="Filter upgrade candidates to entries flagged security=true in "
+             "the repository index (Q7 hand-curated; F-002 v1.1 will replace "
+             "with automated CVE feed ingestion).",
+    )
 
     # -- search --
     p_search = sub.add_parser("search", aliases=["find"], help="Search packages")
@@ -665,6 +671,22 @@ def cmd_upgrade(db, args):
                 file=sys.stderr,
             )
             continue
+
+    # Q7 (O-030): --security-only restricts candidates to repo entries
+    # flagged security=true (set by generate-repodb.py from docs/
+    # governance/security-advisories.yml). Applied before held-filter so
+    # the held-skip notice only mentions held packages that WOULD have
+    # been security-eligible — keeps the user signal sharp.
+    security_only = getattr(args, "upgrade_security_only", False)
+    if security_only:
+        upgradable = [(i, r) for i, r in upgradable if r.get("security")]
+        if not upgradable:
+            print(
+                "  No security-flagged upgrades available. The repository "
+                "index has no entries with security=true matching installed "
+                "packages."
+            )
+            return
 
     held_excluded_names = []
     if args.packages:

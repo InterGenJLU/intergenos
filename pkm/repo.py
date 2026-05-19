@@ -34,7 +34,9 @@ Index Format (InterGenOS.db — gzipped JSON):
                 "sha256": "a1b2c3d4e5f6...",
                 "filename": "firefox-138.0-1.igos.tar.gz",
                 "build_date": "2026-04-08T10:00:00Z",
-                "source_url": "https://archive.mozilla.org/pub/firefox/releases/138.0/source/firefox-138.0.source.tar.xz"
+                "source_url": "https://archive.mozilla.org/pub/firefox/releases/138.0/source/firefox-138.0.source.tar.xz",
+                "security": true,                   # Q7: present iff this version is a security release
+                "cves": ["CVE-2026-12345"]          # Q7: CVE IDs patched by this version (hand-curated v1.0; F-002 v1.1 automation)
             },
             ...
         }
@@ -918,7 +920,8 @@ class RepoManager:
 # Index generation (for repo maintainers / build system)
 # ---------------------------------------------------------------------------
 
-def generate_index(package_dir, arch="x86_64", output=None):
+def generate_index(package_dir, arch="x86_64", output=None,
+                   security_advisories=None):
     """Generate a repository index from a directory of packages.
 
     Scans package_dir for .igos.tar.gz files, reads their metadata,
@@ -928,6 +931,12 @@ def generate_index(package_dir, arch="x86_64", output=None):
         package_dir: Directory containing built packages
         arch: Architecture string
         output: Output path for the index (default: package_dir/InterGenOS.db)
+        security_advisories: Optional dict mapping "<name>-<version>" keys
+            to {"cves": [CVE-ID, ...]} entries. When a package's name +
+            version matches a key, the on-wire index entry gets
+            `security: true` + `cves: [list]` fields (Q7 / O-030).
+            Caller parses the YAML file at docs/governance/security-
+            advisories.yml and passes the parsed dict.
 
     Returns:
         Path to the generated index
@@ -954,6 +963,26 @@ def generate_index(package_dir, arch="x86_64", output=None):
 
             name = meta.pop("name", pkg_file.stem.split("-")[0])
             packages[name] = meta
+
+    # Q7 (O-030): apply hand-curated security advisories. Match each
+    # advisory key <name>-<version> against packages[name]["version"];
+    # on hit, stamp security=true + cves=[...]. F-002 (v1.1) replaces
+    # this with automated CVE-feed ingestion + per-version severity
+    # scoring — the on-wire shape stays the same so future automation
+    # is a pure substrate swap.
+    advisories = security_advisories or {}
+    for adv_key, adv_entry in advisories.items():
+        if not isinstance(adv_key, str) or "-" not in adv_key:
+            continue
+        adv_name, adv_version = adv_key.rsplit("-", 1)
+        pkg = packages.get(adv_name)
+        if pkg is None or str(pkg.get("version", "")) != adv_version:
+            continue
+        cves = list((adv_entry or {}).get("cves", []) or [])
+        if not cves:
+            continue
+        pkg["security"] = True
+        pkg["cves"] = cves
 
     # L-019: emit Valid-Until alongside generated. 24h default window
     # bounds the trust horizon for any individual snapshot; mirror

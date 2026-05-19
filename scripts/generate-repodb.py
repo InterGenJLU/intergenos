@@ -75,6 +75,13 @@ def main():
         help="Release key to sign with (default: S1, canonical names from pkm/release-keys.json)",
     )
     parser.add_argument("--no-sign", action="store_true", help="Skip signing")
+    parser.add_argument(
+        "--security-advisories",
+        default=str(_project_root / "docs" / "governance" / "security-advisories.yml"),
+        help="Path to hand-curated security advisories YAML (Q7 / O-030). "
+             "Default: docs/governance/security-advisories.yml. Pass empty "
+             "string to disable advisory stamping.",
+    )
 
     args = parser.parse_args()
 
@@ -104,9 +111,53 @@ def main():
 
     output = Path(args.output) if args.output else None
 
+    # Q7 (O-030): load hand-curated security advisories. Generator-side
+    # YAML parse keeps the runtime pkm module free of a yaml dependency
+    # (parsed dict is passed to generate_index instead).
+    advisories = {}
+    if args.security_advisories:
+        adv_path = Path(args.security_advisories)
+        if adv_path.exists():
+            try:
+                import yaml
+            except ImportError:
+                print(
+                    "ERROR: PyYAML is required to parse security-advisories.yml. "
+                    "Install via the build host's package manager, or pass "
+                    "--security-advisories '' to disable advisory stamping.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            try:
+                with open(adv_path) as f:
+                    advisories = yaml.safe_load(f) or {}
+            except yaml.YAMLError as e:
+                print(
+                    f"ERROR: failed to parse {adv_path}: {e}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            advisory_count = sum(
+                1 for v in advisories.values()
+                if isinstance(v, dict) and v.get("cves")
+            )
+            print(
+                f"Loaded {advisory_count} security advisory entries from {adv_path}",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"WARNING: --security-advisories {adv_path} not found; "
+                f"security: false on all entries.",
+                file=sys.stderr,
+            )
+
     # Step 1: Generate index
     print(f"Generating index from {len(archives)} archives...", file=sys.stderr)
-    index_path = generate_index(str(package_dir), arch="x86_64", output=output)
+    index_path = generate_index(
+        str(package_dir), arch="x86_64", output=output,
+        security_advisories=advisories,
+    )
     index_path = Path(index_path)
     print(f"Index: {index_path} ({index_path.stat().st_size} bytes)", file=sys.stderr)
 
