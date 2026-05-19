@@ -34,7 +34,9 @@ echo "  License: https://brave.com/terms-of-use/"
 echo ""
 
 if [ "$(id -u)" -ne 0 ]; then
-    echo "  ERROR: Must run as root (sudo igos-install-brave)"
+    echo "  ERROR: Run via 'sudo pkm install-helper brave' instead."
+    echo "  Direct invocation bypasses pkm's manifest ingestion;"
+    echo "  pkm files/verify/remove will not see the installed files."
     exit 1
 fi
 

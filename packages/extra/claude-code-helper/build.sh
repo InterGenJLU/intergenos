@@ -42,6 +42,18 @@ echo "  Claude Code is proprietary software by Anthropic."
 echo "  License: https://code.claude.com/docs/en/legal-and-compliance"
 echo ""
 
+# Canonical invocation guard. claude-code's npm install -g needs root,
+# AND pkm's manifest ingestion at /var/lib/igos/helpers needs root,
+# so direct invocation only works as root anyway — but it also
+# bypasses pkm's _run_helper which is what threads the manifest into
+# the DB. Send users at the supported entry point.
+if [ "$(id -u)" -ne 0 ]; then
+    echo "  ERROR: Run via 'sudo pkm install-helper claude-code' instead."
+    echo "  Direct invocation bypasses pkm's manifest ingestion;"
+    echo "  pkm files/verify/remove will not see the installed files."
+    exit 1
+fi
+
 # Check for npm
 if ! command -v npm >/dev/null 2>&1; then
     echo "  ERROR: npm not found. Install Node.js first."

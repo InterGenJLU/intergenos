@@ -35,7 +35,9 @@ echo "  License: https://www.spotify.com/legal/end-user-agreement/"
 echo ""
 
 if [ "$(id -u)" -ne 0 ]; then
-    echo "  ERROR: Must run as root (sudo igos-install-spotify)"
+    echo "  ERROR: Run via 'sudo pkm install-helper spotify' instead."
+    echo "  Direct invocation bypasses pkm's manifest ingestion;"
+    echo "  pkm files/verify/remove will not see the installed files."
     exit 1
 fi
 

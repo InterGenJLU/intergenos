@@ -36,7 +36,9 @@ echo "  License: https://www.microsoft.com/en-us/servicesagreement/"
 echo ""
 
 if [ "$(id -u)" -ne 0 ]; then
-    echo "  ERROR: Must run as root (sudo igos-install-edge)"
+    echo "  ERROR: Run via 'sudo pkm install-helper edge' instead."
+    echo "  Direct invocation bypasses pkm's manifest ingestion;"
+    echo "  pkm files/verify/remove will not see the installed files."
     exit 1
 fi
 
