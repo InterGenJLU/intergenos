@@ -39,12 +39,14 @@ do_install() {
     cd build
     DESTDIR="$DESTDIR" ninja install
 
-    # Drop initrd-variant unit files. Upstream ships these for dracut-based
-    # distros that run NetworkManager inside the initramfs (remote-root via
-    # DHCP). InterGenOS does not — our initramfs uses busybox + a custom
-    # init.sh; networking is brought up post-pivot by NM proper. Shipping
-    # the *-initrd.service units in the final root causes a D-Bus name
-    # collision on org.freedesktop.NetworkManager — systemd refuses to load
+    # Drop initrd-variant unit files. Upstream ships these for distros
+    # that run NetworkManager inside a runtime-generated initramfs
+    # (remote-root via DHCP). InterGenOS does NOT — our live-ISO
+    # initramfs uses busybox + a custom init.sh, and dracut/mkinitcpio
+    # are RATIFIED-AGAINST for any initramfs path; networking is brought
+    # up post-pivot by NM proper. Shipping the *-initrd.service units in
+    # the final root causes a D-Bus name collision on
+    # org.freedesktop.NetworkManager — systemd refuses to load
     # either unit ("Two services allocated for the same bus name"), NM
     # stays dead at boot, GNOME's panel applet shows "Network unavailable"
     # while systemd-networkd silently does the actual work.

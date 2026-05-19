@@ -7,7 +7,10 @@
 # initramfs envelope where no dynamic loader is present.
 #
 # Architecture (verified against libfido2 1.17.0 CMakeLists.txt + Alpine
-# main/libfido2 APKBUILD + Fedora/Arch dracut FIDO2 hook precedent):
+# main/libfido2 APKBUILD + Fedora .spec + Arch PKGBUILD FIDO2 hook
+# precedent — NOTE: those distros wire FIDO2 via runtime initramfs
+# generators we do NOT use; dracut/mkinitcpio RATIFIED-AGAINST.
+# InterGenOS wires FIDO2 via our custom FDE-initramfs builder, D-001 I-D):
 #
 #   - libcbor built static (CBOR encoding/decoding — libfido2 dep).
 #   - libfido2 built "mostly-static" + with tools, linked against:
@@ -32,8 +35,11 @@
 # static archive available, so a fully-static link halts with "cannot find
 # -ludev". The mostly-static build (drop the flag) is the only viable path
 # without sourcing/building eudev or modifying systemd's meson options.
-# This matches the upstream-canonical pattern (Alpine, Fedora dracut, Arch
-# mkinitcpio).
+# This matches the upstream-canonical LINKING pattern (Alpine, Fedora,
+# Arch — verified across all three). Their respective initramfs
+# generators (dracut/mkinitcpio) are RATIFIED-AGAINST in InterGenOS;
+# only the linking pattern is mirrored, into our custom FDE-initramfs
+# builder.
 
 PKG_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 

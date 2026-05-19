@@ -730,10 +730,13 @@ SubTitle=Do not turn off your computer
 
 ```bash
 plymouth-set-default-theme intergenos
-dracut -f   # or update-initramfs -u (rebuild initramfs)
+# InterGenOS does NOT use runtime initramfs generators (dracut/mkinitcpio
+# RATIFIED-AGAINST). Plymouth integration ships via the UKI build flow
+# (scripts/build-uki.sh + linux-kernel post_install per D-005) — plymouth
+# assets are bundled inside the UKI envelope at install/upgrade time.
 ```
 
-The theme must be included in the initramfs to be available at boot.
+The theme must be included in the UKI envelope to be available at boot.
 
 ---
 

@@ -1,7 +1,7 @@
 # InterGenOS — Design Decisions Matrix
 
 **Started:** 2026-05-18 (Monday morning CDT)
-**Trigger:** Owner observation 2026-05-18 ~06:50 CDT — this morning's remediation plan surfaced items as "open" that were in fact ratified weeks/months ago. Three concrete examples: T0-2 (MOK-until-MS-shim was the plan from day 0; PR scheduled 2026-05-22), T0-3 (dracut vs PARTUUID decided after a full day of discussion previously), T0-4 (SSH host-key baking was explicitly directed AGAINST by owner — represents a drift FROM a stated directive).
+**Trigger:** Owner observation 2026-05-18 ~06:50 CDT — this morning's remediation plan surfaced items as "open" that were in fact ratified weeks/months ago. Three concrete examples: T0-2 (MOK-until-MS-shim was the plan from day 0; PR scheduled 2026-05-22), T0-3 (PARTUUID + no-installed-system-initramfs decided after a full day of discussion previously — **dracut / mkinitcpio RATIFIED-AGAINST**), T0-4 (SSH host-key baking was explicitly directed AGAINST by owner — represents a drift FROM a stated directive).
 **Coordinator:** SPOC
 **Participating coordinators:** SPOC, IGOSC, WC. All three scan their host-local memory + their angle on the shared repo + VPS resources, then push findings into their section. SPOC synthesizes the cross-host conflict list.
 **Companion docs:** [audit](2026-05-18-comprehensive-state-audit.md) (~662 raw findings), [remediation plan](2026-05-18-remediation-plan.md) (17 clusters, 38 owner decisions). Once this matrix is populated, the remediation plan's owner-decision queue gets cross-checked against ratified decisions captured here.
@@ -42,7 +42,7 @@ Each scanned decision gets categorized so the matrix sorts cleanly:
 
 | Category | Examples |
 |---|---|
-| **BOOT** | Shim path, signing chain, UKI/grub model, MOK strategy, initramfs choice (dracut), measured-boot scope |
+| **BOOT** | Shim path, signing chain, UKI/grub model, MOK strategy, initramfs strategy (custom busybox-static `init.sh` + bundled FDE-initramfs inside UKI; **dracut / mkinitcpio RATIFIED-AGAINST** — see D-005 + 2026-04-08/09/10 ratifications), measured-boot scope |
 | **PARTITION** | Disk strategy (LUKS/LVM/BTRFS/ZFS), swap default, encryption-at-rest posture, alongside-install scope |
 | **SECURITY** | SSH posture, root account, default firewall, kernel hardening, AppArmor scope, lockdown, password policy |
 | **PACKAGE-MGR** | pkm trust model, signed mirror, GPG keyring, upgrade safety, channels, anti-rollback |
@@ -129,7 +129,7 @@ Any post-install hook that does state-mutation against `/etc` or generates per-m
 ### Trigger-case verdicts (concur with installed-system coordinator)
 
 - **T0-2 shim path** → **Class A drift.** Concurs with installed-system coordinator's finding. Adds: commit history shows `977db9b3` (2026-05-03, "Path A" wiring) ratifying the Fedora-piggyback bootstrap arm; `docs/shim-review-submission.md` (637 lines) is in-tree evidence for the own-MS-shim arm. Both arms pre-authorized. Cycle-5 ISO wires neither.
-- **T0-3 dracut vs PARTUUID** → **Class A drift.** Concurs. Adds: three Q-INIT commits (`77b0b453` + `cfcdc82e` + `a12216a5`, all 2026-05-06) explicitly rejected dracut-uefi: *"Q-INIT resolved 2026-05-05/06: April-10 custom-init stands. UKI wraps via systemd-stub + objcopy, NOT dracut --uefi."*
+- **T0-3 PARTUUID + no-installed-system-initramfs (dracut RATIFIED-AGAINST)** → **Class A drift.** Concurs. Adds: three Q-INIT commits (`77b0b453` + `cfcdc82e` + `a12216a5`, all 2026-05-06) explicitly rejected dracut-uefi: *"Q-INIT resolved 2026-05-05/06: April-10 custom-init stands. UKI wraps via systemd-stub + objcopy, **NOT dracut --uefi**."*
 - **T0-4 SSH host-key baking** → **Class A drift.** Two-site regression-introduction forensics above. The directive PRE-DATES the explicit POWER RULE memory in Prime Directive + Holy Grail; the explicit memory codified what was already covered.
 
 ### Additional commit-history ratifications (complement IGOSC's tables)
@@ -393,7 +393,7 @@ The POWER RULE `host-local memory entry` (ratified 2026-05-01) was itself violat
 These are the rows the synthesis pass should treat as VIOLATIONS of prior ratifications, not as fresh decisions:
 
 1. **T0-2 shim path** — RATIFIED 2026-04-18 (D1-7 piggyback; both arms pre-authorized); shipped self-signed shim VIOLATES (B-001 HG).
-2. **T0-3 dracut vs PARTUUID** — RATIFIED 2026-04-08/09 (PARTUUID + no-initramfs); `installer/backend/config.py:154-155` VIOLATES (B-041 Critical).
+2. **T0-3 PARTUUID + no-installed-system-initramfs (dracut RATIFIED-AGAINST)** — RATIFIED 2026-04-08/09 (PARTUUID + no-initramfs); `installer/backend/config.py:154-155` VIOLATES (B-041 Critical).
 3. **T0-4 SSH host-key baking** — RATIFIED 2026-05-14 POWER RULE; F-002/F-003/F-004/G-004 every shipped ISO VIOLATES. **[CLOSED-via-D-007 (commit 653a85f4)]** All 4 violation sites fixed; 6-gate compliance check blocks ISO creation on regression.
 4. **First-boot greeter unit DELETE** — RATIFIED 2026-05-17; repo still ships the .service + binary stub (D-002).
 5. **No-stub / "stub is a lie" rule** — RATIFIED 2026-05-15 (Rule 21); F-038/F-039 AppArmor defense-theater, G-039 oomd inert, I-027/I-029 safety.py never invoked all VIOLATE.
@@ -412,7 +412,7 @@ These are the rows the synthesis pass should treat as VIOLATIONS of prior ratifi
 | Iter-1 row | Provenance | Violation | Iter-2 verdict | Note |
 |---|---|---|---|---|
 | T0-2 shim path | VALIDATED | VALIDATED (B-001 confirmed) | VALIDATED | Both arms preauthorized; neither wired. |
-| T0-3 dracut vs PARTUUID | VALIDATED | VALIDATED (`config.py:154-155` `root=UUID=` confirmed at HEAD) | VALIDATED | One-line fix. |
+| T0-3 PARTUUID + no-installed-system-initramfs (dracut RATIFIED-AGAINST) | VALIDATED | VALIDATED (`config.py:154-155` `root=UUID=` confirmed at HEAD) | VALIDATED | One-line fix. |
 | T0-4 SSH host-key baking | VALIDATED (POWER RULE verbatim) | VALIDATED (`openssh/build.sh:82` + `create-image.sh:280` confirmed at HEAD) | VALIDATED | Both violation sites confirmed. |
 | F-002/F-003/F-004/G-004 sshd cluster | VALIDATED | VALIDATED (`shadow/build.sh:70` + `openssh/build.sh:79` confirmed) | VALIDATED | Path-4 retired ORCHESTRATOR default at `7900c941`; SHADOW PACKAGE chpasswd untouched. |
 | First-boot greeter unit DELETE (D-002) | VALIDATED | VALIDATED (`installer/data/first-boot-greeter` is a 5808-byte / 153-line executable bash script — NOT a "binary stub"; unit mtime 2026-05-15, POST-directive of 2026-05-17 — drift on application axis) | VALIDATED — STRENGTHEN | iter-1 misframed as "binary stub". |
@@ -962,7 +962,7 @@ These are the items where SHIPPED CODE / CURRENT STATE violates a previously-RAT
 
 2. **Qwen3.5 tiered catalog (RATIFIED pre-2026-04) vs P-016 license-refusal (HG ship-blocker, decision #18)**. Two ratifications collide; until #18 lands, every audit reference to "Qwen3.5 tiers" should be marked "PENDING RE-RATIFICATION."
 
-3. **Initramfs (W-B14 in plan vs W-B15 actual code)**. Plan states "B-026 dracut OR PARTUUID switch — couples to T0-2"; actual code emits UUID but NO initramfs exists. The 2026-04-09 ratification settled this (no-initramfs + PARTUUID) — plan should reflect that.
+3. **Initramfs (W-B14 in plan vs W-B15 actual code)**. Plan's W-B14 framing presents dracut as a candidate — **that framing is invalid; dracut RATIFIED-AGAINST**. Actual code emits UUID but NO initramfs exists. The 2026-04-09 ratification settled this (no-installed-system-initramfs + PARTUUID) — plan should reflect that.
 
 4. **Per-archive `.sig` (RATIFIED 2026-05-12 deferral to v1.1+) vs design.md + mirror-publish.sh + apache snippet still designing for it (3 artifacts)**. Decision is ratified; propagation drift to 3 artifacts.
 
@@ -1022,7 +1022,7 @@ These are decisions captured in operational memory (or in the research staging a
 - **InterGenOS brand (P-017)** straddles LEGAL + DESKTOP/UX (T0-7 cluster consumes brand-mark output via D-010/J-016; should block on TRADEMARK.md landing first).
 - **I-028 INTERGEN_*** env-var blanket override + **I-005 model TOFU** implicate security alignment doctrine, not just AI/INTERGEN lane — treat as supply-chain-class with same urgency as L-019/L-020/H-022/P-015/P-016.
 - **J-021 firewall posture inversion** crosses AI/UX into G-005 (T2-2); close together.
-- **Coupling**: dracut (W-B14) couples to PARTUUID (W-B15) couples to UKI vs grub for installed system (W-B12/W-B13) couples to T0-5 step 5 (kernel upgrade pattern in `packages/core/linux-kernel/post_install.sh`). Single owner-decision needed across all four. **UKI-vs-grub couple RESOLVED via D-005 2026-05-18** (per-kernel UKI signed by user-MOK; linux-kernel post_install hook regenerates+signs on every kernel install/upgrade; recovery grub-loads-vmlinuz fallback preserved). D-001 narrowing also applies — LUKS path uses tiny FDE-initramfs bundled INSIDE the UKI envelope; plain installs use minimal/empty initramfs in UKI. See `docs/owner-directives.md` D-001 + D-005.
+- **Coupling**: ~~dracut (W-B14)~~ **dracut RATIFIED-AGAINST — W-B14 framing is invalid** (PARTUUID + no-installed-system-initramfs were the ratified decisions; there is no dracut couple to consider). PARTUUID (W-B15) couples to UKI vs grub for installed system (W-B12/W-B13) couples to T0-5 step 5 (kernel upgrade pattern in `packages/core/linux-kernel/post_install.sh`). **UKI-vs-grub couple RESOLVED via D-005 2026-05-18** (per-kernel UKI signed by user-MOK; linux-kernel post_install hook regenerates+signs on every kernel install/upgrade; recovery grub-loads-vmlinuz fallback preserved). D-001 narrowing also applies — LUKS path uses tiny FDE-initramfs bundled INSIDE the UKI envelope; plain installs use minimal/empty initramfs in UKI. See `docs/owner-directives.md` D-001 + D-005.
 
 **Items operator should re-ratify or fact-check (synthesis input):**
 1. Shim path direction-of-travel re-confirmation (W-B02 ratified 1 month ago; cycle-5 violates).

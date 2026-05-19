@@ -800,7 +800,7 @@ This produces a **hybrid ISO** bootable from:
 - [Custom Initramfs - Gentoo Wiki](https://wiki.gentoo.org/wiki/Custom_Initramfs)
 - [initramfs-overlay (GitHub)](https://github.com/jumperfly/initramfs-overlay)
 - [Casper Manpage](https://manpages.ubuntu.com/manpages/jammy/man7/casper.7.html)
-- [Dracut dmsquash-live-root.sh](https://github.com/dracutdevs/dracut/blob/master/modules.d/90dmsquash-live/dmsquash-live-root.sh)
+- [Dracut dmsquash-live-root.sh](https://github.com/dracutdevs/dracut/blob/master/modules.d/90dmsquash-live/dmsquash-live-root.sh) — *reference for how other distros mount squashfs at boot. InterGenOS does NOT use dracut (RATIFIED-AGAINST); our equivalent logic lives in `installer/init/init.sh`.*
 
 ### Installer Architecture
 - [ArchISO Architecture - DeepWiki](https://deepwiki.com/archlinux/archiso)

@@ -160,9 +160,12 @@ fi
 # libudev DYNAMICALLY because libudev only ships as a .so (systemd meson
 # static-libudev option is off by default in our packages/core/systemd
 # build). Every shipping distro pairs static libfido2 + dynamic libudev
-# for FIDO2 tools; matches Alpine + Fedora dracut + Arch mkinitcpio
-# precedent. Bundle libudev.so.1 + its transitive deps so the runtime
-# loader resolves them inside the FDE initramfs envelope.
+# for FIDO2 tools; matches Alpine APKBUILD + Fedora .spec + Arch PKGBUILD
+# upstream precedent. (NOTE: those distros use runtime initramfs
+# generators we do NOT — dracut/mkinitcpio RATIFIED-AGAINST. We mirror
+# only their LINKING pattern, not their build framework.) Bundle
+# libudev.so.1 + its transitive deps so the runtime loader resolves them
+# inside the FDE initramfs envelope.
 if [ "$HAVE_FIDO2_TOOLS" = "yes" ]; then
     mkdir -p "$WORK/usr/lib" "$WORK/lib64"
     # libudev.so.1 — fido2-tools-static binaries are mostly-static (static
@@ -170,9 +173,11 @@ if [ "$HAVE_FIDO2_TOOLS" = "yes" ]; then
     # libudev DYNAMICALLY because libudev only ships as a .so (systemd
     # meson static-libudev option is off by default in our packages/core/
     # systemd build). Every shipping distro pairs static libfido2 + dynamic
-    # libudev for FIDO2 tools (Alpine, Fedora dracut, Arch mkinitcpio
-    # precedent). Bundle libudev.so.1 + ld-linux + any transitive .so deps
-    # so the runtime loader resolves them inside the FDE initramfs envelope.
+    # libudev for FIDO2 tools (Alpine APKBUILD + Fedora .spec + Arch
+    # PKGBUILD precedent — NOTE: those distros use runtime initramfs
+    # generators we do NOT; dracut/mkinitcpio RATIFIED-AGAINST). Bundle
+    # libudev.so.1 + ld-linux + any transitive .so deps so the runtime
+    # loader resolves them inside the FDE initramfs envelope.
     for libudev_path in /usr/lib/libudev.so.1 /usr/lib/x86_64-linux-gnu/libudev.so.1 /lib/x86_64-linux-gnu/libudev.so.1; do
         if [ -e "$libudev_path" ]; then
             cp -L "$libudev_path" "$WORK/usr/lib/libudev.so.1"
