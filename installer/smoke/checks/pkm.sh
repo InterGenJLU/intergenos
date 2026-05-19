@@ -34,13 +34,13 @@ check_pkm_verify() {
     esac
 }
 
-check_pkm_query_marker() {
+check_pkm_info_marker() {
     local marker="${1:-glibc-core}"
-    if ! pkm query "$marker" >/dev/null 2>&1; then
-        check_fail "pkm/query" "marker package '$marker' not in DB — install incomplete?"
+    if ! pkm info "$marker" >/dev/null 2>&1; then
+        check_fail "pkm/info" "marker package '$marker' not in DB — install incomplete?"
         return
     fi
-    check_pass "pkm/query" "marker package $marker present"
+    check_pass "pkm/info" "marker package $marker present"
 }
 
 check_pkm_files_marker() {
@@ -64,6 +64,6 @@ run_pkm_checks() {
     fi
     check_pkm_list
     check_pkm_verify
-    check_pkm_query_marker
+    check_pkm_info_marker
     check_pkm_files_marker
 }
