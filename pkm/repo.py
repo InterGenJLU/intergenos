@@ -48,12 +48,14 @@ Security Model:
     5. Chain of trust: GPG key → signed index → SHA256 → package file
 """
 
+import configparser
 import gzip
 import hashlib
 import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import urllib.request
 import urllib.error
@@ -141,14 +143,68 @@ class RepoManager:
         REPO_PKG_CACHE.mkdir(parents=True, exist_ok=True)
 
     def _load_repos(self):
-        """Load repository configuration."""
-        if REPO_CONFIG_PATH.exists():
+        """Load repository configuration from /etc/pkm/repos.conf.
+
+        Format is INI, one [section] per repository:
+
+            [intergenos-current]
+            url = https://repo.intergenos.org/x86_64/current/
+            enabled = true
+            gpg_verify = true   # optional
+            priority = 100      # optional
+
+        Fail-closed: if the file exists but cannot be parsed, raise rather
+        than silently fall back to DEFAULT_REPOS. Hidden fallback to a
+        vendor-chosen URL when the user's config is broken is a Prime
+        Directive violation — the user has to be able to see and trust
+        what their machine is doing.
+
+        Missing-file is treated as an initial-state default (fresh install
+        before user has touched the config); we use DEFAULT_REPOS without
+        warning in that case.
+        """
+        if not REPO_CONFIG_PATH.exists():
+            return dict(DEFAULT_REPOS)
+
+        parser = configparser.ConfigParser()
+        try:
+            with open(REPO_CONFIG_PATH) as f:
+                parser.read_file(f)
+        except (configparser.Error, OSError) as e:
+            sys.stderr.write(
+                f"pkm: error parsing {REPO_CONFIG_PATH}: {e}\n"
+                f"pkm: refusing to silently fall back to vendor defaults — "
+                f"fix the config or remove it to use the shipped default.\n"
+            )
+            raise
+
+        repos = {}
+        for section in parser.sections():
             try:
-                with open(REPO_CONFIG_PATH) as f:
-                    return json.load(f)
-            except (json.JSONDecodeError, OSError):
-                pass
-        return DEFAULT_REPOS
+                url = parser.get(section, "url")
+            except (configparser.NoOptionError, configparser.NoSectionError) as e:
+                sys.stderr.write(
+                    f"pkm: section [{section}] in {REPO_CONFIG_PATH} "
+                    f"missing required 'url' key: {e}\n"
+                )
+                raise
+            cfg = {
+                "url": url,
+                "enabled": parser.getboolean(section, "enabled", fallback=True),
+                "priority": parser.getint(section, "priority", fallback=100),
+            }
+            if parser.has_option(section, "gpg_verify"):
+                cfg["gpg_verify"] = parser.getboolean(section, "gpg_verify")
+            repos[section] = cfg
+
+        if not repos:
+            sys.stderr.write(
+                f"pkm: {REPO_CONFIG_PATH} contains no [section] entries; "
+                f"using shipped DEFAULT_REPOS.\n"
+            )
+            return dict(DEFAULT_REPOS)
+
+        return repos
 
     # ----- Sync -----
 
