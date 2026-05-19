@@ -31,6 +31,8 @@ PKM_MUTATING_COMMANDS = frozenset({
     # Q9: hold/unhold/mark mutate DB state; autoremove mutates filesystem +
     # DB. All four go through the flock gate.
     "hold", "unhold", "mark", "autoremove",
+    # O-013: cache subcommand mutates /var/cache/pkm/packages/.
+    "cache",
 })
 
 
@@ -307,6 +309,40 @@ def main():
         help="List orphans without removing anything; exit 0",
     )
 
+    # -- cache -- (O-013 cache GC)
+    p_cache = sub.add_parser(
+        "cache",
+        help="Manage the pkm download cache",
+        description=(
+            "Inspect and prune /var/cache/pkm/packages/. The cache grows "
+            "unbounded otherwise — every upgrade adds a new archive and "
+            "the old one stays. Three subcommands: clean (remove archives "
+            "per policy)."
+        ),
+    )
+    p_cache_sub = p_cache.add_subparsers(dest="cache_action", metavar="action")
+
+    p_cache_clean = p_cache_sub.add_parser(
+        "clean",
+        help="Remove cached archives by policy",
+    )
+    p_cache_clean_mode = p_cache_clean.add_mutually_exclusive_group()
+    p_cache_clean_mode.add_argument(
+        "--keep-current", action="store_true", dest="cache_keep_current",
+        help="Default. Per package: keep the archive matching the installed "
+             "version; remove others. Packages not installed have all their "
+             "cached archives removed.",
+    )
+    p_cache_clean_mode.add_argument(
+        "--keep", type=int, metavar="N", dest="cache_keep_n",
+        help="Per package: keep the N most-recent archives by mtime; remove "
+             "older ones. Useful for rollback-availability tuning.",
+    )
+    p_cache_clean_mode.add_argument(
+        "--all", action="store_true", dest="cache_all",
+        help="Remove every cached archive. Subsequent installs re-download.",
+    )
+
     args = parser.parse_args()
 
     # Natural-language aliases — pkm's "Natural-language CLI" positioning
@@ -377,6 +413,8 @@ def main():
                 cmd_autoremove(db, args)
             elif args.command == "check-updates":
                 cmd_check_updates(db, args)
+            elif args.command == "cache":
+                cmd_cache(db, args)
     finally:
         db.close()
 
@@ -1478,6 +1516,143 @@ def cmd_check_updates(db, args, output_path=None):
                 )
             print(f"  Run `pkm upgrade --all` to install.")
         print(f"  Wrote {output_path}")
+
+
+def cmd_cache(db, args):
+    """pkm cache <action> — manage the /var/cache/pkm/packages/ archive cache.
+
+    Subcommands:
+      clean   Remove cached archives by policy (--keep-current default,
+              --keep N, or --all).
+
+    No subcommand: print usage hint.
+    """
+    if getattr(args, "cache_action", None) == "clean":
+        return cmd_cache_clean(db, args)
+    print("  Usage: pkm cache <action>")
+    print("    clean   Remove cached archives by policy")
+    return 0
+
+
+def cmd_cache_clean(db, args):
+    """pkm cache clean [--keep-current | --keep N | --all].
+
+    Walks /var/cache/pkm/packages/, parses each archive filename into
+    (name, version, release), groups by package name, and applies the
+    selected policy. Default behavior (no flag) is --keep-current.
+
+    --keep-current  Per package: keep the archive matching the installed
+                    version (the one that can serve `pkm reinstall`);
+                    remove all other versions. For packages NOT
+                    currently installed, all cached archives are
+                    removed (no rollback target to preserve).
+    --keep N        Per package: keep the N most-recent archives by
+                    mtime; remove older ones. Useful when the operator
+                    wants more than one rollback target available.
+    --all           Remove every cached archive. Subsequent installs
+                    re-download.
+    """
+    import re
+    from .repo import REPO_PKG_CACHE
+
+    if not REPO_PKG_CACHE.exists():
+        print(f"  Cache directory {REPO_PKG_CACHE} does not exist; nothing to clean.")
+        return 0
+
+    archives = sorted(REPO_PKG_CACHE.glob("*.igos.tar.gz"))
+    if not archives:
+        print("  Cache is empty; nothing to clean.")
+        return 0
+
+    # Filename shape: <name>-<version>-<release>.igos.tar.gz.
+    # Name can contain dashes (e.g., glibc-core, linux-firmware); use a
+    # non-greedy first capture and anchor release as the trailing
+    # integer before .igos.tar.gz.
+    pattern = re.compile(r"^(.+)-([^-]+)-(\d+)\.igos\.tar\.gz$")
+    by_pkg = {}  # name -> list of (path, version, release, mtime)
+    unmatched = []
+    for path in archives:
+        m = pattern.match(path.name)
+        if not m:
+            unmatched.append(path)
+            continue
+        name, version, release = m.group(1), m.group(2), int(m.group(3))
+        by_pkg.setdefault(name, []).append(
+            (path, version, release, path.stat().st_mtime),
+        )
+
+    if unmatched:
+        # Don't touch files whose names we can't parse — could be
+        # third-party content or a partial download from the Q6 retry
+        # layer. WARN once so the operator can investigate.
+        print(
+            f"  WARN: {len(unmatched)} file(s) in {REPO_PKG_CACHE} did not "
+            f"match the <name>-<version>-<release>.igos.tar.gz shape; "
+            f"leaving them untouched.",
+            file=sys.stderr,
+        )
+
+    to_remove = []
+    keep_n = getattr(args, "cache_keep_n", None)
+    cache_all = getattr(args, "cache_all", False)
+
+    if cache_all:
+        # --all wins everything in by_pkg + every parseable archive.
+        for entries in by_pkg.values():
+            to_remove.extend(e[0] for e in entries)
+    elif keep_n is not None:
+        if keep_n < 0:
+            print("  ERROR: --keep N must be >= 0", file=sys.stderr)
+            return 1
+        for entries in by_pkg.values():
+            entries.sort(key=lambda e: e[3], reverse=True)
+            to_remove.extend(e[0] for e in entries[keep_n:])
+    else:
+        # Default: --keep-current.
+        for name, entries in by_pkg.items():
+            installed = db.get_installed(name)
+            if installed:
+                installed_ver = installed["version"]
+                matching = [e for e in entries if e[1] == installed_ver]
+                if matching:
+                    matching.sort(key=lambda e: e[3], reverse=True)
+                    keep_path = matching[0][0]
+                    to_remove.extend(
+                        e[0] for e in entries if e[0] != keep_path
+                    )
+                else:
+                    # No archive matches installed version (installed
+                    # via --archive then archive evicted, perhaps).
+                    # Keep the most-recent archive in case the operator
+                    # wants to roll forward to it.
+                    entries.sort(key=lambda e: e[3], reverse=True)
+                    keep_path = entries[0][0]
+                    to_remove.extend(
+                        e[0] for e in entries if e[0] != keep_path
+                    )
+            else:
+                # Package not installed — no rollback target to preserve.
+                to_remove.extend(e[0] for e in entries)
+
+    if not to_remove:
+        print("  Nothing to clean (cache state matches policy).")
+        return 0
+
+    total_bytes = sum(p.stat().st_size for p in to_remove)
+    print(
+        f"  Removing {len(to_remove)} archive(s) "
+        f"({total_bytes / (1024 * 1024):.1f} MiB):"
+    )
+    for p in sorted(to_remove):
+        print(f"    {p.name}")
+    any_failed = False
+    for p in to_remove:
+        try:
+            p.unlink()
+        except OSError as e:
+            print(f"  WARN: failed to remove {p}: {e}", file=sys.stderr)
+            any_failed = True
+    return 1 if any_failed else 0
 
 
 if __name__ == "__main__":
