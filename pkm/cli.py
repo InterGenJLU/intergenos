@@ -27,6 +27,7 @@ from .repo import RepoManager
 PKM_LOCK_PATH = Path("/var/lock/pkm.lock")
 PKM_MUTATING_COMMANDS = frozenset({
     "install", "install-helper", "remove", "reinstall", "update", "upgrade", "import",
+    "restart-services",
 })
 
 
@@ -174,6 +175,36 @@ def main():
     p_refresh.add_argument("paths", nargs="+", metavar="path",
                            help="One or more /etc/* paths (absolute or relative)")
 
+    # -- restart-services -- (Q5 user-driven service restart per O-029)
+    p_restart = sub.add_parser(
+        "restart-services",
+        help="Restart system services after pkm upgrade",
+        description=(
+            "Restart systemd service units owned by installed pkm packages. "
+            "pkm never auto-restarts daemons during upgrade (PRIME DIRECTIVE "
+            "— user controls when their machine takes the downtime); this "
+            "subcommand is the user-driven companion. --list classifies all "
+            "installed packages; --all restarts every active service owned "
+            "by a pkm package; positional unit names restart specific units."
+        ),
+    )
+    p_restart_mode = p_restart.add_mutually_exclusive_group()
+    p_restart_mode.add_argument(
+        "--list", action="store_true", dest="restart_list",
+        help="Print restart classification for all installed packages "
+             "(reboot / restart / none)",
+    )
+    p_restart_mode.add_argument(
+        "--all", action="store_true", dest="restart_all",
+        help="Restart every currently-active service owned by an installed "
+             "pkm package",
+    )
+    p_restart.add_argument(
+        "services", nargs="*", metavar="service",
+        help="Specific systemd unit names to restart (ignored with "
+             "--list or --all)",
+    )
+
     args = parser.parse_args()
 
     # Natural-language aliases — pkm's "Natural-language CLI" positioning
@@ -232,6 +263,8 @@ def main():
                 cmd_import(db, args)
             elif args.command == "refresh-baseline":
                 cmd_refresh_baseline(db, args)
+            elif args.command == "restart-services":
+                cmd_restart_services(db, args)
     finally:
         db.close()
 
@@ -778,6 +811,122 @@ def cmd_refresh_baseline(db, args):
         if not success:
             any_failed = True
     return 1 if any_failed else 0
+
+
+def cmd_restart_services(db, args):
+    """pkm restart-services [--list | --all | <service>...] — Q5 user-driven
+    service restart after upgrade.
+
+    pkm never auto-restarts daemons during upgrade (PRIME DIRECTIVE — user
+    controls when their machine takes the downtime). This subcommand is the
+    user-driven companion that surfaces what needs attention and performs
+    the restarts on explicit request.
+
+    Three modes:
+
+      --list      Classify every installed package against the Q5 restart
+                  rules (reboot-trigger / restart-needed / none) and print
+                  the non-trivial classifications. Read-only.
+      --all       Walk installed packages; restart every active systemd
+                  unit owned by a pkm package. Reboot-required packages
+                  surface as REBOOT REQUIRED notices but are not auto-
+                  rebooted.
+      <service>...  Restart specific systemd unit names directly. No
+                  classification scan — operator-driven targeted action.
+
+    Exit code: 0 on full success, 1 if any restart failed.
+    """
+    from .services import (
+        classify_restart_requirement,
+        format_service_summary,
+        run_restart_services,
+    )
+
+    if args.restart_list:
+        installed = db.list_installed()
+        any_action = False
+        for pkg in installed:
+            files = db.get_files(pkg["name"])
+            file_list = [f["path"] + ("/" if f["is_dir"] else "") for f in files]
+            classification = classify_restart_requirement(pkg["name"], file_list)
+            if classification["requirement"] == "none":
+                continue
+            any_action = True
+            print(f"  {pkg['name']}:")
+            summary = format_service_summary(classification)
+            if summary:
+                print(summary)
+        if not any_action:
+            print("  No services need restart and no reboot is required.")
+        return 0
+
+    if args.restart_all:
+        installed = db.list_installed()
+        all_services = []
+        reboot_reasons = []
+        for pkg in installed:
+            files = db.get_files(pkg["name"])
+            file_list = [f["path"] + ("/" if f["is_dir"] else "") for f in files]
+            classification = classify_restart_requirement(pkg["name"], file_list)
+            if classification["requirement"] == "restart":
+                all_services.extend(classification["services"])
+            elif classification["requirement"] == "reboot":
+                reboot_reasons.append(format_service_summary(classification))
+
+        # Dedupe while preserving discovery order so summary output is
+        # stable across runs against the same install state.
+        seen = set()
+        unique_services = []
+        for s in all_services:
+            if s not in seen:
+                seen.add(s)
+                unique_services.append(s)
+
+        if reboot_reasons:
+            for r in reboot_reasons:
+                print(r)
+        if not unique_services:
+            if not reboot_reasons:
+                print("  No active services to restart.")
+            return 0
+        print(f"  Restarting {len(unique_services)} service(s): "
+              f"{', '.join(unique_services)}")
+        results = run_restart_services(unique_services)
+        return _render_restart_results(results)
+
+    if args.services:
+        print(f"  Restarting {len(args.services)} service(s): "
+              f"{', '.join(args.services)}")
+        results = run_restart_services(args.services)
+        return _render_restart_results(results)
+
+    # No flag, no positional — print usage hint.
+    print("  Usage: pkm restart-services [--list | --all | <service>...]")
+    print("    --list       Classify all installed packages")
+    print("    --all        Restart every active service owned by a pkm package")
+    print("    <service>    Restart specific systemd unit name(s)")
+    return 0
+
+
+def _render_restart_results(results):
+    """Print per-unit success/failure summary for a restart batch.
+
+    Args:
+        results: dict {unit_name: success_bool} from run_restart_services.
+
+    Returns:
+        0 if every unit succeeded; 1 if any failed (so the caller can
+        propagate as the process exit code).
+    """
+    successes = [u for u, ok in results.items() if ok]
+    failures = [u for u, ok in results.items() if not ok]
+    if successes:
+        print(f"  Restarted: {', '.join(successes)}")
+    if failures:
+        print(f"  ERROR: failed to restart: {', '.join(failures)}",
+              file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
