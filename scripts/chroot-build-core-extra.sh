@@ -511,6 +511,10 @@ run_package "intergenos-legal" "intergenos-legal" "0.1.0" \
     "" \
     "InterGenOS legal documents — LICENSE + SOURCES.md to /usr/share/doc/intergenos/"
 
+run_package "intergenos-helper-lib" "intergenos-helper-lib" "1.0.0" \
+    "" \
+    "Sourceable bash library for pkm install helpers — /usr/share/igos/helpers/helper-lib.sh (H-007)"
+
 run_package "help2man" "help2man" "1.49.3" \
     "help2man-1.49.3.tar.xz" \
     "Generate man pages from --help output"
