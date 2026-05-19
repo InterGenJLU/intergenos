@@ -37,7 +37,7 @@ Coordinator-vantage concurrence (IGOSC + WC + SPOC APPROVE chain) is necessary b
 
 ## Full arc commit ledger (43 commits)
 
-Author: chris-ubuntu-code-claude (SPOC) for the build-system lane; chris-windows-code-claude (WC) for windows-host lane; chris-intergenos-code-claude (IGOSC) for installed-system lane. All commits pushed to origin/master.
+Commits authored across the three fleet coordinator lanes (build-system, windows-host, installed-system). All commits pushed to origin/master.
 
 ```
 a90b3ef4  docs(t0-5): L-024 transparency log cross-check section in repository-trust.md
@@ -99,7 +99,7 @@ Each row marks the disposition the operator is accepting at sign-off. **CORRECTE
 | 2 | H-007 phantom-package failure mode — `intergenos-helper-lib` originally landed in `packages/extra` but wired nowhere; missing in chroot-build-core-extra.sh | CORRECTED | `d54cd842` (path/tier) + `be8327c2` (chroot wiring) |
 | 3 | H-007 Phase B — 6 remaining helpers (brave / claude-code / discord / edge / spotify / vscode) migrated; WARN-continue flipped to hard-failure on manifest-read errors | CORRECTED | `b73ea16c` |
 | 4 | H-007 ffmpeg-nonfree-helper straggler (8th helper; source-build payload outside Phase B's tarball-extract sweep) | CORRECTED | `5aa2f95c` (this session) |
-| 5 | Stale-invocation drift in helper error messages (3-way cross-coordinator co-discovery; WC's commit landed first; SPOC + IGOSC commits dropped) | CORRECTED | `ed8dfef8` (WC) |
+| 5 | Stale-invocation drift in helper error messages (3-way cross-coordinator co-discovery; windows-host-lane landing came first; the other two coordinator drafts dropped) | CORRECTED | `ed8dfef8` |
 | 6 | H-008 build_date dict-key rename — `pkginfo.get("builddate")` should be `"build_date"` per `_parse_pkginfo` rename (caught at peer-review pre-close-claim by installed-system coordinator) | CORRECTED | `13b58c0a` (sibling fix) |
 | 7 | L-020 `__version__` import missing — `from . import __version__` at pkm/repo.py:68 (caught at peer-review pre-close-claim by build-system coordinator) | CORRECTED | `f01afd8e` (sibling fix) |
 | 8 | L-025 parts[10]→[11] off-by-one — VALIDSIG PRIMARY-KEY-FP is parts[11] not parts[10] (cross-coordinator co-discovery; 47s delta SPOC vs IGOSC) | CORRECTED | `4925782d` |
@@ -168,12 +168,12 @@ Each row marks the disposition the operator is accepting at sign-off. **CORRECTE
 When operator has reviewed this checklist:
 
 - [ ] All 17 CORRECTED items confirmed-as-corrected
-- [ ] All 5 DECISION-NEEDED items dispositioned (each via `AskUserQuestion` one-at-a-time presentation by SPOC)
-- [ ] Sprint marked CLOSED in the InterGenOS tracker at `/home/christopher/intergenos/development-status/TRACKER.md`
+- [ ] All 5 DECISION-NEEDED items dispositioned (each via `AskUserQuestion` one-at-a-time presentation from the build-system coordinator)
+- [ ] Sprint marked CLOSED in the InterGenOS tracker at `~/intergenos/development-status/TRACKER.md`
 - [ ] Optional: archive the per-day mini-tracker at `~/.claude/projects/-mnt-intergenos/memory/project_mini_tracker_2026-05-19.md`
 
 Closure is not auto-applied by this document — operator decides each box.
 
 ---
 
-*This document was authored by SPOC (`chris-ubuntu-code-claude`) at master tip `5aa2f95c` on 2026-05-19 ~18:35Z. It is the operator-presentation artifact for T0-5 sprint closure. The closure-checklist DECISION items are surfaced one-at-a-time post this document's authoring via `AskUserQuestion`.*
+*This document was authored by the build-system coordinator at master tip `5aa2f95c` on 2026-05-19 ~18:35Z. It is the operator-presentation artifact for T0-5 sprint closure. The closure-checklist DECISION items are surfaced one-at-a-time post this document's authoring via `AskUserQuestion`.*
