@@ -38,8 +38,9 @@
 | P-001 item 2/3 | `caebf8a0` | `intergenos-legal` package — ships LICENSE + SOURCES.md to `/usr/share/doc/intergenos/` |
 | P-001 item 3/3 | `7e2fb1d8` | `build-source-archives.py` generator + `publish-repo.sh` sources/ upload wiring (fail-closed on missing source archives) |
 | L-023 | `5dcddb21` | `mirror-verify.sh` — daily VPS-side integrity verifier |
-| Morning-status doc | `231edbba` | This document (live, regenerated each cycle) |
-| L-024 | `279d62d9` | publish-repo.sh transparency-log step — appends each signed-index publish to the InterGenJLU/intergenos-mirror-backup git repo with a structured commit message (audit-row-proposed minimum-viable shape; Rekor v2 queued as v1.1 enhancement) |
+| Morning-status doc (initial) | `231edbba` | This document (live, regenerated each cycle) |
+| L-024 (publish-side) | `279d62d9` | publish-repo.sh transparency-log step — appends each signed-index publish to InterGenJLU/intergenos-mirror-backup git repo with structured commit message |
+| Morning-status doc (refresh 1) | `90e6929e` | reflects L-024 landing + WC H-006/H-018 + tracker hygiene |
 
 ### windows-host coordinator lane (this session)
 
@@ -51,11 +52,20 @@
 | H-011 / H-021 | `8b10ad46` | `PackageDB(root="/")` parameter for non-root install scenarios |
 | H-013 | `735b1891` | Reject `--archive` with multiple packages (silent-drop fix) |
 | H-006 / H-018 | `45953dd0` | pkm verify exit codes — non-zero on usage error and integrity problems |
-| tracker.py hygiene | `aa41dcbf` | tracker.py:395 root= param + PackageDB ctor POSIX-paths comment (non-audit-row chore; closes the `"/" + path` syntactic class tree-wide) |
+| tracker.py hygiene | `aa41dcbf` | tracker.py:395 root= param + PackageDB ctor POSIX-paths comment (non-audit-row chore) |
+| H-024 | `48e33d4d` | helper-installer env hygiene — strip to allowlist (PATH/HOME/USER/...); closes LD_PRELOAD / *_PROXY / PYTHONPATH attack vectors |
+| H-023 | `81609e30` | fcntl.flock serialization on /var/lock/pkm.lock for mutating subcommands |
+| O-001 / H-010 | `69db547d` | `pkm reinstall` subcommand (closes O-001 + H-010 error-message drift naturally) |
+| H-008 | `a2caacec` | canonical .PKGINFO emission (lowercase Arch-style key=value) — populates DB tier/description/license/build_date |
+| H-008 sibling fix | `13b58c0a` | follow-on for IGOSC-caught build_date dict-key rename — `pkginfo.get("build_date")` (was `"builddate"`) |
+| H-004 | `dbdb9533` | wire `add_depends` from manifest at install time — closes the silent-`pkm remove glibc` foot-gun |
+| L-020 | `0e265392` | index schema-envelope validation — version + min_pkm_version + signature_format gates |
+| L-020 sibling fix | `f01afd8e` | follow-on for SPOC-caught `__version__` import missing — `from . import __version__` at pkm/repo.py:68 |
+| L-025 | `0c71c27f` | pin release-key fingerprints (S1-S4 from release-keys.json); reject non-pinned signatures via gpg --status-fd parse |
 
 ### installed-system coordinator lane (this session)
 
-Peer-reviews delivered (APPROVE in all cases): `ed4cfa2a` keyring (with defensive-assert suggestion absorbed), `f2b3cf87` H-009, `9d85139e` H-005, `8b10ad46` H-011/H-021, `45953dd0` H-006/H-018, `aa41dcbf` tracker.py hygiene. Plus pre-approve on windows-host coordinator's H-006/H-018 exit-code scheme proposal. Cross-lane coordination on H-008 manifest-format question pending. No installer-side regressions surfaced.
+Peer-reviews delivered (APPROVE in all cases): `ed4cfa2a` keyring, `f2b3cf87` H-009, `9d85139e` H-005, `8b10ad46` H-011/H-021, `45953dd0` H-006/H-018, `aa41dcbf` tracker.py hygiene, `48e33d4d` H-024, `81609e30` H-023, `69db547d` O-001/H-010, `a2caacec` H-008 (PARTIAL APPROVE — caught build_date BLOCKING bug, fixed in `13b58c0a`), `13b58c0a` H-008 follow-on, `dbdb9533` H-004. Plus inline observations on `0c71c27f` L-025 + `0e265392` L-020 (SPOC primary). Two BLOCKING runtime-semantic bugs caught at peer-review pre-close (H-008 build_date + L-020 __version__) — cross-coordinator review pattern working. Memory addendum saved on caller-vs-implementation contract class.
 
 ---
 
@@ -65,9 +75,9 @@ Peer-reviews delivered (APPROVE in all cases): `ed4cfa2a` keyring (with defensiv
 |---|---|---|
 | **SC1** Trust-chain preconditions | L-008/H-001/A-031 keyring + H-002/L-015/O-004 repos.conf + L-027 fingerprints | **All 3 rows landed** |
 | **SC2** Mirror infrastructure | RESOLVED via 2026-05-18 mirror-sweep (`941d8b6c`); residual is L-001 first-publish actually running (operator action) | RESOLVED |
-| **SC3** Trust-chain hardening | L-019 anti-rollback + L-020 schema-version + L-021 TOCTOU + H-022 tar-traversal + L-024 verify-side + L-025 trust-anchor pin | **windows-host coordinator tier 4 — pending; engaged after tier 1-3** |
-| **SC4** CLI + DB integrity | ~12 H-rows + O-001 reinstall + H-007/H-008 helpers | **6 rows landed** (H-005, H-009, H-011/H-021, H-013, H-006/H-018) + tracker.py hygiene chore; ~6 remaining: H-004, H-007, H-008, H-022, H-023, H-024, O-001 |
-| **SC5** Upgrade safety | ~17 O-rows (--yes/--dry-run + install-new-first + hook execution + kernel re-sign + autoremove + retry+backoff + failover + needrestart) | **windows-host coordinator tier 5 — pending; engaged after SC4** |
+| **SC3** Trust-chain hardening | L-019 anti-rollback + L-020 schema-version + L-021 TOCTOU + H-022 tar-traversal + L-024 verify-side + L-025 trust-anchor pin | **2 rows landed** (L-020 + L-025); 4 remaining: L-019 anti-rollback (state-persistence-class; WC engaging next) + L-021 TOCTOU + L-024 verify-side + H-022 tar-traversal |
+| **SC4** CLI + DB integrity | ~12 H-rows + O-001 reinstall + H-007/H-008 helpers | **12 rows landed** (H-004 + H-005 + H-006/H-018 + H-008+sibling + H-009 + H-010 + H-011/H-021 + H-013 + H-023 + H-024 + O-001) + tracker hygiene chore; ~2 remaining: H-007 helper manifest spec + H-022 PEP 706 |
+| **SC5** Upgrade safety | ~17 O-rows (--yes/--dry-run + install-new-first + hook execution + kernel re-sign + autoremove + retry+backoff + failover + needrestart) | **0 rows landed** — WC tier 5; engaged after SC4 + SC3 close |
 | **SC6** DR + transparency + GPL source | L-022 + L-023 + L-024 + P-001 (3 items) | **All 6 rows landed** (L-022 workstation+repo, L-023 mirror-verify.sh, L-024 transparency-log push, P-001 LICENSE pointer + intergenos-legal pkg + source-archive generator) |
 | **SC7** User doc sweep | Was K-017 follow-up | RESOLVED (callout landed at `95928a52`; docs were already mostly aligned post-`f4b45135`) |
 
@@ -77,16 +87,18 @@ Peer-reviews delivered (APPROVE in all cases): `ed4cfa2a` keyring (with defensiv
 
 **Per the remediation plan, T0-5 was estimated 3-4 weeks of single-coordinator work.** Even at fleet-parallel speeds (5-10x throughput per [feedback_fleet_throughput_calibration]), the cluster won't close in one overnight session.
 
-What is reasonably reachable overnight at fleet speed:
-- SC4 remaining ~6 rows (windows-host coordinator + installed-system coordinator) — likely landable
-- SC3 tier 4 start (windows-host coordinator) — partial likely once SC4 closes
+What's reasonably reachable in the remaining overnight window:
+- SC4 final 2 rows (H-007 helper manifest + H-022 PEP 706 tarfile filter) — windows-host coordinator's queue
+- SC3 next 4 rows (L-019 anti-rollback + L-021 TOCTOU + L-024 verify-side + H-022) — windows-host coordinator tier 4
 
 What is NOT reasonable overnight:
-- SC5 in full (~17 upgrade-safety rows; each is a real semantic design call, not a mechanical fix)
+- SC5 in full (~17 upgrade-safety rows; each is a real semantic design call). Maybe 2-4 of the simpler ones land.
 - L-001 first-publish actually executing (operator-owned action — ceremony + DNS + key)
 - Final integration + peer-review pass (D-009 item 8) requires the implementation to converge first
 
-**My honest projection at session-end:** at the sub-cluster level, T0-5 will be ~65-75% closed at morning — SC1, SC2, SC6, SC7 fully closed; SC4 mostly closed; SC3 partially started; SC5 not started. At the per-row level, that's closer to ~25-35% closure (since SC5 alone is ~17 rows and most of those are design-heavy). No "complete" claim per D-009 item 7. The remaining work is mostly SC5 upgrade-safety which is the highest design-cost-per-row segment of T0-5.
+**Honest projection at session-end (revised, mid-arc):** sub-cluster level — SC1, SC2, SC6, SC7 fully closed; SC4 ~85% closed (12 of 14); SC3 ~33% closed (2 of 6); SC5 0% / partial; that's ~70% sub-cluster coverage. At per-row level — ~18-22 rows landed out of ~50 audit rows in the sprint scope (excluding pre-resolved K-017 + matrix annotations), roughly 35-45% closure. SC5 remains the bulk of unclosed work + the hardest design surface.
+
+**Important fleet-discipline observation:** 2 BLOCKING bugs caught at peer-review pre-close-claim — H-008 build_date dict-key rename (caught by installed-system coordinator) + L-020 `__version__` import missing (caught by build-system coordinator). Both ran py_compile + import-resolution clean while failing at runtime. D-009 item 7 (no completion claim until peer-reviewed) + item 8 (peer-review when possible) doing concrete work. Memory addendum saved on caller-vs-implementation contract class so the pattern doesn't repeat.
 
 ---
 
