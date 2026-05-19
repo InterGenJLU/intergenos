@@ -375,7 +375,7 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
             fi
         fi
     done
-    if [ "${#V11_VIOLATIONS[@]:-0}" -gt 0 ]; then
+    if [ "${#V11_VIOLATIONS[@]}" -gt 0 ]; then
         echo "[pre-push] BLOCK: v1.1 deferral(s) without ledger entry:"
         for sha in "${V11_VIOLATIONS[@]}"; do
             subj=$(git log -1 --format=%s "$sha")
