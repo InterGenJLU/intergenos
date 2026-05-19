@@ -88,9 +88,6 @@ DEFAULT_REPOS = {
     }
 }
 
-# Max age before forcing a re-sync (seconds)
-INDEX_MAX_AGE = 3600  # 1 hour
-
 
 # L-019: anti-rollback + freshness state.
 # After every successful sync, the index's `generated` timestamp is
