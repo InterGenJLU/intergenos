@@ -35,6 +35,17 @@ REMOTE_PATH="${PUBLISH_REMOTE_PATH:-/home/intergenos/repo/x86_64}"
 GPG_KEY="NK1"
 DRY_RUN=false
 SKIP_SOURCES=false
+SKIP_TRANSPARENCY=false
+
+# Transparency log substrate (L-024). Each publish appends a structured
+# commit to this git repo containing the signed-index sha256, size, and
+# signer fingerprint. Git provides the append-only property assuming the
+# remote master branch is configured for force-push protection. The
+# audit row L-024 proposed git-repo-as-append-only-log as the minimum
+# viable implementation; Sigstore Rekor v2 integration is queued as
+# v1.1 enhancement (second attestation target, not a replacement).
+TRANSPARENCY_GIT_REMOTE="${PUBLISH_TRANSPARENCY_REMOTE:-git@github.com:InterGenJLU/intergenos-mirror-backup.git}"
+TRANSPARENCY_LOCAL="${PUBLISH_TRANSPARENCY_LOCAL:-$HOME/.intergenos-transparency-log}"
 
 # Release key fingerprints
 declare -A GPG_KEY_FPS
@@ -56,17 +67,24 @@ Usage: $0 [--dry-run] [--archive-dir DIR] [--gpg-key NK1|NK2] [--skip-sources]
                    defaults to fail-closed so binary publish always
                    accompanies its SOURCES.md §6d source-availability
                    commitment.
+  --skip-transparency
+                   Emergency override — publish without appending to the
+                   transparency-log git repo. Use only when the log
+                   substrate is genuinely unavailable; defaults to
+                   fail-closed so every published index is recorded in
+                   the append-only public log (L-024).
 EOF
     exit 1
 }
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --dry-run)      DRY_RUN=true; shift ;;
-        --archive-dir)  ARCHIVE_DIR="$2"; shift 2 ;;
-        --gpg-key)      GPG_KEY="$2"; shift 2 ;;
-        --skip-sources) SKIP_SOURCES=true; shift ;;
-        -h|--help)      usage ;;
+        --dry-run)         DRY_RUN=true; shift ;;
+        --archive-dir)     ARCHIVE_DIR="$2"; shift 2 ;;
+        --gpg-key)         GPG_KEY="$2"; shift 2 ;;
+        --skip-sources)    SKIP_SOURCES=true; shift ;;
+        --skip-transparency) SKIP_TRANSPARENCY=true; shift ;;
+        -h|--help)         usage ;;
         *) echo "Unknown option: $1"; usage ;;
     esac
 done
@@ -250,9 +268,78 @@ echo "Index size: $(stat -c%s "$LIVE/$STAGING_DIR/InterGenOS.db") bytes"
 SSHEOF
 echo "  OK — promoted via current/ symlink swap"
 
+# Step 5: Transparency log append (L-024)
+# Push the signed index + signature to the InterGenOS transparency-log git
+# repo with a structured commit message. Git provides the append-only
+# property (master branch is force-push-protected on the remote); every
+# clone of the repo gives an independent verifier the full publication
+# history. Audit row L-024 explicitly proposed this shape ("publish each
+# signed index's sha256 to public append-only log; git repo with
+# co-maintainer pushes works; rekor is the proper tool"). Rekor v2
+# integration is queued as v1.1 enhancement — adds a second attestation
+# target alongside this git log, doesn't replace it.
+echo "[5/5] Transparency log append..."
+if [ "$SKIP_TRANSPARENCY" = true ]; then
+    echo "  SKIP — --skip-transparency flag set; this publish is NOT in the"
+    echo "         append-only transparency log. Re-publish with the flag"
+    echo "         removed before considering the snapshot fully attested."
+else
+    if [ ! -d "$TRANSPARENCY_LOCAL/.git" ]; then
+        echo "  cloning transparency-log repo to $TRANSPARENCY_LOCAL..."
+        git clone --depth 100 "$TRANSPARENCY_GIT_REMOTE" "$TRANSPARENCY_LOCAL" \
+            || { echo "ERROR: transparency-log clone failed ($TRANSPARENCY_GIT_REMOTE)" >&2; exit 1; }
+    else
+        git -C "$TRANSPARENCY_LOCAL" pull --ff-only origin master \
+            || { echo "ERROR: transparency-log pull failed (likely diverged remote — investigate before next publish)" >&2; exit 1; }
+    fi
+
+    LOG_DIR="$TRANSPARENCY_LOCAL/x86_64/current"
+    mkdir -p "$LOG_DIR"
+    cp "$INDEX_PATH" "$LOG_DIR/InterGenOS.db"
+    cp "$SIG_PATH"   "$LOG_DIR/InterGenOS.db.sig"
+
+    INDEX_SHA=$(sha256sum "$INDEX_PATH" | awk '{print $1}')
+    SIG_SHA=$(sha256sum "$SIG_PATH" | awk '{print $1}')
+    INDEX_SIZE=$(stat -c%s "$INDEX_PATH")
+    SIG_SIZE=$(stat -c%s "$SIG_PATH")
+    PREV_ENTRY=$(git -C "$TRANSPARENCY_LOCAL" log -1 --format=%H 2>/dev/null || echo INIT)
+
+    COMMIT_MSG=$(cat <<EOFCM
+publish: ${STAGING_DIR} InterGenOS.db transparency-log entry
+
+x86_64/current/InterGenOS.db
+  sha256 = ${INDEX_SHA}
+  size   = ${INDEX_SIZE}
+
+x86_64/current/InterGenOS.db.sig
+  sha256 = ${SIG_SHA}
+  size   = ${SIG_SIZE}
+
+signed-by-fingerprint = ${GPG_FP}
+prev-entry            = ${PREV_ENTRY}
+log-version           = 1
+EOFCM
+)
+    git -C "$TRANSPARENCY_LOCAL" add x86_64/current/InterGenOS.db x86_64/current/InterGenOS.db.sig
+    if git -C "$TRANSPARENCY_LOCAL" diff --cached --quiet; then
+        echo "  WARN — transparency-log working tree showed no changes; skipping commit"
+        echo "         (this snapshot may have been previously logged — investigate)"
+    else
+        git -C "$TRANSPARENCY_LOCAL" commit -m "$COMMIT_MSG" \
+            || { echo "ERROR: transparency-log commit failed" >&2; exit 1; }
+        git -C "$TRANSPARENCY_LOCAL" push origin master \
+            || { echo "ERROR: transparency-log push failed (resolve + push manually before next publish)" >&2; exit 1; }
+        NEW_ENTRY=$(git -C "$TRANSPARENCY_LOCAL" log -1 --format=%H)
+        echo "  OK — logged at $TRANSPARENCY_GIT_REMOTE entry=${NEW_ENTRY} prev=${PREV_ENTRY}"
+    fi
+fi
+
 echo ""
 echo "=== Publish Complete ==="
-echo "Repository: https://repo.intergenos.org/x86_64/current/"
-echo "Index:      InterGenOS.db ($(stat -c%s "$INDEX_PATH") bytes)"
-echo "Signature:  InterGenOS.db.sig ($(stat -c%s "$SIG_PATH") bytes)"
-echo "Packages:   $COUNT published"
+echo "Repository:    https://repo.intergenos.org/x86_64/current/"
+echo "Index:         InterGenOS.db ($(stat -c%s "$INDEX_PATH") bytes)"
+echo "Signature:     InterGenOS.db.sig ($(stat -c%s "$SIG_PATH") bytes)"
+echo "Packages:      $COUNT published"
+if [ "$SKIP_TRANSPARENCY" != true ]; then
+    echo "Transparency:  $TRANSPARENCY_GIT_REMOTE master HEAD"
+fi
