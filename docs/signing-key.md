@@ -138,8 +138,9 @@ Step-by-step (apply between steps 4 and 5 of the §Rollover procedure above, the
 1. ASCII-armor-export the incoming subkey pubkey to `docs/signing-key-next.asc` (signed by master so transparency-log verifiers can chain the rotation evidence — see [repository-trust.md §4 Key Rotation](repository-trust.md#4-key-rotation) and §5 transparency log).
 2. Add a new entry under `keys` in `pkm/release-keys.json`, naming it `S5` (or the next available slot) with the incoming subkey's fingerprint, role label (e.g. "transition signing (Nitrokey NK5 serial XXXXXXXX)"), and aliases.
 3. Commit both files in a single coordinated commit so reviewers see the artifact + the pin update together.
-4. Bump `packages/core/intergenos-keyring/package.yml` version (e.g. `0.1.0` → `0.2.0`) so end users pick up the dual-key keyring via `pkm upgrade intergenos-keyring`.
-5. Rebuild + publish `intergenos-keyring` through the normal release pipeline.
+4. **Run `bash scripts/validate-keyring-rotation.sh` before publishing.** The script exercises the three end-to-end links via ephemeral keys (dual-import + multi-key keyring acceptance + VALIDSIG-roundtrip + unknown-key refusal) and exits non-zero if any link is broken. Catches regressions in the rotation infrastructure before they reach end users.
+5. Bump `packages/core/intergenos-keyring/package.yml` version (e.g. `0.1.0` → `0.2.0`) so end users pick up the dual-key keyring via `pkm upgrade intergenos-keyring`.
+6. Rebuild + publish `intergenos-keyring` through the normal release pipeline.
 
 **End overlap window** (after the outgoing subkey has been revoked at step 6):
 
