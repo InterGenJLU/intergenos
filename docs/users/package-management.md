@@ -31,11 +31,11 @@ sudo pkm install cassandra
 ```
 Downloads and installs the specified package. pkm automatically calculates and fetches all prerequisites (for example, installing cassandra will automatically pull down openjdk17 and ant). Before extracting, the archive's SHA-256 hash is verified against the signed index.
 
-### Updating the System
+### Upgrading Installed Software
 ```bash
-sudo pkm update
+sudo pkm upgrade
 ```
-Compares your installed packages against the synced index and upgrades any packages with newer versions available.
+Compares your installed packages against the synced index and installs newer versions for any packages that have them available. `pkm sync` (above) only refreshes the index; this is the command that actually changes what's on disk.
 
 ### Removing Software
 ```bash
@@ -60,6 +60,22 @@ Checks the installed files of a package against the expected SHA-256 hashes reco
 pkm info valkey
 ```
 Displays detailed metadata about a package, including its version, dependencies, architecture, and license.
+
+### Natural-Language Aliases
+
+pkm accepts the command names you'd naturally reach for from other distros. Whichever feels right works:
+
+| Canonical | Aliases |
+|---|---|
+| `update` | `sync`, `refresh` |
+| `remove` | `uninstall` |
+| `search` | `find` |
+| `info` | `show` |
+| `list` | `ls` |
+| `files` | `contents` |
+| `depends` | `deps` |
+
+`pkm --help` renders each alias next to its canonical name. The dispatch resolves aliases to the canonical command, so the behavior is identical regardless of which name you type.
 
 ## 3. The Trust Chain
 
