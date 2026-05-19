@@ -239,6 +239,17 @@ class PackageInstaller:
                 )
                 self.db.add_files(pkg_id, file_list, hashes=hashes_for_db, commit=False)
 
+                # H-004: persist runtime deps so `pkm depends` works + `pkm
+                # remove` reverse-dep safety check has data to trip on. Deps
+                # come from .PKGINFO depend=X lines (per-entry, repeated).
+                runtime_deps = pkginfo.get("depends", [])
+                if runtime_deps:
+                    self.db.add_depends(
+                        pkg_id,
+                        [(d, "runtime") for d in runtime_deps],
+                        commit=False,
+                    )
+
                 superseded_names = []
                 for pred in predecessors_to_supersede:
                     overlap = self._paths_owned_by(pred["name"], file_list)

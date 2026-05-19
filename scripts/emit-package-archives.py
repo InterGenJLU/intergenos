@@ -32,44 +32,57 @@ DEFAULT_CHROOT = "/mnt/igos"
 
 
 def _read_pkg_yml_fields(yml_path):
-    """Extract flat top-level scalar fields from a package.yml for .PKGINFO.
+    """Extract flat top-level scalar fields + depends.runtime list from a
+    package.yml for .PKGINFO emission.
 
-    Targets: tier, license, release. Other fields (name/version/description)
-    are already populated by _read_manifest from the prose manifest.
+    Top-level scalar targets: tier, license, release, description, name, version.
+    Block target: depends.runtime (list of dep names).
 
-    Hand-parses the YAML rather than depending on PyYAML; only top-level
-    scalars are recognized (`key: value` lines outside any block scope).
-    Lines starting with `#`, blank lines, and block continuations (e.g.
-    `depends:` followed by indented entries) are tolerated by skipping.
+    Hand-parses the YAML rather than depending on PyYAML; only the field
+    set we care about is recognized. Lines starting with `#` and blank
+    lines are skipped. Inside a `depends:` block we track sub-blocks
+    `build:`/`host:`/`runtime:` and collect runtime entries.
 
-    Returns: dict with present-keys-only (no defaults).
+    Returns: dict with present-keys-only (no defaults); 'runtime' key holds
+    a list of strings (may be empty).
     """
-    fields = {}
+    fields = {"runtime": []}
     if not yml_path or not yml_path.exists():
         return fields
     targets = {"tier", "license", "release", "description", "name", "version"}
-    block_open = False
+    in_depends = False
+    in_runtime = False
     try:
-        for line in yml_path.read_text().splitlines():
+        for raw in yml_path.read_text().splitlines():
+            line = raw.rstrip()
             stripped = line.strip()
             if not stripped or stripped.startswith("#"):
                 continue
-            # A non-comment indented line means we're inside a block scope;
-            # skip until we return to column 0.
-            if line[:1] in (" ", "\t"):
-                continue
-            block_open = False
-            if ":" not in stripped:
-                continue
-            key, _, value = stripped.partition(":")
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-            if not value:
-                # Bare `key:` line opens a block (e.g. depends:)
-                block_open = True
-                continue
-            if key in targets:
-                fields[key] = value
+            indent = len(line) - len(line.lstrip(" "))
+            if indent == 0:
+                # Top-level key — closes any open block.
+                in_depends = False
+                in_runtime = False
+                if ":" not in stripped:
+                    continue
+                key, _, value = stripped.partition(":")
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if key == "depends" and not value:
+                    in_depends = True
+                    continue
+                if not value:
+                    continue
+                if key in targets:
+                    fields[key] = value
+            elif in_depends and indent == 2 and stripped.endswith(":"):
+                # Sub-block under depends:
+                subkey = stripped[:-1].strip()
+                in_runtime = (subkey == "runtime")
+            elif in_depends and in_runtime and stripped.startswith("- "):
+                dep = stripped[2:].strip().strip('"').strip("'")
+                if dep:
+                    fields["runtime"].append(dep)
     except OSError:
         pass
     return fields
@@ -104,6 +117,9 @@ def _render_pkginfo(meta, yml_fields):
         f"size={installed_size}",
         f"filecount={file_count}",
     ]
+    # H-004: emit one depend= line per runtime dep (Arch convention).
+    for dep in yml_fields.get("runtime", []):
+        lines.append(f"depend={dep}")
     return "\n".join(lines) + "\n"
 
 

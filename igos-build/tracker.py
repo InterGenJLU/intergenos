@@ -149,6 +149,11 @@ class PackageTracker:
             f"size={total_size}",
             f"filecount={len(file_paths)}",
         ]
+        # H-004: emit one `depend=X` line per runtime dependency. Build-time
+        # deps are NOT shipped — they're only needed at compile time and
+        # don't define the installed-system reverse-dep graph.
+        for dep in (pkg.depends.runtime if pkg.depends else []):
+            pkginfo_lines.append(f"depend={dep}")
         (staging_dir / ".PKGINFO").write_text("\n".join(pkginfo_lines) + "\n")
 
         # Stash for pkg_register_pkm_db, which the builder calls at gate-3

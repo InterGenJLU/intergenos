@@ -366,8 +366,13 @@ class PackageDB:
     # Dependencies
     # ------------------------------------------------------------------
 
-    def add_depends(self, package_id, deps):
-        """Add dependency records. deps: list of (dep_name, dep_type)."""
+    def add_depends(self, package_id, deps, commit=True):
+        """Add dependency records. deps: list of (dep_name, dep_type).
+
+        commit: when True (default), commit immediately. Set to False when
+        called inside an outer transaction (e.g. atomic install in the
+        installer), so the caller manages BEGIN/COMMIT/ROLLBACK.
+        """
         for dep_name, dep_type in deps:
             try:
                 self.conn.execute(
@@ -376,7 +381,8 @@ class PackageDB:
                 )
             except sqlite3.IntegrityError:
                 pass
-        self.conn.commit()
+        if commit:
+            self.conn.commit()
 
     def get_depends(self, name):
         """Get dependencies for a package."""
