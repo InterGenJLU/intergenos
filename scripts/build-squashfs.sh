@@ -244,6 +244,34 @@ for mnt in proc sys dev run tmp; do
 done
 
 # ----------------------------------------------------------------------------
+# Step 4.4: M-002 chroot-binary-presence gate (T0-3 sub-cluster 2)
+# ----------------------------------------------------------------------------
+# Verify every binary the installer Python invokes via subprocess + every
+# binary the shell pipeline scripts depend on is present in the chroot at a
+# standard search path. Closes the regression class that produced C-001
+# (parted missing) + F-001 (iucode_tool path mismatch) — a binary-presence
+# check that complements the broader verify_paths audit in Step 4.5.
+# Runs FIRST so missing-binary regressions surface with a precise diagnostic
+# before the verify_paths audit's package-level failure cascade.
+M002_GATE="$(dirname "$0")/check-installer-runtime-deps.py"
+if [ -x "$M002_GATE" ] || [ -f "$M002_GATE" ]; then
+    log "[4.4/5] M-002 chroot-binary-presence gate against chroot..."
+    PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+    if python3 "$M002_GATE" --chroot "$CHROOT" --project "$PROJECT_DIR"; then
+        log "  M-002 PASS — all installer-runtime binaries present in chroot"
+    else
+        rc=$?
+        log "  M-002 FAILED with exit $rc — refusing to build squashfs"
+        log "  One or more installer-runtime binaries are missing from the chroot."
+        log "  Re-run the gate directly for the full missing-list diagnostic:"
+        log "    python3 $M002_GATE --chroot $CHROOT --project $PROJECT_DIR --verbose"
+        exit $rc
+    fi
+else
+    log "[4.4/5] M-002 chroot-binary-presence gate SKIPPED (script not found at $M002_GATE)"
+fi
+
+# ----------------------------------------------------------------------------
 # Step 4.5: pre-squashfs audit — verify every declared package landed
 # ----------------------------------------------------------------------------
 # Each packages/<tier>/<name>/package.yml declares verify_paths: — load-
