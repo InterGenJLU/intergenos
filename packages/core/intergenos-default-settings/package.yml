@@ -1,0 +1,19 @@
+name: intergenos-default-settings
+version: "1.0.0"
+release: 1
+description: InterGenOS canonical SSoT for GNOME desktop defaults — gschema-overrides + /etc/skel libadwaita bridge. Per D-006 owner directive.
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: core
+build_style: custom
+source: []
+dependencies:
+  build: []
+  host:
+    - glib2
+    - coreutils
+verify_paths:
+  - /usr/share/glib-2.0/schemas/90_intergenos.gschema.override
+  - /usr/share/glib-2.0/schemas/91_intergenos-extensions.gschema.override
+  - /usr/share/glib-2.0/schemas/92_intergenos-desktop.gschema.override
+  - /etc/skel/.config/gtk-4.0/gtk.css
