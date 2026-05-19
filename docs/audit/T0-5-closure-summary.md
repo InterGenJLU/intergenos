@@ -117,7 +117,7 @@ Each row marks the disposition the operator is accepting at sign-off. **CORRECTE
 
 | # | Issue | Disposition | Detail |
 |---|---|---|---|
-| A | `REPO_ROLLBACK_DIR` unbounded growth | DECISION NEEDED | Q1 rollback substrate at `/var/lib/pkm/rollback/` grows monotonically. SPOC flagged at 2026-05-19 13:36:06Z peer-review. Options + recommendation will be presented via `AskUserQuestion`. |
+| A | `REPO_ROLLBACK_DIR` unbounded growth | **RESOLVED** at `ac9d3c97` | Operator selected Option 1 (`pkm cache clean --rollback` subcommand) on 2026-05-19. Corrective work landed: new mutually-exclusive `--rollback` flag on `pkm cache clean` that prunes `/var/cache/pkm/rollback/` to one most-recent archive per installed package (removes older entries + all entries for packages no longer installed). 8-case test coverage at `tests/pkm/test_cache_clean_rollback.py`. pkm suite 149 → 157 passing. |
 | B | `pkm cache` help text doesn't mention `/var/cache/pkm/rollback/` | DECISION NEEDED | Drift-class — user-facing help text omits the rollback cache. SPOC flagged at 13:36:06Z peer-review. Options + recommendation via `AskUserQuestion`. |
 | C | Helper-lib ABI stability via SUPERSEDES | DECISION NEEDED | IGOSC's H-007 surface note on whether v1.0 commits to helper-lib v1 ABI permanence (RFC §11 SUPERSEDES posture). Options + recommendation via `AskUserQuestion`. |
 | D | Helper failure mid-record orphan-files | DECISION NEEDED | IGOSC's H-007 surface note — if a helper crashes after `record_file` calls but before `igos_helper_commit`, the deposited files exist on disk but no manifest captures them; pkm has zero record. Options + recommendation via `AskUserQuestion`. |
