@@ -301,6 +301,43 @@ check_file "tmpfiles x11" "/etc/tmpfiles.d/x11-unix.conf"
 check_file "gsettings override" "/usr/share/glib-2.0/schemas/90_intergenos.gschema.override"
 
 # ============================================================================
+# Installer runtime dependencies (M-002 gate, T0-3 sub-cluster 2)
+# ============================================================================
+# Wires the scripts/check-installer-runtime-deps.py gate into the chroot-
+# health flow so missing parted / sgdisk / mkfs.xfs / etc. fail the build at
+# this gate (rather than at install-time when a user is staring at the
+# partitioning screen). Closes the regression class that produced C-001 +
+# F-001 (per audit M-002).
+echo
+echo "[Installer runtime deps (M-002)]"
+SCRIPT_DIR_M002="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+M002_GATE="${SCRIPT_DIR_M002}/check-installer-runtime-deps.py"
+M002_CHROOT="${SYSROOT:-/}"
+if [ -x "${M002_GATE}" ]; then
+    # Run gate, capture stdout/stderr to a log, capture exit code via $?.
+    # Avoid pipeline-of-tee so set -o pipefail doesn't mask the real exit.
+    M002_LOG=/tmp/chroot-health-m002.out
+    if python3 "${M002_GATE}" \
+            --chroot "${M002_CHROOT}" \
+            --project "${SCRIPT_DIR_M002}/.." \
+            > "${M002_LOG}" 2>&1; then
+        # tail -1 of stdout has the "Summary: N OK, M unowned, K missing" line.
+        tail -1 "${M002_LOG}"
+        echo "  OK: M-002 gate passed"
+        PASS=$((PASS + 1))
+    else
+        cat "${M002_LOG}"
+        echo "  FAIL: M-002 — installer runtime binaries missing in chroot"
+        echo "        (full log: ${M002_LOG})"
+        FAIL=$((FAIL + 1))
+        FAILURES="${FAILURES}\n  FAIL: M-002 — installer runtime binaries missing (T0-3 sub-cluster 2)"
+    fi
+else
+    echo "  WARN: M-002 gate script not found at ${M002_GATE} — skipping check"
+    WARN=$((WARN + 1))
+fi
+
+# ============================================================================
 # CUPS special check (known issue)
 # ============================================================================
 echo
