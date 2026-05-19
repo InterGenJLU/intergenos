@@ -1,0 +1,90 @@
+#!/bin/sh
+# /usr/bin/intergen-privileged-runner — pkexec target for InterGen privileged tools.
+#
+# Invoked by intergen via pkexec when a tool the provenance gate
+# classified PRIVILEGED_STATE_CHANGING (per RFC v0.1 §6) has been
+# authorized for execution. Runs as root after PolicyKit authentication
+# against org.intergenos.intergen.privileged-tool.
+#
+# Two-layer security:
+#   1. PolicyKit (this runner is the exec.path target) — handles
+#      AUTHENTICATION (user enters password; cached per session via
+#      auth_admin_keep).
+#   2. intergen.privileged_dispatch (Python entry point) — handles
+#      AUTHORIZATION (validates tool name against allowlist + validates
+#      arguments per-tool + executes the underlying command). Argument
+#      validation lives in Python because the privileged-tool allowlist
+#      and per-tool argument schemas live with the intergen tool registry
+#      (intergen/tool_registry.py), and the runner must call back into
+#      that registry to enforce the same contract intergen enforced
+#      pre-pkexec.
+#
+# Argv contract (from the intergen caller via pkexec):
+#   $1 — tool name (one of the PRIVILEGED_STATE_CHANGING allowlist;
+#        validated by Python dispatcher against intergen.tool_registry)
+#   $2 — JSON arguments object (validated against the tool's schema
+#        by the Python dispatcher before execution)
+#
+# The runner is a thin shim — argv passes through to Python untouched
+# (Python does the validation). The runner's job is to set up a clean
+# root-context environment + propagate the calling user's identity for
+# downstream tools that care about it (e.g. write_file's path-ownership
+# semantics).
+
+set -eu
+
+# Refuse to run outside a pkexec context. A direct root invocation would
+# bypass PolicyKit authentication entirely + would not have PKEXEC_UID
+# set, breaking the calling-user identity propagation that the Python
+# dispatcher relies on. This mirrors forge-gui-runner's defensive check
+# at /usr/bin/forge-gui-runner:27-30.
+PKEXEC_UID="${PKEXEC_UID:-}"
+if [ -z "${PKEXEC_UID}" ]; then
+    printf 'intergen-privileged-runner: PKEXEC_UID unset; refusing to run outside pkexec.\n' >&2
+    exit 1
+fi
+
+# Argv minimum: tool_name + args_json.
+if [ "$#" -lt 2 ]; then
+    printf 'intergen-privileged-runner: usage: intergen-privileged-runner <tool_name> <args_json>\n' >&2
+    exit 2
+fi
+
+TOOL_NAME="$1"
+shift
+ARGS_JSON="$1"
+shift
+
+# Resolve the calling user's name (downstream tools may need
+# /home/$USER context — e.g. write_file refuses to overwrite a
+# file under another user's $HOME, which requires knowing the
+# user). getent over $USER from /etc/passwd via uid since the
+# pkexec environment may have stripped USER.
+PKEXEC_USER=$(getent passwd "${PKEXEC_UID}" 2>/dev/null | cut -d: -f1)
+if [ -z "${PKEXEC_USER}" ]; then
+    printf 'intergen-privileged-runner: cannot resolve user for uid %s\n' "${PKEXEC_UID}" >&2
+    exit 1
+fi
+
+# Sanitize environment. The LLM cannot inject env vars (provenance gate
+# blocks ingress-influenced calls from reaching pkexec), but the
+# intergen process itself runs as the user + carries user-session env.
+# Clean PATH + locale + identity vars to a minimal known-safe set so
+# privileged tool dispatch is deterministic regardless of how the
+# user's shell was configured upstream. The Python dispatcher reads
+# PKEXEC_UID + PKEXEC_USER directly; no other env propagation needed
+# for the v1.0 minimum (manage_services + manage_packages + run_command
+# + write_file all operate on system state without user-env input).
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
+export HOME=/root
+export PKEXEC_UID
+export PKEXEC_USER
+
+# Hand off to the Python dispatcher. Argv stays positional + clean.
+# python3 is guaranteed-present per packages/core/python (the intergen
+# Python module ships with the same package set; if python3 disappears,
+# intergen itself is broken upstream of this point and the issue
+# surfaces before any tool dispatch).
+exec /usr/bin/python3 -m intergen.privileged_dispatch "${TOOL_NAME}" "${ARGS_JSON}"

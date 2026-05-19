@@ -120,6 +120,20 @@ Name=com.intergenos.InterGen
 Exec=/usr/bin/intergen daemon
 DBUS
 
+    # T0-4-E integration pkexec gate (RFC v0.1 §6 line 161 D-007 Option A):
+    # privileged tool dispatch goes through PolicyKit. Policy declares
+    # the org.intergenos.intergen.privileged-tool action; runner is the
+    # exec.path target that re-enters Python for argument validation +
+    # dispatch via intergen.privileged_dispatch. The provenance gate
+    # (intergen/provenance.py — IGOSC's T0-4-E surface) authorizes INTENT
+    # before this PolicyKit gate authorizes AUTHENTICATION; both fire for
+    # privileged operations per the RFC "the two don't replace each other"
+    # invariant.
+    install -Dm644 /mnt/intergenos/intergen/data/org.intergenos.intergen.policy \
+        "${DESTDIR}/usr/share/polkit-1/actions/org.intergenos.intergen.policy"
+    install -Dm755 /mnt/intergenos/intergen/data/intergen-privileged-runner \
+        "${DESTDIR}/usr/bin/intergen-privileged-runner"
+
     # Create data directories
     install -dm755 "${DESTDIR}/var/lib/intergen/models/llm"
     install -dm755 "${DESTDIR}/var/lib/intergen/models/embedding"
