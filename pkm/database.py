@@ -59,6 +59,15 @@ CREATE TABLE IF NOT EXISTS installed (
     compressed_size INTEGER,
     superseded_by TEXT,
     superseded_at TEXT,
+    -- Q9 (O-026 + O-015):
+    --   held: 1 → package excluded from `pkm upgrade` without explicit
+    --   --ignore-holds flag (emergency security override).
+    --   install_reason: 'manual' (user explicitly invoked `pkm install <name>`)
+    --   or 'dependency' (pulled in by another package's runtime deps).
+    --   `pkm autoremove` removes only install_reason='dependency' packages
+    --   that have no reverse-deps.
+    held INTEGER DEFAULT 0,
+    install_reason TEXT DEFAULT 'manual',
     UNIQUE(name)
 );
 
@@ -131,6 +140,7 @@ class PackageDB:
         self.conn.execute("PRAGMA journal_mode = WAL")
         self.conn.executescript(SCHEMA)
         self._migrate_supersedes_columns()
+        self._migrate_q9_columns()
 
     def _migrate_supersedes_columns(self):
         """Idempotent migration: add superseded_by + superseded_at columns
@@ -138,6 +148,29 @@ class PackageDB:
         for col in ("superseded_by", "superseded_at"):
             try:
                 self.conn.execute(f"ALTER TABLE installed ADD COLUMN {col} TEXT")
+            except sqlite3.OperationalError as e:
+                if "duplicate column" not in str(e):
+                    raise
+        self.conn.commit()
+
+    def _migrate_q9_columns(self):
+        """Idempotent migration: add Q9 hold + install_reason columns to
+        pre-existing `installed` tables. Q9 (O-026 + O-015) adds hold/pin
+        and autoremove primitives.
+
+        Defaults match the SCHEMA: held=0 (not held), install_reason=
+        'manual' (existing packages are treated as user-installed for
+        autoremove safety — autoremove only touches 'dependency' rows).
+        """
+        migrations = [
+            ("held", "INTEGER DEFAULT 0"),
+            ("install_reason", "TEXT DEFAULT 'manual'"),
+        ]
+        for col, decl in migrations:
+            try:
+                self.conn.execute(
+                    f"ALTER TABLE installed ADD COLUMN {col} {decl}"
+                )
             except sqlite3.OperationalError as e:
                 if "duplicate column" not in str(e):
                     raise
@@ -194,23 +227,27 @@ class PackageDB:
     def add_installed(self, name, version, release=1, tier=None, description=None,
                       license_=None, build_date=None, install_method="archive",
                       archive_path=None, uncompressed_size=0, compressed_size=0,
-                      commit=True):
+                      install_reason="manual", commit=True):
         """Register a package as installed.
 
         commit: when True (default), commit immediately. Set to False when
         called inside an outer transaction (e.g. atomic supersede in the
         installer), so the caller manages BEGIN/COMMIT/ROLLBACK.
+        install_reason: 'manual' (user-requested) or 'dependency'
+        (dep-resolution-pulled). Default 'manual' — explicit dep installs
+        must pass install_reason='dependency'. Q9 autoremove only touches
+        'dependency' rows that have zero reverse-deps.
         """
         now = datetime.now(timezone.utc).isoformat()
         self.conn.execute(
             """INSERT OR REPLACE INTO installed
                (name, version, release, tier, description, license,
                 build_date, install_date, install_method, archive_path,
-                uncompressed_size, compressed_size)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                uncompressed_size, compressed_size, install_reason)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (name, version, release, tier, description, license_,
              build_date, now, install_method, archive_path,
-             uncompressed_size, compressed_size)
+             uncompressed_size, compressed_size, install_reason)
         )
         if commit:
             self.conn.commit()
@@ -507,6 +544,95 @@ class PackageDB:
             (name,)
         ).fetchall()
         return [{"name": r[0], "version": r[1], "type": r[2]} for r in rows]
+
+    # ------------------------------------------------------------------
+    # Q9 hold + autoremove (O-026 + O-015)
+    # ------------------------------------------------------------------
+
+    def set_held(self, name, held=True, commit=True):
+        """Mark a package held (or release the hold).
+
+        Args:
+            name: package name.
+            held: True to hold (exclude from `pkm upgrade --all`), False
+                to release the hold.
+            commit: pass-through commit semantics.
+
+        Returns:
+            int — rowcount. 1 on success, 0 if the package is not installed.
+        """
+        cur = self.conn.execute(
+            "UPDATE installed SET held = ? WHERE name = ?",
+            (1 if held else 0, name),
+        )
+        if commit:
+            self.conn.commit()
+        return cur.rowcount
+
+    def list_held(self):
+        """Return list of held package names (held=1). Sorted by name."""
+        rows = self.conn.execute(
+            "SELECT name FROM installed WHERE held = 1 ORDER BY name"
+        ).fetchall()
+        return [r[0] for r in rows]
+
+    def is_held(self, name):
+        """Return True iff the named package is currently held."""
+        row = self.conn.execute(
+            "SELECT held FROM installed WHERE name = ?", (name,)
+        ).fetchone()
+        return bool(row and row[0])
+
+    def set_install_reason(self, name, reason, commit=True):
+        """Update install_reason for a package.
+
+        Args:
+            name: package name.
+            reason: 'manual' or 'dependency'.
+            commit: pass-through commit semantics.
+
+        Returns:
+            int — rowcount. 1 on success, 0 if not installed.
+
+        Raises:
+            ValueError on invalid reason.
+        """
+        if reason not in ("manual", "dependency"):
+            raise ValueError(
+                f"install_reason must be 'manual' or 'dependency'; got {reason!r}"
+            )
+        cur = self.conn.execute(
+            "UPDATE installed SET install_reason = ? WHERE name = ?",
+            (reason, name),
+        )
+        if commit:
+            self.conn.commit()
+        return cur.rowcount
+
+    def find_orphan_packages(self):
+        """Return packages eligible for `pkm autoremove`.
+
+        Eligibility: install_reason='dependency' AND no currently-installed
+        package has this one in its runtime/build deps list. Superseded
+        rows are excluded — they don't contribute to live rev-dep state.
+
+        Returns:
+            list[dict] — each row {name, version, tier} of orphan packages
+            sorted by name.
+        """
+        rows = self.conn.execute(
+            """SELECT i.name, i.version, i.tier
+               FROM installed i
+               WHERE i.install_reason = 'dependency'
+                 AND i.superseded_by IS NULL
+                 AND NOT EXISTS (
+                   SELECT 1 FROM depends d
+                   JOIN installed o ON d.package_id = o.id
+                   WHERE d.dep_name = i.name AND o.superseded_by IS NULL
+                 )
+               ORDER BY i.name"""
+        ).fetchall()
+        return [{"name": r[0], "version": r[1], "tier": r[2]} for r in rows]
 
     # ------------------------------------------------------------------
     # Search

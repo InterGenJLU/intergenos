@@ -77,7 +77,8 @@ class PackageInstaller:
         self.db = db
         self.root = Path(root)
 
-    def install(self, name, archive_path=None, queue=None, expected_sha256=None):
+    def install(self, name, archive_path=None, queue=None, expected_sha256=None,
+                install_reason="manual"):
         """Install a package from its .igos.tar.gz archive.
 
         Args:
@@ -100,6 +101,13 @@ class PackageInstaller:
                    second hash check. Mismatch → fail-closed return.
                    None means no expected hash (legacy / archive-trust=
                    loose path); install proceeds without the gate.
+            install_reason: Q9 install_reason field — 'manual' (user-
+                   requested install) or 'dependency' (dep-resolution-
+                   pulled). Default 'manual'. cmd_install threads
+                   'dependency' for each non-target dep in the resolved
+                   queue; explicit single-package invocations stay
+                   'manual'. `pkm autoremove` removes only 'dependency'
+                   rows with no live reverse-deps.
 
         Returns:
             (success: bool, message: str)
@@ -294,6 +302,10 @@ class PackageInstaller:
                     # to `build_date` (pkm/repo.py:593-595). Look up the
                     # post-rename key.
                     build_date=pkginfo.get("build_date"),
+                    # Q9: caller threads 'manual' (user-requested) or
+                    # 'dependency' (dep-resolution-pulled) per the
+                    # install_reason kwarg on PackageInstaller.install.
+                    install_reason=install_reason,
                     commit=False,
                 )
                 self.db.add_files(pkg_id, file_list, hashes=hashes_for_db, commit=False)

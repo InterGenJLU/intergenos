@@ -28,6 +28,9 @@ PKM_LOCK_PATH = Path("/var/lock/pkm.lock")
 PKM_MUTATING_COMMANDS = frozenset({
     "install", "install-helper", "remove", "reinstall", "update", "upgrade", "import",
     "restart-services",
+    # Q9: hold/unhold/mark mutate DB state; autoremove mutates filesystem +
+    # DB. All four go through the flock gate.
+    "hold", "unhold", "mark", "autoremove",
 })
 
 
@@ -115,6 +118,12 @@ def main():
         "--allow-downgrade", action="store_true",
         help="Treat any version mismatch as upgradable, including repo-older-than-installed "
              "(used to roll back after a bad release).",
+    )
+    p_upgrade.add_argument(
+        "--ignore-holds", action="store_true",
+        help="Override `pkm hold` and upgrade held packages too. Intended "
+             "for emergency security upgrades; surface a justification when "
+             "using this flag in scripted contexts.",
     )
 
     # -- search --
@@ -205,6 +214,56 @@ def main():
              "--list or --all)",
     )
 
+    # -- hold / unhold / mark / autoremove -- (Q9 install_reason + hold)
+    p_hold = sub.add_parser(
+        "hold",
+        help="Hold a package — exclude it from `pkm upgrade --all`",
+        description=(
+            "Sets held=1 on the named package(s). Held packages are "
+            "skipped by `pkm upgrade` and refuse explicit `pkm upgrade "
+            "<name>` invocations until released via `pkm unhold`. Use "
+            "`pkm upgrade --ignore-holds` for emergency security overrides."
+        ),
+    )
+    p_hold.add_argument("packages", nargs="+", metavar="package")
+
+    p_unhold = sub.add_parser(
+        "unhold",
+        help="Release a hold on a package",
+    )
+    p_unhold.add_argument("packages", nargs="+", metavar="package")
+
+    p_mark = sub.add_parser(
+        "mark",
+        help="Mark a package as manually- or dependency-installed",
+        description=(
+            "Updates the install_reason field. 'auto' (dependency) makes "
+            "the package eligible for autoremove if no rdeps point to it; "
+            "'manual' protects it from autoremove regardless of rdep state."
+        ),
+    )
+    p_mark.add_argument("reason", choices=["auto", "manual"])
+    p_mark.add_argument("packages", nargs="+", metavar="package")
+
+    p_autoremove = sub.add_parser(
+        "autoremove",
+        help="Remove orphaned dependency-installed packages with no rdeps",
+        description=(
+            "Removes packages where install_reason='dependency' AND no "
+            "currently-installed package depends on them. Manual-installed "
+            "packages are never touched. Run after upgrades that drop "
+            "dependencies to reclaim disk."
+        ),
+    )
+    p_autoremove.add_argument(
+        "--yes", action="store_true", dest="autoremove_yes",
+        help="Skip the [y/N] confirmation prompt",
+    )
+    p_autoremove.add_argument(
+        "--dry-run", action="store_true", dest="autoremove_dry_run",
+        help="List orphans without removing anything; exit 0",
+    )
+
     args = parser.parse_args()
 
     # Natural-language aliases — pkm's "Natural-language CLI" positioning
@@ -265,6 +324,14 @@ def main():
                 cmd_refresh_baseline(db, args)
             elif args.command == "restart-services":
                 cmd_restart_services(db, args)
+            elif args.command == "hold":
+                cmd_hold(db, args)
+            elif args.command == "unhold":
+                cmd_unhold(db, args)
+            elif args.command == "mark":
+                cmd_mark(db, args)
+            elif args.command == "autoremove":
+                cmd_autoremove(db, args)
     finally:
         db.close()
 
@@ -370,9 +437,16 @@ def cmd_install(db, args):
                 # installer-side TOCTOU re-verification gate.
                 dep_pkg = repo.get_package(dep_name)
                 dep_sha = dep_pkg.get("sha256") if dep_pkg else None
+                # Q9: the user-requested package is the install_reason=
+                # 'manual' anchor; everything else in the resolved queue
+                # is dep-resolution-pulled. autoremove later uses this to
+                # distinguish "remove the package I asked for" from
+                # "remove an orphan I never explicitly wanted".
+                dep_reason = "manual" if dep_name == pkg_name else "dependency"
                 inst_ok, inst_msg = installer.install(
                     dep_name, archive_path=dl_result,
                     expected_sha256=dep_sha,
+                    install_reason=dep_reason,
                 )
                 if inst_ok:
                     print(f"  {inst_msg}")
@@ -497,6 +571,8 @@ def cmd_upgrade(db, args):
     repo = RepoManager()
     installer = PackageInstaller(db)
     allow_downgrade = getattr(args, "allow_downgrade", False)
+    ignore_holds = getattr(args, "ignore_holds", False)
+    held_set = set(db.list_held())
 
     # O-010: route (version, release) compare through pkm.version so that
     # 1.10 sorts above 1.9, release-suffix bumps are detected, and the
@@ -521,7 +597,37 @@ def cmd_upgrade(db, args):
     if args.packages:
         # Filter to requested packages
         names = set(args.packages)
+        # Q9: explicit-named upgrade of a held package fails loud unless
+        # --ignore-holds. Avoids the "I asked for nginx and got nothing"
+        # silent skip.
+        if not ignore_holds:
+            held_requested = names & held_set
+            if held_requested:
+                listed = ", ".join(sorted(held_requested))
+                verb = "is" if len(held_requested) == 1 else "are"
+                print(
+                    f"  ERROR: {listed} {verb} held. Run `pkm unhold <name>` "
+                    f"first, or pass --ignore-holds to override (intended "
+                    f"for emergency security upgrades only).",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
         upgradable = [(i, r) for i, r in upgradable if i["name"] in names]
+    elif not ignore_holds:
+        # Q9: bare `pkm upgrade` filters held packages with informational
+        # notice. --ignore-holds bypasses for emergency security override.
+        held_upgradable = [
+            pkg for pkg, _ in upgradable if pkg["name"] in held_set
+        ]
+        if held_upgradable:
+            held_names = sorted(p["name"] for p in held_upgradable)
+            print(
+                f"  Skipping {len(held_names)} held package(s): "
+                f"{', '.join(held_names)} (run `pkm unhold <name>` to release)"
+            )
+            upgradable = [
+                (i, r) for i, r in upgradable if i["name"] not in held_set
+            ]
 
     if not upgradable:
         print("  Everything is up to date.")
@@ -927,6 +1033,98 @@ def _render_restart_results(results):
               file=sys.stderr)
         return 1
     return 0
+
+
+def cmd_hold(db, args):
+    """pkm hold <pkg>... — exclude packages from `pkm upgrade --all`.
+
+    Exit code 0 if every named package was found and held; 1 if any
+    name was not installed (already-held packages count as success).
+    """
+    any_failed = False
+    for name in args.packages:
+        if not db.get_installed(name):
+            print(f"  ERROR: {name} is not installed", file=sys.stderr)
+            any_failed = True
+            continue
+        db.set_held(name, held=True)
+        print(f"  Held: {name}")
+    return 1 if any_failed else 0
+
+
+def cmd_unhold(db, args):
+    """pkm unhold <pkg>... — release a hold."""
+    any_failed = False
+    for name in args.packages:
+        if not db.get_installed(name):
+            print(f"  ERROR: {name} is not installed", file=sys.stderr)
+            any_failed = True
+            continue
+        db.set_held(name, held=False)
+        print(f"  Released: {name}")
+    return 1 if any_failed else 0
+
+
+def cmd_mark(db, args):
+    """pkm mark auto|manual <pkg>... — update install_reason."""
+    reason = "dependency" if args.reason == "auto" else "manual"
+    any_failed = False
+    for name in args.packages:
+        if not db.get_installed(name):
+            print(f"  ERROR: {name} is not installed", file=sys.stderr)
+            any_failed = True
+            continue
+        db.set_install_reason(name, reason)
+        print(f"  Marked {name} as {args.reason} ({reason})")
+    return 1 if any_failed else 0
+
+
+def cmd_autoremove(db, args):
+    """pkm autoremove [--yes] [--dry-run] — remove orphan dep-installed pkgs.
+
+    Eligibility: install_reason='dependency' AND no currently-installed
+    package depends on them. Manual-installed packages are NEVER touched.
+    """
+    orphans = db.find_orphan_packages()
+    if not orphans:
+        print("  No orphan packages to remove.")
+        return 0
+
+    print(f"  {len(orphans)} orphan package(s) eligible for removal:")
+    for o in orphans:
+        tier = f" [{o['tier']}]" if o.get("tier") else ""
+        print(f"    {o['name']:30s} {o['version']:15s}{tier}")
+
+    if getattr(args, "autoremove_dry_run", False):
+        print("  --dry-run: nothing removed.")
+        return 0
+
+    if not getattr(args, "autoremove_yes", False):
+        if not sys.stdin.isatty():
+            print(
+                "  ERROR: stdin is not a tty; pass --yes to confirm "
+                "non-interactively, or --dry-run to preview.",
+                file=sys.stderr,
+            )
+            return 1
+        try:
+            answer = input("  Proceed with removal? [y/N] ").strip().lower()
+        except EOFError:
+            answer = ""
+        if answer != "y":
+            print("  Aborted.")
+            return 0
+
+    remover = PackageRemover(db)
+    any_failed = False
+    for o in orphans:
+        ok, msg = remover.remove(o["name"], force=False)
+        if ok:
+            print(f"  Removed {o['name']}")
+        else:
+            print(f"  ERROR removing {o['name']}: {msg}", file=sys.stderr)
+            any_failed = True
+    return 1 if any_failed else 0
 
 
 if __name__ == "__main__":
