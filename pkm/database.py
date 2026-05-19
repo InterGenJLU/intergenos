@@ -264,7 +264,18 @@ class PackageDB:
         if commit:
             self.conn.commit()
 
-        # Track config files separately for protection
+        # Track config files separately for protection. The Q4 (O-021) fix:
+        # original_checksum must be recorded ONCE at first install of the
+        # config path and never ratcheted forward by subsequent re-registrations
+        # (which would silently re-baseline the user-edited-detection check
+        # against new stock — defeating preservation across upgrades).
+        #
+        # On INSERT (first install): all three values are recorded.
+        # On CONFLICT (re-register during upgrade): only package_id updates;
+        # original_checksum is preserved from the first install. The upgrade
+        # orchestration explicitly ratchets the baseline forward via
+        # update_original_checksum(path, new_sha) for files the user has not
+        # edited (see pkm.configprotect.ratchet_baselines).
         config_paths = [p for p in file_list if p.startswith("etc/") and not p.endswith("/")]
         for cp in config_paths:
             abs_path = "/" + cp
@@ -272,11 +283,91 @@ class PackageDB:
             if checksum is None and os.path.isfile(abs_path):
                 checksum = _sha256(abs_path)
             self.conn.execute(
-                "INSERT OR REPLACE INTO config_files (path, package_id, original_checksum) VALUES (?, ?, ?)",
+                """INSERT INTO config_files (path, package_id, original_checksum)
+                   VALUES (?, ?, ?)
+                   ON CONFLICT(path) DO UPDATE SET package_id = excluded.package_id""",
                 (cp, package_id, checksum)
             )
         if commit:
             self.conn.commit()
+
+    # ------------------------------------------------------------------
+    # Config-file baseline tracking (Q4 .pkmnew sidecar support)
+    # ------------------------------------------------------------------
+
+    def get_original_checksum(self, path):
+        """Return the recorded original_checksum for a config-file path.
+
+        Args:
+            path: relative path (no leading slash, e.g. "etc/foo.conf")
+
+        Returns:
+            sha256 hex string of the stock content as last recorded baseline,
+            or None if the path is not tracked as a config file.
+        """
+        row = self.conn.execute(
+            "SELECT original_checksum FROM config_files WHERE path = ?",
+            (path.lstrip("/"),)
+        ).fetchone()
+        return row[0] if row else None
+
+    def update_original_checksum(self, path, new_checksum, commit=True):
+        """Update the recorded original_checksum for a config-file path.
+
+        Called by the upgrade orchestration after verifying the live file's
+        pre-upgrade sha256 matched the recorded baseline (i.e., user did not
+        edit). The upgrade replaces the live file with new stock, and this
+        records the new stock's sha256 as the baseline going forward.
+
+        For user-edited files, the upgrade orchestration writes a .pkmnew
+        sidecar instead of replacing the live file, and the recorded
+        baseline is NOT updated (so subsequent upgrades continue to detect
+        the user's edits).
+
+        Args:
+            path: relative path (no leading slash, e.g. "etc/foo.conf")
+            new_checksum: sha256 hex string of the new stock content
+            commit: when True (default), commit immediately. Set False when
+                    called inside an outer transaction.
+
+        Returns:
+            int — number of rows updated. 0 if the path is not tracked.
+        """
+        cur = self.conn.execute(
+            "UPDATE config_files SET original_checksum = ? WHERE path = ?",
+            (new_checksum, path.lstrip("/"))
+        )
+        if commit:
+            self.conn.commit()
+        return cur.rowcount
+
+    def refresh_baseline(self, path, commit=True):
+        """Re-record the original_checksum from the current live file.
+
+        User-facing operation: after the user manually accepts a .pkmnew
+        sidecar (typically via `mv /etc/foo.conf.pkmnew /etc/foo.conf`),
+        this records the new live content's sha256 as the baseline so
+        subsequent upgrades treat the new content as the "original" for
+        the user-edited detection check.
+
+        Args:
+            path: relative path (no leading slash, e.g. "etc/foo.conf") or
+                  absolute path (leading slash stripped).
+            commit: when True (default), commit immediately.
+
+        Returns:
+            (success: bool, message: str) — success indicates the live
+            file exists and the config_files row was updated.
+        """
+        rel = path.lstrip("/")
+        abs_path = str(self.root / rel)
+        if not os.path.isfile(abs_path):
+            return False, f"{abs_path}: file not found"
+        new_sum = _sha256(abs_path)
+        rowcount = self.update_original_checksum(rel, new_sum, commit=commit)
+        if rowcount == 0:
+            return False, f"{path}: not tracked as a config file"
+        return True, f"refreshed baseline for {path} → {new_sum[:16]}..."
 
     def get_files(self, name):
         """Get all files owned by a package."""

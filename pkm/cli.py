@@ -159,6 +159,21 @@ def main():
     # -- import --
     p_import = sub.add_parser("import", help="Import existing text manifests into database")
 
+    # -- refresh-baseline -- (Q4 .pkmnew accept-new helper)
+    p_refresh = sub.add_parser(
+        "refresh-baseline",
+        help="Record the current /etc/* file content as the new baseline",
+        description=(
+            "Re-records the original_checksum for one or more tracked config "
+            "files from the current live content. Use after manually merging "
+            "a .pkmnew sidecar (e.g. `mv /etc/foo.conf.pkmnew /etc/foo.conf`) "
+            "so subsequent upgrades treat the new content as the baseline "
+            "for the user-edited detection check."
+        ),
+    )
+    p_refresh.add_argument("paths", nargs="+", metavar="path",
+                           help="One or more /etc/* paths (absolute or relative)")
+
     args = parser.parse_args()
 
     # Natural-language aliases — pkm's "Natural-language CLI" positioning
@@ -215,6 +230,8 @@ def main():
                 cmd_history(db, args)
             elif args.command == "import":
                 cmd_import(db, args)
+            elif args.command == "refresh-baseline":
+                cmd_refresh_baseline(db, args)
     finally:
         db.close()
 
@@ -739,6 +756,28 @@ def cmd_import(db, args):
     print("  Importing existing text manifests...")
     count = db.import_manifests()
     print(f"  Imported {count} package(s) into pkm database")
+
+
+def cmd_refresh_baseline(db, args):
+    """pkm refresh-baseline <path>... — record current live content as baseline.
+
+    User-facing accept-new step after manually merging a .pkmnew sidecar.
+    Recomputes the live file's sha256 and stores it as the original_checksum
+    for each tracked config path, so subsequent upgrades treat the new content
+    as the baseline for the user-edited detection check.
+
+    Exit code:
+      0 — all paths refreshed successfully
+      1 — at least one path failed (not tracked, file not found, etc.);
+          successful paths are still committed.
+    """
+    any_failed = False
+    for path in args.paths:
+        success, msg = db.refresh_baseline(path)
+        print(f"  {msg}")
+        if not success:
+            any_failed = True
+    return 1 if any_failed else 0
 
 
 if __name__ == "__main__":
