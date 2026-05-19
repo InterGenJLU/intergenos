@@ -1,3 +1,27 @@
+================================================================
+InterGenOS — Corresponding Source Availability
+================================================================
+
+InterGenOS is distributed under the terms of the GNU General Public
+License v3.0 or later, the full text of which appears below.
+
+For corresponding source under §6 of this License (and the equivalent
+provisions in GPL-2.0, LGPL-2.1, LGPL-3.0, MPL-2.0, AGPL-3.0, and
+EPL-1.0), InterGenJLU commits through TWO complementary channels:
+
+  (a) Network access (GPL v3 §6d): the project's public source mirror
+      at https://repo.intergenos.org/x86_64/current/sources/, and
+
+  (b) Written offer by mail (GPL v3 §6b): valid for three (3) years
+      from the date you received this copy of InterGenOS, contactable
+      at legal@intergenos.org.
+
+The binding commitment — covering scope, contents, timing, and contact
+details — is documented in the SOURCES.md file at the root of this
+distribution. Read SOURCES.md for the complete terms of access.
+
+================================================================
+
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
