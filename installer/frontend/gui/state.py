@@ -166,17 +166,20 @@ class InstallerState:
           required: locale, timezone, hostname, package_groups
           optional: keymap (orchestrator falls back to "us" if absent)
 
-        `core` is invariant-present (enforced in __post_init__) — the
-        orchestrator's validate phase rejects yaml that omits it. We
-        still sort+set-dedupe here so the emitted yaml is deterministic
-        and a future package-selection screen that adds dupes is harmless.
+        `core` is force-included here via set-union as defense-in-depth
+        against post-construction mutation of `package_groups` that
+        bypasses `__post_init__`. The orchestrator's validate phase also
+        rejects yaml that omits it; this layer enforces the same invariant
+        at the emission boundary so the yaml is correct even when a
+        future package-selection screen (or test fixture) reassigns
+        `package_groups` after construction.
 
         Disk + passwords + username are deliberately NOT in this dict —
         they are install_io collected interactively (Q-TUI-INTERACTIVITY=B
         + Q-GUI-SCREENS=7). Pre-seeding disk = fat-finger risk; pre-seeding
         password = supply-chain risk. PRIME DIRECTIVE.
         """
-        chosen = sorted(set(self.package_groups))
+        chosen = sorted(set(self.package_groups) | {"core"})
         return {
             "version": YAML_SCHEMA_VERSION,
             "locale": self.locale,
@@ -312,8 +315,12 @@ class InstallerState:
                 errors.append("LUKS passphrase not set (encryption opt-in active)")
             elif self.luks_passphrase != self.luks_passphrase_confirm:
                 errors.append("LUKS passphrases don't match")
-        # 'core' invariant is enforced in __post_init__; no runtime check
-        # needed here — bypassing __post_init__ means bypassing the
-        # dataclass machinery entirely, which is out-of-scope for the
-        # UI validation surface.
+        # 'core' invariant: enforced at construction in __post_init__ AND
+        # re-checked here as defense-in-depth. Post-construction mutation
+        # of `package_groups` (test fixtures, future package-selection
+        # screen toggling) can circumvent __post_init__, so the UI
+        # validation surface must catch the omission too. Composes with
+        # the set-union force-include in build_install_yaml.
+        if "core" not in self.package_groups:
+            errors.append("core package group is required (cannot be removed)")
         return errors
