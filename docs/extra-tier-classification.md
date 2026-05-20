@@ -1,9 +1,10 @@
 # `tier: extra` ISO/MIRROR Classification — v1.0 candidate
 
-**Authority.** Owner-direct via internal dispatch (Item 2 of the 2026-05-16 four-item brief):
-ISO ships basic-necessities + a few creature-comforts; **everything else is
-`pkm install <name>` post-install.** Server-shaped packages are HELL NO on
-the ISO by default. When in doubt, MIRROR.
+**Authority.** Owner-direct via internal dispatch (Item 2 of the 2026-05-16 four-item brief),
+elevated to the tier-agnostic **D-014 build-vs-ship principle** on 2026-05-20
+(see `docs/owner-directives.md#D-014`): ISO ships basic-necessities + a few
+creature-comforts; **everything else is `pkm install <name>` post-install.**
+Server-shaped packages are HELL NO on the ISO by default. When in doubt, MIRROR.
 
 **Inputs.** Every `packages/extra/<name>/package.yml` in tree at master
 `51bcdfac` (102 packages). Current tier on each is `extra` (this doc does
@@ -18,22 +19,25 @@ concept consumed by an upcoming `iso_include:` field).
   to the InterGenOS mirror (Item 1 of the same brief), available via `pkm install <name>`
   on demand from any installed system with network.
 
-**Summary.** 11 ISO / 91 MIRROR.
+**Summary.** 15 ISO / 87 MIRROR (per D-014 ratification 2026-05-20).
 
-The 11 ISO additions are: 1 web browser (`firefox`), 1 media player
-(`mpv`) + its sole extra-tier runtime dep (`uchardet`), and 8 small
+The 15 ISO additions are: 1 web browser (`firefox`), 1 media player
+(`mpv`) + its sole extra-tier runtime dep (`uchardet`), 8 small
 Rust-static CLI creature-comforts (`bat`, `bottom`, `dust`, `eza`, `fd`,
-`ripgrep`, `tealdeer`, `zoxide`). The Rust CLI tools each link statically
-via cargo and bring zero extra-tier libraries with them; `firefox` and
-`mpv` only consume core/desktop deps besides `uchardet`.
+`ripgrep`, `tealdeer`, `zoxide`), 1 email client (`thunderbird`), 1 GTK4
+mpv frontend (`celluloid`), 1 terminal git UI (`lazygit`), and 1 shell
+prompt (`starship`; ISO-shipped because the first-login Welcomer prompt
+toggle requires the binary present). The Rust CLI tools each link
+statically via cargo and bring zero extra-tier libraries with them;
+`firefox` and `mpv` only consume core/desktop deps besides `uchardet`.
 
-The 91 MIRROR allocations are dominated by:
+The 87 MIRROR allocations are dominated by:
 - 13 server daemons and DB engines (HELL NO category)
 - 10 container-runtime / VM-networking infrastructure
 - 6 third-party download helpers (Brave/Chrome/Discord/Edge/Spotify/VS Code/Claude Code)
-- 6 desktop applications most users don't want by default (LibreOffice, GIMP, Inkscape, Audacity, Thunderbird, Rhythmbox)
-- 4 less-universal CLI specialty tools (grex/just/lazygit/starship/hyperfine/tokei/sd/xh)
-- ~50 libraries whose only consumers are MIRROR apps (per
+- 5 desktop applications most users don't want by default (LibreOffice, GIMP, Inkscape, Audacity, Rhythmbox)
+- 6 less-universal CLI specialty tools (grex/just/hyperfine/tokei/sd/xh)
+- ~47 libraries whose only consumers are MIRROR apps (per
   `docs/package-tiers.md`'s "library lives in tier of its consumer" rule,
   re-applied to the ISO/MIRROR axis: a library follows its earliest-shipped
   consumer, so when no consumer is ISO, the library is MIRROR)
@@ -59,7 +63,7 @@ this audit). `proposed_bucket` is ISO or MIRROR.
 | caddy | extra | MIRROR | HTTP/HTTPS server (single-binary). HELL NO default. |
 | cairomm1 | extra | MIRROR | C++ binding for Cairo (GTK3 API); consumers all MIRROR. |
 | catatonit | extra | MIRROR | Container init helper; consumed by podman stack (MIRROR). |
-| celluloid | extra | MIRROR | GTK4 mpv frontend; mpv is ISO but GUI shell is opt-in. |
+| celluloid | extra | ISO | GTK4 mpv frontend; creature-comfort GUI for the ISO-shipped mpv (no Totem in desktop tier). D-014 RATIFIED 2026-05-20. |
 | chrome-helper | extra | MIRROR | Third-party download wrapper for Google Chrome; opt-in. |
 | claude-code-helper | extra | MIRROR | Third-party download wrapper for Anthropic Claude Code CLI; opt-in. |
 | clucene | extra | MIRROR | C++ Lucene port; consumed by libreoffice (MIRROR). |
@@ -90,7 +94,7 @@ this audit). `proposed_bucket` is ISO or MIRROR.
 | inkscape | extra | MIRROR | Vector graphics editor; specialty creative app, opt-in. |
 | jemalloc | extra | MIRROR | Alternate malloc; consumed by mariadb/rocksdb (MIRROR). |
 | just | extra | MIRROR | Just (command runner); specialty/developer CLI. |
-| lazygit | extra | MIRROR | Terminal git UI; specialty/developer CLI (git CLI already in core). |
+| lazygit | extra | ISO | Terminal git UI; operator override on coordinator HOLD-MIRROR recommendation. D-014 RATIFIED 2026-05-20. |
 | lego | extra | MIRROR | ACME client; companion to MIRROR web servers. |
 | leveldb | extra | MIRROR | Embedded KV store; consumed by MIRROR consumers. |
 | libatomic_ops | extra | MIRROR | Boehm-GC atomic-ops lib; consumed by MIRROR consumers. |
@@ -136,9 +140,9 @@ this audit). `proposed_bucket` is ISO or MIRROR.
 | sd | extra | MIRROR | sed-replacement CLI; less universal than ripgrep/fd, opt-in. |
 | snappy | extra | MIRROR | Fast compression lib; consumed by leveldb/rocksdb/mariadb (MIRROR). |
 | spotify-helper | extra | MIRROR | Third-party download wrapper for Spotify; opt-in. |
-| starship | extra | MIRROR | Shell prompt; default shell prompt is a global UX choice, opt-in. |
+| starship | extra | ISO | Shell prompt; required ISO-resident because first-login Welcomer presents a "stock vs starship" prompt toggle. D-014 RATIFIED 2026-05-20 (per Q2 Welcomer-toggle resolution). |
 | tealdeer | extra | ISO | Rust-static tldr client; widely-used creature-comfort man-page alternative. |
-| thunderbird | extra | MIRROR | Email/news client; specialty/communication app, opt-in. |
+| thunderbird | extra | ISO | Email/news client; creature-comfort (email expected default on modern desktops). D-014 RATIFIED 2026-05-20. |
 | tokei | extra | MIRROR | LoC counter; specialty/developer CLI. |
 | transmission | extra | MIRROR | BitTorrent client (daemon + GUI). HELL NO default for the daemon component. |
 | uchardet | extra | ISO | Charset-detection lib; **runtime dep of mpv (ISO)**. Multi-consumer → earliest tier (also consumed by libreoffice MIRROR). |
@@ -155,8 +159,8 @@ this audit). `proposed_bucket` is ISO or MIRROR.
 ## Counts by bucket
 
 ```
-ISO:    11
-MIRROR: 91
+ISO:    15
+MIRROR: 87
 TOTAL:  102
 ```
 
@@ -165,13 +169,17 @@ TOTAL:  102
 ```
 bat
 bottom
+celluloid
 dust
 eza
 fd
 firefox
+lazygit
 mpv
 ripgrep
+starship
 tealdeer
+thunderbird
 uchardet
 zoxide
 ```
@@ -205,23 +213,31 @@ zoxide
    replacement for a coreutils binary that's already on the system, not
    a specialty/developer tool.
 
-5. **`starship` → MIRROR.** Plausible counter-position: ship as ISO
-   creature-comfort. Held back because the default shell prompt is a
-   global UX decision owner should ratify explicitly before defaulting,
-   and `starship` ships disabled-by-default unless `/etc/skel/.bashrc`
-   activates it. If owner ratifies "yes, ship starship enabled by
-   default," promote to ISO and update default skel.
+5. **`starship` → ISO.** D-014 RATIFIED 2026-05-20 via Q2 Welcomer-toggle
+   resolution. The first-login Welcomer presents a 2-option shell-prompt
+   toggle ("stock" — operator's custom prompt from `build_003`, user+root
+   variants — vs "starship" — configured to mimic the stock prompt's
+   visual layout as closely as possible). The toggle requires the
+   `starship` binary present on the ISO. Captured per the first-login
+   shell-prompt Welcomer-toggle resolution memory.
 
-6. **`lazygit` → MIRROR.** Plausible counter-position: ship as ISO for
-   developer audience. Held back because the ISO target is a desktop
-   live image for general users; developers will `pkm install lazygit`.
+6. **`lazygit` → ISO.** D-014 RATIFIED 2026-05-20. Operator override on
+   the coordinator HOLD-MIRROR recommendation. Ships as a creature-comfort
+   alongside the `git` CLI already in core.
 
-7. **`transmission` → MIRROR (whole package).** The package bundles a
-   daemon, CLI utils, AND a GTK4 GUI. The daemon component triggers the
-   "HELL NO default" rule; rather than partial-ship (GUI without daemon)
-   the simpler call is MIRROR for the whole package. Owner can split
-   into `transmission-gtk` (ISO) + `transmission` (MIRROR daemon)
-   downstream if desired.
+7. **`transmission` → MIRROR (whole package).** D-014 RATIFIED 2026-05-20
+   via Q3 transmission-shape resolution. The package bundles a daemon, CLI
+   utils, AND a GTK4 GUI. The daemon component triggers the "HELL NO
+   default" rule; rather than partial-ship (GUI without daemon) the
+   simpler call is MIRROR for the whole package. Operator may split into
+   `transmission-gtk` (ISO) + `transmission` (MIRROR daemon) downstream
+   as a separate decision.
+
+8. **`thunderbird` / `celluloid` → ISO (Tier B creature-comforts).** D-014
+   RATIFIED 2026-05-20. Thunderbird ships because email is an
+   expected-default on modern desktops. Celluloid ships as the GTK4 mpv
+   frontend filling the GUI video gap (no Totem / GNOME Videos in the
+   desktop tier).
 
 ---
 
@@ -243,15 +259,30 @@ Build-pipeline work that follows from this list (per the Item 2 brief):
 
 ---
 
-## Open questions for owner ratification
+## Owner ratifications (resolved 2026-05-20 via D-014)
 
-- Browser default: ratify `firefox`, or redirect (no browser / Epiphany
-  in desktop / Chromium added later)?
-- Default shell prompt: ratify GNU bash default (starship MIRROR), or
-  ship `starship` configured-on-by-default (starship ISO)?
-- Transmission shape: leave bundled (MIRROR whole), or split daemon
-  vs. GUI (GTK ISO + daemon MIRROR)?
+- **Q1 — Browser default**: RATIFIED `firefox` → ISO. Only browser in tree;
+  matches 6 of 7 mainstream desktops.
+- **Q2 — Default shell prompt**: RATIFIED via Welcomer-toggle resolution.
+  First-login Welcomer presents 2 picks: "stock" (operator's custom prompt
+  from `build_003`, BOTH user AND root variants with differing format +
+  color; live reference exists on the IGOS laptop) vs "starship" (mimicking
+  the stock prompt's visual layout as closely as possible). `starship`
+  binary moves MIRROR → ISO so the toggle works without a post-install
+  network round-trip. Implementation captured per the first-login
+  shell-prompt Welcomer-toggle resolution memory.
+- **Q3 — Transmission shape**: RATIFIED `transmission` MIRROR (whole
+  package). No BitTorrent capability on the ISO; matches 6 of 8 mainstream
+  desktops. Daemon-vs-GUI split is a separate decision downstream.
+
+## Tier B creature-comfort additions (D-014 2026-05-20)
+
+Beyond the Q1/Q2/Q3 resolutions, three additional creature-comfort
+promotions landed under D-014: `thunderbird` (email expected default),
+`celluloid` (GTK4 mpv frontend; no Totem in desktop tier), and `lazygit`
+(operator override on coordinator HOLD-MIRROR recommendation). All three
+move MIRROR → ISO via the classification table above.
 
 ---
 
-Last updated: 2026-05-16 against master `51bcdfac`.
+Last updated: 2026-05-20 against current master (D-014 ratification commit).

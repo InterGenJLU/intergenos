@@ -629,3 +629,68 @@ Each entry uses this shape:
   - Optional v1.x: PreToolUse hook on `ScheduleWakeup` prompt argument to mechanically block literal `/loop` + `/loop <interval>` values. Tracked as a follow-on enforcement enhancement; v1.0 ships with procedural enforcement only (D-013 is the rule, peer-review catches drift).
 
 - **Status:** ACTIVE — build-system coordinator compliant since session start (this session's 6+ ScheduleWakeup invocations all carried real continuation directive or sentinel). Windows-host coordinator self-corrected 2026-05-19T22:53Z + POWER memory authored. Installed-system coordinator ACK pending on dispatch thread `t0-7-t0-4-dispatch-20260519`.
+
+## D-014 — Build-vs-ship principle (tier-agnostic; ISO vs MIRROR with `iso_include` field)
+
+- **Issued:** 2026-05-20T02:50:59Z by owner
+- **Context:** Queue-walk item #9-e during the 2026-05-20 pre-sleep handoff arc. Build-system coordinator surfaced the question "what apps should we BUILD but NOT SHIP with the ISO" (operator-verbatim trigger), drafted a tier-agnostic build-vs-ship principle in chat with full classification criteria + `iso_include` mechanism + 2026-05-20 ratifications table, and operator greenlit the draft. This directive elevates `docs/extra-tier-classification.md` (extra-tier-only since 2026-05-16 `47329170`) into a tier-agnostic principle covering all 6 package tiers.
+- **Verbatim (operator trigger + greenlight):**
+
+  > what apps should we BUILD but NOT SHIP with the ISO, and make them available for download on the mirror?
+  >
+  > [...build-system coordinator surfaced D-014 draft in chat with 5-priority criteria + `iso_include` mechanism + 2026-05-20 ratifications table...]
+  >
+  > greenlighting D-014 as drafted
+
+- **Decision-Encoded:**
+
+  **The classification.** Every package in tree is one of:
+  - **ISO** — built AND shipped in the live/installed squashfs. Available immediately on first boot, no network required.
+  - **MIRROR** — built and signed in the build pipeline; published to repo.intergenos.org; available via `pkm install <name>` on demand from any installed system with network.
+
+  The classification is tier-agnostic — applies across toolchain, core, base, desktop, extra, and ai tiers. Not extra-tier-specific.
+
+  **Classification criteria (in priority order):**
+  1. **HELL NO** — server daemons, daemon-only components, anything auto-listening on a port or auto-connecting to external services by default. Always MIRROR. Examples: nginx, apache-httpd, mariadb, postgresql, transmission-daemon, podman, etcd, valkey, memcached.
+  2. **Basic necessities** — packages without which a fresh first-boot user cannot perform foundational desktop operations (browse the web, play media, read/edit text, manage files). ISO.
+  3. **Creature-comforts** — packages widely-expected on modern desktops that don't carry the HELL NO disqualifier. Operator-discretion ISO. Current grouping (2026-05-20): 8 Rust-static CLIs (bat / bottom / dust / eza / fd / ripgrep / tealdeer / zoxide) + firefox + mpv + uchardet + thunderbird + celluloid + lazygit + starship (via Welcomer toggle).
+  4. **Specialty / opt-in / heavyweight** — packages whose user audience is a subset of the general user base, OR packages whose disk footprint makes them better as a deliberate install. MIRROR by default. Examples: LibreOffice (~5GB), GIMP, Inkscape, Audacity, dev-only CLIs (just / tokei / hyperfine / sd / xh), GTK demos (gtk4-demo / gtk4-icon-browser / gtk4-node-editor / gtk4-print-tool).
+  5. **When in doubt — MIRROR.** Default-MIRROR is the security-only-alignment-safe choice.
+
+  **Implementation mechanism:**
+  - Add `iso_include: true|false` field to every `package.yml` (default `false` for any package not explicitly classified ISO).
+  - Squashfs-assembly path filters on `iso_include: true` when populating the live ISO.
+  - Mirror-publish path signs and uploads ALL built packages (ISO + MIRROR alike) — the ISO bucket means "also pre-installed on the ISO," NOT "exclusive of the mirror." A user who removes an ISO-shipped package can re-install it via `pkm install <name>` same as any MIRROR package.
+
+  **Per-tier classification docs:**
+  Each tier carries its own per-package classification doc. Extra-tier is at `docs/extra-tier-classification.md` (updated for 2026-05-20 ratifications). Desktop-tier and other tiers each carry an analogous doc; the desktop-tier first scope is the GTK-demo-trim work (in implementation backlog below).
+
+  **2026-05-20 ratifications (queue-walk items #9-a through #9-d + #9-e general principle):**
+
+  | Item | Decision |
+  |---|---|
+  | Firefox default browser (#9-a) | ISO — only browser in tree; matches 6 of 7 mainstream desktops |
+  | Default shell prompt UX (#9-b) | Welcomer toggle: "stock" (operator's custom from build_003, user+root variants) vs "starship" (mimic). starship binary ISO. Captured per the first-login shell-prompt Welcomer-toggle resolution memory. |
+  | Transmission shape (#9-c) | Whole package MIRROR; no BitTorrent capability on ISO |
+  | Thunderbird (#9-d) | ISO — creature-comfort: email expected default |
+  | Celluloid (#9-d) | ISO — creature-comfort: GTK4 mpv frontend; no Totem in desktop tier |
+  | lazygit (#9-d) | ISO — operator override on coordinator HOLD-MIRROR recommendation |
+  | Desktop-tier GTK demos | MIRROR — build but don't ship; `pkm install` on demand |
+
+- **Supersedes:**
+  - `docs/extra-tier-classification.md` "Open questions for owner ratification" (lines ~246-253 of `47329170` snapshot) — Q1/Q2/Q3 resolved per the ratifications table above; doc update lands in the same commit as this directive.
+  - Earlier coordinator-side framing of the build-vs-ship principle as extra-tier-only — this directive expands it to tier-agnostic.
+
+- **Composes with:**
+  - **D-006** (Theming canonical SSoT) — both directives reduce coordinator-internalized scope; D-014 extends the same discipline to per-package shipping classification.
+  - **D-011** (Default-deny firewall + SSH-closed-by-default) — same security-only alignment principle: HELL NO daemons map directly to D-011's no-listening-services-by-default baseline.
+  - **Security-only alignment principle** — "every shipped binary is attack surface" motivates the default-MIRROR posture for items 4 + 5 of the classification criteria.
+
+- **Implementation backlog (not directive surface):**
+  - Update `docs/extra-tier-classification.md` with 2026-05-20 ratifications: Firefox confirmed ISO; starship MIRROR→ISO (+ Welcomer-toggle note); transmission unchanged MIRROR; add thunderbird/celluloid/lazygit to ISO bucket; resolve Q1/Q2/Q3 "open questions" annotations as RATIFIED. (Lands in this commit.)
+  - Add `iso_include: true|false` field to every `package.yml` across all tiers; extra tier first per the operator-ratified picks; other tiers as classification work surfaces.
+  - Wire `iso_include` consumption into squashfs-assembly path — read the field; filter on `iso_include: true` when populating the live ISO; default-false for unspecified.
+  - Extend classification to desktop tier: identify build-but-don't-ship candidates starting with GTK demos (gtk4-demo / gtk4-icon-browser / gtk4-node-editor / gtk4-print-tool); inventory pass against `packages/desktop/gtk*` + adjacent for any developer-test binaries.
+  - Verify mirror-publish path signs + uploads ALL built packages (ISO + MIRROR) per the existing repo.intergenos.org infrastructure TODO E1.B.5-E1.B.7; current state has infrastructure live and build-pipeline emission is in scope per this directive.
+
+- **Status:** ACTIVE
