@@ -1,0 +1,25 @@
+name: intergen-firstboot
+version: "1.0"
+release: 1
+description: InterGenOS first-login branded ECG-pulse animation -- runs once per new user account in-session via GTK4/Wayland; fades to black so the welcomer takes over with the desktop already painted
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: file:///intergen-firstboot-${version}.tar.xz
+  sha256: c16b0289c9b248aabe47d024f64ebe8bbb2a7a1e7ab1c7f1efd8a4842a9f597b
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - python
+  - gtk4
+  - pango
+  - cairo
+  - pygobject3
+verify_paths:
+  - /usr/bin/intergen-firstboot
+  - /usr/libexec/intergen-firstboot/intergen-firstboot.py
+  - /etc/xdg/autostart/intergen-firstboot.desktop
