@@ -103,6 +103,10 @@ UNIT
 
 post_install() {
     set -e
-    systemctl --global daemon-reload 2>/dev/null || true
+    # systemctl --global enable creates the install-time symlink at
+    # /etc/systemd/user/graphical-session.target.wants/; per-user systemd
+    # instances pick up the new unit when each user logs in. No
+    # daemon-reload is needed (--global is not a valid scope for
+    # daemon-reload, which operates on a running systemd instance).
     systemctl --global enable intergen-firstboot.service 2>/dev/null || true
 }
