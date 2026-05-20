@@ -1,7 +1,7 @@
 name: intergenos-default-settings
 version: "1.0.0"
-release: 1
-description: InterGenOS canonical SSoT for GNOME desktop defaults — gschema-overrides + /etc/skel libadwaita bridge. Per D-006 owner directive.
+release: 2
+description: InterGenOS canonical SSoT for GNOME desktop defaults — gschema-overrides + /etc/skel libadwaita bridge + burn-my-windows per-user profile. Per D-006 owner directive.
 license: GPL-3.0-or-later
 homepage: https://github.com/InterGenJLU/intergenos
 tier: core
@@ -17,3 +17,4 @@ verify_paths:
   - /usr/share/glib-2.0/schemas/91_intergenos-extensions.gschema.override
   - /usr/share/glib-2.0/schemas/92_intergenos-desktop.gschema.override
   - /etc/skel/.config/gtk-4.0/gtk.css
+  - /etc/skel/.config/burn-my-windows/profiles/1775735161994164.conf

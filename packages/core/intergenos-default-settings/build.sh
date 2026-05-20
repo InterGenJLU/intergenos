@@ -80,10 +80,37 @@ do_install() {
     ln -sf /usr/share/themes/InterGenOS/gtk-4.0/gtk.css \
         "${DESTDIR}/etc/skel/.config/gtk-4.0/gtk.css"
 
+    # 3. burn-my-windows per-user profile config (NOT a dconf override).
+    #    burn-my-windows v48 stores profile config in
+    #    ~/.config/burn-my-windows/profiles/<microsecond-id>.conf files —
+    #    NOT in dconf paths alone. The dconf path
+    #    /org/gnome/shell/extensions/burn-my-windows/profile-close-0/ is
+    #    a mirror the extension's ProfileManager.js generates FROM the
+    #    .conf files it discovers; the .conf is the authoritative source.
+    #    Without this file present, the extension generates an empty
+    #    default profile at first session start ("default settings"
+    #    appearance even when our gschema defaults loaded). Shipping
+    #    via /etc/skel ensures every freshly-created user (including
+    #    liveuser via init.sh's `cp -a /etc/skel/. /home/liveuser/`)
+    #    gets the curated profile before the extension's first-run
+    #    profile-init can write a blank. Filename matches the canonical-
+    #    baseline workstation's profile ID for byte-level consistency;
+    #    the extension treats filenames as opaque microsecond-stamped IDs.
+    #
+    #    Migrated from packages/desktop/intergenos-default-settings/
+    #    (deleted in this commit; the dconf-system-db scope of that
+    #    package was retired by D-006; this file-shipping mechanism
+    #    was NOT in retirement scope so it lands here in the new
+    #    canonical SSoT package).
+    install -dm755 "${DESTDIR}/etc/skel/.config/burn-my-windows/profiles"
+    install -m644 "${sources_dir%/*}/burn-my-windows/1775735161994164.conf" \
+        "${DESTDIR}/etc/skel/.config/burn-my-windows/profiles/1775735161994164.conf"
+
     # Defensive asserts: confirm the three .gschema.override files
     # actually staged + the symlink staged as a symlink (not a regular
-    # file). If the source-tree paths drift, halt the build rather
-    # than shipping an empty / J-005-regressing package.
+    # file) + the burn-my-windows profile staged. If the source-tree
+    # paths drift, halt the build rather than shipping an empty /
+    # J-005-regressing / burn-my-windows-empty-default-regressing package.
     for f in 90_intergenos 91_intergenos-extensions 92_intergenos-desktop; do
         if [ ! -f "${DESTDIR}/usr/share/glib-2.0/schemas/${f}.gschema.override" ]; then
             echo "FATAL: gschema override missing in DESTDIR: ${f}.gschema.override" >&2
@@ -95,6 +122,12 @@ do_install() {
     if [ ! -L "${DESTDIR}/etc/skel/.config/gtk-4.0/gtk.css" ]; then
         echo "FATAL: /etc/skel/.config/gtk-4.0/gtk.css did not stage as a symlink" >&2
         echo "(audit J-005 requires symlink, not regular-file copy)" >&2
+        exit 1
+    fi
+
+    if [ ! -f "${DESTDIR}/etc/skel/.config/burn-my-windows/profiles/1775735161994164.conf" ]; then
+        echo "FATAL: burn-my-windows profile missing in DESTDIR" >&2
+        echo "Source path: ${sources_dir%/*}/burn-my-windows/1775735161994164.conf" >&2
         exit 1
     fi
 }
