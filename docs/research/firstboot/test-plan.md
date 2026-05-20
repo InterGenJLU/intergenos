@@ -72,7 +72,7 @@ Triggers:
 
 Functional behavior the rewrite must demonstrate, independent of smoothness:
 
-1. **Fresh-install + first user login** — animation fires automatically (XDG autostart triggers on session start), runs to completion, exits cleanly. Welcomer's autostart then fires.
+1. **Fresh-install + first user login** — animation fires automatically (the systemd user unit `intergen-firstboot.service` is activated by `graphical-session.target` at session start), runs to completion, exits cleanly. Welcomer's auto-generated systemd user unit (`app-intergen\x2dwelcome@autostart.service`, created by `systemd-xdg-autostart-generator` from the welcomer's `/etc/xdg/autostart/intergen-welcome.desktop` entry) then fires, deterministically AFTER the firstboot unit per the firstboot unit's `Before=` clause.
 2. **Done-marker semantics** — animation fires exactly once per user on first login. On second login by the same user, animation does NOT fire (done-marker at `~/.local/share/intergen/firstboot-animation-done` already present).
 3. **Multi-user** — each user account sees the animation on THEIR first login. User A's done-marker does not suppress user B's animation.
 4. **Welcomer chain integrity** — animation exits cleanly, welcomer's autostart fires after. No race where both windows are visible simultaneously. No race where welcomer fires BEFORE animation completes.
@@ -87,7 +87,7 @@ Functional behavior the rewrite must demonstrate, independent of smoothness:
 For each Python iteration:
 
 1. Build the Python package on the build chroot (or directly on the laptop for fast iteration).
-2. Deploy to the IGOS laptop: install the new package, ensure the autostart .desktop file is in `/etc/xdg/autostart/`, ensure the existing C/DRM systemd unit is NOT enabled (per Q6 + the not-deployed posture).
+2. Deploy to the IGOS laptop: install the new package (a `pkm install` runs `post_install()` for `systemctl --global enable intergen-firstboot.service`, which creates the install-time symlink at `/etc/systemd/user/graphical-session.target.wants/intergen-firstboot.service`; for manual file-drop deployment, copy the files into place and run that `systemctl` invocation manually afterward). Verify with `systemctl --user status intergen-firstboot.service` that the unit is enabled and in the `inactive (dead)` state (per-user systemd instances pick up the new unit at user-login time; no `daemon-reload` is required since `systemctl --global daemon-reload` is not a valid scope per `5466b17c`). Ensure the existing C/DRM systemd unit at `assets/intergen-firstboot-drm/intergen-firstboot.service` (source-of-truth path only; per audit row D-001 it was never wrapped in a shipping package) is NOT enabled (per Q6 + the not-deployed posture).
 3. Reset done-markers: `rm -f ~/.local/share/intergen/firstboot-animation-done ~/.config/intergen-welcome/done` for the test user.
 4. Logout. Login.
 5. Operator observes the animation. Records: tearing? glyphs? timing? jank? overall smoothness vs C reference?
