@@ -167,8 +167,8 @@ The L-022 remediation includes a secondary-mirror entry in `pkm/release-keys.jso
 - [`docs/audit/2026-05-18-comprehensive-state-audit.md`](../audit/2026-05-18-comprehensive-state-audit.md) row L-022 — origin Critical-severity audit finding
 - [`docs/audit/2026-05-18-remediation-plan.md`](../audit/2026-05-18-remediation-plan.md) — T0-5 cluster context + owner-decision-queue item 26 (L-022 DR scope)
 - [`pkm/release-keys.json`](../../pkm/release-keys.json) — canonical machine-readable signing-key config (target of Section 4 secondary-mirrors schema extension)
-- [`scripts/publish-repo.sh`](../../scripts/publish-repo.sh) — primary publish orchestrator (integration point for post-publish hook; PENDING-IMPLEMENTATION)
-- [`scripts/sync-mirror-backup.sh`](../../scripts/sync-mirror-backup.sh) — DR backup sync script (PENDING-IMPLEMENTATION)
+- [`scripts/publish-repo.sh`](../../scripts/publish-repo.sh) — primary publish orchestrator (file exists; the post-publish hook described in this runbook is **PENDING-IMPLEMENTATION**)
+- `scripts/sync-mirror-backup.sh` — DR backup sync script (**PENDING-IMPLEMENTATION** — file does not yet exist; cross-reference will resolve once T0-7-D wiring lands per remediation-plan owner-decision-queue item 26)
 - [`SECURITY.md`](../../SECURITY.md) — trust-anchor compromise response policy
 
 ## Appendix A — Why Private Git as the Backup Substrate?
