@@ -28,5 +28,41 @@ IgnoreSIGPIPE=no
 KillMode=process
 SendSIGHUP=yes
 
+# Installer-light surgical hardening (9 directives) per audit F-048
+# partial closure. Forge needs full filesystem + capability access surface
+# for its install operations (mount + chroot + bootloader install + pkm
+# package install with arbitrary owners + setuid binaries on target +
+# kernel module load), so the heavy-hardening shape (ProtectSystem +
+# ProtectHome + ProtectKernelModules + RestrictAddressFamilies +
+# RestrictNamespaces + RestrictSUIDSGID + CapabilityBoundingSet) is
+# omitted as conservative-correct (audit row F-048 surgical-hardening
+# exemption anticipated by 63c2edb5). The 9 directives ship are safe
+# against Forge's actual access surface verified against installer/
+# backend code paths: NoNewPrivileges (defense-in-depth against future
+# setuid-helper drift in the TUI path — TUI runs as root from oneshot,
+# no pkexec in execution path so the directive does not break current
+# functionality), RestrictRealtime (Forge is python, no SCHED_FIFO/RR),
+# LockPersonality (CPython does not call personality(2)),
+# SystemCallArchitectures=native (Forge + pkm + run_chroot are x86_64
+# ELF native), ProtectKernelLogs (Forge does not read /dev/kmsg or
+# kernel log buffer), ProtectClock (Forge does not call clock_settime
+# or settimeofday), ProtectControlGroups (Forge does not write to
+# /sys/fs/cgroup), ProtectHostname (Forge writes TARGET/etc/hostname
+# via file edit, not sethostname syscall; ProtectHostname blocks the
+# syscall not the file write), MemoryDenyWriteExecute (CPython does
+# not use PROT_WRITE+PROT_EXEC mappings; grep against installer/
+# backend confirms zero ctypes/mmap/numba/JIT usage). PrivateTmp
+# omitted as conservative-correct pending verification of the pkm
+# cross-process /tmp hand-off contract (/tmp/installer-packages).
+NoNewPrivileges=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+MemoryDenyWriteExecute=yes
+
 [Install]
 WantedBy=multi-user.target
