@@ -120,7 +120,7 @@ EOF
 # InterGenOS T0-4-B PAM-side closure (operator-greenlit RHEL 9 + CIS
 # baseline 2026-05-20). Activated via pam_limits.so in system-session.
 
-# Suppress core dumps fleet-wide.
+# Suppress core dumps system-wide.
 # Security: prevents secret leakage via core files (DISA STIG RHEL-09-211045).
 *    hard    core    0
 
