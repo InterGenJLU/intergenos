@@ -34,6 +34,23 @@ do_install() {
     set -e
     # pamddir= prevents installing shipped PAM configs (we create our own)
     make DESTDIR="$DESTDIR" exec_prefix=/usr pamddir= install
+
+    # Set setuid bits — required for non-root users to change passwords,
+    # switch users, etc. Must be set here because tar-based deployment
+    # strips setuid bits during extraction. Empirically, shadow's
+    # upstream `make install` does not reliably set mode 4755 in DESTDIR
+    # — the same chmod block lives in packages/core/shadow/build.sh.
+    # Because shadow-pam REINSTALLS these binaries (BLFS "Reinstallation
+    # of Shadow"), it overlays the setuid bits shadow set, so the
+    # restoration must be mirrored here.
+    chmod 4755 "${DESTDIR}/usr/bin/passwd"
+    chmod 4755 "${DESTDIR}/usr/bin/su"
+    chmod 4755 "${DESTDIR}/usr/bin/chage"
+    chmod 4755 "${DESTDIR}/usr/bin/chfn"
+    chmod 4755 "${DESTDIR}/usr/bin/chsh"
+    chmod 4755 "${DESTDIR}/usr/bin/newgrp"
+    chmod 4755 "${DESTDIR}/usr/bin/expiry"
+    chmod 4755 "${DESTDIR}/usr/bin/gpasswd"
 }
 
 post_install() {

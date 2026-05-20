@@ -53,6 +53,7 @@ do_install() {
     chmod 4755 "${DESTDIR}/usr/bin/chsh"
     chmod 4755 "${DESTDIR}/usr/bin/newgrp"
     chmod 4755 "${DESTDIR}/usr/bin/expiry"
+    chmod 4755 "${DESTDIR}/usr/bin/gpasswd"
 }
 
 # Post-install: runs on the live system AFTER deploy
