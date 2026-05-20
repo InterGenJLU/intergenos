@@ -137,12 +137,53 @@ do_install() {
     install -vm 644 "${PKG_DIR}/profiles/usr.libexec.intergenos.first-boot-greeter" \
         "${DESTDIR}/etc/apparmor.d/"
 
-    # 6. Complain-mode default marker. Declares InterGenOS's posture intent
-    #    (profiles ship in learning/complain mode for graceful rollout).
-    #    NOTE: as of 2026-05-15 no first-boot orchestrator reads this file
-    #    and runs aa-complain on /etc/apparmor.d/* — the marker is a
-    #    documented policy declaration only. Wiring it to the first-boot
-    #    flow is tracked separately (Rule 21 stub-hunt 2026-05-15).
+    # 6. Default-mode marker. Declares the ratified policy posture:
+    #    enforce-mode for the daemon fleet per matrix row 211 + commit
+    #    2f952b5 (2026-04-29 4-0 unanimous ratification). The earlier
+    #    "complain for graceful rollout" stance was build-system intent
+    #    that the operator-direct enforce ratification superseded; this
+    #    marker reflects the canonical posture. post_install() loads
+    #    profiles directly via apparmor_parser -r so no separate
+    #    first-boot orchestrator needs to read this file — it stays as
+    #    a documented policy declaration for tooling that wants to
+    #    introspect InterGenOS's AppArmor stance.
     install -vdm 755 "${DESTDIR}/usr/share/intergenos-apparmor/"
-    echo "complain" > "${DESTDIR}/usr/share/intergenos-apparmor/default_mode"
+    echo "enforce" > "${DESTDIR}/usr/share/intergenos-apparmor/default_mode"
+}
+
+post_install() {
+    set -e
+    # Load every top-level profile in /etc/apparmor.d/ into the running
+    # kernel. Closes audit F-039 (HG) "AppArmor profiles ship without
+    # transitions" per matrix row 877 + line 1309: the package previously
+    # installed profiles to /etc/apparmor.d/ but never ran apparmor_parser
+    # so the kernel never enforced them — defense theater per the audit's
+    # framing.
+    #
+    # Per RATIFIED 2026-04-29 (matrix row 211 + commit 2f952b5; 4-0
+    # unanimous): AppArmor in enforce mode for the daemon fleet,
+    # DEFAULT_SECURITY=apparmor. This loader runs in enforce mode (the
+    # default for apparmor_parser; -C would request complain-mode).
+    #
+    # Guard: in a chroot at build/install time the kernel isn't running
+    # AppArmor + /sys/kernel/security/apparmor isn't present; the parser
+    # would fail. Skip silently in that case — profiles ship to
+    # /etc/apparmor.d/ and the systemd apparmor.service unit loads them
+    # at boot via /usr/lib/apparmor/rc.apparmor.functions. This guard
+    # matches the Debian dh_apparmor postinst pattern.
+    if [ ! -d /sys/kernel/security/apparmor ]; then
+        echo "AppArmor not enabled in this kernel (chroot install context) — profiles staged to /etc/apparmor.d/; will be loaded by apparmor.service at boot."
+        return 0
+    fi
+
+    # Each profile is a top-level file under /etc/apparmor.d/; the
+    # abstractions/ + tunables/ + abi/ + disable/ + local/ + cache/
+    # directories are filtered out by the [ -f ] test (they hold include
+    # fragments + cache, not standalone profiles).
+    for profile in /etc/apparmor.d/*; do
+        [ -f "$profile" ] || continue
+        if ! apparmor_parser -r "$profile" 2>/dev/null; then
+            echo "WARNING: apparmor_parser failed to load $profile (non-fatal; may indicate profile-syntax drift or a missing kernel feature). Other profiles continue to load."
+        fi
+    done
 }
