@@ -2,12 +2,13 @@
 Description=InterGenOS First-Boot Password Greeter
 Documentation=man:systemd.unit(5)
 
-# Order after the DRM brand animation completes so the user sees the
-# welcome animation before the password prompts. Both services use
-# tty1 and Conflicts=getty@tty1.service to lock the TTY.
+# Wait for vconsole + tmpfiles setup before claiming tty1 for the
+# password prompts. Conflicts with getty@tty1.service locks the TTY.
+# Stale ordering on intergen-firstboot.service removed; the firstboot
+# rewrite uses a per-user autostart .desktop chain on first GDM login,
+# not a systemd unit.
 After=systemd-vconsole-setup.service
 After=systemd-tmpfiles-setup.service
-After=intergen-firstboot.service
 
 # Idempotency: do nothing on subsequent boots once the flag is written.
 ConditionPathExists=!/etc/intergenos/first-boot-completed
@@ -48,6 +49,38 @@ TTYVTDisallocate=yes
 
 # No timeout — user may take their time choosing passwords.
 TimeoutStartSec=0
+
+# Medium hardening (19 directives) per audit rows F-048 + F-049 surgical-
+# hardening exemption closure. The greeter runs as oneshot root from
+# systemd; password-tool needs CAP_CHOWN + CAP_DAC_OVERRIDE + CAP_FOWNER
+# to write the credential database, and CAP_AUDIT_WRITE for PAM audit
+# events via libaudit (which opens AF_NETLINK sockets — both AF_UNIX and
+# AF_NETLINK must remain in RestrictAddressFamilies for the audit trail
+# to land; without AF_NETLINK, libaudit silently degrades and CAP_AUDIT_
+# WRITE becomes inert). ProtectSystem=true keeps /usr + /boot read-only
+# but leaves /etc writable (greeter writes credential database + flag at
+# /etc/intergenos/first-boot-completed). SystemCallFilter=@system-service
+# is the systemd.exec(5) predefined syscall group for typical service
+# workloads (bash + native binary + no JIT engines).
+NoNewPrivileges=yes
+ProtectSystem=true
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_AUDIT_WRITE
+MemoryDenyWriteExecute=yes
 
 [Install]
 WantedBy=multi-user.target
