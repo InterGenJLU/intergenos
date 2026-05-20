@@ -83,3 +83,14 @@ B46F51C9AFF4CD53A607E8CB0A690FE3485EA9AB7F9E1A951BD0CF5BF9A17BE7B25CD1FE94864B26
 736d57edd4fe00b9f1aff522b6ff64a95fd197ff39c70fd0cdd4ea7ed786ddf7
 #   docker/shim-build/vendor-cert/intergenos-secure-boot-ca.der
 7b8f2150b5d00c7b28dd518fadd70bc0e837ae43df7b5e23d6185e9c7530c876
+
+# --- Public SHA-256 hashes of T0-4-D pinned model manifest + detached signature ---
+# Public content-addressing hashes of files committed in the T0-4-D unified
+# commit. The manifest itself + its detached signature are public-by-design
+# (supply-chain authority for first-boot model fetch); their SHA-256s document
+# the commit content for audit traceability. Computed via sha256sum at commit
+# time; reproducible from the in-repo file content.
+#   intergen/data/models-manifest.json (T0-4-D Step 1 content; 1219 bytes)
+a7869c9a2d64d12bbb349bd24588ee02e7a61f1542458487297609c4bba74c36
+#   intergen/data/models-manifest.json.asc (T0-4-D Step 2 detached OpenPGP sig; 870 bytes)
+1cb498fb959edaa3ea7beba5e5f4c6937d97da04325619a5ae52ff77f5d22512
