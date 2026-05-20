@@ -27,14 +27,15 @@
 #   export GPG_CARD_DEBUG=1                            # opt-in verbose
 #   export GPG_CARD_LOG="/home/<user>/tmp/script.log"  # debug log target
 #   export GPG_CARD_DRY_RUN=0                          # 1 = no mutations
-#   source /home/<user>/tmp/lib-gpg-card-setup.sh
+#   source "${SCRIPT_DIR}/lib-gpg-card-setup.sh"       # SCRIPT_DIR = caller's dir
 #   gpg_card_setup_init                                # idempotent setup
 #   gpg_card_verify_key "<40-hex-fingerprint>"         # verify key present
 #
 # Usage (direct invocation for diagnostics):
-#   bash /home/<user>/tmp/lib-gpg-card-setup.sh [--debug] [--dry-run]
+#   bash scripts/lib-gpg-card-setup.sh [--debug] [--dry-run]
 #
-# Lives at /home/<user>/tmp/ per D-016.
+# Lives at scripts/lib-gpg-card-setup.sh (in-repo canonical path; promoted
+# from /home/<user>/tmp/ scratch path at commit f6e5f44f).
 
 # Library does not `set -e` on its own — caller is expected to set its own
 # safety options. All public functions use explicit `return N` for control
