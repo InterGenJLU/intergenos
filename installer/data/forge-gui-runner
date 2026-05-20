@@ -20,6 +20,19 @@
 
 set -eu
 
+# Argv strict equality: forge-gui-runner takes NO arguments. The args to
+# /usr/bin/forge are hardcoded below per the polkit-action security
+# contract (passwordless grant only covers this exact root invocation;
+# intergenos cannot inject alternate arguments). Reject any positional
+# argv at the runner layer as defense-in-depth — even though argv is
+# unused, refusing extras prevents future drift where a maintainer
+# accidentally starts reading $1 + a malicious caller has already been
+# passing crafted args.
+if [ "$#" -ne 0 ]; then
+    printf 'forge-gui-runner: takes no arguments; got %d. Refusing.\n' "$#" >&2
+    exit 2
+fi
+
 # PKEXEC_UID is set by pkexec to the calling user's uid. Refuse to run
 # outside a pkexec context — a direct root invocation would either crash
 # on the missing env file or restore env from a wrong /run/user/<uid>.

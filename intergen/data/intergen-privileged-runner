@@ -44,9 +44,14 @@ if [ -z "${PKEXEC_UID}" ]; then
     exit 1
 fi
 
-# Argv minimum: tool_name + args_json.
-if [ "$#" -lt 2 ]; then
-    printf 'intergen-privileged-runner: usage: intergen-privileged-runner <tool_name> <args_json>\n' >&2
+# Argv strict equality: tool_name + args_json, no extras. Tightened from
+# `-lt 2` (>=2 args accepted) to `-ne 2` (exactly 2 args required) so a
+# malicious caller cannot smuggle additional positional arguments past
+# this entry point. The Python dispatcher uses only $1 + $2 by design;
+# any further argv would either be silently ignored or could be exploited
+# via downstream argv-shaping. Reject early at the runner layer.
+if [ "$#" -ne 2 ]; then
+    printf 'intergen-privileged-runner: usage: intergen-privileged-runner <tool_name> <args_json> (exactly 2 args)\n' >&2
     exit 2
 fi
 
