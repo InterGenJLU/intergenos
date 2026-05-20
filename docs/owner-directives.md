@@ -628,7 +628,7 @@ Each entry uses this shape:
   - Windows-host coordinator: ACK D-013 absorption on the dispatch thread; cite the host-local cycle-mechanism POWER memory as the host-local reflection of the canonical rule.
   - Optional v1.x: PreToolUse hook on `ScheduleWakeup` prompt argument to mechanically block literal `/loop` + `/loop <interval>` values. Tracked as a follow-on enforcement enhancement; v1.0 ships with procedural enforcement only (D-013 is the rule, peer-review catches drift).
 
-- **Status:** ACTIVE — build-system coordinator compliant since session start (this session's 6+ ScheduleWakeup invocations all carried real continuation directive or sentinel). Windows-host coordinator self-corrected 2026-05-19T22:53Z + POWER memory authored. Installed-system coordinator ACK pending on dispatch thread `t0-7-t0-4-dispatch-20260519`.
+- **Status:** ACTIVE — build-system coordinator compliant since session start (this session's 6+ ScheduleWakeup invocations all carried real continuation directive or sentinel). Windows-host coordinator self-corrected 2026-05-19T22:53Z + POWER memory authored. Installed-system coordinator ACK landed via session-start orientation 2026-05-20T~04:00Z + cycle-mechanism POWER memory authored in IGOSC namespace 2026-05-20 + zero `/loop` invocations across the entire session (cycle compliance verified empirically).
 
 ## D-014 — Build-vs-ship principle (tier-agnostic; ISO vs MIRROR with `iso_include` field)
 
