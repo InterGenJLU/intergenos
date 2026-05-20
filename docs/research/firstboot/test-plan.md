@@ -26,7 +26,7 @@
 - GPU: Intel integrated graphics (i915 driver class)
 - OS: InterGenOS bare-metal
 - Display server: GNOME on Wayland
-- Has the C/DRM reference installed for side-by-side smoothness A/B
+- Has the C/DRM reference binary built locally for side-by-side smoothness A/B (the binary was built by the operator during the original tuning week and lives on the laptop; the C/DRM has never been wrapped in a shipping package per audit row D-001 — see `docs/audit/2026-05-18-design-decisions-matrix.md` line 730)
 
 **Secondary AMD-GPU sanity check: DS-v2 host (192.168.1.218).**
 - Hardware: HP Laptop 17-ak0xx
@@ -111,9 +111,9 @@ For each Python iteration:
 Plain operational note — no ceremony required. If the operator calls revert:
 
 1. Remove the Python package + the new XDG autostart file from the build pipeline.
-2. Re-enable the existing C/DRM package's install logic (the systemd unit at `/etc/systemd/system/intergen-firstboot.service` is re-deployed).
+2. The C/DRM source at `assets/intergen-firstboot-drm/` remains in tree per Q6 verdict; no deletion needed. **Note on revert-state shipping posture:** the C/DRM has never been wrapped in a shipping package per audit row D-001 (`built but never shipped (no package)`); the systemd unit at `assets/intergen-firstboot-drm/intergen-firstboot.service` is a source-of-truth file, not a deployed unit. The immediate revert-state therefore has no shipping firstboot animation. If the operator wants a shipping firstboot animation under the revert, that requires separately authoring a proper C/DRM package (`packages/desktop/intergen-firstboot/build.sh` + `package.yml`) which deploys the unit to `/etc/systemd/system/intergen-firstboot.service` and the binary to `/usr/bin/intergen-firstboot` — that packaging work is its own work-stream and is not part of this revert path.
 3. Move the Python source files out of tree to an archive location (the `build-output/` or `_archive/` area; not kept live in tree per ratified §5 verdict). Git history retains the full implementation if archaeology is ever needed.
-4. The flow-intent question (operator wants animation post-login, but C can only render pre-compositor) remains open — a different approach would be needed to deliver post-login while staying in C. That decision belongs to operator + happens later.
+4. The flow-intent question (operator wants animation post-login, but C can only render pre-compositor) remains open — a different approach would be needed to deliver post-login while staying in C. That decision belongs to operator + happens at a separate time.
 
 Single commit lands the revert; no audit row required (the lesson is captured in the matrix + this plan).
 
