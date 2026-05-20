@@ -71,6 +71,17 @@ if [ -e "${done_marker}" ]; then
     exit 0
 fi
 
+# Force GSK's cairo (software) renderer for fleet parity with the
+# intergen-welcome wrapper. The welcomer's diagnosis (see
+# packages/desktop/intergen-welcome/build.sh:72-86) documented a Mesa
+# ZINK Vulkan crash class on virtualized GPUs where GTK4's default GL
+# renderer attempts ZINK-on-GL and segfaults at context creation when
+# the host cannot expose a real Vulkan device. The firstboot animation
+# renders via a Gtk.DrawingArea set_draw_func -> Cairo path, so the
+# surface is software-rendered at the cairo layer anyway -- the GSK GL
+# renderer adds nothing this code path needs, and the cairo override
+# protects against the documented crash class on virtualized targets.
+export GSK_RENDERER=cairo
 python3 /usr/libexec/intergen-firstboot/intergen-firstboot.py "$@"
 rc=$?
 if [ "${rc}" -eq 0 ]; then

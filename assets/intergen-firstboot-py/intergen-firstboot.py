@@ -535,7 +535,7 @@ class PulseArea(Gtk.DrawingArea):
 class FirstBootApp(Gtk.Application):
 
     def __init__(self):
-        super().__init__(application_id="com.intergenstudios.intergen-firstboot",
+        super().__init__(application_id="com.intergenos.firstboot",
                          flags=0)
         self._win = None
 
