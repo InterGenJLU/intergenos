@@ -182,8 +182,15 @@ post_install() {
     # fragments + cache, not standalone profiles).
     for profile in /etc/apparmor.d/*; do
         [ -f "$profile" ] || continue
-        if ! apparmor_parser -r "$profile" 2>/dev/null; then
-            echo "WARNING: apparmor_parser failed to load $profile (non-fatal; may indicate profile-syntax drift or a missing kernel feature). Other profiles continue to load."
+        # Capture stderr to an err variable so the diagnostic surfaces in
+        # the WARNING instead of being dropped to /dev/null. The previous
+        # `2>/dev/null` suppression made syntax errors + missing-kernel-
+        # feature events invisible at install time; with the capture, the
+        # actual apparmor_parser message rides along in the WARNING +
+        # operators can diagnose profile-syntax drift inline.
+        # Matches the Debian dh_apparmor postinst error-handling pattern.
+        if ! err=$(apparmor_parser -r "$profile" 2>&1); then
+            echo "WARNING: apparmor_parser failed to load $profile: $err (non-fatal; may indicate profile-syntax drift or a missing kernel feature). Other profiles continue to load."
         fi
     done
 }
