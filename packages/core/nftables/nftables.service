@@ -17,5 +17,35 @@ StandardInput=null
 StandardOutput=inherit
 StandardError=inherit
 
+# Modest network-shaped hardening per operator-greenlit queue-walk
+# item #11 (2026-05-20). Closes the F-048/F-049 nftables.service
+# exemption documented in 63c2edb5 commit body. Each directive is
+# verified against the nftables operating model:
+#   - nft talks to the kernel via netlink (AF_NETLINK)
+#   - nft may need to load netfilter kernel modules on first apply
+#   - nft modifies kernel firewall tunables (netfilter sysctls)
+# The two "=no" entries below are explicit-no for documentation
+# clarity (systemd default is also no for both; stating explicitly
+# makes the deliberate non-protection auditable + protects the
+# directive set against a future maintainer toggling either to yes
+# without realizing nft requires the access).
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=no
+ProtectKernelModules=no
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service @network-io
+CapabilityBoundingSet=CAP_NET_ADMIN
+
 [Install]
 WantedBy=multi-user.target
