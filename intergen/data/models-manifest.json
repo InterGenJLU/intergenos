@@ -1,0 +1,39 @@
+{
+  "version": "0.1",
+  "entries": [
+    {
+      "name": "Qwen3.5-2B",
+      "filename": "Qwen3.5-2B-Q4_K_M.gguf",
+      "repo_id": "unsloth/Qwen3.5-2B-GGUF",
+      "quant": "Q4_K_M",
+      "size_bytes": 1280835840,
+      "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
+      "tier": 1,
+      "license_ref": "LicenseRef-Tongyi-Qianwen"
+    },
+    {
+      "name": "Qwen3.5-9B",
+      "filename": "Qwen3.5-9B-Q4_K_M.gguf",
+      "repo_id": "unsloth/Qwen3.5-9B-GGUF",
+      "quant": "Q4_K_M",
+      "size_bytes": 5680522464,
+      "sha256": "03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8",
+      "tier": 2,
+      "license_ref": "LicenseRef-Tongyi-Qianwen"
+    },
+    {
+      "name": "nomic-embed-text-v1.5",
+      "filename": "nomic-embed-text-v1.5.Q8_0.gguf",
+      "repo_id": "nomic-ai/nomic-embed-text-v1.5-GGUF",
+      "quant": "Q8_0",
+      "size_bytes": 146146432,
+      "sha256": "3e24342164b3d94991ba9692fdc0dd08e3fd7362e0aacc396a9a5c54a544c3b7",
+      "tier": null,
+      "license_ref": "Apache-2.0"
+    }
+  ],
+  "signing": {
+    "fingerprint": "5597A3E0587B253006D0DD7B8C50826182083050",
+    "signature_path": "/usr/share/intergen/models-manifest.json.sig"
+  }
+}

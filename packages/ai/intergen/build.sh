@@ -196,6 +196,21 @@ DBUS
     install -Dm644 /mnt/intergenos/intergen/data/intergen-tool-dispatch.logrotate \
         "${DESTDIR}/etc/logrotate.d/intergen-tool-dispatch"
 
+    # T0-4-D — model SHA256 pinning manifest + operator-PIV-signed
+    # armored detached signature. The consumer (intergen.model_manager._load_pins)
+    # reads PINS_MANIFEST_PATH = /usr/share/intergen/models-manifest.json
+    # at ModelManager construction; empty/missing/malformed manifest
+    # triggers fail-closed verify_model + download_model refusal per the
+    # T0-4-D contract. The detached .asc file is the operator-PIV-rooted
+    # supply-chain anchor (master FP 5597A3E0587B253006D0DD7B8C50826182083050
+    # per docs/signing-key.md), produced via `gpg --detach-sign --armor`;
+    # v1.0 ships structural signature chain; consumer-side gpg --verify
+    # wiring is v1.x scope per the audit doc.
+    install -Dm644 /mnt/intergenos/intergen/data/models-manifest.json \
+        "${DESTDIR}/usr/share/intergen/models-manifest.json"
+    install -Dm644 /mnt/intergenos/intergen/data/models-manifest.json.asc \
+        "${DESTDIR}/usr/share/intergen/models-manifest.json.asc"
+
     # Create data directories
     install -dm755 "${DESTDIR}/var/lib/intergen/models/llm"
     install -dm755 "${DESTDIR}/var/lib/intergen/models/embedding"

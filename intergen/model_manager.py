@@ -39,6 +39,23 @@ log = logging.getLogger(__name__)
 MODEL_DIR = Path("/var/lib/intergen/models/llm")
 MANIFEST_PATH = Path("/var/lib/intergen/models/manifest.json")
 
+# T0-4-D — D-008 supply-chain layer. The PINS_MANIFEST is the
+# package-shipped canonical SHA256 pin map. Read-only system path;
+# populated by the build-system coordinator from a PGP-signed
+# in-tree manifest at intergen/data/models-manifest.json + installed
+# to /usr/share/intergen/models-manifest.json by packages/ai/intergen/
+# build.sh. Closes audit I-005 (Holy-Grail Model SHA256 TOFU) by
+# enforcing: every model.sha256 derives from this manifest; downloads
+# refuse without a pin; verify_model refuses without a pin; the prior
+# 'record on first download' (TOFU) branch is removed.
+#
+# Co-deliverable with the build-system coordinator's manifest +
+# signature work (Steps 1+2 of T0-4-D; HOLDS pending operator decision
+# on Q2 canonical-SHA-source authority delegation per the 00:45:22Z
+# propose-and-wait + SPOC 00:58:09Z concur). This file fails closed
+# until the manifest exists.
+PINS_MANIFEST_PATH = Path("/usr/share/intergen/models-manifest.json")
+
 # License gate paths
 SYSTEM_LEGAL_DIR = Path("/var/lib/intergen/legal")
 
@@ -92,8 +109,12 @@ class LicenseNotAcceptedError(Exception):
             f"See {canonical_url} and record acceptance before retry."
         )
 
-# SHA256 hashes will be populated when models are finalized.
-# For now, verification downloads the hash from HuggingFace.
+# SHA256 hashes are populated from PINS_MANIFEST_PATH at ModelManager
+# construction time. The entries below ship sha256="" intentionally —
+# the pinning manifest is the SoT; the catalog is the structural
+# model-tier mapping. ModelManager.__init__ overlays sha256 from
+# self._pins[filename]; methods that return ModelInfo objects re-apply
+# the pin so callers always see the authoritative sha256 value.
 MODEL_CATALOG: dict[HardwareTierLevel, ModelInfo] = {
     HardwareTierLevel.TIER_1: ModelInfo(
         name="Qwen3.5-2B",
@@ -137,15 +158,85 @@ EMBEDDING_MODEL = ModelInfo(
 CHUNK_SIZE = 8 * 1024 * 1024  # 8 MB download chunks
 
 
+def _load_pins(pins_path: Path = PINS_MANIFEST_PATH) -> dict[str, str]:
+    """Load the package-shipped pin map from PINS_MANIFEST_PATH.
+
+    Returns a dict[filename → sha256]. Empty dict on:
+      - missing manifest file (early-install state OR misconfigured install)
+      - malformed JSON
+      - schema mismatch (no 'entries' field)
+
+    Per the T0-4-D fail-closed contract, an empty dict means every
+    downstream verify_model + download_model call refuses. The empty
+    return is intentionally not a raise — module import + ModelManager
+    construction must continue so callers can surface the misconfiguration
+    cleanly rather than crash at import time.
+
+    Manifest schema (matches the build-system coordinator's Step 1
+    deliverable per the T0-4-D propose-and-wait Q1 concur):
+      {
+        "version": "0.1",
+        "entries": [
+          {"name": "...", "filename": "...", "sha256": "...", ...}
+        ],
+        "signing": {"fingerprint": "...", "signature_path": "..."}
+      }
+    """
+    if not pins_path.exists():
+        log.warning(
+            "models pins manifest missing at %s — model downloads + "
+            "verification will fail-closed per T0-4-D until the "
+            "intergen package ships the manifest",
+            pins_path,
+        )
+        return {}
+    try:
+        data = json.loads(pins_path.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        log.error(
+            "models pins manifest at %s is unreadable (%s) — "
+            "fail-closed posture in effect",
+            pins_path, exc,
+        )
+        return {}
+    entries = data.get("entries")
+    if not isinstance(entries, list):
+        log.error(
+            "models pins manifest at %s lacks 'entries' list — "
+            "fail-closed posture in effect",
+            pins_path,
+        )
+        return {}
+    pins: dict[str, str] = {}
+    for entry in entries:
+        filename = entry.get("filename")
+        sha256 = entry.get("sha256")
+        if filename and sha256:
+            pins[filename] = sha256
+    return pins
+
+
 class ModelManager(ModelManagerInterface):
     """Downloads, verifies, and selects LLM models."""
 
     def __init__(self, model_dir: Path = MODEL_DIR,
-                 manifest_path: Path = MANIFEST_PATH) -> None:
+                 manifest_path: Path = MANIFEST_PATH,
+                 pins_path: Path = PINS_MANIFEST_PATH) -> None:
         self._model_dir = model_dir
         self._manifest_path = manifest_path
         self._manifest: dict[str, dict[str, Any]] = {}
         self._load_manifest()
+        # T0-4-D — load the package-shipped pin manifest. Empty dict
+        # on missing/malformed manifest; downstream operations refuse
+        # rather than auto-trust.
+        self._pins = _load_pins(pins_path)
+        if not self._pins:
+            log.critical(
+                "ModelManager constructed with no pinned hashes — every "
+                "model download + verification will refuse until the "
+                "intergen package ships %s. Operator action required.",
+                pins_path,
+            )
 
     def check_license_acceptance(self, model: ModelInfo) -> bool:
         """Return True if the user has previously accepted the model's license.
@@ -226,6 +317,23 @@ class ModelManager(ModelManagerInterface):
             )
             raise LicenseNotAcceptedError(model, license_ref, canonical_url)
 
+        # T0-4-D pin gate — refuse to download a model whose canonical
+        # sha256 is not pinned in the package-shipped manifest. Without
+        # a pin we cannot verify the downloaded file, and TOFU is
+        # explicitly forbidden per I-005 Holy-Grail closure. Apply pin
+        # from self._pins in case the caller passed a stale ModelInfo
+        # that pre-dates the manifest load.
+        if not model.sha256:
+            model.sha256 = self._pins.get(model.filename, "")
+        if not model.sha256:
+            log.error(
+                "Refusing to download %s — no pin in models manifest. "
+                "The intergen package must ship %s with a signed entry "
+                "for this filename before download is authorized.",
+                model.filename, PINS_MANIFEST_PATH,
+            )
+            return False
+
         self._model_dir.mkdir(parents=True, exist_ok=True)
         local_path = self._model_dir / model.filename
 
@@ -263,8 +371,13 @@ class ModelManager(ModelManagerInterface):
             computed_hash = sha256.hexdigest()
             log.info("Download complete: %s (SHA256: %s)", model.filename, computed_hash)
 
-            # If we have an expected hash, verify
-            if model.sha256 and model.sha256 != computed_hash:
+            # T0-4-D — pin gate at the post-download boundary. The pin
+            # is required (the pre-download gate above refuses empty
+            # pins) so model.sha256 is non-empty here; the only failure
+            # mode is a mismatch, which means the downloaded bytes did
+            # not match the canonical pin. Delete + fail per the Q5
+            # delete-and-fail concur.
+            if model.sha256 != computed_hash:
                 log.error(
                     "SHA256 mismatch for %s: expected %s, got %s",
                     model.filename, model.sha256, computed_hash,
@@ -272,8 +385,11 @@ class ModelManager(ModelManagerInterface):
                 local_path.unlink()
                 return False
 
-            # Store the hash for future verification
-            model.sha256 = computed_hash
+            # Pin matches — record local-state metadata. model.sha256
+            # is preserved as the manifest's canonical value (NOT
+            # overwritten with computed_hash — they're equal anyway,
+            # and preserving the source-of-truth ordering keeps the
+            # 'pin is the trust anchor' invariant explicit).
             model.local_path = str(local_path)
             model.downloaded = True
             self._update_manifest(model)
@@ -289,6 +405,10 @@ class ModelManager(ModelManagerInterface):
         """Find a model by name across all tiers."""
         for model in MODEL_CATALOG.values():
             if model.name == name:
+                # T0-4-D — overlay the canonical pin from the package-
+                # shipped manifest. Empty pin means downstream
+                # operations will refuse (fail-closed per I-005 closure).
+                model.sha256 = self._pins.get(model.filename, "")
                 local_path = self._model_dir / model.filename
                 if local_path.exists():
                     model.local_path = str(local_path)
@@ -300,16 +420,18 @@ class ModelManager(ModelManagerInterface):
         """Return the recommended model for a hardware tier."""
         model = MODEL_CATALOG[tier]
 
+        # T0-4-D — overlay the canonical pin from the package-shipped
+        # manifest. The local /var/lib/intergen/models/manifest.json
+        # remains as a download-tracking sidecar but is no longer the
+        # SoT for sha256 (it records computed hashes for already-trusted
+        # downloads; the pinning manifest is the trust anchor).
+        model.sha256 = self._pins.get(model.filename, "")
+
         # Check if already downloaded
         local_path = self._model_dir / model.filename
         if local_path.exists():
             model.local_path = str(local_path)
             model.downloaded = True
-
-            # Restore SHA256 from manifest if available
-            manifest_entry = self._manifest.get(model.filename)
-            if manifest_entry and not model.sha256:
-                model.sha256 = manifest_entry.get("sha256", "")
 
         return model
 
@@ -334,16 +456,34 @@ class ModelManager(ModelManagerInterface):
         return result
 
     def verify_model(self, model: ModelInfo) -> bool:
-        """Verify SHA256 hash of a downloaded model.
+        """Verify SHA256 hash of a downloaded model against the
+        package-shipped pin.
 
-        Every model file must pass integrity verification before being
-        loaded into memory.
+        T0-4-D — fail-closed semantics. If the model has no pinned
+        sha256 (empty pin from PINS_MANIFEST_PATH), refuse to verify.
+        The prior 'No expected hash — recording' TOFU branch has been
+        removed per I-005 Holy-Grail closure: any MITM / compromised
+        HF mirror / repo rug-pull is now caught at this boundary
+        because the trust anchor is the package-shipped signed
+        manifest, not the file the dispatcher just downloaded.
         """
         if not model.local_path:
             return False
 
         path = Path(model.local_path)
         if not path.exists():
+            return False
+
+        if not model.sha256:
+            # T0-4-D fail-closed — no pin means we cannot establish
+            # trust in the local file. Refuse rather than auto-record.
+            log.error(
+                "Cannot verify %s — no pin available in models manifest. "
+                "Install the intergen package's pins manifest at %s OR "
+                "wait for the build-system coordinator's Steps 1+2 of "
+                "T0-4-D to land.",
+                model.filename, PINS_MANIFEST_PATH,
+            )
             return False
 
         log.info("Verifying SHA256 for %s...", model.filename)
@@ -357,13 +497,6 @@ class ModelManager(ModelManagerInterface):
 
         computed = sha256.hexdigest()
 
-        if not model.sha256:
-            # No expected hash — record the computed one
-            log.info("No expected hash — recording: %s", computed)
-            model.sha256 = computed
-            self._update_manifest(model)
-            return True
-
         if computed == model.sha256:
             log.info("SHA256 verified: %s", model.filename)
             return True
@@ -373,6 +506,46 @@ class ModelManager(ModelManagerInterface):
             model.filename, model.sha256, computed,
         )
         return False
+
+    def verify_arbitrary_path(self, path: Path) -> bool:
+        """Verify an arbitrary on-disk model file against the package-
+        shipped pin manifest. Used by intergen.dbus_daemon to gate the
+        INTERGEN_MODEL_PATH env-var override per T0-4-D (closes audit
+        I-016 adjacent: env-var path used to bypass model_manager
+        verification entirely; now it's a 'select a different pinned
+        model' override, not an 'arbitrary path' override).
+
+        Returns True only if:
+          - the file exists, AND
+          - the filename appears in the pin manifest, AND
+          - the file's computed SHA256 matches the manifest pin.
+
+        Returns False on any failure (missing file / no pin for this
+        filename / SHA mismatch). All failures log an error so the
+        caller can surface a clear diagnostic to the user.
+        """
+        if not path.exists():
+            log.error("verify_arbitrary_path: %s does not exist", path)
+            return False
+        pin = self._pins.get(path.name)
+        if not pin:
+            log.error(
+                "verify_arbitrary_path: %s has no pin entry in %s — "
+                "env-var override refused per T0-4-D (closes I-016)",
+                path.name, PINS_MANIFEST_PATH,
+            )
+            return False
+        synthetic = ModelInfo(
+            name=path.stem,
+            filename=path.name,
+            repo_id="(env-override)",
+            quant="(env-override)",
+            size_gb=0.0,
+            sha256=pin,
+            tier=HardwareTierLevel.TIER_1,
+            local_path=str(path),
+        )
+        return self.verify_model(synthetic)
 
     def get_embedding_model(self) -> ModelInfo:
         """Return info for the embedding model (nomic-embed-text-v1.5)."""

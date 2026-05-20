@@ -192,23 +192,34 @@ class InterGenDaemon(InterGenDBusInterface):
 
         # Step 2: Model manager — check if model is downloaded
         # Environment override: INTERGEN_MODEL_PATH forces a specific model
-        # (useful for testing with a different model than tier-recommended)
+        # (useful for testing with a different model than tier-recommended).
+        # T0-4-D: closes I-016 adjacent — the env override path MUST pass
+        # ModelManager.verify_arbitrary_path() which gates against the
+        # package-shipped pin manifest. The env-var becomes a "select a
+        # different PINNED model" override, not an "arbitrary path"
+        # override. Any path whose filename has no pin entry OR whose
+        # SHA256 mismatches the pin is refused.
         import os
+        from pathlib import Path as _Path
+        from intergen.model_manager import ModelManager
+        mm = ModelManager()
         model_path = os.environ.get("INTERGEN_MODEL_PATH")
         if model_path:
-            from pathlib import Path
-            if Path(model_path).exists():
-                self._model_loaded = Path(model_path).stem
-                log.info("Model override: %s", model_path)
-            else:
-                log.error("INTERGEN_MODEL_PATH set but file not found: %s",
-                          model_path)
+            path_obj = _Path(model_path)
+            if not mm.verify_arbitrary_path(path_obj):
+                log.error(
+                    "INTERGEN_MODEL_PATH=%s refused by pin verification "
+                    "(closes audit I-016 adjacent). Falling back to "
+                    "tier-recommended model selection.",
+                    model_path,
+                )
                 model_path = None
+            else:
+                self._model_loaded = path_obj.stem
+                log.info("Model override (pin-verified): %s", model_path)
 
         if not model_path:
             try:
-                from intergen.model_manager import ModelManager
-                mm = ModelManager()
                 # Use the hardware detector's recommendation (accounts for
                 # CPU-only vs GPU-accelerated within the same tier)
                 model_info = mm.get_model_by_name(tier.recommended_model)
