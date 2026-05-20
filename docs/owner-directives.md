@@ -722,3 +722,44 @@ Each entry uses this shape:
   - Verify the BMW profile content is unchanged in `packages/core/intergenos-default-settings/` post-commit (the migration commit `72fc9188` is the SoT for the content; this commit only removes the redundant install-theming.sh block).
 
 - **Status:** ACTIVE
+
+## D-016 — /tmp prohibition for scratch-style code/note/snippet authoring
+
+- **Issued:** 2026-05-20T~12:50Z by owner
+- **Context:** Build-system coordinator discovered earlier in the 2026-05-20 morning session that `/tmp/sign-four-binaries.sh` (the operator's manual signing wrapper from a prior signing ceremony, referenced in operator's bash_history as `/bin/bash /tmp/sign-four-binaries.sh`) had been wiped from disk by systemd-tmpfiles cleanup since the last reboot. Operator's earlier-in-session joke *"unless we were both dumb enough to keep it in /tmp....."* became the literal cause when the script content turned out to be irretrievable. This directive codifies the lesson + makes `/tmp` use unauthorized for scratch-style authoring going forward.
+- **Verbatim:**
+
+  > OWNER DIRECTIVE: The use of /tmp is unauthorized. For 'scratch-style' code/note/snippet authoring of anything, use /home/<user>/tmp (create if it doesn't exist)
+
+- **Decision-Encoded:**
+
+  **What `/tmp` may NOT be used for:**
+  - Ad-hoc scratch scripts, code snippets, notes, or any artifact that the operator or any coordinator might need to reference later. The systemd-tmpfiles cleanup + tmpfs-on-reboot lifetime of `/tmp` is too short for content with any forward-utility — even content "we'll re-run tomorrow" has been observed lost.
+
+  **What replaces it:**
+  - `/home/<user>/tmp/` on the operator's host for any scratch artifact the operator or coordinator might reference later.
+  - Per-coordinator equivalent: `/home/<coordinator-user>/tmp/` on each coordinator's host.
+  - Create the directory if it doesn't exist; treat its content as persistent until explicitly cleaned.
+
+  **What `/tmp` may still be used for (out-of-scope for this directive):**
+  - System-level transient runtime state by daemons + services (the canonical Unix `/tmp` semantics; pkexec runner staging, dbus socket directories, build-tool intermediate files cleaned by their own scripts, etc.).
+  - Coordinator-internal subprocess intermediates that are cleaned within the same process lifetime (e.g. a Python `tempfile.mkstemp` for in-script reading + immediate `unlink`).
+  - The semantic distinction: SCRATCH-STYLE-AUTHORING (human-or-coordinator-touched + might-need-later) is prohibited in `/tmp`; SYSTEM-TRANSIENT-RUNTIME-STATE (in-and-out within a process lifetime + machine-managed cleanup) is unchanged.
+
+- **Supersedes:**
+  - `/tmp/sign-four-binaries.sh` (operator's manual signing wrapper; bash_history reference; content now unrecoverable; lesson-source for this directive)
+  - `/tmp/sign-three-ukis.sh` (earlier iteration of the same; same fate)
+  - Any prior coordinator practice of staging scratch scripts in `/tmp`
+  - Any docs that prescribe `/tmp` as a scratch surface — build-system coordinator will sweep `docs/` on the next maintenance pass + add SUPERSEDED-BY annotations as found
+
+- **Composes with:**
+  - **`feedback_grep_before_justifying_tool_refs`** — same root-cause class (assumed-discipline-without-validation, lost work) applied to a different surface; this directive is the operational fix for the scratch-location-survival surface.
+  - **D-009** (Universal development checklist) — "no stubs" item 4 + "validation bar = WORKING IN THEORY" item 6 both compose with this: scratch in `/tmp` is a stub-class location (impermanent + un-audited + lost on reboot).
+
+- **Implementation backlog (not directive surface):**
+  - Build-system coordinator: bus broadcast on dispatch thread (immediate; this commit's follow-on bus post).
+  - All coordinators: ACK absorption of D-016 on the dispatch thread + sweep host-local home directories for any `/tmp`-based scratch + relocate to `/home/<user>/tmp/`.
+  - Build-system coordinator: maintenance sweep of `docs/` for any prescription of `/tmp` as a scratch surface; add SUPERSEDED-BY annotations as found.
+  - Optional v1.x: PreToolUse hook on Write+Edit+Bash that flags `/tmp/*` paths in operator-or-coordinator-touched scratch contexts; v1.0 enforcement is procedural.
+
+- **Status:** ACTIVE
