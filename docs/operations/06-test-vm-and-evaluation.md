@@ -25,6 +25,9 @@ Agent role: prepare the VM definition + shut it off cleanly. Owner role: hit Run
 ### 1. Create the test VM definition (once per ISO)
 
 ```sh
+# Per D-016, scratch artifacts live under ~/tmp/<workflow>/, not /tmp.
+mkdir -p ~/tmp/igos-test
+
 virt-install --name igos-test \
     --memory 8192 \
     --vcpus 4 \
@@ -38,13 +41,13 @@ virt-install --name igos-test \
     --graphics vnc,listen=0.0.0.0 \
     --video qxl \
     --noautoconsole \
-    --print-xml > /tmp/igos-test.xml
+    --print-xml > ~/tmp/igos-test/igos-test.xml
 
-virsh define /tmp/igos-test.xml
+virsh define ~/tmp/igos-test/igos-test.xml
 virsh shutdown igos-test 2>/dev/null || true  # ensure shut-off state
 ```
 
-`--print-xml > /tmp/igos-test.xml` + `virsh define` gives us a defined-but-shut-off VM — owner hits Run later. `--boot uefi` selects OVMF firmware. `--tpm backend.type=emulator` gives the VM a software TPM so the kernel's TPM measurement path exercises.
+`--print-xml > ~/tmp/igos-test/igos-test.xml` + `virsh define` gives us a defined-but-shut-off VM — owner hits Run later. `--boot uefi` selects OVMF firmware. `--tpm backend.type=emulator` gives the VM a software TPM so the kernel's TPM measurement path exercises.
 
 For Secure-Boot-enabled testing, the VM's NVRAM needs the Microsoft KEK/db preloaded — virt-manager's "Generate a new TPM/Secure Boot template" option in the GUI sets this up; the equivalent CLI is `--boot uefi,firmware.feature0.name=secure-boot,firmware.feature0.enabled=yes`. If your libvirt is too old for `firmware.feature*`, manually copy `/usr/share/OVMF/OVMF_VARS_4M.ms.fd` to the per-VM NVRAM path libvirt expects (typically `/var/lib/libvirt/qemu/nvram/igos-test_VARS.fd`).
 

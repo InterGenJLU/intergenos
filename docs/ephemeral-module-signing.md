@@ -88,12 +88,15 @@ A reviewer can confirm this architecture end-to-end without trusting our documen
 ### Verify the kernel embeds its own module-signing pubkey
 
 ```
+# Per D-016, scratch artifacts live under ~/tmp/<workflow>/, not /tmp.
+mkdir -p ~/tmp/kernel-builtin-keys-inspect
+
 # Extract the signing pubkey embedded in the kernel image.
-extract-vmlinux /boot/vmlinuz-<version>-intergenos > /tmp/vmlinux.elf
-objcopy --dump-section .builtin_trusted_keys=/tmp/builtin.keys /tmp/vmlinux.elf
+extract-vmlinux /boot/vmlinuz-<version>-intergenos > ~/tmp/kernel-builtin-keys-inspect/vmlinux.elf
+objcopy --dump-section .builtin_trusted_keys=~/tmp/kernel-builtin-keys-inspect/builtin.keys ~/tmp/kernel-builtin-keys-inspect/vmlinux.elf
 
 # Dump the embedded keyring.
-openssl x509 -in /tmp/builtin.keys -noout -text -inform DER
+openssl x509 -in ~/tmp/kernel-builtin-keys-inspect/builtin.keys -noout -text -inform DER
 ```
 
 ### Verify a shipped module was signed by that pubkey

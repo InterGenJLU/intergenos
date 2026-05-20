@@ -11,10 +11,11 @@ This is the synthesis layer. After authoring topics 1-9, the following gaps surf
 **Recommendation:** author the script. Shape:
 
 ```sh
+# Per D-016, scratch artifacts live under ~/tmp/<workflow>/, not /tmp.
 scripts/build-vm-seed.sh \
     --username christopher \
     --pubkey ~/.ssh/id_ed25519.pub \
-    --output /tmp/seed.iso
+    --output ~/tmp/igos-vm-seed/seed.iso
 # Prompts for password interactively (or accepts via $VM_SEED_PASSWORD env);
 # never accepts password on argv (would land in shell history).
 ```

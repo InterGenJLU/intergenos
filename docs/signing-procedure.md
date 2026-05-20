@@ -215,21 +215,23 @@ This checklist runs on each of the four. The test-cert dry-run in step 7 runs **
 
     ```
     # On Nitrokey #4 only — generate a throwaway test keypair in slot 9c,
-    # write a self-signed test cert, verify the read-back round-trip
+    # write a self-signed test cert, verify the read-back round-trip.
+    # Per D-016, scratch artifacts live under ~/tmp/<workflow>/, not /tmp.
+    mkdir -p ~/tmp/piv-9c-dry-run
     yubico-piv-tool --action generate --slot 9c --algorithm RSA2048 \
-        --output /tmp/test-9c-pubkey.pem
+        --output ~/tmp/piv-9c-dry-run/test-9c-pubkey.pem
     yubico-piv-tool --action verify-pin --pin <new-user-pin> \
         --action selfsign-certificate --slot 9c \
         --subject "/CN=intergen-test-9c-throwaway" \
-        --input /tmp/test-9c-pubkey.pem --output /tmp/test-9c-cert.pem
+        --input ~/tmp/piv-9c-dry-run/test-9c-pubkey.pem --output ~/tmp/piv-9c-dry-run/test-9c-cert.pem
     yubico-piv-tool --action read-certificate --slot 9c
 
     # Confirm the read-back cert matches what was just written
-    diff /tmp/test-9c-cert.pem <(yubico-piv-tool --action read-certificate --slot 9c)
+    diff ~/tmp/piv-9c-dry-run/test-9c-cert.pem <(yubico-piv-tool --action read-certificate --slot 9c)
 
     # Factory-reset slot 9c to clear the test material before ceremony
     yubico-piv-tool --action reset --slot 9c
-    rm -f /tmp/test-9c-*.pem
+    rm -f ~/tmp/piv-9c-dry-run/test-9c-*.pem
     ```
 
     If any step fails, surface to the security contact and resolve the underlying issue (typically PIN-Always policy interaction with the chosen tooling) before running the real ceremony. If all steps pass, Nitrokey #4 is now back to a clean post-test state and can rejoin the spare-pool.

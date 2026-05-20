@@ -38,23 +38,24 @@ The repo ships a cloud-init template at `vm/cloud-init/` (`user-data` + `meta-da
 **The cloud-init README references `scripts/build-vm-seed.sh` for automated substitution; that script is not yet authored.** Until it lands, perform the substitution manually with a private working copy:
 
 ```sh
-mkdir -p /tmp/igos-vm-seed
-cp vm/cloud-init/meta-data vm/cloud-init/user-data /tmp/igos-vm-seed/
+# Per D-016, scratch artifacts live under ~/tmp/<workflow>/, not /tmp.
+mkdir -p ~/tmp/igos-vm-seed
+cp vm/cloud-init/meta-data vm/cloud-init/user-data ~/tmp/igos-vm-seed/
 
-# Edit /tmp/igos-vm-seed/user-data — substitute the three placeholders.
+# Edit ~/tmp/igos-vm-seed/user-data — substitute the three placeholders.
 # DO NOT commit the substituted file back to the repo.
 
-cloud-localds /tmp/igos-vm-seed/seed.iso \
-    /tmp/igos-vm-seed/user-data \
-    /tmp/igos-vm-seed/meta-data
+cloud-localds ~/tmp/igos-vm-seed/seed.iso \
+    ~/tmp/igos-vm-seed/user-data \
+    ~/tmp/igos-vm-seed/meta-data
 ```
 
 `cloud-localds` ships with the `cloud-image-utils` Ubuntu package. If unavailable, the equivalent `genisoimage` invocation is:
 
 ```sh
-genisoimage -output /tmp/igos-vm-seed/seed.iso \
+genisoimage -output ~/tmp/igos-vm-seed/seed.iso \
     -volid cidata -joliet -rock \
-    /tmp/igos-vm-seed/user-data /tmp/igos-vm-seed/meta-data
+    ~/tmp/igos-vm-seed/user-data ~/tmp/igos-vm-seed/meta-data
 ```
 
 Once `seed.iso` is built, the placeholder-substituted `user-data` can be deleted to keep credentials off-disk.
@@ -78,7 +79,7 @@ sudo virt-install --name igos-build \
     --os-variant ubuntu24.04 \
     --disk path=/var/lib/libvirt/images/igos-build.qcow2,format=qcow2,bus=virtio \
     --cdrom /path/to/ubuntu-24.04.X-live-server-amd64.iso \
-    --disk path=/tmp/igos-vm-seed/seed.iso,device=cdrom \
+    --disk path="$HOME/tmp/igos-vm-seed/seed.iso",device=cdrom \
     --network network=default,model=virtio \
     --graphics vnc,listen=0.0.0.0 \
     --memorybacking source.type=memfd,access.mode=shared \

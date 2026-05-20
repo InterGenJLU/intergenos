@@ -229,8 +229,10 @@ set -e
 pkg="$1"
 [ -z "$pkg" ] && { echo "usage: $0 <pkg>"; exit 2; }
 
-# Fetch the published archive
-published="/tmp/${pkg}-published.igos.tar.gz"
+# Fetch the published archive.
+# Per D-016, scratch artifacts live under ~/tmp/<workflow>/, not /tmp.
+mkdir -p ~/tmp/repro-check
+published="$HOME/tmp/repro-check/${pkg}-published.igos.tar.gz"
 curl -fsSL "https://repo.intergenos.org/x86_64/packages/${pkg}.igos.tar.gz" -o "$published"
 
 # Rebuild in fresh chroot
