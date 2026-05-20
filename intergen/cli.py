@@ -5,9 +5,17 @@ Usage:
   intergen status
   intergen tier
   intergen tools
+  intergen tool-log [--clear|--json|--count] [--limit N]
 
 This connects via D-Bus to the running InterGen daemon. If the daemon
 isn't running, it starts a direct session (useful for development).
+
+`intergen tool-log` reads the per-user D-008 RFC §9 dispatch audit log
+at $XDG_STATE_HOME/intergen/tool-dispatch.jsonl. The log is the user's
+own record of what InterGen's dispatcher decided + what the user
+approved or denied via the review modal. `--clear` is the user-data
+wipe path per the Q5 provisional default (30-day logrotate retention
+canonical; --clear is the explicit user-initiated wipe).
 """
 
 from __future__ import annotations
@@ -24,6 +32,11 @@ def print_usage() -> None:
     print("  status           Show daemon status")
     print("  tier             Show hardware tier info")
     print("  tools            List available tools")
+    print("  tool-log         Show the D-008 dispatch audit log")
+    print("                     --clear       wipe the log (user-data delete)")
+    print("                     --json        emit raw JSONL")
+    print("                     --count       print record count and exit")
+    print("                     --limit N     show last N records (default 50)")
     print("  test             Run self-test (hardware + tools)")
     print("  setup            Download and verify LLM model")
     print("  daemon           Start the InterGen daemon")
@@ -183,6 +196,99 @@ def cmd_tools() -> None:
         print(f"  {tool.name:25s} [{safety:7s}]  {tool.description[:50]}")
 
 
+def cmd_tool_log(args: list[str]) -> None:
+    """Show or wipe the D-008 RFC §9 dispatch audit log.
+
+    Flags:
+      --clear      truncate the log (user-data-wipe path per Q5 default).
+      --json       emit raw JSONL lines instead of human-readable rendering
+                   (suitable for piping into jq).
+      --count      print the record count and exit.
+      --limit N    show only the last N records (default 50).
+    """
+    from intergen.audit_log import (
+        clear_log, default_log_path, read_records, record_count,
+    )
+
+    if "--clear" in args:
+        path = default_log_path()
+        if not path.exists():
+            print(f"Audit log already empty: {path}")
+            return
+        existing = record_count()
+        ok = clear_log()
+        if ok:
+            print(f"Cleared {existing} record(s) from {path}")
+        else:
+            print(f"Failed to clear {path} (see logs)", file=sys.stderr)
+            sys.exit(1)
+        return
+
+    if "--count" in args:
+        print(record_count())
+        return
+
+    limit = 50
+    if "--limit" in args:
+        try:
+            limit = int(args[args.index("--limit") + 1])
+        except (IndexError, ValueError):
+            print("--limit requires an integer argument", file=sys.stderr)
+            sys.exit(1)
+        if limit < 1:
+            print("--limit must be >= 1", file=sys.stderr)
+            sys.exit(1)
+
+    records = list(read_records())
+    if not records:
+        print(f"Audit log empty: {default_log_path()}")
+        return
+
+    if "--json" in args:
+        # Raw JSONL pass-through for jq/grep pipelines.
+        for r in records[-limit:]:
+            print(json.dumps(r, separators=(",", ":")))
+        return
+
+    # Human-readable rendering: one block per record.
+    shown = records[-limit:]
+    print(f"InterGen dispatch audit log — {len(shown)} of {len(records)} record(s)")
+    print(f"  Path: {default_log_path()}")
+    print()
+    for r in shown:
+        ts = r.get("timestamp", "?")
+        name = r.get("tool_name", "?")
+        outcome = r.get("user_decision", "?")
+        declared = r.get("declared_provenance", "?")
+        effective = r.get("effective_provenance", "?")
+        exit_code = r.get("exit_code", "?")
+        source = r.get("source_attribution", "")
+        excerpt = r.get("excerpt", "")
+        ingress = r.get("ingress_tools_this_turn", []) or []
+
+        prov_marker = ""
+        if declared != effective:
+            prov_marker = f"  (escalated from {declared} -> {effective} per RFC §5.1)"
+
+        print(f"  [{ts}] {name}  outcome={outcome}  exit={exit_code}")
+        print(f"    provenance:   {effective}{prov_marker}")
+        if ingress:
+            print(f"    ingress tools (this turn): {', '.join(ingress)}")
+        if source:
+            print(f"    source:       {source}")
+        if excerpt:
+            snippet = excerpt[:200] + ("..." if len(excerpt) > 200 else "")
+            print(f"    excerpt:      {snippet}")
+        args_summary = r.get("arguments", {})
+        if args_summary:
+            print(f"    arguments:    {args_summary}")
+        result = r.get("result_summary", "")
+        if result:
+            snippet = result[:160] + ("..." if len(result) > 160 else "")
+            print(f"    result:       {snippet}")
+        print()
+
+
 def cmd_test() -> None:
     """Run self-test."""
     import unittest
@@ -212,6 +318,8 @@ def main() -> None:
         cmd_tier()
     elif command == "tools":
         cmd_tools()
+    elif command == "tool-log":
+        cmd_tool_log(sys.argv[2:])
     elif command == "test":
         cmd_test()
     elif command == "setup":

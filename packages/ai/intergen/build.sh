@@ -186,6 +186,16 @@ DBUS
     install -Dm755 /mnt/intergenos/intergen/data/intergen-privileged-runner \
         "${DESTDIR}/usr/bin/intergen-privileged-runner"
 
+    # D-008 RFC §14.3 audit-log retention — OPERATOR-CONFIRMED 2026-05-19T23:14:33Z.
+    # 30-day daily rotation of the per-user tool-dispatch JSONL audit log
+    # written by intergen.audit_log. Pairs system-side rotation (this snippet)
+    # with user-side wipe via `intergen tool-log --clear` (intergen.cli
+    # cmd_tool_log). 644 because logrotate.d snippets are world-readable
+    # by design; the actual log files retain their 0o600 perms set by the
+    # audit_log writer.
+    install -Dm644 /mnt/intergenos/intergen/data/intergen-tool-dispatch.logrotate \
+        "${DESTDIR}/etc/logrotate.d/intergen-tool-dispatch"
+
     # Create data directories
     install -dm755 "${DESTDIR}/var/lib/intergen/models/llm"
     install -dm755 "${DESTDIR}/var/lib/intergen/models/embedding"

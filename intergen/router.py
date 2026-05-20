@@ -26,6 +26,11 @@ from intergen.state_cache import StateCache
 from intergen.interfaces.types import (
     HardwareTierLevel, Message, MessageRole, RouteResult, ToolCall, ToolResult,
 )
+from intergen.interfaces.provenance import (
+    ConversationTrustState,
+    IngressTracker,
+    Provenance,
+)
 from intergen.llm import LLMRouter
 from intergen.metrics import EventLogger, MetricsTracker
 from intergen.safety import classify_command, sanitize_output
@@ -59,6 +64,14 @@ class ConversationRouter(RouterInterface):
         self._max_history = 20
         self._first_interaction = True
         self._last_semantic_score = 0.0
+        # D-008 RFC §5.1 + §5.3: per-turn ingress-fire tracker + per-conv
+        # symmetric allow/deny trust state. Both flow into every tool
+        # dispatch through ToolRegistry.execute(). The tracker is reset at
+        # the start of each route() invocation; the trust state persists
+        # across turns within a conversation and is reset via
+        # reset_conversation_state().
+        self._ingress_tracker = IngressTracker()
+        self._trust_state = ConversationTrustState()
 
         # Start a new session if memory is available
         if self._memory:
@@ -68,6 +81,10 @@ class ConversationRouter(RouterInterface):
               conversation_active: bool = False) -> RouteResult:
         """Route user input through the priority chain."""
         t0 = time.monotonic()
+        # D-008 RFC §5.1: each user turn is a fresh ingress-watermark window.
+        # Reset the per-turn tracker so prior turns' ingress fires do not
+        # incorrectly escalate this turn's user-direct dispatches.
+        self._ingress_tracker = IngressTracker()
         user_input = user_input.strip()
         self._current_query_type = self._classify_query_type(user_input)
 
@@ -450,7 +467,16 @@ class ConversationRouter(RouterInterface):
         ):
             if isinstance(chunk, ToolCall):
                 tool_calls.append(chunk)
-                result = self._tools.execute(chunk.name, chunk.arguments)
+                # D-008 dispatch — the LLM-emitted ToolCall carries
+                # source_of_request per RFC §5.3 (enforced at ToolCall
+                # construction). The registry routes the call through
+                # verify_tool_call with our per-turn ingress tracker and
+                # per-conversation trust state.
+                result = self._tools.execute(
+                    chunk,
+                    ingress_tracker=self._ingress_tracker,
+                    trust_state=self._trust_state,
+                )
                 tool_results.append(result)
             else:
                 collected_text.append(chunk)
@@ -547,8 +573,21 @@ class ConversationRouter(RouterInterface):
         arguments = self._extract_arguments(tool_name, user_input)
         if arguments is None:
             return None
+        # P1/P2 keyword/semantic match paths are direct-user-intent
+        # dispatches: the user typed a phrase that matched a tool's
+        # keyword or semantic pattern, so source_of_request is
+        # Provenance.USER_DIRECT per RFC §3 taxonomy.
+        call = ToolCall(
+            name=tool_name,
+            arguments=arguments,
+            source_of_request=Provenance.USER_DIRECT,
+        )
         try:
-            return self._tools.execute(tool_name, arguments)
+            return self._tools.execute(
+                call,
+                ingress_tracker=self._ingress_tracker,
+                trust_state=self._trust_state,
+            )
         except Exception as e:
             logger.error("Tool %s execution failed: %s", tool_name, e)
             return None
@@ -886,6 +925,27 @@ class ConversationRouter(RouterInterface):
                     "tokens_completion": result.tokens_completion,
                 },
             )
+
+    # ── Conversation lifecycle ──
+
+    def reset_conversation_state(self) -> None:
+        """Reset per-conversation state at conversation end.
+
+        D-008 RFC §5.3 + §6: the symmetric trust state (allow_conversation
+        / deny_conversation decisions) and the ingress-watermark tracker
+        both belong to a single conversation. The frontend (CLI / GUI /
+        IPC adapter) invokes this when the user explicitly ends a
+        conversation so subsequent conversations start with a clean
+        provenance posture. Conversation history is cleared alongside so
+        the LLM context window does not carry stale turn references that
+        would conflict with the freshly-reset trust state.
+        """
+        self._trust_state = ConversationTrustState()
+        self._ingress_tracker = IngressTracker()
+        self._conversation_history.clear()
+        self._first_interaction = True
+        if self._memory:
+            self._memory.start_session()
 
     # ── Status ──
 

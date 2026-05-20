@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Iterator
 
+from intergen.interfaces.provenance import Provenance
+
 
 class SafetyTier(Enum):
     AUTO = "auto"
@@ -42,9 +44,29 @@ class Message:
 
 @dataclass
 class ToolCall:
+    """A tool invocation request.
+
+    source_of_request is REQUIRED per D-008 RFC §5.3 no-fallback policy
+    (docs/architecture/intergen-provenance-gate-design.md). Constructed as
+    Optional in the dataclass signature so existing call sites continue to
+    type-check during the staged migration, but __post_init__ raises if it
+    is left None. The dispatcher gate refuses to execute any ToolCall whose
+    declared source_of_request is missing.
+    """
     name: str
     arguments: dict[str, Any]
     call_id: str = ""
+    source_of_request: "Provenance | None" = None  # required; validated in __post_init__
+
+    def __post_init__(self) -> None:
+        if self.source_of_request is None:
+            raise ValueError(
+                f"ToolCall.source_of_request is REQUIRED per D-008 RFC §5.3 "
+                f"no-fallback policy. Tool: {self.name!r}. "
+                f"The LLM system-prompt (§8) instructs the model to declare a "
+                f"provenance label on every tool call; missing label means the "
+                f"call MUST be rejected at the dispatcher."
+            )
 
 
 @dataclass
@@ -64,12 +86,35 @@ class ToolSchema:
     safety_tier: SafetyTier = SafetyTier.AUTO
 
     def to_openai(self) -> dict:
+        # D-008 RFC §8: every tool call must declare a source_of_request
+        # provenance label. Inject as a required enum on every tool's
+        # argument schema so the LLM emits it alongside the user-defined
+        # arguments. The dispatcher strips it from arguments before
+        # passing them to the tool implementation.
+        params = dict(self.parameters) if self.parameters else {"type": "object"}
+        properties = dict(params.get("properties", {}))
+        properties["source_of_request"] = {
+            "type": "string",
+            "enum": ["user_direct", "user_implied", "ingress_derived"],
+            "description": (
+                "Provenance label per D-008. user_direct = the user "
+                "explicitly asked for this in their current message; "
+                "user_implied = a reasonable follow-on the user would "
+                "expect; ingress_derived = the action emerged from "
+                "content you fetched or read, not user-authored."
+            ),
+        }
+        required = list(params.get("required", []))
+        if "source_of_request" not in required:
+            required.append("source_of_request")
+        params["properties"] = properties
+        params["required"] = required
         return {
             "type": "function",
             "function": {
                 "name": self.name,
                 "description": self.description,
-                "parameters": self.parameters,
+                "parameters": params,
             }
         }
 

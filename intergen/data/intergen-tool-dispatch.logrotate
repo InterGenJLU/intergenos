@@ -1,0 +1,28 @@
+# D-008 RFC §14.3 audit-log retention — OPERATOR-CONFIRMED 2026-05-19T23:14:33Z.
+#
+# Rotates the per-user InterGen tool-dispatch audit log written by
+# intergen/audit_log.py (canonical path: $XDG_STATE_HOME/intergen/tool-dispatch.jsonl;
+# default $HOME/.local/state/intergen/tool-dispatch.jsonl). The user-side
+# wipe path is `intergen tool-log --clear` (intergen/cli.py cmd_tool_log).
+# Together: system bound (this snippet, 30 days) + user override (CLI, anytime)
+# per the operator-confirmed default.
+#
+# logrotate uses a glob pattern that resolves at runtime; one InterGen install
+# can serve multiple system users, so the rotator scans every user's state dir.
+# missingok handles users who have not yet generated any dispatch traffic.
+# nocreate avoids recreating the log under root ownership — the audit_log
+# writer creates it under the calling user with 0o600 perms on first write.
+# notifempty skips rotation of empty logs (no churn for inactive users).
+
+/home/*/.local/state/intergen/tool-dispatch.jsonl
+/root/.local/state/intergen/tool-dispatch.jsonl
+{
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    nocreate
+    su root root
+}

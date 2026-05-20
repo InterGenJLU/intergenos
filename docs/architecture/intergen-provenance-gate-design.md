@@ -1,11 +1,11 @@
 # InterGen Provenance Gate — design
 
-**Status:** v0.1 draft for peer review. Authored 2026-05-18 by the build-system coordinator following walk-item-5B greenlight from owner. Closes audit I-027 (`SafetyTier.CONFIRM` not enforced) + I-035 (`manage_services` LLM-root-equivalence) as the structural resolution path. Composes with D-007 (root + SSH posture).
+**Status:** v1.0 — minimum-scope implementation complete (Steps 1-12 of the 15-step T0-4-E authoring order landed locally as uncommitted InterGen surface; final unified commit at Step 15 per audit-multi-wiring-single-commit POWER rule). Authored 2026-05-18 by the build-system coordinator following walk-item-5B greenlight from owner. AMENDED 2026-05-19T21:47:58Z by owner (D-008 amendment): spotlighting of retrieved content + per-conversation trust state pulled from §10 v1.x into v1.0 minimum scope (both now implemented). RFC §14.3 audit-log retention default OPERATOR-CONFIRMED 2026-05-19T23:14:33Z (30-day logrotate + `intergen tool-log --clear` CLI). Closes audit I-027 (`SafetyTier.CONFIRM` not enforced) + I-035 (`manage_services` LLM-root-equivalence) as the structural resolution path. Composes with D-007 (root + SSH posture).
 
-**Scope at issuance:**
+**Scope at v1.0:**
 
-- **v1.0 minimum** — required for ship. Implemented before the next ISO that includes InterGen.
-- **v1.x full** — top-of-ToDo backlog item. Tracked at TRACKER K16.
+- **v1.0 minimum** — required for ship. Implemented before the next ISO that includes InterGen. Includes the D-008 amendment expansion (spotlighting + per-conv trust state).
+- **v1.x full** — top-of-ToDo backlog item. Tracked at TRACKER K16. Narrowed by amendment: covers RFC §5.2 advisory → gating elevation + cross-conversation policy + output-side scanning.
 
 ---
 
@@ -223,45 +223,52 @@ Log path: `$XDG_STATE_HOME/intergen/tool-dispatch.jsonl` (per-user). Append-only
 
 ### v1.0 minimum (required for ship)
 
-Implemented:
+Implemented in the T0-4-E authoring surface (locally uncommitted; final unified commit at Step 15):
 
-- §3 provenance taxonomy with three categories
-- §4 dispatcher gate
-- §5.1 ingress-tool-watermark mechanical verification
-- §5.3 no-fallback policy
-- §6 tool risk classification + behavior matrix
-- §7 review modal (GNOME-shell-native) + §7.2 notification fallback
-- §8 system-prompt extension
-- §9 audit log
+- §3 provenance taxonomy with three categories (`intergen/interfaces/provenance.py`)
+- §4 dispatcher gate via `verify_tool_call()` (`intergen/provenance.py`)
+- §5.1 ingress-tool-watermark mechanical verification (`IngressTracker` in `intergen/interfaces/provenance.py`)
+- §5.2 explicit instruction-pattern detection — **advisory** in v1.0 per §5.2; scanner at `intergen/pattern_detect.py`; SPOC-owned corpus at `tests/intergen/injection_corpus/` per Q6 propose-and-wait concur
+- §5.3 no-fallback policy (`ToolCall.__post_init__` + `_extract_provenance()` reject paths)
+- §6 tool risk classification + behavior matrix (`_PRIVILEGED_TOOLS` + `_classify_risk_tier` + `_BEHAVIOR_MATRIX`)
+- §7 review modal (zenity-based subprocess modal at `intergen/review_modal.py` — sidesteps GTK main-thread + event-loop constraints since the dispatcher can be invoked from any thread) + §7.2 notification fallback (`notify-send` + 1-hour implicit-Deny per SPOC concur)
+- §8 system-prompt extension (`_PROVENANCE_DIRECTIVE` composed into `build_system_prompt()`; `ToolSchema.to_openai()` injects `source_of_request` as required enum on every tool's argument schema)
+- §9 audit log (`intergen/audit_log.py` — XDG_STATE_HOME-resolved JSONL writer with 0o600 file perms + 30-day logrotate retention per RFC §14.3 OPERATOR-CONFIRMED default + `intergen tool-log --clear` user-wipe CLI in `intergen/cli.py`)
+- **Spotlighting of retrieved content** (per D-008 amendment 2026-05-19T21:47:58Z) — `intergen/spotlighting.py` wraps every ingress-tool result in `<UNTRUSTED-INGRESS source="...">...</UNTRUSTED-INGRESS>` markers at tool-result-construction (Q8 propose-and-wait concur); spoof-marker escape via `_SPOOF_GUARD_PATTERN`
+- **Per-conversation trust state** (per D-008 amendment 2026-05-19T21:47:58Z) — `ConversationTrustState` in `intergen/interfaces/provenance.py` records symmetric allow/deny decisions keyed by (tool_name, source_attribution); router resets on conversation-end via `reset_conversation_state()` (Q7 propose-and-wait concur)
 
-Composes with D-007 Option A's pkexec gate (which is separate v1.0 work tracked under TRACKER K15).
+Composes with D-007 Option A's pkexec gate (which is separate v1.0 work tracked under TRACKER K15; SPOC engages T0-4-E integration pkexec gate authoring against the stable `verify_tool_call()` / `ToolRegistry.execute()` / `IngressTracker` / `ConversationTrustState` surface per 23:13:19Z post-checkpoint dispatch).
 
 ### v1.x full (top-of-ToDo backlog at TRACKER K16)
 
-Adds:
+Adds (narrowed by D-008 amendment 2026-05-19T21:47:58Z; spotlighting + per-conv trust state landed in v1.0):
 
-- §5.2 explicit-pattern detection elevated from advisory to gating (after FP rate is calibrated against real telemetry)
-- **Spotlighting of retrieved content** — every `read_file` / `read_url` / `web_search` result is wrapped in explicit `<UNTRUSTED-INGRESS source="...">...</UNTRUSTED-INGRESS>` markers in the LLM's context window so the model is structurally aware of the trust boundary
-- **Per-conversation trust state** — user denials propagate (a denied tool+source combination is not re-proposed within the conversation)
+- §5.2 explicit-pattern detection **elevated from advisory to gating** (after FP rate is calibrated against real telemetry — telemetry-blocked dependency: v1.0 advisory must ship to users first to gather FP data)
 - **Cross-conversation policy** — user-set allowlists / denylists ("never ask me about read-only access to my own home directory")
 - **Output-side scanning** — refuse to even surface an action whose source content matches known-bad injection patterns above a confidence threshold
 
 ## 11 — Implementation breakdown (v1.0 minimum)
 
-| Surface | Owner | LoC estimate | Test surface |
-|---|---|---|---|
-| Tool-call schema extension (`source_of_request` field) | installed-system coordinator | small | schema validation tests |
-| Dispatcher gate logic (§4 flowchart) | installed-system coordinator | medium | unit tests with mocked LLM tool calls |
-| Ingress-tool watermark (§5.1) | installed-system coordinator | small | unit tests per ingress-tool combination |
-| System-prompt revision (§8) | installed-system coordinator | small | LLM behavior tests (does it actually label?) |
-| Review modal (GNOME-shell GTK4) | installed-system coordinator + build-system coordinator | medium | manual + Xvfb headless if feasible |
-| Notification fallback (libnotify) | installed-system coordinator | small | unit tests on the notification path |
-| Audit log (§9) | installed-system coordinator | small | unit tests on log writer + rotation config |
-| Integration with D-007 pkexec gate | build-system coordinator | small | end-to-end test on a built ISO |
-| `intergen tool-log` CLI subcommand | installed-system coordinator | small | unit tests |
-| Documentation (user-facing security-defaults section + developer guide) | Windows-host coordinator | small | review by build-system coordinator + installed-system coordinator |
+LoC totals reflect the actual Steps 1-12 authoring surface (locally uncommitted; final unified commit at Step 15). Owner-role names use the canonical fleet vocabulary (build-system coordinator = SPOC; installed-system coordinator = IGOSC; Windows-host coordinator = WC).
 
-**Total v1.0 LoC estimate: ~1500-2500 lines across InterGen + 100-200 lines in installer/Forge for pkexec wiring.**
+| Surface | Owner | LoC actual | Sanity-test surface |
+|---|---|---|---|
+| `ToolCall.source_of_request` required field + `__post_init__` validator (`intergen/interfaces/types.py`) | installed-system coordinator | +22 | ToolCall construction rejects missing label |
+| Provenance taxonomy + `IngressTracker` + `ConversationTrustState` + `DispatchDecision` + `AuditRecord` + `escalate_provenance` (`intergen/interfaces/provenance.py` NEW) | installed-system coordinator | 254 | 11 gate-path sanity checks |
+| Audit log writer + reader + clear + 0o600 perms + XDG path resolution (`intergen/audit_log.py` NEW) | installed-system coordinator | 140 | 7 audit-log sanity checks (write/read/clear cycle + malformed-line resilience + file mode) |
+| Spotlighting wrapper + spoof-marker escape + extract regions (`intergen/spotlighting.py` NEW; per D-008 amendment) | installed-system coordinator | 139 | spoof-marker escape verified against adversarial close-marker |
+| Dispatcher gate `verify_tool_call` + RFC §6 behavior matrix + `record_user_decision` + `build_audit_record` (`intergen/provenance.py` NEW) | installed-system coordinator | 303 | 9 dispatcher gate sanity checks (matrix + escalation + symmetric trust state + missing-source reject + user-decision recording + audit construction) |
+| Registry gate integration + `_PRIVILEGED_TOOLS` + `_classify_risk_tier` + audit-log-on-every-dispatch + I-027 closure (`intergen/tool_registry.py`) | installed-system coordinator | +291 | imports + tier classification + unknown-tool reject |
+| Router instance state (`_ingress_tracker` + `_trust_state`) + per-turn reset + `reset_conversation_state()` + P3 LLM-tools gate wiring + P1/P2 keyword-match `USER_DIRECT` ToolCall construction (`intergen/router.py`) | installed-system coordinator | +~80 | 8 router-wiring sanity checks |
+| System-prompt `_PROVENANCE_DIRECTIVE` + `ToolSchema.to_openai()` source_of_request injection + `_extract_provenance` helper + both `stream_with_tools` yield sites updated (`intergen/llm.py` + `intergen/interfaces/types.py`) | installed-system coordinator | +~95 | 8 system-prompt sanity checks (toOpenAI inject + extract pops/maps + benign/invalid/missing handling) |
+| Review modal — zenity primary + notify-send fallback + 1-hour implicit-Deny + 2-arg callback factory (`intergen/review_modal.py` NEW) | installed-system coordinator | 252 | 7 modal sanity checks (format + truncation + session-detection + callback shape) |
+| `intergen tool-log` CLI subcommand — read/--clear/--json/--count/--limit (`intergen/cli.py`) | installed-system coordinator | +~95 | 9 CLI sanity checks (human render + JSONL + count + limit + clear + empty + main dispatch) |
+| Pattern detection scanner — corpus-agnostic `scan_for_injection_patterns()` (`intergen/pattern_detect.py` NEW) | installed-system coordinator | 86 | scanner sanity checks (empty + multi-match + malformed-regex skip + truncation) |
+| Injection corpus integration tests — parametrized pytest consuming SPOC corpus at `tests/intergen/injection_corpus/` (`tests/intergen/test_injection_corpus.py` NEW) | installed-system coordinator (tests) + build-system coordinator (corpus per Q6) | 185 (tests) + corpus TBD | 3 pass + 3 skip-on-empty-corpus; tests light up as SPOC populates corpus entries |
+| Integration with D-007 pkexec gate (privileged-tier `hold_for_review` path is the integration point) | build-system coordinator | (separate; engaged by SPOC against the stable IGOSC interface) | end-to-end test on a built ISO |
+| Documentation (user-facing security-defaults section + developer guide) | Windows-host coordinator | small | cross-coordinator review |
+
+**Total v1.0 LoC actual: ~1942 lines across InterGen at Step 12** (304 modified + 1638 new across 7 new modules + 1 new test file) **+ pending Step 13 RFC update (this file) + Step 14 audit doc closures + ~100-200 lines in installer/Forge for pkexec wiring (separate SPOC work).**
 
 ## 12 — Test strategy
 
@@ -279,15 +286,35 @@ InterGen is currently pre-v1.0 and has no shipped users. There's no migration co
 
 ## 14 — Open questions for peer review
 
-1. **Should `manage_services(action=query)` (read-only) be in the ingress set?** Argument for: service-name strings could carry injection bytes. Argument against: false positives on legitimate status queries swamps the gate. Current design: not in ingress set. Peer review please.
+### 14.1 — `manage_services(action=query)` ingress-set membership — RESOLVED
 
-2. **Notification fallback while session is locked.** v1.0 uses one-hour expiry with implicit Deny. Should be configurable. What's the right default — strict (15 min, Deny on expiry) or permissive (24 hours, prompt on unlock)?
+Question: should the read-only `query` action be in the ingress set?
 
-3. **Audit log rotation policy.** Default `logrotate` rotation is fine. Retention: 30 days? Owner-data-deletion path: how does the user wipe their own tool history?
+**Resolution:** NOT in ingress set. SPOC concur 2026-05-19T22:12:16Z on T0-4-E propose-and-wait Q3. Rationale: false-positive rate on legitimate status queries swamps the gate without commensurate security gain (service-name strings carrying injection bytes is a theoretical attack but the watermark in §5.1 already covers the broader case).
 
-4. **Cross-host coordination.** If a user runs InterGen on multiple InterGenOS machines (current = unlikely; future = plausible with sync), does the per-conversation trust state sync? Out of scope for v1.0; flag for v1.x design.
+### 14.2 — Notification fallback timeout — RESOLVED
 
-5. **Pattern detection corpus.** Who owns the v1.0 advisory pattern set + the v1.x gating pattern set? Recommend the build-system coordinator owns the v1.0 set drawn from published LLM-security literature (Anthropic / Microsoft / OpenAI threat reports); v1.x calibration uses telemetry from real-world use.
+Question: timeout for held actions when session is locked?
+
+**Resolution:** One-hour fixed expiry with implicit Deny. SPOC concur 2026-05-19T22:12:16Z on T0-4-E propose-and-wait Q4. Configurability is v1.x backlog if telemetry shows the fixed default is wrong; v1.0 ships the fixed value to gather data.
+
+### 14.3 — Audit log rotation policy + user-data-deletion path — RESOLVED (OPERATOR-CONFIRMED)
+
+Question: retention period + user-wipe path?
+
+**Resolution:** 30-day logrotate via `logrotate.d` snippet shipped by the intergen package + `intergen tool-log --clear` CLI for user-initiated wipe anytime. **OPERATOR-CONFIRMED 2026-05-19T23:14:33Z** via AskUserQuestion (presented as one-at-a-time decision item with recommendation + Debian/Ubuntu sudo/auth/journal parallel). System bound + user override per Prime Directive.
+
+### 14.4 — Cross-host coordination — RFC §10 v1.x SCOPE
+
+Question: if a user runs InterGen on multiple InterGenOS machines, does the per-conversation trust state sync?
+
+**Status:** Explicit v1.x scope per RFC §10. Current likelihood of multi-host InterGen use is low; future plausible with sync. v1.x design item once sync infrastructure exists.
+
+### 14.5 — Pattern detection corpus ownership — RESOLVED
+
+Question: who owns the v1.0 advisory pattern set + the v1.x gating pattern set?
+
+**Resolution:** SPOC owns the corpus at `docs/architecture/intergen-injection-pattern-corpus.md` + `tests/intergen/injection_corpus/`. SPOC concur 2026-05-19T22:12:16Z on T0-4-E propose-and-wait Q6: 10-15 baseline entries from Anthropic / Microsoft / OpenAI threat reports. IGOSC owns the scanner module (`intergen/pattern_detect.py`) + the test infrastructure (`tests/intergen/test_injection_corpus.py`); SPOC populates corpus content. v1.x calibration uses telemetry from real-world use to elevate §5.2 from advisory to gating.
 
 ## 15 — Resolution-path citations
 
