@@ -20,6 +20,5 @@ dependencies:
   - cairo
   - pygobject3
 verify_paths:
-  - /usr/bin/intergen-firstboot
   - /usr/libexec/intergen-firstboot/intergen-firstboot.py
-  - /etc/xdg/autostart/intergen-firstboot.desktop
+  - /usr/lib/systemd/user/intergen-firstboot.service

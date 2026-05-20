@@ -23,25 +23,43 @@
 #
 # Install layout:
 #   /usr/libexec/intergen-firstboot/intergen-firstboot.py
-#   /usr/bin/intergen-firstboot                          (shell wrapper)
-#   /etc/xdg/autostart/intergen-firstboot.desktop        (autostart entry)
+#   /usr/lib/systemd/user/intergen-firstboot.service     (systemd user unit)
 #
-# The autostart .desktop uses X-GNOME-Autostart-Phase=Initialization so
-# the animation fires BEFORE the welcomer's default Applications phase.
-# Filename-sort (intergen-firstboot.desktop < intergen-welcome.desktop)
-# provides belt-and-suspenders ordering.
+# Autostart mechanism is a systemd user unit (NOT an XDG /etc/xdg/autostart
+# .desktop entry). Background: GNOME 49 + systemd 259 both silently skip
+# .desktop files carrying X-GNOME-Autostart-Phase= -- systemd-xdg-autostart-
+# generator literally prints "GNOME startup phases are handled separately.
+# Skipping." (man systemd-xdg-autostart-generator) and gnome-session 49
+# logs "no longer manages session services" for any such file. The prior
+# .desktop autostart mechanism worked under pre-49 GNOME but is dead-on-
+# arrival on the current stack. The user-unit replacement is the canonical
+# modern-GNOME-on-systemd migration path per systemd.io DESKTOP_ENVIRONMENTS
+# and matches the pattern Fedora + Ubuntu use for first-login services.
 #
-# The wrapper script gates execution on the done-marker, exits cleanly
-# if already complete, and writes the done-marker only after the Python
-# app exits with status 0. If the animation crashes mid-render, the next
-# login attempts it again -- consistent with the test-iteration UX
-# captured in docs/research/firstboot/test-plan.md.
+# The systemd unit declares:
+#   * ConditionPathExists=!%h/.local/share/intergen/firstboot-animation-done
+#     -- the once-per-user gate, declarative + visible in systemctl status.
+#   * Environment=GSK_RENDERER=cairo -- fleet parity with the welcomer
+#     wrapper's GSK_RENDERER override for the Mesa ZINK Vulkan crash class
+#     on virtualized GPUs; the firstboot DrawingArea+Cairo render is
+#     software-rendered at the cairo layer anyway so the override has zero
+#     perf cost on real hardware while protecting virtualized targets.
+#   * Type=oneshot + ExecStartPost= -- ExecStartPost only runs after a
+#     successful ExecStart (rc=0), so a crashed animation will NOT write
+#     the done-marker and the next login retries (matches the test-plan
+#     section 4.6 failure-resilience criterion).
+#   * Before=app-intergen\x2dwelcome@autostart.service -- deterministic
+#     chain ordering with the welcomer (whose auto-generated systemd unit
+#     name follows the systemd-xdg-autostart-generator convention); the
+#     ordering works without requiring any change to the welcomer package.
+#   * WantedBy=graphical-session.target -- canonical anchor for first-
+#     login user-session services on modern GNOME-on-systemd.
 #
-# This package coexists with the legacy C/DRM sources at
-# assets/intergen-firstboot{,-drm}/ until smoothness testing on real
-# hardware locks the Python implementation per Q4 of the chain-vs-phase
-# walkthrough. Until that verdict, the C source remains in tree as the
-# documented fallback per Q6.
+# Coexistence with legacy C/DRM sources at assets/intergen-firstboot{,-drm}/
+# is unchanged. The Python rewrite already cleared the smoothness QA hard
+# gate on three viewing surfaces with the operator-explicit "Python is a
+# go" closure; the C bundle remains in tree as documented fallback per Q6
+# of the chain-vs-phase walkthrough until eventual cleanup commit.
 
 configure() {
     set -e
@@ -56,51 +74,35 @@ build() {
 do_install() {
     set -e
     local libexec="${DESTDIR}/usr/libexec/intergen-firstboot"
-    local bindir="${DESTDIR}/usr/bin"
-    local autostartdir="${DESTDIR}/etc/xdg/autostart"
+    local userunitdir="${DESTDIR}/usr/lib/systemd/user"
 
-    install -dm755 "${libexec}" "${bindir}" "${autostartdir}"
+    install -dm755 "${libexec}" "${userunitdir}"
 
     install -m755 intergen-firstboot.py "${libexec}/intergen-firstboot.py"
 
-    cat > "${bindir}/intergen-firstboot" <<'WRAPPER'
-#!/bin/bash
-# intergen-firstboot launcher -- once-per-user gate.
-done_marker="${HOME}/.local/share/intergen/firstboot-animation-done"
-if [ -e "${done_marker}" ]; then
-    exit 0
-fi
+    cat > "${userunitdir}/intergen-firstboot.service" <<'UNIT'
+[Unit]
+Description=InterGenOS first-login branded ECG-pulse animation
+Documentation=https://github.com/InterGenJLU/intergenos
+ConditionPathExists=!%h/.local/share/intergen/firstboot-animation-done
+Before=app-intergen\x2dwelcome@autostart.service
+PartOf=graphical-session.target
 
-# Force GSK's cairo (software) renderer for fleet parity with the
-# intergen-welcome wrapper. The welcomer's diagnosis (see
-# packages/desktop/intergen-welcome/build.sh:72-86) documented a Mesa
-# ZINK Vulkan crash class on virtualized GPUs where GTK4's default GL
-# renderer attempts ZINK-on-GL and segfaults at context creation when
-# the host cannot expose a real Vulkan device. The firstboot animation
-# renders via a Gtk.DrawingArea set_draw_func -> Cairo path, so the
-# surface is software-rendered at the cairo layer anyway -- the GSK GL
-# renderer adds nothing this code path needs, and the cairo override
-# protects against the documented crash class on virtualized targets.
-export GSK_RENDERER=cairo
-python3 /usr/libexec/intergen-firstboot/intergen-firstboot.py "$@"
-rc=$?
-if [ "${rc}" -eq 0 ]; then
-    mkdir -p "$(dirname "${done_marker}")" || true
-    touch "${done_marker}" || true
-fi
-exit "${rc}"
-WRAPPER
-    chmod 755 "${bindir}/intergen-firstboot"
+[Service]
+Type=oneshot
+Environment=GSK_RENDERER=cairo
+ExecStart=/usr/bin/python3 /usr/libexec/intergen-firstboot/intergen-firstboot.py
+ExecStartPost=/bin/sh -c "mkdir -p %h/.local/share/intergen && touch %h/.local/share/intergen/firstboot-animation-done"
+RemainAfterExit=no
 
-    cat > "${autostartdir}/intergen-firstboot.desktop" <<'AUTOSTART'
-[Desktop Entry]
-Type=Application
-Name=InterGenOS First Boot Animation
-Comment=Branded first-login animation that fades to the welcomer
-Exec=intergen-firstboot
-OnlyShowIn=GNOME;
-StartupNotify=false
-NoDisplay=true
-X-GNOME-Autostart-Phase=Initialization
-AUTOSTART
+[Install]
+WantedBy=graphical-session.target
+UNIT
+    chmod 644 "${userunitdir}/intergen-firstboot.service"
+}
+
+post_install() {
+    set -e
+    systemctl --global daemon-reload 2>/dev/null || true
+    systemctl --global enable intergen-firstboot.service 2>/dev/null || true
 }
