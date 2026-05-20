@@ -29,8 +29,6 @@ See `project_first_login_animation_flow` memory for the full operator-verbatim q
 
 ---
 
----
-
 ## Context (current in-tree state)
 
 **Two separate first-boot artifacts exist that are easily confused:**
@@ -154,7 +152,9 @@ For belt-and-suspenders the new `intergen-firstboot` binary should `gtk_window_p
 
 ---
 
-## Open questions for operator review-before-save
+## Original open questions (RESOLVED-AT-WALKTHROUGH 2026-05-20)
+
+The 6 questions below are the original scope-prep open questions that the operator-walkthrough on 2026-05-20 ~19:35Z-20:00Z resolved. See [Operator-ratified verdicts](#operator-ratified-verdicts-added-2026-05-20-post-walkthrough) table at top of document for the ratified outcomes. Preserved here as scope-prep historical-context for future readers tracing the decision provenance.
 
 1. **Chain vs Phase verdict?** Default recommendation = Chain (Option A); operator override paths enumerated above.
 2. **Sequencing mechanism?** If Chain: `X-GNOME-Autostart-Phase=Initialization` + filename-sort belt-and-suspenders (recommended) OR `X-GNOME-Autostart-After` (newer; explicit but less broadly supported)?
@@ -177,4 +177,4 @@ For belt-and-suspenders the new `intergen-firstboot` binary should `gtk_window_p
 
 ---
 
-**Next step:** operator review-before-save verdict; once greenlit, the rewrite scope-prep proceeds to actual binary authoring (which IS subject to D-009 8-item checklist + peer-review-primary on the SHA when it lands).
+**Next step:** matrix is OPERATOR-RATIFIED + closed as a research artifact; the Python rewrite work proceeds per operator-decision-queue verdicts on (a) implementation ownership (InterGenOS-coordinator Option 1 recommended at bus 19:57:36Z), (b) test-plan-first sequencing per the smoothness QA hard gate, and (c) hardware-testing protocols on the reference DRM hardware before the Python binary supersedes the existing C/DRM implementation. The rewrite implementation IS subject to D-009 8-item checklist + peer-review-primary on the SHA when it lands.
