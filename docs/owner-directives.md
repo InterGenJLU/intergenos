@@ -588,7 +588,7 @@ Each entry uses this shape:
 ## D-013 — ScheduleWakeup is the exclusive cycle-management mechanism (/loop unauthorized)
 
 - **Issued:** 2026-05-20T00:Z by owner
-- **Context:** The fleet has been intermittently using `/loop` (the harness slash-command form) and `/loop <interval>` (passed as the `prompt` value to ScheduleWakeup) for cycle management. Both forms fail to produce the cycle behavior the InterGenOS fleet process needs — the harness's `/loop` mechanism is unsuited to multi-coordinator coordination requirements where wake re-arms must carry an explicit reason + delay + continuation context across context-clear cycles. Windows-host coordinator self-identified the same drift class around 2026-05-19T22:53Z (host-local POWER memory `host-local POWER memory on this trap` captures the trap). Build-system coordinator was operator-direct corrected 2026-05-20T00:Z; broadcast across all three coordinators at 00:24:09Z. D-013 elevates the rule from per-coordinator memory to canonical fleet posture.
+- **Context:** The fleet has been intermittently using `/loop` (the harness slash-command form) and `/loop <interval>` (passed as the `prompt` value to ScheduleWakeup) for cycle management. Both forms fail to produce the cycle behavior the InterGenOS fleet process needs — the harness's `/loop` mechanism is unsuited to multi-coordinator coordination requirements where wake re-arms must carry an explicit reason + delay + continuation context across context-clear cycles. Windows-host coordinator self-identified the same drift class around 2026-05-19T22:53Z (host-local POWER memory captures the cycle-mechanism trap). Build-system coordinator was operator-direct corrected 2026-05-20T00:Z; broadcast across all three coordinators at 00:24:09Z. D-013 elevates the rule from per-coordinator memory to canonical fleet posture.
 - **Verbatim:**
 
   > OWNER DIRECTIVE:
@@ -625,7 +625,7 @@ Each entry uses this shape:
 - **Implementation backlog:**
   - Build-system coordinator: D-013 record landing + cross-coordinator broadcast (immediate; this commit).
   - Installed-system coordinator: ACK D-013 absorption on the dispatch thread; no behavior change required if already on ScheduleWakeup-exclusive cycle.
-  - Windows-host coordinator: ACK D-013 absorption on the dispatch thread; cite `host-local POWER memory on this trap` POWER memory as the host-local reflection of the canonical rule.
+  - Windows-host coordinator: ACK D-013 absorption on the dispatch thread; cite the host-local cycle-mechanism POWER memory as the host-local reflection of the canonical rule.
   - Optional v1.x: PreToolUse hook on `ScheduleWakeup` prompt argument to mechanically block literal `/loop` + `/loop <interval>` values. Tracked as a follow-on enforcement enhancement; v1.0 ships with procedural enforcement only (D-013 is the rule, peer-review catches drift).
 
 - **Status:** ACTIVE — build-system coordinator compliant since session start (this session's 6+ ScheduleWakeup invocations all carried real continuation directive or sentinel). Windows-host coordinator self-corrected 2026-05-19T22:53Z + POWER memory authored. Installed-system coordinator ACK pending on dispatch thread `t0-7-t0-4-dispatch-20260519`.

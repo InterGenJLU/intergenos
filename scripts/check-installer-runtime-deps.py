@@ -63,6 +63,20 @@ SHELL_REQUIRED_BINARIES: set[str] = {
     "mokutil", "openssl", "sbsign", "sbverify",
     "ukify", "iucode_tool",
     "rsync", "tar", "xz", "gzip",
+    # cpio — initramfs packaging tool invoked by the two custom
+    # InterGenOS initramfs build scripts: installer/init/build-initramfs.sh
+    # (live ISO initramfs) + installer/init/build-fde-initramfs.sh (FDE
+    # initramfs per D-001 LUKS-at-install). Both scripts use the
+    # busybox-static + custom-init.sh + cpio pattern. dracut + mkinitcpio
+    # are RATIFIED-AGAINST in this project (see installer/init/build-fde-
+    # initramfs.sh:160 + 173 + packages/core/fido2-tools-static/build.sh:12
+    # + 40 for the canonical markers). Caught at 2026-05-20 morning resume
+    # as a M-002 gate blind spot: the curated SHELL set was missing cpio
+    # even though both build-*-initramfs.sh scripts invoke it; if cpio is
+    # absent from the chroot, the initramfs build fails at a late + opaque
+    # stage in cpio --create. The gate now catches it pre-build per the
+    # explicit-when-known M-002 audit recommendation.
+    "cpio",
     # Installer runtime (T0-3 additions — sub-cluster 1):
     "parted", "partprobe",
     "sgdisk", "cgdisk", "gdisk", "fixparts",
