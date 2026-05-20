@@ -584,3 +584,48 @@ Each entry uses this shape:
   - Pattern-list version-tracking: optional future enhancement (currently hook content + SHA is the version; bus archive is the change log)
 
 - **Status:** ACTIVE — installation across all three coordinators pending installed-system + Windows-host coordinator ACKs; build-system coordinator installation already live since 2026-05-19 ~16:55 CDT.
+
+## D-013 — ScheduleWakeup is the exclusive cycle-management mechanism (/loop unauthorized)
+
+- **Issued:** 2026-05-20T00:Z by owner
+- **Context:** The fleet has been intermittently using `/loop` (the harness slash-command form) and `/loop <interval>` (passed as the `prompt` value to ScheduleWakeup) for cycle management. Both forms fail to produce the cycle behavior the InterGenOS fleet process needs — the harness's `/loop` mechanism is unsuited to multi-coordinator coordination requirements where wake re-arms must carry an explicit reason + delay + continuation context across context-clear cycles. Windows-host coordinator self-identified the same drift class around 2026-05-19T22:53Z (host-local POWER memory `host-local POWER memory on this trap` captures the trap). Build-system coordinator was operator-direct corrected 2026-05-20T00:Z; broadcast across all three coordinators at 00:24:09Z. D-013 elevates the rule from per-coordinator memory to canonical fleet posture.
+- **Verbatim:**
+
+  > OWNER DIRECTIVE:
+  >
+  > The use of /loop in our automation is now unauthorized. It doesn't work for our process. ScheduleWakeup is to be used moving forward, nothing else.
+
+- **Decision-Encoded:**
+
+  **Required mechanism:**
+  - Every wake-cycle re-arm uses `ScheduleWakeup` with explicit `delaySeconds` + `reason` + `prompt`.
+  - `delaySeconds` reflects the actual situation (270s for active-cycle; 1200-1800s for idle-tick). Never round-minute defaults; pick the cadence the situation warrants.
+  - `reason` is one short sentence stating what the cycle is checking for (telemetry + operator-visible).
+  - `prompt` is either the real continuation directive (a /loop input verbatim when the harness loop skill is active) OR the sentinel `<<autonomous-loop-dynamic>>` when truly autonomous-pacing with no user prompt.
+
+  **Prohibited forms:**
+  - `/loop` invoked as a slash-command for cycle management.
+  - `/loop <interval>` passed as the literal `prompt` value to ScheduleWakeup. The harness does not interpret it as a re-entry directive in this form; the loop dies.
+  - Any other mechanism for re-arming cycle behavior (no `sleep` loops, no Bash `run_in_background` polling loops for cycle work).
+
+  **Cycle-cadence guidance:**
+  - Active-dispatch window (operator engaged, fleet coordinating, pushes pending): 270s — keeps prompt cache warm + matches operator response cadence.
+  - Idle-tick (operator absent, bus quiet, no pending state to watch): 1200-1800s — saves cache cost + matches normal human-response time. Revert to 270s on any activity.
+  - Avoid 300s (worst-of-both: pays cache miss without amortizing).
+
+- **Supersedes:**
+  - Any per-coordinator drift toward `/loop` invocation for cycle management.
+  - Earlier fleet practice of passing `/loop <interval>` as the `prompt` value to ScheduleWakeup — superseded by the explicit-continuation-directive-or-sentinel requirement above.
+
+- **Composes with:**
+  - **D-009** (Universal development checklist) — item 5 prohibits deferment without operator direction; D-013 is a process-discipline rule that survives context-clears, matching D-009's standing-directive shape.
+  - **D-012** (Fleet-wide PreToolUse hook distribution) — both D-012 and D-013 are fleet-process discipline rules that have to survive context-clear cycles. D-012 captures programmatic enforcement; D-013 captures procedural enforcement (no programmatic gate exists for ScheduleWakeup-vs-/loop yet; if drift recurs after this directive, a PreToolUse hook on `ScheduleWakeup` prompt-value validation would be the natural follow-on enforcement).
+  - **`feedback_owner_followup_failure_class`** — D-013 is a direct application: the operator's verbal direction on `/loop` could have rotted across context-clears; capturing as D-NNN survives. Build-system coordinator surfaced the D-013 capture suggestion within the same exchange as the operator's verbal directive per the POWER memory's contract.
+
+- **Implementation backlog:**
+  - Build-system coordinator: D-013 record landing + cross-coordinator broadcast (immediate; this commit).
+  - Installed-system coordinator: ACK D-013 absorption on the dispatch thread; no behavior change required if already on ScheduleWakeup-exclusive cycle.
+  - Windows-host coordinator: ACK D-013 absorption on the dispatch thread; cite `host-local POWER memory on this trap` POWER memory as the host-local reflection of the canonical rule.
+  - Optional v1.x: PreToolUse hook on `ScheduleWakeup` prompt argument to mechanically block literal `/loop` + `/loop <interval>` values. Tracked as a follow-on enforcement enhancement; v1.0 ships with procedural enforcement only (D-013 is the rule, peer-review catches drift).
+
+- **Status:** ACTIVE — build-system coordinator compliant since session start (this session's 6+ ScheduleWakeup invocations all carried real continuation directive or sentinel). Windows-host coordinator self-corrected 2026-05-19T22:53Z + POWER memory authored. Installed-system coordinator ACK pending on dispatch thread `t0-7-t0-4-dispatch-20260519`.
