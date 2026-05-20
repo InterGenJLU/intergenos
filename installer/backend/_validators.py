@@ -115,3 +115,105 @@ def validate_username(value):
             "and hyphens (no uppercase, dots, spaces, or special characters)"
         )
     return None
+
+
+# Composite weak-password floor (audit rows C-050 + C-051): the
+# installer-side mirrors MOK's 8-char floor at the GUI + backend entry
+# points so the user cannot enter a sub-floor password at install and
+# have the install fail late at PHASE_MOK. The PAM-side ships the
+# stronger RHEL 9 baseline (libpwquality minlen=12 + complexity +
+# faillock deny=5 unlock_time=900 even_deny_root) for the running
+# system; the installer-side 8-char floor is a UX fail-fast that
+# guarantees the install can at least reach PHASE_MOK without late
+# failure. Upper bound 256 matches MOK's mokutil ceiling.
+_PASSWORD_MIN_LEN = 8
+_PASSWORD_MAX_LEN = 256
+
+
+def validate_password(value, role="password"):
+    """Validate a user-supplied password against the installer-side floor.
+
+    Returns None if valid, or a human-readable error message if invalid.
+    Frontends call this at user-input time to re-prompt on invalid
+    entries; the backend defensively validates again before set_root_password
+    and create_user invoke chpasswd, so a hand-edited install.yaml that
+    bypasses the frontend cannot inject a sub-floor password.
+
+    Args:
+        value: the password string (typed at the GUI / TUI / loaded from yaml)
+        role: a short label used in the error message ("user password",
+              "root password") for human-readable re-prompt UX.
+
+    Returns None on valid input. Note empty-string handling is the
+    caller's responsibility — user.py on_next checks emptiness with a
+    separate error message ("Both user and root passwords are required.")
+    so this function only validates length on non-empty input. Callers
+    that allow empty (e.g. MOK skip-enrollment) should short-circuit
+    before calling.
+
+    Examples:
+        validate_password("hunter22")            -> None  # 8 chars
+        validate_password("hunter2")             -> "user password ..."
+        validate_password("a"*257)               -> "user password ..."
+        validate_password("p4ssw0rd!!", "root password")  -> None
+    """
+    if not isinstance(value, str):
+        return f"{role} must be a string"
+    if len(value) < _PASSWORD_MIN_LEN:
+        return (
+            f"{role} must be at least {_PASSWORD_MIN_LEN} characters "
+            f"(installer-side floor mirrors the MOK enrollment "
+            f"requirement; running-system PAM enforces RHEL 9 baseline "
+            f"libpwquality minlen=12 + complexity separately)"
+        )
+    if len(value) > _PASSWORD_MAX_LEN:
+        return (
+            f"{role} must be at most {_PASSWORD_MAX_LEN} characters "
+            f"(matches mokutil ceiling)"
+        )
+    return None
+
+
+def validate_mok_password(value):
+    """Validate a MOK enrollment password against mokutil's constraints.
+
+    Mirrors installer/backend/mok.py:write_mok_enrollment validation so
+    the GUI can fail-fast at user-input time rather than have the
+    install fail late at PHASE_MOK. Empty input is accepted (MOK
+    enrollment is intentionally optional — leaving the field empty
+    skips MOK enrollment per the on_next contract).
+
+    mokutil stdin pipeline requires 8-256 chars + printable ASCII only;
+    control chars (NUL, newline, CR, tab) break the two-line stdin pipe
+    because mokutil reads two password lines separated by '\\n' and an
+    embedded newline splits the password into two false reads. Non-ASCII
+    is rejected because the user must re-type the password at MokManager
+    on first boot and MokManager's keyboard scan does not handle non-ASCII
+    reliably across firmware vendors.
+
+    Examples:
+        validate_mok_password("")                -> None  # MOK skip is valid
+        validate_mok_password("hunter22")        -> None
+        validate_mok_password("hunter2")         -> "MOK ... must be 8-256 ..."
+        validate_mok_password("a"*257)           -> "MOK ... must be 8-256 ..."
+        validate_mok_password("héllo123")        -> "MOK ... printable ASCII ..."
+        validate_mok_password("foo\\nbar1")      -> "MOK ... printable ASCII ..."
+    """
+    if not isinstance(value, str):
+        return "MOK enrollment password must be a string"
+    if value == "":
+        return None
+    if not 8 <= len(value) <= 256:
+        return (
+            f"MOK enrollment password must be 8-256 characters "
+            f"(got {len(value)}); leave the field empty to skip MOK "
+            f"enrollment entirely"
+        )
+    if not all(32 <= ord(c) <= 126 for c in value):
+        return (
+            "MOK enrollment password must be printable ASCII only "
+            "(no control chars, tabs, newlines, or non-ASCII — "
+            "mokutil reads via stdin and the user must re-type at "
+            "MokManager on first boot)"
+        )
+    return None

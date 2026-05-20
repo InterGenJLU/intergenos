@@ -6,6 +6,7 @@ import shlex
 import subprocess
 from pathlib import Path
 
+from ._validators import validate_password
 from .hooks import run_chroot, run_chroot_stdin
 
 # C-006: orchestrator (install.py PHASE_VIRTUAL_FS) owns virtual_fs
@@ -28,6 +29,9 @@ _SUDOERS_WHEEL_COMMENTED_RE = re.compile(
 
 def set_root_password(target, password):
     """Set the root password on the target system."""
+    err = validate_password(password, role="root password")
+    if err:
+        raise ValueError(err)
     # Feed password via stdin to avoid process table exposure
     run_chroot_stdin(target, "chpasswd", f"root:{password}\n")
     # Remove password expiry for initial setup
@@ -45,6 +49,10 @@ def create_user(target, username, password, groups=None):
     """
     if groups is None:
         groups = ["wheel", "audio", "video", "cdrom", "input"]
+
+    err = validate_password(password, role="user password")
+    if err:
+        raise ValueError(err)
 
     # Create group 'wheel' if it doesn't exist (for sudo)
     run_chroot(target, "getent group wheel >/dev/null 2>&1 || groupadd wheel")

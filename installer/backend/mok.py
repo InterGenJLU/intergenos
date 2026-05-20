@@ -21,6 +21,7 @@ import secrets
 import subprocess
 from pathlib import Path
 
+from ._validators import validate_mok_password
 from .hooks import (
     mount_efivars,
     unmount_efivars,   # batch 1 fix: C1 efivars mount around mokutil
@@ -124,19 +125,20 @@ def queue_mok_enrollment(target, der_path, password):
         RuntimeError if mokutil import fails.
         ValueError if password is invalid.
     """
-    if not 8 <= len(password) <= 256:
+    # Empty input is rejected at the enrollment-call layer because the caller
+    # owns the skip-MOK-enrollment branch (the validator accepts empty as
+    # valid input from the GUI layer where empty means "skip MOK"; here in
+    # queue_mok_enrollment empty would mean caller logic error since
+    # we are explicitly enrolling).
+    if not password:
         raise ValueError(
-            f"MOK enrollment password must be 8-256 chars (got {len(password)})"
+            "MOK enrollment password must not be empty (caller must skip "
+            "queue_mok_enrollment entirely when user leaves the MOK field "
+            "blank in the GUI)"
         )
-    # Printable ASCII only. Control chars (NUL, newline, CR, tab) would break
-    # the stdin pipe below — mokutil reads two password lines separated by \n,
-    # so an embedded newline splits the password into two false reads.
-    if not all(32 <= ord(c) <= 126 for c in password):
-        raise ValueError(
-            "MOK enrollment password must be printable ASCII only "
-            "(no control chars, tabs, newlines, or non-ASCII — mokutil reads "
-            "via stdin and the user must re-type at MokManager)"
-        )
+    err = validate_mok_password(password)
+    if err:
+        raise ValueError(err)
 
     # mokutil --import takes the cert path and prompts for password twice
     # via stdin. Pipe it as "password\npassword\n".
