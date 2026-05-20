@@ -38,3 +38,36 @@ StandardError=journal
 # (network blip, mirror 503) just means this run produced no JSON update;
 # next timer fire retries. A persistent failure surfaces in journalctl
 # and via no-JSON-update via the consumer surfaces.
+
+# Hardening — F-048/F-049 closure (T0-4-A Commit 3; matrix row 211 +
+# line 1309). Per RATIFIED 2026-04-29 4-0 unanimous AppArmor + daemon-
+# hardening baseline: every InterGenOS-authored service ships with the
+# systemd canonical hardening directive set. This service runs as root
+# but is read-only against repo + DB (writes only the available-updates
+# JSON to /var/lib/pkm/) — so the hardening set is the full canonical
+# set with ReadWritePaths=/var/lib/pkm scoped narrowly. CapabilityBoundingSet
+# + AmbientCapabilities cleared since check-updates needs no Linux
+# capabilities (read repo index over HTTPS + read DB file + write JSON).
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallFilter=~@resources
+ReadWritePaths=/var/lib/pkm
+CapabilityBoundingSet=
+AmbientCapabilities=
