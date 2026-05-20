@@ -120,14 +120,14 @@ The block fires as the last step of every `publish-repo.sh` invocation that has 
 
 1. If the local transparency-log working clone does not yet exist at `$HOME/.intergenos-transparency-log` (or the location set via the `PUBLISH_TRANSPARENCY_LOCAL` env var), clone the remote `intergenos-mirror-backup` repo (`PUBLISH_TRANSPARENCY_REMOTE` env var; defaults to `git@github.com:InterGenJLU/intergenos-mirror-backup.git`) with `--depth 100`.
 2. Otherwise `git pull --ff-only origin master`; fail-closed if the remote has diverged.
-3. Copy `InterGenOS.db` + `InterGenOS.db.sig` (and conditionally `intergenos-archive-manifest.txt` + `.sig` if the manifest is present in the staging directory) to `$LOG_DIR/x86_64/current/`.
+3. Copy `InterGenOS.db` + `InterGenOS.db.sig` (and conditionally `intergenos-archive-manifest.txt` + `.sig` if the manifest is present in the staging directory) to `$LOG_DIR` (which the script sets to `$TRANSPARENCY_LOCAL/x86_64/current`).
 4. Compute SHA-256 + byte-size for each copied artifact + capture the previous transparency-log commit SHA as `prev-entry` (forming a Merkle-style chain across the log history).
 5. Build a structured commit message containing the sha256s + sizes + `signed-by-fingerprint` of the signing GPG key + `prev-entry` hash + `log-version=2`.
 6. `git add` the staged artifacts + `git commit` + `git push origin master`.
 7. Fail-closed on clone / pull / commit / push errors (`publish-repo.sh` exits 1; manual resolution required before next publish).
 8. Skip-with-WARN if `git diff --cached --quiet` reports no changes (a snapshot whose artifacts already exist in the log byte-exact surfaces as a possibly-double-publish flag for investigation).
 
-The append-only property relies on force-push protection on the `main` branch of `intergenos-mirror-backup` (configured at the GitHub branch-protection layer). The git commit DAG itself is the tamper-evidence; the underlying artifact GPG signatures remain verifiable independently of the log structure.
+The append-only property relies on force-push protection on the `master` branch of `intergenos-mirror-backup` (configured at the GitHub branch-protection layer; note that the code targets `master` per the explicit `git push origin master` at `publish-repo.sh:368`, so the branch-protection rule must be on `master` rather than the GitHub default `main`). The git commit DAG itself is the tamper-evidence; the underlying artifact GPG signatures remain verifiable independently of the log structure.
 
 ### Operator-visible behaviour
 
