@@ -694,3 +694,31 @@ Each entry uses this shape:
   - Verify mirror-publish path signs + uploads ALL built packages (ISO + MIRROR) per the existing repo.intergenos.org infrastructure TODO E1.B.5-E1.B.7; current state has infrastructure live and build-pipeline emission is in scope per this directive.
 
 - **Status:** ACTIVE
+
+## D-015 — D-006 extension: install-theming.sh Burn My Windows block removal (SSoT scope clarification)
+
+- **Issued:** 2026-05-20T~02:Z by owner via queue-walk item #6
+- **Context:** D-006 (2026-05-18) retired `scripts/install-theming.sh` as a theming-dconf-key writer + designated the `intergenos-default-settings` gschema package as the canonical SSoT. The intent covered ALL theming-related writes from `install-theming.sh`, but the Burn My Windows TV-effect profile write block at `install-theming.sh:392-405` was overlooked at the time of D-006 + remained in place writing to `/etc/skel/.config/burn-my-windows/profiles/default.conf`. The 2026-05-19 BMW-migration commit `72fc9188` migrated the profile content into `packages/core/intergenos-default-settings/` as part of resolving a duplicate-package-name issue; the install-theming.sh block became redundant the moment that commit landed but remained in place pending operator ratification of removal scope. Queue-walk item #6 2026-05-20 surfaced the removal for explicit operator greenlight.
+- **Verbatim greenlight:**
+
+  > greenlighting #6 on your recommendation
+
+- **Decision-Encoded:**
+  - The original D-006 directive covers ALL theming-related writes from `scripts/install-theming.sh`, including the BMW TV-effect profile. D-015 makes this scope explicit + authorizes removal of `install-theming.sh:392-405`.
+  - **Forward precedent:** D-006 may be extended via operator greenlight to cover specific cases that were overlooked in the original 2026-05-18 scope. Each extension is recorded as a separate D-NNN entry citing D-006 + the specific scope clarification + the operator-verbatim greenlight. The original D-006 entry remains the source-of-truth for the SSoT principle; extension entries record incremental scope clarification.
+  - **Rationale for extension shape (not supersession):** D-006 already retired install-theming.sh in principle; the BMW block removal is implementation of that principle for the BMW-profile-specific case. Treating each oversight removal as a numbered extension preserves the append-only directive log + makes scope clarifications auditable.
+
+- **Supersedes:**
+  - `scripts/install-theming.sh:392-405` Burn My Windows write block — removed in this commit; `packages/core/intergenos-default-settings/` is the sole SSoT for the BMW profile content.
+
+- **Composes with:**
+  - **D-006** (Theming canonical SSoT, 2026-05-18) — the source directive D-015 extends.
+  - **`72fc9188`** (burn-my-windows profile migration to `intergenos-default-settings`, 2026-05-19) — made `install-theming.sh:392-405` redundant by populating the canonical SSoT package with the profile content.
+  - **SSoT-alignment principle** — every major distro ships per-account defaults via a single package owning `/etc/skel/.config/*` (Fedora gnome-shell-extensions / Pop_OS pop-default-settings / Ubuntu ubuntu-default-settings); dual-writer (install-theming.sh + package) is a system-trust hazard because users cannot reason about which writer last-wrote a given file.
+
+- **Implementation backlog (in this commit):**
+  - Delete `scripts/install-theming.sh:392-405` BMW write block (the comment header + the conf write block; total 14 lines).
+  - Replace with a header-only comment block citing D-015 + `72fc9188` so future readers understand why the section is empty.
+  - Verify the BMW profile content is unchanged in `packages/core/intergenos-default-settings/` post-commit (the migration commit `72fc9188` is the SoT for the content; this commit only removes the redundant install-theming.sh block).
+
+- **Status:** ACTIVE

@@ -390,19 +390,15 @@ else
 fi
 
 # ============================================================================
-# Burn My Windows default profile (TV power-off effect)
+# Burn My Windows default profile — OWNED BY packages/core/intergenos-default-settings
+#
+# Per D-015 owner directive 2026-05-20 (D-006 scope extension), the
+# Burn My Windows TV-effect profile is shipped by the
+# intergenos-default-settings package as the canonical SSoT (migrated in
+# 72fc9188). This script was the historical dual-writer; with D-015 the
+# block is removed and intergenos-default-settings becomes the sole
+# writer of /etc/skel/.config/burn-my-windows/profiles/default.conf.
 # ============================================================================
-
-log ""
-log "=== Configuring Burn My Windows ==="
-mkdir -p /etc/skel/.config/burn-my-windows/profiles
-cat > /etc/skel/.config/burn-my-windows/profiles/default.conf << 'BMWEOF'
-[burn-my-windows-profile]
-fire-enable-effect=false
-tv-enable-effect=true
-profile-animation-type=0
-BMWEOF
-log "  Burn My Windows TV effect configured in /etc/skel"
 
 # ============================================================================
 # nftables firewall — OWNED BY packages/core/intergenos-firewall-defaults
