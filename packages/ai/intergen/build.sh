@@ -94,7 +94,36 @@ security:
   schema_pins: "/var/lib/intergen/mcp-pins"
 CONFIG
 
-    # Systemd user service
+    # Systemd user service. Closes audit F-038 (HG) "intergen.service no
+    # hardening" per matrix row 211 + line 1309: previously this unit
+    # shipped strictly less hardened than nginx + the audit's canonical
+    # example of "every InterGenOS-authored service VIOLATES" the ratified
+    # 2026-04-29 4-0 unanimous AppArmor + daemon-hardening baseline.
+    #
+    # The directives below are the systemd canonical hardening set for a
+    # user service that needs network access (LLM API + MCP transport) +
+    # XDG home-dir writes (config + state caches). Read-only system trees
+    # via ProtectSystem=strict; no privilege escalation via
+    # NoNewPrivileges; private /tmp + /dev to isolate from peer-process
+    # state; kernel-tuning + namespace + realtime + SUID surfaces all
+    # restricted; address-family restriction to UNIX + INET + INET6 only
+    # (NETLINK + PACKET + others denied — intergen does not enumerate
+    # network interfaces or capture raw frames). SystemCallFilter pares
+    # to the @system-service umbrella with explicit denials of
+    # @privileged (capability-changing) + @resources (mlock-class
+    # resource-exhaustion). CapabilityBoundingSet + AmbientCapabilities
+    # cleared — a user service needs no Linux capabilities.
+    #
+    # MemoryDenyWriteExecute= is intentionally NOT set: torch + ggml +
+    # sentence-transformers use JIT regions that the directive would
+    # break. Re-evaluate when llama.cpp-only CPU inference is the v1.0
+    # ship target.
+    #
+    # ProtectHome= is intentionally NOT set: this is a USER unit; the
+    # user's own daemon legitimately needs read/write access to its own
+    # ${HOME}/.config/intergen + ${HOME}/.local/share/intergen per the
+    # AppArmor profile coverage. ProtectHome=read-only would block the
+    # user's daemon from writing to its own home.
     install -Dm644 /dev/stdin "${DESTDIR}/usr/lib/systemd/user/intergen.service" << 'SERVICE'
 [Unit]
 Description=InterGen AI Assistant
@@ -108,6 +137,29 @@ ExecStart=/usr/bin/intergen daemon
 Restart=on-failure
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
+
+# Hardening — F-038 closure (T0-4-A Commit 2; matrix row 211 + line 1309).
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallFilter=~@resources
+CapabilityBoundingSet=
+AmbientCapabilities=
 
 [Install]
 WantedBy=default.target
