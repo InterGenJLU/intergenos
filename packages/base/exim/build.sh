@@ -34,11 +34,31 @@ do_install() {
     cp      -Rv doc/*   "${DESTDIR}/usr/share/doc/exim-4.99.1"
     ln -sfv exim "${DESTDIR}/usr/sbin/sendmail"
     install -v -d -m750 -o exim -g exim "${DESTDIR}/var/spool/exim"
+
+    # Set setuid + setgid bits — exim needs setuid root + setgid exim
+    # for sendmail-compat non-root mail submission and for queue
+    # delivery (the queue directory at /var/spool/exim is exim:exim
+    # mode 750). Mode 6755 per BLFS 13.0 exim-4.99.1 canonical. Must
+    # be set here because tar-based deployment strips setuid/setgid
+    # bits during extraction (pkm restores them from tarball metadata
+    # post-extract; see pkm/installer.py:475-490). Ownership is set in
+    # post_install on the live system because the PEP 706 data filter
+    # in the deploy-extract path strips uid/gid.
+    chmod 6755 "${DESTDIR}/usr/sbin/exim"
 }
 
 post_install() {
     set -e
     install -v -d -m1777 /var/mail
+
+    # Ensure exim user/group exists on the live system + chown the
+    # privileged binary so the setgid bit grants effective gid exim
+    # (which owns /var/spool/exim). Configure-stage groupadd/useradd
+    # ran in the build chroot, not on the target. The /usr/sbin/sendmail
+    # symlink picks up the setuid via the target binary.
+    getent group exim >/dev/null || groupadd -g 31 exim
+    getent passwd exim >/dev/null || useradd -d /dev/null -c "Exim Daemon" -g exim -s /bin/false -u 31 exim
+    chown root:exim /usr/sbin/exim
 
     # Create aliases
     cat >> /etc/aliases << "EOF"

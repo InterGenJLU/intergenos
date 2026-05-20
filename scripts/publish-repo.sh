@@ -304,6 +304,44 @@ else
     SIG_SIZE=$(stat -c%s "$SIG_PATH")
     PREV_ENTRY=$(git -C "$TRANSPARENCY_LOCAL" log -1 --format=%H 2>/dev/null || echo INIT)
 
+    # L-022 extension: also log the archive manifest + its detached
+    # signature when present. The manifest is the per-package SHA-256
+    # ledger emitted by the build pipeline + signed by sign-release.sh
+    # (master + S1 multi-sig). Including it in the transparency-log
+    # entry makes the DR mirror tamper-evident at the package layer,
+    # not just the index layer — recovery from VPS loss can reconstruct
+    # both "which packages existed" (manifest) and "what their canonical
+    # bytes were" (index + per-archive sigs already covered via repo
+    # archives themselves). Manifest inclusion is conditional because
+    # the manifest is produced only during signed-release publishes,
+    # not on incremental staging.
+    MANIFEST_PATH="${ARCHIVE_DIR}/intergenos-archive-manifest.txt"
+    MANIFEST_SIG_PATH="${MANIFEST_PATH}.sig"
+    MANIFEST_LOG_LINES=""
+    GIT_ADD_MANIFEST_ARGS=""
+    if [ -f "$MANIFEST_PATH" ]; then
+        cp "$MANIFEST_PATH" "$LOG_DIR/intergenos-archive-manifest.txt"
+        MANIFEST_SHA=$(sha256sum "$MANIFEST_PATH" | awk '{print $1}')
+        MANIFEST_SIZE=$(stat -c%s "$MANIFEST_PATH")
+        MANIFEST_LOG_LINES="
+x86_64/current/intergenos-archive-manifest.txt
+  sha256 = ${MANIFEST_SHA}
+  size   = ${MANIFEST_SIZE}
+"
+        GIT_ADD_MANIFEST_ARGS="x86_64/current/intergenos-archive-manifest.txt"
+    fi
+    if [ -f "$MANIFEST_SIG_PATH" ]; then
+        cp "$MANIFEST_SIG_PATH" "$LOG_DIR/intergenos-archive-manifest.txt.sig"
+        MANIFEST_SIG_SHA=$(sha256sum "$MANIFEST_SIG_PATH" | awk '{print $1}')
+        MANIFEST_SIG_SIZE=$(stat -c%s "$MANIFEST_SIG_PATH")
+        MANIFEST_LOG_LINES="${MANIFEST_LOG_LINES}
+x86_64/current/intergenos-archive-manifest.txt.sig
+  sha256 = ${MANIFEST_SIG_SHA}
+  size   = ${MANIFEST_SIG_SIZE}
+"
+        GIT_ADD_MANIFEST_ARGS="${GIT_ADD_MANIFEST_ARGS} x86_64/current/intergenos-archive-manifest.txt.sig"
+    fi
+
     COMMIT_MSG=$(cat <<EOFCM
 publish: ${STAGING_DIR} InterGenOS.db transparency-log entry
 
@@ -314,13 +352,13 @@ x86_64/current/InterGenOS.db
 x86_64/current/InterGenOS.db.sig
   sha256 = ${SIG_SHA}
   size   = ${SIG_SIZE}
-
+${MANIFEST_LOG_LINES}
 signed-by-fingerprint = ${GPG_FP}
 prev-entry            = ${PREV_ENTRY}
-log-version           = 1
+log-version           = 2
 EOFCM
 )
-    git -C "$TRANSPARENCY_LOCAL" add x86_64/current/InterGenOS.db x86_64/current/InterGenOS.db.sig
+    git -C "$TRANSPARENCY_LOCAL" add x86_64/current/InterGenOS.db x86_64/current/InterGenOS.db.sig $GIT_ADD_MANIFEST_ARGS
     if git -C "$TRANSPARENCY_LOCAL" diff --cached --quiet; then
         echo "  WARN — transparency-log working tree showed no changes; skipping commit"
         echo "         (this snapshot may have been previously logged — investigate)"
