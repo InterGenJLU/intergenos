@@ -446,6 +446,12 @@ Each entry uses this shape:
   - **`VISION.md:113`** — "AI is an optional service" — D-010 is the mechanical capture of that prior-stated commitment
   - **`feedback_owner_followup_failure_class`** — D-010 is the canonical example of the failure class + its remediation pattern
 
+- **Scope boundary (clarified 2026-05-21 per operator decision):**
+
+  D-010 protects the InterGen AI assistant from default-enable via `systemctl --global enable intergen` patterns (`systemctl enable --global`, `systemctl preset --global`, and equivalent manual symlink writes into `/etc/systemd/user/`). The compliance gate at `scripts/check-d010-compliance.sh` scans for these patterns at `packages/ai/intergen/build.sh` post_install + non-installer paths, with word-bounded regex to exclude intergen-prefixed sibling packages (`intergen-firstboot`, `intergen-welcome`, `intergen-pkm-notifier`, `intergen-no-overview`, etc.) which are distinct packages governed by separate policy classes.
+
+  **Not covered by D-010:** the gschema-override default-enable mechanism for gnome-shell extensions (`config/gsettings/91_intergenos-extensions.gschema.override` `enabled-extensions=[...]` list). That surface is governed separately by **D-006** — the `intergenos-default-settings` package is the canonical SSoT for default-enabled extensions, and changes to its enabled-extensions list pass through commit-review and signing processes. D-010 and D-006 protect against distinct surfaces and compose without overlap. Operator-direct positive-intent defaults (e.g., `intergen-no-overview` per 2026-05-21T~01:Z directive) are a different policy class than the AI-assistant default-deny — different governance mechanism, different intent.
+
 - **Implementation backlog (informational; gate enforcement makes this the ISO-blocking path until done):**
   - `packages/ai/intergen/build.sh` post_install fix — strip `systemctl --global enable intergen.service` call
   - Forge installer prompt authoring (TUI + GUI variants) + post-chroot `systemctl --global enable` wire-through on YES path
