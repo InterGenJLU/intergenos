@@ -538,26 +538,38 @@ class FirstBootApp(Gtk.Application):
         super().__init__(application_id="com.intergenos.firstboot",
                          flags=0)
         self._win = None
+        self._activated_ok = False
 
     def do_activate(self):
-        self._win = Gtk.ApplicationWindow(application=self)
-        self._win.set_decorated(False)
-        self._win.set_title("InterGenOS")
+        # Wrap activation in try/except so a GTK init failure (e.g. unit
+        # fired before the user session imported WAYLAND_DISPLAY) doesn't
+        # silently return rc=0 to systemd and trigger ExecStartPost to
+        # write the done-marker. Without this, a transient init failure
+        # would permanently bar the user from the animation.
+        try:
+            self._win = Gtk.ApplicationWindow(application=self)
+            self._win.set_decorated(False)
+            self._win.set_title("InterGenOS")
 
-        css = Gtk.CssProvider()
-        css.load_from_data(
-            b"window, drawingarea { background-color: #000000; }"
-        )
-        Gtk.StyleContext.add_provider_for_display(
-            Gdk.Display.get_default(),
-            css,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
-        )
+            css = Gtk.CssProvider()
+            css.load_from_data(
+                b"window, drawingarea { background-color: #000000; }"
+            )
+            Gtk.StyleContext.add_provider_for_display(
+                Gdk.Display.get_default(),
+                css,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+            )
 
-        area = PulseArea(on_finished=self._on_finished)
-        self._win.set_child(area)
-        self._win.fullscreen()
-        self._win.present()
+            area = PulseArea(on_finished=self._on_finished)
+            self._win.set_child(area)
+            self._win.fullscreen()
+            self._win.present()
+            self._activated_ok = True
+        except Exception as exc:
+            print(f"intergen-firstboot: activation failed: {exc}",
+                  file=sys.stderr)
+            self.quit()
 
     def _on_finished(self):
         if self._win is not None:
@@ -567,7 +579,10 @@ class FirstBootApp(Gtk.Application):
 
 def main():
     app = FirstBootApp()
-    return app.run(sys.argv)
+    rc = app.run(sys.argv)
+    if not app._activated_ok:
+        return 1
+    return rc
 
 
 if __name__ == "__main__":

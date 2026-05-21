@@ -45,15 +45,25 @@
 #     software-rendered at the cairo layer anyway so the override has zero
 #     perf cost on real hardware while protecting virtualized targets.
 #   * Type=oneshot + ExecStartPost= -- ExecStartPost only runs after a
-#     successful ExecStart (rc=0), so a crashed animation will NOT write
-#     the done-marker and the next login retries (matches the test-plan
-#     section 4.6 failure-resilience criterion).
+#     successful ExecStart (rc=0). Combined with the Python-side activation
+#     try/except + non-zero rc on init failure (intergen-firstboot.py
+#     main()), a GTK/Wayland init failure propagates rc=1 to systemd which
+#     skips ExecStartPost so the marker is NOT written and the user retries
+#     on the following login (matches the test-plan section 4.6 failure-
+#     resilience criterion).
 #   * Before=app-intergen\x2dwelcome@autostart.service -- deterministic
 #     chain ordering with the welcomer (whose auto-generated systemd unit
 #     name follows the systemd-xdg-autostart-generator convention); the
 #     ordering works without requiring any change to the welcomer package.
-#   * WantedBy=graphical-session.target -- canonical anchor for first-
-#     login user-session services on modern GNOME-on-systemd.
+#   * After= + Wants= + PartOf= + WantedBy= gnome-session-initialized.target
+#     -- anchor on gnome-session-initialized.target instead of graphical-
+#     session.target so the unit fires AFTER gnome-session has imported
+#     WAYLAND_DISPLAY + DISPLAY + XDG_SESSION_TYPE into the per-user
+#     systemd environment. Anchoring on graphical-session.target pulls the
+#     unit in parallel with the import sequence, which results in GTK init
+#     failure (assertion 'GDK_IS_DISPLAY (display)' failed). This pattern
+#     mirrors /usr/lib/systemd/user/xdg-desktop-portal-gnome.service and
+#     the canonical GNOME-on-systemd convention for GUI services.
 #
 # Coexistence with legacy C/DRM sources at assets/intergen-firstboot{,-drm}/
 # is unchanged. The Python rewrite already cleared the smoothness QA hard
@@ -85,8 +95,10 @@ do_install() {
 Description=InterGenOS first-login branded ECG-pulse animation
 Documentation=https://github.com/InterGenJLU/intergenos
 ConditionPathExists=!%h/.local/share/intergen/firstboot-animation-done
+After=gnome-session-initialized.target
+Wants=gnome-session-initialized.target
 Before=app-intergen\x2dwelcome@autostart.service
-PartOf=graphical-session.target
+PartOf=gnome-session-initialized.target
 
 [Service]
 Type=oneshot
@@ -96,7 +108,7 @@ ExecStartPost=/bin/sh -c "mkdir -p %h/.local/share/intergen && touch %h/.local/s
 RemainAfterExit=no
 
 [Install]
-WantedBy=graphical-session.target
+WantedBy=gnome-session-initialized.target
 UNIT
     chmod 644 "${userunitdir}/intergen-firstboot.service"
 }
