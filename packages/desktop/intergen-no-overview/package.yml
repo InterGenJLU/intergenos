@@ -1,0 +1,20 @@
+name: intergen-no-overview
+version: "1.0"
+release: 1
+description: GNOME Shell extension that suppresses the activities overview at every session startup (InterGenOS fleet-default per operator-direct 2026-05-21)
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+# First-party authored GNOME shell extension following the assets/intergen-*
+# canonical convention. source: [] + direct cp -a from /mnt/intergenos/assets/.
+tier: desktop
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - gnome-shell-extensions
+verify_paths:
+  - /usr/share/gnome-shell/extensions/intergen-no-overview@intergenos.org/extension.js
+  - /usr/share/gnome-shell/extensions/intergen-no-overview@intergenos.org/metadata.json

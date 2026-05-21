@@ -1,75 +1,49 @@
 #!/bin/bash
-# intergen-firstboot 1.0 -- InterGenOS first-login branded animation
+# intergen-firstboot 1.0 -- InterGenOS first-login branded ECG animation
+# (GNOME Shell extension)
 #
-# Wraps the GTK4/Wayland Python animation at
-# assets/intergen-firstboot-py/intergen-firstboot.py from the repo
-# into a proper installable package.
+# Renders the operator-tuned 22.4s ECG pulse + text sequence above gnome-
+# shell's session-startup UI on the first login per user. Architecture is
+# a GNOME Shell extension (St.DrawingArea + Clutter.Timeline + Main.layout
+# Manager.addTopChrome). Math ported VERBATIM from the canonical C sources
+# at assets/intergen-firstboot/{pulse,text}.{c,h} via the Python reference
+# at assets/intergen-firstboot-py/intergen-firstboot.py.
 #
-# The animation:
-#   * Renders the ECG heartbeat pulse animation as a fullscreen Wayland
-#     window via Cairo + PangoCairo, with GtkFrameClock-paced vsync.
-#   * Runs IN the user's session post-GDM-login (not pre-compositor),
-#     fades to black on completion, and exits so the welcomer takes
-#     over with the desktop already painted underneath.
-#   * Runs once per new user account, state-tracked via a done-marker
-#     at ~/.local/share/intergen/firstboot-animation-done.
-#   * Math is ported VERBATIM from the C source at
-#     assets/intergen-firstboot/{pulse,text}.c. Visual properties
-#     (sweep count, timing, ECG curve, text content, font, fade easings)
-#     are LOCKED design properties per operator-direct 2026-05-20T~19:Z.
+# Why a shell extension (not a systemd-user-unit Python app like v2-v5):
+# during the v1-v5 iteration arc, every Wayland-client-protocol mechanism
+# on Mutter empirically failed at one or more layers:
+#   v1 .desktop autostart -- silently dropped by systemd 259 + gnome-session 49
+#   v2 systemd user unit  -- GTK init failure path + ordering issues (resolved v3)
+#   v3 v2 + init-failure propagation -- Mutter ignored fullscreen() on toplevel
+#   v4 wlr-layer-shell OVERLAY -- did NOT defeat gnome-shell compositor-drawn UI
+#   v5 ext-session-lock-v1 -- Mutter does NOT implement this protocol
+# Only the gnome-shell-extension layer renders above ALL client surfaces AND
+# compositor-drawn UI (activities overview + top bar + dock). v6 lands here.
 #
-# Source layout (in the tarball):
-#   if-pkg/intergen-firstboot.py   (the Python animation app)
+# Q5 design properties are LOCKED per operator-direct 2026-05-20T~19:Z: sweep
+# count, total duration, sweep rate, ECG curve shape, text content + fade
+# curves, font choice, fade-easing are NON-NEGOTIABLE. Math constants port
+# verbatim to extension.js; the rendering MECHANISM (DRM/KMS -> GTK4/Wayland
+# -> JS+St.DrawingArea) is the only thing that changes across iterations.
 #
-# Install layout:
-#   /usr/libexec/intergen-firstboot/intergen-firstboot.py
-#   /usr/lib/systemd/user/intergen-firstboot.service     (systemd user unit)
+# Source layout: assets/intergen-firstboot/intergen-firstboot@intergenos.org/
+# in the canonical repo. Install layout:
+#   /usr/share/gnome-shell/extensions/intergen-firstboot@intergenos.org/
+#     extension.js
+#     metadata.json
 #
-# Autostart mechanism is a systemd user unit (NOT an XDG /etc/xdg/autostart
-# .desktop entry). Background: GNOME 49 + systemd 259 both silently skip
-# .desktop files carrying X-GNOME-Autostart-Phase= -- systemd-xdg-autostart-
-# generator literally prints "GNOME startup phases are handled separately.
-# Skipping." (man systemd-xdg-autostart-generator) and gnome-session 49
-# logs "no longer manages session services" for any such file. The prior
-# .desktop autostart mechanism worked under pre-49 GNOME but is dead-on-
-# arrival on the current stack. The user-unit replacement is the canonical
-# modern-GNOME-on-systemd migration path per systemd.io DESKTOP_ENVIRONMENTS
-# and matches the pattern Fedora + Ubuntu use for first-login services.
+# Default-enabled via config/gsettings/91_intergenos-extensions.gschema.override
+# per D-006 SSoT -- the intergenos-default-settings gschema-override package
+# is the canonical source for default-enabled extensions. The package itself
+# does NOT enable; the gschema-override declares enabled-extensions=[...].
 #
-# The systemd unit declares:
-#   * ConditionPathExists=!%h/.local/share/intergen/firstboot-animation-done
-#     -- the once-per-user gate, declarative + visible in systemctl status.
-#   * Environment=GSK_RENDERER=cairo -- fleet parity with the welcomer
-#     wrapper's GSK_RENDERER override for the Mesa ZINK Vulkan crash class
-#     on virtualized GPUs; the firstboot DrawingArea+Cairo render is
-#     software-rendered at the cairo layer anyway so the override has zero
-#     perf cost on real hardware while protecting virtualized targets.
-#   * Type=oneshot + ExecStartPost= -- ExecStartPost only runs after a
-#     successful ExecStart (rc=0). Combined with the Python-side activation
-#     try/except + non-zero rc on init failure (intergen-firstboot.py
-#     main()), a GTK/Wayland init failure propagates rc=1 to systemd which
-#     skips ExecStartPost so the marker is NOT written and the user retries
-#     on the following login (matches the test-plan section 4.6 failure-
-#     resilience criterion).
-#   * Before=app-intergen\x2dwelcome@autostart.service -- deterministic
-#     chain ordering with the welcomer (whose auto-generated systemd unit
-#     name follows the systemd-xdg-autostart-generator convention); the
-#     ordering works without requiring any change to the welcomer package.
-#   * After= + Wants= + PartOf= + WantedBy= gnome-session-initialized.target
-#     -- anchor on gnome-session-initialized.target instead of graphical-
-#     session.target so the unit fires AFTER gnome-session has imported
-#     WAYLAND_DISPLAY + DISPLAY + XDG_SESSION_TYPE into the per-user
-#     systemd environment. Anchoring on graphical-session.target pulls the
-#     unit in parallel with the import sequence, which results in GTK init
-#     failure (assertion 'GDK_IS_DISPLAY (display)' failed). This pattern
-#     mirrors /usr/lib/systemd/user/xdg-desktop-portal-gnome.service and
-#     the canonical GNOME-on-systemd convention for GUI services.
+# Pairs with packages/desktop/intergen-no-overview/ which suppresses the
+# activities overview at every login (separate parallel deliverable per
+# operator-direct 2026-05-21T~01:Z).
 #
 # Coexistence with legacy C/DRM sources at assets/intergen-firstboot{,-drm}/
-# is unchanged. The Python rewrite already cleared the smoothness QA hard
-# gate on three viewing surfaces with the operator-explicit "Python is a
-# go" closure; the C bundle remains in tree as documented fallback per Q6
-# of the chain-vs-phase walkthrough until eventual cleanup commit.
+# is unchanged. The Python reference at assets/intergen-firstboot-py/ stays
+# in tree as the canonical math reference per Q6 fallback preservation.
 
 configure() {
     set -e
@@ -83,44 +57,25 @@ build() {
 
 do_install() {
     set -e
-    local libexec="${DESTDIR}/usr/libexec/intergen-firstboot"
-    local userunitdir="${DESTDIR}/usr/lib/systemd/user"
 
-    install -dm755 "${libexec}" "${userunitdir}"
-
-    install -m755 intergen-firstboot.py "${libexec}/intergen-firstboot.py"
-
-    cat > "${userunitdir}/intergen-firstboot.service" <<'UNIT'
-[Unit]
-Description=InterGenOS first-login branded ECG-pulse animation
-Documentation=https://github.com/InterGenJLU/intergenos
-ConditionPathExists=!%h/.local/share/intergen/firstboot-animation-done
-After=gnome-session-initialized.target
-Wants=gnome-session-initialized.target
-Before=app-intergen\x2dwelcome@autostart.service
-PartOf=gnome-session-initialized.target
-
-[Service]
-Type=oneshot
-Environment=GSK_RENDERER=cairo
-Environment=GI_TYPELIB_PATH=/usr/local/lib64/girepository-1.0
-Environment=LD_LIBRARY_PATH=/usr/local/lib64
-ExecStart=/usr/bin/python3 /usr/libexec/intergen-firstboot/intergen-firstboot.py
-ExecStartPost=/bin/sh -c "mkdir -p %h/.local/share/intergen && touch %h/.local/share/intergen/firstboot-animation-done"
-RemainAfterExit=no
-
-[Install]
-WantedBy=gnome-session-initialized.target
-UNIT
-    chmod 644 "${userunitdir}/intergen-firstboot.service"
+    # Copy extension files directly from canonical source. Same pattern as
+    # packages/desktop/intergen-pkm-notifier/build.sh -- first-party authored
+    # content lives in /mnt/intergenos/ + ships via cp -a without tarball
+    # assembly.
+    local ext_dir="${DESTDIR}/usr/share/gnome-shell/extensions/intergen-firstboot@intergenos.org"
+    install -dm755 "${ext_dir}"
+    cp -a /mnt/intergenos/assets/intergen-firstboot/intergen-firstboot@intergenos.org/extension.js \
+        "${ext_dir}/extension.js"
+    cp -a /mnt/intergenos/assets/intergen-firstboot/intergen-firstboot@intergenos.org/metadata.json \
+        "${ext_dir}/metadata.json"
+    chmod 644 "${ext_dir}/extension.js" "${ext_dir}/metadata.json"
 }
 
 post_install() {
     set -e
-    # systemctl --global enable creates the install-time symlink at
-    # /etc/systemd/user/graphical-session.target.wants/; per-user systemd
-    # instances pick up the new unit when each user logs in. No
-    # daemon-reload is needed (--global is not a valid scope for
-    # daemon-reload, which operates on a running systemd instance).
-    systemctl --global enable intergen-firstboot.service 2>/dev/null || true
+    # No glib-compile-schemas, no systemctl --global enable. Default-enabled
+    # state is set by the intergenos-default-settings gschema-override
+    # package per D-006 SSoT. The extension activates automatically when
+    # gnome-shell loads its enabled-extensions list at session start.
+    :
 }

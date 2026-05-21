@@ -1,24 +1,23 @@
 name: intergen-firstboot
 version: "1.0"
 release: 1
-description: InterGenOS first-login branded ECG-pulse animation -- runs once per new user account in-session via GTK4/Wayland; fades to black so the welcomer takes over with the desktop already painted
+description: InterGenOS first-login branded ECG-pulse animation (GNOME Shell extension) -- renders the operator-tuned 22.4s pulse + text sequence above gnome-shell's session-startup UI on the first login per user; subsequent logins no-op via filesystem marker gate
 license: GPL-3.0-or-later
 homepage: https://github.com/InterGenJLU/intergenos
+# First-party authored GNOME shell extension following the assets/intergen-*
+# canonical convention (mirrors intergen-pkm-notifier / intergen-welcome /
+# intergen-shell-theme / intergen-mark / theming). source: [] + direct
+# cp -a from /mnt/intergenos/assets/ avoids the tarball-assembly step.
 tier: desktop
 build_style: custom
 install_func: do_install
-source:
-- url: file:///intergen-firstboot-${version}.tar.xz
-  sha256: f19b34da2b68ed99117ab7b091f5f32ff0337419e53647fc865c0d3154bc6e03
+source: []
 dependencies:
   build: []
   host: []
   runtime:
-  - python
-  - gtk4
-  - pango
-  - cairo
-  - pygobject3
+  # gnome-shell-extensions provides the runtime + extension-loader.
+  - gnome-shell-extensions
 verify_paths:
-  - /usr/libexec/intergen-firstboot/intergen-firstboot.py
-  - /usr/lib/systemd/user/intergen-firstboot.service
+  - /usr/share/gnome-shell/extensions/intergen-firstboot@intergenos.org/extension.js
+  - /usr/share/gnome-shell/extensions/intergen-firstboot@intergenos.org/metadata.json

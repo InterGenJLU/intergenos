@@ -7,7 +7,7 @@
 # To apply: glib-compile-schemas /usr/share/glib-2.0/schemas/
 
 [org.gnome.shell]
-enabled-extensions=['user-theme@gnome-shell-extensions.gcampax.github.com', 'appindicatorsupport@rgcjonas.gmail.com', 'CoverflowAltTab@palatis.blogspot.com', 'blur-my-shell@aunetx', 'bluetooth-quick-connect@bjarosze.gmail.com', 'burn-my-windows@schneegans.github.com', 'pkm-notifier@intergenos.org']
+enabled-extensions=['user-theme@gnome-shell-extensions.gcampax.github.com', 'appindicatorsupport@rgcjonas.gmail.com', 'CoverflowAltTab@palatis.blogspot.com', 'blur-my-shell@aunetx', 'bluetooth-quick-connect@bjarosze.gmail.com', 'burn-my-windows@schneegans.github.com', 'pkm-notifier@intergenos.org', 'intergen-firstboot@intergenos.org', 'intergen-no-overview@intergenos.org']
 
 [org.gnome.shell.extensions.user-theme]
 # Default = the InterGenOS native shell theme. Provided by the

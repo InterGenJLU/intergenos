@@ -1,0 +1,7 @@
+{
+    "uuid": "intergen-no-overview@intergenos.org",
+    "name": "InterGenOS No Overview at Startup",
+    "description": "Suppresses the GNOME activities overview at every session startup. Subscribes to Main.layoutManager 'startup-complete' + invokes Main.overview.hide(). Operator-direct fleet-default behavior per 2026-05-21T~01:Z. Pairs with intergen-firstboot@intergenos.org. Default-enabled via the intergenos-default-settings gschema-override per D-006.",
+    "shell-version": ["47", "48", "49"],
+    "url": "https://github.com/InterGenJLU/intergenos"
+}
