@@ -203,7 +203,7 @@ Each entry uses this shape:
   - J-021 firewall posture inversion: `install-theming.sh` writes a policy=drop nftables ruleset conflicting with canonical `core/nftables` policy=accept. With `install-theming.sh` retired, the firewall logic needs a new owner — likely `packages/core/nftables` post_install OR a separate `packages/security/intergenos-firewall-defaults/` package. Coordinator-level call (this is separate from theming SSoT). Surfaced for follow-on.
 
 - **Implementation backlog (not directive surface):**
-  - Author/finalize `packages/desktop/intergenos-default-settings/` recipe with full `.gschema.override` content
+  - Author/finalize `packages/core/intergenos-default-settings/` recipe with full `.gschema.override` content
   - Migrate every theming-related dconf key from `install-theming.sh` and any `/etc/dconf/db/system.d/` files into the canonical gschema-override files
   - Reconcile intra-gschema button-layout conflict (single canonical value in the SSoT package)
   - Ship libadwaita bridge as symlinks via the SSoT package (fixes J-005)
