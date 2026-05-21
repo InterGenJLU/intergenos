@@ -557,6 +557,7 @@ export default class IntergenFirstbootExtension extends Extension {
     enable() {
         this._overlay = null;
         this._timeline = null;
+        this._originalOverviewShow = null;
         this._newFrameId = 0;
         this._completedId = 0;
         this._startupCompleteId = 0;
@@ -603,10 +604,23 @@ export default class IntergenFirstbootExtension extends Extension {
             return;
         }
 
-        // Suppress the activities overview that would otherwise compete
-        // with our overlay. The intergen-no-overview sibling extension
-        // does this for every login; we do it here additionally so the
-        // animation works even if no-overview is disabled.
+        // Strongly suppress the activities overview for the full duration
+        // of the animation. Replace Main.overview.show with a no-op so
+        // gnome-shell's session-startup sequence cannot show the overview
+        // mid-animation. The canonical fthx-pattern (hook startup-complete +
+        // hide) fires AFTER the overview has already drawn, producing a
+        // brief flash on first-login; the monkey-patch defeats the flash
+        // by preventing the show from ever rendering. The original method
+        // is restored on Clutter.Timeline 'completed' (normal path) and
+        // defensively on disable() / _teardownOverlay() (cleanup-during-
+        // active-animation path).
+        if (!this._originalOverviewShow) {
+            this._originalOverviewShow = Main.overview.show;
+            Main.overview.show = () => {};
+        }
+        // Hide any in-progress show that started before the patch landed
+        // (the startup-complete signal handler invoked us; the overview
+        // may already be mid-show-animation at this exact instant).
         Main.overview.hide();
 
         this._overlay = new IntergenFirstbootOverlay(
@@ -622,7 +636,24 @@ export default class IntergenFirstbootExtension extends Extension {
             trackFullscreen: false,
         });
 
-        this._timeline = new Clutter.Timeline({duration: TOTAL_DURATION_MS});
+        // actor binding is REQUIRED on modern Clutter. The Timeline needs
+        // either an actor-on-a-stage or an explicit frame_clock to advance
+        // via the compositor's frame clock. Without this binding,
+        // clutter_timeline_start emits a runtime-check failure to the
+        // journal + the timeline silently refuses to advance + new-frame
+        // never fires + the animation renders only its initial state
+        // (black background). v6 first-deploy retest 2026-05-20T21:55Z
+        // exposed this empirically -- the journal line was:
+        //   clutter_timeline_start: runtime check failed:
+        //   ((priv->actor && clutter_actor_get_stage (priv->actor))
+        //    || priv->frame_clock)
+        // The overlay is already on the stage at this point via
+        // addTopChrome above, so attaching the Timeline to it provides
+        // the required frame_clock source.
+        this._timeline = new Clutter.Timeline({
+            actor: this._overlay,
+            duration: TOTAL_DURATION_MS,
+        });
 
         this._newFrameId = this._timeline.connect('new-frame',
             (_timeline, msecs) => {
@@ -631,11 +662,22 @@ export default class IntergenFirstbootExtension extends Extension {
             });
 
         this._completedId = this._timeline.connect('completed', () => {
+            this._restoreOverviewShow();
             this._writeMarker(markerPath);
             this._teardownOverlay();
         });
 
         this._timeline.start();
+    }
+
+    _restoreOverviewShow() {
+        // Restore Main.overview.show if we patched it. Idempotent -- safe
+        // to call from both 'completed' (normal end-of-animation path) and
+        // _teardownOverlay() (mid-animation cleanup via disable()).
+        if (this._originalOverviewShow) {
+            Main.overview.show = this._originalOverviewShow;
+            this._originalOverviewShow = null;
+        }
     }
 
     _writeMarker(markerPath) {
@@ -652,6 +694,12 @@ export default class IntergenFirstbootExtension extends Extension {
     }
 
     _teardownOverlay() {
+        // Defensive: if _teardownOverlay is called via disable() during
+        // an active animation, restore Main.overview.show before tearing
+        // down -- without this the monkey-patch outlives the extension
+        // and silently breaks overview-show across the entire session.
+        this._restoreOverviewShow();
+
         if (this._timeline) {
             if (this._newFrameId) {
                 this._timeline.disconnect(this._newFrameId);
