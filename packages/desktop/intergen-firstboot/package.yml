@@ -9,7 +9,7 @@ build_style: custom
 install_func: do_install
 source:
 - url: file:///intergen-firstboot-${version}.tar.xz
-  sha256: 88c05ef7d0f08bbd9c7fd9fe4c2bfb7963aa113f428dc182dea5f428a6f4f408
+  sha256: f19b34da2b68ed99117ab7b091f5f32ff0337419e53647fc865c0d3154bc6e03
 dependencies:
   build: []
   host: []
