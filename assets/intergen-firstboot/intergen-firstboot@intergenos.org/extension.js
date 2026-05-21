@@ -18,11 +18,14 @@
 // Math is ported VERBATIM from the canonical Python source at
 // assets/intergen-firstboot-py/intergen-firstboot.py (which in turn ports
 // from the C/DRM source at assets/intergen-firstboot/{pulse,text}.{c,h}).
-// All Q5-locked constants and all 5 math functions transfer 1:1 with only
-// the pycairo -> GJS Cairo naming convention change (snake_case ->
-// camelCase). Q5 design lock per operator-direct 2026-05-20T~19:Z: sweep
-// count, total duration, sweep rate, ECG curve shape, text content + fade
-// curves, font choice, fade-easing are NON-NEGOTIABLE.
+// All Q5-locked constants and all 5 math functions transfer 1:1 with two
+// documented substitutions: (a) the pycairo -> GJS Cairo naming convention
+// change (snake_case -> camelCase); (b) PulseState.tick(dt) -> setTime(t)
+// absolute-time adaptation for Clutter.Timeline new-frame semantics
+// (justified at PulseState.setTime in-class comment). Q5 design lock per
+// operator-direct 2026-05-20T~19:Z: sweep count, total duration, sweep
+// rate, ECG curve shape, text content + fade curves, font choice,
+// fade-easing are NON-NEGOTIABLE.
 //
 // Pairs with intergen-no-overview@intergenos.org which suppresses the
 // activities overview at every login. Both extensions are default-enabled
@@ -45,8 +48,9 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 // GJS Cairo binding is exposed via the legacy `imports` global, not as a
-// gi:// module. Canonical pattern verified in ubuntu-dock + dash-to-dock
-// shell extensions installed on the IGOS reference laptop.
+// gi:// module. Canonical pattern empirically verified in dash-to-dock
+// (/usr/share/gnome-shell/extensions/dash-to-dock@micxgx.gmail.com/
+// appIconIndicators.js:18) installed on the IGOS reference laptop.
 const {cairo: Cairo} = imports;
 
 

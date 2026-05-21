@@ -1,8 +1,9 @@
 # InterGenOS GNOME Shell Extensions
 #
-# Default-enabled extensions for all new users.
-# 24 extensions installed system-wide (6 default-on, 18 pre-installed).
-# Users can enable/disable via Extensions app or the first-boot greeter.
+# Default-enabled extensions for all new users (currently 9 enabled in the
+# enabled-extensions list below). Additional extensions are installed
+# system-wide but stay disabled by default; users can enable/disable via
+# the Extensions app or the first-boot greeter.
 #
 # To apply: glib-compile-schemas /usr/share/glib-2.0/schemas/
 
