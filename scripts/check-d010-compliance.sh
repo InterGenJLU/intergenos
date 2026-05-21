@@ -46,7 +46,16 @@ header "Gate A — no systemctl --global enable intergen outside installer/"
 # Comment-line filter: skip matches where the systemctl reference sits
 # inside a shell comment (`# ...`); those are explanatory references to
 # the directive, not active code that would enable the service.
-HITS_A=$(grep -rn -E 'systemctl[[:space:]]+--global[[:space:]]+enable[[:space:]]+intergen' \
+#
+# Word-bounded match: D-010 protects the InterGen AI assistant (package
+# name `intergen`, unit `intergen.service`), NOT every package whose
+# name starts with `intergen-`. The bounded suffix `([.[:space:]]|$)`
+# allows `.service`, trailing whitespace, or end-of-line after `intergen`
+# but rejects `intergen-firstboot`, `intergen-welcome`, `intergen-pkm-
+# notifier`, etc. -- those are distinct packages (first-login animation,
+# first-login wizard, package-manager notifier) unrelated to the AI.
+# Gate C carries the same bounded discipline via its `Exec=` regex.
+HITS_A=$(grep -rn -E 'systemctl[[:space:]]+--global[[:space:]]+enable[[:space:]]+intergen([.[:space:]]|$)' \
     packages/ scripts/ config/ 2>/dev/null \
     | grep -v -E 'check-d010-compliance\.sh|\.md:|/research/|/audit/|/docs/' \
     | grep -v -E '^[^:]+:[0-9]+:[[:space:]]*#')
@@ -63,7 +72,7 @@ fi
 # `systemctl --user enable` resolves at first-boot; baking it into
 # package post_install would enable for every user that ever logs in.
 header "Gate B — no \`systemctl enable intergen\` in package post_install blocks"
-HITS_B=$(grep -rn -E 'systemctl[[:space:]]+enable[[:space:]]+intergen' \
+HITS_B=$(grep -rn -E 'systemctl[[:space:]]+enable[[:space:]]+intergen([.[:space:]]|$)' \
     packages/ 2>/dev/null \
     | grep -v -E 'check-d010-compliance\.sh|\.md:|--global')
 if [ -n "$HITS_B" ]; then
@@ -124,7 +133,7 @@ if [ -f "packages/ai/intergen/build.sh" ]; then
     # Extract post_install block + check it has zero `systemctl ... enable` lines
     POST_INSTALL_BODY=$(awk '/^post_install\(\)/,/^}/' packages/ai/intergen/build.sh)
     ACTIVE_SYSTEMCTL=$(echo "$POST_INSTALL_BODY" \
-        | grep -nE 'systemctl[[:space:]]+(--global[[:space:]]+)?enable[[:space:]]+intergen' \
+        | grep -nE 'systemctl[[:space:]]+(--global[[:space:]]+)?enable[[:space:]]+intergen([.[:space:]]|$)' \
         | grep -v -E '^[0-9]+:[[:space:]]*#')
     if [ -n "$ACTIVE_SYSTEMCTL" ]; then
         violation "packages/ai/intergen/build.sh post_install contains systemctl enable intergen" \
