@@ -38,6 +38,24 @@ gi.require_version("Pango", "1.0")
 gi.require_version("PangoCairo", "1.0")
 from gi.repository import GLib, Gdk, Gtk, Pango, PangoCairo  # noqa: E402
 
+# Gtk4LayerShell is optional at import-time. When available the animation
+# renders as a wlr-layer-shell OVERLAY surface anchored to all 4 screen
+# edges -- this is the canonical Wayland mechanism for session chrome
+# (the same protocol gnome-shell uses for its own lock/login screen).
+# When unavailable, the animation falls back to a normal Gtk window with
+# fullscreen() request; in that path Mutter renders it as a normal
+# application window which is constrained-size + competes with the
+# gnome-shell activities overview chrome. The layer-shell path is the
+# canonical answer to the operator-ratified post-login flow's "take over
+# the screen" semantics.
+try:
+    gi.require_version("Gtk4LayerShell", "1.0")
+    from gi.repository import Gtk4LayerShell  # noqa: E402
+    HAS_LAYER_SHELL = True
+except (ValueError, ImportError):
+    HAS_LAYER_SHELL = False
+    Gtk4LayerShell = None
+
 import cairo  # noqa: E402
 
 
@@ -551,6 +569,35 @@ class FirstBootApp(Gtk.Application):
             self._win.set_decorated(False)
             self._win.set_title("InterGenOS")
 
+            if HAS_LAYER_SHELL:
+                # Render as a wlr-layer-shell OVERLAY surface anchored to
+                # all 4 screen edges + steal keyboard input. The compositor
+                # treats this as session chrome (above normal application
+                # windows + above gnome-shell activities overview), which
+                # delivers the operator-ratified "take over the screen"
+                # semantics. No fullscreen() call is needed -- the 4-edge
+                # anchor IS the takeover mechanism.
+                Gtk4LayerShell.init_for_window(self._win)
+                Gtk4LayerShell.set_layer(
+                    self._win, Gtk4LayerShell.Layer.OVERLAY)
+                for edge in (Gtk4LayerShell.Edge.TOP,
+                             Gtk4LayerShell.Edge.BOTTOM,
+                             Gtk4LayerShell.Edge.LEFT,
+                             Gtk4LayerShell.Edge.RIGHT):
+                    Gtk4LayerShell.set_anchor(self._win, edge, True)
+                Gtk4LayerShell.set_keyboard_mode(
+                    self._win, Gtk4LayerShell.KeyboardMode.EXCLUSIVE)
+            else:
+                # Fallback path when gtk4-layer-shell is not installed.
+                # The window will render as a normal Gtk.ApplicationWindow;
+                # Mutter typically does not honor fullscreen() reliably for
+                # these on Wayland + the gnome-shell activities overview
+                # competes with the surface (empirically observed v3
+                # retest 2026-05-20T~19:14Z on the IGOS laptop). Kept as a
+                # degraded-graceful fallback for dev/test surfaces that
+                # lack the layer-shell library.
+                self._win.fullscreen()
+
             css = Gtk.CssProvider()
             css.load_from_data(
                 b"window, drawingarea { background-color: #000000; }"
@@ -563,7 +610,6 @@ class FirstBootApp(Gtk.Application):
 
             area = PulseArea(on_finished=self._on_finished)
             self._win.set_child(area)
-            self._win.fullscreen()
             self._win.present()
             self._activated_ok = True
         except Exception as exc:

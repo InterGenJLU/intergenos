@@ -103,6 +103,8 @@ PartOf=gnome-session-initialized.target
 [Service]
 Type=oneshot
 Environment=GSK_RENDERER=cairo
+Environment=GI_TYPELIB_PATH=/usr/local/lib64/girepository-1.0
+Environment=LD_LIBRARY_PATH=/usr/local/lib64
 ExecStart=/usr/bin/python3 /usr/libexec/intergen-firstboot/intergen-firstboot.py
 ExecStartPost=/bin/sh -c "mkdir -p %h/.local/share/intergen && touch %h/.local/share/intergen/firstboot-animation-done"
 RemainAfterExit=no
