@@ -1,0 +1,40 @@
+name: frugally-deep
+version: "0.17.1.38c52448"
+release: 1
+description: Header-only library for running Keras models in C++ (MIOpen AI-heuristic dependency)
+license: MIT
+homepage: https://github.com/Dobiasd/frugally-deep
+tier: compute
+build_style: custom
+install_func: do_install
+
+# Header-only Keras-model inference; sole in-tree consumer = MIOpen's
+# AI kernel-tuning / immediate-mode-fallback heuristics
+# (find_package(frugally-deep CONFIG REQUIRED)). Pinned to the EXACT
+# commit MIOpen's own manifest names (requirements.txt:
+# ROCm/frugally-deep@38c52448b1a4996b3e0e435a877d02441098b1dd) — a
+# Rule-12 non-latest pin: MIOpen's shipped heuristic models are
+# serialized against this fdeep revision's format. Commit archives are
+# immutable (not a moving target). sha256 pinned 2026-07-17
+# (single-witness GitHub commit-archive endpoint; commit identity
+# corroborated by the two-witnessed monorepo's requirements.txt.
+# Content-swept: headers only, no binaries, no network-reaching build
+# code). The version string prefixes the upstream release lineage
+# (0.17.x) with the commit for pkm ordering sanity.
+source:
+  - url: https://github.com/Dobiasd/frugally-deep/archive/38c52448b1a4996b3e0e435a877d02441098b1dd.tar.gz
+    filename: frugally-deep-38c52448.tar.gz
+    sha256: 4a143bf2d41d79040c1b40cd6ede616716d4cbbd1bc13e2591e9f39ae77867fb
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - functionalplus
+  - eigen
+  - nlohmann-json
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/include/fdeep/fdeep.hpp
+  - /usr/lib/cmake/frugally-deep

@@ -1,0 +1,25 @@
+name: user-theme
+version: "1.0"
+release: 1
+description: GNOME Shell user-theme extension (load shell themes from /usr/share/themes/) — needed for InterGenOS shell theme selection
+license: GPL-2.0-or-later
+homepage: https://gitlab.gnome.org/GNOME/gnome-shell-extensions
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+# Upstream provenance: gnome-shell-extensions 48.3 is the last bundle release
+# that ships user-theme as a maintained extension (49.0+ split it out). The
+# source archive contains all bundled extensions; build.sh cd's into
+# extensions/user-theme/ to operate on just this one component.
+- url: https://gitlab.gnome.org/GNOME/gnome-shell-extensions/-/archive/48.3/gnome-shell-extensions-48.3.tar.gz
+  filename: gnome-shell-extensions-48.3.tar.gz
+  sha256: 1f3e5e0debb1b5b9e6962eadc8190ff3f1d83d6813dad3e3352d1dc0d9a499de
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - gnome-shell
+verify_paths:
+  - /usr/share/gnome-shell/extensions/user-theme@gnome-shell-extensions.gcampax.github.com
+  - /usr/share/glib-2.0/schemas/org.gnome.shell.extensions.user-theme.gschema.xml

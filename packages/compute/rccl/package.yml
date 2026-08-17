@@ -1,0 +1,55 @@
+name: rccl
+version: "7.2.4"
+release: 1
+content_hash: 59557d544c454a83
+description: ROCm Communication Collectives Library (NCCL-compatible multi-GPU communication — the dual-GPU workstation consumer)
+license: BSD-3-Clause
+homepage: https://github.com/ROCm/rccl
+tier: compute
+build_style: custom
+install_func: do_install
+
+# Standalone repo (NOT in the rocm-libraries/rocm-systems monorepos) at
+# the rocm-7.2.4 tag. sha256 pinned 2026-07-17 (single-witness GitHub
+# tag-archive endpoint, same caveat class as the monorepo pins — no
+# reference distro pins this exact 7.2.4 archive to witness bytes; tag
+# identity corroborated by AMD's ROCm 7.2.4 release manifest).
+#
+# roctracer is a deliberate build dep: RCCL's ROCTX annotation support
+# (ROCTX=ON upstream default) silently degrades to a WARNING when
+# roctx64/roctx.h are absent (pinned CMakeLists:383-389) — declaring the
+# dep + building after roctracer makes the capability deterministic
+# instead of environment-dependent.
+source:
+  - url: https://github.com/ROCm/rccl/archive/refs/tags/rocm-${version}.tar.gz
+    filename: rccl-rocm-${version}.tar.gz
+    sha256: e8927c61f76e70801e660a3482d383b30159d6f2a9e0580e5cdf168f2503e8c7
+
+gpu_targets: "gfx1100;gfx1102;gfx1201"
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - rocm-cmake
+  - rocm-hip
+  - rocr-runtime
+  - rocm-smi-lib
+  - rocprofiler-register
+  - roctracer
+  # rccl hipifies its NCCL-derived sources at build time
+  # (CMakeLists.txt:727 hard-requires hipify-perl on PATH)
+  - hipify
+  # compiles against <rocm-core/rocm_version.h> (hip_rocm_version_info.h:42)
+  - rocm-core
+  - python
+  host: []
+  runtime:
+  - rocm-hip
+  - rocr-runtime
+  - rocm-smi-lib
+  - rocprofiler-register
+  - roctracer
+verify_paths:
+  - /opt/rocm/lib/librccl.so
+  - /opt/rocm/include/rccl/rccl.h

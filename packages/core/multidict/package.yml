@@ -1,0 +1,21 @@
+name: multidict
+version: "6.7.1"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Multi-key dictionary (several values per key)
+license: Apache-2.0
+homepage: https://github.com/aio-libs/multidict
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/1a/c2/c2d94cbe6ac1753f3fc980da97b3d930efe1da3af3c9f5125354436c073d/multidict-6.7.1.tar.gz
+  sha256: ec6652a1bee61c53a3e5776b6049172c53b6aaba34f18c9ad04f82712bac623d
+dependencies:
+  build:
+  - setuptools
+  - wheel
+  host: []
+  runtime:
+  - typing-extensions
+verify_paths:
+  - /usr/lib/python3.14/site-packages/multidict

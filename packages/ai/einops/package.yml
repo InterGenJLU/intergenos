@@ -1,0 +1,21 @@
+name: einops
+version: "0.8.2"
+release: 1
+description: Flexible tensor operations for readable, reliable code
+license: MIT
+homepage: https://github.com/arogozhnikov/einops
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/2c/77/850bef8d72ffb9219f0b1aac23fbc1bf7d038ee6ea666f331fa273031aa2/einops-0.8.2.tar.gz
+  sha256: 609da665570e5e265e27283aab09e7f279ade90c4f01bcfca111f3d3e13f2827
+dependencies:
+  build:
+  - hatchling
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/einops/__init__.py
+  - /usr/lib/python3.14/site-packages/einops/einops.py

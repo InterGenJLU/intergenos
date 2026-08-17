@@ -1,0 +1,47 @@
+# Family manifest — core-GNOME app re-skin (ICON_CATEGORIES §11.4.1). The shipped GNOME
+# apps re-drawn in the IGIC line-forward language: template: none (FREE-STANDING, no tile
+# per §11.4.1), the ecg-blue accent (intergen-blue), the signature glow — matching the
+# free-standing app-grid mark. `stem` = the app's .desktop-id, so the theme file is named
+# verbatim (org.gnome.Nautilus.svg) and overrides the upstream icon (GTK looks it up by id).
+# Grown in batches; batch 1 = the core PIM / productivity marks. Dispositions: all `restyle`
+# (GNOME-project marks; icon-theming them is the universal norm). Register rows: RESKIN_PLAN §4.
+schema_version: 1
+family: core-gnome-apps
+category: apps
+kind: color
+template: none
+glow: signature
+pulse: none
+export:
+  svg: true
+  png: [16, 24, 32, 48, 64, 128, 256]
+rows:                            # id | stem (.desktop-id, verbatim theme name) | emblem (glyph) | accent | name
+  - { id: app-files,       stem: org.gnome.Nautilus,   emblem: app-files,       accent: intergen-blue, name: Files, fit: 1.113 }
+  - { id: app-text-editor, stem: org.gnome.TextEditor, emblem: app-text-editor, accent: intergen-blue, name: Text Editor, badges: [{glyph: app-text-editor-pencil, at: center, scale: 1.0, sil: {shape: polygon, points: "177,222 228,170 198,140 147,191 136,225"}}], fit: 1.037 }
+  - { id: app-calculator,  stem: org.gnome.Calculator, emblem: app-calculator,  accent: intergen-blue, name: Calculator, fit: 0.954 }
+  - { id: app-calendar,    stem: org.gnome.Calendar,   emblem: app-calendar,    accent: intergen-blue, name: Calendar, fit: 1.084 }
+  - { id: app-clocks,      stem: org.gnome.clocks,     emblem: app-clocks,      accent: intergen-blue, name: Clocks, fit: 1.113 }
+  - { id: app-contacts,    stem: org.gnome.Contacts,   emblem: app-contacts,    accent: intergen-blue, name: Contacts, fit: 1.135 }
+  - { id: app-music,       stem: org.gnome.Music,      emblem: app-music,       accent: intergen-blue, name: Music, fit: 1.348 }
+  - { id: app-maps,        stem: org.gnome.Maps,       emblem: app-maps,        accent: intergen-blue, name: Maps, fit: 1.074 }
+  - { id: app-weather,         stem: org.gnome.Weather,     emblem: app-weather,         accent: intergen-blue, name: Weather, badges: [{glyph: app-weather-cloud, at: center, scale: 1.0, sil: {shape: polygon, points: "56,210 198,210 195,162 187,147 179,142 171,139 163,130 155,118 147,111 139,108 131,106 123,106 115,107 107,110 99,116 91,126 83,130 75,133 67,140 59,157"}}], fit: 1.114 }
+  - { id: app-characters,      stem: org.gnome.Characters,  emblem: app-characters,      accent: intergen-blue, name: Characters, fit: 1.364 }
+  - { id: app-font-viewer,     stem: org.gnome.font-viewer, emblem: app-font-viewer,     accent: intergen-blue, name: Font Viewer, fit: 1.307 }
+  - { id: app-image-viewer,    stem: org.gnome.Loupe,       emblem: app-image-viewer,    accent: intergen-blue, name: Image Viewer, fit: 1.093 }
+  - { id: app-camera,          stem: org.gnome.Snapshot,    emblem: app-camera,          accent: intergen-blue, name: Camera, fit: 1.093 }
+  - { id: app-screenshot,      stem: org.gnome.Screenshot,  emblem: app-screenshot,      accent: intergen-blue, name: Screenshot, fit: 1.226 }
+  - { id: app-document-viewer, stem: org.gnome.Evince,      emblem: app-document-viewer, accent: intergen-blue, name: Document Viewer, fit: 1.055 }
+  - { id: app-archive,     stem: org.gnome.FileRoller,           emblem: app-archive,     accent: intergen-blue, name: Archive Manager, fit: 1.055 }
+  - { id: app-disks,       stem: org.gnome.DiskUtility,          emblem: app-disks,       accent: intergen-blue, name: Disks, fit: 1.253 }
+  - { id: app-disk-usage,  stem: org.gnome.baobab,               emblem: app-disk-usage,  accent: intergen-blue, name: Disk Usage, fit: 1.113 }
+  - { id: app-logs,        stem: org.gnome.Logs,                 emblem: app-logs,        accent: intergen-blue, name: Logs, fit: 1.113 }
+  - { id: app-connections, stem: org.gnome.Connections,          emblem: app-connections, accent: intergen-blue, name: Connections, fit: 1.093 }
+  - { id: app-passwords,   stem: org.gnome.seahorse.Application, emblem: app-passwords,   accent: intergen-blue, name: Passwords and Keys, fit: 1.427 }
+  - { id: app-tweaks,      stem: org.gnome.tweaks,               emblem: app-tweaks,      accent: intergen-blue, name: Tweaks, fit: 1.177 }
+  # Batch 4 (coverage arc) — GNOME apps present on the launcher surface but not yet drawn.
+  # Settings ships the panel marks + a generic `settings`, not the app-launcher id; Terminal
+  # ships a generic `terminal`; Extensions + System Monitor were uncovered. Same line-language.
+  - { id: app-settings,       stem: org.gnome.Settings,      emblem: app-settings,       accent: intergen-blue, name: Settings, fit: 1.093 }
+  - { id: app-terminal,       stem: org.gnome.Terminal,      emblem: app-terminal,       accent: intergen-blue, name: Terminal, fit: 1.055 }
+  - { id: app-extensions,     stem: org.gnome.Extensions,    emblem: app-extensions,     accent: intergen-blue, name: Extensions, fit: 1.336 }
+  - { id: app-system-monitor, stem: org.gnome.SystemMonitor, emblem: app-system-monitor, accent: intergen-blue, name: "System Monitor", fit: 1.037 }

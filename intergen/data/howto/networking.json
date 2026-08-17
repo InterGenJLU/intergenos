@@ -1,0 +1,218 @@
+[
+  {
+    "id": "net-wifi-connect",
+    "domain": "networking",
+    "triggers": [
+      "how do I connect to wifi",
+      "how do I join a wireless network",
+      "how to connect to a wifi network from the terminal",
+      "what's the command to connect to wifi",
+      "how do I get online over wifi",
+      "how do I see available wifi networks"
+    ],
+    "answer": "InterGenOS uses **NetworkManager**, so the CLI is `nmcli` (or the menu UI `nmtui`):\n\n```\nnmcli device wifi list                          # scan for networks\nnmcli device wifi connect '<SSID>' password '<password>'\n```\n\nFor an interactive menu instead, just run `nmtui` and pick \"Activate a connection\". On the desktop, use the network icon in the top-right. Saved networks reconnect automatically.",
+    "doc_source": "wiki sysadmin/networking.md",
+    "requires": [
+      "nmcli"
+    ]
+  },
+  {
+    "id": "net-status",
+    "domain": "networking",
+    "triggers": [
+      "how do I check my network connection",
+      "how do I see my ip address",
+      "how do I check if I'm online",
+      "how to see network status",
+      "what's the command to show my ip",
+      "how do I list network connections"
+    ],
+    "answer": "Check connectivity and addresses:\n\n```\nnmcli device status            # each interface and whether it's connected\nnmcli connection show          # saved/active connections\nip addr                        # all interface IP addresses\nping -c3 1.1.1.1               # is the network actually reachable?\n```\n\n`nmcli device status` is the quickest \"am I connected?\" check; `ping` a known host to confirm traffic actually flows (vs. just having an address).",
+    "action": {
+      "command": "nmcli device status",
+      "tool": "run_command"
+    },
+    "doc_source": "wiki sysadmin/networking.md",
+    "requires": [
+      "nmcli"
+    ]
+  },
+  {
+    "id": "net-firewall",
+    "domain": "networking",
+    "triggers": [
+      "how do I check the firewall",
+      "how do I open a port",
+      "how do I see firewall rules",
+      "how to configure the firewall",
+      "what firewall does InterGenOS use",
+      "how do I allow incoming connections",
+      "how do I use iptables",
+      "iptables command",
+      "does InterGenOS use iptables"
+    ],
+    "answer": "InterGenOS ships an **nftables** firewall with a default-deny inbound policy. Inspect the live ruleset:\n\n```\nsudo nft list ruleset\n```\n\nThe defaults live in `/etc/intergenos-firewall-defaults/`. Outbound traffic is allowed; new inbound connections are dropped unless a rule permits them. Opening a port means adding an nft rule — do this deliberately, since every opened port widens the attack surface. For a service you installed, prefer binding it to localhost where possible rather than opening the firewall.\n\nIf you know iptables: it is present for compatibility (NetworkManager consumes it), but **nft is the native interface** on InterGenOS — write any rule you add by hand as an nft rule, and read the live state with `nft list ruleset` rather than `iptables -L`.",
+    "doc_source": "wiki sysadmin/networking.md; security/network-security.md",
+    "requires": [
+      "nft"
+    ]
+  },
+  {
+    "id": "net-dns",
+    "domain": "networking",
+    "triggers": [
+      "how do I change my dns",
+      "how do I fix dns resolution",
+      "how do I test dns",
+      "how to set a dns server",
+      "what's wrong with my dns",
+      "how do I look up a hostname"
+    ],
+    "answer": "DNS is managed through NetworkManager. Test resolution and set servers:\n\n```\nresolvectl query example.com        # does a name resolve?\nresolvectl status                   # current DNS servers per link\n# set DNS for a saved connection (persists):\nnmcli connection modify '<name>' ipv4.dns '1.1.1.1 9.9.9.9'\nnmcli connection up '<name>'        # re-apply\n```\n\nIf names won't resolve but `ping 1.1.1.1` works, it's DNS — point the connection at a known resolver as above and bring it back up.",
+    "doc_source": "wiki sysadmin/networking.md",
+    "requires": [
+      "nmcli"
+    ]
+  },
+  {
+    "id": "net-how-do-i-connect-to-wifi-from-the-terminal",
+    "domain": "networking",
+    "triggers": [
+      "how do I connect to wifi from the terminal"
+    ],
+    "answer": "```\nnmcli radio wifi on                             # ensure the radio is on\nnmcli device wifi list                          # list nearby networks\nnmcli device wifi connect \"SSID\" password \"yourpassword\"\nnmcli connection show                           # confirm the connection is active\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "net-why-won-t-my-wifi-connect",
+    "domain": "networking",
+    "triggers": [
+      "why won't my wifi connect"
+    ],
+    "answer": "```\nnmcli radio wifi                    # is Wi-Fi enabled? (should say 'enabled')\nnmcli device status                 # is the wifi device 'connected' or 'disconnected'?\nnmcli device wifi list              # does your SSID appear? (weak signal / wrong band?)\nnmcli connection up \"SSID\"          # retry the saved connection\njournalctl -u NetworkManager -b --no-pager | tail -40   # recent NM errors (auth failures show here)\n```\nCommon causes: wrong password (re-run `nmcli device wifi connect ... password ...`), Wi-Fi radio off\n(`nmcli radio wifi on`), or driver/firmware — `linux-firmware` and `wireless-regdb` ship, so most adapters work.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "net-why-is-my-wifi-not-working",
+    "domain": "networking",
+    "triggers": [
+      "why is my wifi not working"
+    ],
+    "answer": "```\nnmcli device status                 # is a wifi device present and what state is it in?\nnmcli radio wifi on                 # turn the radio on if it's off\nrfkill list                         # is wifi blocked in hardware/software? (util-linux)\nsystemctl status NetworkManager     # is the network service running?\n```\nIf no wifi device appears at all, it's likely a driver/firmware gap — capture `lspci -k | grep -iA3 network`\nand ask InterGen to look at the adapter.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "net-how-do-i-test-my-internet-connection",
+    "domain": "networking",
+    "triggers": [
+      "how do I test my internet connection"
+    ],
+    "answer": "```\nping -c 4 1.1.1.1                   # raw connectivity (bypasses DNS)\nping -c 4 intergenos.org           # connectivity + DNS resolution\nnmcli networking connectivity       # NetworkManager's own verdict: full / limited / none\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "net-how-do-i-ping-a-website",
+    "domain": "networking",
+    "triggers": [
+      "how do I ping a website"
+    ],
+    "answer": "```\nping -c 4 example.com              # send 4 pings then stop (inetutils ping)\nping example.com                   # continuous — press Ctrl+C to stop\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "net-why-can-t-i-resolve-domain-names",
+    "domain": "networking",
+    "triggers": [
+      "why can't I resolve domain names"
+    ],
+    "answer": "```\nping -c1 1.1.1.1                   # if this works but names don't, it's a DNS problem\ngetent hosts intergenos.org       # test name resolution directly (no dig/nslookup on InterGenOS)\nresolvectl status                  # show the active DNS servers (systemd-resolved)\nnmcli device show | grep IP4.DNS  # which DNS servers NetworkManager handed out\n```\nNote: InterGenOS does not ship `dig`/`nslookup`/`host` — use `getent hosts <name>` or `ping <name>` to test\nresolution, and `resolvectl` / `nmcli` to inspect the DNS servers.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "net-how-do-i-change-my-dns-server",
+    "domain": "networking",
+    "triggers": [
+      "how do I change my DNS server"
+    ],
+    "answer": "```\n# Set DNS on the active NetworkManager connection (persists):\nnmcli connection modify \"<connection-name>\" ipv4.dns \"1.1.1.1 1.0.0.1\"\nnmcli connection modify \"<connection-name>\" ipv4.ignore-auto-dns yes\nnmcli connection up \"<connection-name>\"      # re-activate to apply\n# find <connection-name> with:  nmcli connection show\n# GUI: Settings -> Network/Wi-Fi -> gear icon -> IPv4 -> DNS (turn Automatic off, enter servers).\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "net-how-do-i-ssh-into-another-machine",
+    "domain": "networking",
+    "triggers": [
+      "how do I ssh into another machine"
+    ],
+    "answer": "```\nssh user@host                      # e.g. ssh alice@192.168.1.20  (openssh is shipped)\nssh -p 2222 user@host              # non-default port\nssh-keygen -t ed25519              # first set up a key (recommended over passwords)\nssh-copy-id user@host              # install your key on the remote for passwordless login\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "net-how-do-i-copy-a-file-to-another-computer",
+    "domain": "networking",
+    "triggers": [
+      "how do I copy a file to another computer"
+    ],
+    "answer": "```\nscp file.txt user@host:/path/          # copy one file over SSH (openssh)\nscp -r folder/ user@host:/path/        # copy a folder\n# for large / repeated transfers, rsync (shipped) is better:\nrsync -avP folder/ user@host:/path/\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "net-how-do-i-mount-a-usb-drive",
+    "domain": "networking",
+    "triggers": [
+      "how do I mount a usb drive"
+    ],
+    "answer": "```\nDesktop: just plug it in — it auto-mounts (udisks2/gvfs) and appears in Files (Nautilus) in the sidebar.\n  Click the eject icon in Files to safely remove it.\nTerminal:\n  lsblk                              # find the device, e.g. /dev/sdb1\n  udisksctl mount -b /dev/sdb1       # mount via udisks (no sudo, mounts under /run/media/$USER/)\n  udisksctl unmount -b /dev/sdb1     # unmount when done\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "net-how-do-i-add-a-printer",
+    "domain": "networking",
+    "triggers": [
+      "how do I add a printer"
+    ],
+    "answer": "```\nGUI: Settings -> Printers -> \"Add Printer\" (CUPS + cups-pk-helper handle discovery).\n     Most network/USB printers are auto-detected; pick it and confirm the driver.\nWeb UI (advanced): open http://localhost:631 (CUPS admin) in a browser.\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "net-why-won-t-my-printer-print",
+    "domain": "networking",
+    "triggers": [
+      "why won't my printer print"
+    ],
+    "answer": "```\nSettings -> Printers: is the printer shown and NOT paused? (resume it if paused).\nTerminal:\n  lpstat -p -d           # printer state + default printer (CUPS)\n  lpstat -o              # stuck jobs in the queue\n  cancel -a              # clear all queued jobs, then try again\n  systemctl status cups  # is the print service running?\n```\nCommon causes: printer paused, a jammed job blocking the queue, wrong default printer, or the printer offline\n(check power/network). InterGenOS uses CUPS — the Settings > Printers panel is the primary control.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "net-are-there-printers-configured",
+    "domain": "networking",
+    "triggers": [
+      "are there printers configured on this laptop",
+      "what printers do I have",
+      "list my printers",
+      "show my printers",
+      "is a printer set up",
+      "which printers are installed"
+    ],
+    "answer": "InterGenOS uses **CUPS** for printing, so you can list what's configured from the terminal:\n```\nlpstat -p -d           # each printer and its state, plus the default printer\nlpstat -v              # each printer's connection (USB / network URI)\nlpstat -o              # any jobs currently in the queue\n```\nIf `lpstat -p` prints nothing, no printers are configured yet — add one from **Settings → Printers**. The GNOME **Settings → Printers** panel shows the same list in a window.",
+    "action": {
+      "command": "lpstat -p -d",
+      "tool": "run_command"
+    },
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": [
+      "lpstat"
+    ]
+  }
+]

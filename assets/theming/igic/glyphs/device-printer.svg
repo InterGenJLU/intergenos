@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- device glyph: printer — a wider, shorter body + paper feed + output tray + LED. -->
+  <g class="glyph">
+    <path d="M 85.7 97.3 L 85.7 62.7 L 170.3 62.7 L 170.3 97.3"/>
+    <rect x="55" y="97.3" width="146" height="65.3" rx="11.5"/>
+    <rect x="85.7" y="162.6" width="84.5" height="30.7"/>
+    <circle cx="177.9" cy="116.5" r="5.8"/>
+  </g>
+</svg>

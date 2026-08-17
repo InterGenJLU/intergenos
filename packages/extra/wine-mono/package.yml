@@ -1,0 +1,32 @@
+name: wine-mono
+version: "11.2.0"
+release: 1
+description: Mono .NET runtime MSI addon for wine prefix creation
+license: MIT AND GPL-3.0-or-later AND LGPL-2.1-or-later
+homepage: https://wiki.winehq.org/Mono
+tier: extra
+# Operator decision 1 (2026-07-02): ADD — the mono half of the
+# silent-prefix-fetch close (full rationale in wine-gecko's package.yml;
+# same addons.c mechanism, same plain-HTTP fetch path this kills).
+#
+# VERSION + SHA ARE WINE'S OWN PINS: 11.2.0 and the sha256 are the
+# MONO_VERSION/MONO_SHA constants hardcoded in the pinned wine 11.12
+# addons.c (sha512-GPG-verified source), and the downloaded
+# dl.winehq.org artifact hashes byte-exact to that pin (verified at
+# ingest 2026-07-02 — a first truncated download hashed WRONG and was
+# refused; only the byte-exact artifact ships). One MSI serves both
+# widths (MONO_ARCH is "x86" on i386 AND x86_64 — wine-mono is a
+# single dual-arch image, read from the pinned source). A wine bump
+# that changes MONO_VERSION bumps this package in lockstep.
+build_style: custom
+install_func: do_install
+iso_include: false
+source:
+- url: https://dl.winehq.org/wine/wine-mono/${version}/wine-mono-${version}-x86.msi
+  sha256: b4525679e7da30d4658ceb85739cbc55c771791054abbb4b3152fe96ded0b897
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/share/wine/mono/wine-mono-11.2.0-x86.msi

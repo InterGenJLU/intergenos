@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.intergenos-launch-monitor"
+          path="/org/gnome/shell/extensions/intergenos-launch-monitor/">
+    <key name="launch-monitor" type="s">
+      <default>''</default>
+      <summary>Declared launch monitor (output connector)</summary>
+      <description>The output connector (e.g. "HDMI-1", "DP-1") a matched game window is moved to at launch. Empty ('') disables the mover — nothing is ever moved. A plain integer string is accepted as a direct monitor-index fallback when a connector cannot be resolved.</description>
+    </key>
+    <key name="game-wm-class-prefixes" type="as">
+      <default>['steam_app_', 'gamescope']</default>
+      <summary>WM_CLASS prefixes treated as game windows</summary>
+      <description>Case-insensitive WM_CLASS prefixes matched as game windows. steam_app_ is Steam's per-title window class (set for every title Steam launches, native or Proton/pressure-vessel); gamescope is Valve's micro-compositor. Derived from the measured GE launch path (all titles launch through Steam Linux Runtime), not a per-title list.</description>
+    </key>
+    <key name="game-launch-intergen" type="s">
+      <choices>
+        <choice value="pause"/>
+        <choice value="keep"/>
+        <choice value="ask"/>
+      </choices>
+      <default>'pause'</default>
+      <summary>What happens to InterGen when a game starts</summary>
+      <description>Declared once; applied at every game launch, with no prompt unless "ask" is chosen. "pause" (the default) stops InterGen's model servers while a game runs, returning both the video memory and the system memory they held to the machine, and loads them again when the last game window closes; letting the system evict the model instead costs that memory movement during play, as stutter, and returns no system memory at all. "keep" leaves InterGen running and is the honest choice on a machine where the game and InterGen do not share an accelerator. "ask" offers the choice at each launch, as a notification with buttons rather than a dialog, so nothing takes the keyboard away from a game that is starting; leaving it unanswered changes nothing.</description>
+    </key>
+    <key name="game-wm-classes" type="as">
+      <default>[]</default>
+      <summary>Additional exact WM_CLASS values treated as game windows</summary>
+      <description>Case-insensitive exact WM_CLASS values for non-Steam titles the user wants moved. Complements the prefix list above.</description>
+    </key>
+  </schema>
+</schemalist>

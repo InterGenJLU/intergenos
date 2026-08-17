@@ -1,0 +1,25 @@
+name: libwpg
+version: "0.3.4"
+release: 2  # r2: iso_include true — runtime closure of the 2026-07-18 curation correction (shipped consumer requires shipped provider)
+description: WordPerfect Graphics import library
+license: LGPL-2.1-or-later
+homepage: https://libwpg.sourceforge.net/
+tier: extra
+iso_include: true
+build_style: autotools
+install_func: do_install
+source:
+- url: https://sourceforge.net/projects/libwpg/files/libwpg/libwpg-${version}/libwpg-${version}.tar.xz
+  sha256: b55fda9440d1e070630eb2487d8b8697cf412c214a27caee9df69cec7c004de3
+dependencies:
+  build:
+  - librevenge
+  - libwpd
+  host: []
+  runtime:
+  - librevenge
+  - libwpd
+verify_paths:
+  - /usr/bin/wpg2raw
+  - /usr/lib/libwpg-0.3.so.3.0.4
+  - /usr/lib/pkgconfig/libwpg-0.3.pc

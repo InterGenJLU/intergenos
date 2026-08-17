@@ -1,0 +1,20 @@
+name: typing-extensions
+version: "4.15.0"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Backported and experimental type hints
+license: Python-2.0
+homepage: https://github.com/python/typing_extensions
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/72/94/1a15dd82efb362ac84269196e94cf00f187f7ed21c242792a923cdb1c61f/typing_extensions-4.15.0.tar.gz
+  sha256: 0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466
+dependencies:
+  build:
+  - flit-core
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/typing_extensions.py
+  - /usr/share/licenses/typing-extensions/LICENSE

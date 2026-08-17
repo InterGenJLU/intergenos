@@ -1,0 +1,21 @@
+name: util-linux-core
+ships_as: util-linux  # ch8 dual-name twin — the driver archives this recipe under the ship name (chroot-build-ch8.sh run_package arg 2; runtime deps elsewhere may name 'util-linux')
+version: "2.41.3"
+release: 3  # r3: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: Miscellaneous system utilities
+license: GPL-2.0-or-later
+source:
+- url: https://www.kernel.org/pub/linux/utils/util-linux/v2.41/util-linux-${version}.tar.xz
+  sha256: 3330d873f0fceb5560b89a7dc14e4f3288bbd880e96903ed9b50ec2b5799e58b
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - ncurses
+  - readline
+  - zlib
+tier: core
+build_style: custom
+verify_paths:
+  - /usr/sbin/addpart
+  - /usr/lib/libblkid.so

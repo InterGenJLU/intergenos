@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: screen-lock — padlock body + shackle. VL primitives only, colorless. -->
+  <g class="glyph">
+    <rect x="80" y="118" width="96" height="76" rx="12"/>
+    <path d="M100 118 L100 96 A28 28 0 0 1 156 96 L156 118"/>
+    <g class="fill"><circle cx="128" cy="150" r="10"/></g>
+    <line x1="128" y1="156" x2="128" y2="174"/>
+  </g>
+</svg>

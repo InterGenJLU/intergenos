@@ -1,0 +1,37 @@
+name: fmt
+version: "12.2.0"
+release: 1
+description: Fast C++ formatting library ({fmt})
+license: MIT
+homepage: https://github.com/fmtlib/fmt
+tier: compute
+build_style: custom
+install_func: do_install
+
+# General-purpose C++ library; entered the tree as a ROCm compute-stack
+# dependency (rocprofiler-register links it — its bundled path is an
+# unpinned master-branch git clone that cannot work from a release
+# tarball, so the system-library switch is used instead, matching the
+# reference distro). Sole consumers today are compute-tier; retier if a
+# broader consumer appears.
+#
+# Pin witnesses (two-witness, decided 2026-07-16): sha256 below verified
+# against the upstream download AND vcpkg's declared SHA512 for the same
+# archive-tag artifact (ports/fmt at version 12.2.0:
+# 5ac2ba0f54a4…82ac745eb — byte-identical download). Reference distro
+# ships the same version.
+source:
+  - url: https://github.com/fmtlib/fmt/archive/refs/tags/${version}.tar.gz
+    filename: fmt-${version}.tar.gz
+    sha256: 8b852bb5aa6e7d8564f9e81394055395dd1d1936d38dfd3a17792a02bebd7af0
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/libfmt.so
+  - /usr/include/fmt/format.h
+  - /usr/lib/cmake/fmt

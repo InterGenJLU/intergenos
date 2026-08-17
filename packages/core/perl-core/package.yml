@@ -1,0 +1,20 @@
+name: perl-core
+ships_as: perl  # ch8 dual-name twin — the driver archives this recipe under the ship name (chroot-build-ch8.sh run_package arg 2; runtime deps elsewhere may name 'perl')
+version: "5.42.0"
+release: 2  # r2: strip perllocal.pod (installer bookkeeping, not package content) — recipe changed shipped bytes at the same version. Decided 2026-07-14.
+description: Practical Extraction and Report Language
+license: Artistic-1.0-Perl OR GPL-1.0-or-later
+source:
+- url: https://www.cpan.org/src/5.0/perl-${version}.tar.xz
+  sha256: 73cf6cc1ea2b2b1c110a18c14bbbc73a362073003893ffcedc26d22ebdbdd0c3
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - gdbm
+  - libxcrypt
+tier: core
+build_style: custom
+verify_paths:
+  - /usr/bin/perl
+  - /usr/bin/corelist

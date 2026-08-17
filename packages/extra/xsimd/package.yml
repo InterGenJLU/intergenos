@@ -1,0 +1,25 @@
+name: xsimd
+version: "14.3.0"
+release: 1
+description: C++ wrappers for SIMD intrinsics (header-only)
+license: BSD-3-Clause
+homepage: https://github.com/xtensor-stack/xsimd
+tier: extra
+iso_include: false  # arrow-cpp build dep (training-stack chain) — mirror-only
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/xtensor-stack/xsimd/archive/refs/tags/${version}.tar.gz
+  filename: xsimd-14.3.0.tar.gz
+  sha256: b3d50e7a73fbf4642ceef30131c93414901d69eee41c2a5302db650b03e2c792
+dependencies:
+  build:
+  - cmake
+  - ninja
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/include/xsimd/xsimd.hpp
+  # header-only: upstream installs its cmake package files under
+  # share/cmake (arch-independent), not lib/cmake — archive-proven
+  - /usr/share/cmake/xsimd/xsimdConfig.cmake

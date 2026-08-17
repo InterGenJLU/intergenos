@@ -1,0 +1,19 @@
+name: wheel
+version: "0.46.3"
+release: 3  # r3: F12 runtime-declaration wave 2026-07-21 — runtime deps declared from the pinned sdist metadata (packaging); .PKGINFO depend= change => release bump
+description: Python wheel packaging
+license: MIT
+source:
+- url: https://pypi.org/packages/source/w/wheel/wheel-${version}.tar.gz
+  sha256: e3e79874b07d776c40bd6033f8ddf76a7dad46a7b8aa1b2787a83083519a1803
+dependencies:
+  build: []
+  host:
+  - flit-core
+  runtime:
+  - packaging
+tier: core
+build_style: custom
+verify_paths:
+  - /usr/bin/wheel
+  - /usr/lib/python3.14/site-packages/wheel

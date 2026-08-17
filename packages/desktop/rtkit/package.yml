@@ -1,0 +1,28 @@
+name: rtkit
+version: "0.13"
+release: 1
+content_hash: de419e961f36c33f
+description: RealtimeKit — D-Bus service for real-time scheduling
+license: GPL-3.0-or-later
+homepage: https://github.com/heftig/rtkit
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/heftig/rtkit/archive/refs/tags/v${version}/rtkit-${version}.tar.gz
+  sha256: 0f9508530868109f0348e044cc1b20893672875467ace6d847ba6364274de003
+dependencies:
+  build:
+  - dbus
+  - libcap
+  - polkit
+  - systemd
+  host: []
+  runtime:
+  - dbus
+  - libcap
+  - polkit
+  - systemd
+verify_paths:
+  - /usr/libexec/rtkit-daemon
+  - /usr/lib/systemd/system/rtkit-daemon.service

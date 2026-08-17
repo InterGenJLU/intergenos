@@ -1,0 +1,144 @@
+{
+  "manifest_version": 1,
+  "manifest_type": "intergen-destructive-policy-critical-essentials",
+  "ratified": "2026-07-23",
+  "description": "Critical-essentials NEVER-LIST: paths InterGen's AI can NEVER perform a destructive op on — no config option, ever. Everything NOT on this list is fair-game (per-capability user opt-in + per-action keystone consent). TEACHING CONTRACT (decided 2026-07-23): this list gates the AI's ACTIONS only — never the user's knowledge. When asked, the assistant states the block honestly (a code-level user-only boundary, never feigned incapability) and, on request, teaches the user how to perform the operation themselves, citing installed documentation, with safety context. Release-signed via OpenPGP (detached .asc), shipped to /usr/share/intergen/ — root-owned; its integrity rests on that signature, verified against the pinned release key before the manifest is trusted. dm-verity seals the live and install media only; the installed root filesystem is not a dm-verity device. Source-of-record: the 2026-05-30 critical-manifest design draft (internal records); prune+extension review decided 2026-07-23.",
+  "match_rules": {
+    "expand_user": true,
+    "resolve_symlinks": true,
+    "default_on_ambiguity": "block",
+    "prefix_semantics": "a candidate path matches a prefix entry if, after expanduser()+resolve(), str(path) == prefix.rstrip('/') OR str(path).startswith(prefix)",
+    "enforced_layers": [
+      "gate-side (classify_command / classify_safety)",
+      "root-side (privileged_dispatch)"
+    ],
+    "note": "The signed manifest is the boundary; the per-action human modal is the net for any mis-categorization."
+  },
+  "categories": {
+    "system_ai": {
+      "description": "InterGen's own machinery — the AI must never weaken, erase, or re-permission its own guards or evidence (anti-self-tamper). Includes the destructive-policy config itself (the linchpin: human-only) and the Sentinel/escalation/providers config (AI-immutable per Sentinel decision #5).",
+      "exact": [],
+      "prefix": [
+        "~/.config/intergen/",
+        "/var/lib/intergen/",
+        "/var/log/intergen/"
+      ],
+      "notes": "~/.config/intergen/ covers dispatch-key, web-token, config.yml, the destructive-policy config, and the sentinel/escalation/providers config. /var/lib/intergen/ covers memory.db, governance + governance.sha256, mcp-pins, models, the consumed-nonce store, legal. /var/log/intergen/ is the carve-out from the otherwise-fair-game /var/log (anti-evidence-tamper)."
+    },
+    "boot_integrity": {
+      "description": "Boot + integrity chain — system won't boot / trust base broken.",
+      "exact": [],
+      "prefix": [
+        "/boot/",
+        "/efi/",
+        "/etc/kernel/",
+        "/etc/modprobe.d/",
+        "/etc/sysctl.d/"
+      ],
+      "notes": "/boot/ + /efi/ (ESP: bootloader, BOOT*.EFI, shim) + /etc/kernel/ cmdline.d + initramfs-generator config. Secure-Boot/MOK key material and the dm-verity roothash config live under these or under /usr (root-owned; block-read-only via dm-verity on the live/install media only). /etc/modprobe.d/ + /etc/sysctl.d/ added 2026-07-23: shipped kernel-hardening config (algif disable, dirty-frag mitigation) — removal = mitigation rollback."
+    },
+    "identity_auth_privilege": {
+      "description": "Accounts, credentials, authentication stack, privilege-escalation rules, host identity.",
+      "exact": [
+        "/etc/passwd",
+        "/etc/shadow",
+        "/etc/gshadow",
+        "/etc/group",
+        "/etc/sudoers",
+        "/etc/ssh/sshd_config",
+        "/etc/login.defs"
+      ],
+      "prefix": [
+        "/etc/sudoers.d/",
+        "/etc/pam.d/",
+        "/etc/polkit-1/",
+        "/etc/polkitd/"
+      ],
+      "glob": [
+        "/etc/ssh/ssh_host_*"
+      ],
+      "notes": "ssh_host_* = host identity keys (impersonation risk). sshd_config = remote-access policy. /etc/sudoers.d/ is also danger-equivalent to /etc/sudoers (a drop-in is identical in power)."
+    },
+    "package_supply_chain": {
+      "description": "Package manager DB + hooks + supply-chain trust root.",
+      "exact": [],
+      "prefix": [
+        "/var/lib/igos/",
+        "/var/lib/pkm/",
+        "/etc/pkm/"
+      ],
+      "notes": "/var/lib/igos/ = pkm DB (pkm.db), packages/ manifests, archives/, helpers/. /var/lib/pkm/ = pkm hooks (executable post-install -> code-exec risk if tampered) + repo metadata + available-updates.json. Distinct roles, both real. The intergenos-keyring trust root installs under root-owned /usr. /etc/pkm/ = repos.conf (which mirror pkm trusts) + trusted.gpg (the keyring the signed index verifies against) — the rogue-mirror/keyring-swap surface; added 2026-07-23."
+    },
+    "filesystem_init": {
+      "description": "Filesystem + init essentials — system survival + identity.",
+      "exact": [
+        "/etc/fstab",
+        "/etc/crypttab",
+        "/etc/machine-id",
+        "/etc/os-release",
+        "/etc/locale.conf",
+        "/etc/vconsole.conf",
+        "/etc/hostname",
+        "/etc/resolv.conf",
+        "/etc/hosts",
+        "/etc/nsswitch.conf"
+      ],
+      "prefix": [
+        "/etc/systemd/system/"
+      ],
+      "notes": "/etc/systemd/system/ = system-critical unit overrides + default target (base units live under root-owned /usr/lib/systemd/system). Networking (resolv/hosts/nsswitch) + locale/vconsole/hostname KEEP per operator ruling. os-release = identity/version."
+    },
+    "scheduled_task_persistence": {
+      "description": "Persistence vectors (round-3 hardening-review catch, EXTENDED 2026-07-23): any writable path that runs arbitrary code on a schedule, at login, or at dynamic link.",
+      "exact": [
+        "/etc/crontab",
+        "/etc/profile",
+        "/etc/bashrc",
+        "/etc/environment",
+        "/etc/ld.so.conf"
+      ],
+      "prefix": [
+        "/var/spool/cron/",
+        "/etc/cron.d/",
+        "/etc/cron.hourly/",
+        "/etc/cron.daily/",
+        "/etc/cron.weekly/",
+        "/etc/cron.monthly/",
+        "/etc/profile.d/",
+        "/etc/ld.so.conf.d/"
+      ],
+      "notes": "Distinct from the FAIR-GAME general /var/log decision. Binary dirs are covered by the system_binaries category as of 2026-08-16 (previously unlisted on the belief installed /usr was dm-verity read-only, which is true only of the live/install media). 2026-07-23 additions: shell-init (profile/bashrc/environment/profile.d) = code at every login, cron's sibling; ld.so.conf{,.d/} = library-path hijack at every dynamic link."
+    },
+    "network_trust": {
+      "description": "Network security policy + TLS trust root (added 2026-07-23).",
+      "exact": [
+        "/etc/nftables.conf"
+      ],
+      "prefix": [
+        "/etc/ssl/"
+      ],
+      "notes": "/etc/nftables.conf = the shipped default-deny firewall policy (intergenos-firewall-defaults) — \"fixing\" connectivity by weakening it is the never-class. /etc/ssl/ = CA trust store; one appended rogue CA is a silent system-wide MITM."
+    },
+    "system_binaries": {
+      "description": "System binary and library directories (decided 2026-08-16): on an installed system these are root-owned but WRITABLE — dm-verity seals only the live/install media — so root ownership was their only barrier against a consented destructive action. No legitimate assistant flow destroys system binaries; recovery from a damaged /usr is a reinstall.",
+      "prefix": [
+        "/usr/bin/",
+        "/usr/sbin/",
+        "/usr/lib/",
+        "/usr/lib64/",
+        "/bin/",
+        "/sbin/",
+        "/lib/",
+        "/lib64/"
+      ],
+      "notes": "The /bin, /sbin, /lib and /lib64 entries cover the FHS symlinks into /usr so a symlink spelling cannot route around the /usr entries (the matcher also resolves symlinks before matching — this is defense in depth, not the only guard). Package management remains unaffected: pkm runs outside the assistant's destructive-op gate."
+    }
+  },
+  "dm_verity_readonly_reference": {
+    "description": "On the live and install media these paths are block-level read-only via dm-verity. On an INSTALLED system they are root-owned but writable — the manifest's enforcement teeth are for the writable criticals above, and root ownership is what protects these paths on an installed system.",
+    "prefix": [
+      "/usr/"
+    ],
+    "notes": "Covers /usr/bin/intergen*, /usr/lib/intergen/** (incl. FDE/dm-verity boot tooling), /usr/share/intergen/models-manifest.json{,.asc} + this manifest, /usr/share/polkit-1/actions/org.intergenos.intergen.policy. The binary dirs (/usr/bin /usr/sbin /usr/lib and the /lib symlinks) carry their own never-list entries under system_binaries as of 2026-08-16."
+  }
+}

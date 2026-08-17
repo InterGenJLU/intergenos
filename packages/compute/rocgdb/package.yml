@@ -1,0 +1,57 @@
+name: rocgdb
+version: "7.2.4"
+release: 2  # r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: ROCgdb — AMD GPU-aware GDB (heterogeneous CPU+GPU source-level debugging)
+license: GPL-3.0-or-later
+homepage: https://github.com/ROCm/ROCgdb
+tier: compute
+build_style: custom
+install_func: do_install
+
+# Standalone repo at the rocm-7.2.4 tag (a GDB fork; autotools). sha256
+# pinned 2026-07-17 (single-witness GitHub tag-archive endpoint, same
+# caveat class as the other 7.2.4 pins). Configure invocation is the
+# pinned tree's own README-ROCM.md build recipe verbatim (program
+# prefix roc → /opt/rocm/bin/rocgdb; amdgcn target enabled;
+# ld/gas/gdbserver/sim/gprofng disabled). Consumes rocdbgapi via
+# pkg-config at /opt/rocm/share/pkgconfig.
+#
+# Rule-5 sweep note (2026-07-17): the binutils-gdb tree builds its
+# bundled bfd/opcodes/libiberty/gnulib as part of the standard upstream
+# architecture (INTERNAL-BUILD-SYSTEM class, not vendored third-party
+# payload); zlib + readline are forced to the system copies
+# (--with-system-zlib/--with-system-readline).
+source:
+  - url: https://github.com/ROCm/ROCgdb/archive/refs/tags/rocm-${version}.tar.gz
+    filename: ROCgdb-rocm-${version}.tar.gz
+    sha256: 31682312485bbb9a47643097100382ab7d232c45b3a5cceeb8e214e617853a9e
+
+dependencies:
+  build:
+  - rocdbgapi
+  - bison-core
+  - flex
+  - texinfo-core
+  - ncurses-core
+  - expat
+  - zlib
+  - xz
+  - readline
+  - python
+  # GDB hard-requires gmp (since 10.1) + mpfr (since 15) — the built
+  # rocgdb links libgmp.so.10 + libmpfr.so.6 (readelf-verified). Not
+  # implicit-core: compute is mirror-only, so the declared runtime graph
+  # is the sole pkm closure mechanism.
+  - gmp
+  - mpfr
+  host: []
+  runtime:
+  - rocdbgapi
+  - ncurses
+  - expat
+  - readline
+  - python
+  - gmp
+  - mpfr
+verify_paths:
+  - /opt/rocm/bin/rocgdb

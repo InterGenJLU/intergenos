@@ -1,0 +1,59 @@
+# Stateful family manifest — status/battery-level (ICON_CATEGORIES.md §6.3.2). The RUNTIME
+# battery family GNOME Shell's top bar requests as its PRIMARY icon: js/ui/status/system.js
+# builds `battery-level-<10*floor(pct/10)><suffix>-symbolic` with use_default_fallbacks:false,
+# and falls back to UPower's IconName (our freedesktop ladder, families/battery.yaml) only if
+# the name is absent. ONE base glyph (battery-gauge: outline + nub + a PROPORTIONAL fill gauge)
+# + a level = decile 0..100 -> the 33 discrete -symbolic icons. -charging adds the `bolt`
+# overlay; -plugged-in (the PENDING_CHARGE / charge-threshold state) adds the `plug` overlay;
+# -charged adds the `check`. State ids OMIT the -symbolic suffix (the compiler appends it) so
+# the emitted basenames match the shell's constructed strings exactly.
+#
+# 33 = 11 plain + 10 charging (no -100: charging at full resolves to -charged) + 11 plugged-in
+# + 1 charged. Verified char-for-char against the pinned gnome-shell-49.4 system.js:77-92.
+schema_version: 1
+family: battery-level
+category: status
+fit: 1.274                  # optical T(q) family fit (measured convergence)
+kind: symbolic
+base: battery-gauge
+export:
+  svg: true
+  png: [16, 24, 32, 48]          # top-bar / status sizes (matches the freedesktop battery ladder)
+states:                          # id (no -symbolic) | level = decile 0..100 | optional overlays
+  # -- plain (discharging / on-battery), 11 --
+  - { id: battery-level-0,               level: 0, fit: 1.395 }
+  - { id: battery-level-10,              level: 10, fit: 1.395 }
+  - { id: battery-level-20,              level: 20, fit: 1.395 }
+  - { id: battery-level-30,              level: 30, fit: 1.395 }
+  - { id: battery-level-40,              level: 40, fit: 1.395 }
+  - { id: battery-level-50,              level: 50, fit: 1.395 }
+  - { id: battery-level-60,              level: 60, fit: 1.395 }
+  - { id: battery-level-70,              level: 70, fit: 1.395 }
+  - { id: battery-level-80,              level: 80, fit: 1.395 }
+  - { id: battery-level-90,              level: 90, fit: 1.395 }
+  - { id: battery-level-100,             level: 100, fit: 1.395 }
+  # -- charging (+bolt), 10 (100 resolves to charged) --
+  - { id: battery-level-0-charging,      level: 0,   overlays: [bolt], fit: 1.395 }
+  - { id: battery-level-10-charging,     level: 10,  overlays: [bolt], fit: 1.395 }
+  - { id: battery-level-20-charging,     level: 20,  overlays: [bolt], fit: 1.395 }
+  - { id: battery-level-30-charging,     level: 30,  overlays: [bolt], fit: 1.395 }
+  - { id: battery-level-40-charging,     level: 40,  overlays: [bolt], fit: 1.395 }
+  - { id: battery-level-50-charging,     level: 50,  overlays: [bolt], fit: 1.395 }
+  - { id: battery-level-60-charging,     level: 60,  overlays: [bolt], fit: 1.395 }
+  - { id: battery-level-70-charging,     level: 70,  overlays: [bolt], fit: 1.395 }
+  - { id: battery-level-80-charging,     level: 80,  overlays: [bolt], fit: 1.395 }
+  - { id: battery-level-90-charging,     level: 90,  overlays: [bolt], fit: 1.395 }
+  # -- plugged-in / PENDING_CHARGE (+plug), 11 --
+  - { id: battery-level-0-plugged-in,    level: 0,   overlays: [plug], fit: 1.395 }
+  - { id: battery-level-10-plugged-in,   level: 10,  overlays: [plug], fit: 1.395 }
+  - { id: battery-level-20-plugged-in,   level: 20,  overlays: [plug], fit: 1.395 }
+  - { id: battery-level-30-plugged-in,   level: 30,  overlays: [plug], fit: 1.395 }
+  - { id: battery-level-40-plugged-in,   level: 40,  overlays: [plug], fit: 1.395 }
+  - { id: battery-level-50-plugged-in,   level: 50,  overlays: [plug], fit: 1.395 }
+  - { id: battery-level-60-plugged-in,   level: 60,  overlays: [plug], fit: 1.395 }
+  - { id: battery-level-70-plugged-in,   level: 70,  overlays: [plug], fit: 1.395 }
+  - { id: battery-level-80-plugged-in,   level: 80,  overlays: [plug], fit: 1.395 }
+  - { id: battery-level-90-plugged-in,   level: 90,  overlays: [plug], fit: 1.395 }
+  - { id: battery-level-100-plugged-in,  level: 100, overlays: [plug], fit: 1.395 }
+  # -- charged (+check), 1 --
+  - { id: battery-level-100-charged,     level: 100, overlays: [check], fit: 1.395 }

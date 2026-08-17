@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: power — traditional IEC symbol: open ring + vertical centerline stem. VL primitives only, colorless. -->
+  <g class="glyph">
+    <path d="M 151 90 A 56 56 0 1 1 105 90"/>
+    <line x1="128" y1="60" x2="128" y2="120"/>
+  </g>
+</svg>

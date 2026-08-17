@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<defs>
+  <linearGradient id="bodyD" x1="0.3" y1="0" x2="0.7" y2="1">
+    <stop offset="0%" stop-color="#0c1628"/>
+    <stop offset="100%" stop-color="#060a14"/>
+  </linearGradient>
+
+  <linearGradient id="frontD" x1="0.3" y1="0" x2="0.7" y2="1">
+    <stop offset="0%" stop-color="#101c34"/>
+    <stop offset="100%" stop-color="#080e1c"/>
+  </linearGradient>
+
+  <linearGradient id="edgeGrad" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#0099FF"/>
+    <stop offset="50%" stop-color="#33b1ff"/>
+    <stop offset="100%" stop-color="#0099FF"/>
+  </linearGradient>
+
+  <filter id="glow" x="-15%" y="-15%" width="130%" height="130%">
+    <feGaussianBlur stdDeviation="2.5" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="shadow">
+    <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#000" flood-opacity="0.5"/>
+  </filter>
+</defs>
+<rect width="256" height="256" fill="#000000"/>
+
+<!-- Back panel fill (dark) -->
+<path d="M 48 72 C 48 64, 54 58, 62 58
+         L 112 58 C 118 58, 122 60, 126 66
+         L 132 78 C 136 84, 140 86, 148 86
+         L 198 86 C 206 86, 212 92, 212 100
+         L 212 192 C 212 200, 206 206, 198 206
+         L 58 206 C 50 206, 44 200, 44 192
+         L 44 100 C 44 92, 50 86, 54 86 Z"
+      fill="url(#bodyD)" filter="url(#shadow)"/>
+
+<!-- Front panel fill (slightly lighter dark) -->
+<path d="M 44 120 L 212 120
+         L 212 192 C 212 200, 206 206, 198 206
+         L 58 206 C 50 206, 44 200, 44 192 Z"
+      fill="url(#frontD)"/>
+
+<!-- ENERGY EDGES — the blue tron lines -->
+<!-- Back panel outline -->
+<path d="M 48 72 C 48 64, 54 58, 62 58
+         L 112 58 C 118 58, 122 60, 126 66
+         L 132 78 C 136 84, 140 86, 148 86
+         L 198 86 C 206 86, 212 92, 212 100
+         L 212 192 C 212 200, 206 206, 198 206
+         L 58 206 C 50 206, 44 200, 44 192
+         L 44 100 C 44 92, 50 86, 54 86 Z"
+      fill="none" stroke="url(#edgeGrad)" stroke-width="2" stroke-opacity="0.7"
+      stroke-linejoin="round" filter="url(#glow)"/>
+
+<!-- Front panel outline -->
+<path d="M 44 120 L 212 120
+         L 212 192 C 212 200, 206 206, 198 206
+         L 58 206 C 50 206, 44 200, 44 192 Z"
+      fill="none" stroke="url(#edgeGrad)" stroke-width="1.5" stroke-opacity="0.5"
+      stroke-linejoin="round" filter="url(#glow)"/>
+
+<!-- Crease (brightest line) -->
+<line x1="44" y1="120" x2="212" y2="120"
+      stroke="#33b1ff" stroke-width="2" stroke-opacity="0.8"
+      filter="url(#glow)"/>
+</svg>

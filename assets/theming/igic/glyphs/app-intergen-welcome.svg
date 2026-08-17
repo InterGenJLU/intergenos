@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- InterGenOS Welcome (intergen-welcome) — first-boot setup + personalization.
+       The InterGen pulse + a welcome sparkle (the "new / getting started"
+       twinkle), matching the shipped welcome icon's intent (pulse + sparkle),
+       restyled line-forward (glass squircle dropped). Pulse asymmetric
+       spike-left per VISUAL_LANGUAGE §8; sparkle rides the right trail. -->
+  <g class="glyph">
+    <path d="M 20 128 L 54 128 L 71 46 L 93 210 L 109 128 L 236 128"/>
+  </g>
+  <g class="fill">
+    <path d="M 208 46 L 215 59 L 228 66 L 215 73 L 208 86 L 201 73 L 188 66 L 201 59 Z"/>
+  </g>
+</svg>

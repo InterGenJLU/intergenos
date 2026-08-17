@@ -1,0 +1,30 @@
+name: rocwmma
+version: "7.2.4"
+release: 1
+description: Wave Matrix Multiply-Accumulate C++ headers (flash-attention build dep)
+license: MIT
+homepage: https://github.com/ROCm/rocm-libraries
+tier: compute
+build_style: custom
+install_func: do_install
+
+# SAME rocm-libraries tarball (shared-source pin); builds
+# projects/rocwmma from the monorepo (the standalone rocWMMA repo is the
+# legacy location — one pin serves the whole library set).
+source:
+  - url: https://github.com/ROCm/rocm-libraries/archive/refs/tags/rocm-${version}.tar.gz
+    filename: rocm-rocm-libraries-${version}.tar.gz
+    sha256: 50a4090b4ad18b34c375f666e5f71816cf55f89bc2175dc3eba9a7b80f65a15d
+
+gpu_targets: "gfx1100;gfx1102;gfx1201"
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - rocm-cmake
+  - rocm-hip
+  host: []
+  runtime: []
+verify_paths:
+  - /opt/rocm/include/rocwmma/rocwmma.hpp

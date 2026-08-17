@@ -1,0 +1,19 @@
+name: vim
+version: "9.2.0078"
+release: 2  # r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: Vi IMproved text editor
+license: Vim
+source:
+- url: https://github.com/vim/vim/archive/v${version}/vim-${version}.tar.gz
+  sha256: 031e56ccc745fd2db2464dbde1e232cde6ec45251a6f7253ef34deca7faed887
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - ncurses
+tier: core
+build_style: custom
+verify_paths:
+  - /usr/bin/vi
+  - /usr/bin/ex
+  - /usr/share/vim

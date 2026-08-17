@@ -1,0 +1,54 @@
+# chronicle-userdata.service — hourly user-data capture (spec §6).
+#
+# Oneshot fired by chronicle-userdata.timer. Captures the user-data layer
+# (hardlink rotation against the target) WHILE the target volume is present;
+# an absent target is a quiet skip that leaves the intent for reattach
+# catch-up (spec §5). A capture whose estimated delta exceeds the off-peak
+# threshold is enqueued, not run here — the drain runs from the off-peak
+# timer.
+#
+# Same capability posture as chronicled.service: read every user's home
+# (CAP_DAC_READ_SEARCH), write only the local store + mount roots. Restore's
+# higher capabilities live in the separate chronicle-restore@.service.
+
+[Unit]
+Description=Chronicle hourly user-data capture
+Documentation=man:chronicled(8) man:chronicle(1)
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/libexec/chronicle/chronicled --task capture-userdata
+StandardOutput=journal
+StandardError=journal
+
+StateDirectory=chronicle
+RuntimeDirectory=chronicle
+RuntimeDirectoryPreserve=yes
+
+# Canonical daemon-hardening baseline + the ratified backup relaxations
+# (identical set to chronicled.service; the read-all-of-home grant a backup
+# capture requires).
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallFilter=~@resources
+ReadWritePaths=/var/lib/chronicle /mnt /media /run/media
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+AmbientCapabilities=CAP_DAC_READ_SEARCH

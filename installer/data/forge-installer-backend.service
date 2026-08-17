@@ -1,0 +1,44 @@
+[Unit]
+Description=InterGenOS Forge installer D-Bus backend
+# Started on-demand by dbus-daemon via the activation .service file at
+# /usr/share/dbus-1/system-services/org.intergenos.ForgeInstaller1.service.
+# Not enabled by default — there is nothing to install until the user
+# launches Forge.
+Documentation=https://github.com/InterGenJLU/intergenos
+
+[Service]
+Type=dbus
+BusName=org.intergenos.ForgeInstaller1
+ExecStart=/usr/bin/forge --mode service
+# The backend handles its own clean shutdown via an idle timeout after
+# install completion. systemd should not aggressively kill it mid-install.
+TimeoutStopSec=300
+KillMode=mixed
+Restart=no
+
+# Hardening — root-privileged but tightly sandboxed otherwise. NOTE
+# ProtectSystem must NOT be set to strict/full here because the install
+# pipeline legitimately writes to /var, /etc, and /mnt/target. Filesystem
+# write paths needed: /var/lib/forge (yaml), /var/log (audit log),
+# /mnt/target/ (install destination), /dev, /sys, /run.
+#
+# PrivateTmp INTENTIONALLY OMITTED: it creates a private mount namespace
+# for the service. The install pipeline mounts /dev/sda2 at /mnt/target;
+# the mount(2) syscall succeeds inside the namespace, but libmount's
+# post-mount work (mtab/utab updates, namespace propagation handoff)
+# hits EPERM with "filesystem was mounted, but any subsequent operation
+# failed. Operation not permitted." This wedged installs at PHASE_MOUNT
+# (surfaced 2026-05-26 install attempts #12/#13). Backend's other
+# protections (ProtectHome=read-only, no setuid via NoNewPrivileges=false
+# limited to caps already needed for install) remain in force. Sharing
+# /tmp with the host is acceptable: backend is short-lived (~30s idle
+# timeout after install completion), runs only when user explicitly
+# launches Forge, and tmp-side leakage between Forge install and other
+# host processes is bounded by the install duration.
+ProtectHome=read-only
+NoNewPrivileges=false
+# CapabilityBoundingSet intentionally NOT restricted — the install pipeline
+# needs CAP_SYS_ADMIN (mount), CAP_SYS_CHROOT, CAP_DAC_OVERRIDE
+# (writing /etc/shadow in chroot), CAP_NET_ADMIN (network config),
+# CAP_MKNOD, CAP_CHOWN, plus SYS_BOOT for the bootloader install.
+# Effectively all caps are needed; tighter cap-bounding is a follow-up.

@@ -1,0 +1,123 @@
+name: handbrake
+version: "1.11.2"
+release: 1
+description: Video transcoder with a GTK front-end and a command-line interface
+license: GPL-2.0-only
+homepage: https://handbrake.fr/
+tier: extra
+iso_include: false  # mirror-only: video transcoding is an opt-in install
+build_style: custom
+install_func: do_install
+# Upstream builds seven libraries from its own pinned sources on Linux and
+# offers no system-library switch for them: its ffmpeg carries patches that
+# are not upstreamed, its x265 is built three times over for 8/10/12-bit
+# depth, and the dvd/bluray/av1/zimg set is pinned to the exact revisions it
+# tests against. Those seven tarballs are declared here as secondary sources
+# so they are fetched and checksummed by the same machinery as any other
+# source, then handed to the build offline (build.sh stages them into the
+# distfile directory and the build runs with downloads disabled).
+source:
+- url: https://github.com/HandBrake/HandBrake/releases/download/${version}/HandBrake-${version}-source.tar.bz2
+  sha256: 12b046350f2422dc28783ff94229aff4ba5fe5e683431e057355d36163b2593a
+- url: https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs2/ffmpeg-8.0.2.tar.bz2
+  sha256: 2a8b8840c0bc78f5ed1576f98eba7df00c05f87fd6d07fad16efcd9333016edf
+- url: https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs2/x265-snapshot-20260216-13309.tar.gz
+  sha256: a0882bb90826da62a96676c1a7cb7a7beb7f1db901f2775299cbeed03c3eb2a2
+- url: https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs2/dav1d-1.5.3.tar.bz2
+  sha256: e099f53253f6c247580c554d53a13f1040638f2066edc3c740e4c2f15174ce22
+- url: https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs2/SVT-AV1-v4.1.0.tar.gz
+  sha256: 6c4c0c44ff0ba3d136d6f57f3a707f9de8e9c866f50f809c1d22a43f0d8c9583
+- url: https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs2/zimg-snapshot-20250624.tar.gz
+  sha256: 19a96cdc266466be58be86a9271bedb1f080bf4cc14f5ed58ac39dc5b970fd17
+- url: https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs2/libdvdread-7.0.1.tar.bz2
+  sha256: b69f74d9ceea1ed173b579deba99f669c2cb42f3fd06d7d23b33ff222aa63763
+- url: https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs2/libdvdnav-7.0.0.tar.bz2
+  sha256: 1363cdfaf6e92c0b574579299b5480f5867fb32989451468a28f3f402ec48787
+- url: https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs2/libbluray-1.4.0.tar.xz
+  sha256: 77937baf07eadda4b2b311cf3af4c50269d2ea3165041f5843d96476c4c92777
+dependencies:
+  build:
+  - python
+  - cmake
+  - meson
+  - ninja
+  - nasm
+  - autoconf
+  - automake
+  - libtool
+  - pkgconf
+  - gtk4
+  - glib2
+  - jansson
+  - libxml2
+  - libass
+  - libogg
+  - libvorbis
+  - libtheora
+  - libjpeg-turbo
+  - x264
+  - lame
+  - opus
+  - speex
+  - libvpx
+  - freetype2
+  - harfbuzz
+  - fribidi
+  - numactl
+  - zlib
+  - bzip2
+  - xz
+  host: []
+  runtime:
+  - gtk4
+  - glib2
+  - jansson
+  - libxml2
+  - libass
+  - libogg
+  - libvorbis
+  - libtheora
+  - libjpeg-turbo
+  - x264
+  - lame
+  - opus
+  - speex
+  - libvpx
+  - freetype2
+  - harfbuzz
+  - fribidi
+  - numactl
+  - zlib
+  - bzip2
+  - xz
+silent_loss_accepted:
+  - fdk-aac   # a non-free AAC encoder; the build stays GPL-clean and uses
+              # ffmpeg's native AAC encoder instead.
+  - libdovi   # Dolby Vision metadata; the upstream library is not in the tree
+              # and the encoder works without it.
+  - nvenc     # NVIDIA hardware encoding needs vendor headers not in the tree.
+  - nvdec     # NVIDIA hardware decoding, same reason.
+  - qsv       # Intel Quick Sync needs the oneVPL runtime, not in the tree.
+  - vce       # AMD hardware encoding needs the AMF headers, not in the tree.
+tests:
+  enabled: false
+  reason: >-
+    The build system exposes no check target for the transcoder or the CLI;
+    the only test target upstream defines is a meson validation of the GTK
+    front-end's AppStream metadata, which requires appstreamcli, and that tool
+    is not in the tree. There is nothing this phase could run.
+# The two entries below are inside HandBrake's BUNDLED libbluray contrib only
+# (upstream's own contrib meson invocation passes -Dfreetype=disabled
+# -Dlibxml2=disabled): they serve BD-J menu font rendering and disc-library
+# metadata parsing, code paths HandBrake never calls — it uses libbluray for
+# title scanning only. The MAIN HandBrake build links the SYSTEM freetype (via
+# libass) as the header comment above records. Enabling them would grow the
+# static contrib surface to light up unreachable code, diverging from the
+# upstream contrib recipe for no user-visible capability. Decided 2026-08-05.
+silent_loss_accepted:
+  - freetype   # bundled-libbluray-only; upstream contrib default; unreachable via HandBrake
+  - libxml2    # bundled-libbluray-only; upstream contrib default; unreachable via HandBrake
+verify_paths:
+  - /usr/bin/HandBrakeCLI
+  - /usr/bin/ghb
+  - /usr/share/applications/fr.handbrake.ghb.desktop

@@ -1,0 +1,23 @@
+# chronicle-offpeak.timer — deferred-capture drain schedule (spec §5, §6).
+#
+# Fires chronicle-offpeak.service on a ~2h cadence. The SERVICE self-gates on
+# the user's off-peak window (chronicled --task drain-queue runs only the
+# intents whose window is open), so the timer can fire around the clock and
+# the drain does the actual off-peak gating — a fire inside working hours is a
+# no-op. Persistent=true catches up a window missed while the machine was off.
+#
+# User-tunable (PRIME DIRECTIVE):
+#   systemctl disable chronicle-offpeak.timer
+
+[Unit]
+Description=Chronicle off-peak deferred-capture drain schedule
+Documentation=man:chronicled(8) man:chronicle(1)
+
+[Timer]
+OnCalendar=*-*-* 00/2:00:00
+RandomizedDelaySec=10m
+Persistent=true
+Unit=chronicle-offpeak.service
+
+[Install]
+WantedBy=timers.target

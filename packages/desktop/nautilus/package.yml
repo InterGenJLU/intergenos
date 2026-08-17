@@ -1,0 +1,50 @@
+name: nautilus
+version: '49.3'
+# release 2 (GE-01 L20): rebuilt against gexiv2 0.16 (probe migrated to the
+# renamed gexiv2-0.16 pkg-config module); the published release-1 archive
+# links the 0.14-era gexiv2 — mirror monotonicity demands the bump.
+release: 2
+description: GNOME file manager
+license: GPL-3.0-or-later
+homepage: https://wiki.gnome.org/Apps/Files
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/nautilus/49/nautilus-${version}.tar.xz
+  sha256: aa6bf376f08992362805eae01890b1bf5ad148f356aa7ccfe1f664eda88d413e
+dependencies:
+  build:
+  - gnome-desktop
+  - libadwaita1
+  - libportal
+  - gst-plugins-base
+  - gexiv2
+  - gnome-autoar
+  - libseccomp
+  - tinysparql
+  - desktop-file-utils
+  - glib2
+  - libcloudproviders
+  - localsearch
+  - gtk4
+  - icu
+  host: []
+  runtime:
+  - gnome-desktop
+  - libadwaita1
+  - libportal
+  - gst-plugins-base
+  - gexiv2
+  - gnome-autoar
+  - libseccomp
+  - tinysparql
+  - glib2
+  - libcloudproviders
+  - localsearch
+  - gtk4
+  - icu
+verify_paths:
+  - /usr/bin/nautilus
+  - /usr/bin/nautilus-autorun-software
+  - /usr/lib/libnautilus-extension.so

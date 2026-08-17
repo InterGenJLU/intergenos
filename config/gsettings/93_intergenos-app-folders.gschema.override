@@ -1,0 +1,28 @@
+# InterGenOS app-overview folder — gschema override (PI-3).
+#
+# The GNOME app-overview "InterGenOS" folder is ALSO seeded as a system dconf
+# default (/etc/dconf/db/local.d/01-intergenos-app-folder). That alone proved
+# insufficient: on first session gnome-shell materializes the app-folders SCHEMA
+# DEFAULT into the USER db (which then shadows the system `local` db), and the
+# upstream schema default does not include 'InterGenOS' — so the folder vanished
+# on a fresh install (PI-3, reproduced on a development machine + a development machine: the user db came up
+# ['System','Utilities','YaST','Pardus'], no InterGenOS).
+#
+# Fix: change the SCHEMA DEFAULT itself via this vendor gschema override — the
+# distro-standard mechanism for shipping a system app-folder (cf. Clear Linux
+# clr-desktop-defaults, Ubuntu 10_ubuntu-settings). Now the value gnome-shell
+# materializes into the user db INCLUDES 'InterGenOS', while remaining a DEFAULT
+# the user can still override by reorganizing their overview — unlike a dconf
+# lock, which would defeat user control (PRIME DIRECTIVE). The relocatable folder
+# schema is set with the `schema:path` override header. This complements (does
+# not replace) the local dconf db, which still covers the resolved-value layer.
+#
+# To apply: glib-compile-schemas /usr/share/glib-2.0/schemas/
+
+[org.gnome.desktop.app-folders]
+folder-children=['Utilities', 'InterGenOS']
+
+[org.gnome.desktop.app-folders.folder:/org/gnome/desktop/app-folders/folders/InterGenOS/]
+name='InterGenOS'
+translate=false
+categories=['X-InterGenOS']

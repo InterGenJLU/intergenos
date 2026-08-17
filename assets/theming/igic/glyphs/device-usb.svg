@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- device glyph: usb / removable media — a stick body + metal connector. -->
+  <g class="glyph">
+    <rect x="96.4" y="55" width="63.1" height="110.5" rx="7.9"/>
+    <rect x="112.2" y="165.5" width="31.6" height="35.5"/>
+    <line x1="112.2" y1="82.6" x2="143.8" y2="82.6"/>
+  </g>
+</svg>

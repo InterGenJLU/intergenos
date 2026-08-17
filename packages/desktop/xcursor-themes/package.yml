@@ -1,0 +1,22 @@
+name: xcursor-themes
+version: "1.0.7"
+release: 1
+description: Default X cursor themes
+license: MIT
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/data/xcursor-themes-${version}.tar.xz
+  sha256: 95bae8f48823d894a05bf42dfbf453674ab7dbdeb11e2bc079e8525ad47378c8
+dependencies:
+  build:
+  - xcursorgen
+  - libXcursor
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+verify_paths:
+  - /usr/share/icons/handhelds

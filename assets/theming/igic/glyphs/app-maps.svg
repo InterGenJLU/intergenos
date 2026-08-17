@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Maps — a location pin. -->
+  <g class="glyph">
+    <path d="M 128 214 C 92 164 74 136 74 102 C 74 72 98 48 128 48 C 158 48 182 72 182 102 C 182 136 164 164 128 214 Z"/>
+    <circle cx="128" cy="100" r="24"/>
+  </g>
+</svg>

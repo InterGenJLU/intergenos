@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Camera / Snapshot — a camera. -->
+  <g class="glyph">
+    <rect x="46" y="88" width="164" height="102" rx="16"/>
+    <circle cx="128" cy="140" r="30"/>
+    <path d="M 82 88 L 82 74 A 6 6 0 0 1 88 68 L 122 68 A 6 6 0 0 1 128 74 L 128 88"/>
+  </g>
+  <g class="fill"><circle cx="184" cy="112" r="6"/></g>
+</svg>

@@ -1,0 +1,18 @@
+# Stateful family manifest — status/bluetooth (ICON_CATEGORIES.md §6.3.1). An OVERLAY-ONLY base
+# (no signal ladder): one Bluetooth rune + a per-state mark. gnome-shell
+# _getIconNameFromState (js/ui/status/bluetooth.js:425-434): active = ON (bare rune); disabled =
+# OFF / ABSENT (foreground slash); acquiring = TURNING_ON / TURNING_OFF (accent ellipsis).
+# level 0 on every state. Names verified char-for-char vs pinned gnome-shell-49.4 bluetooth.js.
+schema_version: 1
+family: bluetooth
+category: status
+fit: 0.999                  # optical T(q) family fit (measured convergence)
+kind: symbolic
+base: bt-rune
+export:
+  svg: true
+  png: [16, 24, 32, 48]
+states:
+  - { id: bluetooth-active,    level: 0, fit: 1.414 }
+  - { id: bluetooth-disabled,  level: 0, dim: true, overlays: [disabled], fit: 1.414 }
+  - { id: bluetooth-acquiring, level: 0, overlays: [acquiring], fit: 1.068 }

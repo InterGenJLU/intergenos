@@ -1,0 +1,21 @@
+name: libxkbfile
+version: "1.2.0"
+release: 1
+description: XKB file handling library
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/lib/libxkbfile-${version}.tar.xz
+  sha256: 7f71884e5faf56fb0e823f3848599cf9b5a9afce51c90982baeb64f635233ebf
+dependencies:
+  build:
+  - libX11
+  host: []
+  runtime:
+  - libX11
+verify_paths:
+  - /usr/lib/libxkbfile.so
+  - /usr/lib/pkgconfig/xkbfile.pc

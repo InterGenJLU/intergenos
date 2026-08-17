@@ -1,0 +1,26 @@
+name: rust-bindgen
+version: "0.72.1"
+release: 3  # r3: check() fail-closed — the `|| true` test-verdict mask removed (2 failures had shipped silently); the two libclang-21-vs-vendored-expectation goldens skipped by name with reason in build.sh. r2: hook-contract wave: shell completions staged in do_install (owned payload)
+description: Rust FFI bindings generator
+license: BSD-3-Clause
+homepage: ''
+tier: core
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/rust-lang/rust-bindgen/archive/refs/tags/v${version}/rust-bindgen-${version}.tar.gz
+    sha256: 4ffb17061b2d71f19c5062d2e17e64107248f484f9775c0b7d30a16a8238dfd1
+build_artifacts:
+  - name: rust-bindgen-${version}-vendor.tar.xz
+    generated_by: cargo-vendor
+dependencies:
+  build:
+  - rust
+  - llvm
+  host: []
+  runtime:
+  - llvm
+verify_paths:
+  - /usr/share/bash-completion/completions/bindgen
+  - /usr/share/zsh/site-functions/_bindgen
+  - /usr/bin/bindgen

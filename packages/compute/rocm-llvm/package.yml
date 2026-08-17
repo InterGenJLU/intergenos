@@ -1,0 +1,42 @@
+name: rocm-llvm
+version: "7.2.4"
+release: 1
+content_hash: 4578c90014b73603
+description: AMD ROCm LLVM toolchain (amdclang, lld, compiler-rt) for GPU kernel compilation
+license: Apache-2.0 WITH LLVM-exception
+homepage: https://github.com/ROCm/llvm-project
+tier: compute
+build_style: custom
+install_func: do_install
+
+# AMD's llvm-project fork at the rocm-7.2.4 release tag. This ONE tarball
+# feeds THREE packages (gcc-style shared-source pin): rocm-llvm builds
+# llvm/, rocm-device-libs builds amd/device-libs/, rocm-comgr builds
+# amd/comgr/ — and rocm-hip additionally extracts amd/hipcc/ from it.
+# sha256 pinned 2026-07-15 (single-witness GitHub archive endpoint,
+# cross-confirmed against Arch's rocm-llvm 7.2.4 packaging source pin).
+source:
+  - url: https://github.com/ROCm/llvm-project/archive/refs/tags/rocm-${version}.tar.gz
+    filename: rocm-llvm-project-${version}.tar.gz
+    sha256: 526b5fe23417c41acbeb2273e470887b4593f48a297a8d9c1a1aa730d556f9fb
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - python
+  - zlib
+  - zstd
+  - libffi
+  - libxml2
+  host: []
+  runtime:
+  - zlib
+  - zstd
+  - libffi
+  - libxml2
+verify_paths:
+  - /opt/rocm/lib/llvm/bin/clang
+  - /opt/rocm/lib/llvm/bin/ld.lld
+  - /opt/rocm/bin/amdclang++
+  - /opt/rocm/lib/llvm/lib/libomp.so

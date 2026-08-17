@@ -1,0 +1,19 @@
+name: idna
+version: "3.16"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Internationalized Domain Names in Applications (IDNA)
+license: BSD-3-Clause
+homepage: https://github.com/kjd/idna
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/1a/88/bcf9709822fe69d02c2a6a77956c98ce6ea8ca8767a9aadcedc7eb6a2390/idna-3.16.tar.gz
+  sha256: d7a6da03db833450fca25d2358ac9ff06cd624577a4aea3a596d5c0f77b8e03d
+dependencies:
+  build:
+  - flit-core
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/idna

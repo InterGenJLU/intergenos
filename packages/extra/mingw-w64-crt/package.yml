@@ -1,0 +1,31 @@
+name: mingw-w64-crt
+version: "14.0.0"
+release: 2  # r2: license: Zope-2.0 -> ZPL-2.0 — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade.
+description: Windows C runtime import libraries and startup objects, both PE triplets (mingw-w64 toolchain, stage 4)
+# Zope Public License 2.0's identifier is ZPL-2.0; 'Zope-2.0' is not one. The
+# version stated by the recipe is kept as-is — moving 2.0 to 2.1 would be a
+# different licence, not a spelling fix.
+license: ZPL-2.0 AND LGPL-2.1-or-later AND BSD-3-Clause
+homepage: https://www.mingw-w64.org/
+tier: extra
+# GE extra-tier wave (build plan §4, RT-15 stage 4). Compiled WITH the
+# bootstrap cross-gcc (the first consumer of the cycle-break) into the
+# per-triplet sysroots. Ships COFF archives + startup objects — NOT ELF;
+# the archive-time width audit keys on ELF magic and skips them by design
+# (verified in igos-build/elfaudit.py before authoring, not assumed).
+# Same tarball + pin as mingw-w64-headers (one pin, one artifact).
+build_style: custom
+# Mirror-only (extra-tier default, stated explicitly).
+iso_include: false
+source:
+- url: https://downloads.sourceforge.net/project/mingw-w64/mingw-w64/mingw-w64-release/mingw-w64-v${version}.tar.bz2
+  sha256: 6eaf921d9eb987d3820b364ea9775bc19b965ec81490b6fdd716526c28e1995c
+dependencies:
+  build: []
+  host:
+  - mingw-w64-gcc-bootstrap
+  runtime: []
+verify_paths:
+  - /usr/x86_64-w64-mingw32/lib/libmsvcrt.a
+  - /usr/i686-w64-mingw32/lib/libmsvcrt.a
+  - /usr/x86_64-w64-mingw32/lib/crt2.o

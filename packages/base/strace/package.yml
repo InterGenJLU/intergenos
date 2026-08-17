@@ -1,0 +1,28 @@
+name: strace
+version: "6.19"
+release: 1
+description: System call tracer
+license: LGPL-2.1-or-later
+homepage: https://strace.io/
+tier: base
+build_style: autotools
+
+source:
+  - url: https://strace.io/files/${version}/strace-${version}.tar.xz
+    sha256: e076c851eec0972486ec842164fdc54547f9d17abd3d1449de8b120f5d299143
+
+dependencies:
+  build: []
+  host: []
+  runtime: []
+
+configure_flags:
+  - "--prefix=/usr"
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "strace test suite exercises ptrace against many kernel syscalls; chroot lacks the host kernel features (seccomp, namespaces, /proc/<pid>/* state) that several tests assume"
+
+verify_paths:
+  - /usr/bin/strace

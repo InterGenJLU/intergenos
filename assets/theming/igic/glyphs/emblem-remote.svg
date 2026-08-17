@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: small "remote" emblem for a folder body — a globe (meridian + equator);
+       the network/remote location cue; sits low, clears the tab. -->
+  <g class="glyph">
+    <circle cx="128" cy="152" r="26"/>
+    <ellipse cx="128" cy="152" rx="11" ry="26"/>
+    <line x1="102" y1="152" x2="154" y2="152"/>
+  </g>
+</svg>

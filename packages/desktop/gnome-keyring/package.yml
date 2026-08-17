@@ -1,0 +1,41 @@
+name: gnome-keyring
+version: '48.0'
+release: 3  # hook-contract wave: pam.d/gnome-keyring moved into do_install (owned payload)
+description: GNOME password and secret storage
+license: GPL-2.0-or-later
+homepage: https://wiki.gnome.org/Projects/GnomeKeyring
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-keyring/48/gnome-keyring-${version}.tar.xz
+  sha256: f20518c920e9ea3f9c9b8b44be8c50d8d7feecd0dd5624960f77bd2ca4fbeb9d
+dependencies:
+  build:
+  - gcr
+  - libcap-ng   # meson cap-ng probe: privilege/capability drop for gnome-keyring-daemon (mlock path); was silently NOT-FOUND pre-r2
+  - linux-pam
+  - dbus
+  - libxslt
+  - openssh
+  - glib2
+  - libgcrypt
+  - p11-kit
+  host: []
+  runtime:
+  - gcr
+  - libcap-ng
+  - linux-pam
+  - dbus
+  - openssh
+  - glib2
+  - libgcrypt
+  - p11-kit
+configure_flags:
+- --prefix=/usr
+- --with-pam-dir=/usr/lib/security
+verify_paths:
+  - /etc/pam.d/gnome-keyring
+  - /usr/bin/gnome-keyring
+  - /usr/bin/gnome-keyring-3
+  - /usr/bin/gnome-keyring-daemon

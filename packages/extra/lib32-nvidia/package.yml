@@ -1,0 +1,68 @@
+name: lib32-nvidia
+version: "580.159.04"
+release: 2  # r2: license: MIT-AND-GPL-2.0-only-AND-LicenseRef-NVIDIA-Linux-EULA -> MIT AND GPL-2.0-only AND LicenseRef-NVIDIA-Linux-EULA — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade. r1: NEW — NVIDIA proprietary 32-bit userspace (the COMPAT32 payload from the SAME .run the 64-bit nvidia consumes) + the i686 Vulkan ICD, under /usr/lib32. Closes the gaming-closure 32-bit-to-dGPU gap the gaming r2 RT-5 note teed (NVK's 32-bit ICD reaches only the iGPU; reaching the dGPU needs the proprietary lib32 ICD). Mirror-only + hardware-gated (requires_pci_vendor 10de) exactly like the 64-bit sibling; the glvnd split is mirrored (lib32-libglvnd owns the 32-bit client dispatchers, so this ships only the *_nvidia vendor libs + the i686 ICD). Version-locked to the sibling (RT-9); source pins are a subset of the sibling's (W2-a).
+description: NVIDIA proprietary GPU driver — 32-bit userspace libraries (multilib runtime; mirror-only, NVIDIA-hardware opt-in)
+# Same three licences as before; the AND operators were hyphens, which made the
+# whole thing one unresolvable token instead of an expression.
+license: MIT AND GPL-2.0-only AND LicenseRef-NVIDIA-Linux-EULA
+homepage: https://www.nvidia.com/en-us/drivers/
+tier: extra
+build_style: custom
+install_func: do_install
+lib32_source: nvidia
+elf_class: "32"
+iso_include: false
+# Hardware gate — identical to the 64-bit sibling: Forge's package selection
+# (installer/backend/packages.py get_group_packages) skips this package unless
+# a display controller with PCI vendor 10de (NVIDIA) is present on the target,
+# fail-closed if the vendor cannot be detected. The 32-bit vendor libs are
+# useless — and the ICD misleading — on an AMD/Intel GPU; this keeps them off
+# non-NVIDIA boxes, the same discipline that keeps the 64-bit nvidia off them.
+requires_pci_vendor: "10de"
+# Source = a SUBSET of the 64-bit nvidia pin set (W2-a source identity). Both
+# entries carry the sibling's exact shas. source[0] is the open-gpu-kernel-
+# modules tarball: this twin does NOT use it, but the orchestrator auto-
+# extracts ONLY source[0] and feeds it to tar, so source[0] must be a real
+# tarball and the .run must sit at source[1] (never auto-extracted) — exactly
+# the sibling's layout. configure() extracts source[1] by hand.
+source:
+- url: https://github.com/NVIDIA/open-gpu-kernel-modules/archive/refs/tags/${version}.tar.gz
+  filename: open-gpu-kernel-modules-${version}.tar.gz
+  sha256: "cbe87400e2f6b04e39915caae082bcbba17cc6cd66dcd11337b1fa2cb6059434"
+- url: https://us.download.nvidia.com/XFree86/Linux-x86_64/${version}/NVIDIA-Linux-x86_64-${version}.run
+  filename: NVIDIA-Linux-x86_64-${version}.run
+  sha256: "c1e66761b088d17b3adf6cb6979de9af38be2684d102b001a176dcfafabdca1e"
+dependencies:
+  build:
+  # Ensures /usr/lib32 exists + the 32-bit libc is present before the prebuilt
+  # vendor blobs are laid down (they are dynamically linked against it).
+  - lib32-glibc
+  host: []
+  runtime:
+  - lib32-glibc          # 32-bit libc runtime for the vendor libs
+  # 32-bit GL dispatch: libglvnd owns the 32-bit libGLX/libEGL client sonames;
+  # NVIDIA registers its 32-bit *_nvidia vendor libs THROUGH glvnd's vendor
+  # JSON (the same split the 64-bit sibling makes with libglvnd), so the
+  # dispatcher must be present for the vendor libs to be reachable.
+  - lib32-libglvnd
+  # NOTE: the 64-bit sibling (nvidia) owns the kernel module, GSP firmware, the
+  # glvnd vendor JSON, and the hardware gate; the 32-bit userspace is
+  # meaningless without it. The coupling is expressed as the ONE-DIRECTIONAL
+  # AUTO-COUPLE edge on the sibling (nvidia runtime-deps lib32-nvidia,
+  # Decided GO 2026-07-09), so nvidia always brings this twin on an
+  # NVIDIA box. The reverse edge (lib32-nvidia -> nvidia) is intentionally
+  # OMITTED: it would form a runtime cycle, and the auto-couple already
+  # guarantees co-installation; the shared requires_pci_vendor:10de gate +
+  # mirror-only posture keep this twin off non-NVIDIA boxes on its own.
+verify_paths:
+  # The load-bearing 32-bit vendor libs the ICD dispatches to, plus the i686
+  # Vulkan ICD itself (the whole point of the package). iso_include:false, so
+  # these are enforced at archive-seal time by the mirror-only gate
+  # (igos-build/tracker.py _enforce_mirror_archive_verify_paths), which fails
+  # the build if any is absent from the sealed .igos.tar.gz — the same
+  # enforcement path the 64-bit sibling's mirror-only verify_paths ride. The
+  # FULL 32-bit file manifest is materialised + verified on the build-VM leg
+  # (the .run's ./32/ payload is not extractable on the dev box).
+  - /usr/lib32/libGLX_nvidia.so.0
+  - /usr/lib32/libEGL_nvidia.so.0
+  - /usr/share/vulkan/icd.d/nvidia_icd.i686.json

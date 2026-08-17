@@ -1,0 +1,25 @@
+name: intergen-toggle
+version: "1.0"
+release: 5  # r5: neutral-language sweep of comments and printed text: decisions are recorded as "decided <date>" instead of being credited to a person or project role, development-host shorthand is replaced by a plain description, and the citations of a repository that is not published are replaced by what they were pointing at. Comments and strings only — no rule, path, flag, threshold or code path changed. The public-content scanner now carries detectors for all three classes (scripts/check-public-content.py), so the classes cannot return silently; tests/preflight/test_public_language_detectors.py proves each detector in both directions.
+content_hash: 474d3a82ce6b04b1
+description: GUI toggle to enable/disable the opt-in InterGen AI assistant. release 4 corrects StartupWMClass to com.intergenos.intergen-toggle (matches the GApplication id) so the running window gets the toggle icon, not a generic gear. release 3 relabels the launcher "InterGen AI" → "Enable InterGen AI", ships a proper app icon (pulse mark in a power-on ring, replacing the unresolved generic gear), and tags it under the custom ArcMenu "InterGenOS" category. Single-screen GTK4 + libadwaita app that mirrors the Forge installer's "Enable the InterGen AI assistant?" toggle for post-install reconfiguration. Honors D-010 (opt-in by design; user-control posture); user explicitly toggles to enable, never auto-enables. Provides the GUI path referenced in Forge + welcomer copy ("opt in later either by opening the InterGen AI app from your Applications menu OR by running `intergen setup` in a terminal").
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: desktop
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - python
+  - gtk4
+  - libadwaita1
+  - intergen
+  - gnome-terminal
+verify_paths:
+  - /usr/bin/intergen-toggle
+  - /usr/libexec/intergen-toggle/intergen-toggle.py
+  - /usr/share/applications/intergen-toggle.desktop
+  - /usr/share/icons/hicolor/scalable/apps/intergen-toggle.svg

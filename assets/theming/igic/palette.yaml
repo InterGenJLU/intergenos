@@ -1,0 +1,40 @@
+# IGIC controlled palette — the ONLY colors an icon recipe may name.
+#
+# `tokens` mirror VISUAL_LANGUAGE.md §4 verbatim (authoritative canon — a change
+# here is a canon change and belongs in VISUAL_LANGUAGE.md first, then mirrored).
+# `accents` are the folder / MIME color-coding set. They are PROTOTYPE-SCOPED
+# starter values: the design doc (§10.2) reserves the authoritative accent
+# enumeration for the operator in a companion ICON_CATEGORIES.md. The set below
+# is a defensible default so the prototype renders; the operator's enumeration
+# supersedes it by editing this file (no code change).
+#
+# Rule 21 note: every token here is real and used by the shipped recipes. Nothing
+# is a placeholder.
+
+schema_version: 1
+
+tokens:                       # VISUAL_LANGUAGE.md §4 — authoritative
+  bg-void:      "#050810"     # deepest dark — the canvas icons render onto
+  bg-surface:   "#0a0e1a"     # elevated surface
+  bg-card:      "#0f1525"     # card / tile body
+  bg-view:      "#080c18"     # content views
+  bg-sidebar:   "#030609"     # deepest container
+  ecg-blue:     "#0099FF"     # --accent : the ECG-blue signature
+  ecg-bright:   "#33b1ff"     # --accent-bright
+  text:         "#e2e8f0"     # off-white — symbolic-icon stroke
+  text-dim:     "#7a8ba8"     # slate
+  text-ghost:   "#3d4f6a"     # ghost / disabled
+  success:      "#10b981"     # green — semantic state only
+  warning:      "#f59e0b"     # amber — warnings only (NOT a folder color)
+  error:        "#ef4444"     # red — errors / destructive
+  pure-white:   "#ffffff"     # "live" acknowledgement white
+
+accents:                      # folder / MIME color-coding — prototype-scoped (design §10.2)
+  intergen-blue:  "#0099FF"   # default folder / app  (= ecg-blue)
+  accent-teal:    "#14b8a6"   # documents-class
+  accent-green:   "#10b981"   # media / ok-class     (= success hue)
+  accent-violet:  "#8b5cf6"   # code / dev-class
+  accent-magenta: "#e05299"   # pictures-class
+  accent-yellow:  "#ffd23f"   # DISTINCT from warning amber #f59e0b (design §10.2 mandate)
+  accent-orange:  "#fb8c3b"   # downloads-class
+  accent-red:     "#ef4444"   # important-class      (= error hue, reserved coding)

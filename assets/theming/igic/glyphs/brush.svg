@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: appearance — paintbrush (Papirus tool-brush read: handle + ferrule band + tapered bristle tuft). VL primitives only, colorless. -->
+  <g class="glyph">
+    <path d="M 124 50 L 140 52 L 134 108 L 122 108 Z"/>
+    <path d="M 104 108 L 152 108 L 152 130 L 104 130 Z"/>
+    <path d="M 104 130 L 152 130 C 154 166 140 198 128 208 C 116 198 102 166 104 130 Z"/>
+  </g>
+</svg>

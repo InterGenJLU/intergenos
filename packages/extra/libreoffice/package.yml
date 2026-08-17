@@ -1,0 +1,91 @@
+name: libreoffice
+version: "26.2.1.2"
+release: 3  # r3: strip scp2 gid_Module_* filelists from DESTDIR root — they entered the manifest as phantom files and broke pkm verify on pristine installs (2026-07-20). r2: iso_include true — ships on the ISO (2026-07-18 curation correction, same basis as gimp r3; office suite is a mainstream-distro default)
+description: Full-featured office productivity suite
+license: MPL-2.0
+homepage: https://www.libreoffice.org/
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.documentfoundation.org/libreoffice/src/26.2.1/libreoffice-${version}.tar.xz
+  sha256: 18ce225f73fb2a37710b3ce2246a6fab9fb25ef10bc6960ac57b594bf5e8fc28
+# Companion tarballs extracted into the same source root by build.sh:48-54.
+# Declared here so verify-sources catches drift and download-sources auto-fetches.
+# Same pattern as core/python + core/systemd secondary tarballs (commit ec5ecde).
+- url: https://download.documentfoundation.org/libreoffice/src/26.2.1/libreoffice-dictionaries-${version}.tar.xz
+  sha256: 02f2a45c0f3ff2357ecb9e8165ce64743c892ea9b5acc24cae0c965c52382913
+- url: https://download.documentfoundation.org/libreoffice/src/26.2.1/libreoffice-help-${version}.tar.xz
+  sha256: da279231c1b2eb21238411f1e8e09527bb5b7c17cce9993baf6624db4fd92568
+- url: https://download.documentfoundation.org/libreoffice/src/26.2.1/libreoffice-translations-${version}.tar.xz
+  sha256: 4c78dde91e04e50090c861964923b0695fc21df1376cbbb500c8cdf435aa9143
+patches:
+  - file: libreoffice-26.2.1.2-poppler_26.02-1.patch
+    sha256: 1762197bf017b17e3afea076f6ddbad50ac74ab42ed1a09d07c3cdd0301b1f5e
+dependencies:
+  build:
+  - boost
+  - clucene
+  - curl
+  - glm
+  - glu
+  - gpgmepp
+  - harfbuzz
+  - icu
+  - lcms2
+  - libatomic_ops
+  - libtiff
+  - libwebp
+  - libxml2
+  - libxslt
+  - nss
+  - openssl
+  - poppler
+  - redland
+  - unixodbc
+  - zip
+  - which
+  - wget
+  - libarchive
+  - perl-archive-zip
+  - libcdr
+  - libvisio
+  - libwpg
+  - libwpd
+  - librevenge
+  - zlib
+  - zstd
+  host: []
+  runtime:
+  - boost
+  - clucene
+  - curl
+  - glu
+  - gpgmepp
+  - harfbuzz
+  - icu
+  - lcms2
+  - libatomic_ops
+  - libtiff
+  - libwebp
+  - libxml2
+  - libxslt
+  - nss
+  - openssl
+  - poppler
+  - redland
+  - unixodbc
+  - libarchive
+  - perl-archive-zip
+  - libcdr
+  - libvisio
+  - libwpg
+  - libwpd
+  - librevenge
+  - zlib
+  - zstd
+verify_paths:
+  - /usr/bin/libreoffice
+  - /usr/lib/libreoffice/CREDITS.fodt
+  - /usr/lib/libreoffice/LICENSE

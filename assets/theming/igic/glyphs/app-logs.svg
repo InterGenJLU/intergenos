@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Logs — journal lines. -->
+  <g class="glyph">
+    <rect x="48" y="52" width="160" height="152" rx="12"/>
+    <line x1="92" y1="88" x2="184" y2="88"/>
+    <line x1="92" y1="118" x2="184" y2="118"/>
+    <line x1="92" y1="148" x2="184" y2="148"/>
+    <line x1="92" y1="178" x2="150" y2="178"/>
+  </g>
+  <g class="fill">
+    <circle cx="72" cy="88" r="5"/><circle cx="72" cy="118" r="5"/><circle cx="72" cy="148" r="5"/><circle cx="72" cy="178" r="5"/>
+  </g>
+</svg>

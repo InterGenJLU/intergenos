@@ -1,0 +1,25 @@
+name: screen
+version: "5.0.1"
+release: 3  # r3: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: GNU Screen terminal multiplexer
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/screen/
+tier: base
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://ftpmirror.gnu.org/screen/screen-${version}.tar.gz
+    sha256: 2dae36f4db379ffcd14b691596ba6ec18ac3a9e22bc47ac239789ab58409869d
+
+dependencies:
+  build:
+    - linux-pam
+  host: []
+  runtime:
+    - linux-pam
+    - ncurses
+verify_paths:
+  - /usr/bin/screen
+  - /usr/bin/screen-5.0.1
+  - /usr/share/screen

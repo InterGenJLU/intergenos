@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- mime emblem: image — framed landscape (sun + hills), widened frame. -->
+  <g class="glyph">
+    <rect x="96" y="106" width="64" height="44" rx="6"/>
+    <circle cx="114" cy="122" r="6"/>
+    <path d="M 98 148 L 118 126 L 130 136 L 146 118 L 158 148"/>
+  </g>
+</svg>

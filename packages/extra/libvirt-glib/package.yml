@@ -1,0 +1,32 @@
+name: libvirt-glib
+version: "5.0.0"
+release: 1
+description: GLib and GObject bindings for libvirt
+license: LGPL-2.1-or-later
+homepage: https://libvirt.org
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://download.libvirt.org/glib/libvirt-glib-${version}.tar.xz
+    sha256: 9bfec346382416a3575d87299bc641b2a464aa519fd9b1287e318aa43a2f3b8b
+dependencies:
+  build:
+    - meson
+    - ninja
+    - pkgconf
+    - python
+    - glib2
+    - libvirt
+    - libxml2
+    - gobject-introspection
+  host: []
+  runtime:
+    - glib2
+    - libvirt
+    - libxml2
+verify_paths:
+  - /usr/lib/libvirt-glib-1.0.so.0
+  - /usr/lib/libvirt-gobject-1.0.so.0
+  - /usr/lib/girepository-1.0/LibvirtGObject-1.0.typelib

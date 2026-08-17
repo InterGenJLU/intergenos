@@ -1,0 +1,37 @@
+name: libosinfo
+version: "1.12.0"
+release: 1
+content_hash: 5072f7418797bfcc
+description: GObject library for operating system and install-media metadata
+license: LGPL-2.1-or-later
+homepage: https://libosinfo.org
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://releases.pagure.org/libosinfo/libosinfo-${version}.tar.xz
+    sha256: ad8557ece26793da43d26de565e3d68ce2ee6bfb8d0113b7cc7dfe07f6bfc6b6
+dependencies:
+  build:
+    - meson
+    - ninja
+    - pkgconf
+    - glib2
+    - libxml2
+    - libxslt
+    - libsoup3
+    - gobject-introspection
+    - hwdata
+  host: []
+  runtime:
+    - glib2
+    - libxml2
+    - libxslt
+    - libsoup3
+    - hwdata
+    - osinfo-db
+verify_paths:
+  - /usr/lib/libosinfo-1.0.so.0
+  - /usr/lib/girepository-1.0/Libosinfo-1.0.typelib
+  - /usr/bin/osinfo-query

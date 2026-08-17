@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: appearance — painter's palette. A thick C-body wrapping a compact thumb-hole notch
+       set in the lower-right eighth of the body (rounded inner end; stroke sweeps in and back
+       out), + three paint wells upper-left. Single-weight line-forward. Colorless. -->
+  <g class="glyph">
+    <path d="M 196 150 A 80 80 0 1 0 150 198 C 146 191 141 181 143 170 C 145 159 154 154 166 152 C 177 150 187 150 196 150 Z"/>
+    <g class="fill">
+      <circle cx="94" cy="100" r="11"/>
+      <circle cx="130" cy="92" r="11"/>
+      <circle cx="96" cy="138" r="11"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,29 @@
+name: squashfs-tools
+version: "4.7.5"
+release: 1
+description: Tools to create and extract Squashfs filesystems
+license: GPL-2.0-or-later
+homepage: https://github.com/plougher/squashfs-tools
+tier: base
+build_style: custom
+
+source:
+  - url: https://github.com/plougher/squashfs-tools/archive/refs/tags/${version}.tar.gz
+    sha256: 547b7b7f4d2e44bf91b6fc554664850c69563701deab9fd9cd7e21f694c88ea6
+    # The GitHub archive URL basename is the bare tag (4.7.5.tar.gz) — collision-
+    # prone in /sources. Pin a descriptive local filename (atop precedent).
+    filename: ${name}-${version}.tar.gz
+
+dependencies:
+  build: []
+  host: []
+  runtime:
+    - zlib
+    - xz
+    - zstd
+    - lz4
+    - lzo
+
+verify_paths:
+  - /usr/bin/mksquashfs
+  - /usr/bin/unsquashfs

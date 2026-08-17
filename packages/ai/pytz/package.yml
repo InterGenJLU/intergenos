@@ -1,0 +1,21 @@
+name: pytz
+version: "2026.2"
+release: 1
+description: World timezone definitions (Olson tz database) for Python
+license: MIT
+homepage: https://pythonhosted.org/pytz
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/ff/46/dd499ec9038423421951e4fad73051febaa13d2df82b4064f87af8b8c0c3/pytz-2026.2.tar.gz
+  sha256: 0e60b47b29f21574376f218fe21abc009894a2321ea16c6754f3cad6eb7cdd6a
+dependencies:
+  build:
+  - setuptools
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/pytz/__init__.py
+  - /usr/lib/python3.14/site-packages/pytz/tzinfo.py

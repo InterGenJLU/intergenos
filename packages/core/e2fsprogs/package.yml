@@ -1,0 +1,23 @@
+name: e2fsprogs
+version: "1.47.3"
+release: 3  # hook-contract wave: metadata_csum_seed removal applied to the shipped mke2fs.conf
+description: Ext2/3/4 filesystem utilities
+license: GPL-2.0-or-later
+source:
+- url: https://downloads.sourceforge.net/project/e2fsprogs/e2fsprogs/v${version}/e2fsprogs-${version}.tar.gz
+  sha256: 2f5164e64dd7d91eadd1e0e8a77d92c06dd7837bb19f1d9189ce1939b363d2b4
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - util-linux
+tier: core
+build_style: custom
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "e2fsprogs test suite expects loop devices and a writeable /dev for filesystem-image fabrication; chroot does not expose loop-control. LFS book notes some tests fail in chroot environments."
+verify_paths:
+  - /usr/sbin/badblocks
+  - /usr/lib/libcom_err.so

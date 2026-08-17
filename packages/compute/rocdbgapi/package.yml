@@ -1,0 +1,33 @@
+name: rocdbgapi
+version: "7.2.4"
+release: 1
+description: AMD Debugger API library (GPU debug primitives — ROCgdb + the debug agent build on this)
+license: MIT
+homepage: https://github.com/ROCm/ROCdbgapi
+tier: compute
+build_style: custom
+install_func: do_install
+
+# Standalone repo at the rocm-7.2.4 tag. sha256 pinned 2026-07-17
+# (single-witness GitHub tag-archive endpoint, same caveat class as the
+# other 7.2.4 pins). Links amd_comgr (shipped); exports the cmake config
+# + pkg-config that rocgdb and rocm-debug-agent consume.
+source:
+  - url: https://github.com/ROCm/ROCdbgapi/archive/refs/tags/rocm-${version}.tar.gz
+    filename: ROCdbgapi-rocm-${version}.tar.gz
+    sha256: 25d5a1bc8a2bc9ce95c95d2c4230250fac71088bb927d4dcaf6c857090a93d4f
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - rocm-cmake
+  - rocm-comgr
+  host: []
+  runtime:
+  - rocm-comgr
+# 7.2.4 library file is librocm-dbgapi.so (the amd-dbgapi name survives
+# only in the header/pkgconfig/cmake namespaces).
+verify_paths:
+  - /opt/rocm/lib/librocm-dbgapi.so
+  - /opt/rocm/lib/cmake/amd-dbgapi

@@ -1,0 +1,21 @@
+name: python-urllib3
+version: "2.7.0"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: HTTP client library for Python (requests dependency)
+license: MIT
+homepage: https://github.com/urllib3/urllib3
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://files.pythonhosted.org/packages/source/u/urllib3/urllib3-${version}.tar.gz
+    sha256: 231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c
+dependencies:
+  build:
+    - hatchling
+    - hatch-vcs
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/urllib3/connection.py

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root{
+    --accent:#0099FF; --accent-bright:#33b1ff; --accent-glow:rgba(0,153,255,0.15);
+    --accent-glow-strong:rgba(0,153,255,0.25);
+    --void:#050810; --surface:#080c18; --card:#0f1525; --panel:#0a0e1a;
+    --border:rgba(0,153,255,0.10); --border-glow:rgba(0,153,255,0.25);
+    --text:#e2e8f0; --text-dim:#7a8ba8; --text-ghost:#3d4f6a;
+    --success:#10b981; --warning:#f59e0b; --destructive:#ef4444;
+    --radius:10px; --radius-card:14px; --radius-modal:22px; --radius-pill:9999px;
+    --font-ui:'Inter','Cantarell',sans-serif;
+    --font-mono:'JetBrains Mono','DejaVu Sans Mono',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:var(--font-ui);
+    background:
+      radial-gradient(1200px 700px at 20% -10%, rgba(0,153,255,0.06), transparent 60%),
+      radial-gradient(900px 600px at 110% 120%, rgba(0,153,255,0.05), transparent 55%),
+      #02040a;
+    padding:54px; display:flex; gap:48px; align-items:flex-start; justify-content:center;
+  }
+  .col{display:flex;flex-direction:column;gap:14px;align-items:center}
+  .caption{font-size:13px;color:var(--text-dim);letter-spacing:.02em}
+  .caption b{color:var(--text)}
+
+  /* ---- GTK4 window shell ---- */
+  .win{
+    width:480px; background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius-modal);
+    overflow:hidden;
+    box-shadow:0 40px 90px -20px rgba(0,0,0,0.75), 0 0 0 1px rgba(0,153,255,0.04);
+  }
+  .headerbar{
+    height:52px; display:flex; align-items:center; gap:11px; padding:0 12px 0 16px;
+    background:linear-gradient(180deg, #0c1322, #080c18);
+    border-bottom:1px solid var(--border-glow);
+  }
+  .headerbar .mark{width:46px;height:28px;flex:0 0 auto;
+    filter:drop-shadow(0 0 5px rgba(0,153,255,0.55)) drop-shadow(0 0 1px rgba(0,153,255,0.8))}
+  .headerbar .brand{font-size:14px;font-weight:700;color:var(--text);letter-spacing:.01em}
+  .headerbar .brand .gen{color:var(--accent-bright)}
+  .headerbar .hmode{font-size:12px;font-weight:500;color:var(--text-dim);letter-spacing:.04em;
+    padding-left:11px;margin-left:1px;border-left:1px solid var(--border-glow)}
+  .wctl{margin-left:auto;display:flex;gap:9px;align-items:center}
+  .wctl span{width:13px;height:13px;border-radius:50%;display:inline-block;opacity:.85}
+  .wctl .min{background:#3d4f6a}.wctl .max{background:#3d4f6a}.wctl .cls{background:var(--destructive)}
+
+  .body{padding:22px 24px 20px}
+
+  .titlerow{display:flex;align-items:center;gap:11px;margin-bottom:4px}
+  .glyph{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+         font-size:16px;flex:0 0 auto}
+  .glyph.warn{background:rgba(245,158,11,0.12);color:var(--warning);border:1px solid rgba(245,158,11,0.3)}
+  .glyph.send{background:var(--accent-glow);color:var(--accent-bright);border:1px solid var(--border-glow)}
+  .title{font-size:18px;font-weight:700;color:var(--text);letter-spacing:.01em}
+  .subtitle{font-size:13px;color:var(--text-dim);margin:2px 0 16px 41px}
+
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;
+         padding:4px 10px;border-radius:var(--radius-pill);font-family:var(--font-mono);letter-spacing:.02em}
+  .badge.direct{background:rgba(16,185,129,0.12);color:var(--success);border:1px solid rgba(16,185,129,0.3)}
+  .badge.dest{background:var(--accent-glow);color:var(--accent-bright);border:1px solid var(--border-glow)}
+
+  .meta{margin:14px 0 4px;font-size:13px;color:var(--text)}
+  .meta .tool{font-family:var(--font-mono);color:var(--accent-bright)}
+  .dim{color:var(--text-dim);font-size:12px}
+
+  .checks{margin:14px 0 4px;display:flex;flex-direction:column;gap:7px}
+  .chk{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-dim)}
+  .chk .m{font-family:var(--font-mono);font-size:11px;width:13px;text-align:center}
+  .chk.ok .m{color:var(--success)} .chk.no .m{color:var(--destructive)}
+  .chk.no{color:#c2cadb}
+
+  .payhead{margin:16px 0 8px;font-size:12px;color:var(--text-dim);display:flex;align-items:center;justify-content:space-between}
+  .payload{
+    background:var(--void); border:1px solid var(--border); border-radius:var(--radius-card);
+    padding:12px 13px; font-family:var(--font-mono); font-size:11.5px; line-height:1.65;
+    color:#aab6cc; max-height:150px; overflow:hidden; position:relative;
+  }
+  .payload .secret{color:var(--warning);background:rgba(245,158,11,0.08);border-radius:4px;padding:0 3px}
+  .payload .you{color:var(--text-dim)}
+  .payload::after{content:"";position:absolute;left:0;right:0;bottom:0;height:34px;
+    background:linear-gradient(transparent,var(--void))}
+  .leakwarn{margin:10px 0 2px;font-size:11.5px;color:var(--warning);display:flex;gap:6px;align-items:center}
+
+  .actions{display:flex;gap:9px;margin-top:20px}
+  .btn{flex:1;padding:10px 14px;border-radius:var(--radius);font-size:13px;font-weight:600;
+       font-family:var(--font-ui);cursor:pointer;border:1px solid var(--border);
+       background:var(--card);color:var(--text);transition:all .2s ease;text-align:center}
+  .btn.allow{border-color:rgba(16,185,129,0.5);color:var(--success)}
+  .btn.allowconv{border-color:var(--accent);color:#fff;background:var(--accent);
+                 box-shadow:0 6px 18px -6px var(--accent-glow-strong)}
+  .btn.deny{border-color:rgba(239,68,68,0.45);color:var(--destructive)}
+  .btn.primary{flex:1.3;border-color:var(--accent);color:#fff;background:var(--accent);
+               box-shadow:0 6px 18px -6px var(--accent-glow-strong)}
+  .btn.ghost{flex:.8;color:var(--text-dim)}
+  .footnote{margin-top:12px;font-size:11px;color:var(--text-ghost);text-align:center}
+</style>
+</head>
+<body>
+
+<!-- ========== Dialog A: Review gate (AI tool-call review) ========== -->
+<div class="col">
+<div class="caption"><b>A.</b> Tool-call review gate &nbsp;·&nbsp; <code>review_modal.py</code></div>
+<div class="win">
+  <div class="headerbar">
+    <svg class="mark" viewBox="0 0 52 32"><path d="M4 16 L12 16 L15 9 L18 24 L21 16 L48 16" stroke="#0099FF" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="brand">Inter<span class="gen">Gen</span></span><span class="hmode">Review</span>
+    <span class="wctl"><span class="min"></span><span class="max"></span><span class="cls"></span></span>
+  </div>
+  <div class="body">
+    <div class="titlerow">
+      <div class="glyph warn">&#9888;</div>
+      <div class="title">Allow this action?</div>
+    </div>
+    <div class="subtitle">InterGen wants to run a tool on your machine.</div>
+
+    <span class="badge direct">&#9679; user&nbsp;direct</span>
+
+    <div class="meta">Tool&nbsp; <span class="tool">shell.run</span></div>
+    <div class="meta" style="font-family:var(--font-mono);font-size:12px;color:#aab6cc;margin-top:6px">systemctl restart intergen.service</div>
+    <div class="dim" style="margin-top:6px">Held by&nbsp;<span style="font-family:var(--font-mono)">provenance_gate</span></div>
+
+    <div class="checks">
+      <div class="chk ok"><span class="m">&#10003;</span> origin: prompt came from you, this conversation</div>
+      <div class="chk ok"><span class="m">&#10003;</span> schema: arguments match the registered tool shape</div>
+      <div class="chk no"><span class="m">&#10007;</span> scope: touches a system service (needs your ok)</div>
+    </div>
+
+    <div class="actions">
+      <div class="btn allow">Allow once</div>
+      <div class="btn allowconv">Allow this conversation</div>
+      <div class="btn deny">Not now</div>
+    </div>
+    <div class="footnote">Esc or closing the window denies &mdash; fail-closed.</div>
+  </div>
+</div>
+</div>
+
+<!-- ========== Dialog B: Phone-a-friend egress consent (show-before-send) ========== -->
+<div class="col">
+<div class="caption"><b>B.</b> Show-before-send egress consent &nbsp;·&nbsp; <code>consent_modal.py</code></div>
+<div class="win">
+  <div class="headerbar">
+    <svg class="mark" viewBox="0 0 52 32"><path d="M4 16 L12 16 L15 9 L18 24 L21 16 L48 16" stroke="#0099FF" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="brand">Inter<span class="gen">Gen</span></span><span class="hmode">Confirm send</span>
+    <span class="wctl"><span class="min"></span><span class="max"></span><span class="cls"></span></span>
+  </div>
+  <div class="body">
+    <div class="titlerow">
+      <div class="glyph send">&#8599;</div>
+      <div class="title">Send this to a cloud model?</div>
+    </div>
+    <div class="subtitle">This leaves your machine. Nothing is scanned on this hop.</div>
+
+    <span class="badge dest">&#8599; DeepSeek&nbsp;·&nbsp;api.deepseek.com</span>
+
+    <div class="payhead"><span>Exactly what will be sent</span><span class="dim">read-only</span></div>
+    <div class="payload"><span class="you">you:</span> here's my prod config, why won't the daemon start?<br>
+<span class="you">you:</span> DB_URL=postgres://app:<span class="secret">S3cr3t-Pa55w0rd!</span>@10.0.0.4/main<br>
+<span class="you">you:</span> the unit file is intergen.service, logs say "permission denied"<br>
+<span class="you">intergen:</span> I can ask a frontier model to look at this&#8230;</div>
+    <div class="leakwarn">&#9888;&nbsp; Includes a secret in your conversation. Read before you send.</div>
+
+    <div class="actions">
+      <div class="btn ghost">Cancel</div>
+      <div class="btn primary">Send to DeepSeek</div>
+    </div>
+    <div class="footnote">Esc or closing the window cancels &mdash; nothing is sent.</div>
+  </div>
+</div>
+</div>
+
+</body>
+</html>

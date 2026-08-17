@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- device glyph: hard drive — a clean top-down HDD, portrait (taller than wide): a
+       rounded-rect chassis, a two-circle platter (outer ring + spindle) in the upper
+       portion, and the actuator (head) arm from a lower-left pivot. Line-art grammar. -->
+  <g class="glyph">
+    <rect x="74" y="57" width="108" height="142" rx="12"/>
+    <circle cx="128" cy="109" r="44"/>
+    <circle cx="128" cy="109" r="4"/>
+    <circle cx="94" cy="167" r="5"/>
+    <path d="M 94 167 L 142 123"/>
+  </g>
+</svg>

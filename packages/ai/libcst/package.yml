@@ -1,0 +1,34 @@
+name: libcst
+version: "1.8.6"
+release: 1
+description: Concrete syntax tree parser and serializer for Python (Rust-native parser)
+license: MIT
+homepage: https://github.com/Instagram/LibCST
+tier: ai
+iso_include: false  # pyarrow build-dep chain (training stack) — mirror-only
+build_style: custom
+install_func: do_install
+# Backend verified from the sdist: [build-system] has NO build-backend key
+# (defaults to setuptools.build_meta) with requires = setuptools,
+# setuptools-scm, setuptools-rust, wheel — all in tree. Rust workspace under
+# native/ (its Cargo.lock governs the vendor set).
+source:
+- url: https://files.pythonhosted.org/packages/source/l/libcst/libcst-${version}.tar.gz
+  sha256: f729c37c9317126da9475bdd06a7208eb52fcbd180a6341648b45a56b4ba708b
+build_artifacts:
+  - name: libcst-${version}-vendor.tar.xz
+    generated_by: cargo-vendor
+dependencies:
+  build:
+  - setuptools
+  - setuptools-scm
+  - setuptools-rust
+  - rust
+  host: []
+  runtime:
+  # Requires-Dist on python3.14: pyyaml>=6.0.3 (verify the in-tree pyyaml
+  # meets the floor at merge review; typing-extensions marker is OFF on 3.14).
+  - pyyaml
+verify_paths:
+  - /usr/lib/python3.14/site-packages/libcst/__init__.py
+  - /usr/lib/python3.14/site-packages/libcst/_parser

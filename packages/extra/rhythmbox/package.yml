@@ -1,0 +1,65 @@
+name: rhythmbox
+version: "3.4.9"
+release: 1
+description: GNOME music player and library manager (GTK3 + GStreamer)
+license: GPL-2.0-or-later
+homepage: https://wiki.gnome.org/Apps/Rhythmbox
+tier: extra
+iso_include: true  # 2026-05-28 curation walk — Keep (see docs/extra-tier-classification.md)
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/rhythmbox/3.4/rhythmbox-${version}.tar.xz
+  sha256: e42291a18df7a21ffe6b352bf73f05d7e298bb4e05bce5967f98ee8cee4408f1
+dependencies:
+  build:
+  # Required (per upstream README + meson.build "required: true")
+  - gtk3
+  - glib2
+  - libsoup3
+  - gstreamer
+  - gst-plugins-base
+  - gst-plugins-good
+  - gst-plugins-bad
+  - totem-pl-parser
+  - libpeas
+  - json-glib
+  - libxml2
+  - gettext
+  - gobject-introspection
+  - itstool
+  - desktop-file-utils
+  - appstream
+  # Recommended (auto-detected, present in tree — feature: auto)
+  - libgudev
+  - libnotify
+  - libsecret
+  - grilo
+  - python
+  - pygobject3
+  - vala
+  - libmtp  # MTP device sync. Build #5 audit: silently disabled. libgpod
+            # (iPod sync) is not in our tree — v1.0+1 backlog.
+  - cairo
+  - gdk-pixbuf
+  - gst-plugins-base-pass2
+  - pango
+  - tdb
+  host: []
+  runtime: []
+# plugins_python is disabled because enabling it BREAKS THE BUILD, not as a bare
+# scope preference: rhythmbox 3.4.9 errors at meson configure when pygobject >= 3.53
+# pairs with libpeas <= 1.36 (girepository 1.0/2.0 ABI clash; meson.build:155-159
+# guard fires), and our stack is pygobject3 3.54.5 + libpeas 1.36.0 (the last 1.x).
+# python3 itself IS present in the chroot (core tier) — the configure log's
+# "Program python3 found: NO (disabled by: plugins_python)" is meson SKIPPING the
+# search because the feature is off, not python3 being absent. So this is a
+# documented use-if-have configure-off forced by an upstream dep-stack
+# incompatibility, NOT a silent loss. Re-enabling would require libpeas 1.36->2.0
+# (upstream went straight there), a major bump affecting other consumers.
+# (silent-loss audit 2026-06-25; GB002 build-log confirm 2026-06-25 — build.sh L51-57.)
+silent_loss_accepted:
+  - plugins_python   # python plugin loader disabled (forced configure-off; see above)
+verify_paths:
+  - /usr/bin/rhythmbox
+  - /usr/lib/rhythmbox/plugins

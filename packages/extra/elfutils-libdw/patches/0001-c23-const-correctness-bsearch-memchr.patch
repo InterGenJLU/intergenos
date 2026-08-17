@@ -1,0 +1,42 @@
+diff -ruN pristine/libcpu/riscv_disasm.c elfutils-0.194/libcpu/riscv_disasm.c
+--- a/libcpu/riscv_disasm.c	2026-07-17 07:50:10.790672040 -0500
++++ b/libcpu/riscv_disasm.c	2026-07-17 07:50:10.804610271 -0500
+@@ -1259,7 +1259,7 @@
+ 		  if (rd != 0)
+ 		    op[last++] = REG (rd);
+ 		  struct known_csrs key = { csr, NULL };
+-		  struct known_csrs *found = bsearch (&key, known,
++		  const struct known_csrs *found = bsearch (&key, known,
+ 						      sizeof (known) / sizeof (known[0]),
+ 						      sizeof (known[0]),
+ 						      compare_csr);
+diff -ruN pristine/libdw/dwarf_getsrclines.c elfutils-0.194/libdw/dwarf_getsrclines.c
+--- a/libdw/dwarf_getsrclines.c	2026-07-17 07:50:10.790599914 -0500
++++ b/libdw/dwarf_getsrclines.c	2026-07-17 07:50:10.804789028 -0500
+@@ -364,7 +364,7 @@
+       const unsigned char *dirp = linep;
+       while (dirp < lineendp && *dirp != 0)
+ 	{
+-	  uint8_t *endp = memchr (dirp, '\0', lineendp - dirp);
++	  const uint8_t *endp = memchr (dirp, '\0', lineendp - dirp);
+ 	  if (endp == NULL)
+ 	    goto invalid_data;
+ 	  ++ndirs;
+@@ -440,7 +440,7 @@
+       for (unsigned int n = 1; n < ndirlist; n++)
+ 	{
+ 	  dirarray[n].dir = (char *) linep;
+-	  uint8_t *endp = memchr (linep, '\0', lineendp - linep);
++	  const uint8_t *endp = memchr (linep, '\0', lineendp - linep);
+ 	  assert (endp != NULL); // Checked above when calculating ndirlist.
+ 	  dirarray[n].len = endp - linep;
+ 	  linep = endp + 1;
+@@ -927,7 +927,7 @@
+ 	    case DW_LNE_define_file:
+ 	      {
+ 		char *fname = (char *) linep;
+-		uint8_t *endp = memchr (linep, '\0', lineendp - linep);
++		const uint8_t *endp = memchr (linep, '\0', lineendp - linep);
+ 		if (endp == NULL)
+ 		  goto invalid_data;
+ 		size_t fnamelen = endp - linep;

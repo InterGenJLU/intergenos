@@ -1,0 +1,40 @@
+# AppArmor profile for caddy — enforce mode
+# landing plan §5f
+
+#include <tunables/global>
+
+profile caddy /usr/bin/caddy {
+    #include <abstractions/base>
+    #include <abstractions/nameservice>
+
+    capability net_bind_service,
+
+    /usr/bin/caddy mr,
+    /etc/caddy/Caddyfile r,
+
+    /var/lib/caddy/ r,
+    /var/lib/caddy/** rwk,
+
+    /var/log/caddy/ r,
+    /var/log/caddy/** rw,
+
+    /usr/lib/ r,
+    /usr/lib/** mr,
+    /lib/ r,
+    /lib/** mr,
+    /lib64/ r,
+    /lib64/** mr,
+
+    /etc/localtime r,
+    /etc/ssl/ r,
+    /etc/ssl/** r,
+
+    /proc/ r,
+    /proc/*/ r,
+
+    /run/systemd/notify w,
+
+    deny @{PROC}/** rwklx,
+    deny /sys/** rwklx,
+    deny /dev/** rw,
+}

@@ -1,0 +1,20 @@
+# /etc/sysconfig/memcached — InterGenOS default config for the memcached
+# daemon launched by /usr/lib/systemd/system/memcached.service.
+#
+# Bind default: 127.0.0.1 + ::1 only (loopback). Operators wanting
+# network exposure either drop the `-l` flag (binds INADDR_ANY) or
+# substitute a specific address.
+#
+# UDP listener: default OFF (memcached 1.6.x compiled default; do not
+# pass `-U <nonzero>` unless you understand the historical UDP-amplification
+# DDoS risk and have already firewalled the UDP listener).
+#
+# SASL authentication: build-enabled but not runtime-enabled. To turn it
+# on, add `-S` to OPTIONS and create /etc/sasl2/memcached.conf with the
+# SASL backend of your choice (sasldb, ldapdb, pam, etc).
+
+USER="memcached"
+PORT="11211"
+CACHESIZE="64"
+MAXCONN="1024"
+OPTIONS="-l 127.0.0.1,::1"

@@ -1,0 +1,113 @@
+# chronicled.service — the Chronicle backup engine + sentinel (spec §6).
+#
+# Long-running system service: the JSON IPC socket at /run/chronicle/engine.sock
+# plus a poll-based config-state watcher. The hourly/off-peak/scrub work runs
+# from the companion timer units; the pre-transaction restore point is a
+# synchronous call from pkm's pre-transaction hook, not a timer.
+#
+# HARDENING — ratified 2026-04-29 canonical daemon-hardening baseline, with the
+# minimal documented relaxations a backup engine requires (spec §6, addendum
+# surfaced in §16.2):
+#   * ProtectHome=read-only — the engine MUST read every user's home to back it
+#     up, and MUST NOT write it. read-only is exactly that grant.
+#   * CapabilityBoundingSet=CAP_DAC_READ_SEARCH — read files across owners for
+#     capture. Restore needs more (CAP_CHOWN/CAP_FOWNER/CAP_DAC_OVERRIDE), so
+#     restore runs as the SEPARATE, higher-capability chronicle-restore@.service
+#     — the always-on sentinel stays at this lower set.
+#   * ReadWritePaths — /var/lib/chronicle (the local store) and the mount roots
+#     an external target is mounted under; everything else stays read-only under
+#     ProtectSystem=strict.
+#   * PrivateDevices=no + device-cgroup read-only — target enumeration MUST see
+#     the real block topology. Under PrivateDevices=yes the private /dev hides
+#     the device-mapper and partition nodes, lsblk cannot resolve the LUKS
+#     holder chain or find the root mount, and every candidate silently
+#     classified as separate-disk full protection (measured live on an
+#     installed ge9b-12 system with an encrypted root). DevicePolicy=closed
+#     with a block-read-only allow grants exactly the visibility enumeration
+#     needs and nothing writable.
+# Everything else in the canonical set stands.
+
+[Unit]
+Description=Chronicle backup engine and sentinel
+Documentation=man:chronicled(8) man:chronicle(1)
+# The engine hands its socket to the `chronicle` group, which is declared in
+# /usr/lib/sysusers.d/chronicle.conf and created by this unit. multi-user.target
+# already orders us after sysinit.target, so this is a statement of the
+# dependency rather than a repair of one — but the dependency is real, and an
+# engine that starts before its group exists leaves the socket owner-only.
+After=systemd-sysusers.service
+
+[Service]
+Type=notify
+# Run under the group the socket is handed to. The engine still runs as root
+# (no User= here), but its PRIMARY GROUP is `chronicle`, so systemd creates
+# RuntimeDirectory= already owned root:chronicle and bind() creates the socket
+# the same way. Nothing is left for a chown to do on the normal path.
+#
+# That matters because @chown is a member of @privileged, which the filter
+# below denies. A chown() from this daemon is answered with SIGSYS and the
+# process is killed — it is a signal, not an errno, so the engine's own error
+# handling never gets to run. Before this line the daemon chowned its runtime
+# directory and its socket unconditionally at every start and was killed at
+# every start: measured 2026-08-06 as 165 restarts and 166 SIGSYS coredumps on
+# one machine, each with chown at frame #0 and os_chown_impl at frame #1.
+#
+# Decided 2026-08-06: hand the group over correctly rather than widen the
+# syscall filter. Re-allowing @chown would give a backup engine that reads
+# every home directory the ability to take ownership of what it reads, which
+# is a far larger grant than the problem needs. The engine code makes the
+# same chown conditional, so the two halves hold the property together: the
+# unit means the group is already right, and the code means a right group is
+# never chowned.
+#
+# The group is created by /usr/lib/sysusers.d/chronicle.conf. With Group= set,
+# a missing group no longer degrades to an owner-only socket — the unit fails
+# to start at all — so the After= ordering above is load-bearing now, and the
+# package's post_install runs systemd-sysusers before it starts the service.
+Group=chronicle
+ExecStart=/usr/libexec/chronicle/chronicled --task serve
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+StateDirectory=chronicle
+RuntimeDirectory=chronicle
+# systemd creates the directory before ExecStart, and its default 0755 would
+# be world-traversable for the interval before the engine narrows it. The
+# engine also sets 0750 root:chronicle itself at startup — this makes the
+# directory never wider than that, not even briefly.
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes
+
+# Canonical hardening baseline + the ratified backup-engine relaxations.
+NoNewPrivileges=yes
+PrivateTmp=yes
+# Real /dev (see header): enumeration needs the dm/partition nodes. The
+# device cgroup stays closed except read-only block access.
+PrivateDevices=no
+DevicePolicy=closed
+DeviceAllow=block-* r
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallFilter=~@resources
+ReadWritePaths=/var/lib/chronicle /mnt /media /run/media
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+AmbientCapabilities=CAP_DAC_READ_SEARCH
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,19 @@
+name: font-dejavu
+version: '2.37'
+release: 1
+description: DejaVu TrueType fonts
+license: Bitstream-Vera
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://sourceforge.net/projects/dejavu/files/dejavu/${version}/dejavu-fonts-ttf-${version}.tar.bz2
+  sha256: fa9ca4d13871dd122f61258a80d01751d603b4d3ee14095d65453b4e846e17d7
+dependencies:
+  build: []
+  host: []
+  runtime: []
+
+verify_paths:
+  - /usr/share/fonts/dejavu

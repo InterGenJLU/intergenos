@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: screen-shared — a monitor (screen + stand) broadcasting: a corner cast dot + two
+       arcs (screen sharing active). remoteAccess.js:152. Compositor strokes it foreground.
+       R8-1: the monitor is harmonized to the capture-family geometry (x40-216, matching
+       screen-record / screen-stop) for family cohesion; the cast dot + arcs are repositioned
+       into the larger screen (affine-mapped from the old 52-204 / 60-168 screen rect). -->
+  <rect x="40" y="52" width="176" height="120" rx="14"/>
+  <path d="M 128 172 L 128 194"/>
+  <path d="M 96 196 L 160 196"/>
+  <circle cx="79.4" cy="140.9" r="7"/>
+  <path d="M 79.4 118.7 A 30 29 0 0 1 109.5 147.6"/>
+  <path d="M 79.4 94.2 A 56 53 0 0 1 135 147.6"/>
+</svg>

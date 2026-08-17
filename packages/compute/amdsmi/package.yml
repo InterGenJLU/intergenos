@@ -1,0 +1,45 @@
+name: amdsmi
+version: "7.2.4"
+release: 1
+content_hash: 95b0fd6222b988b8
+description: AMD System Management Interface library + amd-smi CLI (successor GPU/CPU telemetry API; amdgpu_top's full-data source)
+license: MIT
+homepage: https://github.com/ROCm/rocm-systems
+tier: compute
+build_style: custom
+install_func: do_install
+
+# SAME rocm-systems tarball (shared-source pin) for source[0]; builds
+# projects/amdsmi from the monorepo.
+#
+# source[1] = esmi_ib_library (EPYC HSMP CPU-telemetry backend the
+# pinned CMakeLists hard-integrates when ENABLE_ESMI_LIB=ON, its
+# upstream default): upstream acquires it via an UNPINNED configure-time
+# `git clone` (CMakeLists:190-224 pre-patch) — the rocprofiler-register
+# submodule class, fatal offline. The recipe instead stages this pinned
+# tarball and the tracked patch 0001 replaces the whole acquisition
+# block with a fail-closed existence assert. sha256 pinned 2026-07-17
+# (single-witness GitHub tag-archive endpoint — the tag identity is
+# corroborated by amdsmi's own pinned current_esmi_tag "esmi_pkg_ver-4.2"
+# check; no independent distro ships this library to witness bytes.
+# Content-swept at pin time: 25 files, C sources + 2 PDF manuals, no
+# binaries, no network-reaching build code).
+source:
+  - url: https://github.com/ROCm/rocm-systems/archive/refs/tags/rocm-${version}.tar.gz
+    filename: rocm-rocm-systems-${version}.tar.gz
+    sha256: 817f9c136125b8d162757a18cdc25b18b1efeb8ef36a948c85e4a672fd149de5
+  - url: https://github.com/amd/esmi_ib_library/archive/refs/tags/esmi_pkg_ver-4.2.tar.gz
+    filename: esmi_ib_library-esmi_pkg_ver-4.2.tar.gz
+    sha256: de19d222d09e2171f47f8bbd6608e5648bd547c82543379bb8fb5ed2e379e141
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - python
+  host: []
+  runtime:
+  - python
+verify_paths:
+  - /opt/rocm/lib/libamd_smi.so
+  - /opt/rocm/bin/amd-smi

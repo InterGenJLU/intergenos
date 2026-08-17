@@ -1,0 +1,25 @@
+/* Target the titlebar buttons in Nautilus */
+windowcontrols button {
+  /* 1. Reset default padding to prevent it from stretching the width */
+  padding: 0;
+  
+  /* 2. Force equal dimensions (adjust size as needed) */
+  min-width: 24px;
+  min-height: 24px;
+  
+  /* 3. Apply the circle */
+  border-radius: 50%;
+  
+  /* 4. The 'padding' effect between border and icon */
+  /* Margin moves the border away from neighboring elements */
+  margin: 4px;
+  
+  /* Use a border to see the shape clearly */
+  border: 2px solid @accent_color;
+}
+
+/* Optional: Individual button colors */
+windowcontrols button.close { border-color: #f35b53; }
+windowcontrols button.minimize { border-color: #f6c03e; }
+windowcontrols button.maximize { border-color: #31c944; }
+

@@ -1,0 +1,38 @@
+{
+  "id": "MEM-recall-forget-01",
+  "name": "recall across a restart, scoped forget, verify gone across a restart (consumer)",
+  "axis": ["memory_persistence", "context_persistence"],
+  "category": "memory",
+  "postures": ["2B-locked", "9B-native"],
+  "capabilities": ["route:memory"],
+  "tags": ["seed:memory", "class:memory-persistence", "linked-pair:consumer"],
+  "session_policy": "multi-session",
+  "cleanup": true,
+  "cleanup_for": ["MEM-store-01"],
+  "turns": [
+    {
+      "user": "what's my default editor?",
+      "session_marker": "restart-before",
+      "description": "T1 — recall AFTER a real daemon restart (the producer's process is gone). contains('neovim') proves the fact was read back from the on-disk store across a process boundary; an in-memory-only store cannot pass this. Routes via the memory path.",
+      "assertions": [
+        ["routes_via", "memory", "a recall routes to the memory path"],
+        ["contains", "neovim", "the stored fact survives a real process restart"]
+      ]
+    },
+    {
+      "user": "forget that my default editor is neovim",
+      "description": "T2 — a SCOPED forget of exactly this fact, never a wipe-all. It must route via the memory path and, being a delete, must not deny the capability (the no_capability_denial auto guards that). The durability of the delete is proved by T3, not asserted on wording here.",
+      "assertions": [
+        ["routes_via", "memory", "a scoped forget routes to the memory path"]
+      ]
+    },
+    {
+      "user": "what's my default editor?",
+      "session_marker": "restart-before",
+      "description": "T3 — the deletion must be DURABLE: after the forget AND a real restart, the fact is gone. not_contains('neovim') is the deletion proof. The honest absence reply ('I don't have that stored') is fine — the no_capability_denial auto (system-access phrases only) does not trip on it. A considered departure from the design's §4.3 T3 shorthand, which also lists no_negation: no_negation requires its keyword present-and-not-negated, which would FAIL the correct absence answer, so it is not asserted here (the capability-denial auto already covers the 'don't deny you can remember' concern).",
+      "assertions": [
+        ["not_contains", "neovim", "the forgotten fact is verifiably gone after a restart"]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+Description: Fix CallableInfo::closure_native_address() return type
+ gjs 1.86.0 declares GI::InfoOperations<...,CALLABLE>::closure_native_address()
+ as returning void**, but the underlying gobject-introspection function
+ gi_callable_info_get_closure_native_address() returns void*. Result:
+     gi/info.h:887:59: error: invalid conversion from 'void*' to 'void**'
+     [-fpermissive]
+ .
+ Upstream fix is GNOME/gjs MR !1057 (post-1.86.0). The MR also renames
+ closure() -> get_func_ptr() across function.h, arg-cache.cpp, object.cpp,
+ but those are cosmetic — the actual type-mismatch fix is the single-
+ character change to the info.h declaration. With void** -> void*, the
+ existing closure() wrapper returns void* (matching), and all consumers
+ (function.h, arg-cache.cpp, object.cpp) which use the value as void*
+ continue to work without modification.
+Origin: upstream, https://gitlab.gnome.org/GNOME/gjs/-/merge_requests/1057 (subset)
+Author: Philip Chimento <philip.chimento@gmail.com>
+
+--- a/gi/info.h
++++ b/gi/info.h
+@@ -883,7 +883,7 @@
+         return gi_callable_info_can_throw_gerror(ptr());
+     }
+     [[nodiscard]]
+-    void** closure_native_address(ffi_closure* closure) const {
++    void* closure_native_address(ffi_closure* closure) const {
+         return gi_callable_info_get_closure_native_address(ptr(), closure);
+     }
+     [[nodiscard]]

@@ -1,0 +1,933 @@
+#!/usr/bin/env bash
+# .githooks/pre-push — local gates before pushing to origin
+#
+# Catches issues that would otherwise need fix-commits after CI runs:
+# - Public-content audit violations (agent abbrevs, hex-secret false positives, PII)
+# - Bash syntax errors in modified .sh files
+# - Python syntax errors in modified .py files
+# - Stale local master (someone pushed while we worked → must rebase first)
+# - First-party content changed without a release bump (dev/master pushes only)
+#
+# Active when scripts/setup-githooks.sh has been run (sets core.hooksPath=.githooks).
+# Bypass for emergencies: git push --no-verify (use sparingly; flag in commit msg).
+
+set -euo pipefail
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+cd "$REPO_ROOT"
+
+# ---- Python interpreter detection (host-portable) ------------------------
+# Python invocation is portable across hosts:
+#   - Linux/macOS:    python3 (typical)
+#   - Windows mingw:  py launcher (Windows installer adds this)
+#   - Windows fallback: python (if Python 3 is the only python on PATH)
+# The bare `python3` path on Windows often resolves to the MS Store install
+# stub, which prompts an install + exits non-zero (caught 2026-05-06 via
+# cross-host clone validation; py-compile gate at gate 3 hit the same trap
+# again 2026-05-19 from a Windows clone). The detection chain routes around it.
+# Computed ONCE at hook start and reused by all gates that need Python.
+if python3 --version >/dev/null 2>&1; then
+    PY_BIN=python3
+elif command -v py >/dev/null 2>&1; then
+    PY_BIN=py
+elif python --version 2>&1 | grep -q "Python 3"; then
+    PY_BIN=python
+else
+    PY_BIN=""
+fi
+
+# Read stdin (pre-push hook receives refs being pushed):
+#   <local_ref> <local_sha> <remote_ref> <remote_sha>
+# Captured into PUSH_REFS array so later gates can inspect for force-push to master.
+PUSH_REFS=()
+while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    PUSH_REFS+=("$line")
+done
+
+echo "[pre-push] running local gates..."
+
+# ---- 0. Force-push HARD-block on master ----------------------------------
+# master is sacred. Any push where remote_sha (current origin) is not an
+# ancestor of local_sha (about to be pushed) means we're rewriting history
+# at master — that's only possible via --force or --force-with-lease.
+# HARD BLOCK: we never rewrite published master history.
+ZERO="0000000000000000000000000000000000000000"
+for refline in "${PUSH_REFS[@]}"; do
+    read -r local_ref local_sha remote_ref remote_sha <<< "$refline"
+    if [ "$remote_ref" = "refs/heads/master" ] && [ "$remote_sha" != "$ZERO" ]; then
+        if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+            echo "[pre-push] BLOCK: force-push to master detected."
+            echo "  remote master at: $remote_sha"
+            echo "  local master at:  $local_sha"
+            echo "  remote is NOT an ancestor of local — this would rewrite published history."
+            echo "  master is sacred; no force-push permitted."
+            echo "  If you genuinely need history rewrite (e.g., post-incident scrub),"
+            echo "  coordinate with all active agents first AND temporarily remove this gate."
+            exit 1
+        fi
+    fi
+done
+
+# ---- 0a. Pushed REF NAMES pass the language categories (fail-closed) ------
+# Nothing scanned the ref-name namespace. Every other public surface — file bytes,
+# commit subjects, commit bodies — goes through the language categories, but a branch
+# name reaches the public remote unread, and seat-named refs did reach both public
+# remotes this cycle before a person caught them. A ref name is published exactly like
+# the bytes under it.
+#
+# Placed BEFORE the multi-ref fan-out on purpose: this loop walks PUSH_REFS directly, so
+# one pass covers EVERY ref in the push whether or not the fan-out runs, and a child
+# invocation re-checking its own single ref is harmless.
+#
+# DELETIONS ARE EXEMPT, and that is not a softening: a delete arrives with the all-zero
+# local sha, publishes nothing, and is the only way to REMOVE a badly-named ref. Gating
+# deletions would make the offending refs this gate exists for impossible to clean up.
+#
+# TAGS ARE INCLUDED as well as branches. The dispatched scope named branch refs; a tag
+# name is published to the same public namespace and costs one case arm, so leaving it
+# open would be a known silent hole. Called out in the delivery rather than folded in
+# quietly.
+if [ -f scripts/check-public-language.py ] && [ -n "$PY_BIN" ]; then
+    _refname_args=()
+    for refline in "${PUSH_REFS[@]}"; do
+        read -r _l _ls _rref _rs <<< "$refline"
+        [ "$_ls" = "$ZERO" ] && continue          # deletion: nothing published
+        case "$_rref" in
+            refs/heads/*|refs/tags/*) _refname_args+=(--text "$_rref") ;;
+        esac
+    done
+    if [ "${#_refname_args[@]}" -gt 0 ]; then
+        if ! "$PY_BIN" scripts/check-public-language.py --label "pushed ref name" \
+                 "${_refname_args[@]}"; then
+            echo "[pre-push] BLOCK: a pushed ref NAME failed the language gate (see above)"
+            echo "  Rule 22: public refs are content-descriptive (feature/<topic>),"
+            echo "  never named after a seat, a person, or a dev host."
+            echo "  Rename locally, then push the new name:"
+            echo "    git branch -m <old> <new> && git push origin <new>"
+            exit 1
+        fi
+    fi
+else
+    echo "[pre-push] WARN: ref-name language gate skipped (script or Python missing)"
+fi
+
+# ---- 0b. Multi-ref fan-out (blind spot 3: the push-range under-scan) ------
+# The ref loop below stops at the FIRST branch ref it finds (`break`). One push can
+# update several branches — `git push origin dev master`, `git push --all`, or any
+# two-branch spelling — and every branch ref after the first was then validated by
+# nothing at all. Reproduced as a real push before this fix was written: a commit whose
+# subject the conventional-commit gate refuses in isolation (exit 1) reached the remote
+# untouched when it arrived as the SECOND ref of a two-ref push (exit 0, "all gates PASS").
+#
+# The fix keeps the single-ref logic below exactly as it is — that logic is well tested and
+# carries several hard-won corrections — and instead re-invokes this hook once per branch
+# ref, feeding it that one ref on stdin. Each ref therefore gets the complete, unmodified
+# gate suite. Fail-closed in the direction the standard requires: EVERY ref must pass, and
+# a single refusal refuses the whole push, because git applies a rejected push atomically
+# only when --atomic is given and we will not rely on the caller for that.
+#
+# GIT_PRE_PUSH_SINGLE_REF marks the child invocations so they run the gates directly
+# instead of fanning out again. Setting it by hand on a multi-ref push disables the
+# fan-out and restores first-ref-only validation — the same effect class as
+# `git push --no-verify`, which every pusher already holds; the variable adds no
+# bypass a pusher does not have, but it is not a no-op either.
+_branch_ref_count=0
+for refline in "${PUSH_REFS[@]}"; do
+    read -r _l _ls _rref _rs <<< "$refline"
+    case "$_rref" in refs/heads/*) _branch_ref_count=$((_branch_ref_count + 1)) ;; esac
+done
+
+if [ "$_branch_ref_count" -gt 1 ] && [ -z "${GIT_PRE_PUSH_SINGLE_REF:-}" ]; then
+    echo "[pre-push] multi-ref push: $_branch_ref_count branch refs — validating EACH separately"
+    _fanout_rc=0
+    for refline in "${PUSH_REFS[@]}"; do
+        read -r _l _ls _rref _rs <<< "$refline"
+        case "$_rref" in refs/heads/*) ;; *) continue ;; esac
+        echo "[pre-push] ---- validating $_rref ----"
+        if ! GIT_PRE_PUSH_SINGLE_REF=1 bash "$0" "$@" <<< "$refline"; then
+            echo "[pre-push] ref $_rref FAILED its gates."
+            _fanout_rc=1
+        fi
+    done
+    if [ "$_fanout_rc" -ne 0 ]; then
+        echo "[pre-push] BLOCK: at least one ref in this multi-ref push failed its gates."
+        exit 1
+    fi
+    echo "[pre-push] all refs in this multi-ref push PASS"
+    exit 0
+fi
+
+# ---- Determine the branch being pushed + its validation range ------------
+# Gates 2-9 validate the commits THIS push introduces on whatever branch is
+# being pushed (master, dev, feature/*) — NOT a hardcoded master range. Per
+# branch-model.md the content/syntax gates are identical on every branch. The
+# old hardcoded master/origin-master derivation had two bugs on a dev push:
+# (a) a drifted local master spuriously blocked it at gate 2, and (b) the dev
+# commits were never actually validated (the master range was empty). Gate 0
+# (force-block) + gate 10 (anchor) stay master-only by design (they read
+# PUSH_REFS directly).
+PUSH_BRANCH=""
+PUSH_LOCAL=""
+PUSH_REMOTE=""
+for refline in "${PUSH_REFS[@]}"; do
+    read -r _lref local_sha remote_ref remote_sha <<< "$refline"
+    case "$remote_ref" in
+        refs/heads/*)
+            # A ref DELETION arrives with the all-zero local sha — it
+            # publishes no content, so there is nothing for the
+            # branch-content gates to scan (and a ZERO..X range is not a
+            # valid revision range: the first branch-ref delete crashed
+            # the language gate fail-closed). Skip it and keep looking
+            # for a real branch update in the same push.
+            if [ "$local_sha" = "$ZERO" ]; then
+                continue
+            fi
+            PUSH_BRANCH="${remote_ref#refs/heads/}"
+            PUSH_LOCAL="$local_sha"
+            PUSH_REMOTE="$remote_sha"
+            break
+            ;;
+    esac
+done
+
+# Deletion-only (or tag-only) push: no branch content is being published,
+# so the range-scoped content gates have nothing to validate — and running
+# them with an empty LOCAL produces invalid ranges, not protection. The
+# master-only protections above (force-block, anchor) have already run
+# against PUSH_REFS directly.
+if [ -z "$PUSH_LOCAL" ]; then
+    echo "[pre-push] no branch content update in this push (deletion/tag-only) — content gates skipped"
+    exit 0
+fi
+
+# LOCAL/REMOTE drive gates 3-9 (range = merge-base(LOCAL,REMOTE)..LOCAL).
+# A brand-new branch (remote_sha all-zero) has no remote counterpart yet.
+# The gates validate the commits THIS push introduces TO ORIGIN, so:
+#   1. Ref-alias push (branch rename): the exact SHA is already published
+#      under another origin ref — every commit already passed these gates;
+#      the validation range is EMPTY. (Found 2026-07-12 renaming the two
+#      held feature lanes: the fallback re-scanned the whole published
+#      history and halted on a pre-existing, already-landed commit.)
+#   2. Genuinely-new branch: baseline at the DEEPEST published ancestor —
+#      merge-base with origin/dev when at-or-below the branch (covers both
+#      a branch off the current dev tip AND one forked from an older dev
+#      tip after dev moved on), else merge-base with origin/master. The
+#      historical origin/master-tip baseline re-evaluated the whole
+#      dev-ahead-of-master history for any dev-side feature branch and
+#      halted on pre-existing origin/dev commits the push never introduced
+#      (found 2026-07-09 on the first dev-side docs branch).
+LOCAL="$PUSH_LOCAL"
+if [ -z "$PUSH_REMOTE" ] || [ "$PUSH_REMOTE" = "$ZERO" ]; then
+    if [ -n "$(git branch -r --list 'origin/*' --contains "$PUSH_LOCAL" 2>/dev/null)" ]; then
+        REMOTE="$PUSH_LOCAL"
+    else
+        _mb_dev=$(git merge-base "$PUSH_LOCAL" origin/dev 2>/dev/null || echo "")
+        _mb_master=$(git merge-base "$PUSH_LOCAL" origin/master 2>/dev/null || echo "")
+        if [ -n "$_mb_dev" ] && { [ -z "$_mb_master" ] || git merge-base --is-ancestor "$_mb_master" "$_mb_dev" 2>/dev/null; }; then
+            REMOTE="$_mb_dev"
+        elif [ -n "$_mb_master" ]; then
+            REMOTE="$_mb_master"
+        else
+            REMOTE=$(git rev-parse origin/master 2>/dev/null || echo "")
+        fi
+    fi
+else
+    REMOTE="$PUSH_REMOTE"
+fi
+
+# ---- 1. Public-content audit (scans the pushed sha via git-show) ---------
+# The audit must scan the actually-being-pushed bytes. Reading from the
+# working tree (the historical default) was incorrect: a soft-reset+edit
+# pattern could pass the audit on working-tree content while the bytes in
+# HEAD (what actually gets pushed) carried violations. Caught 2026-05-06.
+# Fix: --from-ref reads each file via `git show <ref>:<file>` so the audit
+# operates on the same content that's about to be pushed.
+#
+# That fix pinned the ref to HEAD, which is right only when HEAD happens to
+# be the commit being published. It is not, in the form
+#   git push origin <some-branch>:dev
+# where the ref pushed to dev is <some-branch> and HEAD can be an unrelated
+# checkout entirely — the audit then cleared bytes the push was not
+# publishing while never reading the bytes it was. A merge landed on dev via
+# exactly that spelling on 2026-07-24, which is how this surfaced. The ref is
+# now PUSH_LOCAL, the local sha git handed this hook for the branch being
+# updated, so the audit reads the published content by construction rather
+# than by coincidence. Everything else about the gate — fail-closed on a
+# violation, WARN-skip on a missing interpreter or a missing script — is
+# unchanged.
+#
+# Uses PY_BIN computed at hook start (host-portable Python detection).
+if [ -f scripts/check-public-content.py ]; then
+    if [ -z "$PY_BIN" ]; then
+        echo "[pre-push] WARN: no Python 3 interpreter found; skipping audit"
+    else
+        if ! "$PY_BIN" scripts/check-public-content.py --from-ref "$PUSH_LOCAL"; then
+            echo "[pre-push] BLOCK: public-content audit failed (see above)"
+            exit 1
+        fi
+    fi
+else
+    echo "[pre-push] WARN: scripts/check-public-content.py not found; skipping audit"
+fi
+
+# ---- 1b. Public-language gate (fail-closed; PRIVATE term list) ------------
+# Range-scoped companion to the audit above: scans ONLY the added lines +
+# commit messages THIS push introduces ($REMOTE..$LOCAL), against a term list
+# held privately OUTSIDE the repo (never committed). Fail-closed BOTH ways — a
+# term hit blocks, and a missing/unreadable/empty list blocks with a loud error
+# naming the private path (absence is never a silent bypass). The predecessor
+# left short collision-prone tokens to contextual-only matching, which a bare
+# token evaded; this gate matches word-boundary with span-aware, in-code
+# exemptions. A missing SCRIPT (a branch predating it) warns + skips, matching
+# the audit's posture — the security-critical input is the private list, which
+# the script itself fails closed on.
+if [ -f scripts/check-public-language.py ]; then
+    if [ -z "$PY_BIN" ]; then
+        echo "[pre-push] WARN: no Python 3 interpreter found; skipping language gate"
+    else
+        if ! "$PY_BIN" scripts/check-public-language.py --range "$REMOTE..$LOCAL"; then
+            echo "[pre-push] BLOCK: public-language gate failed (see above)"
+            exit 1
+        fi
+    fi
+else
+    echo "[pre-push] WARN: scripts/check-public-language.py not found; skipping language gate"
+fi
+
+# ---- 1c. Writing-register gate (two tiers; decided 2026-08-16) ------------
+# Range-scoped like 1b: scans ONLY the prose zones of the lines this push
+# adds, plus the range's non-merge commit messages. The narrow tier refuses
+# (machine-assistant self-narration phrasing); the broad tier prints
+# advisory lines and never refuses on its own. Exclusion set is the
+# committed config/register-gate-exclusions.txt (the script fails loudly if
+# it is missing — an undefined exclusion set is never a silent wider scan).
+# A missing SCRIPT (a branch predating it) warns + skips, matching the
+# posture of the gates above.
+if [ -f scripts/check-register.py ]; then
+    if [ -z "$PY_BIN" ]; then
+        echo "[pre-push] WARN: no Python 3 interpreter found; skipping register gate"
+    else
+        if ! "$PY_BIN" scripts/check-register.py --range "$REMOTE..$LOCAL"; then
+            echo "[pre-push] BLOCK: writing-register gate failed (see above)"
+            exit 1
+        fi
+    fi
+else
+    echo "[pre-push] WARN: scripts/check-register.py not found; skipping register gate"
+fi
+
+# ---- 2. Stale-branch check (the pushed branch vs its OWN remote) ----------
+# Require the local branch being pushed to be at-or-ahead of its remote
+# counterpart, catching the "remote moved while we worked → push rejected"
+# loop here with a clear message. Branch-aware: checks origin/$PUSH_BRANCH,
+# not a hardcoded origin/master (the old form spuriously blocked a dev push
+# whenever the local master had drifted). A brand-new branch has no remote
+# head to be stale against, so the check is skipped for it.
+#
+# Fail-closed posture (per §6 C1 review): if git fetch fails (network, auth,
+# remote unreachable), block rather than silently pass against a cached ref;
+# explicit override env var for genuinely-offline scenarios.
+if [ -n "$PUSH_BRANCH" ] && [ -n "$PUSH_REMOTE" ] && [ "$PUSH_REMOTE" != "$ZERO" ]; then
+    if ! git fetch origin "$PUSH_BRANCH" --quiet 2>/dev/null; then
+        if [ "${GIT_PRE_PUSH_SKIP_FETCH:-0}" = "1" ]; then
+            echo "[pre-push] WARN: git fetch failed; continuing with cached origin/$PUSH_BRANCH per GIT_PRE_PUSH_SKIP_FETCH=1 override."
+        else
+            echo "[pre-push] BLOCK: git fetch origin $PUSH_BRANCH failed."
+            echo "  Stale-branch check requires a fresh origin/$PUSH_BRANCH — cannot run on cached refs."
+            echo "  Investigate: network connectivity, GitHub auth, SSH agent state."
+            echo "  Override (only when network is unreachable AND local is confirmed current):"
+            echo "    GIT_PRE_PUSH_SKIP_FETCH=1 git push origin $PUSH_BRANCH"
+            exit 1
+        fi
+    fi
+    REMOTE_HEAD=$(git rev-parse "origin/$PUSH_BRANCH" 2>/dev/null || echo "")
+    if [ -n "$REMOTE_HEAD" ] && [ "$PUSH_LOCAL" != "$REMOTE_HEAD" ]; then
+        BASE2=$(git merge-base "$PUSH_LOCAL" "$REMOTE_HEAD" 2>/dev/null || echo "")
+        if [ "$BASE2" = "$PUSH_LOCAL" ]; then
+            echo "[pre-push] BLOCK: local $PUSH_BRANCH is behind origin/$PUSH_BRANCH."
+            echo "  Remote at: $REMOTE_HEAD"
+            echo "  Local at:  $PUSH_LOCAL"
+            echo "  Rebase: git pull --rebase origin $PUSH_BRANCH"
+            exit 1
+        elif [ -n "$BASE2" ] && [ "$BASE2" != "$REMOTE_HEAD" ]; then
+            # An authorized history rewrite of one's own non-protected branch
+            # (e.g. a sanctioned message-only rebase) is divergence by
+            # definition; without an expression for it here, the only route
+            # past this gate was --no-verify — which stands down every gate at
+            # once, exactly the outcome the gate set exists to prevent (decided
+            # 2026-07-24). The hook cannot see push flags, so the lease cannot
+            # be asserted here: the pusher declares intent explicitly instead,
+            # every other gate still runs, and the push command itself should
+            # carry --force-with-lease for the concurrency protection this
+            # gate approximates. master and dev are never rewritable.
+            case "$PUSH_BRANCH" in
+                master|dev) ALLOW_REWRITE=0 ;;
+                *) ALLOW_REWRITE="${GIT_PRE_PUSH_ALLOW_REWRITE:-0}" ;;
+            esac
+            if [ "$ALLOW_REWRITE" = "1" ]; then
+                echo "[pre-push] WARN: declared rewrite of $PUSH_BRANCH accepted (GIT_PRE_PUSH_ALLOW_REWRITE=1)."
+                echo "  Old remote head: $REMOTE_HEAD"
+                echo "  New local head:  $PUSH_LOCAL"
+                echo "  All remaining gates still apply. Push with --force-with-lease."
+            else
+                echo "[pre-push] BLOCK: local and origin $PUSH_BRANCH have diverged."
+                echo "  Resolve: git pull --rebase origin $PUSH_BRANCH (resolve conflicts)"
+                if [ "$PUSH_BRANCH" != "master" ] && [ "$PUSH_BRANCH" != "dev" ]; then
+                    echo "  Authorized rewrite of this branch: GIT_PRE_PUSH_ALLOW_REWRITE=1 git push --force-with-lease origin $PUSH_BRANCH"
+                fi
+                exit 1
+            fi
+        fi
+    fi
+fi
+
+# ---- 3. Syntax checks on modified files in to-be-pushed commits ---------
+if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+    BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
+    CHANGED=$(git diff --name-only --diff-filter=AM "$BASE" "$LOCAL" 2>/dev/null || true)
+
+    # Bash syntax
+    while IFS= read -r f; do
+        [ -z "$f" ] && continue
+        if [[ "$f" == *.sh ]] && [ -f "$f" ]; then
+            if ! bash -n "$f" 2>/dev/null; then
+                echo "[pre-push] BLOCK: bash syntax error in $f"
+                bash -n "$f" || true
+                exit 1
+            fi
+        fi
+    done <<< "$CHANGED"
+
+    # Python syntax (excludes virtualenv / __pycache__ / build dirs)
+    while IFS= read -r f; do
+        [ -z "$f" ] && continue
+        if [[ "$f" == *.py ]] && [ -f "$f" ]; then
+            case "$f" in
+                */__pycache__/*|*/.venv/*|*/build/*) continue ;;
+            esac
+            if [ -z "$PY_BIN" ]; then
+                echo "[pre-push] WARN: no Python 3 interpreter; cannot py-compile $f"
+                continue
+            fi
+            if ! "$PY_BIN" -m py_compile "$f" 2>/dev/null; then
+                echo "[pre-push] BLOCK: Python syntax error in $f"
+                "$PY_BIN" -m py_compile "$f" || true
+                exit 1
+            fi
+        fi
+    done <<< "$CHANGED"
+fi
+
+# ---- 4. Commit-message-to-diff scope gate --------------------------------
+# For each commit in the push range, files with >THRESHOLD lines changed
+# must appear in the commit message body. Catches under-documented commits
+# like 8fc25f5 (2026-05-06: shipped 138 lines of mirror-upload under a
+# 1-line-tweak commit message). Three-lane fleet consensus on this gate.
+# Override: `NO-GATE: <reason>` line anywhere in commit message body for
+# legitimate bulk-mechanical changes (e.g., mass-rename, generated content).
+THRESHOLD=50
+if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+    BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
+
+    for sha in $(git rev-list --no-merges --reverse "$BASE".."$LOCAL"); do
+        msg=$(git log -1 --format=%B "$sha")
+
+        # Skip if NO-GATE override is present
+        if echo "$msg" | grep -qE '^NO-GATE:'; then
+            continue
+        fi
+
+        # Iterate per-file with >THRESHOLD added+removed lines
+        while IFS=$'\t' read -r added removed file; do
+            [ -z "$file" ] && continue
+            # Binary files: numstat shows "-" instead of numbers; skip
+            [ "$added" = "-" ] && continue
+            total=$((added + removed))
+            if [ "$total" -gt "$THRESHOLD" ]; then
+                base=$(basename "$file")
+                if ! echo "$msg" | grep -qF "$file" && ! echo "$msg" | grep -qF "$base"; then
+                    echo "[pre-push] BLOCK: commit $sha touches $file ($total lines changed) but message doesn't mention it."
+                    echo "  Reason: under-documentation risk (>$THRESHOLD lines = significant scope; must appear in message)."
+                    echo "  Resolve: amend message to reference $file, OR add 'NO-GATE: <reason>' line for legitimate bulk-mechanical changes."
+                    echo ""
+                    echo "  Commit message was:"
+                    echo "$msg" | sed 's/^/    /'
+                    exit 1
+                fi
+            fi
+        done < <(git show --numstat --format='' "$sha")
+    done
+fi
+
+# ---- 5. Conventional-commit format on subject line -----------------------
+# Each commit subject must follow `<type>(<scope>): <description>` OR
+# `<type>: <description>`. Codifies de-facto convention so the message
+# format is machine-parseable. Covers common types in this repo:
+#   feat, fix, docs, refactor, test, chore, perf, infra, build, ci, revert,
+#   phase<N> (e.g., phase3, phase4), and case-by-case scope tags.
+# Override: same NO-GATE: keyword as gate 4 also bypasses this gate.
+COMMIT_TYPE_RE='^(feat|fix|docs|refactor|test|chore|perf|infra|build|ci|revert|phase[0-9]+)(\([a-zA-Z0-9_,/.\-]+\))?: .+'
+if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+    BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
+    for sha in $(git rev-list --no-merges --reverse "$BASE".."$LOCAL"); do
+        msg=$(git log -1 --format=%B "$sha")
+        if echo "$msg" | grep -qE '^NO-GATE:'; then
+            continue
+        fi
+        subject=$(echo "$msg" | head -1)
+        if ! echo "$subject" | grep -qE "$COMMIT_TYPE_RE"; then
+            echo "[pre-push] BLOCK: commit $sha subject doesn't match conventional-commit format."
+            echo "  Expected: <type>(<scope>): <description>  OR  <type>: <description>"
+            echo "  Valid types: feat, fix, docs, refactor, test, chore, perf, infra, build, ci, revert, phase<N>"
+            echo "  Got: $subject"
+            echo "  Resolve: amend the commit message, OR add 'NO-GATE: <reason>' line for unconventional-but-justified subjects."
+            exit 1
+        fi
+    done
+fi
+
+# ---- 6. Co-Authored-By trailer enforcement -------------------------------
+# Owner-instituted pattern: AI-authored commits carry Co-Authored-By trailers
+# for provenance. Threshold: any commit with >25 lines changed must have
+# the trailer (covers all substantive agent-authored commits; trivial
+# typo-fixes can skip).
+COAUTH_THRESHOLD=25
+if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+    BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
+    for sha in $(git rev-list --no-merges --reverse "$BASE".."$LOCAL"); do
+        msg=$(git log -1 --format=%B "$sha")
+        if echo "$msg" | grep -qE '^NO-GATE:'; then
+            continue
+        fi
+        # Compute total lines changed in this commit
+        total=$(git show --numstat --format='' "$sha" | awk 'BEGIN{s=0} $1!="-" && $2!="-" {s += $1 + $2} END{print s+0}')
+        if [ "$total" -gt "$COAUTH_THRESHOLD" ]; then
+            if ! echo "$msg" | grep -qiE '^Co-Authored-By:'; then
+                echo "[pre-push] BLOCK: commit $sha ($total lines changed) lacks Co-Authored-By trailer."
+                echo "  Reason: provenance — substantive commits must declare authorship."
+                echo "  Resolve: amend the commit to add (example):"
+                echo "    Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+                echo "  OR use 'NO-GATE: <reason>' for decided commits."
+                exit 1
+            fi
+        fi
+    done
+fi
+
+# ---- 7. Commit-message public-content audit ------------------------------
+# Per Group P (owner-flagged 2026-05-07): commit messages are public history.
+# Gate 1 scans file content but not commit messages; agent abbreviations,
+# internal vocab, and AGENT-NAME patterns can slip through into git log via
+# the message body. This gate scans messages of pushed commits with the same
+# patterns gate 1 uses on file content.
+if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ] && [ -f scripts/check-public-content.py ]; then
+    PY7="$PY_BIN"
+    if [ -n "$PY7" ]; then
+        BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
+        if ! "$PY7" scripts/check-public-content.py --commit-msgs "${BASE}..${LOCAL}"; then
+            echo "[pre-push] BLOCK: commit-message audit failed (see above)"
+            echo "  Resolve: amend the flagged commit message(s) before pushing."
+            echo "    git rebase -i ${BASE}      # interactive rebase to amend specific commits"
+            echo "  OR for legitimate uses, add to scripts/check-public-content.allowlist."
+            exit 1
+        fi
+    fi
+fi
+
+# ---- 8. New package.yml MUST declare verify_paths -----------------------
+# Stop-the-bleeding gate for the linux-firmware-class regression: any new
+# packages/<tier>/<name>/package.yml file in the to-be-pushed commits must
+# declare a `verify_paths:` field (or `pending_acquisition:` for deliberately-
+# deferred packages). This forces every NEW package to self-document the
+# files it produces, so the pre-squashfs audit has teeth from day one.
+# Existing packages without verify_paths (the 294-package backlog) are
+# tracked separately and not gated here — modifications to those won't
+# fail this gate. Override: NO-GATE keyword in commit body.
+if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+    BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
+    # Check each commit in the push range; collect NO-GATE-exempted shas
+    NEW_YMLS=()
+    for sha in $(git rev-list --no-merges --reverse "$BASE".."$LOCAL"); do
+        msg=$(git log -1 --format=%B "$sha")
+        if echo "$msg" | grep -qE '^NO-GATE:'; then
+            continue
+        fi
+        # Find files ADDED in this commit (status A) matching packages/*/*/package.yml
+        while IFS=$'\t' read -r status file; do
+            if [ "$status" = "A" ] && [[ "$file" =~ ^packages/[^/]+/[^/]+/package\.yml$ ]]; then
+                NEW_YMLS+=("$sha:$file")
+            fi
+        done < <(git show --name-status --format='' "$sha")
+    done
+
+    BAD_PKGS=()
+    for entry in "${NEW_YMLS[@]:-}"; do
+        [ -z "$entry" ] && continue
+        sha="${entry%%:*}"
+        file="${entry#*:}"
+        # Read the file at the version that was committed
+        content=$(git show "$sha:$file" 2>/dev/null)
+        if ! echo "$content" | grep -qE '^(verify_paths|pending_acquisition)\s*:'; then
+            BAD_PKGS+=("$sha:$file")
+        fi
+    done
+
+    if [ "${#BAD_PKGS[@]}" -gt 0 ]; then
+        echo "[pre-push] BLOCK: new package.yml file(s) without verify_paths:"
+        for entry in "${BAD_PKGS[@]}"; do
+            sha="${entry%%:*}"
+            file="${entry#*:}"
+            echo "    $file  (in commit $sha)"
+        done
+        echo ""
+        echo "  Reason: every new package must self-document load-bearing files"
+        echo "  (verify_paths:) so the pre-squashfs audit has teeth. This catches"
+        echo "  the linux-firmware-class regression (package recipe present,"
+        echo "  package installs silently nothing) before it reaches a built ISO."
+        echo ""
+        echo "  Resolve options:"
+        echo "    (a) Add a verify_paths: field declaring 2-3 load-bearing files"
+        echo "        the package installs (see existing package.yml examples)."
+        echo "    (b) For deliberately-deferred packages: use pending_acquisition:"
+        echo "        with a reason (see core/shim-signed/package.yml)."
+        echo "    (c) NO-GATE: <reason> in commit body for legitimate exemptions."
+        exit 1
+    fi
+fi
+
+# ---- 8b. Recipe phase-function shadow gate (install-recursion class) ------
+# A recipe that defines an `install()` phase function (the toolchain-tier
+# contract) shadows /usr/bin/install for every bare `install ...` call in
+# the file — bash resolves the FUNCTION first, self-recursing. Origin: the
+# GE-01 launch 2026-07-03, toolchain/glibc's m32 pass recursed for ~5h
+# (kept alive by the driver's `||` suspending set -e). This gate makes the
+# class impossible to land: any pushed build.sh that BOTH defines
+# `install()` AND calls bare `install <args>` is blocked. The correct call
+# inside install() is the full path /usr/bin/install. `install` is the
+# ONLY recipe phase-function name that collides with a real command
+# (census 2026-07-03: build/configure/do_install/check/post_install shadow
+# nothing).
+if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+    BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
+    SHADOW_BAD=()
+    for sha in $(git rev-list --no-merges --reverse "$BASE".."$LOCAL"); do
+        msg=$(git log -1 --format=%B "$sha")
+        echo "$msg" | grep -qE '^NO-GATE:' && continue
+        while IFS=$'\t' read -r status file; do
+            case "$status" in A|M) ;; *) continue ;; esac
+            [[ "$file" =~ ^packages/[^/]+/[^/]+/build\.sh$ ]] || continue
+            content=$(git show "$sha:$file" 2>/dev/null) || continue
+            if echo "$content" | grep -qE '^install\(\)' \
+               && echo "$content" | grep -qE '^[[:space:]]+install[[:space:]]+-'; then
+                SHADOW_BAD+=("$sha:$file")
+            fi
+        done < <(git show --name-status --format='' "$sha")
+    done
+    if [ "${#SHADOW_BAD[@]}" -gt 0 ]; then
+        echo "[pre-push] BLOCK: install() phase function + bare 'install' call (self-recursion):"
+        for entry in "${SHADOW_BAD[@]}"; do
+            echo "    ${entry#*:}  (in commit ${entry%%:*})"
+        done
+        echo ""
+        echo "  Reason: inside a function named install(), a bare 'install -...' call"
+        echo "  resolves to the FUNCTION and recurses infinitely (the GE-01 glibc"
+        echo "  incident, ~5h of compute). Use the full path: /usr/bin/install -..."
+        exit 1
+    fi
+fi
+
+# ---- 9. v1.1 deferred-followup consistency -------------------------------
+# Per the O-030-followup mechanism (operator greenlit 2026-05-19): every
+# commit that defers scope to v1.1 must register the deferral in
+# docs/v1.1-deferred-followups.md, so the ledger of v1.0/v1.1 scope splits
+# stays auditable and the work cannot be silently lost. The gate scans
+# commit bodies in the push range for future-version-deferral framing; each
+# flagged commit must either reference an existing F-NNN entry by ID OR
+# modify docs/v1.1-deferred-followups.md in the same commit. Override:
+# NO-GATE keyword in commit body (use sparingly; flag operator).
+if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+    BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
+    V11_VIOLATIONS=()
+    for sha in $(git rev-list --no-merges --reverse "$BASE".."$LOCAL"); do
+        msg=$(git log -1 --format=%B "$sha")
+        if echo "$msg" | grep -qE '^NO-GATE:'; then
+            continue
+        fi
+        # Patterns that flag a v1.1 / post-v1.0 deferral
+        if echo "$msg" | grep -qiE 'deferred to v1\.1|post-v1\.0|in v1\.1|v1\.1 follow-?up|defer.{0,40}v1\.1'; then
+            has_fnnn=0
+            has_doc_mod=0
+            if echo "$msg" | grep -qE 'F-[0-9]{3,}'; then
+                has_fnnn=1
+            fi
+            if git show --name-only --format='' "$sha" | grep -qx 'docs/v1.1-deferred-followups.md'; then
+                has_doc_mod=1
+            fi
+            if [ "$has_fnnn" -eq 0 ] && [ "$has_doc_mod" -eq 0 ]; then
+                V11_VIOLATIONS+=("$sha")
+            fi
+        fi
+    done
+    if [ "${#V11_VIOLATIONS[@]}" -gt 0 ]; then
+        echo "[pre-push] BLOCK: v1.1 deferral(s) without ledger entry:"
+        for sha in "${V11_VIOLATIONS[@]}"; do
+            subj=$(git log -1 --format=%s "$sha")
+            echo "    $sha  $subj"
+        done
+        echo ""
+        echo "  Reason: every commit that defers scope to v1.1 must register"
+        echo "  the deferral in docs/v1.1-deferred-followups.md so the work"
+        echo "  is auditable and cannot be silently lost. See the doc header"
+        echo "  for the entry shape."
+        echo ""
+        echo "  Resolve options:"
+        echo "    (a) Add an F-NNN entry to docs/v1.1-deferred-followups.md"
+        echo "        in this commit set, then reference its ID in the body."
+        echo "    (b) Reference an existing F-NNN entry by ID if one already"
+        echo "        covers this deferral."
+        echo "    (c) NO-GATE: <reason> in commit body for legitimate edge"
+        echo "        cases (decided authorization advised)."
+        exit 1
+    fi
+fi
+
+# ---- 9b. First-party release/content_hash checker (dev + master only) ----
+# scripts/bump-changed-releases.py fingerprints every first-party package and
+# fails when content changed without a release bump. Landing that state on an
+# integration branch means a shipped package whose recorded fingerprint does
+# not match its content — the mirror and pkm never see the new build. Every
+# other house gate ran at push time; this one did not, so the drift the
+# Chronicle merge carried (a shared generator script sitting in nine packages'
+# source_tree:, drifting eight uninvolved siblings) was caught by hand rather
+# than mechanically. Decided 2026-07-24: enforce it here.
+#
+# BRANCH-AWARE, and the narrow scope is deliberate, not an oversight:
+# enforced ONLY when the push targets dev or master. A feature branch is
+# EXEMPT BY DESIGN — the established flow lets a branch carry first-party
+# content drift and reconciles it in the co-bump that rides the merge. A
+# blanket gate would outlaw that flow and force a bump-per-branch-commit.
+#
+# WORKING TREE vs PUSHED CONTENT — the semantics this gate chose, and why:
+#   The checker reads a repo tree, but a push publishes a COMMIT, and the two
+#   are not the same bytes. A dirty tree, a soft-reset-and-edit, or a
+#   `git push origin somebranch:dev` (where HEAD is not the pushed sha at all)
+#   each make an in-place run report on content the push is not publishing —
+#   green here, drifted on origin. Two further traps: the recorded baselines
+#   are established on a pristine tree (the bump discipline is `git clean -fdX`
+#   first), so build artifacts and ignored files left lying in a working tree
+#   can move a fingerprint; and gate 1 above reads `--from-ref HEAD`, which is
+#   the same not-necessarily-the-pushed-sha assumption (flagged separately —
+#   this gate does not inherit it).
+#   RESOLUTION: evaluate a throwaway detached worktree checked out AT THE SHA
+#   BEING PUSHED. That is pushed-content-exact and pristine by construction,
+#   independent of HEAD and of whatever the working tree currently holds. The
+#   checker anchors its own REPO_ROOT to its file location, so invoking the
+#   copy inside that worktree scopes it there with no argument plumbing.
+#   Cost measured on the dev tip: ~3.2s wall and a transient ~380MB checkout,
+#   removed immediately. That price buys an exact answer instead of a
+#   plausible one, and it is paid only on a dev/master push.
+#   The evaluation itself is FAIL-CLOSED: if the worktree cannot be created,
+#   the gate blocks rather than waving the push through unevaluated.
+RELCHECK_TARGET=""
+RELCHECK_REF=""
+RELCHECK_REMOTE=""
+for refline in "${PUSH_REFS[@]}"; do
+    read -r _lref local_sha remote_ref remote_sha <<< "$refline"
+    if [ "$remote_ref" = "refs/heads/dev" ] || [ "$remote_ref" = "refs/heads/master" ]; then
+        [ "$local_sha" = "$ZERO" ] && continue   # branch deletion publishes nothing
+        RELCHECK_TARGET="$local_sha"
+        RELCHECK_REF="${remote_ref#refs/heads/}"
+        RELCHECK_REMOTE="$remote_sha"
+        break
+    fi
+done
+
+if [ -z "$RELCHECK_TARGET" ]; then
+    echo "[pre-push] release checker: not a dev/master push — exempt by design"
+elif [ ! -f scripts/bump-changed-releases.py ]; then
+    echo "[pre-push] WARN: scripts/bump-changed-releases.py not found; skipping release checker"
+elif [ -z "$PY_BIN" ]; then
+    echo "[pre-push] WARN: no Python 3 interpreter found; skipping release checker"
+else
+    echo "[pre-push] release checker: evaluating $(git rev-parse --short=8 "$RELCHECK_TARGET") as pushed to $RELCHECK_REF..."
+    RELCHECK_TMP=$(mktemp -d 2>/dev/null || echo "")
+    if [ -z "$RELCHECK_TMP" ] || [ ! -d "$RELCHECK_TMP" ]; then
+        echo "[pre-push] BLOCK: could not create a temporary directory to evaluate the pushed content."
+        echo "  The release checker is fail-closed: an unevaluated push to $RELCHECK_REF is not permitted."
+        echo "  Bypass for genuine emergency: git push --no-verify (flag in commit msg)"
+        exit 1
+    fi
+    RELCHECK_WT="$RELCHECK_TMP/wt"
+    if ! git worktree add --detach "$RELCHECK_WT" "$RELCHECK_TARGET" >/dev/null 2>&1; then
+        rm -rf "$RELCHECK_TMP"
+        echo "[pre-push] BLOCK: could not check out $(git rev-parse --short=8 "$RELCHECK_TARGET") to evaluate release/content_hash state."
+        echo "  The release checker is fail-closed: an unevaluated push to $RELCHECK_REF is not permitted."
+        echo "  Inspect: git worktree add --detach <dir> $RELCHECK_TARGET"
+        echo "  Bypass for genuine emergency: git push --no-verify (flag in commit msg)"
+        exit 1
+    fi
+    RELCHECK_OUT=""
+    RELCHECK_RC=0
+    RELCHECK_OUT=$("$PY_BIN" "$RELCHECK_WT/scripts/bump-changed-releases.py" --check 2>&1) || RELCHECK_RC=$?
+
+    # ---- 9c. Pinned-upstream recipes the bump machine does NOT track ------
+    # Run while the pristine worktree above still exists, so this costs no second
+    # ~380MB checkout. Same dev/master scope as 9b, deliberately: a feature branch
+    # still reconciles at the merge, and the dev push is where the class actually
+    # had to be stopped (it reached the publish preflight instead).
+    #
+    # The class, measured at cf6fe6b05: a recipe that pins a sha256 upstream source,
+    # declares no source_tree:, and ships no first-party sibling file beyond
+    # build.sh/package.yml is never enumerated by bump-changed-releases.py, so its
+    # build.sh can change at an unchanged (version,release) with nothing to refuse it.
+    # rocminfo is that shape and its own r2 note says so. The gate VERIFIES the hand
+    # bump; the machine still owns every number it tracks.
+    PINCHECK_RC=0
+    PINCHECK_OUT=""
+    if [ -f "$RELCHECK_WT/scripts/check-pinned-recipe-bumps.py" ]; then
+        if [ -n "$RELCHECK_REMOTE" ] && [ "$RELCHECK_REMOTE" != "$ZERO" ]; then
+            PINCHECK_BASE=$(git merge-base "$RELCHECK_TARGET" "$RELCHECK_REMOTE" 2>/dev/null || echo "$RELCHECK_REMOTE")
+        else
+            PINCHECK_BASE=$(git merge-base "$RELCHECK_TARGET" origin/master 2>/dev/null || echo "")
+        fi
+        if [ -n "$PINCHECK_BASE" ]; then
+            PINCHECK_OUT=$("$PY_BIN" "$RELCHECK_WT/scripts/check-pinned-recipe-bumps.py" \
+                --repo "$REPO_ROOT" --base "$PINCHECK_BASE" --head "$RELCHECK_TARGET" \
+                --worktree "$RELCHECK_WT" 2>&1) || PINCHECK_RC=$?
+        else
+            PINCHECK_OUT="pinned-recipe bump gate: no derivable base — refusing to report a pass"
+            PINCHECK_RC=1
+        fi
+    fi
+
+    # ---- 9d. THIRD-PARTY-NOTICES.md regeneration gate (decided 2026-08-16) --
+    # Run while the pristine worktree above still exists, same dev/master scope
+    # as 9b/9c. The class, measured: two independent correct recipe fixes
+    # (license-identifier corrections + a version pin) left the committed
+    # attribution file printing superseded values for eleven days, because the
+    # file is generated and nothing re-derived it. The generator's --check mode
+    # regenerates in memory from the PUSHED tree and refuses on any byte drift.
+    NOTICES_RC=0
+    NOTICES_OUT=""
+    if [ -f "$RELCHECK_WT/scripts/generate-third-party-notices.py" ]; then
+        NOTICES_OUT=$(cd "$RELCHECK_WT" && "$PY_BIN" scripts/generate-third-party-notices.py --check 2>&1) || NOTICES_RC=$?
+    fi
+
+    git worktree remove --force "$RELCHECK_WT" >/dev/null 2>&1 || true
+    rm -rf "$RELCHECK_TMP"
+    if [ "$RELCHECK_RC" -ne 0 ]; then
+        echo "[pre-push] BLOCK: first-party content changed without a release bump."
+        echo ""
+        printf '%s\n' "$RELCHECK_OUT" | sed 's/^/    /'
+        echo ""
+        echo "  Every package listed above has content that no longer matches its"
+        echo "  recorded content_hash, so pkm and the mirror would never see the new"
+        echo "  build. Note a shared input (a generator script named in several"
+        echo "  packages' source_tree:) drifts every package that declares it, which"
+        echo "  is why packages you did not touch can appear in that list."
+        echo ""
+        echo "  Resolve — the values are machine-owned, never hand-edited:"
+        echo "    git clean -fdX                                # baselines are recorded on a pristine tree"
+        echo "    $PY_BIN scripts/bump-changed-releases.py      # bumps release: + records content_hash:"
+        echo "    git commit -am 'chore(releases): ...'         # commit the machine-written values"
+        echo "  Then re-push. Verify with: $PY_BIN scripts/bump-changed-releases.py --check"
+        echo ""
+        if [ "$PINCHECK_RC" -ne 0 ]; then
+            # MEASURED 2026-08-16, and the reason this is reported HERE rather than only
+            # on 9b's success path: editing an UNTRACKED pinned recipe's build.sh moves
+            # a COUPLED tracked package's fingerprint (the installer-hooks fold reaches
+            # every recipe). So 9b fires and names the coupled package — for a rocminfo
+            # build.sh edit it printed `forge: content changed but release not bumped`
+            # and nothing about rocminfo. Its resolve steps then bump forge and leave the
+            # recipe the author actually changed still unbumped. Reporting 9c's finding
+            # alongside 9b's is what turns a misleading refusal into a correct one.
+            echo ""
+            echo "  ALSO — and this is very likely the change you actually made:"
+            printf '%s\n' "$PINCHECK_OUT" | sed 's/^/  /'
+        fi
+        echo "  Bypass for genuine emergency: git push --no-verify (flag in commit msg)"
+        exit 1
+    fi
+    printf '%s\n' "$RELCHECK_OUT" | sed 's/^/  /'
+    if [ "$PINCHECK_RC" -ne 0 ]; then
+        printf '%s\n' "$PINCHECK_OUT" | sed 's/^/  /'
+        echo "[pre-push] BLOCK: an untracked pinned-upstream recipe changed without a bump."
+        echo "  Bypass for genuine emergency: git push --no-verify (flag in commit msg)"
+        exit 1
+    fi
+    printf '%s\n' "$PINCHECK_OUT" | sed 's/^/  /'
+    if [ "$NOTICES_RC" -ne 0 ]; then
+        printf '%s\n' "$NOTICES_OUT" | sed 's/^/  /'
+        echo "[pre-push] BLOCK: THIRD-PARTY-NOTICES.md is stale against the pushed tree (gate 9d)."
+        echo "  Bypass for genuine emergency: git push --no-verify (flag in commit msg)"
+        exit 1
+    fi
+    printf '%s\n' "$NOTICES_OUT" | sed 's/^/  /'
+fi
+
+# ---- 9.6 Release-note chain gate ------------------------------------------
+# The machine owns the release NUMBER (bump-changed-releases.py); the note
+# chain in the same line's comment is authored by hand, and nothing made
+# the two move together — machine bumps shipped stale chain heads (intergen
+# release 130 / head r109, forge the same 20-wide, 2026-07-30). Delta-only:
+# fires solely on commits that CHANGE a release: value, so the legacy
+# backlog never blocks a push. Per-commit NO-GATE override honored inside
+# the script.
+if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ] \
+        && [ -f scripts/check-release-notes.py ] && [ -n "$PY_BIN" ]; then
+    BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
+    if ! "$PY_BIN" scripts/check-release-notes.py --base "$BASE" --head "$LOCAL"; then
+        echo "[pre-push] BLOCK: release bump without its chain-head note (see above)."
+        echo "  The rNN note rides the SAME commit as the bump — amend it in,"
+        echo "  or NO-GATE with a reason."
+        exit 1
+    fi
+fi
+
+# ---- 10. TRACKER anchor advancement (anti-drift; cross-repo lock-step) ---
+# Every push to public-repo master advances the private-repo TRACKER's
+# anchor line in lock-step. Drift becomes mechanically impossible at the
+# push boundary: you cannot ship a public-master commit without the
+# private-repo TRACKER recording it.
+#
+# Auto-anchor mode: this gate calls scripts/anchor-tracker.sh to do the
+# bookkeeping (rewrite anchor line + commit + push private repo). If the
+# private-repo push fails, this gate fails too — preventing public master
+# from advancing ahead of private TRACKER.
+#
+# Substantive TRACKER content updates (STATE banner refresh, new entries)
+# are handled manually and land as separate manual commits to the
+# private repo; this gate only ensures the anchor-bookkeeping piece is
+# always in sync.
+#
+# Only fires when pushing to master (other branches don't anchor).
+ANCHOR_NEEDED=0
+for refline in "${PUSH_REFS[@]}"; do
+    read -r local_ref local_sha remote_ref remote_sha <<< "$refline"
+    if [ "$remote_ref" = "refs/heads/master" ]; then
+        ANCHOR_NEEDED=1
+        ANCHOR_TARGET="$local_sha"
+        break
+    fi
+done
+
+if [ "$ANCHOR_NEEDED" = "1" ]; then
+    if [ -x "$REPO_ROOT/scripts/anchor-tracker.sh" ]; then
+        echo "[pre-push] advancing TRACKER anchor to $(git rev-parse --short=8 "$ANCHOR_TARGET")..."
+        if ! "$REPO_ROOT/scripts/anchor-tracker.sh" "$ANCHOR_TARGET"; then
+            echo "[pre-push] BLOCK: TRACKER anchor advancement failed."
+            echo "  Refusing to push public master while private TRACKER is out of sync."
+            echo "  Inspect: cd \"\$INTERGENOS_PRIVATE_REPO\" && git status + git log -1"
+            echo "  (private repo path is configurable via INTERGENOS_PRIVATE_REPO env var;"
+            echo "   defaults to a sibling of the public repo: ../intergenos-private)"
+            echo "  Bypass for genuine emergency: git push --no-verify (flag in commit msg)"
+            exit 1
+        fi
+    else
+        echo "[pre-push] WARN: scripts/anchor-tracker.sh not found or not executable; skipping TRACKER anchor"
+    fi
+fi
+
+echo "[pre-push] all gates PASS"
+exit 0

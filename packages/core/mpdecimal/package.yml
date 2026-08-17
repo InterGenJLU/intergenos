@@ -1,0 +1,19 @@
+name: mpdecimal
+version: "4.0.1"
+release: 1
+description: Library for correctly-rounded arbitrary-precision decimal floating-point arithmetic (libmpdec)
+license: BSD-2-Clause
+homepage: https://www.bytereef.org/mpdecimal/
+source:
+- url: https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-${version}.tar.gz
+  sha256: 96d33abb4bb0070c7be0fed4246cd38416188325f820468214471938545b1ac8
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools
+verify_paths:
+  - /usr/lib/libmpdec.so
+  - /usr/include/mpdecimal.h
+  - /usr/lib/pkgconfig/libmpdec.pc

@@ -1,0 +1,9 @@
+[Unit]
+Description=Synthetic sample referencing an aspirational path
+
+[Service]
+ExecStart=/usr/bin/nonexistent-aspirational-binary --flag
+ConditionPathExists=/usr/lib/aspirational-feature-that-does-not-exist
+
+[Install]
+WantedBy=multi-user.target

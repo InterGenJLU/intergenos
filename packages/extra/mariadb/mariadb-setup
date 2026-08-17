@@ -1,0 +1,144 @@
+#!/bin/bash
+# mariadb-setup — operator-driven first-time setup for InterGenOS MariaDB
+#
+# Initializes the data cluster at /var/lib/mysql with safe defaults
+# (random root password written to /root/.mysql_initial_root_password,
+# loopback-only bind, GSSAPI + PAM plugins available but not required,
+# UTF-8mb4 default charset). Runs once manually after the mariadb
+# package is installed; the systemd unit refuses to start until this
+# has succeeded (gated on /var/lib/mysql/mariadb_install_complete).
+#
+# Usage:
+#   sudo mariadb-setup --initdb
+#       Initialize the cluster + generate random root password.
+#   sudo mariadb-setup --status
+#       Report whether the cluster has been initialized.
+#
+# Why a wrapper instead of running mariadb-install-db directly:
+#   1. mariadb-install-db's defaults leave the root password EMPTY and
+#      allow root@localhost connections without authentication. This
+#      wrapper generates a 24-byte random password and applies it via
+#      the privileged-bootstrap path before the daemon ever accepts
+#      network connections.
+#   2. The random root password is written to /root/.mysql_initial_root_password
+#      with mode 600 so the operator can retrieve it deliberately.
+#      The file is the ONLY initial record; operators rotate via
+#      SET PASSWORD FOR 'root'@'localhost' after first login.
+#   3. The wrapper sets the listen_addresses to loopback only in the
+#      shipped config so the daemon won't expose itself on network
+#      interfaces by default.
+
+set -euo pipefail
+
+DATADIR="/var/lib/mysql"
+LOGDIR="/var/log/mysql"
+RUNDIR="/run/mysqld"
+MYSQL_USER="mysql"
+PASSWORD_FILE="/root/.mysql_initial_root_password"
+COMPLETE_MARKER="$DATADIR/mariadb_install_complete"
+
+die() { echo "error: $*" >&2; exit "${2:-1}"; }
+
+cmd_status() {
+    if [[ -f "$COMPLETE_MARKER" ]]; then
+        echo "cluster initialized at $DATADIR"
+        echo "  random root password file: $PASSWORD_FILE (mode 600)"
+        exit 0
+    fi
+    echo "cluster NOT initialized at $DATADIR"
+    echo "run 'sudo mariadb-setup --initdb' to initialize"
+    exit 1
+}
+
+cmd_initdb() {
+    [[ $EUID -eq 0 ]] || die "must run as root (use sudo)" 2
+    [[ ! -f "$COMPLETE_MARKER" ]] || die "cluster already initialized (remove $COMPLETE_MARKER to re-init)" 3
+
+    # Confirm the mysql system user + group exist. The package's
+    # post_install creates them; this is a safety check for a
+    # hand-installed environment.
+    getent passwd "$MYSQL_USER" >/dev/null \
+        || die "system user '$MYSQL_USER' not found; reinstall mariadb package" 4
+
+    # Ensure dirs exist with the right ownership.
+    install -dm750 -o "$MYSQL_USER" -g "$MYSQL_USER" "$DATADIR"
+    install -dm750 -o "$MYSQL_USER" -g "$MYSQL_USER" "$LOGDIR"
+    install -dm755 -o "$MYSQL_USER" -g "$MYSQL_USER" "$RUNDIR"
+
+    # Generate a 24-byte random password. Prefer openssl; fall back to
+    # /dev/urandom-driven base64 if openssl is somehow unavailable.
+    local root_pass
+    if command -v openssl >/dev/null 2>&1; then
+        root_pass=$(openssl rand -base64 24)
+    else
+        root_pass=$(head -c 18 /dev/urandom | base64)
+    fi
+
+    echo "[+] running mariadb-install-db (this populates the system tables)"
+    /usr/bin/mariadb-install-db                                            \
+        --datadir="$DATADIR"                                               \
+        --user="$MYSQL_USER"                                               \
+        --auth-root-authentication-method=normal                           \
+        --skip-test-db                                                     \
+        --default-charset=utf8mb4                                          \
+        >/dev/null
+
+    # Use the privileged bootstrap path to apply the random root
+    # password BEFORE the daemon accepts network connections. The
+    # bootstrap mode reads a SQL stream from stdin and exits.
+    echo "[+] applying random root password via privileged bootstrap"
+    /usr/sbin/mariadbd                                                     \
+        --bootstrap                                                        \
+        --user="$MYSQL_USER"                                               \
+        --datadir="$DATADIR"                                               \
+        --basedir=/usr <<-SQL
+		USE mysql;
+		ALTER USER 'root'@'localhost' IDENTIFIED BY '${root_pass}';
+		FLUSH PRIVILEGES;
+	SQL
+
+    # Persist the password to /root/.mysql_initial_root_password mode 600.
+    install -m 600 -o root -g root /dev/null "$PASSWORD_FILE"
+    printf '%s\n' "$root_pass" > "$PASSWORD_FILE"
+    chmod 600 "$PASSWORD_FILE"
+
+    # Mark the data dir as initialized; the systemd unit's
+    # ExecStartPre gates on this marker.
+    touch "$COMPLETE_MARKER"
+    chown "$MYSQL_USER:$MYSQL_USER" "$COMPLETE_MARKER"
+
+    echo
+    echo "[mariadb-setup complete]"
+    echo
+    echo "  data dir:           $DATADIR"
+    echo "  bind default:       127.0.0.1 only (see /etc/mysql/conf.d/server.cnf)"
+    echo "  root password:      /root/.mysql_initial_root_password (mode 600)"
+    echo "  GSSAPI / PAM auth:  built-in, operator-opt-in via account configuration"
+    echo
+    echo "Start the service when ready:"
+    echo "    sudo systemctl enable --now mariadb"
+    echo
+    echo "First-time login (then ROTATE the password immediately):"
+    echo "    sudo mariadb -u root -p\$(sudo cat $PASSWORD_FILE)"
+    echo
+}
+
+main() {
+    case "${1:-}" in
+        --initdb)  cmd_initdb ;;
+        --status)  cmd_status ;;
+        -h|--help)
+            sed -n '2,30p' "$0"
+            exit 0
+            ;;
+        "")
+            cmd_status || true
+            echo
+            echo "use 'mariadb-setup --initdb' to initialize (or --help)"
+            exit 1
+            ;;
+        *) die "unknown argument: $1 (use --help)" 2 ;;
+    esac
+}
+
+main "$@"

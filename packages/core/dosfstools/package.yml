@@ -1,0 +1,18 @@
+name: dosfstools
+version: "4.2"
+release: 1
+description: Utilities for FAT filesystems (mkfs.fat, fsck.fat)
+license: GPL-3.0-or-later
+homepage: https://github.com/dosfstools/dosfstools
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/dosfstools/dosfstools/releases/download/v${version}/dosfstools-${version}.tar.gz
+  sha256: 64926eebf90092dca21b14259a5301b7b98e7b1943e8a201c7d726084809b527
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/sbin/fatlabel

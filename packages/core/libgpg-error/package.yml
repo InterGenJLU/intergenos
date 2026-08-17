@@ -1,0 +1,22 @@
+name: libgpg-error
+version: '1.59'
+release: 1
+description: GPG error code library
+license: LGPL-2.1-or-later
+homepage: https://www.gnupg.org/
+tier: core
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.gnupg.org/ftp/gcrypt/libgpg-error/libgpg-error-${version}.tar.bz2
+  sha256: a19bc5087fd97026d93cb4b45d51638d1a25202a5e1fbc3905799f424cfa6134
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static
+verify_paths:
+  - /usr/bin/gpg-error
+  - /usr/lib/libgpg-error.so

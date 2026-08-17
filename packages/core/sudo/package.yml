@@ -1,0 +1,31 @@
+name: sudo
+version: "1.9.17p2"
+release: 3  # hook-contract wave: sudoers.d/pam.d config moved post_install -> do_install (owned payload)
+description: Execute commands as another user
+license: ISC
+homepage: https://www.sudo.ws/
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://www.sudo.ws/dist/sudo-${version}.tar.gz
+    sha256: 4a38a1ab3adb1199257edc2a7c4a2bd714665eb605b04368843b06dada2cfcfb
+
+dependencies:
+  build:
+    - linux-pam
+  host: []
+  runtime:
+    - linux-pam
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "sudo test suite includes regression tests for setuid behaviour, PAM auth, and tty/sudoers handling that require an installed sudo binary with the setuid bit set and a real /etc/sudoers — neither is available during the chroot check phase."
+verify_paths:
+  - /usr/bin/sudo
+  - /etc/sudoers.d/00-sudo
+  - /etc/pam.d/sudo
+  - /usr/bin/cvtsudoers
+  - /usr/lib/sudo/audit_json.so

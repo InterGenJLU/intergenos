@@ -1,0 +1,29 @@
+name: glib2
+version: "2.88.1"
+release: 1
+description: GLib core library (full — with introspection)
+license: LGPL-2.1-or-later
+homepage: https://docs.gtk.org/glib/
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://download.gnome.org/sources/glib/2.88/glib-${version}.tar.xz
+    sha256: 51ab804c56f6eab3e5045c774d1290ac5e4c923d4f9a3d8e33123bee45c1840e
+
+dependencies:
+  build:
+    - gobject-introspection-pass1
+    - meson
+    - ninja
+    - libxml2
+    - libxslt
+    - docbook-xml
+    - docbook-xsl-nons
+  host: []
+  runtime: []
+
+verify_paths:
+  - /usr/lib/libglib-2.0.so
+  - /usr/bin/glib-compile-schemas

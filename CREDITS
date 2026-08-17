@@ -1,0 +1,261 @@
+# InterGenOS Credits and Attribution
+
+InterGenOS is built on the work of many open source projects and communities.
+We are grateful for their contributions and committed to proper attribution.
+
+## Linux From Scratch (LFS)
+
+InterGenOS core is built following the Linux From Scratch 13.0 methodology.
+
+    LFS 13.0 (systemd edition)
+    Copyright (C) 1999-2026 Gerard Beekmans et al.
+    Licensed under Creative Commons Attribution-NonCommercial-ShareAlike 3.0
+    https://www.linuxfromscratch.org/lfs/
+
+LFS provides the foundational build methodology, package selection, and
+configuration guidance that InterGenOS core follows. Our core tier (Ch 5-10)
+adheres closely to LFS 13.0 with documented deviations.
+
+## Beyond Linux From Scratch (BLFS)
+
+InterGenOS desktop and extended packages follow BLFS 13.0 guidance.
+
+    BLFS 13.0 (systemd edition)
+    Copyright (C) 1999-2026 The BLFS Development Team
+    Licensed under Creative Commons Attribution-NonCommercial-ShareAlike 3.0
+    https://www.linuxfromscratch.org/blfs/
+
+BLFS provides build instructions, dependency information, and configuration
+guidance for packages beyond the base LFS system. Our desktop tier follows
+BLFS 13.0 with documented deviations.
+
+Methodology vs. verbatim text
+-----------------------------
+
+InterGenOS *follows the methodology* of LFS and BLFS — the package
+selection, the build ordering, the dependency analysis, the
+configuration conventions. Procedural facts of this kind are not
+copyrightable, and following them does not implicate the LFS / BLFS
+books' CC-BY-NC-SA license.
+
+What is copyrightable is the books' prose: the explanatory text,
+example narrative, and editorial choices that make the books readable
+documents rather than bare instruction sequences. InterGenOS **does
+not redistribute verbatim LFS or BLFS prose** in shipped binaries,
+release ISOs, or any installed-system artifact. Citations to the
+books in our `docs/` are fair use as commentary and educational
+reference.
+
+If you redistribute InterGenOS commercially, the methodology
+inheritance carries no CC-BY-NC-SA encumbrance. If you redistribute
+the LFS or BLFS books verbatim alongside InterGenOS, the books' own
+license terms apply to that redistribution independently.
+
+## LFS/BLFS Patches
+
+The build/patches/ directory contains patches distributed by the LFS and
+BLFS projects for fixing build issues and security vulnerabilities.
+
+    LFS/BLFS Patches
+    https://www.linuxfromscratch.org/patches/
+    Distributed under the same license as the respective packages they modify.
+
+## Individual Package Authors
+
+Every package built by InterGenOS is the work of its respective authors and
+communities. See individual package licenses in packages/*/package.yml.
+
+## GNOME Shell Extensions
+
+All extensions downloaded from extensions.gnome.org (GNOME 49 compatible).
+
+### Default-Enabled Extensions
+
+    User Themes — gnome-shell-extensions (GNOME Project)
+    License: GPL-2.0-or-later
+    https://gitlab.gnome.org/GNOME/gnome-shell-extensions
+
+    AppIndicator/KStatusNotifierItem Support — rgcjonas (Jonas Kümmerlin)
+    License: GPL-2.0-or-later
+    https://github.com/ubuntu/gnome-shell-extension-appindicator
+
+    Coverflow Alt-Tab — dsheeler (Dan Sheeler) / palatis
+    License: GPL-2.0-or-later
+    https://github.com/dsheeler/CoverflowAltTab
+
+    Blur my Shell — aunetx (Aurélien Hamy)
+    License: GPL-3.0
+    https://github.com/aunetx/blur-my-shell
+
+    Bluetooth Quick Connect — bjarosze (Bartosz Jaroszewski)
+    License: GPL-3.0
+    https://github.com/bjarosze/gnome-bluetooth-quick-connect
+
+    Burn My Windows — schneegans (Simon Schneegans)
+    License: GPL-3.0
+    https://github.com/Schneegans/Burn-My-Windows
+
+### Pre-Installed Extensions (user-enabled)
+
+    Dash to Dock — micxgx (Michele Gaio)
+    License: GPL-2.0 | https://github.com/micheleg/dash-to-dock
+
+    Dash to Panel — jderose9 (Jared DeRose)
+    License: GPL-2.0 | https://github.com/home-sweet-gnome/dash-to-panel
+
+    ArcMenu — arcmenu (Andrew Zaech / LinxGem33)
+    License: GPL-2.0 | https://github.com/ArcMenu/ArcMenu
+
+    GSConnect — andyholmes (Andy Holmes)
+    License: GPL-2.0 | https://github.com/GSConnect/gnome-shell-extension-gsconnect
+
+    Caffeine — patapon (Jean-Philippe Braun)
+    License: GPL-2.0 | https://github.com/eonpatapon/gnome-shell-extension-caffeine
+
+    Vitals — CoreCoding (Chris Rogers)
+    License: GPL-2.0 | https://github.com/corecoding/Vitals
+
+    Clipboard Indicator — tudmotu (Tudmotu)
+    License: MIT | https://github.com/Tudmotu/gnome-shell-extension-clipboard-indicator
+
+    Just Perfection — just-perfection (Javad Rahmatzadeh)
+    License: GPL-3.0 | https://github.com/just-perfection/just-perfection-gnome-shell-desktop
+
+    Desktop Icons NG (DING) — rastersoft (Sergio Costas / Raster Software)
+    License: GPL-3.0 | https://gitlab.com/rastersoft/desktop-icons-ng
+
+    Tiling Shell — ferrarodomenico (Domenico Ferraro)
+    License: GPL-2.0 | https://github.com/domferr/tilingshell
+
+    Forge — jmmaranan (JM Maranan)
+    License: GPL-3.0 | https://github.com/forge-ext/forge
+
+    Media Controls — cliffniff (Cliffniff)
+    License: GPL-3.0 | https://github.com/cliffniff/gnome-shell-extension-mediacontrols
+
+    Desktop Cube — schneegans (Simon Schneegans)
+    License: GPL-3.0 | https://github.com/Schneegans/Desktop-Cube
+
+    Alphabetical App Grid — stuarthayhurst (Stuart Hayhurst)
+    License: GPL-2.0 | https://github.com/stuarthayhurst/alphabetical-grid-extension
+
+    ddterm — amezin (Aleksandr Mezin)
+    License: GPL-3.0 | https://github.com/ddterm/gnome-shell-extension-ddterm
+
+    Night Theme Switcher — romainvigier (Romain Vigier)
+    License: GPL-2.0 | https://gitlab.com/rmnvgr/nightthemeswitcher-gnome-shell-extension
+
+    Show Desktop Button — amivaleo (Amivaleo)
+    License: GPL-2.0 | https://github.com/amivaleo/show-desktop-button
+
+    Rounded Window Corners Reborn — fxgn (fxgn)
+    License: GPL-3.0 | https://github.com/flexagoon/rounded-window-corners
+
+## GTK / GNOME Shell Themes
+
+    WhiteSur GTK Theme — vinceliuice (Vince Liuice)
+    License: MIT | https://github.com/vinceliuice/WhiteSur-gtk-theme
+
+    Orchis Theme — vinceliuice (Vince Liuice)
+    License: GPL-3.0 | https://github.com/vinceliuice/Orchis-theme
+
+    Nordic Theme — EliverLara (Eliver Lara)
+    License: GPL-3.0 | https://github.com/EliverLara/Nordic
+
+    adw-gtk3 — lassekongo83 (Lasse Rønne)
+    License: LGPL-2.1 | https://github.com/lassekongo83/adw-gtk3
+
+    Graphite GTK Theme — vinceliuice (Vince Liuice)
+    License: GPL-3.0 | https://github.com/vinceliuice/Graphite-gtk-theme
+
+    Fluent GTK Theme — vinceliuice (Vince Liuice)
+    License: GPL-3.0 | https://github.com/vinceliuice/Fluent-gtk-theme
+
+    Dracula GTK Theme — Dracula Theme (Zeno Rocha et al.)
+    License: GPL-3.0 | https://github.com/dracula/gtk
+
+    Catppuccin GTK Theme — Catppuccin Org
+    License: GPL-3.0 | https://github.com/catppuccin/gtk
+
+## Icon Themes
+
+    Papirus Icon Theme — PapirusDevelopmentTeam (Alexey Varfolomeev et al.)
+    License: GPL-3.0 | https://github.com/PapirusDevelopmentTeam/papirus-icon-theme
+
+    WhiteSur Icon Theme — vinceliuice (Vince Liuice)
+    License: GPL-3.0 | https://github.com/vinceliuice/WhiteSur-icon-theme
+
+    Tela Icon Theme — vinceliuice (Vince Liuice)
+    License: GPL-3.0 | https://github.com/vinceliuice/Tela-icon-theme
+
+    Fluent Icon Theme — vinceliuice (Vince Liuice)
+    License: GPL-3.0 | https://github.com/vinceliuice/Fluent-icon-theme
+
+    Cybernetic Icon Theme — SethStormR
+    License: GPL-3.0 (per upstream LICENSE; verify on each refresh)
+    https://github.com/SethStormR/Cybernetic
+    Bundled via packages/desktop/cybernetic-icon-theme/.
+
+## Cursor Themes
+
+    Bibata Cursor — ful1e5 (Kaiz Khatri)
+    License: GPL-3.0 | https://github.com/ful1e5/Bibata_Cursor
+
+    Apple Cursor (macOS Monterey) — ful1e5 (Kaiz Khatri)
+    License: GPL-3.0 | https://github.com/ful1e5/apple_cursor
+
+    Phinger Cursors — phisch (Phil Schaffner)
+    License: CC-BY-SA-4.0 | https://github.com/phisch/phinger-cursors
+
+## Fonts
+
+    Noto fonts family — Google Inc. (Google Fonts)
+    License: OFL-1.1 (SIL Open Font License 1.1)
+    https://github.com/notofonts/notofonts.github.io
+    Bundled via packages/desktop/font-noto.
+    OFL-1.1 § 2 requires the Font Software be redistributed under
+    its license; the LICENSE text ships at
+    /usr/share/licenses/font-noto/LICENSE on the installed system.
+    Reserved Font Names: "Noto".
+
+    DejaVu fonts family — DejaVu Fonts Project (multiple contributors)
+    License: Bitstream-Vera (with DejaVu extensions)
+    https://dejavu-fonts.github.io
+    Bundled via packages/desktop/font-dejavu.
+    The Bitstream Vera permission notice + the DejaVu changes
+    notice ship at /usr/share/licenses/font-dejavu/.
+
+## Sounds
+
+    Freedesktop sound theme — Freedesktop.org (multiple contributors)
+    License: CC-BY-SA-3.0 (with per-file attribution where noted)
+    https://www.freedesktop.org/wiki/Specifications/sound-theme-spec/
+    Bundled via packages/desktop/sound-theme-freedesktop.
+    Per-file attribution ships at
+    /usr/share/licenses/sound-theme-freedesktop/.
+
+## Wallpapers
+
+    GNOME Backgrounds — GNOME Project + contributing photographers
+    License: CC-BY-SA-3.0 / CC-BY-3.0 (per-image; see upstream CREDITS)
+    https://gitlab.gnome.org/GNOME/gnome-backgrounds
+    Bundled via packages/desktop/gnome-backgrounds.
+    The upstream per-image CREDITS file ships at
+    /usr/share/backgrounds/gnome/CREDITS, preserving photographer
+    attribution per the license requirements.
+
+## InterGenOS Shell Theme
+
+    InterGenOS Shell Theme — InterGenJLU
+    License: GPL-3.0-or-later (the theme code).
+    Brand identifiers — the theme's "Name=", the canonical color
+    palette, and the canonical icon mark — are carved out of GPL-3
+    under the trademark policy at TRADEMARK.md.
+    Source: assets/intergen-shell-theme/
+
+## InterGenOS
+
+    InterGenOS — AI-Integrated Linux Distribution
+    Copyright (C) 2015-2016, 2026 InterGenJLU
+    Licensed under GPL-3.0-or-later
+    https://github.com/InterGenJLU/intergenos

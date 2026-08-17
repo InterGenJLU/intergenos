@@ -1,0 +1,21 @@
+name: python-joblib
+version: "1.5.3"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Lightweight pipelining and parallelism for Python (core — Tensile build parallelism)
+license: BSD-3-Clause
+homepage: https://joblib.readthedocs.io/
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://files.pythonhosted.org/packages/41/f2/d34e8b3a08a9cc79a50b2208a93dce981fe615b64d5a4d4abee421d898df/joblib-${version}.tar.gz
+    sha256: 8561a3269e6801106863fd0d6d84bb737be9e7631e33aaed3fb9ce5953688da3
+
+dependencies:
+  build:
+  - setuptools
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/joblib

@@ -1,0 +1,26 @@
+name: anyio
+# Upstream latest stable.
+version: "4.14.2"
+release: 1
+description: Asynchronous compatibility layer over asyncio and trio
+license: MIT
+homepage: https://github.com/agronholm/anyio
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/61/cc/a381afa6efea9f496eff839d4a6a1aed3bfafc7b3ab4b0d1b243a12573dd/anyio-4.14.2.tar.gz
+  sha256: cfa139f3ed1a23ee8f88a145ddb5ac7605b8bbfd8592baacd7ce3d8bb4313c7f
+dependencies:
+  build:
+  - setuptools
+  - setuptools-scm
+  host: []
+  runtime:
+  - idna
+  # exceptiongroup (python_version<3.11) and typing_extensions (python_version<3.13)
+  # are marker-gated and not required on python3.14.
+verify_paths:
+  - /usr/lib/python3.14/site-packages/anyio/__init__.py
+  - /usr/lib/python3.14/site-packages/anyio/to_thread.py

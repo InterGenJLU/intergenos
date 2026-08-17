@@ -1,0 +1,114 @@
+name: lib32-mesa
+version: "25.3.5"
+release: 2  # r2: drop deprecated -Dshared-glapi (matches mesa r-bump) — post-burn sweep 2026-07-11
+content_hash: 945c950132471a39
+description: OpenGL and Vulkan implementation (32-bit multilib runtime)
+license: MIT
+homepage: https://www.mesa3d.org/
+tier: desktop
+# CUSTOM build (not the pure-yml lane): the RT-3 post-configure matrix
+# assertion must run between meson setup and ninja, and the i686 Vulkan
+# ICD manifests ship as DECLARED EXTRAS outside /usr/lib32 — both demand
+# a real build.sh (the lane has no post-configure hook and no extras
+# pass-through by design).
+build_style: custom
+install_func: do_install
+lib32_source: mesa
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://mesa.freedesktop.org/archive/mesa-${version}.tar.xz
+  sha256: be472413475082df945e0f9be34f5af008baa03eb357e067ce5a611a2d44c44b
+- url: https://mesa.freedesktop.org/archive/mesa-${version}-rust-crates.tar.gz
+  filename: mesa-${version}-rust-crates.tar.gz
+  sha256: e013b32b7c286cb1cbafe7170439039ea4bb3e05d0fa7b97364216a4c4a2a545
+# No patches: the sibling's xdemos patch serves the 64-bit demo tools,
+# which the libs-only twin does not build (the patch's sed is skipped by
+# construction — no src/glx/xdemos build is requested).
+dependencies:
+  build:
+  # CROSS-WIDTH TOOL PROVIDER (GE-01 L16, the L12 pattern in its tools
+  # flavor): mesa-clc=system + precomp-compiler=system consume the 64-BIT
+  # mesa's installed /usr/bin compilers (mesa_clc + the drivers' precomp
+  # tools) so this build needs no 32-bit LLVMSPIRVLib. The declared edge
+  # orders this twin after its provider (it sat 9 positions BEFORE mesa
+  # by luck-of-graph).
+  - mesa
+  # lib32-elfutils (L18): radeonsi hard-requires libelf
+  # (meson.build:1917) — runtime NEEDED edge on /usr/lib32/libelf.so.1.
+  - lib32-elfutils
+  - lib32-glibc
+  - lib32-zlib
+  - lib32-zstd
+  - lib32-expat
+  - lib32-libffi
+  - lib32-libdrm
+  - lib32-wayland
+  - wayland-protocols
+  - lib32-libX11
+  - lib32-libXext
+  - lib32-libXfixes
+  - lib32-libXrandr
+  - lib32-libxcb
+  - lib32-libxshmfence
+  - lib32-libXxf86vm
+  - lib32-libglvnd
+  - lib32-llvm
+  - lib32-vulkan-loader
+  - vulkan-headers
+  - glslang
+  - Mako
+  - cbindgen
+  - rust-bindgen
+  - pyyaml-pass2
+  - python
+  host: []
+  runtime:
+  - lib32-elfutils
+  - lib32-glibc
+  - lib32-zlib
+  - lib32-zstd
+  - lib32-expat
+  - lib32-libdrm
+  - lib32-wayland
+  - lib32-libX11
+  - lib32-libXext
+  - lib32-libXfixes
+  - lib32-libXrandr
+  - lib32-libxcb
+  - lib32-libxshmfence
+  - lib32-libXxf86vm
+  - lib32-libglvnd
+  - lib32-llvm
+  - lib32-vulkan-loader
+# Cross-width probe deltas verified against the 64-bit sibling's built
+# artifacts + meson logs (GE-01 L20 silent-loss pass, 2026-07-03):
+silent_loss_accepted:
+  - spirv-tools  # 64-bit links libSPIRV-Tools only because CLC REQUIRES it
+                 # there (meson enable_if(with_clc)); this twin consumes CLC
+                 # from the sibling BY DESIGN (the L16 split) and the sole
+                 # non-CLC consumer is vtn_debug.c's HAVE_SPIRV_TOOLS debug
+                 # disassembler — a debug-dump asymmetry with zero functional
+                 # delta on the 32-bit radv/radeonsi/zink game path. Promote
+                 # to a lib32-spirv-tools twin only if the RT-3 matrix review
+                 # ever ratifies 32-bit CLC.
+  - lua          # sibling parity: mesa probes lua only for the freedreno
+                 # tools (not built either width); readelf shows NO lua NEEDED
+                 # edge on any shipped 64-bit mesa lib — zero delta both widths.
+tests:
+  enabled: false
+  reason: "Mesa's test battery multiplies the twin's build hours and largely requires GPU/display access the chroot lacks; the identical sources are covered by the 64-bit sibling's recipe posture, and this twin's surfaces are verified by the RT-3 matrix assertion at configure, the archive-time width/time64 audits, the NEEDED-closure gate, and the composed-path/strict smoke proofs on real hardware (RT-2/RT-11)."
+verify_paths:
+  - /usr/lib32/libvulkan_radeon.so
+  - /usr/lib32/libvulkan_nouveau.so
+  - /usr/lib32/libGLX_mesa.so.0
+  - /usr/share/vulkan/icd.d/radeon_icd.i686.json
+
+# Build inputs composed from the repository tree (declared so the published
+# source archive carries every input the build consumes — the corresponding-
+# source rule the kernel config fragments established; survey 2026-08-11).
+sources_extra:
+- scripts/lib32-env.sh
+- config/lib32/lib32-cross.ini
+- igos-build/mesa_feature_matrix.py

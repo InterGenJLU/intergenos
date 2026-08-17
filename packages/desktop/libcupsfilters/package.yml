@@ -1,0 +1,48 @@
+name: libcupsfilters
+version: "2.1.1"
+release: 1
+description: CUPS filters library
+license: Apache-2.0
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/OpenPrinting/libcupsfilters/releases/download/${version}/libcupsfilters-${version}.tar.xz
+  sha256: 6c303e36cfde05a6c88fb940c62b6a18e7cdbfb91f077733ebc98f104925ce36
+patches:
+  - file: libcupsfilters-2.1.1-security_fixes-1.patch
+    sha256: a2d31c93c82057672c8bb7d5ebe09d961d5f44ffcd64ce2b36bf442265c7349c
+dependencies:
+  build:
+  - cups
+  - mupdf
+  - lcms2
+  - poppler
+  - qpdf
+  - ghostscript
+  - glib2
+  - libexif
+  - libjpeg-turbo
+  - libpng
+  - libtiff
+  - fontconfig
+  host: []
+  runtime:
+  - cups
+  - mupdf
+  - lcms2
+  - poppler
+  - qpdf
+  - ghostscript
+  - glib2
+  - libexif
+  - libjpeg-turbo
+  - libpng
+  - libtiff
+  - fontconfig
+configure_flags:
+- --prefix=/usr
+- --disable-static
+verify_paths:
+  - /usr/lib/libcupsfilters.so

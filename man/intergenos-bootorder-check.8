@@ -1,0 +1,105 @@
+.TH INTERGENOS-BOOTORDER-CHECK 8 "2026-08-04" "InterGenOS v1.0" "InterGenOS System Administration"
+.SH NAME
+intergenos-bootorder-check \- keep the registered UEFI boot entry first in the boot order
+.SH SYNOPSIS
+.B intergenos-bootorder-check
+.RB [ \-\-intent-file
+.IR PATH ]
+.RB [ \-\-efibootmgr
+.IR PATH ]
+.RB [ \-\-efi-dir
+.IR PATH ]
+.RB [ \-\-label
+.IR LABEL ]
+.RB [ \-\-dry-run ]
+.SH DESCRIPTION
+.B intergenos-bootorder-check
+compares the UEFI boot order held in firmware with the boot entry the
+installer registered, and restores that entry to the front of the order when
+the installation recorded that InterGenOS is meant to be the default boot
+target.
+.PP
+The installer registers the boot entry with
+.BR efibootmgr (8),
+which places the new entry first. Some firmware then enumerates the
+removable-media fallback loader
+.RB ( \eEFI\eBOOT\eBOOTX64.EFI )
+on the same EFI system partition as a boot option of its own and places that
+option ahead of the registered entry. Both options reach the same partition,
+so the machine still boots, but it boots through the fallback loader rather
+than the registered one \(em and on a machine carrying more than one operating
+system, the difference selects a different loader than the one the
+installation registered.
+.PP
+The tool is run at every boot by
+.BR intergenos-bootorder-check.service (8).
+It may also be run by hand at any time.
+.SH USER CONTROL
+The tool changes the boot order only when
+.I /etc/intergenos/boot-default.conf
+contains
+.BR default_boot_target=yes ,
+which the installer writes from the answer given during installation. When
+the answer was
+.BR no \(em
+another operating system was kept as the default \(em the tool reports the
+current order and changes nothing. When the file is absent, the tool reports
+and changes nothing.
+.SH OPTIONS
+.TP
+.BI \-\-intent-file " PATH"
+Read the default-boot-target record from
+.I PATH
+instead of
+.IR /etc/intergenos/boot-default.conf .
+.TP
+.BI \-\-efibootmgr " PATH"
+Use the named
+.BR efibootmgr (8)
+binary.
+.TP
+.BI \-\-efi-dir " PATH"
+Treat
+.I PATH
+as the directory whose presence marks an EFI system, instead of
+.IR /sys/firmware/efi .
+.TP
+.BI \-\-label " LABEL"
+Keep the entry with this label first, instead of the label recorded in the
+intent file.
+.TP
+.B \-\-dry-run
+Report what would change and write nothing to firmware variables.
+.SH FILES
+.TP
+.I /etc/intergenos/boot-default.conf
+Written by the installer.
+.B default_boot_target
+is
+.B yes
+or
+.BR no ;
+.B boot_entry_label
+names the boot entry;
+.B foreign_os_entries_at_install
+records how many other on-disk operating-system entries the firmware held
+when the system was installed.
+.SH EXIT STATUS
+.TP
+.B 0
+The order already had the entry first, the order was repaired, or the state
+could not be determined (no EFI firmware, no
+.BR efibootmgr ,
+no BootOrder variable, no registered entry). A state that cannot be read is
+reported as undetermined, never as a pass and never as a failure.
+.TP
+.B 1
+A repair was written and the firmware still does not report the entry first.
+The firmware is overriding the boot order; select InterGenOS in the
+firmware's own boot-option menu.
+.TP
+.B 2
+Usage error.
+.SH SEE ALSO
+.BR efibootmgr (8),
+.BR forge (1)

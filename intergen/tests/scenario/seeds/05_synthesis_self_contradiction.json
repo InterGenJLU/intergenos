@@ -1,0 +1,19 @@
+{
+  "id": "SYN-self-contradiction-01",
+  "name": "synthesis lists results then denies they exist (finding 5)",
+  "axis": ["fabrication"],
+  "category": "synthesis",
+  "postures": ["2B-locked"],
+  "capabilities": ["tool:web_search", "cross:self-consistency"],
+  "tags": ["seed:dogfood-5", "class:synthesis-consistency"],
+  "session_policy": "single-session",
+  "turns": [
+    {
+      "user": "Search the web for walmart hours near me",
+      "description": "[11] — the same answer lists three stores, then closes 'No Walmart stores were found near you.' An answer that enumerates N results must not also assert none were found.",
+      "assertions": [
+        {"type": "self_consistent", "description": "must not enumerate results and also deny they exist — a structural contradiction is a HARD fail"}
+      ]
+    }
+  ]
+}

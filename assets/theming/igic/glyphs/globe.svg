@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: globe / web browser — circle + meridian arc + equator + parallels. -->
+  <g class="glyph">
+    <circle cx="128" cy="128" r="72"/>
+    <path d="M 128 56 A 40 72 0 0 0 128 200 A 40 72 0 0 0 128 56"/>
+    <line x1="56" y1="128" x2="200" y2="128"/>
+    <line x1="64" y1="96" x2="192" y2="96"/>
+    <line x1="64" y1="160" x2="192" y2="160"/>
+  </g>
+</svg>

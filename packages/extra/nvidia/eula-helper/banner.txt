@@ -1,0 +1,6 @@
+═══════════════════════════════════════════════════════════════
+ NVIDIA PROPRIETARY USERSPACE — END USER LICENSE AGREEMENT
+ Required acceptance before InterGenOS can install the NVIDIA
+ userspace libraries on your system. Presenting the EULA bundled
+ with this driver version — reviewing now.
+═══════════════════════════════════════════════════════════════

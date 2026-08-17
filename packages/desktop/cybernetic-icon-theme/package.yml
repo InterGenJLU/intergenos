@@ -1,0 +1,24 @@
+name: cybernetic-icon-theme
+version: "2.0"
+release: 3
+content_hash: 3fd61c1cf75ee5cf
+description: Cybernetic Blue icon theme — featured alternate icon theme (decided 2026-05-22; the installed default is the first-party InterGenOS icon theme since 2026-07-23). Distinctive cybernetic-blue aesthetic; in-tree canonical bundle at /usr/share/icons/Cybernetic - Blue.
+license: GPL-3.0-or-later
+homepage: https://github.com/SethStormR/Cybernetic
+tier: desktop
+build_style: custom
+install_func: do_install
+# First-party authored asset following the asset-in-package convention
+# (mirrors intergenos-grub-theme + intergenos-wallpapers). The Cybernetic
+# bundle was pulled from the operator's working IGOS laptop's
+# /usr/share/icons/Cybernetic - Blue (per the decision of 2026-05-22);
+# this package owns the canonical in-tree copy. Integrity verifiable via
+# `sha256sum assets/Cybernetic.tar.gz` (git tracks the binary at this path).
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - hicolor-icon-theme
+verify_paths:
+  - /usr/share/icons/Cybernetic - Blue

@@ -1,0 +1,36 @@
+name: pybind11
+version: "3.0.4"
+release: 2  # r2: also ship the python module (site-packages pybind11) — triton's setup.py imports pybind11; headers/cmake alone satisfied the dep NAME but not the module (Q9 burn find)
+description: pybind11 — C++/Python interoperability headers, cmake config, and python module
+license: BSD-3-Clause
+homepage: https://github.com/pybind/pybind11
+tier: compute
+build_style: custom
+install_func: do_install
+
+# Header-only C++/Python binding library; in-tree consumer today =
+# MIGraphX's python API (pybind11::pybind11 at src/py/CMakeLists.txt:42,
+# MIGRAPHX_ENABLE_PYTHON default ON). Latest stable (Rule 12; MIGraphX's
+# manifest pins a same-lineage master commit). sha256 pinned 2026-07-17
+# (single-witness GitHub tag-archive endpoint — v3.0.4 is too recent for
+# distro-pin corroboration at authoring time; tag identity verified via
+# the GitHub releases API).
+source:
+  - url: https://github.com/pybind/pybind11/archive/refs/tags/v${version}.tar.gz
+    filename: pybind11-${version}.tar.gz
+    sha256: 74b6a2c2b4573a400cafb6ecbf60c98df300cd3d0041296b913d02b2cbbb2676
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - python
+  - scikit-build-core   # pybind11 3.x pip build backend (python-module leg)
+  host: []
+  runtime:
+  - python
+verify_paths:
+  - /usr/include/pybind11/pybind11.h
+  - /usr/share/cmake/pybind11
+  # The python module — consumers (triton's setup.py) import pybind11
+  - /usr/lib/python3.14/site-packages/pybind11/__init__.py

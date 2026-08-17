@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: message-indicator — a speech bubble with an unread dot. -->
+  <g class="glyph">
+    <path d="M 60 72 L 196 72 Q 208 72 208 84 L 208 156 Q 208 168 196 168 L 116 168 L 84 196 L 84 168 L 60 168 Q 48 168 48 156 L 48 84 Q 48 72 60 72 Z"/>
+    <g class="fill"><circle cx="128" cy="120" r="12"/></g>
+  </g>
+</svg>

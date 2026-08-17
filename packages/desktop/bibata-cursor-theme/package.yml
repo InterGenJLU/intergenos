@@ -1,0 +1,30 @@
+name: bibata-cursor-theme
+version: "2.0.7"
+release: 6  # r6: co-bump only: no change to this package's own content. The shared source-tarball generator scripts/build-intergenos-source-tarballs.sh is listed in this package's source_tree, and it changed so that the Welcomer's tarball now carries the shared name-lookup-failure module intergen/net_diagnostics.py; the input-based content fingerprint therefore moved for every package that declares the generator. This package's staged bytes are unchanged. r5: co-bump only: no change to this package's own content. The shared source-tarball generator scripts/build-intergenos-source-tarballs.sh is listed in this package's source_tree, and it changed so that the backup engine's sysusers.d group fragment is staged into the intergenos-backup tarball; the input-based content fingerprint therefore moved for every package that declares the generator. This package's staged bytes are unchanged. r4: co-bump only: no change to this package's own content. The shared source-tarball generator scripts/build-intergenos-source-tarballs.sh is listed in this package's source_tree, and it changed so that the welcome greeter's wiki icon is staged into its tarball; the input-based content fingerprint therefore moved for every package that declares the generator. This package's staged bytes are unchanged.
+content_hash: 8e22c2c4a055065d
+description: Bibata material-design cursor theme bundle (Modern-Classic + Modern-Amber + Modern-Ice; upstream v2.0.7)
+license: GPL-3.0-or-later
+homepage: https://github.com/ful1e5/Bibata_Cursor
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: file:///bibata-cursor-theme-${version}.tar.xz
+  generated: true
+# Canonical inputs of the generated tarball (item-8 fingerprint design):
+# the content fingerprint hashes these + build.sh instead of the tarball's
+# bytes, so a regeneration-context difference can never phantom-bump. The
+# three shipped variants are listed EXACTLY (Bibata-Modern-Original-Classic
+# is deliberately not shipped — see the generator + build.sh).
+source_tree:
+  - assets/theming/cursor-themes/Bibata-Modern-Classic.tar.xz
+  - assets/theming/cursor-themes/Bibata-Modern-Amber.tar.xz
+  - assets/theming/cursor-themes/Bibata-Modern-Ice.tar.xz
+  - scripts/build-intergenos-source-tarballs.sh
+dependencies:
+  build: []
+  host: []
+  runtime: []
+
+verify_paths:
+  - /usr/share/icons/Bibata-Modern-Classic

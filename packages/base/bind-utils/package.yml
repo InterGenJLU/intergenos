@@ -1,0 +1,25 @@
+name: bind-utils
+version: "9.20.19"
+release: 1
+description: BIND DNS client utilities — dig, host, nslookup, nsupdate
+license: MPL-2.0
+homepage: https://www.isc.org/bind/
+source:
+- url: https://ftp.isc.org/isc/bind9/9.20.19/bind-9.20.19.tar.xz
+  sha256: 42aea9a07497ce99d6b896c4a4859c966dd74da0fefb47426f21a22b111a44b5
+dependencies:
+  build:
+    - libuv
+    - openssl
+    - libcap
+    - libidn2
+    - nghttp2
+    - json-c
+  host: []
+  runtime: []
+tier: base
+build_style: custom
+verify_paths:
+  - /usr/bin/dig
+  - /usr/bin/host
+  - /usr/bin/nslookup

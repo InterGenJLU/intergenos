@@ -1,0 +1,27 @@
+name: elfutils
+version: '0.194'
+release: 3  # r3: also install the libdwfl + libdwelf public headers (their code links inside libdw.so; libcamera includes elfutils/libdwfl.h directly — the r2 install shipped libdw.h alone and libcamera's build halted on the missing header). # r2: install libdw alongside libelf (full-tree build; libdw.so + libdw.pc + verify_paths). libcamera pins -Dlibdw=enabled and needs the canonical DWARF provider; additive to the libelf-only baseline, libelf install unchanged. The full-tree build surfaces libcpu/riscv_disasm.c's -Werror=discarded-qualifiers halt under GCC 15 — one-line const patch (libcpu links into libdw.so, it cannot be skipped) — and further GCC-15 warnings across the tree under the release's hardwired -Werror (no configure switch): built with CFLAGS-appended -Wno-error, warnings remain visible. Decided 2026-08-15.
+description: ELF object file utilities
+license: GPL-2.0-or-later
+source:
+- url: https://sourceware.org/ftp/elfutils/0.194/elfutils-${version}.tar.bz2
+  sha256: 09e2ff033d39baa8b388a2d7fbc5390bfde99ae3b7c67c7daaf7433fbcf0f01e
+patches:
+  - file: elfutils-0.194-riscv_disasm_const-1.patch
+    sha256: 853745a3fadeeea0f4fa5d4d0a405779b6edc465ec46520bf913d35a69cb0f6f
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - zlib
+  - bzip2
+  - xz
+  - zstd
+tier: core
+build_style: autotools
+
+verify_paths:
+  - /usr/lib/libelf.so
+  - /usr/lib/libdw.so
+  - /usr/lib/pkgconfig/libelf.pc
+  - /usr/lib/pkgconfig/libdw.pc

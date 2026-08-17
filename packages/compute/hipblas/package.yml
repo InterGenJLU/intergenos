@@ -1,0 +1,32 @@
+name: hipblas
+version: "7.2.4"
+release: 2
+description: BLAS marshalling library over rocBLAS (the hipBLAS API llama.cpp links)
+license: MIT
+homepage: https://github.com/ROCm/rocm-libraries
+tier: compute
+build_style: custom
+install_func: do_install
+
+# SAME rocm-libraries tarball (shared-source pin); builds projects/hipblas.
+source:
+  - url: https://github.com/ROCm/rocm-libraries/archive/refs/tags/rocm-${version}.tar.gz
+    filename: rocm-rocm-libraries-${version}.tar.gz
+    sha256: 50a4090b4ad18b34c375f666e5f71816cf55f89bc2175dc3eba9a7b80f65a15d
+
+dependencies:
+  build:
+  - cmake
+  - rocm-cmake
+  - rocm-hip
+  - hipblas-common
+  - rocblas
+  - rocsolver
+  host: []
+  runtime:
+  - rocm-hip
+  - rocblas
+  - rocsolver
+verify_paths:
+  - /opt/rocm/lib/libhipblas.so
+  - /opt/rocm/include/hipblas/hipblas.h

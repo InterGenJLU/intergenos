@@ -1,0 +1,22 @@
+name: msgspec
+version: "0.21.1"
+release: 1
+description: Fast serialization and validation (JSON, MessagePack) with a C core
+license: BSD-3-Clause
+homepage: https://github.com/jcrist/msgspec
+tier: ai
+iso_include: false  # unsloth-zoo dep (training-stack chain) — mirror-only
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/m/msgspec/msgspec-${version}.tar.gz
+  sha256: 2313508e394b0d208f8f56892ca9b2799e2561329de9763b19619595a6c0f72c
+dependencies:
+  build:
+  - setuptools
+  host: []
+  # Requires-Dist (PyPI metadata): none.
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/msgspec/__init__.py
+  - /usr/lib/python3.14/site-packages/msgspec/json.py

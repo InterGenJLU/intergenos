@@ -1,0 +1,26 @@
+name: setxkbmap
+version: "1.3.4"
+release: 1
+description: Set the keyboard using the X Keyboard Extension
+license: MIT
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/app/setxkbmap-${version}.tar.xz
+  sha256: be8d8554d40e981d1b93b5ff82497c9ad2259f59f675b38f1b5e84624c07fade
+dependencies:
+  build:
+  - libX11
+  - libxkbfile
+  - libXrandr
+  host: []
+  runtime:
+  - libX11
+  - libxkbfile
+  - libXrandr
+configure_flags:
+- --prefix=/usr
+verify_paths:
+  - /usr/bin/setxkbmap

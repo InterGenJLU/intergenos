@@ -1,0 +1,24 @@
+name: intergenos-settings-arrow
+version: "1.0"
+release: 2  # r2: neutral-language sweep of comments and printed text: decisions are recorded as "decided <date>" instead of being credited to a person or project role, development-host shorthand is replaced by a plain description, and the citations of a repository that is not published are replaced by what they were pointing at. Comments and strings only — no rule, path, flag, threshold or code path changed. The public-content scanner now carries detectors for all three classes (scripts/check-public-content.py), so the classes cannot return silently; tests/preflight/test_public_language_detectors.py proves each detector in both directions.
+content_hash: 48e067c8e2165a98
+description: GNOME Shell extension re-routing the Wi-Fi + Bluetooth quick-settings menu arrows to open their Settings panel directly, avoiding the off-screen submenu overflow on short panels (PI-Welcome-2)
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+# First-party authored GNOME shell extension following the assets/intergen-*
+# canonical convention. source: [] + direct cp -a from /mnt/intergenos/assets/.
+tier: desktop
+build_style: custom
+install_func: do_install
+source: []
+# Extension source lives under assets/; fold into the fingerprint.
+source_tree:
+  - assets/intergenos-settings-arrow
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - gnome-shell-extensions
+verify_paths:
+  - /usr/share/gnome-shell/extensions/intergenos-settings-arrow@intergenos.org/extension.js
+  - /usr/share/gnome-shell/extensions/intergenos-settings-arrow@intergenos.org/metadata.json

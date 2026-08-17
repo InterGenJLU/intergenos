@@ -1,0 +1,451 @@
+# InterGenOS Desktop Tier 1 — Foundation Libraries
+# These have zero or minimal dependencies. Many are leaf nodes used by everything above.
+# Source: BLFS 13.0
+
+tier: desktop
+
+packages:
+  # --- Crypto ---
+  - name: libgpg-error
+    version: "1.51"
+    url: https://www.gnupg.org/ftp/gcrypt/libgpg-error/libgpg-error-${version}.tar.bz2
+    license: LGPL-2.1-or-later
+    description: GPG error code library
+    homepage: https://www.gnupg.org/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+
+  - name: libgcrypt
+    version: "1.11.0"
+    url: https://www.gnupg.org/ftp/gcrypt/libgcrypt/libgcrypt-${version}.tar.bz2
+    license: LGPL-2.1-or-later
+    description: General purpose cryptographic library
+    homepage: https://www.gnupg.org/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+    deps:
+      build:
+        - libgpg-error
+
+  - name: nettle
+    version: "3.10.1"
+    url: https://ftpmirror.gnu.org/nettle/nettle-${version}.tar.gz
+    license: LGPL-3.0-or-later
+    description: Low-level cryptographic library
+    homepage: https://www.lysator.liu.se/~nisse/nettle/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+
+  # --- Audio codecs ---
+  - name: libogg
+    version: "1.3.5"
+    url: https://downloads.xiph.org/releases/ogg/libogg-${version}.tar.xz
+    license: BSD-3-Clause
+    description: Ogg bitstream container library
+    homepage: https://www.xiph.org/ogg/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+      - "--docdir=/usr/share/doc/libogg-${version}"
+
+  - name: libvorbis
+    version: "1.3.7"
+    url: https://downloads.xiph.org/releases/vorbis/libvorbis-${version}.tar.xz
+    license: BSD-3-Clause
+    description: Vorbis audio codec library
+    homepage: https://www.xiph.org/vorbis/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+    deps:
+      build:
+        - libogg
+
+  - name: flac
+    version: "1.4.3"
+    url: https://downloads.xiph.org/releases/flac/flac-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: Free Lossless Audio Codec
+    homepage: https://xiph.org/flac/
+    build_style: cmake
+    cmake_flags:
+      - "BUILD_SHARED_LIBS=ON"
+      - "CMAKE_INSTALL_PREFIX=/usr"
+
+  - name: opus
+    version: "1.5.2"
+    url: https://downloads.xiph.org/releases/opus/opus-${version}.tar.gz
+    license: BSD-3-Clause
+    description: Interactive speech and audio codec
+    homepage: https://opus-codec.org/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+
+  - name: libsndfile
+    version: "1.2.2"
+    url: https://github.com/libsndfile/libsndfile/releases/download/${version}/libsndfile-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: Library for reading and writing sound files
+    homepage: https://libsndfile.github.io/libsndfile/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+    deps:
+      build:
+        - flac
+        - opus
+
+  - name: libsamplerate
+    version: "0.2.2"
+    url: https://github.com/libsndfile/libsamplerate/releases/download/${version}/libsamplerate-${version}.tar.xz
+    license: BSD-2-Clause
+    description: Audio sample rate conversion library
+    homepage: https://libsndfile.github.io/libsamplerate/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+
+  - name: speex
+    version: "1.2.1"
+    url: https://downloads.xiph.org/releases/speex/speex-${version}.tar.gz
+    license: BSD-3-Clause
+    description: Audio codec designed for speech compression
+    homepage: https://www.speex.org/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+    deps:
+      build:
+        - libogg
+
+  - name: lame
+    version: "3.100"
+    url: https://downloads.sourceforge.net/lame/lame-${version}.tar.gz
+    license: LGPL-2.0-or-later
+    description: MP3 encoder
+    homepage: https://lame.sourceforge.io/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--enable-mp3rtp"
+      - "--disable-static"
+
+  # --- Image libraries ---
+  - name: nasm
+    version: "2.16.03"
+    url: https://www.nasm.us/pub/nasm/releasebuilds/${version}/nasm-${version}.tar.xz
+    license: BSD-2-Clause
+    description: Netwide Assembler
+    homepage: https://www.nasm.us/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+
+  - name: libpng
+    version: "1.6.44"
+    url: https://downloads.sourceforge.net/libpng/libpng-${version}.tar.xz
+    license: Libpng
+    description: PNG reference library
+    homepage: http://www.libpng.org/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+
+  - name: libjpeg-turbo
+    version: "3.1.0"
+    url: https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/${version}/libjpeg-turbo-${version}.tar.gz
+    license: IJG
+    description: High-speed JPEG compression/decompression library
+    homepage: https://libjpeg-turbo.org/
+    build_style: cmake
+    cmake_flags:
+      - "CMAKE_INSTALL_PREFIX=/usr"
+      - "CMAKE_INSTALL_DEFAULT_LIBDIR=lib"
+    deps:
+      build:
+        - nasm
+
+  - name: libtiff
+    version: "4.7.0"
+    url: https://download.osgeo.org/libtiff/tiff-${version}.tar.gz
+    license: libtiff
+    description: TIFF image library
+    homepage: http://www.libtiff.org/
+    build_style: cmake
+    cmake_flags:
+      - "CMAKE_INSTALL_PREFIX=/usr"
+      - "BUILD_SHARED_LIBS=ON"
+    deps:
+      build:
+        - libjpeg-turbo
+
+  - name: giflib
+    version: "5.2.2"
+    url: https://sourceforge.net/projects/giflib/files/giflib-${version}.tar.gz
+    license: MIT
+    description: GIF image library
+    homepage: https://giflib.sourceforge.net/
+    build_style: make
+    make_install_flags: "PREFIX=/usr"
+
+  - name: libwebp
+    version: "1.5.0"
+    url: https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-${version}.tar.gz
+    license: BSD-3-Clause
+    description: WebP image format library
+    homepage: https://developers.google.com/speed/webp/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+      - "--enable-libwebpmux"
+      - "--enable-libwebpdemux"
+      - "--enable-libwebpdecoder"
+    deps:
+      build:
+        - libjpeg-turbo
+        - libpng
+        - libtiff
+
+  # --- Graphics primitives ---
+  - name: pixman
+    version: "0.44.2"
+    url: https://www.cairographics.org/releases/pixman-${version}.tar.gz
+    license: MIT
+    description: Pixel manipulation library
+    homepage: https://www.cairographics.org/
+    build_style: meson
+
+  - name: lcms2
+    version: "2.16"
+    url: https://github.com/mm2/Little-CMS/releases/download/lcms${version}/lcms2-${version}.tar.gz
+    license: MIT
+    description: Little Color Management System
+    homepage: https://www.littlecms.com/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+
+  # --- Text/Unicode ---
+  - name: fribidi
+    version: "1.0.16"
+    url: https://github.com/fribidi/fribidi/releases/download/v${version}/fribidi-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: Unicode Bidirectional Algorithm library
+    homepage: https://github.com/fribidi/fribidi
+    build_style: meson
+
+  - name: graphite2
+    version: "1.3.14"
+    url: https://github.com/nicovank/graphite/releases/download/${version}/graphite2-${version}.tgz
+    license: LGPL-2.1-or-later
+    description: Font rendering engine for complex scripts
+    homepage: https://scripts.sil.org/graphite
+    build_style: cmake
+
+  - name: icu
+    version: "76-1"
+    url: https://github.com/unicode-org/icu/releases/download/release-76-1/icu4c-76_1-src.tgz
+    license: ICU
+    description: International Components for Unicode
+    homepage: https://icu.unicode.org/
+    build_style: custom
+
+  # --- XML/JSON ---
+  - name: libxml2
+    version: "2.13.5"
+    url: https://download.gnome.org/sources/libxml2/2.13/libxml2-${version}.tar.xz
+    license: MIT
+    description: XML parsing library
+    homepage: https://gitlab.gnome.org/GNOME/libxml2
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+      - "--with-history"
+      - "--with-icu"
+    deps:
+      build:
+        - icu
+
+  - name: libxslt
+    version: "1.1.42"
+    url: https://download.gnome.org/sources/libxslt/1.1/libxslt-${version}.tar.xz
+    license: MIT
+    description: XSLT processor library
+    homepage: https://gitlab.gnome.org/GNOME/libxslt
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+    deps:
+      build:
+        - libxml2
+
+  - name: json-c
+    version: "0.18"
+    url: https://s3.amazonaws.com/json-c_releases/releases/json-c-${version}-nodoc.tar.gz
+    license: MIT
+    description: JSON library for C
+    homepage: https://github.com/json-c/json-c
+    build_style: cmake
+
+  - name: inih
+    version: "58"
+    url: https://github.com/benhoyt/inih/archive/r${version}/inih-r${version}.tar.gz
+    license: BSD-3-Clause
+    description: Simple INI file parser
+    homepage: https://github.com/benhoyt/inih
+    build_style: meson
+
+  # --- Compression ---
+  - name: brotli
+    version: "1.1.0"
+    url: https://github.com/google/brotli/archive/v${version}/brotli-${version}.tar.gz
+    license: MIT
+    description: Brotli compression library
+    homepage: https://github.com/google/brotli
+    build_style: cmake
+
+  # --- Misc foundation ---
+  - name: libyaml
+    version: "0.2.5"
+    url: https://github.com/yaml/libyaml/releases/download/${version}/yaml-${version}.tar.gz
+    license: MIT
+    description: YAML 1.1 parser and emitter
+    homepage: https://pyyaml.org/wiki/LibYAML
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+
+  - name: iso-codes
+    version: "4.17.0"
+    url: https://ftp.debian.org/debian/pool/main/i/iso-codes/iso-codes_${version}.orig.tar.xz
+    license: LGPL-2.1-or-later
+    description: Country, language, and currency code lists
+    homepage: https://salsa.debian.org/iso-codes-team/iso-codes
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+
+  - name: libndp
+    version: "1.9"
+    url: https://github.com/jpirko/libndp/archive/v${version}/libndp-${version}.tar.gz
+    license: LGPL-2.1-or-later
+    description: Neighbor Discovery Protocol library
+    homepage: https://github.com/jpirko/libndp
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+
+  - name: libmnl
+    version: "1.0.5"
+    url: https://www.netfilter.org/projects/libmnl/files/libmnl-${version}.tar.bz2
+    license: LGPL-2.1-or-later
+    description: Minimalistic Netlink library
+    homepage: https://www.netfilter.org/projects/libmnl/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+
+  - name: libnl
+    version: "3.11.0"
+    url: https://github.com/thom311/libnl/releases/download/libnl3_11_0/libnl-${version}.tar.gz
+    license: LGPL-2.1-or-later
+    description: Netlink protocol library suite
+    homepage: https://github.com/thom311/libnl
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--sysconfdir=/etc"
+      - "--disable-static"
+
+  - name: keyutils
+    version: "1.6.3"
+    url: https://people.redhat.com/~dhowells/keyutils/keyutils-${version}.tar.bz2
+    license: GPL-2.0-or-later
+    description: Linux key management utilities
+    homepage: https://people.redhat.com/~dhowells/keyutils/
+    build_style: make
+    make_flags: "LIBDIR=/usr/lib USRLIBDIR=/usr/lib BINDIR=/usr/bin SBINDIR=/usr/sbin"
+    make_install_flags: "LIBDIR=/usr/lib USRLIBDIR=/usr/lib BINDIR=/usr/bin SBINDIR=/usr/sbin"
+
+  - name: libusb
+    version: "1.0.27"
+    url: https://github.com/libusb/libusb/releases/download/v${version}/libusb-${version}.tar.bz2
+    license: LGPL-2.1-or-later
+    description: USB access library
+    homepage: https://libusb.info/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+
+  - name: libseccomp
+    version: "2.6.0"
+    url: https://github.com/seccomp/libseccomp/releases/download/v${version}/libseccomp-${version}.tar.gz
+    license: LGPL-2.1-or-later
+    description: Enhanced seccomp library
+    homepage: https://github.com/seccomp/libseccomp
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+
+  - name: libevdev
+    version: "1.13.3"
+    url: https://www.freedesktop.org/software/libevdev/libevdev-${version}.tar.xz
+    license: MIT
+    description: Input event device wrapper library
+    homepage: https://www.freedesktop.org/wiki/Software/libevdev/
+    build_style: meson
+
+  - name: mtdev
+    version: "1.1.7"
+    url: https://bitmath.org/code/mtdev/mtdev-${version}.tar.bz2
+    license: MIT
+    description: Multitouch protocol translation library
+    homepage: https://bitmath.org/code/mtdev/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+
+  - name: hwdata
+    version: "0.389"
+    url: https://github.com/vcrhonek/hwdata/archive/v${version}/hwdata-${version}.tar.gz
+    license: GPL-2.0-or-later
+    description: Hardware identification and configuration data
+    homepage: https://github.com/vcrhonek/hwdata
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-blacklist"
+
+  - name: hicolor-icon-theme
+    version: "0.18"
+    url: https://icon-theme.freedesktop.org/releases/hicolor-icon-theme-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: Default fallback icon theme
+    homepage: https://www.freedesktop.org/wiki/Software/icon-theme/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"

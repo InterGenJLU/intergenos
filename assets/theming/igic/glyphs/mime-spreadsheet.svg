@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- mime emblem: spreadsheet — a 4-column grid of cells (the extra column uses the
+       widened page for more detail). -->
+  <g class="glyph">
+    <rect x="96" y="106" width="64" height="44" rx="4"/>
+    <line x1="96" y1="121" x2="160" y2="121"/>
+    <line x1="96" y1="135" x2="160" y2="135"/>
+    <line x1="112" y1="106" x2="112" y2="150"/>
+    <line x1="128" y1="106" x2="128" y2="150"/>
+    <line x1="144" y1="106" x2="144" y2="150"/>
+  </g>
+</svg>

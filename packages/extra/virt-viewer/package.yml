@@ -1,0 +1,45 @@
+name: virt-viewer
+version: "11.0"
+release: 2  # r2: silent_loss_accepted ovirt (oVirt integration not an InterGenOS target)
+content_hash: 3b7f6c56c723a7bd
+description: Graphical console viewer for virtual machines (SPICE and VNC)
+license: GPL-2.0-or-later
+homepage: https://virt-manager.org
+tier: extra
+silent_loss_accepted:
+  - ovirt   # oVirt-integration deliberately off (-Dovirt=disabled): not an InterGenOS deployment target
+
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://releases.pagure.org/virt-viewer/virt-viewer-${version}.tar.xz
+    sha256: a43fa2325c4c1c77a5c8c98065ac30ef0511a21ac98e590f22340869bad9abd0
+dependencies:
+  build:
+    - meson
+    - ninja
+    - pkgconf
+    - python
+    - glib2
+    - gtk3
+    - libxml2
+    - spice-protocol
+    - spice-gtk
+    - gtk-vnc
+    - libvirt
+    - libvirt-glib
+    - vte
+  host: []
+  runtime:
+    - glib2
+    - gtk3
+    - libxml2
+    - spice-gtk
+    - gtk-vnc
+    - libvirt
+    - libvirt-glib
+    - vte
+verify_paths:
+  - /usr/bin/virt-viewer
+  - /usr/bin/remote-viewer

@@ -1,0 +1,29 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+#
+# itstool 2.0.7 — ITS-based XML translation tool
+# BLFS 13.0
+
+configure() {
+    set -e
+    # BLFS patch — apply with --force to skip hunks for test files
+    # not present in the release tarball (only in GitHub archive)
+    patch -Np1 --force -i $IGOS_PATCHES/itstool-2.0.7-lxml-1.patch || true
+
+    # Patch modifies configure.ac — regenerate configure
+    autoreconf -fiv
+
+    PYTHON=/usr/bin/python3 \
+    ./configure --prefix=/usr
+}
+
+build() {
+    set -e
+    make -j${IGOS_JOBS}
+}
+
+do_install() {
+    set -e
+    make DESTDIR="$DESTDIR" install
+}

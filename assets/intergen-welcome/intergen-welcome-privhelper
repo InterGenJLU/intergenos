@@ -1,0 +1,341 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+#
+# intergen-welcome-privhelper — privileged "Enable Services" and name-server
+# actions for the Welcomer. The privileged verbs are invoked ONLY via pkexec,
+# which authenticates the caller as an administrator (prompts for the password)
+# and runs this as root.
+#
+# SECURITY MODEL (security-only alignment):
+#   * pkexec's built-in org.freedesktop.policykit.exec action is auth_admin —
+#     it ALWAYS prompts for the administrator password. We deliberately do NOT
+#     ship a custom polkit rule that could weaken that to allow_active=yes; the
+#     default is the safe one, so no .rules / .policy file is needed.
+#   * This helper accepts EXACTLY ONE verb from the fixed whitelist below and
+#     nothing else. No caller-supplied paths, names, or service strings are
+#     ever interpolated into a command — so there is no injection surface.
+#   * The user added to `lpadmin` is derived from $PKEXEC_UID (pkexec sets it
+#     to the calling uid; it is not attacker-controlled), never from an arg.
+#   * Every action is fully reversible by its `disable-` counterpart: the
+#     service is disabled and any firewall drop-in this helper wrote is removed.
+#
+# THE ONE CALLER-SUPPLIED VALUE, and how it is contained: `dns-use-custom`
+# takes name-server ADDRESSES, because a user who runs their own resolver has
+# to be able to name it. That value is validated HERE, at the privileged
+# boundary, not in the unprivileged interface that sends it — an interface can
+# be bypassed, this cannot. It is accepted only if it parses as a literal IPv4
+# or IPv6 address by this script's own parsers (no external command sees it),
+# and it is written into a configuration file with printf. It never reaches a
+# command line, a shell expansion, or an eval. The charset gate inside the
+# parsers additionally makes it impossible for an accepted value to contain a
+# newline, an `=` or a `[`, so an accepted value cannot introduce a second
+# configuration directive into the file it is written to.
+#
+# `check-address` is the same validation with NOTHING else attached: it takes
+# an address, writes nothing, touches nothing, and exits 0 or 2. The Welcomer
+# runs it directly (no pkexec) to tell the user their address is malformed
+# before asking them for a password, so the check the interface shows and the
+# check the privileged write enforces are the same code.
+#
+# Firewall: the discovery/ssh verbs drop a removable fragment into
+# /etc/nftables.d/ (which intergenos-firewall-defaults' nftables.conf includes)
+# and reload nftables. The shipped default-deny ruleset is never edited in
+# place; toggling a service off deletes its fragment. This is the "drop-in
+# rule / GUI control panel" path D-011 explicitly anticipates.
+#
+# Name servers: the dns-* verbs use the same removable-fragment shape — a
+# drop-in under /etc/systemd/resolved.conf.d/. The network's own configuration
+# is never edited, and `dns-use-network-default` deletes the fragment, which
+# returns the machine exactly to what the network hands out.
+set -euo pipefail
+
+NFTD=/etc/nftables.d
+MDNS_DROPIN="$NFTD/50-intergen-mdns.conf"
+SSH_DROPIN="$NFTD/40-intergen-ssh.conf"
+
+RESOLVED_CONF_D=/etc/systemd/resolved.conf.d
+DNS_DROPIN="$RESOLVED_CONF_D/50-intergen-welcome-dns.conf"
+
+reload_firewall() {
+    mkdir -p "$NFTD"
+    systemctl reload nftables 2>/dev/null \
+        || systemctl restart nftables 2>/dev/null \
+        || nft -f /etc/nftables.conf
+}
+
+caller_user() {
+    local uid="${PKEXEC_UID:-}"
+    if [ -n "$uid" ]; then
+        getent passwd "$uid" | cut -d: -f1
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Address validation
+#
+# Parsed in bash on purpose. This is the only value the helper accepts from its
+# caller, so it is examined by this script rather than handed to another
+# program: nothing else ever sees the string until it has been accepted, and an
+# accepted string is written with printf, never executed.
+#
+# Both parsers begin by refusing every character outside their own alphabet.
+# That gate is what guarantees an accepted address cannot carry a newline, an
+# `=` or a `[`, and therefore cannot turn one configuration line into two.
+# ---------------------------------------------------------------------------
+
+# valid_ipv4 <string> — true for a dotted-quad literal.
+# Leading zeros are refused: "010" is ten to systemd and eight to anything that
+# reads it as octal, and an address that means two different things to two
+# readers has no place in a file that decides where name lookups go.
+valid_ipv4() {
+    local address="$1" octet
+    [[ "$address" =~ ^[0-9.]+$ ]] || return 1
+    [[ "$address" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
+    local IFS=.
+    local -a octets
+    read -r -a octets <<< "$address"
+    [ "${#octets[@]}" -eq 4 ] || return 1
+    for octet in "${octets[@]}"; do
+        [ -n "$octet" ] || return 1
+        [ "${#octet}" -le 3 ] || return 1
+        if [ "${#octet}" -gt 1 ] && [ "${octet:0:1}" = "0" ]; then
+            return 1
+        fi
+        [ "$octet" -le 255 ] || return 1
+    done
+    return 0
+}
+
+# _ipv6_run_groups <run> <allow-trailing-ipv4:yes|no> — echoes the number of
+# 16-bit groups a colon-separated run represents, or returns 1 if any group is
+# malformed. An empty run is zero groups (that is what sits either side of a
+# "::"). The embedded-IPv4 form is accepted only where it is legal — as the
+# last group of the WHOLE address — which is why the caller has to say so:
+# "1.2.3.4::" is not an address, and a run-local check would accept it.
+_ipv6_run_groups() {
+    local run="$1" allow_trailing_ipv4="$2" group count=0 index=0 last
+    if [ -z "$run" ]; then
+        echo 0
+        return 0
+    fi
+    local IFS=:
+    local -a groups
+    read -r -a groups <<< "$run"
+    last=$(( ${#groups[@]} - 1 ))
+    for group in "${groups[@]}"; do
+        if [[ "$group" == *.* ]]; then
+            if [ "$allow_trailing_ipv4" != "yes" ] || [ "$index" -ne "$last" ]; then
+                return 1
+            fi
+            valid_ipv4 "$group" || return 1
+            count=$(( count + 2 ))
+        else
+            [[ "$group" =~ ^[0-9A-Fa-f]{1,4}$ ]] || return 1
+            count=$(( count + 1 ))
+        fi
+        index=$(( index + 1 ))
+    done
+    echo "$count"
+    return 0
+}
+
+# valid_ipv6 <string> — true for a literal IPv6 address, compressed or not.
+# Zone identifiers ("fe80::1%eth0") are refused: a link-local name server is
+# not something this page offers, and the percent form would have to survive
+# into a configuration file whose parser may read it differently.
+valid_ipv6() {
+    local address="$1" head tail head_groups tail_groups
+    [[ "$address" =~ ^[0-9A-Fa-f:.]+$ ]] || return 1
+    [[ "$address" == *:* ]] || return 1
+    case "$address" in
+        *::*::*) return 1 ;;
+    esac
+    # A single leading or trailing colon is only legal as part of "::".
+    case "$address" in
+        ::*|*::) : ;;
+        :*|*:) return 1 ;;
+    esac
+
+    if [[ "$address" == *::* ]]; then
+        head="${address%%::*}"
+        tail="${address#*::}"
+        head_groups="$(_ipv6_run_groups "$head" no)" || return 1
+        tail_groups="$(_ipv6_run_groups "$tail" yes)" || return 1
+        # "::" must stand for at least one omitted group, so a compressed
+        # address can never already carry all eight.
+        [ $(( head_groups + tail_groups )) -lt 8 ] || return 1
+        return 0
+    fi
+
+    head_groups="$(_ipv6_run_groups "$address" yes)" || return 1
+    [ "$head_groups" -eq 8 ] || return 1
+    return 0
+}
+
+# valid_address <string> — true for either family.
+valid_address() {
+    valid_ipv4 "$1" || valid_ipv6 "$1"
+}
+
+# ---------------------------------------------------------------------------
+# Name-server selection
+#
+# The addresses below carry `#name` suffixes. That name is the certificate name
+# systemd-resolved validates when it opens the encrypted connection — without
+# it, DNS-over-TLS to an IP address has nothing to check the certificate
+# against. These are the same names the shipped fallback list already uses.
+# ---------------------------------------------------------------------------
+
+CLOUDFLARE_SERVERS='1.1.1.1#cloudflare-dns.com 1.0.0.1#cloudflare-dns.com 2606:4700:4700::1111#cloudflare-dns.com 2606:4700:4700::1001#cloudflare-dns.com'
+QUAD9_SERVERS='9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net 2620:fe::fe#dns.quad9.net 2620:fe::9#dns.quad9.net'
+
+# systemd-resolved has no reload path (its unit declares no ExecReload), so a
+# configuration change is picked up by a restart. The restart is NOT tolerated
+# if it fails: a caller that is told the change was applied must be able to
+# rely on that, so a failure here fails the whole verb.
+restart_resolved() {
+    systemctl restart systemd-resolved
+}
+
+# write_dns_dropin <selection-label> <DNS= value> <DNSOverTLS= value>
+# All three arguments come from this script's own fixed branches except the
+# address list for the custom selection, which has already been validated
+# address by address above.
+write_dns_dropin() {
+    local selection="$1" servers="$2" over_tls="$3"
+    mkdir -p "$RESOLVED_CONF_D"
+    printf '%s\n' \
+        '# Written by the InterGenOS Welcomer, name-lookup page.' \
+        '#' \
+        '# This file chooses the name servers this machine uses to turn names' \
+        '# into addresses. To go back to the servers this network hands out,' \
+        '# delete this file, or choose "Use what this network provides" on the' \
+        '# name-lookup page of the Welcomer.' \
+        '#' \
+        '# Domains=~. is what makes these servers apply to every name. Without' \
+        '# it the servers a network hands out would still be used for most' \
+        '# lookups and the choice made here would apply to almost nothing.' \
+        "# Selection: ${selection}" \
+        '' \
+        '[Resolve]' \
+        "DNS=${servers}" \
+        'Domains=~.' \
+        "DNSOverTLS=${over_tls}" \
+        > "$DNS_DROPIN"
+    chmod 0644 "$DNS_DROPIN"
+    restart_resolved
+}
+
+case "${1:-}" in
+    enable-printing)
+        systemctl enable --now cups.socket
+        u="$(caller_user)"
+        if [ -n "$u" ]; then
+            usermod -aG lpadmin "$u"
+        fi
+        ;;
+    disable-printing)
+        systemctl disable --now cups.socket cups.service cups.path 2>/dev/null || true
+        ;;
+    enable-discovery)
+        systemctl enable --now avahi-daemon.service
+        mkdir -p "$NFTD"
+        cat > "$MDNS_DROPIN" <<'NFT'
+#!/usr/sbin/nft -f
+# Added by the InterGenOS Welcomer "Enable Network Discovery" toggle.
+# mDNS / DNS-SD (Avahi) — link-local multicast DNS on udp/5353. Delete this
+# file (or toggle Network Discovery off in the Welcomer) to revert.
+table inet filter {
+    chain input {
+        udp dport 5353 accept
+    }
+}
+NFT
+        reload_firewall
+        ;;
+    disable-discovery)
+        systemctl disable --now avahi-daemon.service avahi-daemon.socket 2>/dev/null || true
+        rm -f "$MDNS_DROPIN"
+        reload_firewall
+        ;;
+    enable-ssh)
+        systemctl enable --now sshd.service
+        mkdir -p "$NFTD"
+        cat > "$SSH_DROPIN" <<'NFT'
+#!/usr/sbin/nft -f
+# Added by the InterGenOS Welcomer "Enable SSH Server" toggle.
+# OpenSSH inbound on tcp/22 (key-only authentication per D-007). Delete this
+# file (or toggle SSH off in the Welcomer) to revert.
+table inet filter {
+    chain input {
+        tcp dport 22 accept
+    }
+}
+NFT
+        reload_firewall
+        ;;
+    disable-ssh)
+        systemctl disable --now sshd.service 2>/dev/null || true
+        rm -f "$SSH_DROPIN"
+        reload_firewall
+        ;;
+    dns-use-network-default)
+        # Removing the fragment IS the revert: the network's own servers were
+        # never edited, they were only outranked while the fragment existed.
+        rm -f "$DNS_DROPIN"
+        restart_resolved
+        ;;
+    dns-use-cloudflare)
+        write_dns_dropin cloudflare "$CLOUDFLARE_SERVERS" yes
+        ;;
+    dns-use-quad9)
+        write_dns_dropin quad9 "$QUAD9_SERVERS" yes
+        ;;
+    dns-use-custom)
+        # dns-use-custom {encrypted|cleartext} <address> [<address>...]
+        shift
+        mode="${1:-}"
+        case "$mode" in
+            encrypted|cleartext) shift ;;
+            *)
+                echo "dns-use-custom: first argument must be 'encrypted' or 'cleartext'" >&2
+                exit 2
+                ;;
+        esac
+        if [ "$#" -lt 1 ] || [ "$#" -gt 3 ]; then
+            echo "dns-use-custom: expected 1 to 3 addresses, got $#" >&2
+            exit 2
+        fi
+        for candidate in "$@"; do
+            if ! valid_address "$candidate"; then
+                # Deliberately does not echo the rejected value back: the
+                # message goes to a log the user does not control the reader
+                # of, and repeating an arbitrary string into it is a habit
+                # worth not having.
+                echo "dns-use-custom: refused — an argument is not a literal IPv4 or IPv6 address" >&2
+                exit 3
+            fi
+        done
+        if [ "$mode" = "encrypted" ]; then
+            write_dns_dropin custom "$*" yes
+        else
+            write_dns_dropin custom "$*" no
+        fi
+        ;;
+    check-address)
+        # Validation and nothing else — writes nothing, changes nothing, needs
+        # no privilege. Exists so the Welcomer can check an address with the
+        # same parser that will enforce it, before asking for a password.
+        valid_address "${2:-}" || exit 2
+        ;;
+    *)
+        echo "usage: intergen-welcome-privhelper {enable|disable}-{printing|discovery|ssh}" >&2
+        echo "       intergen-welcome-privhelper dns-use-network-default" >&2
+        echo "       intergen-welcome-privhelper dns-use-cloudflare" >&2
+        echo "       intergen-welcome-privhelper dns-use-quad9" >&2
+        echo "       intergen-welcome-privhelper dns-use-custom {encrypted|cleartext} <address> [<address>...]" >&2
+        echo "       intergen-welcome-privhelper check-address <address>" >&2
+        exit 2
+        ;;
+esac

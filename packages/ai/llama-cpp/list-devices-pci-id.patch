@@ -1,0 +1,22 @@
+--- a/common/arg.cpp
++++ b/common/arg.cpp
+@@ -2271,7 +2271,18 @@
+             for (auto * dev : devices) {
+                 size_t free, total;
+                 ggml_backend_dev_memory(dev, &free, &total);
+-                printf("  %s: %s (%zu MiB, %zu MiB free)\n", ggml_backend_dev_name(dev), ggml_backend_dev_description(dev), total / 1024 / 1024, free / 1024 / 1024);
++                // InterGenOS: surface the PCI bus id the backends already carry
++                // (ggml_backend_dev_props.device_id) so a device in this list can
++                // be mapped to its kernel DRM card — the serving-device selector
++                // needs that to tell two identical GPUs apart and avoid the one
++                // driving displays. Devices with no id print the stock line.
++                ggml_backend_dev_props props = {};
++                ggml_backend_dev_get_props(dev, &props);
++                if (props.device_id) {
++                    printf("  %s: %s (%zu MiB, %zu MiB free) [PCI %s]\n", ggml_backend_dev_name(dev), ggml_backend_dev_description(dev), total / 1024 / 1024, free / 1024 / 1024, props.device_id);
++                } else {
++                    printf("  %s: %s (%zu MiB, %zu MiB free)\n", ggml_backend_dev_name(dev), ggml_backend_dev_description(dev), total / 1024 / 1024, free / 1024 / 1024);
++                }
+             }
+             exit(0);
+         }

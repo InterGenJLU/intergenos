@@ -1,0 +1,72 @@
+# /etc/apparmor.d/usr.sbin.haproxy — InterGenOS AppArmor profile for
+# HAProxy, shipped in enforce mode.
+#
+# Constrains filesystem access to the config + log + runtime + state
+# directories, the standard library link surface, and the TLS cert
+# storage. Denies arbitrary binary exec, raw device, raw socket
+# (haproxy uses AF_INET/AF_INET6 + AF_UNIX only via the systemd unit's
+# RestrictAddressFamilies; AppArmor adds belt-and-braces).
+
+#include <tunables/global>
+
+/usr/sbin/haproxy flags=(attach_disconnected) {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+  #include <abstractions/openssl>
+
+  capability setuid,
+  capability setgid,
+  capability net_bind_service,
+
+  # Binary
+  /usr/sbin/haproxy        mr,
+
+  # Standard library link surface (libc + libssl + libcrypto + libpcre2
+  # + libz + liblua + libsystemd + libcrypt pulled via abstractions +
+  # explicit paths).
+  /usr/lib/libpcre2-*.so*  mr,
+  /usr/lib/libz.so*        mr,
+  /usr/lib/liblua*.so*     mr,
+  /usr/lib/libsystemd*.so* mr,
+  /usr/lib/libcrypt*.so*   mr,
+
+  # Configuration (read-only — config integrity)
+  /etc/haproxy/              r,
+  /etc/haproxy/**            r,
+
+  # TLS cert+key concatenated PEM (mode 600 root:root); AppArmor
+  # mediates the read regardless of file ownership.
+  /etc/haproxy/ssl/server.pem r,
+  /etc/haproxy/ssl/**         r,
+
+  # Log directory
+  /var/log/haproxy/          rw,
+  /var/log/haproxy/**        rwk,
+
+  # State directory (per-frontend session caches, peer-table state)
+  /var/lib/haproxy/          rw,
+  /var/lib/haproxy/**        rwk,
+
+  # Runtime / admin-socket / PID directory
+  /run/haproxy/              rw,
+  /run/haproxy/**            rwk,
+
+  # /proc + /sys reads for worker tuning, cpu count, numa, sysctl-poll
+  @{PROC}/sys/kernel/ngroups_max r,
+  @{PROC}/sys/kernel/random/uuid r,
+  @{PROC}/sys/kernel/random/boot_id r,
+  @{PROC}/sys/kernel/pid_max     r,
+  @{PROC}/sys/net/core/somaxconn r,
+  @{PROC}/sys/net/ipv4/ip_local_port_range r,
+  @{PROC}/@{pid}/limits          r,
+  @{PROC}/@{pid}/status          r,
+  /sys/devices/system/cpu/       r,
+  /sys/devices/system/cpu/**     r,
+
+  # /etc/resolv.conf for backend DNS resolution
+  /etc/resolv.conf           r,
+  /etc/nsswitch.conf         r,
+
+  # Deny everything else explicitly. AppArmor's default is deny; this
+  # comment is documentation.
+}

@@ -1,0 +1,88 @@
+# InterGenOS GNOME Defaults
+#
+# gsettings override file — sets default values for GNOME desktop.
+# Installed to /usr/share/glib-2.0/schemas/ and compiled with glib-compile-schemas.
+# Users can override any of these in their own dconf database.
+#
+# To apply: glib-compile-schemas /usr/share/glib-2.0/schemas/
+
+[org.gnome.desktop.interface]
+# Default to dark theme — modern, easier on the eyes
+color-scheme='prefer-dark'
+# Theme selections — curated defaults, user can change via Settings or greeter.
+# Default = InterGenOS metatheme (GTK + GNOME Shell) + InterGenOS icons +
+# Bibata-Modern-Classic cursor. The InterGenOS metatheme is the native look
+# (ECG blue on deep navy); the icon + cursor pairings are referenced from
+# its index.theme [X-GNOME-Metatheme] block. Decided 2026-07-23: the
+# first-party InterGenOS icon theme (1.4) is the default; it inherits
+# Adwaita/hicolor for full coverage, and Papirus-Dark remains a curated
+# alternate. Users can switch to any of the alternate combos exposed in
+# intergen-welcome's appearance page.
+gtk-theme='InterGenOS'
+icon-theme='InterGenOS'
+cursor-theme='Bibata-Modern-Classic'
+# Font defaults
+font-name='Inter 11'
+monospace-font-name='JetBrains Mono 11'
+document-font-name='Inter 11'
+
+[org.gnome.desktop.wm.preferences]
+titlebar-font='Inter Bold 11'
+# button-layout canonical writer is 92_intergenos-desktop.gschema.override
+# (close-RIGHT, 'appmenu:minimize,maximize,close', matches intergenos-theme
+# metatheme + modern GNOME default). The close-LEFT entry that was here
+# was removed 2026-05-22 to close audit-row J-009 (3-writer drift).
+
+[org.gnome.shell]
+# Default dock favorites
+favorite-apps=['org.gnome.Settings.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Terminal.desktop', 'firefox.desktop', 'org.gnome.TextEditor.desktop']
+# Suppress GNOME's built-in "Welcome to GNOME" dialog on first login.
+# We ship our own intergen-firstboot welcome animation + intergen-welcome
+# tour, both of which would compete visually with the GNOME built-in
+# dialog. The upstream gschema description for this key states verbatim:
+#   "An empty string represents the oldest possible version, and a huge
+#    number will represent versions that do not exist yet. This huge
+#    number can be used to effectively disable the dialog."
+# Direct precedent: Ubuntu's 00_ubuntu-settings.gschema.override sets
+# this to '100' for the same purpose. Latest upstream GNOME version is
+# 49; '9999' gives ~9950 versions of headroom. Users can re-enable the
+# upstream dialog with: gsettings reset org.gnome.shell welcome-dialog-last-shown-version
+welcome-dialog-last-shown-version='9999'
+
+[org.gnome.Terminal.Legacy.Profile]
+# White on black, green cursor, generous scrollback
+use-theme-colors=false
+foreground-color='rgb(255,255,255)'
+background-color='rgb(0,0,0)'
+cursor-foreground-color='rgb(0,255,0)'
+cursor-background-color='rgb(0,255,0)'
+scrollback-lines=10000
+palette=['rgb(0,0,0)', 'rgb(170,0,0)', 'rgb(0,170,0)', 'rgb(170,85,0)', 'rgb(0,0,170)', 'rgb(170,0,170)', 'rgb(0,170,170)', 'rgb(170,170,170)', 'rgb(85,85,85)', 'rgb(255,85,85)', 'rgb(85,255,85)', 'rgb(255,255,85)', 'rgb(85,85,255)', 'rgb(255,85,255)', 'rgb(85,255,255)', 'rgb(255,255,255)']
+
+[org.gnome.desktop.background]
+# Default wallpaper: InterGenOS_Wallpaper_ItIsOnly.png (decided 2026-05-22).
+# Shipped by the packages/desktop/intergenos-wallpapers package. The 3 alternates
+# (Helix / Overwatch / Pulse) surface in GNOME Settings via the
+# /usr/share/gnome-background-properties/intergenos.xml manifest.
+# primary-color + secondary-color retained as gradient fallback for when
+# the wallpaper image cannot be loaded (early-boot, broken file, etc).
+picture-uri='file:///usr/share/backgrounds/intergenos/InterGenOS_Wallpaper_ItIsOnly.png'
+picture-uri-dark='file:///usr/share/backgrounds/intergenos/InterGenOS_Wallpaper_ItIsOnly.png'
+picture-options='zoom'
+primary-color='#1a1a2e'
+secondary-color='#16213e'
+color-shading-type='vertical'
+
+[org.gnome.desktop.screensaver]
+# Lock screen matches desktop wallpaper for visual consistency.
+picture-uri='file:///usr/share/backgrounds/intergenos/InterGenOS_Wallpaper_ItIsOnly.png'
+picture-options='zoom'
+primary-color='#1a1a2e'
+secondary-color='#16213e'
+color-shading-type='vertical'
+
+# [org.gnome.login-screen] -- canonical home is /etc/dconf/db/gdm.d/
+# 00-intergenos-greeter (shipped by intergenos-default-settings release 4).
+# Login-screen keys do not apply to user-session gschema; GDM reads its own
+# dconf profile chain. Tier 2 GDM customization landed 2026-05-22; this
+# section was removed because it was dead-letter here.

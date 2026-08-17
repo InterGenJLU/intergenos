@@ -1,0 +1,42 @@
+name: lib32-libtasn1
+version: "4.21.0"
+release: 1
+description: ASN.1 library used by GnuTLS and p11-kit (32-bit multilib runtime)
+license: LGPL-2.1-or-later
+homepage: https://www.gnu.org/software/libtasn1/
+tier: core
+# Bash-tier lib32 twin (lib32-expat shape): build.sh sources the single
+# lib32-env.sh profile, installs to a private root, and allowlist-stages
+# ONLY /usr/lib32 (the asn1* tools + headers ship with the 64-bit
+# sibling). Wired at the lib32 tail of chroot-build-core-extra.sh
+# (Rule 2).
+#
+# Forced-closure ADD (operator decision, 2026-07-02): lib32-p11-kit
+# runtime-links libtasn1 (verified against our p11-kit sibling's
+# declared runtime dep), and p11-kit is itself forced by the ratified
+# lib32-nss trust symlink. Soname read from the pinned configure.ac
+# (LT current 12 age 6 -> libtasn1.so.6).
+build_style: custom
+install_func: do_install
+lib32_source: libtasn1
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://ftpmirror.gnu.org/libtasn1/libtasn1-${version}.tar.gz
+  sha256: 1d8a444a223cc5464240777346e125de51d8e6abf0b8bac742ac84609167dc87
+dependencies:
+  build:
+  - lib32-glibc
+  host: []
+  runtime:
+  - lib32-glibc
+verify_paths:
+  - /usr/lib32/libtasn1.so.6
+  - /usr/lib32/pkgconfig/libtasn1.pc
+
+# Build inputs composed from the repository tree (declared so the published
+# source archive carries every input the build consumes — the corresponding-
+# source rule the kernel config fragments established; survey 2026-08-11).
+sources_extra:
+- scripts/lib32-env.sh

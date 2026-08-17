@@ -1,0 +1,68 @@
+name: lib32-libdrm
+version: "2.4.131"
+release: 1
+description: Direct Rendering Manager library (32-bit multilib runtime)
+license: MIT
+homepage: https://dri.freedesktop.org/
+tier: desktop
+# PURE-YML package (no build.sh): driven end-to-end by the builder's lib32
+# meson lane — cross-file configure, verbose ninja, allowlist staged-copy
+# install (only /usr/lib32 ships; headers/tools stay with the sibling).
+build_style: meson
+lib32_source: libdrm
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident). desktop tier
+# defaults iso_include true — declared false explicitly.
+iso_include: false
+source:
+- url: https://dri.freedesktop.org/libdrm/libdrm-${version}.tar.xz
+  sha256: 45ba9983b51c896406a3d654de81d313b953b76e6391e2797073d543c5f617d5
+dependencies:
+  build:
+  - lib32-glibc
+  host: []
+  runtime:
+  - lib32-glibc
+# Sibling-parity accepted loss (the 64-bit libdrm declares the same):
+# cairo decorates libdrm's optional TEST programs (modetest) only, never
+# the library — and this twin additionally pins -Dtests=false and
+# allowlist-stages only /usr/lib32, so no cairo-consuming code is even
+# built or shipped (the probe fires unconditionally in meson.build; its
+# result is unused with tests off). No lib32-cairo exists in the adopted
+# set; the probe miss loses nothing.
+silent_loss_accepted:
+  - cairo    # test-program decoration only; -Dtests=false + libs-only staging
+# Driver surface pinned EXPLICITLY (the G3 philosophy — auto-features
+# resolve silently; a twin must state its surface):
+# - udev=true matches the 64-bit sibling (link-free config toggle —
+#   identical cross-width behavior).
+# - intel=disabled: libdrm_intel serves the classic i915 era; the modern
+#   32-bit Intel path is iris/zink through mesa, which links libdrm core
+#   only. Enabling it would drag lib32-libpciaccess (outside the adopted
+#   set) for a library nothing loads. If the G5 closure audit or the
+#   composed-path proof ever shows a real consumer, promotion is a
+#   one-directory add per the adopted item-3 pattern.
+# - radeon/amdgpu/nouveau enabled explicitly: the RADV + radeonsi + NVK
+#   surfaces this twin exists to serve.
+# - ARM SoC drivers disabled explicitly (x86 twin; reference-distro parity).
+# - tests=false: the DRM test programs need device nodes the build chroot
+#   does not have (environmental, Rule-10 class) and are uninstalled dev
+#   tools the libs-only twin would discard regardless; the identical
+#   sources build test-covered in the 64-bit sibling's recipe posture.
+configure_flags:
+- -Dudev=true
+- -Dintel=disabled
+- -Dradeon=enabled
+- -Damdgpu=enabled
+- -Dnouveau=enabled
+- -Dvmwgfx=enabled
+- -Detnaviv=disabled
+- -Dfreedreno=disabled
+- -Dvc4=disabled
+- -Dman-pages=disabled
+- -Dvalgrind=disabled
+- -Dtests=false
+verify_paths:
+  - /usr/lib32/libdrm.so.2
+  - /usr/lib32/libdrm_amdgpu.so.1
+  - /usr/lib32/pkgconfig/libdrm.pc

@@ -1,0 +1,42 @@
+name: datasets
+# Not upstream-latest (5.0.0): unsloth caps datasets<4.4.0 (!=4.0.*,!=4.1.0).
+version: "4.3.0"
+release: 1
+description: Access and share datasets for machine learning workflows
+license: Apache-2.0
+homepage: https://github.com/huggingface/datasets
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/2a/47/325206ac160f7699ed9f1798afa8f8f8d5189b03bf3815654859ac1d5cba/datasets-4.3.0.tar.gz
+  sha256: bc9118ed9afd92346c5be7ed3aaa00177eb907c25467f9d072a0d22777efbd2b
+dependencies:
+  build:
+  - setuptools
+  host: []
+  runtime:
+  - dill
+  - filelock
+  - fsspec
+  - httpx
+  - huggingface-hub
+  - multiprocess
+  - numpy
+  - packaging
+  - pandas   # native-build dependency — forward-declared 2026-07-21; recipe lands with the native wave
+  - pyarrow   # native-build dependency — forward-declared 2026-07-21; native wave (>=21.0.0)
+  - python-requests
+  - pyyaml
+  - tqdm
+  # The Python binding, not the tier: core xxhash package — that one is the C
+  # library and the xxhsum CLI, which datasets/fingerprint.py cannot import.
+  # The binding declares the C library as its own runtime dependency, so
+  # libxxhash still resolves into any install set that pulls datasets in.
+  - python-xxhash
+  # fsspec[http] is capped <=2025.9.0 by this recipe (fsspec pinned to match);
+  # the [http] extra resolves via the tree's aiohttp.
+verify_paths:
+  - /usr/lib/python3.14/site-packages/datasets/__init__.py
+  - /usr/lib/python3.14/site-packages/datasets/load.py

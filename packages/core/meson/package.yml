@@ -1,0 +1,24 @@
+name: meson
+version: "1.10.1"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: High-performance build system
+license: Apache-2.0
+source:
+- url: https://github.com/mesonbuild/meson/releases/download/${version}/meson-${version}.tar.gz
+  sha256: c42296f12db316a4515b9375a5df330f2e751ccdd4f608430d41d7d6210e4317
+dependencies:
+  build:
+  # The pinned sdist's [build-system] names setuptools.build_meta, provided by
+  # setuptools. build.sh builds with --no-build-isolation, which installs nothing
+  # for the build, so setuptools must already be present; declaring it here is
+  # what orders it ahead of this package.
+  - setuptools
+  host: []
+  runtime:
+  - ninja
+  - python
+tier: core
+build_style: custom
+verify_paths:
+  - /usr/bin/meson
+  - /usr/lib/python3.14/site-packages/meson-1.10.1.dist-info

@@ -1,0 +1,8 @@
+# InterGenOS — open-vm-tools default-enable preset.
+# Enables vmtoolsd by default so VMware guests get timesync + dynamic resize
+# out of the box. Sorts before 99-intergenos-default-disable.preset's
+# `disable *` catch-all, so this explicit rule wins (systemctl preset-all is
+# first-match-wins in lexical filename order). Safe to enable globally: the
+# unit carries ConditionVirtualization=vmware, so it is inert on bare metal,
+# VirtualBox, and KVM/QEMU.
+enable vmtoolsd.service

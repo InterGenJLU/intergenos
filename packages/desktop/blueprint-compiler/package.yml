@@ -1,0 +1,28 @@
+name: blueprint-compiler
+version: "0.18.0"
+release: 1
+description: Markup language compiler for GTK UI files
+license: LGPL-3.0-or-later
+homepage: ''
+tier: desktop
+iso_include: false  # 2026-05-28 curation walk — Mirror
+build_style: meson
+install_func: do_install
+source:
+- url: https://gitlab.gnome.org/jwestman/blueprint-compiler/-/archive/v${version}/blueprint-compiler-v${version}.tar.gz
+  sha256: 703c7ccd23cb6f77a8fe9c8cae0f91de9274910ca953de77135b6e79dbff1fc3
+dependencies:
+  build:
+  - pygobject3
+  - at-spi2-core
+  - docbook-xsl-nons
+  - libxslt
+  - lynx
+  host: []
+  runtime:
+  - python
+  - pygobject3
+verify_paths:
+  - /usr/bin/blueprint-compiler
+  - /usr/share/pkgconfig/blueprint-compiler.pc
+  - /usr/lib/python3.14/site-packages/blueprintcompiler/__init__.py

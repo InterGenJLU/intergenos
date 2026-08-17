@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: small "downloads" emblem for a folder body — arrow into a tray. -->
+  <g class="glyph">
+    <path d="M 128 124 L 128 166"/>
+    <path d="M 110 148 L 128 166 L 146 148"/>
+    <line x1="104" y1="182" x2="152" y2="182"/>
+  </g>
+</svg>

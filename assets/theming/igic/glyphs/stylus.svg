@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: wacom — stylus pen with nib. VL primitives only, colorless. -->
+  <g class="glyph">
+    <path d="M176 68 L192 84 L104 172 L74 182 L84 152 Z"/>
+    <line x1="160" y1="84" x2="176" y2="100"/>
+  </g>
+</svg>

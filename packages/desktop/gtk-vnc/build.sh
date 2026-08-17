@@ -1,0 +1,35 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+#
+# gtk-vnc 1.5.0 — VNC viewer widget for GTK
+# BLFS 13.0
+
+configure() {
+    set -e
+    mkdir -p build
+    cd    build
+
+    # -Dpulseaudio=enabled: explicitly require pulseaudio support so
+    # the gvncpulse-1.0 sub-library is built. gnome-connections needs
+    # gvncpulse-1.0 for VNC audio; without an explicit setting (option
+    # defaults to 'auto'), gtk-vnc may build without it if libpulse
+    # wasn't visible at configure time.
+    meson setup ..              \
+          --prefix=/usr         \
+          --libdir=/usr/lib     \
+          --buildtype=release   \
+          -Dpulseaudio=enabled
+}
+
+build() {
+    set -e
+    cd build
+    ninja
+}
+
+do_install() {
+    set -e
+    cd build
+    DESTDIR="$DESTDIR" ninja install
+}

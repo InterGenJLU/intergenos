@@ -1,0 +1,26 @@
+name: webrtc-audio-processing
+version: "2.1"
+release: 1
+description: WebRTC audio processing library (acoustic echo cancellation, noise suppression)
+license: BSD-3-Clause
+homepage: https://gitlab.freedesktop.org/pulseaudio/webrtc-audio-processing
+tier: desktop
+build_style: custom
+source:
+- url: https://gitlab.freedesktop.org/pulseaudio/webrtc-audio-processing/-/archive/v2.1/webrtc-audio-processing-v2.1.tar.gz
+  sha256: 2358883a8551711f3b6169f6799c003dc1a6efd37bdb24a135a015cc9e3d7713
+patches:
+  - file: webrtc-audio-processing-2.1-upstream-c8896801-absl-202508.patch
+    sha256: 911a76bd65c68a9ba01ee17fd8a0cab2c28c2718085cd39dcf6b81d40a3062d8
+  - file: webrtc-audio-processing-2.1-upstream-e9c78dc4-gcc15-cstdint.patch
+    sha256: 0eb7073e6f4f0fce2fae2c48343ad85450a279d05fbcda92bd300834023d01ea
+dependencies:
+  build:
+  - abseil-cpp
+  host: []
+  runtime:
+  - abseil-cpp
+verify_paths:
+  - /usr/lib/libwebrtc-audio-processing-2.so
+  - /usr/lib/pkgconfig/webrtc-audio-processing-2.pc
+  - /usr/include/webrtc-audio-processing-2

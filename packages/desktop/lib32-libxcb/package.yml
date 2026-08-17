@@ -1,0 +1,36 @@
+name: lib32-libxcb
+version: "1.17.0"
+release: 1
+description: X C Binding library (32-bit multilib runtime)
+license: MIT
+homepage: https://xcb.freedesktop.org/
+tier: desktop
+# PURE-YML package (no build.sh): driven end-to-end by the builder's lib32
+# autotools lane — sourced profile per command, mechanism flags injected
+# (host triplet, lib32 libdir, verbose rules), allowlist staged-copy
+# install (only /usr/lib32 ships; headers/protos stay with the sibling).
+build_style: autotools
+lib32_source: libxcb
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://xorg.freedesktop.org/archive/individual/lib/libxcb-${version}.tar.xz
+  sha256: 599ebf9996710fea71622e6e184f3a8ad5b43d0e5fa8c4e407123c88a59a6d55
+dependencies:
+  build:
+  - lib32-glibc
+  - lib32-libXau
+  - lib32-libXdmcp
+  - xcb-proto
+  host: []
+  runtime:
+  - lib32-glibc
+  - lib32-libXau
+configure_flags:
+- --prefix=/usr
+- --disable-static
+- --without-doxygen
+verify_paths:
+  - /usr/lib32/libxcb.so.1
+  - /usr/lib32/pkgconfig/xcb.pc

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- states base: microphone-sensitivity — the same centered microphone (always-on) + a 3-arc
+       input-level ladder on the right (<g class="levels">, inner -> outer) + a muted overlay: the
+       corpus-standard blue disabled X (R7-4: accent, 2.5x the base — the R4-1/R6-2 class), its centre
+       midway between the arcs' right edge and the mic frame's left edge. Mirrors audio-volume mute.
+       Colorless; the states generator sets per-level opacity + the role paint. -->
+  <g class="glyph">
+    <rect x="110" y="54" width="36" height="80" rx="18"/>
+    <path d="M 88 118 A 40 40 0 0 0 168 118"/>
+    <path d="M 128 158 L 128 184"/>
+    <path d="M 104 184 L 152 184"/>
+    <g class="levels">
+      <path d="M 162 100 Q 172 118 162 136"/>
+      <path d="M 176 88 Q 194 118 176 148"/>
+      <path d="M 190 76 Q 212 118 190 160"/>
+    </g>
+    <g class="overlay cross accent" stroke-width="2.5">
+      <path d="M 133 95 L 179 141"/>
+      <path d="M 179 95 L 133 141"/>
+    </g>
+  </g>
+</svg>

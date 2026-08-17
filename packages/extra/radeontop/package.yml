@@ -1,0 +1,49 @@
+name: radeontop
+version: "1.4"
+release: 2  # r2: F25 — RUNTIME dep ncurses-core renamed to ncurses (ch7-twin name is chroot-only; unresolvable at user-side pkm install; the build-block twin stays — valid in-chroot). Deps-only change => release bump.
+description: View AMD Radeon GPU utilization in real time (htop-style TUI)
+license: GPL-3.0-or-later
+homepage: https://github.com/clbr/radeontop
+tier: extra
+build_style: make
+install_func: do_install
+iso_include: false
+# radeontop — htop-style TUI showing AMD Radeon GPU activity.
+# Long-established (since 2012) AMD-specific GPU monitor. Reads
+# performance counters via libdrm + libpciaccess; xcb path enables
+# unprivileged Xorg root-window monitoring. NLS via gettext.
+#
+# amdgpu autodetect is ON (default in upstream Makefile when libdrm
+# has libdrm_amdgpu >= 2; our libdrm 2.4.123 satisfies this; the
+# extra Makefile gate `pkg-config --atleast-version=2.4.66 libdrm`
+# evaluates to OK). The amdgpu code path is what AMDGPU users
+# (GCN1+) want; pre-GCN cards fall back to the legacy radeon path.
+#
+# Cross-distro alignment:
+#   Arch:   extra/radeontop; make + amdgpu=1 + xcb=1 + nls=1 (defaults)
+#   Fedora: radeontop; same
+#   Debian: radeontop; same
+# All three use upstream's default flag set on Linux. We align exactly.
+source:
+- url: https://github.com/clbr/radeontop/archive/refs/tags/v${version}.tar.gz
+  filename: radeontop-${version}.tar.gz
+  sha256: 2c1e2aace1a749d8e4530047ce245004e0f7d1d32a99037917e03d83e60f7ad1
+dependencies:
+  build:
+  - libdrm           # libdrm + libdrm_amdgpu for performance counters
+  - libpciaccess     # PCI enumeration of GPUs
+  - ncurses-core     # TUI
+  - libxcb           # xcb-dri2 path for unprivileged Xorg
+  - gettext          # msgfmt for translation .mo compilation
+  - pkgconf          # pkg-config for libdrm + libpciaccess + xcb discovery
+  host: []
+  runtime:
+  - libdrm
+  - libpciaccess
+  - ncurses
+  - libxcb
+tests:
+  enabled: false
+  reason: "radeontop has no upstream testsuite. Functional verification requires /dev/dri/card0 + a real AMD GPU; the build chroot provides neither."
+verify_paths:
+  - /usr/bin/radeontop

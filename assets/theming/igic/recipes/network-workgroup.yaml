@@ -1,0 +1,12 @@
+schema_version: 1
+id: network-workgroup
+name: Workgroup (symbolic)
+category: status
+kind: symbolic          # off-white stroke, no glow/tile (a top-bar status glyph)
+glyph: net-workgroup    # three peer nodes in a mesh (network.js:793-795, NM80211Mode.ADHOC)
+accent: ecg-blue
+pulse: none
+fit: 1.19
+export:
+  svg: true
+  png: [16, 24, 32, 48]

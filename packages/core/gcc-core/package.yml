@@ -1,0 +1,52 @@
+name: gcc-core
+ships_as: gcc  # ch8 dual-name twin — the driver archives this recipe under the ship name (chroot-build-ch8.sh run_package arg 2; runtime deps elsewhere may name 'gcc')
+version: "15.2.0"
+release: 4  # r4: +fortran in --enable-languages (dense-solver compute class needs gfortran; platform ships complete — decided 2026-07-17). r3 = expose /usr/lib/libgcc.a: the /usr/lib/libgcc_s.so ld script is GROUP ( libgcc_s.so.1 -lgcc ), but libgcc.a lived only in gcc's private libdir — clang+lld (which cannot triple-detect the x86_64-igos-linux-gnu GCC install) failed every -lgcc_s link. r2 = PI-Z16 /usr/bin/cc symlink.
+description: GNU Compiler Collection (final system)
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/gcc/gcc-${version}/gcc-${version}.tar.xz
+  sha256: 438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e
+dependencies:
+  build:
+  - zlib
+  # Multilib: the m32 target libs need the 32-bit startfiles + gnu/*-32.h
+  # headers present at build time (lib32-glibc runs earlier in ch8 by wiring).
+  - lib32-glibc
+  host: []
+  runtime:
+  - zlib
+  - gmp
+  - mpfr
+  - mpc
+  - zstd
+  # D-W0-7 / RT-6: the bundled 32-bit runtime (libgcc_s, libstdc++ in
+  # /usr/lib32) NEEDS the 32-bit libc — the edge is declared, not hidden,
+  # and lib32-glibc ships on the ISO so the Step 4.75 NEEDED-closure gate
+  # and pkm iso-prep both verify it closed.
+  - lib32-glibc
+tier: core
+build_style: custom
+# gcc-core bundles its own 32-bit runtime libs inside the 64-bit package
+# (Debian-style; the design's ONE allowlisted G1 exception — no synthetic
+# lib32-gcc-libs split). Governed via ELF_CLASS_MIXED_ALLOWED in
+# scripts/validate-package-tiers.py.
+elf_class: mixed
+verify_paths:
+  - /usr/bin/gcc
+  - /usr/bin/c++
+  # Decided 2026-07-17: fortran added to --enable-languages — the dense-solver
+  # class of the GPU compute platform (rocSOLVER lineage) requires a Fortran
+  # compiler, and the platform ships complete. In-tarball frontend, no new
+  # sources (the BLFS-documented language addition).
+  - /usr/bin/gfortran
+  - /usr/lib/libgfortran.so.5
+  # PI-Z16: the POSIX-conventional compiler name; runtime module rebuilds
+  # (nvidia src/nvidia Makefile) compile with plain `cc`.
+  - /usr/bin/cc
+  - /usr/lib/libcc1.so
+  - /usr/lib32/libgcc_s.so.1
+  # The static-libgcc exposure that makes the /usr/lib/libgcc_s.so ld
+  # script (GROUP ( libgcc_s.so.1 -lgcc )) resolvable to linkers that do
+  # not search gcc's private libdir (clang+lld on this vendor triple).
+  - /usr/lib/libgcc.a

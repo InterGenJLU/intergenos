@@ -1,0 +1,92 @@
+[
+  {
+    "id": "media-why-won-t-my-video-play",
+    "domain": "media",
+    "triggers": [
+      "why won't my video play"
+    ],
+    "answer": "InterGenOS ships the full GStreamer plugin set (base/good/bad/ugly + gst-libav), so common formats — H.264, HEVC, AAC, MP3, WebM/VP9, and more — play out of the box in Totem (Videos). If a specific file won't play, try opening it in Celluloid or mpv (both included), which use their own decoders. If it still fails, the file may be corrupt or use an unusual container — tell me the file and I'll help dig in.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "media-how-do-i-install-codecs",
+    "domain": "media",
+    "triggers": [
+      "how do I install codecs"
+    ],
+    "answer": "You don't need to — media codecs are already installed. InterGenOS bundles the complete GStreamer stack (base, good, bad, ugly, and gst-libav/ffmpeg), so the popular audio/video formats work in the default players with nothing to add. If a particular file won't play, it's usually the file or an unusual format rather than a missing codec.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "media-how-do-i-change-my-wallpaper",
+    "domain": "media",
+    "triggers": [
+      "how do I change my wallpaper"
+    ],
+    "answer": "Right-click the desktop and choose \"Change Background\", or open GNOME Settings → Appearance → Background. InterGenOS ships its own wallpaper set (the default plus Helix, Overwatch, and Pulse), and you can pick any image of your own with the \"Add Picture\" button.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "media-how-do-i-enable-dark-mode",
+    "domain": "media",
+    "triggers": [
+      "how do I enable dark mode"
+    ],
+    "answer": "InterGenOS already defaults to dark mode. To change it, open GNOME Settings → Appearance and choose Dark, Light, or Default under \"Style\". (This sets `org.gnome.desktop.interface color-scheme`, which apps follow automatically.)",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "media-how-do-i-change-the-theme",
+    "domain": "media",
+    "triggers": [
+      "how do I change the theme"
+    ],
+    "answer": "Open the first-boot Welcome tour's Appearance page, or GNOME Settings → Appearance, to switch among the curated InterGenOS looks. For deeper control of GTK theme, icons, and cursor, use GNOME Tweaks (installed). The default is the InterGenOS metatheme with the first-party InterGenOS icons and the Bibata cursor; several alternate combos ship.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "media-how-do-i-change-the-default-application-for-pdfs",
+    "domain": "media",
+    "triggers": [
+      "how do I change the default application for pdfs"
+    ],
+    "answer": "In Files (Nautilus), right-click a PDF → Properties → \"Open With\" tab, choose your preferred app (Evince/Document Viewer is the default and is installed) and click \"Set as Default\". That app then opens all PDFs.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "media-how-do-i-set-a-custom-keyboard-shortcut",
+    "domain": "media",
+    "triggers": [
+      "how do I set a custom keyboard shortcut"
+    ],
+    "answer": "Open GNOME Settings → Keyboard → \"View and Customize Shortcuts\" → scroll to the bottom → \"Custom Shortcuts\" → \"+\". Give it a name, the command to run, and press the key combination you want. You can also rebind any built-in shortcut from that same screen.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "media-how-do-i-change-the-timezone",
+    "domain": "media",
+    "triggers": [
+      "how do I change the timezone"
+    ],
+    "answer": "Open GNOME Settings → System → Date & Time. Turn on \"Automatic Time Zone\" to set it by location, or turn it off and pick your zone on the map / from the list.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "media-how-do-i-change-the-keyboard-layout",
+    "domain": "media",
+    "triggers": [
+      "how do I change the keyboard layout"
+    ],
+    "answer": "Open GNOME Settings → Keyboard → \"Input Sources\", click \"+\" to add a layout, and it appears in the top-right menu so you can switch (Super+Space cycles between them). Removing the extras leaves just your chosen layout.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  }
+]

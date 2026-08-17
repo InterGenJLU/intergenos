@@ -1,0 +1,63 @@
+name: libglvnd
+version: "1.7.0"
+release: 2  # r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: GL Vendor-Neutral Dispatch library — runtime GLX/EGL/OpenGL/GLES vendor dispatcher
+license: MIT
+homepage: https://gitlab.freedesktop.org/glvnd/libglvnd
+tier: desktop
+build_style: meson
+install_func: do_install
+iso_include: true
+# RUNTIME-ESSENTIAL on every ISO (corrected 2026-06-04, GBC001.2).
+# libglvnd is the GL Vendor-Neutral Dispatch layer that routes
+# GLX/EGL/OpenGL/GLES calls to whichever vendor provider (Mesa, NVIDIA,
+# etc.) registered itself via the JSON files under
+# /usr/share/glvnd/{egl,glx}_vendor.d/.
+#
+# Cross-distro alignment:
+#   Arch    — ships libglvnd as a standalone package and rebuilds mesa
+#             with -D glvnd=true. Mesa's libGL is the dispatch stub.
+#   Fedora  — same pattern; libglvnd separate, mesa built with glvnd on.
+#   Debian  — same pattern; libglvnd1 + mesa built --enable-glvnd.
+#
+# InterGenOS now follows the SAME pattern: mesa is built GLVND-style
+# (-D glvnd enabled — see packages/desktop/mesa/build.sh), so it ships
+# the vendor library libEGL_mesa.so.0 + the 50_mesa.json vendor file and
+# does NOT provide the public libGL.so.1 / libEGL.so.1 / libGLX.so.0
+# itself. Those public entrypoint libraries come ONLY from libglvnd.
+#
+# Therefore libglvnd MUST be on every ISO (iso_include: true): without
+# it, libEGL.so.1 is absent, gnome-shell fails to start
+# (`error while loading shared libraries: libEGL.so.1` → exit 127),
+# gdm crash-loops, and the system black-screens. This was the GBC001.1
+# bare-metal black-screen root cause (it booted dm-verity fine, then
+# iso-prep had pruned libglvnd because this was wrongly mirror-only).
+# The earlier "we DO NOT rebuild mesa with glvnd in v1.0" rationale was
+# false once mesa switched to GLVND dispatch.
+source:
+- url: https://gitlab.freedesktop.org/glvnd/libglvnd/-/archive/v${version}/libglvnd-v${version}.tar.gz
+  filename: libglvnd-${version}.tar.gz
+  # sha256 pinned 2026-05-29 from the upstream gitlab archive (BB-5; fetched
+  # twice, byte-identical). v1.7.0 is the current upstream tag (no v1.7.1 exists):
+  # https://gitlab.freedesktop.org/glvnd/libglvnd/-/tags/v1.7.0
+  sha256: "2b6e15b06aafb4c0b6e2348124808cbd9b291c647299eaaba2e3202f51ff2f3d"
+dependencies:
+  build:
+  - meson
+  - ninja
+  - pkgconf
+  - libX11        # X11 headers for GLX dispatch
+  - libXext       # XextAddDisplay / XextRemoveDisplay for GLX dispatch
+  - xorgproto     # GLX + GL proto headers (glxproto.h, glproto.h)
+  - python
+  host: []
+  runtime:
+  - libX11        # libGLX dispatch links libX11
+  - libXext       # libGLX dispatch links libXext
+  - glibc    # libc runtime
+# iso_include: true → assert the real shipped dispatch libs (no longer
+# mirror-only). libGLX.so.0 is libglvnd-exclusive; libEGL.so.1 is the
+# entrypoint whose absence caused the GBC001.1 black screen.
+verify_paths:
+  - /usr/lib/libGLX.so.0
+  - /usr/lib/libEGL.so.1

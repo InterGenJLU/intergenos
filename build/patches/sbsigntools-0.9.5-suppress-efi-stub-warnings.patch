@@ -1,0 +1,61 @@
+From: InterGenJLU <intergenjlu@noreply.intergenos.local>
+Subject: [PATCH] image.c: suppress benign EFI-stub kernel warnings on stderr
+
+sbsigntool 0.9.5's PE/COFF parser emits two stderr messages on every
+sign of a Linux EFI-stub kernel:
+
+  1. "warning: data remaining[X vs Y]: gaps between PE/COFF sections?"
+     fires because the kernel's PE optional header SizeOfImage doesn't
+     cover the trailing bzImage payload. sbsigntool correctly adds the
+     trailing bytes to its checksum_regions list (as the "endjunk"
+     region) so Authenticode signs the entire file. The warning is
+     purely informational — the signature is valid.
+
+  2. "Signing Unsigned original image"
+     fires on every fresh sign as a positive-confirmation message.
+     rc=0 + signed output size are sufficient confirmation for our
+     pipeline; the stderr line is noise.
+
+Both fire on every install run via Forge's bare-vmlinuz MOK signing
+step (installer/backend/bootloader.py: _install_signed_efi_chain).
+2026-05-27 install #28 trace anomaly E.
+
+Patch removes the two `fprintf(stderr, ...)` calls; the underlying
+operations (the "endjunk" checksum region, the cert table allocation)
+are preserved. No behavior change for signature validity.
+
+--- a/src/image.c
++++ b/src/image.c
+@@ -435,9 +435,15 @@
+ 		r->data = image->buf + bytes;
+ 		r->size = image->size - bytes - image->cert_table_size;
+
+-		fprintf(stderr, "warning: data remaining[%zd vs %zd]: gaps "
+-				"between PE/COFF sections?\n",
+-				bytes + image->cert_table_size, image->size);
++		/*
++		 * InterGenOS patch — suppress benign "data remaining"
++		 * warning. Trailing data after declared PE sections is
++		 * normal for Linux EFI-stub kernels (bzImage payload
++		 * after the PE header). The "endjunk" checksum region
++		 * above includes those bytes in the signed range so
++		 * Authenticode is correct; the warning is purely
++		 * informational and fires on every kernel signing.
++		 */
+ 	} else if (bytes + image->cert_table_size > image->size) {
+ 		fprintf(stderr, "warning: checksum areas are greater than "
+ 				"image size. Invalid section table?\n");
+@@ -554,7 +560,12 @@
+ 		start = image->sigbuf + image->sigsize;
+ 		image->sigsize += aligned_size;
+ 	} else {
+-		fprintf(stderr, "Signing Unsigned original image\n");
++		/*
++		 * InterGenOS patch — suppress purely-informational
++		 * "Signing Unsigned original image" message. sbsign
++		 * emits this on every fresh sign; rc=0 + signed output
++		 * size are sufficient confirmation for our pipeline.
++		 */
+ 		start = image->sigbuf = talloc_array(image, uint8_t, aligned_size);
+ 		image->sigsize = aligned_size;
+ 	}

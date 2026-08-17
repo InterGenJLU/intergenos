@@ -1,0 +1,28 @@
+name: usbredir
+version: "0.15.0"
+release: 1
+description: USB network redirection protocol libraries and tools
+license: LGPL-2.1-or-later
+homepage: https://gitlab.freedesktop.org/spice/usbredir
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://gitlab.freedesktop.org/spice/usbredir/-/archive/usbredir-${version}/usbredir-usbredir-${version}.tar.bz2
+    sha256: e3966c5d0221173867b3668a1ecc4d11506e8848ef9750a157723b8c9b7f1421
+dependencies:
+  build:
+    - meson
+    - ninja
+    - pkgconf
+    - glib2
+    - libusb
+  host: []
+  runtime:
+    - glib2
+    - libusb
+verify_paths:
+  - /usr/lib/libusbredirparser.so.1
+  - /usr/lib/libusbredirhost.so.1
+  - /usr/bin/usbredirect

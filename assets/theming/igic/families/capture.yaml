@@ -1,0 +1,24 @@
+# Family manifest — status/capture (ICON_CATEGORIES.md §5 rows + §6.2 symbolic). Three
+# heterogeneous symbolic glyphs (template: none) for the screen/capture privacy indicators.
+# gnome-shell js/ui/status/remoteAccess.js: media-record = the recording dot (:28), screencast-stop
+# = the stop-screencast button (:88,155), screen-shared = the screen-sharing indicator (:152).
+# accent is required by the row schema but unused for symbolic (all foreground). Names verified
+# char-for-char vs pinned gnome-shell-49.4 remoteAccess.js.
+schema_version: 1
+family: capture
+category: status
+kind: symbolic
+template: none
+glow: none
+pulse: none
+export:
+  svg: true
+  png: [16, 24, 32, 48]
+rows:                             # id (freedesktop name) | emblem (the glyph) | accent | name
+  # R7-2: media-record + screencast-stop adopt the SCREEN+MARK motif (operator ruling at the R6-4
+  # walk — the bare solid dot/square carried no meaning unlabeled). A stroked monitor + a FILLED
+  # record-dot / stop-square (the mark in <g class="fill">). The foreground NAME still carries the
+  # shell's live-recording RED recolor. The generic rec-circle/stop-square solids are retired.
+  - { id: media-record,    emblem: screen-record, accent: ecg-blue, name: Recording, fit: 0.964 }
+  - { id: screencast-stop, emblem: screen-stop,   accent: ecg-blue, name: Stop Screencast, fit: 1.074 }
+  - { id: screen-shared,   emblem: screen-cast,   accent: ecg-blue, name: Screen Shared, fit: 1.074 }

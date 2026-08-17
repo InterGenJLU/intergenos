@@ -1,0 +1,24 @@
+name: libsodium
+version: "1.0.22"
+release: 1
+description: Portable cryptography library providing the NaCl API
+license: ISC
+homepage: https://doc.libsodium.org/
+tier: extra
+iso_include: true  # library follows its consumer: remmina ships on the ISO
+build_style: autotools
+install_func: do_install
+source:
+- url: https://download.libsodium.org/libsodium/releases/libsodium-${version}.tar.gz
+  sha256: adbdd8f16149e81ac6078a03aca6fc03b592b89ef7b5ed83841c086191be3349
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static
+verify_paths:
+  - /usr/lib/libsodium.so
+  - /usr/include/sodium.h
+  - /usr/lib/pkgconfig/libsodium.pc

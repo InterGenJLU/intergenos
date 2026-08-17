@@ -1,0 +1,22 @@
+name: tinycss2
+version: "1.5.1"
+release: 1
+description: Low-level CSS parser for Python (icon-toolchain dep)
+license: BSD-3-Clause
+homepage: https://github.com/Kozea/tinycss2
+tier: extra
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+  - url: https://files.pythonhosted.org/packages/source/t/tinycss2/tinycss2-${version}.tar.gz
+    sha256: d339d2b616ba90ccce58da8495a78f46e55d4d25f9fd71dfd526f07e7d53f957
+dependencies:
+  build:
+    - flit-core
+  host: []
+  runtime:
+    - webencodings
+verify_paths:
+  - /usr/lib/python3.14/site-packages/tinycss2/__init__.py
+  - /usr/lib/python3.14/site-packages/tinycss2/parser.py

@@ -1,0 +1,31 @@
+name: aqlprofile
+version: "7.2.4"
+release: 1
+description: HSA AQL profiling library (hardware performance-counter packets — rocprofiler's collection backend)
+license: MIT
+homepage: https://github.com/ROCm/rocm-systems
+tier: compute
+build_style: custom
+install_func: do_install
+
+# SAME rocm-systems tarball (shared-source pin); builds
+# projects/aqlprofile from the monorepo. Formerly the closed-source
+# hsa-amd-aqlprofile blob — open-sourced upstream; building it from
+# source here is exactly the from-source posture the distro exists for.
+# rocprofiler-sdk dlopens it at runtime for counter collection.
+source:
+  - url: https://github.com/ROCm/rocm-systems/archive/refs/tags/rocm-${version}.tar.gz
+    filename: rocm-rocm-systems-${version}.tar.gz
+    sha256: 817f9c136125b8d162757a18cdc25b18b1efeb8ef36a948c85e4a672fd149de5
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - rocm-cmake
+  - rocr-runtime
+  host: []
+  runtime:
+  - rocr-runtime
+verify_paths:
+  - /opt/rocm/lib/libhsa-amd-aqlprofile64.so

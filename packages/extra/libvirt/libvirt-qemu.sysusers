@@ -1,0 +1,13 @@
+# qemu system user: libvirt runs guest processes as qemu:qemu
+# (meson -Dqemu_user=qemu -Dqemu_group=qemu). Created at boot by
+# systemd-sysusers.
+#
+# kvm membership is load-bearing: /dev/kvm ships 0660 root:kvm
+# (systemd -Ddev-kvm-mode=0660) and the shipped kvm group has no
+# members, so without this line qemu:qemu cannot open /dev/kvm and
+# KVM-accelerated guests fail to start. Upstream's own fragment
+# (src/qemu/libvirt-qemu.sysusers.conf, installed at this exact
+# path) carries the same membership; this file replaces it and must
+# not lose it.
+u qemu - "QEMU guest process user" /var/lib/libvirt -
+m qemu kvm

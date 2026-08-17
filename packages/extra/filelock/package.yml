@@ -1,0 +1,22 @@
+name: filelock
+version: "3.31.2"
+release: 1
+description: Platform-independent file lock
+license: MIT
+homepage: https://github.com/tox-dev/filelock
+tier: extra
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/99/2c/c603f8aedff281295f7afce455d5c05f33459c7bf684abb46228f844a1f0/filelock-3.31.2.tar.gz
+  sha256: e6d35965c709527915a184837a8421826d18bc3f9d7e9a5a0c8114a782475d66
+dependencies:
+  build:
+  - hatchling
+  - hatch-vcs
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/filelock/__init__.py
+  - /usr/lib/python3.14/site-packages/filelock/_api.py

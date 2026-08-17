@@ -1,0 +1,174 @@
+name: linux-kernel-pass2
+version: "6.18.10"
+release: 12  # r12: this pass now gets everything the kernel it ships was missing. It declares the same four CVE patches as linux-kernel (its driver applies them via apply_package_patches before build.sh is sourced), and its configure() runs the shared required-symbol gate, so the security/virtualisation exact-value set and the physical-hardware class set are asserted on the artifact that supersedes pass 1 rather than only on the one it replaces. Also: the release-coupled verify_paths literals move igos-15 -> igos-16 alongside linux-kernel r16, in the SAME change as the kernel bump. Kernel bytes change — this pass now builds patched source.  # r11: this pass now carries the fabricated-device gate, and that placement is the point. Pass 2 supersedes pass 1 and ships the kernel the user boots, yet it carries none of pass 1's post-merge assertion loops — so until now the kernel that actually ships was never checked for fabricated devices at all; the checks lived on the pass whose output this one replaces. build() now runs scripts/check-fabricated-devices.py after the compile and refuses the kernel on any finding. Also in this change: the release-coupled verify_paths literals move igos-14 -> igos-15 alongside linux-kernel r15, in the SAME change as the kernel bump, so the paths never name a release the build will not produce.  # r10: verify_paths lockstep bump igos-13 -> igos-14, moving with linux-kernel r14 (the fake-hardware class forced off rather than omitted, plus the config fragments declared as kernel source), bumped in the SAME change as the kernel so the paths never name a release the build will not produce. This pass rebuilds with the merged fragments, so its payload changes with them.  # r9: verify_paths lockstep bump igos-11 -> igos-13, moving with linux-kernel r13 (the hardware-coverage derivation change), bumped in the SAME change as the kernel so the paths never name a release the build will not produce.  # r8: verify_paths lockstep bump igos-10 -> igos-11, moving with linux-kernel r11, and bumped in the same change as the kernel so the paths never name a release the build will not produce.  # r7: verify_paths lockstep bump igos-9 -> igos-10 (linux-kernel r10, the update-boot-menu path fix) — bumped IN THE SAME CHANGE as the kernel this time; this class was missed at r4 and r6 and caught only by the squashfs gate both times. r6: verify_paths lockstep bump igos-7 -> igos-8 (missed again at linux-kernel r7->r8; caught by squashfs Step 4.5 on the ge9b-10 mint 2026-07-29 — same class as r4) + rebuild so the archive payload carries the igos-8 tree. r5: 3.0-F28 — declare reboot_required (rebuilds + direct-installs the kernel image + modules; effective only on next boot). .PKGINFO metadata change => release bump so installed systems receive the activation-semantics advisory on pkm upgrade. r4: verify_paths lockstep bump igos-4 -> igos-6 (missed at linux-kernel r4->r6; caught by squashfs Step 4.5 on the ge9b-05 mint 2026-07-18). r3: headers_install -> the LFS §5.4 idiom (make headers + prune non-.h + cp -r usr/include /usr) — headers_install shells out to rsync (tier base, absent at core-extra on a from-scratch); first self-hosted lane burn failed exit 127 here 2026-07-17. Same output, zero new deps. r2: ship the sanitized uapi headers (headers_install, direct-install) — same rationale + decision as linux-kernel r5
+content_hash: d44c9dad687f4102
+description: "Linux kernel (pass 2 — rebuild with merged config fragments)"
+license: GPL-2.0-only
+homepage: https://www.kernel.org/
+tier: core
+build_style: custom
+install_func: do_install
+# direct_install was declared here but never honored: this package is built by
+# the bash builder (scripts/chroot-build-core-extra.sh), which has no
+# filesystem-diff tracking — the flag is read only by igos-build. It described a
+# contract nothing implemented while do_install wrote to absolute paths, so the
+# archive captured no payload. do_install now stages into DESTDIR the way pass 1
+# does, which is what the builder that actually runs it supports.
+# 3.0-F28: activation semantics. Rebuilds + direct-installs /boot/vmlinuz +
+# /lib/modules for this release; the running kernel stays resident until reboot,
+# so the payload is on disk but not live until the user reboots. pkm emits a
+# loud post-transaction REBOOT REQUIRED banner naming this package.
+reboot_required: true
+source:
+- url: https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${version}.tar.xz
+  sha256: d6d377161741ada2fab28eed69143277634a2aeb5e3883e50c031588ede48ede
+dependencies:
+  build:
+  - linux-firmware
+  host: []
+  runtime:
+  - linux-firmware
+
+supersedes:
+  - linux-kernel
+
+# This pass exists to rebuild the kernel with the merged config fragments —
+# build.sh reads FRAG_DIR=/mnt/intergenos/config/kernel/fragments directly — so
+# the fragments are its primary first-party input and must be declared.
+#
+# Decided 2026-08-07, on a measurement: editing a fragment left this recipe's
+# content fingerprint byte-identical, so a fragment-only change was invisible
+# to the rebuild trigger and to the release bump. The package whose entire
+# purpose is "rebuild with the fragments" would not rebuild when the fragments
+# changed.
+# The kernel CVE patches, declared rather than applied by hand.
+#
+# Decided 2026-08-11, on a measurement. These four were applied only by
+# linux-kernel's build.sh, from a directory inside that recipe. linux-kernel-pass2
+# declares `supersedes: [linux-kernel]`, both passes stage the identical
+# /boot/vmlinuz-<KVER>, and the installer enforces that a superseding package
+# installs AFTER its predecessor — so the kernel a user boots came from pass 2,
+# which applied no patches at all. In the BUILD chroot the phase order is the
+# opposite (core-extra before kernel), so pass 1's patched kernel was written
+# last there and the ISO looked correct; the inversion only appeared on a real
+# install, which is the class a virtual machine cannot exhibit.
+#
+# Both passes now declare the SAME set here, and
+# tests/igos_build/test_kernel_patch_lockstep.py fails the suite the moment the
+# two lists differ by so much as one hash. The sha256 is verified before each
+# patch is applied, so a swapped patch file refuses rather than builds.
+patches:
+  - file: CVE-2026-31431-copy-fail.patch
+    sha256: bad15a8037c911039c5a60e07ecebf33fd736c85dd10ff22f5bc2f8e2b9f3aa8
+  - file: CVE-2026-43284-xfrm-esp-shared-frags.patch
+    sha256: 8b4de176fdabd4e8c6af62e15cb2f4a9999d5d80138c6a34c6a395b26be50c46
+  - file: CVE-2026-43500-rxrpc-shared-frags.patch
+    sha256: 209365497600372eb7c4ee73de9687d6e4ee562829780975a903d099a55d70ab
+  - file: CVE-2026-46300-fragnesia-skbuff-coalesce.patch
+    sha256: 73420ce2a4688e166f0bea258d0a44e66a19e23da8b3449297b1bfd4fd15a001
+
+source_tree:
+- config/kernel/fragments
+# The fabricated-device gate is a build input too, added 2026-08-11: build()
+# runs scripts/check-fabricated-devices.py after the compile and refuses this
+# kernel on a finding. Since this pass ships the kernel the user boots, the
+# gate's three files decide whether that kernel is allowed to exist, and a
+# change to any of them must flip the fingerprint rather than let a targeted
+# build skip the rebuild.
+- scripts/check-fabricated-devices.py
+- config/kernel/fabricated-device-module-allowlist.txt
+- docs/research/kernel_configs/analyze_convergence.py
+# The required-symbol gate is a build input too, added 2026-08-11: configure()
+# runs it after merging the fragments and REFUSES the kernel when a required
+# symbol is missing or downgraded. Its two requirement files decide what the
+# kernel must contain, so an edit to any of the three changes what this recipe
+# will build — declared here for the same measured reason the fragments are:
+# an undeclared input flips no fingerprint, so a targeted build would skip the
+# rebuild and ship the previous kernel.
+- scripts/check-kernel-required-symbols.py
+- config/kernel/required-security-symbols.txt
+- config/kernel/required-hardware-symbols.txt
+# The declared CVE patches and the parser that reads the declaration, added
+# 2026-08-11. Moving these patches to the canonical build/patches directory is
+# what lets BOTH passes apply the same set — but build-source-archives.py
+# collects patches from a recipe's OWN patches/ directory, so without these
+# entries the published corresponding source would no longer carry them and
+# could not rebuild the published binary. Caught by the sources_extra coverage
+# gate on this cut's own full-suite run, which is the gate working.
+- scripts/parse-package-yml-patches.py
+- build/patches/CVE-2026-31431-copy-fail.patch
+- build/patches/CVE-2026-43284-xfrm-esp-shared-frags.patch
+- build/patches/CVE-2026-43500-rxrpc-shared-frags.patch
+- build/patches/CVE-2026-46300-fragnesia-skbuff-coalesce.patch
+- packages/core/linux-kernel/hooks/post-install.sh
+
+# The kernel configuration fragments are a first-party build input that is not a
+# `source:` entry: configure() concatenates every fragments/*.config and runs
+# olddefconfig, so their content decides which drivers the shipped kernel has.
+# They must therefore ride in the corresponding-source archive, or the published
+# source cannot rebuild the published binary.
+#
+# Listed per file rather than as the directory, deliberately. The directory also
+# holds fragments/archive/, which is retired content the build never reads, and
+# corresponding source should carry what the binary was actually built from.
+# tests/igos_build/test_kernel_sources_extra.py fails the suite if a live
+# fragment is ever added without being declared here.
+#
+# The gate's three files ride here for the same reason, added 2026-08-11:
+# build() invokes the gate and the gate REFUSES when it cannot read them, so a
+# corresponding-source archive without them cannot rebuild the published binary.
+sources_extra:
+- config/kernel/fragments/00-universal-baseline.config
+- config/kernel/fragments/99-intergenos-overrides.config
+# The release-lockstep stamp is derived from the primary kernel recipe's yml
+# (build.sh:27) — a build input, so it rides (survey 2026-08-11).
+- packages/core/linux-kernel/package.yml
+- scripts/check-fabricated-devices.py
+- config/kernel/fabricated-device-module-allowlist.txt
+- docs/research/kernel_configs/analyze_convergence.py
+# The required-symbol gate's three files ride here for the same reason as the
+# fabricated-device gate's: configure() invokes it and it REFUSES when it cannot
+# read them, so a corresponding-source archive without them cannot rebuild the
+# published binary.
+- scripts/check-kernel-required-symbols.py
+- config/kernel/required-security-symbols.txt
+- config/kernel/required-hardware-symbols.txt
+# The declared CVE patches and the parser that reads the declaration, added
+# 2026-08-11. Moving these patches to the canonical build/patches directory is
+# what lets BOTH passes apply the same set — but build-source-archives.py
+# collects patches from a recipe's OWN patches/ directory, so without these
+# entries the published corresponding source would no longer carry them and
+# could not rebuild the published binary. Caught by the sources_extra coverage
+# gate on this cut's own full-suite run, which is the gate working.
+- scripts/parse-package-yml-patches.py
+- build/patches/CVE-2026-31431-copy-fail.patch
+- build/patches/CVE-2026-43284-xfrm-esp-shared-frags.patch
+- build/patches/CVE-2026-43500-rxrpc-shared-frags.patch
+- build/patches/CVE-2026-46300-fragnesia-skbuff-coalesce.patch
+- packages/core/linux-kernel/hooks/post-install.sh
+
+verify_paths:
+  - /usr/include/linux/limits.h
+  # Release-coupled: CONFIG_LOCALVERSION is stamped to -igos-<release> at build
+  # time (see ../linux-kernel/build.sh), so KERNELRELEASE = 6.18.10-igos-<release>
+  # — derived from LINUX-KERNEL's release, not this recipe's own.
+  #
+  # These must move whenever that release moves, and relying on someone
+  # remembering has not held. Four occurrences: 4->6 caught on one mint
+  # 2026-07-18, 6->7 on the next 2026-07-22, 7->8 on the ge9b-10 mint 2026-07-29
+  # (all three by squashfs Step 4.5, hours into a build), and then 8->9 the same
+  # day — the kernel-release-resolution fix machine-bumped linux-kernel to r9
+  # hours after the 7->8 correction landed, staling these literals again before
+  # anyone could build. Four is not carelessness; it is a hand-edit standing in
+  # for a derivation.
+  #
+  # scripts/preflight-kernel-release-lockstep.py now derives the expected value
+  # from linux-kernel's recipe and refuses the build at preflight when these
+  # disagree. Step 4.5 stays as the proof the files actually landed.
+  - /boot/vmlinuz-6.18.10-igos-16
+  - /usr/lib/modules/6.18.10-igos-16
+  # The D-005 UKI rebuild hook this pass now ships (added 2026-08-11). pkm fires
+  # it after deploying THIS pass's kernel, which on an installed system is the
+  # last kernel deploy that happens; without it the UKI keeps embedding pass 1's
+  # kernel while the modules on disk are this one's.
+  - /var/lib/pkm/hooks/linux-kernel-pass2/post-install

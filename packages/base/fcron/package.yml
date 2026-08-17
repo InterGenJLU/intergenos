@@ -1,0 +1,30 @@
+name: fcron
+version: "3.4.0"
+release: 8  # r8: ships /usr/bin/crontab as a symlink to fcrontab — fcron is the only periodic scheduler here and applications look for the standard command name (timeshift checks for it at startup and refuses to run when it is missing); the BLFS-recommended compatibility link, same binary and same permissions. r7: spool ownership restored on the live system — archive deployment strips uid/gid, so /var/spool/fcron landed root:root 755 (measured on the ge9b-12 installed system) and fcrontab's setgid-fcron grant could not write user tabs; post_install now asserts fcron:fcron 770 and do_install stages the same 770 so archive metadata and on-disk state agree. r6 (hook-contract wave): run-parts + cron.* dirs + systab.orig moved post_install -> do_install (owned payload)
+content_hash: 923bebc8c41de56f
+description: Periodical command scheduler
+license: GPL-2.0-or-later
+homepage: http://fcron.free.fr/
+tier: base
+build_style: custom
+install_func: do_install
+
+source:
+  - url: http://fcron.free.fr/archives/fcron-${version}.src.tar.gz
+    sha256: f4e7fc553cdd70ff4b3b6ac9138b3b7cffab9198b8c266d97af0a87506e0e1b5
+
+dependencies:
+  build:
+  - linux-pam
+  - vim
+  host: []
+  runtime:
+  - linux-pam
+verify_paths:
+  - /usr/bin/run-parts
+  - /usr/bin/crontab
+  - /var/spool/fcron/systab.orig
+  - /etc/cron.daily
+  - /usr/sbin/fcron
+  - /usr/bin/fcrondyn
+  - /usr/share/doc/fcron-3.4.0

@@ -1,0 +1,30 @@
+name: half
+version: "1.12.0"
+release: 1
+description: IEEE-754 half-precision C++ header library, ROCm packaging (MIGraphX dep)
+license: MIT
+homepage: https://github.com/ROCm/half
+tier: compute
+build_style: custom
+install_func: do_install
+
+# Single-header half-precision float type; in-tree consumer today =
+# MIGraphX (its manifest pins ROCm/half@rocm-5.6.0 — the tag used here;
+# the packaged library version inside is 1.12.0). MIOpen 7.2.4 probes
+# for it but no longer consumes it (upstream commented the pin out).
+# sha256 pinned 2026-07-17 (single-witness GitHub tag-archive endpoint;
+# tag identity corroborated by MIGraphX's pinned requirements.txt).
+source:
+  - url: https://github.com/ROCm/half/archive/refs/tags/rocm-5.6.0.tar.gz
+    filename: half-rocm-5.6.0.tar.gz
+    sha256: e3e5c4ed08db9b9e860d801886c9627199d4df3be5854bb0a408f9fb9d47f76f
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - rocm-cmake
+  host: []
+  runtime: []
+verify_paths:
+  - /opt/rocm/include/half/half.hpp

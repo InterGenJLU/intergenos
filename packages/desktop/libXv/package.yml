@@ -1,0 +1,27 @@
+name: libXv
+version: "1.0.13"
+release: 1
+description: X Video extension library
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/lib/libXv-${version}.tar.xz
+  sha256: 7d34910958e1c1f8d193d828fea1b7da192297280a35437af0692f003ba03755
+dependencies:
+  build:
+  - libXext
+  - libX11
+  - xorgproto
+  host: []
+  runtime:
+  - libXext
+  - libX11
+configure_flags:
+- --prefix=/usr
+- --disable-static
+
+verify_paths:
+  - /usr/lib/libXv.so

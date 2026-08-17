@@ -1,0 +1,235 @@
+{
+  "version": 1,
+  "captured_on": "intergenos-dev-gbc002-6",
+  "warm_samples": 5,
+  "thresholds_ms": {
+    "instant": 1500,
+    "slow": 7000,
+    "timer_backstop": 5000
+  },
+  "calls": [
+    {
+      "tool": "manage_packages",
+      "action": "list",
+      "args": {
+        "action": "list"
+      },
+      "cold_ms": 119.6,
+      "warm_p50_ms": 118.9,
+      "warm_p99_ms": 119.3,
+      "warm_min_ms": 118.0,
+      "warm_max_ms": 119.3,
+      "content_len": 42322,
+      "success": true,
+      "network": false,
+      "cacheable": true,
+      "cache_ttl_s": 30,
+      "band": "instant"
+    },
+    {
+      "tool": "manage_packages",
+      "action": "search",
+      "args": {
+        "action": "search",
+        "query": "lib"
+      },
+      "cold_ms": 127.6,
+      "warm_p50_ms": 119.6,
+      "warm_p99_ms": 120.1,
+      "warm_min_ms": 118.1,
+      "warm_max_ms": 120.1,
+      "content_len": 1583,
+      "success": false,
+      "network": false,
+      "cacheable": true,
+      "cache_ttl_s": 60,
+      "band": "instant"
+    },
+    {
+      "tool": "manage_packages",
+      "action": "info",
+      "args": {
+        "action": "info",
+        "package": "bash"
+      },
+      "cold_ms": 123.5,
+      "warm_p50_ms": 116.3,
+      "warm_p99_ms": 116.7,
+      "warm_min_ms": 114.2,
+      "warm_max_ms": 116.7,
+      "content_len": 475,
+      "success": true,
+      "network": false,
+      "cacheable": true,
+      "cache_ttl_s": 60,
+      "band": "instant"
+    },
+    {
+      "tool": "manage_packages",
+      "action": "verify",
+      "args": {
+        "action": "verify",
+        "package": "bash"
+      },
+      "cold_ms": 127.5,
+      "warm_p50_ms": 117.7,
+      "warm_p99_ms": 119.7,
+      "warm_min_ms": 117.0,
+      "warm_max_ms": 119.7,
+      "content_len": 939,
+      "success": false,
+      "network": false,
+      "cacheable": false,
+      "cache_ttl_s": 0,
+      "band": "instant"
+    },
+    {
+      "tool": "manage_services",
+      "action": "status",
+      "args": {
+        "action": "status",
+        "service": "dbus"
+      },
+      "cold_ms": 13.1,
+      "warm_p50_ms": 5.6,
+      "warm_p99_ms": 5.7,
+      "warm_min_ms": 5.3,
+      "warm_max_ms": 5.7,
+      "content_len": 2623,
+      "success": true,
+      "network": false,
+      "cacheable": true,
+      "cache_ttl_s": 10,
+      "band": "instant"
+    },
+    {
+      "tool": "manage_services",
+      "action": "is-active",
+      "args": {
+        "action": "is-active",
+        "service": "dbus"
+      },
+      "cold_ms": 3.2,
+      "warm_p50_ms": 2.8,
+      "warm_p99_ms": 3.0,
+      "warm_min_ms": 2.7,
+      "warm_max_ms": 3.0,
+      "content_len": 6,
+      "success": true,
+      "network": false,
+      "cacheable": true,
+      "cache_ttl_s": 10,
+      "band": "instant"
+    },
+    {
+      "tool": "manage_services",
+      "action": "is-enabled",
+      "args": {
+        "action": "is-enabled",
+        "service": "dbus"
+      },
+      "cold_ms": 3.8,
+      "warm_p50_ms": 3.9,
+      "warm_p99_ms": 4.2,
+      "warm_min_ms": 3.9,
+      "warm_max_ms": 4.2,
+      "content_len": 6,
+      "success": true,
+      "network": false,
+      "cacheable": true,
+      "cache_ttl_s": 60,
+      "band": "instant"
+    },
+    {
+      "tool": "manage_services",
+      "action": "is-failed",
+      "args": {
+        "action": "is-failed",
+        "service": "dbus"
+      },
+      "cold_ms": 3.0,
+      "warm_p50_ms": 2.8,
+      "warm_p99_ms": 3.1,
+      "warm_min_ms": 2.7,
+      "warm_max_ms": 3.1,
+      "content_len": 6,
+      "success": true,
+      "network": false,
+      "cacheable": true,
+      "cache_ttl_s": 10,
+      "band": "instant"
+    },
+    {
+      "tool": "manage_services",
+      "action": "list-units",
+      "args": {
+        "action": "list-units"
+      },
+      "cold_ms": 7.9,
+      "warm_p50_ms": 7.9,
+      "warm_p99_ms": 8.1,
+      "warm_min_ms": 7.9,
+      "warm_max_ms": 8.1,
+      "content_len": 63997,
+      "success": true,
+      "network": false,
+      "cacheable": true,
+      "cache_ttl_s": 10,
+      "band": "instant"
+    },
+    {
+      "tool": "read_file",
+      "action": "os-release",
+      "args": {
+        "path": "/etc/os-release"
+      },
+      "cold_ms": 0.2,
+      "warm_p50_ms": 0.1,
+      "warm_p99_ms": 0.1,
+      "warm_min_ms": 0.1,
+      "warm_max_ms": 0.1,
+      "content_len": 368,
+      "success": true,
+      "network": false,
+      "cacheable": true,
+      "cache_ttl_s": 30,
+      "band": "instant"
+    },
+    {
+      "tool": "analyze_file",
+      "action": "os-release",
+      "args": {
+        "path": "/etc/os-release"
+      },
+      "cold_ms": 15709.2,
+      "warm_p50_ms": 12743.6,
+      "warm_p99_ms": 16393.4,
+      "warm_min_ms": 10839.2,
+      "warm_max_ms": 16393.4,
+      "content_len": 865,
+      "success": true,
+      "network": false,
+      "cacheable": true,
+      "cache_ttl_s": 30,
+      "band": "slow"
+    },
+    {
+      "tool": "web_search",
+      "action": "query",
+      "args": {
+        "query": "InterGenOS"
+      },
+      "cold_ms": 843.6,
+      "warm_p50_ms": 823.7,
+      "warm_p99_ms": 1285.6,
+      "warm_min_ms": 753.6,
+      "warm_max_ms": 1285.6,
+      "content_len": 1895,
+      "success": true,
+      "network": true,
+      "cacheable": true,
+      "cache_ttl_s": 300,
+      "band": "instant"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Document Viewer / Papers — a page + a bookmark. -->
+  <g class="glyph">
+    <path d="M 66 44 L 140 44 L 172 76 L 172 206 A 6 6 0 0 1 166 212 L 72 212 A 6 6 0 0 1 66 206 L 66 50 A 6 6 0 0 1 72 44 Z"/>
+    <path d="M 140 44 L 140 76 L 172 76"/>
+    <path d="M 104 44 L 104 96 L 120 82 L 136 96 L 136 44"/>
+    <line x1="88" y1="132" x2="150" y2="132"/>
+    <line x1="88" y1="156" x2="150" y2="156"/>
+    <line x1="88" y1="180" x2="128" y2="180"/>
+  </g>
+</svg>

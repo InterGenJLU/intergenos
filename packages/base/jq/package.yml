@@ -1,0 +1,22 @@
+name: jq
+version: "1.8.2"
+release: 1
+description: Command-line JSON processor
+license: MIT
+homepage: https://jqlang.org
+tier: base
+build_style: autotools
+install_func: do_install
+iso_include: true  # see docs/extra-tier-classification.md — base CLI tool (tier and iso_include are independent axes); ships in the ISO, not mirror-only
+source:
+- url: https://github.com/jqlang/jq/releases/download/jq-${version}/jq-${version}.tar.gz
+  sha256: 71b8d6e8f5fe81f6c6d0d110e3892251f6ce76ed095abd315e26e6e1193af3af
+dependencies:
+  build:
+  - oniguruma
+  host: []
+  runtime:
+  - oniguruma
+verify_paths:
+- /usr/bin/jq
+- /usr/include/jq.h

@@ -1,0 +1,31 @@
+name: mingw-w64-binutils
+version: "2.46.0"
+release: 1
+description: Cross-binutils for the two Windows PE targets (mingw-w64 toolchain, stage 1)
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/binutils/
+tier: extra
+# GE extra-tier wave (build plan §4, RT-15 staged bootstrap). Builds the
+# target binutils for BOTH PE triplets (x86_64-w64-mingw32 +
+# i686-w64-mingw32) — wine's configure probes each arch's dedicated
+# cross-compiler independently and DXVK/vkd3d-proton ship both DLL widths,
+# so the whole staged sequence runs twice (research doc alongside this
+# landing). Reuses the toolchain tier's exact binutils pin (one pin, one
+# artifact).
+build_style: custom
+# Mirror-only (extra-tier default, stated explicitly): the gaming stack
+# reaches installs via the mirror + the gaming meta, never the ISO.
+iso_include: false
+source:
+- url: https://sourceware.org/pub/binutils/releases/binutils-${version}.tar.xz
+  sha256: d75a94f4d73e7a4086f7513e67e439e8fcdcbb726ffe63f4661744e6256b2cf2
+dependencies:
+  build:
+  - zlib
+  host: []
+  runtime:
+  - zlib
+verify_paths:
+  - /usr/bin/x86_64-w64-mingw32-ld
+  - /usr/bin/i686-w64-mingw32-ld
+  - /usr/bin/x86_64-w64-mingw32-objdump

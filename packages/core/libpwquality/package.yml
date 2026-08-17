@@ -1,0 +1,27 @@
+name: libpwquality
+version: "1.4.5"
+release: 1
+description: Password quality checking library
+license: GPL-2.0-or-later
+homepage: ''
+tier: core
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/libpwquality/libpwquality/releases/download/libpwquality-${version}/libpwquality-${version}.tar.bz2
+  sha256: 6fcf18b75d305d99d04d2e42982ed5b787a081af2842220ed63287a2d6a10988
+dependencies:
+  build:
+  - cracklib
+  - linux-pam
+  host: []
+  runtime:
+  - cracklib
+  - linux-pam
+configure_flags:
+- --prefix=/usr
+- --disable-static
+- --with-securedir=/usr/lib/security
+- --disable-python-bindings
+verify_paths:
+  - /usr/bin/pwscore

@@ -1,0 +1,14 @@
+schema_version: 1
+id: user-trash
+name: Trash
+category: places
+kind: color
+template: none
+glyph: trash
+color: ecg-blue
+glow: signature
+pulse: none
+fit: 1.39                # optical-band re-fit (measured)
+export:
+  svg: true
+  png: [16, 24, 32, 48, 64, 128, 256]

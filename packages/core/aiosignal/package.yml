@@ -1,0 +1,22 @@
+name: aiosignal
+version: "1.4.0"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: List of registered asynchronous callbacks
+license: MIT
+homepage: https://github.com/aio-libs/aiosignal
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/61/62/06741b579156360248d1ec624842ad0edf697050bbaf7c3e46394e106ad1/aiosignal-1.4.0.tar.gz
+  sha256: f47eecd9468083c2029cc99945502cb7708b082c232f9aca65da147157b251c7
+dependencies:
+  build:
+  - setuptools
+  - wheel
+  host: []
+  runtime:
+  - frozenlist
+  - typing-extensions
+verify_paths:
+  - /usr/lib/python3.14/site-packages/aiosignal

@@ -1,0 +1,30 @@
+name: zenity
+version: "4.2.2"
+release: 1
+description: GTK dialog boxes for shell scripts — InterGen's GUI consent modal
+license: LGPL-2.1-or-later
+homepage: https://gitlab.gnome.org/GNOME/zenity
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/zenity/4.2/zenity-${version}.tar.xz
+  sha256: 019186a996096ef4fc356e21577b5673f5baa3a29ac8e3d608b753371c18018d
+dependencies:
+  build:
+  - gtk4
+  - libadwaita1
+  - glib2
+  - gettext
+  - itstool
+  - help2man
+  - adwaita-icon-theme
+  host: []
+  runtime:
+  - gtk4
+  - libadwaita1
+  - glib2
+  - adwaita-icon-theme
+verify_paths:
+  - /usr/bin/zenity
+  - /usr/share/man/man1/zenity.1

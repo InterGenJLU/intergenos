@@ -1,0 +1,75 @@
+name: miopen
+version: "7.2.4"
+release: 1
+description: MIOpen — AMD's deep-learning primitives library (convolutions, attention, norm — the PyTorch cudnn-equivalent)
+license: MIT
+homepage: https://github.com/ROCm/rocm-libraries
+tier: compute
+build_style: custom
+install_func: do_install
+
+# SAME rocm-libraries tarball (shared-source pin); builds
+# projects/miopen from the monorepo, HIP backend. The class-F centerpiece.
+#
+# Dep closure grounded in the pinned CMakeLists (all upstream defaults
+# kept ON): composable_kernel (line 271) · hipblaslt (393, NOT WIN32
+# default) · rocblas (382) · rocrand · nlohmann_json 3.9.1+ REQUIRED
+# (112) · Boost filesystem (497/505) · BZip2 · SQLite3 · and the
+# AI-heuristic pair frugally-deep + Eigen3 (522-525, armed by the
+# default-ON MIOPEN_ENABLE_AI_KERNEL_TUNING / _AI_IMMED_MODE_FALLBACK).
+# half.hpp is probed but no longer consumed (upstream's own
+# requirements.txt comments the half pin out) — not packaged.
+#
+# MIOPEN_USE_MLIR=OFF (DECISION ITEM, operator rules): the upstream
+# shared-build default is ON and demands rocMLIR — an entire additional
+# MLIR toolchain package (upstream pins it at a rocm-5.5.0-era tag).
+# Reference distros (Arch, Fedora) ship MIOpen with MLIR off; the MLIR
+# backend is an alternate kernel-codegen path for some convolution
+# configs (perf-differentiated, not capability-differentiated — every
+# solver works without it). Recommendation: v1 OFF, rocMLIR as a v1.x
+# addition target decided on R9700 perf data. Silent it is not: this
+# comment + the tracker row are the record.
+source:
+  - url: https://github.com/ROCm/rocm-libraries/archive/refs/tags/rocm-${version}.tar.gz
+    filename: rocm-rocm-libraries-${version}.tar.gz
+    sha256: 50a4090b4ad18b34c375f666e5f71816cf55f89bc2175dc3eba9a7b80f65a15d
+
+gpu_targets: "gfx1100;gfx1102;gfx1201"
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - rocm-cmake
+  - rocm-hip
+  - rocm-llvm
+  - rocm-comgr
+  - rocblas
+  - hipblas-common
+  - hipblaslt
+  - composable-kernel
+  - rocrand
+  - boost
+  - bzip2
+  - sqlite
+  - nlohmann-json
+  - frugally-deep
+  - eigen
+  - functionalplus
+  - python
+  host: []
+  runtime:
+  - rocm-hip
+  - rocm-comgr
+  - rocblas
+  - hipblaslt
+  - composable-kernel
+  - rocrand
+  - boost
+  - bzip2
+  - sqlite
+verify_paths:
+  - /opt/rocm/lib/libMIOpen.so
+  # The perf/find databases are the load-bearing data payload — a MIOpen
+  # without share/miopen falls back to full-search on every config.
+  - /opt/rocm/share/miopen

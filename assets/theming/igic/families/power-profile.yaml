@@ -1,0 +1,25 @@
+# Family manifest — status/power-profile (ICON_CATEGORIES.md §5 rows + §6.2 symbolic). Four
+# heterogeneous symbolic glyphs (template: none, like devices but kind: symbolic). gnome-shell
+# powerProfiles.js PROFILE_PARAMS (17-40) + FALLBACK_PARAMS (34-37): performance=rocket,
+# balanced=gauge, power-saver=leaf, and gnome-power-manager (the "Custom" fallback, :36) = the
+# established gear (R5-4: simple/literal). EVERY row carries the R5-2 power symbol in ecg-blue via
+# `accent_glyph` — performance/balanced take the OUTLINE bolt top-left (bolt), power-saver takes it
+# FILLED inside the plug (bolt-plug), gnome-power-manager takes it FILLED overlaid on the gear
+# (bolt-gear). A small embedded symbol fills so the silhouette reads where an outline would close.
+# accent is required by the row schema (unused for symbolic — the body strokes foreground).
+# Names verified char-for-char vs pinned gnome-shell-49.4 powerProfiles.js.
+schema_version: 1
+family: power-profile
+category: status
+kind: symbolic
+template: none
+glow: none
+pulse: none
+export:
+  svg: true
+  png: [16, 24, 32, 48]
+rows:                             # id | emblem (foreground glyph) | accent_glyph (blue bolt) | accent | name
+  - { id: power-profile-performance, emblem: pp-rocket, accent_glyph: bolt, accent: ecg-blue, name: Performance, fit: 1.4 }
+  - { id: power-profile-balanced,    emblem: pp-gauge,  accent_glyph: bolt, accent: ecg-blue, name: Balanced, fit: 1.441 }
+  - { id: power-profile-power-saver, emblem: pp-leaf,   accent_glyph: bolt-plug, accent: ecg-blue, name: Power Saver, fit: 1.146 }
+  - { id: gnome-power-manager,       emblem: gear,     accent_glyph: bolt-gear, accent: ecg-blue, name: Custom, fit: 1.34 }

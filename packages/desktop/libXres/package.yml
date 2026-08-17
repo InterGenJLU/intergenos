@@ -1,0 +1,28 @@
+name: libXres
+version: "1.2.3"
+release: 1
+description: X11 Resource extension client library (XRes)
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/lib/libXres-${version}.tar.xz
+  sha256: d2de8f5401d6c86a8992791654547eb8def585dfdc0c08cc16e24ef6aeeb69dc
+dependencies:
+  build:
+  - libX11
+  - libXext
+  - xorgproto
+  host: []
+  runtime:
+  - libX11
+  - libXext
+configure_flags:
+- --prefix=/usr
+- --disable-static
+
+verify_paths:
+  - /usr/lib/libXRes.so
+  - /usr/include/X11/extensions/XRes.h

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- accent glyph: the R5-2 power symbol OVERLAID on the gnome-power-manager gear (R5-4), FILLED
+       (ecg-blue) so the small embedded silhouette reads at status sizes where an outline would
+       close. Centred on the gear hub, extending slightly beyond it to read as "overlaid". Same
+       canonical silhouette as bolt.svg. R7-1 re-derived to the example (both-side notches incl. the mid-left concave cut-in). Box (107,90,42,74). -->
+  <g class="fill"><path d="M 122.0 90.0 L 148.6 90.0 L 133.8 114.3 L 147.7 117.0 L 110.1 164.0 L 120.6 133.2 L 107.1 130.6 Z"/></g>
+</svg>

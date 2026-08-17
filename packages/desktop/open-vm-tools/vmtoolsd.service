@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# InterGenOS — open-vm-tools guest daemon unit.
+# Upstream ships no systemd unit; this is the InterGenOS-provided unit pointing
+# at the package's installed /usr/bin/vmtoolsd.
+[Unit]
+Description=Open VMware Tools — guest service for VMware virtual machines
+Documentation=https://github.com/vmware/open-vm-tools
+# Only ever run inside a VMware guest. systemd skips the unit entirely on bare
+# metal, VirtualBox, or KVM/QEMU (default-deny) — so enabling it by default is
+# a no-op everywhere except VMware.
+ConditionVirtualization=vmware
+Requires=dbus.service
+After=dbus.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/vmtoolsd
+Restart=always
+RestartSec=1
+TimeoutStopSec=5
+# NoNewPrivileges is unambiguously safe here. Heavier sandboxing
+# (ProtectSystem/ProtectHome/syscall filters) is a separate hardening item
+# tracked separately — it must first be proven on a live VMware guest not to
+# break resize (DRM/KMS), timesync (system clock), or guestInfo, since a
+# silently-degraded daemon would itself violate the security-only posture.
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

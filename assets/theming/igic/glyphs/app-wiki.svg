@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- InterGenOS Wiki — the documentation site's launcher mark: an open book, two
+       facing pages splayed on a centre gutter.
+       The pulse is deliberately NOT drawn here even though the site's own favicon is
+       the pulse: this family reserves the pulse for the brand and AI surfaces, three
+       corpus marks already carry it, and a fourth would not separate from them at
+       launcher size. A first-party APPLICATION mark draws its own subject.
+       Construction: each page is ONE open path from the gutter top (128,108) out over
+       the page arch to the fore-edge, down the fore-edge, and back along the bottom to
+       the gutter bottom (128,202); the gutter is a single explicit line, so no segment
+       is stroked twice.
+       Two properties carry the read and both are sized for the 16 px export (1 author
+       unit = 0.082 px there):
+       - the FORE-EDGES are straight verticals (x 40 / 216, 92 units tall). They are
+         what makes the silhouette a book rather than a pair of wings; a deeper arch
+         with curled outer corners was drawn and rejected at 16 px for exactly that.
+       - the gutter DIPS 24 units below the fore-edge corners at the top and 26 units
+         at the bottom, i.e. ~2 px at 16 — the open-spread cue survives to the smallest
+         export. The page arch peaks at (67.6, 74.6), 9 units above the outer corner,
+         which reads as a fanned page at 256 without deepening the silhouette.
+       Page interiors are left EMPTY. Two text lines per page would leave ~15 author
+       units of clear at the <=48 simple variant (6% stroke = 16 units), under the
+       ~24-unit separation this single-weight language needs; one line per page clears
+       30 but buys a generic document read that the silhouette already carries alone.
+       Distinct from `app-document-viewer` / `app-text-editor` / `app-logs` (upright
+       single page or slab plus text lines — no gutter, no splay) and from `emblem-doc`
+       / `mime-text` (bare line groups). No other corpus mark is a book. -->
+  <g class="glyph">
+    <path d="M 128 108 C 108 82 68 62 40 84 L 40 176 C 76 180 104 190 128 202"/>
+    <path d="M 128 108 C 148 82 188 62 216 84 L 216 176 C 180 180 152 190 128 202"/>
+    <line x1="128" y1="108" x2="128" y2="202"/>
+  </g>
+</svg>

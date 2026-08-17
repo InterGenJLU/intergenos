@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: network-workgroup — three connected device-nodes (a peer workgroup / NM80211Mode.ADHOC).
+       network.js:793-795. Authored original (online direction: connected computers as a group). -->
+  <rect x="104" y="52" width="48" height="40" rx="8"/>
+  <rect x="48" y="164" width="48" height="40" rx="8"/>
+  <rect x="160" y="164" width="48" height="40" rx="8"/>
+  <path d="M 116 92 L 84 164"/>
+  <path d="M 140 92 L 172 164"/>
+  <path d="M 96 184 L 160 184"/>
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- accent glyph: the R5-2 power symbol INSIDE the power-saver plug body (R5-3), FILLED (ecg-blue)
+       so the small embedded silhouette reads at status sizes where an outline would close. Same
+       canonical silhouette as bolt.svg / bolt-gear.svg. R7-1 re-derived to the example (both-side notches incl. the mid-left concave cut-in). Centred in the plug body. Box (78,64,36,54). -->
+  <g class="fill"><path d="M 90.9 64.0 L 113.6 64.0 L 101.0 81.7 L 112.9 83.7 L 80.7 118.0 L 89.7 95.5 L 78.1 93.6 Z"/></g>
+</svg>

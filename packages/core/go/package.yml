@@ -1,0 +1,44 @@
+name: go
+version: "1.26.4"
+# release 2: elf_class_exempt declaration added (L9) — same-version content
+# change; mirror carries 1.26.4-1 from the GBC004.4 refresh, publish gate
+# requires monotonic (version, release).
+release: 3  # r3: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+content_hash: d6787db6c0a9f49d
+description: The Go programming language compiler and toolchain
+license: BSD-3-Clause
+homepage: https://go.dev/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+  # Bumped 1.26.2 → 1.26.4 (latest 1.26.x) so tailscale (go.mod floor 1.26.3)
+  # builds under GOTOOLCHAIN=local; gh (floor 1.26.0) is unaffected. Core-tier
+  # bump → recompiles go-built packages on the next from-scratch build (WC review).
+  - url: https://go.dev/dl/go${version}.linux-amd64.tar.gz
+    sha256: 1153d3d50e0ac764b447adfe05c2bcf08e889d42a02e0fe0259bd47f6733ad7f
+    filename: go${version}.linux-amd64.tar.gz
+dependencies:
+  build: []
+  host: []
+  runtime:
+    - binutils
+    - gcc
+    - glibc
+    - make-ca
+
+verify_paths:
+  - /usr/lib/go
+  - /usr/lib/go/pkg
+  - /usr/lib/go/bin
+
+# Width-audit path exemptions (launch-gate L9, GE-01 2026-07-03): go installs
+# its full source tree; the debug/elf and runtime/pprof test suites ship
+# deliberate foreign-arch 32-bit ELF fixtures (x86/ARM/MIPS/PPC test objects —
+# inert data for go's OWN tests, never loaded or linked). Exempting exactly
+# these two testdata dirs keeps the 64-bit contract enforced on every real
+# binary; elfaudit reports each exempted file loudly and refuses a glob that
+# exempts nothing.
+elf_class_exempt:
+  - usr/lib/go/src/debug/elf/testdata/*
+  - usr/lib/go/src/runtime/pprof/testdata/*

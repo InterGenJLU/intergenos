@@ -1,0 +1,22 @@
+name: osinfo-db
+version: "20251212"
+release: 1
+description: Operating system metadata database for the osinfo ecosystem
+license: GPL-2.0-or-later
+homepage: https://libosinfo.org
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://releases.pagure.org/libosinfo/osinfo-db-${version}.tar.xz
+    sha256: 06379250c91306c98cb9726af44eae5909dfdd5449f90331e904ae1221d8d5e7
+dependencies:
+  build:
+    - osinfo-db-tools
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/share/osinfo/os
+  - /usr/share/osinfo/platform
+  - /usr/share/osinfo/schema/osinfo.rng

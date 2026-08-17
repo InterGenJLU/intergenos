@@ -1,0 +1,28 @@
+name: xcb-util-cursor
+version: "0.1.6"
+release: 1
+description: XCB cursor library
+license: MIT
+homepage: https://xcb.freedesktop.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://xcb.freedesktop.org/dist/xcb-util-cursor-${version}.tar.xz
+  sha256: fdeb8bd127873519be5cc70dcd0d3b5d33b667877200f9925a59fdcad8f7a933
+dependencies:
+  build:
+  - xcb-util-image
+  - xcb-util-renderutil
+  - libxcb
+  host: []
+  runtime:
+  - xcb-util-image
+  - xcb-util-renderutil
+  - libxcb
+configure_flags:
+- --prefix=/usr
+- --disable-static
+verify_paths:
+  - /usr/lib/libxcb-cursor.so
+  - /usr/lib/pkgconfig/xcb-cursor.pc

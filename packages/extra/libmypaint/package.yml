@@ -1,0 +1,24 @@
+name: libmypaint
+version: "1.6.1"
+release: 1
+description: Brush engine library for MyPaint and GIMP
+license: ISC
+homepage: https://github.com/mypaint/libmypaint
+tier: extra
+iso_include: true   # gimp (ISO, r3 curation) runtime-requires it — the closure provider missed in 633591b3 (ge9b-06 step-4.75 catch)
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/mypaint/libmypaint/releases/download/v${version}/libmypaint-${version}.tar.xz
+  sha256: 741754f293f6b7668f941506da07cd7725629a793108bb31633fb6c3eae5315f
+dependencies:
+  build:
+  - json-c
+  - glib2
+  host: []
+  runtime:
+  - json-c
+verify_paths:
+  - /usr/lib/libmypaint.so.0.0.0
+  - /usr/lib/pkgconfig/libmypaint.pc
+  - /usr/include/libmypaint/mypaint-brush-settings-gen.h

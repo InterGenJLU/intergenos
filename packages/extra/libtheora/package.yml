@@ -1,0 +1,32 @@
+name: libtheora
+version: "1.2.0"
+release: 1
+description: Reference implementation of the Theora video codec
+license: BSD-3-Clause
+homepage: https://www.theora.org/
+tier: extra
+iso_include: false  # only consumer is handbrake, which is mirror-only
+build_style: autotools
+install_func: do_install
+source:
+- url: https://downloads.xiph.org/releases/theora/libtheora-${version}.tar.xz
+  sha256: ebdf77a8f5c0a8f7a9e42323844fa09502b34eb1d1fece7b5f54da41fe2122ec
+dependencies:
+  build:
+  - libogg
+  - libvorbis
+  host: []
+  runtime:
+  - libogg
+# The example programs link SDL and libpng only to display/convert test
+# streams; they are not installed and are not part of the shipped payload.
+configure_flags:
+- --prefix=/usr
+- --disable-static
+- --disable-examples
+- --disable-doc
+- --disable-spec
+verify_paths:
+  - /usr/lib/libtheora.so
+  - /usr/lib/libtheoradec.so
+  - /usr/lib/libtheoraenc.so

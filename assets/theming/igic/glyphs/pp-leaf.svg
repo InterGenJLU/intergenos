@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: power-profile-power-saver (R5-3) — a power PLUG (body + two prongs + a short cord)
+       carrying the R5-2 power symbol (supplied as the accent_glyph bolt-plug, FILLED ecg-blue,
+       inside the body) PAIRED with a LEAF that reads unambiguously as a leaf: a broad ovate blade
+       + a clear STEM + a curved midrib (retires the symmetric "football" of round 4). The plug's
+       power symbol IS the power mark, so this row carries no top-left accent bolt. Line-forward. -->
+  <!-- plug: body + two prongs on top + a short cord -->
+  <rect x="64" y="62" width="64" height="62" rx="14"/>
+  <path d="M 84 46 L 84 62"/>
+  <path d="M 108 46 L 108 62"/>
+  <path d="M 96 124 Q 96 148 116 154"/>
+  <!-- leaf: broad ovate blade + stem + midrib (asymmetric, pointed tip) -->
+  <path d="M 144 196 C 126 154 156 116 208 116 C 200 154 190 196 144 196 Z"/>
+  <path d="M 144 196 L 130 212"/>
+  <path d="M 144 196 Q 176 156 208 116"/>
+</svg>

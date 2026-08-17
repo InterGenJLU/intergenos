@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Screenshot — crop corners + a capture area. -->
+  <g class="glyph">
+    <path d="M 56 98 L 56 64 L 90 64"/>
+    <path d="M 166 64 L 200 64 L 200 98"/>
+    <path d="M 56 158 L 56 192 L 90 192"/>
+    <path d="M 166 192 L 200 192 L 200 158"/>
+    <circle cx="128" cy="128" r="26"/>
+  </g>
+</svg>

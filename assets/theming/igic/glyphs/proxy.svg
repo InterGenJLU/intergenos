@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: network-proxy — region-style globe + split relay arrow above and below. VL primitives only, colorless. -->
+  <g class="glyph">
+    <circle cx="128" cy="128" r="42"/>
+    <line x1="86" y1="128" x2="170" y2="128"/>
+    <path d="M 128 86 A 22 42 0 0 0 128 170 A 22 42 0 0 0 128 86"/>
+    <line x1="95" y1="110" x2="161" y2="110"/>
+    <line x1="95" y1="146" x2="161" y2="146"/>
+    <line x1="86" y1="66" x2="166" y2="66"/>
+    <polyline points="152,56 170,66 152,76"/>
+    <line x1="170" y1="190" x2="86" y2="190"/>
+    <polyline points="104,180 86,190 104,200"/>
+  </g>
+</svg>

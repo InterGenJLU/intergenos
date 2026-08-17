@@ -1,0 +1,35 @@
+name: diffusers
+# Upstream latest stable (unsloth-wave dep; no upper pin).
+version: "0.39.0"
+release: 1
+description: State-of-the-art diffusion models for image and audio generation
+license: Apache-2.0
+homepage: https://github.com/huggingface/diffusers
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/1a/81/6095237b86a3116c4789f28c4435d5296c00c0fc74ffde99008fd6b3a36c/diffusers-0.39.0.tar.gz
+  sha256: 14bb1d98c85a0e463d734c99aaa73b480a7bc9bad22af30fbf730ef8f09c1d67
+dependencies:
+  build:
+  - setuptools
+  host: []
+  runtime:
+  - filelock
+  - httpx
+  - huggingface-hub
+  - numpy
+  - pillow   # native-build dependency — forward-declared 2026-07-21; recipe lands with the native wave
+  - python-requests
+  - regex
+  - safetensors   # native-build dependency — forward-declared 2026-07-21; native wave (>=0.8.0 for diffusers)
+  # Documented divergence (verified vs the 0.39.0 sdist, 2026-07-21): diffusers' Requires-Dist lists
+  # importlib_metadata unconditionally, but utils/import_utils.py selects `import importlib.metadata`
+  # for python>=3.8 and only falls back to the backport for python<3.8. On python3.14 the stdlib serves
+  # every API it calls (packages_distributions/distributions/version/PackageNotFoundError), so this
+  # recipe intentionally omits the importlib-metadata backport — it is not a dependency on this target.
+verify_paths:
+  - /usr/lib/python3.14/site-packages/diffusers/__init__.py
+  - /usr/lib/python3.14/site-packages/diffusers/pipelines/__init__.py

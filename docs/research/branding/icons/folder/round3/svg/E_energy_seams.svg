@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<defs>
+  <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+    <feGaussianBlur stdDeviation="3" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+
+  <linearGradient id="backE" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#10182a"/>
+    <stop offset="100%" stop-color="#070b16"/>
+  </linearGradient>
+  <linearGradient id="frontE" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#141c30"/>
+    <stop offset="100%" stop-color="#0b1020"/>
+  </linearGradient>
+  <linearGradient id="spineE" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#0a0e1a"/>
+    <stop offset="100%" stop-color="#050810"/>
+  </linearGradient>
+</defs>
+<rect width="256" height="256" fill="#000000"/>
+
+<!-- Shadow -->
+<ellipse cx="128" cy="211" rx="68" ry="5" fill="black" opacity="0.3"/>
+
+<!-- Back panel -->
+<path d="M 42 96 C 42 86, 46 80, 56 78 L 82 74
+         C 88 72, 94 68, 98 66 C 102 64, 108 62, 114 62
+         C 120 62, 124 64, 126 68 C 128 72, 130 76, 134 80
+         C 138 84, 142 86, 148 88 L 200 88
+         C 210 88, 216 94, 216 104 L 216 188
+         C 216 196, 210 202, 200 202 L 56 202
+         C 46 202, 42 196, 42 188 Z"
+      fill="url(#backE)"/>
+
+<!-- Front panel -->
+<path d="M 42 120 L 216 120 L 216 188
+         C 216 196, 210 202, 200 202
+         L 56 202 C 46 202, 42 196, 42 188 Z"
+      fill="url(#frontE)"/>
+
+<!-- Spine -->
+<path d="M 48 202 C 48 206, 52 210, 58 210
+         L 200 210 C 206 210, 212 206, 212 202"
+      fill="url(#spineE)"/>
+
+<!-- ENERGY SEAMS -->
+
+<!-- Seam 1: outer edge of whole folder (dim) -->
+<path d="M 42 96 C 42 86, 46 80, 56 78 L 82 74
+         C 88 72, 94 68, 98 66 C 102 64, 108 62, 114 62
+         C 120 62, 124 64, 126 68 C 128 72, 130 76, 134 80
+         C 138 84, 142 86, 148 88 L 200 88
+         C 210 88, 216 94, 216 104 L 216 188
+         C 216 196, 210 202, 200 202 L 56 202
+         C 46 202, 42 196, 42 188 Z"
+      fill="none" stroke="#0099FF" stroke-width="1" stroke-opacity="0.15"/>
+
+<!-- Seam 2: front panel edge (brighter — it's closer to viewer) -->
+<path d="M 42 120 L 216 120 L 216 188
+         C 216 196, 210 202, 200 202
+         L 56 202 C 46 202, 42 196, 42 188 Z"
+      fill="none" stroke="#0099FF" stroke-width="1" stroke-opacity="0.25"/>
+
+<!-- Seam 3: the crease (brightest — the energy junction) -->
+<line x1="44" y1="120" x2="214" y2="120"
+      stroke="#0099FF" stroke-width="2" stroke-opacity="0.6"
+      filter="url(#glow)"/>
+
+<!-- Seam 4: tab curve (second brightest) -->
+<path d="M 58 78 C 64 74, 76 70, 88 68
+         C 96 66, 106 63, 114 63
+         C 120 63, 124 65, 126 68
+         C 128 72, 130 76, 134 80
+         C 138 84, 142 86, 148 88"
+      fill="none" stroke="#0099FF" stroke-width="1.5" stroke-opacity="0.35"
+      stroke-linecap="round" filter="url(#glow)"/>
+
+<!-- Seam 5: spine bottom -->
+<path d="M 48 202 C 48 206, 52 210, 58 210
+         L 200 210 C 206 210, 212 206, 212 202"
+      fill="none" stroke="#0099FF" stroke-width="1" stroke-opacity="0.15"/>
+</svg>

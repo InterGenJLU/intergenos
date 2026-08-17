@@ -1,0 +1,38 @@
+name: cups
+version: "2.4.16"
+release: 2  # hook-contract wave: client.conf + pam.d/cups moved post_install -> do_install (owned payload)
+content_hash: 0d2bcdc06b3639b7
+description: Common UNIX Printing System
+license: Apache-2.0
+homepage: https://openprinting.github.io/cups/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/OpenPrinting/cups/releases/download/v${version}/cups-${version}-source.tar.gz
+  sha256: 0339587204b4f9428dd0592eb301dec0bf9ea6ea8dce5d9690d56be585aba92d
+dependencies:
+  build:
+  - dbus
+  - gnutls
+  - libusb
+  - linux-pam
+  - avahi
+  - xdg-utils
+  host: []
+  runtime:
+  - dbus
+  - gnutls
+  - libusb
+  - linux-pam
+  - avahi
+verify_paths:
+  - /etc/cups/client.conf
+  - /etc/pam.d/cups
+  - /usr/sbin/cupsd
+  - /usr/sbin/cupsaccept
+  - /usr/bin/cancel
+  - /usr/lib/libcupsimage.so
+  - /etc/cups/cupsd.conf
+  - /etc/cups/cups-files.conf
+  - /etc/cups/snmp.conf

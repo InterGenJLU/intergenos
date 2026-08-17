@@ -1,0 +1,279 @@
+[
+  {
+    "id": "pkm-update-system",
+    "domain": "pkm",
+    "triggers": [
+      "how do I update my system",
+      "how do I update everything",
+      "how to upgrade my system",
+      "how do I get the latest updates",
+      "what's the command to update the system",
+      "how do I keep my system up to date",
+      "update all my packages",
+      "how do I install system updates"
+    ],
+    "answer": "On InterGenOS you keep everything current with **pkm**, the package manager. Two steps:\n\n```\npkm sync       # refresh the package index from the mirror\npkm upgrade    # install newer versions of everything installed\n```\n\n`pkm sync` pulls the latest signed package index, then `pkm upgrade` rebuilds-or-fetches and installs the newer versions. You can run `pkm upgrade` on its own, but syncing first makes sure you're seeing everything that's available.",
+    "action": {
+      "command": "pkm sync && pkm upgrade",
+      "tool": "manage_packages"
+    },
+    "doc_source": "wiki packages/package-manager.md; docs/users/package-management.md",
+    "requires": [
+      "pkm"
+    ]
+  },
+  {
+    "id": "pkm-install",
+    "domain": "pkm",
+    "triggers": [
+      "how do I install software",
+      "how do I install a package",
+      "how to install an application",
+      "what's the command to install something",
+      "how do I add a program",
+      "how do I get a new app"
+    ],
+    "answer": "Install software with **pkm**:\n\n```\npkm install <name>\n```\n\nFor example `pkm install htop`. pkm handles everything in the InterGenOS repositories, so it's the one command you need. If you're not sure of the exact package name, search first with `pkm search <term>`.\n\nProprietary apps (Chrome, VS Code, etc.) aren't in the repos — they're installed through their download-helpers, e.g. `pkm install vscode` pulls the vendor installer rather than a repackaged binary.",
+    "doc_source": "wiki packages/package-manager.md; docs/users/package-management.md",
+    "requires": [
+      "pkm"
+    ]
+  },
+  {
+    "id": "pkm-remove",
+    "domain": "pkm",
+    "triggers": [
+      "how do I uninstall software",
+      "how do I uninstall a package",
+      "how do I remove a package",
+      "how do I remove software",
+      "how to uninstall an application",
+      "how do I delete a program",
+      "what's the command to remove something",
+      "get rid of a package"
+    ],
+    "answer": "Remove software with **pkm**:\n\n```\npkm remove <name>\n```\n\nFor example `pkm remove htop`. (`pkm uninstall` works too — it's an alias.) pkm won't let you remove a package that others still depend on without telling you; configuration files you've edited under `/etc` are preserved on removal.",
+    "doc_source": "wiki packages/package-manager.md; docs/users/package-management.md",
+    "requires": [
+      "pkm"
+    ]
+  },
+  {
+    "id": "pkm-search",
+    "domain": "pkm",
+    "triggers": [
+      "how do I search for a package",
+      "how do I find a package",
+      "how to look for software",
+      "what's the command to search packages",
+      "is there a package for something",
+      "how do I find out the package name"
+    ],
+    "answer": "Search the repositories with **pkm**:\n\n```\npkm search <term>\n```\n\nFor example `pkm search editor` lists matching packages with a short description. Once you know the name, `pkm info <name>` shows the full details, and `pkm install <name>` installs it.",
+    "doc_source": "wiki packages/package-manager.md",
+    "requires": [
+      "pkm"
+    ]
+  },
+  {
+    "id": "pkm-info-list",
+    "domain": "pkm",
+    "triggers": [
+      "how do I see what's installed",
+      "how do I list installed packages",
+      "how do I check if a package is installed",
+      "what packages do I have",
+      "how do I get information about a package",
+      "show package details"
+    ],
+    "answer": "List and inspect installed packages with **pkm**:\n\n```\npkm list              # everything installed\npkm info <name>       # full details for one package (version, files, deps)\npkm files <name>      # the files a package owns\n```\n\nTo check whether something specific is installed, `pkm info <name>` succeeds if it's present and tells you it's not otherwise.",
+    "doc_source": "wiki packages/package-manager.md",
+    "requires": [
+      "pkm"
+    ]
+  },
+  {
+    "id": "pkm-verify",
+    "domain": "pkm",
+    "triggers": [
+      "how do I verify my packages",
+      "how do I check package integrity",
+      "how do I make sure nothing's been tampered with",
+      "how to verify installed files",
+      "check that my system files are intact",
+      "how do I detect modified package files"
+    ],
+    "answer": "Verify installed packages against their recorded SHA-256 hashes with **pkm**:\n\n```\npkm verify           # check every installed package\npkm verify <name>    # check just one\n```\n\nThis re-hashes the files each package owns and reports any that differ from what was installed — a fast integrity check for tampering or corruption. Configuration files you've intentionally edited under `/etc` are expected to differ and are reported as such, not as damage.",
+    "doc_source": "wiki packages/reproducibility.md; packages/package-manager.md",
+    "requires": [
+      "pkm"
+    ]
+  },
+  {
+    "id": "pkm-overview",
+    "domain": "pkm",
+    "triggers": [
+      "explain how package management works",
+      "how does package management work",
+      "how do packages work on InterGenOS",
+      "what is pkm",
+      "how does pkm work",
+      "tell me about package management"
+    ],
+    "answer": "InterGenOS manages all software with one tool, **pkm** — the single front door:\n\n```\npkm sync             # refresh the signed package index from the mirror\npkm upgrade          # update everything installed\npkm install <name>   # add a package\npkm remove <name>    # remove one\npkm search <term>    # find a package\npkm list             # what's installed\npkm verify           # check installed files against their recorded hashes\n```\n\nEvery package is fetched against a signed, pinned index and verified by SHA-256, so what you install is exactly what was published — integrity is checked, not assumed. `pkm sync` then `pkm upgrade` is the routine to stay current.",
+    "doc_source": "wiki packages/package-manager.md; docs/users/package-management.md",
+    "requires": [
+      "pkm"
+    ]
+  },
+  {
+    "id": "pkm-how-do-i-install-software-on-linux",
+    "domain": "pkm",
+    "triggers": [
+      "how do I install software on linux"
+    ],
+    "answer": "InterGenOS installs software with **pkm**. Sync the index, then install by name:\n```\nsudo pkm update          # refresh the package index (verifies its signature)\nsudo pkm install <name>  # e.g. sudo pkm install neovim\n```\npkm pulls in dependencies automatically and verifies each archive's SHA-256 against the\nsigned index before extracting. Search first if you're unsure of the name: `pkm search <term>`.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "pkm-how-do-i-install-a-deb-file",
+    "domain": "pkm",
+    "triggers": [
+      "how do I install a .deb file"
+    ],
+    "answer": "You can't — InterGenOS is a from-source distro with its own format (`.igos.tar.gz`), not\nDebian's, so `.deb` packages are not compatible and there is no `dpkg`/`apt`. Install the\nInterGenOS build of what you want instead:\n```\npkm search <name>\nsudo pkm install <name>\n```\nIf it's a proprietary app (Chrome, VS Code, Spotify, Discord), pkm ships a download-helper —\njust `sudo pkm install chrome` (etc.). If nothing matches, the app isn't packaged yet.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "pkm-how-do-i-uninstall-a-program",
+    "domain": "pkm",
+    "triggers": [
+      "how do I uninstall a program"
+    ],
+    "answer": "```\nsudo pkm remove <name>       # `uninstall` also works\n```\npkm cleanly removes the package and offers to drop orphaned dependencies no longer needed by\nanything else. To sweep all orphaned dependency-installed packages at once: `sudo pkm autoremove`.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "pkm-how-do-i-install-google-chrome",
+    "domain": "pkm",
+    "triggers": [
+      "how do I install google chrome"
+    ],
+    "answer": "Chrome is proprietary, so InterGenOS ships a **download-helper** rather than bundling it. Same\ncommand as any package:\n```\nsudo pkm install chrome\n```\npkm shows a consent pause, then runs Google's \"I ACCEPT\" EULA and downloads the real Chrome.\n(An open alternative that's built from source and needs no EULA: `sudo pkm install firefox`.)",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "pkm-how-do-i-install-vscode",
+    "domain": "pkm",
+    "triggers": [
+      "how do I install vscode"
+    ],
+    "answer": "VS Code is proprietary Microsoft software, delivered via a download-helper:\n```\nsudo pkm install vscode\n```\npkm pauses for consent, runs Microsoft's EULA, then downloads the real VS Code. (A fully-open\nbuild is not shipped separately; the helper fetches Microsoft's official binary.)",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "pkm-how-do-i-install-steam",
+    "domain": "pkm",
+    "triggers": [
+      "how do I install steam"
+    ],
+    "answer": "InterGenOS does **not** currently ship a Steam download-helper or a Steam package — there's no\n`pkm install steam`. Don't run a fabricated command. Honest answer to give the user: \"Steam\nisn't packaged for InterGenOS yet. It's proprietary, so it would need a download-helper we\nhaven't built. I can log this as a request.\" (Do NOT suggest snap/flatpak — neither exists here.)",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "pkm-how-do-i-install-spotify-on-linux",
+    "domain": "pkm",
+    "triggers": [
+      "how do I install spotify on linux"
+    ],
+    "answer": "Spotify is proprietary; InterGenOS ships a download-helper:\n```\nsudo pkm install spotify\n```\npkm pauses for consent, runs Spotify's terms acceptance, and downloads the real client.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "pkm-how-do-i-install-discord-on-linux",
+    "domain": "pkm",
+    "triggers": [
+      "how do I install discord on linux"
+    ],
+    "answer": "Discord is proprietary; installed via its download-helper:\n```\nsudo pkm install discord\n```\npkm shows the consent pause, runs Discord's ToS acceptance, and downloads the real client.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "pkm-how-do-i-install-zoom-on-linux",
+    "domain": "pkm",
+    "triggers": [
+      "how do I install zoom on linux"
+    ],
+    "answer": "InterGenOS does **not** ship a Zoom package or download-helper today — there's no `pkm install\nzoom`. Honest answer: \"Zoom isn't packaged for InterGenOS yet; it's proprietary and would need\na download-helper we haven't built. I can note the request.\" Zoom's web client works in Firefox\nin the meantime. (No snap/flatpak on InterGenOS — don't suggest them.)",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "pkm-how-do-i-install-vlc",
+    "domain": "pkm",
+    "triggers": [
+      "how do I install vlc"
+    ],
+    "answer": "InterGenOS doesn't ship VLC. The included, from-source media player is **mpv** (plus the\nCelluloid GTK front-end and Rhythmbox for music):\n```\nsudo pkm install mpv          # command-line + desktop player\nsudo pkm install celluloid    # GNOME/GTK front-end for mpv\n```\nmpv plays essentially everything VLC does. If you specifically need VLC, it isn't packaged yet.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "pkm-what-s-the-difference-between-snap-flatpak-and-a",
+    "domain": "pkm",
+    "triggers": [
+      "what's the difference between snap, flatpak and apt"
+    ],
+    "answer": "None of those exist on InterGenOS. There's no apt, no snap, and no flatpak — the one package\nmanager is **pkm**, which installs from-source InterGenOS builds verified against a signed\nindex. There are no sandboxed universal bundles; everything is a first-class native package.\nProprietary apps (Chrome, VS Code, Spotify, Discord) come via `pkm install <app>` download-\nhelpers. Everyday commands: `sudo pkm update`, `pkm search <term>`, `sudo pkm install <name>`,\n`sudo pkm upgrade --all`.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "pkm-where-s-the-app-store",
+    "domain": "pkm",
+    "triggers": [
+      "where's the app store"
+    ],
+    "answer": "InterGenOS has no graphical app store; software is managed with the **pkm** command line. To find and install things:\n```\npkm search <term>            # browse the index\npkm info <name>              # details\nsudo pkm install <name>      # install\n```\n`pkm list available` shows everything in the synced index.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "pkm-how-do-i-upgrade-to-the-latest-version",
+    "domain": "pkm",
+    "triggers": [
+      "how do I upgrade to the latest version"
+    ],
+    "answer": "If you mean upgrading your installed packages to their latest versions:\n```\nsudo pkm update\nsudo pkm upgrade --all\n```\nInterGenOS is a rolling-package system — there's no separate \"release upgrade\" step; keeping\npackages current via `pkm upgrade --all` keeps you on the latest. (The OS-image/kernel is\nhandled through pkm too; `linux-kernel` upgrades require the explicit `--allow-kernel-replace`\nflag as a safety gate.)",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "pkm-how-do-i-update-just-one-program",
+    "domain": "pkm",
+    "triggers": [
+      "how do I update just one program"
+    ],
+    "answer": "Name the package explicitly:\n```\nsudo pkm update            # refresh the index first\nsudo pkm upgrade <name>    # upgrade only that package\n```\nNaming packages bypasses the `--all` requirement. If it's held, `pkm unhold <name>` first.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "pkm-do-i-need-to-reboot-after-updating",
+    "domain": "pkm",
+    "triggers": [
+      "do I need to reboot after updating"
+    ],
+    "answer": "Usually no. pkm never auto-restarts services during an upgrade (you control when your machine\ntakes downtime). After an upgrade, restart affected services yourself:\n```\npkm restart-services --list     # shows what wants a restart vs a reboot vs nothing\nsudo pkm restart-services --all # restart the running services pkm packages own\n```\nA reboot is only needed for a **kernel** upgrade (`linux-kernel`); `restart-services --list`\nflags that as `reboot`.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  }
+]

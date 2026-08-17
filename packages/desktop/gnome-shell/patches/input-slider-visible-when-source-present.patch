@@ -1,0 +1,30 @@
+InterGenOS: show the quick-settings input slider whenever a real capture
+device exists, not only while an application is actively recording.
+
+Upstream hides the microphone row until something records; a user who
+plugs in a working mic sees nothing and concludes it does not work (the
+adoption bar: a capture device the user cannot SEE is not "working").
+_deviceItems tracks real input devices (monitors are never listed), and
+device add/remove already calls _sync(), so visibility follows hotplug
+with no extra wiring. The upstream recording heuristic is kept as a
+fallback so a recording stream still reveals the row on a configuration
+whose device list is empty.
+
+--- a/js/ui/status/volume.js
++++ b/js/ui/status/volume.js
+@@ -419,7 +419,14 @@
+     }
+ 
+     _shouldBeVisible() {
+-        return super._shouldBeVisible() && this._showInput;
++        // InterGenOS: a capture device the user cannot see is not
++        // "working" — show the input row whenever at least one real
++        // input device exists (the Windows/macOS mental model), not
++        // only while an application is recording. The upstream
++        // recording check remains as a fallback for configurations
++        // with a recording stream but an empty device list.
++        return super._shouldBeVisible() &&
++            (this._deviceItems.size > 0 || this._showInput);
+     }
+ });
+ 

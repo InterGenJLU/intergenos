@@ -1,0 +1,32 @@
+name: ffmpeg-nonfree
+version: "1.0"
+release: 4  # r4: install output rewritten for the person at the terminal: lines that named internal machinery, internal decision codes or this project's own design rationale are replaced with plain statements of what happened and what to do about it, or removed where there was nothing to act on. Printed text only — no rule, path, flag, threshold, verification step or code path changed. tests/preflight/test_package_output_is_for_users.py holds the line. r3: F25 — runtime deps gcc-core/make-core renamed to gcc/make (ch7-twin names are chroot-only; user-side pkm install could not resolve them). Deps-only change => release bump.
+content_hash: a591b8934891d1e3
+description: Opt-in helper to install ffmpeg with patent-encumbered nonfree codecs (FDK-AAC) to /opt/ffmpeg-nonfree/
+license: GPL-3.0-or-later
+payload_license: "GPL-3.0-or-later AND FDK-AAC"
+homepage: https://ffmpeg.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - intergenos-helper-lib
+  - gcc
+  - make
+  - nasm
+  - pkgconf
+  - fdk-aac
+  - x264
+  - x265
+  - lame
+  - libvpx
+  - opus
+  - openssl
+  - zlib
+verify_paths:
+  - /usr/bin/igos-install-ffmpeg-nonfree
+  - /usr/share/licenses/ffmpeg-nonfree/LICENSE-BY-SPDX

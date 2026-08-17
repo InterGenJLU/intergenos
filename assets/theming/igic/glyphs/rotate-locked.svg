@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: rotation-locked — the device slab + sweep with a padlock at centre. -->
+  <g class="glyph">
+    <rect x="96" y="88" width="64" height="96" rx="10"/>
+    <path d="M 196 168 A 84 84 0 0 0 128 44"/>
+    <path d="M 60 88 A 84 84 0 0 0 128 212"/>
+    <rect x="112" y="126" width="32" height="26" rx="4"/>
+    <path d="M 118 126 L 118 116 A 10 10 0 0 1 138 116 L 138 126"/>
+  </g>
+</svg>

@@ -1,0 +1,14 @@
+schema_version: 1
+id: org.intergenos.web-browser
+name: Web Browser
+category: apps
+kind: color
+template: app-tile
+glyph: globe
+color: ecg-blue
+glow: signature
+pulse: none
+fit: 0.966                # optical T(q) re-fit (measured)
+export:
+  svg: true
+  png: [16, 24, 32, 48, 64, 128, 256]

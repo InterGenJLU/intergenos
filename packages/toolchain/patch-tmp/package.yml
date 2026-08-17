@@ -1,0 +1,24 @@
+name: patch-tmp
+version: "2.8"
+release: 1
+description: "GNU patch (temporary tools)"
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/patch/
+
+source:
+  - url: https://ftpmirror.gnu.org/patch/patch-${version}.tar.xz
+    sha256: f87cee69eec2b4fcbf60a396b030ad6aa3415f192aa5f7ee84cad5e11f7f5ae3
+
+dependencies:
+  build: []
+  host:
+    - ncurses
+  runtime: []
+
+tier: toolchain
+target_triple: x86_64-igos-linux-gnu
+build_style: autotools
+configure_flags:
+  - --prefix=/usr
+  - --host=$IGOS_TARGET
+  - --build=$(build-aux/config.guess)

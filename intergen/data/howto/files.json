@@ -1,0 +1,244 @@
+[
+  {
+    "id": "files-list-navigate",
+    "domain": "files",
+    "triggers": [
+      "how do I list files",
+      "how do I see what's in a folder",
+      "how do I navigate directories",
+      "how to move around the filesystem",
+      "what's the command to list a directory",
+      "how do I show hidden files"
+    ],
+    "answer": "Move around and list files with the standard tools:\n\n```\nls            # list the current directory\nls -la        # long form, including hidden (dot) files\ncd <dir>      # change directory   (cd ~ = home, cd - = previous)\npwd           # print the directory you're in\n```\n\nInterGenOS also ships friendlier viewers: `bat` (a syntax-highlighting `cat`), `eza`-style listings where installed, and `fd` for finding files. For a graphical view, open **Files** (Nautilus).",
+    "doc_source": "wiki sysadmin/filesystems-boot.md; docs/README.md",
+    "requires": [
+      "ls"
+    ]
+  },
+  {
+    "id": "files-copy-move-delete",
+    "domain": "files",
+    "triggers": [
+      "how do I copy a file",
+      "how do I move a file",
+      "how do I rename a file",
+      "how do I delete a file",
+      "how to remove a directory",
+      "what's the command to copy a folder"
+    ],
+    "answer": "Copy, move/rename, and remove with coreutils:\n\n```\ncp <src> <dst>           # copy a file   (cp -r for a directory)\nmv <src> <dst>           # move OR rename (same command)\nrm <file>                # delete a file\nrm -r <dir>              # delete a directory and its contents\nmkdir <dir>              # make a directory\n```\n\n`rm` is permanent — there's no recycle bin on the command line, so double-check the path. Use `rm -i` to be prompted for each file. To delete safely from the desktop, use the **Files** app, which moves to Trash.",
+    "doc_source": "wiki sysadmin/filesystems-boot.md",
+    "requires": [
+      "cp"
+    ]
+  },
+  {
+    "id": "files-create-write",
+    "domain": "files",
+    "triggers": [
+      "how do I create a file",
+      "how do I make a new file",
+      "how do I write text to a file",
+      "how do I save text into a file",
+      "how to create an empty file",
+      "what's the command to create a file"
+    ],
+    "answer": "Create a file, or write text into one:\n\n```\ntouch <file>                 # create an empty file (or refresh its timestamp)\necho 'text' > <file>         # write text, REPLACING the file's contents\necho 'more' >> <file>        # APPEND a line (>> never overwrites)\nprintf 'a\\nb\\n' > <file>     # write several lines at once\ncat > <file>                 # type lines, then Ctrl-D to save\n```\n\n`>` overwrites, `>>` appends — pick carefully. For more than a line or two, open an editor: `nano <file>` (simple, with on-screen key hints) or `vim <file>`. On the desktop, use the **Text Editor** app.",
+    "doc_source": "wiki sysadmin/filesystems-boot.md",
+    "requires": [
+      "touch"
+    ]
+  },
+  {
+    "id": "files-permissions",
+    "domain": "files",
+    "triggers": [
+      "how do I change file permissions",
+      "how do I make a file executable",
+      "how do I change the owner of a file",
+      "how to fix permission denied",
+      "what's the command for chmod",
+      "how do I set permissions on a folder"
+    ],
+    "answer": "Permissions and ownership:\n\n```\nchmod +x <file>          # make a script executable\nchmod 644 <file>         # owner read/write, others read-only\nchmod -R 755 <dir>       # recurse into a directory\nsudo chown <user> <file>      # change owner (needs sudo)\nsudo chown <user>:<group> <file>\n```\n\n`ls -l` shows current permissions (the `rwx` columns). A \"permission denied\" usually means you need `sudo` for a system path, or the file isn't marked executable (`chmod +x`).",
+    "doc_source": "wiki sysadmin/filesystems-boot.md",
+    "requires": [
+      "chmod"
+    ]
+  },
+  {
+    "id": "files-find-search",
+    "domain": "files",
+    "triggers": [
+      "how do I find a file",
+      "how do I search for a file by name",
+      "how do I search inside files",
+      "how to locate a file",
+      "what's the command to search file contents",
+      "how do I grep for something"
+    ],
+    "answer": "Find files by name and search their contents:\n\n```\nfind . -name '*.conf'        # files matching a pattern under here\nfd conf                      # faster, simpler (ships on InterGenOS)\ngrep -r 'text' <dir>         # search file CONTENTS recursively\nrg 'text'                    # ripgrep — much faster, respects .gitignore\n```\n\n`fd` and `rg` (ripgrep) ship by default and are the quick path; `find` and `grep` are always there as the portable fallback.",
+    "doc_source": "wiki sysadmin/filesystems-boot.md; docs/README.md",
+    "requires": [
+      "find"
+    ]
+  },
+  {
+    "id": "files-read-view",
+    "domain": "files",
+    "triggers": [
+      "how do I read a file",
+      "how do I view a file",
+      "how do I read a file in linux",
+      "how do I see the contents of a file",
+      "what's the command to read a file",
+      "how do I open a file to read it"
+    ],
+    "answer": "Read or view a file's contents:\n\n```\ncat <file>           # print the whole file\nbat <file>           # cat with syntax highlighting (ships on InterGenOS)\nless <file>          # scroll a long file (q to quit, / to search)\nhead <file>          # first 10 lines   (head -n 50 for more)\ntail <file>          # last 10 lines\ntail -f <file>       # follow a log as it grows\n```\n\n`cat` for short files, `less` for long ones, `tail -f` to watch a log live. On the desktop, open it in the **Text Editor**.",
+    "doc_source": "wiki sysadmin/filesystems-boot.md",
+    "requires": [
+      "cat"
+    ]
+  },
+  {
+    "id": "file-how-do-i-find-a-file-by-name",
+    "domain": "files",
+    "triggers": [
+      "how do I find a file by name"
+    ],
+    "answer": "```\nfd myfile               # shipped fast finder (packages/base/fd), searches under the current dir\nfd -H myfile /          # include hidden files; search from root\n# classic equivalent (findutils-core is also shipped):\nfind / -name 'myfile' 2>/dev/null\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "file-where-is-this-file-located",
+    "domain": "files",
+    "triggers": [
+      "where is this file located"
+    ],
+    "answer": "```\nfd -H '<filename>' /            # find every path matching that name\n# already know it's a command on PATH? locate its binary:\nwhich <command>                # e.g. which python\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "file-how-do-i-search-for-text-inside-files",
+    "domain": "files",
+    "triggers": [
+      "how do I search for text inside files"
+    ],
+    "answer": "```\nrg 'search text'               # ripgrep (packages/base/ripgrep): recursive, respects .gitignore, fast\nrg -i 'text'                   # case-insensitive\nrg 'text' /etc                 # limit to a directory\n# classic fallback (grep-core is shipped):\ngrep -rn 'text' .\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "file-how-do-i-find-which-file-contains-a-word",
+    "domain": "files",
+    "triggers": [
+      "how do I find which file contains a word"
+    ],
+    "answer": "```\nrg -l 'word'                   # list only the filenames that contain the word\nrg -l 'word' /etc              # scoped to a directory\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "file-how-do-i-move-a-file-to-another-folder",
+    "domain": "files",
+    "triggers": [
+      "how do I move a file to another folder"
+    ],
+    "answer": "```\nmv file.txt ~/Documents/            # move file.txt into ~/Documents\nmv *.png ~/Pictures/                # move all matching files\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "file-how-do-i-delete-a-folder-and-everything-in-it",
+    "domain": "files",
+    "triggers": [
+      "how do I delete a folder and everything in it"
+    ],
+    "answer": "```\nrm -r foldername/                   # recursively delete a folder and its contents\nrm -ri foldername/                  # prompt for each item (safer)\n```\nNote: this is permanent — there is no undo and it does not go to a trash bin.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "file-how-do-i-create-a-new-folder",
+    "domain": "files",
+    "triggers": [
+      "how do I create a new folder"
+    ],
+    "answer": "```\nmkdir newfolder                     # create a folder\nmkdir -p path/to/nested/folder      # create parent folders as needed\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "file-how-do-i-create-a-symlink",
+    "domain": "files",
+    "triggers": [
+      "how do I create a symlink"
+    ],
+    "answer": "```\nln -s /path/to/target linkname      # create a symbolic link named 'linkname'\nln -sf /path/to/target linkname     # -f: replace an existing link\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "file-how-do-i-extract-a-tar-gz-file",
+    "domain": "files",
+    "triggers": [
+      "how do I extract a tar.gz file"
+    ],
+    "answer": "```\ntar -xzf archive.tar.gz             # extract into the current directory\ntar -xzf archive.tar.gz -C ~/dest   # extract into ~/dest\n# .tar.xz -> -xJf ; .tar.bz2 -> -xjf ; plain .tar -> -xf\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "file-how-do-i-unzip-a-file",
+    "domain": "files",
+    "triggers": [
+      "how do I unzip a file"
+    ],
+    "answer": "```\nunzip archive.zip                   # extract a .zip (provided by bsdunzip -> /usr/bin/unzip)\nunzip archive.zip -d ~/dest         # extract into ~/dest\n# GUI: open the .zip in Files and choose \"Extract\" (file-roller).\n```\nNote: on InterGenOS `unzip` is the libarchive `bsdunzip` engine — same syntax as Info-ZIP for common cases.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "file-how-do-i-zip-a-folder",
+    "domain": "files",
+    "triggers": [
+      "how do I zip a folder"
+    ],
+    "answer": "```\nzip -r archive.zip foldername/      # create archive.zip from a folder (packages/base/zip)\n# GUI: right-click the folder in Files -> \"Compress...\" (file-roller).\n# Prefer tar+gzip on Linux for full permission/symlink fidelity:\ntar -czf archive.tar.gz foldername/\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "file-how-do-i-edit-a-file-in-the-terminal",
+    "domain": "files",
+    "triggers": [
+      "how do I edit a file in the terminal"
+    ],
+    "answer": "```\nnano file.txt          # beginner-friendly editor (on-screen shortcut hints)\nvim file.txt           # modal power editor\n# InterGenOS ships nano and vim (no nvim). GUI: gnome-text-editor file.txt\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "file-how-do-i-save-and-quit-in-vim",
+    "domain": "files",
+    "triggers": [
+      "how do I save and quit in vim"
+    ],
+    "answer": "```\nPress Esc to leave insert mode, then type:\n  :wq   (or :x)   -> save and quit\n  :q!             -> quit WITHOUT saving\n  :w              -> save without quitting\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "file-how-do-i-save-and-exit-nano",
+    "domain": "files",
+    "triggers": [
+      "how do I save and exit nano"
+    ],
+    "answer": "```\nCtrl+O  then Enter   -> write (save) the file\nCtrl+X               -> exit  (nano prompts to save if there are unsaved changes)\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  }
+]

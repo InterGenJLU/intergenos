@@ -1,0 +1,29 @@
+name: gparted
+version: "1.8.1"
+release: 1
+description: GNOME Partition Editor for graphically managing disk partitions
+license: GPL-2.0-or-later
+homepage: https://gparted.org
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+- url: https://downloads.sourceforge.net/gparted/gparted-${version}.tar.gz
+  sha256: 67388ac405f9fe92a40636cb03b0e1e0bb6403ad89ccc174b2ff190ef6f32349
+dependencies:
+  build:
+  - intltool
+  - itstool
+  - gtkmm3
+  - glibmm2
+  - parted
+  host: []
+  runtime:
+  - gtkmm3
+  - glibmm2
+  - parted
+  - exfatprogs
+verify_paths:
+- /usr/bin/gparted
+- /usr/libexec/gpartedbin

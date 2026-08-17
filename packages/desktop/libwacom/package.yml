@@ -1,0 +1,30 @@
+name: libwacom
+version: "2.18.0"
+release: 1
+description: Wacom tablet information library
+license: MIT
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/linuxwacom/libwacom/releases/download/libwacom-${version}/libwacom-${version}.tar.xz
+  sha256: 7dbb9ab37df9df47ae2fdbb644916c986728291749bcd5ad8bcaa26f1e15f002
+dependencies:
+  build:
+  - libevdev
+  - libgudev
+  - libxml2
+  - git
+  - librsvg
+  - glib2
+  host: []
+  runtime:
+  - libevdev
+  - libgudev
+  - libxml2
+  - glib2
+verify_paths:
+  - /usr/bin/libwacom-list-devices
+  - /usr/bin/libwacom-list-local-devices
+  - /usr/lib/libwacom.so

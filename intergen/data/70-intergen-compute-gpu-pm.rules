@@ -1,0 +1,24 @@
+# Keep secondary AMD GPUs out of runtime suspend.
+#
+# On a multi-GPU system the desktop compositor re-evaluates its monitor
+# configuration when any GPU suspends or resumes. A discrete card that hosts
+# no displays and serves compute (a model server) cycles through runtime
+# suspend/resume at every server start and stop, and each wake collapses the
+# session's monitor layout: the background drops to the fallback color and
+# windows are pulled to the primary monitor. Measured on dual-R9700 hardware
+# (2026-08-03 and 2026-08-07): the kernel's "SMU is resumed successfully"
+# line coincides with every background-loss moment, three for three, with no
+# other trigger present.
+#
+# The match is deliberately narrow: PCI devices bound to amdgpu that carry a
+# boot_vga attribute reading 0 — present-and-zero, so only enumerated VGA
+# display-class functions that are NOT the primary boot device. The primary
+# GPU keeps its default power policy. A matched card that does host displays
+# is unaffected in practice (active outputs already prevent runtime suspend).
+#
+# Trade-off, stated: on a battery-powered machine with a secondary AMD GPU
+# this holds that GPU awake and costs idle power. No such machine is a
+# current target; a chassis-scoped power policy is the revisit path if one
+# ships. Decided 2026-08-07 — desktop-session integrity outranks idle power
+# on multi-GPU systems.
+ACTION=="add|change", SUBSYSTEM=="pci", DRIVER=="amdgpu", ATTR{boot_vga}=="0", ATTR{power/control}="on"

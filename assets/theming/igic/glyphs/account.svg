@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: online-accounts — contact card + avatar. VL primitives only, colorless. -->
+  <g class="glyph">
+    <rect x="56" y="82" width="144" height="92" rx="14"/>
+    <circle cx="96" cy="116" r="15"/>
+    <path d="M74 152 A26 22 0 0 1 118 152"/>
+    <line x1="140" y1="114" x2="182" y2="114"/>
+    <line x1="140" y1="140" x2="182" y2="140"/>
+  </g>
+</svg>

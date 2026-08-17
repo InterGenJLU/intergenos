@@ -1,0 +1,101 @@
+name: pytorch
+version: "2.10.0"
+release: 1
+# VERSION PIN (Rule 12 comment): 2.13.0 is upstream latest, but the training stack's
+# defining consumer pins torch<2.11 (unsloth 2026.7.4) — the training
+# framework's ceiling governs (kernel/version-sensitive; overriding it is a
+# correctness violation, same lens as the tokenizers band). 2.10.0 = the
+# latest stable inside the consumer band. Bump when unsloth's ceiling moves.
+# The re-pin CASCADES: triton==3.6.0 (torch 2.10.0's exact wheel-metadata
+# pin; CI commit 8fedd49bbfc4) and aotriton 0.11.1b @ d34f3b6c — compute-lane
+# recipes re-pin to match (decided 2026-07-21).
+description: Tensors and dynamic neural networks with GPU acceleration (ROCm/HIP build)
+license: BSD-3-Clause
+homepage: https://pytorch.org/
+tier: ai
+iso_include: false  # training apparatus — mirror-only (decided 2026-07-20)
+build_style: custom
+install_func: do_install
+# Full release source archive WITH bundled third_party submodules (the -v-
+# archive is the complete tree the from-source ROCm build needs). sha256
+# computed from the downloaded artifact 2026-07-21.
+source:
+- url: https://github.com/pytorch/pytorch/releases/download/v${version}/pytorch-v${version}.tar.gz
+  sha256: fa8ccbe87f83f48735505371c1c313b4aa6db400b0ae4f8a02844d1e150c695f
+# Fleet RDNA set — same declaration as rocblas/llama-cpp-hip; reaches build.sh
+# as IGOS_GPU_TARGETS (fail-closed), consumed as PYTORCH_ROCM_ARCH.
+gpu_targets: "gfx1100;gfx1102;gfx1201"
+dependencies:
+  build:
+  # [build-system] requires (verified against the v2.10.0 tarball's pyproject.toml):
+  # setuptools>=70.1.0 (NO upper bound — the 2.13-era <82 band does not apply
+  # here; in-tree 82.0.0 satisfies), cmake>=3.27, ninja, numpy, packaging,
+  # pyyaml, requests, six, typing-extensions>=4.10. Backend setuptools.build_meta.
+  - setuptools
+  - cmake
+  - ninja
+  - numpy
+  - packaging
+  - pyyaml
+  - python-requests
+  - python-six
+  - typing-extensions
+  # ROCm platform (compute tier, all in tree at 7.2.4). Declared per the ROCm
+  # build documentation's component set; reconcile against the build's actual
+  # find_package trace at the pair-proof build and trim/extend to reality
+  # (the bitsandbytes/triton-llvm discipline: declare against CMake reality).
+  - rocm-hip
+  - rocblas
+  - hipblas
+  - hipblaslt
+  - hipfft
+  - hipsparse
+  - hipsolver
+  - hiprand
+  - rocrand
+  - miopen
+  - rccl
+  - rocprim
+  - rocthrust
+  - hipcub
+  - roctracer
+  # aotriton: ROCm SDPA (flash/mem-efficient attention) backend. Upstream default
+  # DOWNLOADS a prebuilt binary — rejected (no vendor prebuilts, offline build).
+  # Consumed from the from-source compute/aotriton package via
+  # AOTRITON_INSTALLED_PREFIX (authored in the compute tier, 2026-07-21).
+  - aotriton
+  host: []
+  runtime:
+  # setup.py install_requires, verified against the v2.13.0 tarball (runtime
+  # setuptools floor is >=77.0.3 with NO upper bound — in-tree 82 satisfies it).
+  - filelock
+  - typing-extensions
+  - setuptools
+  - sympy
+  - networkx
+  - jinja2
+  - fsspec
+  # Linked ROCm runtime (libtorch_hip DT_NEEDED set — reconcile at pair-proof):
+  - rocm-hip
+  - rocblas
+  - hipblas
+  - hipblaslt
+  - hipfft
+  - hipsparse
+  - hipsolver
+  - hiprand
+  - miopen
+  - rccl
+  - roctracer
+tests:
+  # Rule 10 step 1 — environmental: the test suite requires a live ROCm GPU and
+  # a functioning torch runtime; neither exists in the offline build chroot.
+  # Correctness is gated by the compile itself, the verify_paths identity set,
+  # and the on-target pair-proof (import + device + smoke) at the burn's
+  # validation leg.
+  enabled: false
+  reason: environmental — the suite needs a live ROCm GPU + a working torch runtime, neither exists in the offline build chroot; correctness gated by compile + verify_paths + the on-target pair-proof at the validation leg
+verify_paths:
+  - /usr/lib/python3.14/site-packages/torch/__init__.py
+  - /usr/lib/python3.14/site-packages/torch/version.py
+  - /usr/lib/python3.14/site-packages/torch/lib/libtorch_hip.so

@@ -1,0 +1,34 @@
+name: functionalplus
+version: "0.2.22"
+release: 1
+description: FunctionalPlus C++ functional-programming header library (frugally-deep dependency)
+license: BSL-1.0
+homepage: https://github.com/Dobiasd/FunctionalPlus
+tier: compute
+build_style: custom
+install_func: do_install
+
+# Header-only; sole in-tree consumer = frugally-deep (which MIOpen's
+# AI-heuristic switches require). Version pinned to MIOpen's own
+# manifest (requirements.txt: ROCm/FunctionalPlus@v0.2.22 — a fork tag
+# of this canonical upstream tag) rather than latest (Rule-12 comment:
+# frugally-deep's pinned commit is version-matched to this fplus
+# release). sha256 pinned 2026-07-17 (single-witness GitHub tag-archive
+# endpoint; version identity corroborated by the two-witnessed
+# rocm-libraries monorepo's requirements.txt; conda-forge pins only the
+# older 0.2.21. Content-swept: headers only, no binaries, no
+# network-reaching build code).
+source:
+  - url: https://github.com/Dobiasd/FunctionalPlus/archive/refs/tags/v${version}.tar.gz
+    filename: functionalplus-${version}.tar.gz
+    sha256: 79378668dff6ffa8abc1abde2c2fe37dc6fe1ac040c55d5ee7886924fa6a1376
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/include/fplus/fplus.hpp
+  - /usr/lib/cmake/FunctionalPlus

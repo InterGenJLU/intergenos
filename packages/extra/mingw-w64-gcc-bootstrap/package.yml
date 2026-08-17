@@ -1,0 +1,45 @@
+name: mingw-w64-gcc-bootstrap
+version: "15.2.0"
+release: 1
+description: Bootstrap cross-gcc for both PE triplets, compiler only (mingw-w64 toolchain, stage 3)
+license: GPL-3.0-or-later
+homepage: https://gcc.gnu.org/
+tier: extra
+# GE extra-tier wave (build plan §4, RT-15 stage 3) — the stage that
+# BREAKS the gcc↔crt circular dependency for a from-scratch build: crt
+# needs a cross-gcc to compile, gcc's target libs need crt to link. This
+# package builds `make all-gcc` ONLY (driver + cc1/cc1plus, no libgcc, no
+# libstdc++), which is all crt and winpthreads need; the full
+# mingw-w64-gcc then rebuilds everything and SUPERSEDES this package's
+# files (identical prefix is REQUIRED — gcc finds /usr/<T>/include by its
+# built-in tooldir convention; a private bootstrap prefix would silently
+# break that search). Fedora models this exact split with its bootstrap
+# spec flag; Arch/MSYS2 cannot be copied here (they seed the cycle
+# generationally from prior binary packages — research doc alongside).
+# Reuses the toolchain tier's exact gcc pin (one pin, one artifact).
+# Install-set-required per the standing -pass/-bootstrap intermediates
+# rule.
+build_style: custom
+# Mirror-only (extra-tier default, stated explicitly).
+iso_include: false
+source:
+- url: https://ftp.gnu.org/gnu/gcc/gcc-${version}/gcc-${version}.tar.xz
+  sha256: 438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e
+dependencies:
+  build:
+  - gmp
+  - mpfr
+  - mpc
+  - zlib
+  host:
+  - mingw-w64-binutils
+  - mingw-w64-headers
+  runtime:
+  - gmp
+  - mpfr
+  - mpc
+  - zlib
+verify_paths:
+  - /usr/bin/x86_64-w64-mingw32-gcc
+  - /usr/bin/i686-w64-mingw32-gcc
+  - /usr/bin/x86_64-w64-mingw32-cpp

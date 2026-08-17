@@ -1,0 +1,102 @@
+.TH GO 1 "2026-05-06" "Go 1.26.2" "InterGenOS User Manual"
+.SH NAME
+go \- The Go programming language tool
+.SH SYNOPSIS
+.B go
+\fIcommand\fR [\fIarguments\fR]
+.SH DESCRIPTION
+The
+.B go
+command manages Go source code and runs the Go toolchain.
+It provides compilation, testing, dependency management, and
+code generation for the Go programming language.
+.PP
+Common subcommands include:
+.TP
+.B go build
+Compile packages and dependencies.
+.TP
+.B go run
+Compile and run Go programs.
+.TP
+.B go test
+Test packages.
+.TP
+.B go mod
+Module maintenance (add, init, tidy, vendor).
+.TP
+.B go fmt
+Reformat package sources (invokes gofmt).
+.TP
+.B go vet
+Report likely mistakes in packages.
+.TP
+.B go doc
+Show documentation for package or symbol.
+.TP
+.B go env
+Print Go environment information.
+.TP
+.B go version
+Print Go compiler version.
+.TP
+.B go tool
+Run specified Go tool.
+.PP
+Run
+.B go help \fIsubcommand\fP
+for detailed usage of a specific subcommand.
+Run
+.B go
+with no arguments for the full command list.
+.SH ENVIRONMENT
+.TP
+.B GOROOT
+Root of the Go installation tree (set to
+.IR /usr/lib/go ).
+.TP
+.B GOPATH
+Workspace root for Go source code, packages, and binaries.
+Defaults to
+.IR $HOME/go .
+.TP
+.B GOBIN
+Directory where
+.B go install
+places compiled binaries.
+.TP
+.B GOARCH
+Target architecture (default
+.IR amd64 ).
+.TP
+.B GOOS
+Target operating system (default
+.IR linux ).
+.TP
+.B GOMODCACHE
+Directory for downloaded module cache
+(Go 1.23+; defaults to
+.IR $GOPATH/pkg/mod ).
+.SH FILES
+.TP
+.I /usr/lib/go/
+Go toolchain installation root.
+.TP
+.I /usr/bin/go
+Symlink to the Go compiler.
+.TP
+.I $HOME/go/
+Default GOPATH workspace directory.
+.SH SEE ALSO
+.BR gofmt (1)
+.PP
+More documentation at
+.UR https://go.dev/doc/
+.UE .
+.SH BUGS
+Report bugs at
+.UR https://go.dev/issue/
+.UE .
+.SH AUTHOR
+Go was designed at Google by Robert Griesemer, Rob Pike, and Ken Thompson.
+This man page was authored for the InterGenOS package.

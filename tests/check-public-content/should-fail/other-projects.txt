@@ -1,0 +1,3 @@
+We could integrate JARVIS into the build pipeline.
+A VOQR module would handle orchestration.
+Consider adding emelia_paint support.

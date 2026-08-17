@@ -1,0 +1,29 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+#
+# libmpeg2 0.5.1 — Library for decoding MPEG-1 and MPEG-2 video streams
+# Upstream: https://libmpeg2.sourceforge.io/
+# BLFS 13.0 multimedia/libmpeg2
+
+configure() {
+    set -e
+    # BLFS: fix problems with recent GCC compilers ("static const" → "static"
+    # in MMX IDCT inline-assembly operands, where 'const' is rejected by
+    # current GCC for memory-operand vector tables).
+    sed -i 's/static const/static/' libmpeg2/idct_mmx.c
+
+    ./configure --prefix=/usr     \
+                --enable-shared   \
+                --disable-static
+}
+
+build() {
+    set -e
+    make -j${IGOS_JOBS}
+}
+
+do_install() {
+    set -e
+    make DESTDIR="$DESTDIR" install
+}

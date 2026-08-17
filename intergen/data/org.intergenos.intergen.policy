@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd">
+<!--
+  InterGen pkexec policy — T0-4-E integration gate.
+
+  Wires the D-007 Option A "every privileged action via PolicyKit"
+  requirement for the runtime AI-tool dispatch path. Composes with the
+  D-008 provenance gate (intergen/provenance.py): the provenance gate
+  authorizes INTENT before this policy authorizes AUTHENTICATION. Both
+  fire for privileged operations per the RFC v0.1 §6 line 161 "the two
+  don't replace each other" invariant.
+
+  Coverage: one action covers the entire privileged-tool tier (per RFC §6
+  taxonomy: manage_services on system services + manage_packages +
+  run_command with sudo + write_file to /etc/). The privileged-tool
+  list and per-tool argument validation live in the runner's Python
+  dispatcher entry point (intergen.privileged_dispatch) — pkexec is
+  the AUTHENTICATION boundary, intergen.privileged_dispatch is the
+  AUTHORIZATION + ARGUMENT-VALIDATION boundary, and
+  intergen/tool_registry.py + intergen/provenance.py are the INTENT
+  boundary upstream.
+
+  auth_admin_keep matches the forge installer pattern: the user
+  authenticates once + the cached credentials are valid for the
+  session. For a personal-machine AI assistant making multiple
+  tool calls per conversation, re-prompting per-call would be
+  user-hostile without adding security (the same user authentication
+  covers the same conversation's tool calls; the provenance gate is
+  the per-call intent check, not the per-call authentication).
+-->
+<policyconfig>
+  <vendor>InterGenOS</vendor>
+  <vendor_url>https://github.com/InterGenJLU/intergenos</vendor_url>
+  <icon_name>system-software-install</icon_name>
+
+  <action id="org.intergenos.intergen.privileged-tool">
+    <description>Run a privileged system action via InterGen AI</description>
+    <description xml:lang="en_US">Run a privileged system action via InterGen AI</description>
+    <message>Authentication is required to let InterGen perform the privileged system action you just approved</message>
+    <message xml:lang="en_US">Authentication is required to let InterGen perform the privileged system action you just approved</message>
+    <defaults>
+      <allow_any>auth_admin_keep</allow_any>
+      <allow_inactive>auth_admin_keep</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/intergen-privileged-runner</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+  </action>
+
+  <!--
+    Model-storage provisioning (setup-time, distinct from the runtime
+    privileged-tool action above). `intergen setup` runs as the unprivileged
+    user; the model store at /var/lib/intergen/models is system-wide root-owned
+    read-only by design (HG: a verified model the user cannot tamper with). This
+    action authenticates the install of a downloaded + pin-verified model into
+    that store. The runner (/usr/bin/intergen-model-setup-runner →
+    intergen.model_setup_dispatch) RE-VERIFIES the staged file's sha256 against
+    the shipped pin manifest before any write — pkexec is the AUTHENTICATION
+    boundary, the dispatcher is the INTEGRITY (pin re-verify) boundary. No LLM,
+    no ingress, no dispatch token: this is a human-at-the-keyboard setup action.
+
+    auth_admin_keep so one authentication covers the whole setup (e.g. base model
+    plus an embedding model) without re-prompting per file — user-friendly and no
+    weaker (the same admin authenticating the same setup session).
+  -->
+  <action id="org.intergenos.intergen.provision-model-storage">
+    <description>Install a downloaded AI model into InterGen's system model store</description>
+    <description xml:lang="en_US">Install a downloaded AI model into InterGen's system model store</description>
+    <message>Authentication is required to install the downloaded AI model into the system-wide model store</message>
+    <message xml:lang="en_US">Authentication is required to install the downloaded AI model into the system-wide model store</message>
+    <defaults>
+      <allow_any>auth_admin_keep</allow_any>
+      <allow_inactive>auth_admin_keep</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/intergen-model-setup-runner</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+  </action>
+</policyconfig>

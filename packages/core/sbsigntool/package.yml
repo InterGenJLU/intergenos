@@ -1,0 +1,59 @@
+name: sbsigntool
+version: "0.9.5"
+release: 3  # r3: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: Tools for signing and verifying EFI binaries with Secure Boot keys
+license: GPL-3.0-or-later
+homepage: https://git.kernel.org/pub/scm/linux/kernel/git/jejb/sbsigntools.git
+tier: core
+build_style: autotools
+install_func: do_install
+source:
+# Primary: sbsigntool source (cgit snapshot lacks submodule contents)
+- url: https://git.kernel.org/pub/scm/linux/kernel/git/jejb/sbsigntools.git/snapshot/sbsigntools-${version}.tar.gz
+  sha256: a2323e54be6d17f50ceb3253ca6ed063171a5bcb7079bfa594008cd2aeb7fdea
+# Bundled dep: ccan submodule. autogen.sh expects lib/ccan.git/Makefile
+# to exist (otherwise it tries `git submodule init+update` which won't
+# work in our offline chroot). Pinned to ccan upstream HEAD as of
+# 2026-05-03; ccan has no tagged releases (rolling tip).
+- url: https://git.ozlabs.org/?p=ccan;a=snapshot;h=b35fabb6d5c45fef2c4000ad6f78bb21d58b2a54;sf=tgz
+  filename: ccan-b35fabb.tar.gz
+  sha256: 9a6985e9ba96c4ce928d9a11e5f59af982d45c7018373898fe856af3747e2345
+dependencies:
+  build:
+  - openssl
+  - gnu-efi
+  - efitools
+  - help2man
+  - util-linux-core
+  host: []
+  runtime:
+  - openssl
+  - util-linux
+# util-linux-core added 2026-05-12 (Scan A.2): configure.ac:65 requires
+# uuid (libuuid provided by util-linux-core). Was transitively present
+# from ch8 (util-linux-core @ ch8:668); declaring per real upstream
+# requirement.
+bundled_deps:
+- ccan-b35fabb -> lib/ccan.git
+patches:
+  # Suppress two stderr emissions in src/image.c that fire on every
+  # sign of a Linux EFI-stub kernel:
+  #   1. "warning: data remaining[X vs Y]: gaps between PE/COFF sections?"
+  #      — fires because the kernel's PE optional header SizeOfImage
+  #      doesn't cover the trailing bzImage payload. sbsigntool's
+  #      "endjunk" checksum region already covers those bytes so
+  #      Authenticode signs the entire file; the warning is purely
+  #      informational.
+  #   2. "Signing Unsigned original image" — positive-confirmation
+  #      message on every fresh sign. rc=0 + signed output size are
+  #      sufficient confirmation for our pipeline.
+  # 2026-05-27 install #28 trace anomaly E.
+  - file: sbsigntools-0.9.5-suppress-efi-stub-warnings.patch
+    sha256: 080fb68de5c18faf3928412aeea7b8a0baa35062f911d6ef5c9a13678e1e316a
+configure_flags:
+- --prefix=/usr
+- --sysconfdir=/etc
+
+verify_paths:
+  - /usr/bin/sbsign
+  - /usr/bin/sbverify

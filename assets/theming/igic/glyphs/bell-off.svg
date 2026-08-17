@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: notifications-disabled — the bell silenced by a slash. -->
+  <g class="glyph">
+    <path d="M 92 180 L 92 124 Q 92 84 128 84 Q 164 84 164 124 L 164 180"/>
+    <line x1="76" y1="180" x2="180" y2="180"/>
+    <path d="M 116 200 Q 128 210 140 200"/>
+    <line x1="72" y1="72" x2="184" y2="196"/>
+  </g>
+</svg>

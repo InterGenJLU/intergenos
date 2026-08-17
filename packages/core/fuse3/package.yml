@@ -1,0 +1,22 @@
+name: fuse3
+version: "3.18.1"
+release: 3  # L29: setuid-strip regression rebuild (staging-chokepoint chown)
+description: Filesystem in Userspace
+license: GPL-2.0-or-later
+homepage: ''
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/libfuse/libfuse/releases/download/fuse-${version}/fuse-${version}.tar.gz
+  sha256: dd395c88f29c7540bbdd0b830260ab8092ccb241bb6e66f603643f715fb9322c
+dependencies:
+  build:
+  - liburing   # io_uring backend (meson liburing=auto); without it fuse3 silently
+               # falls back to its non-io_uring path. liburing is core (built first).
+  host: []
+  runtime:
+  - liburing
+
+verify_paths:
+  - /usr/bin/fusermount3

@@ -1,0 +1,43 @@
+# InterGenOS Windows-style dock defaults — Dash-to-Panel + ArcMenu.
+#
+# WHY a dconf system db and not a gschema override (cf. D-006):
+# D-006 moved system-wide GNOME defaults to gschema overrides
+# (/usr/share/glib-2.0/schemas/*.gschema.override). That works only for
+# schemas installed in the system schema dir. Dash-to-Panel and ArcMenu ship
+# their gschemas INSIDE their extension bundle dirs, and each extension reads
+# its OWN bundled compiled schema at runtime (Extension.getSettings()) — so a
+# system-level gschema override cannot change their defaults. The dconf layer
+# is path-based and schema-independent, so a system db is the only mechanism
+# that can seed extension defaults that the running user actually reads. This
+# is a structurally different case from D-006's core-GNOME settings; it does
+# NOT reintroduce the retired /etc/dconf/db/system.d for those.
+#
+# Read by the user session via the /etc/dconf/profile/user this package ships
+# (user-db:user + system-db:local). User changes (DtP/ArcMenu prefs) write the
+# user db and override these, exactly as a default should behave.
+#
+# Monitor keying: DtP stores panel-sizes / panel-element-positions keyed by
+# monitor connector id, but getMonitorSetting() falls back to the numeric
+# monitor index ("0") when no connector-specific key exists (panelSettings.js).
+# So keying the defaults under "0" applies to the primary monitor on ANY
+# hardware; a per-connector key written later by the user shadows it.
+
+[org/gnome/shell/extensions/dash-to-panel]
+# Hide the show-apps grid button (ArcMenu is our start button); keep the
+# default 9-element layout otherwise. taskbar/leftBox top-left, system
+# indicators bottom-right — the Windows-style bottom bar.
+panel-element-positions='{"0":[{"element":"showAppsButton","visible":false,"position":"stackedTL"},{"element":"activitiesButton","visible":false,"position":"stackedTL"},{"element":"leftBox","visible":true,"position":"stackedTL"},{"element":"taskbar","visible":true,"position":"stackedTL"},{"element":"centerBox","visible":true,"position":"stackedBR"},{"element":"rightBox","visible":true,"position":"stackedBR"},{"element":"dateMenu","visible":true,"position":"stackedBR"},{"element":"systemMenu","visible":true,"position":"stackedBR"},{"element":"desktopButton","visible":true,"position":"stackedBR"}]}'
+# Slim 36px bottom panel (locked). Keyed under "0" like the positions.
+panel-sizes='{"0":36}'
+appicon-padding=6
+appicon-margin=2
+font-size=11
+tray-padding=4
+
+[org/gnome/shell/extensions/arcmenu]
+# Branded start button: the framed iOS-glass InterGenOS badge (OS badge =
+# framed; the bare ECG pulse is reserved for the AI mark).
+menu-button-appearance='Icon'
+menu-button-icon='/usr/share/icons/intergenos/start-badge.svg'
+custom-menu-button-icon='/usr/share/icons/intergenos/start-badge.svg'
+menu-button-icon-size=32

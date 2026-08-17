@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Calculator — body + display + buttons. -->
+  <g class="glyph">
+    <rect x="74" y="34" width="108" height="188" rx="16"/>
+    <rect x="92" y="52" width="72" height="34" rx="5"/>
+  </g>
+  <g class="fill">
+    <circle cx="100" cy="120" r="7"/><circle cx="128" cy="120" r="7"/><circle cx="156" cy="120" r="7"/>
+    <circle cx="100" cy="152" r="7"/><circle cx="128" cy="152" r="7"/><circle cx="156" cy="152" r="7"/>
+    <circle cx="100" cy="184" r="7"/><circle cx="128" cy="184" r="7"/><circle cx="156" cy="184" r="7"/>
+  </g>
+</svg>

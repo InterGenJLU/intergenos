@@ -1,0 +1,86 @@
+.TH CHRONICLE.CONF 5 "2026-07-24" "chronicle 1.0" "InterGenOS System Administration"
+.SH NAME
+chronicle.conf \- Chronicle configuration
+.SH SYNOPSIS
+.I /etc/chronicle/chronicle.conf
+.SH DESCRIPTION
+.I chronicle.conf
+holds the user-tunable
+.B policy
+for the Chronicle backup engine
+.BR chronicled (8).
+It is an INI file with a single
+.B [chronicle]
+section. Every key is optional \(em an absent or partial file yields a usable
+default policy, and a malformed value for one key falls back to that key's
+default rather than aborting the engine.
+.PP
+Runtime state the engine owns (the monotonic version sequence, the adopted
+target's details, the pin set) lives in
+.I /var/lib/chronicle/state.json
+and is
+.B not
+configured here.
+.SH OPTIONS
+.TP
+.BR work_start ", " work_end
+Working hours as \fBHH:MM\fR (24-hour). The off-peak window \(em when large,
+deferred captures drain \(em is the complement of [\fIwork_start\fR,
+\fIwork_end\fR). An overnight span (start > end) is supported. Defaults
+\fB09:00\fR / \fB18:00\fR.
+.TP
+.B size_floor_bytes
+Absolute change-size floor above which a capture is deferred to off-peak.
+Default \fB1073741824\fR (~1 GiB).
+.TP
+.B free_fraction
+Fraction of target free space above which a capture is deferred. The effective
+deferral threshold is the
+.B smaller
+of this and \fIsize_floor_bytes\fR. Default \fB0.05\fR (~5%).
+.TP
+.B target_device
+Preferred whole-volume target (e.g. a
+.IR /dev/disk/by-uuid/ ...
+path).
+.TP
+.B target_directory
+Preferred directory-class target: a POSIX directory Chronicle owns a capped
+subtree under. Use this
+.B or
+.IR target_device ,
+not both.
+.TP
+.B target_size_cap_bytes
+Size cap for the directory-class target's subtree.
+.TP
+.B target_encryption
+Whether to recommend a LUKS2 container on the target so a lost drive is not a
+data breach (\fBtrue\fR/\fBfalse\fR). Default \fBtrue\fR.
+.TP
+.B user_data_paths
+Comma-separated home trees to protect. Default \fB/home\fR.
+.TP
+.B exclude_globs
+Comma-separated fnmatch globs excluded from user-data capture. Default excludes
+caches and trash (\fB*/.cache/*, */.local/share/Trash/*, */.thumbnails/*\fR).
+.SH EXAMPLES
+.PP
+.RS
+.nf
+[chronicle]
+work_start = 08:00
+work_end = 17:30
+size_floor_bytes = 536870912
+target_directory = /run/media/ada/backup
+target_size_cap_bytes = 274877906944
+exclude_globs = */.cache/*, */node_modules/*
+.fi
+.RE
+.SH SEE ALSO
+.BR chronicle (1),
+.BR chronicled (8)
+.SH AUTHOR
+The InterGenOS project.
+.SH LICENSE
+GPL-3.0-or-later.

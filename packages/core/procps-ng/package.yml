@@ -1,0 +1,21 @@
+name: procps-ng
+version: "4.0.6"
+release: 2  # r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: Process monitoring utilities
+license: GPL-2.0-or-later
+source:
+- url: https://sourceforge.net/projects/procps-ng/files/Production/procps-ng-${version}.tar.xz
+  sha256: 67bea6fbc3a42a535a0230c9e891e5ddfb4d9d39422d46565a2990d1ace15216
+dependencies:
+  build:
+    - systemd
+    - ncurses-core
+  host: []
+  runtime:
+    - systemd
+    - ncurses
+tier: core
+build_style: autotools
+verify_paths:
+  - /usr/bin/free
+  - /usr/lib/libproc2.so

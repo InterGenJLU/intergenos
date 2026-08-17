@@ -1,0 +1,20 @@
+name: xml-parser
+version: '2.47'
+release: 3  # r3: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: Perl XML parser module
+license: Artistic-1.0-Perl
+source:
+- url: https://cpan.metacpan.org/authors/id/T/TO/TODDR/XML-Parser-${version}.tar.gz
+  sha256: ad4aae643ec784f489b956abe952432871a622d4e2b5c619e8855accbfc4d1d8
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - perl
+  - expat
+tier: core
+build_style: custom
+install_func: do_install
+
+verify_paths:
+  - /usr/lib/perl5/5.42/site_perl

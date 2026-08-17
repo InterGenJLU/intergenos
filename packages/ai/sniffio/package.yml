@@ -1,0 +1,23 @@
+name: sniffio
+# Upstream latest stable.
+version: "1.3.1"
+release: 1
+description: Detect which async library the code is running under
+license: MIT OR Apache-2.0
+homepage: https://github.com/python-trio/sniffio
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/a2/87/a6771e1546d97e7e041b6ae58d80074f81b7d5121207425c964ddf5cfdbd/sniffio-1.3.1.tar.gz
+  sha256: f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc
+dependencies:
+  build:
+  - setuptools
+  - setuptools-scm
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/sniffio/__init__.py
+  - /usr/lib/python3.14/site-packages/sniffio/_impl.py

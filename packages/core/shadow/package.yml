@@ -1,0 +1,18 @@
+name: shadow
+version: "4.19.3"
+release: 2  # L29: setuid-strip regression rebuild (staging-chokepoint chown)
+description: Shadow password utilities
+license: BSD-3-Clause
+source:
+- url: https://github.com/shadow-maint/shadow/releases/download/${version}/shadow-${version}.tar.xz
+  sha256: 11a8f358910712cf957dd4fd205063fce7e386b68fc7dfe3a0e1e53155ec53c5
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - libxcrypt
+tier: core
+build_style: custom
+verify_paths:
+  - /usr/bin/chage
+  - /usr/lib/libsubid.so

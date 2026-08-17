@@ -1,0 +1,27 @@
+name: intel-ucode
+version: '20260512'
+# release 2: ship the runtime post-install hook (standalone microcode
+# upgrades now refresh the early-load image + UKI via the kernel hook chain)
+release: 4  # r4: license: Intel-Microcode-License -> LicenseRef-Intel-Microcode-License — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade. r3: post-install hook precondition guard — skip the microcode-cpio attempt with an info line when firmware is present but its tool is not yet deployed (dependency-derived first-install order); a failure with preconditions met still warns. Hand-bumped: hooks/ is outside the template hash, the bump forces the rebuild.
+content_hash: d6ef9bcc4c05a5b9
+description: Intel CPU microcode firmware
+# Intel ships the microcode data files under its own redistribution licence,
+# which SPDX does not carry. LicenseRef- states that rather than forcing a
+# nearby identifier that would describe a different licence.
+license: LicenseRef-Intel-Microcode-License
+homepage: https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/archive/refs/tags/microcode-${version}.tar.gz
+  sha256: 5a07ce745d0bd8b360a4713564d46d5e38be797316a52abedaff0761e1b02370
+dependencies:
+  build:
+  - iucode-tool
+  host: []
+  runtime: []
+
+verify_paths:
+  - /lib/firmware/intel-ucode
+  - /var/lib/pkm/hooks/intel-ucode/post-install

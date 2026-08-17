@@ -1,0 +1,31 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+#
+# Linux 6.18.10 API Headers
+# LFS 13.0 Section 5.4
+#
+# Exposes the kernel's API for use by Glibc.
+# No compilation needed — just header extraction and installation.
+
+configure() {
+    set -e
+    # Clean any stale files from the source tree
+    make mrproper
+}
+
+build() {
+    set -e
+    # Generate sanitized kernel headers
+    make headers
+
+    # Remove non-header files from the output
+    find usr/include -type f ! -name '*.h' -delete
+}
+
+install() {
+    set -e
+    # Install headers to the target system root
+    mkdir -pv $IGOS/usr/include
+    cp -rv usr/include/* $IGOS/usr/include/
+}

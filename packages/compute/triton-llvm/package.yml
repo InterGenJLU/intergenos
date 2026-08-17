@@ -1,0 +1,65 @@
+name: triton-llvm
+# Pristine upstream llvm-project at the EXACT commit triton 3.6.0 pins in
+# cmake/llvm-hash.txt (f6ded0be = LLVM 22). This exists solely to satisfy
+# triton's LLVM/MLIR/LLD link surface, which the shared compute/rocm-llvm
+# (LLVM 22.0.0, clang;lld, no MLIR) cannot: even at a matching LLVM major,
+# rocm-llvm builds no MLIR (and is a different commit / an AMD fork), while
+# triton links non-stable MLIR/LLVM internal C++ APIs and requires a
+# near-exact commit match plus the MLIR libraries. Decided 2026-07-21
+# (option A): a dedicated private-prefix LLVM rather than re-majoring the
+# shared rocm-llvm (which feeds three ROCm packages) or letting triton
+# self-download (silent vendoring). Commit-archive pin, sha256 summed
+# locally — same sourcing shape as the triton recipe. Re-pin in lockstep
+# with triton whenever triton's llvm-hash.txt moves (was 3.7.1/ac5dc54d/
+# LLVM-23 under the pre-cascade torch 2.13.0 pin).
+version: "22.0.0"
+release: 1
+description: Pristine LLVM/MLIR/LLD at triton 3.6.0's pinned commit — private-prefix build product for triton
+license: Apache-2.0 WITH LLVM-exception
+homepage: https://github.com/llvm/llvm-project
+tier: compute
+iso_include: false
+build_style: custom
+install_func: do_install
+
+# PRIVATE PREFIX: /opt/triton-llvm. Chosen to keep this fully OUT of every
+# default search path so it cannot shadow or collide with either the system
+# LLVM (/usr) or the ROCm compiler (/opt/rocm/lib/llvm): nothing lands in
+# /usr, /usr/local, /opt/rocm, or a default ld.so / CMake package path. It
+# is consumed ONLY by the triton recipe, which points LLVM_SYSPATH at it
+# explicitly; no ld.so.conf entry, no bin on PATH.
+
+source:
+  - url: https://github.com/llvm/llvm-project/archive/f6ded0be897e2878612dd903f7e8bb85448269e5.tar.gz
+    filename: llvm-project-triton-3.6.0-f6ded0be.tar.gz
+    sha256: f63c624aa63eda73508b9df2be2a6945ea4fddbee58615fbe1cd747b6884dd5e
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - python
+  - zlib
+  - zstd
+  - libffi
+  - libxml2
+  host: []
+  runtime:
+  # The installed tools (llvm-config, FileCheck, tblgens) link these; the
+  # static archives are consumed at triton build time.
+  - zlib
+  - zstd
+  - libffi
+  - libxml2
+verify_paths:
+  # llvm-config identity + the two CMake config packages triton find_package's
+  # (MLIR via find_package(MLIR CONFIG), LLD via the AMD backend's
+  # find_package(LLD CONFIG)) + one load-bearing static archive triton links.
+  - /opt/triton-llvm/bin/llvm-config
+  - /opt/triton-llvm/lib/cmake/mlir/MLIRConfig.cmake
+  - /opt/triton-llvm/lib/cmake/lld/LLDConfig.cmake
+  - /opt/triton-llvm/lib/libLLVMAMDGPUCodeGen.a
+
+tests:
+  enabled: false
+  reason: "LLVM_INCLUDE_TESTS=OFF — the check-llvm/check-mlir lit suites are excluded to bound this already very large from-source static LLVM+MLIR+LLD build, and are not built. This is a private-prefix build product with a single consumer: its correctness is proven by triton compiling and linking against it (the pair-proof gate) rather than by a standalone suite. FileCheck is still installed (LLVM_INSTALL_UTILS=ON) for triton's own build/test hooks."

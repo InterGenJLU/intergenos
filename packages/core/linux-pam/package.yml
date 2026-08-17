@@ -1,0 +1,57 @@
+name: linux-pam
+version: "1.7.2"
+release: 3  # hook-contract wave: full PAM/security config set moved post_install -> do_install (owned payload)
+description: Pluggable Authentication Modules
+license: GPL-2.0-or-later
+homepage: https://github.com/linux-pam/linux-pam
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://github.com/linux-pam/linux-pam/releases/download/v${version}/Linux-PAM-${version}.tar.xz
+    sha256: 3d86b6383fb5fd9eb9578d2cd47d92801191f4bf3f9bc61419bfefc8aa1e531a
+
+dependencies:
+  build:
+    - meson
+    - ninja
+    - shadow
+    - systemd
+    - libtirpc
+    - docbook-xml
+    - docbook-xsl-nons
+    - libxslt
+  host: []
+  runtime:
+    - systemd
+    - libtirpc
+
+# Silent feature losses formally accepted in InterGenOS's posture.
+# Each entry below is a dep that linux-pam's configure probes for and
+# does NOT find at build time, BY DESIGN — InterGenOS does not integrate
+# it. Rationale comment on each line documents WHY.
+silent_loss_accepted:
+  - libnsl   # NIS / NIS+ authentication (Sun Yellow Pages). Deprecated
+             # since glibc 2.32; security risk (cleartext network auth;
+             # no transport encryption; vulnerable to network attacks).
+             # InterGenOS auth chain uses local /etc/passwd + /etc/shadow
+             # via pam_unix; no NIS clients. libnsl exists in tier:base
+             # (built post-ch8) for other consumers (samba, exim) that
+             # need RPC support; not consumed here.
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "Linux-PAM test suite requires real /etc/shadow + /etc/passwd entries, working setuid binaries, a controlling tty, and audit/loginuid kernel facilities that are not available inside the build chroot. BLFS 13.0 confirms tests fail without a fully provisioned auth stack."
+verify_paths:
+  - /etc/security/faillock.conf
+  - /etc/security/pwquality.conf
+  - /etc/security/limits.d/00-intergenos.conf
+  - /etc/pam.d/system-account
+  - /etc/pam.d/system-auth
+  - /etc/pam.d/system-session
+  - /etc/pam.d/systemd-user
+  - /etc/pam.d/system-password
+  - /usr/sbin/faillock
+  - /usr/lib/libpam.so

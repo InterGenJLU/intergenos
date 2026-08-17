@@ -1,0 +1,35 @@
+name: rocm-core
+version: "7.2.4"
+release: 1
+description: ROCm platform base metadata (version header, .info/version, librocm-core path helper)
+license: MIT
+homepage: https://github.com/ROCm/rocm-core
+tier: compute
+build_style: custom
+install_func: do_install
+
+# The ROCm platform's base metadata component. AMD's binary distribution
+# ships it as the package every ROCm component depends on; consumers
+# read its artifacts directly — rccl compiles against
+# <rocm-core/rocm_version.h> (hip_rocm_version_info.h:42) and its
+# configure auto-detect reads /opt/rocm/.info/version. Shipping the real
+# upstream component closes the whole artifact class instead of patching
+# consumers one at a time (a from-source ROCm platform still owes the
+# platform contract AMD's packages establish). sha256 pinned 2026-07-17
+# (single-witness GitHub tag-archive endpoint, same caveat class as the
+# other 7.2.4 pins; content-swept: small CXX lib + generated headers, no
+# network reach at build).
+source:
+  - url: https://github.com/ROCm/rocm-core/archive/refs/tags/rocm-${version}.tar.gz
+    filename: rocm-core-rocm-${version}.tar.gz
+    sha256: 32dab2f00e22fb5462beffae03cc642403925d22a42662e15ac0f68d8e885dea
+
+dependencies:
+  build:
+    - cmake
+    - ninja
+  host: []
+  runtime: []
+verify_paths:
+  - /opt/rocm/include/rocm-core/rocm_version.h
+  - /opt/rocm/.info/version

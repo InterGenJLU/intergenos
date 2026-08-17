@@ -1,0 +1,27 @@
+name: xset
+version: "1.2.5"
+release: 1
+description: User preference utility for X
+license: MIT
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/app/xset-${version}.tar.xz
+  sha256: 9f692d55635b3862cd63633b1222a87680ec283c7a8e8ed6dd698a3147f75e2f
+dependencies:
+  build:
+  - libXmu
+  - libXext
+  - libX11
+  - xorgproto
+  host: []
+  runtime:
+  - libXmu
+  - libXext
+  - libX11
+configure_flags:
+- --prefix=/usr
+verify_paths:
+  - /usr/bin/xset

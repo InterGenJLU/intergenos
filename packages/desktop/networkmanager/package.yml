@@ -1,0 +1,66 @@
+name: networkmanager
+version: "1.56.0"
+release: 2  # r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: Network connection manager
+license: GPL-2.0-or-later
+homepage: https://networkmanager.dev/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/NetworkManager/NetworkManager/-/releases/${version}/downloads/NetworkManager-${version}.tar.xz
+  sha256: 59a32d385cc1e7ae26e43798c6f12d07ff6198abd041ec0620b3a08cfc021ccc
+dependencies:
+  build:
+  - iptables
+  - libndp
+  - libnl
+  - polkit
+  - pygobject3
+  - vala
+  - wpa_supplicant
+  - newt
+  - bluez
+  - curl
+  - glib2
+  - gnutls
+  - jansson
+  - libnvme
+  - libpsl
+  - modemmanager
+  - nss
+  - systemd
+  - upower
+  - dbus
+  - perl-core
+  - util-linux-core
+  host: []
+  runtime:
+  - libndp
+  - libnl
+  - polkit
+  - wpa_supplicant
+  - newt
+  - curl
+  - glib2
+  - gnutls
+  - jansson
+  - libnvme
+  - libpsl
+  - modemmanager
+  - nss
+  - systemd
+  - upower
+  - dbus
+  - iptables
+  - util-linux
+# libsystemd-login is the historical standalone sd-login library; its API was
+# merged into libsystemd circa systemd v209 (2014). The log shows
+# `libsystemd found: YES 259` + `systemd found: YES 259`, so NetworkManager
+# gets sd-login via libsystemd — the failing `libsystemd-login` pkgconfig probe
+# is a stale upstream name, not a feature loss. (silent-loss audit 2026-06-25.)
+silent_loss_accepted:
+  - libsystemd-login   # merged into libsystemd (v209); we ship libsystemd 259
+verify_paths:
+  - /usr/bin/nmcli
+  - /usr/lib/libnm.so

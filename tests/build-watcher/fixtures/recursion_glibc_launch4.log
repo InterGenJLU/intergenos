@@ -1,0 +1,1210 @@
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... x86_64-igos-linux-gnu
+checking for x86_64-igos-linux-gnu-gcc... x86_64-igos-linux-gnu-gcc
+checking for suffix of object files... o
+checking whether the compiler supports GNU C... yes
+checking whether x86_64-igos-linux-gnu-gcc accepts -g... yes
+checking for x86_64-igos-linux-gnu-gcc option to enable C11 features... none needed
+checking for gcc... gcc
+checking for x86_64-igos-linux-gnu-g++... x86_64-igos-linux-gnu-g++
+checking whether the compiler supports GNU C++... yes
+checking whether x86_64-igos-linux-gnu-g++ accepts -g... yes
+checking for x86_64-igos-linux-gnu-g++ option to enable C++11 features... unsupported
+checking for x86_64-igos-linux-gnu-g++ option to enable C++98 features... unsupported
+checking whether x86_64-igos-linux-gnu-g++ can link programs... no
+checking for sysdeps preconfigure fragments... aarch64 alpha arc arm csky hppa i386 loongarch m68k microblaze checking for egrep -e... /usr/bin/grep -E
+mips or1k powerpc riscv s390 sh checking for egrep -e... (cached) /usr/bin/grep -E
+sparc x86_64 checking whether x86_64-igos-linux-gnu-gcc compiles in -mx32 mode by default... no
+
+checking for a BSD-compatible install... /usr/bin/install -c
+checking whether ln -s works... yes
+checking for /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/../../../../x86_64-igos-linux-gnu/bin/ld... /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/../../../../x86_64-igos-linux-gnu/bin/ld
+checking version of /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/../../../../x86_64-igos-linux-gnu/bin/ld... 2.46.0.20260210, ok
+checking for gnumake... no
+checking for gmake... gmake
+checking version of gmake... 4.3, ok
+checking for gnumsgfmt... no
+checking for gmsgfmt... no
+checking for msgfmt... no
+checking for makeinfo... makeinfo
+checking version of makeinfo... 7.1, ok
+checking for sed... sed
+checking version of sed... 4.9, ok
+checking for gawk... gawk
+checking version of gawk... 5.2.1, ok
+checking for bison... bison
+checking version of bison... 3.8.2, ok
+checking if x86_64-igos-linux-gnu-gcc is sufficient to build libc... yes
+checking for python3... python3
+checking version of python3... 3.12.3, ok
+configure: WARNING:
+*** These auxiliary programs are missing or incompatible versions: msgfmt
+*** some features or tests will be disabled.
+*** Check the INSTALL file for required versions.
+checking for use of fpu sysdeps directories... yes
+checking for clang in testing... no
+checking for clang++ in testing... no
+checking for -fstack-protector... yes
+checking for -fstack-protector-strong... yes
+checking for -fstack-protector-all... yes
+checking for assembler and linker STT_GNU_IFUNC support... yes
+checking for gcc attribute ifunc support... yes
+checking whether the linker supports textrels along with ifunc... yes
+checking for GNU attribute retain support... yes
+checking if compiler warns about alias for function with incompatible types... yes
+checking sysdep dirs... sysdeps/unix/sysv/linux/x86_64/64 sysdeps/x86_64/64/nptl sysdeps/unix/sysv/linux/x86_64 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/unix/sysv/linux/wordsize-64 sysdeps/x86_64/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/x86_64 sysdeps/unix sysdeps/posix sysdeps/x86_64/64 sysdeps/x86_64/fpu/multiarch sysdeps/x86_64/fpu sysdeps/x86/fpu sysdeps/x86_64/multiarch sysdeps/x86_64 sysdeps/x86 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/wordsize-64 sysdeps/ieee754 sysdeps/generic
+checking LD_LIBRARY_PATH variable... ok
+checking for bash... /usr/bin/bash
+checking for perl... /usr/bin/perl
+checking for install-info... /usr/bin/install-info
+checking for .set assembler directive... yes
+checking linker support for protected data symbol... no
+checking linker support for INSERT in linker script... yes
+checking for broken __attribute__((alias()))... no
+checking whether to put _rtld_local into .sdata section... no
+checking for libunwind-support in compiler... no
+checking whether --noexecstack is desirable for .S files... yes
+checking for linker that supports --no-error-execstack... yes
+checking for linker that supports -z execstack... yes
+checking for linker that supports -z start-stop-gc... yes
+checking for linker that supports --depaudit... yes
+checking for linker that supports -z pack-relative-relocs... yes
+checking for linker that supports --no-dynamic-linker... yes
+checking for -static-pie... yes
+checking for -fpie... yes
+checking for -Wno-discarded-qualifiers... -Wno-discarded-qualifiers
+checking for GLOB_DAT reloc... yes
+checking for tls descriptor support in testing... gnu2
+checking for traditional tls support in testing... gnu
+checking for -Wno-maybe-uninitialized... -Wno-maybe-uninitialized
+checking whether cc puts quotes around section names... no
+checking for __builtin_memset... yes
+checking for 64-bit atomic support... yes
+checking for compiler option to disable generation of FMA instructions... -ffp-contract=off
+checking for compiler option that -fsignaling-nans... -fsignaling-nans
+checking -fsemantic-interposition in testing... yes
+checking for -ffloat-store in testing... -ffloat-store
+checking if __attribute__ ((__optimize__("-fno-tree-loop-distribute-patterns"))) works... yes
+checking for -Wimplicit-fallthrough... -Wimplicit-fallthrough
+checking for -Wfree-labels... -Wfree-labels
+checking for -Wmissing-parameter-name... -Wmissing-parameter-name
+checking support for trampolines in testing... yes
+checking -Wno-restrict in testing... -Wno-restrict
+checking -Wno-fortify-source in testing... -Wno-fortify-source
+checking -finput-charset=ascii in testing... -finput-charset=ascii
+checking  -finput-charset=ascii in testing... 
+checking for STB_GNU_UNIQUE in testing... no
+checking for libgd... no
+checking for is_selinux_enabled in -lselinux... no
+checking for maximum supported _FORTIFY_SOURCE level... 2
+checking whether the assembler requires one version per symbol... no
+checking for __builtin_trap with no external dependencies... yes
+checking whether the compiler supports __attribute__ ((aligned (65536)))... yes
+checking whether the C++ compiler supports thread_local... no
+running configure fragment for sysdeps/unix/sysv/linux/x86_64/64
+running configure fragment for sysdeps/unix/sysv/linux/x86_64
+running configure fragment for sysdeps/unix/sysv/linux
+checking installed Linux kernel header files... 3.2.0 or later
+checking for kernel header at least 5.4... ok
+running configure fragment for sysdeps/gnu
+running configure fragment for sysdeps/x86_64
+checking for -mprefer-vector-width=128... yes
+checking for linker that supports -z mark-plt... yes
+checking whether -mamx-tile works properly in testing... no
+checking whether -mapxf is enabled... no
+running configure fragment for sysdeps/x86
+checking for linker x86 ISA level support... yes
+checking for LAHF/SAHF instruction support... no
+checking for MOVBE instruction support... no
+checking for ISA level support... baseline
+checking if -mfpmath=387 works in testing... yes
+checking if no direct extern access is enabled by default... 
+checking if -mno-direct-extern-access works in testing... yes
+checking if -fno-direct-access-external-data works in testing... no
+checking if -Os inlines trunc... no
+checking for __libgcc_cmp_return__ mode attribute support... yes
+checking if compiler inlines __builtin_fmod/__builtin_remainder... yes
+checking whether -fPIC is default... yes
+checking whether -fPIE is default... yes
+checking PDE load address... 0x0000000000400000
+checking for linker that supports -Ttext-segment=0x0000000000400000... yes
+checking if compiler supports -fno-fp-int-builtin-inexact... -fno-fp-int-builtin-inexact
+checking for linker that supports --undefined-version... yes
+checking if we can build programs as PIE... yes
+checking if we can build static PIE programs... yes
+checking whether x86_64-igos-linux-gnu-gcc can link against -lgcc_s... no
+checking attribute can declared after function declaration... yes
+configure: creating ./config.status
+config.status: creating config.make
+config.status: creating Makefile
+config.status: creating config.h
+config.status: executing default commands
+/mnt/intergenos/packages/toolchain/glibc/build.sh: line 44: cd: build: No such file or directory
+make -r PARALLELMFLAGS="" -C .. objdir=`pwd` all
+make[1]: Entering directory '/tmp/igos-build/glibc'
+LC_ALL=C gawk -f scripts/sysd-rules.awk > /tmp/igos-build/glibc/build/sysd-rulesT \
+		-v all_object_suffixes='.o .os .oS' \
+		-v inhibit_sysdep_asm='' \
+		-v sysd_rules_patterns='%:% rtld-%:rtld-% rtld-%:% m_%:s_%' \
+		-v config_sysdirs='sysdeps/unix/sysv/linux/x86_64/64 sysdeps/x86_64/64/nptl sysdeps/unix/sysv/linux/x86_64 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/unix/sysv/linux/wordsize-64 sysdeps/x86_64/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/x86_64 sysdeps/unix sysdeps/posix sysdeps/x86_64/64 sysdeps/x86_64/fpu/multiarch sysdeps/x86_64/fpu sysdeps/x86/fpu sysdeps/x86_64/multiarch sysdeps/x86_64 sysdeps/x86 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/wordsize-64 sysdeps/ieee754 sysdeps/generic'
+mv -f /tmp/igos-build/glibc/build/sysd-rulesT /tmp/igos-build/glibc/build/sysd-rules
+(echo "ifeq (\$(subdir)\$(build-mathvec),mathyes)"; \
+ echo; \
+ echo "extra-test-objs += \\"; \
+ for i in "" "-avx" "-avx2" "-avx512f"; do \
+   echo "  test-libmvec$i.o \\"; \
+ done; \
+ echo "# extra-test-objs"; \
+ echo; \
+ for i in "" "-avx" "-avx2" "-avx512f"; do \
+   for t in test-double-libmvec-acos test-double-libmvec-acosh test-double-libmvec-asin test-double-libmvec-asinh test-double-libmvec-atan test-double-libmvec-atan2 test-double-libmvec-atanh test-double-libmvec-cbrt test-double-libmvec-cos test-double-libmvec-cosh test-double-libmvec-erf test-double-libmvec-erfc test-double-libmvec-exp test-double-libmvec-exp10 test-double-libmvec-exp2 test-double-libmvec-expm1 test-double-libmvec-hypot test-double-libmvec-log test-double-libmvec-log10 test-double-libmvec-log1p test-double-libmvec-log2 test-double-libmvec-pow test-double-libmvec-sin test-double-libmvec-sincos test-double-libmvec-sinh test-double-libmvec-tan test-double-libmvec-tanh test-float-libmvec-acosf test-float-libmvec-acoshf test-float-libmvec-asinf test-float-libmvec-asinhf test-float-libmvec-atanf test-float-libmvec-atan2f test-float-libmvec-atanhf test-float-libmvec-cbrtf test-float-libmvec-cosf test-float-libmvec-coshf test-float-libmvec-erff test-float-libmvec-erfcf test-float-libmvec-expf test-float-libmvec-exp10f test-float-libmvec-exp2f test-float-libmvec-expm1f test-float-libmvec-hypotf test-float-libmvec-logf test-float-libmvec-log10f test-float-libmvec-log1pf test-float-libmvec-log2f test-float-libmvec-powf test-float-libmvec-sinf test-float-libmvec-sincosf test-float-libmvec-sinhf test-float-libmvec-tanf test-float-libmvec-tanhf; do \
+     echo "\$(objpfx)$t$i: \\"; \
+     echo "  \$(objpfx)$t$i.o \\"; \
+     echo "  \$(objpfx)test-libmvec$i.o \$(libmvec)"; \
+     echo; \
+   done; \
+ done; \
+ for t in acos acosh asin asinh atan atan2 atanh cbrt cos cosh erf erfc exp exp10 exp2 expm1 hypot log log10 log1p log2 pow sin sincos sinh tan tanh ; do \
+   echo "CFLAGS-test-double-libmvec-$t.c = \\"; \
+   echo "  \$(libmvec-abi-test-cflags)"; \
+   echo "CFLAGS-test-double-libmvec-$t-avx.c = \\"; \
+   echo "  \$(libmvec-abi-test-cflags) \\"; \
+   echo "  \$(double-vlen4-arch-ext-cflags)"; \
+   echo "CFLAGS-test-double-libmvec-$t-avx2.c = \\"; \
+   echo "  \$(libmvec-abi-test-cflags) \\"; \
+   echo "  \$(double-vlen4-arch-ext2-cflags)"; \
+   echo "CFLAGS-test-double-libmvec-$t-avx512f.c = \\"; \
+   echo "  \$(libmvec-abi-test-cflags) \\"; \
+   echo "  \$(double-vlen8-arch-ext-cflags)"; \
+   echo; \
+   echo "CFLAGS-test-float-libmvec-${t}f.c = \\"; \
+   echo "  \$(libmvec-abi-test-cflags)"; \
+   echo "CFLAGS-test-float-libmvec-${t}f-avx.c = \\"; \
+   echo "  \$(libmvec-abi-test-cflags) \\"; \
+   echo "  \$(float-vlen8-arch-ext-cflags)"; \
+   echo "CFLAGS-test-float-libmvec-${t}f-avx2.c = \\"; \
+   echo "  \$(libmvec-abi-test-cflags) \\"; \
+   echo "  \$(float-vlen8-arch-ext2-cflags)"; \
+   echo "CFLAGS-test-float-libmvec-${t}f-avx512f.c = \\"; \
+   echo "  \$(libmvec-abi-test-cflags) \\"; \
+   echo "  \$(float-vlen16-arch-ext-cflags)"; \
+   echo; \
+ done; \
+ echo "endif"; \
+ echo "ifeq (\$(subdir),benchtests)"; \
+ for t in acos acosh asin asinh atan atan2 atanh cbrt cos cosh erf erfc exp exp10 exp2 expm1 hypot log log10 log1p log2 pow sin sinh tan tanh ; do \
+   echo "CFLAGS-bench-double-vlen4-$t.c = \\"; \
+   echo "  \$(double-vlen4-arch-ext-cflags)"; \
+   echo "CFLAGS-bench-double-vlen4-avx2-$t.c = \\"; \
+   echo "  \$(double-vlen4-arch-ext2-cflags)"; \
+   echo "CFLAGS-bench-double-vlen8-$t.c = \\"; \
+   echo "  \$(double-vlen8-arch-ext-cflags)"; \
+   echo; \
+   echo "CFLAGS-bench-float-vlen8-${t}f.c = \\"; \
+   echo "  \$(float-vlen8-arch-ext-cflags)"; \
+   echo "CFLAGS-bench-float-vlen8-avx2-${t}f.c = \\"; \
+   echo "  \$(float-vlen8-arch-ext2-cflags)"; \
+   echo "CFLAGS-bench-float-vlen16-${t}f.c = \\"; \
+   echo "  \$(float-vlen16-arch-ext-cflags)"; \
+   echo; \
+ done; \
+ echo "endif") > /tmp/igos-build/glibc/build/libmvec.mkT
+mv -f /tmp/igos-build/glibc/build/libmvec.mkT /tmp/igos-build/glibc/build/libmvec.mk
+gawk -f scripts/gen-sorted.awk \
+       -v subdirs='csu assert ctype locale intl catgets math setjmp signal stdlib stdio-common libio malloc string wcsmbs time dirent posix io termios resource misc socket sysvipc gmon gnulib iconv iconvdata wctype manual po argp localedata timezone rt conform debug mathvec support dlfcn elf' \
+       -v srcpfx='' \
+       sysdeps/nptl/Subdirs sysdeps/unix/inet/Subdirs sysdeps/posix/Subdirs assert/Depend catgets/Depend debug/Depend iconvdata/Depend intl/Depend libio/Depend localedata/Depend malloc/Depend mathvec/Depend posix/Depend rt/Depend stdio-common/Depend stdlib/Depend string/Depend support/Depend time/Depend wcsmbs/Depend > /tmp/igos-build/glibc/build/sysd-sorted-tmp
+mv -f /tmp/igos-build/glibc/build/sysd-sorted-tmp /tmp/igos-build/glibc/build/sysd-sorted
+printf "#include <time64-compat.h>\n#ifdef TIME64_NON_DEFAULT\nhave-time64-compat = yes\n#endif" \
+| x86_64-igos-linux-gnu-gcc -E -undef    -Iinclude   -I/tmp/igos-build/glibc/build  -Isysdeps/unix/sysv/linux/x86_64/64  -Isysdeps/x86_64/64/nptl  -Isysdeps/unix/sysv/linux/x86_64/include -Isysdeps/unix/sysv/linux/x86_64  -Isysdeps/unix/sysv/linux/x86/include -Isysdeps/unix/sysv/linux/x86  -Isysdeps/x86/nptl  -Isysdeps/unix/sysv/linux/wordsize-64  -Isysdeps/x86_64/nptl  -Isysdeps/unix/sysv/linux/include -Isysdeps/unix/sysv/linux  -Isysdeps/nptl  -Isysdeps/pthread  -Isysdeps/gnu  -Isysdeps/unix/inet  -Isysdeps/unix/sysv  -Isysdeps/unix/x86_64  -Isysdeps/unix  -Isysdeps/posix  -Isysdeps/x86_64/64  -Isysdeps/x86_64/fpu/multiarch  -Isysdeps/x86_64/fpu  -Isysdeps/x86/fpu  -Isysdeps/x86_64/multiarch  -Isysdeps/x86_64  -Isysdeps/x86/include -Isysdeps/x86  -Isysdeps/ieee754/float128  -Isysdeps/ieee754/ldbl-96/include -Isysdeps/ieee754/ldbl-96  -Isysdeps/ieee754/dbl-64  -Isysdeps/ieee754/flt-32  -Isysdeps/wordsize-64  -Isysdeps/ieee754  -Isysdeps/generic   -Ilibio -I.  -D_LIBC_REENTRANT  -include include/libc-symbols.h       -DTOP_NAMESPACE=glibc -x assembler-with-cpp - > /tmp/igos-build/glibc/build/time64-compat.mk.iT
+mv -f /tmp/igos-build/glibc/build/time64-compat.mk.iT /tmp/igos-build/glibc/build/time64-compat.mk.i
+sed '/^[        ]*#/d;/^[       ]*$/d' /tmp/igos-build/glibc/build/time64-compat.mk.i > /tmp/igos-build/glibc/build/time64-compat.mkT
+mv -f /tmp/igos-build/glibc/build/time64-compat.mkT /tmp/igos-build/glibc/build/time64-compat.mk
+sed '/^[ 	]*%/!s/#.*$//;/^[ 	]*$/d;s/^[ 	]*%/#/' \
+    sysdeps/unix/sysv/linux/x86_64/64/shlib-versions sysdeps/unix/sysv/linux/shlib-versions nptl/shlib-versions nptl_db/shlib-versions shlib-versions \
+| x86_64-igos-linux-gnu-gcc -E -undef    -Iinclude   -I/tmp/igos-build/glibc/build  -Isysdeps/unix/sysv/linux/x86_64/64  -Isysdeps/x86_64/64/nptl  -Isysdeps/unix/sysv/linux/x86_64/include -Isysdeps/unix/sysv/linux/x86_64  -Isysdeps/unix/sysv/linux/x86/include -Isysdeps/unix/sysv/linux/x86  -Isysdeps/x86/nptl  -Isysdeps/unix/sysv/linux/wordsize-64  -Isysdeps/x86_64/nptl  -Isysdeps/unix/sysv/linux/include -Isysdeps/unix/sysv/linux  -Isysdeps/nptl  -Isysdeps/pthread  -Isysdeps/gnu  -Isysdeps/unix/inet  -Isysdeps/unix/sysv  -Isysdeps/unix/x86_64  -Isysdeps/unix  -Isysdeps/posix  -Isysdeps/x86_64/64  -Isysdeps/x86_64/fpu/multiarch  -Isysdeps/x86_64/fpu  -Isysdeps/x86/fpu  -Isysdeps/x86_64/multiarch  -Isysdeps/x86_64  -Isysdeps/x86/include -Isysdeps/x86  -Isysdeps/ieee754/float128  -Isysdeps/ieee754/ldbl-96/include -Isysdeps/ieee754/ldbl-96  -Isysdeps/ieee754/dbl-64  -Isysdeps/ieee754/flt-32  -Isysdeps/wordsize-64  -Isysdeps/ieee754  -Isysdeps/generic   -Ilibio -I.  -D_LIBC_REENTRANT  -include include/libc-symbols.h       -DTOP_NAMESPACE=glibc -x assembler-with-cpp - \
+	   > /tmp/igos-build/glibc/build/shlib-versions.v.iT
+mv -f /tmp/igos-build/glibc/build/shlib-versions.v.iT /tmp/igos-build/glibc/build/shlib-versions.v.i
+sed '/^[ 	]*#/d;/^[ 	]*$/d' /tmp/igos-build/glibc/build/shlib-versions.v.i > /tmp/igos-build/glibc/build/shlib-versions.vT
+mv -f /tmp/igos-build/glibc/build/shlib-versions.vT /tmp/igos-build/glibc/build/shlib-versions.v
+gawk -f scripts/soversions.awk /tmp/igos-build/glibc/build/shlib-versions.v > /tmp/igos-build/glibc/build/soversions.iT
+mv -f /tmp/igos-build/glibc/build/soversions.iT /tmp/igos-build/glibc/build/soversions.i
+sed '/^[ 	]*%/!s/#.*$//;/^[ 	]*$/d;s/^[ 	]*%/#/' \
+    csu/Versions iconv/Versions locale/Versions assert/Versions ctype/Versions intl/Versions catgets/Versions math/Versions setjmp/Versions signal/Versions stdlib/Versions stdio-common/Versions libio/Versions dlfcn/Versions nptl/Versions rt/Versions malloc/Versions string/Versions wcsmbs/Versions time/Versions dirent/Versions posix/Versions io/Versions termios/Versions resource/Versions misc/Versions socket/Versions sysvipc/Versions gmon/Versions wctype/Versions argp/Versions debug/Versions nptl_db/Versions inet/Versions resolv/Versions nss/Versions hesiod/Versions sunrpc/Versions nis/Versions login/Versions elf/Versions sysdeps/unix/sysv/linux/x86_64/Versions sysdeps/unix/sysv/linux/wordsize-64/Versions sysdeps/unix/sysv/linux/Versions sysdeps/x86_64/fpu/Versions sysdeps/x86_64/Versions sysdeps/x86/Versions sysdeps/ieee754/float128/Versions sysdeps/wordsize-64/Versions \
+| x86_64-igos-linux-gnu-gcc -E -undef    -Iinclude   -I/tmp/igos-build/glibc/build  -Isysdeps/unix/sysv/linux/x86_64/64  -Isysdeps/x86_64/64/nptl  -Isysdeps/unix/sysv/linux/x86_64/include -Isysdeps/unix/sysv/linux/x86_64  -Isysdeps/unix/sysv/linux/x86/include -Isysdeps/unix/sysv/linux/x86  -Isysdeps/x86/nptl  -Isysdeps/unix/sysv/linux/wordsize-64  -Isysdeps/x86_64/nptl  -Isysdeps/unix/sysv/linux/include -Isysdeps/unix/sysv/linux  -Isysdeps/nptl  -Isysdeps/pthread  -Isysdeps/gnu  -Isysdeps/unix/inet  -Isysdeps/unix/sysv  -Isysdeps/unix/x86_64  -Isysdeps/unix  -Isysdeps/posix  -Isysdeps/x86_64/64  -Isysdeps/x86_64/fpu/multiarch  -Isysdeps/x86_64/fpu  -Isysdeps/x86/fpu  -Isysdeps/x86_64/multiarch  -Isysdeps/x86_64  -Isysdeps/x86/include -Isysdeps/x86  -Isysdeps/ieee754/float128  -Isysdeps/ieee754/ldbl-96/include -Isysdeps/ieee754/ldbl-96  -Isysdeps/ieee754/dbl-64  -Isysdeps/ieee754/flt-32  -Isysdeps/wordsize-64  -Isysdeps/ieee754  -Isysdeps/generic   -Ilibio -I.  -D_LIBC_REENTRANT  -include include/libc-symbols.h       -DTOP_NAMESPACE=glibc -x assembler-with-cpp - \
+	   > /tmp/igos-build/glibc/build/Versions.v.iT
+mv -f /tmp/igos-build/glibc/build/Versions.v.iT /tmp/igos-build/glibc/build/Versions.v.i
+sed '/^[ 	]*#/d;/^[ 	]*$/d' /tmp/igos-build/glibc/build/Versions.v.i > /tmp/igos-build/glibc/build/Versions.vT
+mv -f /tmp/igos-build/glibc/build/Versions.vT /tmp/igos-build/glibc/build/Versions.v
+LC_ALL=C gawk -f scripts/versionlist.awk /tmp/igos-build/glibc/build/Versions.v > /tmp/igos-build/glibc/build/Versions.defT
+mv -f /tmp/igos-build/glibc/build/Versions.defT /tmp/igos-build/glibc/build/Versions.def
+{ while read which lib version setname; do \
+--- [distilled from launch-4 known-bad glibc log, cycle at orig line 4; full log SHA256 a2085e7c… on jarvis-storage] ---
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... i686-igos-linux-gnu
+checking for i686-igos-linux-gnu-gcc... x86_64-igos-linux-gnu-gcc -m32
+checking for suffix of object files... o
+checking whether the compiler supports GNU C... yes
+checking whether x86_64-igos-linux-gnu-gcc -m32 accepts -g... yes
+checking for x86_64-igos-linux-gnu-gcc -m32 option to enable C11 features... none needed
+checking for gcc... gcc
+checking whether the compiler supports GNU C++... yes
+checking whether x86_64-igos-linux-gnu-g++ -m32 accepts -g... yes
+checking for x86_64-igos-linux-gnu-g++ -m32 option to enable C++11 features... unsupported
+checking for x86_64-igos-linux-gnu-g++ -m32 option to enable C++98 features... unsupported
+checking whether x86_64-igos-linux-gnu-g++ -m32 can link programs... no
+checking for sysdeps preconfigure fragments... aarch64 alpha arc arm csky hppa i386 loongarch m68k microblaze checking for egrep -e... /usr/bin/grep -E
+mips or1k powerpc riscv s390 sh checking for egrep -e... (cached) /usr/bin/grep -E
+sparc x86_64 
+checking for a BSD-compatible install... /usr/bin/install -c
+checking whether ln -s works... yes
+checking for /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/../../../../x86_64-igos-linux-gnu/bin/ld... /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/../../../../x86_64-igos-linux-gnu/bin/ld
+checking version of /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/../../../../x86_64-igos-linux-gnu/bin/ld... 2.46.0.20260210, ok
+checking for gnumake... no
+checking for gmake... gmake
+checking version of gmake... 4.3, ok
+checking for gnumsgfmt... no
+checking for gmsgfmt... no
+checking for msgfmt... no
+checking for makeinfo... makeinfo
+checking version of makeinfo... 7.1, ok
+checking for sed... sed
+checking version of sed... 4.9, ok
+checking for gawk... gawk
+checking version of gawk... 5.2.1, ok
+checking for bison... bison
+checking version of bison... 3.8.2, ok
+checking if x86_64-igos-linux-gnu-gcc -m32 is sufficient to build libc... yes
+checking for python3... python3
+checking version of python3... 3.12.3, ok
+configure: WARNING:
+*** These auxiliary programs are missing or incompatible versions: msgfmt
+*** some features or tests will be disabled.
+*** Check the INSTALL file for required versions.
+checking for use of fpu sysdeps directories... yes
+checking for clang in testing... no
+checking for clang++ in testing... no
+checking for -fstack-protector... yes
+checking for -fstack-protector-strong... yes
+checking for -fstack-protector-all... yes
+checking for assembler and linker STT_GNU_IFUNC support... yes
+checking for gcc attribute ifunc support... yes
+checking whether the linker supports textrels along with ifunc... yes
+checking for GNU attribute retain support... yes
+checking if compiler warns about alias for function with incompatible types... yes
+checking sysdep dirs... sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic
+checking LD_LIBRARY_PATH variable... ok
+checking for bash... /usr/bin/bash
+checking for perl... /usr/bin/perl
+checking for install-info... /usr/bin/install-info
+checking for .set assembler directive... yes
+checking linker support for protected data symbol... yes
+checking linker support for INSERT in linker script... no
+checking for broken __attribute__((alias()))... no
+checking whether to put _rtld_local into .sdata section... no
+checking for libunwind-support in compiler... no
+checking whether --noexecstack is desirable for .S files... yes
+checking for linker that supports --no-error-execstack... yes
+checking for linker that supports -z execstack... yes
+checking for linker that supports -z start-stop-gc... yes
+checking for linker that supports --depaudit... yes
+checking for linker that supports -z pack-relative-relocs... yes
+checking for linker that supports --no-dynamic-linker... yes
+checking for -static-pie... yes
+checking for -fpie... yes
+checking for -Wno-discarded-qualifiers... -Wno-discarded-qualifiers
+checking for GLOB_DAT reloc... yes
+checking for tls descriptor support in testing... gnu2
+checking for traditional tls support in testing... gnu
+checking for -Wno-maybe-uninitialized... -Wno-maybe-uninitialized
+checking whether cc puts quotes around section names... no
+checking for __builtin_memset... yes
+checking for 64-bit atomic support... no
+checking for compiler option to disable generation of FMA instructions... -ffp-contract=off
+checking for compiler option that -fsignaling-nans... -fsignaling-nans
+checking -fsemantic-interposition in testing... yes
+checking for -ffloat-store in testing... -ffloat-store
+checking if __attribute__ ((__optimize__("-fno-tree-loop-distribute-patterns"))) works... yes
+checking for -Wimplicit-fallthrough... -Wimplicit-fallthrough
+checking for -Wfree-labels... -Wfree-labels
+checking for -Wmissing-parameter-name... -Wmissing-parameter-name
+checking support for trampolines in testing... yes
+checking -Wno-restrict in testing... -Wno-restrict
+checking -Wno-fortify-source in testing... -Wno-fortify-source
+checking -finput-charset=ascii in testing... -finput-charset=ascii
+checking  -finput-charset=ascii in testing... 
+checking for STB_GNU_UNIQUE in testing... no
+checking for libgd... no
+checking for is_selinux_enabled in -lselinux... no
+checking for maximum supported _FORTIFY_SOURCE level... 2
+checking whether the assembler requires one version per symbol... no
+checking for __builtin_trap with no external dependencies... yes
+checking whether the compiler supports __attribute__ ((aligned (65536)))... yes
+checking whether the C++ compiler supports thread_local... no
+running configure fragment for sysdeps/unix/sysv/linux/i386
+running configure fragment for sysdeps/unix/sysv/linux
+checking installed Linux kernel header files... 3.2.0 or later
+checking for kernel header at least 5.4... ok
+running configure fragment for sysdeps/gnu
+running configure fragment for sysdeps/i386
+checking for compiler support of inlined builtin function __sync_val_compare_and_swap... yes
+checking -mfentry... no
+running configure fragment for sysdeps/x86
+checking for linker x86 ISA level support... yes
+checking for LAHF/SAHF instruction support... no
+checking for MOVBE instruction support... no
+checking for ISA level support... 1
+checking if -mfpmath=387 works in testing... yes
+checking if no direct extern access is enabled by default... 
+checking if -mno-direct-extern-access works in testing... yes
+checking if -fno-direct-access-external-data works in testing... no
+checking if -Os inlines trunc... no
+checking for __libgcc_cmp_return__ mode attribute support... yes
+checking if compiler inlines __builtin_fmod/__builtin_remainder... yes
+checking whether -fPIC is default... yes
+checking whether -fPIE is default... yes
+checking PDE load address... 0x08048000
+checking for linker that supports -Ttext-segment=0x08048000... yes
+checking if compiler supports -fno-fp-int-builtin-inexact... -fno-fp-int-builtin-inexact
+checking for linker that supports --undefined-version... yes
+checking if we can build programs as PIE... yes
+checking if we can build static PIE programs... yes
+checking whether x86_64-igos-linux-gnu-gcc -m32 can link against -lgcc_s... no
+checking attribute can declared after function declaration... yes
+configure: creating ./config.status
+config.status: creating config.make
+config.status: creating Makefile
+config.status: creating config.h
+config.status: executing default commands
+make -r PARALLELMFLAGS="" -C .. objdir=`pwd` all
+make[1]: Entering directory '/tmp/igos-build/glibc'
+LC_ALL=C gawk -f scripts/sysd-rules.awk > /tmp/igos-build/glibc/build/sysd-rulesT \
+		-v all_object_suffixes='.o .os .oS' \
+		-v inhibit_sysdep_asm='' \
+		-v sysd_rules_patterns='%:% rtld-%:rtld-% rtld-%:% m_%:s_%' \
+		-v config_sysdirs='sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic'
+mv -f /tmp/igos-build/glibc/build/sysd-rulesT /tmp/igos-build/glibc/build/sysd-rules
+gawk -f scripts/gen-sorted.awk \
+       -v subdirs='csu assert ctype locale intl catgets math setjmp signal stdlib stdio-common libio malloc string wcsmbs time dirent posix io termios resource misc socket sysvipc gmon gnulib iconv iconvdata wctype manual po argp localedata timezone rt conform debug mathvec support dlfcn elf' \
+       -v srcpfx='' \
+       sysdeps/nptl/Subdirs sysdeps/unix/inet/Subdirs sysdeps/posix/Subdirs assert/Depend catgets/Depend debug/Depend iconvdata/Depend intl/Depend libio/Depend localedata/Depend malloc/Depend mathvec/Depend posix/Depend rt/Depend stdio-common/Depend stdlib/Depend string/Depend support/Depend time/Depend wcsmbs/Depend > /tmp/igos-build/glibc/build/sysd-sorted-tmp
+mv -f /tmp/igos-build/glibc/build/sysd-sorted-tmp /tmp/igos-build/glibc/build/sysd-sorted
+sed '/^[        ]*#/d;/^[       ]*$/d' /tmp/igos-build/glibc/build/time64-compat.mk.i > /tmp/igos-build/glibc/build/time64-compat.mkT
+mv -f /tmp/igos-build/glibc/build/time64-compat.mkT /tmp/igos-build/glibc/build/time64-compat.mk
+sed '/^[ 	]*%/!s/#.*$//;/^[ 	]*$/d;s/^[ 	]*%/#/' \
+    sysdeps/unix/sysv/linux/i386/shlib-versions sysdeps/unix/sysv/linux/shlib-versions nptl/shlib-versions nptl_db/shlib-versions shlib-versions \
+| x86_64-igos-linux-gnu-gcc -m32 -E -undef    -Iinclude   -I/tmp/igos-build/glibc/build  -Isysdeps/unix/sysv/linux/i386/i686  -Isysdeps/i386/i686/nptl  -Isysdeps/unix/sysv/linux/i386  -Isysdeps/unix/sysv/linux/x86/include -Isysdeps/unix/sysv/linux/x86  -Isysdeps/x86/nptl  -Isysdeps/i386/nptl  -Isysdeps/unix/sysv/linux/include -Isysdeps/unix/sysv/linux  -Isysdeps/nptl  -Isysdeps/pthread  -Isysdeps/gnu  -Isysdeps/unix/inet  -Isysdeps/unix/sysv  -Isysdeps/unix/i386  -Isysdeps/unix  -Isysdeps/posix  -Isysdeps/i386/i686/fpu/multiarch  -Isysdeps/i386/i686/fpu  -Isysdeps/i386/i686/multiarch  -Isysdeps/i386/i686  -Isysdeps/i386/fpu  -Isysdeps/x86/fpu  -Isysdeps/i386  -Isysdeps/x86/include -Isysdeps/x86  -Isysdeps/wordsize-32  -Isysdeps/ieee754/float128  -Isysdeps/ieee754/ldbl-96/include -Isysdeps/ieee754/ldbl-96  -Isysdeps/ieee754/dbl-64  -Isysdeps/ieee754/flt-32  -Isysdeps/ieee754  -Isysdeps/generic   -Ilibio -I. -nostdinc -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include-fixed -isystem /mnt/igos/usr/include -D_LIBC_REENTRANT  -include include/libc-symbols.h       -DTOP_NAMESPACE=glibc -x assembler-with-cpp - \
+	   > /tmp/igos-build/glibc/build/shlib-versions.v.iT
+mv -f /tmp/igos-build/glibc/build/shlib-versions.v.iT /tmp/igos-build/glibc/build/shlib-versions.v.i
+sed '/^[ 	]*#/d;/^[ 	]*$/d' /tmp/igos-build/glibc/build/shlib-versions.v.i > /tmp/igos-build/glibc/build/shlib-versions.vT
+mv -f /tmp/igos-build/glibc/build/shlib-versions.vT /tmp/igos-build/glibc/build/shlib-versions.v
+gawk -f scripts/soversions.awk /tmp/igos-build/glibc/build/shlib-versions.v > /tmp/igos-build/glibc/build/soversions.iT
+mv -f /tmp/igos-build/glibc/build/soversions.iT /tmp/igos-build/glibc/build/soversions.i
+sed '/^[ 	]*%/!s/#.*$//;/^[ 	]*$/d;s/^[ 	]*%/#/' \
+    csu/Versions iconv/Versions locale/Versions assert/Versions ctype/Versions intl/Versions catgets/Versions math/Versions setjmp/Versions signal/Versions stdlib/Versions stdio-common/Versions libio/Versions dlfcn/Versions nptl/Versions rt/Versions malloc/Versions string/Versions wcsmbs/Versions time/Versions dirent/Versions posix/Versions io/Versions termios/Versions resource/Versions misc/Versions socket/Versions sysvipc/Versions gmon/Versions wctype/Versions argp/Versions debug/Versions nptl_db/Versions inet/Versions resolv/Versions nss/Versions hesiod/Versions sunrpc/Versions nis/Versions login/Versions elf/Versions sysdeps/unix/sysv/linux/i386/Versions sysdeps/unix/sysv/linux/Versions sysdeps/i386/fpu/Versions sysdeps/i386/Versions sysdeps/x86/Versions sysdeps/wordsize-32/Versions sysdeps/ieee754/float128/Versions \
+| x86_64-igos-linux-gnu-gcc -m32 -E -undef    -Iinclude   -I/tmp/igos-build/glibc/build  -Isysdeps/unix/sysv/linux/i386/i686  -Isysdeps/i386/i686/nptl  -Isysdeps/unix/sysv/linux/i386  -Isysdeps/unix/sysv/linux/x86/include -Isysdeps/unix/sysv/linux/x86  -Isysdeps/x86/nptl  -Isysdeps/i386/nptl  -Isysdeps/unix/sysv/linux/include -Isysdeps/unix/sysv/linux  -Isysdeps/nptl  -Isysdeps/pthread  -Isysdeps/gnu  -Isysdeps/unix/inet  -Isysdeps/unix/sysv  -Isysdeps/unix/i386  -Isysdeps/unix  -Isysdeps/posix  -Isysdeps/i386/i686/fpu/multiarch  -Isysdeps/i386/i686/fpu  -Isysdeps/i386/i686/multiarch  -Isysdeps/i386/i686  -Isysdeps/i386/fpu  -Isysdeps/x86/fpu  -Isysdeps/i386  -Isysdeps/x86/include -Isysdeps/x86  -Isysdeps/wordsize-32  -Isysdeps/ieee754/float128  -Isysdeps/ieee754/ldbl-96/include -Isysdeps/ieee754/ldbl-96  -Isysdeps/ieee754/dbl-64  -Isysdeps/ieee754/flt-32  -Isysdeps/ieee754  -Isysdeps/generic   -Ilibio -I. -nostdinc -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include-fixed -isystem /mnt/igos/usr/include -D_LIBC_REENTRANT  -include include/libc-symbols.h       -DTOP_NAMESPACE=glibc -x assembler-with-cpp - \
+	   > /tmp/igos-build/glibc/build/Versions.v.iT
+mv -f /tmp/igos-build/glibc/build/Versions.v.iT /tmp/igos-build/glibc/build/Versions.v.i
+sed '/^[ 	]*#/d;/^[ 	]*$/d' /tmp/igos-build/glibc/build/Versions.v.i > /tmp/igos-build/glibc/build/Versions.vT
+mv -f /tmp/igos-build/glibc/build/Versions.vT /tmp/igos-build/glibc/build/Versions.v
+LC_ALL=C gawk -f scripts/versionlist.awk /tmp/igos-build/glibc/build/Versions.v > /tmp/igos-build/glibc/build/Versions.defT
+mv -f /tmp/igos-build/glibc/build/Versions.defT /tmp/igos-build/glibc/build/Versions.def
+{ while read which lib version setname; do \
+    test x"$which" = xDEFAULT || continue; \
+    test -z "$setname" || echo "$lib : $setname"; \
+  done < /tmp/igos-build/glibc/build/soversions.i; \
+  cat /tmp/igos-build/glibc/build/Versions.def; \
+} | LC_ALL=C gawk -f scripts/firstversions.awk > /tmp/igos-build/glibc/build/Versions.allT
+mv -f /tmp/igos-build/glibc/build/Versions.allT /tmp/igos-build/glibc/build/Versions.all
+gawk -f scripts/haveversions.awk /tmp/igos-build/glibc/build/Versions.all > /tmp/igos-build/glibc/build/Versions.mkT
+mv -f /tmp/igos-build/glibc/build/Versions.mkT /tmp/igos-build/glibc/build/Versions.mk
+( echo 'sysd-versions-subdirs = csu iconv locale localedata iconvdata assert ctype intl catgets math setjmp signal stdlib stdio-common libio dlfcn nptl rt malloc string wcsmbs timezone time dirent posix io termios resource misc socket sysvipc gmon gnulib wctype manual po argp conform debug mathvec support nptl_db inet resolv nss hesiod sunrpc nis nscd login elf sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic' ; \
+  cat /tmp/igos-build/glibc/build/Versions.v \
+  | LC_ALL=C gawk -v buildroot=/tmp/igos-build/glibc/build/ -v defsfile=/tmp/igos-build/glibc/build/Versions.all \
+		    -v move_if_change='/bin/sh scripts/move-if-change' \
+		    -f scripts/versions.awk; \
+) > /tmp/igos-build/glibc/build/sysd-versionsT
+mv -f /tmp/igos-build/glibc/build/sysd-versionsT /tmp/igos-build/glibc/build/sysd-versions
+touch /tmp/igos-build/glibc/build/versions.stmp
+(while read which lib number setname; do \
+   eval seen_$which=1; \
+   test x"$which" = xDEFAULT || continue; \
+   case $number in \
+     [0-9]*) echo "$lib.so-version=.$number"; \
+	     echo "all-sonames+=$lib=$lib.so\$($lib.so-version)";;\
+     *)	     echo "$lib.so-version=$number"; \
+	     echo "all-sonames+=$lib=\$($lib.so-version)";;\
+   esac; \
+ done; \
+ echo soversions.mk-done = t;) < /tmp/igos-build/glibc/build/soversions.i > /tmp/igos-build/glibc/build/soversions.mkT; exit 0
+mv -f /tmp/igos-build/glibc/build/soversions.mkT /tmp/igos-build/glibc/build/soversions.mk
+gawk -v buildlist="iconvprogs iconvdata ldconfig libmemusage libpcprofile librpcsvc locale_programs memusagestat nonlib nscd extramodules libnldbl libsupport testsuite testsuite_internal" -f scripts/gen-libc-modules.awk /tmp/igos-build/glibc/build/soversions.i > /tmp/igos-build/glibc/build/libc-modules.T
+/bin/sh scripts/move-if-change /tmp/igos-build/glibc/build/libc-modules.T /tmp/igos-build/glibc/build/libc-modules.h
+touch /tmp/igos-build/glibc/build/libc-modules.stmp
+for dir in /tmp/igos-build/glibc/build sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic; do \
+  test -f $dir/syscalls.list && \
+  { sysdirs='sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic' \
+    asm_CPP='x86_64-igos-linux-gnu-gcc -m32 -c    -Iinclude   -I/tmp/igos-build/glibc/build  -Isysdeps/unix/sysv/linux/i386/i686  -Isysdeps/i386/i686/nptl  -Isysdeps/unix/sysv/linux/i386  -Isysdeps/unix/sysv/linux/x86/include -Isysdeps/unix/sysv/linux/x86  -Isysdeps/x86/nptl  -Isysdeps/i386/nptl  -Isysdeps/unix/sysv/linux/include -Isysdeps/unix/sysv/linux  -Isysdeps/nptl  -Isysdeps/pthread  -Isysdeps/gnu  -Isysdeps/unix/inet  -Isysdeps/unix/sysv  -Isysdeps/unix/i386  -Isysdeps/unix  -Isysdeps/posix  -Isysdeps/i386/i686/fpu/multiarch  -Isysdeps/i386/i686/fpu  -Isysdeps/i386/i686/multiarch  -Isysdeps/i386/i686  -Isysdeps/i386/fpu  -Isysdeps/x86/fpu  -Isysdeps/i386  -Isysdeps/x86/include -Isysdeps/x86  -Isysdeps/wordsize-32  -Isysdeps/ieee754/float128  -Isysdeps/ieee754/ldbl-96/include -Isysdeps/ieee754/ldbl-96  -Isysdeps/ieee754/dbl-64  -Isysdeps/ieee754/flt-32  -Isysdeps/ieee754  -Isysdeps/generic   -Ilibio -I. -nostdinc -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include-fixed -isystem /mnt/igos/usr/include -D_LIBC_REENTRANT -include /tmp/igos-build/glibc/build/libc-modules.h -DMODULE_NAME=libc -include include/libc-symbols.h       -DTOP_NAMESPACE=glibc -DASSEMBLER -DGAS_SYNTAX -g -Werror=undef -Wa,--noexecstack       -E -x assembler-with-cpp' \
+    /bin/sh sysdeps/unix/make-syscalls.sh $dir || exit 1; }; \
+  test $dir = sysdeps/unix && break; \
+done > /tmp/igos-build/glibc/build/sysd-syscallsT
+mv -f /tmp/igos-build/glibc/build/sysd-syscallsT /tmp/igos-build/glibc/build/sysd-syscalls
+
+type "make help" for help with common glibc makefile targets
+
+rm -f /tmp/igos-build/glibc/build/stamp.o; > /tmp/igos-build/glibc/build/stamp.o
+rm -f /tmp/igos-build/glibc/build/stamp.os; > /tmp/igos-build/glibc/build/stamp.os
+rm -f /tmp/igos-build/glibc/build/stamp.oS; > /tmp/igos-build/glibc/build/stamp.oS
+make  subdir=csu -C csu ..=../ subdir_lib
+make[2]: Entering directory '/tmp/igos-build/glibc/csu'
+LC_ALL=C gawk -f ../scripts/abi-versions.awk /tmp/igos-build/glibc/build/Versions.all > /tmp/igos-build/glibc/build/abi-versions.hT
+LC_ALL=C gawk -f ../scripts/gen-tunables.awk ../elf/dl-tunables.list ../sysdeps/nptl/dl-tunables.list ../sysdeps/x86/dl-tunables.list > /tmp/igos-build/glibc/build/dl-tunable-list.T
+rm -f /tmp/igos-build/glibc/build/csu/abi-tag.h.new
+{ \
+ echo '/* This file is automatically generated.';\
+ echo '   It defines macros to allow user program to find the shared'; \
+ echo '   library files which come as part of GNU libc.  */'; \
+ echo '#ifndef __GNU_LIB_NAMES_H'; \
+ echo '#define __GNU_LIB_NAMES_H	1'; \
+ echo ''; \
+  \
+   echo '#if !defined __x86_64__'; echo '# include <gnu/lib-names-32.h>'; echo '#endif';   echo '#if defined __x86_64__ && defined __LP64__'; echo '# include <gnu/lib-names-64.h>'; echo '#endif';   echo '#if defined __x86_64__ && defined __ILP32__'; echo '# include <gnu/lib-names-x32.h>'; echo '#endif'; \
+ echo ''; \
+ echo '#endif	/* gnu/lib-names.h */'; \
+} >  /tmp/igos-build/glibc/build/gnu/lib-names.h
+{ \
+  echo '/* This file is automatically generated.  */'; echo '#ifndef __GNU_LIB_NAMES_H'; echo '# error "Never use <gnu/lib-names-32.h> directly; include <gnu/lib-names.h> instead."'; echo '#endif'; \
+ echo ''; \
+ ( echo ld=ld-linux.so.2;  echo libc=libc.so.6;  echo libBrokenLocale=libBrokenLocale.so.1;  echo libpthread=libpthread.so.0;  echo libthread_db=libthread_db.so.1;  echo libdl=libdl.so.2;  echo libgcc_s=libgcc_s.so.1;  echo libnsl=libnsl.so.1;  echo libc_malloc_debug=libc_malloc_debug.so.0;  echo libutil=libutil.so.1;  echo libnss_ldap=libnss_ldap.so.2;  echo libnss_dns=libnss_dns.so.2;  echo libnss_compat=libnss_compat.so.2;  echo libmvec=libmvec.so.1;  echo libresolv=libresolv.so.2;  echo libnss_db=libnss_db.so.2;  echo libm=libm.so.6;  echo libnss_files=libnss_files.so.2;  echo librt=librt.so.1;  echo libnss_hesiod=libnss_hesiod.so.2;  echo libanl=libanl.so.1;) \
+ | LC_ALL=C gawk -f ../scripts/lib-names.awk | LC_ALL=C sort; \
+  \
+} >  /tmp/igos-build/glibc/build/gnu/lib-names-32.T
+sed -e 's/#.*$//' -e '/^[	]*$/d' ../abi-tags | \
+while read conf tagos tagver; do \
+--- [distilled from launch-4 known-bad glibc log, cycle at orig line 26223; full log SHA256 a2085e7c… on jarvis-storage] ---
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... i686-igos-linux-gnu
+checking for i686-igos-linux-gnu-gcc... x86_64-igos-linux-gnu-gcc -m32
+checking for suffix of object files... o
+checking whether the compiler supports GNU C... yes
+checking whether x86_64-igos-linux-gnu-gcc -m32 accepts -g... yes
+checking for x86_64-igos-linux-gnu-gcc -m32 option to enable C11 features... none needed
+checking for gcc... gcc
+checking whether the compiler supports GNU C++... yes
+checking whether x86_64-igos-linux-gnu-g++ -m32 accepts -g... yes
+checking for x86_64-igos-linux-gnu-g++ -m32 option to enable C++11 features... unsupported
+checking for x86_64-igos-linux-gnu-g++ -m32 option to enable C++98 features... unsupported
+checking whether x86_64-igos-linux-gnu-g++ -m32 can link programs... no
+checking for sysdeps preconfigure fragments... aarch64 alpha arc arm csky hppa i386 loongarch m68k microblaze checking for egrep -e... /usr/bin/grep -E
+mips or1k powerpc riscv s390 sh checking for egrep -e... (cached) /usr/bin/grep -E
+sparc x86_64 
+checking for a BSD-compatible install... /usr/bin/install -c
+checking whether ln -s works... yes
+checking for /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/../../../../x86_64-igos-linux-gnu/bin/ld... /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/../../../../x86_64-igos-linux-gnu/bin/ld
+checking version of /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/../../../../x86_64-igos-linux-gnu/bin/ld... 2.46.0.20260210, ok
+checking for gnumake... no
+checking for gmake... gmake
+checking version of gmake... 4.3, ok
+checking for gnumsgfmt... no
+checking for gmsgfmt... no
+checking for msgfmt... no
+checking for makeinfo... makeinfo
+checking version of makeinfo... 7.1, ok
+checking for sed... sed
+checking version of sed... 4.9, ok
+checking for gawk... gawk
+checking version of gawk... 5.2.1, ok
+checking for bison... bison
+checking version of bison... 3.8.2, ok
+checking if x86_64-igos-linux-gnu-gcc -m32 is sufficient to build libc... yes
+checking for python3... python3
+checking version of python3... 3.12.3, ok
+configure: WARNING:
+*** These auxiliary programs are missing or incompatible versions: msgfmt
+*** some features or tests will be disabled.
+*** Check the INSTALL file for required versions.
+checking for use of fpu sysdeps directories... yes
+checking for clang in testing... no
+checking for clang++ in testing... no
+checking for -fstack-protector... yes
+checking for -fstack-protector-strong... yes
+checking for -fstack-protector-all... yes
+checking for assembler and linker STT_GNU_IFUNC support... yes
+checking for gcc attribute ifunc support... yes
+checking whether the linker supports textrels along with ifunc... yes
+checking for GNU attribute retain support... yes
+checking if compiler warns about alias for function with incompatible types... yes
+checking sysdep dirs... sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic
+checking LD_LIBRARY_PATH variable... ok
+checking for bash... /usr/bin/bash
+checking for perl... /usr/bin/perl
+checking for install-info... /usr/bin/install-info
+checking for .set assembler directive... yes
+checking linker support for protected data symbol... yes
+checking linker support for INSERT in linker script... no
+checking for broken __attribute__((alias()))... no
+checking whether to put _rtld_local into .sdata section... no
+checking for libunwind-support in compiler... no
+checking whether --noexecstack is desirable for .S files... yes
+checking for linker that supports --no-error-execstack... yes
+checking for linker that supports -z execstack... yes
+checking for linker that supports -z start-stop-gc... yes
+checking for linker that supports --depaudit... yes
+checking for linker that supports -z pack-relative-relocs... yes
+checking for linker that supports --no-dynamic-linker... yes
+checking for -static-pie... yes
+checking for -fpie... yes
+checking for -Wno-discarded-qualifiers... -Wno-discarded-qualifiers
+checking for GLOB_DAT reloc... yes
+checking for tls descriptor support in testing... gnu2
+checking for traditional tls support in testing... gnu
+checking for -Wno-maybe-uninitialized... -Wno-maybe-uninitialized
+checking whether cc puts quotes around section names... no
+checking for __builtin_memset... yes
+checking for 64-bit atomic support... no
+checking for compiler option to disable generation of FMA instructions... -ffp-contract=off
+checking for compiler option that -fsignaling-nans... -fsignaling-nans
+checking -fsemantic-interposition in testing... yes
+checking for -ffloat-store in testing... -ffloat-store
+checking if __attribute__ ((__optimize__("-fno-tree-loop-distribute-patterns"))) works... yes
+checking for -Wimplicit-fallthrough... -Wimplicit-fallthrough
+checking for -Wfree-labels... -Wfree-labels
+checking for -Wmissing-parameter-name... -Wmissing-parameter-name
+checking support for trampolines in testing... yes
+checking -Wno-restrict in testing... -Wno-restrict
+checking -Wno-fortify-source in testing... -Wno-fortify-source
+checking -finput-charset=ascii in testing... -finput-charset=ascii
+checking  -finput-charset=ascii in testing... 
+checking for STB_GNU_UNIQUE in testing... no
+checking for libgd... no
+checking for is_selinux_enabled in -lselinux... no
+checking for maximum supported _FORTIFY_SOURCE level... 3
+checking whether the assembler requires one version per symbol... no
+checking for __builtin_trap with no external dependencies... yes
+checking whether the compiler supports __attribute__ ((aligned (65536)))... yes
+checking whether the C++ compiler supports thread_local... no
+running configure fragment for sysdeps/unix/sysv/linux/i386
+running configure fragment for sysdeps/unix/sysv/linux
+checking installed Linux kernel header files... 3.2.0 or later
+checking for kernel header at least 5.4... ok
+running configure fragment for sysdeps/gnu
+running configure fragment for sysdeps/i386
+checking for compiler support of inlined builtin function __sync_val_compare_and_swap... yes
+checking -mfentry... no
+running configure fragment for sysdeps/x86
+checking for linker x86 ISA level support... yes
+checking for LAHF/SAHF instruction support... no
+checking for MOVBE instruction support... no
+checking for ISA level support... 1
+checking if -mfpmath=387 works in testing... yes
+checking if no direct extern access is enabled by default... 
+checking if -mno-direct-extern-access works in testing... yes
+checking if -fno-direct-access-external-data works in testing... no
+checking if -Os inlines trunc... no
+checking for __libgcc_cmp_return__ mode attribute support... yes
+checking if compiler inlines __builtin_fmod/__builtin_remainder... yes
+checking whether -fPIC is default... yes
+checking whether -fPIE is default... yes
+checking PDE load address... 0x08048000
+checking for linker that supports -Ttext-segment=0x08048000... yes
+checking if compiler supports -fno-fp-int-builtin-inexact... -fno-fp-int-builtin-inexact
+checking for linker that supports --undefined-version... yes
+checking if we can build programs as PIE... yes
+checking if we can build static PIE programs... yes
+checking whether x86_64-igos-linux-gnu-gcc -m32 can link against -lgcc_s... no
+checking attribute can declared after function declaration... yes
+configure: creating ./config.status
+config.status: creating config.make
+config.status: creating Makefile
+config.status: creating config.h
+config.status: config.h is unchanged
+config.status: executing default commands
+make -r PARALLELMFLAGS="" -C .. objdir=`pwd` all
+make[1]: Entering directory '/tmp/igos-build/glibc'
+LC_ALL=C gawk -f scripts/sysd-rules.awk > /tmp/igos-build/glibc/build/sysd-rulesT \
+		-v all_object_suffixes='.o .os .oS' \
+		-v inhibit_sysdep_asm='' \
+		-v sysd_rules_patterns='%:% rtld-%:rtld-% rtld-%:% m_%:s_%' \
+		-v config_sysdirs='sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic'
+mv -f /tmp/igos-build/glibc/build/sysd-rulesT /tmp/igos-build/glibc/build/sysd-rules
+gawk -f scripts/gen-sorted.awk \
+       -v subdirs='csu assert ctype locale intl catgets math setjmp signal stdlib stdio-common libio malloc string wcsmbs time dirent posix io termios resource misc socket sysvipc gmon gnulib iconv iconvdata wctype manual po argp localedata timezone rt conform debug mathvec support dlfcn elf' \
+       -v srcpfx='' \
+       sysdeps/nptl/Subdirs sysdeps/unix/inet/Subdirs sysdeps/posix/Subdirs assert/Depend catgets/Depend debug/Depend iconvdata/Depend intl/Depend libio/Depend localedata/Depend malloc/Depend mathvec/Depend posix/Depend rt/Depend stdio-common/Depend stdlib/Depend string/Depend support/Depend time/Depend wcsmbs/Depend > /tmp/igos-build/glibc/build/sysd-sorted-tmp
+mv -f /tmp/igos-build/glibc/build/sysd-sorted-tmp /tmp/igos-build/glibc/build/sysd-sorted
+sed '/^[        ]*#/d;/^[       ]*$/d' /tmp/igos-build/glibc/build/time64-compat.mk.i > /tmp/igos-build/glibc/build/time64-compat.mkT
+mv -f /tmp/igos-build/glibc/build/time64-compat.mkT /tmp/igos-build/glibc/build/time64-compat.mk
+sed '/^[ 	]*%/!s/#.*$//;/^[ 	]*$/d;s/^[ 	]*%/#/' \
+    sysdeps/unix/sysv/linux/i386/shlib-versions sysdeps/unix/sysv/linux/shlib-versions nptl/shlib-versions nptl_db/shlib-versions shlib-versions \
+| x86_64-igos-linux-gnu-gcc -m32 -E -undef    -Iinclude   -I/tmp/igos-build/glibc/build  -Isysdeps/unix/sysv/linux/i386/i686  -Isysdeps/i386/i686/nptl  -Isysdeps/unix/sysv/linux/i386  -Isysdeps/unix/sysv/linux/x86/include -Isysdeps/unix/sysv/linux/x86  -Isysdeps/x86/nptl  -Isysdeps/i386/nptl  -Isysdeps/unix/sysv/linux/include -Isysdeps/unix/sysv/linux  -Isysdeps/nptl  -Isysdeps/pthread  -Isysdeps/gnu  -Isysdeps/unix/inet  -Isysdeps/unix/sysv  -Isysdeps/unix/i386  -Isysdeps/unix  -Isysdeps/posix  -Isysdeps/i386/i686/fpu/multiarch  -Isysdeps/i386/i686/fpu  -Isysdeps/i386/i686/multiarch  -Isysdeps/i386/i686  -Isysdeps/i386/fpu  -Isysdeps/x86/fpu  -Isysdeps/i386  -Isysdeps/x86/include -Isysdeps/x86  -Isysdeps/wordsize-32  -Isysdeps/ieee754/float128  -Isysdeps/ieee754/ldbl-96/include -Isysdeps/ieee754/ldbl-96  -Isysdeps/ieee754/dbl-64  -Isysdeps/ieee754/flt-32  -Isysdeps/ieee754  -Isysdeps/generic   -Ilibio -I. -nostdinc -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include-fixed -isystem /mnt/igos/usr/include -D_LIBC_REENTRANT  -include include/libc-symbols.h       -DTOP_NAMESPACE=glibc -x assembler-with-cpp - \
+	   > /tmp/igos-build/glibc/build/shlib-versions.v.iT
+mv -f /tmp/igos-build/glibc/build/shlib-versions.v.iT /tmp/igos-build/glibc/build/shlib-versions.v.i
+sed '/^[ 	]*#/d;/^[ 	]*$/d' /tmp/igos-build/glibc/build/shlib-versions.v.i > /tmp/igos-build/glibc/build/shlib-versions.vT
+mv -f /tmp/igos-build/glibc/build/shlib-versions.vT /tmp/igos-build/glibc/build/shlib-versions.v
+gawk -f scripts/soversions.awk /tmp/igos-build/glibc/build/shlib-versions.v > /tmp/igos-build/glibc/build/soversions.iT
+mv -f /tmp/igos-build/glibc/build/soversions.iT /tmp/igos-build/glibc/build/soversions.i
+sed '/^[ 	]*%/!s/#.*$//;/^[ 	]*$/d;s/^[ 	]*%/#/' \
+    csu/Versions iconv/Versions locale/Versions assert/Versions ctype/Versions intl/Versions catgets/Versions math/Versions setjmp/Versions signal/Versions stdlib/Versions stdio-common/Versions libio/Versions dlfcn/Versions nptl/Versions rt/Versions malloc/Versions string/Versions wcsmbs/Versions time/Versions dirent/Versions posix/Versions io/Versions termios/Versions resource/Versions misc/Versions socket/Versions sysvipc/Versions gmon/Versions wctype/Versions argp/Versions debug/Versions nptl_db/Versions inet/Versions resolv/Versions nss/Versions hesiod/Versions sunrpc/Versions nis/Versions login/Versions elf/Versions sysdeps/unix/sysv/linux/i386/Versions sysdeps/unix/sysv/linux/Versions sysdeps/i386/fpu/Versions sysdeps/i386/Versions sysdeps/x86/Versions sysdeps/wordsize-32/Versions sysdeps/ieee754/float128/Versions \
+| x86_64-igos-linux-gnu-gcc -m32 -E -undef    -Iinclude   -I/tmp/igos-build/glibc/build  -Isysdeps/unix/sysv/linux/i386/i686  -Isysdeps/i386/i686/nptl  -Isysdeps/unix/sysv/linux/i386  -Isysdeps/unix/sysv/linux/x86/include -Isysdeps/unix/sysv/linux/x86  -Isysdeps/x86/nptl  -Isysdeps/i386/nptl  -Isysdeps/unix/sysv/linux/include -Isysdeps/unix/sysv/linux  -Isysdeps/nptl  -Isysdeps/pthread  -Isysdeps/gnu  -Isysdeps/unix/inet  -Isysdeps/unix/sysv  -Isysdeps/unix/i386  -Isysdeps/unix  -Isysdeps/posix  -Isysdeps/i386/i686/fpu/multiarch  -Isysdeps/i386/i686/fpu  -Isysdeps/i386/i686/multiarch  -Isysdeps/i386/i686  -Isysdeps/i386/fpu  -Isysdeps/x86/fpu  -Isysdeps/i386  -Isysdeps/x86/include -Isysdeps/x86  -Isysdeps/wordsize-32  -Isysdeps/ieee754/float128  -Isysdeps/ieee754/ldbl-96/include -Isysdeps/ieee754/ldbl-96  -Isysdeps/ieee754/dbl-64  -Isysdeps/ieee754/flt-32  -Isysdeps/ieee754  -Isysdeps/generic   -Ilibio -I. -nostdinc -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include-fixed -isystem /mnt/igos/usr/include -D_LIBC_REENTRANT  -include include/libc-symbols.h       -DTOP_NAMESPACE=glibc -x assembler-with-cpp - \
+	   > /tmp/igos-build/glibc/build/Versions.v.iT
+mv -f /tmp/igos-build/glibc/build/Versions.v.iT /tmp/igos-build/glibc/build/Versions.v.i
+sed '/^[ 	]*#/d;/^[ 	]*$/d' /tmp/igos-build/glibc/build/Versions.v.i > /tmp/igos-build/glibc/build/Versions.vT
+mv -f /tmp/igos-build/glibc/build/Versions.vT /tmp/igos-build/glibc/build/Versions.v
+LC_ALL=C gawk -f scripts/versionlist.awk /tmp/igos-build/glibc/build/Versions.v > /tmp/igos-build/glibc/build/Versions.defT
+mv -f /tmp/igos-build/glibc/build/Versions.defT /tmp/igos-build/glibc/build/Versions.def
+{ while read which lib version setname; do \
+    test x"$which" = xDEFAULT || continue; \
+    test -z "$setname" || echo "$lib : $setname"; \
+  done < /tmp/igos-build/glibc/build/soversions.i; \
+  cat /tmp/igos-build/glibc/build/Versions.def; \
+} | LC_ALL=C gawk -f scripts/firstversions.awk > /tmp/igos-build/glibc/build/Versions.allT
+mv -f /tmp/igos-build/glibc/build/Versions.allT /tmp/igos-build/glibc/build/Versions.all
+gawk -f scripts/haveversions.awk /tmp/igos-build/glibc/build/Versions.all > /tmp/igos-build/glibc/build/Versions.mkT
+mv -f /tmp/igos-build/glibc/build/Versions.mkT /tmp/igos-build/glibc/build/Versions.mk
+( echo 'sysd-versions-subdirs = csu iconv locale localedata iconvdata assert ctype intl catgets math setjmp signal stdlib stdio-common libio dlfcn nptl rt malloc string wcsmbs timezone time dirent posix io termios resource misc socket sysvipc gmon gnulib wctype manual po argp conform debug mathvec support nptl_db inet resolv nss hesiod sunrpc nis nscd login elf sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic' ; \
+  cat /tmp/igos-build/glibc/build/Versions.v \
+  | LC_ALL=C gawk -v buildroot=/tmp/igos-build/glibc/build/ -v defsfile=/tmp/igos-build/glibc/build/Versions.all \
+		    -v move_if_change='/bin/sh scripts/move-if-change' \
+		    -f scripts/versions.awk; \
+) > /tmp/igos-build/glibc/build/sysd-versionsT
+mv -f /tmp/igos-build/glibc/build/sysd-versionsT /tmp/igos-build/glibc/build/sysd-versions
+touch /tmp/igos-build/glibc/build/versions.stmp
+(while read which lib number setname; do \
+   eval seen_$which=1; \
+   test x"$which" = xDEFAULT || continue; \
+   case $number in \
+     [0-9]*) echo "$lib.so-version=.$number"; \
+	     echo "all-sonames+=$lib=$lib.so\$($lib.so-version)";;\
+     *)	     echo "$lib.so-version=$number"; \
+	     echo "all-sonames+=$lib=\$($lib.so-version)";;\
+   esac; \
+ done; \
+ echo soversions.mk-done = t;) < /tmp/igos-build/glibc/build/soversions.i > /tmp/igos-build/glibc/build/soversions.mkT; exit 0
+mv -f /tmp/igos-build/glibc/build/soversions.mkT /tmp/igos-build/glibc/build/soversions.mk
+gawk -v buildlist="iconvprogs iconvdata ldconfig libmemusage libpcprofile librpcsvc locale_programs memusagestat nonlib nscd extramodules libnldbl libsupport testsuite testsuite_internal" -f scripts/gen-libc-modules.awk /tmp/igos-build/glibc/build/soversions.i > /tmp/igos-build/glibc/build/libc-modules.T
+/bin/sh scripts/move-if-change /tmp/igos-build/glibc/build/libc-modules.T /tmp/igos-build/glibc/build/libc-modules.h
+touch /tmp/igos-build/glibc/build/libc-modules.stmp
+for dir in /tmp/igos-build/glibc/build sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic; do \
+  test -f $dir/syscalls.list && \
+  { sysdirs='sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic' \
+    asm_CPP='x86_64-igos-linux-gnu-gcc -m32 -c    -Iinclude   -I/tmp/igos-build/glibc/build  -Isysdeps/unix/sysv/linux/i386/i686  -Isysdeps/i386/i686/nptl  -Isysdeps/unix/sysv/linux/i386  -Isysdeps/unix/sysv/linux/x86/include -Isysdeps/unix/sysv/linux/x86  -Isysdeps/x86/nptl  -Isysdeps/i386/nptl  -Isysdeps/unix/sysv/linux/include -Isysdeps/unix/sysv/linux  -Isysdeps/nptl  -Isysdeps/pthread  -Isysdeps/gnu  -Isysdeps/unix/inet  -Isysdeps/unix/sysv  -Isysdeps/unix/i386  -Isysdeps/unix  -Isysdeps/posix  -Isysdeps/i386/i686/fpu/multiarch  -Isysdeps/i386/i686/fpu  -Isysdeps/i386/i686/multiarch  -Isysdeps/i386/i686  -Isysdeps/i386/fpu  -Isysdeps/x86/fpu  -Isysdeps/i386  -Isysdeps/x86/include -Isysdeps/x86  -Isysdeps/wordsize-32  -Isysdeps/ieee754/float128  -Isysdeps/ieee754/ldbl-96/include -Isysdeps/ieee754/ldbl-96  -Isysdeps/ieee754/dbl-64  -Isysdeps/ieee754/flt-32  -Isysdeps/ieee754  -Isysdeps/generic   -Ilibio -I. -nostdinc -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include-fixed -isystem /mnt/igos/usr/include -D_LIBC_REENTRANT -include /tmp/igos-build/glibc/build/libc-modules.h -DMODULE_NAME=libc -include include/libc-symbols.h       -DTOP_NAMESPACE=glibc -DASSEMBLER -DGAS_SYNTAX -g -Werror=undef -Wa,--noexecstack       -E -x assembler-with-cpp' \
+    /bin/sh sysdeps/unix/make-syscalls.sh $dir || exit 1; }; \
+  test $dir = sysdeps/unix && break; \
+done > /tmp/igos-build/glibc/build/sysd-syscallsT
+mv -f /tmp/igos-build/glibc/build/sysd-syscallsT /tmp/igos-build/glibc/build/sysd-syscalls
+
+type "make help" for help with common glibc makefile targets
+
+rm -f /tmp/igos-build/glibc/build/stamp.o; > /tmp/igos-build/glibc/build/stamp.o
+rm -f /tmp/igos-build/glibc/build/stamp.os; > /tmp/igos-build/glibc/build/stamp.os
+rm -f /tmp/igos-build/glibc/build/stamp.oS; > /tmp/igos-build/glibc/build/stamp.oS
+make  subdir=csu -C csu ..=../ subdir_lib
+make[2]: Entering directory '/tmp/igos-build/glibc/csu'
+LC_ALL=C gawk -f ../scripts/abi-versions.awk /tmp/igos-build/glibc/build/Versions.all > /tmp/igos-build/glibc/build/abi-versions.hT
+LC_ALL=C gawk -f ../scripts/gen-tunables.awk ../elf/dl-tunables.list ../sysdeps/nptl/dl-tunables.list ../sysdeps/x86/dl-tunables.list > /tmp/igos-build/glibc/build/dl-tunable-list.T
+rm -f /tmp/igos-build/glibc/build/csu/abi-tag.h.new
+{ \
+ echo '/* This file is automatically generated.';\
+ echo '   It defines macros to allow user program to find the shared'; \
+ echo '   library files which come as part of GNU libc.  */'; \
+ echo '#ifndef __GNU_LIB_NAMES_H'; \
+ echo '#define __GNU_LIB_NAMES_H	1'; \
+ echo ''; \
+  \
+   echo '#if !defined __x86_64__'; echo '# include <gnu/lib-names-32.h>'; echo '#endif';   echo '#if defined __x86_64__ && defined __LP64__'; echo '# include <gnu/lib-names-64.h>'; echo '#endif';   echo '#if defined __x86_64__ && defined __ILP32__'; echo '# include <gnu/lib-names-x32.h>'; echo '#endif'; \
+ echo ''; \
+ echo '#endif	/* gnu/lib-names.h */'; \
+} >  /tmp/igos-build/glibc/build/gnu/lib-names.h
+{ \
+  echo '/* This file is automatically generated.  */'; echo '#ifndef __GNU_LIB_NAMES_H'; echo '# error "Never use <gnu/lib-names-32.h> directly; include <gnu/lib-names.h> instead."'; echo '#endif'; \
+ echo ''; \
+ ( echo ld=ld-linux.so.2;  echo libc=libc.so.6;  echo libBrokenLocale=libBrokenLocale.so.1;  echo libpthread=libpthread.so.0;  echo libthread_db=libthread_db.so.1;  echo libdl=libdl.so.2;  echo libgcc_s=libgcc_s.so.1;  echo libnsl=libnsl.so.1;  echo libc_malloc_debug=libc_malloc_debug.so.0;  echo libutil=libutil.so.1;  echo libnss_ldap=libnss_ldap.so.2;  echo libnss_dns=libnss_dns.so.2;  echo libnss_compat=libnss_compat.so.2;  echo libmvec=libmvec.so.1;  echo libresolv=libresolv.so.2;  echo libnss_db=libnss_db.so.2;  echo libm=libm.so.6;  echo libnss_files=libnss_files.so.2;  echo librt=librt.so.1;  echo libnss_hesiod=libnss_hesiod.so.2;  echo libanl=libanl.so.1;) \
+ | LC_ALL=C gawk -f ../scripts/lib-names.awk | LC_ALL=C sort; \
+  \
+} >  /tmp/igos-build/glibc/build/gnu/lib-names-32.T
+sed -e 's/#.*$//' -e '/^[	]*$/d' ../abi-tags | \
+--- [distilled from launch-4 known-bad glibc log, cycle at orig line 51825; full log SHA256 a2085e7c… on jarvis-storage] ---
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... i686-igos-linux-gnu
+checking for i686-igos-linux-gnu-gcc... x86_64-igos-linux-gnu-gcc -m32
+checking for suffix of object files... o
+checking whether the compiler supports GNU C... yes
+checking whether x86_64-igos-linux-gnu-gcc -m32 accepts -g... yes
+checking for x86_64-igos-linux-gnu-gcc -m32 option to enable C11 features... none needed
+checking for gcc... gcc
+checking whether the compiler supports GNU C++... yes
+checking whether x86_64-igos-linux-gnu-g++ -m32 accepts -g... yes
+checking for x86_64-igos-linux-gnu-g++ -m32 option to enable C++11 features... unsupported
+checking for x86_64-igos-linux-gnu-g++ -m32 option to enable C++98 features... unsupported
+checking whether x86_64-igos-linux-gnu-g++ -m32 can link programs... no
+checking for sysdeps preconfigure fragments... aarch64 alpha arc arm csky hppa i386 loongarch m68k microblaze checking for egrep -e... /usr/bin/grep -E
+mips or1k powerpc riscv s390 sh checking for egrep -e... (cached) /usr/bin/grep -E
+sparc x86_64 
+checking for a BSD-compatible install... /usr/bin/install -c
+checking whether ln -s works... yes
+checking for /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/../../../../x86_64-igos-linux-gnu/bin/ld... /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/../../../../x86_64-igos-linux-gnu/bin/ld
+checking version of /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/../../../../x86_64-igos-linux-gnu/bin/ld... 2.46.0.20260210, ok
+checking for gnumake... no
+checking for gmake... gmake
+checking version of gmake... 4.3, ok
+checking for gnumsgfmt... no
+checking for gmsgfmt... no
+checking for msgfmt... no
+checking for makeinfo... makeinfo
+checking version of makeinfo... 7.1, ok
+checking for sed... sed
+checking version of sed... 4.9, ok
+checking for gawk... gawk
+checking version of gawk... 5.2.1, ok
+checking for bison... bison
+checking version of bison... 3.8.2, ok
+checking if x86_64-igos-linux-gnu-gcc -m32 is sufficient to build libc... yes
+checking for python3... python3
+checking version of python3... 3.12.3, ok
+configure: WARNING:
+*** These auxiliary programs are missing or incompatible versions: msgfmt
+*** some features or tests will be disabled.
+*** Check the INSTALL file for required versions.
+checking for use of fpu sysdeps directories... yes
+checking for clang in testing... no
+checking for clang++ in testing... no
+checking for -fstack-protector... yes
+checking for -fstack-protector-strong... yes
+checking for -fstack-protector-all... yes
+checking for assembler and linker STT_GNU_IFUNC support... yes
+checking for gcc attribute ifunc support... yes
+checking whether the linker supports textrels along with ifunc... yes
+checking for GNU attribute retain support... yes
+checking if compiler warns about alias for function with incompatible types... yes
+checking sysdep dirs... sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic
+checking LD_LIBRARY_PATH variable... ok
+checking for bash... /usr/bin/bash
+checking for perl... /usr/bin/perl
+checking for install-info... /usr/bin/install-info
+checking for .set assembler directive... yes
+checking linker support for protected data symbol... yes
+checking linker support for INSERT in linker script... no
+checking for broken __attribute__((alias()))... no
+checking whether to put _rtld_local into .sdata section... no
+checking for libunwind-support in compiler... no
+checking whether --noexecstack is desirable for .S files... yes
+checking for linker that supports --no-error-execstack... yes
+checking for linker that supports -z execstack... yes
+checking for linker that supports -z start-stop-gc... yes
+checking for linker that supports --depaudit... yes
+checking for linker that supports -z pack-relative-relocs... yes
+checking for linker that supports --no-dynamic-linker... yes
+checking for -static-pie... yes
+checking for -fpie... yes
+checking for -Wno-discarded-qualifiers... -Wno-discarded-qualifiers
+checking for GLOB_DAT reloc... yes
+checking for tls descriptor support in testing... gnu2
+checking for traditional tls support in testing... gnu
+checking for -Wno-maybe-uninitialized... -Wno-maybe-uninitialized
+checking whether cc puts quotes around section names... no
+checking for __builtin_memset... yes
+checking for 64-bit atomic support... no
+checking for compiler option to disable generation of FMA instructions... -ffp-contract=off
+checking for compiler option that -fsignaling-nans... -fsignaling-nans
+checking -fsemantic-interposition in testing... yes
+checking for -ffloat-store in testing... -ffloat-store
+checking if __attribute__ ((__optimize__("-fno-tree-loop-distribute-patterns"))) works... yes
+checking for -Wimplicit-fallthrough... -Wimplicit-fallthrough
+checking for -Wfree-labels... -Wfree-labels
+checking for -Wmissing-parameter-name... -Wmissing-parameter-name
+checking support for trampolines in testing... yes
+checking -Wno-restrict in testing... -Wno-restrict
+checking -Wno-fortify-source in testing... -Wno-fortify-source
+checking -finput-charset=ascii in testing... -finput-charset=ascii
+checking  -finput-charset=ascii in testing... 
+checking for STB_GNU_UNIQUE in testing... no
+checking for libgd... no
+checking for is_selinux_enabled in -lselinux... no
+checking for maximum supported _FORTIFY_SOURCE level... 3
+checking whether the assembler requires one version per symbol... no
+checking for __builtin_trap with no external dependencies... yes
+checking whether the compiler supports __attribute__ ((aligned (65536)))... yes
+checking whether the C++ compiler supports thread_local... no
+running configure fragment for sysdeps/unix/sysv/linux/i386
+running configure fragment for sysdeps/unix/sysv/linux
+checking installed Linux kernel header files... 3.2.0 or later
+checking for kernel header at least 5.4... ok
+running configure fragment for sysdeps/gnu
+running configure fragment for sysdeps/i386
+checking for compiler support of inlined builtin function __sync_val_compare_and_swap... yes
+checking -mfentry... no
+running configure fragment for sysdeps/x86
+checking for linker x86 ISA level support... yes
+checking for LAHF/SAHF instruction support... no
+checking for MOVBE instruction support... no
+checking for ISA level support... 1
+checking if -mfpmath=387 works in testing... yes
+checking if no direct extern access is enabled by default... 
+checking if -mno-direct-extern-access works in testing... yes
+checking if -fno-direct-access-external-data works in testing... no
+checking if -Os inlines trunc... no
+checking for __libgcc_cmp_return__ mode attribute support... yes
+checking if compiler inlines __builtin_fmod/__builtin_remainder... yes
+checking whether -fPIC is default... yes
+checking whether -fPIE is default... yes
+checking PDE load address... 0x08048000
+checking for linker that supports -Ttext-segment=0x08048000... yes
+checking if compiler supports -fno-fp-int-builtin-inexact... -fno-fp-int-builtin-inexact
+checking for linker that supports --undefined-version... yes
+checking if we can build programs as PIE... yes
+checking if we can build static PIE programs... yes
+checking whether x86_64-igos-linux-gnu-gcc -m32 can link against -lgcc_s... no
+checking attribute can declared after function declaration... yes
+configure: creating ./config.status
+config.status: creating config.make
+config.status: creating Makefile
+config.status: creating config.h
+config.status: config.h is unchanged
+config.status: executing default commands
+make -r PARALLELMFLAGS="" -C .. objdir=`pwd` all
+make[1]: Entering directory '/tmp/igos-build/glibc'
+LC_ALL=C gawk -f scripts/sysd-rules.awk > /tmp/igos-build/glibc/build/sysd-rulesT \
+		-v all_object_suffixes='.o .os .oS' \
+		-v inhibit_sysdep_asm='' \
+		-v sysd_rules_patterns='%:% rtld-%:rtld-% rtld-%:% m_%:s_%' \
+		-v config_sysdirs='sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic'
+mv -f /tmp/igos-build/glibc/build/sysd-rulesT /tmp/igos-build/glibc/build/sysd-rules
+gawk -f scripts/gen-sorted.awk \
+       -v subdirs='csu assert ctype locale intl catgets math setjmp signal stdlib stdio-common libio malloc string wcsmbs time dirent posix io termios resource misc socket sysvipc gmon gnulib iconv iconvdata wctype manual po argp localedata timezone rt conform debug mathvec support dlfcn elf' \
+       -v srcpfx='' \
+       sysdeps/nptl/Subdirs sysdeps/unix/inet/Subdirs sysdeps/posix/Subdirs assert/Depend catgets/Depend debug/Depend iconvdata/Depend intl/Depend libio/Depend localedata/Depend malloc/Depend mathvec/Depend posix/Depend rt/Depend stdio-common/Depend stdlib/Depend string/Depend support/Depend time/Depend wcsmbs/Depend > /tmp/igos-build/glibc/build/sysd-sorted-tmp
+mv -f /tmp/igos-build/glibc/build/sysd-sorted-tmp /tmp/igos-build/glibc/build/sysd-sorted
+sed '/^[        ]*#/d;/^[       ]*$/d' /tmp/igos-build/glibc/build/time64-compat.mk.i > /tmp/igos-build/glibc/build/time64-compat.mkT
+mv -f /tmp/igos-build/glibc/build/time64-compat.mkT /tmp/igos-build/glibc/build/time64-compat.mk
+sed '/^[ 	]*%/!s/#.*$//;/^[ 	]*$/d;s/^[ 	]*%/#/' \
+    sysdeps/unix/sysv/linux/i386/shlib-versions sysdeps/unix/sysv/linux/shlib-versions nptl/shlib-versions nptl_db/shlib-versions shlib-versions \
+| x86_64-igos-linux-gnu-gcc -m32 -E -undef    -Iinclude   -I/tmp/igos-build/glibc/build  -Isysdeps/unix/sysv/linux/i386/i686  -Isysdeps/i386/i686/nptl  -Isysdeps/unix/sysv/linux/i386  -Isysdeps/unix/sysv/linux/x86/include -Isysdeps/unix/sysv/linux/x86  -Isysdeps/x86/nptl  -Isysdeps/i386/nptl  -Isysdeps/unix/sysv/linux/include -Isysdeps/unix/sysv/linux  -Isysdeps/nptl  -Isysdeps/pthread  -Isysdeps/gnu  -Isysdeps/unix/inet  -Isysdeps/unix/sysv  -Isysdeps/unix/i386  -Isysdeps/unix  -Isysdeps/posix  -Isysdeps/i386/i686/fpu/multiarch  -Isysdeps/i386/i686/fpu  -Isysdeps/i386/i686/multiarch  -Isysdeps/i386/i686  -Isysdeps/i386/fpu  -Isysdeps/x86/fpu  -Isysdeps/i386  -Isysdeps/x86/include -Isysdeps/x86  -Isysdeps/wordsize-32  -Isysdeps/ieee754/float128  -Isysdeps/ieee754/ldbl-96/include -Isysdeps/ieee754/ldbl-96  -Isysdeps/ieee754/dbl-64  -Isysdeps/ieee754/flt-32  -Isysdeps/ieee754  -Isysdeps/generic   -Ilibio -I. -nostdinc -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include-fixed -isystem /mnt/igos/usr/include -D_LIBC_REENTRANT  -include include/libc-symbols.h       -DTOP_NAMESPACE=glibc -x assembler-with-cpp - \
+	   > /tmp/igos-build/glibc/build/shlib-versions.v.iT
+mv -f /tmp/igos-build/glibc/build/shlib-versions.v.iT /tmp/igos-build/glibc/build/shlib-versions.v.i
+sed '/^[ 	]*#/d;/^[ 	]*$/d' /tmp/igos-build/glibc/build/shlib-versions.v.i > /tmp/igos-build/glibc/build/shlib-versions.vT
+mv -f /tmp/igos-build/glibc/build/shlib-versions.vT /tmp/igos-build/glibc/build/shlib-versions.v
+gawk -f scripts/soversions.awk /tmp/igos-build/glibc/build/shlib-versions.v > /tmp/igos-build/glibc/build/soversions.iT
+mv -f /tmp/igos-build/glibc/build/soversions.iT /tmp/igos-build/glibc/build/soversions.i
+sed '/^[ 	]*%/!s/#.*$//;/^[ 	]*$/d;s/^[ 	]*%/#/' \
+    csu/Versions iconv/Versions locale/Versions assert/Versions ctype/Versions intl/Versions catgets/Versions math/Versions setjmp/Versions signal/Versions stdlib/Versions stdio-common/Versions libio/Versions dlfcn/Versions nptl/Versions rt/Versions malloc/Versions string/Versions wcsmbs/Versions time/Versions dirent/Versions posix/Versions io/Versions termios/Versions resource/Versions misc/Versions socket/Versions sysvipc/Versions gmon/Versions wctype/Versions argp/Versions debug/Versions nptl_db/Versions inet/Versions resolv/Versions nss/Versions hesiod/Versions sunrpc/Versions nis/Versions login/Versions elf/Versions sysdeps/unix/sysv/linux/i386/Versions sysdeps/unix/sysv/linux/Versions sysdeps/i386/fpu/Versions sysdeps/i386/Versions sysdeps/x86/Versions sysdeps/wordsize-32/Versions sysdeps/ieee754/float128/Versions \
+| x86_64-igos-linux-gnu-gcc -m32 -E -undef    -Iinclude   -I/tmp/igos-build/glibc/build  -Isysdeps/unix/sysv/linux/i386/i686  -Isysdeps/i386/i686/nptl  -Isysdeps/unix/sysv/linux/i386  -Isysdeps/unix/sysv/linux/x86/include -Isysdeps/unix/sysv/linux/x86  -Isysdeps/x86/nptl  -Isysdeps/i386/nptl  -Isysdeps/unix/sysv/linux/include -Isysdeps/unix/sysv/linux  -Isysdeps/nptl  -Isysdeps/pthread  -Isysdeps/gnu  -Isysdeps/unix/inet  -Isysdeps/unix/sysv  -Isysdeps/unix/i386  -Isysdeps/unix  -Isysdeps/posix  -Isysdeps/i386/i686/fpu/multiarch  -Isysdeps/i386/i686/fpu  -Isysdeps/i386/i686/multiarch  -Isysdeps/i386/i686  -Isysdeps/i386/fpu  -Isysdeps/x86/fpu  -Isysdeps/i386  -Isysdeps/x86/include -Isysdeps/x86  -Isysdeps/wordsize-32  -Isysdeps/ieee754/float128  -Isysdeps/ieee754/ldbl-96/include -Isysdeps/ieee754/ldbl-96  -Isysdeps/ieee754/dbl-64  -Isysdeps/ieee754/flt-32  -Isysdeps/ieee754  -Isysdeps/generic   -Ilibio -I. -nostdinc -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include-fixed -isystem /mnt/igos/usr/include -D_LIBC_REENTRANT  -include include/libc-symbols.h       -DTOP_NAMESPACE=glibc -x assembler-with-cpp - \
+	   > /tmp/igos-build/glibc/build/Versions.v.iT
+mv -f /tmp/igos-build/glibc/build/Versions.v.iT /tmp/igos-build/glibc/build/Versions.v.i
+sed '/^[ 	]*#/d;/^[ 	]*$/d' /tmp/igos-build/glibc/build/Versions.v.i > /tmp/igos-build/glibc/build/Versions.vT
+mv -f /tmp/igos-build/glibc/build/Versions.vT /tmp/igos-build/glibc/build/Versions.v
+LC_ALL=C gawk -f scripts/versionlist.awk /tmp/igos-build/glibc/build/Versions.v > /tmp/igos-build/glibc/build/Versions.defT
+mv -f /tmp/igos-build/glibc/build/Versions.defT /tmp/igos-build/glibc/build/Versions.def
+{ while read which lib version setname; do \
+    test x"$which" = xDEFAULT || continue; \
+    test -z "$setname" || echo "$lib : $setname"; \
+  done < /tmp/igos-build/glibc/build/soversions.i; \
+  cat /tmp/igos-build/glibc/build/Versions.def; \
+} | LC_ALL=C gawk -f scripts/firstversions.awk > /tmp/igos-build/glibc/build/Versions.allT
+mv -f /tmp/igos-build/glibc/build/Versions.allT /tmp/igos-build/glibc/build/Versions.all
+gawk -f scripts/haveversions.awk /tmp/igos-build/glibc/build/Versions.all > /tmp/igos-build/glibc/build/Versions.mkT
+mv -f /tmp/igos-build/glibc/build/Versions.mkT /tmp/igos-build/glibc/build/Versions.mk
+( echo 'sysd-versions-subdirs = csu iconv locale localedata iconvdata assert ctype intl catgets math setjmp signal stdlib stdio-common libio dlfcn nptl rt malloc string wcsmbs timezone time dirent posix io termios resource misc socket sysvipc gmon gnulib wctype manual po argp conform debug mathvec support nptl_db inet resolv nss hesiod sunrpc nis nscd login elf sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic' ; \
+  cat /tmp/igos-build/glibc/build/Versions.v \
+  | LC_ALL=C gawk -v buildroot=/tmp/igos-build/glibc/build/ -v defsfile=/tmp/igos-build/glibc/build/Versions.all \
+		    -v move_if_change='/bin/sh scripts/move-if-change' \
+		    -f scripts/versions.awk; \
+) > /tmp/igos-build/glibc/build/sysd-versionsT
+mv -f /tmp/igos-build/glibc/build/sysd-versionsT /tmp/igos-build/glibc/build/sysd-versions
+touch /tmp/igos-build/glibc/build/versions.stmp
+(while read which lib number setname; do \
+   eval seen_$which=1; \
+   test x"$which" = xDEFAULT || continue; \
+   case $number in \
+     [0-9]*) echo "$lib.so-version=.$number"; \
+	     echo "all-sonames+=$lib=$lib.so\$($lib.so-version)";;\
+     *)	     echo "$lib.so-version=$number"; \
+	     echo "all-sonames+=$lib=\$($lib.so-version)";;\
+   esac; \
+ done; \
+ echo soversions.mk-done = t;) < /tmp/igos-build/glibc/build/soversions.i > /tmp/igos-build/glibc/build/soversions.mkT; exit 0
+mv -f /tmp/igos-build/glibc/build/soversions.mkT /tmp/igos-build/glibc/build/soversions.mk
+gawk -v buildlist="iconvprogs iconvdata ldconfig libmemusage libpcprofile librpcsvc locale_programs memusagestat nonlib nscd extramodules libnldbl libsupport testsuite testsuite_internal" -f scripts/gen-libc-modules.awk /tmp/igos-build/glibc/build/soversions.i > /tmp/igos-build/glibc/build/libc-modules.T
+/bin/sh scripts/move-if-change /tmp/igos-build/glibc/build/libc-modules.T /tmp/igos-build/glibc/build/libc-modules.h
+touch /tmp/igos-build/glibc/build/libc-modules.stmp
+for dir in /tmp/igos-build/glibc/build sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic; do \
+  test -f $dir/syscalls.list && \
+  { sysdirs='sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic' \
+    asm_CPP='x86_64-igos-linux-gnu-gcc -m32 -c    -Iinclude   -I/tmp/igos-build/glibc/build  -Isysdeps/unix/sysv/linux/i386/i686  -Isysdeps/i386/i686/nptl  -Isysdeps/unix/sysv/linux/i386  -Isysdeps/unix/sysv/linux/x86/include -Isysdeps/unix/sysv/linux/x86  -Isysdeps/x86/nptl  -Isysdeps/i386/nptl  -Isysdeps/unix/sysv/linux/include -Isysdeps/unix/sysv/linux  -Isysdeps/nptl  -Isysdeps/pthread  -Isysdeps/gnu  -Isysdeps/unix/inet  -Isysdeps/unix/sysv  -Isysdeps/unix/i386  -Isysdeps/unix  -Isysdeps/posix  -Isysdeps/i386/i686/fpu/multiarch  -Isysdeps/i386/i686/fpu  -Isysdeps/i386/i686/multiarch  -Isysdeps/i386/i686  -Isysdeps/i386/fpu  -Isysdeps/x86/fpu  -Isysdeps/i386  -Isysdeps/x86/include -Isysdeps/x86  -Isysdeps/wordsize-32  -Isysdeps/ieee754/float128  -Isysdeps/ieee754/ldbl-96/include -Isysdeps/ieee754/ldbl-96  -Isysdeps/ieee754/dbl-64  -Isysdeps/ieee754/flt-32  -Isysdeps/ieee754  -Isysdeps/generic   -Ilibio -I. -nostdinc -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include-fixed -isystem /mnt/igos/usr/include -D_LIBC_REENTRANT -include /tmp/igos-build/glibc/build/libc-modules.h -DMODULE_NAME=libc -include include/libc-symbols.h       -DTOP_NAMESPACE=glibc -DASSEMBLER -DGAS_SYNTAX -g -Werror=undef -Wa,--noexecstack       -E -x assembler-with-cpp' \
+    /bin/sh sysdeps/unix/make-syscalls.sh $dir || exit 1; }; \
+  test $dir = sysdeps/unix && break; \
+done > /tmp/igos-build/glibc/build/sysd-syscallsT
+mv -f /tmp/igos-build/glibc/build/sysd-syscallsT /tmp/igos-build/glibc/build/sysd-syscalls
+
+type "make help" for help with common glibc makefile targets
+
+rm -f /tmp/igos-build/glibc/build/stamp.o; > /tmp/igos-build/glibc/build/stamp.o
+rm -f /tmp/igos-build/glibc/build/stamp.os; > /tmp/igos-build/glibc/build/stamp.os
+rm -f /tmp/igos-build/glibc/build/stamp.oS; > /tmp/igos-build/glibc/build/stamp.oS
+make  subdir=csu -C csu ..=../ subdir_lib
+make[2]: Entering directory '/tmp/igos-build/glibc/csu'
+LC_ALL=C gawk -f ../scripts/abi-versions.awk /tmp/igos-build/glibc/build/Versions.all > /tmp/igos-build/glibc/build/abi-versions.hT
+LC_ALL=C gawk -f ../scripts/gen-tunables.awk ../elf/dl-tunables.list ../sysdeps/nptl/dl-tunables.list ../sysdeps/x86/dl-tunables.list > /tmp/igos-build/glibc/build/dl-tunable-list.T
+rm -f /tmp/igos-build/glibc/build/csu/abi-tag.h.new
+{ \
+ echo '/* This file is automatically generated.';\
+ echo '   It defines macros to allow user program to find the shared'; \
+ echo '   library files which come as part of GNU libc.  */'; \
+ echo '#ifndef __GNU_LIB_NAMES_H'; \
+ echo '#define __GNU_LIB_NAMES_H	1'; \
+ echo ''; \
+  \
+   echo '#if !defined __x86_64__'; echo '# include <gnu/lib-names-32.h>'; echo '#endif';   echo '#if defined __x86_64__ && defined __LP64__'; echo '# include <gnu/lib-names-64.h>'; echo '#endif';   echo '#if defined __x86_64__ && defined __ILP32__'; echo '# include <gnu/lib-names-x32.h>'; echo '#endif'; \
+ echo ''; \
+ echo '#endif	/* gnu/lib-names.h */'; \
+} >  /tmp/igos-build/glibc/build/gnu/lib-names.h
+{ \
+  echo '/* This file is automatically generated.  */'; echo '#ifndef __GNU_LIB_NAMES_H'; echo '# error "Never use <gnu/lib-names-32.h> directly; include <gnu/lib-names.h> instead."'; echo '#endif'; \
+ echo ''; \
+ ( echo ld=ld-linux.so.2;  echo libc=libc.so.6;  echo libBrokenLocale=libBrokenLocale.so.1;  echo libpthread=libpthread.so.0;  echo libthread_db=libthread_db.so.1;  echo libdl=libdl.so.2;  echo libgcc_s=libgcc_s.so.1;  echo libnsl=libnsl.so.1;  echo libc_malloc_debug=libc_malloc_debug.so.0;  echo libutil=libutil.so.1;  echo libnss_ldap=libnss_ldap.so.2;  echo libnss_dns=libnss_dns.so.2;  echo libnss_compat=libnss_compat.so.2;  echo libmvec=libmvec.so.1;  echo libresolv=libresolv.so.2;  echo libnss_db=libnss_db.so.2;  echo libm=libm.so.6;  echo libnss_files=libnss_files.so.2;  echo librt=librt.so.1;  echo libnss_hesiod=libnss_hesiod.so.2;  echo libanl=libanl.so.1;) \
+ | LC_ALL=C gawk -f ../scripts/lib-names.awk | LC_ALL=C sort; \
+  \
+} >  /tmp/igos-build/glibc/build/gnu/lib-names-32.T
+sed -e 's/#.*$//' -e '/^[	]*$/d' ../abi-tags | \
+--- [distilled from launch-4 known-bad glibc log, cycle at orig line 77272; full log SHA256 a2085e7c… on jarvis-storage] ---
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... i686-igos-linux-gnu
+checking for i686-igos-linux-gnu-gcc... x86_64-igos-linux-gnu-gcc -m32
+checking for suffix of object files... o
+checking whether the compiler supports GNU C... yes
+checking whether x86_64-igos-linux-gnu-gcc -m32 accepts -g... yes
+checking for x86_64-igos-linux-gnu-gcc -m32 option to enable C11 features... none needed
+checking for gcc... gcc
+checking whether the compiler supports GNU C++... yes
+checking whether x86_64-igos-linux-gnu-g++ -m32 accepts -g... yes
+checking for x86_64-igos-linux-gnu-g++ -m32 option to enable C++11 features... unsupported
+checking for x86_64-igos-linux-gnu-g++ -m32 option to enable C++98 features... unsupported
+checking whether x86_64-igos-linux-gnu-g++ -m32 can link programs... no
+checking for sysdeps preconfigure fragments... aarch64 alpha arc arm csky hppa i386 loongarch m68k microblaze checking for egrep -e... /usr/bin/grep -E
+mips or1k powerpc riscv s390 sh checking for egrep -e... (cached) /usr/bin/grep -E
+sparc x86_64 
+checking for a BSD-compatible install... /usr/bin/install -c
+checking whether ln -s works... yes
+checking for /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/../../../../x86_64-igos-linux-gnu/bin/ld... /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/../../../../x86_64-igos-linux-gnu/bin/ld
+checking version of /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/../../../../x86_64-igos-linux-gnu/bin/ld... 2.46.0.20260210, ok
+checking for gnumake... no
+checking for gmake... gmake
+checking version of gmake... 4.3, ok
+checking for gnumsgfmt... no
+checking for gmsgfmt... no
+checking for msgfmt... no
+checking for makeinfo... makeinfo
+checking version of makeinfo... 7.1, ok
+checking for sed... sed
+checking version of sed... 4.9, ok
+checking for gawk... gawk
+checking version of gawk... 5.2.1, ok
+checking for bison... bison
+checking version of bison... 3.8.2, ok
+checking if x86_64-igos-linux-gnu-gcc -m32 is sufficient to build libc... yes
+checking for python3... python3
+checking version of python3... 3.12.3, ok
+configure: WARNING:
+*** These auxiliary programs are missing or incompatible versions: msgfmt
+*** some features or tests will be disabled.
+*** Check the INSTALL file for required versions.
+checking for use of fpu sysdeps directories... yes
+checking for clang in testing... no
+checking for clang++ in testing... no
+checking for -fstack-protector... yes
+checking for -fstack-protector-strong... yes
+checking for -fstack-protector-all... yes
+checking for assembler and linker STT_GNU_IFUNC support... yes
+checking for gcc attribute ifunc support... yes
+checking whether the linker supports textrels along with ifunc... yes
+checking for GNU attribute retain support... yes
+checking if compiler warns about alias for function with incompatible types... yes
+checking sysdep dirs... sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic
+checking LD_LIBRARY_PATH variable... ok
+checking for bash... /usr/bin/bash
+checking for perl... /usr/bin/perl
+checking for install-info... /usr/bin/install-info
+checking for .set assembler directive... yes
+checking linker support for protected data symbol... yes
+checking linker support for INSERT in linker script... no
+checking for broken __attribute__((alias()))... no
+checking whether to put _rtld_local into .sdata section... no
+checking for libunwind-support in compiler... no
+checking whether --noexecstack is desirable for .S files... yes
+checking for linker that supports --no-error-execstack... yes
+checking for linker that supports -z execstack... yes
+checking for linker that supports -z start-stop-gc... yes
+checking for linker that supports --depaudit... yes
+checking for linker that supports -z pack-relative-relocs... yes
+checking for linker that supports --no-dynamic-linker... yes
+checking for -static-pie... yes
+checking for -fpie... yes
+checking for -Wno-discarded-qualifiers... -Wno-discarded-qualifiers
+checking for GLOB_DAT reloc... yes
+checking for tls descriptor support in testing... gnu2
+checking for traditional tls support in testing... gnu
+checking for -Wno-maybe-uninitialized... -Wno-maybe-uninitialized
+checking whether cc puts quotes around section names... no
+checking for __builtin_memset... yes
+checking for 64-bit atomic support... no
+checking for compiler option to disable generation of FMA instructions... -ffp-contract=off
+checking for compiler option that -fsignaling-nans... -fsignaling-nans
+checking -fsemantic-interposition in testing... yes
+checking for -ffloat-store in testing... -ffloat-store
+checking if __attribute__ ((__optimize__("-fno-tree-loop-distribute-patterns"))) works... yes
+checking for -Wimplicit-fallthrough... -Wimplicit-fallthrough
+checking for -Wfree-labels... -Wfree-labels
+checking for -Wmissing-parameter-name... -Wmissing-parameter-name
+checking support for trampolines in testing... yes
+checking -Wno-restrict in testing... -Wno-restrict
+checking -Wno-fortify-source in testing... -Wno-fortify-source
+checking -finput-charset=ascii in testing... -finput-charset=ascii
+checking  -finput-charset=ascii in testing... 
+checking for STB_GNU_UNIQUE in testing... no
+checking for libgd... no
+checking for is_selinux_enabled in -lselinux... no
+checking for maximum supported _FORTIFY_SOURCE level... 3
+checking whether the assembler requires one version per symbol... no
+checking for __builtin_trap with no external dependencies... yes
+checking whether the compiler supports __attribute__ ((aligned (65536)))... yes
+checking whether the C++ compiler supports thread_local... no
+running configure fragment for sysdeps/unix/sysv/linux/i386
+running configure fragment for sysdeps/unix/sysv/linux
+checking installed Linux kernel header files... 3.2.0 or later
+checking for kernel header at least 5.4... ok
+running configure fragment for sysdeps/gnu
+running configure fragment for sysdeps/i386
+checking for compiler support of inlined builtin function __sync_val_compare_and_swap... yes
+checking -mfentry... no
+running configure fragment for sysdeps/x86
+checking for linker x86 ISA level support... yes
+checking for LAHF/SAHF instruction support... no
+checking for MOVBE instruction support... no
+checking for ISA level support... 1
+checking if -mfpmath=387 works in testing... yes
+checking if no direct extern access is enabled by default... 
+checking if -mno-direct-extern-access works in testing... yes
+checking if -fno-direct-access-external-data works in testing... no
+checking if -Os inlines trunc... no
+checking for __libgcc_cmp_return__ mode attribute support... yes
+checking if compiler inlines __builtin_fmod/__builtin_remainder... yes
+checking whether -fPIC is default... yes
+checking whether -fPIE is default... yes
+checking PDE load address... 0x08048000
+checking for linker that supports -Ttext-segment=0x08048000... yes
+checking if compiler supports -fno-fp-int-builtin-inexact... -fno-fp-int-builtin-inexact
+checking for linker that supports --undefined-version... yes
+checking if we can build programs as PIE... yes
+checking if we can build static PIE programs... yes
+checking whether x86_64-igos-linux-gnu-gcc -m32 can link against -lgcc_s... no
+checking attribute can declared after function declaration... yes
+configure: creating ./config.status
+config.status: creating config.make
+config.status: creating Makefile
+config.status: creating config.h
+config.status: config.h is unchanged
+config.status: executing default commands
+make -r PARALLELMFLAGS="" -C .. objdir=`pwd` all
+make[1]: Entering directory '/tmp/igos-build/glibc'
+LC_ALL=C gawk -f scripts/sysd-rules.awk > /tmp/igos-build/glibc/build/sysd-rulesT \
+		-v all_object_suffixes='.o .os .oS' \
+		-v inhibit_sysdep_asm='' \
+		-v sysd_rules_patterns='%:% rtld-%:rtld-% rtld-%:% m_%:s_%' \
+		-v config_sysdirs='sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic'
+mv -f /tmp/igos-build/glibc/build/sysd-rulesT /tmp/igos-build/glibc/build/sysd-rules
+gawk -f scripts/gen-sorted.awk \
+       -v subdirs='csu assert ctype locale intl catgets math setjmp signal stdlib stdio-common libio malloc string wcsmbs time dirent posix io termios resource misc socket sysvipc gmon gnulib iconv iconvdata wctype manual po argp localedata timezone rt conform debug mathvec support dlfcn elf' \
+       -v srcpfx='' \
+       sysdeps/nptl/Subdirs sysdeps/unix/inet/Subdirs sysdeps/posix/Subdirs assert/Depend catgets/Depend debug/Depend iconvdata/Depend intl/Depend libio/Depend localedata/Depend malloc/Depend mathvec/Depend posix/Depend rt/Depend stdio-common/Depend stdlib/Depend string/Depend support/Depend time/Depend wcsmbs/Depend > /tmp/igos-build/glibc/build/sysd-sorted-tmp
+mv -f /tmp/igos-build/glibc/build/sysd-sorted-tmp /tmp/igos-build/glibc/build/sysd-sorted
+sed '/^[        ]*#/d;/^[       ]*$/d' /tmp/igos-build/glibc/build/time64-compat.mk.i > /tmp/igos-build/glibc/build/time64-compat.mkT
+mv -f /tmp/igos-build/glibc/build/time64-compat.mkT /tmp/igos-build/glibc/build/time64-compat.mk
+sed '/^[ 	]*%/!s/#.*$//;/^[ 	]*$/d;s/^[ 	]*%/#/' \
+    sysdeps/unix/sysv/linux/i386/shlib-versions sysdeps/unix/sysv/linux/shlib-versions nptl/shlib-versions nptl_db/shlib-versions shlib-versions \
+| x86_64-igos-linux-gnu-gcc -m32 -E -undef    -Iinclude   -I/tmp/igos-build/glibc/build  -Isysdeps/unix/sysv/linux/i386/i686  -Isysdeps/i386/i686/nptl  -Isysdeps/unix/sysv/linux/i386  -Isysdeps/unix/sysv/linux/x86/include -Isysdeps/unix/sysv/linux/x86  -Isysdeps/x86/nptl  -Isysdeps/i386/nptl  -Isysdeps/unix/sysv/linux/include -Isysdeps/unix/sysv/linux  -Isysdeps/nptl  -Isysdeps/pthread  -Isysdeps/gnu  -Isysdeps/unix/inet  -Isysdeps/unix/sysv  -Isysdeps/unix/i386  -Isysdeps/unix  -Isysdeps/posix  -Isysdeps/i386/i686/fpu/multiarch  -Isysdeps/i386/i686/fpu  -Isysdeps/i386/i686/multiarch  -Isysdeps/i386/i686  -Isysdeps/i386/fpu  -Isysdeps/x86/fpu  -Isysdeps/i386  -Isysdeps/x86/include -Isysdeps/x86  -Isysdeps/wordsize-32  -Isysdeps/ieee754/float128  -Isysdeps/ieee754/ldbl-96/include -Isysdeps/ieee754/ldbl-96  -Isysdeps/ieee754/dbl-64  -Isysdeps/ieee754/flt-32  -Isysdeps/ieee754  -Isysdeps/generic   -Ilibio -I. -nostdinc -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include-fixed -isystem /mnt/igos/usr/include -D_LIBC_REENTRANT  -include include/libc-symbols.h       -DTOP_NAMESPACE=glibc -x assembler-with-cpp - \
+	   > /tmp/igos-build/glibc/build/shlib-versions.v.iT
+mv -f /tmp/igos-build/glibc/build/shlib-versions.v.iT /tmp/igos-build/glibc/build/shlib-versions.v.i
+sed '/^[ 	]*#/d;/^[ 	]*$/d' /tmp/igos-build/glibc/build/shlib-versions.v.i > /tmp/igos-build/glibc/build/shlib-versions.vT
+mv -f /tmp/igos-build/glibc/build/shlib-versions.vT /tmp/igos-build/glibc/build/shlib-versions.v
+gawk -f scripts/soversions.awk /tmp/igos-build/glibc/build/shlib-versions.v > /tmp/igos-build/glibc/build/soversions.iT
+mv -f /tmp/igos-build/glibc/build/soversions.iT /tmp/igos-build/glibc/build/soversions.i
+sed '/^[ 	]*%/!s/#.*$//;/^[ 	]*$/d;s/^[ 	]*%/#/' \
+    csu/Versions iconv/Versions locale/Versions assert/Versions ctype/Versions intl/Versions catgets/Versions math/Versions setjmp/Versions signal/Versions stdlib/Versions stdio-common/Versions libio/Versions dlfcn/Versions nptl/Versions rt/Versions malloc/Versions string/Versions wcsmbs/Versions time/Versions dirent/Versions posix/Versions io/Versions termios/Versions resource/Versions misc/Versions socket/Versions sysvipc/Versions gmon/Versions wctype/Versions argp/Versions debug/Versions nptl_db/Versions inet/Versions resolv/Versions nss/Versions hesiod/Versions sunrpc/Versions nis/Versions login/Versions elf/Versions sysdeps/unix/sysv/linux/i386/Versions sysdeps/unix/sysv/linux/Versions sysdeps/i386/fpu/Versions sysdeps/i386/Versions sysdeps/x86/Versions sysdeps/wordsize-32/Versions sysdeps/ieee754/float128/Versions \
+| x86_64-igos-linux-gnu-gcc -m32 -E -undef    -Iinclude   -I/tmp/igos-build/glibc/build  -Isysdeps/unix/sysv/linux/i386/i686  -Isysdeps/i386/i686/nptl  -Isysdeps/unix/sysv/linux/i386  -Isysdeps/unix/sysv/linux/x86/include -Isysdeps/unix/sysv/linux/x86  -Isysdeps/x86/nptl  -Isysdeps/i386/nptl  -Isysdeps/unix/sysv/linux/include -Isysdeps/unix/sysv/linux  -Isysdeps/nptl  -Isysdeps/pthread  -Isysdeps/gnu  -Isysdeps/unix/inet  -Isysdeps/unix/sysv  -Isysdeps/unix/i386  -Isysdeps/unix  -Isysdeps/posix  -Isysdeps/i386/i686/fpu/multiarch  -Isysdeps/i386/i686/fpu  -Isysdeps/i386/i686/multiarch  -Isysdeps/i386/i686  -Isysdeps/i386/fpu  -Isysdeps/x86/fpu  -Isysdeps/i386  -Isysdeps/x86/include -Isysdeps/x86  -Isysdeps/wordsize-32  -Isysdeps/ieee754/float128  -Isysdeps/ieee754/ldbl-96/include -Isysdeps/ieee754/ldbl-96  -Isysdeps/ieee754/dbl-64  -Isysdeps/ieee754/flt-32  -Isysdeps/ieee754  -Isysdeps/generic   -Ilibio -I. -nostdinc -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include-fixed -isystem /mnt/igos/usr/include -D_LIBC_REENTRANT  -include include/libc-symbols.h       -DTOP_NAMESPACE=glibc -x assembler-with-cpp - \
+	   > /tmp/igos-build/glibc/build/Versions.v.iT
+mv -f /tmp/igos-build/glibc/build/Versions.v.iT /tmp/igos-build/glibc/build/Versions.v.i
+sed '/^[ 	]*#/d;/^[ 	]*$/d' /tmp/igos-build/glibc/build/Versions.v.i > /tmp/igos-build/glibc/build/Versions.vT
+mv -f /tmp/igos-build/glibc/build/Versions.vT /tmp/igos-build/glibc/build/Versions.v
+LC_ALL=C gawk -f scripts/versionlist.awk /tmp/igos-build/glibc/build/Versions.v > /tmp/igos-build/glibc/build/Versions.defT
+mv -f /tmp/igos-build/glibc/build/Versions.defT /tmp/igos-build/glibc/build/Versions.def
+{ while read which lib version setname; do \
+    test x"$which" = xDEFAULT || continue; \
+    test -z "$setname" || echo "$lib : $setname"; \
+  done < /tmp/igos-build/glibc/build/soversions.i; \
+  cat /tmp/igos-build/glibc/build/Versions.def; \
+} | LC_ALL=C gawk -f scripts/firstversions.awk > /tmp/igos-build/glibc/build/Versions.allT
+mv -f /tmp/igos-build/glibc/build/Versions.allT /tmp/igos-build/glibc/build/Versions.all
+gawk -f scripts/haveversions.awk /tmp/igos-build/glibc/build/Versions.all > /tmp/igos-build/glibc/build/Versions.mkT
+mv -f /tmp/igos-build/glibc/build/Versions.mkT /tmp/igos-build/glibc/build/Versions.mk
+( echo 'sysd-versions-subdirs = csu iconv locale localedata iconvdata assert ctype intl catgets math setjmp signal stdlib stdio-common libio dlfcn nptl rt malloc string wcsmbs timezone time dirent posix io termios resource misc socket sysvipc gmon gnulib wctype manual po argp conform debug mathvec support nptl_db inet resolv nss hesiod sunrpc nis nscd login elf sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic' ; \
+  cat /tmp/igos-build/glibc/build/Versions.v \
+  | LC_ALL=C gawk -v buildroot=/tmp/igos-build/glibc/build/ -v defsfile=/tmp/igos-build/glibc/build/Versions.all \
+		    -v move_if_change='/bin/sh scripts/move-if-change' \
+		    -f scripts/versions.awk; \
+) > /tmp/igos-build/glibc/build/sysd-versionsT
+mv -f /tmp/igos-build/glibc/build/sysd-versionsT /tmp/igos-build/glibc/build/sysd-versions
+touch /tmp/igos-build/glibc/build/versions.stmp
+(while read which lib number setname; do \
+   eval seen_$which=1; \
+   test x"$which" = xDEFAULT || continue; \
+   case $number in \
+     [0-9]*) echo "$lib.so-version=.$number"; \
+	     echo "all-sonames+=$lib=$lib.so\$($lib.so-version)";;\
+     *)	     echo "$lib.so-version=$number"; \
+	     echo "all-sonames+=$lib=\$($lib.so-version)";;\
+   esac; \
+ done; \
+ echo soversions.mk-done = t;) < /tmp/igos-build/glibc/build/soversions.i > /tmp/igos-build/glibc/build/soversions.mkT; exit 0
+mv -f /tmp/igos-build/glibc/build/soversions.mkT /tmp/igos-build/glibc/build/soversions.mk
+gawk -v buildlist="iconvprogs iconvdata ldconfig libmemusage libpcprofile librpcsvc locale_programs memusagestat nonlib nscd extramodules libnldbl libsupport testsuite testsuite_internal" -f scripts/gen-libc-modules.awk /tmp/igos-build/glibc/build/soversions.i > /tmp/igos-build/glibc/build/libc-modules.T
+/bin/sh scripts/move-if-change /tmp/igos-build/glibc/build/libc-modules.T /tmp/igos-build/glibc/build/libc-modules.h
+touch /tmp/igos-build/glibc/build/libc-modules.stmp
+for dir in /tmp/igos-build/glibc/build sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic; do \
+  test -f $dir/syscalls.list && \
+  { sysdirs='sysdeps/unix/sysv/linux/i386/i686 sysdeps/i386/i686/nptl sysdeps/unix/sysv/linux/i386 sysdeps/unix/sysv/linux/x86 sysdeps/x86/nptl sysdeps/i386/nptl sysdeps/unix/sysv/linux sysdeps/nptl sysdeps/pthread sysdeps/gnu sysdeps/unix/inet sysdeps/unix/sysv sysdeps/unix/i386 sysdeps/unix sysdeps/posix sysdeps/i386/i686/fpu/multiarch sysdeps/i386/i686/fpu sysdeps/i386/i686/multiarch sysdeps/i386/i686 sysdeps/i386/fpu sysdeps/x86/fpu sysdeps/i386 sysdeps/x86 sysdeps/wordsize-32 sysdeps/ieee754/float128 sysdeps/ieee754/ldbl-96 sysdeps/ieee754/dbl-64 sysdeps/ieee754/flt-32 sysdeps/ieee754 sysdeps/generic' \
+    asm_CPP='x86_64-igos-linux-gnu-gcc -m32 -c    -Iinclude   -I/tmp/igos-build/glibc/build  -Isysdeps/unix/sysv/linux/i386/i686  -Isysdeps/i386/i686/nptl  -Isysdeps/unix/sysv/linux/i386  -Isysdeps/unix/sysv/linux/x86/include -Isysdeps/unix/sysv/linux/x86  -Isysdeps/x86/nptl  -Isysdeps/i386/nptl  -Isysdeps/unix/sysv/linux/include -Isysdeps/unix/sysv/linux  -Isysdeps/nptl  -Isysdeps/pthread  -Isysdeps/gnu  -Isysdeps/unix/inet  -Isysdeps/unix/sysv  -Isysdeps/unix/i386  -Isysdeps/unix  -Isysdeps/posix  -Isysdeps/i386/i686/fpu/multiarch  -Isysdeps/i386/i686/fpu  -Isysdeps/i386/i686/multiarch  -Isysdeps/i386/i686  -Isysdeps/i386/fpu  -Isysdeps/x86/fpu  -Isysdeps/i386  -Isysdeps/x86/include -Isysdeps/x86  -Isysdeps/wordsize-32  -Isysdeps/ieee754/float128  -Isysdeps/ieee754/ldbl-96/include -Isysdeps/ieee754/ldbl-96  -Isysdeps/ieee754/dbl-64  -Isysdeps/ieee754/flt-32  -Isysdeps/ieee754  -Isysdeps/generic   -Ilibio -I. -nostdinc -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include -isystem /mnt/igos/tools/lib/gcc/x86_64-igos-linux-gnu/15.2.0/include-fixed -isystem /mnt/igos/usr/include -D_LIBC_REENTRANT -include /tmp/igos-build/glibc/build/libc-modules.h -DMODULE_NAME=libc -include include/libc-symbols.h       -DTOP_NAMESPACE=glibc -DASSEMBLER -DGAS_SYNTAX -g -Werror=undef -Wa,--noexecstack       -E -x assembler-with-cpp' \
+    /bin/sh sysdeps/unix/make-syscalls.sh $dir || exit 1; }; \
+  test $dir = sysdeps/unix && break; \
+done > /tmp/igos-build/glibc/build/sysd-syscallsT
+mv -f /tmp/igos-build/glibc/build/sysd-syscallsT /tmp/igos-build/glibc/build/sysd-syscalls
+
+type "make help" for help with common glibc makefile targets
+
+rm -f /tmp/igos-build/glibc/build/stamp.o; > /tmp/igos-build/glibc/build/stamp.o
+rm -f /tmp/igos-build/glibc/build/stamp.os; > /tmp/igos-build/glibc/build/stamp.os
+rm -f /tmp/igos-build/glibc/build/stamp.oS; > /tmp/igos-build/glibc/build/stamp.oS
+make  subdir=csu -C csu ..=../ subdir_lib
+make[2]: Entering directory '/tmp/igos-build/glibc/csu'
+LC_ALL=C gawk -f ../scripts/abi-versions.awk /tmp/igos-build/glibc/build/Versions.all > /tmp/igos-build/glibc/build/abi-versions.hT
+LC_ALL=C gawk -f ../scripts/gen-tunables.awk ../elf/dl-tunables.list ../sysdeps/nptl/dl-tunables.list ../sysdeps/x86/dl-tunables.list > /tmp/igos-build/glibc/build/dl-tunable-list.T
+rm -f /tmp/igos-build/glibc/build/csu/abi-tag.h.new
+{ \
+ echo '/* This file is automatically generated.';\
+ echo '   It defines macros to allow user program to find the shared'; \
+ echo '   library files which come as part of GNU libc.  */'; \
+ echo '#ifndef __GNU_LIB_NAMES_H'; \
+ echo '#define __GNU_LIB_NAMES_H	1'; \
+ echo ''; \
+  \
+   echo '#if !defined __x86_64__'; echo '# include <gnu/lib-names-32.h>'; echo '#endif';   echo '#if defined __x86_64__ && defined __LP64__'; echo '# include <gnu/lib-names-64.h>'; echo '#endif';   echo '#if defined __x86_64__ && defined __ILP32__'; echo '# include <gnu/lib-names-x32.h>'; echo '#endif'; \
+ echo ''; \
+ echo '#endif	/* gnu/lib-names.h */'; \
+} >  /tmp/igos-build/glibc/build/gnu/lib-names.h
+{ \
+  echo '/* This file is automatically generated.  */'; echo '#ifndef __GNU_LIB_NAMES_H'; echo '# error "Never use <gnu/lib-names-32.h> directly; include <gnu/lib-names.h> instead."'; echo '#endif'; \
+ echo ''; \
+ ( echo ld=ld-linux.so.2;  echo libc=libc.so.6;  echo libBrokenLocale=libBrokenLocale.so.1;  echo libpthread=libpthread.so.0;  echo libthread_db=libthread_db.so.1;  echo libdl=libdl.so.2;  echo libgcc_s=libgcc_s.so.1;  echo libnsl=libnsl.so.1;  echo libc_malloc_debug=libc_malloc_debug.so.0;  echo libutil=libutil.so.1;  echo libnss_ldap=libnss_ldap.so.2;  echo libnss_dns=libnss_dns.so.2;  echo libnss_compat=libnss_compat.so.2;  echo libmvec=libmvec.so.1;  echo libresolv=libresolv.so.2;  echo libnss_db=libnss_db.so.2;  echo libm=libm.so.6;  echo libnss_files=libnss_files.so.2;  echo librt=librt.so.1;  echo libnss_hesiod=libnss_hesiod.so.2;  echo libanl=libanl.so.1;) \
+ | LC_ALL=C gawk -f ../scripts/lib-names.awk | LC_ALL=C sort; \
+  \
+} >  /tmp/igos-build/glibc/build/gnu/lib-names-32.T
+sed -e 's/#.*$//' -e '/^[	]*$/d' ../abi-tags | \
+--- [distilled from launch-4 known-bad glibc log, cycle at orig line 102719; full log SHA256 a2085e7c… on jarvis-storage] ---

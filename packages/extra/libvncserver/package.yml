@@ -1,0 +1,85 @@
+name: libvncserver
+version: "0.9.15"
+release: 1
+description: VNC server and client libraries implementing the RFB protocol
+license: GPL-2.0-or-later
+homepage: https://github.com/LibVNC/libvncserver
+tier: extra
+iso_include: true  # library follows its consumer: remmina ships on the ISO
+build_style: cmake
+install_func: do_install
+source:
+- url: https://github.com/LibVNC/libvncserver/archive/refs/tags/LibVNCServer-${version}.tar.gz
+  filename: libvncserver-${version}.tar.gz
+  sha256: 62352c7795e231dfce044beb96156065a05a05c974e5de9e023d688d8ff675d7
+dependencies:
+  build:
+  - cmake
+  - zlib
+  - lzo
+  - libjpeg-turbo
+  - libpng
+  - openssl
+  - cyrus-sasl
+  - systemd
+  host: []
+  runtime:
+  - zlib
+  - lzo
+  - libjpeg-turbo
+  - libpng
+  - openssl
+  - cyrus-sasl
+  - systemd
+# Server and client library capabilities stay at their upstream defaults
+# (websockets, SASL, systemd socket activation, file transfer, IPv6,
+# threading). What is turned off is the demo/example programs and the
+# alternate backends, plus the duplicate crypto stacks: OpenSSL is the single
+# TLS and crypto backend, so GnuTLS and Libgcrypt are not linked in as well.
+configure_flags:
+- -DCMAKE_INSTALL_LIBDIR=lib
+- -DBUILD_SHARED_LIBS=ON
+- -DWITH_ZLIB=ON
+- -DWITH_LZO=ON
+- -DWITH_JPEG=ON
+- -DWITH_PNG=ON
+- -DWITH_OPENSSL=ON
+- -DWITH_GNUTLS=OFF
+- -DWITH_GCRYPT=OFF
+- -DWITH_SASL=ON
+- -DWITH_SYSTEMD=ON
+- -DWITH_THREADS=ON
+- -DWITH_IPv6=ON
+- -DWITH_WEBSOCKETS=ON
+- -DWITH_24BPP=ON
+- -DWITH_TIGHTVNC_FILETRANSFER=ON
+- -DWITH_EXAMPLES=OFF
+- -DWITH_TESTS=OFF
+- -DWITH_SDL=OFF
+- -DWITH_GTK=OFF
+- -DWITH_QT=OFF
+- -DWITH_FFMPEG=OFF
+- -DWITH_LIBSSHTUNNEL=OFF
+- -DWITH_XCB=OFF
+silent_loss_accepted:
+  - examples   # demo servers/clients, not shipped by any distribution build
+  - gnutls     # second TLS backend; OpenSSL is the one backend we link
+  - gcrypt     # second crypto backend; OpenSSL provides the primitives
+  - ffmpeg     # only feeds the example VNC-to-MPEG encoder
+  - sdl        # only feeds the example SDL client
+  - gtk        # only feeds the example GTK client
+  - qt         # only feeds the example Qt client, and Qt is not in the tree
+  - libsshtunnel  # only feeds the example ssh-tunnelled client
+  - xcb        # only feeds the example X11 capture server
+tests:
+  enabled: false
+  reason: >-
+    The upstream ctest suite is built only with WITH_TESTS=ON, and its
+    includetest case runs against headers already installed under the final
+    prefix. The build installs through DESTDIR after the check phase, so that
+    case cannot pass at check time; the remaining cases are compile smoke of
+    the example tree, which this build does not produce.
+verify_paths:
+  - /usr/lib/libvncserver.so
+  - /usr/lib/libvncclient.so
+  - /usr/lib/pkgconfig/libvncclient.pc

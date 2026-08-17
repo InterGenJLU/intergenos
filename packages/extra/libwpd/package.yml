@@ -1,0 +1,23 @@
+name: libwpd
+version: "0.10.3"
+release: 2  # r2: iso_include true — runtime closure of the 2026-07-18 curation correction (shipped consumer requires shipped provider)
+description: WordPerfect Document import/export library
+license: LGPL-2.1-or-later
+homepage: https://libwpd.sourceforge.net/
+tier: extra
+iso_include: true
+build_style: autotools
+install_func: do_install
+source:
+- url: https://sourceforge.net/projects/libwpd/files/libwpd/libwpd-${version}/libwpd-${version}.tar.xz
+  sha256: 2465b0b662fdc5d4e3bebcdc9a79027713fb629ca2bff04a3c9251fdec42dd09
+dependencies:
+  build:
+  - librevenge
+  host: []
+  runtime:
+  - librevenge
+verify_paths:
+  - /usr/bin/wpd2html
+  - /usr/lib/libwpd-0.10.so.10.0.3
+  - /usr/lib/pkgconfig/libwpd-0.10.pc

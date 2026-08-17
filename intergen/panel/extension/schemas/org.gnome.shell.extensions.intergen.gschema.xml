@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  InterGen Panel — GNOME Shell extension settings schema.
+
+  Required because extension.js enable() calls this.getSettings() +
+  Main.wm.addKeybinding("toggle-intergen", ...). On GNOME 49 a
+  Gio.Settings construction for a non-existent schema is a hard g_error
+  that aborts the GJS process, so the extension cannot enable without
+  this schema being shipped and glib-compiled into the extension's
+  schemas/ directory (see packages/ai/intergen/build.sh).
+-->
+<schemalist>
+  <schema id="org.gnome.shell.extensions.intergen"
+          path="/org/gnome/shell/extensions/intergen/">
+    <key name="toggle-intergen" type="as">
+      <default><![CDATA[['<Super>i']]]></default>
+      <summary>Toggle the InterGen AI assistant panel</summary>
+      <description>
+        Keyboard shortcut to show or hide the InterGen AI assistant panel.
+      </description>
+    </key>
+  </schema>
+</schemalist>

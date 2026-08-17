@@ -1,0 +1,25 @@
+name: intergenos-wallpapers
+version: "1.0"
+release: 2  # r2: neutral-language sweep of comments and printed text: decisions are recorded as "decided <date>" instead of being credited to a person or project role, development-host shorthand is replaced by a plain description, and the citations of a repository that is not published are replaced by what they were pointing at. Comments and strings only — no rule, path, flag, threshold or code path changed. The public-content scanner now carries detectors for all three classes (scripts/check-public-content.py), so the classes cannot return silently; tests/preflight/test_public_language_detectors.py proves each detector in both directions.
+content_hash: 6635f152e9b9de05
+description: InterGenOS curated desktop wallpapers (4 × 3840x2160) — ItIsOnly (default) + Helix + Overwatch + Pulse. First-party authored; ships PNGs + gnome-background-properties XML manifest so GNOME Settings → Appearance → Background surfaces them as a curated set. Default-set is keyed via picture-uri / picture-uri-dark gschema override shipped by intergenos-default-settings (D-006 SSoT).
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+# First-party authored assets following the asset-in-package convention
+# (mirrors intergenos-grub-theme + intergen-firstboot + intergen-welcome).
+# source: [] + direct install from assets/ avoids the tarball-assembly step.
+tier: desktop
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/share/backgrounds/intergenos/InterGenOS_Wallpaper_ItIsOnly.png
+  - /usr/share/backgrounds/intergenos/InterGenOS_Wallpaper_Helix.png
+  - /usr/share/backgrounds/intergenos/InterGenOS_Wallpaper_Overwatch.png
+  - /usr/share/backgrounds/intergenos/InterGenOS_Wallpaper_Pulse.png
+  - /usr/share/gnome-background-properties/00-intergenos.xml
+payload_license: GPL-3.0-or-later

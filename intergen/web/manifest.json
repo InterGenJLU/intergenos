@@ -1,0 +1,14 @@
+{
+  "name": "InterGen",
+  "short_name": "InterGen",
+  "description": "InterGen AI Assistant — system-aware, local-first",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050810",
+  "theme_color": "#050810",
+  "icons": [{
+    "src": "favicon.svg",
+    "sizes": "any",
+    "type": "image/svg+xml"
+  }]
+}

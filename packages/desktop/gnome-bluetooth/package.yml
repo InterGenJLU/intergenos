@@ -1,0 +1,36 @@
+name: gnome-bluetooth
+version: '47.1'
+release: 1
+description: GNOME Bluetooth integration
+license: GPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-bluetooth/47/gnome-bluetooth-${version}.tar.xz
+  sha256: 03e3e7403a15108ffc1496210a1da5c2961b2834a5c07eccc7a3f493195daba3
+patches:
+  - file: gnome-bluetooth-47.1-build_fix-1.patch
+    sha256: 8100644af815e6b5a1e4f39cf1c5ed3eddcabe90584f3ef31c5191a94f1b49a6
+dependencies:
+  build:
+  - gtk4
+  - gsound
+  - upower
+  - libadwaita1
+  - glib2
+  - libnotify
+  - systemd
+  host: []
+  runtime:
+  - gtk4
+  - gsound
+  - upower
+  - libadwaita1
+  - glib2
+  - libnotify
+  - systemd
+verify_paths:
+  - /usr/bin/bluetooth-sendto
+  - /usr/lib/libgnome-bluetooth-3.0.so

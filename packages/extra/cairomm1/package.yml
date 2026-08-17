@@ -1,0 +1,31 @@
+name: cairomm1
+version: "1.14.5"
+release: 1
+description: C++ bindings for Cairo graphics library (GTK3 API version 1.0)
+license: LGPL-2.0-or-later
+homepage: https://www.cairographics.org/cairomm/
+tier: extra
+# ISO-resident (changed 2026-06-27): GTK3-era cairomm-1.0 ABI. Now pulled into
+# the ISO by the GParted GTK3 binding chain (gparted -> gtkmm3 -> pangomm1 ->
+# cairomm1). Previously mirror-only when its sole consumer (pangomm1) was
+# mirror-only; GParted shipping in the ISO makes the whole GTK3 chain ISO. The
+# GTK4 desktop stack uses desktop/cairomm (1.16) separately. Without this flip,
+# pkm iso-prep aborts the squashfs build (ISO pkg depends on a MIRROR pkg).
+iso_include: true
+build_style: meson
+install_func: do_install
+source:
+- url: https://www.cairographics.org/releases/cairomm-${version}.tar.xz
+  sha256: 70136203540c884e89ce1c9edfb6369b9953937f6cd596d97c78c9758a5d48db
+dependencies:
+  build:
+  - cairo
+  - libsigcpp2
+  - python
+  host: []
+  runtime:
+  - cairo
+  - libsigcpp2
+verify_paths:
+  - /usr/lib/libcairomm-1.0.so
+  - /usr/lib/pkgconfig/cairomm-1.0.pc

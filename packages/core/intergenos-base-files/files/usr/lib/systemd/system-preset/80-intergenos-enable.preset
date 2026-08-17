@@ -1,0 +1,67 @@
+# InterGenOS — explicit-enable list.
+# Services we deliberately want active by default on installed systems.
+# Add new lines here when you want a service auto-enabled on first boot;
+# add nothing here for "user installs it, user enables it" semantics.
+#
+# Already covered by other preset files:
+#   - gdm.service          (90-gdm.preset)
+#   - nftables.service     (90-nftables.preset)
+#   - systemd-* services   (90-systemd.preset, upstream)
+
+enable NetworkManager.service
+enable apparmor.service
+enable systemd-oomd.service
+
+# bluetooth.service — enabled by default to match desktop-distro convention.
+# Survey (2026-06-10, GBC003 G3-9): Fedora, Debian, Ubuntu and openSUSE all ship
+# bluez with `enable bluetooth.service` in their vendor preset (status reads
+# "vendor preset: enabled"); Arch is the lone outlier, leaving it disabled under
+# its minimal-defaults philosophy (the same deny-by-default stance our whitelist
+# otherwise follows). InterGenOS ships GNOME as a desktop, and a fresh user
+# expects BT mice/keyboards/headphones to just work — without this line the
+# install-time `systemctl preset-all` reverts the unit via the 99- `disable *`
+# catch-all (observed on a development machine: "Removed bluetooth.target.wants/bluetooth.service")
+# leaving bluetoothd inert and GNOME's Bluetooth toggle non-functional.
+# Security note: enabling the unit starts bluetoothd but does NOT make the
+# adapter discoverable/pairable — GNOME keeps the adapter non-discoverable until
+# the user opens Settings, so the surface is the local daemon, not an open
+# pairing window (the standard desktop posture). bluez ships in the desktop tier
+# (always present with the required GNOME stack); the line is a no-op if absent.
+enable bluetooth.service
+
+# (The G3-3 intergenos-greeter-background.service was retired in GBC003.1 —
+# its Before=gdm ordering edge caused the AMD first-boot GDM crash (PI-14), and
+# the greeter background is now set in the gnome-shell theme CSS, not via a
+# boot-time selector. No whitelist line is needed.)
+
+# pkm-check-updates.timer is the SOLE producer of
+# /var/lib/pkm/available-updates.json, which the default-enabled
+# pkm-notifier@intergenos.org GNOME extension (and the motd-pkm-pending hook)
+# read to surface available (security) updates. pkm/build.sh enables the timer
+# at image-build time, but the install-time `systemctl preset-all` (users.py)
+# reverts it via the 99- `disable *` catch-all unless it is whitelisted here --
+# so without this line the update-notifier ships enabled but permanently inert
+# (its JSON is never written, and a timer cannot be D-Bus-activated as a
+# fallback). Update awareness is security-relevant. (GBC002.5, 2026-06-08.)
+enable pkm-check-updates.timer
+
+# Explicit disables — override the upstream 90-systemd.preset, which `enable`s
+# systemd-networkd. Preset resolution is first-match-wins across lexically-
+# sorted files, so these 80- lines beat 90-systemd.preset's enable (and are
+# reached before the 99- `disable *` catch-all). NetworkManager (above) owns
+# networking on InterGenOS; systemd-networkd is redundant, and its
+# wait-online unit delays network-online.target (~6s observed on the GBC001.4
+# boot), which gates GDM. NM provides DHCP via its own backend.
+# networkmanager/build.sh disables networkd at package-build time, but a later
+# `systemctl preset-all` (build-squashfs customize hook) re-enabled it from
+# 90-systemd.preset — these lines close that loop durably. (GBC001.5,
+# 2026-06-05.)
+disable systemd-networkd.service
+disable systemd-networkd.socket
+disable systemd-networkd-wait-online.service
+
+# forge-tui.service has ConditionKernelCommandLine=igos.mode=install-tui
+# so it only fires in install-tui mode. In live + install-gui modes the
+# condition is not met and the unit is a no-op. Enabling here so it's
+# in multi-user.target.wants/ for install-tui boots to find.
+enable forge-tui.service

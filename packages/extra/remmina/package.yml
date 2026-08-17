@@ -1,0 +1,68 @@
+name: remmina
+version: "1.4.43"
+release: 1
+description: Remote desktop client for RDP, VNC, SPICE and SSH connections
+license: GPL-2.0-or-later
+homepage: https://remmina.org/
+tier: extra
+iso_include: true  # user-facing application, shipped per the extra-tier curation
+build_style: custom
+install_func: do_install
+source:
+- url: https://gitlab.com/Remmina/Remmina/-/archive/v${version}/Remmina-v${version}.tar.gz
+  filename: remmina-${version}.tar.gz
+  sha256: 16533f8a806daff524649bb45ae51e51f61685da94846006018b3c279ebe7035
+dependencies:
+  build:
+  - cmake
+  - glib2
+  - gtk3
+  - json-glib
+  - curl
+  - pcre2
+  - libsodium
+  - openssl
+  - libgcrypt
+  - vte
+  - libssh
+  - libvncserver
+  - freerdp
+  - spice-gtk
+  - avahi
+  - python
+  - libX11
+  host: []
+  runtime:
+  - glib2
+  - gtk3
+  - json-glib
+  - curl
+  - pcre2
+  - libsodium
+  - openssl
+  - libgcrypt
+  - vte
+  - libssh
+  - libvncserver
+  - freerdp
+  - spice-gtk
+  - avahi
+  - python
+  - libX11
+silent_loss_accepted:
+  - appindicator  # the tray status icon needs libayatana-appindicator, which
+                  # is not in the tree; upstream's detection is fatal rather
+                  # than optional, so the option is turned off explicitly.
+  - webkit2gtk    # the embedded-browser plugin needs the GTK3 API of WebKit
+                  # (webkit2gtk-4.0/4.1); the WebKitGTK in this tree is built
+                  # against GTK4 and provides webkitgtk-6.0 instead.
+  - gtk-vnc       # a second VNC backend; the libvncserver-based plugin is the
+                  # one built, and two VNC backends would ship two code paths
+                  # for one protocol.
+  - x2go          # needs pyhoca-cli at runtime, which is not in the tree.
+  - kwallet       # KDE credential store; this distribution ships GNOME
+                  # Keyring, which the secret plugin already uses.
+verify_paths:
+  - /usr/bin/remmina
+  - /usr/lib/remmina/plugins/remmina-plugin-vnc.so
+  - /usr/share/applications/org.remmina.Remmina.desktop

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: notifications — bell dome + clapper. VL primitives only, colorless. -->
+  <g class="glyph">
+    <path d="M90 176 C90 118 104 80 128 80 C152 80 166 118 166 176"/>
+    <line x1="78" y1="176" x2="178" y2="176"/>
+    <circle cx="128" cy="72" r="8"/>
+    <circle cx="128" cy="190" r="11"/>
+  </g>
+</svg>

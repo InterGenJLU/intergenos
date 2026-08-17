@@ -1,0 +1,44 @@
+name: gnome-terminal
+version: "3.58.1"
+release: 3  # r3: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+content_hash: 97deca6f3ccac989
+description: GNOME terminal emulator
+license: GPL-3.0-or-later
+homepage: https://wiki.gnome.org/Apps/Terminal
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://gitlab.gnome.org/GNOME/gnome-terminal/-/archive/${version}/gnome-terminal-${version}.tar.gz
+  sha256: 6165f671fb26d8b724f22a185d90212787512e375108b02a27df5069efb846c9
+dependencies:
+  build:
+  - dconf
+  - gsettings-desktop-schemas
+  - itstool
+  - vte
+  - libadwaita1
+  - libhandy1
+  - desktop-file-utils
+  - gnome-shell
+  - nautilus
+  - glib2
+  - gtk3
+  - libxslt
+  - pcre2
+  - util-linux-core
+  host: []
+  runtime:
+  - dconf
+  - gsettings-desktop-schemas
+  - vte
+  - libadwaita1
+  - libhandy1
+  - nautilus
+  - glib2
+  - gtk3
+  - pcre2
+  - util-linux
+verify_paths:
+  - /usr/bin/gnome-terminal
+  - /usr/lib/nautilus/extensions-4/libterminal-nautilus.so

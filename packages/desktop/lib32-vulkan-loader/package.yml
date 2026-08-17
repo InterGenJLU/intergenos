@@ -1,0 +1,41 @@
+name: lib32-vulkan-loader
+version: "1.4.341.0"
+release: 1
+description: Vulkan ICD loader (32-bit multilib runtime)
+license: Apache-2.0
+homepage: https://github.com/KhronosGroup/Vulkan-Loader
+tier: desktop
+build_style: custom
+install_func: do_install
+lib32_source: vulkan-loader
+elf_class: "32"
+# Mirror-only (D-W0-7). G4: version-locked to the 64-bit sibling AND to
+# vulkan-headers (all three at 1.4.341.0) — the RT-9 + LIB32-SOURCE-DRIFT
+# gates enforce the sibling half mechanically; the headers half is
+# enforced by the shared vulkan-headers build dep below.
+iso_include: false
+source:
+- url: https://github.com/KhronosGroup/Vulkan-Loader/archive/vulkan-sdk-${version}/vulkan-loader-${version}.tar.gz
+  sha256: fe982697c780a950641bfcf94707135c26c501352242d285fa95d087d691292e
+dependencies:
+  build:
+  - cmake
+  - vulkan-headers
+  - lib32-glibc
+  - lib32-libX11
+  - lib32-libXrandr
+  - lib32-libxcb
+  - lib32-wayland
+  host: []
+  runtime:
+  - lib32-glibc
+verify_paths:
+  - /usr/lib32/libvulkan.so.1
+  - /usr/lib32/pkgconfig/vulkan.pc
+
+# Build inputs composed from the repository tree (declared so the published
+# source archive carries every input the build consumes — the corresponding-
+# source rule the kernel config fragments established; survey 2026-08-11).
+sources_extra:
+- scripts/lib32-env.sh
+- config/lib32/lib32-cmake-toolchain.cmake

@@ -1,0 +1,94 @@
+# InterGenOS shell blur-effect defaults.
+#
+# WHY THIS FILE EXISTS AT ALL.
+# The image enables the blur extension for every new user
+# (config/gsettings/91_intergenos-extensions.gschema.override lists
+# blur-my-shell@aunetx in enabled-extensions), and until this file the image
+# shipped NO settings for it whatsoever. Every visual and structural default of
+# a default-enabled component was therefore whatever the third-party bundle
+# happened to ship, and could change under us on any version bump with nothing
+# in the tree stating what we intended. Declaring the defaults we rely on is the
+# point of this file; the two keys set below are the ones with a measured
+# structural consequence.
+#
+# WHY dconf AND NOT A gschema OVERRIDE (the same reason as 00-intergenos-dock
+# beside this file): the extension ships its gschemas INSIDE its own bundle dir
+# and reads its own compiled schema at runtime via Extension.getSettings(), so a
+# system gschema override in /usr/share/glib-2.0/schemas cannot reach it. The
+# dconf layer is path-based and schema-independent, which makes a system db the
+# only mechanism that can seed these.
+#
+# NOT LOCKED, DELIBERATELY. There is no lock file for these paths. A user who
+# wants the static variant sets it and their user db wins, exactly as a default
+# should behave. These are defaults, not policy.
+#
+# ---------------------------------------------------------------------------
+# WHAT static-blur ACTUALLY DOES, read from the shipped component sources
+# rather than inferred from the key name (blur-my-shell 'components/panel.js'
+# and 'components/dash_to_dock.js', both read at
+# /usr/share/gnome-shell/extensions/blur-my-shell@aunetx on an installed
+# system):
+#
+#   let background_group = new Meta.BackgroundGroup(
+#       { name: 'bms-panel-backgroundgroup', width: 0, height: 0 }   # panel.js:183
+#   );
+#   let static_blur = this.settings.panel.STATIC_BLUR;
+#   if (static_blur) {
+#       background = pipeline.create_background_with_effects(
+#           monitor.index, bg_manager_list,                          # panel.js:196
+#           background_group, 'bms-panel-blurred-widget');
+#       bg_manager = bg_manager_list[0];
+#   } else {
+#       const pipeline = new DummyPipeline(...);                     # no monitor index,
+#       [background, bg_manager] = pipeline                          # no bg_manager_list
+#           .create_background_with_effect(background_group, ...);
+#   }
+#
+# So with static blur ON, each blurred surface creates a REAL background manager
+# bound to a MONITOR INDEX, inside an actor group deliberately constructed at
+# width 0 / height 0. With it OFF, the same surface gets a live blur effect with
+# no background manager and no monitor binding at all. The blur is present
+# either way — this selects the implementation, it does not remove the feature.
+#
+# WHY THAT BINDING IS THE PROBLEM. The monitor index is captured when the
+# surface is first blurred, which on a machine with several GPUs and several
+# displays happens while the monitor set is still being assembled. A background
+# manager bound to an index from that moment does not follow a later change to
+# the monitor set. It matches the one recovery that is known to work on the
+# affected machine — re-applying the whole display configuration, which forces
+# every background manager to be rebuilt — and equally matches the one that is
+# known NOT to work: changing the wallpaper setting alone, which re-reads the
+# image without rebuilding any monitor binding.
+#
+# WHAT WAS MEASURED (2026-08-06, from two full journal captures on the affected
+# three-GPU machine, both boots that showed the fault):
+#   * every offscreen-effect allocation failure in either boot names one of
+#     these zero-sized blur groups or the widget inside it, thousands of times:
+#     'bms-dash-backgroundgroup [MetaBackgroundGroup] ... needs an allocation'
+#     and 'bms-dash-blurred-widget [StWidget] ... needs an allocation';
+#   * the two boots fail with the two different shapes the same degenerate
+#     allocation produces — 'Failed to create texture 2d due to size/format
+#     constraints' on one, "cogl_framebuffer_set_viewport: assertion
+#     'width > 0 && height > 0' failed" on the other.
+#
+# WHAT IS NOT CLAIMED. No log line in either capture records a wallpaper paint
+# failure, so the step from these allocation failures to a desktop that falls
+# back to its flat primary colour is NOT established by measurement. This file
+# removes a monitor-index binding that should not be created during display
+# settling; that is worth doing on its own terms, and it is not proof of a cure.
+# ---------------------------------------------------------------------------
+
+[org/gnome/shell/extensions/blur-my-shell/panel]
+# The panel is blurred on the default image, because the image ships the stock
+# top-panel layout and enables the extension. This is the one surface where the
+# binding above is created for every user on every login.
+static-blur=false
+
+[org/gnome/shell/extensions/blur-my-shell/dash-to-dock]
+# Not on the default image — the dock layout is opt-in through the welcome
+# application — but it takes the identical code path in dash_to_dock.js (the
+# same zero-sized group at line 304, the same monitor.index call at line 316),
+# so it is pinned here rather than left to be rediscovered by whoever turns the
+# dock on. This is the surface that produced the measured failures, because the
+# machine they were measured on has the dock enabled.
+static-blur=false

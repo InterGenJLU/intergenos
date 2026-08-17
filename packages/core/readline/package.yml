@@ -1,0 +1,17 @@
+name: readline
+version: '8.3'
+release: 2  # r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: Line input library with editing
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/readline/readline-${version}.tar.gz
+  sha256: fe5383204467828cd495ee8d1d3c037a7eba1389c22bc6a041f627976f9061cc
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - ncurses
+tier: core
+build_style: custom
+verify_paths:
+  - /usr/lib/libhistory.so

@@ -1,0 +1,17 @@
+name: packaging
+version: '26.0'
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Python packaging utilities
+license: Apache-2.0
+source:
+- url: https://files.pythonhosted.org/packages/source/p/packaging/packaging-${version}.tar.gz
+  sha256: 00243ae351a257117b6a241061796684b084ed1c516a08c48a3f7e147a9d80b4
+dependencies:
+  build: []
+  host:
+  - flit-core
+  runtime: []
+tier: core
+build_style: custom
+verify_paths:
+  - /usr/lib/python3.14/site-packages/packaging

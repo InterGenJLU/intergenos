@@ -1,0 +1,25 @@
+name: startup-notification
+version: '0.12'
+release: 1
+description: Startup notification protocol library
+license: LGPL-2.0-or-later
+homepage: https://www.freedesktop.org/wiki/Software/startup-notification/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.freedesktop.org/software/startup-notification/releases/startup-notification-${version}.tar.gz
+  sha256: 3c391f7e930c583095045cd2d10eb73a64f085c7fde9d260f2652c7cb3cfbe4a
+dependencies:
+  build:
+  - libX11
+  - xcb-util
+  host: []
+  runtime:
+  - libX11
+  - xcb-util
+configure_flags:
+- --prefix=/usr
+- --disable-static
+verify_paths:
+  - /usr/lib/libstartup-notification-1.so

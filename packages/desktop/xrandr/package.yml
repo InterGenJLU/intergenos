@@ -1,0 +1,27 @@
+name: xrandr
+version: "1.5.3"
+release: 1
+description: Primitive command line interface to RandR extension
+license: MIT
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/app/xrandr-${version}.tar.xz
+  sha256: f8dd7566adb74147fab9964680b6bbadee87cf406a7fcff51718a5e6949b841c
+dependencies:
+  build:
+  - libXrandr
+  - libX11
+  - libXrender
+  - xorgproto
+  host: []
+  runtime:
+  - libXrandr
+  - libX11
+  - libXrender
+configure_flags:
+- --prefix=/usr
+verify_paths:
+  - /usr/bin/xrandr

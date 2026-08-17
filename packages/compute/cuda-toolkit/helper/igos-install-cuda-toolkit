@@ -1,0 +1,329 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+#
+# InterGenOS CUDA toolkit installer
+#
+# Fetches NVIDIA's CUDA toolkit runfile, verifies it against a sha256 recorded
+# in this script, unpacks it WITHOUT running NVIDIA's installer, and lays the
+# toolkit into /opt/cuda. (The runfile is a self-extracting shell archive: the
+# unpack step runs its outer wrapper in extract-only mode, after the sha256
+# check has passed. What is never run is the installer inside it.)
+# Every deposited file is recorded in the helper footprint manifest
+# so `pkm files cuda-toolkit`, `pkm verify cuda-toolkit` and
+# `pkm remove cuda-toolkit` see the real install rather than just this script.
+#
+# The toolkit is not redistributable, so InterGenOS does not carry it. The
+# bytes come from NVIDIA and are pinned here by hash, which is the same
+# strength of identification the build gives any upstream tarball.
+
+set -e
+
+source /usr/share/igos/helpers/helper-lib.sh
+
+# ---- The pin -----------------------------------------------------------------
+# CUDA_RUN_SHA256 was computed from bytes whose MD5 matched NVIDIA's own
+# published manifest at
+#   https://developer.download.nvidia.com/compute/cuda/13.3.1/docs/sidebar/md5sum.txt
+#   7c8d3eca60ee10d2c290bdc045f88f09  cuda_13.3.1_610.43.02_linux.run
+# NVIDIA publishes MD5 only. MD5 is not a sound integrity primitive on its own,
+# so it is used here for exactly one thing — confirming that the file we
+# downloaded is the file the vendor's manifest names — and the sha256 below is
+# what actually gates the install on every subsequent run. Both were taken on
+# 2026-08-04; a version bump recomputes both.
+#
+# 13.3.1 and not 13.4.0: 13.3.1 is what NVIDIA's current-release download page
+# serves and the newest release for which NVIDIA publishes a checksum manifest.
+# 13.4.0 appears in the archive index with no published checksum file, and a
+# pin we cannot check against a vendor-published digest is exactly the
+# unverified assumption this project refuses to build on.
+CUDA_VERSION="13.3.1"
+CUDA_RUN="cuda_13.3.1_610.43.02_linux.run"
+CUDA_URL="https://developer.download.nvidia.com/compute/cuda/13.3.1/local_installers/cuda_13.3.1_610.43.02_linux.run"
+CUDA_RUN_SHA256="9f98ec1f6c950401041d3f1308e221f0d5db8771a8e10569001b64caaee31a92"
+CUDA_RUN_MD5_VENDOR="7c8d3eca60ee10d2c290bdc045f88f09"
+
+CUDA_PREFIX="/opt/cuda"
+LDCONF="/etc/ld.so.conf.d/cuda.conf"
+ACCEPTANCE_DIR="/var/lib/intergen/legal"
+ACCEPTANCE_FILE="$ACCEPTANCE_DIR/cuda-toolkit-${CUDA_VERSION}-accepted.json"
+EULA_RECORD="$ACCEPTANCE_DIR/cuda-toolkit-${CUDA_VERSION}-EULA.txt"
+
+# Space, in MiB, measured on the reference install 2026-08-04:
+#   runfile 4123, extraction 7241, final /opt/cuda 6821. The download and the
+#   extraction coexist, so the working set peaks at runfile + extraction.
+NEED_WORK_MIB=11500
+NEED_PREFIX_MIB=7200
+
+# The work area is deliberately NOT /tmp. /tmp is a tmpfs on an InterGenOS
+# install, so extracting seven gigabytes there spends RAM and fails on a
+# machine with less of it than the payload. /var/tmp is disk-backed by the
+# FHS and is where a large, short-lived working set belongs.
+WORKROOT="${IGOS_CUDA_WORKROOT:-/var/tmp}"
+
+echo ""
+echo "  InterGenOS CUDA Toolkit Installer"
+echo "  ================================="
+echo ""
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "  ERROR: Run via 'sudo pkm install cuda-toolkit' instead."
+    echo "  Installing this way does not record the files with pkm;"
+    echo "  pkm files/verify/remove will not see the installed files."
+    exit 1
+fi
+
+# ---- What is about to happen, before anything happens -------------------------
+cat <<BANNER
+  The CUDA toolkit is proprietary NVIDIA software. InterGenOS does not
+  redistribute it: nvcc may not be redistributed under NVIDIA's terms, so
+  this installer fetches it from NVIDIA directly, on this machine.
+
+    version    CUDA ${CUDA_VERSION}
+    from       ${CUDA_URL}
+    size       about 4.1 GB to download, about 6.7 GB installed at ${CUDA_PREFIX}
+    license    NVIDIA CUDA Toolkit End User License Agreement
+               https://docs.nvidia.com/cuda/eula/index.html
+
+  The downloaded file is checked against a SHA-256 recorded in this script
+  before anything is unpacked. The file is a self-extracting shell archive, so
+  unpacking it does run its outer wrapper — but only in its extract-only mode,
+  which writes the payload to a directory and stops. NVIDIA's INSTALLER is
+  never run: it would offer to replace this machine's GPU driver, and
+  InterGenOS manages that driver itself with per-machine module signing. The
+  SHA-256 check above is what makes running that wrapper safe, and it happens
+  first.
+
+  The bundled NVIDIA driver in the runfile is NOT installed, and NVIDIA's
+  uninstaller scripts are NOT installed (they belong to an installation this
+  helper never performs; 'pkm remove cuda-toolkit' is the removal path).
+
+BANNER
+
+# ---- Hardware advisory --------------------------------------------------------
+# Not a refusal. A person may be preparing a machine, or an image, for a GPU
+# that is not in it yet; the Prime Directive says they decide. But saying
+# nothing while they spend four gigabytes on a toolkit nothing here can use
+# would be the silence this project treats as a defect.
+if command -v lspci >/dev/null 2>&1; then
+    if ! lspci -nn 2>/dev/null | grep -qiE '\[030[0-2]\].*\[10de:'; then
+        echo "  NOTE: no NVIDIA display controller was detected on this machine."
+        echo "        CUDA needs one to run anything; the toolkit will still"
+        echo "        install and can still compile."
+        echo ""
+    fi
+fi
+
+# ---- Space, before the download rather than after -----------------------------
+_free_mib() {
+    df -PBM "$1" 2>/dev/null | awk 'NR==2 {gsub(/M/,"",$4); print $4}'
+}
+mkdir -p "$WORKROOT"
+work_free=$(_free_mib "$WORKROOT")
+prefix_free=$(_free_mib "$(dirname "$CUDA_PREFIX")")
+if [ -n "$work_free" ] && [ "$work_free" -lt "$NEED_WORK_MIB" ]; then
+    echo "  ERROR: ${WORKROOT} has ${work_free} MiB free; the download plus the"
+    echo "         extraction need about ${NEED_WORK_MIB} MiB at once."
+    echo "         Free space there, or set IGOS_CUDA_WORKROOT to a larger"
+    echo "         disk-backed directory, and run this again."
+    exit 1
+fi
+if [ -n "$prefix_free" ] && [ "$prefix_free" -lt "$NEED_PREFIX_MIB" ]; then
+    echo "  ERROR: $(dirname "$CUDA_PREFIX") has ${prefix_free} MiB free; the installed"
+    echo "         toolkit needs about ${NEED_PREFIX_MIB} MiB."
+    exit 1
+fi
+
+# ---- Consent, BEFORE the download ---------------------------------------------
+if [ -f "$ACCEPTANCE_FILE" ]; then
+    echo "  Acceptance already recorded at $ACCEPTANCE_FILE"
+    echo "  Proceeding to install."
+else
+    echo "  Do you accept the NVIDIA CUDA Toolkit End User License Agreement"
+    echo "  (https://docs.nvidia.com/cuda/eula/index.html) and authorize"
+    echo "  downloading and installing the CUDA toolkit on this machine?"
+    echo ""
+    echo "  The agreement's full text ships inside the download and will be"
+    echo "  written to $EULA_RECORD once it arrives, so the exact text you are"
+    echo "  agreeing to is on this machine and auditable."
+    echo ""
+    echo "  Type 'I ACCEPT' (exact match, capitals) to proceed:"
+    echo ""
+    read -r REPLY
+    if [ "$REPLY" != "I ACCEPT" ]; then
+        echo "  Acceptance not given. Nothing was downloaded. Exiting."
+        exit 10
+    fi
+fi
+
+WORKDIR=$(mktemp -d "${WORKROOT}/igos-cuda-XXXXXXXX")
+# Cleanup is registered through the helper-lib hook rather than a native trap:
+# igos_helper_init installs its own EXIT trap for partial-manifest recovery,
+# and bash replaces traps rather than composing them.
+IGOS_HELPER_USER_CLEANUP="rm -rf $WORKDIR"
+
+igos_helper_init "cuda-toolkit"
+igos_helper_set_version "$CUDA_VERSION"
+
+# ---- Fetch --------------------------------------------------------------------
+echo ""
+echo "  Downloading ${CUDA_RUN} (about 4.1 GB)..."
+if ! wget -q --show-progress -O "$WORKDIR/$CUDA_RUN" "$CUDA_URL"; then
+    echo ""
+    echo "  ERROR: download failed from ${CUDA_URL}"
+    echo "  Nothing has been installed. Retry when the network is available."
+    exit 1
+fi
+
+echo "  Verifying the download against the recorded SHA-256..."
+got_sha=$(sha256sum "$WORKDIR/$CUDA_RUN" | awk '{print $1}')
+if [ "$got_sha" != "$CUDA_RUN_SHA256" ]; then
+    echo ""
+    echo "  ERROR: SHA-256 MISMATCH. Refusing to unpack."
+    echo "    expected ${CUDA_RUN_SHA256}"
+    echo "    got      ${got_sha}"
+    echo ""
+    echo "  The bytes that arrived are not the bytes this package pins. That"
+    echo "  can mean a corrupted transfer, a mirror serving something else, or"
+    echo "  tampering in transit. Do NOT unpack the file by hand. If NVIDIA has"
+    echo "  republished ${CUDA_RUN} with different content, that is a package"
+    echo "  update, not something to work around here."
+    exit 1
+fi
+got_md5=$(md5sum "$WORKDIR/$CUDA_RUN" 2>/dev/null | awk '{print $1}')
+echo "  SHA-256 OK (${CUDA_RUN_SHA256})"
+if [ -n "$got_md5" ] && [ "$got_md5" = "$CUDA_RUN_MD5_VENDOR" ]; then
+    echo "  MD5 also matches NVIDIA's published manifest (${CUDA_RUN_MD5_VENDOR})"
+fi
+
+# ---- Extract, never execute ---------------------------------------------------
+# --nox11 first: see the block comment in build.sh. Without it this step can
+# try to open a terminal window and fail on any machine nobody is sitting at.
+echo "  Extracting (the installer is never executed)..."
+EXTRACT_DIR="$WORKDIR/extract"
+mkdir -p "$EXTRACT_DIR"
+if ! sh "$WORKDIR/$CUDA_RUN" --nox11 --extract="$EXTRACT_DIR" >"$WORKDIR/extract.log" 2>&1; then
+    echo ""
+    echo "  ERROR: extraction failed. Last lines of the extractor's output:"
+    tail -20 "$WORKDIR/extract.log" | sed 's/^/    /'
+    exit 1
+fi
+
+# Shape assertions. If NVIDIA changes the payload layout, this helper must fail
+# loudly here rather than lay down a half-toolkit that fails at link time.
+for required in cuda_nvcc/bin/nvcc \
+                cuda_cudart/targets/x86_64-linux/lib/libcudart.so \
+                libcublas/targets/x86_64-linux/lib/libcublas.so \
+                EULA.txt; do
+    if [ ! -e "$EXTRACT_DIR/$required" ]; then
+        echo ""
+        echo "  ERROR: the extracted payload does not contain ${required}."
+        echo "  NVIDIA's runfile layout has changed; this helper needs updating"
+        echo "  rather than working around the difference. Nothing was installed."
+        exit 1
+    fi
+done
+
+# ---- Record the agreement's actual text ---------------------------------------
+mkdir -p "$ACCEPTANCE_DIR"
+install -m 644 "$EXTRACT_DIR/EULA.txt" "$EULA_RECORD"
+if [ ! -f "$ACCEPTANCE_FILE" ]; then
+    cat > "$ACCEPTANCE_FILE" <<JSON
+{
+  "helper": "cuda-toolkit",
+  "version": "${CUDA_VERSION}",
+  "payload_license": "LicenseRef-NVIDIA-CUDA-EULA",
+  "license_text": "${EULA_RECORD}",
+  "artifact": "${CUDA_RUN}",
+  "artifact_sha256": "${CUDA_RUN_SHA256}",
+  "source_url": "${CUDA_URL}",
+  "accepted_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "user": "$(logname 2>/dev/null || echo unknown)"
+}
+JSON
+    chmod 644 "$ACCEPTANCE_FILE"
+fi
+igos_helper_record_post_install_action \
+    "User accepted the NVIDIA CUDA Toolkit EULA (record $ACCEPTANCE_FILE, verbatim text $EULA_RECORD)"
+
+# ---- Lay the toolkit into /opt/cuda -------------------------------------------
+# The runfile's payload is one directory per toolkit component, each already
+# carrying the standard targets/x86_64-linux layout plus include/ and lib64/
+# symlinks into it. Merging the component directories therefore reproduces
+# exactly the tree NVIDIA's own --toolkit install produces. rsync is used
+# rather than cp because the per-component include/lib64 symlinks repeat
+# across components and must be replaced, not followed.
+#
+# Two things are deliberately left behind:
+#   NVIDIA-Linux-*.run  the bundled GPU driver. InterGenOS ships its own
+#                       driver package, built from the open kernel modules and
+#                       signed per machine so it loads under enforced module
+#                       signature verification. Installing NVIDIA's bundled
+#                       driver would fight that.
+#   bin/cuda-uninstaller, bin/ko-uninstaller
+#                       uninstallers for an installation this helper never
+#                       performs. Shipping them would be a script that claims
+#                       to undo something it cannot see.
+echo "  Installing the toolkit to ${CUDA_PREFIX}..."
+mkdir -p "$CUDA_PREFIX"
+for comp in "$EXTRACT_DIR"/*/; do
+    name=$(basename "$comp")
+    case "$name" in
+        bin) continue ;;   # holds only the uninstallers
+    esac
+    rsync -a "$comp" "$CUDA_PREFIX/" || {
+        echo "  ERROR: failed to install component ${name} into ${CUDA_PREFIX}" >&2
+        exit 1
+    }
+done
+install -m 644 "$EXTRACT_DIR/EULA.txt" "$CUDA_PREFIX/EULA.txt"
+[ -f "$EXTRACT_DIR/version.json" ] && \
+    install -m 644 "$EXTRACT_DIR/version.json" "$CUDA_PREFIX/version.json"
+
+# Post-install shape assertion, on the installed tree this time.
+for required in bin/nvcc include/cuda_runtime.h lib64/libcudart.so lib64/libcublas.so; do
+    if [ ! -e "$CUDA_PREFIX/$required" ]; then
+        echo ""
+        echo "  ERROR: ${CUDA_PREFIX}/${required} is missing after install."
+        echo "  The toolkit is incomplete; do not rely on it. Report this."
+        exit 1
+    fi
+done
+
+# ---- Loader path --------------------------------------------------------------
+# Single owner for the /opt/cuda loader entry, the same shape rocm-hip uses for
+# /opt/rocm. Without it every binary linked against libcudart/libcublas fails
+# to start with a missing-soname error.
+cat > "$LDCONF" <<'CONF'
+# Shipped by compute/cuda-toolkit — InterGenOS CUDA toolkit helper
+/opt/cuda/lib64
+CONF
+chmod 644 "$LDCONF"
+ldconfig
+igos_helper_record_post_install_action "ldconfig (after adding ${LDCONF})"
+
+# ---- Footprint ----------------------------------------------------------------
+# Record what was deposited so pkm sees the real install rather than just this
+# script. Symlinks are recorded as files: pkm's remove unlinks the link itself,
+# which is what should happen.
+echo "  Recording the installed files with pkm..."
+while IFS= read -r f; do
+    igos_helper_record_file "$f"
+done < <(find "$CUDA_PREFIX" \( -type f -o -type l \) 2>/dev/null)
+igos_helper_record_file "$LDCONF"
+igos_helper_record_dep nvidia
+igos_helper_record_dep glibc
+
+igos_helper_commit
+
+cat <<DONE
+
+  CUDA ${CUDA_VERSION} installed at ${CUDA_PREFIX}.
+
+  nvcc:  ${CUDA_PREFIX}/bin/nvcc   (add ${CUDA_PREFIX}/bin to PATH to use it)
+  libs:  ${CUDA_PREFIX}/lib64      (already on the loader path via ${LDCONF})
+  terms: ${CUDA_PREFIX}/EULA.txt   (also recorded at ${EULA_RECORD})
+
+  The CUDA llama.cpp engine is a separate package: pkm install llama-cpp-cuda
+
+DONE

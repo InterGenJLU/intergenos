@@ -1,0 +1,28 @@
+name: cabextract
+version: "1.11"
+release: 1
+description: Extractor for Microsoft Cabinet (.cab) archives
+license: GPL-3.0-or-later
+homepage: https://www.cabextract.org.uk/
+tier: extra
+build_style: custom
+install_func: do_install
+# cabextract 1.11 (released 2023-02-24, the latest stable). The tarball bundles
+# libmspack (mspack/ in the source), so the default build is standalone — there
+# is no system libmspack package in-tree, so the bundled build is correct (a
+# system libmspack would be a separate future decision, not added here). Needed
+# by winetricks to unpack the Windows .cab components (fonts, runtimes, DirectX
+# bits) it installs into a Wine prefix.
+source:
+  - url: https://www.cabextract.org.uk/cabextract-${version}.tar.gz
+    sha256: b5546db1155e4c718ff3d4b278573604f30dd64c3c5bfd4657cd089b823a3ac6
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tests:
+  enabled: true
+  failure_policy: strict
+verify_paths:
+  - /usr/bin/cabextract
+  - /usr/share/man/man1/cabextract.1

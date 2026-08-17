@@ -1,0 +1,23 @@
+name: whois
+version: "5.6.6"
+release: 1
+description: Intelligent WHOIS client
+license: GPL-2.0-or-later
+homepage: https://github.com/rfc1036/whois
+source:
+- url: http://deb.debian.org/debian/pool/main/w/whois/whois_5.6.6.tar.xz
+  sha256: 121a3b0467ad64a0e7034b44e71bd1cf28a2e4cca82886d40804ce1fac6494c0
+dependencies:
+  build:
+    - libidn2
+    - libxcrypt
+    - gettext
+    - perl-core
+  host: []
+  runtime:
+    - libidn2
+tier: base
+build_style: custom
+verify_paths:
+  - /usr/bin/whois
+  - /usr/share/man/man1/whois.1

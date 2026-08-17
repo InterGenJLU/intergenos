@@ -1,0 +1,14 @@
+schema_version: 1
+id: system-monitor
+name: System Monitor
+category: status
+kind: color
+template: none
+# no glyph: the pulse motif IS the icon — the genuinely-unique InterGenOS cue (VL §8)
+color: ecg-blue
+glow: signature
+pulse: primary
+fit: 1.074                # optical T(q) re-fit (measured)
+export:
+  svg: true
+  png: [16, 24, 32, 48, 64, 128, 256]

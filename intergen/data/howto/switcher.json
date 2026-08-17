@@ -1,0 +1,62 @@
+[
+  {
+    "id": "switch-what-s-the-task-manager-on-linux",
+    "domain": "switcher",
+    "triggers": [
+      "what's the task manager on linux"
+    ],
+    "answer": "The equivalent is **System Monitor** — it's installed and does what Task Manager does: a Processes tab (with % CPU, memory, and \"End Process\" to force-quit) and a Resources tab (live CPU/RAM/network graphs). Just open \"System Monitor\" from the Activities overview (press Super and type it). There's no `Ctrl+Alt+Del`-to-task-manager habit here — that combo opens the power-off dialog instead.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "switch-where-s-the-control-panel",
+    "domain": "switcher",
+    "triggers": [
+      "where's the control panel"
+    ],
+    "answer": "It's called **Settings** (GNOME Settings). Press Super, type \"Settings\", and you'll find everything the Windows Control Panel / Mac System Settings covers — Wi-Fi, Bluetooth, Displays, Sound, Power, Users, Privacy, Date & Time, Keyboard, and more — in one place. For power-user knobs beyond it, **GNOME Tweaks** is also installed.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "switch-how-do-i-run-windows-programs-on-linux",
+    "domain": "switcher",
+    "triggers": [
+      "how do I run windows programs on linux"
+    ],
+    "answer": "Honest answer: not yet on InterGenOS. The usual tools for this — Wine and Proton — are **not installed today**; running Windows software is part of a gaming/compatibility capability that's still being built and is not yet merged, so I won't point you at something that isn't here. For now, the best path is a native Linux equivalent (for example LibreOffice for Office files, GIMP/Inkscape for creative work — all installable via pkm) or, for a real Windows app you truly need, a Windows VM. Tell me the specific program and I'll suggest the best route. (Once Wine/Proton support ships, I'll be able to walk you through it directly.)",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "switch-where-is-my-c-drive",
+    "domain": "switcher",
+    "triggers": [
+      "where is my C drive"
+    ],
+    "answer": "Linux doesn't use drive letters — there's one unified file tree starting at `/` (the \"root\"). Your personal files live in your **Home** folder (`/home/yourname`, shown as \"Home\" in Files) with Documents, Downloads, Pictures, etc. inside it — that's the closest thing to \"C:\\Users\\You\". Plugged-in USB drives and other disks appear in the Files sidebar and live under `/run/media/yourname/`. Open Files (Nautilus) and it'll all make sense.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "switch-what-s-the-command-prompt-equivalent-on-linux",
+    "domain": "switcher",
+    "triggers": [
+      "what's the command prompt equivalent on linux"
+    ],
+    "answer": "It's the **Terminal** — open it with `Ctrl+Alt+T`, or press Super and type \"Terminal\" (GNOME Terminal is installed). It's the same idea as Command Prompt or PowerShell but far more capable. A few quick translations: `dir`→`ls`, `cd` works the same, `cls`→`clear`, `copy`→`cp`, `del`→`rm`, `ipconfig`→`ip a`. Ask me any Windows command and I'll give you the Linux one.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "switch-where-s-the-device-manager-on-linux",
+    "domain": "switcher",
+    "triggers": [
+      "where's the device manager on linux"
+    ],
+    "answer": "There's no single \"Device Manager\" window, but the same information is easy to reach. GNOME **Settings → About** shows your core hardware, and **Disks** (gnome-disk-utility) covers storage. For a full device list, the terminal gives you exactly what Device Manager shows: PCI devices (`lspci`) and USB devices (`lsusb`). Tell me what device you're checking on and I'll run the right one.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  }
+]

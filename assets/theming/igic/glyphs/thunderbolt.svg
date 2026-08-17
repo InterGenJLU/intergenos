@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: thunderbolt-access — a bolt inside a port frame (distinct from the power bolt). VL primitives only, colorless. -->
+  <g class="glyph">
+    <rect x="82" y="72" width="92" height="112" rx="18"/>
+    <path d="M138 88 L104 134 L124 134 L118 168 L152 118 L132 118 Z"/>
+  </g>
+</svg>

@@ -1,0 +1,26 @@
+name: intergenos-icon-theme
+version: "1.0"
+release: 8  # r8: three new application marks — timeshift, remmina and handbrake — bringing the corpus to 283. Each is the application's own vendor mark recolored to the theme's blue by the compiler's luminance ramp: no geometry is drawn or changed, only the source canvas is normalized to the optical-size band the other marks sit in. The bundle was rebuilt from a clean compile and reproduces byte-for-byte across compiles, and EXPECTED_SHA256 in build.sh advances with it in this same commit.
+content_hash: 46d93d379ec6ba75
+description: InterGenOS first-party icon theme — 283 marks (applications + places + shell status/symbolic) compiled by the in-house icon compiler; inherits Adwaita/hicolor for full coverage.
+license: GPL-3.0-or-later
+homepage: https://intergenos.org
+tier: desktop
+build_style: custom
+install_func: do_install
+# First-party authored asset following the asset-in-package convention
+# (mirrors cybernetic-icon-theme + intergenos-grub-theme). The theme is
+# compiled from the project's icon corpus by the in-house compiler
+# (igic 0.2.0); the bundle ships a single top-level directory
+# "InterGenOS/" with index.theme + 8 size trees. Integrity: git tracks
+# the binary AND build.sh pins EXPECTED_SHA256 fail-loud.
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - hicolor-icon-theme
+  - adwaita-icon-theme
+verify_paths:
+  - /usr/share/icons/InterGenOS/index.theme
+  - /usr/share/icons/InterGenOS/48x48/apps

@@ -1,0 +1,66 @@
+name: localsearch
+version: "3.10.2"
+release: 1
+description: Filesystem indexer and metadata extractor
+license: GPL-2.0-or-later
+homepage: https://gnome.pages.gitlab.gnome.org/localsearch/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/localsearch/3.10/localsearch-${version}.tar.xz
+  sha256: b4dd89c85d76617101bad4ec9a33678f631ec5032e9880eb423dce52e878a285
+patches:
+  - file: localsearch-3.10.2-security_fixes-1.patch
+    sha256: b59f3b68853c7b4ba16a98f4bd258f049afaae3869b886273bfd690b13def2ce
+dependencies:
+  build:
+  - gexiv2
+  - gst-plugins-base
+  - tinysparql
+  - cmake
+  - ffmpeg
+  - giflib
+  - gst-plugins-good
+  - icu
+  - libexif
+  - libseccomp
+  - libwebp
+  - poppler
+  - totem-pl-parser
+  - upower
+  - dbus
+  - glib2
+  - gobject-introspection
+  - libgudev
+  host: []
+  runtime:
+  - gexiv2
+  - gst-plugins-base
+  - tinysparql
+  - ffmpeg
+  - giflib
+  - icu
+  - libexif
+  - libseccomp
+  - libwebp
+  - poppler
+  - totem-pl-parser
+  - upower
+  - glib2
+  - libgudev
+  - dbus
+# Two niche, intentionally-unpackaged metadata extractors for the file indexer:
+#   - libgxps: XPS (Microsoft XML Paper Specification) document text/thumbnails —
+#     a near-unused print format on Linux; deeply niche.
+#   - exempi-2.0: standalone XMP-sidecar metadata. Embedded image metadata
+#     (EXIF/IPTC/XMP) is already indexed via gexiv2 -> exiv2, so this only adds
+#     standalone .xmp-file indexing; niche.
+# localsearch indexes the common formats fully without either; their absence is
+# a conscious scope choice, not a silent loss. (silent-loss audit 2026-06-25.)
+silent_loss_accepted:
+  - libgxps    # XPS docs — near-unused Linux print format
+  - exempi-2.0 # standalone XMP sidecars; embedded XMP covered via gexiv2/exiv2
+verify_paths:
+  - /usr/bin/localsearch
+  - /usr/lib/localsearch-3.0

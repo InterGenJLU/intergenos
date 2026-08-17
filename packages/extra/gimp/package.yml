@@ -1,0 +1,91 @@
+name: gimp
+version: "3.2.4"
+# release 1: refreshed 3.0.6 -> 3.2.4 (work-plan 4.4, first post-GE package
+# refresh; retires the L20 seds). New version supersedes the 3.0.6 archive on
+# (version, release) ordering, so release resets to 1. Two recipe consequences,
+# both verified against the extracted 3.2.4 tarball:
+#   - the gexiv2-0.16 migration is now carried by GIMP's OWN bundled fix (shipped
+#     inside the 3.2.4 tarball; extracted verbatim to build/patches/ and applied
+#     sha-pinned) — it is a superset of the retired L20 seds (also retires the
+#     new <0.15 maxver clamp, renames the GIR/vapi GExiv2-0.10 -> 0.16, silences
+#     the 0.16 deprecations). See build.sh.
+#   - the 3.0.6 security patch is fully upstreamed into 3.2.4 (all 6 referenced
+#     commits present; the guard and the four other files reverse-apply-detect as
+#     already-applied) and is retired.
+release: 3  # r3: iso_include true — ships on the ISO (2026-07-18 curation correction: the 2026-05-28 walk's "keep everything user-facing" principle applies; the mirror-only disposition was never a ruled decision). r2: rebuild against gexiv2 r2 — Gimp-3.0.gir regenerates with the corrected GExiv2 package element (and the build log clears the dead-name probe the silent-loss gate scans)
+description: GNU Image Manipulation Program — advanced image editor
+license: GPL-3.0-or-later
+homepage: https://www.gimp.org/
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gimp.org/gimp/v3.2/gimp-${version}.tar.xz
+  sha256: 7312bc53e9c6d2d0056ca7b93f1c6b98707946dd934f714c21b8746ecb601588
+patches:
+  # GIMP's own bundled gexiv2-0.16 accommodation, extracted VERBATIM from the
+  # 3.2.4 tarball (build/macos/patches/0001-build-macos-Do-not-require-gexiv2-
+  # 0.14-on-homebrew.patch; upstream commit fd8af534). Migrates the meson probe
+  # off the retired 0.14-era `gexiv2` module + <0.15 clamp to `gexiv2-0.16`,
+  # renames the GIR/vapi GExiv2-0.10 -> 0.16, and silences the 0.16 API
+  # deprecations. Version-matched to 3.2.4, so it applies clean by construction.
+  - file: gimp-3.2.4-gexiv2-0.16.patch
+    sha256: 9e5113ffb422ac5c9b67a27a794adeebdfc61336f8c71c58bd5e593b573de0f4
+dependencies:
+  build:
+  - appstream-glib
+  - babl   # gimp requires babl directly via pkg-config (meson.build:440, Scan A.2 2026-07-09); previously satisfied only transitively through gegl
+  - gegl
+  - gexiv2
+  - glib-networking
+  - gtk3
+  - harfbuzz
+  - libmypaint
+  - mypaint-brushes
+  - librsvg
+  - libtiff
+  - libxml2
+  - lcms2
+  - poppler
+  - graphviz
+  - iso-codes
+  - libgudev
+  - pygobject3
+  - xdg-utils
+  - alsa-lib
+  - gjs
+  - libheif
+  - libwebp
+  - lua
+  - openjpeg2
+  - appstream
+  - cairo
+  - exiv2
+  - freetype2
+  - gdk-pixbuf
+  - glib2
+  - gobject-introspection
+  - json-glib
+  - libX11
+  - libXext
+  - libXfixes
+  - libXmu
+  - libarchive
+  - libjpeg-turbo
+  - libpng
+  - xz
+  - zlib
+  host: []
+  runtime:
+  - libmypaint       # NEEDED libmypaint.so.0 (gimp-3.2 + gimp-console-3.2; step-4.75 sweep, ge9b-06)
+  - mypaint-brushes  # runtime brush data (gimp loads at startup)
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "no display in chroot — save-and-export, single-window-mode, and ui tests require a display server (BLFS-known)."
+verify_paths:
+  - /usr/bin/gimp
+  - /usr/lib/libgimp-scriptfu-3.0.so
+  - /etc/gimp/3.0/controllerrc

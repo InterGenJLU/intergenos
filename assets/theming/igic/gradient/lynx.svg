@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="14.7917 10.7917 226.4165 226.4165">
+  <!-- Lynx head, front view — vector redraw of the vendor 48px mark at proper fidelity:
+       tufted ears, banded brow, cheek ruffs, bright muzzle, amber eyes. -->
+  <!-- ear tufts (black) -->
+  <path d="M58 22 L78 66 L64 74 Z" fill="#1a1512"/>
+  <path d="M198 22 L178 66 L192 74 Z" fill="#1a1512"/>
+  <!-- ears -->
+  <path d="M60 30 L96 82 L58 96 Z" fill="#a9764a"/>
+  <path d="M196 30 L160 82 L198 96 Z" fill="#a9764a"/>
+  <path d="M68 46 L90 80 L66 88 Z" fill="#c9955f"/>
+  <path d="M188 46 L166 80 L190 88 Z" fill="#c9955f"/>
+  <!-- head: broad crown, cheek ruffs with fur spikes, tapered chin -->
+  <path d="M62 88
+           C70 66 100 54 128 54
+           C156 54 186 66 194 88
+           C202 108 202 132 194 152
+           L206 168 L186 174 L196 192 L172 190
+           C160 212 144 226 128 226
+           C112 226 96 212 84 190
+           L60 192 L70 174 L50 168 L62 152
+           C54 132 54 108 62 88 Z" fill="#b9834f"/>
+  <!-- brow banding (dark streaks) -->
+  <path d="M96 60 C102 72 106 84 105 96 L96 98 C93 84 92 72 96 60 Z" fill="#6d4526"/>
+  <path d="M160 60 C154 72 150 84 151 96 L160 98 C163 84 164 72 160 60 Z" fill="#6d4526"/>
+  <path d="M124 56 L132 56 L134 92 L122 92 Z" fill="#6d4526"/>
+  <path d="M110 58 L116 58 L117 94 L108 94 Z" fill="#8a5a33"/>
+  <path d="M140 58 L146 58 L148 94 L139 94 Z" fill="#8a5a33"/>
+  <!-- cheek ruff shading -->
+  <path d="M62 130 C72 140 84 148 96 152 L88 176 C76 168 66 156 60 144 Z" fill="#8a5a33"/>
+  <path d="M194 130 C184 140 172 148 160 152 L168 176 C180 168 190 156 196 144 Z" fill="#8a5a33"/>
+  <!-- eyes: slanted amber almonds with dark rims, round pupils, glints -->
+  <path d="M82 114 C88 104 106 102 114 110 C114 122 100 128 88 124 C83 122 80 118 82 114 Z" fill="#3a2614"/>
+  <path d="M174 114 C168 104 150 102 142 110 C142 122 156 128 168 124 C173 122 176 118 174 114 Z" fill="#3a2614"/>
+  <path d="M84 114 C89 105 106 103 113 110 C112 121 100 126 89 123 C85 121 83 118 84 114 Z" fill="#f2c14e"/>
+  <path d="M172 114 C167 105 150 103 143 110 C144 121 156 126 167 123 C171 121 173 118 172 114 Z" fill="#f2c14e"/>
+  <circle cx="98" cy="114" r="5" fill="#171006"/>
+  <circle cx="158" cy="114" r="5" fill="#171006"/>
+  <circle cx="96" cy="112" r="1.6" fill="#fdf6e8"/>
+  <circle cx="156" cy="112" r="1.6" fill="#fdf6e8"/>
+  <!-- muzzle: bright fur -->
+  <path d="M100 150 C108 142 120 138 128 138 C136 138 148 142 156 150 C160 162 156 180 148 192 C140 202 116 202 108 192 C100 180 96 162 100 150 Z" fill="#f0e6d8"/>
+  <!-- nose: small dark pad at muzzle top, bridge shading above -->
+  <path d="M122 140 L134 140 L132 148 L124 148 Z" fill="#c9a87e"/>
+  <path d="M119 150 C122 147 134 147 137 150 C137 156 133 161 128 161 C123 161 119 156 119 150 Z" fill="#4a2e1c"/>
+  <path d="M128 161 L128 172" stroke="#8a6a4a" stroke-width="4" stroke-linecap="round"/>
+  <!-- mouth: w-curve -->
+  <path d="M114 178 C118 184 123 186 128 172 C133 186 138 184 142 178" fill="none" stroke="#8a6a4a" stroke-width="4" stroke-linecap="round"/>
+  <!-- whisker dots -->
+  <circle cx="110" cy="168" r="1.8" fill="#c9b8a0"/><circle cx="104" cy="176" r="1.8" fill="#c9b8a0"/>
+  <circle cx="146" cy="168" r="1.8" fill="#c9b8a0"/><circle cx="152" cy="176" r="1.8" fill="#c9b8a0"/>
+</svg>

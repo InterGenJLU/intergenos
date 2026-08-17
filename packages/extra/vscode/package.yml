@@ -1,0 +1,23 @@
+name: vscode
+version: "1.0"
+release: 4  # r4: install output rewritten for the person at the terminal: lines that named internal machinery, internal decision codes or this project's own design rationale are replaced with plain statements of what happened and what to do about it, or removed where there was nothing to act on. Printed text only — no rule, path, flag, threshold, verification step or code path changed. tests/preflight/test_package_output_is_for_users.py holds the line.
+content_hash: 885353382dc3b64a
+description: Helper to download and install Microsoft Visual Studio Code
+license: GPL-3.0-or-later
+payload_license: LicenseRef-Microsoft-VSCode-Software-License
+homepage: https://code.visualstudio.com/
+tier: extra
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  # H-007 Phase B: vscode sources /usr/share/igos/helpers/helper-lib.sh
+  # at the top of the install-helper script.
+  - intergenos-helper-lib
+  - nodejs
+verify_paths:
+  - /usr/bin/igos-install-vscode
+  - /usr/share/igos/helpers/keyrings/vscode-keyring.gpg

@@ -1,0 +1,30 @@
+# Family manifest — mimetypes (ICON_CATEGORIES.md §5 rows + §2 conventions). ONE shared
+# `document` template (page + folded corner) + a per-type emblem + the §3 MIME accent.
+# Bare page (no tile); the emblem names the type, the accent color-codes it. freedesktop
+# mimetype icon names as ids. Supersedes the recipes/text-x-generic.yaml single (its
+# text/document row = template + the mime-text lines is pixel-identical to it).
+#
+# Accents: §3 MIME map is ratified (text=teal, image=magenta, audio=green, video=violet,
+# archive=orange, code=violet, pdf=red). PROPOSED (not in §3, flagged for the operator):
+# spreadsheet=green (shares audio's green, differentiated by emblem), presentation=orange
+# (shares archive's orange, differentiated by emblem) — the folder-family collision pattern.
+schema_version: 1
+family: mimetypes
+category: mimetypes
+kind: color
+template: document
+glow: signature
+pulse: none
+export:
+  svg: true
+  png: [16, 24, 32, 48, 64, 128, 256]
+rows:                            # id (freedesktop name) | emblem | accent | name
+  - { id: text-x-generic,        emblem: mime-text,         accent: accent-teal,    name: Text, fit: 1.226 }
+  - { id: x-office-spreadsheet,  emblem: mime-spreadsheet,  accent: accent-green,   name: Spreadsheet, fit: 1.226 }
+  - { id: x-office-presentation, emblem: mime-presentation, accent: accent-orange,  name: Presentation, fit: 1.226 }
+  - { id: application-pdf,       emblem: mime-pdf,          accent: accent-red,     name: PDF, fit: 1.226 }
+  - { id: image-x-generic,       emblem: mime-image,        accent: accent-magenta, name: Image, fit: 1.226 }
+  - { id: audio-x-generic,       emblem: mime-audio,        accent: accent-green,   name: Audio, fit: 1.226 }
+  - { id: video-x-generic,       emblem: mime-video,        accent: accent-violet,  name: Video, fit: 1.226 }
+  - { id: package-x-generic,     emblem: mime-archive,      accent: accent-orange,  name: Archive, fit: 1.226 }
+  - { id: text-x-script,         emblem: mime-code,         accent: accent-violet,  name: Code, fit: 1.226 }

@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# igos-greeter-monitors-sync@<username>.service — one-shot sync of %i's
+# monitor layout into the GDM greeter seat state. Triggered by the matching
+# .path unit; safe to run manually:
+#   systemctl start igos-greeter-monitors-sync@<username>.service
+#
+# Sandbox: the helper only READS the user's home and only WRITES the greeter
+# seat state — the sandbox enforces exactly that. ReadWritePaths is
+# load-bearing under ProtectSystem=strict: without it the write to
+# /var/lib/gdm fails the moment the helper runs (the silent-service-failure
+# class the build doctrine names explicitly — declared here, not discovered
+# on a target box).
+
+[Unit]
+Description=Sync %i's monitor layout to the GDM greeter
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/igos-greeter-monitors-sync %i
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/gdm

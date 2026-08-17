@@ -1,0 +1,31 @@
+--- a/src/adw-accent-color.c
++++ b/src/adw-accent-color.c
+@@ -13,7 +13,7 @@
+ 
+ /**
+  * AdwAccentColor:
+- * @ADW_ACCENT_COLOR_BLUE: Use a blue color (`#3584e4`). This is the default value.
++ * @ADW_ACCENT_COLOR_BLUE: Use a blue color (`#0099FF`, InterGenOS brand). This is the default value.
+  * @ADW_ACCENT_COLOR_TEAL: Use a teal color (`#2190a4`).
+  * @ADW_ACCENT_COLOR_GREEN: Use a green color (`#3a944a`).
+  * @ADW_ACCENT_COLOR_YELLOW: Use a yellow color (`#c88800`).
+@@ -51,7 +51,7 @@
+ 
+   switch (self) {
+   case ADW_ACCENT_COLOR_BLUE:
+-    hex = "#3584e4";
++    hex = "#0099FF"; /* InterGenOS ECG brand blue */
+     break;
+   case ADW_ACCENT_COLOR_TEAL:
+     hex = "#2190a4";
+--- a/src/stylesheet/_colors.scss
++++ b/src/stylesheet/_colors.scss
+@@ -159,7 +159,7 @@
+ }
+ 
+ :root {
+-  --accent-blue: #3584e4;
++  --accent-blue: #0099FF; /* InterGenOS ECG brand blue */
+   --accent-teal: #2190a4;
+   --accent-green: #3a944a;
+   --accent-yellow: #c88800;

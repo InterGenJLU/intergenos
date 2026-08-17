@@ -1,0 +1,38 @@
+# Family manifest — first-party InterGen app marks (ICON_CATEGORIES §11.4.1). The
+# InterGen launcher marks drawn in the IGIC line-forward language: template: none
+# (FREE-STANDING, no tile), the ecg-blue accent (intergen-blue), the signature glow
+# — matching the core-GNOME + third-party legs. `stem` = the app's .desktop-id, so
+# the theme file is named verbatim and GTK resolves it by that key.
+#
+# These are OURS (not GNOME / not third-party): the first-party InterGen(OS) marks.
+# The BRAND / AI surfaces carry the canonical InterGen ECG pulse, always rendered
+# spike-left (short lead-in, R-peak + S-trough left of centre, long baseline trail)
+# per docs/VISUAL_LANGUAGE.md §8 + assets/intergen-mark/README.md; a first-party
+# APPLICATION mark in this family draws its own subject instead — the pulse marks the
+# brand, not every product. Dispositions: all first-party (own brand); no third-party
+# trademark concern.
+# Brand rule (assets/intergen-mark): the OS badge is FRAMED (rounded square), the
+# AI mark is BARE — so `intergenos` (the distro brand, forge-gui launcher) frames
+# the pulse, while the AI panel / toggle / welcome marks carry it free-floating.
+schema_version: 1
+family: intergen-apps
+category: apps
+kind: color
+template: none
+glow: signature
+pulse: none
+export:
+  svg: true
+  png: [16, 24, 32, 48, 64, 128, 256]
+rows:                            # id | stem (.desktop-id, verbatim theme name) | emblem (glyph) | accent | name
+  - { id: app-intergen-panel,   stem: org.intergenos.InterGenPanel, emblem: app-intergen-panel,   accent: intergen-blue, name: InterGen, fit: 0.829 }
+  - { id: app-intergen-toggle,  stem: intergen-toggle,              emblem: app-intergen-toggle,  accent: intergen-blue, name: "Enable InterGen AI", fit: 1.179 }
+  - { id: app-intergen-welcome, stem: intergen-welcome,             emblem: app-intergen-welcome, accent: intergen-blue, name: "InterGenOS Welcome", fit: 0.829 }
+  # Distro brand mark (forge-gui launcher, Icon=intergenos) — the OS badge: FRAMED pulse.
+  - { id: app-intergenos,       stem: intergenos,                   emblem: app-intergenos,       accent: intergen-blue, name: InterGenOS, fit: 1.018 }
+  # First-party APPLICATION mark (intergenos-backup, Icon=org.intergenos.Chronicle) — no
+  # pulse: the pulse is the brand/AI signature above, not an app-mark element.
+  - { id: app-chronicle,        stem: org.intergenos.Chronicle,     emblem: app-chronicle,        accent: intergen-blue, name: Chronicle, fit: 1.106 }
+  # First-party APPLICATION mark (the documentation site, Icon=org.intergenos.Wiki) — same
+  # split as Chronicle: own subject, no pulse.
+  - { id: app-wiki,             stem: org.intergenos.Wiki,          emblem: app-wiki,             accent: intergen-blue, name: "InterGenOS Wiki", fit: 1.0167 }

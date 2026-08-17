@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Chronicle
+GenericName=Backups
+Comment=Back up and restore system and user data over time
+Exec=chronicle-gui
+Icon=org.intergenos.Chronicle
+Terminal=false
+Categories=GTK;System;X-InterGenOS;
+Keywords=backup;restore;snapshot;history;chronicle;
+StartupNotify=true
+StartupWMClass=org.intergenos.Chronicle
+OnlyShowIn=GNOME;

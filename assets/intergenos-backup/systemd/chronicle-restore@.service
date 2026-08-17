@@ -1,0 +1,61 @@
+# chronicle-restore@.service — the higher-capability restore leg (spec §6, §16.2).
+#
+# Restore recreates files with their recorded ownership and mode, which needs
+# CAP_CHOWN / CAP_FOWNER / CAP_DAC_OVERRIDE — capabilities the always-on
+# sentinel (chronicled.service) deliberately does NOT hold. Rather than grant
+# the daemon those powers, a restore that the low-capability daemon can't
+# perform is escalated here: chronicle.escalate stages the request JSON at
+# /run/chronicle/restore-<id>.json and starts this instance with %i=<id>; the
+# engine reads it, restores with the elevated set, and writes the result to
+# /run/chronicle/restore-<id>.result.json for the caller to read back.
+#
+# %i is a request id (hex, no path separators) — the instance name never
+# carries a filesystem path. A root `chronicle` CLI already holds CAP_CHOWN and
+# restores in-process without this unit; this leg exists for the unprivileged
+# GUI path routed through the daemon socket.
+#
+# ProtectHome=no + writable /home /etc: restore must write back user data and
+# config files across the tree. This is the documented, minimal relaxation for
+# the on-demand restore leg ONLY — the always-on sentinel keeps ProtectHome=
+# read-only. Everything else in the canonical hardening baseline stands.
+
+[Unit]
+Description=Chronicle restore (%i) — higher-capability leg
+Documentation=man:chronicled(8) man:chronicle(1)
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/libexec/chronicle/chronicled --task restore --request /run/chronicle/restore-%i.json
+StandardOutput=journal
+StandardError=journal
+
+StateDirectory=chronicle
+RuntimeDirectory=chronicle
+RuntimeDirectoryPreserve=yes
+
+# Canonical hardening baseline + the restore-leg relaxations (broader than the
+# capture set, scoped to on-demand restore).
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=no
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallFilter=~@resources
+ReadWritePaths=/var/lib/chronicle /home /etc /mnt /media /run/media
+CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH
+AmbientCapabilities=CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH

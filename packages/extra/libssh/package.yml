@@ -1,0 +1,48 @@
+name: libssh
+version: "0.12.2"
+release: 1
+description: SSHv2 client and server library with SFTP support
+license: LGPL-2.1-only
+homepage: https://www.libssh.org/
+tier: extra
+iso_include: true  # library follows its consumer: remmina ships on the ISO
+build_style: cmake
+install_func: do_install
+# Distinct from the in-tree libssh2 (a different project with a different
+# API); remmina's SSH/SFTP tunnelling links this one.
+source:
+- url: https://www.libssh.org/files/0.12/libssh-${version}.tar.xz
+  sha256: 49560f677d96e3706a904ac2de1116e25f3680937d51e5c92198fcba4a1c1e9f
+dependencies:
+  build:
+  - openssl
+  - zlib
+  - mitkrb
+  - cmake
+  host: []
+  runtime:
+  - openssl
+  - zlib
+  - mitkrb
+configure_flags:
+- -DCMAKE_INSTALL_LIBDIR=lib
+- -DBUILD_SHARED_LIBS=ON
+- -DWITH_GSSAPI=ON
+- -DWITH_ZLIB=ON
+- -DWITH_SFTP=ON
+- -DWITH_SERVER=ON
+- -DWITH_EXAMPLES=OFF
+- -DUNIT_TESTING=OFF
+- -DCLIENT_TESTING=OFF
+tests:
+  enabled: false
+  reason: >-
+    The upstream test suites are opt-in and neither can run here. UNIT_TESTING
+    requires the CMocka framework, which is not in the tree, and CLIENT_TESTING
+    starts a real OpenSSH server. With both off (the upstream defaults) the
+    generated build tree defines no test target at all, so a check phase would
+    fail on a missing target rather than run anything.
+verify_paths:
+  - /usr/lib/libssh.so
+  - /usr/include/libssh/libssh.h
+  - /usr/lib/pkgconfig/libssh.pc

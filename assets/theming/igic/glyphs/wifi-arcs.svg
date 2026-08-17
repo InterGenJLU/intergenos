@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- base glyph: wifi signal — an always-on dot + 4 level arcs (a states-family base).
+       The <g class="levels"> children are the level ladder (inner -> outer); everything
+       outside it is always-on. Colorless; the states generator sets per-level opacity. -->
+  <g class="glyph">
+    <circle cx="128" cy="192" r="9"/>
+    <g class="levels">
+      <path d="M 102.0 170.1 A 34 34 0 0 1 154.0 170.1"/>
+      <path d="M 82.0 153.4 A 60 60 0 0 1 174.0 153.4"/>
+      <path d="M 62.1 136.7 A 86 86 0 0 1 193.9 136.7"/>
+      <path d="M 42.2 120.0 A 112 112 0 0 1 213.8 120.0"/>
+    </g>
+  </g>
+</svg>

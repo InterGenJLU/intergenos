@@ -1,0 +1,45 @@
+name: freerdp
+version: '3.22.0'
+release: 4  # r4: the SDL3 client's dialogs require SDL3_ttf (client/SDL/SDL3/dialogs/CMakeLists.txt find_sdl_component) — add sdl3-ttf build+runtime dep; caught by r3's first real configure on the ge9b-02 burn 2026-07-12. r3: enable maintained SDL3 client (WITH_CLIENT_SDL=ON, WITH_CLIENT_SDL3=ON, SDL2 client OFF) against in-tree sdl3 -> /usr/bin/sdl-freerdp; operator ruling 2026-07-11
+description: Free implementation of the Remote Desktop Protocol
+license: Apache-2.0
+homepage: https://www.freerdp.com/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/freerdp/freerdp/archive/${version}/FreeRDP-${version}.tar.gz
+  sha256: f4af346eb12b5558f7a93e585e55f523a5cbbb53e6e3a0bf3ffed8f293e2a5b8
+dependencies:
+  build:
+  - ffmpeg
+  - icu
+  - cairo
+  - fuse3
+  - json-c
+  - mitkrb
+  - wayland
+  - docbook-xsl-nons
+  - libusb
+  - libxkbcommon
+  - sdl3
+  - sdl3-ttf
+  host: []
+  runtime:
+  - ffmpeg
+  - icu
+  - cairo
+  - fuse3
+  - json-c
+  - mitkrb
+  - wayland
+  - libusb
+  - libxkbcommon
+  - sdl3
+  - sdl3-ttf
+verify_paths:
+  - /usr/bin/xfreerdp
+  - /usr/bin/sdl-freerdp
+  - /usr/bin/freerdp-proxy
+  - /usr/bin/freerdp-shadow-cli
+  - /usr/lib/libfreerdp3.so

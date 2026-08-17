@@ -1,0 +1,20 @@
+name: intergenos-keyring
+version: "0.1.0"
+release: 1
+content_hash: dfee406bae3aa58b
+description: InterGenOS GPG release keyring — populates /etc/pkm/trusted.gpg with the master pubkey so pkm can verify signed index downloads
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: core
+build_style: custom
+source: []
+dependencies:
+  build: []
+  host: []
+  # gnupg2 dep removed 2026-05-23: the binary keyring is now pre-generated
+  # on the host and committed at packages/core/intergenos-keyring/trusted.gpg.
+  # The build does sha256-assert + install only — no runtime gpg dep at
+  # build position (which is early in chroot-build-core-extra.sh, before
+  # gnupg2 itself is built). See build.sh header comment for rotation flow.
+verify_paths:
+  - /etc/pkm/trusted.gpg

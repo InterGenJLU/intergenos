@@ -1,0 +1,18 @@
+name: unifont
+version: "17.0.03"
+release: 1
+description: "GNU Unifont — Unicode bitmap font. Installs unifont.pcf so GRUB's build-time grub-mkfont compiles unicode.pf2, giving the boot menu a complete glyph set (prevents the missing-glyph TOFU '?'/'@' blocks). Matches BLFS 13.0."
+license: "GPL-2.0-or-later WITH Font-exception-2.0"
+homepage: https://unifoundry.com/unifont/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://unifoundry.com/pub/unifont/unifont-${version}/font-builds/unifont-${version}.pcf.gz
+  sha256: 6f28a3c9113bd4e76d4ea61dca6415ef7c9db356a7f80b916c9153951b1a8fed
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/share/fonts/unifont/unifont.pcf

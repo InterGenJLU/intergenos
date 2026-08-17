@@ -1,0 +1,41 @@
+name: lib32-glibc
+version: '2.43'
+release: 2  # r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: GNU C Library (32-bit multilib runtime)
+license: LGPL-2.1-or-later
+homepage: https://www.gnu.org/software/libc/
+tier: core
+build_style: custom
+install_func: do_install
+# RT-14 governance: tier + version lock derive from the declared 64-bit sibling.
+lib32_source: glibc-core
+elf_class: "32"
+# D-W0-7 (GE arc): lib32-glibc SHIPS ON THE ISO — the one lib32 exception to
+# mirror-only. The multilib gcc-core bundles its 32-bit runtime (libgcc_s,
+# libstdc++) in its own ISO-resident payload, and those ELF32 libraries NEED
+# a 32-bit libc provider on the ISO or the post-eviction NEEDED-closure gate
+# (build-squashfs Step 4.75, RT-6) halts on a dangling edge. Declaring the
+# edge and shipping the provider is the honest option RT-6 names; stripping
+# gcc-core's payload post-hoc would diverge archive from manifest (a mask).
+iso_include: true
+source:
+- url: https://ftp.gnu.org/gnu/glibc/glibc-${version}.tar.xz
+  sha256: d9c86c6b5dbddb43a3e08270c5844fc5177d19442cf5b8df4be7c07cd5fa3831
+patches:
+- file: glibc-fhs-1.patch
+  sha256: 643552db030e2f2d7ffde4f558e0f5f83d3fabf34a2e0e56ebdb49750ac27b0d
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - glibc
+tests:
+  enabled: false
+  reason: "Multilib-LFS 13.0 §8.5.3 runs no test suite on the 32-bit pass — the full glibc suite runs in glibc-core (same source, same toolchain); the m32 runtime is verified by checked gates instead: the in-recipe staged-payload allowlist assertion (T3), the post_install 32-bit exec canary (T4), the RT-1 per-package ELF-class audit, and the Step 4.75 NEEDED-closure gate."
+verify_paths:
+  - /usr/lib32/libc.so.6
+  - /usr/lib32/ld-linux.so.2
+  - /usr/lib/ld-linux.so.2
+  - /usr/include/gnu/stubs-32.h
+  - /usr/include/gnu/lib-names-32.h
+  - /etc/ld.so.conf.d/lib32-glibc.conf

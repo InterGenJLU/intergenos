@@ -1,0 +1,74 @@
+name: hipblaslt
+version: "7.2.4"
+release: 1
+description: hipBLASLt — lightweight GEMM library with flexible epilogues (MIOpen + PyTorch-class consumer surface)
+license: MIT
+homepage: https://github.com/ROCm/rocm-libraries
+tier: compute
+build_style: custom
+install_func: do_install
+
+# SAME rocm-libraries tarball (shared-source pin); builds
+# projects/hipblaslt from the monorepo (TensileLite kernel generation —
+# the second Tensile-class heavy build after rocblas). Joined the wave
+# as HARD dep closure: MIOpen's MIOPEN_USE_HIPBLASLT defaults ON
+# (find_package(hipblaslt REQUIRED)); it is also the PyTorch-on-ROCm
+# GEMM path.
+#
+# source[1]+[2] = nanobind v2.6.1 + its robin-map submodule, pre-staged
+# for the in-tree rocisa python module (device-code generation): the
+# pinned rocisa/CMakeLists.txt:21-26 FetchContent-clones nanobind at
+# commit 9b3afa9d — offline-fatal; FETCHCONTENT_SOURCE_DIR_NANOBIND
+# redirects it to the staged copy (CMake-native override, no patch).
+# Commit archives are immutable; nanobind commit = the exact sha the
+# pinned source names, robin-map commit = nanobind's ext/robin_map
+# gitlink at that sha (GitHub tree API, resolved 2026-07-17). Both
+# single-witness endpoint pins with in-source identity corroboration.
+#
+# HIPBLASLT_ENABLE_ROCROLLER=OFF (decision item, operator rules): the
+# in-tree RocRoller backend is CDNA-scoped codegen (gfx90a/gfx942 CI
+# surface) with FIVE FetchContent git fetches, two on MOVING refs
+# (libdivide@master, spdlog@v1.x) — unpinnable per the stable-URL
+# discipline and outside the declared RDNA target set. Revisit if a
+# CDNA target is ever declared.
+source:
+  - url: https://github.com/ROCm/rocm-libraries/archive/refs/tags/rocm-${version}.tar.gz
+    filename: rocm-rocm-libraries-${version}.tar.gz
+    sha256: 50a4090b4ad18b34c375f666e5f71816cf55f89bc2175dc3eba9a7b80f65a15d
+  - url: https://github.com/wjakob/nanobind/archive/9b3afa9dbdc23641daf26fadef7743e7127ff92f.tar.gz
+    filename: nanobind-2.6.1.tar.gz
+    sha256: 028b3008d3e2db84628fa343cd23b9391f866b1e3a506d1462d643bf9bed18c9
+  - url: https://github.com/Tessil/robin-map/archive/188c45569cc2a5dd768077c193830b51d33a5020.tar.gz
+    filename: robin-map-188c4556.tar.gz
+    sha256: 2f4be670fa4f53c3261ed7af392b414a00e75591f87da0a8dd525de376430747
+
+gpu_targets: "gfx1100;gfx1102;gfx1201"
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - rocm-cmake
+  - rocm-hip
+  - rocm-llvm
+  - hipblas-common
+  - roctracer
+  - msgpack-cxx
+  - python
+  - python-msgpack
+  - python-joblib
+  - pyyaml
+  - rich
+  - setuptools
+  - wheel
+  host: []
+  runtime:
+  - rocm-hip
+  - roctracer
+  - msgpack-cxx
+verify_paths:
+  - /opt/rocm/lib/libhipblaslt.so
+  # TensileLite kernel library — the load-bearing artifact (same class
+  # as rocblas's: a hipblaslt without kernels loads and fails at first
+  # matmul).
+  - /opt/rocm/lib/hipblaslt/library

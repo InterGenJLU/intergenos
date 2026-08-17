@@ -1,0 +1,82 @@
+# /etc/apparmor.d/usr.bin.postgres — InterGenOS AppArmor profile for
+# PostgreSQL server, shipped in enforce mode per database-landing-plan
+# §5f.
+#
+# Constrains filesystem access to the data + log + runtime directories,
+# the standard library link surface, and the PostgreSQL shared-data dir
+# (/usr/share/postgresql/ for catalog SQL + extension scripts). Denies
+# arbitrary binary exec, raw device access, raw network sockets.
+
+#include <tunables/global>
+
+/usr/bin/postgres flags=(attach_disconnected) {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+  #include <abstractions/openssl>
+
+  capability setuid,
+  capability setgid,
+  capability dac_read_search,
+  capability sys_resource,
+
+  # Binary + bundled helpers exec'd by postgres (e.g., archive command,
+  # WAL receiver, parallel-worker fork-exec).
+  /usr/bin/postgres    mr,
+  /usr/bin/postmaster  mr,
+  /usr/bin/initdb      mr,
+  /usr/bin/pg_*        mrix,
+  /usr/lib/postgresql/**  mr,
+
+  # Standard library link surface (libc + libssl + libldap + libsasl +
+  # libreadline + libxml2 + libxslt + libpam + liblz4 + libzstd + libicu
+  # + libsystemd + libxxhash + libllvm — pulled in via abstractions and
+  # explicit paths).
+  /usr/lib/libldap*.so*    mr,
+  /usr/lib/liblber*.so*    mr,
+  /usr/lib/libpam.so*      mr,
+  /usr/lib/liblz4*.so*     mr,
+  /usr/lib/libzstd*.so*    mr,
+  /usr/lib/libicu*.so*     mr,
+  /usr/lib/libxml2.so*     mr,
+  /usr/lib/libxslt*.so*    mr,
+  /usr/lib/libsystemd*.so* mr,
+  /usr/lib/libLLVM*.so*    mr,
+  /usr/lib/libgssapi*.so*  mr,
+  /usr/lib/libkrb5*.so*    mr,
+
+  # Shared data: catalog SQL, extension scripts, locale data
+  /usr/share/postgresql/   r,
+  /usr/share/postgresql/** r,
+
+  # Data directory (read-write — the cluster)
+  /var/lib/postgresql/       rw,
+  /var/lib/postgresql/**     rwk,
+
+  # Log directory
+  /var/log/postgresql/       rw,
+  /var/log/postgresql/**     rwk,
+
+  # Runtime / socket directory
+  /run/postgresql/           rw,
+  /run/postgresql/**         rwk,
+
+  # tmpdir under PrivateTmp
+  /tmp/                      r,
+  /tmp/**                    rwk,
+
+  # /proc + /sys reads needed for stats, limits, NUMA, jemalloc
+  @{PROC}/sys/kernel/ngroups_max r,
+  @{PROC}/sys/kernel/random/uuid r,
+  @{PROC}/sys/kernel/random/boot_id r,
+  @{PROC}/sys/vm/overcommit_memory r,
+  @{PROC}/sys/vm/overcommit_ratio  r,
+  @{PROC}/@{pid}/limits          r,
+  @{PROC}/@{pid}/maps            r,
+  @{PROC}/@{pid}/status          r,
+  @{PROC}/sys/kernel/hostname    r,
+  /sys/devices/system/cpu/       r,
+  /sys/devices/system/cpu/**     r,
+
+  # Deny everything else explicitly. AppArmor's default is deny; this
+  # comment is documentation.
+}

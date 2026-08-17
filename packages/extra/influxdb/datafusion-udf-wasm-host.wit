@@ -1,0 +1,102 @@
+package datafusion-udf-wasm:udf@0.2.0;
+
+interface types {
+    // TODO: add more variants
+    variant data-fusion-error-kind {
+        not-implemented(string),
+        internal(string),
+        plan(string),
+        configuration(string),
+        execution(string),
+    }
+
+    record data-fusion-error {
+        context: list<string>,
+        kind: data-fusion-error-kind,
+    }
+
+    record data-type {
+        // arrow IPC schema with a single field that contains the datatype
+        arrow-ipc-schema: list<u8>,
+    }
+
+    record field {
+        name: string,
+        data-type: data-type,
+        nullable: bool,
+        dict-is-ordered: bool,
+        metadata: list<tuple<string, string>>,
+    }
+
+    record array {
+        // arrow IPC record batch with one column
+        arrow-ipc-batch: list<u8>,
+    }
+
+    record scalar-value {
+        // array with one value
+        array: array,
+    }
+
+    // TODO: `array`
+    variant array-function-signature {
+        recursive-array,
+        map-array,
+    }
+
+    // TODO: get `one-of` to work
+    //       sadly recursive types don't work yet, see <https://github.com/WebAssembly/component-model/issues/56>.
+    // TODO: `coercible`
+    variant type-signature {
+        variadic(list<data-type>),
+        user-defined,
+        variadic-any,
+        uniform(tuple<u64, list<data-type>>),
+        exact(list<data-type>),
+        comparable(u64),
+        any(u64),
+        array-signature(array-function-signature),
+        numeric(u64),
+        %string(u64),
+        nullary,
+    }
+
+    enum volatility {
+        immutable,
+        stable,
+        volatile,
+    }
+
+    record signature {
+        type-signature: type-signature,
+        volatility: volatility,
+        parameter-names: option<list<string>>,
+    }
+
+    variant columnar-value {
+        array(array),
+        scalar(scalar-value),
+    }
+
+    record scalar-function-args {
+        args: list<columnar-value>,
+        arg-fields: list<field>,
+        number-rows: u64,
+        return-field: field,
+        config-options: list<tuple<string, string>>,
+    }
+
+    resource scalar-udf {
+        name: func() -> string;
+        signature: func() -> signature;
+        return-type: func(arg-types: list<data-type>) -> result<data-type, data-fusion-error>;
+        invoke-with-args: func(args: scalar-function-args) -> result<columnar-value, data-fusion-error>;
+    }
+
+    root-fs-tar: func() -> option<list<u8>>;
+    scalar-udfs: func(source: string) -> result<list<scalar-udf>, data-fusion-error>;
+}
+
+world datafusion {
+    export types;
+}

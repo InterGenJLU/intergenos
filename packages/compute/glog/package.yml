@@ -1,0 +1,39 @@
+name: glog
+version: "0.7.1"
+release: 1
+description: C++ application-level logging library (google-glog)
+license: BSD-3-Clause
+homepage: https://github.com/google/glog
+tier: compute
+build_style: custom
+install_func: do_install
+
+# General-purpose C++ library; entered the tree as a ROCm compute-stack
+# dependency (rocprofiler-register links it — its bundled path is an
+# unpinned master-branch git clone that cannot work from a release
+# tarball, so the system-library switch is used instead, matching the
+# reference distro). Sole consumers today are compute-tier; retier if a
+# broader consumer appears. 0.7.1 is upstream's latest stable release.
+#
+# Pin witnesses (two-witness, decided 2026-07-16): sha256 below verified
+# against the upstream download AND Homebrew's glog formula, which
+# declares the identical URL and sha256 (a 2024 artifact with a long
+# witness history).
+source:
+  - url: https://github.com/google/glog/archive/refs/tags/v${version}.tar.gz
+    filename: glog-${version}.tar.gz
+    sha256: 00e4a87e87b7e7612f519a41e491f16623b12423620006f59f5688bfd8d13b08
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  host: []
+  runtime: []
+tests:
+  enabled: false
+  reason: "glog's test battery requires an external GoogleTest (WITH_GTEST resolves it via find_package/fetch; glog does not vendor a copy in the release tarball) — offline-fatal in the network-less chroot, and gtest is not in the tree. The shipped surface (libglog.so + headers + CMake config) builds and links without it and is checked by verify_paths; its sole consumer (rocprofiler-register) exercises the library at its own build/link time."
+verify_paths:
+  - /usr/lib/libglog.so
+  - /usr/include/glog/logging.h
+  - /usr/lib/cmake/glog

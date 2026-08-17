@@ -1,0 +1,22 @@
+name: python-pip
+version: "25.3"
+release: 2
+content_hash: 4fb61da4ff60a263
+description: Python package installer, bootstrapped from the interpreter's bundled ensurepip wheel
+license: MIT
+homepage: https://pip.pypa.io/
+tier: core
+build_style: custom
+install_func: do_install
+# No external source: the pip wheel ships INSIDE the pinned python 3.14
+# tree (Lib/ensurepip/_bundled/) and is versioned with the interpreter.
+# do_install asserts the bundled wheel version matches this recipe's
+# version, so a python upgrade cannot silently ship a mislabeled pip.
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/pip3
+  - /usr/lib/python3.14/site-packages/pip/__init__.py

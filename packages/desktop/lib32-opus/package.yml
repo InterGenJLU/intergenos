@@ -1,0 +1,44 @@
+name: lib32-opus
+version: "1.6.1"
+release: 1
+description: Interactive speech and audio codec (32-bit multilib runtime)
+license: BSD-3-Clause
+homepage: https://opus-codec.org/
+tier: desktop
+# PURE-YML package (no build.sh): driven end-to-end by the builder's lib32
+# meson lane — cross-file configure, verbose ninja, allowlist staged-copy
+# install (only /usr/lib32 ships).
+#
+# Pinned explicitly against the pinned 1.6.1 meson_options.txt (G3 — pin,
+# never autodetect):
+# - extra-programs=disabled: demo/test binaries the lib-only twin never
+#   ships (the allowlist would drop them; not building them is the honest
+#   form of not shipping them).
+# - tests=disabled + docs=disabled: the test battery and doxygen docs
+#   exercise/describe sources identical to the fully-tested 64-bit
+#   sibling's build (environmental + scope, Rule-10 class); the shipped
+#   lib is verified by the archive-time width/time64 audits and the
+#   NEEDED-closure gate.
+# - Everything else stays at the pinned defaults the sibling builds with
+#   (deep-plc/dred/osce default disabled; float API default on).
+build_style: meson
+lib32_source: opus
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://downloads.xiph.org/releases/opus/opus-${version}.tar.gz
+  sha256: 6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1
+dependencies:
+  build:
+  - lib32-glibc
+  host: []
+  runtime:
+  - lib32-glibc
+configure_flags:
+- -Dextra-programs=disabled
+- -Dtests=disabled
+- -Ddocs=disabled
+verify_paths:
+  - /usr/lib32/libopus.so.0
+  - /usr/lib32/pkgconfig/opus.pc

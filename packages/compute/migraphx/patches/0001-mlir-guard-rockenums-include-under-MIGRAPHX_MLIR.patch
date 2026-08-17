@@ -1,0 +1,31 @@
+Guard the RockEnums.h include under MIGRAPHX_MLIR
+
+mlir.cpp is compiled unconditionally (it provides the stub path when the
+MLIR backend is disabled), but the <mlir-c/Dialect/RockEnums.h> include
+sits ABOVE the #ifdef MIGRAPHX_MLIR block — so a build with
+MIGRAPHX_ENABLE_MLIR=OFF (no rocMLIR present) dies on the include even
+though every RockEnums consumer in the file is correctly guarded (the
+tuning-table handles and mlirRockTuning* calls all live inside the
+MIGRAPHX_MLIR region; migraphx/gpu/mlir.hpp references no Rock symbol).
+Move the include beside its sibling <mlir-c/Dialect/Rock.h> inside the
+guard — upstream intent unambiguous, same class as the rocsolver rfinfo
+guard slip.
+
+--- a/src/targets/gpu/mlir.cpp
++++ b/src/targets/gpu/mlir.cpp
+@@ -31,7 +31,6 @@
+ #include <migraphx/dead_code_elimination.hpp>
+ #include <migraphx/pass_manager.hpp>
+ #include <migraphx/gpu/mlir.hpp>
+-#include <mlir-c/Dialect/RockEnums.h>
+ #include <numeric>
+ #include <ostream>
+ 
+@@ -39,6 +38,7 @@
+ #include <mlir-c/IR.h>
+ #include <mlir-c/BuiltinAttributes.h>
+ #include <mlir-c/BuiltinTypes.h>
++#include <mlir-c/Dialect/RockEnums.h>
+ #include <mlir-c/Diagnostics.h>
+ #include <mlir-c/Dialect/MIGraphX.h>
+ #include <mlir-c/Dialect/Rock.h>

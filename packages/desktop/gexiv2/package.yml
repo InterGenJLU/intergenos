@@ -1,0 +1,37 @@
+name: gexiv2
+version: "0.16.0"
+release: 2  # r2: gir export_packages gexiv2->gexiv2-0.16 (content change, same version)
+# 0.14.6 -> 0.16.0 (2026-06-25 silent-loss audit): localsearch (GNOME 49) requires
+# gexiv2-0.16 for image EXIF/XMP metadata indexing; the stale 0.14.6 pin failed
+# that probe (`gexiv2-0.16 found: NO`, only 0.14.6 present). 0.16.0 is the current
+# stable (13 Sep 2025, "no change, version bump to stable"); our exiv2 0.28.7
+# satisfies it. CORRECTED 2026-07-03 (GE-01 L20): the original "nautilus/gimp
+# are unaffected" claim here was an unverified assumption, DISPROVEN on-run —
+# they are API-compatible but probe the RETIRED pkg-config module name 'gexiv2'
+# (0.16.0 ships only gexiv2-0.16.pc), so both consumers' probes fast-fail.
+# Their recipes migrate the probe to gexiv2-0.16 (nautilus = upstream-main
+# backport; gimp same class). Any future gexiv2 consumer must probe gexiv2-0.16.
+description: GObject wrapper for Exiv2
+license: GPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gexiv2/0.16/gexiv2-${version}.tar.xz
+  sha256: d96f895f24539f966f577b2bb2489ae84f8232970a8d0c064e4a007474a77bbb
+dependencies:
+  build:
+  - exiv2
+  - vala
+  - pygobject3
+  - glib2
+  host: []
+  runtime:
+  - exiv2
+  - glib2
+# verify_paths track the 0.16 RENAMED library (GE-01 L27 — the L20 class
+# tail: 0.16 renamed the .so alongside the .pc; the stale /usr/lib/
+# libgexiv2.so declaration failed squashfs Step 4.5 on the built chroot).
+verify_paths:
+  - /usr/lib/libgexiv2-0.16.so

@@ -1,0 +1,11 @@
+name: sample
+version: 1.0
+release: 1
+description: Synthetic test fixture for check-aspirational-stubs.py PASS path
+license: GPL-3.0-or-later
+tier: core
+build_style: manual
+
+verify_paths:
+  - /usr/bin/sample
+  - /usr/lib/systemd/system/sample.service

@@ -1,0 +1,45 @@
+[Unit]
+Description=Valkey in-memory KV store
+After=network.target
+
+[Service]
+Type=notify
+User=valkey
+Group=valkey
+ExecStart=/usr/bin/valkey-server /etc/valkey/valkey.conf
+ExecReload=/bin/kill -HUP $MAINPID
+TimeoutStartSec=30
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=5
+
+# Security hardening — landing plan §5e baseline
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+ProtectClock=yes
+ProtectProc=invisible
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=true
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+CapabilityBoundingSet=
+AmbientCapabilities=
+ReadWritePaths=/var/lib/valkey /var/log/valkey /run/valkey
+ReadOnlyPaths=/etc/valkey
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

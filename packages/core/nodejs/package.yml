@@ -1,0 +1,36 @@
+name: nodejs
+version: "22.22.0"
+release: 2  # hook-contract wave: doc symlink moved post_install -> do_install (owned payload)
+description: JavaScript runtime built on V8
+license: MIT
+homepage: https://nodejs.org/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://nodejs.org/dist/v${version}/node-v${version}.tar.xz
+  sha256: 4c138012bb5352f49822a8f3e6d1db71e00639d0c36d5b6756f91e4c6f30b683
+patches:
+  - file: node-v22.22.0-python_build_fix-1.patch
+    sha256: 2e9bbd25cbf3841907e9d5bb601bf74450e91bc2f833d64340db2683ffa2e1c4
+dependencies:
+  build:
+  - brotli
+  - c-ares
+  - icu
+  - libuv
+  - nghttp2
+  - which
+  host: []
+  runtime:
+  - brotli
+  - c-ares
+  - icu
+  - libuv
+  - nghttp2
+  - openssl
+  - zlib
+
+verify_paths:
+  - /usr/bin/node
+  - /usr/bin/npm

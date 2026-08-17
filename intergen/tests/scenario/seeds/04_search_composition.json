@@ -1,0 +1,34 @@
+{
+  "id": "CMP-search-composition-01",
+  "name": "web_search loses the session-established city (finding 4)",
+  "axis": ["routing", "context_persistence", "decomposer"],
+  "category": "composition",
+  "postures": ["2B-locked"],
+  "capabilities": ["tool:web_search", "route:capability_question", "cross:query-composition"],
+  "tags": ["seed:dogfood-4", "class:composition", "class:context-persistence"],
+  "session_policy": "single-session",
+  "turns": [
+    {
+      "user": "Gardendale, Alabama",
+      "description": "Establish the location referent (the city) in session context [6]->[7]. No explicit assertion — the auto-assertions (non_empty, no_filler, no_wrong_package_manager, no_hallucinated_device_path, no_capability_denial) are the real checks the zero-vacuous guard requires.",
+      "assertions": []
+    },
+    {
+      "user": "So you can't check the Walmart store hours near me? Are you sure?",
+      "description": "[9] — CORRECT: re-asserts 'yes, I can search the web' via the capability_question handler. The capability-positive that [11] then fails to compose against.",
+      "assertions": [
+        ["routes_via", "capability_question", "the capability re-assertion routes to the canned capability answer"],
+        ["contains", "search the web", "affirms the web-search capability"],
+        {"type": "no_tool", "description": "a capability assertion answers, it does not yet run a search"}
+      ]
+    },
+    {
+      "user": "Search the web for walmart hours near me",
+      "description": "T3 [11] — the defect: web_search runs with the LITERAL query 'Search the web for walmart hours near me'; the session-established city never composes in and 'near me' is not resolved. The executed query must fold in the city and drop the meaningless 'near me'.",
+      "assertions": [
+        ["uses_tool", "web_search", "the search request dispatches web_search"],
+        {"type": "tool_arg_contains", "params": {"tool": "web_search", "key": "query"}, "value": "Gardendale", "description": "the composition guard: the executed query must fold in the session-established city"}
+      ]
+    }
+  ]
+}

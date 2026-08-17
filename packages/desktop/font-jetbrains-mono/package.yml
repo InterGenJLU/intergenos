@@ -1,0 +1,23 @@
+name: font-jetbrains-mono
+version: "2.304"
+release: 2  # r2: neutral-language sweep of comments and printed text: decisions are recorded as "decided <date>" instead of being credited to a person or project role, development-host shorthand is replaced by a plain description, and the citations of a repository that is not published are replaced by what they were pointing at. Comments and strings only — no rule, path, flag, threshold or code path changed. The public-content scanner now carries detectors for all three classes (scripts/check-public-content.py), so the classes cannot return silently; tests/preflight/test_public_language_detectors.py proves each detector in both directions.
+content_hash: a12ac983a26b245d
+description: JetBrains Mono — modern monospace variable font with programming ligatures (regular + italic). Single-file variable-weight fonts; ligature-enabled variant (NOT the "NL" no-ligatures variant). Used as InterGenOS monospace default (decided 2026-05-22) for terminal + text editor + code surfaces.
+license: OFL-1.1
+homepage: https://github.com/JetBrains/JetBrainsMono
+# First-party-curated subset of upstream JetBrains Mono 2.304 release
+# (single .zip 5.4MB on upstream; we extract variable-weight .ttf files
+# + OFL.txt + AUTHORS.txt only -> 311KB tarball). Bundled at assets/
+# following the asset-in-package convention.
+tier: desktop
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - fontconfig
+verify_paths:
+  - /usr/share/fonts/jetbrains-mono/OFL.txt
+  - /usr/share/fonts/jetbrains-mono/AUTHORS.txt

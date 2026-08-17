@@ -1,0 +1,28 @@
+name: signal
+version: "1.0"
+release: 3  # r3: install output rewritten for the person at the terminal: lines that named internal machinery, internal decision codes or this project's own design rationale are replaced with plain statements of what happened and what to do about it, or removed where there was nothing to act on. Printed text only — no rule, path, flag, threshold, verification step or code path changed. tests/preflight/test_package_output_is_for_users.py holds the line.
+content_hash: d6f450fcbec7ef81
+description: Helper to download and install Signal Desktop
+license: GPL-3.0-or-later
+# Signal Desktop itself is Free Software (AGPL-3.0-only). It is vendored
+# (downloaded at runtime from Signal's official apt repo) rather than
+# built from source, so it is handled via the download-helper pattern
+# like the other extra-tier vendor apps. payload_license records the
+# FOSS license of the downloaded payload; `license` above is the
+# InterGenOS helper script's own (first-party) license, consistent with
+# every other helper (chrome/brave/spotify/edge/vscode/discord).
+payload_license: AGPL-3.0-only
+homepage: https://signal.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  # H-007 Phase B: signal sources /usr/share/igos/helpers/helper-lib.sh.
+  - intergenos-helper-lib
+verify_paths:
+  - /usr/bin/igos-install-signal
+  - /usr/share/igos/helpers/keyrings/signal-keyring.gpg

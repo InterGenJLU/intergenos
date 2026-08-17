@@ -1,0 +1,26 @@
+name: ruby
+version: "4.0.1"
+release: 1
+description: Ruby programming language
+license: Ruby
+homepage: ''
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://cache.ruby-lang.org/pub/ruby/4.0/ruby-${version}.tar.xz
+  sha256: 0531fe57dfdb56bf591620d2450642ea0e0964f3512a6ebee7dc9305de69395f
+dependencies:
+  build:
+  - libyaml
+  - rust
+  host: []
+  runtime:
+  - libyaml
+configure_flags:
+- --prefix=/usr
+- --enable-shared
+verify_paths:
+  - /usr/bin/ruby
+  - /usr/bin/bundle
+  - /usr/lib/libruby.so

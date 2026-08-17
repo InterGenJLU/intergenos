@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: remote-desktop — monitor + return arrow. VL primitives only, colorless. -->
+  <g class="glyph">
+    <rect x="56" y="72" width="144" height="98" rx="12"/>
+    <line x1="104" y1="192" x2="152" y2="192"/>
+    <line x1="128" y1="170" x2="128" y2="192"/>
+    <path d="M150 148 A32 32 0 1 0 118 116"/>
+    <polyline points="102,116 118,116 118,132"/>
+  </g>
+</svg>

@@ -1,0 +1,31 @@
+name: at
+version: "3.2.5"
+release: 5  # r5: post_install creates-or-corrects the spool (install -d -m1770 -o atd -g atd /var/spool/atjobs + /var/spool/atspool, .SEQ chown when present) — the sealed archive ships no spool paths and archive deployment strips uid/gid, so the spool landed root:root on installed systems (measured on the ge9b-12 installed system) and atd could not write its own spool. r4 (hook-contract wave): pam.d/atd moved post_install -> do_install (owned payload)
+content_hash: 7b4d5d05469fd039
+description: Job scheduling commands (at, batch, atq, atrm)
+license: GPL-2.0-or-later
+tier: base
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://anduin.linuxfromscratch.org/BLFS/at/at_${version}.orig.tar.gz
+    sha256: bb066b389d7c9bb9d84a35738032b85c30cba7d949f758192adc72c9477fd3b8
+
+dependencies:
+  build:
+    - exim
+    - linux-pam
+  host: []
+  runtime:
+    - exim
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "tests need a running atd daemon, sendmail delivery, and PAM stack — none available in offline build chroot"
+verify_paths:
+  - /etc/pam.d/atd
+  - /usr/bin/at
+  - /usr/sbin/atd
+  - /usr/lib/systemd/system/atd.service

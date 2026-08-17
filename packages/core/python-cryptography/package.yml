@@ -1,0 +1,33 @@
+name: python-cryptography
+version: "44.0.0"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Python cryptographic recipes and primitives
+license: Apache-2.0 OR BSD-3-Clause
+homepage: https://cryptography.io/
+source:
+- url: https://pypi.org/packages/source/c/cryptography/cryptography-${version}.tar.gz
+  sha256: cd4e834f340b4293430701e772ec543b0fbe6c2dea510a5286fe0acabe153a02
+build_artifacts:
+- name: cryptography-${version}-vendor.tar.xz
+  generated_by: cargo-vendor
+dependencies:
+  build:
+  - openssl
+  - rust
+  - cffi
+  - maturin
+  host:
+  - setuptools
+  - wheel
+  runtime:
+  - openssl
+  - cffi
+tier: core
+build_style: custom
+# Python cryptography package. Has Rust extensions via pyo3/maturin built
+# against OpenSSL. Required at systemd-pass2 build time for the ukify tool
+# (Unified Kernel Image generator + signer). Without cryptography, ukify
+# is disabled.
+
+verify_paths:
+  - /usr/lib/python3.14/site-packages

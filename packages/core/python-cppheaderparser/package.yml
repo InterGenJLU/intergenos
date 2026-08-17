@@ -1,0 +1,22 @@
+name: python-cppheaderparser
+version: "2.7.4"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: C++ header parser for Python (core — hipamd code-generation build dep)
+license: BSD-3-Clause
+homepage: https://github.com/robotpy/robotpy-cppheaderparser
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://files.pythonhosted.org/packages/3c/ba/d8d168a4b54cae66eaf13d1d9197ca9349c94653815e061f79e7eed86c01/CppHeaderParser-${version}.tar.gz
+    sha256: 382b30416d95b0a5e8502b214810dcac2a56432917e2651447d3abe253e3cc42
+
+dependencies:
+  build:
+  - setuptools
+  host: []
+  runtime:
+  - python-ply
+verify_paths:
+  - /usr/lib/python3.14/site-packages/CppHeaderParser

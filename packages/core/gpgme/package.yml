@@ -1,0 +1,27 @@
+name: gpgme
+version: "2.0.1"
+release: 1
+description: GnuPG Made Easy library
+license: LGPL-2.1-or-later
+homepage: https://www.gnupg.org/
+tier: core
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.gnupg.org/ftp/gcrypt/gpgme/gpgme-${version}.tar.bz2
+  sha256: 821ab0695c842eab51752a81980c92b0410c7eadd04103f791d5d2a526784966
+dependencies:
+  build:
+  - libassuan
+  - gnupg2
+  host: []
+  runtime:
+  - libassuan
+  - gnupg2
+configure_flags:
+- --prefix=/usr
+- --disable-static
+verify_paths:
+  - /usr/bin/gpgme-json
+  - /usr/bin/gnupg-key-manage
+  - /usr/lib/libgpgme.so

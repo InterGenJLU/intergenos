@@ -1,0 +1,49 @@
+# InterGenOS build-watcher SBU budget table — work-plan 1.15, spec §4.
+# Consumed by scripts/build-watcher.sh. Format:  package<TAB>sbu<TAB>source
+#
+# The KEY is the package name as build-watcher derives it from a per-package log
+#   basename after stripping the timestamp AND the driver phase marker
+#   (-chroot/-ch8/-ch10): "webkitgtk-<ts>.log" -> "webkitgtk", "gcc-ch8-<ts>.log"
+#   -> "gcc". Keys therefore match the real LOG-derived names, not recipe dirs
+#   ("gcc-core" is the recipe dir; the ch8 driver logs it as gcc-ch8 -> key "gcc";
+#   corrected 2026-07-09, live-defect #3).
+#
+# 1 SBU = binutils-pass1's MEASURED wall time on THIS run (the calibration anchor).
+#   Launch-5 measured 3m13s (193 s) on the current build VM. build-watcher.sh
+#   measures the anchor itself from the logs when --calibration is not passed and
+#   prints the derived seconds-per-SBU in its first CHECKIN line.
+#
+# budget_seconds(pkg) = sbu * calibration_seconds_per_SBU.
+# Packages ABSENT from this table budget at the DEFAULT CLASS: 30 min WALL (1800 s,
+#   fixed, NOT sbu-scaled) — generous by design; the tripwire hunts order-of-magnitude
+#   runaways, not 2x slowness (spec §4). ALARM at 3x budget, HALT-condition at 5x.
+#   A package only NEEDS a row here if its legitimate wall time exceeds 3x the default
+#   (90 min) — otherwise the default already accommodates it without a false alarm.
+#
+# lib32 twins with no book SBU: source token "sibling:<name>" -> the sibling's budget
+#   x 2.5 (doctrine §7.2), resolved at runtime.
+#
+# SOURCE precedence (the rust L15-r3 lesson, spec §4): MEASURED beats book. Book SBUs
+#   can include test/LLVM time we skip, so a measured row ("measured:<date>") is used
+#   wherever an on-metal wall time exists; book rows are the fallback. This table grows
+#   as the burn's forensic trace yields more measured rows.
+#
+# glibc also carries a HARD 40-min wall cap inside the watcher (dual-width recursion
+#   tripwire, doctrine §7): configure-run count > 2 OR make-syscalls > 120 OR wall
+#   > 40 min all fire RECURSION-SIGNATURE independently of this budget row.
+#
+# Toolchain gcc-pass1/gcc-pass2 have no measured trace on disk yet and are not known
+#   to exceed 90 min, so they use the default class; add measured rows from the burn
+#   trace if either proves long (measured-beats-book growth model).
+#
+# package	sbu	source
+binutils-pass1	1.0	calibration-anchor; toolchain reference (launch-5 measured 3m13s = 193 s)
+glibc	2.4	measured:2026-07-03 (launch-5 dual-width wall 7m42s / anchor 193 s)
+gcc	46	book:LFS-stable-ch8 (final gcc, 46 SBU with tests; log gcc-ch8-<ts> -> key gcc) — no on-metal trace yet
+llvm	20	measured-range:doctrine-2026-07 (long pole, ~1 h before rust) — refine from burn trace
+rust	40	measured-range:doctrine-2026-07 (the single longest compile, 1-2 h, lto=fat) — refine from burn trace
+linux-kernel	2.5	book:LFS-stable-ch10 (typical 2.5 SBU)
+libreoffice	12.7	measured:2026-07-04 (trace wall 40.8 min / anchor 193 s)
+firefox	6.3	measured:2026-07-04 (trace wall 20.2 min / anchor 193 s)
+thunderbird	6.8	measured:2026-07-04 (trace wall 21.8 min / anchor 193 s)
+webkitgtk	19.9	measured:2026-07-04 (trace wall 63.9 min / anchor 193 s)

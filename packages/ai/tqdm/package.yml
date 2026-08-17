@@ -1,0 +1,21 @@
+name: tqdm
+version: "4.69.0"
+release: 1
+description: Fast, extensible progress bar for Python
+license: MPL-2.0 AND MIT
+homepage: https://github.com/tqdm/tqdm
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/8c/69/40407dfc835517f058b603dbf37a6df094d8582b015a51eddc988febbcb7/tqdm-4.69.0.tar.gz
+  sha256: 700c5e85dcd5f009dd6222588a29180a193a748247a5d855b4d67db93d79a53b
+dependencies:
+  build:
+  - setuptools
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/tqdm/std.py
+  - /usr/lib/python3.14/site-packages/tqdm/cli.py

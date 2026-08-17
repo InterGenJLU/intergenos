@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- device glyph: display / monitor — a screen on a stand. -->
+  <g class="glyph">
+    <rect x="55" y="62.7" width="146" height="103.7" rx="11.5"/>
+    <line x1="128" y1="166.4" x2="128" y2="193.3"/>
+    <line x1="93.4" y1="193.3" x2="162.6" y2="193.3"/>
+  </g>
+</svg>

@@ -1,0 +1,22 @@
+name: potrace
+version: "1.16"
+release: 2  # r2: iso_include true — runtime closure of the 2026-07-18 curation correction (shipped consumer requires shipped provider)
+description: Bitmap to vector graphics conversion tool and library
+license: GPL-2.0-or-later
+homepage: https://potrace.sourceforge.net/
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+- url: https://downloads.sourceforge.net/potrace/potrace-${version}.tar.gz
+  sha256: be8248a17dedd6ccbaab2fcc45835bb0502d062e40fbded3bc56028ce5eb7acc
+dependencies:
+  build:
+  - llvm
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/potrace
+  - /usr/lib/libpotrace.so.0.0.6
+  - /usr/include/potracelib.h

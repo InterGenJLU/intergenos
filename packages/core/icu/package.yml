@@ -1,0 +1,20 @@
+name: icu
+version: "78.2"
+release: 1
+description: International Components for Unicode
+license: ICU
+homepage: https://icu.unicode.org/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/unicode-org/icu/releases/download/release-${version}/icu4c-${version}-sources.tgz
+  sha256: 3e99687b5c435d4b209630e2d2ebb79906c984685e78635078b672e03c89df35
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/icu-config
+  - /usr/bin/derb
+  - /usr/lib/libicudata.so

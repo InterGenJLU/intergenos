@@ -1,0 +1,26 @@
+name: libdrm
+version: "2.4.131"
+release: 1
+description: Direct Rendering Manager library
+license: MIT
+homepage: https://dri.freedesktop.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://dri.freedesktop.org/libdrm/libdrm-${version}.tar.xz
+  sha256: 45ba9983b51c896406a3d654de81d313b953b76e6391e2797073d543c5f617d5
+dependencies:
+  build:
+  - libpciaccess
+  - docbook-xml
+  - docbook-xsl-nons
+  - docutils
+  - libxslt
+  host: []
+  runtime:
+  - libpciaccess
+silent_loss_accepted:
+  - cairo    # cairo is used only by libdrm's optional test-program decorations (modetest), NOT the library. libdrm is a foundational early-graph package; cairo is desktop-tier, so wiring it would invert the build order. The shipped libraries are unaffected. Not a real loss.
+verify_paths:
+  - /usr/lib/libdrm_amdgpu.so

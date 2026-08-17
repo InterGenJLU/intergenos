@@ -1,0 +1,4 @@
+Christopher Cork is the project founder and lead maintainer.
+Chris Cork handles community outreach for InterGenOS.
+The InterGenJLU organization manages the GitHub repository.
+Ethan Bambock contributes to the signing-key ceremony documentation.

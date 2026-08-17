@@ -1,0 +1,36 @@
+name: openssh
+version: "10.2p1"
+release: 6  # r6: neutral wording in both shipped sshd_config.d drop-in headers (no directive changed); r5: hook-contract wave: D-007 + hardening sshd_config.d drop-ins moved post_install -> do_install (owned payload)
+content_hash: 38c36853c7a8b4d0
+description: Secure Shell client and server
+license: BSD-2-Clause
+homepage: https://www.openssh.com/
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://ftp.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-${version}.tar.gz
+    sha256: ccc42c0419937959263fa1dbd16dafc18c56b984c03562d2937ce56a60f798b2
+
+dependencies:
+  build:
+    - openssl
+    - linux-pam
+    - zlib
+  host: []
+  runtime:
+    - openssl
+    - linux-pam
+    - zlib
+verify_paths:
+  - /etc/ssh/sshd_config.d/00-intergenos-d007.conf
+  - /etc/ssh/sshd_config.d/01-intergenos-hardening.conf
+  - /usr/bin/scp
+  - /usr/share/doc/openssh-10.2p1
+
+# Build inputs composed from the repository tree (declared so the published
+# source archive carries every input the build consumes — the corresponding-
+# source rule the kernel config fragments established; survey 2026-08-11).
+sources_extra:
+- config/systemd/sshd.service

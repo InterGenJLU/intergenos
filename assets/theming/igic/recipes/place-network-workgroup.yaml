@@ -1,0 +1,16 @@
+schema_version: 1
+id: place-network-workgroup
+stem: network-workgroup   # the PLACES color icon; the status symbolic (id network-workgroup)
+                          # emits network-workgroup-symbolic — no stem collision
+name: Network
+category: places
+kind: color
+template: none
+glyph: net-workgroup      # the peer-mesh mark (shared with the status symbolic — same identity)
+color: ecg-blue
+glow: signature
+pulse: none
+fit: 1.113                # optical-band re-fit (measured)
+export:
+  svg: true
+  png: [16, 24, 32, 48, 64, 128, 256]

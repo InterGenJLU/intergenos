@@ -1,0 +1,27 @@
+name: xhost
+version: "1.0.10"
+release: 1
+description: Server access control program
+license: MIT
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/app/xhost-${version}.tar.xz
+  sha256: a8afd70059479c712948b895e41c35a4a8bfcede3ba2d5a4b855c88bbb725be1
+dependencies:
+  build:
+  - libX11
+  - libXmu
+  - libXau
+  - xorgproto
+  host: []
+  runtime:
+  - libX11
+  - libXmu
+  - libXau
+configure_flags:
+- --prefix=/usr
+verify_paths:
+  - /usr/bin/xhost

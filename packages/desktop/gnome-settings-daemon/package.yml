@@ -1,0 +1,63 @@
+name: gnome-settings-daemon
+version: '49.1'
+release: 1
+description: GNOME settings daemon
+license: GPL-2.0-or-later
+homepage: https://gitlab.gnome.org/GNOME/gnome-settings-daemon
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-settings-daemon/49/gnome-settings-daemon-${version}.tar.xz
+  sha256: 2a9957fc4f91c3b9127b49484179bef485120d9c1c208e44d44e6a746e6cc1c1
+dependencies:
+  build:
+  - alsa-lib
+  - colord
+  - fontconfig
+  - gcr4
+  - geocode-glib
+  - geoclue2
+  - gnome-desktop
+  - libcanberra
+  - libgweather
+  - libnotify
+  - libwacom
+  - pulseaudio
+  - upower
+  - networkmanager
+  - wayland
+  - cups
+  - gnome-session
+  - modemmanager
+  - nss
+  - xwayland
+  - glib2
+  - gsettings-desktop-schemas
+  - polkit
+  host: []
+  runtime:
+  - alsa-lib
+  - colord
+  - fontconfig
+  - gcr4
+  - geocode-glib
+  - geoclue2
+  - gnome-desktop
+  - libcanberra
+  - libgweather
+  - libnotify
+  - libwacom
+  - pulseaudio
+  - upower
+  - networkmanager
+  - modemmanager
+  - nss
+  - glib2
+  - gsettings-desktop-schemas
+  - polkit
+  - cups
+verify_paths:
+  - /usr/share/GConf/gsettings/gnome-settings-daemon.convert
+  - /usr/lib/pkgconfig/gnome-settings-daemon.pc
+  - /usr/lib/udev/rules.d/61-gnome-settings-daemon-rfkill.rules

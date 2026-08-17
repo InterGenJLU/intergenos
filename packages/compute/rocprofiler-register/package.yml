@@ -1,0 +1,45 @@
+name: rocprofiler-register
+version: "7.2.4"
+release: 1
+description: ROCm profiler registration shim (hipamd/rocr load-time profiler hook)
+license: MIT
+homepage: https://github.com/ROCm/rocm-systems
+tier: compute
+build_style: custom
+install_func: do_install
+
+# rocm-systems monorepo at the rocm-7.2.4 tag; builds
+# projects/rocprofiler-register. Same pinned tarball as
+# rocr-runtime/rocm-hip/rocminfo — no new source pin. Added when the
+# first rocm-hip chroot build surfaced hipamd's HARD find_package
+# (hipamd/src/CMakeLists.txt:288) — the original scoping excluded it
+# off rocr's graceful else-branch; hipamd's require is unconditional,
+# and the reference distro's hip build carries it as a makedep.
+#
+# glog + fmt are SYSTEM packages (decided 2026-07-16): the upstream
+# bundled path (external/CMakeLists.txt) fetches both as unpinned
+# master-branch git submodules — a release tarball has no .git, so the
+# first chroot configure failed there in 7.4s ("not a git repository"),
+# and pinning would mean choosing commits upstream never witnessed.
+# ROCPROFILER_REGISTER_BUILD_{GLOG,FMT}=OFF flips to
+# find_package(REQUIRED); the reference distro builds 7.2.4 exactly
+# this way (system fmt + glog runtime deps).
+source:
+  - url: https://github.com/ROCm/rocm-systems/archive/refs/tags/rocm-${version}.tar.gz
+    filename: rocm-rocm-systems-${version}.tar.gz
+    sha256: 817f9c136125b8d162757a18cdc25b18b1efeb8ef36a948c85e4a672fd149de5
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - rocm-cmake
+  - fmt
+  - glog
+  host: []
+  runtime:
+  - fmt
+  - glog
+verify_paths:
+  - /opt/rocm/lib/librocprofiler-register.so
+  - /opt/rocm/lib/cmake/rocprofiler-register

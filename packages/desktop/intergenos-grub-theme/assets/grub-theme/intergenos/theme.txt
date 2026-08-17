@@ -1,0 +1,69 @@
+# InterGenOS GRUB theme -- K1 closure (operator-authored design 2026-05-21).
+#
+# Background is loaded INSIDE this theme via `desktop-image` below. The
+# legacy `background_image` GRUB command (still emitted by /etc/grub.d/
+# 06_intergenos_multi_background for installed systems + the conditional
+# in /EFI/InterGenOS/grub.cfg for the live ISO) is SHADOWED by the theme
+# when `set theme=...` is active — those calls only take effect after the
+# theme is unloaded mid-chainload (briefly, off-center, no stretch). The
+# theme's desktop-image is the only mechanism that renders correctly at
+# the menu screen.
+#
+# desktop-image-scale-method='stretch' makes GRUB scale the 1920x1080
+# source to whatever the negotiated gfxmode is at boot. The resolution-
+# specific PNGs at backgrounds/<WxH>.png in this directory remain for
+# the legacy background_image path (non-themed menus) but are not the
+# primary rendering mechanism.
+#
+# Menu styling notes:
+#   - menu_pixmap_style is intentionally OMITTED -> GRUB draws no menu border,
+#     so the brand mark composited into the background (lower-right corner) is
+#     never overlapped by a menu-box line.
+#   - Menu positioned in the upper-left quadrant (Option A): clears the central
+#     waveform peak (background's brightest region) AND the lower-right brand
+#     mark; sits over the darkest stippled-sky region of the background for
+#     readability against bright cyan elements.
+#   - Colors are the hex equivalents of GRUB's named "light-gray" + "light-blue"
+#     so they match GRUB_COLOR_NORMAL="light-gray/black" + GRUB_COLOR_HIGHLIGHT=
+#     "light-blue/black" set in /etc/default/grub.
+
+title-text: "InterGenOS Grub Menu"
+title-color: "#5555ff"
+title-font: "Unifont Regular 24"
+
+desktop-color: "#000000"
+desktop-image: "backgrounds/grub_background.png"
+desktop-image-scale-method: "stretch"
+
++ boot_menu {
+    left = 8%
+    width = 45%
+    top = 10%
+    height = 35%
+
+    item_font = "Unifont Regular 16"
+    selected_item_font = "Unifont Regular 16"
+    item_color = "#aaaaaa"
+    selected_item_color = "#5555ff"
+    item_height = 30
+    item_padding = 5
+    item_spacing = 3
+
+    # menu_pixmap_style OMITTED -- no menu border drawn
+}
+
++ progress_bar {
+    id = "__timeout__"
+    left = 8%
+    width = 45%
+    top = 50%
+    height = 12
+
+    font = "Unifont Regular 12"
+    text_color = "#aaaaaa"
+    fg_color = "#5555ff"
+    bg_color = "#000000"
+    border_color = "#5555ff"
+
+    text = "@TIMEOUT_NOTIFICATION_SHORT@"
+}

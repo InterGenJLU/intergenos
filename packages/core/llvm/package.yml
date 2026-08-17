@@ -1,0 +1,74 @@
+name: llvm
+version: "21.1.8"
+# release 4: lld added to the build (Decided 2026-07-23: the recipe was
+# clang-only — lld was never built at all, so nothing provided ld.lld,
+# /usr/include/lld, or liblld*; zig hard-requires them. lld extracts
+# into tools/ exactly like clang; its MachO port includes headers from
+# a sibling libunwind source dir (MachO/CMakeLists.txt), so the
+# libunwind tarball is pinned for header extraction ONLY — libunwind
+# itself is not built or installed).
+# release 3: LLVM_TARGETS_TO_BUILD host;AMDGPU -> all (Decided 2026-07-23:
+# the narrowing was never an authorized scope — this LLVM serves BOTH AMD
+# and NVIDIA compute (NVPTX) plus cross-target consumers; zig requires
+# every default backend. Additive: same version/soname, no consumer
+# rebuilds; cost = build time + libLLVM size).
+# release 2: elf_class mixed declaration (GE-01 launch-gate arc, 2026-07-03)
+# — same-version content change; publish gate requires monotonic
+# (version, release) against the mirror's 21.1.8-1.
+release: 5  # hook-contract wave: /etc/clang configs moved post_install -> do_install (owned payload)
+# Width contract: the GE multilib toolchain unlocked compiler-rt's i386
+# autodetection — clang now bundles its 32-bit compiler-rt runtimes
+# (ASan/UBSan/Scudo + crtbegin/crtend under
+# /usr/lib/clang/*/lib/i386-unknown-linux-gnu/): real 32-bit code linked
+# into -m32 builds, the multilib-compiler-runtime case the mixed vocabulary
+# exists for (gcc-core precedent). Governed via ELF_CLASS_MIXED_ALLOWED in
+# validate-package-tiers.py; authorized 2026-07-03.
+elf_class: "mixed"
+description: LLVM compiler infrastructure
+license: Apache-2.0
+homepage: https://llvm.org/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/llvm-${version}.src.tar.xz
+  sha256: d9022ddadb40a15015f6b27e6549a7144704ded8828ba036ffe4b8165707de21
+# Additional tarballs extracted by pre_configure in build.sh
+- url: https://anduin.linuxfromscratch.org/BLFS/llvm/llvm-cmake-${version}.src.tar.xz
+  sha256: 85735f20fd8c81ecb0a09abb0c267018475420e93b65050cc5b7634eab744de9
+- url: https://anduin.linuxfromscratch.org/BLFS/llvm/llvm-third-party-${version}.src.tar.xz
+  sha256: 7fe99424384aea529ffaeec9cc9dfb8b451fd1852c03fc109e426fe208a1f1a7
+- url: https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/clang-${version}.src.tar.xz
+  sha256: 6090e3f23720d003cdd84483a47d0eec6d01adbb5e0c714ac0c8b58de546aa62
+- url: https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/compiler-rt-${version}.src.tar.xz
+  sha256: dd54ae21aee1780fac59445b51ebff601ad016b31ac3a7de3b21126fd3ccb229
+- url: https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/lld-${version}.src.tar.xz
+  sha256: d9524c5ee952500a2af92c27042a0d90ab089962af47816d4c85d0ebf76373d1
+# libunwind: header-extraction dependency of lld's MachO port only —
+# never built, never installed (see release-4 note above).
+- url: https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/libunwind-${version}.src.tar.xz
+  sha256: 03e8adc6c3bdde657dcaedc94886ea70d1f7d551d622fcd8a36a8300e5c36cbc
+dependencies:
+  build:
+  - cmake
+  - git
+  - libxml2
+  host: []
+  runtime:
+  - libxml2
+verify_paths:
+  - /etc/clang/clang.cfg
+  - /etc/clang/clang++.cfg
+  - /usr/bin/llvm-addr2line
+  - /usr/bin/amdgpu-arch
+  - /usr/lib/libLLVM.so
+  - /usr/bin/ld.lld
+  - /usr/include/lld
+  # /etc/clang/{clang,clang++}.cfg ownership made explicit per plan v2
+  # (2026-05-27). post_install at build.sh:75-93 writes both files;
+  # adding to verify_paths makes pkm-provides return llvm for these
+  # paths so the duplicate heredoc in scripts/create-image.sh:376-382
+  # (now deleted) cannot drift undetected again. Class 11 closure for
+  # the clang-config-belongs-to-llvm sub-instance.
+  - /etc/clang/clang.cfg
+  - /etc/clang/clang++.cfg

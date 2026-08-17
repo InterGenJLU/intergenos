@@ -1,0 +1,128 @@
+name: steam
+# version = the HELPER's version (sibling convention: chrome/brave/edge/
+# spotify/vscode are all "1.0"); the fetched Valve payload version is
+# recorded at install time via igos_helper_set_version.
+version: "1.0"
+release: 7  # r7: the three install refusals are rewritten for the person reading them (signature verification failed, the release ships files this version does not install, and the launcher could not be found in the vendor's listing). Each now states that nothing was installed and nothing on the machine changed, and says whether to retry or report. The third was found by the new test rather than by the sweep that prompted this change. r6: game window density. A Proton prefix is created at the Wine default of 96 dots per inch, so on a display scaled above 1.0 everything Wine draws inside a windowed game — its title bar and window buttons — renders at a fraction of the size the rest of the desktop uses; setting LogPixels to 96 × the display scale in BOTH [Control Panel\Desktop] and [Software\Wine\Fonts] of the prefix registry corrects it (verified 2026-08-05 on one title). New command /usr/bin/igos-game-window-density (repo file assets/igos-game-window-density.py, installed without the suffix) does two things: `sync-hook` writes a protonfixes local default fix into the launching user's configuration, so GE-Proton sets the density from INSIDE the prefix at every game start — the only ordering that does not race Wine's own registry flush — and `apply` edits a prefix's user.reg directly for prefixes never launched through that hook, refusing while Steam or any Wine process runs. The generated hook calls the protonfixes shipped global default it displaces, so the -pf_tricks/-pf_dxvk_set/-pf_replace_cmd Steam launch options keep working. The /usr/bin/steam wrapper calls sync-hook at every launch (the one place that runs as the launching person inside their graphical session); a failure there is printed and the launch continues. Display scale is read from GNOME's compositor over D-Bus, falling back to Xft.dpi on X11 sessions only and then to the saved monitor configuration; Xft.dpi is not consulted under Wayland because GNOME rounds it to an integer multiple of 96 (measured 192 on a 1.333-scale panel). r3 (kept): the wrapper exports STEAM_EXTRA_COMPAT_TOOLS_PATHS=/opt/igos/compat-tools before exec'ing the bootstrap (appended so a user's own value is preserved) — the session-independent mechanism an environment.d snippet could not be, since that only loads when a login session begins. build.sh changed (the wrapper heredoc + the new install line). r5: the launch wrapper's refusal is now visible from the desktop, and the installer stops making a claim that was false. A desktop launch has no terminal, so a stderr-only refusal reached nobody: two launches failed with no message at all (2026-08-05). The wrapper now also sends the refusal to the desktop notification service when one is reachable, through notify-send if it is present — it is NOT a new dependency, and with no notify-send and no session the stderr text and the exit status are exactly as before. The installer no longer prints that a missing 32-bit library 'halts the launch loudly, never silently', which was untrue in precisely the desktop case, and no longer prints which of Valve's files it declines to install, which is a packaging decision the reader cannot act on. r4: neutral-language sweep of comments and printed text: decisions are recorded as "decided <date>" instead of being credited to a person or project role, development-host shorthand is replaced by a plain description, and the citations of a repository that is not published are replaced by what they were pointing at. Comments and strings only — no rule, path, flag, threshold or code path changed. The public-content scanner now carries detectors for all three classes (scripts/check-public-content.py), so the classes cannot return silently; tests/preflight/test_public_language_detectors.py proves each detector in both directions. r3: close-out defect #3 (visibility half) — the /usr/bin/steam fail-closed wrapper now exports STEAM_EXTRA_COMPAT_TOOLS_PATHS=/opt/igos/compat-tools before exec'ing the bootstrap (appended so a user's own value is preserved). This is the session-independent system-wide mechanism the ge-proton helper's env.d could not be: an environment.d snippet only loads when a login session begins, so a fresh helper install was invisible to an already-running Steam (the operator hit exactly this). Exporting at the single launch chokepoint makes /opt/igos/compat-tools visible to every Steam process with no relogin, for every user. Paired with ge-proton r3 relocating the payload to the pressure-vessel-SHAREABLE /opt. build.sh changed (the wrapper heredoc).
+content_hash: bcf8912c8f111214
+description: Steam client download-helper (Valve's signed apt repo; 32-bit runtime closure)
+license: LicenseRef-Valve-SSA
+homepage: https://store.steampowered.com/
+tier: extra
+# Operator decision 2 (2026-07-02): the Steam client download-helper with
+# a SCOPED weak-digest signature posture. Chrome-exemplar shape against
+# Valve's SIGNED apt repo (repo.steampowered.com), component `steam` (NOT
+# main), package `steam-launcher` amd64 (the i386 `steam` package is a
+# transitional shim). The helper tries STRICT signed-Release verification
+# first; ONLY on Valve's specific weak-digest (SHA1) rejection does it
+# retry with the allowance, pinned to Valve's key fingerprint, with the
+# sha256 InRelease->Packages->.deb chain STILL binding every byte and the
+# exception logged loudly (helper-lib's 7th-arg scoped path). Every other
+# helper keeps its shipped plain-gpgv posture; the exception self-retires
+# when Valve's signature digest moves to SHA256+. GROUNDED 2026-07-02:
+# Valve's current stable InRelease is SHA512-signed (both sigs, packet-
+# verified) and strict-verifies clean in the SHIPPED chroot gpgv 2.5.17,
+# so the weak path ships DORMANT today. REVIEW FINDING (Fable,
+# 2026-07-02): default gpgv rejects only MD5 — the unscoped baseline was
+# never SHA1-strict. RESOLVED same cycle, authorized: the
+# unscoped path is now hardened to reject SHA1 too (proven behavior-
+# identical against all four vendors' live InRelease in the shipped
+# chroot gpgv), so steam's 7th-arg path is the ONLY sanctioned weak-
+# digest exception (see tests/pkm/test_helper_weak_digest_verify.py).
+#
+# RT-4 (the binding rule — closure machinery rides THIS commit): the
+# helper writes a curated closure manifest (JSON at
+# /usr/share/igos/helpers/steam/closure.json, ldd-anchored + curated
+# dlopen sonames) and installs a FAIL-CLOSED /usr/bin/steam launch
+# wrapper that asserts every closure soname resolves in the 32-bit ABI
+# via ldconfig's ABI tag BEFORE exec'ing the real client — a missing
+# 32-bit lib halts the launch loudly instead of a silent Steam crash.
+# The 32-bit audio canary is the build-time `validation:` block below (a
+# real -m32 dlopen of libpulse-simple, which a 64-bit pactl check would
+# false-pass).
+#
+# The 32-bit runtime closure = the measured Steam-client host demand; pkm
+# pulls the whole lib32 stack (incl. the operator-decision-3 twins) with
+# steam. lib32-ncurses stays OUT (G5: measured absent from Valve
+# Depends+Recommends AND Arch depends). The install-time ldd is the final
+# arbiter; the fail-closed wrapper catches any drift.
+build_style: custom
+install_func: do_install
+iso_include: false
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - intergenos-helper-lib
+  # 32-bit runtime closure (Steam client host-side; pkm pulls the stack):
+  - lib32-glibc
+  - lib32-libX11
+  - lib32-libXext
+  - lib32-libXinerama
+  - lib32-libXrandr
+  - lib32-libXrender
+  - lib32-libXfixes
+  - lib32-libXScrnSaver
+  - lib32-libxcb
+  - lib32-libXau
+  - lib32-libXdmcp
+  - lib32-libxkbcommon
+  - lib32-libglvnd
+  - lib32-mesa
+  - lib32-vulkan-loader
+  - lib32-libdrm
+  - lib32-libpulse
+  - lib32-alsa-lib
+  - lib32-alsa-plugins
+  - lib32-nss
+  - lib32-nspr
+  - lib32-systemd-libs
+  - lib32-libgpg-error
+  - lib32-zlib
+  - lib32-expat
+  - lib32-wayland
+validation:
+  - type: sanity_check
+    description: "32-bit audio canary — a real -m32 dlopen of libpulse-simple resolves pa_simple_new (a 64-bit pactl check would false-pass); AND the shipped closure.json parses and lists libpulse.so.0"
+    script: |
+      set -u
+      # The audio canary: a 64-bit pactl succeeds even with NO 32-bit
+      # libpulse present, masking the exact gap that breaks Steam audio.
+      # Exercise the REAL 32-bit path — compile a -m32 probe that dlopens
+      # libpulse-simple.so.0 and resolves pa_simple_new. The build chroot
+      # has the -m32 toolchain (the target does not — that is why this is
+      # the build-time gate, and the launch wrapper's ldconfig ABI-tag
+      # assertion is the runtime backstop).
+      probe=$(mktemp -d)
+      cat > "$probe/canary.c" <<'CEOF'
+      #include <dlfcn.h>
+      #include <stdio.h>
+      int main(void) {
+          void *h = dlopen("libpulse-simple.so.0", RTLD_NOW);
+          if (!h) { fprintf(stderr, "canary: 32-bit libpulse-simple.so.0 did not load: %s\n", dlerror()); return 1; }
+          void *s = dlsym(h, "pa_simple_new");
+          if (!s) { fprintf(stderr, "canary: pa_simple_new not resolved in the 32-bit libpulse\n"); return 2; }
+          return 0;
+      }
+      CEOF
+      if ! gcc -m32 "$probe/canary.c" -ldl -o "$probe/canary" 2>"$probe/cc.err"; then
+          echo "FATAL: 32-bit audio canary did not COMPILE (no -m32 toolchain or no 32-bit libdl):"; cat "$probe/cc.err"; rm -rf "$probe"; exit 1
+      fi
+      if ! "$probe/canary"; then
+          echo "FATAL: 32-bit audio canary FAILED — the shipped lib32-libpulse does not load/resolve under -m32; Steam audio would silently break"; rm -rf "$probe"; exit 1
+      fi
+      rm -rf "$probe"
+      # Closure manifest self-consistency: the shipped JSON must parse and
+      # carry the audio soname the canary just proved (guards against a
+      # closure list that drifts away from the deps).
+      manifest="${DESTDIR}/usr/share/igos/helpers/steam/closure.json"
+      [ -f "$manifest" ] || { echo "FATAL: closure.json not shipped at $manifest"; exit 1; }
+      python3 -c "import json,sys; d=json.load(open('$manifest')); s=set(d['sonames']); assert 'libpulse.so.0' in s, 'closure.json missing libpulse.so.0'; assert len(s)>=20, f'closure too small: {len(s)}'" \
+          || { echo "FATAL: closure.json failed self-consistency"; exit 1; }
+      echo "steam: 32-bit audio canary PASSED + closure.json consistent"
+verify_paths:
+  - /usr/bin/igos-install-steam
+  - /usr/bin/steam
+  - /usr/bin/igos-game-window-density
+  - /usr/share/igos/helpers/steam/closure.json

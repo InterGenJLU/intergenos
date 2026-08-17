@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Calendar — page + header + rings + dates. -->
+  <g class="glyph">
+    <rect x="48" y="58" width="160" height="150" rx="14"/>
+    <line x1="48" y1="96" x2="208" y2="96"/>
+    <line x1="92" y1="44" x2="92" y2="70"/>
+    <line x1="164" y1="44" x2="164" y2="70"/>
+  </g>
+  <g class="fill">
+    <circle cx="88" cy="130" r="6"/><circle cx="128" cy="130" r="6"/><circle cx="168" cy="130" r="6"/>
+    <circle cx="88" cy="164" r="6"/><circle cx="128" cy="164" r="6"/><circle cx="168" cy="164" r="6"/>
+  </g>
+</svg>

@@ -1,0 +1,63 @@
+name: gst-plugins-base
+version: "1.28.1"
+release: 1
+description: GStreamer base plugins
+license: LGPL-2.0-or-later
+homepage: https://gstreamer.freedesktop.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugins-base-${version}.tar.xz
+  sha256: 1446a4c2a92ff5d78d88e85a599f0038441d53333236f0c72d72f21a9c132497
+dependencies:
+  build:
+  - gstreamer
+  - alsa-lib
+  - libogg
+  - libvorbis
+  - orc
+  - pango
+  - libX11
+  - libXext
+  - cdparanoia
+  - glib2
+  - graphene
+  - iso-codes
+  - libgudev
+  - libjpeg-turbo
+  - libpng
+  - mesa
+  - opus
+  - wayland-protocols
+  host: []
+  runtime:
+  - gstreamer
+  - alsa-lib
+  - libogg
+  - libvorbis
+  - orc
+  - pango
+  - libX11
+  - libXext
+  - cdparanoia
+  - glib2
+  - graphene
+  - iso-codes
+  - libgudev
+  - libjpeg-turbo
+  - libpng
+  - mesa
+  - opus
+# cdparanoia-3 is the pkgconfig module name; upstream cdparanoia ships NO .pc
+# file, so meson's `dependency('cdparanoia-3')` reports found: NO and falls back
+# to a direct library probe — which succeeds (`Library cdda_paranoia found: YES`
+# + `cdda_interface YES`), and the CD-audio plugin libgstcdparanoia.so is built
+# and installed. So the pkgconfig miss is NOT a feature loss. (silent-loss audit
+# 2026-06-25; a future general "meson pkgconfig-miss → find_library fallback"
+# gate rule could retire this per-package note.)
+silent_loss_accepted:
+  - cdparanoia-3   # no upstream .pc; gst's direct-library fallback builds the plugin
+verify_paths:
+  - /usr/bin/gst-device-monitor-1.0
+  - /usr/lib/libgstallocators-1.0.so

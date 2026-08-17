@@ -1,0 +1,12 @@
+schema_version: 1
+id: preferences-system
+name: System Settings (symbolic)
+category: actions
+kind: symbolic          # off-white stroke, no baked glow (VL §11.3 symbolic stay monochrome)
+glyph: gear
+accent: ecg-blue        # symbolic accent token (Phase-2: per-glyph accent placement)
+pulse: none
+fit: 1.34
+export:
+  svg: true
+  png: [16, 24, 32, 48]

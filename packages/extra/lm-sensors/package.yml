@@ -1,0 +1,44 @@
+name: lm-sensors
+version: "3.6.0"
+release: 1
+description: Hardware monitoring — libsensors, sensors CLI, sensors-detect, fancontrol
+license: LGPL-2.1-or-later AND GPL-2.0-or-later
+homepage: https://github.com/lm-sensors/lm-sensors
+tier: extra
+# Ships on the ISO (explicit override of the extra-tier mirror default,
+# decided 2026-07-21): thermal visibility is part of controlling a machine
+# you understand — the user must be able to see their hardware's thermals
+# without a network round-trip. Pairs with the CONFIG_SENSORS_K10TEMP=m
+# kernel fragment landed the same day (config/kernel/fragments/99).
+iso_include: true
+build_style: custom
+install_func: do_install
+# Upstream's last release tag is V3-6-0 (2019, still current — the project
+# is maintenance-mode stable); the tag's dash form cannot be derived from
+# ${version}, so the URL is literal. The archive extracts to
+# lm-sensors-3-6-0/ — the builder's single-top-level-dir strip handles it.
+source:
+- url: https://github.com/lm-sensors/lm-sensors/archive/V3-6-0.tar.gz
+  filename: lm-sensors-3-6-0.tar.gz
+  sha256: 0591f9fa0339f0d15e75326d0365871c2d4e2ed8aa1ff759b3a55d3734b7d197
+dependencies:
+  build:
+  # conf-lex.l / conf-parse.y — libsensors' config parser is flex+bison
+  # generated at build time (lib/Module.mk).
+  - bison-core
+  - flex
+  host: []
+  runtime:
+  # sensors-detect is perl; fancontrol/pwmconfig are bash. Shipped name
+  # (perl-core ships_as perl) per the runtime-namespace rule.
+  - perl
+tests:
+  # Upstream ships no test suite (no test/check target in the Makefile
+  # tree) — nothing to run, not a disable.
+  enabled: false
+  reason: upstream provides no test suite (verified against the 3.6.0 Makefile tree)
+verify_paths:
+  - /usr/bin/sensors
+  - /usr/lib/libsensors.so
+  - /usr/sbin/sensors-detect
+  - /usr/sbin/fancontrol

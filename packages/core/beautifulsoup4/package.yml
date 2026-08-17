@@ -1,0 +1,34 @@
+name: beautifulsoup4
+version: "4.15.0"
+release: 1
+description: HTML/XML parsing library for Python (the BLFS book parser two validate gates read from)
+license: MIT
+homepage: https://www.crummy.com/software/BeautifulSoup/bs4/
+tier: core
+build_style: custom
+install_func: do_install
+# Mirror-only. The only consumer in this repository is
+# scripts/parse-blfs-book.py, which runs on the BUILD HOST to produce
+# build/blfs-packages.db — the database preflight-audit-coverage.py and
+# preflight-silent-loss.py read. That script is never present on an installed
+# system, so shipping this library in the ISO would add a package nothing on
+# the target imports. It is carried here so the parser's dependency comes from
+# our own mirror instead of a pip fetch off the internet. Core by nature
+# (a Python library required to BUILD and gate the distribution, the same
+# shape as the PYTHON_BUILD_INFRA set), iso_include: false by delivery — the
+# combination the lib32-* core packages already use.
+iso_include: false
+source:
+- url: https://files.pythonhosted.org/packages/43/65/318323f98dbee45d42dff61d8f047181bc6f2268a9068cfad035a46be5af/beautifulsoup4-${version}.tar.gz
+  sha256: 288e3ca7d54b06f2ac191970bc275c1939cb46d450b255bf6718b04aa37ab4f7
+dependencies:
+  build:
+  - hatchling
+  host: []
+  runtime:
+  - soupsieve
+  - typing-extensions
+verify_paths:
+- /usr/lib/python3.14/site-packages/bs4/__init__.py
+- /usr/lib/python3.14/site-packages/bs4/element.py
+- /usr/lib/python3.14/site-packages/bs4/css.py

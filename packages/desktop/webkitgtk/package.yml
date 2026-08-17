@@ -1,0 +1,83 @@
+name: webkitgtk
+version: "2.50.5"
+release: 1
+description: Web content engine for GTK
+license: LGPL-2.0-or-later
+homepage: https://webkitgtk.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://webkitgtk.org/releases/webkitgtk-${version}.tar.xz
+  sha256: 8737631bac3e9c7ad3e5208f9370e076c09d9c45b39980021ce54edadcc6f94f
+dependencies:
+  build:
+  - webkitgtk-gtk3
+  - cairo
+  - gst-plugins-base
+  - gst-plugins-bad
+  - gtk3
+  - gtk4
+  - libgudev
+  - libsoup3
+  - libwebp
+  - openjpeg2
+  - ruby
+  - enchant
+  - unifdef
+  - bubblewrap
+  - geoclue2
+  - libseccomp
+  - xdg-dbus-proxy
+  - libX11
+  - wayland
+  - icu
+  - cmake
+  - glib2
+  - harfbuzz
+  - hicolor-icon-theme
+  - lcms2
+  - libavif
+  - libjxl
+  - libsecret
+  - libtasn1
+  - mesa
+  - which
+  - woff2
+  host: []
+  runtime:
+  - cairo
+  - gst-plugins-base
+  - gst-plugins-bad
+  - gtk4
+  - libgudev
+  - libsoup3
+  - libwebp
+  - openjpeg2
+  - enchant
+  - bubblewrap
+  - geoclue2
+  - libseccomp
+  - xdg-dbus-proxy
+  - libX11
+  - wayland
+  - icu
+  - glib2
+  - harfbuzz
+  - hicolor-icon-theme
+  - lcms2
+  - libavif
+  - libjxl
+  - libsecret
+  - libtasn1
+  - mesa
+  - woff2
+verify_paths:
+  # This package builds USE_GTK4=ON => WebKit 6.0. Assert ITS OWN GTK4 outputs,
+  # not the GTK3/4.1 javascriptcore lib (that is webkitgtk-gtk3's output, a
+  # build-dep — asserting it here let verify pass without ever checking the
+  # GTK4 artifacts intergen's panel depends on). Pending the alpha soname
+  # confirmation before merge.
+  - /usr/lib/libwebkitgtk-6.0.so
+  - /usr/lib/libjavascriptcoregtk-6.0.so
+  - /usr/lib/girepository-1.0/WebKit-6.0.typelib

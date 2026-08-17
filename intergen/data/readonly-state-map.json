@@ -1,0 +1,293 @@
+{
+  "_meta": {
+    "purpose": "M4 read-only state-question inventory — the printers/disks/versions class mapped to the ONE safe, read-only command each answers. Feeds the M4 'read-only state -> direct execution' path (auto-approvable, no confirmation) and the claim gate.",
+    "invariant": "Every command here is read-only (no state change) and routes through run_command; each requires[] binary is the ground-truth on-PATH filter (same contract as the howto corpus). ships_via names the package that provides it (verified in-tree).",
+    "note": "Data only. The M4 gate code (landing with M4) decides auto-approval + wires the direct-execution path; this file is the class->command map it grounds against.",
+    "coverage": "13 classes carry a shipped corpus how-to; battery is teach-only (upower ships if a command form is wanted). The gpu-utilization + gpu-memory classes are Tier-3/dGPU self-knowledge — requires[nvidia-smi] gates them OFF non-NVIDIA boxes (same on-PATH ground-truth filter as the howto corpus), so a card teaching nvidia-smi never surfaces where the tool is absent."
+  },
+  "classes": [
+    {
+      "class": "disk-space",
+      "question_examples": [
+        "how much disk space is left",
+        "is my disk full",
+        "how much free space"
+      ],
+      "command": "df -h",
+      "tool": "run_command",
+      "requires": [
+        "df"
+      ],
+      "read_only": true,
+      "ships_via": "coreutils",
+      "corpus_entries": [
+        "system-disk-space"
+      ]
+    },
+    {
+      "class": "memory",
+      "question_examples": [
+        "how much RAM do I have",
+        "memory usage",
+        "how much memory is free"
+      ],
+      "command": "free -h",
+      "tool": "run_command",
+      "requires": [
+        "free"
+      ],
+      "read_only": true,
+      "ships_via": "procps-ng",
+      "corpus_entries": [
+        "system-memory",
+        "hw-can-i-add-more-ram"
+      ]
+    },
+    {
+      "class": "cpu-info",
+      "question_examples": [
+        "what CPU do I have",
+        "how many cores",
+        "is this 32 or 64 bit",
+        "cpu architecture"
+      ],
+      "command": "lscpu",
+      "tool": "run_command",
+      "requires": [
+        "lscpu"
+      ],
+      "read_only": true,
+      "ships_via": "util-linux-core",
+      "corpus_entries": [
+        "hw-what-cpu-do-i-have"
+      ]
+    },
+    {
+      "class": "gpu",
+      "question_examples": [
+        "what graphics card do I have",
+        "what GPU is in this machine"
+      ],
+      "command": "lspci",
+      "tool": "run_command",
+      "requires": [
+        "lspci"
+      ],
+      "read_only": true,
+      "ships_via": "pciutils",
+      "corpus_entries": [
+        "hw-what-graphics-card"
+      ]
+    },
+    {
+      "class": "kernel",
+      "question_examples": [
+        "what kernel am I running",
+        "kernel version"
+      ],
+      "command": "uname -r",
+      "tool": "run_command",
+      "requires": [
+        "uname"
+      ],
+      "read_only": true,
+      "ships_via": "coreutils",
+      "corpus_entries": [
+        "system-kernel-version"
+      ]
+    },
+    {
+      "class": "os-version",
+      "question_examples": [
+        "what OS is this",
+        "what version of the distro",
+        "what operating system"
+      ],
+      "command": "cat /etc/os-release",
+      "tool": "run_command",
+      "requires": [],
+      "read_only": true,
+      "ships_via": "intergenos-base-files (/etc/os-release)",
+      "corpus_entries": [
+        "system-what-os-version"
+      ]
+    },
+    {
+      "class": "hostname",
+      "question_examples": [
+        "what is this machine called",
+        "what's my hostname",
+        "machine name"
+      ],
+      "command": "hostnamectl",
+      "tool": "run_command",
+      "requires": [
+        "hostnamectl"
+      ],
+      "read_only": true,
+      "ships_via": "systemd",
+      "corpus_entries": [
+        "system-what-is-my-hostname",
+        "system-change-hostname"
+      ]
+    },
+    {
+      "class": "uptime",
+      "question_examples": [
+        "how long has this been running",
+        "uptime"
+      ],
+      "command": "uptime",
+      "tool": "run_command",
+      "requires": [
+        "uptime"
+      ],
+      "read_only": true,
+      "ships_via": "procps-ng",
+      "corpus_entries": [
+        "system-uptime"
+      ]
+    },
+    {
+      "class": "block-devices",
+      "question_examples": [
+        "what disks do I have",
+        "list my partitions",
+        "what drives are connected"
+      ],
+      "command": "lsblk",
+      "tool": "run_command",
+      "requires": [
+        "lsblk"
+      ],
+      "read_only": true,
+      "ships_via": "util-linux-core",
+      "corpus_entries": [
+        "system-what-disks-are-there"
+      ]
+    },
+    {
+      "class": "ip-address",
+      "question_examples": [
+        "what's my IP address",
+        "my network address",
+        "am I connected"
+      ],
+      "command": "nmcli device status",
+      "tool": "run_command",
+      "requires": [
+        "nmcli"
+      ],
+      "read_only": true,
+      "ships_via": "networkmanager",
+      "corpus_entries": [
+        "net-status"
+      ]
+    },
+    {
+      "class": "printers",
+      "question_examples": [
+        "what printers do I have",
+        "are there printers configured",
+        "list my printers"
+      ],
+      "command": "lpstat -p -d",
+      "tool": "run_command",
+      "requires": [
+        "lpstat"
+      ],
+      "read_only": true,
+      "ships_via": "cups",
+      "corpus_entries": [
+        "net-are-there-printers-configured"
+      ]
+    },
+    {
+      "class": "processes",
+      "question_examples": [
+        "what's running",
+        "running processes",
+        "list processes"
+      ],
+      "command": "ps aux",
+      "tool": "run_command",
+      "requires": [
+        "ps"
+      ],
+      "read_only": true,
+      "ships_via": "procps-ng",
+      "corpus_entries": [
+        "system-processes"
+      ]
+    },
+    {
+      "class": "time-date",
+      "question_examples": [
+        "what time is it",
+        "what's the date",
+        "what day is it"
+      ],
+      "command": "date",
+      "tool": "run_command",
+      "requires": [],
+      "read_only": true,
+      "ships_via": "coreutils",
+      "corpus_entries": [
+        "system-what-time-is-it"
+      ]
+    },
+    {
+      "class": "battery",
+      "question_examples": [
+        "what's my battery level",
+        "check battery health"
+      ],
+      "command": "upower --dump",
+      "tool": "run_command",
+      "requires": [
+        "upower"
+      ],
+      "read_only": true,
+      "ships_via": "upower",
+      "corpus_entries": [
+        "hw-how-do-i-check-my-battery-health (teach-only today; upower ships if a command form is wanted)"
+      ]
+    },
+    {
+      "class": "gpu-utilization",
+      "question_examples": [
+        "is my GPU being used",
+        "how do I check GPU utilization",
+        "is the model actually running on the GPU"
+      ],
+      "command": "nvidia-smi",
+      "tool": "run_command",
+      "requires": [
+        "nvidia-smi"
+      ],
+      "read_only": true,
+      "ships_via": "nvidia",
+      "corpus_entries": [
+        "self-is-my-gpu-being-used"
+      ]
+    },
+    {
+      "class": "gpu-memory",
+      "question_examples": [
+        "how much VRAM is in use",
+        "how much GPU memory is free",
+        "GPU memory usage"
+      ],
+      "command": "nvidia-smi --query-gpu=memory.used,memory.total,memory.free --format=csv",
+      "tool": "run_command",
+      "requires": [
+        "nvidia-smi"
+      ],
+      "read_only": true,
+      "ships_via": "nvidia",
+      "corpus_entries": [
+        "self-how-much-vram-in-use"
+      ]
+    }
+  ]
+}

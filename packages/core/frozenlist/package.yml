@@ -1,0 +1,20 @@
+name: frozenlist
+version: "1.8.0"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: List-like structure that can be made immutable (hashable)
+license: Apache-2.0
+homepage: https://github.com/aio-libs/frozenlist
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/2d/f5/c831fac6cc817d26fd54c7eaccd04ef7e0288806943f7cc5bbf69f3ac1f0/frozenlist-1.8.0.tar.gz
+  sha256: 3ede829ed8d842f6cd48fc7081d7a41001a56f1f38603f9d49bf3020d59a31ad
+dependencies:
+  build:
+  - setuptools
+  - wheel
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/frozenlist

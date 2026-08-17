@@ -1,0 +1,24 @@
+--- a/lib/asn1/typedefs.h
++++ b/lib/asn1/typedefs.h
+@@ -28,9 +28,13 @@
+ #define memcpy MEMCPY
+ 
+ typedef unsigned char u_char;
++#if defined(__STDC_VERSION__) && __STDC_VERSION__ < 202000L
++typedef unsigned char bool;
++#endif
+ 
+ #else
+ 
++#include <stdbool.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <stdarg.h>
+@@ -52,7 +56,6 @@
+ 
+ #endif
+ 
+-typedef unsigned char bool;
+ typedef unsigned int u_int;
+ 
+ #define DBG1(s...)

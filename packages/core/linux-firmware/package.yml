@@ -1,0 +1,63 @@
+name: linux-firmware
+version: "20260622"
+# release resets to 1 on the version bump (version outranks release in
+# pkm ordering). Prior 20260309-2 carried the elf_class_exempt declaration
+# (L9 class, 2026-07-03) as a same-version content change; that
+# declaration persists below, version-independent.
+release: 3  # r3: license: Various (redistributable) -> LicenseRef-Various-Redistributable — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade. capture wave: header corrected (no Intel/AMD audio-DSP firmware upstream)
+description: Firmware files for Linux kernel drivers (WiFi, GPU, audio, etc.)
+# This package is thousands of vendor blobs under many separate redistribution
+# terms; no single identifier is true of it. LicenseRef- preserves the
+# declaration, and WHAT.binary-firmware / LICENCE.* in the tarball remain the
+# per-blob authority.
+license: LicenseRef-Various-Redistributable
+homepage: https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.kernel.org/pub/linux/kernel/firmware/linux-firmware-${version}.tar.xz
+  sha256: 2b9d8a358e76eb766588609135e53fa548b902c551daae33ee32f26f25e60dbb
+dependencies:
+  build: []
+  host: []
+  runtime: []
+# parallel and rdfind were declared as build-time helpers (parallel copy +
+# duplicate-firmware deduplication). They are install-time optimizations
+# only — the installed firmware is byte-identical with or without them,
+# so dropping the optional deps does NOT remove any user-facing capability.
+# Approved 2026-05-11 under the criterion "build-time-only with no
+# installed-artifact impact = OK to drop." If parallel/rdfind are present
+# in the chroot at install time, the build.sh may use them; if absent,
+# the build falls back to plain cp/no-dedup.
+#
+# verify_paths: canary files from the major firmware trees that linux-
+# firmware ships. The pre-squashfs audit checks each path exists on the
+# chroot's disk. linux-firmware isn't in LFS/BLFS books so these are
+# hand-curated. Note: build.sh uses plain `make install` (uncompressed)
+# as of 2026-05-24 (install-xz silent-failure recovery — see build.sh
+# comment) so firmware files install WITHOUT .xz extension. Kernel
+# CONFIG_FW_LOADER_COMPRESS_XZ=y is set unconditionally so the kernel
+# loads either form (no impact on runtime). iwlwifi files install at
+# /usr/lib/firmware/iwlwifi-*.ucode (flat layout, no iwlwifi/ subdir —
+# kernel firmware historical convention). carrizo_sdma.bin is the
+# specific file whose absence broke DS-v2 amdgpu boot in v3+ — keep it
+# as the canary regression check. amd-ucode added 2026-05-24 to catch
+# CPU-microcode subtree (its absence was the surfacing signal for the
+# install-xz silent failure).
+verify_paths:
+  - /usr/lib/firmware/amdgpu/carrizo_sdma.bin
+  - /usr/lib/firmware/amdgpu
+  - /usr/lib/firmware/amd-ucode
+  - /usr/lib/firmware/iwlwifi-1000-5.ucode
+
+# Width-audit path exemption (launch-gate L9 class, GE-01 2026-07-03): the
+# firmware tree is DEVICE payload — images executed by WiFi/GPU/DSP
+# microcontrollers (ath11k ships ARM/x86/Hexagon ELF blobs), never loaded
+# by the host dynamic linker, so the host word-size contract categorically
+# does not apply under /usr/lib/firmware. Declared here per-recipe (not as
+# a hidden audit carve-out) per the elf_class governance; elfaudit reports
+# the exempted set loudly (aggregated) and refuses a glob that exempts
+# nothing.
+elf_class_exempt:
+  - usr/lib/firmware/*

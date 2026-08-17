@@ -1,0 +1,30 @@
+name: intergenos-launch-monitor
+version: "1.0"
+release: 2  # r2: game-launch pause. The extension now signals InterGen on BOTH edges of a game window's life — it tells the daemon to pause when a matched game window appears and to resume when the last one closes — and gains a declared-once setting (game-launch-intergen: pause, the default / keep / ask) with a preferences row beside the monitor picker. Pausing posts one quiet non-modal notification; there is no prompt at launch unless the user chose to be asked, and even then it is a notification with buttons rather than a dialog, because nothing should take the keyboard away from a game that is starting. The daemon calls are asynchronous (a synchronous call would freeze the compositor for as long as a model takes to stop or load) and never auto-start InterGen, so a machine that does not run the assistant is unaffected. Every pause placed is released when the window goes, when the extension is disabled, or by the daemon itself if this process dies still holding one. r1: NEW — first-party GNOME Shell extension. In-compositor game-window placement: watches window-created, matches game window classes (steam_app_*/gamescope by default, user-extensible), and moves a match to the user-DECLARED output via Mutter move_to_monitor() before the first frame. gsettings-backed monitor picker (prefs.js). Inert until a monitor is declared + fail-safe on an unresolved output. Design item (proposed 2026-07-08, from a session where a game rendered on the wrong output); the gamescope per-title scaling/output companion is the sibling package.
+content_hash: 1fe915dc0100efa5
+description: GNOME Shell extension that moves a launched game window to the user-declared monitor before its first frame (steam_app_*/gamescope match; gsettings monitor picker)
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+# First-party authored GNOME Shell extension, following the assets/intergen-*
+# canonical convention. source: [] + direct cp -a from /mnt/intergenos/assets/.
+tier: desktop
+build_style: custom
+install_func: do_install
+source: []
+# Extension source (extension.js + prefs.js + metadata.json + the private
+# gsettings schema) lives under assets/; fold into the content fingerprint.
+source_tree:
+  - assets/intergenos-launch-monitor
+dependencies:
+  build:
+  - glib2                 # glib-compile-schemas — compiles the extension's
+                          #   private schema at build time (ship the compiled
+                          #   gschemas.compiled in the extension's schemas/ dir)
+  host: []
+  runtime:
+  - gnome-shell-extensions
+verify_paths:
+  - /usr/share/gnome-shell/extensions/intergenos-launch-monitor@intergenos.org/extension.js
+  - /usr/share/gnome-shell/extensions/intergenos-launch-monitor@intergenos.org/prefs.js
+  - /usr/share/gnome-shell/extensions/intergenos-launch-monitor@intergenos.org/metadata.json
+  - /usr/share/gnome-shell/extensions/intergenos-launch-monitor@intergenos.org/schemas/gschemas.compiled

@@ -1,0 +1,9 @@
+# InterGenOS systemd preset — pcsc-lite (smartcard daemon)
+#
+# Enable the SOCKET, not the service. pcscd is socket-activated: it starts
+# only when a PC/SC client (e.g. the OpenSC PKCS#11 module during an NK1 PIV
+# signing ceremony) opens /run/pcscd/pcscd.comm, and exits when idle
+# (--auto-exit in the upstream unit). No USB-facing daemon runs at rest.
+# This explicit `enable` wins over the 99-intergenos-default-disable.preset
+# catch-all (90- sorts before 99-, first-match-wins by filename).
+enable pcscd.socket

@@ -1,0 +1,106 @@
+# Filesystem artifacts
+lost+found/
+
+# Build artifacts (generated, not source)
+build/work/
+build/system/
+build/packages/
+build/logs/
+build/checkpoints/
+build/.recipe-epoch
+# one-off operational wrapper scripts from individual build runs are never tracked
+build/*.sh
+# build/sources/ — source tarballs are normally fetched by
+# download-sources.py and not committed. Exception: derived/vendored
+# artifacts that have no single upstream URL (ca-cert is wrapped from
+# curl.se's cacert.pem; lego vendor is locally produced via
+# `go mod vendor`). Pinning these in tree gives reproducible builds
+# from a clean clone. See each package's README.md for the refresh
+# procedure.
+build/sources/*
+!build/sources/ca-certificates-*.tar.gz
+!build/sources/lego-*-vendor.tar.xz
+!build/sources/gh-*-vendor.tar.xz
+!build/sources/tailscale-*-vendor.tar.xz
+build/sources-staging/
+build/vendor-artifacts/
+build/archive/
+build/*.db
+
+# Operational scripts (per-build/resume kickoff wrappers; generated, not source)
+build/build*-kickoff.sh
+build/build*-rebuild-*.sh
+build/option-*.sh
+
+# Timestamped scanner output at build/ root (regenerate per scan).
+build/*-[0-9]*Z.tsv
+build/*-[0-9]*Z.json
+
+# Per-package classifier output — audit JSONs + rule5-sweep classification.
+# Decided 2026-05-29: this content lives in the private project
+# repo (intergenos-private:audits/), not in the public source tree. The
+# audit scripts at scripts/audit-package.py + scripts/audit-rule5-sweep.py
+# + scripts/aggregate-package-audits.py remain public — only the
+# classification *output* lives privately. See build/README.md.
+build/audits/
+build/rule5-sweep-results.tsv
+
+# Transient scanner working directories
+build/scan-cache/
+build/sources-pax-regen/
+*.iso
+*.img
+*.img.gz
+*.qcow2
+*.squashfs
+
+# KVM virtual machines
+vm/*.qcow2
+vm/*.iso
+
+# LFS/BLFS reference books and derived databases (local only)
+# BLFS 13.0 © 1999-2026 The BLFS Development Team (CC BY-NC-SA 2.0)
+# LFS 13.0 © 1999-2026 Gerard Beekmans et al. (CC BY-NC-SA 2.0)
+docs/lfs-13.0/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# IDE / tools
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Research working directory (local, may contain sensitive notes)
+# Published research is committed under docs/research/
+research/
+!docs/research/
+
+# Logs
+*.log
+
+# Temporary
+tmp/
+
+# AI assistant configuration and editor plugin runtime
+# Host-local developer tooling, not part of distro source
+.claude/
+.deepseek/
+.kilo/
+.kilocode/
+kilo.json.fragment
+
+# External icon-pack binary archives — reference material, not research
+docs/research/**/*.tar.xz
+docs/research/**/*.tar.gz
+
+intergen/tests/results/

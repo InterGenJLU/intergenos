@@ -1,0 +1,24 @@
+# chronicle-userdata.timer — hourly user-data capture schedule (spec §6).
+#
+# Fires chronicle-userdata.service every hour. Persistent=true catches up a
+# fire that was missed while the machine was off/suspended, so a laptop that
+# was closed over the capture window still captures on next boot rather than
+# silently skipping the hour. RandomizedDelaySec spreads the fire off the
+# exact top of the hour so the capture doesn't contend with other hourly work.
+#
+# User-tunable — the user controls their machine (PRIME DIRECTIVE):
+#   systemctl disable chronicle-userdata.timer
+#   systemctl enable  chronicle-userdata.timer
+
+[Unit]
+Description=Chronicle hourly user-data capture schedule
+Documentation=man:chronicled(8) man:chronicle(1)
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5m
+Persistent=true
+Unit=chronicle-userdata.service
+
+[Install]
+WantedBy=timers.target

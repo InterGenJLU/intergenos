@@ -1,0 +1,87 @@
+name: lib32-systemd-libs
+version: '259.1'
+release: 1
+description: systemd shared libraries — libudev + libsystemd (32-bit multilib runtime)
+license: LGPL-2.1-or-later
+homepage: https://systemd.io/
+tier: core
+# Bash-tier lib32 twin (core tier = bash-driver territory, so this is the
+# lib32-llvm shape, NOT the desktop pure-yml lane): build.sh drives meson
+# through THE lib32 cross file (config/lib32/lib32-cross.ini, RT-7) with
+# every daemon-facing feature pinned OFF, installs to a private root, and
+# allowlist-stages ONLY /usr/lib32 — the allowlist staging IS the
+# libs-only mechanism (daemons/units/binaries the build produces are
+# never staged; no Arch-style post-install deletion pass). Wired at the
+# lib32 tail of chroot-build-core-extra.sh (Rule 2).
+#
+# Measured-demand ADD (operator decision 3, 2026-07-02 — the "libudev
+# twin", grounded per the decision's flag): our libudev provider is
+# systemd (NO eudev in-tree), so the twin is the Arch lib32-systemd /
+# systemd-libs shape. Steam's measured hard dep is libudev.so.1 (Debian
+# steam-libs Depends names libudev1; libsystemd0 is absent there);
+# libsystemd.so.0 is a free co-product of the same build and ships for
+# reference-distro parity (Arch ships both).
+#
+# Grounded against the PINNED 259.1 tree (not memory, not Arch's older
+# pin): every -D option in build.sh exists in 259.1's meson_options.txt
+# with the value kind used (boolean=false / feature=disabled / combo
+# choice); Arch's -Dgnu-efi does NOT exist at 259.1 (efi + bootloader
+# are the real pair). systemd v258+ dropped the libcap dependency
+# entirely (zero libcap references in the pinned tree), so no
+# lib32-libcap is needed. libcrypt is required-false with a find_library
+# fallback; the disable set kills the journal-compression and crypto
+# edges Arch's less-disabled build carries, so the intended NEEDED
+# closure is lib32-glibc (plus libgcc_s from gcc-core's multilib
+# runtime). The archive-time NEEDED-closure and width gates plus the
+# from-scratch live leg assert the real edges loudly.
+#
+# The sibling's man-pages tarball is deliberately NOT pinned here: it is
+# documentation only, never staged by the lib32 allowlist (the
+# LIB32-PATCH-OMISSION gate governs patches; the sibling carries none).
+build_style: custom
+install_func: do_install
+lib32_source: systemd
+# Each entry is a dep systemd's meson probes for and does NOT find in the
+# 32-bit lane, BY DESIGN (the linux-pam silent_loss_accepted pattern).
+# Both feed daemon/binary components (tmpfiles/udevadm ACL handling,
+# importd/sysupdate archive integration) that the allowlist staging never
+# ships — this twin is libs-only. Sibling parity VERIFIED on the built
+# GE-01 chroot (readelf, 2026-07-03): the 64-bit libsystemd.so.0.42.0 and
+# libudev.so.1.7.12 NEED only libm/libc/ld — no libacl or libarchive edge
+# — so the 32-bit libs lose nothing the shipped 64-bit libs have.
+silent_loss_accepted:
+  - libacl     # ACL support for daemons/binaries the twin does not stage
+  - libarchive # archive integration for components the twin does not stage
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://github.com/systemd/systemd/archive/v${version}/systemd-${version}.tar.gz
+  sha256: 7af4f36db512ad2f0f749a0f9886370edeb2bb5128014fc47cdf73702c7e1911
+dependencies:
+  build:
+  - lib32-glibc
+  # Launch-7 halt 2026-07-03: the "libcrypt is required-false with a
+  # find_library fallback" grounding above held only for the pkgconfig
+  # half — the cc.find_library('crypt') fallback at meson.build:1052 is
+  # REQUIRED and errored with no 32-bit libcrypt in the chroot. Build-time
+  # demand only (the shipped libsystemd/libudev NEED just libm/libc,
+  # verified via readelf on the 64-bit sibling) → lib32-libxcrypt added
+  # as a build dep, new twin authored same-cycle.
+  - lib32-libxcrypt
+  - gperf
+  host:
+  - jinja2
+  runtime:
+  - lib32-glibc
+verify_paths:
+  - /usr/lib32/libudev.so.1
+  - /usr/lib32/libsystemd.so.0
+  - /usr/lib32/pkgconfig/libudev.pc
+
+# Build inputs composed from the repository tree (declared so the published
+# source archive carries every input the build consumes — the corresponding-
+# source rule the kernel config fragments established; survey 2026-08-11).
+sources_extra:
+- scripts/lib32-env.sh
+- config/lib32/lib32-cross.ini

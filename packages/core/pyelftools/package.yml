@@ -1,0 +1,31 @@
+name: pyelftools
+version: "0.32"
+release: 3  # r3: license: Public-Domain -> LicenseRef-Public-Domain — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade. r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+content_hash: c3b00203c2cff4a0
+description: Pure-Python library for parsing ELF + DWARF (build-time dependency for systemd-stub / sd-boot generation)
+# SPDX has no identifier for a bare public-domain dedication. LicenseRef- is
+# SPDX's own mechanism for a licence it does not carry, and preserves the
+# declaration exactly as the recipe stated it.
+license: LicenseRef-Public-Domain
+homepage: https://github.com/eliben/pyelftools
+
+source:
+- url: https://pypi.org/packages/source/p/pyelftools/pyelftools-${version}.tar.gz
+  sha256: 6de90ee7b8263e740c8715a925382d4099b354f29ac48ea40d840cf7aa14ace5
+
+dependencies:
+  build:
+  # The pinned sdist's [build-system] names setuptools.build_meta, provided by
+  # setuptools. build.sh builds with --no-build-isolation, which installs nothing
+  # for the build, so setuptools must already be present; declaring it here is
+  # what orders it ahead of this package.
+  - setuptools
+  host: []
+  runtime: []
+
+tier: core
+build_style: custom
+
+verify_paths:
+  - /usr/lib/python3.14/site-packages
+  - /usr/share/man/man1/pyelftools.1

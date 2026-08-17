@@ -1,0 +1,47 @@
+name: glibc-core
+ships_as: glibc  # ch8 dual-name twin — the driver archives this recipe under the ship name (chroot-build-ch8.sh run_package arg 2; runtime deps elsewhere may name 'glibc')
+version: '2.43'
+release: 4  # r4: post_install no longer writes /etc/localtime — the hook re-runs at install AFTER the config phase applied the user's timezone and no user signal reaches it, so it clobbered every install back to UTC (live-trace proven); the symlink's single owner is the installer config phase. r3: hook-contract wave: nsswitch.conf (with baked mdns hosts entry) + ld.so.conf moved post_install -> do_install (owned payload)
+description: GNU C Library (final system)
+license: LGPL-2.1-or-later
+homepage: https://www.gnu.org/software/libc/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://ftp.gnu.org/gnu/glibc/glibc-${version}.tar.xz
+  sha256: d9c86c6b5dbddb43a3e08270c5844fc5177d19442cf5b8df4be7c07cd5fa3831
+# tzdata2025c.tar.gz co-source: glibc-core's do_install runs `zic` against
+# this tarball at /tmp to populate /usr/share/zoneinfo/ with the full IANA
+# timezone database (build.sh lines 99-112). Without this declaration, the
+# zic loop silently no-op'd most regions on fresh-source builds (Build #9
+# r#56 incident, 2026-05-13: chroot's /usr/share/zoneinfo/ ended up with
+# only ~3 files instead of 1795; transmission-show tests failed because
+# glibc's tzfile lookup couldn't resolve UTC against a sparse tree).
+- url: https://data.iana.org/time-zones/releases/tzdata2025c.tar.gz
+  sha256: 4aa79e4effee53fc4029ffe5f6ebe97937282ebcdf386d5d2da91ce84142f957
+patches:
+- file: glibc-fhs-1.patch
+  sha256: 643552db030e2f2d7ffde4f558e0f5f83d3fabf34a2e0e56ebdb49750ac27b0d
+dependencies:
+  build: []
+  host: []
+  runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "LFS 13.0 Section 8.5 documents expected glibc test failures in a chroot environment: math/ulps tests, posix/tst-getaddrinfo*, nss/tst-nss-files-hosts-multi, and timezone/timeout-prone tests are known-broken under chroot. See LFS book test-suite notes."
+verify_paths:
+  - /etc/nsswitch.conf
+  - /etc/ld.so.conf
+  - /usr/bin/gencat
+  - /usr/lib/ld-linux-x86-64.so.2
+  - /lib64/ld-linux-x86-64.so.2
+  - /lib64/ld-lsb-x86-64.so.3
+  - /etc/ld.so.conf
+  - /etc/nsswitch.conf
+# Note: /etc/{passwd,group,shadow,gshadow} + /root reverted in plan v2
+# (2026-05-27). Class 11 chroot-state-not-packaged baseline content
+# moved to packages/core/intergenos-base-files/ — canonical owner
+# per cross-distro convention. See package.yml header comment there.

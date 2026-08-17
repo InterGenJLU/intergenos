@@ -1,0 +1,26 @@
+name: cut-cross-entropy
+# Upstream latest stable (Apple MIT License, SPDX AML).
+version: "25.1.1"
+release: 1
+description: Memory-efficient cross-entropy loss computation
+license: AML
+homepage: https://github.com/apple/ml-cross-entropy
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/7e/97/45ff09cfcda7b200389204daa0125168e6544fba257adbbcdf728501d4f9/cut_cross_entropy-25.1.1.tar.gz
+  sha256: 5fe5924509248b1aea5c890f8887c6a7759f7c8b1ebc0490e42c247c4f7c1e34
+dependencies:
+  build:
+  - setuptools
+  - setuptools-scm
+  host: []
+  runtime:
+  - pytorch   # native-build dependency — forward-declared 2026-07-21; recipe lands with the native wave
+  - triton   # native-build dependency — forward-declared 2026-07-21; native wave (platform_system==Linux; our target)
+  # Runtime deps come from the wheel metadata: torch + triton, both supplied by the native wave.
+verify_paths:
+  - /usr/lib/python3.14/site-packages/cut_cross_entropy/__init__.py
+  - /usr/lib/python3.14/site-packages/cut_cross_entropy/cce.py

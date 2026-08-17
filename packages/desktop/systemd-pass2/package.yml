@@ -1,0 +1,62 @@
+name: systemd-pass2
+version: "259.1"
+release: 4  # r4: artifact re-cut — prior seal contaminated by archive tar-recursion over supersedee dir rows (sealed 2.38 GB; igos-build fix 2026-07-20). r3: systemd-pcrproduct remount-fs ordering drop-in — the NvPCR anchor write raced the root rw-remount and failed every boot on a swtpm guest (DFB-09, 2026-07-19). r2: journal-over-network explicitly OFF (matches systemd r-bump, decided) — post-burn sweep 2026-07-11
+description: "Systemd (pass 2 — rebuild with PAM support for GNOME/GDM)"
+license: LGPL-2.1-or-later
+homepage: https://www.freedesktop.org/wiki/Software/systemd/
+tier: desktop
+build_style: custom
+install_func: do_install
+direct_install: true
+source:
+- url: https://github.com/systemd/systemd/archive/v${version}/systemd-${version}.tar.gz
+  sha256: 7af4f36db512ad2f0f749a0f9886370edeb2bb5128014fc47cdf73702c7e1911
+dependencies:
+  build:
+  - linux-pam
+  - polkit
+  - apparmor          # LSM enforcement. Security-critical.
+  - tpm2-tss          # systemd-cryptenroll --tpm2-device, pcrlock, measured boot.
+  - libfido2          # systemd-cryptenroll --fido2-device + LUKS unlock.
+  - libxkbcommon      # vconsole keymap support.
+  - libseccomp        # syscall-filter sandboxing for systemd services.
+  - cryptsetup        # systemd-homed + systemd-cryptsetup LUKS support (libcryptsetup.so).
+  - libidn2           # IDN handling in systemd-resolved.
+  - libqrencode       # QR-code keyfile recovery for systemd-cryptsetup.
+  - libgcrypt         # cryptographic primitives for resolved/journal.
+  - gnutls            # HTTPS endpoints in systemd-networkd.
+  - libarchive        # container image extraction in systemd-importd.
+  - curl              # systemd-importd, systemd-machined fetchers.
+  - bash-completion   # shell completion for systemctl/journalctl/etc.
+  - python-pefile     # required for ukify (Unified Kernel Image builder).
+  - python-cryptography  # required for ukify signing.
+  - rpm               # systemd-sysupdate rpmmacrosdir integration.
+  - git               # systemd build-tooling probes for git.
+  - rsync             # systemd build-tooling probes for rsync.
+  - gperf
+  host: []
+  runtime:
+  - linux-pam
+  - polkit
+  - apparmor
+  - tpm2-tss
+  - libfido2
+  - libxkbcommon
+  - libseccomp
+  - cryptsetup
+  - libidn2
+  - libqrencode
+  - libgcrypt
+  - gnutls
+  - libarchive
+  - curl
+  - bash-completion
+  - python-pefile
+  - python-cryptography
+
+supersedes:
+  - systemd
+verify_paths:
+  - /usr/bin/systemd-ac-power
+  - /usr/bin/bootctl
+  - /usr/lib/libnss_myhostname.so.2

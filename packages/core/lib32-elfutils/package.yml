@@ -1,0 +1,64 @@
+name: lib32-elfutils
+version: '0.194'
+release: 2  # r2: sibling patch parity — carry elfutils r2's riscv_disasm const patch (lib32 governance: a dropped sibling patch builds divergent libs; libcpu is not compiled by this libelf-only twin, so built output is unchanged). Decided 2026-08-15.
+description: ELF object file access library, libelf only (32-bit multilib runtime)
+license: GPL-2.0-or-later
+homepage: https://sourceware.org/elfutils/
+tier: core
+# Bash-lane lib32 twin (core tier — the lib32-libxcrypt shape): custom
+# build.sh drives the sibling's libelf-only build (the sibling is ALREADY
+# libelf-only, LFS 8.50) through scripts/lib32-env.sh, installs to a
+# private root, allowlist-stages ONLY /usr/lib32.
+#
+# GE-01 L18 — the consumer that forced it: lib32-mesa's radeonsi
+# ("Gallium driver radeonsi requires libelf", meson.build:1917) —
+# radeonsi parses LLVM-emitted ELF shader objects through libelf at
+# runtime, so the twin SHIPS libelf.so.1. The reference multilib distro
+# ships the same twin (lib32-libelf). Headers stay with the 64-bit
+# sibling (width-neutral, already in the chroot — the L12 rule).
+#
+# Compression edges, pinned not autodetected (G3): zlib REQUIRED
+# (lib32-zlib in-tree) + zstd linked (lib32-zstd in-tree — sibling
+# parity); bzlib + lzma OFF — no 32-bit twins exist and radeonsi reads
+# uncompressed in-memory ELF (the lib32-systemd-libs disable-wall
+# precedent; --without flags in build.sh are the belt, the
+# silent_loss_accepted entries below are the suspenders).
+build_style: custom
+install_func: do_install
+lib32_source: elfutils
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://sourceware.org/ftp/elfutils/0.194/elfutils-${version}.tar.bz2
+  sha256: 09e2ff033d39baa8b388a2d7fbc5390bfde99ae3b7c67c7daaf7433fbcf0f01e
+patches:
+  - file: elfutils-0.194-riscv_disasm_const-1.patch
+    sha256: 853745a3fadeeea0f4fa5d4d0a405779b6edc465ec46520bf913d35a69cb0f6f
+dependencies:
+  build:
+  - lib32-glibc
+  - lib32-zlib
+  - lib32-zstd
+  host: []
+  runtime:
+  - lib32-glibc
+  - lib32-zlib
+  - lib32-zstd
+# Sibling-parity accepted losses: the 64-bit libelf links libbz2 +
+# liblzma for compressed-section reads; the twin's consumer (radeonsi)
+# parses uncompressed in-memory LLVM ELF, no 32-bit bzip2/xz twins
+# exist, and the --without pins in build.sh make the miss explicit
+# rather than autodetected.
+silent_loss_accepted:
+  - bzip2  # compressed-section support; no 32-bit consumer
+  - xz     # compressed-section support; no 32-bit consumer
+verify_paths:
+  - /usr/lib32/libelf.so.1
+  - /usr/lib32/pkgconfig/libelf.pc
+
+# Build inputs composed from the repository tree (declared so the published
+# source archive carries every input the build consumes — the corresponding-
+# source rule the kernel config fragments established; survey 2026-08-11).
+sources_extra:
+- scripts/lib32-env.sh

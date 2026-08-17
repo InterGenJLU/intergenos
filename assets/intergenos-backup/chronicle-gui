@@ -1,0 +1,19 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+"""Chronicle — the GTK4/libadwaita backup GUI (spec §11).
+
+Thin entrypoint: the implementation lives in chronicle/gui.py. Installed as
+/usr/libexec/chronicle/chronicle-gui and launched via the /usr/bin/chronicle-gui
+wrapper (which forces the cairo GSK renderer for GPU-virtualized safety).
+"""
+
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from chronicle import gui  # noqa: E402
+
+if __name__ == "__main__":
+    sys.exit(gui.main())

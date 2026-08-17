@@ -1,0 +1,44 @@
+name: intergenos-extensions-utilities
+version: "1.0"
+release: 7  # r7: co-bump only: no change to this package's own content. The shared source-tarball generator scripts/build-intergenos-source-tarballs.sh is listed in this package's source_tree, and it changed so that the Welcomer's tarball now carries the shared name-lookup-failure module intergen/net_diagnostics.py; the input-based content fingerprint therefore moved for every package that declares the generator. This package's staged bytes are unchanged. r6: co-bump only: no change to this package's own content. The shared source-tarball generator scripts/build-intergenos-source-tarballs.sh is listed in this package's source_tree, and it changed so that the backup engine's sysusers.d group fragment is staged into the intergenos-backup tarball; the input-based content fingerprint therefore moved for every package that declares the generator. This package's staged bytes are unchanged. r5: co-bump only: no change to this package's own content. The shared source-tarball generator scripts/build-intergenos-source-tarballs.sh is listed in this package's source_tree, and it changed so that the welcome greeter's wiki icon is staged into its tarball; the input-based content fingerprint therefore moved for every package that declares the generator. This package's staged bytes are unchanged.
+content_hash: 9d6faa165e6da1e9
+description: InterGenOS Utilities-category GNOME Shell extensions — AppIndicator, Bluetooth Quick Connect, Caffeine, Vitals, Media Controls, GSConnect, Just Perfection, Desktop Icons NG
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: file:///intergenos-extensions-utilities-${version}.tar.xz
+  generated: true
+# Canonical inputs of the generated tarball (item-8 fingerprint design):
+# the content fingerprint hashes these + build.sh instead of the tarball's
+# bytes, so a regeneration-context difference can never phantom-bump.
+# PAIRED with verify_paths: the generator derives its zip set from the
+# verify_paths UUIDs — adding a UUID there means adding its zip here too.
+source_tree:
+  - assets/theming/extensions/appindicatorsupport@rgcjonas.gmail.com.zip
+  - assets/theming/extensions/bluetooth-quick-connect@bjarosze.gmail.com.zip
+  - assets/theming/extensions/caffeine@patapon.info.zip
+  - assets/theming/extensions/Vitals@CoreCoding.com.zip
+  - assets/theming/extensions/mediacontrols@cliffniff.github.com.zip
+  - assets/theming/extensions/gsconnect@andyholmes.github.io.zip
+  - assets/theming/extensions/just-perfection-desktop@just-perfection.zip
+  - assets/theming/extensions/ding@rastersoft.com.zip
+  - scripts/build-intergenos-source-tarballs.sh
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - gnome-shell-extensions
+  - libdbusmenu        # appindicatorsupport + dash-to-dock need the Dbusmenu typelibs (PI .192)
+
+verify_paths:
+  - /usr/share/gnome-shell/extensions/appindicatorsupport@rgcjonas.gmail.com
+  - /usr/share/gnome-shell/extensions/bluetooth-quick-connect@bjarosze.gmail.com
+  - /usr/share/gnome-shell/extensions/caffeine@patapon.info
+  - /usr/share/gnome-shell/extensions/Vitals@CoreCoding.com
+  - /usr/share/gnome-shell/extensions/mediacontrols@cliffniff.github.com
+  - /usr/share/gnome-shell/extensions/gsconnect@andyholmes.github.io
+  - /usr/share/gnome-shell/extensions/just-perfection-desktop@just-perfection
+  - /usr/share/gnome-shell/extensions/ding@rastersoft.com

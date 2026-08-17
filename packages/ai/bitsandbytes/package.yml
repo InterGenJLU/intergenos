@@ -1,0 +1,77 @@
+name: bitsandbytes
+# Upstream latest stable (0.49.2); multi-backend build with the ROCm/HIP
+# backend enabled. bitsandbytes ships NO sdist on PyPI (wheels only), so the
+# pin is the immutable GitHub commit archive that tag 0.49.2 resolves to
+# (f0e6ca31 — GitHub git-refs API, resolved 2026-07-21; same commit-archive
+# idiom as compute/hipblaslt's staged sources). torch<3,>=2.3 required at
+# runtime — forward-declared for the pytorch native wave.
+# Re-verified 2026-07-21 under the torch 2.10.0 cascade: 0.49.2 sits inside
+# unsloth's bitsandbytes band (>=0.45.5, !=0.46.*, !=0.48.*) — 0.49.2 satisfies
+# all three, so no re-pin; torch<3,>=2.3 also holds for torch 2.10.0.
+version: "0.49.2"
+release: 1
+description: k-bit quantization (8-bit optimizers, LLM.int8, NF4/FP4) for PyTorch — ROCm/HIP backend
+license: MIT
+homepage: https://github.com/bitsandbytes-foundation/bitsandbytes
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+
+# Decided 2026-07-21: tier: ai (not compute). bitsandbytes is a Python
+# package that installs under site-packages and compiles ONE HIP shared
+# object (libbitsandbytes_rocm<hipver>.so) against the compute-tier ROCm
+# math libraries; it is a training-apparatus consumer product, not a ROCm
+# system library. iso_include: false — mirror-only apparatus (UTA arc).
+
+source:
+  - url: https://github.com/bitsandbytes-foundation/bitsandbytes/archive/f0e6ca31b32c4744a9cee4e31610b25796cbf778.tar.gz
+    filename: bitsandbytes-0.49.2.tar.gz
+    sha256: 674f8da6d1e31390a3895140b90712326a3b2a3fd4bc98df864ee40dfd649a77
+
+# Feeds -DBNB_ROCM_ARCH (CMAKE_HIP_ARCHITECTURES). Same fleet RDNA target
+# set as the compute math libraries (rocblas/hipblas/hipblaslt).
+gpu_targets: "gfx1100;gfx1102;gfx1201"
+
+dependencies:
+  build:
+  # scikit-build-core is bitsandbytes' declared build backend
+  # (build-backend = "scikit_build_core.setuptools.build_meta"); it drives
+  # the CMake/HIP compile. Its own deps (pathspec, pyproject-metadata,
+  # packaging, trove-classifiers) are all already in-tree.
+  - scikit-build-core
+  - trove-classifiers
+  - pathspec
+  - pyproject-metadata
+  - packaging
+  - setuptools
+  - wheel
+  - cmake
+  - ninja
+  - rocm-cmake
+  - rocm-hip        # enable_language(HIP); hipconfig --version; hip::hiprand
+  - rocm-llvm       # amdclang++ (the HIP device compiler)
+  - hipblas         # find_package(hipblas REQUIRED) -> roc::hipblas
+  - hiprand         # find_package(hiprand REQUIRED) -> hip::hiprand
+  - hipsparse       # find_package(hipsparse REQUIRED) -> roc::hipsparse
+  - python
+  host: []
+  runtime:
+  - rocm-hip        # the compiled .so links libamdhip64
+  - hipblas
+  - hiprand
+  - hipsparse
+  - numpy
+  - packaging
+  - pytorch         # torch<3,>=2.3 — forward-declared 2026-07-21; native wave
+verify_paths:
+  - /usr/lib/python3.14/site-packages/bitsandbytes/__init__.py
+  - /usr/lib/python3.14/site-packages/bitsandbytes/cextension.py
+  # The load-bearing HIP artifact (libbitsandbytes_rocm<hipver>.so) is
+  # asserted present at build time in build.sh do_install() — its exact
+  # suffix is derived from the live hipconfig version, so it is checked by
+  # glob-existence there rather than pinned as a literal verify_path.
+
+tests:
+  enabled: false
+  reason: "bitsandbytes' pytest suite requires a live AMD ROCm GPU (it imports torch and dispatches real 8-bit/NF4 kernels) — no GPU and no torch runtime in the network-less build chroot; Rule 10 ladder step 1 (environmental) with the suite uncollectable offline. Correctness is gated two ways instead: build.sh do_install() fails loud if the HIP shared object was not produced (the compile is the real test of the ROCm entanglement), and verify_paths assert the installed Python surface. The kernel suite runs on-target on the validation workstation."

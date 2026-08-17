@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: system-users — a user pair, front bust overlapping a second behind. -->
+  <g class="glyph">
+    <circle cx="104" cy="96" r="30"/>
+    <path d="M 56 188 Q 56 146 104 146 Q 152 146 152 188"/>
+    <path d="M 162 70 A 26 26 0 0 1 186 114"/>
+    <path d="M 172 140 Q 200 146 200 180"/>
+  </g>
+</svg>

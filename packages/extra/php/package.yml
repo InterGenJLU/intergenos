@@ -1,0 +1,32 @@
+name: php
+version: "8.4.11"
+release: 1
+description: PHP general-purpose scripting language and runtime
+license: PHP-3.01
+homepage: https://www.php.net/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  - url: https://www.php.net/distributions/php-8.4.11.tar.xz
+    sha256: 04cd331380a8683a5c2503938eb51764d48d507c53ad4208d2c82e0eed779a00
+    filename: php-8.4.11.tar.xz
+dependencies:
+  build: []
+  host: []
+  runtime:
+    - glibc
+    - gcc
+    - libxml2
+    - zlib
+    - bzip2
+    - gdbm
+    - gmp
+    - gettext
+    - readline
+    - ncurses
+verify_paths:
+  - /usr/bin/php
+  - /usr/sbin/php-fpm
+  - /usr/bin/phpize
+  - /etc/php.ini

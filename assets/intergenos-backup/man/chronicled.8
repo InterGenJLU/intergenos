@@ -1,0 +1,114 @@
+.TH CHRONICLED 8 "2026-07-24" "chronicle 1.0" "InterGenOS System Administration"
+.SH NAME
+chronicled \- Chronicle backup engine and sentinel
+.SH SYNOPSIS
+.B chronicled
+[\fB\-\-config\fR \fIFILE\fR]
+[\fB\-\-task\fR \fITASK\fR]
+.SH DESCRIPTION
+.B chronicled
+is the privileged backup engine. In its default
+.B serve
+task it runs as a long-running system service: it owns all capture, retention,
+restore, and verification, exposes the verb surface on the root-owned socket
+.IR /run/chronicle/engine.sock ,
+and runs a poll-based watcher that captures the config-state layer when
+\fI/etc\fR changes on disk. It is started at boot by
+.IR chronicled.service .
+.PP
+Non-default tasks are the entry points the timer and restore units invoke:
+.TP
+.B \-\-task capture-userdata
+Hourly user-data capture (\fIchronicle-userdata.timer\fR). A quiet no-op when
+the target is absent; a change larger than the off-peak threshold is enqueued.
+.TP
+.B \-\-task drain-queue
+Drain the deferred-capture queue during the off-peak window
+(\fIchronicle-offpeak.timer\fR); a fire inside working hours is a no-op.
+.TP
+.B \-\-task scrub
+Weekly integrity scrub (\fIchronicle-scrub.timer\fR).
+.TP
+.B \-\-task restore \-\-request \fIFILE\fR
+Apply a restore from a request file, run by the higher-capability
+.I chronicle-restore@.service
+leg. The request JSON carries the layer, version, paths, and mode; the result
+is written to the sibling \fIFILE\fR with a \fI.result.json\fR suffix.
+.SH OPTIONS
+.TP
+.BR \-\-config " \fIFILE\fR"
+Path to
+.BR chronicle.conf (5)
+(default \fI/etc/chronicle/chronicle.conf\fR).
+.SH FILES
+.TP
+.I /var/lib/chronicle/
+Always-on local store and durable capture-intent queue.
+.TP
+.I /run/chronicle/engine.sock
+Line-delimited-JSON IPC socket, owned
+.BR root:chronicle ", mode " 0660 ,
+in a directory of mode
+.BR 0750 .
+.TP
+.I /usr/lib/sysusers.d/chronicle.conf
+Declares the
+.B chronicle
+group.
+.SH SECURITY
+The always-on sentinel runs at a deliberately low capability set \(em
+.B CAP_DAC_READ_SEARCH
+only (read every user's home for capture, write nothing outside the store) with
+.B ProtectHome=read-only
+and a strict
+.BR ProtectSystem .
+Restore needs to recreate ownership and mode, so it runs in a separate,
+higher-capability transient unit
+.RB ( chronicle-restore@.service :
+.BR CAP_CHOWN ", " CAP_FOWNER ", " CAP_DAC_OVERRIDE )
+rather than granting those powers to the always-on daemon.
+.PP
+Access to the engine is gated twice, and the two gates answer different
+questions.
+.PP
+First, the socket is
+.BR root:chronicle ", mode " 0660 ,
+so only root and the accounts in the
+.B chronicle
+group can open it at all. That decision is the kernel's and is made before a
+byte is read \(em polkit cannot make it, because polkit is only consulted once a
+caller has already connected. The engine applies the ownership and mode as the
+socket is created, under a umask that denies every bit outside the owner, and
+reads the result back off the inode before serving; a socket whose permissions
+do not verify is narrowed to owner-only. If the
+.B chronicle
+group does not exist the socket stays owner-only and the engine says so in the
+journal \(em it never falls back to a wider mode.
+.PP
+Second, every non-root peer is authorized per request against one of two polkit
+actions, at the tier the requested verb needs:
+.BR org.intergenos.Chronicle.read
+for backup health and version metadata
+.RB ( status ", " queue-status ", " list ", " target-scan ),
+and
+.B org.intergenos.Chronicle.manage
+for everything else. The split is by disclosure, not by whether a verb writes:
+.BR manifest ", " diff ", " verify " and " restore-plan
+read only, but their answers carry file paths out of a store that holds every
+user's home directory, so they stay administrative. Read-tier answers have their
+one path-bearing field (a queued intent's
+.BR scope )
+stripped. A refused read is never escalated to the administrative action, so a
+read can never raise a password dialog. Both tiers fail closed \(em an
+unauthorized or unverifiable peer is refused. Root peers (the CLI under sudo,
+the
+.BR pkm (1)
+pre-transaction handler) are already privileged and skip the check.
+.SH SEE ALSO
+.BR chronicle (1),
+.BR chronicle.conf (5),
+.BR pkm (1)
+.SH AUTHOR
+The InterGenOS project.
+.SH LICENSE
+GPL-3.0-or-later.

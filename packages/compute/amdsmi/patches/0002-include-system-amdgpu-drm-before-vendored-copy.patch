@@ -1,0 +1,20 @@
+--- a/include/amd_smi/impl/amd_smi_drm.h	2026-07-17 07:38:02.786964836 -0500
++++ projects/amdsmi/include/amd_smi/impl/amd_smi_drm.h	2026-07-17 07:38:08.531398178 -0500
+@@ -32,6 +32,7 @@
+ 
+ #include "amd_smi/amdsmi.h"
+ #include "amd_smi/impl/amd_smi_lib_loader.h"
++#include <libdrm/amdgpu_drm.h>
+ #include "amd_smi/impl/amdgpu_drm.h"
+ #include "amd_smi/impl/xf86drm.h"
+ #include "amd_smi/impl/scoped_fd.h"
+--- a/src/amd_smi/amd_smi.cc	2026-07-17 07:38:02.787874657 -0500
++++ projects/amdsmi/src/amd_smi/amd_smi.cc	2026-07-17 07:38:08.532403138 -0500
+@@ -46,6 +46,7 @@
+ #include <exception>
+ 
+ #include "config/amd_smi_config.h"
++#include <libdrm/amdgpu_drm.h>
+ #include "amd_smi/amdsmi.h"
+ #include "amd_smi/impl/fdinfo.h"
+ #include "amd_smi/impl/amd_smi_common.h"

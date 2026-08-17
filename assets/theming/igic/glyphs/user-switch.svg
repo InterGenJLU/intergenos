@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: system-switch-user — two user busts with a swap arrow between. -->
+  <g class="glyph">
+    <circle cx="84" cy="88" r="22"/>
+    <path d="M 52 152 Q 52 122 84 122 Q 116 122 116 152"/>
+    <circle cx="172" cy="120" r="22"/>
+    <path d="M 140 184 Q 140 154 172 154 Q 204 154 204 184"/>
+    <path d="M 120 196 L 96 196 L 96 180"/>
+    <path d="M 136 76 L 160 76 L 160 92"/>
+  </g>
+</svg>

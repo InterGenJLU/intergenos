@@ -1,0 +1,20 @@
+name: python-pyparsing
+version: "3.3.2"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Python parsing module (spice-gtk codegen build dependency)
+license: MIT
+homepage: https://github.com/pyparsing/pyparsing
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://files.pythonhosted.org/packages/source/p/pyparsing/pyparsing-${version}.tar.gz
+    sha256: c777f4d763f140633dcb6d8a3eda953bf7a214dc4eff598413c070bcdc117cbc
+dependencies:
+  build:
+    - flit-core
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/pyparsing/core.py

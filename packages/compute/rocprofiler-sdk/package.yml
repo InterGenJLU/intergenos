@@ -1,0 +1,107 @@
+name: rocprofiler-sdk
+version: "7.2.4"
+release: 1
+content_hash: e3a73e367ef7f81c
+description: ROCm profiling SDK + rocprofv3 CLI (GPU kernel/counter profiling — the tuning surface for our own inference)
+license: MIT
+homepage: https://github.com/ROCm/rocm-systems
+tier: compute
+build_style: custom
+install_func: do_install
+
+# SAME rocm-systems tarball (shared-source pin); builds
+# projects/rocprofiler-sdk from the monorepo. Links libelf (core
+# elfutils) + libdw (elfutils-libdw — core elfutils is LFS-exact and
+# ships libelf ONLY) for unwinding/symbolization; collects
+# counters through the aqlprofile library at runtime. rocDecode/rocJPEG
+# probes are optional media-tracing hooks — absent by design (no such
+# packages in the tree; named residual, not silent).
+#
+# HERMETICITY: the tag archive drops the external/ submodule gitlinks and
+# configure would git-fetch them. The 8 vendored submodules below are
+# commit-addressed archives at the exact gitlink shas recorded on the
+# rocm-7.2.4 tag (recovered via the GitHub contents API — tag archives
+# omit gitlink hashes). Each is extracted into external/<name>/ in
+# configure(); the checkout helper (cmake/rocprofiler_utilities.cmake)
+# returns early when <dir>/<TEST_FILE> exists, so no git runs. Single-
+# witness pins (GitHub archive + our sha256; no distro ships these exact
+# commit archives to witness bytes — same caveat class as the 7.2.4 tag
+# pins). glog/pybind11/ghc-filesystem submodules are NOT staged: their
+# ROCPROFILER_BUILD_* options are flipped OFF and the system
+# packages (glog, pybind11; std::filesystem for GHC_FS) satisfy the
+# else-branch find_package(... REQUIRED). sqlite3 gate is OFF-default
+# (system SQLite3). otf2 is real in-tree content (external/otf2/
+# CMakeLists.txt) but that CMakeLists FetchContent-DOWNLOADS the otf2
+# source tarball at configure time — a URL fetch, not a gitlink, so the
+# submodule sweep missed it. The tarball is declared below (sha256 =
+# upstream's own OTF2_URL_HASH pin — dual-witnessed) and staged via
+# FETCHCONTENT_SOURCE_DIR_OTF2-SOURCE in configure(); no network runs.
+# fmt IS vendored, at the tag's own gitlink pin (0bffed89, fmt 10.1
+# era): ~10 source files call fmt::join with only fmt/format.h — legal
+# there, moved to fmt/ranges.h in fmt 11+, so system fmt breaks the
+# compile. The tag was only ever CI-built against the vendored pin;
+# upstream develop fixed the includes but migrated deps wholesale (not
+# backportable to this tag). Vendored fmt is internal/static — the
+# package neither builds against nor runtime-needs system fmt. GCC-15
+# missing-<cstdint> defects in the pinned vendored trees are carried as
+# tracked patches (yaml-cpp emitterutils, elfio elf_types).
+source:
+  - url: https://github.com/ROCm/rocm-systems/archive/refs/tags/rocm-${version}.tar.gz
+    filename: rocm-rocm-systems-${version}.tar.gz
+    sha256: 817f9c136125b8d162757a18cdc25b18b1efeb8ef36a948c85e4a672fd149de5
+  - url: https://github.com/jrmadsen/PTL/archive/48df41625430d27ce43cf197fd467a8dda87cb45.tar.gz
+    filename: ptl-48df4162.tar.gz
+    sha256: 817af2307fc4b776fdf5984079d4d2631cf2c219ba1963502dd6fb41cb6b77a4
+  - url: https://github.com/jbeder/yaml-cpp/archive/1d8ca1f35eb3a9c9142462b28282a848e5d29a91.tar.gz
+    filename: yaml-cpp-1d8ca1f3.tar.gz
+    sha256: 836da8ce5b6d8a5b25aa1ad0a63b31d4ddd13d8aa176c4d8dbad5ac5ed49e140
+  - url: https://github.com/jrmadsen/cereal/archive/40a30defcb8874270a04836d316502b08904b2bc.tar.gz
+    filename: cereal-40a30def.tar.gz
+    sha256: 4c16319af12ff9db849d3029e16badc2751a4c25f76cbe74517b513bca63a451
+  - url: https://github.com/serge1/ELFIO/archive/8ae6cec5d60495822ecd57d736f66149da9b1830.tar.gz
+    filename: elfio-8ae6cec5.tar.gz
+    sha256: 71c1a72e3fac6c9db3d4126c8f9b84bbda902e8dfb563f6dfcbed454636fa1c5
+  - url: https://github.com/nlohmann/json/archive/e41905fcb0938a7502d25ea5242c6b41396e21b0.tar.gz
+    filename: json-e41905fc.tar.gz
+    sha256: 5d2d2b89e359a8185ef4cd483c3c7a8fb05702ff548b8bd7a61a049304e5a571
+  - url: https://github.com/google/perfetto/archive/eb5ef24c58d13cec289d733d03f0f3f0ed321b12.tar.gz
+    filename: perfetto-eb5ef24c.tar.gz
+    sha256: 90cbd8e4276ca43b9c3e5166ff372bfd8a55affab80169b738f87044e3c48dd2
+  - url: https://github.com/ROCm/GOTCHA/archive/b944da10ff9b3364ef2e4b12e02cb2464e05dd48.tar.gz
+    filename: gotcha-b944da10.tar.gz
+    sha256: 5576464658c00933f19a58f6b3911dd02f6c6ef7e7d5d259d882de7120fe831c
+  - url: https://rocm-third-party-deps.s3.us-east-2.amazonaws.com/otf2-3.0.3.tar.gz
+    filename: otf2-3.0.3.tar.gz
+    sha256: 18a3905f7917340387e3edc8e5766f31ab1af41f4ecc5665da6c769ca21c4ee8
+  - url: https://github.com/fmtlib/fmt/archive/0bffed89579ac8a210379fd640569e4b75fe28c8.tar.gz
+    filename: fmt-0bffed89.tar.gz
+    sha256: 15da1d712e3012b47417b4f4e960c5f2762fdf01156711ba1587c1c5488d3def
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - rocm-cmake
+  - rocm-hip
+  - rocr-runtime
+  - rocprofiler-register
+  - aqlprofile
+  - roctracer
+  - elfutils
+  - elfutils-libdw
+  - glog
+  - pybind11
+  - python
+  host: []
+  runtime:
+  - rocm-hip
+  - rocr-runtime
+  - rocprofiler-register
+  - aqlprofile
+  - elfutils
+  - elfutils-libdw
+  - glog
+  - python
+verify_paths:
+  - /opt/rocm/lib/librocprofiler-sdk.so
+  - /opt/rocm/bin/rocprofv3

@@ -1,0 +1,30 @@
+name: libfido2
+version: "1.17.0"
+release: 1
+description: Yubico FIDO2 library — CTAP 2.x and U2F authenticator interface
+license: BSD-2-Clause
+homepage: https://github.com/Yubico/libfido2
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/Yubico/libfido2/archive/refs/tags/${version}.tar.gz
+  filename: libfido2-${version}.tar.gz
+  sha256: ace062d14a482ff9325410ff63d06c8b5fe87e79ebc18dda07add2bc0188c77f
+dependencies:
+  build:
+  - openssl
+  - libcbor
+  - zlib
+  host: []
+  runtime:
+  - openssl
+  - libcbor
+  - zlib
+
+tests:
+  enabled: false
+  reason: "libfido2's regress test suite (regress/ subdirectory) is excluded from the default CMake build because BUILD_TESTS defaults OFF when NFC support is OFF (we don't build with libpcsclite). With BUILD_TESTS=OFF, no `check` target is generated and `cmake --build build --target check` fails with `make: *** No rule to make target 'check'`. Even if we enabled BUILD_TESTS, the regress tests exercise FIDO2 device interaction (CTAP/HID transport) which has no functional path in our build chroot — no /dev/hidraw* nodes, no USB enumeration, no FIDO2 hardware (USB security keys / NFC readers) attached. Disabling tests phase rather than enabling BUILD_TESTS for show: with no hardware, tests cannot exercise the device-interaction paths they're written to test. Functional confidence: libfido2 is part of Yubico's reference FIDO2 stack with extensive upstream CI; we exercise the integration via systemd-pass2's --fido2-device path at install time on real hardware, which is the actual usage path InterGenOS users will hit."
+
+verify_paths:
+  - /usr/lib/libfido2.so

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<defs>
+  <linearGradient id="backB" x1="0" y1="1" x2="0" y2="0">
+    <stop offset="0%" stop-color="#050810"/>
+    <stop offset="60%" stop-color="#0a2040"/>
+    <stop offset="100%" stop-color="#0066aa"/>
+  </linearGradient>
+
+  <linearGradient id="frontB" x1="0" y1="1" x2="0.3" y2="0">
+    <stop offset="0%" stop-color="#080c18"/>
+    <stop offset="50%" stop-color="#0a2848"/>
+    <stop offset="100%" stop-color="#0088dd"/>
+  </linearGradient>
+
+  <linearGradient id="highlightB" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#0099FF" stop-opacity="0.6"/>
+    <stop offset="50%" stop-color="#33b1ff" stop-opacity="0.8"/>
+    <stop offset="100%" stop-color="#0099FF" stop-opacity="0.6"/>
+  </linearGradient>
+
+  <linearGradient id="glossB" x1="0" y1="0" x2="0.6" y2="1">
+    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.12"/>
+    <stop offset="35%" stop-color="#ffffff" stop-opacity="0.02"/>
+    <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+  </linearGradient>
+
+  <filter id="shadow">
+    <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.5"/>
+  </filter>
+</defs>
+<rect width="256" height="256" fill="#000000"/>
+
+<!-- Back panel -->
+<path d="M 48 72 C 48 64, 54 58, 62 58
+         L 112 58 C 118 58, 122 60, 126 66
+         L 132 78 C 136 84, 140 86, 148 86
+         L 198 86 C 206 86, 212 92, 212 100
+         L 212 192 C 212 200, 206 206, 198 206
+         L 58 206 C 50 206, 44 200, 44 192
+         L 44 72 C 44 64, 48 64, 48 72 Z"
+      fill="url(#backB)" filter="url(#shadow)"/>
+
+<!-- Highlight band -->
+<path d="M 44 118 L 212 118 L 212 122 L 44 122 Z"
+      fill="url(#highlightB)"/>
+
+<!-- Front panel -->
+<path d="M 44 122 L 212 122
+         L 212 192 C 212 200, 206 206, 198 206
+         L 58 206 C 50 206, 44 200, 44 192 Z"
+      fill="url(#frontB)"/>
+
+<!-- Light reflection -->
+<path d="M 44 122 L 140 122 L 44 185 Z"
+      fill="url(#glossB)"/>
+
+<!-- Tab top highlight -->
+<path d="M 58 60 L 112 60 C 116 60, 120 62, 124 68"
+      fill="none" stroke="#33b1ff" stroke-width="1.5" stroke-opacity="0.4"
+      stroke-linecap="round"/>
+</svg>

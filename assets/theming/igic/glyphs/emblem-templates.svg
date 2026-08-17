@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: small "templates" emblem for a folder body — a master sheet over a copy
+       (the new-document-from-template metaphor); sits low, clears the tab. -->
+  <g class="glyph">
+    <rect x="100" y="128" width="36" height="46" rx="4"/>
+    <path d="M 120 174 L 152 174 Q 156 174 156 170 L 156 142 Q 156 138 152 138 L 144 138"/>
+    <line x1="110" y1="144" x2="126" y2="144"/>
+    <line x1="110" y1="158" x2="126" y2="158"/>
+  </g>
+</svg>

@@ -1,0 +1,71 @@
+name: migraphx
+version: "7.2.4"
+release: 1
+content_hash: 3a0687f14555f179
+description: MIGraphX — AMD graph-inference engine (ONNX/TF model compiler + runtime, C++ and Python APIs)
+license: MIT
+homepage: https://github.com/ROCm/AMDMIGraphX
+tier: compute
+build_style: custom
+install_func: do_install
+
+# Standalone repo (NOT in the monorepos) at the rocm-7.2.4 tag. sha256
+# pinned 2026-07-17 (single-witness GitHub tag-archive endpoint, same
+# caveat class as the other 7.2.4 pins).
+#
+# Dep closure grounded in the pinned tree: protobuf (src/onnx + src/tf
+# proto compilation; core protobuf 33.5 ≥ the manifest's v30) ·
+# msgpack-cxx · sqlite · nlohmann-json · half (manifest ROCm/half pin) ·
+# pybind11 (python API, MIGRAPHX_ENABLE_PYTHON default ON) · miopen /
+# rocblas / hipblaslt (USE_* defaults ON).
+#
+# TWO CDNA-scoped backends OFF (decision items, operator rules):
+# - MIGRAPHX_ENABLE_MLIR=OFF — src/targets/gpu/CMakeLists.txt:252-260
+#   demands rocMLIR (the same excluded MLIR toolchain as MIOpen's item).
+# - MIGRAPHX_USE_COMPOSABLEKERNEL=OFF — it find_packages CK's
+#   jit_library COMPONENT, which CK 7.2.4 only builds for gfx9
+#   (composablekernel CMakeLists:704: CK_USE_CODEGEN AND gfx9|GPU_ARCHS)
+#   — structurally unbuildable for the declared RDNA target set, not a
+#   choice.
+source:
+  - url: https://github.com/ROCm/AMDMIGraphX/archive/refs/tags/rocm-${version}.tar.gz
+    filename: AMDMIGraphX-rocm-${version}.tar.gz
+    sha256: 51f55c1a1ebe71b12a927b19384cb7911736869c91f01396f6113e88865dbdc0
+
+gpu_targets: "gfx1100;gfx1102;gfx1201"
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - rocm-cmake
+  - rocm-hip
+  - rocm-llvm
+  - miopen
+  - rocblas
+  - hipblas-common
+  - hipblaslt
+  - protobuf
+  - msgpack-cxx
+  - sqlite
+  - nlohmann-json
+  - half
+  - pybind11
+  - python
+  host: []
+  runtime:
+  - rocm-hip
+  - miopen
+  - rocblas
+  - hipblaslt
+  - protobuf
+  - msgpack-cxx
+  - sqlite
+  - python
+# 7.2.4 privatizes the versioned core libs under lib/migraphx/lib/
+# (RUNPATH $ORIGIN/../lib/migraphx/lib wired into the top-level C-API
+# lib + driver); only libmigraphx_c/_py sit on the top-level lib path.
+verify_paths:
+  - /opt/rocm/lib/migraphx/lib/libmigraphx.so
+  - /opt/rocm/lib/libmigraphx_c.so
+  - /opt/rocm/bin/migraphx-driver

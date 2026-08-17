@@ -1,0 +1,31 @@
+name: thrift
+version: "0.24.0"
+release: 1
+description: Apache Thrift RPC framework (C++ library + compiler; parquet metadata dep)
+license: Apache-2.0
+homepage: https://thrift.apache.org/
+tier: extra
+iso_include: false  # arrow-cpp parquet dep (training-stack chain) — mirror-only
+build_style: custom
+install_func: do_install
+# sha256 = Apache's published thrift-0.24.0.tar.gz.sha256 (archive.apache.org).
+source:
+- url: https://archive.apache.org/dist/thrift/${version}/thrift-${version}.tar.gz
+  sha256: e0fa5839a4c5c1d631b0931cf2c554ebbfa4e2fee3a9fb3ffd4f82ce4396c6e4
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - boost
+  - openssl
+  - flex
+  # bison: required by the compiler build; expected present in the base
+  # toolchain (LFS core). The cmake configure is the fail-loud gate —
+  # if it reports bison missing, that is a genuine tree gap to surface,
+  # not a feature to disable (Rule 3).
+  host: []
+  runtime:
+  - openssl
+verify_paths:
+  - /usr/lib/libthrift.so
+  - /usr/bin/thrift

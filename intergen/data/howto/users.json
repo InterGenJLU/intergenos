@@ -1,0 +1,183 @@
+[
+  {
+    "id": "users-add",
+    "domain": "users",
+    "triggers": [
+      "how do I add a user",
+      "how do I create a new account",
+      "how do I make another user",
+      "how to add someone to the system",
+      "what's the command to create a user",
+      "how do I set up a new login"
+    ],
+    "answer": "Create a user account (needs `sudo`):\n\n```\nsudo useradd -m <name>        # -m creates their home directory\nsudo passwd <name>            # set their password\n```\n\nTo let the new account use `sudo`, add them to the **wheel** group (that's the sudo-enabling group on InterGenOS):\n\n```\nsudo useradd -m -G wheel <name>     # create + grant sudo in one step\n# or for an existing user:\nsudo usermod -aG wheel <name>\n```\n\nYou can also manage accounts graphically in **Settings → Users**.",
+    "doc_source": "wiki sysadmin/users-services.md",
+    "requires": [
+      "useradd"
+    ]
+  },
+  {
+    "id": "users-sudo",
+    "domain": "users",
+    "triggers": [
+      "how do I give a user sudo",
+      "how do I grant admin rights",
+      "how do I let someone run sudo",
+      "how to add a user to sudoers",
+      "what group do I add for sudo",
+      "how do I make a user an administrator"
+    ],
+    "answer": "On InterGenOS, `sudo` access is granted by membership in the **wheel** group. Add a user to it:\n\n```\nsudo usermod -aG wheel <name>\n```\n\nThe `-aG` is important — it **appends** the group; without `-a` you'd replace all of their groups. The change takes effect on their next login. Don't hand-edit `/etc/sudoers` for this; the wheel group is already wired up, and `/etc/sudoers` is a protected file InterGen will not modify.",
+    "doc_source": "wiki sysadmin/users-services.md",
+    "requires": [
+      "usermod"
+    ]
+  },
+  {
+    "id": "users-groups-password",
+    "domain": "users",
+    "triggers": [
+      "how do I change my password",
+      "how do I see what groups I'm in",
+      "how do I add a user to a group",
+      "how to check my username",
+      "what's the command to change a password",
+      "how do I list groups"
+    ],
+    "answer": "Everyday account tasks:\n\n```\npasswd                    # change YOUR own password\nsudo passwd <name>        # change another user's (needs sudo)\ngroups                    # the groups you belong to\nid                        # your uid, gid, and groups\nsudo usermod -aG <group> <name>   # add a user to a group\n```\n\nGroup membership changes apply at the user's next login.",
+    "doc_source": "wiki sysadmin/users-services.md",
+    "requires": [
+      "passwd"
+    ]
+  },
+  {
+    "id": "user-how-do-i-change-the-root-password",
+    "domain": "users",
+    "triggers": [
+      "how do I change the root password"
+    ],
+    "answer": "```\nsudo passwd root\n```\nNote: InterGenOS ships locked-down by default, and direct root login is typically disabled — you\nnormally administer via `sudo` from your own account rather than logging in as root.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "user-how-do-i-add-a-new-user",
+    "domain": "users",
+    "triggers": [
+      "how do I add a new user"
+    ],
+    "answer": "```\nsudo useradd -m -s /bin/bash <username>   # create with a home dir + shell\nsudo passwd <username>                    # set their password\n```\nTo let them administer the system, add them to the sudo/wheel group (see the next answer).",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "user-how-do-i-give-a-user-sudo-rights",
+    "domain": "users",
+    "triggers": [
+      "how do I give a user sudo rights"
+    ],
+    "answer": "Add them to the administrators group (InterGenOS uses `wheel`):\n```\nsudo usermod -aG wheel <username>\n```\nThey pick up sudo rights on their next login. Verify with `groups <username>`.\nconfig in `config/`; it's `wheel` by LFS/BLFS convention but verify before this ships.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "user-how-do-i-delete-a-user",
+    "domain": "users",
+    "triggers": [
+      "how do I delete a user"
+    ],
+    "answer": "```\nsudo userdel <username>            # remove the account, keep their home dir\nsudo userdel -r <username>         # remove the account AND their home dir + mail\n```\nUse `-r` only if you're sure you don't need their files.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "user-what-is-sudo",
+    "domain": "users",
+    "triggers": [
+      "what is sudo"
+    ],
+    "answer": "`sudo` runs a single command with administrator (root) privileges — the standard way to make\nsystem changes on InterGenOS without logging in as root. Prefix any admin command with it:\n```\nsudo pkm install <name>\nsudo systemctl restart <service>\n```\nIt'll ask for *your* password (not root's) the first time in a session. Only users in the admin\n(`wheel`) group can use it.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "user-how-do-i-run-a-command-as-admin",
+    "domain": "users",
+    "triggers": [
+      "how do I run a command as admin"
+    ],
+    "answer": "Prefix it with `sudo`:\n```\nsudo <command>          # e.g. sudo pkm upgrade --all\n```\n`sudo` runs that one command as root and asks for your password. You must be in the admin\n(`wheel`) group. There's no \"Run as administrator\" button — it's `sudo` on the command line.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "user-why-do-i-get-permission-denied",
+    "domain": "users",
+    "triggers": [
+      "why do I get permission denied"
+    ],
+    "answer": "Two common causes:\n- **The action needs root** — prefix the command with `sudo` (e.g. `sudo pkm install ...`,\n  editing files under `/etc`, `/usr`).\n- **The file isn't executable or isn't yours** — check with `ls -l <file>`; fix with\n  `chmod +x <file>` (make runnable) or `sudo chown you:you <file>` (take ownership).\nNote InterGenOS ships with strict lockdown defaults, so some system paths are read-only by design.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "user-how-do-i-make-a-file-executable",
+    "domain": "users",
+    "triggers": [
+      "how do I make a file executable"
+    ],
+    "answer": "```\nchmod +x <file>\n./<file>               # then run it\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "user-how-do-i-run-a-shell-script",
+    "domain": "users",
+    "triggers": [
+      "how do I run a shell script"
+    ],
+    "answer": "```\nchmod +x ./script.sh   # once, to make it executable\n./script.sh            # run it\n# or run without chmod:\nbash ./script.sh\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "user-how-do-i-change-file-permissions",
+    "domain": "users",
+    "triggers": [
+      "how do I change file permissions"
+    ],
+    "answer": "```\nchmod <mode> <file>\n# examples:\nchmod +x script.sh         # make executable\nchmod 644 file.txt         # owner read/write, others read-only\nchmod 600 secret.txt       # owner-only read/write (good for private keys)\n```\nSee \"what does chmod 777 mean\" for how the number works.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "user-what-does-chmod-777-mean",
+    "domain": "users",
+    "triggers": [
+      "what does chmod 777 mean"
+    ],
+    "answer": "`777` gives **everyone** (owner, group, and all other users) full read + write + execute on the\nfile. The three digits are owner/group/other, and each is read(4)+write(2)+execute(1) added up,\nso `7 = 4+2+1 = rwx`. `777` is almost always too open — it lets any user modify the file. Prefer\n`755` (owner full, others read+execute) for programs or `644` for data files. On a\nsecurity-first system like InterGenOS, avoid `777`.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "user-how-do-i-change-the-owner-of-a-file",
+    "domain": "users",
+    "triggers": [
+      "how do I change the owner of a file"
+    ],
+    "answer": "```\nsudo chown <user> <file>            # change owner\nsudo chown <user>:<group> <file>    # change owner and group\nsudo chown -R <user> <dir>          # recursively for a whole directory\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "user-how-do-i-see-a-file-s-permissions",
+    "domain": "users",
+    "triggers": [
+      "how do I see a file's permissions"
+    ],
+    "answer": "```\nls -l <file>            # shows the -rwxr-xr-x string, owner, and group\nstat <file>             # more detail, including the octal mode\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  }
+]

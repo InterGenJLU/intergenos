@@ -1,0 +1,13 @@
+# InterGenOS systemd preset — the Chronicle backup engine.
+# The package's post_install enables and starts these on install, but the
+# installer's services phase runs `systemctl --root <target> preset-all`
+# AFTER the package hooks, and the image-wide default-disable preset then
+# strips any unit no preset whitelists — measured on the ge9b-12 installed
+# system: the hook-created enablement links for chronicled.service and all
+# three timers were removed by preset-all and the engine sat dead on first
+# boot. Real-distro pattern (same as gdm): the package ships its own preset
+# so preset-all wires it rather than un-wiring it.
+enable chronicled.service
+enable chronicle-userdata.timer
+enable chronicle-offpeak.timer
+enable chronicle-scrub.timer

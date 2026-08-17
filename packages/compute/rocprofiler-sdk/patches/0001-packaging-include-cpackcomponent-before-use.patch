@@ -1,0 +1,22 @@
+Load CPackComponent before its commands are called.
+
+rocprofiler_config_packaging.cmake calls cpack_add_component_group /
+cpack_add_component from line ~134 but only does include(CPack) — which
+pulls in CPackComponent — at line 243, after the call sites. On a
+vanilla CMake (4.3.1 here) the command is undefined at the call point:
+"Unknown CMake command \"cpack_add_component_group\"". Load the
+defining module explicitly at the top of the file.
+--- a/cmake/rocprofiler_config_packaging.cmake	2026-05-19 17:18:44.000000000 -0500
++++ b/cmake/rocprofiler_config_packaging.cmake	2026-07-18 04:40:04.794867923 -0500
+@@ -2,6 +2,11 @@
+ # configure packaging settings
+ #
+ 
++# cpack_add_component_group/cpack_add_component are defined by the
++# CPackComponent module; include(CPack) only runs at the bottom of this
++# file, after the call sites, so load the defining module explicitly.
++include(CPackComponent)
++
+ function(rocprofiler_set_package_depends _VARIABLE _VALUE _INFO _REPLACE_PARENTHESIS)
+     string(REPLACE ";" ", " _DEPENDS "${_VALUE}")
+     if(_REPLACE_PARENTHESIS)

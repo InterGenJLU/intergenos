@@ -1,0 +1,90 @@
+name: compute
+version: "1.0.0"
+release: 1
+content_hash: a9518f8ed245f7c6
+description: Compute meta-package — the full InterGenOS ROCm GPU platform (runtime, math and ML libraries, compilers, profilers, debuggers) in one install step
+license: GPL-3.0-or-later
+homepage: https://www.intergenos.org/
+tier: extra
+build_style: custom
+install_func: do_install
+iso_include: false
+# compute meta-package — one install surface for the ROCm GPU platform
+# (mirror-only; gaming-meta precedent).
+#
+# Decided 2026-07-21: package groupings that span mirror-only tiers get
+# a meta-package on this pattern rather than an installer toggle — the
+# grouping installs post-install, over the network, keeping the ISO
+# lean (the ROCm + LLVM trees are multi-GB).
+#
+# DERIVATION (do not hand-edit the dependency list): the flat set below
+# is the full compute-tier membership (packages/compute/*/package.yml)
+# at dev f4e039ce0 — 51 packages — minus exactly TWO members:
+#   triton-llvm, aotriton-triton-llvm — private-prefix LLVM toolchains
+#   (/opt/triton-llvm, /opt/aotriton-llvm) that exist solely as
+#   build-time dependencies of triton and aotriton respectively; they
+#   are consumed only via an explicit LLVM_SYSPATH at package build
+#   time and are not part of the platform a user runs.
+# Everything else in the tier ships in this set — the platform scope is
+# the FULL platform, not an in-tree-consumer subset.
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  # The flat compute-tier set (49 = 51 minus the two build-only LLVM
+  # toolchains), sorted; derivation method + base commit above.
+  - amdsmi
+  - aotriton
+  - aqlprofile
+  - composable-kernel
+  - eigen
+  - elfutils-libdw
+  - fmt
+  - frugally-deep
+  - functionalplus
+  - glog
+  - half
+  - hipblas
+  - hipblas-common
+  - hipblaslt
+  - hipcub
+  - hipfft
+  - hipify
+  - hiprand
+  - hipsolver
+  - hipsparse
+  - llama-cpp-hip
+  - migraphx
+  - miopen
+  - nlohmann-json
+  - pybind11
+  - rccl
+  - rocblas
+  - rocdbgapi
+  - rocfft
+  - rocgdb
+  - rocm-cmake
+  - rocm-comgr
+  - rocm-core
+  - rocm-debug-agent
+  - rocm-device-libs
+  - rocm-hip
+  - rocm-llvm
+  - rocm-smi-lib
+  - rocminfo
+  - rocprim
+  - rocprofiler-register
+  - rocprofiler-sdk
+  - rocr-runtime
+  - rocrand
+  - rocsolver
+  - rocsparse
+  - rocthrust
+  - roctracer
+  - rocwmma
+tests:
+  enabled: false
+  reason: "Meta-package with no source code, no compilation, no testsuite. The install step writes only a README."
+verify_paths:
+  - /usr/share/doc/compute/README

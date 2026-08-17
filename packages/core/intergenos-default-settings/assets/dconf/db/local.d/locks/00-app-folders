@@ -1,0 +1,15 @@
+# InterGenOS dconf lock — app-overview folder list.
+#
+# WHY: GNOME Shell seeds the STOCK folder layout
+# (['System','Utilities','YaST','Pardus']) into the per-user dconf db on first
+# session start. The user db outranks the system `local` db, so our system
+# default (['Utilities','InterGenOS'], in 01-intergenos-app-folder) is silently
+# overwritten and the "InterGenOS" app-overview folder never appears
+# (PI-3, confirmed on the development7/a development machine installs).
+#
+# A lock makes the system `local` value of folder-children authoritative over
+# the first-login user-db seed, so the InterGenOS folder is always present.
+# Tradeoff: the user can no longer change the top-level folder LIST via
+# Settings (they can still file apps into the existing folders). This is the
+# settled fix; the only mechanism that reliably beats the gnome-shell seed.
+/org/gnome/desktop/app-folders/folder-children

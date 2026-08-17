@@ -1,0 +1,21 @@
+/* InterGen Panel — GNOME Shell Extension Stylesheet */
+
+.intergen-panel-icon {
+  color: #0099FF;
+  padding: 0 4px;
+}
+
+/* Thinking state — pulse animation via CSS class toggle */
+.intergen-panel-icon.thinking {
+  animation: intergen-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes intergen-pulse {
+  0%, 100% { color: #0099FF; }
+  50% { color: #7dd3fc; }
+}
+
+/* Error state */
+.intergen-panel-icon.error {
+  color: #ef4444;
+}

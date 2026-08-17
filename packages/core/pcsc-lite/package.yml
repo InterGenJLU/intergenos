@@ -1,0 +1,30 @@
+name: pcsc-lite
+version: "2.5.1"
+release: 1
+content_hash: 2ced488f430a2fcd
+description: PC/SC smart card daemon and middleware library
+license: BSD-3-Clause
+homepage: https://pcsclite.apdu.fr/
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://pcsclite.apdu.fr/files/pcsc-lite-${version}.tar.xz
+    sha256: bfcfe38a20afc49849c6bf55325e38f449fc4b26d3923fdc32b969ae41a8741b
+
+dependencies:
+  build:
+    - meson
+    - ninja
+    - pkgconf
+    - flex
+  host: []
+  runtime:
+    - libusb
+    - systemd
+    - polkit
+verify_paths:
+  - /usr/sbin/pcscd
+  - /usr/lib/libpcsclite.so
+  - /usr/lib/systemd/system/pcscd.socket

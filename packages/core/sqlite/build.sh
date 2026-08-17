@@ -1,0 +1,34 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+#
+# Sqlite 3510200
+# LFS 13.0 Section 8.52
+
+configure() {
+    set -e
+    LDFLAGS="-Wl,-soname,libsqlite3.so.0" \
+    ./configure --prefix=/usr     \
+        --disable-static          \
+        --enable-fts4             \
+        --enable-fts5             \
+        CPPFLAGS="-DSQLITE_ENABLE_COLUMN_METADATA=1 \
+                  -DSQLITE_ENABLE_UNLOCK_NOTIFY=1   \
+                  -DSQLITE_ENABLE_DBSTAT_VTAB=1     \
+                  -DSQLITE_SECURE_DELETE=1"
+}
+
+build() {
+    set -e
+    make LDFLAGS.rpath="" -j${IGOS_JOBS}
+}
+
+check() {
+    set -e
+    : # No test suite
+}
+
+do_install() {
+    set -e
+    make DESTDIR="$DESTDIR" install
+}

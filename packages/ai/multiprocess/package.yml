@@ -1,0 +1,27 @@
+name: multiprocess
+# Not upstream-latest (0.70.19): datasets caps multiprocess<0.70.17 (Rule 12 deviation).
+version: "0.70.16"
+release: 1
+description: Better multiprocessing and multithreading (dill-backed fork of multiprocessing)
+license: BSD-3-Clause
+homepage: https://github.com/uqfoundation/multiprocess
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/b5/ae/04f39c5d0d0def03247c2893d6f2b83c136bf3320a2154d7b8858f2ba72d/multiprocess-0.70.16.tar.gz
+  sha256: 161af703d4652a0e1410be6abccecde4a7ddffd19341be0a7011b94aeb171ac1
+dependencies:
+  build:
+  - setuptools
+  - wheel
+  host: []
+  runtime:
+  - dill
+  # C-extension (_multiprocess). sdist ships py3.8-py3.13 source variants; on python3.14
+  # setup.py falls back to the py3.13 sources (native 3.14 support starts at 0.70.18,
+  # above the datasets cap). Build-on-3.14 risk flagged in the packaging notes.
+verify_paths:
+  - /usr/lib/python3.14/site-packages/multiprocess/__init__.py
+  - /usr/lib/python3.14/site-packages/multiprocess/context.py

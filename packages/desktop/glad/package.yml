@@ -1,0 +1,25 @@
+name: glad
+version: "2.0.8"
+release: 3  # r3: F12 runtime-declaration wave 2026-07-21 — runtime deps declared from the pinned sdist metadata (jinja2); .PKGINFO depend= change => release bump
+description: OpenGL/Vulkan/EGL loader generator
+license: MIT
+homepage: https://github.com/Dav1dde/glad
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/Dav1dde/glad/archive/v${version}/glad-${version}.tar.gz
+  sha256: 44f06f9195427c7017f5028d0894f57eb216b0a8f7c4eda7ce883732aeb2d0fc
+dependencies:
+  build:
+  # The pinned sdist's [build-system] names setuptools.build_meta, provided by
+  # setuptools. build.sh builds with --no-build-isolation, which installs nothing
+  # for the build, so setuptools must already be present; declaring it here is
+  # what orders it ahead of this package.
+  - setuptools
+  host: []
+  runtime:
+  - jinja2
+verify_paths:
+  - /usr/bin/glad
+  - /usr/lib/python3.14/site-packages/glad

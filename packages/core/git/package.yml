@@ -1,0 +1,33 @@
+name: git
+version: "2.53.0"
+release: 1
+description: Distributed version control system
+license: GPL-2.0-only
+homepage: https://git-scm.com/
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://www.kernel.org/pub/software/scm/git/git-${version}.tar.xz
+    sha256: 5818bd7d80b061bbbdfec8a433d609dc8818a05991f731ffc4a561e2ca18c653
+  - url: https://www.kernel.org/pub/software/scm/git/git-manpages-${version}.tar.xz
+    sha256: 957ffe4409eeb90c7332bff4abee8d5169d28ef5c7c3bf08419f4239be13f77f
+
+dependencies:
+  build:
+    - curl
+    - pcre2
+  host: []
+  runtime:
+    - curl
+    - pcre2
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "git t/ test suite (~900 scripts) assumes a non-chroot dev environment: tests in t5500-t5600 require localhost networking + apache/CGI/git-daemon listeners (no servers in chroot), tests requiring TTY-controlled stdio fail without PTY allocation, tests checking non-root permission semantics misbehave under root, and parallel-make timing assumptions are sensitive. Prior check() masked all failures via 'make test -k || true' (tests-as-truth violation); this commit switches to pkg_run_tests + known_failures so failures are surfaced honestly. Functional confidence comes from upstream's CI + Debian/Fedora/Arch package testing, not ours. GIT_UNZIP=nonexist preserved to skip zip-related tests (unzip not in core toolchain)."
+verify_paths:
+  - /usr/bin/git
+  - /usr/bin/git-receive-pack
+  - /usr/libexec/git-core

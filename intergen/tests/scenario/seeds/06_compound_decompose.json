@@ -1,0 +1,21 @@
+{
+  "id": "DEC-compound-tree-01",
+  "name": "compound request splits into the right sub-request tree (WP-2.4)",
+  "axis": ["decomposer", "routing"],
+  "category": "decomposer",
+  "postures": ["2B-locked"],
+  "capabilities": ["route:decomposed", "cross:decomposer-tree"],
+  "tags": ["class:decomposer-tree", "seed:decomposer"],
+  "session_policy": "single-session",
+  "turns": [
+    {
+      "user": "check my disk usage and list my running services",
+      "description": "A genuine two-part compound. The decomposer must split it into the sub-request TREE (a disk-usage sub-request AND a running-services sub-request), not answer one part or route the whole thing to a single handler. This asserts the decomposition STRUCTURE (the sub-request set), closing the gap where a compound was graded on only its final answer. Protective: a regression that stops the decomposer splitting this class breaks it.",
+      "assertions": [
+        ["routes_via", "decomposed", "a genuine multi-part request routes to the compound decompose path"],
+        {"type": "decomposes_into", "value": "disk,services", "description": "the decomposition tree covers both a disk sub-request and a services sub-request"},
+        {"type": "decomposes_into", "value": "2", "description": "exactly two sub-requests — not under- or over-split"}
+      ]
+    }
+  ]
+}

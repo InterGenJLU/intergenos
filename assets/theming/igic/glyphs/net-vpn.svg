@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- states base: network-vpn — a shield (secure) + keyhole + a NETWORK NODE: the line drops from
+       the shield to a CIRCLE NODE at the junction, then branches to a horizontal bus bar (R4-2:
+       reads network, not a bare underline). Overlay-only base: network-vpn = bare; acquiring =
+       accent ellipsis above; disabled = grey glyph (dim) + a THICKER accent X (R4-1). network.js:1362-1370. -->
+  <g class="glyph">
+    <path d="M 128 58 L 182 80 L 182 116 C 182 148 160 170 128 182 C 96 170 74 148 74 116 L 74 80 Z"/>
+    <circle cx="128" cy="112" r="12"/>
+    <path d="M 128 124 L 128 142"/>
+    <path d="M 128 182 L 128 192"/>
+    <circle cx="128" cy="201" r="9"/>
+    <path d="M 82 201 L 119 201"/>
+    <path d="M 137 201 L 174 201"/>
+    <g class="overlay acquiring accent">
+      <circle cx="100" cy="44" r="7"/>
+      <circle cx="128" cy="44" r="7"/>
+      <circle cx="156" cy="44" r="7"/>
+    </g>
+    <g class="overlay disabled accent" stroke-width="2.5">
+      <path d="M 98 86 L 158 146"/>
+      <path d="M 158 86 L 98 146"/>
+    </g>
+  </g>
+</svg>

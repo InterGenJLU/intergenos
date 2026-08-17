@@ -1,0 +1,19 @@
+name: findutils-core
+ships_as: findutils  # ch8 dual-name twin — the driver archives this recipe under the ship name (chroot-build-ch8.sh run_package arg 2; runtime deps elsewhere may name 'findutils')
+version: "4.10.0"
+release: 1
+description: GNU find utilities
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/findutils/findutils-${version}.tar.xz
+  sha256: 1387e0b67ff247d2abde998f90dfbf70c1491391a59ddfecb8ae698789f0a4f5
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools
+verify_paths:
+  - /usr/bin/find
+  - /usr/bin/locate
+  - /var/lib/locate

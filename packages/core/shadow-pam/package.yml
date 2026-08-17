@@ -1,0 +1,28 @@
+name: shadow-pam
+version: "4.19.3"
+release: 3  # hook-contract wave: login.defs staging-sed + full pam.d set moved post_install -> do_install (owned payload; owns /etc/pam.d/other)
+description: Shadow password suite (rebuilt with Linux-PAM support)
+license: BSD-3-Clause
+homepage: https://github.com/shadow-maint/shadow
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://github.com/shadow-maint/shadow/releases/download/${version}/shadow-${version}.tar.xz
+    sha256: 11a8f358910712cf957dd4fd205063fce7e386b68fc7dfe3a0e1e53155ec53c5
+
+dependencies:
+  build:
+    - linux-pam
+  host: []
+  runtime:
+    - linux-pam
+verify_paths:
+  - /etc/login.defs
+  - /etc/login.defs.orig
+  - /etc/pam.d/login
+  - /etc/pam.d/su
+  - /etc/pam.d/other
+  - /usr/bin/chage
+  - /usr/lib/libsubid.so

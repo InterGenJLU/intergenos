@@ -1,0 +1,151 @@
+[
+  {
+    "id": "svc-status",
+    "domain": "services",
+    "triggers": [
+      "how do I check if a service is running",
+      "how do I see the status of a service",
+      "how to check a service",
+      "how do I know if something is running",
+      "what's the command to check a service",
+      "how do I check on the web server"
+    ],
+    "answer": "InterGenOS uses **systemd**, so you manage services with `systemctl`:\n\n```\nsystemctl status <name>      # is it running? recent log lines\nsystemctl is-active <name>   # just active / inactive\nsystemctl is-enabled <name>  # will it start at boot?\n```\n\nFor example `systemctl status sshd`. Reading status needs no privileges; the service name is usually the daemon's name (sshd, NetworkManager, cups).",
+    "doc_source": "wiki sysadmin/users-services.md",
+    "requires": [
+      "systemctl"
+    ]
+  },
+  {
+    "id": "svc-start-stop-restart",
+    "domain": "services",
+    "triggers": [
+      "how do I start a service",
+      "how do I stop a service",
+      "how do I restart a service",
+      "how to restart a daemon",
+      "what's the command to restart something",
+      "how do I bring a service back up"
+    ],
+    "answer": "Start, stop, or restart a service with `systemctl` (system services need `sudo`):\n\n```\nsudo systemctl start <name>\nsudo systemctl stop <name>\nsudo systemctl restart <name>     # stop then start\nsudo systemctl reload <name>      # re-read config without dropping connections\n```\n\nFor example `sudo systemctl restart NetworkManager`. Use `restart` after changing a service's configuration; `reload` if the service supports it and you don't want to interrupt it.",
+    "doc_source": "wiki sysadmin/users-services.md",
+    "requires": [
+      "systemctl"
+    ]
+  },
+  {
+    "id": "svc-enable-disable",
+    "domain": "services",
+    "triggers": [
+      "how do I make a service start at boot",
+      "how do I enable a service",
+      "how do I disable a service",
+      "how to stop a service starting automatically",
+      "how do I start something on boot",
+      "what's the command to enable a service"
+    ],
+    "answer": "Whether a service starts automatically at boot is controlled by `enable` / `disable` (separate from whether it's running right now):\n\n```\nsudo systemctl enable <name>          # start at every boot\nsudo systemctl enable --now <name>    # enable AND start it now\nsudo systemctl disable <name>         # don't start at boot\n```\n\n`enable` only affects future boots — add `--now` to also start it immediately, or run `systemctl start` separately.",
+    "doc_source": "wiki sysadmin/users-services.md",
+    "requires": [
+      "systemctl"
+    ]
+  },
+  {
+    "id": "svc-failed-logs",
+    "domain": "services",
+    "triggers": [
+      "how do I see what services failed",
+      "how do I find failed services",
+      "how do I check service logs",
+      "how to see why a service crashed",
+      "how do I read the logs for a service",
+      "what's wrong with my services"
+    ],
+    "answer": "List anything that failed, then read its log:\n\n```\nsystemctl --failed                 # every unit in a failed state\njournalctl -u <name> -b             # this boot's log for one service\njournalctl -u <name> -e             # jump to the newest entries\n```\n\nStart with `systemctl --failed` to see what's broken, then `journalctl -u <name> -b` to find out why. `journalctl -xe` shows the most recent system-wide errors with explanations.",
+    "action": {
+      "command": "systemctl --failed",
+      "tool": "manage_services"
+    },
+    "doc_source": "wiki troubleshooting/methodology.md; sysadmin/users-services.md",
+    "requires": [
+      "systemctl"
+    ]
+  },
+  {
+    "id": "svc-systemd-overview",
+    "domain": "services",
+    "triggers": [
+      "how does systemd work",
+      "what is systemd",
+      "explain systemd",
+      "how do services work on InterGenOS",
+      "tell me about systemd",
+      "how does the service manager work"
+    ],
+    "answer": "**systemd** is InterGenOS's init system and service manager — it starts the system at boot and supervises long-running services (called *units*). You drive it with `systemctl`, and read its logs with `journalctl`:\n\n```\nsystemctl status <name>      # is a service running? recent log\nsystemctl start|stop|restart <name>\nsystemctl enable|disable <name>    # start at boot, or not\nsystemctl --failed                 # anything that crashed\njournalctl -u <name> -b             # this boot's log for a unit\n```\n\nA unit is usually named after its daemon (`sshd`, `NetworkManager`, `cups`). Reading status and logs needs no privileges; starting, stopping, and enabling do. systemd also handles timers, sockets, and mounts as units, but services are what you'll touch most.",
+    "doc_source": "wiki sysadmin/users-services.md",
+    "requires": [
+      "systemctl"
+    ]
+  },
+  {
+    "id": "svc-how-do-i-kill-a-frozen-program",
+    "domain": "services",
+    "triggers": [
+      "how do I kill a frozen program"
+    ],
+    "answer": "Find it and stop it:\n```\npkill <name>                 # by name, e.g. pkill firefox\n# still stuck? force it:\npkill -9 <name>\n```\nOn the GNOME (Wayland) desktop you can also open **System Monitor**, select the app, and hit\n**End Process**. Use `-9` (SIGKILL) only when a normal `pkill` doesn't work.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "svc-an-app-is-not-responding-how-do-i-close-it",
+    "domain": "services",
+    "triggers": [
+      "an app is not responding how do I close it"
+    ],
+    "answer": "Try to close its window first; if that hangs, kill it by name:\n```\npkill <name>          # graceful\npkill -9 <name>       # force, if it won't die\n```\nOr use GNOME **System Monitor** → select the app → **End Process**. On Wayland the old\n`xkill` click-to-kill isn't available; use the name-based commands or System Monitor.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "svc-how-do-i-force-quit-on-linux",
+    "domain": "services",
+    "triggers": [
+      "how do I force quit on linux"
+    ],
+    "answer": "```\npkill -9 <name>       # force-kill every process matching that name\n# or by PID:\nkill -9 <pid>         # get the PID from `pgrep <name>` or System Monitor\n```\n`-9` is SIGKILL — the unconditional force-quit. Try a plain `pkill <name>` first so the app can\nclean up. GNOME **System Monitor → End Process** is the graphical equivalent.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "svc-how-do-i-kill-a-process-by-name",
+    "domain": "services",
+    "triggers": [
+      "how do I kill a process by name"
+    ],
+    "answer": "```\npgrep -a <name>       # list matching processes (verify before killing)\npkill <name>          # terminate them\npkill -9 <name>       # force, if needed\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "svc-how-do-i-enable-a-service-to-start-at-boot",
+    "domain": "services",
+    "triggers": [
+      "how do I enable a service to start at boot"
+    ],
+    "answer": "```\nsudo systemctl enable <service>            # start at boot\nsudo systemctl enable --now <service>      # start at boot AND right now\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "svc-how-do-i-make-a-program-start-automatically-when",
+    "domain": "services",
+    "triggers": [
+      "how do I make a program start automatically when I log in"
+    ],
+    "answer": "This is a per-user desktop autostart (GNOME on Wayland). Drop a `.desktop` launcher in your\nautostart folder:\n```\nmkdir -p ~/.config/autostart\ncp /usr/share/applications/<app>.desktop ~/.config/autostart/\n```\nIt will launch on your next login. (For a background *system* service, use\n`sudo systemctl enable <service>` instead.) GNOME's **Settings** has no autostart pane by\ndefault; the `~/.config/autostart` file is the reliable way.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  }
+]

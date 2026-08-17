@@ -1,0 +1,59 @@
+name: vulkan-tools
+version: "1.4.341.0"
+release: 1
+description: Vulkan utility programs — vulkaninfo, vkcube, vkcubepp
+license: Apache-2.0
+homepage: https://github.com/KhronosGroup/Vulkan-Tools
+tier: extra
+build_style: cmake
+install_func: do_install
+iso_include: false
+# vulkan-tools — Khronos' official Vulkan utility programs.
+# Provides `vulkaninfo` (dump driver capabilities + extensions; the
+# canonical Vulkan-side companion to vainfo for VAAPI), plus `vkcube` +
+# `vkcubepp` (rotating-cube rendering sanity tests). Version pinned to
+# 1.4.341.0 to match desktop/vulkan-loader 1.4.341.0 already in tree —
+# Khronos releases tools and loader in lockstep at the same vulkan-sdk-*
+# tag, and ICD ABI matching is required for vulkaninfo to enumerate
+# devices correctly.
+#
+# We build BUILD_ICD=OFF — the upstream ICD is a mock driver for testing
+# the loader; we use Mesa's RADV (AMD) and ANV (Intel) Vulkan drivers
+# from the desktop/mesa package, not the mock ICD.
+#
+# Cross-distro alignment:
+#   Arch:   extra/vulkan-tools; same cmake with BUILD_ICD=OFF
+#   Fedora: vulkan-tools; same with BUILD_ICD=OFF
+#   Debian: vulkan-tools; ICD is in a separate vulkan-icd-loader-debug
+# All three disable the mock ICD in the user-facing tools package. We
+# align exactly.
+source:
+- url: https://github.com/KhronosGroup/Vulkan-Tools/archive/refs/tags/vulkan-sdk-${version}.tar.gz
+  filename: vulkan-tools-${version}.tar.gz
+  sha256: dc65f1ea97dd0b2155c2281a79e87d27183c0737fb96377744091a3c8460ae1e
+dependencies:
+  build:
+  - cmake           # build system
+  - vulkan-headers  # vulkan_core.h + extension headers
+  - vulkan-loader   # libvulkan.so for ICD enumeration
+  - wayland         # wayland-client for vkcube --wayland
+  - wayland-protocols  # xdg-shell + viewporter for vkcube --wayland
+  - libX11          # X11 backend for vkcube --xlib
+  - libxcb          # xcb backend for vkcube --xcb (default on Linux)
+  - libxkbcommon    # keyboard handling in vkcube --wayland
+  - libXrandr       # display enumeration for vkcube --xlib
+  - glslang         # GLSL-to-SPIR-V at build time for vkcube's shaders
+  - python          # codegen scripts (CMake invokes python during configure)
+  host: []
+  runtime:
+  - vulkan-loader   # libvulkan.so at runtime
+  - wayland         # libwayland-client.so
+  - libX11          # libX11.so
+  - libxcb          # libxcb.so
+  - libxkbcommon    # libxkbcommon.so
+  - libXrandr       # libXrandr.so
+tests:
+  enabled: false
+  reason: "vulkan-tools' testsuite requires a Vulkan driver bound to a real GPU. The build chroot has no GPU and no loaded ICD; tests cannot meaningfully run. Same environment-bounded shape as libva-utils."
+verify_paths:
+  - /usr/bin/vulkaninfo

@@ -1,0 +1,24 @@
+name: xcb-util-wm
+version: "0.4.2"
+release: 1
+description: XCB window manager utilities
+license: MIT
+homepage: https://xcb.freedesktop.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://xcb.freedesktop.org/dist/xcb-util-wm-${version}.tar.xz
+  sha256: 62c34e21d06264687faea7edbf63632c9f04d55e72114aa4a57bb95e4f888a0b
+dependencies:
+  build:
+  - libxcb
+  host: []
+  runtime:
+  - libxcb
+configure_flags:
+- --prefix=/usr
+- --disable-static
+verify_paths:
+  - /usr/lib/libxcb-icccm.so
+  - /usr/lib/libxcb-ewmh.so

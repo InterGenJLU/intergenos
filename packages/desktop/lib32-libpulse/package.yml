@@ -1,0 +1,105 @@
+name: lib32-libpulse
+version: '17.0'
+release: 1
+description: PulseAudio client libraries (32-bit multilib runtime)
+license: LGPL-2.1-or-later
+homepage: https://www.freedesktop.org/wiki/Software/PulseAudio/
+tier: desktop
+# PURE-YML package (no build.sh): driven end-to-end by the builder's lib32
+# meson lane — cross-file configure, verbose ninja, allowlist staged-copy
+# install. Ships ONLY the client route 32-bit native titles need to reach
+# the (PipeWire-provided) pulse server: libpulse.so.0 + libpulse-simple.so.0
+# + /usr/lib32/pulseaudio/libpulsecommon-17.0.so (inside the allowlist) +
+# the .pc files. The daemon, modules and utilities ship with nothing — the
+# 64-bit sibling exists for libpulse client compat itself and PipeWire is
+# the server (see the sibling's silent_loss note).
+#
+# THE DISABLE-WALL (decided 2026-07-02), grounded against the
+# pinned PA 17.0 meson_options.txt + meson.build and the Arch
+# lib32-libpulse PKGBUILD precedent (G3 — pin, never autodetect):
+# - daemon=false is the load-bearing trim: ltdl, the database backend and
+#   every module dep sit inside `if get_option('daemon')` in the pinned
+#   meson.build, so none of them enter this build. database=simple pins
+#   the (daemon-guarded, hence moot) combo away from gdbm/tdb anyway.
+# - sndfile is UNCONDITIONAL for the client libs (no trim option exists in
+#   the pinned source) — that edge IS the measured +5 codec closure.
+# - dbus/asyncns/glib/x11/gsettings are feature-gated and trim clean from
+#   the client build; every other 'auto' feature is pinned disabled so the
+#   32-bit build can never autodetect a host lib (alsa/avahi/bluez5/
+#   gstreamer/jack/fftw/gtk/lirc/openssl/orc/oss-output/soxr/speex/
+#   systemd/tcpwrap/udev/valgrind/webrtc-aec/consolekit/elogind).
+# - man=false/tests=false/doxygen=false: booleans defaulting true; docs and
+#   the test battery belong to the fully-tested 64-bit sibling (Rule-10
+#   environmental + scope class); completions pinned off likewise.
+#
+# Enforcement by construction (documented per the arc decision, instead of
+# a bespoke check): lib32-dbus, lib32-glib2 etc. DO NOT EXIST in the lib32
+# set — if a disable ever regressed and leaked a NEEDED edge, that edge
+# dangles and the Step 4.75 NEEDED-closure gate halts the build.
+build_style: meson
+lib32_source: pulseaudio
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://www.freedesktop.org/software/pulseaudio/releases/pulseaudio-${version}.tar.xz
+  sha256: 053794d6671a3e397d849e478a80b82a63cb9d8ca296bd35b73317bb5ceb87b5
+dependencies:
+  build:
+  - lib32-glibc
+  - lib32-libsndfile
+  host: []
+  runtime:
+  - lib32-glibc
+  - lib32-libsndfile
+# Formal Rule-F acceptance of the one disable-wall member the silent-loss
+# gate flags (glib2 exists in-tree 64-bit, so the trim reads as a loss):
+# glib=disabled drops libpulse-mainloop-glib.so.0 from the 32-bit client
+# set BY DESIGN — the decided disable-wall above; no lib32-glib2
+# exists in the adopted set, and 32-bit titles reach pulse through the
+# plain/simple mainloop APIs (SDL/OpenAL class), never the glib mainloop.
+# The 64-bit sibling ships the glib mainloop for native desktop apps.
+silent_loss_accepted:
+  - glib
+configure_flags:
+- -Ddaemon=false
+- -Dclient=true
+- -Ddatabase=simple
+- -Dman=false
+- -Dtests=false
+- -Ddoxygen=false
+- -Dbashcompletiondir=no
+- -Dzshcompletiondir=no
+- -Dalsa=disabled
+- -Dasyncns=disabled
+- -Davahi=disabled
+- -Dbluez5=disabled
+- -Dbluez5-gstreamer=disabled
+- -Dconsolekit=disabled
+- -Ddbus=disabled
+- -Delogind=disabled
+- -Dfftw=disabled
+- -Dglib=disabled
+- -Dgsettings=disabled
+- -Dgstreamer=disabled
+- -Dgtk=disabled
+- -Djack=disabled
+- -Dlirc=disabled
+- -Dopenssl=disabled
+- -Dorc=disabled
+- -Doss-output=disabled
+- -Dsamplerate=disabled
+- -Dsoxr=disabled
+- -Dspeex=disabled
+- -Dsystemd=disabled
+- -Dtcpwrap=disabled
+- -Dudev=disabled
+- -Dvalgrind=disabled
+- -Dwebrtc-aec=disabled
+- -Dx11=disabled
+- -Dhal-compat=false
+- -Dadrian-aec=false
+verify_paths:
+  - /usr/lib32/libpulse.so.0
+  - /usr/lib32/libpulse-simple.so.0
+  - /usr/lib32/pkgconfig/libpulse.pc

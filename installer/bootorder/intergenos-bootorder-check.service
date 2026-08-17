@@ -1,0 +1,26 @@
+[Unit]
+# Keep the registered UEFI boot entry at the front of the boot order.
+# Some firmware enumerates the removable-media fallback loader on the ESP as
+# its own boot option and places it ahead of the entry the installer
+# registered; this checks every boot and puts it back when the install
+# recorded that InterGenOS is the default boot target.
+Description=Verify the UEFI boot order matches the installed boot entry
+Documentation=man:intergenos-bootorder-check(8)
+ConditionPathExists=/sys/firmware/efi
+ConditionPathExists=/etc/intergenos/boot-default.conf
+# efivarfs must be mounted before the boot variables can be read or written.
+After=systemd-remount-fs.service
+DefaultDependencies=yes
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+ExecStart=/usr/bin/intergenos-bootorder-check
+# The tool exits 0 when the order is right, when it repaired it, and when the
+# state could not be determined; it exits 1 only when a repair did not take,
+# which is a real condition an administrator should see as a failed unit.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

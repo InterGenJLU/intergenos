@@ -1,0 +1,22 @@
+name: cpio
+version: "2.15"
+release: 1
+description: GNU cpio - copies files into or out of archives
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/cpio/
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://ftpmirror.gnu.org/cpio/cpio-${version}.tar.bz2
+    sha256: 937610b97c329a1ec9268553fb780037bcfff0dcffe9725ebc4fd9c1aa9075db
+
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/cpio
+  - /usr/bin/mt
+  - /usr/share/doc/cpio-2.15

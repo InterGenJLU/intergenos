@@ -1,0 +1,453 @@
+# pkm every-aspect audit — machine-readable findings registry
+#
+# Origin: 2026-06-16 full audit of the pkm package manager (all 16 modules,
+# every command) after conflicting upgrade guidance, a word-wrap "wall", and a
+# version-vs-release confusion surfaced. Multi-reader parallel audit + runtime
+# evidence from a real on-hardware install.
+#
+# This file is the SINGLE SOURCE OF TRUTH for audit status. It is queried by
+# scripts/pkm-audit-status.py and integrity-checked by
+# tests/pkm/audit/test_findings_registry.py. A finding is NOT "verified" until
+# its regression_test exists and passes (security-first: a checked gate, not a
+# claim). Status lifecycle: open -> in_progress -> fixed -> verified.
+# Only the maintainer declares an item finally CLOSED; this registry's `status`
+# tracks the engineering state, not the governance state.
+#
+# lens:     security | user_control | correctness | ux
+# severity: critical | high | medium | low
+# tier:     trust (must stop lying) | understand (must be legible) | harden
+# status:   open | in_progress | fixed | verified
+# owner:    maintainer
+
+meta:
+  audit_date: "2026-06-16"
+  source: "multi-reader parallel module audit + on-hardware runtime evidence"
+  public_master_at_audit: "4bbcd4f9"
+  scope: "pkm/ (all 16 modules) — the PI-12 builder/gate half + the install-integrity gate are tracked on the build/installer track, not in this registry"
+
+findings:
+
+  # ---------------- TIER 1: TRUST — the (version, release) pipeline ----------
+  - id: PKM-A01
+    title: "PEP-440 comparator is wrong for distro versions -> false 'corruption' WARN + silently skips security pkgs"
+    module: version.py
+    locations: ["pkm/version.py:16", "pkm/version.py:31-38"]
+    lens: security
+    severity: critical
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 1
+    regression_test: tests/pkm/test_version.py
+    evidence: "13 packages on a real install (firefox 140.9.0esr, llama-cpp b8796, openssh 10.2p1, sudo 1.9.17p2, passt 2026_01_20.386b5f5, date-versioned themes) raise VersionParseError whose text asserts 'build-system or repo-index corruption'. None are corrupt; all are installed==remote (not even upgradable)."
+    fix: "Replace packaging.version.Version with the Debian dpkg upstream-version algorithm; keep the separate release int as tiebreak. Reserve VersionParseError for genuinely empty/missing versions. Strip the 'corruption' framing from docstrings + message."
+
+  - id: PKM-A02
+    title: "Install records release=1 for every package (add_installed omits release=) -> phantom upgrades"
+    module: installer.py
+    locations: ["pkm/installer.py:826", "pkm/database.py:294"]
+    lens: correctness
+    severity: critical
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 1
+    regression_test: tests/pkm/test_installer_release_capture.py
+    evidence: "The on-hardware install's pkm.db records release=1 for all 828 packages incl. a recently slipstreamed pkm/theme; .PKGINFO carries pkgrel and _parse_pkginfo parses it, but the add_installed call never passes release=. GBC003.3 fixed the index end of the (version,release) pipeline, exposing this install end -> 23 phantom 'release-only' upgrades."
+    fix: "Thread release=int(pkginfo.get('release',1)) into the add_installed call (archive path; helper path = PKM-A26)."
+
+  - id: PKM-A03
+    title: "PEP-440 folds a -N suffix into postrelease, colliding with the separate release int"
+    module: version.py
+    locations: ["pkm/version.py:69-79"]
+    lens: correctness
+    severity: high
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 1
+    regression_test: tests/pkm/test_version.py
+    evidence: "Version('1.0.0-5') == Version('1.0.0.post5'); an upstream '-N' in the version string is absorbed before the release tiebreak runs."
+    fix: "Subsumed by PKM-A01: treat version as opaque (dpkg), keep release strictly orthogonal — structurally eliminates the folding."
+
+  - id: PKM-A04
+    title: "PEP-440 normalizes 1.0 == 1.0.0 and 2026.06.16 -> 2026.6.16, masking real bumps"
+    module: version.py
+    locations: ["pkm/version.py:60-79"]
+    lens: correctness
+    severity: medium
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 1
+    regression_test: tests/pkm/test_version.py
+    evidence: "Version('1.0')==Version('1.0.0') is True; a 1.0->1.0.0 bump reports 'up to date' (masked upgrade)."
+    fix: "Subsumed by PKM-A01: dpkg comparator does not collapse segment counts to equality."
+
+  - id: PKM-A05
+    title: "_normalize silently coerces a malformed release to 1 instead of surfacing it"
+    module: version.py
+    locations: ["pkm/version.py:53-56"]
+    lens: security
+    severity: medium
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 1
+    regression_test: tests/pkm/test_version.py
+    evidence: "try: int(rel) except: rel_int=1 — a garbage release ('5a') is masked to 1, silently mis-deciding the tiebreak; contradicts the module's own 'fall open with a clear error' philosophy (applied to version, not release)."
+    fix: "Distinguish absent release (None -> 1, legit) from malformed (raise VersionParseError)."
+
+  - id: PKM-A06
+    title: "Release omitted from every comparison display -> release-only bump renders as a no-op (1.1.7 -> 1.1.7)"
+    module: cli.py
+    locations: ["pkm/cli.py:1955", "pkm/cli.py:1575", "pkm/cli.py:2450"]
+    lens: user_control
+    severity: high
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 1
+    regression_test: tests/pkm/test_version_display.py
+    evidence: "_print_upgrade_plan_summary, list upgradable, and check-updates stdout all print version without release; user is asked to confirm an upgrade that looks like nothing changed. (info/verify headers = PKM-A30/Batch 4.)"
+    fix: "Render version-release on both sides everywhere a comparison is shown."
+
+  # ---------------- TIER 1: TRUST — the silent-failure class -----------------
+  - id: PKM-A07
+    title: "Dispatcher discards command return codes -> failing commands exit 0"
+    module: cli.py
+    locations: ["pkm/cli.py:616-666"]
+    lens: security
+    severity: critical
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 2
+    regression_test: tests/pkm/test_batch2_silent_failures.py
+    evidence: "iso-prep/restart-services/refresh-baseline/cache-clean/hold/unhold/autoremove all `return 1` on failure, but the dispatch calls them as bare statements -> process exits 0. A pipeline gating on `pkm iso-prep` sees success while the chroot was left 'in a partial state'."
+    fix: "sys.exit(handler(db,args) or 0) for every handler that returns a code; test each documented failure -> nonzero exit."
+
+  - id: PKM-A08
+    title: "Remove swallows OSError/PermissionError, reports success while leaving files on disk"
+    module: remover.py
+    locations: ["pkm/remover.py:89-121", "pkm/remover.py:155-186"]
+    lens: security
+    severity: high
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 2
+    regression_test: "tests/pkm/test_pkm_a08_remove_failure_surface.py"
+    evidence: "Per-file unlink failure is silently skipped (removed_count not incremented), then returns True 'Removed N files' and deletes the DB record -> package gone from DB, payload still on disk, zero signal."
+    fix: "Collect failed unlinks into failed_removals; surface them loudly in the returned message AND via reporter.warn (the channel cmd_remove shows on success, since it does not print msg on ok=True); the done() success line is qualified when files were left on disk. Keeps the True return deliberately — the DB row IS removed (partial success); returning False would make reinstall (cli.py:1097) hard-abort and autoremove (cli.py:2174) bail the loop on one stuck file, a worse outcome. The finding is closed by surfacing, not by flipping the bool. (Caller-side: autoremove discards msg on success — that surfacing gap is A27/A28's Reporter-routing scope.)"
+
+  - id: PKM-A09
+    title: "cmd_update silently continues on VersionParseError then prints 'All packages are up to date'"
+    module: cli.py
+    locations: ["pkm/cli.py:1171-1172"]
+    lens: security
+    severity: high
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 2
+    regression_test: tests/pkm/test_batch2_silent_failures.py
+    evidence: "Bare `except VersionParseError: continue` with no message; an unassessable package is invisibly dropped and the user gets an affirmative all-clear. (cmd_upgrade/list WARN on the same exception — inconsistent.)"
+    fix: "WARN per skipped package + 'N packages could not be evaluated' in the summary; never a clean all-clear that hides skips."
+
+  - id: PKM-A10
+    title: "18 'installed but not in repo' packages silently skipped in all four compare loops"
+    module: cli.py
+    locations: ["pkm/cli.py:1162", "pkm/cli.py:1221", "pkm/cli.py:1568", "pkm/cli.py:2380"]
+    lens: security
+    severity: high
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 2
+    regression_test: tests/pkm/test_batch2_silent_failures.py
+    evidence: "`remote = get_package(name); if not remote: continue` everywhere — those packages can never receive updates and the user is never told a chunk of the system is outside the repo's update/trust horizon."
+    fix: "Accumulate not-in-repo names and surface a summary line in update + list (additive, no behavior change)."
+
+  - id: PKM-A11
+    title: "Cached-index parse/gate failure swallowed -> repo vanishes -> degrades to confusing 'not found'"
+    module: repo.py
+    locations: ["pkm/repo.py:906-936"]
+    lens: security
+    severity: high
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 2
+    regression_test: "tests/pkm/test_pkm_a11_cached_index_reject.py"
+    evidence: "Cached-index load wraps _parse_index (where anti-rollback/freshness/valid_until/min_pkm_version fail-closed gates live) in `except Exception: pass`; a rejected stale/rolled-back index silently disappears and every package reads 'not found'."
+    fix: "_ensure_synced now catches IndexFormatError distinctly and surfaces it LOUDLY on stderr (names the repo + the gate reason + `pkm update` remediation), leaving the cached artifact in place for inspection — same posture as sync()'s L-020 handler (the registry's 'drop like sync does' was imprecise; sync KEEPS the artifact on IndexFormatError and only deletes on network/generic errors, so the consistent fix keeps it). A genuinely-unexpected parse error still soft-skips that repo but is now LOGGED (type+message) instead of `pass`. 3 tests in test_pkm_a11_cached_index_reject.py."
+
+  - id: PKM-A12
+    title: "query_active_services aborts the whole scan on the first unit error -> false 'no restart needed'"
+    module: services.py
+    locations: ["pkm/services.py:117-135"]
+    lens: security
+    severity: high
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 2
+    regression_test: tests/pkm/test_batch2_silent_failures.py
+    evidence: "A TimeoutExpired/OSError on one unit `return []` discards all collected active units -> classify reports 'none active' -> user told no restart needed when running daemons were upgraded (stale daemon code)."
+    fix: "Short-circuit to [] only on FileNotFoundError (systemctl absent); continue (with a WARN) on per-unit Timeout/OSError."
+
+  - id: PKM-A13
+    title: "PI-12 reader half: _read_package_meta double-probes (.PKGINFO then dead metadata.json) + bare except swallows real IO errors"
+    module: repo.py
+    locations: ["pkm/repo.py:1241-1280"]
+    lens: security
+    severity: medium
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: PI12-reader
+    regression_test: "tests/pkm/test_pkm_a13_read_meta.py"
+    evidence: "Shells `tar` for *.PKGINFO then always-failing *metadata.json (dead format), traced each time; `except Exception: pass` returns None so a corrupt/tampered archive reads as 'no metadata' and installs with empty metadata + release=1."
+    fix: "Single in-process tarfile read (no subprocess); dropped the dead metadata.json probe; added ArchiveReadError so genuine corruption/truncation/IO is loud + fail-closed (None now means ONLY 'opens clean, no .PKGINFO' = the pre-ratification fallback). generate_index propagates it (halts the publish, no silent index drop); installer.install catches it and aborts fail-closed with a re-fetch message. .PKGINFO key set unchanged (FROZEN, coordinated with the builder half). 10 tests in test_pkm_a13_read_meta.py."
+
+  - id: PKM-A15
+    title: "check-updates --quiet drops unevaluated packages from the JSON with no skipped field"
+    module: cli.py
+    locations: ["pkm/cli.py:2410-2445"]
+    lens: security
+    severity: medium
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 2
+    regression_test: "tests/pkm/test_check_updates.py"
+    evidence: "On VersionParseError the WARN is gated behind `not --quiet` (the unattended timer path); the persisted JSON read by the timer/extension/MOTD has no field recording 'K packages could not be evaluated'."
+    fix: "cmd_check_updates now collects every VersionParseError-skipped package into a `skipped` array (name + reason) and writes `skipped`+`skipped_count` into the JSON unconditionally (independent of --quiet), so the timer/extension/MOTD readers can surface 'K could not be evaluated' instead of silently under-reporting. Non-quiet runs also print the skipped detail to stderr. Docstring JSON-shape updated. 2 new tests in test_check_updates.py (skipped recorded even under --quiet; empty when all evaluable)."
+
+  - id: PKM-A16
+    title: "add_files IntegrityError swallowed mid-transaction -> file w/o ownership row, install still commits"
+    module: database.py
+    locations: ["pkm/database.py:369-388"]
+    lens: security
+    severity: medium
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 2
+    regression_test: "tests/pkm/test_pkm_a16_add_files_integrity.py"
+    evidence: "Per-file INSERT OR REPLACE `except sqlite3.IntegrityError: print(WARN); continue` inside the atomic install txn -> a deployed file gets no ownership row yet the package commits as installed (orphaned-on-disk-after-remove)."
+    fix: "add_files now RE-RAISES the IntegrityError (with the offending path + package_id) instead of WARN+continue. INSERT OR REPLACE absorbs the benign duplicate case and files.package_id is NOT NULL REFERENCES installed(id) (FKs enforced), so any surfacing IntegrityError is genuine (FK/NOT NULL). The raise rolls the installer's atomic BEGIN/COMMIT (installer.py:833-905) back fail-closed and makes standalone callers abort before commit — never register a package over an un-recordable file row. 3 tests in test_pkm_a16_add_files_integrity.py (bogus package_id raises + no orphan row committed + valid path still records)."
+
+  - id: PKM-A17
+    title: "trace_event calls wrapped in bare except pass throughout -> forensic trace silently goes dark"
+    module: "_trace.py (fix); hooks.py, cli.py, repo.py, installer.py, verifier.py, database.py, preflight.py (call sites)"
+    locations: ["pkm/_trace.py:103-148", "pkm/hooks.py:418-419", "pkm/cli.py:581-582"]
+    lens: security
+    severity: medium
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 2
+    regression_test: "tests/pkm/test_pkm_a17_trace_degraded.py"
+    evidence: "Every _trace.trace_event is `try: ... except Exception: pass`; a sink/lock/serialization fault drops events (incl. the hook-fire/hook-done events bracketing privileged subprocesses) with zero signal."
+    fix: "Fixed at the source instead of editing ~20 call sites: pkm/_trace.py now SHADOWS the re-exported trace_event with a fail-soft wrapper + a process-global warn-once `note_trace_degraded`. Every pkm site uses attribute access (`_trace.trace_event(...)`, no direct name import), so the shadow routes ALL of them through the one-time 'forensic trace degraded' WARN with zero call-site edits — distinguishing 'unavailable' (each caller's _TRACE_AVAILABLE guard, un-warned) from 'emit raised' (warned once). traced_run is intentionally NOT shadowed (its return value is load-bearing). The call sites' now-redundant `try: ... except Exception: pass` wrappers are dead-but-harmless (the wrapper never raises) — removing them is a legibility-batch (A27/A28) cleanup, not a correctness gap. 4 tests in test_pkm_a17_trace_degraded.py."
+
+  # ---------------- TIER 1: TRUST — wrong / contradictory behavior ----------
+  - id: PKM-A18
+    title: "iso-prep safety gate reads dep['dep_name'] but get_depends returns 'name' -> KeyError disables the guard"
+    module: cli.py
+    locations: ["pkm/cli.py:2217-2219", "pkm/database.py:611-620"]
+    lens: correctness
+    severity: high
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 3
+    regression_test: "tests/pkm/test_pkm_a18_iso_prep_crossdep.py"
+    evidence: "The 'abort when an ISO-shipped package depends on a mirror-only target' check iterates dep['dep_name'], but get_depends yields {'name','type'} -> KeyError; the fail-closed metadata-bug guard crashes instead of guarding."
+    fix: "dep['dep_name'] -> dep['name']; add a test exercising the cross-dep abort path."
+
+  - id: PKM-A19
+    title: "pkm reinstall <helper> removes payload + lays only the stub, never re-fetches — opposite of its own advice"
+    module: cli.py
+    locations: ["pkm/cli.py:1042-1127", "pkm/cli.py:700-703"]
+    lens: correctness
+    severity: high
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 3
+    regression_test: "tests/pkm/test_pkm_a19_reinstall_helper.py"
+    evidence: "_proprietary_install tells the user to `pkm reinstall <app>` to 'replace', but cmd_reinstall does remove(force=True)+install with no is_download_helper branch -> deletes the proprietary payload and re-lays only the stub."
+    fix: "In cmd_reinstall, detect is_download_helper and route through the proprietary flow (re-run helper to re-fetch payload)."
+
+  - id: PKM-A20
+    title: "Config preservation is fail-OPEN + orphaned config_files baselines corrupt subsequent edit-detection"
+    module: "remover.py, database.py"
+    locations: ["pkm/remover.py:101-117", "pkm/database.py:330-341"]
+    lens: security
+    severity: medium
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 3
+    regression_test: "tests/pkm/test_pkm_a20_config_preservation.py"
+    evidence: "An unreadable /etc file (hash raises) falls through to os.remove instead of preserving; remove_installed never deletes config_files rows -> orphaned {path, package_id=NULL, original_checksum=old} survives the UNIQUE path and mis-baselines a subsequent reinstall."
+    fix: "Fail-CLOSED on hash error (preserve+warn); DELETE config_files for the package's paths on remove."
+
+  - id: PKM-A21
+    title: "gpg_verify config key parsed but never honored (silent no-op of a security-looking knob)"
+    module: repo.py
+    locations: ["pkm/repo.py:407-408"]
+    lens: user_control
+    severity: medium
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 3
+    regression_test: "tests/pkm/test_pkm_a21_gpg_verify.py"
+    evidence: "_load_repos reads gpg_verify into cfg and the docs advertise it; no code path consults it (verification is always-on, which is correct) — but a user who sets it gets behavior contradicting their config with no warning."
+    fix: "Honor only in the fail-closed direction: accept true, hard-error on false ('verification cannot be disabled'); or remove the key + docs."
+
+  - id: PKM-A22
+    title: "Cross-mirror range-resume can splice bytes from two mirrors; .part not cleared on sha mismatch"
+    module: repo.py
+    locations: ["pkm/repo.py:559-604", "pkm/repo.py:1008-1013"]
+    lens: security
+    severity: medium
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 3
+    regression_test: "tests/pkm/test_pkm_a22_partial_per_url.py"
+    evidence: "Partial file keyed only by filename and retained across successive mirror attempts -> mirror A's bytes resumed via Range against mirror B; sha256 catches it (can't install corrupt) but the .part is never unlinked on mismatch (only local_path is), so a corrupt resume persists and keeps failing."
+    fix: "Key the .part per-URL; on sha mismatch unlink the .part as well as local_path."
+
+  - id: PKM-A23
+    title: "Root-gate membership gap: refresh-baseline/iso-prep/verify mutate but aren't gated -> late opaque error"
+    module: cli.py
+    locations: ["pkm/cli.py:44-52", "pkm/cli.py:71-73", "pkm/database.py:462"]
+    lens: user_control
+    severity: medium
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 3
+    regression_test: "tests/pkm/test_pkm_a23_root_gate_membership.py"
+    evidence: "refresh-baseline does UPDATE config_files but is in neither PKM_MUTATING_COMMANDS (no clean 'must be root' advisory) nor PKM_READONLY_COMMANDS (opened read-write) -> non-root gets a late PermissionError instead of the clean gate message the gate exists to give. Same for iso-prep/verify."
+    fix: "Make the command-set membership exhaustive: add mutating commands to PKM_MUTATING_COMMANDS, read-only ones to PKM_READONLY_COMMANDS."
+
+  - id: PKM-A24
+    title: "FS-deploy precedes DB-commit (un-rolled-back partial FS) + setuid-restore failure only WARNs"
+    module: installer.py
+    locations: ["pkm/installer.py:798-845"]
+    lens: correctness
+    severity: medium
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 3
+    regression_test: "tests/pkm/test_pkm_a24_setuid_failclosed.py"
+    evidence: "Deploy extract writes to root before the DB txn; on DB failure files are live but untracked (RFC §4c disclosed tradeoff). Separately, setuid-restore failure only WARNs -> a privileged helper can land non-setuid silently (security-relevant masked failure)."
+    fix: "SPLIT, both resolved. (a) SETUID HALF — DONE+tested: the restore loop no longer WARN-and-continues; a setuid/setgid restore chmod failure on a member carrying those bits now fails the install CLOSED (a privileged binary must never land non-setuid silently); a sticky-only failure stays a warning. test_pkm_a24_setuid_failclosed.py (abort-on-failure + bit-restored-on-success). (b) FS-DEPLOY-BEFORE-DB-COMMIT HALF — OPERATOR DECISION 2026-06-16: KEEP the documented RFC §4c tradeoff, no code change. Rationale (operator, PRIME DIRECTIVE): re-run install is idempotent (INSERT OR REPLACE) over a very small DB-txn window; a journaled pending-deploy marker / shadow+atomic-rename is install-atomicity complexity without proportional user value. A clean follow-up if ever wanted, not a gap."
+
+  - id: PKM-A25
+    title: "Critical post-install hook failure returns False after DB/FS commit; daemon-reload-on-live treated cosmetic"
+    module: "installer.py, hooks.py"
+    locations: ["pkm/installer.py:954-974", "pkm/hooks.py:331-344"]
+    lens: user_control
+    severity: medium
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 3
+    regression_test: "tests/pkm/test_pkm_a25_degraded.py"
+    evidence: "Package is fully registered (DB+FS) yet install returns (False) on a critical hook fail with rollback only 'recommended' to the caller -> 'installed but hook failed' masquerades as a generic failure. systemd daemon-reload failure on a live system is classified non-critical -> systemd silently runs stale unit defs."
+    fix: "Record a hook_failed/degraded flag on the installed row (surfaced by list/verify); escalate live daemon-reload failure or emit a specific remediation line."
+
+  - id: PKM-A26
+    title: "Helper version defaults to 'latest' sentinel; merge-UPDATE branch emits no db trace event"
+    module: installer.py
+    locations: ["pkm/installer.py:1538", "pkm/installer.py:1559-1593"]
+    lens: user_control
+    severity: low
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 3
+    regression_test: "tests/pkm/test_pkm_a26_helper_version.py"
+    evidence: "version = manifest.get('version_installed') or 'latest' -> an opaque non-version that defeats upgrade comparison; the existing-row UPDATE branch bypasses add_installed and emits no _emit_db_event (asymmetric trace)."
+    fix: "Reject the 'latest' sentinel (require a real version or fail-closed); emit a db-write trace on the UPDATE branch; thread release on the helper path too."
+
+  # ---------------- TIER 2: UNDERSTAND — legibility -------------------------
+  - id: PKM-A27
+    title: "Systemic word-wrap bypass: only 4 of ~22 commands build a Reporter; prose via raw print() soft-wraps to col 0"
+    module: "cli.py, output.py"
+    locations: ["pkm/cli.py:1173-1187", "pkm/cli.py:1199-1206", "pkm/cli.py:1951-2028", "pkm/output.py:60"]
+    lens: user_control
+    severity: high
+    tier: understand
+    status: verified
+    owner: maintainer
+    batch: 4
+    regression_test: "tests/pkm/test_pkm_a27_prose_wrap.py"
+    evidence: "_wrap_prose exists precisely to avoid col-0 soft-wrap, but cmd_upgrade/cmd_update/_print_upgrade_plan_summary/iso-prep/install-helper/error paths emit multi-sentence prose via raw print() -> the 'wall of text' the operator reported. This is the dominant legibility defect."
+    fix: "Added module-level emit_*/emit() helpers in output.py (backed by a process-wide Reporter via _wrap_prose) and routed all prose paths through them across cli.py; columnar tables/file-lists/command-examples stay raw print(). Reporter streams resolved lazily so the long-lived reporter honors redirection."
+
+  - id: PKM-A28
+    title: "-q/-v silently ignored by every command except the 4 that build a Reporter"
+    module: cli.py
+    locations: ["pkm/cli.py:198-204"]
+    lens: ux
+    severity: medium
+    tier: understand
+    status: verified
+    owner: maintainer
+    batch: 4
+    regression_test: "tests/pkm/test_pkm_a27_prose_wrap.py"
+    evidence: "Global parser advertises -q 'summary lines only (for scripts)' and -v, honored only by Reporter.from_args; `pkm -q list` still prints the full table, `pkm -q upgrade` the whole plan."
+    fix: "main() calls output.set_process_level() ONCE from args.quiet/verbose; the module-level emit_* helpers honor it (info/note suppressed at QUIET; done/warn/error always shown) — delivered by the same A27 infrastructure. Covered by the A27 regression test."
+
+  - id: PKM-A29
+    title: "Inconsistent next-step guidance + WARN/WARNING + upgradable spelling across update/upgrade/check-updates"
+    module: cli.py
+    locations: ["pkm/cli.py:1177-1178", "pkm/cli.py:1200-1206", "pkm/cli.py:2453"]
+    lens: ux
+    severity: medium
+    tier: understand
+    status: verified
+    owner: maintainer
+    batch: 4
+    regression_test: "tests/pkm/test_pkm_a29_a30_guidance_cosmetics.py"
+    evidence: "update -> 'sudo pkm upgrade' (which then refuses, demands --all); check-updates -> 'pkm upgrade --all' (no sudo, root-gate rejects); cmd_upgrade refusal -> 'Pass --all...'. Three phrasings for one action. `list upgradable` argparse-rejects 'upgradeable'. WARN: vs WARNING:."
+    fix: "check-updates hint now `sudo pkm upgrade --all` to install (matches cmd_update); WARN:->WARNING: standardized via emit_warn/emit_error (the A27 conversion); all inline command hints backticked (no single-quoted 'pkm ...'); `upgradeable` accepted as a spelling alias of upgradable in `pkm list`."
+
+  - id: PKM-A30
+    title: "Cosmetics: info shows version w/o release + fixed '='*50 rule; reverse-dep version ambiguity; verify/history line overflow"
+    module: cli.py
+    locations: ["pkm/cli.py:1620-1622", "pkm/cli.py:1641", "pkm/cli.py:1688", "pkm/cli.py:1761"]
+    lens: ux
+    severity: low
+    tier: understand
+    status: verified
+    owner: maintainer
+    batch: 4
+    regression_test: "tests/pkm/test_pkm_a29_a30_guidance_cosmetics.py"
+    evidence: "cmd_info header version omits release + hardcoded 50-char rule; 'Required by' lines show bare reverse-dependent version (misreadable); verify --all PROBLEM line + history line overflow narrow terminals."
+    fix: "cmd_info shows the full version-release identity (_vr_str) and sizes the '=' rule to the title; get_reverse_depends now carries release so 'Required by' shows version-release (no fabricated default). verify/history line lengths are bounded by existing per-list caps (... and N more) — acceptable, not changed."
+
+  # ---------------- FOUND BY REAL-INSTALL TESTING (post-audit) --------------
+  - id: PKM-A31
+    title: "Read-only commands crash on a behind-schema DB: list_installed queries `degraded` but read-only opens skip the ALTER-TABLE migration"
+    module: database.py
+    locations: ["pkm/database.py:190-199", "pkm/database.py:339-349", "pkm/database.py:252-263"]
+    lens: correctness
+    severity: high
+    tier: trust
+    status: verified
+    owner: maintainer
+    batch: 5
+    regression_test: "tests/pkm/test_pkm_a31_schema_tolerant.py"
+    evidence: "Found 2026-06-16 testing pkm 0.2.0 on a development machine. A25 added the `degraded` column with _migrate_a25_degraded_column (ALTER TABLE), but migrations run ONLY on a read-write open; the read-only (immutable=1) open used by non-root readers — and by root via a read-only subcommand — returns before migrating. On a system upgraded from a pre-A25 pkm, every read command hitting list_installed (list/the update-summary/etc.) crashed with `sqlite3.OperationalError: no such column: degraded` until some later root command happened to run the migration. The pkm unit suite never caught it because it always builds a fresh, fully-migrated DB — only a real upgrade path exposes it."
+    fix: "list_installed selects schema-tolerantly via a new _col() helper: columns are introspected once at open (_table_columns -> self._installed_cols, on BOTH open paths), and a column absent on an un-migrated read-only DB is emitted as `NULL AS <col>` instead of being named directly — so reads degrade gracefully (degraded -> None = healthy) regardless of migration timing. Pattern to reuse for any future migration-added column read on the read-only path. test_pkm_a31_schema_tolerant.py: old-schema DB (no degraded) read-only open + list_installed no-crash + tier filter + full-schema round-trip."

@@ -1,0 +1,31 @@
+name: tpm2-tss
+version: "4.1.3"
+release: 4  # r4: the generated tmpfiles conf's two FAPI eventlog lines ship the modern /run path instead of the legacy /var/run compatibility symlink — systemd-tmpfiles rewrote them on every parse and logged that it did, once at install and again at every boot (measured: two warnings on lines 4-5 before, zero after, identical resulting actions). do_install rewrites the upstream-generated file and fails loud if the expected shape is gone. r3: --localstatedir=/var (FAPI paths + tmpfiles were compiled to bogus /usr/var) + strip var/run install side-effect (2026-07-17)
+content_hash: 9b8d077e8bc37e4d
+description: TCG TPM2 Software Stack — userspace libraries for TPM 2.0 hardware
+license: BSD-2-Clause
+homepage: https://github.com/tpm2-software/tpm2-tss
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/tpm2-software/tpm2-tss/releases/download/${version}/tpm2-tss-${version}.tar.gz
+  sha256: 37f1580200ab78305d1fc872d89241aaee0c93cbe85bc559bf332737a60d3be8
+dependencies:
+  build:
+  - openssl
+  - curl
+  - json-c
+  host: []
+  runtime:
+  - openssl
+  - curl
+  - json-c
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "tpm2-tss test suite (`make check`) requires a TPM2 simulator (swtpm or Microsoft reference simulator) running on a Unix socket or character device — per upstream README: 'this test suite should only be run against a TPM simulator. If executed against a TPM other than the software simulator it may cause damage to the TPM (NV storage wear out, etc.).' Our chroot has neither a real TPM2 device (no /dev/tpm[rm]?[0-9]) nor a swtpm daemon running, so TCTI initialization aborts at test setup before any test logic executes. Same shape as libuv (refuses-root) and libarchive (nobody+abs-paths) — chroot-environmental, not a code defect."
+verify_paths:
+  - /usr/lib/libtss2-esys.so
+  - /usr/lib/pkgconfig/tss2-esys.pc

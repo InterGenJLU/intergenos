@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: flame graph — the profiler's stack-depth chart: filled call-stack tiers
+       narrowing upward inside a capture panel, with the record dot. Distinct from
+       chart's stroked vertical bars and SystemMonitor's activity trace. -->
+  <g class="glyph">
+    <rect x="44" y="56" width="168" height="144" rx="14"/>
+  </g>
+  <g class="fill">
+    <rect x="64" y="156" width="128" height="24" rx="4"/>
+    <rect x="64" y="120" width="54" height="24" rx="4"/>
+    <rect x="130" y="120" width="62" height="24" rx="4"/>
+    <rect x="64" y="84" width="30" height="24" rx="4"/>
+    <circle cx="184" cy="96" r="9"/>
+  </g>
+</svg>

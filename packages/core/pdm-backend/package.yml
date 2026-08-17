@@ -1,0 +1,22 @@
+name: pdm-backend
+# Upstream latest stable. Build backend for typer + annotated-doc in this closure.
+version: "2.4.9"
+release: 1
+description: Build backend used by PDM, supporting current packaging standards
+license: MIT
+homepage: https://github.com/pdm-project/pdm-backend
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/f1/b2/73898a92113f532fe9cecaae97f070a12ec4c786d66af377a6f81d38e208/pdm_backend-2.4.9.tar.gz
+  sha256: c41a852ccbf4b567b033db9b2ae78660d7a4ea49307719959ab88a01f0aabb2e
+dependencies:
+  # Self-hosting build (pdm.backend.intree, bundled in the sdist); no external build backend.
+  build: []
+  host: []
+  # importlib-metadata (python_version<3.10) is marker-gated and not required on python3.14.
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/pdm/backend/__init__.py
+  - /usr/lib/python3.14/site-packages/pdm/backend/wheel.py

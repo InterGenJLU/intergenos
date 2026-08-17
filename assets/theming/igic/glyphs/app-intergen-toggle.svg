@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Enable InterGen AI (intergen-toggle) — the universal power / enable glyph
+       (open-top ring + stem) enclosing the InterGen pulse: "turn the assistant
+       on". Pulse asymmetric spike-left per VISUAL_LANGUAGE §8. Follows the
+       shipped intergen-toggle icon (ring + bare pulse), restyled line-forward. -->
+  <g class="glyph">
+    <path d="M 80 69 A 75 75 0 1 0 176 69"/>
+    <line x1="128" y1="54" x2="128" y2="92"/>
+    <path d="M 60 148 L 80 148 L 92 104 L 110 192 L 122 148 L 190 148"/>
+  </g>
+</svg>

@@ -1,0 +1,59 @@
+# Family manifest — GNOME Settings panel icons (ICON_CATEGORIES.md §5 + §6.2 + §11). 44 foreground
+# symbolics; each `stem` = the exact reverse-DNS GTK name. `badges` = corner-anchored marks; occlusion
+# is the badge DEFAULT (§11.7); the `sil` footprint (clip-path) clears the base under the whole badge
+# so nothing reads through (§11.8). Decided 2026-07-14.
+schema_version: 1
+family: settings-panels
+category: apps
+kind: symbolic
+template: none
+glow: none
+pulse: none
+export:
+  svg: true
+  png: [16, 24, 32, 48]
+rows:
+  - { id: settings-about, stem: org.gnome.Settings-about, emblem: info, accent: ecg-blue, name: About, fit: 1.438 }
+  - { id: settings-accessibility, stem: org.gnome.Settings-accessibility, emblem: accessibility, accent: ecg-blue, name: Accessibility, fit: 1.321 }
+  - { id: settings-accessibility-hearing, stem: org.gnome.Settings-accessibility-hearing, emblem: ear, accent: ecg-blue, name: Hearing, badges: [{glyph: accessibility, at: corner-tl, scale: 0.32, sil: {shape: circle, cx: 128, cy: 128, r: 82}}], fit: 1.241 }
+  - { id: settings-accessibility-pointing, stem: org.gnome.Settings-accessibility-pointing, emblem: hand-point, accent: ecg-blue, name: Pointing & Clicking, badges: [{glyph: accessibility, at: corner-tl, scale: 0.32, sil: {shape: circle, cx: 128, cy: 128, r: 82}}], fit: 1.325 }
+  - { id: settings-accessibility-seeing, stem: org.gnome.Settings-accessibility-seeing, emblem: eye, accent: ecg-blue, name: Seeing, badges: [{glyph: accessibility, at: corner-tl, scale: 0.32, sil: {shape: circle, cx: 128, cy: 128, r: 82}}], fit: 1.235 }
+  - { id: settings-accessibility-typing, stem: org.gnome.Settings-accessibility-typing, emblem: keyboard, accent: ecg-blue, name: Typing, badges: [{glyph: accessibility, at: corner-tl, scale: 0.32, sil: {shape: circle, cx: 128, cy: 128, r: 82}}], fit: 1.257 }
+  - { id: settings-accessibility-zoom, stem: org.gnome.Settings-accessibility-zoom, emblem: magnifier-flip, accent: ecg-blue, name: Zoom, badges: [{glyph: accessibility, at: corner-tl, scale: 0.32, sil: {shape: circle, cx: 128, cy: 128, r: 82}}], fit: 1.325 }
+  - { id: settings-appearance, stem: org.gnome.Settings-appearance, emblem: appearance, accent: ecg-blue, name: Appearance, fit: 1.182 }
+  - { id: settings-applications, stem: org.gnome.Settings-applications, emblem: grid, accent: ecg-blue, name: Apps, fit: 1.351 }
+  - { id: settings-bluetooth, stem: org.gnome.Settings-bluetooth, emblem: bt-rune, accent: ecg-blue, name: Bluetooth, fit: 1.422 }
+  - { id: settings-camera-access, stem: org.gnome.Settings-camera-access, emblem: device-camera, accent: ecg-blue, name: Camera, fit: 1.298 }
+  - { id: settings-color, stem: org.gnome.Settings-color, emblem: rainbow, accent: ecg-blue, name: Color, badges: [{glyph: color-drop, at: upper-left, scale: 0.42, sil: {shape: polygon, points: "128,52 180,148 148,202 108,202 76,148"}}], fit: 1.281 }
+  - { id: settings-desktop-sharing, stem: org.gnome.Settings-desktop-sharing, emblem: screen-cast, accent: ecg-blue, name: Desktop Sharing, fit: 1.074 }
+  - { id: settings-device-diagnostics, stem: org.gnome.Settings-device-diagnostics, emblem: chart, accent: ecg-blue, name: Diagnostics, fit: 1.482 }
+  - { id: settings-device-security, stem: org.gnome.Settings-device-security, emblem: device-display, accent: ecg-blue, name: Device Security, badges: [{glyph: shield-keyhole, at: lower-right, scale: 0.5, sil: {shape: circle, cx: 128, cy: 134, r: 84}}], fit: 1.26 }
+  - { id: settings-display, stem: org.gnome.Settings-display, emblem: device-display, accent: ecg-blue, name: Displays, fit: 1.298 }
+  - { id: settings-keyboard, stem: org.gnome.Settings-keyboard, emblem: keyboard, accent: ecg-blue, name: Keyboard, fit: 1.352 }
+  - { id: settings-location-access, stem: org.gnome.Settings-location-access, emblem: pin, accent: ecg-blue, name: Location, fit: 1.332 }
+  - { id: settings-microphone-access, stem: org.gnome.Settings-microphone-access, emblem: microphone, accent: ecg-blue, name: Microphone, fit: 1.456 }
+  - { id: settings-mobile-network, stem: org.gnome.Settings-mobile-network, emblem: cellular-bars, accent: ecg-blue, name: Mobile Network, fit: 1.983 }
+  - { id: settings-mouse, stem: org.gnome.Settings-mouse, emblem: mouse, accent: ecg-blue, name: Mouse & Touchpad, fit: 1.638 }
+  - { id: settings-multitasking, stem: org.gnome.Settings-multitasking, emblem: windows, accent: ecg-blue, name: Multitasking, fit: 1.395 }
+  - { id: settings-network, stem: org.gnome.Settings-network, emblem: net-wired, accent: ecg-blue, name: Network, fit: 1.415 }
+  - { id: settings-network-proxy, stem: org.gnome.Settings-network-proxy, emblem: proxy, accent: ecg-blue, name: Network Proxy, fit: 1.321 }
+  - { id: settings-notifications, stem: org.gnome.Settings-notifications, emblem: bell, accent: ecg-blue, name: Notifications, fit: 1.382 }
+  - { id: settings-online-accounts, stem: org.gnome.Settings-online-accounts, emblem: account, accent: ecg-blue, name: Online Accounts, fit: 1.321 }
+  - { id: settings-power, stem: org.gnome.Settings-power, emblem: power-button, accent: ecg-blue, name: Power, fit: 1.383 }
+  - { id: settings-printers, stem: org.gnome.Settings-printers, emblem: device-printer, accent: ecg-blue, name: Printers, fit: 1.298 }
+  - { id: settings-privacy, stem: org.gnome.Settings-privacy, emblem: eye, accent: ecg-blue, name: Privacy & Security, badges: [{glyph: shield-keyhole, at: lower-right, scale: 0.6, sil: {shape: circle, cx: 128, cy: 134, r: 84}}], fit: 1.249 }
+  - { id: settings-region, stem: org.gnome.Settings-region, emblem: globe, accent: ecg-blue, name: Region & Language, fit: 1.321 }
+  - { id: settings-remote-desktop, stem: org.gnome.Settings-remote-desktop, emblem: screen-cast, accent: ecg-blue, name: Remote Desktop, badges: [{glyph: globe, at: lower-right, scale: 0.55, sil: {shape: circle, cx: 128, cy: 128, r: 80}}], fit: 1.075 }
+  - { id: settings-screen-lock, stem: org.gnome.Settings-screen-lock, emblem: lock, accent: ecg-blue, name: Screen Lock, fit: 1.5 }
+  - { id: settings-screen-time, stem: org.gnome.Settings-screen-time, emblem: clock, accent: ecg-blue, name: Screen Time, fit: 1.438 }
+  - { id: settings-search, stem: org.gnome.Settings-search, emblem: magnifier, accent: ecg-blue, name: Search, fit: 1.551 }
+  - { id: settings-secure-shell, stem: org.gnome.Settings-secure-shell, emblem: device-display, accent: ecg-blue, name: Secure Shell, badges: [{glyph: terminal, x: 104, y: 102, scale: 0.42, sil: {shape: rect, x: 52, y: 60, width: 84, height: 60}}, {glyph: shield-keyhole, at: lower-right, scale: 0.5, sil: {shape: circle, cx: 128, cy: 134, r: 84}}], fit: 1.262 }
+  - { id: settings-sharing, stem: org.gnome.Settings-sharing, emblem: share, accent: ecg-blue, name: Sharing, fit: 1.58 }
+  - { id: settings-sound, stem: org.gnome.Settings-sound, emblem: volume-speaker, accent: ecg-blue, name: Sound, fit: 1.748 }
+  - { id: settings-system, stem: org.gnome.Settings-system, emblem: gear, accent: ecg-blue, name: System, fit: 1.34 }
+  - { id: settings-thunderbolt-access, stem: org.gnome.Settings-thunderbolt-access, emblem: thunderbolt, accent: ecg-blue, name: Thunderbolt, fit: 1.698 }
+  - { id: settings-time, stem: org.gnome.Settings-time, emblem: clock, accent: ecg-blue, name: Date & Time, fit: 1.438 }
+  - { id: settings-trash-file-history, stem: org.gnome.Settings-trash-file-history, emblem: trash, accent: ecg-blue, name: File History & Trash, fit: 1.482 }
+  - { id: settings-users, stem: org.gnome.Settings-users, emblem: person, accent: ecg-blue, name: Users, fit: 1.395 }
+  - { id: settings-wacom, stem: org.gnome.Settings-wacom, emblem: stylus, accent: ecg-blue, name: Wacom Tablet, fit: 1.606 }
+  - { id: settings-wellbeing, stem: org.gnome.Settings-wellbeing, emblem: heart, accent: ecg-blue, name: Wellbeing, fit: 1.82 }

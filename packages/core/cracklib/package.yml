@@ -1,0 +1,25 @@
+name: cracklib
+version: "2.10.3"
+release: 2  # hook-contract wave: /usr/lib/cracklib dir staged; dict generation stays in hook (maintenance)
+description: Password checking library
+license: LGPL-2.1-or-later
+homepage: ''
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/cracklib/cracklib/releases/download/v${version}/cracklib-${version}.tar.xz
+  sha256: 1d1b83676b5673051b9373e1ca0db81c1fa88faf9a195a3c1af984fd9c250d66
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --disable-static
+- --with-default-dict=/usr/lib/cracklib/pw_dict
+verify_paths:
+  - /usr/lib/cracklib
+  - /usr/sbin/cracklib-check
+  - /usr/sbin/cracklib-format
+  - /usr/lib/libcrack.so

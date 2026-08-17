@@ -1,0 +1,25 @@
+[Unit]
+Description=Synthetic test for the 3 new allowlist classes (USA-1 B17 walk).
+
+# (d) negated Condition — `!` asserts the path is ABSENT (runtime-generated),
+# the opposite of a claim that the package ships it. /etc/sample/ssl/server.pem
+# is NOT shipped and NOT in verify_paths; it must pass via the `!`-prefix skip
+# (F43 per-service TLS keygen-unit class).
+ConditionPathExists=!/etc/sample/ssl/server.pem
+
+[Service]
+# (c) EnvironmentFile=-PATH optional prefix — should NOT be flagged.
+EnvironmentFile=-/etc/sysconfig/sample-not-shipped
+
+# (a) citing-package class — /usr/bin/sample-tool is shipped by the
+# citing package (basename "sample-tool" contains pkg "sample") and is
+# NOT in verify_paths. Should pass via the citing-package check.
+ExecStart=/usr/bin/sample-tool --flag
+
+# (b) base-system binary — /bin/kill via UsrMerge ↔ /usr/bin/kill ships
+# from procps-ng but is not in procps-ng verify_paths. Should pass via
+# KNOWN_SYSTEM_BINARIES.
+ExecReload=/bin/kill -HUP $MAINPID
+
+[Install]
+WantedBy=multi-user.target

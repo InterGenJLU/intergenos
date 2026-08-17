@@ -1,0 +1,31 @@
+name: haproxy
+version: "3.2.19"
+release: 4  # r4: deprecated licence identifiers replaced with the modern SPDX forms after reading the pinned tarball's own grants — the .c headers grant the GPL "either version 2 of the License, or (at your option) any later version" (or-later) while every LGPL header grants version 2.1 "exclusively" (only). Recipe metadata only, but the archive's .PKGINFO carries license=, so the shipped bytes change and the release advances with them. r3: hook-contract remainder — post_install no longer re-creates /etc/haproxy. do_install already stages haproxy.cfg and etc/haproxy/ssl under it, so the directory ships as owned payload and the hook was laying a manifest-invisible copy over a path pkm owns. The /var and /run directories stay hook-created (machine state). r2: F43 — TLS combined pem no longer generated at build; per-machine oneshot keygen unit at first service start
+content_hash: 8f81d9f34c8e15cf
+description: Reliable, high-performance TCP/HTTP load balancer and proxy (LTS 3.2; default-secure config — loopback bind, stats locked to 127.0.0.1, no admin socket exposed)
+license: GPL-2.0-or-later AND LGPL-2.1-only
+homepage: https://www.haproxy.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.haproxy.org/download/3.2/src/haproxy-${version}.tar.gz
+  sha256: b08ebbd57f575012e4a5eb5b772721531fbacf6913ffd334f0281736a1ad78b6
+dependencies:
+  build:
+  - openssl
+  - pcre2
+  - zlib
+  - lua
+  - systemd
+  host: []
+  runtime:
+  - openssl
+  - pcre2
+  - zlib
+  - lua
+  - systemd
+verify_paths:
+  - /usr/sbin/haproxy
+  - /etc/haproxy/haproxy.cfg
+  - /usr/share/man/man1/haproxy.1

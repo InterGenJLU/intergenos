@@ -1,0 +1,29 @@
+name: accelerate
+# Upstream latest stable; unsloth requires accelerate>=0.34.1 (satisfied).
+version: "1.14.0"
+release: 1
+description: Training and inference acceleration for PyTorch (device placement, distributed)
+license: Apache-2.0
+homepage: https://github.com/huggingface/accelerate
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/8d/75/94cd5d389649578aca399e5aa822637eec18319a1dadc400ffe2f9a7493f/accelerate-1.14.0.tar.gz
+  sha256: 41b9c4377a54e0b460a959b0defa1b736e4ca0a2373252d9a539964c2afe3c8d
+dependencies:
+  build:
+  - setuptools
+  host: []
+  runtime:
+  - huggingface-hub
+  - numpy
+  - packaging
+  - psutil
+  - pyyaml
+  - pytorch   # native-build dependency — forward-declared 2026-07-21; native wave (>=2.0.0)
+  - safetensors   # native-build dependency — forward-declared 2026-07-21; recipe lands with the native wave
+verify_paths:
+  - /usr/lib/python3.14/site-packages/accelerate/__init__.py
+  - /usr/lib/python3.14/site-packages/accelerate/accelerator.py

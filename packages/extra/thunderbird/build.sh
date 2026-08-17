@@ -1,0 +1,124 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+#
+# thunderbird 140.8.0esr — Mozilla Thunderbird email and news client
+# BLFS 13.0
+#
+# WARNING: This is a HUGE build (~14 SBU on 8-core, 8.9 GB disk, needs 8 GB RAM)
+# Ensure /dev/shm is mounted if building in chroot.
+
+configure() {
+    set -e -o pipefail
+    # pipefail: NEWSHA=$(sha256sum | awk) below — without pipefail, a
+    # missing file would silently produce an empty hash; pipefail makes
+    # the failure halt the build instead.
+    # Patches applied by builder PATCH phase (package.yml) with SHA256 validation.
+    # Post-patch fixups only below.
+
+    # Remove checksums from cargo crates for files that don't exist
+    for crate in {minimal-lexical,lmdb-rkv,cubeb-sys,wasi,glslopt,sfv}; do
+        sed -e 's|,"[^"]*.gitmodules[^,]*[^,]||' \
+            -e '$a\' \
+            -i comm/third_party/rust/$crate/.cargo-checksum.json
+    done
+
+    # Update cargo checksum for glibc-2.43 patched file (glslopt threads_posix.h)
+    GLSL_PTHREAD="comm/third_party/rust/glslopt/glsl-optimizer/include/c11/threads_posix.h"
+    if [ -f "$GLSL_PTHREAD" ]; then
+        NEWSHA=$(sha256sum "$GLSL_PTHREAD" | awk '{ print $1 }')
+        sed -i "s|threads_posix.h\":\"[a-f0-9]*\"|threads_posix.h\":\"$NEWSHA\"|" \
+            comm/third_party/rust/glslopt/.cargo-checksum.json
+    fi
+
+    # Create mozconfig
+    cat > mozconfig << "MOZEOF"
+# If you have installed wireless-tools comment out this line:
+ac_add_options --disable-necko-wifi
+
+# Use system libraries for recommended dependencies
+ac_add_options --with-system-av1
+ac_add_options --with-system-libevent
+ac_add_options --with-system-libvpx
+ac_add_options --with-system-nspr
+ac_add_options --with-system-nss
+ac_add_options --with-system-webp
+
+# Core build configuration
+ac_add_options --prefix=/usr
+ac_add_options --enable-application=comm/mail
+
+ac_add_options --disable-crashreporter
+ac_add_options --disable-updater
+ac_add_options --disable-debug
+ac_add_options --disable-debug-symbols
+ac_add_options --disable-tests
+
+# NOTE: --enable-rust-simd intentionally OMITTED. encoding_rs's simd-accel
+# feature requires nightly Rust (uses feature(core_intrinsics, portable_simd)).
+# We ship stable Rust 1.95.0; build fails with E0599 in encoding_rs.
+# Standard distro practice; encoding correct via scalar fallback paths.
+
+ac_add_options --enable-strip
+ac_add_options --enable-install-strip
+
+# Official branding (cannot distribute the binary if you do this)
+ac_add_options --enable-official-branding
+
+ac_add_options --enable-system-ffi
+ac_add_options --enable-system-pixman
+
+ac_add_options --with-system-jpeg
+ac_add_options --with-system-png
+ac_add_options --with-system-zlib
+
+# Disable sandboxed wasm libraries (seriously slows the build)
+ac_add_options --without-wasm-sandboxed-libraries
+MOZEOF
+}
+
+build() {
+    set -e
+    export MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=none
+    export MOZBUILD_STATE_PATH=$(pwd)/mozbuild
+
+    # GCC detection handled system-wide by /etc/clang/clang.cfg
+    # (--gcc-triple=x86_64-igos-linux-gnu)
+    ./mach build
+}
+
+do_install() {
+    set -e
+    MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=none \
+        DESTDIR="$DESTDIR" ./mach install
+
+    # Menu integration ships IN THE ARCHIVE (owned payload) rather than
+    # being written by a target-side hook — the desktop entry and icons
+    # previously arrived owned by nobody on every install; the cache
+    # refresh the old hook ended with is pkm's own canonical per-package
+    # hook on the target.
+    mkdir -pv "${DESTDIR}/usr/share/applications"
+
+    cat > "${DESTDIR}/usr/share/applications/thunderbird.desktop" << "DESKTOP_EOF"
+[Desktop Entry]
+Name=Thunderbird Mail
+Comment=Send and receive mail with Thunderbird
+GenericName=Mail Client
+Exec=thunderbird %u
+Terminal=false
+Type=Application
+Icon=thunderbird
+Categories=Network;Email;
+MimeType=application/xhtml+xml;text/xml;application/xhtml+xml;application/xml;application/rss+xml;x-scheme-handler/mailto;
+StartupNotify=true
+DESKTOP_EOF
+
+    for s in 16 22 24 32 48 64 128 256; do
+        if [ -f "${DESTDIR}/usr/lib/thunderbird/chrome/icons/default/default${s}.png" ]; then
+            install -Dm644 "${DESTDIR}/usr/lib/thunderbird/chrome/icons/default/default${s}.png" \
+                "${DESTDIR}/usr/share/icons/hicolor/${s}x${s}/apps/thunderbird.png"
+        fi
+    done
+
+}
+

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: display-brightness — sun: disc + eight rays. -->
+  <g class="glyph">
+    <circle cx="128" cy="128" r="38"/>
+    <line x1="128" y1="56" x2="128" y2="80"/>
+    <line x1="128" y1="176" x2="128" y2="200"/>
+    <line x1="56" y1="128" x2="80" y2="128"/>
+    <line x1="176" y1="128" x2="200" y2="128"/>
+    <line x1="77" y1="77" x2="94" y2="94"/>
+    <line x1="162" y1="162" x2="179" y2="179"/>
+    <line x1="77" y1="179" x2="94" y2="162"/>
+    <line x1="162" y1="94" x2="179" y2="77"/>
+  </g>
+</svg>

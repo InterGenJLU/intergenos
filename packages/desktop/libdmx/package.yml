@@ -1,0 +1,27 @@
+name: libdmx
+version: "1.1.5"
+release: 1
+description: X DMX extension library
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/lib/libdmx-${version}.tar.xz
+  sha256: 35a4e26a8b0b2b4fe36441dca463645c3fa52d282ac3520501a38ea942cbf74f
+dependencies:
+  build:
+  - libXext
+  - libX11
+  - xorgproto
+  host: []
+  runtime:
+  - libXext
+  - libX11
+configure_flags:
+- --prefix=/usr
+- --disable-static
+
+verify_paths:
+  - /usr/lib/libdmx.so

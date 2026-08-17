@@ -1,0 +1,78 @@
+name: libvirt
+version: "12.5.0"
+release: 6  # r6: the shipped NAT firewall fragment matches the virtual-bridge interface name as a CLASS ("virbr*") in both its input and its forward rules, instead of virbr0 alone. libvirt names the default network's bridge virbr0 and additional NAT networks virbr1, virbr2 and so on, so the previous rules left a host with a second NAT network unable to reach the host-side dnsmasq or to route guest traffic at all — the same defect on the forwarding side that intergenos-firewall-defaults r2 closed on the input side. Scope is unchanged: every rule still matches an interface name and nothing else, and the fragment still ships INACTIVE and user-armed. Bumped by hand because this package pins an upstream tarball and is therefore not tracked by scripts/bump-changed-releases.py, which bumps only first-party content. r5: comment-only sync of the shipped NAT firewall fragment — the DHCP/DNS input accepts it carries are now also in the shipped default-deny ruleset (intergenos-firewall-defaults r2), so the fragment's remaining reason to be armed is its forward rules, and its text said the opposite. Rules unchanged; the fragment's own bytes are otherwise identical. Bumped by hand because this package pins an upstream tarball and is therefore not tracked by scripts/bump-changed-releases.py, which bumps only first-party content. r4: ship opt-in virbr0 NAT firewall fragment (inactive; user-armed). r3: silent_loss_accepted libssh (deliberate -Dlibssh=disabled; libssh2 serves the transport)
+content_hash: 423a820a7ddda44a
+description: Virtualization management daemon and client tools for QEMU/KVM
+license: LGPL-2.1-or-later
+homepage: https://libvirt.org
+tier: extra
+silent_loss_accepted:
+  - libssh   # deliberate: libssh2 (distinct lib) serves the remote transport; libssh would only feed qemu's ssh block driver — see build.sh flags
+
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://download.libvirt.org/libvirt-${version}.tar.xz
+    sha256: 4fff62f08fdf938fe7fd21e260a908a44193cc6d34c42d3b1afdcadd34120357
+dependencies:
+  build:
+    - meson
+    - ninja
+    - pkgconf
+    - python
+    - glib2
+    - gnutls
+    - libxml2
+    - json-c
+    - libnl
+    - libpcap
+    - curl
+    - libssh2
+    - cyrus-sasl
+    - polkit
+    - numactl
+    - libcap-ng
+    - fuse3
+    - readline
+    - lvm2
+    - parted
+    - libtirpc
+    - attr
+    # meson consumes systemd at configure (unit/sysusers install dirs;
+    # build.sh -Dinit_script=systemd) — declared per the tree convention.
+    - systemd
+  host: []
+  runtime:
+    - glib2
+    - gnutls
+    - libxml2
+    - json-c
+    - libnl
+    - libpcap
+    - curl
+    - libssh2
+    - cyrus-sasl
+    - polkit
+    - numactl
+    - libcap-ng
+    - fuse3
+    - readline
+    - lvm2
+    - parted
+    - libtirpc
+    - attr
+    - qemu
+    - swtpm
+    - dnsmasq
+    - nftables
+    - iproute2
+    - dmidecode
+    # shipped units + the sysusers fragment are consumed by systemd at runtime
+    - systemd
+verify_paths:
+  - /usr/sbin/libvirtd
+  - /usr/bin/virsh
+  - /usr/lib/libvirt.so.0
+  - /usr/share/libvirt/api/libvirt-api.xml
+  - /usr/share/libvirt/nftables/50-libvirt-nat.conf

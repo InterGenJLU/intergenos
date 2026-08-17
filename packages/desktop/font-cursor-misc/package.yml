@@ -1,0 +1,28 @@
+name: font-cursor-misc
+version: "1.0.4"
+release: 2  # r2: license: Public-Domain -> LicenseRef-Public-Domain — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade.
+description: Cursor fonts for X
+# SPDX has no identifier for a bare public-domain dedication. LicenseRef- is
+# SPDX's own mechanism for a licence it does not carry, and preserves the
+# declaration exactly as the recipe stated it.
+license: LicenseRef-Public-Domain
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/font/font-cursor-misc-${version}.tar.xz
+  sha256: 25d9c9595013cb8ca08420509993a6434c917e53ca1fec3f63acd45a19d4f982
+dependencies:
+  build:
+  - bdftopcf
+  - font-util
+  - mkfontscale
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+
+verify_paths:
+  - /usr/share/fonts/X11/misc/cursor.pcf.gz
+  - /usr/share/fonts/X11/misc/fonts.dir

@@ -1,0 +1,21 @@
+name: webencodings
+version: "0.5.1"
+release: 1
+description: WHATWG character encoding labels for Python (icon-toolchain dep)
+license: BSD-3-Clause
+homepage: https://github.com/gsnedders/python-webencodings
+tier: extra
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+  - url: https://files.pythonhosted.org/packages/source/w/webencodings/webencodings-${version}.tar.gz
+    sha256: b36a1c245f2d304965eb4e0a82848379241dc04b865afcc4aab16748587e1923
+dependencies:
+  build:
+    - setuptools
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/webencodings/__init__.py
+  - /usr/lib/python3.14/site-packages/webencodings/labels.py

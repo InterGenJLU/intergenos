@@ -1,0 +1,27 @@
+name: python-dateutil
+version: "2.9.0.post0"
+release: 1
+description: Extensions to the standard Python datetime module
+license: Apache-2.0 AND BSD-3-Clause
+homepage: https://github.com/dateutil/dateutil
+# Retiered ai -> extra 2026-07-21: runtime dep of pandas (extra), which
+# compute-tier aotriton imports at configure time — the dependency-closure
+# retier pattern that moved pandas itself (extra precedes compute and ai).
+tier: extra
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/66/c0/0c8b6ad9f17a802ee498c46e004a0eb49bc148f2fd230864601a86dcf6db/python-dateutil-2.9.0.post0.tar.gz
+  sha256: 37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3
+dependencies:
+  build:
+  - setuptools
+  - wheel
+  - setuptools-scm   # build-system requires setuptools_scm<8.0
+  host: []
+  runtime:
+  - python-six   # upstream dep six>=1.5; satisfied by the tree's python-six
+verify_paths:
+  - /usr/lib/python3.14/site-packages/dateutil/__init__.py
+  - /usr/lib/python3.14/site-packages/dateutil/relativedelta.py

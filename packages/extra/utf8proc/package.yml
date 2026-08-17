@@ -1,0 +1,23 @@
+name: utf8proc
+version: "2.11.3"
+release: 1
+description: Clean C library for processing UTF-8 Unicode data
+license: MIT
+homepage: https://github.com/JuliaStrings/utf8proc
+tier: extra
+iso_include: false  # arrow-cpp build/runtime dep (training-stack chain) — mirror-only
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/JuliaStrings/utf8proc/archive/refs/tags/v${version}.tar.gz
+  filename: utf8proc-2.11.3.tar.gz
+  sha256: abfed50b6d4da51345713661370290f4f4747263ee73dc90356299dfc7990c78
+dependencies:
+  build:
+  - cmake
+  - ninja
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/libutf8proc.so
+  - /usr/include/utf8proc.h

@@ -1,0 +1,26 @@
+name: tmux
+version: "3.6b"
+release: 1
+description: Terminal multiplexer
+license: ISC
+homepage: https://github.com/tmux/tmux
+tier: extra
+iso_include: true  # ship in the live ISO (extra defaults to mirror-only); tmux is
+                   # a base-expected CLI tool, kept in-ISO. Lives in extra (not base)
+                   # because it links libevent, a desktop-tier lib, and base builds
+                   # before desktop — an extra-tier home satisfies the build order.
+build_style: autotools
+source:
+  - url: https://github.com/tmux/tmux/releases/download/${version}/tmux-${version}.tar.gz
+    sha256: 390759d25fdba016887ec982b808927e637070fd7d03a8021f8ef3102b9ae3c7
+dependencies:
+  build: []
+  host: []
+  runtime:
+    - libevent
+    - ncurses
+configure_flags:
+  - "--prefix=/usr"
+  - "--sysconfdir=/etc"
+verify_paths:
+  - /usr/bin/tmux

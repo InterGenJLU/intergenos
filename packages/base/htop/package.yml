@@ -1,0 +1,29 @@
+name: htop
+version: "3.4.1"
+release: 1
+description: Interactive process viewer
+license: GPL-2.0-or-later
+homepage: https://htop.dev/
+tier: base
+build_style: autotools
+
+source:
+  - url: https://github.com/htop-dev/htop/releases/download/${version}/htop-${version}.tar.xz
+    sha256: 904f7d4580fc11cffc7e0f06895a4789e0c1c054435752c151e812fead9f6220
+
+dependencies:
+  build: []
+  host: []
+  runtime:
+    - ncurses
+
+configure_flags:
+  - "--prefix=/usr"
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "process-introspection tests need full /proc with running processes; chroot /proc is minimal and tty/cgroup state differs from a live system"
+
+verify_paths:
+  - /usr/bin/htop

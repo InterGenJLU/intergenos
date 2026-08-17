@@ -1,0 +1,52 @@
+name: lib32-libglvnd
+version: "1.7.0"
+release: 1
+description: GL Vendor-Neutral Dispatch library (32-bit multilib runtime)
+license: MIT
+homepage: https://gitlab.freedesktop.org/glvnd/libglvnd
+tier: desktop
+# PURE-YML package (no build.sh): driven end-to-end by the builder's lib32
+# meson lane — cross-file configure, verbose ninja, allowlist staged-copy
+# install (only /usr/lib32 ships; the GLVND headers stay with the sibling,
+# reinforced by -Dheaders=false below).
+build_style: meson
+lib32_source: libglvnd
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident). The 64-bit
+# sibling is ISO-RESIDENT (runtime-essential dispatch layer); the 32-bit
+# twin serves the mirror-only gaming stack: the public 32-bit
+# libGL/libEGL/libGLX entrypoints that dispatch to lib32-mesa's vendor
+# libraries, captured by pressure-vessel from the host.
+iso_include: false
+source:
+- url: https://gitlab.freedesktop.org/glvnd/libglvnd/-/archive/v${version}/libglvnd-v${version}.tar.gz
+  filename: libglvnd-${version}.tar.gz
+  # sha256 pinned 2026-05-29 from the upstream gitlab archive (BB-5; fetched
+  # twice, byte-identical). v1.7.0 is the current upstream tag (no v1.7.1 exists):
+  # https://gitlab.freedesktop.org/glvnd/libglvnd/-/tags/v1.7.0
+  sha256: "2b6e15b06aafb4c0b6e2348124808cbd9b291c647299eaaba2e3202f51ff2f3d"
+dependencies:
+  build:
+  - lib32-glibc
+  - lib32-libX11
+  - lib32-libXext
+  - xorgproto
+  host: []
+  runtime:
+  - lib32-glibc
+  - lib32-libX11
+  - lib32-libXext
+tests:
+  failure_policy: known_failures
+  reason: "The GLX subset of the meson suite (10 of 36: glxmakecurrent/glxgetclientstr/glxgetprocaddress etc.) requires a RUNNING X SERVER — each fails in ~0.05s with upstream's own message 'No display! Please re-test with a running X server' (verbatim in meson-logs/testlog.txt, GE-01 launch 7). The chroot has no display; environmental, not a code defect. The 26 non-display tests (EGL/GLdispatch) pass in 32-bit and keep running under this policy. Halted the L13 resume 2026-07-03 ~20:05 CDT."
+# Flags per the reference multilib distro's lib32 twin (grounded from its
+# recipe this session): headers=false (they ship with the 64-bit sibling —
+# belt to the staged-copy suspenders), gles1=false (legacy GLES1 has no
+# 32-bit consumer in the gaming stack; GLES2+ stays on).
+configure_flags:
+- -Dheaders=false
+- -Dgles1=false
+verify_paths:
+  - /usr/lib32/libGLX.so.0
+  - /usr/lib32/libEGL.so.1
+  - /usr/lib32/libGL.so.1

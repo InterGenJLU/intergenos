@@ -1,0 +1,19 @@
+name: pkgconfig
+version: "1.6.0"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Python interface to the pkg-config command line tool (build dependency)
+license: MIT
+homepage: https://github.com/matze/pkgconfig
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/52/fd/0adde075cd3bfecd557bc7d757e00e231d34d8a6edb4c8d1642759254c21/pkgconfig-1.6.0.tar.gz
+  sha256: 4a5a6631ce937fafac457104a40d558785a658bbdca5c49b6295bc3fd651907f
+dependencies:
+  build:
+  - poetry-core
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/pkgconfig

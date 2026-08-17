@@ -1,0 +1,67 @@
+name: gnome-shell
+version: '49.4'
+release: 5  # r5: input-slider visibility patch — the quick-settings microphone row shows whenever a real capture device exists (upstream shows it only while an app records, which reads as "mic not working"); patch applies at configure() via the standard patches/ mechanism, proven against the 49.4 tarball.
+content_hash: 9e78ba57c81c63d6
+description: GNOME desktop shell
+license: GPL-2.0-or-later
+homepage: https://wiki.gnome.org/Projects/GnomeShell
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-shell/49/gnome-shell-${version}.tar.xz
+  sha256: 9d6f0ca2f0140c114f114f6707413611f614fb1ea6c317a8d1fcc40c3c595b08
+# build.sh bakes the InterGenOS greeter background from the top-level theme
+# assets at build time — track it so a brand asset change rebuilds gnome-shell
+# (an upstream-pinned package that nonetheless carries a first-party asset).
+source_tree:
+  - assets/intergen-shell-theme/gnome-shell/greeter-background.png
+dependencies:
+  build:
+  - evolution-data-server
+  - gcr4
+  - gjs
+  - gnome-desktop
+  - ibus
+  - mutter
+  - polkit
+  - startup-notification
+  - gnome-settings-daemon
+  - desktop-file-utils
+  - gnome-autoar
+  - gnome-bluetooth
+  - gst-plugins-base
+  - networkmanager
+  - power-profiles-daemon
+  - gcr
+  - gdk-pixbuf
+  - glib2
+  - gsettings-desktop-schemas
+  - gtk4
+  - libxml2
+  - pango
+  - python
+  host: []
+  runtime:
+  - evolution-data-server
+  - gcr4
+  - gjs
+  - gnome-desktop
+  - ibus
+  - mutter
+  - polkit
+  - gnome-settings-daemon
+  - gnome-autoar
+  - gnome-bluetooth
+  - gst-plugins-base
+  - networkmanager
+  - power-profiles-daemon
+  - gdk-pixbuf
+  - glib2
+  - gsettings-desktop-schemas
+  - gtk4
+  - pango
+verify_paths:
+  - /usr/bin/gnome-shell
+  - /usr/bin/gnome-extensions
+  - /usr/lib/gnome-shell

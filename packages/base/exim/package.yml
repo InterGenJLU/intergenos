@@ -1,0 +1,34 @@
+name: exim
+version: "4.99.1"
+release: 4  # hook-contract wave: /etc/aliases owned outright (append staged) + pam.d/exim moved to do_install
+content_hash: e9fa8870f8233427
+description: Message Transfer Agent
+license: GPL-2.0-or-later
+homepage: https://www.exim.org/
+tier: base
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://ftp.exim.org/pub/exim/exim4/exim-${version}.tar.xz
+    sha256: eae967bd49a5f879933b8c6ec88c30475a1c6646232135f37f05b55dbc4e3447
+
+dependencies:
+  build:
+    - libnsl
+    - perl-file-fcntllock
+    - linux-pam
+    - gdbm
+    - openssl
+  host: []
+  runtime:
+    - linux-pam
+    - libnsl
+    - gdbm
+    - openssl
+verify_paths:
+  - /etc/aliases
+  - /etc/pam.d/exim
+  - /usr/sbin/exim
+  - /usr/sbin/exicyclog
+  - /usr/share/doc/exim-4.99.1

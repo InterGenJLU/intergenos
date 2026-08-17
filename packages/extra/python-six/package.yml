@@ -1,0 +1,20 @@
+name: python-six
+version: "1.17.0"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Python 2/3 compatibility library (spice-gtk codegen build dependency)
+license: MIT
+homepage: https://github.com/benjaminp/six
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://files.pythonhosted.org/packages/source/s/six/six-${version}.tar.gz
+    sha256: ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81
+dependencies:
+  build:
+    - setuptools
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/six.py

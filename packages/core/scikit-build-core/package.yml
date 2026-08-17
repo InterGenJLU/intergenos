@@ -1,0 +1,28 @@
+name: scikit-build-core
+# Upstream latest stable. Build backend for CMake-based native packages in the
+# compute wave (pytorch, pyarrow via scikit_build_core.build; bitsandbytes via
+# scikit_build_core.setuptools.build_meta).
+version: "1.0.3"
+release: 1
+description: Build backend for CMake-based Python projects
+license: Apache-2.0
+homepage: https://github.com/scikit-build/scikit-build-core
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/8d/7c/0f69b0c7150ce4bcee78c199fe3b7e03a6e01578451bd5d5d1a58beb32f9/scikit_build_core-1.0.3.tar.gz
+  sha256: a4d7a05978ee37975c37743510c8991e2debce7ef83afb0a07c0c576fd4f16e8
+dependencies:
+  build:
+  - hatchling
+  - hatch-vcs
+  host: []
+  # exceptiongroup/tomli/typing-extensions (python_version<3.11) and importlib-resources
+  # (python_version<3.9) are marker-gated and not required on python3.14.
+  runtime:
+  - packaging
+  - pathspec
+verify_paths:
+  - /usr/lib/python3.14/site-packages/scikit_build_core/__init__.py
+  - /usr/lib/python3.14/site-packages/scikit_build_core/build/__init__.py

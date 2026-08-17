@@ -1,0 +1,32 @@
+name: ccid
+version: "1.8.2"
+release: 1
+description: PC/SC CCID/ICCD USB smart card reader driver for pcscd
+license: LGPL-2.1-or-later
+homepage: https://ccid.apdu.fr/
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://ccid.apdu.fr/files/ccid-${version}.tar.xz
+    sha256: d74294e23d436546c3e719c95a4da180b17f5e7ffdd36efca53f75351cb0de75
+
+dependencies:
+  build:
+    - meson
+    - ninja
+    - pkgconf
+    - flex
+    - perl-core
+    - libusb
+    - zlib
+  host: []
+  runtime:
+    - pcsc-lite
+    - libusb
+    - zlib
+    - systemd
+verify_paths:
+  - /usr/lib/pcsc/drivers/ifd-ccid.bundle/Contents/Linux/libccid.so
+  - /usr/lib/pcsc/drivers/ifd-ccid.bundle/Contents/Info.plist

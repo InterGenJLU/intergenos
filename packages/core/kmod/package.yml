@@ -1,0 +1,25 @@
+name: kmod
+version: '34.2'
+release: 1
+description: Kernel module utilities
+license: GPL-2.0-or-later
+source:
+- url: https://www.kernel.org/pub/linux/utils/kernel/kmod/kmod-${version}.tar.xz
+  sha256: 5a5d5073070cc7e0c7a7a3c6ec2a0e1780850c8b47b3e3892226b93ffcb9cb54
+dependencies:
+  build:
+    - meson
+    - ninja
+    - bash-completion
+  host: []
+  runtime:
+  - openssl
+  - xz
+  - zstd
+  - zlib
+tier: core
+build_style: autotools
+verify_paths:
+  - /usr/bin/kmod
+  - /usr/sbin/depmod
+  - /usr/lib/libkmod.so

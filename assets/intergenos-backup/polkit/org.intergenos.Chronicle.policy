@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd">
+<!--
+  Chronicle backup engine — polkit authorization (spec §11).
+
+  The engine (chronicled.service) runs as root and exposes its verb surface on
+  the Unix socket /run/chronicle/engine.sock. A desktop user's GUI
+  (org.intergenos.Chronicle) is unprivileged, so the daemon authorizes every
+  NON-root peer before serving a verb (chronicle/api.py authorize_verb ->
+  pkcheck against the peer's credentials). Root peers — the `chronicle` CLI
+  under sudo and the pkm pre-transaction handler during a package transaction —
+  are already privileged and skip the check.
+
+  These are PURE authorization actions (no exec.path): the daemon is the
+  privileged side and does the work itself after the check; there is no separate
+  setuid runner to launch. Enforcement is fail-closed — an unauthorized or
+  unverifiable peer is refused, never served.
+
+  TWO ACTIONS, because two different questions are being asked.
+
+  .read — "is my backup healthy?" Served for status, queue-status, list and
+  target-scan. These return machine-level backup health and per-version
+  metadata: whether a target is attached, free space, when the last capture ran,
+  how many changes are queued, which versions exist and how many files each
+  holds, and which devices could serve as a target. No file path and no file
+  content appears in any of them; the daemon additionally strips the `scope`
+  field from queued capture intents before answering a read-tier caller,
+  because that one field can carry paths. yes for a local active session: the
+  person sitting at the machine may read the state of their own backups without
+  a password. Remote and inactive sessions still authenticate, because "sitting
+  at the machine" is the whole basis for granting it.
+
+  Reading this state was previously an administrator action, and that was a
+  defect rather than caution. Requiring a password for a harmless read trains
+  the user to clear administrator prompts on reflex, which is the reflex an
+  attacker needs; and it produced repeated dialogs during ordinary use.
+
+  .manage — everything that changes state (capture, restore, scrub,
+  retention-apply, pin, unpin, target-adopt) AND the read verbs whose responses
+  can disclose another user's data: manifest (the file list of a version), diff
+  (a stored-vs-live oracle for a named path), verify (its problem strings embed
+  paths) and restore-plan (per-path actions). config.user_data_paths defaults to
+  ["/home"], so one shared store holds every user's home directory with no
+  per-user partition; a path out of that store is somebody's business other than
+  the caller's. Gating a read verb costs one password. Freeing one wrongly costs
+  privacy, so anything ambiguous stays here.
+
+  ON auth_admin_keep AND CACHING — READ THIS BEFORE RELYING ON IT. An earlier
+  version of this file stated that the user "authenticates once and the
+  credential is cached for the session, so a browse-and-restore GUI session does
+  not re-prompt on every verb". That sentence has been removed because it was
+  promising a behaviour this project has not demonstrated. The daemon authorizes
+  a unix-process subject, one per connection, and the client is typically a new
+  process each time; whether polkit's keep-caching then applies to a subsequent
+  process in the same session was never measured here, and the observed
+  behaviour was a fresh dialog per client process. auth_admin_keep is retained
+  because it can only ever reduce prompting relative to auth_admin, never
+  increase it — but no part of the system may assume a cached credential will be
+  there. If the caching is later measured to work, say so here with the
+  measurement; do not restore the claim on the strength of the flag's name.
+-->
+<policyconfig>
+  <vendor>InterGenOS</vendor>
+  <vendor_url>https://github.com/InterGenJLU/intergenos</vendor_url>
+  <icon_name>org.intergenos.Chronicle</icon_name>
+
+  <action id="org.intergenos.Chronicle.read">
+    <description>Read Chronicle backup status</description>
+    <description xml:lang="en_US">Read Chronicle backup status</description>
+    <message>Authentication is required to read Chronicle backup status</message>
+    <message xml:lang="en_US">Authentication is required to read Chronicle backup status</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.intergenos.Chronicle.manage">
+    <description>Manage Chronicle backups and restores</description>
+    <description xml:lang="en_US">Manage Chronicle backups and restores</description>
+    <message>Authentication is required to manage Chronicle backups and restores</message>
+    <message xml:lang="en_US">Authentication is required to manage Chronicle backups and restores</message>
+    <defaults>
+      <allow_any>auth_admin_keep</allow_any>
+      <allow_inactive>auth_admin_keep</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+</policyconfig>

@@ -1,0 +1,17 @@
+name: m4-core
+ships_as: m4  # ch8 dual-name twin — the driver archives this recipe under the ship name (chroot-build-ch8.sh run_package arg 2; runtime deps elsewhere may name 'm4')
+version: "1.4.21"
+release: 1
+description: GNU macro processor
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/m4/m4-${version}.tar.xz
+  sha256: f25c6ab51548a73a75558742fb031e0625d6485fe5f9155949d6486a2408ab66
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: autotools
+verify_paths:
+  - /usr/bin/m4

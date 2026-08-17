@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: app launcher / grid — 3x3 rounded squares. -->
+  <g class="glyph">
+    <rect x="60" y="60" width="36" height="36" rx="8" ry="8"/>
+    <rect x="112" y="60" width="36" height="36" rx="8" ry="8"/>
+    <rect x="164" y="60" width="36" height="36" rx="8" ry="8"/>
+    <rect x="60" y="112" width="36" height="36" rx="8" ry="8"/>
+    <rect x="112" y="112" width="36" height="36" rx="8" ry="8"/>
+    <rect x="164" y="112" width="36" height="36" rx="8" ry="8"/>
+    <rect x="60" y="164" width="36" height="36" rx="8" ry="8"/>
+    <rect x="112" y="164" width="36" height="36" rx="8" ry="8"/>
+    <rect x="164" y="164" width="36" height="36" rx="8" ry="8"/>
+  </g>
+</svg>

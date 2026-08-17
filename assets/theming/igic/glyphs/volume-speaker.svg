@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- states base: audio volume — a speaker cone (always-on), a 3-wave ladder
+       (<g class="levels">, inner -> outer), and two overlays: a muted X over the emission (R6-2:
+       now the corpus-standard blue disabled X — accent, 2.5x the base, the R4-1 class) and an
+       overamplified plus (accent). -->
+  <g class="glyph">
+    <path d="M 67 108 L 91 108 L 115 84 L 115 172 L 91 148 L 67 148 Z"/>
+    <g class="levels">
+      <path d="M 131 110 Q 141 128 131 146"/>
+      <path d="M 147 98 Q 165 128 147 158"/>
+      <path d="M 163 86 Q 189 128 163 170"/>
+    </g>
+    <g class="overlay disabled accent" stroke-width="2.5">
+      <path d="M 136 104 L 182 152"/>
+      <path d="M 182 104 L 136 152"/>
+    </g>
+    <g class="overlay plus accent">
+      <path d="M 176 94 L 176 126"/>
+      <path d="M 160 110 L 192 110"/>
+    </g>
+  </g>
+</svg>

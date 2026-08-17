@@ -1,0 +1,70 @@
+name: mutter
+version: '49.4'
+release: 1
+description: GNOME window manager and Wayland compositor
+license: GPL-2.0-or-later
+homepage: https://gitlab.gnome.org/GNOME/mutter
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/mutter/49/mutter-${version}.tar.xz
+  sha256: c1666ec50561530be25cb88d939c2bcc2af34f01c63b8b16b82b892ee33d7855
+dependencies:
+  build:
+  - argcomplete
+  - at-spi2-core
+  - glycin
+  - graphene
+  - gtk4
+  - libei
+  - libxcvt
+  - libdisplay-info
+  - pipewire
+  - startup-notification
+  - libinput
+  - wayland-protocols
+  - libxkbcommon
+  - libX11
+  - libXrandr
+  - libXi
+  - libXcomposite
+  - libXdamage
+  - libXfixes
+  - desktop-file-utils
+  - docutils
+  - glib2
+  - gnome-settings-daemon
+  - libadwaita1
+  - xwayland
+  - cairo
+  - colord
+  - gsettings-desktop-schemas
+  - lcms2
+  - pixman
+  host: []
+  runtime:
+  - at-spi2-core
+  - glycin
+  - graphene
+  - gtk4
+  - libei
+  - libxcvt
+  - libdisplay-info
+  - pipewire
+  - startup-notification
+  - libinput
+  - libxkbcommon
+  - libX11
+  - libXrandr
+  - libXi
+  - libXcomposite
+  - libXdamage
+  - libXfixes
+  - glib2
+  - gnome-settings-daemon
+  - argcomplete
+verify_paths:
+  - /usr/bin/mutter
+  - /usr/bin/gdctl
+  - /usr/lib/libmutter-17.so

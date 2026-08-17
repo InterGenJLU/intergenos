@@ -1,0 +1,52 @@
+name: vte
+version: "0.82.3"
+release: 3  # hook-contract wave: profile.d/vte.* no longer shipped (hook rm retired)
+description: Virtual Terminal Emulator widget
+license: LGPL-2.1-or-later
+homepage: https://wiki.gnome.org/Apps/Terminal/VTE
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/vte/0.82/vte-${version}.tar.xz
+  sha256: 6dc6278f6fee30d07d1a03e2ba3335b1ea4e8d2956ceb59d861943115d930a85
+dependencies:
+  build:
+  - gtk3
+  - gtk4
+  - icu
+  - gnutls
+  - fribidi
+  - vala
+  - libxml2
+  - git
+  - glib2
+  - make-ca
+  - cairo
+  - lz4
+  - pango
+  - pcre2
+  host: []
+  runtime:
+  - gtk3
+  - gtk4
+  - icu
+  - gnutls
+  - fribidi
+  - glib2
+  - cairo
+  - lz4
+  - pango
+  - pcre2
+# fast_float / fmt / simdutf are BLFS-recommended C++ performance accelerators
+# (fast float parsing, formatting, unicode validation). vte builds and functions
+# identically without them — they are speed-only, not functional, so their
+# absence is no feature loss. (silent-loss audit 2026-06-25.)
+silent_loss_accepted:
+  - fast_float   # perf-only float parsing accelerator; vte uses its fallback
+  - fmt          # perf-only formatting accelerator
+  - simdutf      # perf-only unicode validation accelerator
+verify_paths:
+  - /usr/bin/vte-2.91
+  - /usr/bin/vte-2.91-gtk4
+  - /usr/lib/libvte-2.91.so

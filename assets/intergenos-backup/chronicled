@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+"""chronicled — the Chronicle backup engine and sentinel (spec §6).
+
+Default mode `serve` runs the long-running system service: the JSON IPC socket
+plus a poll-based config-state watcher (config-state on change). The oneshot
+timer units invoke the `--task` modes:
+
+    chronicled --task capture-userdata   # chronicle-userdata.timer (hourly)
+    chronicled --task drain-queue        # chronicle-offpeak.timer (off-peak)
+    chronicled --task scrub              # chronicle-scrub.timer (weekly)
+
+and the higher-capability restore transient unit invokes `--task restore`.
+"""
+
+import argparse
+import json
+import os
+import sys
+import threading
+import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from chronicle import api as _api           # noqa: E402
+from chronicle import engine as _engine      # noqa: E402
+from chronicle import paths as _paths         # noqa: E402
+from chronicle import sentinel as _sentinel   # noqa: E402
+from chronicle import configstate as _configstate  # noqa: E402
+
+
+def _sd_notify(state):
+    """Minimal sd_notify (READY=1 / STATUS=...) with no external dependency."""
+    addr = os.environ.get("NOTIFY_SOCKET")
+    if not addr:
+        return
+    try:
+        import socket
+        if addr.startswith("@"):
+            addr = "\0" + addr[1:]
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        s.sendto(state.encode("utf-8"), addr)
+        s.close()
+    except OSError:
+        pass
+
+
+def _config_watch_loop(engine, interval=30):
+    """Poll the config set's fingerprint; capture config-state on a change.
+    Poll-based (no stdlib inotify); honest 'filesystem watch' per spec §6."""
+    paths_set = _configstate.DEFAULT_CONFIG_PATHS
+    last_fp = _sentinel.config_set_fingerprint(paths_set)
+    while True:
+        time.sleep(interval)
+        try:
+            fp = _sentinel.config_set_fingerprint(paths_set)
+            if fp != last_fp:
+                last_fp = fp
+                engine.capture(_paths.LAYER_CONFIG_STATE,
+                               reason="config-state changed on disk", sync=True)
+        except Exception:
+            # A watcher hiccup must never take the service down.
+            continue
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(
+        prog="chronicled",
+        description="Chronicle backup engine and sentinel",
+    )
+    ap.add_argument("--config", default=None, help="path to chronicle.conf")
+    ap.add_argument("--socket", default=None, help="override the IPC socket path")
+    ap.add_argument("--local-root", default=None,
+                    help="override the local store root (testing)")
+    ap.add_argument("--task", default="serve", choices=[
+        "serve", "capture-config", "capture-userdata", "drain-queue",
+        "scrub", "restore"])
+    ap.add_argument("--reason", default="")
+    # restore-task args
+    ap.add_argument("--layer", default=None)
+    ap.add_argument("--version", default=None)
+    ap.add_argument("--path", action="append", default=[])
+    ap.add_argument("--mode", default="replace-confirm")
+    # --request FILE: the chronicle-restore@ unit's request-file form. The
+    # unit template carries only one token (%i), so the higher-capability
+    # restore reads {layer, version_id, paths, mode} from this JSON and writes
+    # its result to the sibling <file-without-.json>.result.json for the
+    # escalating caller to read back (chronicle.escalate).
+    ap.add_argument("--request", default=None)
+    args = ap.parse_args(argv)
+
+    eng = _engine.Engine(local_root=args.local_root, config_path=args.config)
+
+    if args.task == "serve":
+        watcher = threading.Thread(
+            target=_config_watch_loop, args=(eng,), daemon=True)
+        watcher.start()
+        _api.serve(eng, socket_path=args.socket, ready_cb=lambda: _sd_notify("READY=1"))
+        return 0
+
+    if args.task == "capture-config":
+        out = eng.capture(_paths.LAYER_CONFIG_STATE,
+                          reason=args.reason or "scheduled config-state capture")
+    elif args.task == "capture-userdata":
+        out = {"outcome": _sentinel.userdata_trigger(eng)}
+    elif args.task == "drain-queue":
+        drained, remaining = _sentinel.drain_offpeak(eng)
+        out = {"drained": drained, "remaining": remaining}
+    elif args.task == "scrub":
+        out = eng.scrub()
+    elif args.task == "restore":
+        if args.request:
+            req = json.loads(open(args.request, encoding="utf-8").read())
+            out = eng.restore_apply(
+                req["layer"], req.get("version_id") or req.get("version"),
+                req["paths"], req.get("mode", "replace-confirm"))
+            # Write the result beside the request so the escalating caller (a
+            # low-capability daemon) can read it back after `systemctl --wait`.
+            res_path = args.request
+            if res_path.endswith(".json"):
+                res_path = res_path[:-len(".json")]
+            res_path = res_path + ".result.json"
+            with open(res_path, "w", encoding="utf-8") as rf:
+                json.dump(out, rf)
+        else:
+            if not (args.layer and args.version and args.path):
+                ap.error("--task restore requires --layer, --version, and "
+                         "--path (or --request FILE)")
+            out = eng.restore_apply(args.layer, args.version, args.path, args.mode)
+    else:  # pragma: no cover
+        ap.error(f"unhandled task {args.task}")
+    print(json.dumps(out, indent=2, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

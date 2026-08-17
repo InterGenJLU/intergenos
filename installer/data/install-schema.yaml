@@ -1,0 +1,58 @@
+# Forge install config schema — v1
+#
+# This file documents the shape of the yaml emitted by the TUI walking phase
+# and consumed by the declarative-install runner. It is reference + example,
+# not an installation source — the actual install reads from
+# /var/lib/forge/install.yaml on the live overlay (ephemeral; written by
+# the walking phase at install time).
+#
+# Q-TUI-INTERACTIVITY=B + Q-TUI-CONFIG=menu-driven-yaml-at-install
+# (resolved 2026-05-06):
+#
+#   * The walking phase asks 4 questions: locale, timezone, hostname,
+#     package_groups. Answers populate this yaml.
+#   * Disk selection + root-password + user-account fields are NOT in this
+#     schema. They are collected interactively at install time (NOT yaml,
+#     NOT pre-seeded). Pre-seeding disk = fat-finger risk; pre-seeding
+#     password = supply-chain risk. PRIME DIRECTIVE.
+#
+# Schema is intentionally narrow for v1. Subsequent phases may extend it as
+# the GUI surfaces additional choices that need yaml-roundtripping.
+
+# Schema version. Bump when adding/removing/renaming top-level fields.
+version: 1
+
+# glibc locale string (LANG / LC_ALL).
+# Default proposal: en_US.UTF-8.
+# Examples: en_US.UTF-8, en_GB.UTF-8, de_DE.UTF-8, ja_JP.UTF-8.
+locale: "en_US.UTF-8"
+
+# IANA timezone name. systemd-timedated will set /etc/localtime + /etc/timezone.
+# Default proposal: UTC.
+# Examples: America/Chicago, Europe/Berlin, Asia/Tokyo, Pacific/Auckland.
+timezone: "UTC"
+
+# Machine hostname (will be written to /etc/hostname on the target).
+# Default proposal: intergenos.
+hostname: "intergenos"
+
+# High-level package group selection. The walking phase presents this as a
+# checklist; the declarative-install runner translates to tier-filtered
+# package set via installer.backend.packages.GROUPS.
+#
+# 'core' is required (force-included even if user un-toggles in the walking
+# checklist). Other groups are optional.
+#
+# Available group tags (see installer.backend.packages.GROUPS for the
+# canonical definitions):
+#   - core           : Essential system (kernel, shell, coreutils, systemd, SSH)
+#   - base           : CLI utilities (htop, rsync, strace, screen)
+#   - desktop-gnome  : GNOME desktop environment on Wayland
+#   - extra          : Browsers, editors, dev tooling
+#   - ai             : Local AI runtime (llama.cpp + models)
+#
+# Default proposal:
+package_groups:
+  - core
+  - base
+  - desktop-gnome

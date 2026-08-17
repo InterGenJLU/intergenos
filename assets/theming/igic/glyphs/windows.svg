@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: multitasking — overlapping windows. VL primitives only, colorless. -->
+  <g class="glyph">
+    <rect x="60" y="70" width="108" height="84" rx="12"/>
+    <rect x="100" y="104" width="96" height="82" rx="12"/>
+  </g>
+</svg>

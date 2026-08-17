@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Weather sun (base) — the cloud occludes it as a badge. -->
+  <g class="glyph">
+    <circle cx="98" cy="96" r="30"/>
+    <line x1="98" y1="50" x2="98" y2="36"/>
+    <line x1="60" y1="60" x2="50" y2="50"/>
+    <line x1="136" y1="60" x2="146" y2="50"/>
+    <line x1="52" y1="96" x2="38" y2="96"/>
+  </g>
+</svg>

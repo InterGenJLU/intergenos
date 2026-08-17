@@ -1,0 +1,2201 @@
+[
+  {
+    "id": "INF-DA-SSD-HDD-01",
+    "name": "direct-answer knowledge ask: what's the difference between SSD and HDD",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what's the difference between SSD and HDD",
+        "description": "asks the SSD/HDD distinction as general knowledge — must be answered directly, not deflected to search",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "moving parts",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ],
+        "phrasings": [
+          {
+            "text": "ssd vs hdd, what's actually different",
+            "label": "colloquial"
+          },
+          {
+            "text": "Could you explain the difference between an SSD and an HDD, please?",
+            "label": "polite"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-VPN-EXPLAIN-01",
+    "name": "direct-answer knowledge ask: explain what a VPN does",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "explain what a VPN does",
+        "description": "a plain definitional ask about VPNs",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "encrypt",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-HAMLET-AUTHOR-01",
+    "name": "direct-answer knowledge ask: who wrote Hamlet",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "who wrote Hamlet",
+        "description": "a single-fact literature ask",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "Shakespeare",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ],
+        "phrasings": [
+          {
+            "text": "quick q — who's the author of Hamlet again?",
+            "label": "colloquial"
+          },
+          {
+            "text": "who rote hamlet",
+            "label": "typo"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-LINUX-YEAR-01",
+    "name": "direct-answer knowledge ask: what year was Linux created",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what year was Linux created",
+        "description": "a single-fact tech-history ask",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "1991",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-CAPITAL-AUS-01",
+    "name": "direct-answer knowledge ask: what's the capital of Australia",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what's the capital of Australia",
+        "description": "a geography fact many people get wrong (Sydney is not it) — must answer directly and correctly",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "Canberra",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ],
+        "phrasings": [
+          {
+            "text": "aus capital, what is it",
+            "label": "colloquial"
+          },
+          {
+            "text": "Would you mind telling me the capital of Australia?",
+            "label": "polite"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-CONTINENTS-01",
+    "name": "direct-answer knowledge ask: how many continents are there",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how many continents are there",
+        "description": "a basic geography-count ask",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "seven",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-HTTP-ACRONYM-01",
+    "name": "direct-answer knowledge ask: what does HTTP stand for",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what does HTTP stand for",
+        "description": "an acronym-expansion ask",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "Hypertext",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-MONA-LISA-01",
+    "name": "direct-answer knowledge ask: who painted the Mona Lisa",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "who painted the Mona Lisa",
+        "description": "a single-fact art-history ask",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "Leonardo",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-SPEED-LIGHT-01",
+    "name": "direct-answer knowledge ask: what is the speed of light",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what is the speed of light",
+        "description": "a physics-constant ask",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "300,000",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-RAM-ROM-01",
+    "name": "direct-answer knowledge ask: explain the difference between RAM and ROM",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "explain the difference between RAM and ROM",
+        "description": "a definitional computing-hardware ask",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "volatile",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ],
+        "phrasings": [
+          {
+            "text": "ram vs rom, what's the deal",
+            "label": "colloquial"
+          },
+          {
+            "text": "I really need this cleared up right now — RAM versus ROM, what's the difference??",
+            "label": "emotional"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-BOILING-WATER-01",
+    "name": "direct-answer knowledge ask: what's the boiling point of water in Celsius",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what's the boiling point of water in Celsius",
+        "description": "a basic science-fact ask",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "100",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-FIRST-PRESIDENT-01",
+    "name": "direct-answer knowledge ask: who was the first president of the United States",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "who was the first president of the United States",
+        "description": "a single-fact history ask",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "Washington",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-CPU-ACRONYM-01",
+    "name": "direct-answer knowledge ask: what does CPU stand for",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what does CPU stand for",
+        "description": "an acronym-expansion ask",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "Central Processing",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-FIREWALL-EXPLAIN-01",
+    "name": "direct-answer knowledge ask: explain what a firewall does",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "explain what a firewall does",
+        "description": "a definitional networking/security ask",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "filter",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-EVEREST-01",
+    "name": "direct-answer knowledge ask: what is the tallest mountain in the world",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what is the tallest mountain in the world",
+        "description": "a single-fact geography ask",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "Everest",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ],
+        "phrasings": [
+          {
+            "text": "tallest mountain on earth, what is it",
+            "label": "colloquial"
+          },
+          {
+            "text": "Please tell me — what is the tallest mountain in the world?",
+            "label": "polite"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-ROMEO-JULIET-01",
+    "name": "direct-answer knowledge ask: who wrote Romeo and Juliet",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "who wrote Romeo and Juliet",
+        "description": "a single-fact literature ask (note: title itself contains 'and', must not be misread as compound)",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "Shakespeare",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-DNS-EXPLAIN-01",
+    "name": "direct-answer knowledge ask: what does DNS do",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what does DNS do",
+        "description": "a definitional networking ask",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "domain",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-TELEPHONE-INVENTOR-01",
+    "name": "direct-answer knowledge ask: who invented the telephone",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "who invented the telephone",
+        "description": "a single-fact invention-history ask",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "Bell",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-PHOTOSYNTHESIS-01",
+    "name": "direct-answer knowledge ask: what is photosynthesis",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what is photosynthesis",
+        "description": "a basic biology-definition ask",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "sunlight",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-API-EXPLAIN-01",
+    "name": "direct-answer knowledge ask: explain what an API is",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "explain what an API is",
+        "description": "a definitional software ask",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "interface",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ],
+        "phrasings": [
+          {
+            "text": "so like, what even is an api",
+            "label": "colloquial"
+          },
+          {
+            "text": "explain api to me now, straightforward answer please",
+            "label": "imperative"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-LARGEST-PLANET-01",
+    "name": "direct-answer knowledge ask: what's the largest planet in our solar system",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what's the largest planet in our solar system",
+        "description": "a single-fact astronomy ask",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "Jupiter",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DA-DECLARATION-01",
+    "name": "direct-answer knowledge ask: who wrote the Declaration of Independence",
+    "axis": [
+      "routing"
+    ],
+    "category": "seeking_information",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "quadrant:Q-D",
+      "class:direct-answer"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "who wrote the Declaration of Independence",
+        "description": "a single-fact history ask",
+        "assertions": [
+          [
+            "routes_via",
+            "direct_answer",
+            "a general-knowledge ask is answered directly, not deflected"
+          ],
+          [
+            "contains",
+            "Jefferson",
+            "the direct answer must contain the correct fact"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no wiki/search deflection — this is answered from general knowledge, not a tool dispatch"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-MATH-PCT-15-240",
+    "name": "math ask: what's 15% of 240",
+    "axis": [
+      "routing"
+    ],
+    "category": "math",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "class:math"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what's 15% of 240",
+        "description": "a self-contained arithmetic/conversion ask; must be computed correctly, answered without dispatching a tool, and not contradict itself",
+        "assertions": [
+          [
+            "contains",
+            "36",
+            "the computed result must be correct"
+          ],
+          [
+            "self_consistent",
+            "",
+            "must not enumerate a result and then contradict or hedge it away"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no tool fabrication — plain arithmetic is answered directly, not searched"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-MATH-SEC-PER-DAY",
+    "name": "math ask: how many seconds are there in a day",
+    "axis": [
+      "routing"
+    ],
+    "category": "math",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "class:math"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how many seconds are there in a day",
+        "description": "a self-contained arithmetic/conversion ask; must be computed correctly, answered without dispatching a tool, and not contradict itself",
+        "assertions": [
+          [
+            "contains",
+            "86400",
+            "the computed result must be correct"
+          ],
+          [
+            "self_consistent",
+            "",
+            "must not enumerate a result and then contradict or hedge it away"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no tool fabrication — plain arithmetic is answered directly, not searched"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-MATH-DIV-144-12",
+    "name": "math ask: what's 144 divided by 12",
+    "axis": [
+      "routing"
+    ],
+    "category": "math",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "class:math"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what's 144 divided by 12",
+        "description": "a self-contained arithmetic/conversion ask; must be computed correctly, answered without dispatching a tool, and not contradict itself",
+        "assertions": [
+          [
+            "contains",
+            "12",
+            "the computed result must be correct"
+          ],
+          [
+            "self_consistent",
+            "",
+            "must not enumerate a result and then contradict or hedge it away"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no tool fabrication — plain arithmetic is answered directly, not searched"
+          ]
+        ],
+        "phrasings": [
+          {
+            "text": "144 / 12 = ?",
+            "label": "colloquial"
+          },
+          {
+            "text": "Please compute 144 divided by 12.",
+            "label": "polite"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-MATH-FEET-PER-MILE",
+    "name": "math ask: how many feet are in a mile",
+    "axis": [
+      "routing"
+    ],
+    "category": "math",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "class:math"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how many feet are in a mile",
+        "description": "a self-contained arithmetic/conversion ask; must be computed correctly, answered without dispatching a tool, and not contradict itself",
+        "assertions": [
+          [
+            "contains",
+            "5280",
+            "the computed result must be correct"
+          ],
+          [
+            "self_consistent",
+            "",
+            "must not enumerate a result and then contradict or hedge it away"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no tool fabrication — plain arithmetic is answered directly, not searched"
+          ]
+        ],
+        "phrasings": [
+          {
+            "text": "quick — feet in a mile?",
+            "label": "colloquial"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-MATH-MUL-7-8",
+    "name": "math ask: what's 7 times 8",
+    "axis": [
+      "routing"
+    ],
+    "category": "math",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "class:math"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what's 7 times 8",
+        "description": "a self-contained arithmetic/conversion ask; must be computed correctly, answered without dispatching a tool, and not contradict itself",
+        "assertions": [
+          [
+            "contains",
+            "56",
+            "the computed result must be correct"
+          ],
+          [
+            "self_consistent",
+            "",
+            "must not enumerate a result and then contradict or hedge it away"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no tool fabrication — plain arithmetic is answered directly, not searched"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-MATH-HR-TO-MIN",
+    "name": "math ask: convert 2 hours into minutes",
+    "axis": [
+      "routing"
+    ],
+    "category": "math",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "class:math"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "convert 2 hours into minutes",
+        "description": "a self-contained arithmetic/conversion ask; must be computed correctly, answered without dispatching a tool, and not contradict itself",
+        "assertions": [
+          [
+            "contains",
+            "120",
+            "the computed result must be correct"
+          ],
+          [
+            "self_consistent",
+            "",
+            "must not enumerate a result and then contradict or hedge it away"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no tool fabrication — plain arithmetic is answered directly, not searched"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-MATH-SQRT-144",
+    "name": "math ask: what's the square root of 144",
+    "axis": [
+      "routing"
+    ],
+    "category": "math",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "class:math"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what's the square root of 144",
+        "description": "a self-contained arithmetic/conversion ask; must be computed correctly, answered without dispatching a tool, and not contradict itself",
+        "assertions": [
+          [
+            "contains",
+            "12",
+            "the computed result must be correct"
+          ],
+          [
+            "self_consistent",
+            "",
+            "must not enumerate a result and then contradict or hedge it away"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no tool fabrication — plain arithmetic is answered directly, not searched"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-MATH-OZ-PER-LB",
+    "name": "math ask: how many ounces are in a pound",
+    "axis": [
+      "routing"
+    ],
+    "category": "math",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "class:math"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how many ounces are in a pound",
+        "description": "a self-contained arithmetic/conversion ask; must be computed correctly, answered without dispatching a tool, and not contradict itself",
+        "assertions": [
+          [
+            "contains",
+            "16",
+            "the computed result must be correct"
+          ],
+          [
+            "self_consistent",
+            "",
+            "must not enumerate a result and then contradict or hedge it away"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no tool fabrication — plain arithmetic is answered directly, not searched"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-MATH-SUB-250-87",
+    "name": "math ask: what's 250 minus 87",
+    "axis": [
+      "routing"
+    ],
+    "category": "math",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "class:math"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what's 250 minus 87",
+        "description": "a self-contained arithmetic/conversion ask; must be computed correctly, answered without dispatching a tool, and not contradict itself",
+        "assertions": [
+          [
+            "contains",
+            "163",
+            "the computed result must be correct"
+          ],
+          [
+            "self_consistent",
+            "",
+            "must not enumerate a result and then contradict or hedge it away"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no tool fabrication — plain arithmetic is answered directly, not searched"
+          ]
+        ],
+        "phrasings": [
+          {
+            "text": "250 - 87, what's that",
+            "label": "colloquial"
+          },
+          {
+            "text": "can u just tell me 250 minus 87 rn",
+            "label": "emotional"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-MATH-LEAP-YEAR-DAYS",
+    "name": "math ask: how many days are in a leap year",
+    "axis": [
+      "routing"
+    ],
+    "category": "math",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "class:math"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how many days are in a leap year",
+        "description": "a self-contained arithmetic/conversion ask; must be computed correctly, answered without dispatching a tool, and not contradict itself",
+        "assertions": [
+          [
+            "contains",
+            "366",
+            "the computed result must be correct"
+          ],
+          [
+            "self_consistent",
+            "",
+            "must not enumerate a result and then contradict or hedge it away"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no tool fabrication — plain arithmetic is answered directly, not searched"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-MATH-PCT-20-150",
+    "name": "math ask: what's 20% of 150",
+    "axis": [
+      "routing"
+    ],
+    "category": "math",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "class:math"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what's 20% of 150",
+        "description": "a self-contained arithmetic/conversion ask; must be computed correctly, answered without dispatching a tool, and not contradict itself",
+        "assertions": [
+          [
+            "contains",
+            "30",
+            "the computed result must be correct"
+          ],
+          [
+            "self_consistent",
+            "",
+            "must not enumerate a result and then contradict or hedge it away"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no tool fabrication — plain arithmetic is answered directly, not searched"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-MATH-KM-TO-M",
+    "name": "math ask: convert 3 kilometers to meters",
+    "axis": [
+      "routing"
+    ],
+    "category": "math",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "class:math"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "convert 3 kilometers to meters",
+        "description": "a self-contained arithmetic/conversion ask; must be computed correctly, answered without dispatching a tool, and not contradict itself",
+        "assertions": [
+          [
+            "contains",
+            "3000",
+            "the computed result must be correct"
+          ],
+          [
+            "self_consistent",
+            "",
+            "must not enumerate a result and then contradict or hedge it away"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no tool fabrication — plain arithmetic is answered directly, not searched"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-MATH-SQUARE-9",
+    "name": "math ask: what's 9 squared",
+    "axis": [
+      "routing"
+    ],
+    "category": "math",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "class:math"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what's 9 squared",
+        "description": "a self-contained arithmetic/conversion ask; must be computed correctly, answered without dispatching a tool, and not contradict itself",
+        "assertions": [
+          [
+            "contains",
+            "81",
+            "the computed result must be correct"
+          ],
+          [
+            "self_consistent",
+            "",
+            "must not enumerate a result and then contradict or hedge it away"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no tool fabrication — plain arithmetic is answered directly, not searched"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-MATH-ML-PER-L",
+    "name": "math ask: how many milliliters are in a liter",
+    "axis": [
+      "routing"
+    ],
+    "category": "math",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "class:math"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how many milliliters are in a liter",
+        "description": "a self-contained arithmetic/conversion ask; must be computed correctly, answered without dispatching a tool, and not contradict itself",
+        "assertions": [
+          [
+            "contains",
+            "1000",
+            "the computed result must be correct"
+          ],
+          [
+            "self_consistent",
+            "",
+            "must not enumerate a result and then contradict or hedge it away"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no tool fabrication — plain arithmetic is answered directly, not searched"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-MATH-MILES-TO-KM",
+    "name": "math ask: convert 5 miles to km",
+    "axis": [
+      "routing"
+    ],
+    "category": "math",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:direct_answer"
+    ],
+    "tags": [
+      "class:math"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "convert 5 miles to km",
+        "description": "a self-contained arithmetic/conversion ask; must be computed correctly, answered without dispatching a tool, and not contradict itself",
+        "assertions": [
+          [
+            "contains_any",
+            "8.0,8.04,8.05,8.1,8 km",
+            "the computed result must be correct"
+          ],
+          [
+            "self_consistent",
+            "",
+            "must not enumerate a result and then contradict or hedge it away"
+          ],
+          [
+            "no_tool",
+            "web_search",
+            "no tool fabrication — plain arithmetic is answered directly, not searched"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DEC-HAMLET-LINUX-01",
+    "name": "genuine compound splits correctly: who wrote Hamlet and what year was Linux created",
+    "axis": [
+      "decomposer",
+      "routing"
+    ],
+    "category": "decomposer",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:decomposed",
+      "cross:decomposer-tree"
+    ],
+    "tags": [
+      "class:decomposer-tree",
+      "class:genuine-compound"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "who wrote Hamlet and what year was Linux created",
+        "description": "a genuine two-part compound of two unrelated general-knowledge asks; the decomposer must split it into the sub-request tree and answer BOTH halves, neither dropped. Note the title-embedded 'and' cases (e.g. 'Romeo and Juliet') must not confuse the split.",
+        "assertions": [
+          [
+            "routes_via",
+            "decomposed",
+            "a genuine multi-part request routes to the compound decompose path"
+          ],
+          {
+            "type": "decomposes_into",
+            "value": "Hamlet,Linux",
+            "description": "the decomposition tree covers both sub-requests"
+          },
+          [
+            "decomposes_into",
+            "2",
+            "exactly two sub-requests — not under- or over-split"
+          ]
+        ],
+        "phrasings": [
+          {
+            "text": "ok two things — who wrote hamlet, and also what year did linux come out",
+            "label": "colloquial"
+          },
+          {
+            "text": "Could you tell me who wrote Hamlet, and also what year Linux was created?",
+            "label": "polite"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DEC-JAPAN-CONTINENTS-01",
+    "name": "genuine compound splits correctly: what's the capital of Japan and how many continents are there",
+    "axis": [
+      "decomposer",
+      "routing"
+    ],
+    "category": "decomposer",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:decomposed",
+      "cross:decomposer-tree"
+    ],
+    "tags": [
+      "class:decomposer-tree",
+      "class:genuine-compound"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what's the capital of Japan and how many continents are there",
+        "description": "a genuine two-part compound of two unrelated general-knowledge asks; the decomposer must split it into the sub-request tree and answer BOTH halves, neither dropped. Note the title-embedded 'and' cases (e.g. 'Romeo and Juliet') must not confuse the split.",
+        "assertions": [
+          [
+            "routes_via",
+            "decomposed",
+            "a genuine multi-part request routes to the compound decompose path"
+          ],
+          {
+            "type": "decomposes_into",
+            "value": "Japan,continents",
+            "description": "the decomposition tree covers both sub-requests"
+          },
+          [
+            "decomposes_into",
+            "2",
+            "exactly two sub-requests — not under- or over-split"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DEC-MONALISA-BOILING-01",
+    "name": "genuine compound splits correctly: who painted the Mona Lisa and what's the boiling point of water",
+    "axis": [
+      "decomposer",
+      "routing"
+    ],
+    "category": "decomposer",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:decomposed",
+      "cross:decomposer-tree"
+    ],
+    "tags": [
+      "class:decomposer-tree",
+      "class:genuine-compound"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "who painted the Mona Lisa and what's the boiling point of water",
+        "description": "a genuine two-part compound of two unrelated general-knowledge asks; the decomposer must split it into the sub-request tree and answer BOTH halves, neither dropped. Note the title-embedded 'and' cases (e.g. 'Romeo and Juliet') must not confuse the split.",
+        "assertions": [
+          [
+            "routes_via",
+            "decomposed",
+            "a genuine multi-part request routes to the compound decompose path"
+          ],
+          {
+            "type": "decomposes_into",
+            "value": "Lisa,boiling",
+            "description": "the decomposition tree covers both sub-requests"
+          },
+          [
+            "decomposes_into",
+            "2",
+            "exactly two sub-requests — not under- or over-split"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DEC-HTTP-PRESIDENT-01",
+    "name": "genuine compound splits correctly: what does HTTP stand for and who was the first president of the United States",
+    "axis": [
+      "decomposer",
+      "routing"
+    ],
+    "category": "decomposer",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:decomposed",
+      "cross:decomposer-tree"
+    ],
+    "tags": [
+      "class:decomposer-tree",
+      "class:genuine-compound"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what does HTTP stand for and who was the first president of the United States",
+        "description": "a genuine two-part compound of two unrelated general-knowledge asks; the decomposer must split it into the sub-request tree and answer BOTH halves, neither dropped. Note the title-embedded 'and' cases (e.g. 'Romeo and Juliet') must not confuse the split.",
+        "assertions": [
+          [
+            "routes_via",
+            "decomposed",
+            "a genuine multi-part request routes to the compound decompose path"
+          ],
+          {
+            "type": "decomposes_into",
+            "value": "HTTP,president",
+            "description": "the decomposition tree covers both sub-requests"
+          },
+          [
+            "decomposes_into",
+            "2",
+            "exactly two sub-requests — not under- or over-split"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DEC-MILE-ROMEO-01",
+    "name": "genuine compound splits correctly: how many feet are in a mile and who wrote Romeo and Juliet",
+    "axis": [
+      "decomposer",
+      "routing"
+    ],
+    "category": "decomposer",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:decomposed",
+      "cross:decomposer-tree"
+    ],
+    "tags": [
+      "class:decomposer-tree",
+      "class:genuine-compound"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how many feet are in a mile and who wrote Romeo and Juliet",
+        "description": "a genuine two-part compound of two unrelated general-knowledge asks; the decomposer must split it into the sub-request tree and answer BOTH halves, neither dropped. Note the title-embedded 'and' cases (e.g. 'Romeo and Juliet') must not confuse the split.",
+        "assertions": [
+          [
+            "routes_via",
+            "decomposed",
+            "a genuine multi-part request routes to the compound decompose path"
+          ],
+          {
+            "type": "decomposes_into",
+            "value": "mile,Romeo",
+            "description": "the decomposition tree covers both sub-requests"
+          },
+          [
+            "decomposes_into",
+            "2",
+            "exactly two sub-requests — not under- or over-split"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DEC-DISK-HAMLET-01",
+    "name": "mixed system+knowledge compound splits correctly: how much disk do I have and who wrote Hamlet",
+    "axis": [
+      "decomposer",
+      "routing"
+    ],
+    "category": "decomposer",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:decomposed",
+      "cross:decomposer-tree"
+    ],
+    "tags": [
+      "class:decomposer-tree",
+      "class:mixed-compound"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how much disk do I have and who wrote Hamlet",
+        "description": "a mixed compound: one half is a live system-state check, the other a general-knowledge ask. The decomposer must split it so the system half actually dispatches (not just answered from the model) while the knowledge half is answered directly — neither half silently dropped.",
+        "assertions": [
+          [
+            "routes_via",
+            "decomposed",
+            "a mixed system+knowledge compound routes to the compound decompose path"
+          ],
+          {
+            "type": "decomposes_into",
+            "value": "disk,Hamlet",
+            "description": "the decomposition tree covers both the system-state sub-request and the knowledge sub-request"
+          },
+          [
+            "decomposes_into",
+            "2",
+            "exactly two sub-requests"
+          ]
+        ],
+        "phrasings": [
+          {
+            "text": "hows my disk looking, and also who wrote hamlet",
+            "label": "colloquial"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DEC-CPU-FRANCE-01",
+    "name": "mixed system+knowledge compound splits correctly: what's my CPU usage and what's the capital of France",
+    "axis": [
+      "decomposer",
+      "routing"
+    ],
+    "category": "decomposer",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:decomposed",
+      "cross:decomposer-tree"
+    ],
+    "tags": [
+      "class:decomposer-tree",
+      "class:mixed-compound"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what's my CPU usage and what's the capital of France",
+        "description": "a mixed compound: one half is a live system-state check, the other a general-knowledge ask. The decomposer must split it so the system half actually dispatches (not just answered from the model) while the knowledge half is answered directly — neither half silently dropped.",
+        "assertions": [
+          [
+            "routes_via",
+            "decomposed",
+            "a mixed system+knowledge compound routes to the compound decompose path"
+          ],
+          {
+            "type": "decomposes_into",
+            "value": "CPU,France",
+            "description": "the decomposition tree covers both the system-state sub-request and the knowledge sub-request"
+          },
+          [
+            "decomposes_into",
+            "2",
+            "exactly two sub-requests"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DEC-SERVICES-LINUX-01",
+    "name": "mixed system+knowledge compound splits correctly: list my running services and what year was Linux created",
+    "axis": [
+      "decomposer",
+      "routing"
+    ],
+    "category": "decomposer",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:decomposed",
+      "cross:decomposer-tree"
+    ],
+    "tags": [
+      "class:decomposer-tree",
+      "class:mixed-compound"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "list my running services and what year was Linux created",
+        "description": "a mixed compound: one half is a live system-state check, the other a general-knowledge ask. The decomposer must split it so the system half actually dispatches (not just answered from the model) while the knowledge half is answered directly — neither half silently dropped.",
+        "assertions": [
+          [
+            "routes_via",
+            "decomposed",
+            "a mixed system+knowledge compound routes to the compound decompose path"
+          ],
+          {
+            "type": "decomposes_into",
+            "value": "services,Linux",
+            "description": "the decomposition tree covers both the system-state sub-request and the knowledge sub-request"
+          },
+          [
+            "decomposes_into",
+            "2",
+            "exactly two sub-requests"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DEC-MEMORY-CONTINENTS-01",
+    "name": "mixed system+knowledge compound splits correctly: check my memory usage and how many continents are there",
+    "axis": [
+      "decomposer",
+      "routing"
+    ],
+    "category": "decomposer",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:decomposed",
+      "cross:decomposer-tree"
+    ],
+    "tags": [
+      "class:decomposer-tree",
+      "class:mixed-compound"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "check my memory usage and how many continents are there",
+        "description": "a mixed compound: one half is a live system-state check, the other a general-knowledge ask. The decomposer must split it so the system half actually dispatches (not just answered from the model) while the knowledge half is answered directly — neither half silently dropped.",
+        "assertions": [
+          [
+            "routes_via",
+            "decomposed",
+            "a mixed system+knowledge compound routes to the compound decompose path"
+          ],
+          {
+            "type": "decomposes_into",
+            "value": "memory,continents",
+            "description": "the decomposition tree covers both the system-state sub-request and the knowledge sub-request"
+          },
+          [
+            "decomposes_into",
+            "2",
+            "exactly two sub-requests"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DEC-PRINTER-BW-01",
+    "name": "atomic ask must NOT decompose: recommend me a black and white printer for my home office",
+    "axis": [
+      "decomposer",
+      "routing"
+    ],
+    "category": "decomposer",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:decomposer-tree"
+    ],
+    "tags": [
+      "class:decomposer-tree",
+      "class:atomic-guard"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "recommend me a black and white printer for my home office",
+        "description": "an ATOMIC single ask whose wording happens to contain 'and' (a compound noun phrase or a single comparison question), not two separate requests. A decomposer that naively splits on 'and' would over-split this and produce two disjoint, dropped-context half-answers — this guards against that regression.",
+        "assertions": [
+          [
+            "self_consistent",
+            "",
+            "a single coherent answer — must not enumerate two disjoint half-answers as if it had split"
+          ],
+          [
+            "contains",
+            "printer",
+            "the single-topic answer must actually address the atomic ask"
+          ]
+        ],
+        "phrasings": [
+          {
+            "text": "need a black and white printer for home office, any ideas?",
+            "label": "colloquial"
+          },
+          {
+            "text": "Could you recommend a black and white printer for my home office?",
+            "label": "polite"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DEC-BROWSER-FAST-01",
+    "name": "atomic ask must NOT decompose: what's a fast and reliable web browser I could use",
+    "axis": [
+      "decomposer",
+      "routing"
+    ],
+    "category": "decomposer",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:decomposer-tree"
+    ],
+    "tags": [
+      "class:decomposer-tree",
+      "class:atomic-guard"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what's a fast and reliable web browser I could use",
+        "description": "an ATOMIC single ask whose wording happens to contain 'and' (a compound noun phrase or a single comparison question), not two separate requests. A decomposer that naively splits on 'and' would over-split this and produce two disjoint, dropped-context half-answers — this guards against that regression.",
+        "assertions": [
+          [
+            "self_consistent",
+            "",
+            "a single coherent answer — must not enumerate two disjoint half-answers as if it had split"
+          ],
+          [
+            "contains",
+            "browser",
+            "the single-topic answer must actually address the atomic ask"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DEC-LAPTOP-LIGHT-01",
+    "name": "atomic ask must NOT decompose: I need a lightweight and portable laptop for travel",
+    "axis": [
+      "decomposer",
+      "routing"
+    ],
+    "category": "decomposer",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:decomposer-tree"
+    ],
+    "tags": [
+      "class:decomposer-tree",
+      "class:atomic-guard"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "I need a lightweight and portable laptop for travel",
+        "description": "an ATOMIC single ask whose wording happens to contain 'and' (a compound noun phrase or a single comparison question), not two separate requests. A decomposer that naively splits on 'and' would over-split this and produce two disjoint, dropped-context half-answers — this guards against that regression.",
+        "assertions": [
+          [
+            "self_consistent",
+            "",
+            "a single coherent answer — must not enumerate two disjoint half-answers as if it had split"
+          ],
+          [
+            "contains",
+            "laptop",
+            "the single-topic answer must actually address the atomic ask"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "INF-DEC-HUB-SWITCH-01",
+    "name": "atomic ask must NOT decompose: what's the difference between a hub and a switch",
+    "axis": [
+      "decomposer",
+      "routing"
+    ],
+    "category": "decomposer",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:decomposer-tree"
+    ],
+    "tags": [
+      "class:decomposer-tree",
+      "class:atomic-guard"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what's the difference between a hub and a switch",
+        "description": "an ATOMIC single ask whose wording happens to contain 'and' (a compound noun phrase or a single comparison question), not two separate requests. A decomposer that naively splits on 'and' would over-split this and produce two disjoint, dropped-context half-answers — this guards against that regression.",
+        "assertions": [
+          [
+            "self_consistent",
+            "",
+            "a single coherent answer — must not enumerate two disjoint half-answers as if it had split"
+          ],
+          [
+            "contains",
+            "switch",
+            "the single-topic answer must actually address the atomic ask"
+          ]
+        ]
+      }
+    ]
+  }
+]

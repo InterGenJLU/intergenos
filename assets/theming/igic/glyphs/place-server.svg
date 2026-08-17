@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: network-server (places) — a two-unit server stack: slot vents left,
+       status LED right per unit. DISTINCT from drive-harddisk (single device). -->
+  <g class="glyph">
+    <rect x="56" y="52" width="144" height="64" rx="10"/>
+    <line x1="76" y1="76" x2="120" y2="76"/>
+    <line x1="76" y1="92" x2="120" y2="92"/>
+    <g class="fill"><circle cx="172" cy="84" r="7"/></g>
+    <rect x="56" y="140" width="144" height="64" rx="10"/>
+    <line x1="76" y1="164" x2="120" y2="164"/>
+    <line x1="76" y1="180" x2="120" y2="180"/>
+    <g class="fill"><circle cx="172" cy="172" r="7"/></g>
+  </g>
+</svg>

@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+"""Chronicle's pkm pre-transaction handler.
+
+Installed into /usr/lib/pkm/pre-transaction.d/ (see pkm/pretxn.py). pkm runs it
+once before every install/upgrade/remove, with the transaction footprint as
+JSON on stdin. It captures a restore point of exactly that footprint.
+
+It talks to the running engine over the IPC socket when available; if the engine
+is not running it captures IN-PROCESS against the always-on local store (it runs
+as root during the pkm transaction, so it can write /var/lib/chronicle). Either
+way the restore point lands even when the external target is absent (it falls
+back to the local CAS), so a package transaction is never blocked — and a real
+failure exits non-zero, which pkm reports loudly without blocking (spec §6).
+"""
+
+import json
+import os
+import sys
+
+# The Chronicle package ships beside this handler's real implementation under
+# /usr/libexec/chronicle; add it so `import chronicle` resolves once installed.
+sys.path.insert(0, "/usr/libexec/chronicle")
+
+
+def _capture(footprint):
+    # Prefer the running engine (single writer, current state).
+    try:
+        from chronicle import api as _api
+        client = _api.Client()
+        if client.available():
+            resp = client.call("capture", layer="restore-point",
+                               scope=footprint, reason=footprint.get("reason"),
+                               sync=True)
+            if not resp.get("ok"):
+                raise RuntimeError(resp.get("error", "engine refused capture"))
+            return resp["result"]
+    except Exception as e:
+        sys.stderr.write(f"chronicle: engine socket capture failed ({e}); "
+                         f"falling back to in-process local capture\n")
+    # Fallback: capture directly against the local store.
+    from chronicle import engine as _engine
+    eng = _engine.Engine()
+    return eng.capture("restore-point", scope=footprint,
+                       reason=footprint.get("reason"), sync=True)
+
+
+def main():
+    raw = sys.stdin.read()
+    if not raw.strip():
+        # Nothing to capture; a no-footprint call is a benign no-op.
+        return 0
+    try:
+        footprint = json.loads(raw)
+    except ValueError as e:
+        sys.stderr.write(f"chronicle: malformed pre-transaction footprint: {e}\n")
+        return 2
+    try:
+        result = _capture(footprint)
+    except Exception as e:
+        sys.stderr.write(f"chronicle: restore point NOT captured: {e}\n")
+        return 1
+    vid = (result or {}).get("version_id", "?")
+    sys.stderr.write(f"chronicle: restore point {vid} captured for "
+                     f"{footprint.get('verb', 'transaction')}\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

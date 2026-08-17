@@ -1,0 +1,67 @@
+#!/bin/sh
+# /usr/bin/intergen-model-setup-runner — pkexec target for InterGen model-storage
+# provisioning during `intergen setup`.
+#
+# Invoked by intergen (model_manager._provision_via_pkexec) via pkexec when a
+# downloaded + pin-verified model must be installed into the system-wide
+# root-owned model store (/var/lib/intergen/models). Runs as root after
+# PolicyKit authentication against org.intergenos.intergen.provision-model-storage.
+#
+# This is a HUMAN-INITIATED setup action — the user typed `intergen setup` and
+# authenticated to PolicyKit directly. There is NO LLM, NO ingress, and NO AI-6
+# dispatch token here; that machinery belongs to intergen-privileged-runner (the
+# runtime AI tool-dispatch path). The single security obligation at this boundary
+# is that root must not trust the caller's claim about the staged file: the
+# Python dispatcher (intergen.model_setup_dispatch) RE-VERIFIES the staged file's
+# sha256 against the shipped pin manifest before installing it root-owned.
+#
+# Argv contract (from the intergen caller via pkexec):
+#   $1 — JSON object: {"filename": "<model.gguf>", "staging_path": "<abs path>"}
+#        (validated + sha-re-verified by the Python dispatcher before any write).
+
+set -eu
+
+# Refuse to run outside a pkexec context. A direct root invocation would bypass
+# PolicyKit authentication entirely and would not have PKEXEC_UID set. Mirrors
+# intergen-privileged-runner's defensive check.
+PKEXEC_UID="${PKEXEC_UID:-}"
+if [ -z "${PKEXEC_UID}" ]; then
+    printf 'intergen-model-setup-runner: PKEXEC_UID unset; refusing to run outside pkexec.\n' >&2
+    exit 1
+fi
+
+# Strict argv equality: exactly one positional (the args JSON). Reject extras at
+# the runner layer so a caller cannot smuggle additional positionals past the
+# entry point — the Python dispatcher receives only this single argument.
+if [ "$#" -ne 1 ]; then
+    printf 'intergen-model-setup-runner: usage: intergen-model-setup-runner <args_json> (exactly 1 arg)\n' >&2
+    exit 2
+fi
+
+ARGS_JSON="$1"
+shift
+
+# Resolve the calling user's name from PKEXEC_UID (pkexec strips USER). The
+# dispatcher records it as the `accepted_by` of the system-wide license
+# acceptance it writes for licenses that require acceptance — the human who
+# authenticated this install is who accepted the model's license for the system
+# (the same record Forge writes at install time). Mirrors intergen-privileged-
+# runner's getent resolution.
+PKEXEC_USER=$(getent passwd "${PKEXEC_UID}" 2>/dev/null | cut -d: -f1)
+if [ -z "${PKEXEC_USER}" ]; then
+    printf 'intergen-model-setup-runner: cannot resolve user for uid %s\n' "${PKEXEC_UID}" >&2
+    exit 1
+fi
+
+# Clean root-context environment. pkexec already scrubs the caller's env; pin
+# PATH/locale/identity to a minimal known-safe set so the dispatch is
+# deterministic. The Python dispatcher reads PKEXEC_UID (confirm inside runner) +
+# PKEXEC_USER (accepted_by); no other user-env input is consumed.
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
+export HOME=/root
+export PKEXEC_UID
+export PKEXEC_USER
+
+exec /usr/bin/python3 -m intergen.model_setup_dispatch "${ARGS_JSON}"

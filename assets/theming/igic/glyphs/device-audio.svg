@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- device glyph: audio out / speaker — a speaker cone with three sound waves. -->
+  <g class="glyph">
+    <path d="M 55 107.6 L 82.2 107.6 L 112.7 80.5 L 112.7 175.5 L 82.2 148.4 L 55 148.4 Z"/>
+    <path d="M 133.1 111 Q 146.7 128 133.1 145"/>
+    <path d="M 150.1 94 Q 173.8 128 150.1 162"/>
+    <path d="M 167 77.1 Q 201 128 167 178.9"/>
+  </g>
+</svg>

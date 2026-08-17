@@ -1,0 +1,38 @@
+name: torchvision
+version: "0.25.0"
+release: 1
+content_hash: 70383b7d258d789c
+description: Datasets, transforms and models for computer vision (torch companion)
+license: BSD-3-Clause
+homepage: https://github.com/pytorch/vision
+tier: ai
+iso_include: false  # training apparatus — mirror-only (decided 2026-07-20)
+build_style: custom
+install_func: do_install
+# VERSION PAIRING: torchvision 0.25.0 pins torch==2.10.0 EXACTLY (PyPI
+# metadata) — the release paired with our pytorch pin. Bumps move in lockstep
+# with pytorch, never independently. No sdist on PyPI — github tag archive,
+# downloaded + summed 2026-07-21.
+source:
+- url: https://github.com/pytorch/vision/archive/refs/tags/v${version}.tar.gz
+  filename: torchvision-0.25.0.tar.gz
+  sha256: a7ac1b3ab489d71f6e27edfad1e27616e4b8a9b1517e60fce4a950600d3510e8
+dependencies:
+  build:
+  - pytorch
+  - setuptools
+  - numpy
+  - libjpeg-turbo
+  - libpng
+  - libwebp
+  host: []
+  runtime:
+  - pytorch
+  - numpy
+  - pillow
+  - libjpeg-turbo
+  - libpng
+  - libwebp
+verify_paths:
+  - /usr/lib/python3.14/site-packages/torchvision/__init__.py
+  - /usr/lib/python3.14/site-packages/torchvision/transforms

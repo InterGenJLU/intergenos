@@ -1,0 +1,24 @@
+name: font-inter
+version: "4.1"
+release: 3  # r3: neutral-language sweep of comments and printed text: decisions are recorded as "decided <date>" instead of being credited to a person or project role, development-host shorthand is replaced by a plain description, and the citations of a repository that is not published are replaced by what they were pointing at. Comments and strings only — no rule, path, flag, threshold or code path changed. The public-content scanner now carries detectors for all three classes (scripts/check-public-content.py), so the classes cannot return silently; tests/preflight/test_public_language_detectors.py proves each detector in both directions.
+content_hash: b39bdb451b63a94e
+description: "Inter — clean modern geometric sans variable font (regular + italic). Ships InterVariable.ttf + InterVariable-Italic.ttf only (single-file all-weights variable fonts; static + web variants dropped). Author Rasmus Andersson. Used as InterGenOS system + document + titlebar font default (decided 2026-05-22; matches wordmark restrained-geometric voice)."
+license: OFL-1.1
+homepage: https://github.com/rsms/inter
+# First-party-curated subset of upstream Inter 4.1 release (single .zip
+# 33MB on upstream; we extract InterVariable.ttf + InterVariable-Italic.ttf
+# + LICENSE.txt only -> 970KB tarball). Bundled at assets/ following the
+# asset-in-package convention.
+tier: desktop
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - fontconfig
+verify_paths:
+  - /usr/share/fonts/inter/InterVariable.ttf
+  - /usr/share/fonts/inter/InterVariable-Italic.ttf
+  - /usr/share/fonts/inter/LICENSE.txt

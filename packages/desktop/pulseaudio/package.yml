@@ -1,0 +1,47 @@
+name: pulseaudio
+version: '17.0'
+release: 2  # hook-contract wave (owner-side): autostart/Xwayland files unshipped; autospawn=no baked into shipped client.conf
+description: PulseAudio sound server
+license: LGPL-2.1-or-later
+homepage: https://www.freedesktop.org/wiki/Software/PulseAudio/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.freedesktop.org/software/pulseaudio/releases/pulseaudio-${version}.tar.xz
+  sha256: 053794d6671a3e397d849e478a80b82a63cb9d8ca296bd35b73317bb5ceb87b5
+dependencies:
+  build:
+  - alsa-lib
+  - libsndfile
+  - speex
+  - avahi
+  - bluez
+  - dbus
+  - glib2
+  - gst-plugins-base
+  - gtk3
+  - libsamplerate
+  - sbc
+  host: []
+  runtime:
+  - alsa-lib
+  - libsndfile
+  - speex
+  - avahi
+  - bluez
+  - dbus
+  - glib2
+  - libsamplerate
+  - sbc
+# bluez5 is deliberately disabled: InterGenOS uses pipewire (with its own bluez5
+# backend) for audio + Bluetooth; pulseaudio ships only for libpulse client compat,
+# not as the server. Not a loss.
+# (silent-loss audit 2026-06-25.)
+silent_loss_accepted:
+  - bluez5   # BT handled by pipewire; pulseaudio is libpulse-compat only
+verify_paths:
+  - /etc/pulse/client.conf
+  - /usr/bin/pulseaudio
+  - /usr/bin/pacat
+  - /usr/lib/libpulse.so

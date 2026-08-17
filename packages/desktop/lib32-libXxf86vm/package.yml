@@ -1,0 +1,35 @@
+name: lib32-libXxf86vm
+version: "1.1.7"
+release: 1
+description: X XFree86 Video Mode extension library (32-bit multilib runtime)
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+# PURE-YML package (no build.sh): driven end-to-end by the builder's lib32
+# autotools lane — sourced profile per command, mechanism flags injected
+# (host triplet, lib32 libdir, verbose rules), allowlist staged-copy
+# install (only /usr/lib32 ships; headers/protos stay with the sibling).
+build_style: autotools
+lib32_source: libXxf86vm
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://www.x.org/pub/individual/lib/libXxf86vm-${version}.tar.xz
+  sha256: ae50c0f669e0af5a67cc4cd0f54f21d64a64d2660af883e80e95d3fe51b945d8
+dependencies:
+  build:
+  - lib32-glibc
+  - xorgproto  # arch-independent X protocol headers (pkg-config-required by the pinned configure.ac/meson.build; scanner-derived 2026-07-03)
+  - lib32-libX11
+  - lib32-libXext
+  host: []
+  runtime:
+  - lib32-glibc
+  - lib32-libXext
+configure_flags:
+- --prefix=/usr
+- --disable-static
+verify_paths:
+  - /usr/lib32/libXxf86vm.so.1
+  - /usr/lib32/pkgconfig/xxf86vm.pc

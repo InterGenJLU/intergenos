@@ -1,0 +1,164 @@
+name: linux-kernel
+version: "6.18.10"
+release: 16  # r16: two changes, both about the kernel that actually ships. (1) The four CVE patches move from a directory inside this recipe to the canonical build/patches, and are DECLARED in package.yml — identically here and in linux-kernel-pass2 — because pass 2 supersedes this package and its payload lands last on an installed system, so patches only this pass applied never reached the user's kernel. This pass applies the declaration itself, verifying each patch's sha256 first, because its driver (chroot-build-ch10.sh) has no declared-patch support; pass 2's driver applies the same declaration automatically. (2) The post-merge security and physical-hardware assertions move out of this recipe into two data files read by scripts/check-kernel-required-symbols.py, which BOTH passes now run in configure() — the requirement sets are byte-identical to the loops they replace (28 exact-value and 44 enabled, proven set-equal and order-preserved against the previous commit). Kernel bytes CHANGE: the shipped kernel is now patched where pass 2 builds it.  # r15: the fabricated-device class is now swept against the BUILT KERNEL, not only against the produced config. build() runs scripts/check-fabricated-devices.py after the compile and REFUSES the kernel on a finding, sweeping three ways: the enumerated class against the produced .config, the enumerated class against the built module list (symbol-to-module resolved from the kernel's own Makefiles), and every built module's name against the fabricated-device vocabulary, where an unrecognised hit is a refusal rather than a silent pass. The config-only check could not see this class completely and the shortfall was measured: sweeping a real build's module list on 2026-08-07 found ten further members, because a config check only looks for names somebody wrote down, a symbol read off a module filename can be wrong (vdpa_sim_blk.ko is built by CONFIG_VDPA_SIM_BLOCK), and a module can have no Kconfig symbol at all. The gate script, its module allowlist and the class definition are declared in source_tree and sources_extra, so an edit to any of them flips the rebuild trigger and rides in the corresponding-source archive. Kernel bytes unchanged by this release: the gate reads the artifact, it does not change what is compiled.  # r14: the fake-hardware driver class is now forced OFF rather than omitted, and the config fragments are declared as this recipe's source. Omitting a symbol from the fragment never disabled it — olddefconfig resolves an unstated symbol from its Kconfig default and from any `imply` — so the mock SoundWire codec and a fake GPIO chip were built into the r13 kernel while the recipe claimed the class was absent. The generator now writes explicit "# CONFIG_X is not set" lines for the whole class (CONFIG_SND_DUMMY included: it registers a fake ALSA card, which would make a machine with a dead codec report working audio to the hardware smoke check), and the post-merge assertion loop proves the class is absent from the PRODUCED config. Separately, config/kernel/fragments is now declared in # The kernel CVE patches, declared rather than applied by hand.
+#
+# Decided 2026-08-11, on a measurement. These four were applied only by
+# linux-kernel's build.sh, from a directory inside that recipe. linux-kernel-pass2
+# declares `supersedes: [linux-kernel]`, both passes stage the identical
+# /boot/vmlinuz-<KVER>, and the installer enforces that a superseding package
+# installs AFTER its predecessor — so the kernel a user boots came from pass 2,
+# which applied no patches at all. In the BUILD chroot the phase order is the
+# opposite (core-extra before kernel), so pass 1's patched kernel was written
+# last there and the ISO looked correct; the inversion only appeared on a real
+# install, which is the class a virtual machine cannot exhibit.
+#
+# Both passes now declare the SAME set here, and
+# tests/igos_build/test_kernel_patch_lockstep.py fails the suite the moment the
+# two lists differ by so much as one hash. The sha256 is verified before each
+# patch is applied, so a swapped patch file refuses rather than builds.
+patches:
+  - file: CVE-2026-31431-copy-fail.patch
+    sha256: bad15a8037c911039c5a60e07ecebf33fd736c85dd10ff22f5bc2f8e2b9f3aa8
+  - file: CVE-2026-43284-xfrm-esp-shared-frags.patch
+    sha256: 8b4de176fdabd4e8c6af62e15cb2f4a9999d5d80138c6a34c6a395b26be50c46
+  - file: CVE-2026-43500-rxrpc-shared-frags.patch
+    sha256: 209365497600372eb7c4ee73de9687d6e4ee562829780975a903d099a55d70ab
+  - file: CVE-2026-46300-fragnesia-skbuff-coalesce.patch
+    sha256: 73420ce2a4688e166f0bea258d0a44e66a19e23da8b3449297b1bfd4fd15a001
+
+source_tree: a fragment-only edit previously left this recipe's fingerprint byte-identical, so it triggered neither a rebuild nor a release bump and a targeted build would have shipped the previous kernel. Kernel bytes change.  # r13: kernel config coverage change — the universal-baseline fragment derivation now takes the UNION of the mainstream distro configs for driver/hardware symbols (agreement retained for policy/security), which adds 5,670 options the previous single-threshold rule dropped; and the post-merge assertion loop gains a physical-hardware class check so a dropped hardware subsystem is a build failure instead of a silent shipment. Kernel bytes change (new drivers built), so the release moves.  # r11: the post-install hook derives the kernel release on the machine being installed to, instead of reading a build-environment variable that does not exist at install time. depmod now runs against the release actually installed.  # r10: update-boot-menu.sh menu-path fix — the helper defaulted to the lowercase /boot/efi/EFI/intergenos/grub.cfg, a path that exists on NO installed system (the installer composes the menu at /boot/efi/EFI/InterGenOS/grub.cfg), so every post-install kernel update failed its boot-menu update and left the exact previous-kernel/emergency-mode hazard the r8 helper was built to close (measured live in the ge9b-12 install trace on real hardware, 2026-07-30 — the hook warned both runs). Resolution now: caller/test override > canonical mixed-case path > fail-closed discovery of exactly ONE ESP grub.cfg (never guesses between menus); the menu-absent message now states the initial-install-ordering reading (installer composes the menu AFTER hooks — expected, nothing lost) beside the running-system reading (real failure). Kernel bytes unchanged; helper suite 15/15. r9: kernel-release resolution works in both contexts. build.sh read the release from an absolute build-tree package.yml path at source time, so the installer's target-side re-run of this recipe died rc=1 "cannot parse 'release:'" before post_install ran. Primary source is now this recipe's own package.yml resolved relative to the sourced file (present in the build chroot and in the tree the installer copies to the target); fallback is the exactly-one staged /usr/lib/modules/<version>-igos-* tree, fail-loud on ambiguity or absence. r8 (fingerprint re-recorded 2026-07-24 — the prior recorded hash never matched the committed tree; kernel bytes and recipe unchanged since, release held at 8): boot-menu update + fallback quarantine (2026-07-24 emergency-mode incident): the post-install hook now points the ESP GRUB menu at the just-built kernel in the same transaction (new /usr/lib/intergen/update-boot-menu.sh helper), and prune-old-kernels quarantines any retained UKI whose module tree is absent/empty (a module-less UKI boots into emergency mode — keep UKI + modules together or neutralize). Kernel bytes unchanged. r7: 3.0-F28 — declare reboot_required (the kernel image + modules take effect only on the next boot; the running kernel stays loaded). .PKGINFO metadata change => release bump so installed systems receive the activation-semantics advisory on pkm upgrade. r6: ship the sanitized uapi headers (make headers_install -> /usr/include) — glibc headers hard-include <linux/*.h>, installs could not compile any C without them; first-build-host finding, decided 2026-07-17
+content_hash: e90d7760f2075675
+description: Linux kernel
+license: GPL-2.0-only
+source:
+- url: https://www.kernel.org/pub/linux/kernel/v6.x/linux-${version}.tar.xz
+  sha256: d6d377161741ada2fab28eed69143277634a2aeb5e3883e50c031588ede48ede
+dependencies:
+  build:
+    - elfutils
+    - openssl
+    - bc
+  host: []
+  runtime: []
+tier: core
+build_style: custom
+# 3.0-F28: activation semantics. do_install ships /boot/vmlinuz + /lib/modules
+# for this release; the running kernel stays resident until reboot, so a fresh
+# kernel install/upgrade is on disk but not live until the user reboots. pkm
+# emits a loud post-transaction REBOOT REQUIRED banner naming this package.
+reboot_required: true
+
+# The r4 kernel-lifecycle helpers are installed from these in-tree files at
+# build time; declaring them makes an edit there flip the skip-built
+# fingerprint (source-tree coverage gate) instead of shipping stale.
+source_tree:
+- installer/init/fde-init.sh
+- installer/init/build-fde-initramfs.sh
+# The kernel config fragments ARE this package's build input: configure() reads
+# every fragments/*.config, concatenates them and runs olddefconfig, so their
+# content decides which drivers the shipped kernel has.
+#
+# Decided 2026-08-07, on a measurement. They were not declared here, and the
+# effect was measured directly: editing 00-universal-baseline.config left this
+# recipe's content fingerprint BYTE-IDENTICAL. A fragment-only change therefore
+# did not flip the skip-built key and did not advance the release — so a
+# targeted build would skip rebuilding the kernel and ship the previous one,
+# while the tree claimed new hardware coverage, and pkm clients would never see
+# an upgrade. That is the same silent-drop failure this recipe's own assertion
+# loops exist to stop, one layer up in the build machinery.
+- config/kernel/fragments
+# The fabricated-device gate is a build input too, added 2026-08-11: build()
+# runs scripts/check-fabricated-devices.py after the compile and refuses the
+# kernel on a finding. The gate reads its class definition from the config
+# generator and its real-module reasons from the allowlist, so all three decide
+# whether this kernel builds — by the same measurement that put the fragments
+# here, a change to any of them must flip the fingerprint rather than let a
+# targeted build skip the kernel and ship the previous one.
+- scripts/check-fabricated-devices.py
+- config/kernel/fabricated-device-module-allowlist.txt
+- docs/research/kernel_configs/analyze_convergence.py
+# The required-symbol gate is a build input too, added 2026-08-11: configure()
+# runs it after merging the fragments and REFUSES the kernel when a required
+# symbol is missing or downgraded. Its two requirement files decide what the
+# kernel must contain, so an edit to any of the three changes what this recipe
+# will build — declared here for the same measured reason the fragments are:
+# an undeclared input flips no fingerprint, so a targeted build would skip the
+# rebuild and ship the previous kernel.
+- scripts/check-kernel-required-symbols.py
+- config/kernel/required-security-symbols.txt
+- config/kernel/required-hardware-symbols.txt
+# The declared CVE patches and the parser that reads the declaration, added
+# 2026-08-11. Moving these patches to the canonical build/patches directory is
+# what lets BOTH passes apply the same set — but build-source-archives.py
+# collects patches from a recipe's OWN patches/ directory, so without these
+# entries the published corresponding source would no longer carry them and
+# could not rebuild the published binary. Caught by the sources_extra coverage
+# gate on this cut's own full-suite run, which is the gate working.
+- scripts/parse-package-yml-patches.py
+- build/patches/CVE-2026-31431-copy-fail.patch
+- build/patches/CVE-2026-43284-xfrm-esp-shared-frags.patch
+- build/patches/CVE-2026-43500-rxrpc-shared-frags.patch
+- build/patches/CVE-2026-46300-fragnesia-skbuff-coalesce.patch
+
+# The kernel configuration fragments are a first-party build input that is not a
+# `source:` entry: configure() concatenates every fragments/*.config and runs
+# olddefconfig, so their content decides which drivers the shipped kernel has.
+# They must therefore ride in the corresponding-source archive, or the published
+# source cannot rebuild the published binary.
+#
+# Listed per file rather than as the directory, deliberately. The directory also
+# holds fragments/archive/, which is retired content the build never reads, and
+# corresponding source should carry what the binary was actually built from.
+# tests/igos_build/test_kernel_sources_extra.py fails the suite if a live
+# fragment is ever added without being declared here.
+#
+# The gate's three files ride here for the same reason, added 2026-08-11:
+# build() invokes the gate and the gate REFUSES when it cannot read them, so a
+# corresponding-source archive without them cannot rebuild the published binary.
+sources_extra:
+- config/kernel/fragments/00-universal-baseline.config
+- config/kernel/fragments/99-intergenos-overrides.config
+# Kernel-lifecycle helper scripts and FDE initramfs tooling installed into
+# the payload by build.sh (lines ~470-478) — composed build inputs, so they
+# ride in the corresponding-source archive (survey 2026-08-11).
+- scripts/prune-old-kernels.sh
+- scripts/update-boot-menu.sh
+- scripts/build-microcode-cpio.sh
+- installer/init/fde-init.sh
+- installer/init/build-fde-initramfs.sh
+- scripts/check-fabricated-devices.py
+- config/kernel/fabricated-device-module-allowlist.txt
+- docs/research/kernel_configs/analyze_convergence.py
+# The required-symbol gate's three files ride here for the same reason as the
+# fabricated-device gate's: configure() invokes it and it REFUSES when it cannot
+# read them, so a corresponding-source archive without them cannot rebuild the
+# published binary.
+- scripts/check-kernel-required-symbols.py
+- config/kernel/required-security-symbols.txt
+- config/kernel/required-hardware-symbols.txt
+# The declared CVE patches and the parser that reads the declaration, added
+# 2026-08-11. Moving these patches to the canonical build/patches directory is
+# what lets BOTH passes apply the same set — but build-source-archives.py
+# collects patches from a recipe's OWN patches/ directory, so without these
+# entries the published corresponding source would no longer carry them and
+# could not rebuild the published binary. Caught by the sources_extra coverage
+# gate on this cut's own full-suite run, which is the gate working.
+- scripts/parse-package-yml-patches.py
+- build/patches/CVE-2026-31431-copy-fail.patch
+- build/patches/CVE-2026-43284-xfrm-esp-shared-frags.patch
+- build/patches/CVE-2026-43500-rxrpc-shared-frags.patch
+- build/patches/CVE-2026-46300-fragnesia-skbuff-coalesce.patch
+
+verify_paths:
+  - /usr/include/linux/limits.h
+  - /usr/share/doc/linux-6.18.10
+  # Kernel-lifecycle helpers (package-owned since r4; previously staged by
+  # chroot-build-bootloader.sh only, which a resume topology can skip —
+  # ge9b-01 shipped without them). The squashfs gate proves presence on
+  # every image: absent helpers mean no kernel pruning, no early-load
+  # microcode regen, and unbootable FDE installs.
+  - /usr/lib/intergen/prune-old-kernels.sh
+  - /usr/lib/intergen/update-boot-menu.sh
+  - /usr/lib/intergen/build-microcode-cpio.sh
+  - /usr/lib/intergen/fde-init.sh
+  - /usr/lib/intergen/build-fde-initramfs.sh

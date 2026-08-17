@@ -1,0 +1,31 @@
+name: open-vm-tools
+version: "13.1.0"
+release: 2  # r2: unit-file comment only: the hardening-item comment in vmtoolsd.service dropped an internal ledger name in the pre-release register pass. No directive change.
+content_hash: e8356813ac841efb
+description: Open-source VMware guest tools (vmtoolsd) for VMware virtual-machine guests
+license: GPL-2.0-only AND LGPL-2.1-only AND BSD-3-Clause
+homepage: https://github.com/vmware/open-vm-tools
+tier: desktop
+build_style: custom
+# Upstream ships the GitHub release tarball with a build-number suffix in the
+# filename (open-vm-tools-<ver>-<build>.tar.gz); the inner top-level dir matches,
+# so the orchestrator's unconditional `tar --strip-components=1` lands the source
+# at the work-dir root. sha256 verified against the downloaded 13.1.0 asset.
+source:
+- url: https://github.com/vmware/open-vm-tools/releases/download/stable-13.1.0/open-vm-tools-13.1.0-25218885.tar.gz
+  sha256: 67a23d505aca77127b081445f758e269b1009e8824cf7f6f2d6efafb0b14d0fd
+dependencies:
+  build: []
+  host: []
+  runtime:
+  # glib/gmodule/gobject/gthread-2.0 >= 2.34 are MANDATORY (configure.ac AC_MSG_ERROR);
+  # all provided by glib2 (core). libtirpc is the RPC channel transport (core).
+  # libdrm is required to link the resolutionKMS resize plugin + vmwgfxctrl tool
+  # (desktop tier) — declaring it makes the Python topo-sort build it first.
+  - glib2
+  - libtirpc
+  - libdrm
+verify_paths:
+- /usr/bin/vmtoolsd
+- /usr/bin/vmware-toolbox-cmd
+- /usr/lib/open-vm-tools/plugins/vmsvc/libtimeSync.so

@@ -1,0 +1,29 @@
+name: celluloid
+version: "0.27"
+release: 1
+description: GTK4 frontend for mpv media player
+license: GPL-3.0-or-later
+homepage: https://celluloid-player.github.io/
+tier: extra
+iso_include: true  # 2026-05-28 curation walk — Keep (see docs/extra-tier-classification.md)
+build_style: meson
+install_func: do_install
+source:
+- url: https://github.com/celluloid-player/celluloid/releases/download/v${version}/celluloid-${version}.tar.xz
+  sha256: 216656c4495bb3ca02dc4ad9cf3da8e8f15c8f80e870eeac8eb1eedab4c3788b
+dependencies:
+  build:
+  - mpv
+  - gtk4
+  - libadwaita1
+  - glib2
+  host: []
+  runtime:
+  - mpv
+  - gtk4
+  - libadwaita1
+  - glib2
+verify_paths:
+  - /usr/bin/celluloid
+  - /usr/share/dbus-1/services/io.github.celluloid_player.Celluloid.service
+  - /usr/share/glib-2.0/schemas/io.github.celluloid_player.Celluloid.gschema.xml

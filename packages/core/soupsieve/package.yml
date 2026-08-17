@@ -1,0 +1,27 @@
+name: soupsieve
+version: "2.9.1"
+release: 1
+description: CSS selector library for Python (beautifulsoup4's required selector engine)
+license: MIT
+homepage: https://github.com/facelessuser/soupsieve
+tier: core
+build_style: custom
+install_func: do_install
+# Mirror-only: nothing on an installed system imports this. Its consumer is
+# beautifulsoup4, which is itself mirror-only because the only thing in this
+# repository that imports it is scripts/parse-blfs-book.py, a build-host tool.
+# Same shape as the lib32-* core packages, which are core by nature and
+# iso_include: false by delivery.
+iso_include: false
+source:
+- url: https://files.pythonhosted.org/packages/d9/38/e12680bbe6b4f8f3d17adcaf38d26850aa756c85cf4a80e79fc12a018fe8/soupsieve-${version}.tar.gz
+  sha256: c33e6605bbc71dd628b00c632d58ae607c22bade247e52553928f83bbb75b4ba
+dependencies:
+  build:
+  - hatchling
+  host: []
+  runtime: []
+verify_paths:
+- /usr/lib/python3.14/site-packages/soupsieve/__init__.py
+- /usr/lib/python3.14/site-packages/soupsieve/css_parser.py
+- /usr/lib/python3.14/site-packages/soupsieve/css_match.py

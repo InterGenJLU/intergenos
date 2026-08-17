@@ -1,0 +1,31 @@
+name: pangomm1
+version: "2.46.4"
+release: 1
+description: C++ interface to the Pango text rendering library (GTK3 version)
+license: LGPL-2.1-or-later
+homepage: https://www.gtkmm.org/
+tier: extra
+# ISO-resident: pulled into the ISO by the GParted GTK3 binding chain
+# (gparted -> gtkmm3 -> pangomm1 -> cairomm1). Without this flip, pkm iso-prep
+# aborts the squashfs build (an iso_include:true pkg may not depend on a MIRROR pkg).
+iso_include: true
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/pangomm/2.46/pangomm-${version}.tar.xz
+  sha256: b92016661526424de4b9377f1512f59781f41fb16c9c0267d6133ba1cd68db22
+dependencies:
+  build:
+  - pango
+  - cairomm1
+  - glibmm2
+  - glibmm
+  - python
+  host: []
+  runtime:
+  - pango
+  - cairomm1
+  - glibmm2
+verify_paths:
+  - /usr/lib/libpangomm-1.4.so.1
+  - /usr/lib/libpangomm-1.4.so.1.0.30

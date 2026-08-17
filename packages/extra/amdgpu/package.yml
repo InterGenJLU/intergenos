@@ -1,0 +1,65 @@
+name: amdgpu
+version: "1.0.0"
+release: 2
+content_hash: fc72eec7afdef45b
+description: AMD Radeon graphics meta-package — userland tools + diagnostics + VDPAU translation
+license: GPL-3.0-or-later
+homepage: https://www.x.org/wiki/RadeonFeature/
+tier: extra
+build_style: custom
+install_func: do_install
+iso_include: false
+# amdgpu meta-package. The driver-selection research behind this set was
+# done 2026-05-28; its conclusions are reflected in the comments below.
+#
+# Provides a single install surface for users with AMD Radeon GPUs (GCN1+
+# / 2012+). The kernel driver (amdgpu.ko) plus firmware blobs
+# (/usr/lib/firmware/amdgpu/) already ship in the ISO via
+# core/linux-kernel + core/linux-firmware respectively, so this
+# meta-package only pulls in the user-facing diagnostic and translation
+# layers Mesa does not itself install.
+#
+# Provides: vainfo (libva-utils), vulkaninfo + vkcube (vulkan-tools),
+# live GPU monitoring (radeontop + amdgpu_top), VDPAU-to-VAAPI
+# translation for legacy apps (libvdpau-va-gl, because Mesa 25.3.0
+# removed native VDPAU from radeonsi).
+#
+# Does NOT provide ROCm (separate compute/ tier) or
+# xf86-video-amdgpu (Wayland-only — no X11 DDX needed).
+#
+# Cross-distro alignment: Arch ships the AMDGPU stack as discrete
+# packages (mesa, libva-utils, vulkan-tools, radeontop, amdgpu_top via
+# AUR, libvdpau-va-gl); no meta-package. Fedora ships them via
+# weak-dependencies pulled in by mesa-libGL + workstation group;
+# also no meta. Debian ships via the libgl1-mesa-dri + va-driver-all +
+# vulkan-tools + radeontop packages with `firmware-amd-graphics` as a
+# Recommends. We deviate by providing an explicit meta-package because
+# our Tier 2 mirror posture (iso_include:false) means users have to opt
+# in to install satellite tooling; surfacing a single name (amdgpu) is
+# user-control-compliant transparency.
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - libva-utils       # provides vainfo
+  - vulkan-tools      # provides vulkaninfo + vkcube
+  - radeontop         # live GPU stats (htop-style)
+  - amdgpu_top        # live GPU dashboard (rust TUI)
+  - libvdpau-va-gl    # VDPAU-on-VAAPI translation layer
+  # The following are already in the ISO baseline; listed for
+  # legibility (mesa provides radeonsi+radv; libva is the VAAPI
+  # dispatcher; vulkan-loader is the Vulkan dispatcher; linux-firmware
+  # provides /usr/lib/firmware/amdgpu/).
+  - mesa
+  - libva
+  - vulkan-loader
+  - linux-firmware
+tests:
+  enabled: false
+  reason: "Meta-package with no source code, no compilation, no testsuite. The install step writes only a README and a symlink to the firmware license file."
+verify_paths:
+  - /usr/share/doc/amdgpu/README
+  # LICENSE.amdgpu is a symlink into linux-firmware's tree — not own payload;
+  # the SPDX license file is this package's own real artifact.
+  - /usr/share/licenses/amdgpu/LICENSE-BY-SPDX

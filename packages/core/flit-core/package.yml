@@ -1,0 +1,17 @@
+name: flit-core
+version: "3.12.0"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Python build backend (minimal)
+license: MIT
+source:
+- url: https://pypi.org/packages/source/f/flit-core/flit_core-${version}.tar.gz
+  sha256: 18f63100d6f94385c6ed57a72073443e1a71a4acb4339491615d0f16d6ff01b2
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - python
+tier: core
+build_style: custom
+verify_paths:
+  - /usr/lib/python3.14/site-packages/flit_core

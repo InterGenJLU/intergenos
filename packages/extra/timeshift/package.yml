@@ -1,0 +1,51 @@
+name: timeshift
+version: "25.12.4"
+release: 1
+description: System restore utility taking rsync or btrfs snapshots of the system
+license: GPL-2.0-or-later
+homepage: https://github.com/linuxmint/timeshift
+tier: extra
+iso_include: true  # user-facing application, shipped per the extra-tier curation
+build_style: custom
+install_func: do_install
+# Upstream cuts releases by branch rather than by version tag, so the pin is
+# the commit whose meson.build and debian/changelog both declare 25.12.4.
+source:
+- url: https://github.com/linuxmint/timeshift/archive/8958d97432e709045c9aeea834afb9f8c3b8554b.tar.gz
+  filename: timeshift-${version}.tar.gz
+  sha256: 72e4976ccd853a149112ae5886893f9b1d4bbf1a8f344862cf999648a16f4ce5
+dependencies:
+  build:
+  - meson
+  - ninja
+  - vala
+  - glib2
+  - gtk3
+  - json-glib
+  - vte
+  - libgee
+  - libxapp
+  - help2man
+  host: []
+  runtime:
+  - glib2
+  - gtk3
+  - json-glib
+  - vte
+  - libgee
+  - libxapp
+  # timeshift refuses to start when any of the external commands it drives is
+  # absent, and it names them at startup: rsync, blkid, df, mount, umount,
+  # fuser, crontab, cp, rm, touch, ln, sync, run-parts. These packages are
+  # what provides them.
+  - rsync
+  - util-linux
+  - coreutils
+  - psmisc
+  - fcron
+  # btrfs snapshot mode drives the btrfs tools directly
+  - btrfs-progs
+verify_paths:
+  - /usr/bin/timeshift
+  - /usr/bin/timeshift-gtk
+  - /usr/share/applications/timeshift-gtk.desktop

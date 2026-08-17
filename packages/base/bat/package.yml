@@ -1,0 +1,23 @@
+name: bat
+version: "0.26.1"
+release: 1
+description: A cat(1) clone with wings
+license: MIT OR Apache-2.0
+homepage: https://github.com/sharkdp/bat
+tier: base
+iso_include: true  # see docs/extra-tier-classification.md (tier and iso_include are independent axes; tier=base per BASE_CLI canonical-rule in validate-package-tiers.py)
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/sharkdp/bat/archive/v${version}/bat-${version}.tar.gz
+    sha256: 4474de87e084953eefc1120cf905a79f72bbbf85091e30cf37c9214eafcaa9c9
+build_artifacts:
+  - name: bat-${version}-vendor.tar.xz
+    generated_by: cargo-vendor
+dependencies:
+  build:
+  - rust
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/bat

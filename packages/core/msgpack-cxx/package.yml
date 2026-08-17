@@ -1,0 +1,25 @@
+name: msgpack-cxx
+version: "8.0.0"
+release: 1
+description: MessagePack serialization library for C++ (header-only)
+license: BSL-1.0
+homepage: https://msgpack.org/
+tier: core
+build_style: custom
+install_func: do_install
+
+# GitHub archive of the cpp-8.0.0 tag (single-witness: the archive
+# endpoint — same provenance class as the ROCm monorepo pins).
+source:
+  - url: https://github.com/msgpack/msgpack-c/archive/refs/tags/cpp-${version}.tar.gz
+    filename: msgpack-cxx-${version}.tar.gz
+    sha256: f634fb7052da4478096f2a02dfb6d91174e5836b317afb006375249ccb086aa8
+
+dependencies:
+  build:
+  - cmake
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/include/msgpack.hpp
+  - /usr/lib/cmake/msgpack-cxx/msgpack-cxx-config.cmake

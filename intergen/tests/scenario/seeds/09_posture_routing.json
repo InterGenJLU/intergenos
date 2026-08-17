@@ -1,0 +1,42 @@
+[
+  {
+    "id": "POSTURE-screenshot-01",
+    "name": "screenshot dispatch — posture-conditional route",
+    "axis": ["routing"],
+    "category": "tool_dispatch",
+    "postures": ["2B-locked", "9B-native"],
+    "capabilities": ["take_screenshot", "route:keyword", "route:llm_tools"],
+    "tags": ["tool:take_screenshot", "posture-conditional"],
+    "turns": [
+      {
+        "user": "take a screenshot",
+        "description": "Design §2.4: under 2B-locked the code owns dispatch and keyword-routes the request; under 9B-native the model decides the tool natively (llm_tools). The route source differs by tier — but the take_screenshot tool MUST fire under BOTH, so a tier that answers the request without dispatching is the capability-non-dispatch defect the first live 9B run exposed (tools_called=[]).",
+        "assertions": [
+          {"type": "routes_via", "value": "keyword", "postures": ["2B-locked"], "description": "2B-locked floor: code owns dispatch, keyword route"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "9B-native: the model decides the tool natively"},
+          {"type": "uses_tool", "value": "take_screenshot", "description": "the tool must fire under BOTH tiers — tier-agnostic"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "POSTURE-read-file-01",
+    "name": "read-file dispatch — posture-conditional route",
+    "axis": ["routing"],
+    "category": "tool_dispatch",
+    "postures": ["2B-locked", "9B-native"],
+    "capabilities": ["read_file", "route:keyword", "route:llm_tools"],
+    "tags": ["tool:read_file", "posture-conditional"],
+    "turns": [
+      {
+        "user": "read the file /etc/os-release",
+        "description": "Same posture-conditional shape for a read_file request: 2B-locked keyword-routes the code dispatch, 9B-native decides natively (llm_tools). read_file must fire under both tiers; a tier that narrates a path without dispatching read_file is a fabrication risk (no_fabricated_state is exercised elsewhere — here the invariant is that the dispatch actually happens per tier).",
+        "assertions": [
+          {"type": "routes_via", "value": "keyword", "postures": ["2B-locked"], "description": "2B-locked floor: code owns dispatch, keyword route"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "9B-native: the model decides the tool natively"},
+          {"type": "uses_tool", "value": "read_file", "description": "the tool must fire under BOTH tiers — tier-agnostic"}
+        ]
+      }
+    ]
+  }
+]

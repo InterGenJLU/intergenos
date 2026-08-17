@@ -1,0 +1,30 @@
+name: libcamera
+version: "0.7.2"
+release: 1
+description: Camera support library for complex camera pipelines (MIPI/IPU built-in cameras)
+license: LGPL-2.1-or-later AND GPL-2.0-or-later
+homepage: https://libcamera.org
+tier: desktop
+build_style: custom
+source:
+- url: https://gitlab.freedesktop.org/camera/libcamera/-/archive/v0.7.2/libcamera-v0.7.2.tar.gz
+  sha256: 64881a4bafbda02f34861153d8f0d42be9ff46f5598408f9b585b07a10c448c9
+dependencies:
+  build:
+  - jinja2
+  - pyyaml
+  - python-ply
+  - openssl
+  - elfutils
+  host: []
+  runtime:
+  - libyaml
+  - systemd
+  - gst-plugins-base
+  - libevent
+  - libjpeg-turbo
+  - elfutils
+verify_paths:
+  - /usr/lib/libcamera.so
+  - /usr/lib/libcamera
+  - /usr/bin/cam

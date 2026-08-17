@@ -1,0 +1,48 @@
+name: gamemode
+version: "1.8.2"
+release: 1
+description: Feral Interactive daemon that applies game-optimised system settings on demand
+license: BSD-3-Clause
+homepage: https://github.com/FeralInteractive/gamemode
+tier: extra
+build_style: custom
+install_func: do_install
+# Applies temporary performance tuning (CPU governor -> performance, I/O + nice
+# priorities, GPU perf level) while a game runs, reverting on exit. Games opt in via
+# `gamemoderun <game>` or the libgamemodeauto LD_PRELOAD.
+#
+# Source = the OFFICIAL release tarball (upstream `meson dist` output): it carries the
+# correct meson project version (upstream re-uploaded 1.8.2 to fix the version, #493)
+# and bundles subprojects/inih.wrap. It is NOT the auto-generated /archive/ tarball,
+# which omits the wrap and can misreport the version.
+#
+# inih (config parsing) is an in-tree core package that ships inih.pc + libinih.so.0,
+# so gamemode's `dependency('inih', fallback: [...])` resolves to the SYSTEM library via
+# pkg-config and the bundled subproject is never used. build.sh runs
+# --wrap-mode=nodownload so a missing system inih fails loudly offline instead of the
+# meson build reaching the network for the wrap.
+source:
+- url: https://github.com/FeralInteractive/gamemode/releases/download/${version}/gamemode-${version}.tar.xz
+  sha256: 98cd1bcf6101c92fe87f974c7776af23c7e18f29ce6ecfe572b1c39dcde5c181
+dependencies:
+  # Build-links (each is an explicit meson `dependency()` in the tree): libsystemd +
+  # systemd (sd-bus provider + unit dirs), dbus-1, inih. `threads` is glibc, no package.
+  build:
+  - systemd
+  - dbus
+  - inih
+  host: []
+  # Runtime: the shared libs above, plus polkit — gamemode installs polkit action +
+  # rules files that polkitd honours to authorise the privileged /usr/libexec helpers
+  # (cpugovctl/gpuclockctl/...); the systemd `gamemode` group + limits.d is the fallback
+  # path. gamemode does NOT link polkit, so it is a runtime-only dependency.
+  runtime:
+  - systemd
+  - dbus
+  - inih
+  - polkit
+verify_paths:
+  - /usr/bin/gamemoded
+  - /usr/bin/gamemoderun
+  - /usr/lib/libgamemode.so.0
+  - /usr/lib/libgamemodeauto.so.0

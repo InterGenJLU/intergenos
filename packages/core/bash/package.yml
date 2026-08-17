@@ -1,0 +1,32 @@
+name: bash
+version: '5.3'
+release: 2  # r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: The GNU Bourne Again Shell
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/bash/
+source:
+- url: https://ftp.gnu.org/gnu/${name}/${name}-${version}.tar.gz
+  sha256: 0d5cd86965f869a26cf64f4b71be7b96f90a3ba8b3d74e27e8e9d9d5550f31ba
+dependencies:
+  build:
+  - bison-core
+  host: []
+  runtime:
+  - readline
+  - ncurses
+tier: core
+build_style: autotools
+configure_flags:
+- --without-bash-malloc
+- --with-curses
+- --enable-readline
+- --with-installed-readline
+- --prefix=/usr
+- --host=${IGOS_TARGET}
+patches: []
+verify_paths:
+  - /usr/bin/bash
+  - /usr/bin/bashbug
+  - /usr/include/bash
+  - /bin/sh
+  - /usr/bin/sh

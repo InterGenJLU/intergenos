@@ -1,0 +1,31 @@
+name: libXpresent
+version: "1.0.2"
+release: 1
+description: X Present extension library
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/lib/libXpresent-${version}.tar.xz
+  sha256: 4e5b21b4812206a4b223013606ae31170502c1043038777a1ef8f70c09d37602
+dependencies:
+  build:
+  - libXfixes
+  - libXrandr
+  - libX11
+  - libXext
+  - xorgproto
+  host: []
+  runtime:
+  - libXfixes
+  - libXrandr
+  - libX11
+  - libXext
+configure_flags:
+- --prefix=/usr
+- --disable-static
+
+verify_paths:
+  - /usr/lib/libXpresent.so

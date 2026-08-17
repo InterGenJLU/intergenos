@@ -1,0 +1,10 @@
+NAME="InterGenOS"
+VERSION="1.0-dev (Revival)"
+ID=intergenos
+ID_LIKE=lfs
+VERSION_ID=1.0
+VERSION_CODENAME=revival
+PRETTY_NAME="InterGenOS 1.0-dev (Revival)"
+HOME_URL="https://github.com/InterGenJLU/intergenos"
+BUG_REPORT_URL="https://github.com/InterGenJLU/intergenos/issues"
+LOGO=intergenos

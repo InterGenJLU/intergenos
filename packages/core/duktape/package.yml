@@ -1,0 +1,18 @@
+name: duktape
+version: "2.7.0"
+release: 1
+description: Embeddable JavaScript engine
+license: MIT
+homepage: ''
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://duktape.org/duktape-${version}.tar.xz
+  sha256: 90f8d2fa8b5567c6899830ddef2c03f3c27960b11aca222fa17aa7ac613c2890
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/libduktape.so

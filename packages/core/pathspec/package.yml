@@ -1,0 +1,23 @@
+name: pathspec
+version: "1.0.4"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Utility library for gitignore style pattern matching
+license: MPL-2.0
+homepage: https://github.com/cpburnz/python-pathspec
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/p/pathspec/pathspec-${version}.tar.gz
+  sha256: 0210e2ae8a21a9137c0d470578cb0e595af87edaa6ebf12ff176f14a02e0e645
+dependencies:
+  build:
+  # The pinned sdist's [build-system] names flit_core.buildapi, provided by
+  # flit-core. build.sh builds with --no-build-isolation, which installs nothing
+  # for the build, so flit-core must already be present; declaring it here is
+  # what orders it ahead of this package.
+  - flit-core
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/pathspec

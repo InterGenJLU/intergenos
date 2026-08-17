@@ -1,0 +1,26 @@
+name: atop
+version: "2.12.1"
+release: 2  # r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: Advanced system and process monitor
+license: GPL-2.0-or-later
+homepage: https://www.atoptool.nl/
+tier: base
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://github.com/Atoptool/atop/archive/refs/tags/v${version}.tar.gz
+    sha256: 0f49f3aa5e3449f8c1cf10ac08036e2b67887640fe7980b8bc6ca9fd84d46fdf
+    filename: ${name}-${version}.tar.gz
+
+dependencies:
+  build:
+    - glib2
+  host: []
+  runtime:
+    - glib2
+    - ncurses
+    - zlib
+
+verify_paths:
+  - /usr/bin/atop

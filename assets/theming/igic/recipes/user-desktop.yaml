@@ -1,0 +1,14 @@
+schema_version: 1
+id: user-desktop
+name: Desktop
+category: places
+kind: color
+template: none
+glyph: place-desktop      # a workspace: monitor + open windows + dock (distinct from video-display)
+color: ecg-blue
+glow: signature
+pulse: none
+fit: 1.018                # optical-band re-fit (measured)
+export:
+  svg: true
+  png: [16, 24, 32, 48, 64, 128, 256]

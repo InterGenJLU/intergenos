@@ -1,0 +1,29 @@
+name: freetype2-pass1
+version: "2.14.1"
+release: 1
+description: "FreeType font rendering library (pass 1 \u2014 without HarfBuzz)"
+license: FTL
+homepage: https://www.freetype.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://downloads.sourceforge.net/freetype/freetype-${version}.tar.xz
+  sha256: 32427e8c471ac095853212a37aef816c60b42052d4d9e48230bab3bdf2936ccc
+dependencies:
+  build:
+  - libpng
+  - brotli
+  - python
+  host: []
+  runtime:
+  - libpng
+  - brotli
+
+# bzip2 ships NO pkgconfig file upstream; freetype finds it via the direct
+# library probe (`Bzip2: YES`). Not a loss.
+# (silent-loss audit 2026-06-25.)
+silent_loss_accepted:
+  - bzip2   # no upstream .pc; built via direct lib fallback
+verify_paths:
+  - /usr/lib/libfreetype.so

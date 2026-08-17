@@ -1,0 +1,7 @@
+{
+    "uuid": "intergenos-settings-arrow@intergenos.org",
+    "name": "InterGenOS Quick Settings Panel Shortcut",
+    "description": "Re-routes the Wi-Fi and Bluetooth quick-settings menu arrows to open their Settings panel directly, instead of the inline submenu. GNOME 49 quick-toggle submenus render at full natural height with no scroll area in the subtree, so on a short (e.g. 1366x768) panel the Wi-Fi network list overflows and the menu slides off-screen (PI-Welcome-2). Scrolling/height-clamp was attempted and ruled out; the CSS trim only fits the short power submenu. Targets NMWirelessToggle + BluetoothToggle only (Bluetooth proactively, same overflow class with many paired devices); power/wired/VPN keep their short inline menus untouched. Default-enabled via the InterGenOS gschema-override.",
+    "shell-version": ["47", "48", "49"],
+    "url": "https://github.com/InterGenJLU/intergenos"
+}

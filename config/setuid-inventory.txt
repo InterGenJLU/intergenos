@@ -1,0 +1,76 @@
+# InterGenOS setuid/setgid + special-ownership inventory (L29, 2026-07-05).
+#
+# Consumed by scripts/check-setuid-inventory.py (squashfs step 4.76) — the
+# fail-closed gate born from the GE-01 setuid-strip regression: the staging
+# chokepoint's blanket chown cleared suid/sgid on every privileged binary in
+# the corpus (kernel behavior on chown), and NOTHING refused the seal — the
+# ISO shipped with sudo/su/pkexec all inert, live and installed.
+#
+# Format: <path-glob> <octal-mode> <owner> <group>
+#   - path may be a glob (fnmatch) for version-suffixed binaries.
+#   - owner/group are names, resolved against the CHROOT's passwd/group.
+#   - A path absent from the chroot is SKIPPED (eviction/verify_paths own
+#     presence); a path present with wrong mode/owner/group FAILS the seal.
+#   - Any suid/sgid file on the chroot NOT matched here FAILS the seal
+#     (unexpected-privilege arm).
+#
+# Seeded from the 2026-06-12 published mirror corpus — the last archives
+# built before the blanket chown landed (commit bbcecff5).
+/usr/bin/sudo                           4755 root root
+/usr/bin/su                             4755 root root
+/usr/bin/passwd                         4755 root root
+/usr/bin/chage                          4755 root root
+/usr/bin/chfn                           4755 root root
+/usr/bin/chsh                           4755 root root
+/usr/bin/expiry                         4755 root root
+/usr/bin/gpasswd                        4755 root root
+/usr/bin/newgrp                         4755 root root
+/usr/bin/newuidmap                      4755 root root
+/usr/bin/newgidmap                      4755 root root
+/usr/bin/pkexec                         4755 root root
+/usr/lib/polkit-1/polkit-agent-helper-1 4711 root root
+/usr/sbin/unix_chkpwd                   4755 root root
+/usr/bin/fusermount3                    4755 root root
+# NOTE: /usr/bin/ping is deliberately ABSENT since the 2026-07-28 posture
+# change: inetutils ping runs UNPRIVILEGED (mode 755) over an ICMP datagram
+# socket with net.ipv4.ping_group_range open — measured live; the recipe
+# documents it. This entry previously declared the pre-posture 4755 and made
+# the gate demand a suid bit the recipe deliberately dropped (caught
+# 2026-07-30, ge9b-11). ping6 below keeps setuid: raw-socket only, measured.
+/usr/bin/ping6                          4755 root root
+# NOTE: /usr/bin/traceroute is deliberately ABSENT — the dedicated
+# traceroute package (2.1.6, the June inetutils split) installs 755 with
+# no suid intent in recipe or upstream. Whether it should gain
+# cap_net_raw/suid for ICMP mode is a tracked functional question for
+# RC001, decided in its own commit alongside this inventory.
+/usr/libexec/ssh-keysign                4711 root root
+/usr/bin/mount                          4755 root root
+/usr/bin/umount                         4755 root root
+# dbus helper: 4750 root:messagebus is the intended final mode (do_install /
+# BLFS 13.0). dbus's OWN post_install chown was clearing the archive's restored
+# suid on every build/install (the pre-existing package-local class, kernel
+# strips suid on any chown of a regular file). D1 added a chmod-restore after
+# the hook's chown, so the fresh-chroot state is now the intended 4750.
+/usr/libexec/dbus-daemon-launch-helper  4750 root messagebus
+/usr/libexec/libgtop_server2            4755 root root
+/usr/bin/ksu                            4755 root root
+/usr/bin/nvidia-modprobe                4755 root root
+/usr/bin/suexec                         4755 root root
+# --- post_install capture-restore set (L29 finding #2, PRE-EXISTING class) ---
+# at/fcron/exim/dbus ran their OWN post_install chowns, which cleared THEIR
+# suid/sgid bits on every build/install to date (same kernel chown behavior,
+# package-local — predated the staging-chokepoint bug; verified against the
+# pre-regression .241 install). D1 (this commit) added a chmod-restore after
+# each hook's chown, so these entries now declare the RESTORED intended modes,
+# matching each package's do_install. fcronsighup below is suid-intact (never
+# hook-stripped, fcron only chowns fcrontab/fcrondyn) and unchanged; screen/wall
+# are likewise not hook-strips (wall's install-time flattening is the pkm-deploy
+# class PI-Z11, its own wave).
+/usr/bin/at                             4750 root atd
+/usr/sbin/atd                           4750 root atd
+/usr/bin/fcronsighup                    4710 root fcron
+/usr/bin/fcrontab                       6755 root fcron
+/usr/bin/fcrondyn                       4755 root fcron
+/usr/sbin/exim-*                        6755 root exim
+/usr/bin/screen-*                       4755 root root
+/usr/bin/wall                           2755 root tty

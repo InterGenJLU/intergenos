@@ -1,0 +1,33 @@
+# Family manifest — places/folders (ICON_CATEGORIES.md §5.1). ONE template + a table
+# row each -> N single-recipes the existing pipeline compiles UNCHANGED. Folder color-
+# coding is the accent enumeration ratified in §3; each distinct emblem is authored art
+# (glyphs/emblem-*.svg). Adding a folder class = adding a row here, not a code change.
+#
+# This family SUPERSEDES the three standalone recipes recipes/{folder,folder-documents,
+# folder-downloads}.yaml (removed with this manifest — leaving them would collide on id,
+# which the duplicate-id gate fails closed).
+schema_version: 1
+family: folders
+category: places
+kind: color
+template: folder                 # the ONE shared base shape (igic_core.template_elements)
+glow: signature
+pulse: none
+export:
+  svg: true
+  png: [16, 24, 32, 48, 64, 128, 256]
+rows:                            # id | emblem (glyph name or none) | accent (palette token) | name
+  - { id: folder,             emblem: none,            accent: intergen-blue,  name: Folder, fit: 0.974 }
+  - { id: folder-documents,   emblem: emblem-doc,      accent: accent-teal,    name: Documents, fit: 0.974 }
+  - { id: folder-downloads,   emblem: emblem-download, accent: accent-orange,  name: Downloads, fit: 0.974 }
+  - { id: folder-pictures,    emblem: emblem-image,    accent: accent-magenta, name: Pictures, fit: 0.974 }
+  - { id: folder-music,       emblem: emblem-note,     accent: accent-green,   name: Music, fit: 0.974 }
+  - { id: folder-videos,      emblem: emblem-film,     accent: accent-violet,  name: Videos, fit: 0.974 }
+  - { id: folder-development, emblem: emblem-code,     accent: accent-violet,  name: Development, fit: 0.974 }
+  - { id: folder-important,   emblem: emblem-star,     accent: accent-red,     name: Important, fit: 0.974 }
+  - { id: folder-public,      emblem: emblem-public,   accent: accent-yellow,  name: Public, fit: 0.974 }
+  # coverage wave (Decided 2026-07-22): the standard freedesktop places names the theme
+  # was missing — the file-manager sidebar/Home no longer falls back to the inherited theme.
+  - { id: folder-templates,   emblem: emblem-templates, accent: accent-violet, name: Templates, fit: 0.974 }
+  - { id: folder-remote,      emblem: emblem-remote,    accent: accent-teal,   name: Remote, fit: 0.974 }
+  - { id: user-home,          emblem: emblem-home,      accent: intergen-blue, name: Home, fit: 0.974 }

@@ -1,0 +1,68 @@
+name: pipewire
+version: "1.6.0"
+release: 2  # capture wave: libcamera SPA + webrtc echo-cancel enabled
+description: Multimedia processing framework
+license: MIT
+homepage: https://pipewire.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/PipeWire/pipewire/archive/${version}/pipewire-${version}.tar.gz
+  sha256: eef582901d8323669560dd32e3b76b1b15011d73a38f0035a3f11b933112f397
+dependencies:
+  build:
+  - alsa-lib
+  - avahi
+  - bluez
+  - fdk-aac
+  - ffmpeg
+  - gst-plugins-base
+  - gstreamer
+  - libcanberra
+  - libdrm
+  - libsndfile
+  - libusb
+  - libxcb
+  - opus
+  - pulseaudio
+  - sbc
+  - vulkan-loader
+  - modemmanager  # BlueZ HFP-via-MM backend. Build #5 audit: silently
+                  # disabled because not in deps (despite vulkan-loader being
+                  # in deps, the bluez5-backend-native-mm path needs MM).
+  - libcamera     # capture wave: the libcamera SPA plugin (-Dlibcamera=enabled)
+  - webrtc-audio-processing  # capture wave: real AEC engine for
+                             # module-echo-cancel (-Decho-cancel-webrtc=enabled)
+  host: []
+  runtime:
+  - alsa-lib
+  - avahi
+  - bluez
+  - fdk-aac
+  - ffmpeg
+  - gst-plugins-base
+  - gstreamer
+  - libcanberra
+  - libdrm
+  - libsndfile
+  - libusb
+  - libxcb
+  - opus
+  - sbc
+  - vulkan-loader
+  - modemmanager
+  - libcamera
+  - webrtc-audio-processing
+configure_flags:
+- --wrap-mode=nofallback
+- -Dsession-managers=[]
+# man pages are deliberately disabled (-Dman=disabled). Not a feature loss.
+# (silent-loss audit 2026-06-25.)
+silent_loss_accepted:
+  - man   # man pages disabled by -Dman=disabled
+  - roc   # roc-toolkit (network audio streaming) not in tree; outside the capture mandate's class-compliant/mainline scope — no consumer asks for it
+verify_paths:
+  - /usr/bin/pipewire
+  - /usr/bin/pw-cat
+  - /usr/lib/libpipewire-0.3.so

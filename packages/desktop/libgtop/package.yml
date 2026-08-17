@@ -1,0 +1,27 @@
+name: libgtop
+version: "2.41.3"
+release: 2  # L29: setuid-strip regression rebuild (staging-chokepoint chown)
+description: System monitoring library
+license: GPL-2.0-or-later
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/libgtop/2.41/libgtop-${version}.tar.xz
+  sha256: 775676df958e2ea2452f7568f28b2ea581063d312773dd5c0b7624c1b9b2da8c
+dependencies:
+  build:
+  - glib2
+  - libXau
+  host: []
+  runtime:
+  - glib2
+  - libXau
+configure_flags:
+- --prefix=/usr
+- --disable-static
+verify_paths:
+  - /usr/lib/libgtop-2.0.so
+  - /usr/lib/libgtop-2.0.so.11
+  - /usr/lib/libgtop-2.0.so.11.1.0

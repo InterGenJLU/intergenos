@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: mouse — capsule body + scroll wheel. VL primitives only, colorless. -->
+  <g class="glyph">
+    <rect x="90" y="70" width="76" height="116" rx="38"/>
+    <line x1="128" y1="86" x2="128" y2="112"/>
+  </g>
+</svg>

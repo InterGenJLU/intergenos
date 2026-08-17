@@ -1,0 +1,36 @@
+# InterGenOS Desktop Behavior
+#
+# Desktop UX defaults — clock, touchpad, night light, window behavior.
+# Overrides lower-numbered files for any shared keys.
+#
+# To apply: glib-compile-schemas /usr/share/glib-2.0/schemas/
+
+[org.gnome.desktop.interface]
+clock-show-weekday=true
+clock-show-seconds=false
+show-battery-percentage=true
+
+[org.gnome.desktop.wm.preferences]
+button-layout='appmenu:minimize,maximize,close'
+
+[org.gnome.desktop.peripherals.touchpad]
+tap-to-click=true
+natural-scroll=true
+
+[org.gnome.mutter]
+center-new-windows=true
+# HiDPI arc Tier 1 (2026-07-10, operator GO): offer fractional scaling
+# (125/150/175%) + native-resolution XWayland out of the box. Stock GNOME
+# gates fractional scaling behind this experimental flag, leaving 4K panels
+# a choice of 100% (microscopic) or 200% (huge) — operator-verified on the
+# Zephyrus' dual U2718Q 4K panels (mode-dropped to 1440p as the only escape).
+# Both keywords verified valid against the pinned mutter 49.4 source schema.
+experimental-features=['scale-monitor-framebuffer', 'xwayland-native-scaling']
+
+[org.gnome.settings-daemon.plugins.color]
+# GBC002.4 (2026-06-08): default night light OFF. Defaulting it ON gave a
+# surprising warm/off-coloured desktop on first login (operator-reported on the
+# GBC002 A12 install). Night light is an opt-in comfort setting; leave the
+# automatic-schedule default in place so it behaves sanely IF the user enables it.
+night-light-enabled=false
+night-light-schedule-automatic=true

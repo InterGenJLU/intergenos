@@ -1,0 +1,30 @@
+name: plutovg
+version: 1.3.3
+release: 1
+description: Tiny 2D vector graphics library in C — rendering backend for plutosvg
+license: MIT
+homepage: https://github.com/sammycage/plutovg
+tier: desktop
+build_style: cmake
+install_func: do_install
+# Upstream publishes no uploaded release assets; the tag archive is pinned by
+# sha256 (fail-closed on any regeneration) — same form as libfido2/libcbor/atop.
+source:
+- url: https://github.com/sammycage/plutovg/archive/refs/tags/v${version}.tar.gz
+  filename: ${name}-${version}.tar.gz
+  sha256: 2b0d17a6e016f47b86f9c00e2cb82600041b1ea1f7d2a00c2d46ae542cbfed3c
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- -DBUILD_SHARED_LIBS=ON
+- -DPLUTOVG_BUILD_EXAMPLES=OFF
+
+tests:
+  enabled: false
+  reason: "Upstream ships no test suite — zero enable_testing()/CTest/add_test in the pinned 1.3.3 CMake tree (verified in the extracted source 2026-07-12); the cmake style's default check phase 'cmake --build build --target test' has no target to run. Correctness is exercised downstream: plutosvg builds and links against this library in the same tier, and verify_paths assert the shipped artifacts."
+
+verify_paths:
+  - /usr/lib/libplutovg.so
+  - /usr/include/plutovg/plutovg.h

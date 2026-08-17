@@ -1,0 +1,18 @@
+name: less
+version: '692'
+release: 2  # r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: Text file viewer
+license: GPL-3.0-or-later
+source:
+- url: https://www.greenwoodsoftware.com/less/less-${version}.tar.gz
+  sha256: 61300f603798ecf1d7786570789f0ff3f5a1acf075a6fb9f756837d166e37d14
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - ncurses
+tier: core
+build_style: autotools
+verify_paths:
+  - /usr/bin/less
+  - /usr/bin/lessecho

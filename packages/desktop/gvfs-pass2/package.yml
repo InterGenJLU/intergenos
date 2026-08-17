@@ -1,0 +1,33 @@
+name: gvfs-pass2
+version: "1.58.2"
+release: 1
+description: "GNOME virtual filesystem (pass 2 — with GOA and OneDrive)"
+license: LGPL-2.0-or-later
+homepage: https://wiki.gnome.org/Projects/gvfs
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gvfs/1.58/gvfs-${version}.tar.xz
+  sha256: ad9d5bf0b45caf232520df0adee51eb650200b0370680f80a350ead9d1d61ddf
+dependencies:
+  build:
+  - glib-networking
+  - gvfs
+  - gnome-online-accounts
+  - libmsgraph
+  - dbus
+  - glib2
+  - gsettings-desktop-schemas
+  host: []
+  runtime:
+  - glib-networking
+  - gnome-online-accounts
+  - libmsgraph
+  - dbus
+  - glib2
+  - gsettings-desktop-schemas
+verify_paths:
+  - /usr/lib/gio/modules/libgioremote-volume-monitor.so
+  - /usr/lib/gio/modules/libgvfsdbus.so
+  - /usr/lib/gvfs/libgvfscommon.so

@@ -1,0 +1,92 @@
+Submitted By:            Pierre Labastie <pierre dot labastie at neuf dot fr>
+Date:                    2026-02-26
+Initial Package Version: 26.2.0.3
+Origin:                  Marty J.
+Upstream Status:         Unknown
+Description:             Fixes building Libreoffice with poppler-26.02
+diff -Naur libreoffice-26.2.0.3.orig/sdext/source/pdfimport/xpdfwrapper/pdfioutdev_gpl.cxx libreoffice-26.2.0.3/sdext/source/pdfimport/xpdfwrapper/pdfioutdev_gpl.cxx
+--- libreoffice-26.2.0.3.orig/sdext/source/pdfimport/xpdfwrapper/pdfioutdev_gpl.cxx	2026-01-27 16:11:38.000000000 -0500
++++ libreoffice-26.2.0.3/sdext/source/pdfimport/xpdfwrapper/pdfioutdev_gpl.cxx	2026-02-06 21:43:02.552471927 -0500
+@@ -712,7 +712,7 @@
+ }
+ 
+ #if POPPLER_CHECK_VERSION(0, 71, 0)
+-void PDFOutDev::setDefaultCTM(const double *pMat)
++void PDFOutDev::setDefaultCTM(const std::array<double, 6> & pMat)
+ #else
+ void PDFOutDev::setDefaultCTM(double *pMat)
+ #endif
+@@ -737,8 +737,7 @@
+ {
+     assert(state);
+ 
+-    const double* const pMat = state->getCTM();
+-    assert(pMat);
++    const std::array<double, 6> pMat = state->getCTM();
+ 
+     printf( "updateCtm %f %f %f %f %f %f\n",
+             normalize(pMat[0]),
+@@ -1044,7 +1043,7 @@
+ 
+     double csdx = 0.0;
+     double csdy = 0.0;
+-    if (!state->getFont() || !state->getFont()->getWMode())
++    if (!state->getFont() || state->getFont()->getWMode() == GfxFont::WritingMode::Horizontal)
+     {
+         csdx = state->getCharSpace();
+         if (*u == ' ')
+@@ -1067,7 +1066,7 @@
+     const double aPositionX(x-originX);
+     const double aPositionY(y-originY);
+ 
+-    const double* pTextMat=state->getTextMat();
++    const std::array<double, 6> pTextMat=state->getTextMat();
+     printf( "drawChar %f %f %f %f %f %f %f %f %f ",
+             normalize(aPositionX),
+             normalize(aPositionY),
+@@ -1348,7 +1347,7 @@
+ 
+     const int nDPI = 72; // GfxState seems to have 72.0 as magic for some reason
+     auto pSplashGfxState = new GfxState(nDPI, nDPI, &aBox, 0, false);
+-    auto pSplashOut = new SplashOutputDev(splashModeRGB8, 1, false, nullptr);
++    auto pSplashOut = new SplashOutputDev(splashModeRGB8, 1, nullptr);
+     pSplashOut->setEnableFreeType(false);
+     pSplashOut->startDoc(m_pDoc);
+     pSplashOut->startPage(0 /* pageNum */, pSplashGfxState, nullptr /* xref */);
+diff -Naur libreoffice-26.2.0.3.orig/sdext/source/pdfimport/xpdfwrapper/pdfioutdev_gpl.hxx libreoffice-26.2.0.3/sdext/source/pdfimport/xpdfwrapper/pdfioutdev_gpl.hxx
+--- libreoffice-26.2.0.3.orig/sdext/source/pdfimport/xpdfwrapper/pdfioutdev_gpl.hxx	2026-01-27 16:11:38.000000000 -0500
++++ libreoffice-26.2.0.3/sdext/source/pdfimport/xpdfwrapper/pdfioutdev_gpl.hxx	2026-02-06 21:43:02.547995989 -0500
+@@ -84,13 +84,13 @@
+             isUnderline(rSrc.isUnderline),
+             size(rSrc.size)
+         {
+-            familyName.append(&rSrc.getFamilyName());
++            familyName.append(rSrc.getFamilyName());
+         }
+ 
+         FontAttributes& operator=( const FontAttributes& rSrc )
+         {
+             familyName.clear();
+-            familyName.append(&rSrc.getFamilyName());
++            familyName.append(rSrc.getFamilyName());
+ 
+             isEmbedded  = rSrc.isEmbedded;
+             maFontWeight= rSrc.maFontWeight;
+@@ -103,7 +103,7 @@
+ 
+         bool operator==(const FontAttributes& rFont) const
+         {
+-            return getFamilyName().cmp(&rFont.getFamilyName())==0 &&
++            return getFamilyName().compare(rFont.getFamilyName())==0 &&
+                 isEmbedded == rFont.isEmbedded &&
+                 maFontWeight == rFont.maFontWeight &&
+                 isItalic == rFont.isItalic &&
+@@ -172,7 +172,7 @@
+ 
+         // Set default transform matrix.
+ #if POPPLER_CHECK_VERSION(0, 71, 0)
+-        virtual void setDefaultCTM(const double *ctm) override;
++        virtual void setDefaultCTM(const std::array<double, 6> & ctm) override;
+ #else
+         virtual void setDefaultCTM(double *ctm) override;
+ #endif

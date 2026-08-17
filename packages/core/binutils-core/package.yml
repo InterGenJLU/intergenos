@@ -1,0 +1,21 @@
+name: binutils-core
+ships_as: binutils  # ch8 dual-name twin — the driver archives this recipe under the ship name (chroot-build-ch8.sh run_package arg 2; runtime deps elsewhere may name 'binutils')
+version: "2.46.0"
+release: 1
+description: GNU Binutils (final system)
+license: GPL-3.0-or-later
+source:
+- url: https://sourceware.org/pub/binutils/releases/binutils-${version}.tar.xz
+  sha256: d75a94f4d73e7a4086f7513e67e439e8fcdcbb726ffe63f4661744e6256b2cf2
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - zlib
+  - zstd
+  - elfutils
+tier: core
+build_style: custom
+verify_paths:
+  - /usr/bin/addr2line
+  - /usr/lib/libbfd.so

@@ -1,0 +1,100 @@
+name: gaming
+version: "1.0.0"
+release: 2  # r2: RT-5 honest-labeling upgrade, measured on-metal (RTX 3070 Ti, 2026-07-08). Description + README (build.sh) + the RT-5 comment change from "NVK is EXPERIMENTAL" to the measured statement: in-container srsi shows 64-bit Vulkan resolving to the NVIDIA dGPU, but NVK's 32-bit ICD enumerates ONLY the integrated GPU — 32-bit titles are playable (on the iGPU) but never reach the dGPU; reaching it needs a proprietary lib32-nvidia ICD (a teed operator decision, not shipped without a GO). Package bytes change (description + README).
+content_hash: 92d92954de4a5505
+description: Gaming meta-package — Steam, Wine, DXVK, VKD3D-Proton, GE-Proton + the complete 32-bit runtime (on NVIDIA, measured — NVK's 32-bit path does not reach the dGPU, so 32-bit titles render on the iGPU)
+license: GPL-3.0-or-later
+homepage: https://www.intergenos.org/
+tier: extra
+build_style: custom
+install_func: do_install
+iso_include: false
+# gaming meta-package — the GE arc's single install surface (mirror-only,
+# amdgpu-meta precedent; ge-multilib-build-plan §4 item 6).
+#
+# RT-5 (HIGH, GE red-team) — MEASURED on real hardware (RTX 3070 Ti,
+# Ampere, 2026-07-08 GE-02 on-metal wave): the description + README no
+# longer say "experimental"; they state the measured truth. In-container
+# srsi shows 64-bit Vulkan resolving to the NVIDIA dGPU, but NVK's 32-bit
+# ICD enumerates ONLY the integrated GPU — the dGPU is absent from the
+# 32-bit stack. 32-bit titles are playable (on the iGPU) but never reach
+# the dGPU. Reaching it needs a proprietary lib32-nvidia Vulkan ICD (a
+# lib32-nvidia-utils equivalent), a teed operator decision — not shipped
+# here without a GO.
+#
+# RT-11 (layering): this meta declares the FLAT lib32 set as direct
+# runtime deps — the mirror-only-meta convention — which makes the
+# ge-eval-stage step-3 targeted verify closure-complete on its own
+# (installer/smoke/ge-eval-stage.sh reads this package's Depends).
+# The flat set = every lib32-* package in the tree at authoring time
+# (40 twins, 2026-07-02).
+#
+# G5 (measured, decided): lib32-ncurses stays OUT — absent
+# from Valve's Depends+Recommends AND Arch's steam depends; no lib32
+# ncurses twin exists in-tree.
+#
+# NOT included: the mingw-w64 cross toolchain (build-time tooling that
+# produces the DXVK/VKD3D-Proton PE DLLs — not a runtime component)
+# and Valve Proton (arrives via the Steam client itself; GE-Proton is
+# the helper-managed variant).
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  # The compatibility/app layer (each a download-helper or from-source
+  # package in this tier; wine-gecko/wine-mono are also wine's own
+  # runtime deps — listed flat for legibility + eval completeness):
+  - steam
+  - wine
+  - wine-gecko
+  - wine-mono
+  - dxvk
+  - vkd3d-proton
+  - ge-proton
+  # The FLAT 32-bit runtime (RT-11): all 40 lib32 twins, direct.
+  - lib32-glibc
+  - lib32-expat
+  - lib32-libffi
+  - lib32-libgpg-error
+  - lib32-libtasn1
+  - lib32-llvm
+  - lib32-nspr
+  - lib32-nss
+  - lib32-p11-kit
+  - lib32-sqlite
+  - lib32-systemd-libs
+  - lib32-zlib
+  - lib32-zstd
+  - lib32-alsa-lib
+  - lib32-alsa-plugins
+  - lib32-flac
+  - lib32-libdrm
+  - lib32-libglvnd
+  - lib32-libogg
+  - lib32-libpulse
+  - lib32-libsndfile
+  - lib32-libvorbis
+  - lib32-libX11
+  - lib32-libXau
+  - lib32-libxcb
+  - lib32-libXdamage
+  - lib32-libXdmcp
+  - lib32-libXext
+  - lib32-libXfixes
+  - lib32-libXinerama
+  - lib32-libxkbcommon
+  - lib32-libXrandr
+  - lib32-libXrender
+  - lib32-libXScrnSaver
+  - lib32-libxshmfence
+  - lib32-libXxf86vm
+  - lib32-mesa
+  - lib32-opus
+  - lib32-vulkan-loader
+  - lib32-wayland
+tests:
+  enabled: false
+  reason: "Meta-package with no source code, no compilation, no testsuite. The install step writes only a README."
+verify_paths:
+  - /usr/share/doc/gaming/README

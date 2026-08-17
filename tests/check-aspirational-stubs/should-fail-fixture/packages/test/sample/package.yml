@@ -1,0 +1,10 @@
+name: sample
+version: 1.0
+release: 1
+description: Synthetic test fixture for check-aspirational-stubs.py FAIL path
+license: GPL-3.0-or-later
+tier: core
+build_style: manual
+
+verify_paths:
+  - /usr/lib/systemd/system/sample.service

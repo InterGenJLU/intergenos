@@ -1,0 +1,31 @@
+name: newt
+version: "0.52.25"
+release: 1
+description: Text mode windowing toolkit
+license: LGPL-2.0-or-later
+homepage: ''
+tier: core
+build_style: autotools
+install_func: do_install
+source:
+- url: https://releases.pagure.org/newt/newt-${version}.tar.gz
+  sha256: ef0ca9ee27850d1a5c863bb7ff9aa08096c9ed312ece9087b30f3a426828de82
+dependencies:
+  build:
+  - popt
+  - slang-pass1
+  host: []
+  runtime:
+  - popt
+  - slang-pass1
+# slang-pass1 (no libpng) is the tier:core bootstrap variant; newt's
+# text-mode installer dialogs do not need slang's PNG rendering. The
+# full slang (with libpng) is built in tier:desktop and supersedes
+# slang-pass1 at install time via migrate-pkm-supersedes.sh. Owner-
+# approved 2026-05-11.
+configure_flags:
+- --prefix=/usr
+- --with-gpm-support
+verify_paths:
+  - /usr/bin/whiptail
+  - /usr/lib/libnewt.so

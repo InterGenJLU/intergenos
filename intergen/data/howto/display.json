@@ -1,0 +1,102 @@
+[
+  {
+    "id": "disp-how-do-i-change-my-screen-resolution",
+    "domain": "display",
+    "triggers": [
+      "how do I change my screen resolution"
+    ],
+    "answer": "Open GNOME Settings → Displays and pick from the \"Resolution\" dropdown, then click \"Apply\" (it reverts if you don't confirm, so a bad choice can't lock you out). On Wayland the compositor (Mutter) handles this natively.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "disp-how-do-i-set-up-dual-monitors",
+    "domain": "display",
+    "triggers": [
+      "how do I set up dual monitors"
+    ],
+    "answer": "Plug in the second monitor — GNOME 49 detects it immediately, including mixed-DPI and mixed-refresh setups with no config. Open GNOME Settings → Displays to arrange them: drag the monitor rectangles to match your physical layout and choose Join Displays, Mirror, or Single Display. Tip: `Super+Shift+Arrow` moves the focused window to the next monitor.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "disp-my-second-monitor-isn-t-detected",
+    "domain": "display",
+    "triggers": [
+      "my second monitor isn't detected"
+    ],
+    "answer": "Open GNOME Settings → Displays and click \"Detect Displays\". If it still doesn't show, check the cable/port (some USB-C ports don't carry video) and try re-plugging. Note: on a laptop with an NVIDIA GPU, an external port is sometimes wired only to the NVIDIA card, so the display may need the NVIDIA driver installed (`sudo pkm install nvidia`) before it appears. I can list the connected outputs the kernel sees.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "disp-how-do-i-adjust-my-screen-brightness",
+    "domain": "display",
+    "triggers": [
+      "how do I adjust my screen brightness"
+    ],
+    "answer": "Use the brightness slider in the top-right system menu, or your keyboard's brightness keys. You can also set it in GNOME Settings → Power. For automatic dimming on battery, that's also in Settings → Power.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "disp-how-do-i-make-everything-bigger",
+    "domain": "display",
+    "triggers": [
+      "how do I make everything bigger"
+    ],
+    "answer": "Open GNOME Settings → Displays and raise the \"Scale\" (e.g. 125% / 150% / 200%) — this enlarges everything crisply, and fractional scaling works on Wayland. For just larger text, use Settings → Accessibility → \"Large Text\". Zoom for part of the screen is also under Accessibility → Zoom.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "disp-how-do-i-turn-on-night-light",
+    "domain": "display",
+    "triggers": [
+      "how do I turn on night light"
+    ],
+    "answer": "Open GNOME Settings → Displays → Night Light and turn it on. It ships off by default; you can set it to run on a sunset-to-sunrise schedule or a custom time and adjust the warmth. (This maps to the `org.gnome.settings-daemon.plugins.color` night-light setting.)",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "disp-how-do-i-take-a-screenshot",
+    "domain": "display",
+    "triggers": [
+      "how do I take a screenshot"
+    ],
+    "answer": "Press `PrintScreen` to open the GNOME screenshot UI, where you can grab the whole screen, a window, or a selection (and there's a screen-record button in the same overlay). Quick variants: `Shift+PrintScreen` for an area, `Alt+PrintScreen` for the active window. The gnome-screenshot tool is also installed for scripted captures.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "disp-where-are-my-screenshots-saved",
+    "domain": "display",
+    "triggers": [
+      "where are my screenshots saved"
+    ],
+    "answer": "Screenshots are saved to your Pictures folder, in the `Screenshots` subfolder: `~/Pictures/Screenshots/`. When you take one, a notification also lets you copy it straight to the clipboard.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "disp-how-do-i-record-my-screen",
+    "domain": "display",
+    "triggers": [
+      "how do I record my screen"
+    ],
+    "answer": "Press `PrintScreen` to open the screenshot overlay, then click the video-camera icon to switch to screen recording and hit the red button — or use the direct shortcut `Ctrl+Shift+Alt+R` to start/stop. Recordings are saved to `~/Videos/Screencasts/`. This is GNOME Shell's built-in recorder (no extra app needed).",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "disp-how-do-i-change-my-refresh-rate",
+    "domain": "display",
+    "triggers": [
+      "how do I change my refresh rate"
+    ],
+    "answer": "Open GNOME Settings → Displays and pick the rate from the \"Refresh Rate\" dropdown (it appears when your monitor supports more than one). GNOME 49 supports per-monitor refresh rates, so a high-refresh main display and a 60 Hz secondary work together.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  }
+]

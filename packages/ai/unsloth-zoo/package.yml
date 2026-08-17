@@ -1,0 +1,49 @@
+name: unsloth-zoo
+version: "2026.7.4"
+release: 1
+description: Shared utilities and kernels for unsloth
+license: LGPL-3.0-or-later
+homepage: https://github.com/unslothai/unsloth-zoo
+tier: ai
+iso_include: false  # training apparatus — mirror-only (decided 2026-07-20)
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/u/unsloth-zoo/unsloth_zoo-${version}.tar.gz
+  sha256: 27fa752df9a88cc5f22618f24139f4da5e9081d81c7df2e4fe56fc098ceeb39d
+dependencies:
+  build:
+  - setuptools
+  host: []
+  runtime:
+  # Requires-Dist walked 2026-07-21 (linux/x86_64/py3.14; darwin/mlx markers
+  # OFF). torch<2.13,>=2.4 (2.10.0 ✓ — unsloth's <2.11 is the binding band) ·
+  # torchao>=0.13 · cut-cross-entropy · same transformers/datasets/trl/peft
+  # bands as unsloth.
+  - pytorch
+  - torchao
+  - triton
+  - tyro
+  - accelerate
+  - trl
+  - peft
+  - cut-cross-entropy
+  - packaging
+  - transformers
+  - datasets
+  - sentencepiece
+  - tqdm
+  - psutil
+  - wheel
+  - numpy
+  - protobuf
+  - huggingface-hub
+  - hf-transfer
+  - pillow
+  - regex
+  - msgspec
+  - typing-extensions
+  - filelock
+verify_paths:
+  - /usr/lib/python3.14/site-packages/unsloth_zoo/__init__.py
+  - /usr/lib/python3.14/site-packages/unsloth_zoo/loss_utils.py

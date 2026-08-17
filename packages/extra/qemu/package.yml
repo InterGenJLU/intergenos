@@ -1,0 +1,74 @@
+name: qemu
+version: "11.0.2"
+release: 5  # r5: DFB-04 mechanism adjust — drop --disable-install-blobs (it also suppressed BUILDING the from-source optionroms; halted the ge9b-06 r4 build fail-loud as designed) + allowlist prune of prebuilt blobs in do_install (keep dtb/keymaps/trace-events-all, re-install optionroms fail-loud, symlink seabios/seavgabios). r4: udev activation rule for the guest agent — the contrib unit is static (no [Install]) so the shipped preset could never arm it (DFB-08) — and install qemu's own from-source optionroms (kvmvapic/linuxboot/multiboot/pvh), which --disable-install-blobs took down with the prebuilt third-party blobs; x86 machine types load kvmvapic at domain start (DFB-04, 2026-07-19). r3: declare snappy + elfutils-libdw runtime deps (link-time auto-detects the Step-4.75 NEEDED sweep caught, ge9b-05 mint 2026-07-18). r2: strip upstream var/run install side-effect (split-brain runtime-dir class, 2026-07-17)
+description: Full system emulator and virtualizer with KVM support and disk image tools
+license: GPL-2.0-only
+homepage: https://www.qemu.org
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://download.qemu.org/qemu-${version}.tar.xz
+    sha256: 3745f6ea88e2e87fe0dc838b2b1d4e0a770bf48e01a1d5a186842a1fff76ccf5
+dependencies:
+  build:
+    - meson
+    - ninja
+    - pkgconf
+    - python
+    - glib2
+    - pixman
+    - libslirp
+    - libusb
+    - usbredir
+    - spice
+    - spice-protocol
+    - libseccomp
+    - libcap-ng
+    - libaio
+    - liburing
+    - numactl
+    - curl
+    - zstd
+    - gnutls
+    - cyrus-sasl
+    - gtk3
+    - libepoxy
+    - libjpeg-turbo
+    - libpng
+    - pipewire
+    - alsa-lib
+    - attr
+  host: []
+  runtime:
+    - glib2
+    - pixman
+    - libslirp
+    - snappy         # NEEDED libsnappy.so.1 — link-time auto-detect, undeclared until the Step-4.75 sweep caught it (2026-07-18)
+    - elfutils-libdw # NEEDED libdw.so.1 — same class, same sweep
+    - libusb
+    - usbredir
+    - spice
+    - libseccomp
+    - libcap-ng
+    - libaio
+    - liburing
+    - numactl
+    - curl
+    - zstd
+    - gnutls
+    - cyrus-sasl
+    - gtk3
+    - libepoxy
+    - libjpeg-turbo
+    - libpng
+    - pipewire
+    - alsa-lib
+    - attr
+    - seabios
+    - edk2-ovmf
+verify_paths:
+  - /usr/bin/qemu-system-x86_64
+  - /usr/bin/qemu-img
+  - /usr/share/qemu/kvmvapic.bin

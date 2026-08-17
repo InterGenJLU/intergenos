@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">
+  <!-- InterGen AI application icon — the taskbar/overview mark for the
+       intergen-panel window (app-id org.intergenos.InterGenPanel).
+       Brand rule: the OS badge is FRAMED (the ArcMenu glass squircle); the
+       AI mark is BARE / free-floating. The canonical pulse is ALWAYS rendered
+       with a SHORT lead on the left, the spike offset LEFT of centre, and a
+       LONG tail trailing off to the right (matches intergen/web/favicon.svg
+       and the brand logo). Brand blue (#0099FF) with a soft glow so the thin
+       line still reads at 22-36px. Static here; the "breathing" glow belongs
+       to the live thinking state in the web UI, not the app icon. -->
+  <defs>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2.4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <path d="M8 50 L26 50 L32 16 L40 84 L46 50 L90 50"
+        fill="none" stroke="#0099FF" stroke-width="8"
+        stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+</svg>

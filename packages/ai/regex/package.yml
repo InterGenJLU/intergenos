@@ -1,0 +1,22 @@
+name: regex
+version: "2026.7.19"
+release: 1
+description: Alternative regular expression module (drop-in re replacement)
+license: Apache-2.0 AND CNRI-Python
+homepage: https://github.com/mrabarnett/mrab-regex
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/20/98/04b13f1ddfb63158025291c02e03eb42fbb7acb51d091d541050eb4e35e8/regex-2026.7.19.tar.gz
+  sha256: 7e77b324909c1617cbb4c668677e2c6ae13f44d7c1de0d4f15f2e3c10f3315b5
+dependencies:
+  build:
+  - setuptools
+  - wheel
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/regex/__init__.py
+  - /usr/lib/python3.14/site-packages/regex/_regex_core.py

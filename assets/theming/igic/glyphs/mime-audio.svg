@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- mime emblem: audio — a musical note (head + stem + flag), bbox-centred. -->
+  <g class="glyph">
+    <line x1="130" y1="102" x2="130" y2="143"/>
+    <circle cx="120" cy="145" r="9"/>
+    <path d="M 130 102 L 145 109 L 142 121"/>
+  </g>
+</svg>

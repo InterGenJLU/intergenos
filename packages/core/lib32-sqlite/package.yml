@@ -1,0 +1,50 @@
+name: lib32-sqlite
+version: '3510200'
+release: 2  # r2: license: Public Domain -> LicenseRef-Public-Domain — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade.
+description: SQL database engine (32-bit multilib runtime)
+# SPDX has no identifier for a bare public-domain dedication. LicenseRef- is
+# SPDX's own mechanism for a licence it does not carry, and preserves the
+# declaration exactly as the recipe stated it.
+license: LicenseRef-Public-Domain
+homepage: https://sqlite.org/
+tier: core
+# Bash-tier lib32 twin (lib32-expat shape): build.sh sources the single
+# lib32-env.sh profile, installs to a private root, and allowlist-stages
+# ONLY /usr/lib32 (the sqlite3 CLI + headers ship with the 64-bit
+# sibling). Wired at the lib32 tail of chroot-build-core-extra.sh
+# (Rule 2).
+#
+# Forced-closure ADD (operator decision, 2026-07-02): the ratified
+# lib32-nss mirrors its sibling's NSS_USE_SYSTEM_SQLITE (building NSS's
+# bundled sqlite instead would ship a private 32-bit duplicate of a
+# system library — the masked-divergence class), so the 32-bit
+# libsqlite3 + its .pc must exist. Sibling feature parity is exact:
+# same fts4/fts5 flags, same four CPPFLAGS defines, same explicit
+# soname pin (libsqlite3.so.0). The sibling's readline runtime dep is
+# NOT mirrored — it serves the sqlite3 CLI, which the twin never ships;
+# with no lib32 readline .pc visible the shell builds without it and
+# the allowlist drops the binary anyway.
+build_style: custom
+install_func: do_install
+lib32_source: sqlite
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://sqlite.org/2026/sqlite-autoconf-${version}.tar.gz
+  sha256: fbd89f866b1403bb66a143065440089dd76100f2238314d92274a082d4f2b7bb
+dependencies:
+  build:
+  - lib32-glibc
+  host: []
+  runtime:
+  - lib32-glibc
+verify_paths:
+  - /usr/lib32/libsqlite3.so.0
+  - /usr/lib32/pkgconfig/sqlite3.pc
+
+# Build inputs composed from the repository tree (declared so the published
+# source archive carries every input the build consumes — the corresponding-
+# source rule the kernel config fragments established; survey 2026-08-11).
+sources_extra:
+- scripts/lib32-env.sh

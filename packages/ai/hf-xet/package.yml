@@ -1,0 +1,40 @@
+name: hf-xet
+version: "1.5.2"
+release: 1
+description: Fast transfer of large files with the Hugging Face Hub (Rust core, Python bindings)
+license: Apache-2.0
+homepage: https://github.com/huggingface/xet-core
+tier: ai
+iso_include: false  # training apparatus — mirror-only (decided 2026-07-20)
+build_style: custom
+install_func: do_install
+# Backend CONFIRMED from the sdist (closes the recorded backend-audit inferred-only
+# flag): [build-system] requires maturin>=1.7,<2.0 (tree: 1.13.1, in-band),
+# build-backend = maturin. NOTE the sdist filename uses the underscore form
+# (hf_xet-1.5.2.tar.gz); the package/dist name is hf-xet — the runtime
+# consumer (huggingface-hub) was wired to `hf-xet` by name (python-deps wave).
+source:
+- url: https://files.pythonhosted.org/packages/source/h/hf-xet/hf_xet-${version}.tar.gz
+  sha256: 73044bd31bae33c984af832d19c752a0dffb67518fee9ddbd91d616e1101cf47
+# Offline cargo vendoring (cargo-vendor-gen.sh; generated-no-sha-pin class).
+# GENERATION NOTE: the sdist is a cargo WORKSPACE — the maturin project +
+# Cargo.lock live under the hf_xet/ subdirectory; point the vendor generation
+# at that manifest, and the configure() extraction lands vendor/ + .cargo/ at
+# the sdist root where the workspace resolves them.
+build_artifacts:
+  - name: hf-xet-${version}-vendor.tar.xz
+    generated_by: cargo-vendor
+dependencies:
+  build:
+  - maturin
+  - rust
+  host: []
+  # Requires-Dist (PyPI metadata, non-extra): none.
+  runtime: []
+# verify_paths declare the sdist-buildable payload: the sdist ships NO .pyi
+# stub (the hf_xet/ dir is the Rust crate; maturin includes only LICENSE), so
+# the type stub found in upstream's PREBUILT PyPI wheels cannot exist in a
+# from-source build. The compiled extension is the identity artifact.
+verify_paths:
+  - /usr/lib/python3.14/site-packages/hf_xet/__init__.py
+  - /usr/lib/python3.14/site-packages/hf_xet/hf_xet.abi3.so

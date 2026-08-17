@@ -1,0 +1,18 @@
+# Stateful family manifest — status/network-vpn (ICON_CATEGORIES.md §6.3.1). An OVERLAY-ONLY
+# base (no signal ladder): one padlock silhouette + a per-state mark. gnome-shell VPN icon_name
+# (js/ui/status/network.js:1362-1370): network-vpn = ACTIVATED (bare lock); acquiring = ACTIVATING
+# (accent ellipsis); disabled = default (foreground slash, the standards-sweep addition). level 0 on
+# every state. Names verified char-for-char vs pinned gnome-shell-49.4.
+schema_version: 1
+family: network-vpn
+category: status
+fit: 0.976                  # optical T(q) family fit (measured convergence)
+kind: symbolic
+base: net-vpn
+export:
+  svg: true
+  png: [16, 24, 32, 48]
+states:
+  - { id: network-vpn,           level: 0, fit: 1.261 }
+  - { id: network-vpn-acquiring, level: 0, overlays: [acquiring], fit: 1.016 }
+  - { id: network-vpn-disabled,  level: 0, dim: true, overlays: [disabled], fit: 1.267 }

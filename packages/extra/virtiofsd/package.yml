@@ -1,0 +1,29 @@
+name: virtiofsd
+version: "1.14.0"
+release: 1
+description: vhost-user virtio-fs device backend daemon for sharing host directories with VMs
+license: Apache-2.0 AND BSD-3-Clause
+homepage: https://gitlab.com/virtio-fs/virtiofsd
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://static.crates.io/crates/virtiofsd/virtiofsd-${version}.crate
+    filename: virtiofsd-${version}.tar.gz
+    sha256: 7051accc9cf2816e25945c8216e6d4be2b4e75fc5e77559cd7eed5e400245cc1
+build_artifacts:
+  - name: virtiofsd-1.14.0-vendor.tar.xz
+    generated_by: cargo-vendor
+dependencies:
+  build:
+    - rust
+    - libcap-ng
+    - libseccomp
+  host: []
+  runtime:
+    - libcap-ng
+    - libseccomp
+verify_paths:
+  - /usr/libexec/virtiofsd
+  - /usr/share/qemu/vhost-user/50-virtiofsd.json

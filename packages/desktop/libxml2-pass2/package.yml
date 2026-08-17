@@ -1,0 +1,41 @@
+name: libxml2-pass2
+version: "2.15.1"
+release: 1
+description: XML parsing library (pass 2 — rebuild with doxygen-generated Python bindings)
+license: MIT
+homepage: https://gitlab.gnome.org/GNOME/libxml2
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/libxml2/2.15/libxml2-${version}.tar.xz
+  sha256: c008bac08fd5c7b4a87f7b8a71f283fa581d80d80ff8d2efd3b26224c39bc54c
+dependencies:
+  build:
+  - doxygen
+  - icu
+  - readline
+  - python
+  host: []
+  runtime:
+  - icu
+  - readline
+  - python
+supersedes:
+  - libxml2
+# Pass 2 of the 2-pass libxml2 build, following the dbus-pass2 idiom.
+# Pass 1 (tier:core-extra) builds with -Dpython=enabled, but libxml2
+# 2.15's Python bindings are GENERATED FROM THE DOXYGEN XML (python/
+# meson.build: pygenerated consumes doxygen_docs), and doxygen is
+# tier:desktop — absent at pass-1 build time. meson then SILENTLY
+# omits the doxygen/pygenerated/libxml2mod targets (29 vs 32 build
+# targets, no error), installing only the pure-python drv_libxml2.py:
+# a silent partial python install. First visible victim: virt-manager/
+# virt-install (virtinst hard-imports libxml2) — found 2026-07-17
+# bootstrapping the first InterGenOS virtualization host. This pass
+# rebuilds with doxygen present; the full bindings were run-proven on
+# an installed system before authoring (module builds, links, parses).
+verify_paths:
+  - /usr/lib/libxml2.so
+  - /usr/lib/python3.14/site-packages/libxml2.py
+  - /usr/lib/python3.14/site-packages/libxml2mod.cpython-314-x86_64-linux-gnu.so

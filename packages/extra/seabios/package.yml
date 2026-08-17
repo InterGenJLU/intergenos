@@ -1,0 +1,23 @@
+name: seabios
+version: "1.17.0"
+release: 1
+content_hash: cd84f420f986a430
+description: Open-source legacy BIOS firmware for QEMU guests
+license: LGPL-3.0-only
+homepage: https://www.seabios.org
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://www.seabios.org/downloads/seabios-${version}.tar.gz
+    sha256: 5159a35fac5c1579dd5d702001033c826ce45d30d3bd657ec1b2695455997712
+dependencies:
+  build:
+    - python
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/share/seabios/bios-256k.bin
+  - /usr/share/seabios/bios.bin
+  - /usr/share/seavgabios/vgabios-stdvga.bin

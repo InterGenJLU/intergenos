@@ -1,0 +1,19 @@
+name: unifdef
+version: '2.12'
+release: 1
+description: Remove
+license: BSD-2-Clause
+homepage: ''
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://dotat.at/prog/unifdef/unifdef-${version}.tar.xz
+  sha256: 43ce0f02ecdcdc723b2475575563ddb192e988c886d368260bc0a63aee3ac400
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/unifdef
+  - /usr/bin/unifdefall

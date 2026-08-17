@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- states base: network-wired — a line-forward RJ45 connector. The always-on is ONE closed
+       connector silhouette (clip tab + head + body, no internal seams / open-line caps) PLUS the
+       twin cord. R6-6: the cord is carried by EVERY state, so network-wired-disconnected shows it
+       too (the operator's "where is the cord?"); the cords attach at the body-bottom edge (a clean
+       T-junction) and end in tips — no light-grey joint dots (those were the round linecaps of the
+       OLD divider's side ends). The DIVIDER stays a connected-only overlay: its ends sit at the body
+       sides, which would read as dots on the dim disconnected state, so disconnected omits it.
+       no-route = a warning "?" (left) + "!" (right); disconnected = dim glyph + accent X.
+       network.js:613-624. R6-1 two-variant stroke. -->
+  <g class="glyph">
+    <path d="M 94 78 L 116 78 L 116 68 L 140 68 L 140 78 L 162 78 L 162 118 L 172 118 L 172 172 L 84 172 L 84 118 L 94 118 Z"/>
+    <path d="M 116 172 L 116 202"/>
+    <path d="M 140 172 L 140 202"/>
+    <g class="overlay divider foreground">
+      <path d="M 84 145 L 172 145"/>
+    </g>
+    <g class="overlay pins foreground">
+      <path d="M 108 86 L 108 100"/>
+      <path d="M 122 86 L 122 100"/>
+      <path d="M 134 86 L 134 100"/>
+      <path d="M 148 86 L 148 100"/>
+    </g>
+    <g class="overlay acquiring accent">
+      <circle cx="100" cy="50" r="7"/>
+      <circle cx="128" cy="50" r="7"/>
+      <circle cx="156" cy="50" r="7"/>
+    </g>
+    <g class="overlay no-route warning">
+      <path d="M 40 137 Q 40 127 52 127 Q 64 127 64 138 Q 64 148 52 153 L 52 156"/>
+      <circle cx="52" cy="168" r="7"/>
+      <path d="M 200 127 L 200 152"/>
+      <circle cx="200" cy="168" r="7"/>
+    </g>
+    <g class="overlay disconnected accent" stroke-width="2.5">
+      <path d="M 96 112 L 160 176"/>
+      <path d="M 160 112 L 96 176"/>
+    </g>
+    <!-- Size-conditional small geometry (Decided 2026-07-23): at 16px the full base's
+         8 tooth/tab edges land at ~0.7px pitch and render as top-edge fuzz. The small
+         subtree (composed at raster sizes <= SMALL_GEOM_AT) keeps the SAME content box
+         (x 84-172, y 68-202 — the shared family centre must not move) and the same
+         concept, with features on ~2px boundaries at 16: a squared latch band twice the
+         tab width (112-144), 3 pins at 17-unit pitch (~2px), the twin cord unchanged.
+         Divider + state marks are NOT redefined — they fall back to full detail. -->
+    <g class="small">
+      <path d="M 94 78 L 112 78 L 112 68 L 144 68 L 144 78 L 162 78 L 162 118 L 172 118 L 172 172 L 84 172 L 84 118 L 94 118 Z"/>
+      <path d="M 116 172 L 116 202"/>
+      <path d="M 140 172 L 140 202"/>
+      <g class="overlay pins foreground">
+        <path d="M 111 84 L 111 101"/>
+        <path d="M 128 84 L 128 101"/>
+        <path d="M 145 84 L 145 101"/>
+      </g>
+    </g>
+  </g>
+</svg>

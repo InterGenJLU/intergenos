@@ -1,0 +1,15 @@
+# network-wireless-symbolic — the Wi-Fi Settings panel (.desktop Icon=network-wireless-symbolic)
+# and the generic wireless name. gnome-control-center does NOT bundle this one, so without a
+# theme-provided icon it falls back to Adwaita; providing it keeps the Wi-Fi panel visually on
+# the InterGenOS wireless-signal family (full-signal form of the shared wifi-arcs glyph).
+schema_version: 1
+id: network-wireless
+category: status
+kind: symbolic
+glyph: wifi-arcs
+accent: ecg-blue
+pulse: none
+fit: 1.105
+export:
+  svg: true
+  png: [16, 24, 32, 48]

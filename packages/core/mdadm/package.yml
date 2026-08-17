@@ -1,0 +1,23 @@
+name: mdadm
+version: "4.4"
+release: 1
+description: Linux MD software RAID administration utility
+license: GPL-2.0-or-later
+homepage: https://kernel.org/pub/linux/utils/raid/mdadm/
+tier: core
+build_style: custom
+install_func: do_install
+# T0-3 sub-cluster 1 — installer runtime dep. Used by os-prober for RAID
+# array detection; potentially used by future installer paths for software-RAID
+# root. mdadm uses bare make (no autotools); requires only kernel headers + libc.
+# BLFS 13.0 reference: postlfs/mdadm. Single GCC-15 patch applied via sed below.
+source:
+- url: https://www.kernel.org/pub/linux/utils/raid/mdadm/mdadm-${version}.tar.xz
+  sha256: 9b488f35ed153df99924b5fe41eed380e8512de8f18a118628cacdd681b1d573
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/sbin/mdadm
+  - /usr/sbin/mdmon

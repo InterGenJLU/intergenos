@@ -1,0 +1,26 @@
+name: cython
+version: "3.2.4"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: C extensions for Python
+license: Apache-2.0
+homepage: ''
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/C/Cython/cython-${version}.tar.gz
+  sha256: 84226ecd313b233da27dc2eb3601b4f222b8209c3a7216d8733b031da1dc64e6
+dependencies:
+  build:
+  # The pinned sdist declares no build backend, so PEP 518 falls back to
+  # the setuptools legacy backend. build.sh builds with --no-build-isolation,
+  # which installs nothing for the build, so setuptools must already be
+  # present; declaring it here is what orders it ahead of this package.
+  - setuptools
+  - docbook-xsl-nons
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/cython
+  - /usr/bin/cygdb
+  - /usr/lib/python3.14/site-packages/Cython

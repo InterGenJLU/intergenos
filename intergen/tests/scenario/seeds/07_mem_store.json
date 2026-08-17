@@ -1,0 +1,20 @@
+{
+  "id": "MEM-store-01",
+  "name": "store a durable fact (producer; leaves it alive for the recall/forget consumer)",
+  "axis": ["memory_persistence"],
+  "category": "memory",
+  "postures": ["2B-locked", "9B-native", "35B-native"],
+  "capabilities": ["route:memory"],
+  "tags": ["seed:memory", "class:memory-persistence", "linked-pair:producer"],
+  "session_policy": "multi-session",
+  "cleanup": false,
+  "turns": [
+    {
+      "user": "remember that my default editor is neovim",
+      "description": "T1 — an explicit store (a 'remember that X is Y' trigger, not a bare declarative the router only offers on). It must route via the memory path AND the durable facts store must gain a row: the runner's memory-write-gap check HARD-fails if the facts store stays empty after this producer runs (the dogfood 'zero facts despite a whole conversation' failure — a green transcript that stored nothing). cleanup=false intentionally leaves the fact alive for MEM-recall-forget-01, which takes responsibility (cleanup_for) for sweeping it.",
+      "assertions": [
+        ["routes_via", "memory", "an explicit remember-that routes to the memory store path"]
+      ]
+    }
+  ]
+}

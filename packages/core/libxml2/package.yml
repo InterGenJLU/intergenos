@@ -1,0 +1,23 @@
+name: libxml2
+version: "2.15.1"
+release: 1
+description: XML parsing library
+license: MIT
+homepage: https://gitlab.gnome.org/GNOME/libxml2
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/libxml2/2.15/libxml2-${version}.tar.xz
+  sha256: c008bac08fd5c7b4a87f7b8a71f283fa581d80d80ff8d2efd3b26224c39bc54c
+dependencies:
+  build:
+  - icu
+  - readline
+  host: []
+  runtime:
+  - icu
+  - readline
+verify_paths:
+  - /usr/bin/xml2-config
+  - /usr/lib/libxml2.so

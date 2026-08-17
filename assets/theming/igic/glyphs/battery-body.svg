@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- states base: battery — a horizontal body + terminal nub (always-on), a 4-segment
+       fill ladder (<g class="levels">, left -> right), and three overlays: a charging bolt
+       (accent), a full-charged check (accent), and a missing X (accent, thickened per R4-10). -->
+  <g class="glyph">
+    <rect x="60" y="100" width="124" height="56" rx="8"/>
+    <rect x="184" y="116" width="12" height="24" rx="3"/>
+    <g class="levels">
+      <line x1="82" y1="112" x2="82" y2="144"/>
+      <line x1="108" y1="112" x2="108" y2="144"/>
+      <line x1="134" y1="112" x2="134" y2="144"/>
+      <line x1="160" y1="112" x2="160" y2="144"/>
+    </g>
+    <g class="overlay bolt accent">
+      <!-- R5-6: the old squiggle retired corpus-wide -> the canonical R5-2 power symbol,
+           FILLED (a small embedded overlay; an outline closes at status sizes). R7-1 re-derived to the example (7 vertices, both-side notches incl. the mid-left concave cut-in). Box (108,101,40,54). -->
+      <g class="fill"><path d="M 122.3 101.0 L 147.6 101.0 L 133.6 118.7 L 146.8 120.7 L 111.0 155.0 L 121.0 132.5 L 108.1 130.6 Z"/></g>
+    </g>
+    <g class="overlay check accent">
+      <path d="M 112 128 L 122 140 L 144 112"/>
+    </g>
+    <g class="overlay missing accent" stroke-width="2.5">
+      <path d="M 78 112 L 166 144"/>
+      <path d="M 166 112 L 78 144"/>
+    </g>
+  </g>
+</svg>

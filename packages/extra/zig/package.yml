@@ -1,0 +1,37 @@
+name: zig
+version: "0.16.0"
+release: 1
+description: The Zig programming language compiler and toolchain
+license: MIT
+homepage: https://ziglang.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  # Latest stable (Rule 12 — no pin-below-latest needed). sha256 verified against
+  # the upstream-published shasum in https://ziglang.org/download/index.json and
+  # re-computed from the fetched tarball at authoring time.
+  - url: https://ziglang.org/download/${version}/zig-${version}.tar.xz
+    sha256: 43186959edc87d5c7a1be7b7d2a25efffd22ce5807c7af99067f86f99641bfdf
+dependencies:
+  # zig 0.16.0 links the LLVM/Clang/LLD 21.x development libraries (README
+  # "Building from Source"); our in-tree llvm is 21.1.8 — an exact major match,
+  # and llvm ships clang + lld from the same recipe. cmake >= 3.15 drives the
+  # bootstrap (bootstrap.c -> zig1 -> zig2 -> stage3, self-hosted).
+  # BUILD-BLOCKED (first build-verify, 2026-07-23): zig's Findllvm requires
+  # LLVM built with ALL default targets (zig is a cross-compiler; it registers
+  # every default backend), but core/llvm builds LLVM_TARGETS_TO_BUILD=
+  # "host;AMDGPU" — configure fails "missing target AArch64". Resolution is an
+  # llvm-recipe scope decision (widen the target set at the next llvm recut),
+  # not a zig-side change; this leg re-verifies after that ruling.
+  build:
+    - llvm
+    - cmake
+  host: []
+  runtime:
+    - llvm
+    - gcc  # shipped package name; gcc-core is the build-namespace recipe (iso-closure gate catch)
+    - glibc
+verify_paths:
+  - /usr/bin/zig
+  - /usr/lib/zig

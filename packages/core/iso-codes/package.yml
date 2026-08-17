@@ -1,0 +1,21 @@
+name: iso-codes
+version: "4.20.1"
+release: 1
+description: Country, language, and currency code lists
+license: LGPL-2.1-or-later
+homepage: https://salsa.debian.org/iso-codes-team/iso-codes
+tier: core
+build_style: meson
+install_func: do_install
+source:
+- url: https://salsa.debian.org/iso-codes-team/iso-codes/-/archive/v${version}/iso-codes-v${version}.tar.gz
+  sha256: 2d7d9f6084ab9ce6c534ce71a3dd5144b6e474f3c97616459a88f73f44a64bff
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+
+verify_paths:
+  - /usr/share/iso-codes

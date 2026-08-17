@@ -1,0 +1,119 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+  <!-- Glass body gradient -->
+  <linearGradient id="glass" x1="0" y1="0" x2="0.2" y2="1">
+   <stop offset="0%" stop-color="#141e35" stop-opacity="0.92"/>
+   <stop offset="40%" stop-color="#0e1628" stop-opacity="0.95"/>
+   <stop offset="100%" stop-color="#080c18" stop-opacity="0.98"/>
+  </linearGradient>
+
+  <linearGradient id="backPanel" x1="0" y1="0" x2="0" y2="1">
+   <stop offset="0%" stop-color="#0c1222"/>
+   <stop offset="100%" stop-color="#070a14"/>
+  </linearGradient>
+
+  <linearGradient id="gloss" x1="0" y1="0" x2="0.7" y2="0.8">
+   <stop offset="0%" stop-color="#ffffff" stop-opacity="0.08"/>
+   <stop offset="20%" stop-color="#ffffff" stop-opacity="0.03"/>
+   <stop offset="45%" stop-color="#ffffff" stop-opacity="0"/>
+  </linearGradient>
+
+  <!-- Core glow (radial, centered on front panel) -->
+  <radialGradient id="coreGlow" cx="0.52" cy="0.55" r="0.35">
+   <stop offset="0%" stop-color="#33b1ff" stop-opacity="0.9"/>
+   <stop offset="25%" stop-color="#0099FF" stop-opacity="0.5"/>
+   <stop offset="60%" stop-color="#0077cc" stop-opacity="0.15"/>
+   <stop offset="100%" stop-color="#0055aa" stop-opacity="0"/>
+  </radialGradient>
+
+  <!-- Horizontal lens flare from the core -->
+  <radialGradient id="flare" cx="0.52" cy="0.55" r="0.5"
+   gradientTransform="scale(2.5, 0.15) translate(-0.3, 2.5)">
+   <stop offset="0%" stop-color="#33bbff" stop-opacity="0.35"/>
+   <stop offset="100%" stop-color="#0099FF" stop-opacity="0"/>
+  </radialGradient>
+
+  <filter id="wideGlow" x="-60%" y="-60%" width="220%" height="220%">
+   <feGaussianBlur stdDeviation="7" result="blur"/>
+   <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+
+  <filter id="medGlow" x="-40%" y="-40%" width="180%" height="180%">
+   <feGaussianBlur stdDeviation="4" result="blur"/>
+   <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+
+  <filter id="coreBlur" x="-50%" y="-50%" width="200%" height="200%">
+   <feGaussianBlur stdDeviation="5"/>
+  </filter>
+
+  <clipPath id="bodyClip">
+   <path d="M32 72 Q32 56 48 56 H104 Q112 56 120 64 L132 76 H208
+            Q224 76 224 92 V184 Q224 200 208 200 H48 Q32 200 32 184 Z"/>
+  </clipPath>
+ </defs>
+
+ <!-- Layer 1: Wide ambient glow -->
+ <path d="M32 72 Q32 56 48 56 H104 Q112 56 120 64 L132 76 H208
+          Q224 76 224 92 V184 Q224 200 208 200 H48 Q32 200 32 184 Z"
+   fill="none" stroke="#0099FF" stroke-width="5" stroke-opacity="0.4"
+   filter="url(#wideGlow)"/>
+
+ <!-- Layer 2: Back panel -->
+ <path d="M32 72 Q32 56 48 56 H104 Q112 56 120 64 L132 76 H208
+          Q224 76 224 92 V184 Q224 200 208 200 H48 Q32 200 32 184 Z"
+   fill="url(#backPanel)"/>
+
+ <!-- Layer 3: Front panel (glass) -->
+ <path d="M32 108 H224 V184 Q224 200 208 200 H48 Q32 200 32 184 Z"
+   fill="url(#glass)"/>
+
+ <!-- Layer 4: Crease highlight -->
+ <line x1="34" y1="108" x2="222" y2="108"
+   stroke="#0099FF" stroke-width="1.5" stroke-opacity="0.35"
+   filter="url(#medGlow)"/>
+
+ <!-- Layer 5: THE PULSE CORE — radial glow -->
+ <g clip-path="url(#bodyClip)">
+  <!-- Wide core glow -->
+  <circle cx="134" cy="148" r="50"
+    fill="url(#coreGlow)" filter="url(#coreBlur)"/>
+  <!-- Horizontal lens flare -->
+  <rect x="32" y="138" width="192" height="20"
+    fill="url(#flare)"/>
+  <!-- Bright center point -->
+  <circle cx="134" cy="148" r="8"
+    fill="#0099FF" opacity="0.7" filter="url(#medGlow)"/>
+  <!-- Hot center -->
+  <circle cx="134" cy="148" r="3"
+    fill="#66ddff" opacity="0.9"/>
+ </g>
+
+ <!-- Layer 6: Diagonal glass reflection (dimmer than edge-lit — core is the star) -->
+ <path d="M32 108 L140 108 L32 175 Z" fill="url(#gloss)"/>
+
+ <!-- Layer 7: Bottom edge intensification -->
+ <path d="M48 200 H208 Q224 200 224 184"
+   fill="none" stroke="#0099FF" stroke-width="3" stroke-opacity="0.5"
+   stroke-linecap="round" filter="url(#wideGlow)"/>
+ <path d="M48 200 Q32 200 32 184"
+   fill="none" stroke="#0099FF" stroke-width="3" stroke-opacity="0.45"
+   stroke-linecap="round" filter="url(#wideGlow)"/>
+
+ <!-- Layer 8: Medium outline glow -->
+ <path d="M32 72 Q32 56 48 56 H104 Q112 56 120 64 L132 76 H208
+          Q224 76 224 92 V184 Q224 200 208 200 H48 Q32 200 32 184 Z"
+   fill="none" stroke="#0099FF" stroke-width="2" stroke-opacity="0.3"
+   filter="url(#medGlow)"/>
+
+ <!-- Layer 9: Sharp structural edge -->
+ <path d="M32 72 Q32 56 48 56 H104 Q112 56 120 64 L132 76 H208
+          Q224 76 224 92 V184 Q224 200 208 200 H48 Q32 200 32 184 Z"
+   fill="none" stroke="rgba(0,153,255,0.22)" stroke-width="1.5"/>
+
+ <!-- Layer 10: Tab highlight -->
+ <path d="M50 57 H102 Q110 57 118 65"
+   fill="none" stroke="#ffffff" stroke-width="0.75" stroke-opacity="0.07"
+   stroke-linecap="round"/>
+
+</svg>

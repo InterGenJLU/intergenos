@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<defs>
+  <!-- Back panel: darker blue -->
+  <linearGradient id="backA" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#0066aa"/>
+    <stop offset="100%" stop-color="#003366"/>
+  </linearGradient>
+
+  <!-- Front panel: brighter blue gradient with edge highlights -->
+  <linearGradient id="frontA" x1="0" y1="0" x2="0.8" y2="1">
+    <stop offset="0%" stop-color="#0099FF"/>
+    <stop offset="0.06" stop-color="#40aaff"/>
+    <stop offset="0.12" stop-color="#0099FF"/>
+    <stop offset="0.88" stop-color="#0088ee"/>
+    <stop offset="0.95" stop-color="#33a8ff"/>
+    <stop offset="1" stop-color="#0080dd"/>
+  </linearGradient>
+
+  <!-- Highlight band between panels -->
+  <linearGradient id="highlightA" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#66ccff"/>
+    <stop offset="50%" stop-color="#55bbff"/>
+    <stop offset="100%" stop-color="#66ccff"/>
+  </linearGradient>
+
+  <!-- Light reflection (diagonal gloss) -->
+  <linearGradient id="glossA" x1="0" y1="0" x2="0.7" y2="1">
+    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.15"/>
+    <stop offset="40%" stop-color="#ffffff" stop-opacity="0.03"/>
+    <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+  </linearGradient>
+
+  <filter id="shadow">
+    <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.5"/>
+  </filter>
+</defs>
+<rect width="256" height="256" fill="#000000"/>
+
+<!-- BACK PANEL (darker blue, includes tab) -->
+<path d="M 54 90
+         C 54 82, 48 74, 48 74
+         L 48 72 C 48 64, 54 58, 62 58
+         L 112 58 C 118 58, 122 60, 126 66
+         L 132 78 C 136 84, 140 86, 148 86
+         L 198 86 C 206 86, 212 92, 212 100
+         L 212 192 C 212 200, 206 206, 198 206
+         L 58 206 C 50 206, 44 200, 44 192
+         L 44 100 C 44 92, 48 88, 54 90 Z"
+      fill="url(#backA)" filter="url(#shadow)"/>
+
+<!-- HIGHLIGHT BAND (thin bright strip between panels) -->
+<path d="M 44 116 L 212 116 L 212 120 L 44 120 Z"
+      fill="url(#highlightA)" opacity="0.5"/>
+
+<!-- FRONT PANEL (brighter blue gradient) -->
+<path d="M 44 120
+         L 212 120
+         L 212 192 C 212 200, 206 206, 198 206
+         L 58 206 C 50 206, 44 200, 44 192
+         Z"
+      fill="url(#frontA)"/>
+
+<!-- DIAGONAL LIGHT REFLECTION -->
+<path d="M 44 120 L 130 120 L 44 180 Z"
+      fill="url(#glossA)"/>
+
+<!-- SPINE (left edge depth — darker strip) -->
+<path d="M 44 100 C 44 92, 48 88, 54 90
+         C 54 82, 48 74, 48 74 L 48 72
+         C 48 64, 54 58, 62 58 L 64 58
+         L 48 58 C 48 58, 44 64, 44 72
+         L 44 192 C 44 200, 50 206, 58 206
+         L 44 206 L 44 100 Z"
+      fill="#003060" opacity="0.6"/>
+</svg>

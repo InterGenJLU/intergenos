@@ -1,0 +1,26 @@
+name: sysprof
+version: 46.0
+release: 1
+description: System-wide profiler for Linux — capture library for GTK/GNOME profiling support
+license: GPL-3.0-or-later
+homepage: https://www.sysprof.com/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/sysprof/46/sysprof-${version}.tar.xz
+  sha256: 73aa7e75ebab3e4e0946a05a723df7e6ee4249e3b9e884dba35500aba2a1d176
+dependencies:
+  build:
+  - glib2
+  - libunwind
+  - libdex
+  - gtk4  # GTK4 GUI front-end. Build #5 audit: sysprof built before gtk4 so
+          # the UI was silently dropped (CLI-only sysprof shipped).
+  host: []
+  runtime:
+  - glib2
+verify_paths:
+  - /usr/lib/libsysprof-capture-4.a
+  - /usr/include/sysprof-6/sysprof-address.h
+  - /usr/include/sysprof-6/sysprof-capture-condition.h

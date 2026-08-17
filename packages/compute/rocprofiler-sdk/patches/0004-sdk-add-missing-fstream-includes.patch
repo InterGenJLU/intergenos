@@ -1,0 +1,40 @@
+SDK sources: add missing <fstream> includes (GCC-15 class).
+
+counters/metrics.cpp, output/output_stream.hpp (covers its .cpp), and
+rocprofiler-sdk-rocpd/sql.cpp use std::ifstream/std::ofstream without
+including <fstream>; GCC 15's libstdc++ no longer provides it
+transitively -> "variable 'std::ifstream file' has initializer but
+incomplete type". Same transitive-include class as the vendored
+yaml-cpp/elfio patches, in the SDK's own code. Full-source sweep run;
+every other fstream user chains the include through its own headers.
+
+--- a/source/lib/rocprofiler-sdk/counters/metrics.cpp
++++ b/source/lib/rocprofiler-sdk/counters/metrics.cpp
+@@ -44,6 +44,7 @@
+ 
+ #include <dlfcn.h>  // for dladdr
+ #include <cstdint>
++#include <fstream>
+ #include <cstdlib>
+ #include <memory>
+ #include <vector>
+--- a/source/lib/output/output_stream.hpp
++++ b/source/lib/output/output_stream.hpp
+@@ -26,6 +26,7 @@
+ #include "output_config.hpp"
+ 
+ #include <array>
++#include <fstream>
+ #include <iostream>
+ #include <mutex>
+ #include <ostream>
+--- a/source/lib/rocprofiler-sdk-rocpd/sql.cpp
++++ b/source/lib/rocprofiler-sdk-rocpd/sql.cpp
+@@ -39,6 +39,7 @@
+ #include <fmt/ranges.h>
+ 
+ #include <dlfcn.h>
++#include <fstream>
+ #include <initializer_list>
+ #include <unordered_map>
+ 

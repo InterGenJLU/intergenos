@@ -1,0 +1,17 @@
+name: traceroute
+version: "2.1.6"
+release: 1
+description: Trace the network path packets take to a host
+license: GPL-2.0-or-later
+homepage: https://traceroute.sourceforge.net/
+source:
+- url: https://downloads.sourceforge.net/traceroute/traceroute-2.1.6.tar.gz
+  sha256: 9ccef9cdb9d7a98ff7fbf93f79ebd0e48881664b525c4b232a0fcec7dcb9db5e
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: base
+build_style: custom
+verify_paths:
+  - /usr/bin/traceroute

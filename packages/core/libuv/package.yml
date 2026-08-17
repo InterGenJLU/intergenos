@@ -1,0 +1,28 @@
+name: libuv
+version: "1.52.1"
+release: 1
+description: Multi-platform asynchronous I/O library
+license: MIT
+homepage: https://libuv.org/
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://dist.libuv.org/dist/v${version}/libuv-v${version}.tar.gz
+    sha256: 66d511b9e6e334c0e62279eb234fbfb2b3110b1479c09b95b44c7afca8cff9e7
+
+dependencies:
+  build:
+    - autoconf
+    - automake
+    - libtool
+  host: []
+  runtime: []
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "libuv test suite refuses to run as root — upstream-enforced (test/runner-unix.c). Our chroot builds as root, so test/run-tests aborts with 'The libuv test suite cannot be run as root.' before any test executes. Tests that DO run (in non-chroot dev environments) cover async I/O / tcp / udp / pipes / fs ops; libuv is widely deployed in node.js, electron, etc., so functional confidence comes from upstream's CI not ours."
+verify_paths:
+  - /usr/lib/libuv.so

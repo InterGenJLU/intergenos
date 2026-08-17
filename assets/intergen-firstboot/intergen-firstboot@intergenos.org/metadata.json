@@ -1,0 +1,7 @@
+{
+    "uuid": "intergen-firstboot@intergenos.org",
+    "name": "InterGenOS First-Boot Animation",
+    "description": "First-login branded ECG animation for InterGenOS. Fires once per user on the first login (gated by a filesystem marker at ~/.local/share/intergen/firstboot-animation-done); subsequent logins no-op. Renders the operator-tuned 22.4s ECG pulse + text sequence above gnome-shell's session-startup UI via St.DrawingArea + Main.layoutManager.addTopChrome; on completion the overlay clears + the intergen-welcome welcomer (which fires in parallel at session start) becomes the active surface. Math ported verbatim from the canonical C/Python sources at assets/intergen-firstboot{,-drm,-py}/. Pairs with intergen-no-overview@intergenos.org. Default-enabled via the intergenos-default-settings gschema-override per D-006.",
+    "shell-version": ["47", "48", "49"],
+    "url": "https://github.com/InterGenJLU/intergenos"
+}

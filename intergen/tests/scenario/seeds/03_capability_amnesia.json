@@ -1,0 +1,34 @@
+{
+  "id": "CAP-amnesia-01",
+  "name": "capability amnesia + invented locators after a city is supplied (finding 3)",
+  "axis": ["capability_recall", "context_persistence", "fabrication"],
+  "category": "capability",
+  "postures": ["2B-locked"],
+  "capabilities": ["tool:web_search", "cross:no-capability-denial", "cross:no-invented-artifact"],
+  "tags": ["seed:dogfood-3", "class:capability-recall", "class:context-persistence"],
+  "session_policy": "single-session",
+  "turns": [
+    {
+      "user": "What time does Walmart open near me?",
+      "description": "T1 [5] — CORRECT: declines a location-less lookup and OFFERS web search. The good half of the class; it must pass. The phrasing family probes the exact brittleness the phase-1 sweep flagged: an imperative/polite/emotional/sloppy wording of the SAME request must still offer the capability it has and not deny it — behavior must not flip on tone.",
+      "phrasings": [
+        {"text": "find walmart's hours near me", "label": "imperative"},
+        {"text": "could you please tell me when the nearest walmart opens?", "label": "polite"},
+        {"text": "i really need to know what time walmart opens near me", "label": "emotional"},
+        {"text": "wat time do walmrt open by me", "label": "sloppy"}
+      ],
+      "assertions": [
+        {"type": "no_tool", "description": "no lookup without a location yet"},
+        ["contains_any", "search the web,web search,look it up online", "offers the web-search capability it possesses, in some wording — the offer invariant must survive an imperative/polite/emotional/sloppy rephrasing"]
+      ]
+    },
+    {
+      "user": "Gardendale, Alabama",
+      "description": "T2 [7] — the defect: the city is supplied, but the assistant forgets the capability ('I don't have real-time access'), dumps generic self-help, and INVENTS a store URL (walmart.com/Store-Gardendale-Alabama) and a phone number. The referent (the city) and the capability (web search) both established in prior turns must survive here; they do not.",
+      "assertions": [
+        ["not_contains", "real-time access", "the capability-amnesia phrase must not appear one turn after offering to search"],
+        {"type": "no_invented_artifact", "description": "no fabricated store URL / phone number (no reads-reality tool ran this turn)"}
+      ]
+    }
+  ]
+}

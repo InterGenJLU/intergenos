@@ -1,0 +1,63 @@
+name: lib32-p11-kit
+version: "0.26.2"
+release: 1
+description: PKCS#11 module loading library (32-bit multilib runtime)
+license: BSD-3-Clause
+homepage: https://p11-glue.github.io/p11-glue/p11-kit.html
+tier: core
+# Bash-tier lib32 twin driving meson through THE lib32 cross file
+# (config/lib32/lib32-cross.ini, RT-7 — the lib32-systemd-libs shape):
+# installs to a private root, allowlist-stages ONLY /usr/lib32 (the
+# p11-kit/trust CLIs + headers + config ship with the 64-bit sibling).
+# Wired at the lib32 tail of chroot-build-core-extra.sh (Rule 2).
+#
+# Forced-closure ADD (operator decision, 2026-07-02): the ratified
+# lib32-nss ships the sibling-parity trust symlink libnssckbi.so ->
+# ./pkcs11/p11-kit-trust.so, which must resolve to a 32-BIT trust
+# module — only this twin provides /usr/lib32/pkcs11/p11-kit-trust.so
+# (Arch's lib32-nss hard-deps lib32-p11-kit for exactly this).
+#
+# Options pinned per the pinned 0.26.2 meson_options.txt (G3 — pin,
+# never autodetect):
+# - trust_paths=/etc/pki/anchors: sibling parity — the trust store is
+#   arch-independent host config shared with the 64-bit module.
+# - libffi=enabled: pinned ON (lib32-libffi is in-tree; closures via
+#   real libffi trampolines, matching what the sibling's autodetect
+#   found — an explicit pin beats a silent flip).
+# - trust_module stays at its default (the whole point of the twin).
+# - bash_completion/zsh_completion=disabled + man/gtk_doc/nls=false:
+#   tool/doc surface the lib-only twin never ships.
+# - systemd=disabled: the p11-kit server socket units are daemon
+#   surface, never staged.
+# The sibling's trust-extract-compat sed is deliberately NOT mirrored:
+# it edits a /usr/libexec script the allowlist never stages.
+build_style: custom
+install_func: do_install
+lib32_source: p11-kit
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://github.com/p11-glue/p11-kit/releases/download/${version}/p11-kit-${version}.tar.xz
+  sha256: 09fd9f44da4813a3141e73d5e7cf7008e5660d0405f13d56c15e1da9dcecf828
+dependencies:
+  build:
+  - lib32-glibc
+  - lib32-libtasn1
+  - lib32-libffi
+  host: []
+  runtime:
+  - lib32-glibc
+  - lib32-libtasn1
+  - lib32-libffi
+verify_paths:
+  - /usr/lib32/libp11-kit.so.0
+  - /usr/lib32/pkcs11/p11-kit-trust.so
+  - /usr/lib32/pkgconfig/p11-kit-1.pc
+
+# Build inputs composed from the repository tree (declared so the published
+# source archive carries every input the build consumes — the corresponding-
+# source rule the kernel config fragments established; survey 2026-08-11).
+sources_extra:
+- scripts/lib32-env.sh
+- config/lib32/lib32-cross.ini

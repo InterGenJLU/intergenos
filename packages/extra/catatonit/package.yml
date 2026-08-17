@@ -1,0 +1,23 @@
+name: catatonit
+version: "0.2.1"
+release: 1
+content_hash: 92a37ccc7c577245
+description: Container init that is so simple it is effectively brain-dead
+license: GPL-2.0-or-later
+homepage: https://github.com/openSUSE/catatonit
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/openSUSE/catatonit/releases/download/v${version}/catatonit.tar.xz
+    sha256: 9950425501af862e12f618bdc930ea755c46db6a16072a1462b4fc93b2bd59bc
+dependencies:
+  build:
+    - autoconf
+    - automake
+    - libtool
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/catatonit
+  - /usr/share/man/man1/catatonit.1

@@ -1,0 +1,269 @@
+[
+  {
+    "id": "system-disk-space",
+    "domain": "system",
+    "triggers": [
+      "how do I check disk space",
+      "how do I see how much disk space I have",
+      "what command shows disk usage",
+      "how do I check free disk space",
+      "how can I see how full my disk is",
+      "what's the command to check storage"
+    ],
+    "answer": "Check disk space with `df`:\n\n```\ndf -h            # free/used space per filesystem, human-readable\ndf -h /          # just the root filesystem\ndu -sh <dir>     # how much a particular folder is using\ndu -sh * | sort -h   # biggest items in the current directory\n```\n\n`df` shows whole filesystems; `du` measures specific paths. For a graphical view, open **Disk Usage Analyzer**.",
+    "doc_source": "docs/getting-started.md",
+    "requires": [
+      "df"
+    ],
+    "action": {
+      "command": "df -h",
+      "tool": "run_command"
+    }
+  },
+  {
+    "id": "system-memory",
+    "domain": "system",
+    "triggers": [
+      "how do I check memory usage",
+      "how can I see how much memory I'm using",
+      "how do I see how much RAM is free",
+      "what command shows memory",
+      "how do I check RAM usage",
+      "what's the command to see free memory"
+    ],
+    "answer": "Check memory with `free`:\n\n```\nfree -h          # total / used / free RAM and swap, human-readable\nfree -h -s 2     # refresh every 2 seconds\n```\n\nFor a live, per-process view use `top` (or `htop` where installed) and look at the RES column.",
+    "doc_source": "docs/getting-started.md",
+    "requires": [
+      "free"
+    ],
+    "action": {
+      "command": "free -h",
+      "tool": "run_command"
+    }
+  },
+  {
+    "id": "system-kernel-version",
+    "domain": "system",
+    "triggers": [
+      "what command shows the kernel version",
+      "how do I check the kernel version",
+      "which command shows the kernel",
+      "how do I see what kernel I'm running",
+      "what's the command for the kernel version",
+      "how do I find my kernel version"
+    ],
+    "answer": "Show the running kernel with `uname`:\n\n```\nuname -r         # kernel release, e.g. 6.18.10-igos-2\nuname -a         # full: kernel, hostname, arch, build date\n```\n\n`uname -r` is the one most tools want.",
+    "doc_source": "docs/getting-started.md",
+    "requires": [
+      "uname"
+    ],
+    "action": {
+      "command": "uname -r",
+      "tool": "run_command"
+    }
+  },
+  {
+    "id": "system-uptime",
+    "domain": "system",
+    "triggers": [
+      "how do I check uptime",
+      "what command shows how long the system has been up",
+      "how do I see how long my computer has been running",
+      "what's the command for uptime"
+    ],
+    "answer": "Show how long the machine has been up with `uptime`:\n\n```\nuptime           # current time, uptime, users, load averages\nuptime -p        # 'pretty' form, e.g. 'up 3 hours, 12 minutes'\n```\n\nFor when it last booted: `uptime -s`.",
+    "doc_source": "docs/getting-started.md",
+    "requires": [
+      "uptime"
+    ],
+    "action": {
+      "command": "uptime",
+      "tool": "run_command"
+    }
+  },
+  {
+    "id": "system-processes",
+    "domain": "system",
+    "triggers": [
+      "how do I see the running processes",
+      "what command lists running processes",
+      "how do I check what's running",
+      "how do I see which programs are running",
+      "what's the command to list processes"
+    ],
+    "answer": "List running processes with `ps`, or watch them live:\n\n```\nps aux               # every process, with CPU and memory\nps aux | grep <name> # find a specific one\ntop                  # live, sorted by CPU (q to quit)\nhtop                 # friendlier live view, where installed\n```\n\nTo stop one, note its PID and `kill <pid>`.",
+    "doc_source": "docs/getting-started.md",
+    "requires": [
+      "ps"
+    ],
+    "action": {
+      "command": "ps aux",
+      "tool": "run_command"
+    }
+  },
+  {
+    "id": "disk-how-do-i-find-large-files",
+    "domain": "system",
+    "triggers": [
+      "how do I find large files"
+    ],
+    "answer": "```\ndu -ah ~ | sort -rh | head -20         # 20 biggest files+dirs under your home\n```\nFor a whole filesystem: `sudo du -ahx / | sort -rh | head -20`. The interactive TUI tool\n**ncdu** is handy if installed (`sudo pkm install ncdu`).",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "disk-how-do-i-free-up-disk-space",
+    "domain": "system",
+    "triggers": [
+      "how do I free up disk space"
+    ],
+    "answer": "Three safe reclaim steps on InterGenOS:\n```\nsudo pkm autoremove          # drop orphaned dependency packages\nsudo pkm cache clean         # prune old cached package archives (keeps current)\njournalctl --disk-usage      # see how much the system logs use\nsudo journalctl --vacuum-size=200M   # cap the journal\n```\nThen find big user files with `du -ah ~ | sort -rh | head -20`.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "system-free-up-memory",
+    "domain": "system",
+    "triggers": [
+      "how do I free up memory",
+      "how do I free up my memory",
+      "free up my memory",
+      "free up memory",
+      "how do I free up RAM",
+      "free up RAM",
+      "how do I reduce memory usage",
+      "how do I clear memory"
+    ],
+    "answer": "On Linux, high memory \"used\" usually isn't something to fix. The kernel deliberately uses spare RAM for disk cache, and it hands that memory straight back the moment an app needs it — so `free -h` showing little **free** is normal and healthy. Read the **available** column, not **free**:\n```\nfree -h                      # total / used / available RAM and swap\ntop                          # live view — press Shift+M to sort by memory\n```\nIf the machine actually feels slow or an app is being starved, free memory the safe, user-driven way:\n- **Close what you're not using** — browser tabs are the usual memory hog.\n- Open **System Monitor -> Processes**, sort by Memory, and quit or restart a runaway process.\n- **Reboot** if something has leaked and won't let go.\n\nThere's no command that safely \"frees RAM\" on its own — force-dropping caches just makes the next disk read slower. Adding physical RAM is a hardware change, not something software does.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "disk-how-do-i-clean-up-my-system",
+    "domain": "system",
+    "triggers": [
+      "how do I clean up my system"
+    ],
+    "answer": "```\nsudo pkm autoremove          # remove orphaned dependencies\nsudo pkm cache clean         # prune downloaded package archives (--all wipes them all)\nsudo journalctl --vacuum-size=200M   # trim systemd journals\n```\npkm has no equivalent of `apt autoclean` beyond `pkm cache clean`; that's the one to use.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "disk-how-do-i-clear-the-package-cache",
+    "domain": "system",
+    "triggers": [
+      "how do I clear the package cache"
+    ],
+    "answer": "```\nsudo pkm cache clean          # keep the archive for each installed version, drop the rest\nsudo pkm cache clean --all    # remove every cached archive (re-downloaded on next install)\nsudo pkm cache clean --rollback   # prune the pre-upgrade rollback snapshots too\n```\nThe cache lives at `/var/cache/pkm/`. `clean` (default) is safe; `--all` frees the most.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "disk-how-big-is-this-folder",
+    "domain": "system",
+    "triggers": [
+      "how big is this folder"
+    ],
+    "answer": "```\ndu -sh .            # total size of the current folder\ndu -sh <path>       # size of a specific folder\ndu -sh ./*          # size of each item inside it\n```",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "system-change-hostname",
+    "domain": "system",
+    "triggers": [
+      "how do I change my computer's name",
+      "how do I rename this computer",
+      "how do I change the hostname",
+      "how do I set the machine name",
+      "change my computer name"
+    ],
+    "answer": "The computer's name (its hostname) is set with **`hostnamectl`**:\n```\nhostnamectl                              # show the current hostname\nsudo hostnamectl set-hostname <new-name>   # set a new one\n```\nUse a short name with letters, digits, and hyphens (no spaces). The change takes effect immediately — open a new terminal to see it in your prompt. You can also change it from **Settings → About → Device Name**.",
+    "action": {
+      "command": "hostnamectl",
+      "tool": "run_command"
+    },
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": [
+      "hostnamectl"
+    ]
+  },
+  {
+    "id": "system-what-os-version",
+    "domain": "system",
+    "triggers": [
+      "what OS is this",
+      "what operating system is this",
+      "what version of InterGenOS am I running",
+      "what distro is this",
+      "what version is this",
+      "what OS am I running"
+    ],
+    "answer": "This is **InterGenOS**, a from-source Linux distribution. The exact release is recorded in `/etc/os-release`:\n```\ncat /etc/os-release    # NAME, VERSION, and the release id\n```\nFor the running kernel specifically, `uname -r`. (`lsb_release -a` prints the same distribution fields in a compact form.)",
+    "action": {
+      "command": "cat /etc/os-release",
+      "tool": "run_command"
+    },
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "system-what-disks-are-there",
+    "domain": "system",
+    "triggers": [
+      "what disks do I have",
+      "show my drives",
+      "list my partitions",
+      "what drives are connected",
+      "what storage devices are there",
+      "show my disks"
+    ],
+    "answer": "InterGenOS lists the block devices (disks and their partitions) with:\n```\nlsblk                  # tree of disks, partitions, sizes, and mountpoints\n```\nEach top-level entry (`sda`, `nvme0n1`, ...) is a physical disk; the indented rows beneath it are its partitions. To see how full a mounted filesystem is, use `df -h`; to see filesystem types, `lsblk -f`.",
+    "action": {
+      "command": "lsblk",
+      "tool": "run_command"
+    },
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": [
+      "lsblk"
+    ]
+  },
+  {
+    "id": "system-what-is-my-hostname",
+    "domain": "system",
+    "triggers": [
+      "what is this machine called",
+      "what's my hostname",
+      "what's this computer's name",
+      "what is the machine name",
+      "what is my computer's name"
+    ],
+    "answer": "The computer's name (its hostname) is shown by:\n```\nhostnamectl            # current hostname plus OS / kernel / hardware summary\n```\nThe first line, **Static hostname**, is the machine's name. To *change* it, `sudo hostnamectl set-hostname <new-name>`.",
+    "action": {
+      "command": "hostnamectl",
+      "tool": "run_command"
+    },
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": [
+      "hostnamectl"
+    ]
+  },
+  {
+    "id": "system-what-time-is-it",
+    "domain": "system",
+    "triggers": [
+      "what time is it",
+      "what's the date",
+      "what day is it",
+      "show me the current time",
+      "what is today's date"
+    ],
+    "answer": "InterGenOS reads the current date and time from the system clock:\n```\ndate                   # current date and time\n```\nFor the timezone and whether the clock is synced over the network, `timedatectl`.",
+    "action": {
+      "command": "date",
+      "tool": "run_command"
+    },
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  }
+]

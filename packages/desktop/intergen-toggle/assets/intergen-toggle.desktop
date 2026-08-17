@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Enable InterGen AI
+GenericName=AI Assistant Toggle
+Comment=Enable or disable the InterGen AI assistant
+Exec=intergen-toggle
+Terminal=false
+Icon=intergen-toggle
+Categories=Settings;System;X-InterGenOS;
+Keywords=AI;assistant;intergen;enable;disable;toggle;
+StartupNotify=true
+StartupWMClass=com.intergenos.intergen-toggle

@@ -1,0 +1,51 @@
+name: libvdpau
+version: "1.5"
+release: 1
+description: Video Decode and Presentation API for Unix — dispatcher library
+license: MIT
+homepage: https://gitlab.freedesktop.org/vdpau/libvdpau
+tier: extra
+build_style: meson
+install_func: do_install
+iso_include: true
+# libvdpau — VDPAU dispatcher library.
+# Reads VDPAU_DRIVER (or uses DRI2 to query the driver name from the
+# X server) and dlopen()s /usr/lib/vdpau/libvdpau_<driver>.so.1.
+#
+# Mesa 25.3.0 removed native VDPAU back-ends from radeonsi + nouveau
+# + r600 + d3d12. The remaining usable VDPAU driver on AMDGPU is
+# /usr/lib/vdpau/libvdpau_va_gl.so (from extra/libvdpau-va-gl),
+# activated via `VDPAU_DRIVER=va_gl`.
+#
+# iso_include flipped false->true (L28): the earlier "only in-tree
+# consumer is va_gl" claim was disproven by the step-4.75 NEEDED-closure
+# sweep — shipped mpv/libmpv hard-NEED libvdpau.so.1 (mpv's meson
+# auto-detected vdpau at build time), so evicting the dispatcher ships
+# a player that cannot launch. The dispatcher ships; libvdpau-va-gl
+# (a dlopen()ed back-end, not NEEDed) stays mirror-only.
+#
+# Cross-distro alignment:
+#   Arch:   extra/libvdpau; meson with dri2=enabled
+#   Fedora: libvdpau; meson with dri2=enabled
+#   Debian: libvdpau1; meson with dri2=enabled
+# All three ship libvdpau in a distinct package separate from the
+# back-end drivers. We align exactly.
+source:
+- url: https://gitlab.freedesktop.org/vdpau/libvdpau/-/archive/${version}/libvdpau-${version}.tar.bz2
+  sha256: a5d50a42b8c288febc07151ab643ac8de06a18446965c7241f89b4e810821913
+dependencies:
+  build:
+  - libX11          # libX11 for XDpyInfo / X server interaction
+  - libXext         # X server extension protocol library
+  - xorgproto       # dri2proto.pc + x11 protocol headers
+  - pkgconf         # for the meson dependency lookups
+  host: []
+  runtime:
+  - libX11
+  - libXext
+tests:
+  enabled: false
+  reason: "libvdpau is a dispatcher library with no back-end driver loaded in the build chroot. Upstream's testsuite needs a real VDPAU driver bound to /dev/dri/card0. Same environment-bounded shape as the rest of the AMDGPU userland stack."
+verify_paths:
+  - /usr/lib/libvdpau.so.1
+  - /usr/include/vdpau/vdpau.h

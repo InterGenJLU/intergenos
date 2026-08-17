@@ -1,0 +1,26 @@
+name: dmidecode
+version: "3.7"
+release: 1
+description: Report system hardware information from the BIOS (SMBIOS/DMI data)
+license: GPL-2.0-or-later
+homepage: https://www.nongnu.org/dmidecode/
+tier: extra
+iso_include: true  # post-install hardware diagnostics — must be present for `which dmidecode` (PI-Z24 / D4 directive)
+build_style: custom
+install_func: do_install
+source:
+  - url: https://download.savannah.gnu.org/releases/dmidecode/dmidecode-${version}.tar.xz
+    sha256: 2c3aed12c85a1e6a9410d406d5e417c455466dc1bc7c89278bb32cf7cad91e8a
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/sbin/dmidecode
+  - /usr/sbin/biosdecode
+  - /usr/sbin/ownership
+  - /usr/sbin/vpddecode
+  - /usr/share/man/man8/dmidecode.8
+  - /usr/share/man/man8/biosdecode.8
+  - /usr/share/man/man8/ownership.8
+  - /usr/share/man/man8/vpddecode.8

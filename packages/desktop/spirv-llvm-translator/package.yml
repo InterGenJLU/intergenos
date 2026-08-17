@@ -1,0 +1,24 @@
+name: spirv-llvm-translator
+version: "21.1.4"
+release: 1
+description: SPIR-V to LLVM IR translator
+license: Apache-2.0
+homepage: ''
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://github.com/KhronosGroup/SPIRV-LLVM-Translator/archive/v${version}/spirv-llvm-translator-${version}.tar.gz
+  sha256: e900c907b62f82cf541a611b33d6685f375fe3bda6f041087fcdba350ffb437d
+dependencies:
+  build:
+  - llvm
+  - spirv-tools
+  - libxml2
+  host: []
+  runtime:
+  - llvm
+  - spirv-tools
+verify_paths:
+  - /usr/bin/llvm-spirv
+  - /usr/lib/libLLVMSPIRVLib.so

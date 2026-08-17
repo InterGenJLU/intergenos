@@ -1,0 +1,46 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+#
+# gdk-pixbuf 2.44.5 — Pass 2 rebuild with glycin support
+# BLFS 13.0
+#
+# Pass 1 builds gdk-pixbuf without glycin because glycin depends on
+# librsvg which depends on gdk-pixbuf (circular dependency).
+# After glycin and librsvg are installed, this pass rebuilds
+# gdk-pixbuf with glycin enabled for GTK4 image loading.
+
+configure() {
+    set -e
+    mkdir -p build
+    cd    build
+
+    meson setup ..                \
+          --prefix=/usr           \
+          --libdir=/usr/lib       \
+          --buildtype=release     \
+          -Dpng=enabled           \
+          -Dgif=enabled           \
+          -Djpeg=enabled          \
+          -Dtiff=enabled          \
+          -Dthumbnailer=disabled  \
+          -Dglycin=enabled        \
+          --wrap-mode=nofallback
+}
+
+build() {
+    set -e
+    cd build
+    ninja
+}
+
+do_install() {
+    set -e
+    cd build
+    DESTDIR="$DESTDIR" ninja install
+}
+
+post_install() {
+    set -e
+    gdk-pixbuf-query-loaders --update-cache
+}

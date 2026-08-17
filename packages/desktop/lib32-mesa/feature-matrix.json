@@ -1,0 +1,37 @@
+{
+  "_comment": "RT-3 feature matrix (lib32-mesa) \u2014 the 32-bit gaming surface, every option explicit (G3). Drivers: RADV + NVK + intel Vulkan (included 2026-07-02), radeonsi/iris real-HW GL + zink as the EXPLICIT fallback; swrast/lavapipe and llvmpipe deliberately ABSENT both directions (a broken 32-bit driver must fail loudly, never software-render at 4fps \u2014 design section 2). Trims vs the sibling, decided 2026-07-02: video/VA off (no 32-bit VAAPI consumer), rusticl off (no 32-bit OpenCL consumer), display-info off (feature-gated HDR/EDID metadata, no 32-bit game-path consumer \u2014 measured trim, keeps lib32-libdisplay-info out of the set), gles1 off (both widths). Asserted after meson setup by igos-build/mesa_feature_matrix.py.",
+  "platforms": [
+    "x11",
+    "wayland"
+  ],
+  "gallium-drivers": [
+    "radeonsi",
+    "iris",
+    "zink"
+  ],
+  "vulkan-drivers": [
+    "amd",
+    "nouveau",
+    "intel"
+  ],
+  "egl": "enabled",
+  "glx": "dri",
+  "gbm": "enabled",
+  "glvnd": "enabled",
+  "gles1": "disabled",
+  "gles2": "enabled",
+  "llvm": "enabled",
+  "xmlconfig": "enabled",
+  "zstd": "enabled",
+  "expat": "enabled",
+  "display-info": "disabled",
+  "xlib-lease": "enabled",
+  "gallium-va": "disabled",
+  "gallium-rusticl": false,
+  "video-codecs": [],
+  "valgrind": "disabled",
+  "libunwind": "disabled",
+  "lmsensors": "disabled",
+  "mesa-clc": "system",
+  "precomp-compiler": "system"
+}

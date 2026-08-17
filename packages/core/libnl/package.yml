@@ -1,0 +1,23 @@
+name: libnl
+version: "3.12.0"
+release: 1
+description: Netlink protocol library suite
+license: LGPL-2.1-or-later
+homepage: https://github.com/thom311/libnl
+tier: core
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/thom311/libnl/releases/download/libnl3_12_0/libnl-${version}.tar.gz
+  sha256: fc51ca7196f1a3f5fdf6ffd3864b50f4f9c02333be28be4eeca057e103c0dd18
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --sysconfdir=/etc
+- --disable-static
+verify_paths:
+  - /usr/bin/genl-ctrl-list
+  - /usr/lib/libnl-3.so

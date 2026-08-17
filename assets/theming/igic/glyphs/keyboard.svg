@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: keyboard — lowered + slightly shrunk so the accessibility corner badge clears it
+       (also lowers the keyboard panel; neutral). VL primitives only, colorless. -->
+  <g class="glyph">
+    <rect x="58" y="116" width="140" height="64" rx="14"/>
+    <line x1="80" y1="136" x2="94" y2="136"/>
+    <line x1="114" y1="136" x2="142" y2="136"/>
+    <line x1="162" y1="136" x2="176" y2="136"/>
+    <line x1="80" y1="154" x2="94" y2="154"/>
+    <line x1="162" y1="154" x2="176" y2="154"/>
+    <line x1="104" y1="166" x2="152" y2="166"/>
+  </g>
+</svg>

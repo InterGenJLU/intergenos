@@ -1,0 +1,22 @@
+# Stateful family manifest — status/network-wireless-signal (ICON_CATEGORIES.md §6.3).
+# ONE base glyph + a level parameter -> a discrete -symbolic.svg ladder (the traditional
+# freedesktop set, widest compatibility). The base (glyphs/wifi-arcs.svg) carries an
+# always-on dot + an ordered <g class="levels"> of 4 arcs (inner -> outer); a state at
+# `level` lights levels[i] (i<level) at full opacity, dims the rest. Opacity survives GTK
+# recoloring, so the ladder reads on any theme; the icons are symbolic (foreground NAME +
+# off-white paint, no glow, no tile). §6.4 render-on-our-GTK-stack legibility at 16px = PROXY.
+schema_version: 1
+family: network-wireless-signal
+category: status
+fit: 1.009                  # optical T(q) family fit (measured convergence)
+kind: symbolic
+base: wifi-arcs
+export:
+  svg: true
+  png: [16, 24, 32, 48]          # top-bar / nav-pane sizes (matches the symbolic anchor)
+states:                          # id | level (0 = none .. 4 = excellent)
+  - { id: network-wireless-signal-none,      level: 0, fit: 1.115 }
+  - { id: network-wireless-signal-weak,      level: 1, fit: 1.115 }
+  - { id: network-wireless-signal-ok,        level: 2, fit: 1.115 }
+  - { id: network-wireless-signal-good,      level: 3, fit: 1.115 }
+  - { id: network-wireless-signal-excellent, level: 4, fit: 1.105 }

@@ -1,0 +1,101 @@
+# Family manifest — third-party app marks (IC-034, the TWO-REGISTER RULE). Third-party apps
+# wear their OWN full-color KNOWN icon recolored to a luminance-keyed GRADIENT BLUE (the
+# approved IC-032/033 look); InterGenOS's own first-party + system marks speak the
+# flat LINE language and live in other families (intergen-apps / core-gnome-apps / the status,
+# device, folder, mimetype sets) — untouched by this cut.
+#
+# Every row here is `mode: gradient`: the app's full-color source is staged in igic/gradient/
+# and emitted by _compile_gradient, which keys each pixel's ITU-R 709 luminance onto a fixed
+# DEEP->BRAND->LIGHT blue ramp. A staged SVG passes the gate-2 security scan FIRST, is then
+# rasterized, and is NEVER emitted verbatim (no active content reaches the theme); the scalable
+# slot is an engine-authored data-URI wrapper. glow: none by construction (a solid raster fill
+# has no outline for the signature to blur — IC-027). `stem` = the app's .desktop Icon= key, so
+# GTK resolves the launcher to this theme file. Per-mark source path + sha + license:
+# BRAND_GLYPH_REGISTER.md.
+schema_version: 1
+family: third-party-apps
+category: apps
+kind: color
+template: none
+glow: none
+pulse: none
+export:
+  svg: true
+  png: [16, 24, 32, 48, 64, 128, 256]
+rows:                            # id | stem (.desktop Icon= key) | gradient (full-color source in igic/gradient/) | accent | name
+  # media / creative / office — reworked flat vendor-ingest -> gradient blue (IC-033 A + C)
+  - { id: app-mpv,          stem: mpv,                                  mode: gradient, gradient: mpv.svg,          accent: intergen-blue, name: mpv }
+  - { id: app-celluloid,    stem: io.github.celluloid_player.Celluloid, mode: gradient, gradient: celluloid.svg,    accent: intergen-blue, name: Celluloid }
+  - { id: app-rhythmbox,    stem: org.gnome.Rhythmbox,                  mode: gradient, gradient: rhythmbox.svg,    accent: intergen-blue, name: Rhythmbox }
+  - { id: app-audacity,     stem: org.audacityteam.Audacity,            mode: gradient, gradient: audacity.svg,     accent: intergen-blue, name: Audacity }
+  - { id: app-inkscape,     stem: org.inkscape.Inkscape,                mode: gradient, gradient: inkscape.svg,     accent: intergen-blue, name: Inkscape }
+  - { id: app-transmission, stem: com.transmissionbt.Transmission,      mode: gradient, gradient: transmission.svg, accent: intergen-blue, name: Transmission }
+  - { id: app-firefox,      stem: firefox,                              mode: gradient, gradient: firefox.png,      accent: intergen-blue, name: Firefox }
+  - { id: app-thunderbird,  stem: thunderbird,                          mode: gradient, gradient: thunderbird.png,  accent: intergen-blue, name: Thunderbird }
+  - { id: app-gimp,         stem: org.gimp.GIMP,                        mode: gradient, gradient: gimp.svg,         accent: intergen-blue, name: GIMP }
+  - { id: app-libreoffice-writer,      stem: libreoffice-writer,      mode: gradient, gradient: libreoffice-writer.png,      accent: intergen-blue, name: "LibreOffice Writer" }
+  - { id: app-libreoffice-calc,        stem: libreoffice-calc,        mode: gradient, gradient: libreoffice-calc.png,        accent: intergen-blue, name: "LibreOffice Calc" }
+  - { id: app-libreoffice-impress,     stem: libreoffice-impress,     mode: gradient, gradient: libreoffice-impress.png,     accent: intergen-blue, name: "LibreOffice Impress" }
+  - { id: app-libreoffice-draw,        stem: libreoffice-draw,        mode: gradient, gradient: libreoffice-draw.png,        accent: intergen-blue, name: "LibreOffice Draw" }
+  - { id: app-libreoffice-base,        stem: libreoffice-base,        mode: gradient, gradient: libreoffice-base.png,        accent: intergen-blue, name: "LibreOffice Base" }
+  - { id: app-libreoffice-math,        stem: libreoffice-math,        mode: gradient, gradient: libreoffice-math.png,        accent: intergen-blue, name: "LibreOffice Math" }
+  - { id: app-libreoffice-startcenter, stem: libreoffice-startcenter, mode: gradient, gradient: libreoffice-startcenter.png, accent: intergen-blue, name: "LibreOffice Start Center" }
+  # CLI / utility / virt — the IC-032 ten, NEW marks (each = the app's own known icon in gradient blue)
+  - { id: app-btop,         stem: btop,         mode: gradient, gradient: btop.svg,         accent: intergen-blue, name: btop }
+  - { id: app-htop,         stem: htop,         mode: gradient, gradient: htop.svg,         accent: intergen-blue, name: htop }
+  - { id: app-nvim,         stem: nvim,         mode: gradient, gradient: nvim.svg,         accent: intergen-blue, name: Neovim }
+  - { id: app-cups,         stem: cups,         mode: gradient, gradient: cups.svg,         accent: intergen-blue, name: CUPS }
+  - { id: app-gparted,      stem: gparted,      mode: gradient, gradient: gparted.svg,      accent: intergen-blue, name: GParted }
+  - { id: app-gvim,         stem: gvim,         mode: gradient, gradient: gvim.svg,         accent: intergen-blue, name: GVim }
+  - { id: app-winetricks,   stem: winetricks,   mode: gradient, gradient: winetricks.svg,   accent: intergen-blue, name: Winetricks }
+  - { id: app-virt-viewer,  stem: virt-viewer,  mode: gradient, gradient: virt-viewer.svg,  accent: intergen-blue, name: "Virt Viewer" }
+  - { id: app-virt-manager, stem: virt-manager, mode: gradient, gradient: virt-manager.png, accent: intergen-blue, name: "Virtual Machine Manager" }
+  - { id: app-ibus-setup,   stem: ibus-setup,   mode: gradient, gradient: ibus-setup.svg,   accent: intergen-blue, name: "IBus Preferences" }
+  # Coverage-fix aliases — both-names: GTK resolves a launcher by its .desktop Icon= key, so
+  # each emits the SAME gradient source under the confirmed short-form key (output byte-identical
+  # to its primary). gvim covers vim.desktop (Icon=gvim); virt-viewer covers remote-viewer.
+  - { id: app-audacity-key,     stem: audacity,             mode: gradient, gradient: audacity.svg,     accent: intergen-blue, name: Audacity }
+  - { id: app-transmission-key, stem: transmission-gtk,     mode: gradient, gradient: transmission.svg, accent: intergen-blue, name: Transmission }
+  - { id: app-gimp-key,         stem: gimp,                 mode: gradient, gradient: gimp.svg,         accent: intergen-blue, name: GIMP }
+  - { id: app-rhythmbox-key,    stem: org.gnome.Rhythmbox3, mode: gradient, gradient: rhythmbox.svg,    accent: intergen-blue, name: Rhythmbox }
+  # IC-038 whole-catalog wave-2 — branded third-party packages with a recognizable own mark (operator
+  # ruling: two-register rule verbatim, gradient recolor). stem = package name (coverage keys on the
+  # WIRED stem; these avoid the package-name/desktop-id split that mis-scored file-roller/seahorse).
+  # Sources (per BRAND_GLYPH_REGISTER.md): qemu/wine/mupdf/steam = vendor tarball or host-installed;
+  # nvidia = the pinned NVIDIA .run; cmake = vendor tarball icns; git/go = official-home fetch; rust/python =
+  # operator-provided (rust-1.svg = Rust logo in Rust-orange; python.svg = the standard two-snake logo, replacing
+  # the earlier IDLE document-badge raster); ffmpeg = operator-provided ffmpeg.png (FFmpeg waveform; the matching
+  # ffmpeg.svg was declined — it wraps an embedded <image> data-URI that trips gate-2). All -> brand blue; each
+  # staged source is gate-2 scanned fail-closed then rasterized+recolored (never verbatim).
+  - { id: app-qemu,   stem: qemu,   mode: gradient, gradient: qemu.svg,   accent: intergen-blue, name: QEMU }
+  - { id: app-wine,   stem: wine,   mode: gradient, gradient: wine.svg,   accent: intergen-blue, name: Wine }
+  - { id: app-mupdf,  stem: mupdf,  mode: gradient, gradient: mupdf.png,  accent: intergen-blue, name: MuPDF }
+  - { id: app-zoom,   stem: zoom,   mode: gradient, gradient: zoom.png,   accent: intergen-blue, name: Zoom }
+  - { id: app-python, stem: python, mode: gradient, gradient: python.svg, accent: intergen-blue, name: Python }
+  - { id: app-steam,  stem: steam,  mode: gradient, gradient: steam.png,  accent: intergen-blue, name: Steam }
+  - { id: app-nvidia, stem: nvidia, mode: gradient, gradient: nvidia.png, accent: intergen-blue, name: NVIDIA }
+  - { id: app-cmake,  stem: cmake,  mode: gradient, gradient: cmake.png,  accent: intergen-blue, name: CMake }
+  - { id: app-git,    stem: git,    mode: gradient, gradient: git.png,    accent: intergen-blue, name: Git }
+  - { id: app-go,     stem: go,     mode: gradient, gradient: go.svg,     accent: intergen-blue, name: Go }
+  - { id: app-rust,   stem: rust,   mode: gradient, gradient: rust.svg,   accent: intergen-blue, name: Rust }
+  - { id: app-ffmpeg, stem: ffmpeg, mode: gradient, gradient: ffmpeg.png, accent: intergen-blue, name: FFmpeg }
+  # Flat-ten redo (Decided 2026-07-22): five of the rejected wave-2 flat rows re-registered as
+  # gradient — each of these packages HAS a real known upstream mark, so the two-register rule puts
+  # it here, not in catalog-flats. Sources (per BRAND_GLYPH_REGISTER.md): bash = the official GNU
+  # Bash logo icon (project's own logo repo, 512px); samba = the official Samba wordmark vector
+  # (public domain), re-canvased square with vendor geometry untouched; links = the vendor's own
+  # tile logo at 500px (matches the mark shipped in the pinned links tarball); lynx = a clean-vector
+  # redraw of the mark shipped in the pinned lynx tarball (the front-facing tufted lynx head; the
+  # vendor art exists only at 48px, so the subject is redrawn at render fidelity — Decided
+  # 2026-07-22, replacing the integer pixel-art upscale rejected for low fidelity); wayland = the
+  # official W-on-disc logo vector (public domain; matches the mark shipped in the pinned wayland
+  # tarball's doc images). SIZING (Decided 2026-07-22): the gradient path rasters a source
+  # full-canvas, so full-bleed sources read oversized beside their neighbors — bash/links/wayland
+  # carry a transparent re-canvas margin (content max-dim ~0.92 hex / ~0.86 square / ~0.90 disc,
+  # matching the approved-register optical band; geometry untouched, canvas only). Every staged
+  # source is gate-2 scanned fail-closed, then rasterized + luminance-keyed (never emitted verbatim).
+  - { id: app-bash,    stem: bash,    mode: gradient, gradient: bash.png,    accent: intergen-blue, name: Bash }
+  - { id: app-samba,   stem: samba,   mode: gradient, gradient: samba.svg,   accent: intergen-blue, name: Samba }
+  - { id: app-links,   stem: links,   mode: gradient, gradient: links.png,   accent: intergen-blue, name: Links }
+  - { id: app-lynx,    stem: lynx,    mode: gradient, gradient: lynx.svg,    accent: intergen-blue, name: Lynx }
+  - { id: app-wayland, stem: wayland, mode: gradient, gradient: wayland.svg, accent: intergen-blue, name: Wayland }

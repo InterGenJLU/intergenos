@@ -1,0 +1,39 @@
+name: pinentry
+version: "1.3.2"
+release: 2  # r2: declare gcr4 (gcr-4 probe failed by build order; fell back to gcr-base-3 — silent-loss gate find)
+description: PIN/passphrase entry dialog
+license: GPL-2.0-or-later
+homepage: https://www.gnupg.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.gnupg.org/ftp/gcrypt/pinentry/pinentry-${version}.tar.bz2
+  sha256: 8e986ed88561b4da6e9efe0c54fa4ca8923035c99264df0b0464497c5fb94e9e
+dependencies:
+  build:
+  - libassuan
+  - libgpg-error
+  - libsecret
+  - gcr
+  - gcr4
+  host: []
+  runtime:
+  - libassuan
+  - libgpg-error
+  - libsecret
+  - gcr
+  - gcr4
+# Cycle-break: pinentry-pass1 (curses/tty only, no gcr) is built first so
+# gnupg2 → gcr can be built before this full pinentry. This pinentry then
+# supersedes pinentry-pass1 with the GNOME3 frontend enabled.
+supersedes:
+- pinentry-pass1
+configure_flags:
+- --prefix=/usr
+- --enable-pinentry-tty
+- --enable-pinentry-curses
+- --enable-pinentry-gnome3
+verify_paths:
+  - /usr/bin/pinentry
+  - /usr/bin/pinentry-curses

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- InterGen AI panel (org.intergenos.InterGenPanel) — the AI assistant mark.
+       The canonical ECG pulse, BARE / free-floating (brand rule: the AI mark is
+       never framed). Asymmetric per docs/VISUAL_LANGUAGE.md §8 + assets/
+       intergen-mark/README.md: SHORT lead-in, R-peak then S-trough LEFT of
+       centre, LONG baseline trail to the right. -->
+  <g class="glyph">
+    <path d="M 20 128 L 54 128 L 71 46 L 93 210 L 109 128 L 236 128"/>
+  </g>
+</svg>

@@ -1,0 +1,24 @@
+name: pyproject-metadata
+version: "0.11.0"
+release: 3  # r3: F12 runtime-declaration wave 2026-07-21 — runtime deps declared from the pinned sdist metadata (packaging); .PKGINFO depend= change => release bump
+description: PEP 621 metadata class with core metadata generation
+license: MIT
+homepage: https://pypi.org/project/pyproject-metadata/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/p/pyproject-metadata/pyproject_metadata-${version}.tar.gz
+  sha256: c72fa49418bb7c5a10f25e050c418009898d1c051721d19f98a6fb6da59a66cf
+dependencies:
+  build:
+  # The pinned sdist's [build-system] names flit_core.buildapi, provided by
+  # flit-core. build.sh builds with --no-build-isolation, which installs nothing
+  # for the build, so flit-core must already be present; declaring it here is
+  # what orders it ahead of this package.
+  - flit-core
+  host: []
+  runtime:
+  - packaging
+verify_paths:
+  - /usr/lib/python3.14/site-packages/pyproject_metadata

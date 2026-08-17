@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: pointing — pointer/cursor (mirrored, points up-right away from the badge corner). VL primitives only, colorless. -->
+  <g class="glyph">
+    <path d="M 180 64 L 180 176 L 152 148 L 132 190 L 114 182 L 134 142 L 92 142 Z"/>
+  </g>
+</svg>

@@ -1,0 +1,24 @@
+name: tar-tmp
+version: "1.35"
+release: 1
+description: "GNU tar archiver (temporary tools)"
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/tar/
+
+source:
+  - url: https://ftpmirror.gnu.org/tar/tar-${version}.tar.xz
+    sha256: 4d62ff37342ec7aed748535323930c7cf94acf71c3591882b26a7ea50f3edc16
+
+dependencies:
+  build: []
+  host:
+    - ncurses
+  runtime: []
+
+tier: toolchain
+target_triple: x86_64-igos-linux-gnu
+build_style: autotools
+configure_flags:
+  - --prefix=/usr
+  - --host=$IGOS_TARGET
+  - --build=$(build-aux/config.guess)

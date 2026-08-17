@@ -1,0 +1,42 @@
+name: lib32-libgpg-error
+version: '1.59'
+release: 1
+description: GPG error code library (32-bit multilib runtime)
+license: LGPL-2.1-or-later
+homepage: https://www.gnupg.org/
+tier: core
+# Bash-tier lib32 twin (the lib32-expat shape): build.sh sources the
+# single lib32-env.sh profile, installs to a private root, and
+# allowlist-stages ONLY /usr/lib32 (headers, gpg-error binary, gpgrt
+# tools all ship with the 64-bit sibling). Wired at the lib32 tail of
+# chroot-build-core-extra.sh (Rule 2 — bash drivers need explicit
+# run_package wiring).
+#
+# Measured-demand ADD (operator decision 3, 2026-07-02): Valve/Arch HARD
+# dep of the 32-bit Steam client our lib32 set lacked. Soname read from
+# the pinned configure.ac (LT current 41 age 41 revision 2 ->
+# libgpg-error.so.0).
+build_style: custom
+install_func: do_install
+lib32_source: libgpg-error
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://www.gnupg.org/ftp/gcrypt/libgpg-error/libgpg-error-${version}.tar.bz2
+  sha256: a19bc5087fd97026d93cb4b45d51638d1a25202a5e1fbc3905799f424cfa6134
+dependencies:
+  build:
+  - lib32-glibc
+  host: []
+  runtime:
+  - lib32-glibc
+verify_paths:
+  - /usr/lib32/libgpg-error.so.0
+  - /usr/lib32/pkgconfig/gpg-error.pc
+
+# Build inputs composed from the repository tree (declared so the published
+# source archive carries every input the build consumes — the corresponding-
+# source rule the kernel config fragments established; survey 2026-08-11).
+sources_extra:
+- scripts/lib32-env.sh

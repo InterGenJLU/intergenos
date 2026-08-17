@@ -1,0 +1,31 @@
+name: nlohmann-json
+version: "3.12.0"
+release: 1
+description: JSON for Modern C++ (header-only library + cmake config)
+license: MIT
+homepage: https://github.com/nlohmann/json
+tier: compute
+build_style: custom
+install_func: do_install
+
+# General C++ header lib whose only in-tree consumers today are
+# compute-tier (MIOpen find_package(nlohmann_json 3.9.1 REQUIRED),
+# MIGraphX) — the fmt/glog precedent: tier compute, retier when a
+# broader consumer appears. Latest stable (Rule 12; MIOpen's manifest
+# floor is 3.11.2). sha256 two-witness verified 2026-07-17: upstream tag
+# archive ⊕ FreeBSD ports (nlohmann-json-v3.12.0_GH0.tar.gz, identical
+# digest) + Apache Arrow's bundled-dep manifest.
+source:
+  - url: https://github.com/nlohmann/json/archive/refs/tags/v${version}.tar.gz
+    filename: nlohmann-json-${version}.tar.gz
+    sha256: 4b92eb0c06d10683f7447ce9406cb97cd4b453be18d7279320f7b2f025c10187
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/include/nlohmann/json.hpp
+  - /usr/share/cmake/nlohmann_json

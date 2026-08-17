@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: keyboard-brightness OFF — keyboard + rayless disc with a slash. -->
+  <g class="glyph">
+    <rect x="52" y="132" width="152" height="72" rx="10"/>
+    <line x1="76" y1="156" x2="92" y2="156"/><line x1="108" y1="156" x2="124" y2="156"/>
+    <line x1="140" y1="156" x2="156" y2="156"/><line x1="172" y1="156" x2="180" y2="156"/>
+    <line x1="88" y1="180" x2="168" y2="180"/>
+    <circle cx="128" cy="84" r="18"/>
+    <line x1="114" y1="98" x2="142" y2="70"/>
+  </g>
+</svg>

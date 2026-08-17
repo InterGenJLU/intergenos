@@ -1,0 +1,29 @@
+name: libXvMC
+version: "1.0.15"
+release: 1
+description: X Video Motion Compensation library
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/lib/libXvMC-${version}.tar.xz
+  sha256: 4f518afde3d7fd435346af7b368d2f73517f3d5f82647c962caf3f7bb8ff7078
+dependencies:
+  build:
+  - libXv
+  - libX11
+  - libXext
+  - xorgproto
+  host: []
+  runtime:
+  - libXv
+  - libX11
+  - libXext
+configure_flags:
+- --prefix=/usr
+- --disable-static
+
+verify_paths:
+  - /usr/lib/libXvMC.so

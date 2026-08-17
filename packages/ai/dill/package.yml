@@ -1,0 +1,22 @@
+name: dill
+# Not upstream-latest (0.4.1): datasets caps dill<0.4.1; also meets multiprocess (>=0.3.8) (Rule 12 deviation).
+version: "0.4.0"
+release: 1
+description: Serialize all of Python (extended pickle)
+license: BSD-3-Clause
+homepage: https://github.com/uqfoundation/dill
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/12/80/630b4b88364e9a8c8c5797f4602d0f76ef820909ee32f0bacb9f90654042/dill-0.4.0.tar.gz
+  sha256: 0633f1d2df477324f53a895b02c901fb961bdbf65a17122586ea7019292cbcf0
+dependencies:
+  build:
+  - setuptools
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/dill/__init__.py
+  - /usr/lib/python3.14/site-packages/dill/_dill.py

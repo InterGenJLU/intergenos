@@ -1,0 +1,25 @@
+# Family manifest — devices (ICON_CATEGORIES.md §5 rows + §2 conventions). Devices are
+# heterogeneous shapes (no shared base), so template: none + a per-row device glyph +
+# the device-class accent. freedesktop device icon names as ids.
+#
+# Accents: §3 device map is ratified for drive=teal, removable/usb=green (optical=violet,
+# not in this batch). PROPOSED (not in §3, flagged for the operator): phone=magenta,
+# camera=violet, printer=orange, display=intergen-blue (the neutral default), speakers=yellow.
+schema_version: 1
+family: devices
+category: devices
+kind: color
+template: none
+glow: signature
+pulse: none
+export:
+  svg: true
+  png: [16, 24, 32, 48, 64, 128, 256]
+rows:                             # id (freedesktop name) | emblem (the device glyph) | accent | name
+  - { id: drive-harddisk,        emblem: device-drive,   accent: accent-teal,    name: Hard Drive, fit: 1.253 }
+  - { id: drive-removable-media, emblem: device-usb,     accent: accent-green,   name: USB Drive, fit: 1.225 }
+  - { id: phone,                 emblem: device-phone,   accent: accent-magenta, name: Phone, fit: 1.225 }
+  - { id: camera-photo,          emblem: device-camera,  accent: accent-violet,  name: Camera, fit: 1.225 }
+  - { id: printer,               emblem: device-printer, accent: accent-orange,  name: Printer, fit: 1.225 }
+  - { id: video-display,         emblem: device-display, accent: intergen-blue,  name: Display, fit: 1.225 }
+  - { id: audio-speakers,        emblem: device-audio,   accent: accent-yellow,  name: Speakers, fit: 1.377 }

@@ -1,0 +1,34 @@
+name: lib32-zstd
+version: "1.5.7"
+release: 1
+description: Zstandard real-time compression (32-bit multilib runtime)
+license: BSD-3-Clause
+homepage: https://facebook.github.io/zstd/
+tier: core
+build_style: custom
+install_func: do_install
+lib32_source: zstd
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://github.com/facebook/zstd/releases/download/v${version}/zstd-${version}.tar.gz
+  sha256: eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3
+dependencies:
+  build:
+  - lib32-glibc
+  host: []
+  runtime:
+  - lib32-glibc
+tests:
+  enabled: false
+  reason: "Library-only build (make -C lib): the upstream test battery exercises the zstd CLI program, which this package deliberately does not build or ship (it ships with the 64-bit sibling). The staged m32 library is verified by the allowlist staging assertion, the archive-time ELF-class + time64 audits, and its 32-bit consumers' suites."
+verify_paths:
+  - /usr/lib32/libzstd.so.1
+  - /usr/lib32/pkgconfig/libzstd.pc
+
+# Build inputs composed from the repository tree (declared so the published
+# source archive carries every input the build consumes — the corresponding-
+# source rule the kernel config fragments established; survey 2026-08-11).
+sources_extra:
+- scripts/lib32-env.sh

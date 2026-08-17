@@ -1,0 +1,100 @@
+name: mingw-w64-gcc
+version: "15.2.0"
+release: 1
+description: Full cross-gcc for both PE triplets, posix threads (mingw-w64 toolchain, stage 6)
+license: GPL-3.0-or-later
+homepage: https://gcc.gnu.org/
+tier: extra
+# GE extra-tier wave (build plan §4, RT-15 stage 6 — the finished
+# toolchain wine/DXVK/vkd3d-proton consume). Full gcc build (libgcc,
+# libstdc++ and friends now link because crt + winpthreads exist in the
+# sysroots), --enable-threads=posix per DXVK's documented hard
+# requirement. SUPERSEDES the bootstrap compiler: its file set is a
+# strict subset at identical paths (same prefix is REQUIRED for gcc's
+# tooldir sysroot search), and the supersedes mechanism transfers
+# ownership atomically — the pyyaml-pass2 shape. Reuses the toolchain
+# tier's exact gcc pin.
+build_style: custom
+# Mirror-only (extra-tier default, stated explicitly).
+iso_include: false
+source:
+- url: https://ftp.gnu.org/gnu/gcc/gcc-${version}/gcc-${version}.tar.xz
+  sha256: 438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e
+dependencies:
+  build:
+  - gmp
+  - mpfr
+  - mpc
+  - zlib
+  host:
+  - mingw-w64-binutils
+  - mingw-w64-headers
+  - mingw-w64-crt
+  - mingw-w64-winpthreads
+  runtime:
+  - gmp
+  - mpfr
+  - mpc
+  - zlib
+  - mingw-w64-binutils
+  - mingw-w64-headers
+  - mingw-w64-crt
+  - mingw-w64-winpthreads
+supersedes:
+  - mingw-w64-gcc-bootstrap
+# THE RT-15 CHECKED GATE (method corrected, GE-01 L23 — the lib32-llvm
+# acceptance-gate lesson verbatim: NEVER assert a relocatable tool's
+# deploy-time answer from its staging location). The original gate RAN
+# the STAGED ${DESTDIR}/usr/bin/${T}-gcc: the driver resolves as/ld
+# RELATIVE to its own location, binutils' tools are a DIFFERENT
+# package's file set (absent from this DESTDIR), so the staged driver
+# silently fell through to the HOST ELF assembler and the gate
+# false-FATAL'd correct payload on COFF pseudo-ops. The honest,
+# staging-safe form: the compiler already PROVED itself by building the
+# entire target-lib corpus during make — assert those staged artifacts'
+# PE format with the DEPLOYED cross objdump (a genuinely-installed
+# sibling package). The deploy-time FUNCTIONAL proof is downstream by
+# construction: wine/DXVK/vkd3d-proton compile through the deployed
+# toolchain in this same tier.
+validation:
+  - type: sanity_check
+    description: "Both triplets' freshly-built target libs are real PE (RT-15 gate: pei-x86-64 + pei-i386 asserted on staged crtbegin.o + libgcc.a, never assumed)"
+    script: |
+      set -u
+      # BFD format vocabulary (L24 — verified on the staged artifacts):
+      # OBJECT files report "pe-<arch>"; only LINKED IMAGES report
+      # "pei-<arch>" (the i = image). The object checks below must use
+      # the pe- form; the DLL check is where pei- belongs.
+      for T in x86_64-w64-mingw32 i686-w64-mingw32; do
+          case "$T" in
+              x86_64-*) wantobj="pe-x86-64"; wantimg="pei-x86-64" ;;
+              i686-*)   wantobj="pe-i386";   wantimg="pei-i386"  ;;
+          esac
+          libgcc=""; crtbegin=""; dll="${DESTDIR}/usr/${T}/bin/libstdc++-6.dll"
+          for f in "${DESTDIR}/usr/lib/gcc/${T}"/*/libgcc.a;   do [ -e "$f" ] && libgcc="$f";   done
+          for f in "${DESTDIR}/usr/lib/gcc/${T}"/*/crtbegin.o; do [ -e "$f" ] && crtbegin="$f"; done
+          if [ -z "$libgcc" ] || [ -z "$crtbegin" ] || [ ! -e "$dll" ]; then
+              echo "PE-SMOKE-FAIL: ${T} target-lib artifacts missing (libgcc.a / crtbegin.o / libstdc++-6.dll)"
+              exit 1
+          fi
+          if ! "/usr/bin/${T}-objdump" -f "$crtbegin" | grep -q "file format ${wantobj}"; then
+              echo "PE-SMOKE-FAIL: ${T} crtbegin.o is not ${wantobj}"
+              exit 1
+          fi
+          if ! "/usr/bin/${T}-objdump" -f "$libgcc" | grep -q "file format ${wantobj}" \
+             || "/usr/bin/${T}-objdump" -f "$libgcc" | grep -q "file format elf"; then
+              echo "PE-SMOKE-FAIL: ${T} libgcc.a members are not (purely) ${wantobj}"
+              exit 1
+          fi
+          if ! "/usr/bin/${T}-objdump" -f "$dll" | grep -q "file format ${wantimg}"; then
+              echo "PE-SMOKE-FAIL: ${T} libstdc++-6.dll is not ${wantimg}"
+              exit 1
+          fi
+      done
+      echo "PE-SMOKE-OK-BOTH-TRIPLETS"
+    expect_contains: "PE-SMOKE-OK-BOTH-TRIPLETS"
+    fatal: true
+verify_paths:
+  - /usr/bin/x86_64-w64-mingw32-g++
+  - /usr/bin/i686-w64-mingw32-g++
+  - /usr/x86_64-w64-mingw32/bin/libstdc++-6.dll

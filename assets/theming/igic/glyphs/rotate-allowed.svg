@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: rotation-allowed — a device slab inside a rotation arrow sweep. -->
+  <g class="glyph">
+    <rect x="96" y="88" width="64" height="96" rx="10"/>
+    <path d="M 196 168 A 84 84 0 0 0 128 44"/>
+    <path d="M 128 24 L 128 44 L 148 44" transform=""/>
+    <path d="M 60 88 A 84 84 0 0 0 128 212"/>
+    <path d="M 128 232 L 128 212 L 108 212"/>
+  </g>
+</svg>

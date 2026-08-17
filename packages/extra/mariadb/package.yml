@@ -1,0 +1,47 @@
+name: mariadb
+version: "11.8.6"
+release: 4  # r4: deprecated licence identifiers replaced with the modern SPDX forms after reading the pinned tarball's own grants — README.md states the server is available "only under version 2 ... (I.e. Without the 'any later version' clause.)" (only), while the bundled client library's headers grant the Library GPL "version 2 of the License, or (at your option) any later version" against the LGPL 2.1 text it ships (or-later). Recipe metadata only, but the archive's .PKGINFO carries license=, so the shipped bytes change and the release advances with them. r3: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+content_hash: 6a924e7b4c0636e7
+description: MariaDB 11.8 LTS — GPL-2.0-only relational database server (MySQL-compatible); statically bundles fmt (MIT) via CMake ExternalProject
+license: "GPL-2.0-only AND LGPL-2.1-or-later AND MIT"
+homepage: https://mariadb.org/
+tier: extra
+build_style: cmake
+install_func: do_install
+source:
+- url: https://archive.mariadb.org/mariadb-${version}/source/mariadb-${version}.tar.gz
+  sha256: b126581a8ca89376d2a3ce63fee97c114c3e15315345e769b9d00c51e1b7d619
+- url: https://github.com/fmtlib/fmt/releases/download/12.1.0/fmt-12.1.0.zip
+  sha256: 695fd197fa5aff8fc67b5f2bbc110490a875cdf7a41686ac8512fb480fa8ada7
+  extract: false  # cmake ExternalProject expects a zip artifact, not extracted contents
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - bison-core
+  - flex
+  - pkgconf
+  - openssl
+  - zlib
+  - readline
+  - ncurses-core
+  - libxml2
+  - pcre2
+  - jemalloc
+  - mitkrb
+  - linux-pam
+  host: []
+  runtime:
+  - openssl
+  - zlib
+  - readline
+  - ncurses
+  - libxml2
+  - pcre2
+  - jemalloc
+  - mitkrb
+  - linux-pam
+verify_paths:
+  - /usr/bin/mariadb
+  - /usr/lib64/libmariadb.so.3
+  - /usr/share/mariadb/binary-configure

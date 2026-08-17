@@ -1,0 +1,41 @@
+name: libva-utils
+version: "2.23.0"
+release: 1
+description: VA-API utility programs (vainfo, vaplay, vapostproc)
+license: MIT
+homepage: https://github.com/intel/libva-utils
+tier: extra
+build_style: custom
+install_func: do_install
+iso_include: false
+# libva-utils — VAAPI diagnostic + introspection utilities.
+# Provides `vainfo` (the canonical command for checking VAAPI driver
+# health on any GPU), plus `vaplay` (replay raw bitstreams) and
+# `vapostproc` (post-process pipeline test). Pulled in by the
+# extra/amdgpu meta-package; useful independently for users with Intel
+# iGPUs or AMD APUs.
+#
+# Build system: the pinned 2.23.0 release tarball is AUTOTOOLS (configure +
+# Makefile.am; 0 meson.build — verified 2026-06-02). build_style: custom with
+# an explicit ./configure (see build.sh). The earlier build_style: meson was a
+# stale-recipe assumption (build-rules §2.8) that halted the build at configure.
+# Cross-distro: Arch/Fedora/Debian all package intel/libva-utils at this version
+# scheme; we build the same upstream release asset from source.
+source:
+- url: https://github.com/intel/libva-utils/releases/download/${version}/libva-utils-${version}.tar.bz2
+  sha256: cd99604cd8f659d02e725016b26048b25232e2deac9b92117c0b85748ed81f0f
+dependencies:
+  build:
+  - libva           # headers + library (the dispatcher we test)
+  - libdrm          # libva needs drm for GBM backend
+  - libX11          # libva-x11 backend
+  host: []
+  runtime:
+  - libva
+  - libdrm
+  - libX11
+tests:
+  enabled: false
+  reason: "libva-utils' testsuite requires a working VAAPI driver bound to a real GPU (/dev/dri/renderD128). The build chroot has neither a GPU nor a VAAPI driver loaded; tests cannot meaningfully run. Same environment-bounded shape as docker/runc/containerd."
+verify_paths:
+  - /usr/bin/vainfo

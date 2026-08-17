@@ -1,0 +1,77 @@
+name: lib32-alsa-plugins
+version: "1.2.12"
+release: 1
+description: ALSA plugin collection, pulse plugins only (32-bit multilib runtime)
+license: LGPL-2.1-or-later
+homepage: https://www.alsa-project.org/
+tier: desktop
+# PURE-YML package (no build.sh): driven end-to-end by the builder's lib32
+# autotools lane — sourced profile per command, mechanism flags injected,
+# allowlist staged-copy install. PULSE-ONLY by operator decision
+# (2026-07-02): this twin exists solely to route 32-bit native titles'
+# ALSA output into the (PipeWire-provided) pulse server — it ships exactly
+# the pulse conf/pcm/ctl plugins under /usr/lib32/alsa-lib/ (inside the
+# allowlist). The arch-independent ALSA configuration tree
+# (/usr/share/alsa/alsa.conf.d) ships with the 64-bit sibling and is
+# never re-shipped here (the staging allowlist drops it by construction).
+#
+# THE DISABLE-WALL, grounded against the pinned 1.2.12 configure.ac (G3 —
+# pin, never autodetect; the sibling autodetects its full plugin surface,
+# the pulse-only twin pins every non-pulse plugin off):
+# - dep-carrying plugins OFF: jack, samplerate, libav (avcodec: a52 +
+#   lavrate riders pinned too), speexdsp + speex, maemo (dbus), aaf (avtp).
+#   Enforcement by construction: none of those have lib32 twins, so a
+#   regressed autodetect edge dangles and Step 4.75 halts the build.
+# - dep-free non-pulse plugins OFF too (oss/mix/usbstream/arcamav):
+#   pulse-ONLY is the ratified scope; alsa-lib-only plugins serve no route
+#   this twin exists for.
+build_style: autotools
+lib32_source: alsa-plugins
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://www.alsa-project.org/files/pub/plugins/alsa-plugins-${version}.tar.bz2
+  sha256: 7bd8a83d304e8e2d86a25895d8dcb0ef0245a8df32e271959cdbdc6af39b66f2
+dependencies:
+  build:
+  - lib32-glibc
+  - lib32-alsa-lib
+  - lib32-libpulse
+  # CROSS-WIDTH HEADER PROVIDER (GE-01 L12): the pulse plugins compile
+  # against the width-neutral /usr/include/pulse headers, which ship with
+  # the 64-BIT pulseaudio package — lib32-libpulse's allowlist stages only
+  # /usr/lib32 (headers stay with the sibling, by design). Without this
+  # edge the graph ordered this twin ~235 positions before pulseaudio
+  # (dragged late by gtk3/avahi/bluez) and the build died on the missing
+  # header. Same declared-64-bit-provider pattern as lib32-wayland ->
+  # wayland. The 32-bit LINK edge is lib32-libpulse; this edge is headers
+  # only.
+  - pulseaudio
+  host: []
+  runtime:
+  - lib32-glibc
+  - lib32-alsa-lib
+  - lib32-libpulse
+configure_flags:
+- --prefix=/usr
+- --disable-static
+- --enable-pulseaudio
+- --disable-oss
+- --disable-mix
+- --disable-usbstream
+- --disable-arcamav
+- --disable-jack
+- --disable-samplerate
+- --disable-libav
+- --disable-a52
+- --disable-lavrate
+- --disable-speexdsp
+- --disable-maemo-plugin
+- --disable-maemo-resource-manager
+- --disable-aaf
+- --with-speex=no
+verify_paths:
+  - /usr/lib32/alsa-lib/libasound_module_pcm_pulse.so
+  - /usr/lib32/alsa-lib/libasound_module_ctl_pulse.so
+  - /usr/lib32/alsa-lib/libasound_module_conf_pulse.so

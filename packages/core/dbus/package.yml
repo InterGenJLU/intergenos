@@ -1,0 +1,28 @@
+name: dbus
+version: "1.16.2"
+release: 3  # D1: post_install chown stripped its OWN suid — chmod-restore added (L29 twin)
+description: Message bus system
+license: AFL-2.1 OR GPL-2.0-or-later
+source:
+- url: https://dbus.freedesktop.org/releases/dbus/dbus-${version}.tar.xz
+  sha256: 0ba2a1a4b16afe7bceb2c07e9ce99a8c2c3508e5dec290dbb643384bd6beb7e2
+dependencies:
+  build:
+    - meson
+    - ninja
+    - python
+  host: []
+  runtime:
+  - systemd
+  - expat
+# python added 2026-05-12 (Scan A.2): meson.build:87 requires `python3`
+# program at configure time. Was transitively present in chroot from
+# earlier ch8 builds (python @ ch8:516); declaring per real upstream
+# requirement.
+tier: core
+build_style: meson
+install_func: do_install
+
+verify_paths:
+  - /usr/bin/dbus-daemon
+  - /etc/dbus-1/system.d

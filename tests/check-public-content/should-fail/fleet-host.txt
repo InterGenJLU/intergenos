@@ -1,0 +1,12 @@
+Regression fixture for the FLEET-HOST bare-seat-name BLOCK tier.
+
+Every distinctive full fleet seat name must be blocked outright in public content
+(operator ruling 2026-07-08). All three of these lines MUST produce a FLEET-HOST
+violation:
+
+SPOC directed the wave.
+IGOSC authored the fixtures.
+ZIGOSC owns the runtime lane.
+
+ZIGOSC is the regression anchor: it previously leaked past the block tier because
+the pattern only listed SPOC|IGOSC and \bIGOSC\b does not match inside "ZIGOSC".

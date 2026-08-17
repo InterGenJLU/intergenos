@@ -1,0 +1,21 @@
+# Stateful family manifest — status/microphone-sensitivity (ICON_CATEGORIES.md §6.3). ONE base
+# (mic-waves: a microphone + a 3-arc input-level ladder) + a level parameter -> the discrete
+# -symbolic.svg ladder, mirroring audio-volume for the input side. The four states are
+# gnome-shell InputStreamSlider._icons (js/ui/status/volume.js:378-383): muted / low / medium /
+# high. muted = level 0 + a cross overlay; the plain sound-input mic is the separate
+# audio-input-microphone single (no waves). stroke 11 (dense base). State ids OMIT -symbolic.
+# Names verified char-for-char vs pinned gnome-shell-49.4 volume.js.
+schema_version: 1
+family: microphone-sensitivity
+category: status
+fit: 1.295                  # optical T(q) family fit (measured convergence)
+kind: symbolic
+base: mic-waves
+export:
+  svg: true
+  png: [16, 24, 32, 48]
+states:
+  - { id: microphone-sensitivity-muted,  level: 0, overlays: [cross], fit: 1.387 }
+  - { id: microphone-sensitivity-low,    level: 1, fit: 1.387 }
+  - { id: microphone-sensitivity-medium, level: 2, fit: 1.387 }
+  - { id: microphone-sensitivity-high,   level: 3, fit: 1.387 }

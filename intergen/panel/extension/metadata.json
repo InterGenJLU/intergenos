@@ -1,0 +1,9 @@
+{
+  "uuid": "intergen@intergenos.org",
+  "name": "InterGen Panel",
+  "description": "InterGen AI Assistant — panel indicator with ECG pulse icon. Press Super+I to toggle the AI assistant panel. Right-click for dock/float/preferences options.",
+  "shell-version": ["46", "47", "48", "49", "50"],
+  "version": 1,
+  "url": "https://github.com/InterGenJLU/intergenos",
+  "settings-schema": "org.gnome.shell.extensions.intergen"
+}

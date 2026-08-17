@@ -1,0 +1,21 @@
+name: zoom
+version: "1.0"
+release: 4  # r4: install output rewritten for the person at the terminal: lines that named internal machinery, internal decision codes or this project's own design rationale are replaced with plain statements of what happened and what to do about it, or removed where there was nothing to act on. Printed text only — no rule, path, flag, threshold, verification step or code path changed. tests/preflight/test_package_output_is_for_users.py holds the line.
+content_hash: 2453f66fe43810bc
+description: Helper to download and install Zoom Workplace
+license: GPL-3.0-or-later
+payload_license: LicenseRef-Zoom-Terms-of-Service
+homepage: https://zoom.us/
+tier: extra
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  # H-007 Phase B: zoom sources /usr/share/igos/helpers/helper-lib.sh.
+  - intergenos-helper-lib
+verify_paths:
+  - /usr/bin/igos-install-zoom
+  - /usr/share/igos/helpers/keyrings/zoom-keyring.gpg

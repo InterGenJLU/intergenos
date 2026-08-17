@@ -1,0 +1,40 @@
+name: appstream-glib
+version: "0.8.3"
+release: 1
+description: AppStream metadata reading and writing library
+license: LGPL-2.1-or-later
+homepage: https://people.freedesktop.org/~hughsient/appstream-glib/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: http://people.freedesktop.org/~hughsient/appstream-glib/releases/appstream-glib-${version}.tar.xz
+  sha256: 84754064c560fca6e1ab151dc64354fc235a5798f016b91b38c9617253a8cf11
+dependencies:
+  build:
+  - curl
+  - gdk-pixbuf
+  - gtk3
+  - json-glib
+  - libarchive
+  - libyaml
+  - glib2
+  - gperf
+  host: []
+  runtime:
+  - curl
+  - gdk-pixbuf
+  - gtk3
+  - json-glib
+  - libarchive
+  - libyaml
+  - glib2
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "no display in chroot — appstream-glib GTK-based tests require a display server (BLFS-known environmental failure)."
+verify_paths:
+  - /usr/bin/appstream-builder
+  - /usr/lib/libappstream-glib.so.8.0.10
+  - /usr/lib/pkgconfig/appstream-glib.pc

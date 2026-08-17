@@ -1,0 +1,24 @@
+name: spice-protocol
+version: "0.14.5"
+release: 1
+description: SPICE protocol headers for the remote display stack
+license: BSD-3-Clause
+homepage: https://www.spice-space.org
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://www.spice-space.org/download/releases/spice-protocol-${version}.tar.xz
+    sha256: baf58449f6e89d19f475899ad5fb9196fdc46c03cc53233f4e39cf2978f9cff7
+dependencies:
+  build:
+    - meson
+    - ninja
+    - pkgconf
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/include/spice-1/spice/protocol.h
+  - /usr/include/spice-1/spice/enums.h
+  - /usr/share/pkgconfig/spice-protocol.pc

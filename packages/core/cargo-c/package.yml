@@ -1,0 +1,28 @@
+name: cargo-c
+version: "0.10.20"
+release: 1
+content_hash: 0f14d95745691009
+description: Cargo C-ABI helpers for building and installing C-compatible libraries
+license: MIT
+homepage: https://github.com/lu-zero/cargo-c
+tier: core
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/lu-zero/cargo-c/archive/v${version}/cargo-c-${version}.tar.gz
+    sha256: 9bdf7c10b44466a7c01dc4ed152da5031793cca9e0c8009d73223a32522cf2c3
+build_artifacts:
+  - name: cargo-c-${version}-vendor.tar.xz
+    generated_by: cargo-vendor
+  - name: cargo-c-${version}-Cargo.lock
+    generated_by: cargo-vendor
+dependencies:
+  build:
+  - rust
+  - libssh2
+  host: []
+  runtime:
+  - libssh2
+verify_paths:
+  - /usr/bin/cargo-capi
+  - /usr/bin/cargo-cbuild

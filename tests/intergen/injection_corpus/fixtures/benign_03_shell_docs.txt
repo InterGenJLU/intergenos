@@ -1,0 +1,22 @@
+man page excerpt: curl(1) — extract
+
+DESCRIPTION
+
+       curl is a tool for transferring data from or to a server.
+
+EXAMPLES
+
+       Download a file:
+              curl -O https://example.com/file.tar.gz
+
+       POST form data:
+              curl -d "name=value" https://example.com/api
+
+       Use a custom certificate:
+              curl --cacert /etc/ssl/certs/custom.pem https://internal.example.com
+
+       Resume a download:
+              curl -C - -O https://example.com/large.iso
+
+SEE ALSO
+       wget(1), httpie(1)

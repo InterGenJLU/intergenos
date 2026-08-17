@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: universal access — a11y figure in a ring. VL primitives only, colorless. -->
+  <g class="glyph">
+    <circle cx="128" cy="128" r="72"/>
+    <g class="fill"><circle cx="128" cy="90" r="11"/></g>
+    <line x1="128" y1="106" x2="128" y2="150"/>
+    <line x1="92" y1="120" x2="164" y2="120"/>
+    <line x1="128" y1="150" x2="104" y2="190"/>
+    <line x1="128" y1="150" x2="152" y2="190"/>
+  </g>
+</svg>

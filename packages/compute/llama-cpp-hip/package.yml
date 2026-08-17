@@ -1,0 +1,48 @@
+name: llama-cpp-hip
+version: "b8796"
+release: 4  # r4: the recipe records the GPU architectures the ROCm build was compiled for, so engine selection can refuse the HIP engine on a device the build has no code for rather than loading a model and crashing.  # r3: the engine reports which build it is. Upstream derives the build number from git metadata and these recipes build from a release tarball with no .git, so cmake's build-info step stamped zero and every binary shipped so far answered --version with "version: 0 (unknown)" — the one question a user comparing two engines has to be able to ask. configure() now passes LLAMA_BUILD_NUMBER, DERIVED from this recipe's own version pin rather than written a second time, and the pin's shape is checked so a pin that stops being b<number> fails the build loudly instead of stamping something wrong. do_install() then asks the STAGED binary for its --version and refuses to seal the archive unless it reports the pinned number; it lives there rather than in check() because the CUDA variant declares tests.enabled=false and the builder skips the whole check phase for such a package, which would have left one of the three engines unasserted. The same two shell functions are carried byte for byte by all three engine recipes, the same one-shape discipline as the --list-devices patch. This variant's build proof is taken on the ROCm-equipped build substrate; the recipe change is identical to its two siblings, which are build-proven here. r2: --list-devices PCI-id suffix — the same byte-identical in-tree patch as the default engine (see ai/llama-cpp r5 for the full rationale and the measurement), applied fail-loud in configure(). One-pin policy: all three engine variants print one shape so the serving-device selector reads them identically.
+content_hash: 37e8f706c95a19de
+description: LLM inference engine — HIP/ROCm variant for AMD GPUs (opt-in, mirror-only)
+license: MIT
+homepage: https://github.com/ggml-org/llama.cpp
+tier: compute
+build_style: custom
+install_func: do_install
+
+# SAME engine pin as packages/ai/llama-cpp (ruled decision 6: ALL
+# variants ride ONE llama.cpp commit; a pin bump moves every variant
+# together as its own reviewed step — this recipe inherits the current
+# in-tree pin verbatim, provenance notes in the ai recipe).
+source:
+- url: https://github.com/ggml-org/llama.cpp/archive/fae3a28070fe4026f87bd6a544aba1b2d1896566.tar.gz
+  filename: llama.cpp-${version}.tar.gz
+  sha256: 78a0190da2b2ff95506844a6f917e8a0d9c3d5b9cd7303d0f4ee95319dffd9e8
+
+# DECLARED GPU targets (decision 2): must cover every gfx the mirror's
+# users run this variant on — the RDNA3 reference pair + the RDNA4
+# dogfood cards. Kernels for absent targets are dead weight, absent
+# kernels are a hard runtime failure — the declaration is the contract.
+gpu_targets: "gfx1100;gfx1102;gfx1201"
+
+dependencies:
+  build:
+  - cmake
+  - rocm-llvm
+  - rocm-hip
+  - rocblas
+  - hipblas
+  - rocwmma
+  host: []
+  runtime:
+  - rocm-hip
+  - rocblas
+  - hipblas
+verify_paths:
+  - /opt/rocm/bin/llama-server
+  - /opt/rocm/bin/llama-cli
+  # The architecture list the runtime reads to decide whether this build has
+  # device code for the GPU present. A build that shipped without it would
+  # leave that check permanently unknown, and HIP would be selected on
+  # hardware it segfaults on — so its absence is a build failure, not a
+  # missing nicety.
+  - /opt/rocm/share/llama-cpp-hip/gpu-targets

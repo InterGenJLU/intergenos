@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: audio-input-microphone — a centered microphone (capsule + cradle U + stem + foot),
+       no level arcs (the generic sound-input glyph). Compositor strokes it foreground. -->
+  <rect x="110" y="54" width="36" height="80" rx="18"/>
+  <path d="M 88 118 A 40 40 0 0 0 168 118"/>
+  <path d="M 128 158 L 128 184"/>
+  <path d="M 104 184 L 152 184"/>
+</svg>

@@ -1,0 +1,37 @@
+name: pillow
+version: "12.3.0"
+release: 1
+description: Python Imaging Library (fork) — image processing
+license: MIT-CMU
+homepage: https://python-pillow.github.io/
+tier: ai
+iso_include: false  # unsloth-zoo dep (training-stack chain) — mirror-only
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/p/pillow/pillow-${version}.tar.gz
+  sha256: 3b8182a766685eaa002637e28b4ec8d6b18819a0c71f579bf0dbaa5830297cce
+dependencies:
+  build:
+  - setuptools
+  - libjpeg-turbo
+  - libpng
+  - libtiff
+  - libwebp
+  - freetype2
+  - lcms2
+  host: []
+  runtime:
+  - libjpeg-turbo
+  - libpng
+  - libtiff
+  - libwebp
+  - freetype2
+  - lcms2
+  # SURFACED, not silent: openjpeg (JPEG2000) is NOT in the tree — pillow's
+  # feature detection builds without jp2 support. The training-stack image path (training
+  # data handling) does not consume jp2; adding openjpeg is a measured-demand
+  # item, recorded here so the capability gap is visible, never discovered.
+verify_paths:
+  - /usr/lib/python3.14/site-packages/PIL/__init__.py
+  - /usr/lib/python3.14/site-packages/PIL/Image.py

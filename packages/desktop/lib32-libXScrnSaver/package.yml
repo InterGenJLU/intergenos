@@ -1,0 +1,40 @@
+name: lib32-libXScrnSaver
+version: "1.2.5"
+release: 1
+description: X11 Screen Saver extension library (32-bit multilib runtime)
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+# PURE-YML package (no build.sh): driven end-to-end by the builder's lib32
+# autotools lane — sourced profile per command, mechanism flags injected
+# (host triplet, lib32 libdir, verbose rules), allowlist staged-copy
+# install (only /usr/lib32 ships; headers/protos stay with the sibling).
+#
+# Measured-demand ADD (operator decision 3, 2026-07-02): Valve/Arch HARD
+# dep of the 32-bit Steam client our lib32 set lacked. Soname read from
+# the pinned src/Makefile.am (-version-info 1:0:0 -> libXss.so.1).
+build_style: autotools
+lib32_source: libXScrnSaver
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://www.x.org/pub/individual/lib/libXScrnSaver-${version}.tar.xz
+  sha256: 5057365f847253e0e275871441e10ff7846c8322a5d88e1e187d326de1cd8d00
+dependencies:
+  build:
+  - lib32-glibc
+  - xorgproto  # arch-independent X protocol headers (pkg-config-required by the pinned configure.ac/meson.build; scanner-derived 2026-07-03)
+  - lib32-libX11
+  - lib32-libXext
+  host: []
+  runtime:
+  - lib32-glibc
+  - lib32-libX11
+  - lib32-libXext
+configure_flags:
+- --prefix=/usr
+- --disable-static
+verify_paths:
+  - /usr/lib32/libXss.so.1
+  - /usr/lib32/pkgconfig/xscrnsaver.pc

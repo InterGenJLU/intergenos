@@ -1,0 +1,29 @@
+name: libXrandr
+version: "1.5.5"
+release: 1
+description: X Resize and Rotate extension library
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/lib/libXrandr-${version}.tar.xz
+  sha256: 72b922c2e765434e9e9f0960148070bd4504b288263e2868a4ccce1b7cf2767a
+dependencies:
+  build:
+  - libXrender
+  - libXext
+  - libX11
+  - xorgproto
+  host: []
+  runtime:
+  - libXrender
+  - libXext
+  - libX11
+configure_flags:
+- --prefix=/usr
+- --disable-static
+
+verify_paths:
+  - /usr/lib/libXrandr.so

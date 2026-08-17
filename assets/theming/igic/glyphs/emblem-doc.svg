@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: small "documents" emblem for a folder body (sits low, clears the tab). -->
+  <g class="glyph">
+    <line x1="104" y1="135" x2="152" y2="135"/>
+    <line x1="104" y1="153" x2="152" y2="153"/>
+    <line x1="104" y1="171" x2="136" y2="171"/>
+  </g>
+</svg>

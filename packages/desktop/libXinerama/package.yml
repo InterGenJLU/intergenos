@@ -1,0 +1,27 @@
+name: libXinerama
+version: "1.1.6"
+release: 1
+description: X Xinerama extension library
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/lib/libXinerama-${version}.tar.xz
+  sha256: d00fc1599c303dc5cbc122b8068bdc7405d6fcb19060f4597fc51bd3a8be51d7
+dependencies:
+  build:
+  - libXext
+  - libX11
+  - xorgproto
+  host: []
+  runtime:
+  - libXext
+  - libX11
+configure_flags:
+- --prefix=/usr
+- --disable-static
+
+verify_paths:
+  - /usr/lib/libXinerama.so

@@ -1,0 +1,29 @@
+# InterGenOS libinput quirks — GBC003 G3-4.
+#
+# The Corsair Harpoon RGB Wireless gaming mouse advertises extra buttons in the
+# reserved (0x118-0x11F) and joystick (0x120 BTN_TRIGGER / 0x121 BTN_THUMB)
+# event-code ranges — it even presents a js0 joystick node. GNOME/mutter has no
+# action mapped to these codes, so every press/auto-repeat logs an upstream
+# "Unhandled button event 0xNNN" line; on a development machine that flooded the journal
+# (~6700 lines, burying real signal). The mouse's real buttons (BTN_LEFT/RIGHT/
+# MIDDLE = 0x110-0x112) are untouched, so pointer + click keep working.
+#
+# Mask just the unmapped codes so libinput never forwards them. Numeric
+# EV_KEY:0xNNN is the same form upstream uses in 10-generic-*.quirks. Scoped by
+# vendor + name so no other device is affected. The same physical mouse presents
+# under TWO names depending on how it's connected: "...HARPOON..." over its USB
+# cable, and "...SLIPSTREAM WIRELESS USB Receiver" via its wireless dongle — both
+# carry the same unmapped extra buttons, so both are covered.
+#
+# Validated on a development machine (cabled Harpoon): `libinput quirks list` shows this stanza
+# matches and masks 0x118-0x121 (AttrEventCode=-(null)×8;-BTN_TRIGGER;-BTN_THUMB
+# — the (null)s are the reserved 0x118-0x11F with no symbolic name).
+[InterGenOS Corsair Harpoon unmapped extra buttons (cable)]
+MatchVendor=0x1B1C
+MatchName=*HARPOON*
+AttrEventCode=-EV_KEY:0x118;-EV_KEY:0x119;-EV_KEY:0x11A;-EV_KEY:0x11B;-EV_KEY:0x11C;-EV_KEY:0x11D;-EV_KEY:0x11E;-EV_KEY:0x11F;-EV_KEY:0x120;-EV_KEY:0x121
+
+[InterGenOS Corsair Harpoon unmapped extra buttons (wireless receiver)]
+MatchVendor=0x1B1C
+MatchName=*SLIPSTREAM*
+AttrEventCode=-EV_KEY:0x118;-EV_KEY:0x119;-EV_KEY:0x11A;-EV_KEY:0x11B;-EV_KEY:0x11C;-EV_KEY:0x11D;-EV_KEY:0x11E;-EV_KEY:0x11F;-EV_KEY:0x120;-EV_KEY:0x121

@@ -1,0 +1,36 @@
+name: rsync
+version: "3.4.1"
+release: 1
+description: Fast incremental file transfer
+license: GPL-3.0-or-later
+homepage: https://rsync.samba.org/
+tier: base
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://www.samba.org/ftp/rsync/src/rsync-${version}.tar.gz
+    sha256: 2924bcb3a1ed8b551fc101f740b9f0fe0a202b115027647cf69850d65fd88c52
+
+dependencies:
+  build:
+    - popt
+    - xxhash
+    - zlib
+  host: []
+  runtime:
+    - popt
+    - xxhash
+    - zlib
+
+patches:
+  - file: rsync-3.4.1-security_fix-1.patch
+    sha256: 79bec5ef5e8113980759f8ecacf12632bee97eb0bcd4622a1b9dc59acd979778
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "subset of rsync tests rely on ssh/network round-trips and on root-owned setuid bits; not reproducible in offline unprivileged build chroot"
+verify_paths:
+  - /usr/bin/rsync
+  - /usr/bin/rsync-ssl

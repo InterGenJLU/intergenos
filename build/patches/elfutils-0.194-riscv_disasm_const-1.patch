@@ -1,0 +1,15 @@
+Fix a -Werror=discarded-qualifiers halt under GCC 15: bsearch over the
+const known_csrs table must land in a const-qualified pointer.
+Authored for InterGenOS elfutils 0.194 r2, 2026-08-15.
+
+--- a/libcpu/riscv_disasm.c	2026-08-15 01:57:39.613978189 -0500
++++ b/libcpu/riscv_disasm.c	2026-08-15 01:57:39.616335431 -0500
+@@ -1259,7 +1259,7 @@
+ 		  if (rd != 0)
+ 		    op[last++] = REG (rd);
+ 		  struct known_csrs key = { csr, NULL };
+-		  struct known_csrs *found = bsearch (&key, known,
++		  const struct known_csrs *found = bsearch (&key, known,
+ 						      sizeof (known) / sizeof (known[0]),
+ 						      sizeof (known[0]),
+ 						      compare_csr);

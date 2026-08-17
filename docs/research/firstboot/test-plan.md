@@ -1,0 +1,148 @@
+# Firstboot Python Rewrite — Test Plan
+
+> **HISTORICAL RECORD — 2026-05-20.** Superseded by the completed firstboot rewrite recorded in
+> [`v7-arc-closure.md`](v7-arc-closure.md).
+> Retained as the record of the analysis as it stood.
+
+**Status:** DECIDED 2026-05-20 ~20:30Z. All 5 open questions resolved in review. Python authoring proceeds against this plan.
+
+**Author:** InterGenOS project — 2026-05-20 ~20:Z, post-walkthrough.
+
+**Scope:** the test plan that gates the Python rewrite's closure claim per the SMOOTHNESS QUALITY BAR section in the firstboot animation design notes + the Q3/Q4 direct quality gate.
+
+**Background:** the original C/DRM animation (`assets/intergen-firstboot-drm/firstboot-drm.c`) was tuned over a week to be smooth-as-glass — eliminating tearing, odd glyphs, and timing hiccups. The Python rewrite must inherit that smoothness verbatim, or the rewrite reverts to C entirely. This test plan defines how we verify equivalence.
+
+---
+
+## Cross-references
+
+- Firstboot animation design notes (SMOOTHNESS QUALITY BAR section)
+- `docs/research/firstboot/chain-vs-phase-matrix.md` (the decided architectural decisions)
+- `assets/intergen-firstboot-drm/firstboot-drm.c` (the C reference for smoothness comparison)
+- The D-009 universal development checklist (item 7 — completion claims gated on per-item verification + summary + peer-review)
+
+---
+
+## §1. Test environment
+
+**Primary reference hardware: IGOS laptop.** This is the machine where the reference smoothness was achieved on the C/DRM version. Reference smoothness is whatever the laptop's existing C version delivers right now. VM testing is NOT a substitute — Wayland compositor behavior on real GPU differs from llvmpipe / virtio-gpu paths.
+- Hardware: HP 14-dq laptop
+- GPU: Intel integrated graphics (i915 driver class)
+- OS: InterGenOS bare-metal
+- Display server: GNOME on Wayland
+- Has the C/DRM reference binary built locally for side-by-side smoothness A/B (the binary was built during the original tuning week and lives on the laptop; the C/DRM has never been wrapped in a shipping package per audit row D-001 — see the 2026-05-18 design-decisions matrix, line 730)
+
+**Secondary AMD-GPU sanity check: secondary AMD-GPU host.**
+- Hardware: HP Laptop 17-ak0xx
+- GPU: AMD Radeon R5/R6/R7 Wani APU (amdgpu driver class)
+- OS: Ubuntu 24.04.4 LTS (Noble Numbat)
+- Display server: GNOME on Wayland (Ubuntu install)
+- **Verification mechanism: manual file drop, NOT a `.deb` package.** Copy the new Python binary + the new XDG autostart `.desktop` file directly onto the host (suggested paths: `/usr/local/bin/intergen-firstboot` + `/etc/xdg/autostart/intergen-firstboot.desktop`). Logout + login via GDM. Observe smoothness on the AMD/amdgpu stack.
+- Purpose: catch any GPU-driver-specific behavior that would not surface on Intel-only testing. AMD verification is a sanity check on the Wayland-stack-portability assumption — NOT an authoritative smoothness baseline (the AMD host has no C reference to A/B against).
+
+**Reference C version:** PREVIOUSLY at `assets/intergen-firstboot-drm/firstboot-drm.c`; removed 2026-05-22 per Q6 post-testing-cleanup verdict + audit-row D-011 closure once the v7-arc shipping extension was confirmed via visual sign-off twice end-to-end on real hardware (2026-05-21). Surviving canonical math reference is the Python port at `assets/intergen-firstboot-py/intergen-firstboot.py`. The original C reference binary still lives on the IGOS laptop for archival side-by-side comparison; git history retains the C source if archaeology is ever needed.
+
+**Side-by-side comparison:** Each Python iteration is tested on the IGOS laptop, visually compared against the C reference running on the same laptop. If the maintainer (the authoritative judge of "smooth as glass") can A/B them and sees no visible regression, smoothness equivalence on Intel is met. Then drop the same Python files on the secondary AMD-GPU host + observe — confirms the rewrite ports across GPU vendors.
+
+---
+
+## §2. Pass criteria (smoothness equivalence to C reference)
+
+The Python implementation passes if **all** of the following are met on the IGOS laptop:
+
+1. **No visible tearing.** Maintainer visual inspection across 3+ animation cycles. Wayland's frame-callback protocol structurally prevents tearing at the protocol layer, so a regression here would indicate a serious implementation bug.
+2. **No glyph rendering artifacts** — no missing characters, no malformed glyphs, no kerning weirdness, no subpixel-AA shifts visible vs the C reference.
+3. **Sweep timing matches C reference.** Maintainer visual A/B. Quantitative cross-check via frame timestamps in GtkFrameClock if a numeric regression is suspected, but the load-bearing test is operator visual.
+4. **Steady 60fps (≥58 sustained, no frame drops below 50fps during any sweep).** Measured via `frame_clock.get_fps()` instrumentation OR equivalent. Reference target: the C version's effective frame rate on the same hardware.
+5. **Fade transitions are smooth** (no stepping, no banding visible) — both into the animation and out at the end.
+6. **Total animation duration is bit-equivalent to the C reference** — 7-sweep total wall-clock matches within ±50ms.
+7. **Visual sign-off after observing the animation 3+ times** on a freshly-installed user account on the reference laptop. The maintainer is the authoritative judge — *"smooth as glass"* is the criterion, and only the maintainer can attest to it, having done the original tuning.
+
+---
+
+## §3. Fail criteria (any one of these triggers revert-to-C per Q4 directive)
+
+**The load-bearing criterion is visual sign-off by the maintainer (per the decided §3 verdict).** Quantitative metrics (frame rates, glyph diffs) are supportive evidence but the authoritative judgment is operator's eyes on the IGOS laptop.
+
+Triggers:
+- Maintainer verdict: *"this doesn't look right"* or *"nope, back to C we go"* — no further analysis required, revert is greenlit immediately.
+- Any pass criterion §2 (1-7) cannot be brought to parity with the C reference after the sign-off cycle.
+- Implementation reveals an architectural blocker that GTK4/Wayland fundamentally cannot solve (e.g. compositor-side latency that no amount of code-level work can mitigate on the reference hardware).
+- AMD-host secondary check surfaces smoothness regressions that are categorically different from the Intel host — indicating GPU-driver-specific behavior that the rewrite cannot cleanly abstract over.
+
+---
+
+## §4. Test cases (functional, not smoothness — smoothness is operator visual)
+
+Functional behavior the rewrite must demonstrate, independent of smoothness:
+
+1. **Fresh-install + first user login** — animation fires automatically (the `intergen-firstboot@intergenos.org` gnome-shell-extension is default-enabled via the `intergenos-default-settings` gschema-override package at `/usr/share/glib-2.0/schemas/91_intergenos-extensions.gschema.override` per D-006 SSoT; gnome-shell loads the extension at session start and the extension's `enable()` subscribes to `Main.layoutManager 'startup-complete'`, gating the animation on the once-per-user filesystem marker at `~/.local/share/intergen/firstboot-animation-done`), runs to completion, exits cleanly via `_teardownOverlay` on `Clutter.Timeline 'completed'`. Welcomer's auto-generated systemd user unit (`app-intergen\x2dwelcome@autostart.service`, created by `systemd-xdg-autostart-generator` from the welcomer's `/etc/xdg/autostart/intergen-welcome.desktop` entry) fires in parallel during session startup; its window sits beneath the animation's chrome-level overlay until overlay-removal at animation completion — no explicit chain handshake needed since `Main.layoutManager.removeChrome` IS the handoff per the v6 architecture (chain-vs-phase matrix Q1+Q2 verdict preserved).
+2. **Done-marker semantics** — animation fires exactly once per user on first login. On second login by the same user, animation does NOT fire (done-marker at `~/.local/share/intergen/firstboot-animation-done` already present).
+3. **Multi-user** — each user account sees the animation on THEIR first login. User A's done-marker does not suppress user B's animation.
+4. **Welcomer chain integrity** — animation exits cleanly, welcomer's autostart fires after. No race where both windows are visible simultaneously. No race where welcomer fires BEFORE animation completes.
+5. **Failure resilience** — if the animation binary crashes mid-sweep (kill -9, segfault, GTK error), the welcomer's autostart still fires (this is the failure-isolation guarantee from Q1 CHAIN verdict).
+6. **Compositor edge-cases** — animation displays correctly on the laptop's actual GPU + Mutter version. If Mutter is restarted (gnome-shell --replace) DURING the animation, the animation either resumes cleanly or exits and lets welcomer fire (no hang).
+7. **Reboot persistence** — animation does NOT fire on reboot for a user who has already seen it (done-marker persists across reboots).
+
+---
+
+## §5. Test sequence per iteration
+
+For each Python iteration:
+
+1. Build the Python package on the build chroot (or directly on the laptop for fast iteration).
+2. Deploy to the IGOS laptop: install the gnome-shell-extension via `pkm install intergen-firstboot intergen-no-overview` which `cp -a`s `extension.js` + `metadata.json` for each extension into `/usr/share/gnome-shell/extensions/intergen-firstboot@intergenos.org/` + `/usr/share/gnome-shell/extensions/intergen-no-overview@intergenos.org/` per the respective `packages/desktop/*/build.sh` `do_install` (post_install is empty for both per d46e8826 — default-enable state is set by the `intergenos-default-settings` gschema-override package per D-006 SSoT). For manual file-drop deployment: `cp -a /mnt/intergenos/assets/intergen-firstboot/intergen-firstboot@intergenos.org/{extension.js,metadata.json} /usr/share/gnome-shell/extensions/intergen-firstboot@intergenos.org/` + same pattern for intergen-no-overview + `chmod 644` on both files of each extension + `gnome-extensions enable intergen-firstboot@intergenos.org` + `gnome-extensions enable intergen-no-overview@intergenos.org` (or update the gschema-override at `/usr/share/glib-2.0/schemas/91_intergenos-extensions.gschema.override` enabled-extensions list + run `glib-compile-schemas /usr/share/glib-2.0/schemas/` so subsequent users default-enable the extensions). Verify with `gnome-extensions list --enabled` that both UUIDs are present + that `metadata.json` shell-version covers the running GNOME Shell major version (extensions silently disabled when shell-version mismatches; pkm-notifier shipped with shell-version `["47", "48"]` and was silently disabled on GNOME 49.4 until the bfdfbdcf incidental drift-fix landed shell-version `["47", "48", "49"]`). Ensure the v2-v5 systemd-user-unit-era artifacts are NOT present: `systemctl --user status intergen-firstboot.service` should return `Unit intergen-firstboot.service could not be found` and `/usr/lib/systemd/user/intergen-firstboot.service` + `/usr/libexec/intergen-firstboot/` should be absent (per the v6 retire-path at 02:10:03Z). Ensure the existing C/DRM systemd unit at `assets/intergen-firstboot-drm/intergen-firstboot.service` (source-of-truth path only; per audit row D-001 it was never wrapped in a shipping package) is NOT enabled (per Q6 + the not-deployed posture).
+3. Reset done-markers: `rm -f ~/.local/share/intergen/firstboot-animation-done ~/.config/intergen-welcome/done` for the test user.
+4. Logout. Login.
+5. The maintainer observes the animation. Records: tearing? glyphs? timing? jank? overall smoothness vs C reference?
+6. Run functional test cases §4 (1-7) to confirm no regressions.
+7. Repeat steps 3-6 with a different test user to confirm multi-user isolation.
+8. If pass: declare iteration successful + operator sign-off + lock the implementation.
+9. If fail: capture specific failure modes + iterate on the implementation + return to step 1.
+
+---
+
+## §6. Iteration approach + revert trigger
+
+**No iteration count set — decided 2026-05-20.** We iterate until the maintainer either signs off on smoothness equivalence OR calls a revert with *"nope, back to C we go"* (verbatim, 2026-05-20 ~20:Z). The decision-authority on convergence belongs entirely to the maintainer; the developer's job is to keep producing iterations the maintainer can observe and judge.
+
+**Iteration pacing:** each iteration produces a buildable Python package + a clean deploy to the IGOS laptop + the AMD-host file-drop + a visual observation cycle. Feedback on each iteration directly informs the next.
+
+---
+
+## §7. Revert path (if testing fails)
+
+Plain operational note — no ceremony required. If a revert is called:
+
+1. Remove the Python package + the new XDG autostart file from the build pipeline.
+2. The C/DRM source at `assets/intergen-firstboot-drm/` was removed 2026-05-22 per Q6 post-testing-cleanup verdict + audit-row D-011 closure. **Note on revert-state shipping posture:** the C/DRM was never wrapped in a shipping package per audit row D-001 (`built but never shipped (no package)`); the systemd unit at `assets/intergen-firstboot-drm/intergen-firstboot.service` was a source-of-truth file, not a deployed unit. The immediate revert-state therefore has no shipping firstboot animation. If a shipping firstboot animation is wanted under the revert, that requires reviving the C source from git history (commits prior to the D-011 deletion) + separately authoring a proper C/DRM package (`packages/desktop/intergen-firstboot/build.sh` + `package.yml`) which deploys the unit to `/etc/systemd/system/intergen-firstboot.service` and the binary to `/usr/bin/intergen-firstboot` — that packaging work is its own work-stream and is not part of this revert path.
+3. Move the Python source files out of tree to an archive location (the `build-output/` or `_archive/` area; not kept live in tree per ratified §5 verdict). Git history retains the full implementation if archaeology is ever needed.
+4. The flow-intent question (operator wants animation post-login, but C can only render pre-compositor) remains open — a different approach would be needed to deliver post-login while staying in C. That decision belongs to operator + happens at a separate time.
+
+Single commit lands the revert; no audit row required (the lesson is captured in the matrix + this plan).
+
+---
+
+## §8. Not covered in this verification
+
+The following are intentionally addressed elsewhere; this plan focuses only on smoothness-equivalence verification of the rewrite:
+
+- **Smoothness on hardware OTHER than the reference laptop.** The smoothness tuning was done on this specific hardware; we cannot test smoothness equivalence on every possible Wayland-capable GPU stack within an initial ship. Broader hardware coverage is a subsequent-release work-stream.
+- **Performance benchmarking** (CPU usage, memory footprint, GPU utilization). The smoothness gate is maintainer-visual + frame-rate-numeric; resource usage is not a closure criterion here.
+- **Accessibility** (high-contrast mode, screen reader, reduced-motion). Important but addressed in a subsequent-release work-stream after the initial smoothness-equivalence verification lands.
+
+---
+
+## §9. Decided verdicts (resolved 2026-05-20 ~20:30Z)
+
+| # | Question | Verdict |
+|---|---|---|
+| 1 | Test environment | **Both targets** — IGOS laptop primary + secondary AMD-GPU host sanity check via manual file-drop |
+| 2 | Fail criteria load-bearing | **Maintainer visual sign-off** (quantitative metrics are supporting evidence only) |
+| 3 | Iteration count | **No count** — iterate until operator signs off OR calls revert |
+| 4 | Revert path | **Plain operational note**, no ceremony |
+| 5 | Python source disposition post-revert | **Archive out of tree** — git history is the long-term retention |
+
+---
+
+**Next step:** Python authoring proceeds against this plan.

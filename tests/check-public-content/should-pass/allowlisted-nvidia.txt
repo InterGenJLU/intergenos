@@ -1,0 +1,2 @@
+Optimus PRIME is NVIDIA's hybrid graphics technology for laptops.
+PRIME render-offload allows running applications on the discrete GPU.

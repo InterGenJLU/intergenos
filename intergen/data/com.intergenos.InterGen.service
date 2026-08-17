@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=com.intergenos.InterGen
+Exec=/usr/bin/intergen daemon
+SystemdService=intergen.service

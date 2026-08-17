@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Terminal (org.gnome.Terminal) — a terminal window: rounded screen + a
+       prompt caret (>) and a cursor underscore. Full-canvas app mark (distinct
+       from the small composited terminal.svg used by another recipe). -->
+  <g class="glyph">
+    <rect x="44" y="60" width="168" height="136" rx="14"/>
+    <path d="M 78 106 L 106 128 L 78 150"/>
+    <line x1="120" y1="150" x2="160" y2="150"/>
+  </g>
+</svg>

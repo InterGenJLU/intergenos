@@ -1,0 +1,21 @@
+name: defusedxml
+version: "0.7.1"
+release: 1
+description: XML bomb protection for Python stdlib parsers (icon-toolchain dep)
+license: PSF-2.0
+homepage: https://github.com/tiran/defusedxml
+tier: extra
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+  - url: https://files.pythonhosted.org/packages/source/d/defusedxml/defusedxml-${version}.tar.gz
+    sha256: 1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69
+dependencies:
+  build:
+    - setuptools
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/defusedxml/__init__.py
+  - /usr/lib/python3.14/site-packages/defusedxml/ElementTree.py

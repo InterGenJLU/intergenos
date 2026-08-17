@@ -1,0 +1,25 @@
+name: markdown-it-py
+version: "4.2.0"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Markdown parser, done right — 100% CommonMark support
+license: MIT
+homepage: https://github.com/executablebooks/markdown-it-py
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/06/ff/7841249c247aa650a76b9ee4bbaeae59370dc8bfd2f6c01f3630c35eb134/markdown_it_py-4.2.0.tar.gz
+  sha256: 04a21681d6fbb623de53f6f364d352309d4094dd4194040a10fd51833e418d49
+dependencies:
+  build:
+  # The pinned sdist's [build-system] names flit_core.buildapi, provided by
+  # flit-core. build.sh builds with --no-build-isolation, which installs nothing
+  # for the build, so flit-core must already be present; declaring it here is
+  # what orders it ahead of this package.
+  - flit-core
+  - hatchling
+  host: []
+  runtime:
+  - mdurl
+verify_paths:
+  - /usr/lib/python3.14/site-packages/markdown_it

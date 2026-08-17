@@ -1,0 +1,31 @@
+name: pydantic-core
+version: "2.46.4"
+release: 1
+description: Core validation logic for pydantic (Rust)
+license: MIT
+homepage: https://github.com/pydantic/pydantic-core
+tier: ai
+iso_include: false  # pydantic dep (training-stack chain) — mirror-only
+build_style: custom
+install_func: do_install
+# VERSION ALIGNMENT (the gate fired + resolved 2026-07-21): pydantic pins
+# pydantic-core EXACTLY per release — the python-deps wave's pydantic 2.13.4
+# (python-deps wave, 2026-07-21) pins pydantic-core==2.46.4; this recipe is slaved to it
+# (2.47.0 was latest at first authoring, re-pinned). Moves ONLY with pydantic.
+source:
+- url: https://files.pythonhosted.org/packages/source/p/pydantic-core/pydantic_core-${version}.tar.gz
+  sha256: 62f875393d7f270851f20523dd2e29f082bcc82292d66db2b64ea71f64b6e1c1
+build_artifacts:
+  - name: pydantic-core-${version}-vendor.tar.xz
+    generated_by: cargo-vendor
+dependencies:
+  build:
+  - maturin
+  - rust
+  - typing-extensions
+  host: []
+  runtime:
+  # Requires-Dist: typing-extensions>=4.14.1 (tree: 4.15.0 ✓).
+  - typing-extensions
+verify_paths:
+  - /usr/lib/python3.14/site-packages/pydantic_core/__init__.py

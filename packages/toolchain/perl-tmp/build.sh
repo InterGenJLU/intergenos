@@ -1,0 +1,32 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+#
+# Perl 5.42.0 (temporary tools)
+# LFS 13.0 Section 7.8
+#
+# Perl doesn't use autotools. Custom configure with sh.
+
+configure() {
+    set -e
+    sh Configure -des                                  \
+        -D prefix=/usr                                 \
+        -D vendorprefix=/usr                           \
+        -D useshrplib                                  \
+        -D privlib=/usr/lib/perl5/5.42/core_perl       \
+        -D archlib=/usr/lib/perl5/5.42/core_perl       \
+        -D sitelib=/usr/lib/perl5/5.42/site_perl       \
+        -D sitearch=/usr/lib/perl5/5.42/site_perl      \
+        -D vendorlib=/usr/lib/perl5/5.42/vendor_perl   \
+        -D vendorarch=/usr/lib/perl5/5.42/vendor_perl
+}
+
+build() {
+    set -e
+    make -j${IGOS_JOBS}
+}
+
+install() {
+    set -e
+    make DESTDIR=$IGOS install
+}

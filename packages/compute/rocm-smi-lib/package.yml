@@ -1,0 +1,30 @@
+name: rocm-smi-lib
+version: "7.2.4"
+release: 1
+description: ROCm System Management Interface library + rocm-smi CLI (GPU monitoring)
+license: MIT
+homepage: https://github.com/ROCm/rocm-systems
+tier: compute
+build_style: custom
+install_func: do_install
+
+# SAME rocm-systems tarball (shared-source pin); builds
+# projects/rocm-smi-lib from the monorepo. Plain CMake C++ library +
+# the python rocm-smi CLI; no GPU code (reads sysfs/KFD), so no
+# gpu_targets declaration. BUILD_TESTS defaults OFF (pinned
+# CMakeLists:34) and stays OFF.
+source:
+  - url: https://github.com/ROCm/rocm-systems/archive/refs/tags/rocm-${version}.tar.gz
+    filename: rocm-rocm-systems-${version}.tar.gz
+    sha256: 817f9c136125b8d162757a18cdc25b18b1efeb8ef36a948c85e4a672fd149de5
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  host: []
+  runtime:
+  - python
+verify_paths:
+  - /opt/rocm/lib/librocm_smi64.so
+  - /opt/rocm/bin/rocm-smi

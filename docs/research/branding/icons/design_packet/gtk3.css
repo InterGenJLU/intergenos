@@ -1,0 +1,464 @@
+/*
+ * InterGenOS GTK3 Theme — BOLD Edition
+ *
+ * For legacy GTK3 applications (GIMP, Inkscape, etc.)
+ * Matches the GTK4 / libadwaita visual language:
+ *   - Deep void backgrounds
+ *   - Blue glow on interactive elements
+ *   - Command-line entry DNA (blue bottom border on focus)
+ *   - Suggested actions glow with energy
+ *
+ * Copyright (C) 2026 InterGenOS — GPL-3.0-or-later
+ */
+
+@define-color theme_bg_color          #050810;
+@define-color theme_fg_color           #e2e8f0;
+@define-color theme_base_color         #080c18;
+@define-color theme_text_color         #e2e8f0;
+@define-color theme_selected_bg_color  #0099FF;
+@define-color theme_selected_fg_color  #ffffff;
+@define-color borders                  rgba(0, 153, 255, 0.10);
+@define-color insensitive_bg_color     rgba(15, 21, 37, 0.3);
+@define-color insensitive_fg_color     #3d4f6a;
+@define-color accent                   #0099FF;
+@define-color accent_bg                #0099FF;
+@define-color accent_fg                #ffffff;
+@define-color destructive              #ef4444;
+@define-color success                  #10b981;
+@define-color warning                  #f59e0b;
+@define-color error                    #ef4444;
+
+/* ================================================================== */
+/* Window                                                              */
+/* ================================================================== */
+
+.background,
+window {
+    background-color: #050810;
+    color: #e2e8f0;
+}
+
+window.csd {
+    background-color: #050810;
+    border-radius: 12px;
+}
+
+/* ================================================================== */
+/* Headerbar                                                           */
+/* ================================================================== */
+
+headerbar,
+.titlebar {
+    background: linear-gradient(to bottom, #0a0e1a, #050810);
+    border-bottom: 1px solid rgba(0, 153, 255, 0.15);
+    box-shadow: 0 1px 0 rgba(0, 153, 255, 0.08);
+    color: #e2e8f0;
+    padding: 0 6px;
+    min-height: 42px;
+}
+
+headerbar .title {
+    color: #e2e8f0;
+    font-weight: 700;
+}
+
+headerbar button {
+    background: transparent;
+    border: 1px solid transparent;
+    color: #c4cfe0;
+}
+
+headerbar button:hover {
+    background-color: rgba(0, 153, 255, 0.08);
+    border-color: rgba(0, 153, 255, 0.2);
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(0, 153, 255, 0.1);
+}
+
+/* ================================================================== */
+/* Buttons                                                             */
+/* ================================================================== */
+
+button,
+.button {
+    background: linear-gradient(to bottom,
+                                rgba(15, 21, 37, 0.8),
+                                rgba(10, 14, 26, 0.7));
+    border: 1px solid rgba(0, 153, 255, 0.10);
+    border-radius: 8px;
+    color: #e2e8f0;
+    padding: 6px 14px;
+    box-shadow: none;
+    min-height: 24px;
+    font-weight: 600;
+}
+
+button:hover {
+    background: rgba(20, 28, 48, 0.9);
+    border-color: rgba(0, 153, 255, 0.25);
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(0, 153, 255, 0.1);
+}
+
+button:active,
+button:checked {
+    background-color: rgba(0, 153, 255, 0.15);
+    border-color: rgba(0, 153, 255, 0.4);
+    color: #ffffff;
+    box-shadow: 0 0 16px rgba(0, 153, 255, 0.15);
+}
+
+button:disabled {
+    color: #3d4f6a;
+    background: rgba(15, 21, 37, 0.3);
+    border-color: rgba(0, 153, 255, 0.03);
+}
+
+button.suggested-action {
+    background: linear-gradient(to bottom,
+                                rgba(0, 153, 255, 0.35),
+                                rgba(0, 128, 220, 0.28));
+    border-color: rgba(0, 153, 255, 0.6);
+    color: #ffffff;
+    box-shadow: 0 0 16px rgba(0, 153, 255, 0.2);
+    font-weight: 700;
+}
+
+button.suggested-action:hover {
+    background: rgba(0, 153, 255, 0.45);
+    box-shadow: 0 0 22px rgba(0, 153, 255, 0.3);
+}
+
+button.destructive-action {
+    background: linear-gradient(to bottom,
+                                rgba(239, 68, 68, 0.3),
+                                rgba(220, 38, 38, 0.25));
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #ffffff;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.2);
+}
+
+/* ================================================================== */
+/* Entries                                                             */
+/* ================================================================== */
+
+entry {
+    background-color: rgba(5, 8, 16, 0.6);
+    border: 1px solid rgba(0, 153, 255, 0.08);
+    border-bottom: 2px solid rgba(0, 153, 255, 0.22);
+    border-radius: 8px;
+    color: #e2e8f0;
+    padding: 6px 12px;
+    min-height: 28px;
+    caret-color: #0099FF;
+    box-shadow: none;
+}
+
+entry:hover {
+    border-color: rgba(0, 153, 255, 0.15);
+    border-bottom-color: rgba(0, 153, 255, 0.4);
+}
+
+entry:focus {
+    border-color: rgba(0, 153, 255, 0.25);
+    border-bottom-color: #0099FF;
+    box-shadow: 0 2px 14px rgba(0, 153, 255, 0.12);
+}
+
+entry selection {
+    background-color: rgba(0, 153, 255, 0.35);
+    color: #ffffff;
+}
+
+/* ================================================================== */
+/* Lists and treeviews                                                  */
+/* ================================================================== */
+
+treeview,
+.view {
+    background-color: #080c18;
+    color: #e2e8f0;
+}
+
+treeview:selected,
+.view:selected {
+    background-color: rgba(0, 153, 255, 0.22);
+    color: #ffffff;
+}
+
+treeview header button {
+    background: rgba(5, 8, 16, 0.85);
+    border-bottom: 1px solid rgba(0, 153, 255, 0.1);
+    color: #7a8ba8;
+}
+
+/* ================================================================== */
+/* Sidebar                                                             */
+/* ================================================================== */
+
+.sidebar,
+.sidebar-pane,
+.sidebar list {
+    background-color: rgba(3, 6, 9, 0.9);
+    color: #e2e8f0;
+    border-right: 1px solid rgba(0, 153, 255, 0.10);
+}
+
+.sidebar row {
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin: 2px 4px;
+}
+
+.sidebar row:hover {
+    background-color: rgba(0, 153, 255, 0.06);
+    box-shadow: 0 0 10px rgba(0, 153, 255, 0.08);
+}
+
+.sidebar row:selected {
+    background-color: rgba(0, 153, 255, 0.15);
+    color: #ffffff;
+    box-shadow: 0 0 14px rgba(0, 153, 255, 0.15);
+}
+
+/* ================================================================== */
+/* Menus                                                               */
+/* ================================================================== */
+
+menu,
+.menu,
+popover.background {
+    background-color: rgba(10, 14, 26, 0.95);
+    border: 1px solid rgba(0, 153, 255, 0.15);
+    border-radius: 12px;
+    color: #e2e8f0;
+    padding: 6px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6),
+                0 0 18px rgba(0, 153, 255, 0.08);
+}
+
+menuitem,
+.menuitem {
+    color: #e2e8f0;
+    padding: 6px 12px;
+    border-radius: 6px;
+    min-height: 24px;
+}
+
+menuitem:hover,
+.menuitem:hover {
+    background-color: rgba(0, 153, 255, 0.10);
+    color: #ffffff;
+    box-shadow: 0 0 8px rgba(0, 153, 255, 0.1);
+}
+
+menubar {
+    background-color: rgba(5, 8, 16, 0.9);
+    border-bottom: 1px solid rgba(0, 153, 255, 0.08);
+    color: #e2e8f0;
+}
+
+menubar > menuitem {
+    padding: 6px 10px;
+    border-radius: 6px;
+}
+
+menubar > menuitem:hover {
+    background-color: rgba(0, 153, 255, 0.1);
+    box-shadow: 0 0 8px rgba(0, 153, 255, 0.08);
+}
+
+/* ================================================================== */
+/* Notebook (tabs)                                                     */
+/* ================================================================== */
+
+notebook {
+    background-color: #050810;
+}
+
+notebook header {
+    background-color: rgba(5, 8, 16, 0.8);
+    border-bottom: 1px solid rgba(0, 153, 255, 0.1);
+}
+
+notebook tab {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 8px 16px;
+    color: #7a8ba8;
+}
+
+notebook tab:hover {
+    background-color: rgba(0, 153, 255, 0.06);
+    color: #e2e8f0;
+}
+
+notebook tab:checked {
+    background-color: rgba(0, 153, 255, 0.08);
+    color: #ffffff;
+    border-bottom-color: #0099FF;
+    box-shadow: 0 2px 12px rgba(0, 153, 255, 0.12);
+}
+
+/* ================================================================== */
+/* Toolbars                                                            */
+/* ================================================================== */
+
+toolbar {
+    background-color: rgba(5, 8, 16, 0.85);
+    border-bottom: 1px solid rgba(0, 153, 255, 0.08);
+    padding: 4px;
+}
+
+toolbar button {
+    background: transparent;
+    border: 1px solid transparent;
+    color: #c4cfe0;
+}
+
+toolbar button:hover {
+    background-color: rgba(0, 153, 255, 0.08);
+    border-color: rgba(0, 153, 255, 0.2);
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(0, 153, 255, 0.1);
+}
+
+/* ================================================================== */
+/* Switches / Checks                                                    */
+/* ================================================================== */
+
+switch {
+    background-color: rgba(15, 21, 37, 0.8);
+    border: 1px solid rgba(0, 153, 255, 0.1);
+    border-radius: 9999px;
+    min-height: 22px;
+    min-width: 40px;
+}
+
+switch:checked {
+    background: #0099FF;
+    border-color: #0099FF;
+    box-shadow: 0 0 12px rgba(0, 153, 255, 0.3);
+}
+
+switch slider {
+    background: #e2e8f0;
+    border: none;
+    border-radius: 50%;
+    min-width: 18px;
+    min-height: 18px;
+    margin: 2px;
+}
+
+check,
+radio {
+    background-color: rgba(15, 21, 37, 0.8);
+    border: 1.5px solid rgba(0, 153, 255, 0.2);
+    min-width: 16px;
+    min-height: 16px;
+}
+
+check:checked,
+radio:checked {
+    background: #0099FF;
+    border-color: #0099FF;
+    box-shadow: 0 0 10px rgba(0, 153, 255, 0.4);
+}
+
+/* ================================================================== */
+/* Progress / Scale                                                    */
+/* ================================================================== */
+
+progressbar trough,
+scale trough {
+    background-color: rgba(15, 21, 37, 0.8);
+    border: 1px solid rgba(0, 153, 255, 0.1);
+    border-radius: 9999px;
+    min-height: 6px;
+}
+
+progressbar progress,
+scale highlight {
+    background: linear-gradient(to right, #0099FF, #33b1ff);
+    border-radius: 9999px;
+    box-shadow: 0 0 10px rgba(0, 153, 255, 0.3);
+}
+
+scale slider {
+    background: #ffffff;
+    border: none;
+    border-radius: 50%;
+    min-width: 16px;
+    min-height: 16px;
+    margin: -6px;
+    box-shadow: 0 0 10px rgba(0, 153, 255, 0.4);
+}
+
+/* ================================================================== */
+/* Scrollbars                                                          */
+/* ================================================================== */
+
+scrollbar trough {
+    background-color: rgba(0, 153, 255, 0.03);
+    border-radius: 9999px;
+}
+
+scrollbar slider {
+    background-color: rgba(0, 153, 255, 0.2);
+    border-radius: 9999px;
+    min-width: 6px;
+    min-height: 40px;
+    border: 2px solid transparent;
+}
+
+scrollbar slider:hover {
+    background-color: rgba(0, 153, 255, 0.4);
+    box-shadow: 0 0 6px rgba(0, 153, 255, 0.2);
+}
+
+/* ================================================================== */
+/* Tooltips                                                            */
+/* ================================================================== */
+
+tooltip {
+    background-color: rgba(10, 14, 26, 0.95);
+    border: 1px solid rgba(0, 153, 255, 0.15);
+    border-radius: 8px;
+    color: #e2e8f0;
+    padding: 6px 10px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5),
+                0 0 10px rgba(0, 153, 255, 0.08);
+}
+
+/* ================================================================== */
+/* Separators                                                          */
+/* ================================================================== */
+
+separator {
+    background-color: rgba(0, 153, 255, 0.08);
+    min-width: 1px;
+    min-height: 1px;
+}
+
+/* ================================================================== */
+/* Links                                                               */
+/* ================================================================== */
+
+*:link {
+    color: #0099FF;
+}
+
+*:link:hover {
+    color: #33b1ff;
+    text-shadow: 0 0 6px rgba(0, 153, 255, 0.4);
+}
+
+/* ================================================================== */
+/* Selection                                                           */
+/* ================================================================== */
+
+*:selected {
+    background-color: rgba(0, 153, 255, 0.25);
+    color: #ffffff;
+}

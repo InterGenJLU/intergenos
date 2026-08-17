@@ -1,0 +1,30 @@
+name: eigen
+version: "3.4.0"
+release: 1
+description: Eigen C++ template library for linear algebra (header-only)
+license: MPL-2.0
+homepage: https://eigen.tuxfamily.org
+tier: compute
+build_style: custom
+install_func: do_install
+
+# Header-only linear algebra; in-tree consumer today = MIOpen's AI
+# kernel-tuning heuristics (find_package(Eigen3 REQUIRED) when the
+# upstream-default MIOPEN_ENABLE_AI_* switches are on). 3.4.0 is the
+# version MIOpen's own manifest pins (ROCm/eigen@3.4.0) AND the current
+# upstream stable. sha256 two-witness verified 2026-07-17: upstream
+# GitLab archive ⊕ Spack + Arch pin the identical digest.
+source:
+  - url: https://gitlab.com/libeigen/eigen/-/archive/${version}/eigen-${version}.tar.gz
+    filename: eigen-${version}.tar.gz
+    sha256: 8586084f71f9bde545ee7fa6d00288b264a2b7ac3607b974e54d13e7162c1c72
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/include/eigen3/Eigen/Core
+  - /usr/share/eigen3/cmake

@@ -1,0 +1,50 @@
+# Kernel symbols this distribution requires at an EXACT value.
+#
+# Read by scripts/check-kernel-required-symbols.py, which both kernel recipes run
+# after merging the config fragments. Each line is the literal line that must be
+# present in the produced .config, so the value is part of the requirement: for
+# these symbols built-in-ness IS the guarantee, and =m would be a silent
+# downgrade rather than a packaging choice.
+#
+# WHY THIS EXISTS. `cat fragments/*.config | olddefconfig` has no conflict
+# detection. A dependency downgrade — DM_VERITY=y quietly demoted to =m because
+# its BLK_DEV_DM dependency was =m — or a fragment-ordering regression can strip
+# a security guarantee while the build still succeeds. Asserting the PRODUCED
+# config and hard-failing on drift is what turns that into a build failure.
+#
+# The list moved out of the recipes and into this file on 2026-08-11, when the
+# same assertions had to apply to BOTH kernel passes. Two copies of a 28-symbol
+# list in two shell scripts is a drift class waiting to happen; one file read by
+# both is not. Origin of the assertions: audit D-1, 2026-05-29.
+#
+# Format: one literal CONFIG_X=value line per entry. Comments and blank lines
+# are ignored.
+
+CONFIG_DM_VERITY=y
+CONFIG_BLK_DEV_DM=y
+CONFIG_CRYPTO_USER_API_HASH=y
+CONFIG_CRYPTO_USER_API_SKCIPHER=y
+CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY=y
+CONFIG_SYSFB_SIMPLEFB=y
+CONFIG_VMD=y
+CONFIG_DRM_TTM=y
+CONFIG_DRM_KMS_HELPER=y
+CONFIG_DRM_VMWGFX=y
+CONFIG_HYPERV=y
+CONFIG_HYPERV_VMBUS=y
+CONFIG_DRM_HYPERV=y
+CONFIG_HYPERV_STORAGE=y
+CONFIG_HYPERV_NET=y
+CONFIG_HID_HYPERV_MOUSE=y
+CONFIG_HYPERV_BALLOON=y
+CONFIG_HYPERV_UTILS=y
+CONFIG_VSOCKETS=y
+CONFIG_HYPERV_VSOCKETS=y
+CONFIG_VMWARE_PVSCSI=y
+CONFIG_VMXNET3=y
+CONFIG_VMWARE_VMCI=y
+CONFIG_VMWARE_BALLOON=y
+CONFIG_MOUSE_PS2_VMMOUSE=y
+CONFIG_DRM_VBOXVIDEO=y
+CONFIG_VBOXGUEST=y
+CONFIG_VBOXSF_FS=y

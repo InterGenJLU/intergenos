@@ -1,0 +1,35 @@
+name: lib32-libX11
+version: "1.8.13"
+release: 1
+description: Core X11 client library (32-bit multilib runtime)
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+# PURE-YML package (no build.sh): driven end-to-end by the builder's lib32
+# autotools lane — sourced profile per command, mechanism flags injected
+# (host triplet, lib32 libdir, verbose rules), allowlist staged-copy
+# install (only /usr/lib32 ships; headers/protos stay with the sibling).
+build_style: autotools
+lib32_source: libX11
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://www.x.org/pub/individual/lib/libX11-${version}.tar.xz
+  sha256: 69606f485c2c07c14ef64f75b7bb326d48587af33795d9ab3e607c0b5f94f11c
+dependencies:
+  build:
+  - lib32-glibc
+  - lib32-libxcb
+  - xorgproto
+  - xtrans
+  host: []
+  runtime:
+  - lib32-glibc
+  - lib32-libxcb
+configure_flags:
+- --prefix=/usr
+- --disable-static
+verify_paths:
+  - /usr/lib32/libX11.so.6
+  - /usr/lib32/pkgconfig/x11.pc

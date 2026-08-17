@@ -1,0 +1,33 @@
+name: apache-httpd
+version: "2.4.67"
+release: 4  # r4: F43 — TLS cert+key generation moved out of build to a per-machine first-start keygen unit. r3: never ship var/run/httpd (tmpfiles.d /run/httpd instead; split-brain runtime-dir class, 2026-07-17). r2 L29: setuid-strip regression rebuild (staging-chokepoint chown)
+content_hash: 5b8255d916735b62
+description: Apache HTTP Server 2.4.x — heritage HTTP/HTTPS server with mpm_event + DSO modules + default-secure config
+license: Apache-2.0
+homepage: https://httpd.apache.org/
+tier: extra
+build_style: autotools
+install_func: do_install
+source:
+- url: https://archive.apache.org/dist/httpd/httpd-${version}.tar.bz2
+  sha256: 66cd206637b0d5c446fa7dabe75fe03525da8fb55855876c46288cd88b136aa4
+dependencies:
+  build:
+  - apr
+  - apr-util
+  - openssl
+  - pcre2
+  - zlib
+  - libxml2
+  host: []
+  runtime:
+  - apr
+  - apr-util
+  - openssl
+  - pcre2
+  - zlib
+  - libxml2
+verify_paths:
+  - /usr/bin/apachectl
+  - /usr/include/ap_compat.h
+  - /usr/include/ap_config.h

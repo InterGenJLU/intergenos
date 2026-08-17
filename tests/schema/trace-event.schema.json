@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://intergenos.local/schemas/trace-event.schema.json",
+  "title": "InterGenOS forensic-trace event",
+  "description": "Canonical schema for every event emitted by scripts/lib/igos_trace.py and scripts/lib/trace.sh. Build pipeline + igos-build + pkm + installer.backend all emit through this same envelope. Cross-file jq joins by .ts / .runid / .pkg / .phase work uniformly because the schema is one schema.",
+  "type": "object",
+  "required": ["type", "ts"],
+  "additionalProperties": true,
+  "properties": {
+    "type": {
+      "description": "Event type. Canonical vocabulary documented in dossier 30-lift-plan.md section 2.",
+      "type": "string",
+      "minLength": 1
+    },
+    "ts": {
+      "description": "Event timestamp. ISO-8601 UTC with millisecond precision (YYYY-MM-DDTHH:MM:SS.mmmZ). Both Python (igos_trace._iso_ts) and bash (trace.sh:_trace_iso_ts) emit byte-identical format.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "runid": {
+      "description": "16-hex run identifier shared across every event in one build/install. Set via IGOS_TRACE_RUNID env-var inheritance.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{1,16}$"
+    },
+    "phase": {
+      "description": "Optional phase tag (PHASE_* string or pkm_* / igos-build_* operation name).",
+      "type": ["string", "null"]
+    },
+    "pkg": {
+      "description": "Optional package name pin. Lets cross-file jq joins by .pkg work uniformly.",
+      "type": ["string", "null"]
+    },
+    "tier": {
+      "description": "Optional tier pin (toolchain, core, base, desktop, ai, extra, ch8, ch10, core-extra, bootloader, igos-build).",
+      "type": ["string", "null"]
+    },
+    "rc": {
+      "description": "Subprocess / phase / package return code. 0 = success.",
+      "type": ["integer", "null"]
+    },
+    "duration_ms": {
+      "description": "Duration in milliseconds. Always an integer; matches Python and bash emit shape.",
+      "type": ["integer", "null"]
+    },
+    "cmd": {
+      "description": "Subprocess argv as an array of strings.",
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    },
+    "stdout": {
+      "description": "Subprocess stdout captured verbatim (no truncation per byte-level-capture contract).",
+      "type": ["string", "null"]
+    },
+    "stderr": {
+      "description": "Subprocess stderr captured verbatim.",
+      "type": ["string", "null"]
+    },
+    "stdin_bytes": {
+      "description": "Byte length of input stream passed to a subprocess.",
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "stdout_bytes": {
+      "description": "Byte length of subprocess stdout.",
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "stderr_bytes": {
+      "description": "Byte length of subprocess stderr.",
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "redacted_env_keys": {
+      "description": "Names of env-vars whose values were redacted from subprocess_start events. Names land in the trail; values never do (PII/secret hygiene).",
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    }
+  }
+}

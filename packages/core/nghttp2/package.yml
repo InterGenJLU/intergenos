@@ -1,0 +1,39 @@
+name: nghttp2
+version: "1.68.1"
+release: 1
+description: HTTP/2 C library
+license: MIT
+homepage: https://nghttp2.org/
+tier: core
+build_style: autotools
+
+source:
+  - url: https://github.com/nghttp2/nghttp2/releases/download/v${version}/nghttp2-${version}.tar.xz
+    sha256: 6abd7ab0a7f1580d5914457cb3c85eb80455657ee5119206edbd7f848c14f0b2
+
+dependencies:
+  # No build-time dep declarations: nghttp2 is built with --enable-lib-only
+  # (see configure_flags below), which builds ONLY libnghttp2.so and skips
+  # the nghttp / nghttpd / nghttpx applications. The optional libraries that
+  # nghttp2's configure probes (OpenSSL, libxml2, libev, libc-ares,
+  # libngtcp2, jansson, jemalloc) are needed only by those apps — in
+  # --enable-lib-only mode, nghttp2's configure summary reports all of them
+  # as `no (CFLAGS='' LIBS='')` by design. Empirically verified against the
+  # 1.68.1 build log: zero linker references to any of these libs in the
+  # libnghttp2.so build line; libnghttp2.so links only against libc.
+  build: []
+  host: []
+  runtime: []
+
+configure_flags:
+  - "--prefix=/usr"
+  - "--disable-static"
+  - "--enable-lib-only"
+  - "--docdir=/usr/share/doc/nghttp2-1.68.1"
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "nghttp2 test suite requires CUnit (not in our tree) for the C library tests, and the integration tests bind localhost ports for HTTP/2 round-trips which are unreliable in the build chroot."
+verify_paths:
+  - /usr/lib/libnghttp2.so

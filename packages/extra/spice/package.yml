@@ -1,0 +1,43 @@
+name: spice
+version: "0.16.0"
+release: 1
+description: SPICE remote display server library
+license: LGPL-2.1-or-later
+homepage: https://www.spice-space.org
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://www.spice-space.org/download/releases/spice-server/spice-${version}.tar.bz2
+    sha256: 0a6ec9528f05371261bbb2d46ff35e7b5c45ff89bb975a99af95a5f20ff4717d
+dependencies:
+  build:
+    - meson
+    - ninja
+    - pkgconf
+    - spice-protocol
+    - glib2
+    - pixman
+    - openssl
+    - lz4
+    - cyrus-sasl
+    - opus
+    - gstreamer
+    - gst-plugins-base
+    - orc
+  host: []
+  runtime:
+    - glib2
+    - pixman
+    - openssl
+    - lz4
+    - cyrus-sasl
+    - opus
+    - gstreamer
+    - gst-plugins-base
+    - orc
+verify_paths:
+  - /usr/lib/libspice-server.so.1
+  - /usr/lib/pkgconfig/spice-server.pc
+  - /usr/include/spice-server/spice.h

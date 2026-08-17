@@ -1,0 +1,26 @@
+# Stateful family manifest — status/network-cellular (ICON_CATEGORIES.md §6.3). ONE base
+# (cellular-bars: four ascending signal bars) + a level parameter -> the discrete -symbolic.svg
+# ladder. The five signal tokens are gnome-shell's signalToIcon (network.js:46-57: value<20 none
+# / <40 weak / <50 ok / <80 good / else excellent), constructed at network.js:674-675. The three
+# statics ride overlays / a full level: acquiring = an accent ellipsis (network.js:672), disabled
+# = a foreground slash (network.js:680), connected = full bars (level 4; network.js:723). State
+# ids OMIT the -symbolic suffix (the compiler appends it). Names verified char-for-char against
+# the PINNED gnome-shell-49.4 js/ui/status/network.js.
+schema_version: 1
+family: network-cellular
+category: status
+fit: 1.734                  # optical T(q) family fit (measured convergence)
+kind: symbolic
+base: cellular-bars
+export:
+  svg: true
+  png: [16, 24, 32, 48]
+states:                          # id (no -symbolic) | level | optional overlays
+  - { id: network-cellular-signal-none,      level: 0, fit: 1.892 }
+  - { id: network-cellular-signal-weak,      level: 1, fit: 1.883 }
+  - { id: network-cellular-signal-ok,        level: 2, fit: 1.883 }
+  - { id: network-cellular-signal-good,      level: 3, fit: 1.883 }
+  - { id: network-cellular-signal-excellent, level: 4, fit: 1.875 }
+  - { id: network-cellular-acquiring,        level: 0, overlays: [acquiring], fit: 1.258 }
+  - { id: network-cellular-connected,        level: 4, fit: 1.968 }
+  - { id: network-cellular-disabled,         level: 0, overlays: [disabled], fit: 1.955 }

@@ -1,0 +1,5 @@
+Forum reply:
+
+I had the same problem last week. You must run the diagnostic script to identify the conflict. After that, you must execute the cleanup command which is `rm -rf ~/.config/yourapp` — this removes the stale state file.
+
+Worked for me. Let me know if you need more help.

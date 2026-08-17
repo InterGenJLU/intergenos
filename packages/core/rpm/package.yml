@@ -1,0 +1,35 @@
+name: rpm
+version: "4.18.2"
+release: 1
+description: RPM package manager — provides rpm2cpio utility for extracting Fedora's MS-signed shim binary during the InterGenOS boot chain build (per shim-signed package dependency)
+license: GPL-2.0-or-later
+homepage: https://rpm.org/
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://ftp.osuosl.org/pub/rpm/releases/rpm-${version_major_minor}.x/rpm-${version}.tar.bz2
+    sha256: ba7eee1bc2c6f83be73c0a40d159c625cbaed976b3ac044233404fb25ae1b979
+
+dependencies:
+  build:
+    - popt
+    - libgcrypt
+    - lua
+  host: []
+  runtime:
+    - popt
+    - libgcrypt
+    - lua
+# libgcrypt added 2026-05-11 (decided): rpm's configure errored out
+# in Build #7 because libgcrypt was an undeclared real dep. The header
+# is required by rpm's signature-verification code paths.
+# lua added 2026-05-12: rpm 4.18 made lua a hard build dependency
+# (removed --without-lua). configure.ac line 785 does
+# PKG_CHECK_MODULES([LUA], [lua >= 5.2], [], [AC_MSG_ERROR(...)]) which
+# fails configure unconditionally if lua isn't present at pkg-config time.
+# Caught by preflight-undeclared-deps.py (Scan A.2) post-Build-#9 halt.
+
+verify_paths:
+  - /usr/bin/rpm2archive

@@ -1,0 +1,74 @@
+[
+  {
+    "id": "self-which-model-am-i-running",
+    "domain": "self-knowledge",
+    "triggers": [
+      "which model am I running",
+      "what model is InterGen using",
+      "what AI model is this",
+      "what tier am I on",
+      "what model is loaded"
+    ],
+    "answer": "Run `intergen status`. Two lines answer this:\n\n- **Model:** the model actually loaded and answering you right now.\n- **Recommended:** the largest model your hardware tier could run — a hint about your hardware's ceiling, not necessarily what is loaded.\n\nThe **Tier** and **GPU** lines show your detected hardware class. The Model line is the ground truth for what is serving your requests; if it differs from Recommended, that is expected (InterGenOS ships and runs a specific verified model for your tier).",
+    "doc_source": "9b-lane/tier-3-self-knowledge",
+    "requires": []
+  },
+  {
+    "id": "self-why-recommendation-differs",
+    "domain": "self-knowledge",
+    "triggers": [
+      "why does the recommended model differ from what's running",
+      "why is the recommended model different from the loaded model",
+      "status shows a different model than recommended",
+      "why isn't the recommended model loaded"
+    ],
+    "answer": "In `intergen status`, **Model** and **Recommended** measure different things:\n\n- **Model** is the model actually loaded and serving your requests.\n- **Recommended** is the largest model your detected hardware tier could theoretically run — an upper-bound hint from the hardware detector, not a promise that it is installed or loaded.\n\nThey differ because InterGenOS ships and runs a specific, verified model for your tier; the recommendation is a ceiling, not the running engine. Trust the **Model** line for what is answering you.",
+    "doc_source": "9b-lane/tier-3-self-knowledge",
+    "requires": []
+  },
+  {
+    "id": "self-is-my-gpu-being-used",
+    "domain": "self-knowledge",
+    "triggers": [
+      "is my GPU being used",
+      "is the model running on my GPU",
+      "is InterGen using my graphics card",
+      "is the model actually on the GPU"
+    ],
+    "answer": "Two grounded checks:\n\n1. `intergen status` — the **GPU** line shows your detected GPU, and the **Offload** line reports the backend and how many model layers are on the GPU (for example `Vulkan, 33/33 layers on GPU` means the whole model is GPU-served; `on CPU` means it is not).\n2. `nvidia-smi` — the InterGen `llama-server` process appears in the process list with the GPU memory it holds, and the utilization percentage rises while the model is generating.\n\nIf the Offload line shows layers on the GPU (or `nvidia-smi` shows `llama-server` holding memory), the model is on the GPU.",
+    "doc_source": "9b-lane/tier-3-self-knowledge",
+    "requires": [
+      "nvidia-smi"
+    ]
+  },
+  {
+    "id": "self-how-much-vram-in-use",
+    "domain": "self-knowledge",
+    "triggers": [
+      "how much VRAM is in use",
+      "how much GPU memory is free",
+      "how much video memory is used",
+      "GPU memory usage"
+    ],
+    "answer": "Run:\n```\nnvidia-smi --query-gpu=memory.used,memory.total,memory.free --format=csv\n```\nThis prints, for each GPU, the memory in use, the total onboard memory, and the free memory. For the fuller picture — which processes hold the memory — run `nvidia-smi` on its own.",
+    "doc_source": "9b-lane/tier-3-self-knowledge",
+    "requires": [
+      "nvidia-smi"
+    ]
+  },
+  {
+    "id": "self-check-gpu-utilization",
+    "domain": "self-knowledge",
+    "triggers": [
+      "how do I check GPU utilization",
+      "how busy is my GPU",
+      "what is my GPU load",
+      "check GPU usage"
+    ],
+    "answer": "Run `nvidia-smi`. It shows, live, each GPU's utilization percentage, its memory in use versus total, temperature and power draw, and the list of processes currently using the GPU (the InterGen `llama-server` will be among them when the model is loaded). For a repeating live view, `nvidia-smi -l 1` refreshes once a second.",
+    "doc_source": "9b-lane/tier-3-self-knowledge",
+    "requires": [
+      "nvidia-smi"
+    ]
+  }
+]

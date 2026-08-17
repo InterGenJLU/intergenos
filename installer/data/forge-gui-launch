@@ -1,0 +1,62 @@
+#!/bin/sh
+# /usr/bin/forge-gui-launch — Forge GUI launcher (Architecture B, 2026-05-25).
+#
+# The GTK4 GUI runs as the calling user — NOT pkexec'd to root anymore.
+# Wayland deliberately denies pkexec'd-root processes the input-grab
+# capability used by GTK popovers, dropdowns, dialogs, and toasts; the
+# 2026-05-25 walk through every libadwaita widget confirmed every
+# popup-based widget was broken in the old root-GUI architecture (six
+# diagnostic deploys, captured in the 2026-05-25 evening session).
+#
+# Privileged work (partition / format / chroot / package install / boot
+# loader install) now goes through the system D-Bus to the
+# `org.intergenos.ForgeInstaller1` backend service activated on demand
+# at install time. Polkit auth and D-Bus policy gate who can call into
+# the backend — on the live ISO, the `intergenos` user is granted YES
+# unconditionally (D-007 contract); on installed systems, polkit
+# auth_admin_keep prompts for elevated credentials once per session.
+#
+# This script's job is now small: just exec the GUI as the calling user
+# with a sensible env. The runner (forge-gui-runner) is gone.
+
+# Diagnostic logging — same path the old launcher used, so existing
+# post-mortem scripts still find it.
+exec >>/tmp/forge-gui-launch.log 2>&1
+echo "=== forge-gui-launch invoked $(date -Iseconds) uid=$(id -u) ==="
+
+set -eu
+
+# Refuse to run as root. Architecture B requires the GUI to be
+# unprivileged so Wayland delivers click events to its popovers. A root
+# invocation almost certainly came from a stale pkexec'd autostart entry
+# from the pre-B architecture; reject loudly so the operator notices.
+if [ "$(id -u)" = "0" ]; then
+    printf 'forge-gui-launch: must run as an unprivileged user, not root.\n' >&2
+    printf '  Architecture B (2026-05-25) puts the GUI in the user session;\n' >&2
+    printf '  privileged work goes through the org.intergenos.ForgeInstaller1\n' >&2
+    printf '  D-Bus service. Re-launch from the user session (no sudo/pkexec).\n' >&2
+    exit 1
+fi
+
+# GTK_USE_PORTAL=1 is intentionally NOT set anymore: the portal handoff
+# was needed in the root-GUI era because root couldn't reach the user's
+# session bus directly. Now that the GUI IS in the user's session, GTK
+# can talk to xdg-desktop-portal natively.
+
+# Inhibit notification banners while the installer kiosk is up (PI-2). Forge
+# runs fullscreen as a focused kiosk; a system notification banner landing over
+# it (e.g. an extension's startup toast) looks broken. Forge itself runs as the
+# user but escalates privileged work over D-Bus, so it cannot toggle the session
+# DND from inside the GTK process reliably — do it here, in the user session,
+# and RESTORE the prior value when the GUI exits (matters only if a user ever
+# runs Forge on an installed system; the live session is per-boot tmpfs). This
+# suppresses system banners only — Forge's own in-window Adw.Toast is unaffected.
+if command -v gsettings >/dev/null 2>&1; then
+    PREV_BANNERS="$(gsettings get org.gnome.desktop.notifications show-banners 2>/dev/null || echo '')"
+    gsettings set org.gnome.desktop.notifications show-banners false 2>/dev/null || true
+    trap 'if [ -n "$PREV_BANNERS" ]; then gsettings set org.gnome.desktop.notifications show-banners "$PREV_BANNERS" 2>/dev/null || true; fi' EXIT INT TERM
+fi
+
+echo "running /usr/bin/forge --mode gui"
+# Not exec: keep this wrapper as parent so the EXIT trap restores DND afterward.
+/usr/bin/forge --mode gui

@@ -1,0 +1,120 @@
+name: wine
+version: "11.12"
+release: 1
+description: Windows compatibility layer, new-WoW64 build with PE cross-compilation
+license: LGPL-2.1-or-later
+homepage: https://www.winehq.org/
+tier: extra
+# GE extra-tier wave (build plan §4). NEW-WoW64 build: one 64-bit ELF Unix
+# side + PE code cross-compiled for BOTH widths via the mingw-w64
+# toolchain (--enable-archs=x86_64,i386 — wine's configure probes each
+# arch's dedicated cross-compiler and hard-errors without it, which is
+# why the mingw set builds both triplets). No 32-bit ELF Unix side exists
+# in this mode; the host lib32 stack serves native 32-bit titles, not
+# wine.
+#
+# RELEASE-CHANNEL DECISION (research-first, recorded per the build plan):
+# the DEVELOPMENT channel, pinned exact. The gaming delta over 11.0
+# stable is load-bearing for this arc — bundled vkd3d 2.0 (11.10),
+# bundled FFmpeg media libraries (11.12, the RT-3 widened surface), and
+# Wayland fractional scaling (11.12) — and the comparable from-source
+# precedents (GLFS, Arch) ship the development channel. Reproducibility
+# is unaffected: we sha-pin one exact release either way and re-validate
+# on every bump.
+#
+# Source pin verified at ingest (2026-07-02): sha512 matches the
+# GPG-SIGNED sha512sums.asc on dl.winehq.org (Good signature, Alexandre
+# Julliard <julliard@winehq.org>); the sha256 below computed locally from
+# those verified bytes (WineHQ publishes sha512, not sha256).
+#
+# RT-3 MACHINERY RIDES THIS COMMIT (the binding same-commit rule): wine's
+# own configure silently auto-disables a missing optional lib UNLESS the
+# feature was requested with --with-<x>, in which case it AC_MSG_ERRORs
+# (46 such hard-fail sites verified in the pinned configure). build.sh
+# therefore force-enables the ENTIRE expected gaming surface (configure
+# itself becomes the gate) + pins the intentionally-absent set with
+# explicit --without + re-asserts the auto-detected sonames and the
+# bundled-FFmpeg build products post-configure/post-build. The validation
+# block below asserts both PE widths on the staged artifact.
+build_style: custom
+# Mirror-only (extra-tier default, stated explicitly).
+iso_include: false
+source:
+- url: https://dl.winehq.org/wine/source/11.x/wine-${version}.tar.xz
+  sha256: d3bc091192d985846c9f20065cc81f21331f01e22b736b131e3449e1306671bc
+dependencies:
+  build:
+  - mingw-w64-gcc
+  - nasm
+  host: []
+  runtime:
+  - alsa-lib
+  - cups
+  - dbus
+  - fontconfig
+  - freetype2
+  - gnutls
+  - gst-plugins-base
+  - gst-plugins-good
+  - gstreamer
+  - libglvnd
+  - libpcap
+  - libunwind
+  - libusb
+  - libX11
+  - libXcomposite
+  - libXcursor
+  - libXext
+  - libXfixes
+  - libXi
+  - libXinerama
+  - libXrandr
+  - libXrender
+  - libXxf86vm
+  - libxkbcommon
+  - mesa
+  - pulseaudio
+  - samba
+  - sdl2
+  - systemd
+  - vulkan-loader
+  - wayland
+  # The addon MSI data packages (operator decision 1, 2026-07-02): with
+  # them installed, addons.c's install_from_default_dir finds the pinned
+  # MSIs at /usr/share/wine/{gecko,mono} and the silent plain-HTTP
+  # prefix-creation fetch never fires. Their versions are wine's OWN
+  # addons.c pins — a wine bump re-reads them and bumps both in lockstep.
+  - wine-gecko
+  - wine-mono
+# nasm: the bundled FFmpeg's x86 SIMD assembles with nasm — without it
+# the media backend silently degrades (the exact class the RT-3 gate
+# exists for); pinned as a hard build dep instead.
+validation:
+  - type: sanity_check
+    description: "Both PE widths really staged and really PE (new-WoW64 contract: x86_64-windows + i386-windows ntdll present, formats asserted via the deployed cross objdump)"
+    script: |
+      set -u
+      for pair in "x86_64-windows pei-x86-64 x86_64-w64-mingw32" "i386-windows pei-i386 i686-w64-mingw32"; do
+          set -- $pair
+          dll="${DESTDIR}/usr/lib/wine/$1/ntdll.dll"
+          if [ ! -f "$dll" ]; then
+              echo "WOW64-FAIL: missing $dll"
+              exit 1
+          fi
+          if ! "/usr/bin/$3-objdump" -f "$dll" | grep -q "file format $2"; then
+              echo "WOW64-FAIL: $dll is not $2"
+              exit 1
+          fi
+      done
+      if [ ! -f "${DESTDIR}/usr/lib/wine/x86_64-windows/mfsrcsnk.dll" ]; then
+          echo "RT-3-FAIL: mfsrcsnk.dll (the bundled-FFmpeg media consumer) not staged"
+          exit 1
+      fi
+      echo "WOW64-BOTH-WIDTHS-PE-OK"
+    expect_contains: "WOW64-BOTH-WIDTHS-PE-OK"
+    fatal: true
+verify_paths:
+  - /usr/bin/wine
+  - /usr/bin/wineserver
+  - /usr/lib/wine/x86_64-windows/ntdll.dll
+  - /usr/lib/wine/i386-windows/ntdll.dll

@@ -1,0 +1,19 @@
+# Path-prefix exclusions for scripts/check-register.py (the push-time
+# writing-register gate). One repo-relative path or directory prefix per
+# line; '#' lines are comments. Files under these prefixes are skipped in
+# BOTH tiers.
+#
+# Every entry carries its reason. Decided 2026-08-16, from the calibration
+# read of the register density measurement:
+#
+# Preserved historical research records. These documents quote generated
+# output verbatim as evidence; rewriting quoted evidence would falsify the
+# record. They are labeled in place rather than edited.
+docs/research
+#
+# Upstream projects' own descriptions — attribution text reproduced as
+# published by its authors. Not ours to reword.
+THIRD-PARTY-NOTICES.md
+#
+# Standard community-covenant text, reproduced as published.
+CODE_OF_CONDUCT.md

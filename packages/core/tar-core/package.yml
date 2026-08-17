@@ -1,0 +1,20 @@
+name: tar-core
+ships_as: tar  # ch8 dual-name twin — the driver archives this recipe under the ship name (chroot-build-ch8.sh run_package arg 2; runtime deps elsewhere may name 'tar')
+version: '1.35'
+release: 1
+description: GNU tar archiver
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/tar/tar-${version}.tar.xz
+  sha256: 4d62ff37342ec7aed748535323930c7cf94acf71c3591882b26a7ea50f3edc16
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - acl
+  - xz
+tier: core
+build_style: autotools
+verify_paths:
+  - /usr/bin/tar
+  - /usr/share/doc/tar-1.35

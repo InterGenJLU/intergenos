@@ -1,0 +1,39 @@
+name: unzip
+version: "6.0"
+release: 1
+description: Extractor for PKZIP-compatible .zip archives
+license: Info-ZIP
+homepage: https://infozip.sourceforge.net/UnZip.html
+tier: base
+build_style: custom
+install_func: do_install
+# Info-ZIP UnZip 6.0 (2009) is the final upstream release; the project is
+# unmaintained, so every post-2009 security fix lives in a downstream patch set.
+# We adopt Debian's maintained 6.0-29 patch series (the same coherent lineage
+# Gentoo consumes) as ONE sha-pinned artifact, rather than the BLFS
+# consolidated-fixes patch: consolidated-fixes (Fedora-derived) stops at 2018 and
+# cannot cleanly stack the post-2018 fixes — the 2021/2022 patches conflict
+# against it in process.c, whereas the full Debian series applies clean in order.
+# The series carries the full known-CVE set: 2014-8139/8140/8141/9636/9913,
+# 2015-7696/7697, 2016-9844, 2018-1000035, 2019-13232 (the zip-bomb overlapped-
+# entries DoS, in Debian's maintained 5-patch form with the false-positive fix),
+# 2021-4217, and 2022-0529/0530. build.sh applies it in the upstream series order
+# and skips only 02-this-is-debian-unzip (Debian branding — it would misreport
+# this unzip as Debian's, against the Prime Directive). winetricks depends on
+# unzip; it also stands alone as a base archive utility a complete system ships.
+source:
+  - url: https://downloads.sourceforge.net/infozip/unzip60.tar.gz
+    sha256: 036d96991646d0449ed0aa952e4fbe21b476ce994abc276e49d30e686708bd37
+  # Rule 12: Debian's maintained patch series, pinned to revision 6.0-29 — the
+  # current revision carrying the full CVE coverage through 2022-0529/0530. A
+  # single pinned tarball; the security patches are applied from it in build.sh.
+  - url: https://deb.debian.org/debian/pool/main/u/unzip/unzip_6.0-29.debian.tar.xz
+    sha256: 14043e5ea351c02b3bc8676e1e6d20d79b9a690b6d7520e8138ac629cc048417
+    filename: unzip-6.0-29.debian.tar.xz
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/unzip
+  - /usr/bin/zipinfo

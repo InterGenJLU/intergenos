@@ -1,0 +1,22 @@
+name: h11
+# Upstream latest stable; httpcore requires h11>=0.16 (satisfied).
+version: "0.16.0"
+release: 1
+description: Pure-Python HTTP/1.1 protocol library (sans-IO)
+license: MIT
+homepage: https://github.com/python-hyper/h11
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/01/ee/02a2c011bdab74c6fb3c75474d40b3052059d95df7e73351460c8588d963/h11-0.16.0.tar.gz
+  sha256: 4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1
+dependencies:
+  build:
+  - setuptools
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/h11/__init__.py
+  - /usr/lib/python3.14/site-packages/h11/_connection.py

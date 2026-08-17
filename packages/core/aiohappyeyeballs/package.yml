@@ -1,0 +1,25 @@
+name: aiohappyeyeballs
+version: "2.6.2"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Happy Eyeballs connection helper for asyncio
+license: MIT
+homepage: https://github.com/aio-libs/aiohappyeyeballs
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/33/c6/61a2d7b7572279226bb2e7f61d7a19ca7c90da0329c93fa0d560cbf288d8/aiohappyeyeballs-2.6.2.tar.gz
+  sha256: e202810ee718bd01fc6ef49e8ea53d023d5cb6b581076d7925aa499fa55dbe64
+dependencies:
+  build:
+  # The pinned sdist's [build-system] names poetry.core.masonry.api, provided by
+  # poetry-core. build.sh builds with --no-build-isolation, which installs nothing
+  # for the build, so poetry-core must already be present; declaring it here is
+  # what orders it ahead of this package.
+  - poetry-core
+  - setuptools
+  - wheel
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/aiohappyeyeballs

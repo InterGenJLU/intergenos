@@ -1,0 +1,18 @@
+name: intergenos-firewall-defaults
+version: "1.0.0"
+release: 4  # r4: neutral-language sweep of comments and printed text: decisions are recorded as "decided <date>" instead of being credited to a person or project role, development-host shorthand is replaced by a plain description, and the citations of a repository that is not published are replaced by what they were pointing at. Comments and strings only — no rule, path, flag, threshold or code path changed. The public-content scanner now carries detectors for all three classes (scripts/check-public-content.py), so the classes cannot return silently; tests/preflight/test_public_language_detectors.py proves each detector in both directions. r3: the header comment of the shipped ruleset (installed as /etc/nftables.conf) states the date the default-deny policy was decided instead of attributing it to a person. Comment text only — not one rule, chain, policy or port changed, and `nft --check` accepts the file unchanged. r2: the input chain gains a bridge-scoped accept for DHCP (udp/67) and DNS (udp/53 + tcp/53) so a host running libvirt NAT guests can answer them from its own dnsmasq. Approved 2026-08-04. Each rule matches on the virtual-bridge interface name class and on nothing else — never an address, never an unscoped port — so these ports stay closed on every real interface, and no interface carries that name at all unless libvirt is installed with a network started. Forwarding is NOT opened here; routing guest traffic onward stays opt-in through the fragment the libvirt package ships for /etc/nftables.d. Default-deny posture otherwise unchanged: both chain policies still drop and SSH is still closed.
+content_hash: ee6cb2d271cb79fa
+description: InterGenOS default-deny nftables policy per D-011 requirement. Ships /etc/nftables.conf with default-drop INPUT/FORWARD + established/related + loopback + ICMP echo-request + frag-needed allowed, plus a bridge-scoped DHCP/DNS accept for libvirt NAT guests. SSH closed by default.
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: core
+build_style: custom
+source: []
+dependencies:
+  build: []
+  host:
+    - coreutils-core
+  runtime:
+    - nftables
+verify_paths:
+  - /etc/nftables.conf

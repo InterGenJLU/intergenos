@@ -1,0 +1,87 @@
+From: InterGenOS <noreply@intergenos.example>
+Date: Mon, 25 May 2026
+Subject: [PATCH] gtkpopover: skip set_input_region when width/height degenerate
+
+In gtk_popover_update_shape()'s !has_arrow branch, the input rectangle
+width is computed as:
+
+    input_rect.width = gdk_surface_get_width(priv->surface) -
+                       (shadow_width.left + shadow_width.right);
+
+shadow_width comes from CSS box-shadow extents (typically 24-32px on
+modern GNOME themes). During the transient configure handshake on
+Wayland — before the compositor has ACKed the xdg_popup's final size
+— gdk_surface_get_width() can return values smaller than
+shadow_width.left+shadow_width.right, producing a NEGATIVE
+cairo_rectangle_int_t.width.
+
+The negative width is passed to cairo_region_create_rectangle() and
+pixman_region32_init_rect(), where pixman's BAD_RECT macro fires and
+logs:
+
+    *** BUG ***
+    In pixman_region32_init_rect: Invalid rectangle passed
+    Set a breakpoint on '_pixman_log_error' to debug
+
+Pixman returns an EMPTY region. We then call
+gdk_surface_set_input_region(priv->surface, empty_region), which on
+the Wayland backend emits wl_surface.set_input_region(empty_region).
+Per the Wayland protocol, an empty bounded input region means the
+surface accepts ZERO pointer-button or touch events. Motion events
+still arrive (the compositor delivers those before the input-region
+test for cursor/hover), but every button-press lands nowhere.
+
+On the InterGenOS GNOME 49 live-ISO autologin session, this race hits
+with ~100% reliability — and the symptom presents as "every libadwaita
+popover-using widget kills clicks on the parent window after dismissal"
+plus "window titlebar drag silently no-ops on every Wayland window."
+GDK_BACKEND=x11 (XWayland) bypasses both because XWayland uses X11
+server-side grabs, not xdg_popup grabs.
+
+Fix: clamp width/height to MAX(0, ...) to eliminate pixman log noise,
+and skip set_input_region entirely when the result is non-positive.
+The Wayland default for a surface that never calls set_input_region is
+"infinite" (NULL), which is the safe behavior during the transient
+configure handshake — input events flow normally until a valid size
+can be set.
+
+Discovered + diagnosed by the InterGenOS team's research dossier at
+docs/research/2026-05-25-gnome49-wayland-regression/.
+
+To be filed upstream as a GitLab issue + MR against gnome-49 + main.
+
+--- a/gtk/gtkpopover.c
++++ b/gtk/gtkpopover.c
+@@ -1499,16 +1499,26 @@
+
+       input_rect.x = shadow_width.left;
+       input_rect.y = shadow_width.top;
+-      input_rect.width =
++      input_rect.width = MAX (0,
+         gdk_surface_get_width (priv->surface) -
+-        (shadow_width.left + shadow_width.right);
+-      input_rect.height =
++        (shadow_width.left + shadow_width.right));
++      input_rect.height = MAX (0,
+         gdk_surface_get_height (priv->surface) -
+-        (shadow_width.top + shadow_width.bottom);
++        (shadow_width.top + shadow_width.bottom));
+
+-      region = cairo_region_create_rectangle (&input_rect);
+-      gdk_surface_set_input_region (priv->surface, region);
+-      cairo_region_destroy (region);
++      /* Skip set_input_region when the surface is transiently degenerate
++       * (width or height non-positive). Leaving the input region unset
++       * keeps the Wayland default (infinite) so events flow normally
++       * until the configure handshake settles. Fixes a pixman BAD_RECT
++       * fingerprint that produced an empty input region on the live ISO,
++       * silently breaking pointer-button delivery on libadwaita popover-
++       * using widgets. See InterGenOS 2026-05-25 research dossier. */
++      if (input_rect.width > 0 && input_rect.height > 0)
++        {
++          region = cairo_region_create_rectangle (&input_rect);
++          gdk_surface_set_input_region (priv->surface, region);
++          cairo_region_destroy (region);
++        }
+     }
+ }

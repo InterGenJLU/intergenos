@@ -1,0 +1,71 @@
+name: lib32-libxkbcommon
+version: "1.13.1"
+release: 1
+description: Keyboard handling library (32-bit multilib runtime)
+license: MIT
+homepage: https://xkbcommon.org/
+tier: desktop
+# PURE-YML package (no build.sh): driven end-to-end by the builder's lib32
+# meson lane — cross-file configure, verbose ninja, allowlist staged-copy
+# install (only /usr/lib32 ships).
+#
+# Measured-demand ADD (operator decision 3, 2026-07-02): Valve/Arch HARD
+# dep of the 32-bit Steam client our lib32 set lacked. Ships BOTH
+# libxkbcommon.so.0 and libxkbcommon-x11.so.0 (the artifact set of the
+# Arch lib32-libxkbcommon package the demand was measured against; the
+# 0.x.y soname scheme is upstream's deliberate no-bump policy, read from
+# the pinned meson.build).
+#
+# Pinned explicitly against the pinned 1.13.1 meson_options.txt (G3 —
+# pin, never autodetect):
+# - enable-tools=false: xkbcli and its subtools — bins the lib-only twin
+#   never ships (not building them is the honest form of not shipping).
+# - enable-x11=true: builds libxkbcommon-x11 against lib32-libxcb's
+#   xcb + xcb-xkb (>=1.10, hard-error if absent — the loud check).
+# - enable-wayland=false: gates ONLY the interactive-wayland xkbcli tool
+#   (verified in the pinned meson.build, "Tools: interactive-wayland");
+#   inert with tools off — pinned off to kill the dep edge honestly.
+# - enable-xkbregistry=false: libxkbregistry hard-requires libxml-2.0 and
+#   we ship no lib32-libxml2; the registry lib is desktop-tooling surface
+#   with NO measured 32-bit demand (absent from Valve Depends/Recommends
+#   and not what the measured Arch dep names). The install-time ldd and
+#   the fail-closed steam wrapper catch any drift.
+# - enable-docs=false (sibling parity) + enable-bash-completion=false
+#   (completion files for tools the twin does not build).
+# - default-rules/model/layout/variant/options + xkb-config paths stay at
+#   the pinned defaults — identical values to the sibling's build; the
+#   XKB data itself is the arch-independent xkeyboard-config tree shared
+#   with the 64-bit sibling.
+build_style: meson
+lib32_source: libxkbcommon
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://github.com/lfs-book/libxkbcommon/archive/v${version}/libxkbcommon-${version}.tar.gz
+  sha256: 04e3bf1ab0858a26218576d956d83ebb3ec9c583402b8807b454250be10775b1
+dependencies:
+  build:
+  - lib32-glibc
+  - lib32-libxcb
+  - xkeyboard-config
+  - bison-core
+  host: []
+  runtime:
+  - lib32-glibc
+  - lib32-libxcb
+  - xkeyboard-config
+tests:
+  failure_policy: known_failures
+  reason: "2 of 25 meson tests (x11, x11comp) spawn Xvfb, which the build chroot does not ship — both ERROR in 0.01s with upstream's own message 'Cannot run Xvfb ... Xvfb may be missing. Please install the corresponding package' (verbatim in meson-logs/testlog.txt, GE-01 launch 7). Environmental, the flac/libglvnd class; the other 23 tests (keymap/rules/compose/registry round-trips) pass in 32-bit and keep running under this policy."
+configure_flags:
+- -Denable-tools=false
+- -Denable-x11=true
+- -Denable-wayland=false
+- -Denable-xkbregistry=false
+- -Denable-docs=false
+- -Denable-bash-completion=false
+verify_paths:
+  - /usr/lib32/libxkbcommon.so.0
+  - /usr/lib32/libxkbcommon-x11.so.0
+  - /usr/lib32/pkgconfig/xkbcommon.pc

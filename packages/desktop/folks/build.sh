@@ -1,0 +1,40 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+#
+# folks 0.15.12 — People aggregation library
+# BLFS 13.0
+
+configure() {
+    set -e
+    mkdir -p build
+    cd    build
+
+    # Telepathy backend disabled: Telepathy is upstream-abandoned (BLFS 13.0 dropped
+    # it entirely; folks meson.build:86 carries an upstream FIXME to drop dbus-glib).
+    # Approved 2026-05-03 as policy exception (telepathy backend is upstream-abandoned).
+    #
+    # Tests disabled: meson.build:117 hard-requires python-dbusmock for the BlueZ
+    # test suite. python-dbusmock is a tests-only dep — falls in the
+    # "Optional — docs/tests only — SKIP" category per the dependency-enablement
+    # policy. Tests don't ship; no user-facing functionality lost. Approved
+    # 2026-05-03.
+    meson setup ..                       \
+          --prefix=/usr                  \
+          --libdir=/usr/lib              \
+          --buildtype=release            \
+          -Dtelepathy_backend=false      \
+          -Dtests=false
+}
+
+build() {
+    set -e
+    cd build
+    ninja
+}
+
+do_install() {
+    set -e
+    cd build
+    DESTDIR="$DESTDIR" ninja install
+}

@@ -1,0 +1,3 @@
+[2026-01-01 03:00:00] >>> desktop — Build desktop-tier packages
+[2026-01-01 03:12:00]   FAILED in build (exit 2)
+[2026-01-01 03:12:01] error: build failed: somepkg

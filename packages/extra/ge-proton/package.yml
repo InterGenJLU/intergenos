@@ -1,0 +1,53 @@
+name: ge-proton
+version: "11.1"
+release: 7  # r7: the three install refusals are rewritten for the person reading them. They stop an install for reasons outside the reader's control — a download that does not match what the package was built against, an upstream checksum that has changed, a release whose layout differs — and were written from the package's point of view. Each now states that nothing was installed and nothing on the machine changed, and that the package, not the machine, needs attention. r6: the installer's closing message answers the question a user actually has. It said "Restart Steam" with no reason and named only the per-title route. Measured 2026-08-05: a tool installed while Steam was running stayed invisible until Steam was fully exited and started again, because Steam looks for compatibility tools only while it is starting (Steam started 12:25:18, the tool installed 12:27:39) — and closing the window is not exiting Steam. The message now gives that reason first, says to use Steam menu > Exit rather than the window close button, and names BOTH selection routes: the global default under Settings > Compatibility and the per-title one under a game's Properties > Compatibility. The explanation of what the launch wrapper exports is removed — a true statement about internal mechanism that answered a question nobody asked. Message text only; no flow, path or verification changed. tests/preflight/test_package_output_is_for_users.py pins all three facts. r5: install output rewritten for the person at the terminal: the checksum refusals and the archive-layout refusal now state what was found and that nothing was installed, instead of instructing the reader to re-review and bump a recipe pin. Printed text only — every verification step and its refusal behaviour is unchanged. r4: neutral-language sweep of comments and printed text: decisions are recorded as "decided <date>" instead of being credited to a person or project role, development-host shorthand is replaced by a plain description, and the citations of a repository that is not published are replaced by what they were pointing at. Comments and strings only — no rule, path, flag, threshold or code path changed. The public-content scanner now carries detectors for all three classes (scripts/check-public-content.py), so the classes cannot return silently; tests/preflight/test_public_language_detectors.py proves each detector in both directions. r3: close-out defect #3 — the helper's compat-tool install target moved /usr/share/igos/compat-tools -> /opt/igos/compat-tools. pressure-vessel RESERVES /usr (replaces it with the container runtime's own), so a tool under /usr LISTS (its .vdf is read outside the container) but can NEVER execute — the exec crosses into the container where the /usr path is absent (pv-adverb "No such file", captured live on Portal launches). /opt is a SHAREABLE root, so the tool lists AND runs. Proven on-metal: in the SLR-4 pressure-vessel container /usr/.../proton is ABSENT though EXEC-OK on the host (RED), /opt/.../proton is EXEC-OK (GREEN); fresh helper install registers 7972 /opt files, pkm verify ok, zero stale rows. env.d write DROPPED — Steam visibility now comes from the /usr/bin/steam wrapper exporting STEAM_EXTRA_COMPAT_TOOLS_PATHS (session-independent, no relogin; an environment.d snippet only loads at a login-session start, the gap a first-time installer hit). build.sh changed (the helper heredoc).
+content_hash: 9f99ceccf081b433
+description: Helper to download and install GE-Proton (GloriousEggroll) system-wide
+license: GPL-3.0-or-later
+payload_license: LicenseRef-GE-Proton-Mixed
+homepage: https://github.com/GloriousEggroll/proton-ge-custom
+tier: extra
+# GE extra-tier wave (build plan §4; the GE-Proton helper is the
+# Decided ADD, D3 2026-07-02 — sha-verified helper over the
+# unverified hand-drop). Chrome-exemplar download-helper: the payload is
+# fetched at INSTALL time, verified, manifest-tracked; never bundled.
+#
+# PIN-EXACT POSTURE (decided, recorded): upstream publishes NO GPG
+# signatures — only a same-channel sha512 sidecar in the same GitHub
+# release (integrity, not authenticity; an attacker controlling the
+# release can rotate both in lockstep). So unlike chrome (whose apt
+# chain authenticates whatever "latest" resolves to), this helper pins
+# the EXACT release tag + sha512 IN THE RECIPE: the trust anchor is our
+# reviewed, gated, committed pin — a mismatch at install time means
+# "this is not the artifact we reviewed", refuse. Version bumps are
+# recipe bumps. The sidecar is still fetched and checked as
+# corroboration; the recipe pin is the load-bearing check.
+#
+# SYSTEM-WIDE DESIGN (decided via the lenses): one root-owned verified
+# copy at /usr/share/igos/compat-tools/<tag>/, manifest-tracked, made
+# visible to every user's Steam via STEAM_EXTRA_COMPAT_TOOLS_PATHS in
+# an /etc/environment.d snippet — Steam scans NO fixed system path by
+# default (Valve issue 6310, unimplemented); the env var is the
+# canonical system-wide mechanism (the NixOS extraCompatPackages
+# blueprint). A per-user $HOME drop was rejected: not manifest-trackable
+# and user-tamperable. ⚠ POST-INSTALL EVAL ITEM: confirm the
+# environment.d var reaches the GNOME-session Steam process on real
+# hardware (the one unverified mechanic).
+#
+# GE-Proton runs INSIDE Steam's pressure-vessel runtime (upstream is
+# explicit) — no host lib32 beyond what steam itself needs, and it is
+# inert without the Steam client (no hard dep declared: the steam
+# helper is its own package, and the compatibility arc's umu-launcher
+# route can drive GE-Proton for non-Steam titles later).
+build_style: custom
+install_func: do_install
+# Mirror-only (extra-tier default, stated explicitly).
+iso_include: false
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - intergenos-helper-lib
+verify_paths:
+  - /usr/bin/igos-install-ge-proton

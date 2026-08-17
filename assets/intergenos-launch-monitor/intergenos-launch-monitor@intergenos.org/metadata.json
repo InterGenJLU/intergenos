@@ -1,0 +1,9 @@
+{
+    "uuid": "intergenos-launch-monitor@intergenos.org",
+    "name": "InterGenOS Launch Monitor",
+    "description": "Moves a launched game window to the monitor you declare, before its first frame. Under GNOME Wayland only the compositor may place another client's window, so this in-compositor mover watches window-created for game window classes (Steam's universal steam_app_* class + gamescope by default; user-extensible) and moves a match to the declared output via Mutter's move_to_monitor(). You declare the launch monitor in the extension preferences; the system obeys. Inert until a monitor is declared (empty = no-op), and fail-safe: an unresolved/absent declared output never moves the window.",
+    "shell-version": ["47", "48", "49"],
+    "settings-schema": "org.gnome.shell.extensions.intergenos-launch-monitor",
+    "gettext-domain": "intergenos-launch-monitor",
+    "url": "https://github.com/InterGenJLU/intergenos"
+}

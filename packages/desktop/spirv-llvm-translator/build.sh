@@ -1,0 +1,26 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+#
+# spirv-llvm-translator 21.1.4 — SPIR-V to LLVM IR translator
+# BLFS 13.0
+
+configure() {
+    set -e
+    cmake -B build                                          \
+          -DCMAKE_INSTALL_PREFIX=/usr                       \
+          -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5                        \
+          -DBUILD_SHARED_LIBS=ON                            \
+          -DCMAKE_SKIP_INSTALL_RPATH=ON                     \
+          -DLLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR=/usr
+}
+
+build() {
+    set -e
+    cmake --build build -j${IGOS_JOBS}
+}
+
+do_install() {
+    set -e
+    DESTDIR="$DESTDIR" cmake --install build
+}

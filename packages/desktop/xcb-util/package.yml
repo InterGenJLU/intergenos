@@ -1,0 +1,23 @@
+name: xcb-util
+version: "0.4.1"
+release: 1
+description: XCB utility library
+license: MIT
+homepage: https://xcb.freedesktop.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://xcb.freedesktop.org/dist/xcb-util-${version}.tar.xz
+  sha256: 5abe3bbbd8e54f0fa3ec945291b7e8fa8cfd3cccc43718f8758430f94126e512
+dependencies:
+  build:
+  - libxcb
+  host: []
+  runtime:
+  - libxcb
+configure_flags:
+- --prefix=/usr
+- --disable-static
+verify_paths:
+  - /usr/lib/libxcb-util.so

@@ -1,0 +1,85 @@
+#!/bin/bash
+# lsb_release — LSB conformance query command for InterGenOS
+# Reads from /etc/os-release and /etc/lsb-release
+
+LSB_VERSION="core-5.0-amd64:core-5.0-noarch"
+
+# Source os-release for data
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+fi
+
+# Source lsb-release for LSB-specific fields
+if [ -f /etc/lsb-release ]; then
+    . /etc/lsb-release
+fi
+
+SHORT=0
+
+usage() {
+    echo "Usage: lsb_release [OPTION]..."
+    echo "  -v, --version     Show LSB version"
+    echo "  -i, --id          Show distributor ID"
+    echo "  -d, --description Show description"
+    echo "  -r, --release     Show release number"
+    echo "  -c, --codename    Show codename"
+    echo "  -a, --all         Show all of the above"
+    echo "  -s, --short       Use short output format"
+    echo "  -h, --help        Show this help"
+}
+
+show_version()     { [ $SHORT -eq 1 ] && echo "$LSB_VERSION" || echo "LSB Version:	$LSB_VERSION"; }
+show_id()          { [ $SHORT -eq 1 ] && echo "${DISTRIB_ID}" || echo "Distributor ID:	${DISTRIB_ID}"; }
+show_description() { [ $SHORT -eq 1 ] && echo "${DISTRIB_DESCRIPTION}" || echo "Description:	${DISTRIB_DESCRIPTION}"; }
+show_release()     { [ $SHORT -eq 1 ] && echo "${DISTRIB_RELEASE}" || echo "Release:	${DISTRIB_RELEASE}"; }
+show_codename()    { [ $SHORT -eq 1 ] && echo "${DISTRIB_CODENAME}" || echo "Codename:	${DISTRIB_CODENAME}"; }
+
+show_all() {
+    show_version
+    show_id
+    show_description
+    show_release
+    show_codename
+}
+
+if [ $# -eq 0 ]; then
+    show_version
+    exit 0
+fi
+
+# Expand bundled short options (-si → -s -i): the LSB lsb_release accepts
+# combined short flags, and consumers invoke it that way (e.g. GHC's hadrian
+# bootstrap.py runs `lsb_release -si` / `-sr`).
+EXPANDED=()
+for arg in "$@"; do
+    case "$arg" in
+        --?*) EXPANDED+=("$arg") ;;
+        -??*) for (( i=1; i<${#arg}; i++ )); do EXPANDED+=("-${arg:$i:1}"); done ;;
+        *)    EXPANDED+=("$arg") ;;
+    esac
+done
+set -- "${EXPANDED[@]}"
+
+# Parse for -s/--short first
+for arg in "$@"; do
+    case "$arg" in
+        -s|--short) SHORT=1 ;;
+    esac
+done
+
+for arg in "$@"; do
+    case "$arg" in
+        -v|--version)     show_version ;;
+        -i|--id)          show_id ;;
+        -d|--description) show_description ;;
+        -r|--release)     show_release ;;
+        -c|--codename)    show_codename ;;
+        -a|--all)         show_all ;;
+        -s|--short)       ;; # already handled
+        -h|--help)        usage; exit 0 ;;
+        # Errors go to stderr — never stdout, which consumers capture as data
+        # (a stdout usage dump is exactly what poisoned bootstrap.py's archive
+        # filename into ENAMETOOLONG).
+        *)                echo "Unknown option: $arg" >&2; usage >&2; exit 1 ;;
+    esac
+done

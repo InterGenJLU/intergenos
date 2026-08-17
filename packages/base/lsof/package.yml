@@ -1,0 +1,28 @@
+name: lsof
+version: "4.99.6"
+release: 1
+description: List open files
+license: Zlib
+homepage: https://github.com/lsof-org/lsof
+tier: base
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://github.com/lsof-org/lsof/releases/download/${version}/lsof-${version}.tar.gz
+    sha256: 6081dedf841cd61f8a022ff7cbe04ed78918a47dea3c39528c8571474167aa0f
+
+dependencies:
+  build:
+    - libtirpc
+  host: []
+  runtime:
+    - libtirpc
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "lsof tests need a fully populated /proc plus the ability to open sockets and PTYs; chroot /proc + offline-network environment fails several test cases"
+verify_paths:
+  - /usr/bin/lsof
+  - /usr/lib/liblsof.so

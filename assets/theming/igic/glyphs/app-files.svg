@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Files / Nautilus — a folder, re-proportioned (IC-009): taller + airier + canvas-centred
+       so it no longer reads squat at 96px app-grid scale among its neighbors. Body raised and
+       slightly narrowed vs the folder-template path (width 160, overall height 152, body-face
+       128 tall, centred at 128,128 — was 168x110 centred low at y~143). Absolute coords. -->
+  <g class="glyph">
+    <path d="M 60 52 L 104 52 L 120 76 L 196 76 Q 208 76 208 88 L 208 192 Q 208 204 196 204 L 60 204 Q 48 204 48 192 L 48 64 Q 48 52 60 52 Z"/>
+  </g>
+</svg>

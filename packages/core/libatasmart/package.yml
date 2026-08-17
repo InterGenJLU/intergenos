@@ -1,0 +1,26 @@
+name: libatasmart
+version: '0.19'
+release: 1
+description: ATA S.M.A.R.T. disk reporting library
+license: LGPL-2.1-or-later
+homepage: https://0pointer.de/public/
+tier: core
+build_style: autotools
+install_func: do_install
+configure_flags:
+- --disable-static
+source:
+- url: https://0pointer.de/public/libatasmart-${version}.tar.xz
+  sha256: 61f0ea345f63d28ab2ff0dc352c22271661b66bf09642db3a4049ac9dbdb0f8d
+dependencies:
+  build:
+  - systemd
+  host: []
+  runtime:
+  - systemd
+# systemd added 2026-05-12 (Scan A.2): configure.ac:106 requires libudev
+# (provided by systemd). Was transitively present from ch8 (systemd @
+# ch8:648); declaring per real upstream requirement.
+verify_paths:
+  - /usr/sbin/skdump
+  - /usr/lib/libatasmart.so

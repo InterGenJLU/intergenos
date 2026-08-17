@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: terminal — prompt caret + cursor, sized SMALL in the top-left quadrant with
+       clear space from the tile's left edge. The InterGen pulse mark is composited across
+       the bottom by the recipe. Colorless. -->
+  <g class="glyph">
+    <path d="M 66 74 L 88 91 L 66 108"/>
+    <line x1="100" y1="104" x2="122" y2="104"/>
+  </g>
+</svg>

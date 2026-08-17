@@ -1,0 +1,27 @@
+name: python-requests
+version: "2.34.2"
+release: 3  # r3: pip install adds --ignore-installed — an r2-class rebuild in a chroot already holding this package satisfied pip from the environment, leaving DESTDIR (and the sealed archive) EMPTY while reporting success (DFB-01/02, 2026-07-19)
+description: HTTP library for Python (virt-manager install-media fetching)
+license: Apache-2.0
+homepage: https://github.com/psf/requests
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://files.pythonhosted.org/packages/source/r/requests/requests-${version}.tar.gz
+    sha256: f288924cae4e29463698d6d60bc6a4da69c89185ad1e0bcc4104f584e960b9ed
+dependencies:
+  build:
+    - setuptools
+  host: []
+  runtime:
+    - python-urllib3
+    # idna ships from core (requests needs idna>=2.5,<4; core carries 3.16) —
+    # a separate python-idna would double-own site-packages/idna (review
+    # finding F-03, 2026-07-17).
+    - idna
+    - python-charset-normalizer
+    - python-certifi
+verify_paths:
+  - /usr/lib/python3.14/site-packages/requests/api.py

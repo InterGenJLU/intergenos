@@ -1,0 +1,31 @@
+name: composer
+version: "2.10.2"
+release: 1
+description: Dependency manager for PHP
+license: MIT
+homepage: https://getcomposer.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  # VENDOR EXCEPTION (documented): Composer is distributed exclusively as a
+  # pre-built PHP archive (composer.phar). It has no from-source shipping path —
+  # compiling the phar requires Composer itself plus the Box tool (also a phar),
+  # a circular self-bootstrap no distribution resolves from source. The phar is
+  # sha256-pinned from getcomposer.org's published per-version checksum and is
+  # itself the shipped artifact. Criteria met: capability-load-bearing (the PHP
+  # ecosystem's dependency manager), no defensible from-source path, sha-pinned,
+  # recipe-documented.
+  - url: https://getcomposer.org/download/2.10.2/composer.phar
+    sha256: 5ee7125f8a30a34d246cefdc0bc85b8a783b28f2aec968994118512350d28027
+    filename: composer.phar
+    # Plain-file source: the phar IS the artifact — checksum-verified, never
+    # unpacked (first build-verify: tar inspection fails loud on phar bytes).
+    extract: false
+dependencies:
+  build: []
+  host: []
+  runtime:
+    - php
+verify_paths:
+  - /usr/bin/composer

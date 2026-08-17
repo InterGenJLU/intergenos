@@ -1,0 +1,35 @@
+# Family manifest — the shell quick-settings / system-box symbolic set (Decided 2026-07-23:
+# the STAGED symbolic-coverage path executed). Every name below is grounded verbatim in the
+# SHIPPED shell library's own icon-name string table (the resource-embedded status/system
+# enumeration) — no name is guessed. The action/chevron long tail (pan-*/go-*/edit-* …) and
+# the calendar weather strip (served by the weather library, not the shell) stay DELIBERATELY
+# inherited — the defer list is documented in ICON_CATEGORIES.md. Reuse-first glyphs: a name
+# whose identity matches an existing status/panel mark reuses that glyph (a panel reads as
+# its status sibling); the rest are authored in this wave.
+schema_version: 1
+family: shell-status
+category: status
+kind: symbolic
+glow: none
+pulse: none
+export:
+  svg: true
+  png: [16, 24, 32, 48]
+rows:
+  - { id: system-shutdown,            emblem: power-button,       accent: ecg-blue, name: "Shut Down", fit: 1.325 }
+  - { id: system-reboot,              emblem: reboot,             accent: ecg-blue, name: "Restart", fit: 1.26 }
+  - { id: system-log-out,             emblem: log-out,            accent: ecg-blue, name: "Log Out", fit: 1.335 }
+  - { id: system-switch-user,         emblem: user-switch,        accent: ecg-blue, name: "Switch User", fit: 1.259 }
+  - { id: system-users,               emblem: users-pair,         accent: ecg-blue, name: "Users", fit: 1.333 }
+  - { id: system-lock-screen,         emblem: lock,               accent: ecg-blue, name: "Lock Screen", fit: 1.341 }
+  - { id: display-brightness,         emblem: brightness,         accent: ecg-blue, name: "Display Brightness", fit: 1.333 }
+  - { id: keyboard-brightness-high,   emblem: kb-brightness-high,   accent: ecg-blue, name: "Keyboard Brightness High", fit: 1.202 }
+  - { id: keyboard-brightness-medium, emblem: kb-brightness-medium, accent: ecg-blue, name: "Keyboard Brightness Medium", fit: 1.259 }
+  - { id: keyboard-brightness-off,    emblem: kb-brightness-off,    accent: ecg-blue, name: "Keyboard Brightness Off", fit: 1.259 }
+  - { id: rotation-allowed,           emblem: rotate-allowed,     accent: ecg-blue, name: "Auto Rotate", fit: 0.916 }
+  - { id: rotation-locked,            emblem: rotate-locked,      accent: ecg-blue, name: "Rotation Locked", fit: 1.14 }
+  - { id: dark-mode,                  emblem: moon,               accent: ecg-blue, name: "Dark Style", fit: 1.259 }
+  - { id: location-services-active,   emblem: pin,                accent: ecg-blue, name: "Location Services", fit: 1.272 }
+  - { id: message-indicator,          emblem: chat-dot,           accent: ecg-blue, name: "Messages", fit: 1.202 }
+  - { id: no-notifications,           emblem: bell,               accent: ecg-blue, name: "No Notifications", fit: 1.402 }
+  - { id: notifications-disabled,     emblem: bell-off,           accent: ecg-blue, name: "Do Not Disturb", fit: 1.432 }

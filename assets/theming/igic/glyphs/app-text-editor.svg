@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Text Editor — a page + text lines; the pencil occludes as a badge (see the family row). -->
+  <g class="glyph">
+    <path d="M 72 40 L 140 40 L 168 68 L 168 192 A 6 6 0 0 1 162 198 L 72 198 A 6 6 0 0 1 66 192 L 66 46 A 6 6 0 0 1 72 40 Z"/>
+    <path d="M 140 40 L 140 68 L 168 68"/>
+    <line x1="88" y1="100" x2="146" y2="100"/>
+    <line x1="88" y1="124" x2="146" y2="124"/>
+    <line x1="88" y1="148" x2="120" y2="148"/>
+  </g>
+</svg>

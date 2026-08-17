@@ -1,0 +1,41 @@
+name: rust
+version: "1.95.0"
+release: 4  # hook-contract wave: completions + rustc.sh + /opt/rustc symlink moved post_install -> do_install (owned payload)
+# Multilib compiler runtime (GE-01 L15): the package carries the x86_64
+# toolchain AND the i686-unknown-linux-gnu std under /opt/rustc/lib/
+# rustlib/ — real 32-bit code rustc links into --target i686 builds
+# (NVK/lib32-mesa). The gcc-core/llvm shape; governed entry in
+# ELF_CLASS_MIXED_ALLOWED (validate-package-tiers.py, build-rules §3.11).
+elf_class: "mixed"
+description: Rust programming language
+license: MIT
+homepage: https://www.rust-lang.org/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://static.rust-lang.org/dist/rustc-${version}-src.tar.xz
+  sha256: 62b67230754da642a264ca0cb9fc08820c54e2ed7b3baba0289876d4cdb48c08
+# Bootstrap compiler (1.94.0) — pre-downloaded for offline chroot builds
+- url: https://static.rust-lang.org/dist/2026-03-05/rustc-1.94.0-x86_64-unknown-linux-gnu.tar.xz
+  sha256: 31a0d3ac9383dfdeb4fce86eeed5ade3230131c635264c0eab7252dbf235f28e
+- url: https://static.rust-lang.org/dist/2026-03-05/cargo-1.94.0-x86_64-unknown-linux-gnu.tar.xz
+  sha256: 8e17624f3de39e079845bfb25ed15a042f4b50ceca78e37c56c4b9b15949b9f7
+- url: https://static.rust-lang.org/dist/2026-03-05/rust-std-1.94.0-x86_64-unknown-linux-gnu.tar.xz
+  sha256: dd33653107c36e040082050d9e547e64dac5b456ba74069430d838c00c189a05
+dependencies:
+  build:
+  - llvm
+  - cmake
+  - curl
+  - libssh2
+  host: []
+  runtime:
+  - llvm
+  - curl
+  - libssh2
+
+verify_paths:
+  - /etc/profile.d/rustc.sh
+  - /opt/rustc/bin/rustc
+  - /usr/bin/cargo-capi

@@ -1,0 +1,19 @@
+name: keyutils
+version: "1.6.3"
+release: 1
+description: Linux key management utilities
+license: GPL-2.0-or-later
+homepage: https://people.redhat.com/~dhowells/keyutils/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git/snapshot/keyutils-${version}.tar.gz
+  sha256: a61d5706136ae4c05bd48f86186bcfdbd88dd8bd5107e3e195c924cfc1b39bb4
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/keyctl
+  - /usr/lib/libkeyutils.so

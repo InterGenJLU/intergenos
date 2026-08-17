@@ -1,0 +1,934 @@
+[
+  {
+    "id": "MEM-store-b01",
+    "name": "explicit store — remember that X is Y (device path)",
+    "axis": ["routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-store", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "remember that my backup drive is /dev/sdb1",
+        "description": "An explicit remember-that store must route to the memory path and audibly acknowledge the store — never a silent no-op.",
+        "assertions": [
+          ["routes_via", "memory", "an explicit remember-that routes to the memory store path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-store-b02",
+    "name": "explicit store — remember X is Y (no 'that', editor preference)",
+    "axis": ["routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-store", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "remember my default editor is vim",
+        "description": "A remember trigger without the 'that' connector must still route via memory and acknowledge, not require the exact canonical phrasing.",
+        "assertions": [
+          ["routes_via", "memory", "the remember trigger routes to the memory store path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-store-b03",
+    "name": "explicit store — save that X is Y (timezone)",
+    "axis": ["routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-store", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "save that my timezone is Pacific",
+        "description": "The 'save that' trigger is a documented alternate to 'remember' and must route identically.",
+        "assertions": [
+          ["routes_via", "memory", "a save-that store routes to the memory path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-store-b04",
+    "name": "explicit store — store that X is Y (shell preference)",
+    "axis": ["routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-store", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "store that my preferred shell is zsh",
+        "description": "The 'store that' trigger must route to memory and acknowledge the write.",
+        "assertions": [
+          ["routes_via", "memory", "a store-that request routes to the memory path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-store-b05",
+    "name": "explicit store — note that X is Y (font size)",
+    "axis": ["routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-store", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "note that my favorite font size is 14",
+        "description": "The 'note that' trigger must route to memory and acknowledge the write.",
+        "assertions": [
+          ["routes_via", "memory", "a note-that request routes to the memory path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-store-b06",
+    "name": "explicit store — don't forget that X is Y (printer)",
+    "axis": ["routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-store", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "don't forget that my printer is office-printer-2",
+        "description": "The 'don't forget' trigger must route to memory and acknowledge the write, same as the canonical 'remember that' phrasing.",
+        "assertions": [
+          ["routes_via", "memory", "a don't-forget request routes to the memory path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-store-b07",
+    "name": "explicit store — keep in mind that X is Y (wifi network)",
+    "axis": ["routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-store", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "keep in mind that my wifi network is HomeNet-5G",
+        "description": "The 'keep in mind' trigger must route to memory and acknowledge the write.",
+        "assertions": [
+          ["routes_via", "memory", "a keep-in-mind request routes to the memory path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-store-b08",
+    "name": "explicit store — remember that X is Y (name)",
+    "axis": ["routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-store", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "remember that my name is Morgan",
+        "description": "A personal-identity fact store must route to memory and acknowledge, exactly like any other fact.",
+        "assertions": [
+          ["routes_via", "memory", "an explicit remember-that routes to the memory store path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-recall-b01",
+    "name": "in-session recall — backup drive path (2-turn)",
+    "axis": ["context_persistence", "routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:context-persistence", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "remember that my backup drive is /dev/sdb1",
+        "description": "T1 — establishes the referent for the recall turn below.",
+        "assertions": [
+          ["routes_via", "memory", "an explicit remember-that routes to the memory store path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "what's my backup drive?",
+        "description": "T2 — the referent from T1 must be honored without being restated by the user; this is the context_persistence invariant.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "/dev/sdb1", "the fact set in T1 is honored in T2"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-recall-b02",
+    "name": "in-session recall — default editor (2-turn)",
+    "axis": ["context_persistence", "routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:context-persistence", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "remember my default editor is vim",
+        "description": "T1 — establishes the referent.",
+        "assertions": [
+          ["routes_via", "memory", "the remember trigger routes to the memory store path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "what editor do I use?",
+        "description": "T2 — a rephrased recall (not the stored key's literal wording) must still surface the T1 fact.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "vim", "the fact set in T1 is honored in T2"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-recall-b03",
+    "name": "in-session recall — timezone across an intervening turn (3-turn)",
+    "axis": ["context_persistence", "routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:context-persistence", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "remember that my timezone is Pacific",
+        "description": "T1 — establishes the referent.",
+        "assertions": [
+          ["routes_via", "memory", "an explicit remember-that routes to the memory store path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "quick one — what's 9 minus 4?",
+        "description": "T2 — an unrelated filler turn between the store and the recall, to prove the referent survives an intervening exchange.",
+        "assertions": [
+          ["contains", "5", "the filler turn is answered on its own merits"]
+        ]
+      },
+      {
+        "user": "remind me what timezone I'm in",
+        "description": "T3 — the T1 referent must still be honored after the intervening T2 turn.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "Pacific", "the fact set in T1 survives the intervening turn"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-recall-b04",
+    "name": "in-session recall — name (2-turn)",
+    "axis": ["context_persistence", "routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:context-persistence", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "remember that my name is Morgan",
+        "description": "T1 — establishes the referent.",
+        "assertions": [
+          ["routes_via", "memory", "an explicit remember-that routes to the memory store path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "what's my name?",
+        "description": "T2 — the referent from T1 must be honored.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "Morgan", "the fact set in T1 is honored in T2"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-recall-b05",
+    "name": "in-session recall — shell preference across an intervening turn (3-turn)",
+    "axis": ["context_persistence", "routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:context-persistence", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "store that my preferred shell is zsh",
+        "description": "T1 — establishes the referent.",
+        "assertions": [
+          ["routes_via", "memory", "a store-that request routes to the memory path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "what's 3 times 3?",
+        "description": "T2 — an unrelated filler turn between the store and the recall.",
+        "assertions": [
+          ["contains", "9", "the filler turn is answered on its own merits"]
+        ]
+      },
+      {
+        "user": "which shell do I use again?",
+        "description": "T3 — the T1 referent must still be honored after the intervening T2 turn.",
+        "assertions": [
+          ["routes_via", "memory", "a recall of a stored fact routes to the memory path"],
+          ["contains", "zsh", "the fact set in T1 survives the intervening turn"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-recall-b06",
+    "name": "in-session recall — favorite color (2-turn)",
+    "axis": ["context_persistence", "routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:context-persistence", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "remember that my favorite color is teal",
+        "description": "T1 — establishes the referent.",
+        "assertions": [
+          ["routes_via", "memory", "an explicit remember-that routes to the memory store path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "what's my favorite color?",
+        "description": "T2 — the referent from T1 must be honored.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "teal", "the fact set in T1 is honored in T2"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-recall-b07",
+    "name": "in-session recall — wifi network across an intervening turn (3-turn)",
+    "axis": ["context_persistence", "routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:context-persistence", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "keep in mind that my wifi network is HomeNet-5G",
+        "description": "T1 — establishes the referent.",
+        "assertions": [
+          ["routes_via", "memory", "a keep-in-mind request routes to the memory path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "what's 10 divided by 2?",
+        "description": "T2 — an unrelated filler turn between the store and the recall.",
+        "assertions": [
+          ["contains", "5", "the filler turn is answered on its own merits"]
+        ]
+      },
+      {
+        "user": "what's my wifi network called?",
+        "description": "T3 — the T1 referent must still be honored after the intervening T2 turn.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "HomeNet-5G", "the fact set in T1 survives the intervening turn"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-recall-b08",
+    "name": "in-session recall — printer name (2-turn)",
+    "axis": ["context_persistence", "routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:context-persistence", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "note that my printer is office-printer-2",
+        "description": "T1 — establishes the referent.",
+        "assertions": [
+          ["routes_via", "memory", "a note-that request routes to the memory path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "what's my printer?",
+        "description": "T2 — the referent from T1 must be honored.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "office-printer-2", "the fact set in T1 is honored in T2"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-recall-b09",
+    "name": "in-session recall — font size across an intervening turn (3-turn)",
+    "axis": ["context_persistence", "routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:context-persistence", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "remember that my favorite font size is 14",
+        "description": "T1 — establishes the referent.",
+        "assertions": [
+          ["routes_via", "memory", "an explicit remember-that routes to the memory store path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "what's 6 plus 6?",
+        "description": "T2 — an unrelated filler turn between the store and the recall.",
+        "assertions": [
+          ["contains", "12", "the filler turn is answered on its own merits"]
+        ]
+      },
+      {
+        "user": "what font size do I prefer?",
+        "description": "T3 — the T1 referent must still be honored after the intervening T2 turn.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "14", "the fact set in T1 survives the intervening turn"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-recall-b10",
+    "name": "in-session recall — keyboard layout (2-turn)",
+    "axis": ["context_persistence", "routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:context-persistence", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "remember that my keyboard layout is Dvorak",
+        "description": "T1 — establishes the referent.",
+        "assertions": [
+          ["routes_via", "memory", "an explicit remember-that routes to the memory store path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "what keyboard layout do I use?",
+        "description": "T2 — the referent from T1 must be honored.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "Dvorak", "the fact set in T1 is honored in T2"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-cross-b01",
+    "name": "cross-session recall — backup drive path survives a restart",
+    "axis": ["memory_persistence"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-persistence", "batch:memory_personal"],
+    "session_policy": "multi-session",
+    "turns": [
+      {
+        "user": "remember that my backup drive is /dev/sdb1",
+        "description": "T1 (session A) — stores the fact.",
+        "assertions": [
+          ["routes_via", "memory", "an explicit remember-that routes to the memory store path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "what's my backup drive?",
+        "session_marker": "restart-before",
+        "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without fabricating a different device path.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "/dev/sdb1", "the fact stored in session A survives the restart"],
+          {"type": "no_invented_artifact", "description": "no fabricated device path in place of the real stored value"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-cross-b02",
+    "name": "cross-session recall — default editor survives a restart",
+    "axis": ["memory_persistence"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-persistence", "batch:memory_personal"],
+    "session_policy": "multi-session",
+    "turns": [
+      {
+        "user": "remember that my default editor is neovim",
+        "description": "T1 (session A) — stores the fact.",
+        "assertions": [
+          ["routes_via", "memory", "an explicit remember-that routes to the memory store path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "what editor do I use?",
+        "session_marker": "restart-before",
+        "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without inventing a different editor.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "neovim", "the fact stored in session A survives the restart"],
+          {"type": "no_invented_artifact", "description": "no fabricated tool/value in place of the real stored value"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-cross-b03",
+    "name": "cross-session recall — timezone survives a restart",
+    "axis": ["memory_persistence"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-persistence", "batch:memory_personal"],
+    "session_policy": "multi-session",
+    "turns": [
+      {
+        "user": "remember that my timezone is Mountain",
+        "description": "T1 (session A) — stores the fact.",
+        "assertions": [
+          ["routes_via", "memory", "an explicit remember-that routes to the memory store path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "what timezone am I in?",
+        "session_marker": "restart-before",
+        "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without inventing a different timezone.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "Mountain", "the fact stored in session A survives the restart"],
+          {"type": "no_invented_artifact", "description": "no fabricated value in place of the real stored value"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-cross-b04",
+    "name": "cross-session recall — name survives a restart",
+    "axis": ["memory_persistence"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-persistence", "batch:memory_personal"],
+    "session_policy": "multi-session",
+    "turns": [
+      {
+        "user": "remember that my name is Alex",
+        "description": "T1 (session A) — stores the fact.",
+        "assertions": [
+          ["routes_via", "memory", "an explicit remember-that routes to the memory store path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "what's my name?",
+        "session_marker": "restart-before",
+        "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without inventing a different name.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "Alex", "the fact stored in session A survives the restart"],
+          {"type": "no_invented_artifact", "description": "no fabricated value in place of the real stored value"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-cross-b05",
+    "name": "cross-session recall — shell preference survives a restart",
+    "axis": ["memory_persistence"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-persistence", "batch:memory_personal"],
+    "session_policy": "multi-session",
+    "turns": [
+      {
+        "user": "store that my preferred shell is fish",
+        "description": "T1 (session A) — stores the fact.",
+        "assertions": [
+          ["routes_via", "memory", "a store-that request routes to the memory path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "which shell do I use?",
+        "session_marker": "restart-before",
+        "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without inventing a different shell.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "fish", "the fact stored in session A survives the restart"],
+          {"type": "no_invented_artifact", "description": "no fabricated value in place of the real stored value"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-cross-b06",
+    "name": "cross-session recall — favorite color survives a restart",
+    "axis": ["memory_persistence"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-persistence", "batch:memory_personal"],
+    "session_policy": "multi-session",
+    "turns": [
+      {
+        "user": "remember that my favorite color is coral",
+        "description": "T1 (session A) — stores the fact.",
+        "assertions": [
+          ["routes_via", "memory", "an explicit remember-that routes to the memory store path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "what's my favorite color?",
+        "session_marker": "restart-before",
+        "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without inventing a different color.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "coral", "the fact stored in session A survives the restart"],
+          {"type": "no_invented_artifact", "description": "no fabricated value in place of the real stored value"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-cross-b07",
+    "name": "cross-session recall — wifi network survives a restart",
+    "axis": ["memory_persistence"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-persistence", "batch:memory_personal"],
+    "session_policy": "multi-session",
+    "turns": [
+      {
+        "user": "keep in mind that my wifi network is GuestNet-2.4",
+        "description": "T1 (session A) — stores the fact.",
+        "assertions": [
+          ["routes_via", "memory", "a keep-in-mind request routes to the memory path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "what's my wifi network called?",
+        "session_marker": "restart-before",
+        "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without inventing a different network name.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "GuestNet-2.4", "the fact stored in session A survives the restart"],
+          {"type": "no_invented_artifact", "description": "no fabricated value in place of the real stored value"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-cross-b08",
+    "name": "cross-session recall — printer name survives a restart",
+    "axis": ["memory_persistence"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-persistence", "batch:memory_personal"],
+    "session_policy": "multi-session",
+    "turns": [
+      {
+        "user": "note that my printer is lobby-printer-1",
+        "description": "T1 (session A) — stores the fact.",
+        "assertions": [
+          ["routes_via", "memory", "a note-that request routes to the memory path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "what's my printer?",
+        "session_marker": "restart-before",
+        "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without inventing a different printer name.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "lobby-printer-1", "the fact stored in session A survives the restart"],
+          {"type": "no_invented_artifact", "description": "no fabricated value in place of the real stored value"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-cross-b09",
+    "name": "cross-session recall — font size survives a restart",
+    "axis": ["memory_persistence"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-persistence", "batch:memory_personal"],
+    "session_policy": "multi-session",
+    "turns": [
+      {
+        "user": "remember that my favorite font size is 16",
+        "description": "T1 (session A) — stores the fact.",
+        "assertions": [
+          ["routes_via", "memory", "an explicit remember-that routes to the memory store path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "what font size do I prefer?",
+        "session_marker": "restart-before",
+        "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without inventing a different size.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "16", "the fact stored in session A survives the restart"],
+          {"type": "no_invented_artifact", "description": "no fabricated value in place of the real stored value"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-cross-b10",
+    "name": "cross-session recall — keyboard layout survives a restart",
+    "axis": ["memory_persistence"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-persistence", "batch:memory_personal"],
+    "session_policy": "multi-session",
+    "turns": [
+      {
+        "user": "don't forget that my keyboard layout is Colemak",
+        "description": "T1 (session A) — stores the fact.",
+        "assertions": [
+          ["routes_via", "memory", "a don't-forget request routes to the memory path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "what keyboard layout do I use?",
+        "session_marker": "restart-before",
+        "description": "T2 (session B, after a real restart) — the fact from session A must be recalled without inventing a different layout.",
+        "assertions": [
+          {"type": "routes_via", "value": "llm_freeform", "postures": ["2B-locked"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the locked tier answers it freeform from the recalled context"},
+          {"type": "routes_via", "value": "llm_tools", "postures": ["9B-native"], "description": "the memory route claims store, forget, transparency and session-recall shapes, not a bare recall question, so the native tier decides tools"},
+          ["contains", "Colemak", "the fact stored in session A survives the restart"],
+          {"type": "no_invented_artifact", "description": "no fabricated value in place of the real stored value"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-offer-b01",
+    "name": "bare-declarative preference — offers to store, never stores silently",
+    "axis": ["routing", "capability_recall"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-offer", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "my backup drive is /dev/sdb1",
+        "description": "A bare declarative (no 'remember' trigger) stating a stable fact must be acknowledged and OFFERED for storage, never stored silently and never met with a capability denial.",
+        "assertions": [
+          ["routes_via", "memory", "a bare declarative preference routes to the memory path"],
+          ["contains_any", "want me to remember,remember that,should i remember", "the response offers to store, it does not store silently"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-offer-b02",
+    "name": "bare-declarative complaint — acknowledges and offers help, never denies capability",
+    "axis": ["routing", "capability_recall"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-offer", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "my screen is too bright",
+        "description": "A bare declarative reporting a problem must be acknowledged and offered help — not stored as a fact, and never a capability denial.",
+        "assertions": [
+          ["routes_via", "memory", "a bare declarative complaint routes to the memory path"],
+          ["contains_any", "look into it,sounds frustrating,want me to help,can i help", "the response acknowledges the complaint and offers to help"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-offer-b03",
+    "name": "bare-declarative preference — 'I prefer X' offers to store",
+    "axis": ["routing", "capability_recall"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-offer", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "I prefer dark mode",
+        "description": "A stated preference without the 'remember' trigger must be offered for storage, never stored silently.",
+        "assertions": [
+          ["routes_via", "memory", "a bare declarative preference routes to the memory path"],
+          ["contains_any", "want me to remember,remember that,should i remember", "the response offers to store, it does not store silently"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-offer-b04",
+    "name": "bare-declarative complaint — overheating laptop offers help, never denies capability",
+    "axis": ["routing", "capability_recall"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-offer", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "my laptop is overheating",
+        "description": "A reported hardware problem must be acknowledged and offered help, never a capability denial and never a silent store.",
+        "assertions": [
+          ["routes_via", "memory", "a bare declarative complaint routes to the memory path"],
+          ["contains_any", "look into it,sounds frustrating,want me to help,can i help", "the response acknowledges the complaint and offers to help"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-trans-b01",
+    "name": "transparency — what do you know about me",
+    "axis": ["routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-transparency", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what do you know about me?",
+        "description": "A transparency request must route via the memory path — the user's inspection right into stored facts, never a capability denial.",
+        "assertions": [
+          ["routes_via", "memory", "a transparency request routes to the memory path"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-forget-b01",
+    "name": "scoped forget — store then forget the same fact, both route via memory",
+    "axis": ["routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-forget", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "remember that my backup drive is /dev/sdb1",
+        "description": "T1 — stores the fact that T2 will scope-delete.",
+        "assertions": [
+          ["routes_via", "memory", "an explicit remember-that routes to the memory store path"],
+          ["contains_any", "got it,i'll remember,i will remember,noted", "the store is acknowledged, never silent"]
+        ]
+      },
+      {
+        "user": "forget that my backup drive is /dev/sdb1",
+        "description": "T2 — a scoped forget of exactly this fact must route via memory and, being a delete, must not deny the capability (guarded by the no_capability_denial auto).",
+        "assertions": [
+          ["routes_via", "memory", "a scoped forget routes to the memory path"]
+        ]
+      }
+    ]
+  },
+  {
+    "id": "MEM-forget-b02",
+    "name": "scoped forget — bare 'forget my X' phrasing routes via memory",
+    "axis": ["routing"],
+    "category": "memory",
+    "postures": ["2B-locked", "9B-native", "35B-native"],
+    "capabilities": ["route:memory"],
+    "tags": ["class:memory-forget", "batch:memory_personal"],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "forget my backup drive",
+        "description": "The short-form forget phrasing (no explicit 'that … is …' clause) must still route via memory; an honest 'nothing stored' reply is fine, a capability denial is not.",
+        "assertions": [
+          ["routes_via", "memory", "a scoped forget routes to the memory path"]
+        ]
+      }
+    ]
+  }
+]

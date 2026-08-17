@@ -1,0 +1,8 @@
+[Unit]
+Description=Synthetic sample for check-aspirational-stubs PASS test
+
+[Service]
+ExecStart=/usr/bin/sample --flag
+
+[Install]
+WantedBy=multi-user.target

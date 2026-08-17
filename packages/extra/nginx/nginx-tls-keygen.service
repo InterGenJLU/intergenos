@@ -1,0 +1,21 @@
+# nginx-tls-keygen.service — per-machine TLS cert generation for nginx
+#
+# F43: the self-signed cert+key are generated on the TARGET at first service
+# start (not at build/package time), so every machine gets a unique key and
+# no key material ships in the squashfs. nginx.service Requires= and is ordered
+# After= this unit, so the cert exists before nginx reads it. The unit is
+# pulled in as a dependency of nginx.service — it is NOT independently enabled
+# (no [Install] section), so it only ever runs when nginx is started.
+#
+# ConditionPathExists=! makes it a no-op once a cert is present (operator CA
+# cert or a prior run); a condition-skip still satisfies nginx's Requires=.
+
+[Unit]
+Description=Generate per-machine self-signed TLS certificate for nginx
+ConditionPathExists=!/etc/nginx/ssl/server.crt
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/nginx/generate-tls-cert.sh

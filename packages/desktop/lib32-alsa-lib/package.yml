@@ -1,0 +1,31 @@
+name: lib32-alsa-lib
+version: "1.2.15.3"
+release: 1
+description: ALSA sound library (32-bit multilib runtime)
+license: LGPL-2.1-or-later
+homepage: https://www.alsa-project.org/
+tier: desktop
+# PURE-YML package (no build.sh): driven end-to-end by the builder's lib32
+# autotools lane — sourced profile per command, mechanism flags injected,
+# allowlist staged-copy install (only /usr/lib32 ships; the arch-independent
+# /usr/share/alsa configuration tree is owned by the 64-bit sibling).
+build_style: autotools
+lib32_source: alsa-lib
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://www.alsa-project.org/files/pub/lib/alsa-lib-${version}.tar.bz2
+  sha256: 7b079d614d582cade7ab8db2364e65271d0877a37df8757ac4ac0c8970be861e
+dependencies:
+  build:
+  - lib32-glibc
+  host: []
+  runtime:
+  - lib32-glibc
+configure_flags:
+- --prefix=/usr
+- --disable-static
+verify_paths:
+  - /usr/lib32/libasound.so.2
+  - /usr/lib32/pkgconfig/alsa.pc

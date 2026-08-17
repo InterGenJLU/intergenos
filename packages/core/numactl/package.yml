@@ -1,0 +1,24 @@
+name: numactl
+version: "2.0.19"
+release: 1
+description: NUMA policy control library (libnuma) and utilities
+license: LGPL-2.1-only AND GPL-2.0-only
+homepage: https://github.com/numactl/numactl
+tier: core
+build_style: autotools
+
+source:
+  - url: https://github.com/numactl/numactl/releases/download/v${version}/numactl-${version}.tar.gz
+    sha256: f2672a0381cb59196e9c246bf8bcc43d5568bc457700a697f1a1df762b9af884
+
+dependencies:
+  build: []
+  host: []
+  runtime: []
+
+configure_flags:
+  - "--prefix=/usr"
+  - "--disable-static"
+verify_paths:
+  - /usr/lib/libnuma.so
+  - /usr/bin/numactl

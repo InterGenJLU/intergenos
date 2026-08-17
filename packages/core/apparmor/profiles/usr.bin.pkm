@@ -1,0 +1,46 @@
+#include <tunables/global>
+
+/usr/bin/pkm flags=(complain) {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+  #include <abstractions/python>
+  #include <abstractions/ssl_certs>
+  #include <abstractions/gnupg>
+
+  capability chown,
+  capability dac_override,
+  capability fowner,
+  capability fsetid,
+  capability setgid,
+  capability setuid,
+  capability sys_admin,
+
+  # Executable
+  /usr/bin/pkm r,
+  
+  # Allow reading and modifying the entire filesystem (it's a package manager)
+  /usr/ rwl,
+  /usr/** rwlk,
+  /etc/ r,
+  /etc/** rwk,
+  /var/lib/pkm/ rw,
+  /var/lib/pkm/** rwk,
+  /var/cache/pkm/ rw,
+  /var/cache/pkm/** rwk,
+  /etc/pkm/keys/ r,
+  /etc/pkm/keys/** r,
+  /tmp/pkm-*/ rw,
+  /tmp/pkm-*/** rwk,
+  /usr/bin/gpg ix,
+  /usr/bin/tar ix,
+  /usr/bin/sha256sum ix,
+  
+  # Trust anchors and GPG verification
+  /etc/pkm/keys/ r,
+  /etc/pkm/keys/** r,
+  /usr/bin/gpg ix,
+  
+  # Network access for downloading packages
+  network inet stream,
+  network inet6 stream,
+}

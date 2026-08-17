@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Weather cloud — occluding overlay (badge) in front of the sun. -->
+  <g class="glyph">
+    <path d="M 92 196 A 32 32 0 0 1 90 132 A 40 40 0 0 1 166 142 A 28 28 0 0 1 178 196 Z"/>
+  </g>
+</svg>

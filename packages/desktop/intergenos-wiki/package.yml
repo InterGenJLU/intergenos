@@ -1,0 +1,50 @@
+name: intergenos-wiki
+version: "1.0.0"
+release: 7  # r7: pages-manifest.json regenerated for the pre-release render (87 pages, all hashes moved with the content-addressed stylesheet reference; page set unchanged) and re-signed with the release key. The wiki source tarball bakes the manifest pair in, so package content changes with it.  # r6: wiki content pass — 48 internal authoring comments removed from the rendered pages (they published verbatim in HTML), one wording fix in desktop/peripherals; pages-manifest.json regenerated from the new render (86 of 87 pages re-hashed via the content-addressed search index) and re-signed. Reader-visible text change: one page, one word.  # r5: pages-manifest.json regenerated from the current rendered book (87 pages; 86 entries changed because the renderer embeds a content-hashed search-index filename in every page, so any content change ripples to every entry) and re-signed; the signature verified against the project primary key at delivery. Content change carried: the two assistant pages state the command-safety guarantee as the classification gate every proposed command passes (AUTO/CONFIRM/BLOCKED), not absolute immunity.  # r4: MOK enrollment captures cropped to the MokManager panel (verified-boot page); manifest re-generated + re-signed
+content_hash: 04d46d90a5623c31
+description: InterGenOS wiki — rendered mdBook HTML docs + operator-signed per-page sha256 manifest (InterGen verifies a page against this manifest before citing it)
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: desktop            # -> iso_include defaults true (ships in the ISO); built by chroot-build-desktop.sh's Python tier driver (auto-enumerated, no static-list edit)
+build_style: custom
+install_func: do_install
+# GENERATED source (no sha256 pin — regenerate-and-stage): the standalone
+# scripts/build-intergenos-wiki-tarball.sh (wired into build-intergenos.sh) tars
+# the RELEASE-STAGED rendered book/ (75 MB incl. screenshots — NOT git-vendored)
+# together with the operator-signed per-page manifest. See
+# docs/research/security/wiki-citation-integrity.md.
+#
+# RELEASE ARTIFACTS: pages-manifest.json + pages-manifest.json.asc are
+# regenerated + operator-signed per content refresh and committed under this
+# dir (first mint signed 2026-07-12; the manifest's hex page hashes carry an
+# Authorized path exemption in the public-content audit per
+# build-rules §3.11). Both are in source_tree so content_hash tracks the
+# signed content identity; the generator fails closed if the committed
+# manifest does not match the staged book/, and SKIPs (no tarball) when the
+# signed manifest is absent.
+source:
+- url: file:///intergenos-wiki-1.0.0.tar.xz
+  generated: true
+# The generated tarball's content is staged at RELEASE time, not carried in git:
+# scripts/validate-tarball-membership.py reads this declaration and reports an
+# absent tarball as its own named unverified state instead of halting as
+# "could not determine". A tarball that IS present is still checked in full.
+release_staged_source: >-
+  build/wiki-book — the rendered mdBook HTML (~75 MB incl. screenshots) is built
+  in the separate wiki repository and staged here at release time
+  (IGOS_WIKI_BOOK_DIR overrides), so it is absent from an ordinary checkout;
+  scripts/build-intergenos-wiki-tarball.sh SKIPs rather than fabricating content
+  when the book dir or the operator-signed page manifest is absent, and produces
+  no tarball for this gate to read.
+source_tree:
+- scripts/build-wiki-page-manifest.py
+- packages/desktop/intergenos-wiki/pages-manifest.json
+- packages/desktop/intergenos-wiki/pages-manifest.json.asc
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/share/doc/intergenos/wiki/index.html
+  - /usr/share/doc/intergenos/wiki/pages-manifest.json
+  - /usr/share/doc/intergenos/wiki/pages-manifest.json.asc

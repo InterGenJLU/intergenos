@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- mime emblem: archive / package — a box with a band + latch, widened. -->
+  <g class="glyph">
+    <rect x="96" y="106" width="64" height="44" rx="4"/>
+    <line x1="96" y1="124" x2="160" y2="124"/>
+    <rect x="116" y="114" width="24" height="10"/>
+  </g>
+</svg>

@@ -1,0 +1,30 @@
+name: intergen-mark
+version: "1.0"
+release: 3  # r3: no behaviour change: the asset README's description of the two mark versions reworded in the pre-release register pass. Documentation wording only; the SVG assets are untouched.
+content_hash: 5ba77db5114577cb
+description: InterGenOS brand-mark icon + logo + wordmark assets installed to standard hicolor / pixmaps / /usr/share/intergenos locations. release 2 rounds the badge-tile corners (GNOME-style squircle, operator branding §B) and adds the greyscale boxed symbolic mark for the custom ArcMenu "InterGenOS" category. Closes audit-rows D-010 (brand assets never installed) + J-016 (brand assets missing from hicolor) + theming-arc dispatch Item C (canonical brand-mark package); supersedes the duplicate-wordmark bandaid in intergenos-default-settings. Source-of-truth at assets/intergen-mark/ stays the brand-source canonical (with generate.py + README + all variants); build.sh reaches into it via IGOS_SOURCE_ROOT mirroring intergenos-default-settings' in-tree-config pattern.
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: desktop
+build_style: custom
+install_func: do_install
+source: []
+# Brand-source assets live under assets/intergen-mark/ (incl. png/, svg/);
+# fold into the fingerprint. The wordmark png is read from png/ under this dir.
+source_tree:
+  - assets/intergen-mark
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/share/icons/hicolor/scalable/apps/intergenos.svg
+  - /usr/share/icons/hicolor/scalable/apps/intergenos-category-symbolic.svg
+  - /usr/share/icons/hicolor/16/apps/intergenos.png
+  - /usr/share/icons/hicolor/256/apps/intergenos.png
+  - /usr/share/icons/hicolor/1024/apps/intergenos.png
+  - /usr/share/pixmaps/intergenos.png
+  - /usr/share/intergenos/intergenos_wordmark_transparent.png
+  - /usr/share/intergenos/intergenos_wordmark_header.png
+  - /usr/share/intergenos/intergenos_pulse_forge_hero.png
+  - /usr/share/intergenos/intergenos_logo.svg

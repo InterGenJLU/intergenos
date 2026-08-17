@@ -1,0 +1,12 @@
+--- a/src/libopensc/card-piv.c	2026-03-31 06:25:22.000000000 -0500
++++ b/src/libopensc/card-piv.c	2026-06-23 10:26:50.639382609 -0500
+@@ -5721,6 +5721,9 @@
+ 			sc_log(card->ctx, "Unknown PIV card->type %d", card->type);
+ 			card->type = SC_CARD_TYPE_PIV_II_GENERIC;
+ 	}
++	/* InterGenOS downstream patch: force RSA-4096 PIV for NK1 (NK3 fw 1.8.2+);
++	 * upstream OpenSC gates CI_RSA_4096 to select Yubikey fw. See OpenSC issue #3532. */
++	priv->card_issues |= CI_RSA_4096;
+ 	sc_log(card->ctx, "PIV card-type=%d card_issues=0x%08x", card->type, priv->card_issues);
+ 	sc_debug(card->ctx,SC_LOG_DEBUG_MATCH, "PIV_MATCH card->type:%d r2:%d CI:%08x r:%d\n", card->type, r2, priv->card_issues, r);
+ 

@@ -1,0 +1,19 @@
+name: sshpass
+version: "1.10"
+release: 1
+description: Non-interactive ssh password provider
+license: GPL-2.0-or-later
+homepage: https://sourceforge.net/projects/sshpass/
+tier: base
+build_style: autotools
+source:
+  - url: https://downloads.sourceforge.net/project/sshpass/sshpass/${version}/sshpass-${version}.tar.gz
+    sha256: ad1106c203cbb56185ca3bad8c6ccafca3b4064696194da879f81c8d7bdfeeda
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+  - "--prefix=/usr"
+verify_paths:
+  - /usr/bin/sshpass

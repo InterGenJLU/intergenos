@@ -1,0 +1,23 @@
+name: ripgrep
+version: "14.1.0"
+release: 1
+description: Line-oriented search tool that recursively searches the current directory for a regex pattern
+license: Unlicense OR MIT
+homepage: https://github.com/BurntSushi/ripgrep
+tier: base
+iso_include: true  # see docs/extra-tier-classification.md (tier and iso_include are independent axes; tier=base per BASE_CLI canonical-rule in validate-package-tiers.py)
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/BurntSushi/ripgrep/archive/14.1.0/ripgrep-14.1.0.tar.gz
+    sha256: 33c6169596a6bbfdc81415910008f26e0809422fda2d849562637996553b2ab6
+build_artifacts:
+  - name: ripgrep-14.1.0-vendor.tar.xz
+    generated_by: cargo-vendor
+dependencies:
+  build:
+  - rust
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/rg

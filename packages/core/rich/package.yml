@@ -1,0 +1,26 @@
+name: rich
+version: "15.0.0"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Rich text and beautiful formatting in the terminal
+license: MIT
+homepage: https://github.com/Textualize/rich
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/c0/8f/0722ca900cc807c13a6a0c696dacf35430f72e0ec571c4275d2371fca3e9/rich-15.0.0.tar.gz
+  sha256: edd07a4824c6b40189fb7ac9bc4c52536e9780fbbfbddf6f1e2502c31b068c36
+dependencies:
+  build:
+  # The pinned sdist's [build-system] names poetry.core.masonry.api, provided by
+  # poetry-core. build.sh builds with --no-build-isolation, which installs nothing
+  # for the build, so poetry-core must already be present; declaring it here is
+  # what orders it ahead of this package.
+  - poetry-core
+  - hatchling
+  host: []
+  runtime:
+  - markdown-it-py
+  - pygments
+verify_paths:
+  - /usr/lib/python3.14/site-packages/rich

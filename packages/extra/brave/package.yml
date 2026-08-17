@@ -1,0 +1,21 @@
+name: brave
+version: "1.0"
+release: 3  # r3: install output rewritten for the person at the terminal: lines that named internal machinery, internal decision codes or this project's own design rationale are replaced with plain statements of what happened and what to do about it, or removed where there was nothing to act on. Printed text only — no rule, path, flag, threshold, verification step or code path changed. tests/preflight/test_package_output_is_for_users.py holds the line.
+content_hash: e70c1516843b40b1
+description: Helper to download and install Brave Browser
+license: GPL-3.0-or-later
+payload_license: LicenseRef-Brave-EULA
+homepage: https://brave.com/
+tier: extra
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  # H-007 Phase B: brave sources /usr/share/igos/helpers/helper-lib.sh.
+  - intergenos-helper-lib
+verify_paths:
+  - /usr/bin/igos-install-brave
+  - /usr/share/igos/helpers/keyrings/brave-keyring.gpg

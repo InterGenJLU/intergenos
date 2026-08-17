@@ -1,0 +1,26 @@
+name: iniconfig
+version: "2.3.0"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Brain-dead simple parsing of ini files
+license: MIT
+homepage: https://github.com/pytest-dev/iniconfig
+tier: core
+build_style: custom
+install_func: do_install
+iso_include: true  # pytest runtime dependency — ships in the ISO, not mirror-only
+source:
+- url: https://files.pythonhosted.org/packages/source/i/iniconfig/iniconfig-${version}.tar.gz
+  sha256: c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730
+dependencies:
+  build:
+  # setuptools, beside setuptools-scm. The pinned sdist's [build-system] needs
+  # the setuptools backend itself, and setuptools-scm does not supply it: that
+  # recipe carries setuptools only under runtime, and runtime edges do not order
+  # the build (igos-build/graph.py orders on build+host only). Building with
+  # --no-build-isolation installs nothing, so setuptools must be ordered here.
+  - setuptools
+  - setuptools-scm
+  host: []
+  runtime: []
+verify_paths:
+- /usr/lib/python3.14/site-packages/iniconfig

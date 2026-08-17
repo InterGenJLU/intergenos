@@ -1,0 +1,732 @@
+/* InterGen Web UI — Dark Theme ("Light Emerging From Dark")
+   Token-aligned with InterGenOS GTK4 theme:
+     accent: #0099FF   void: #050810   surface: #080c18   card: #0f1525
+     text: #e2e8f0     text-dim: #7a8ba8   text-ghost: #3d4f6a
+   Border radii: 10px (controls), 14px (cards), 16px (panels), 9999px (pills)
+   Shadows: blue energy glows — rgba(0,153,255,0.XX) composites */
+:root {
+  --accent: #0099FF;
+  --accent-bright: #33b1ff;
+  --accent-glow: rgba(0,153,255,0.15);
+  --accent-glow-strong: rgba(0,153,255,0.25);
+  --void: #050810;
+  --surface: #080c18;
+  --card: #0f1525;
+  --panel: #0a0e1a;
+  --border: rgba(0,153,255,0.08);
+  --border-glow: rgba(0,153,255,0.25);
+  --text: #e2e8f0;
+  --text-dim: #7a8ba8;
+  --text-ghost: #3d4f6a;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --destructive: #ef4444;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-card: 14px;
+  --radius-panel: 16px;
+  --radius-pill: 9999px;
+  --font-ui: 'Inter', 'Cantarell', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  background: var(--void);
+  color: var(--text);
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────── */
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  padding: 0 12px;
+  background: var(--void);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 0 var(--border), 0 2px 12px rgba(0,153,255,0.04);
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+#header-left, #header-right { display: flex; align-items: center; gap: 8px; }
+
+#header-mark { height: 28px; width: auto; opacity: 0.9; }
+
+#header-mark.thinking {
+  animation: mark-pulse 1.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(0,153,255,0.5));
+}
+
+@keyframes mark-pulse {
+  0%, 100% { opacity: 0.9; filter: drop-shadow(0 0 2px var(--accent)); }
+  50% { opacity: 1; filter: drop-shadow(0 0 12px rgba(125,211,252,0.6)); }
+}
+
+#header-hud {
+  display: flex;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.hud-stat { display: flex; gap: 4px; }
+.hud-label { color: var(--text-ghost); text-transform: uppercase; }
+.hud-value { color: var(--text); }
+
+.hud-dot {
+  font-size: 10px;
+  transition: color 0.2s ease;
+}
+.hud-dot.connected { color: var(--accent); }
+.hud-dot.reconnecting { color: var(--warning); }
+.hud-dot.disconnected { color: var(--destructive); }
+
+/* ── Icons / Buttons ──────────────────────────────────────────────────── */
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  transition: all 0.2s ease;
+}
+.icon-btn:hover { color: var(--text); background: var(--accent-glow); }
+.icon-btn:active { color: var(--accent); }
+
+.primary-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 8px 16px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 14px rgba(0,153,255,0.15), 0 0 4px rgba(0,153,255,0.2);
+}
+.primary-btn:hover { background: var(--accent-bright); }
+.primary-btn:disabled { background: var(--text-ghost); cursor: not-allowed; box-shadow: none; }
+
+/* ── Layout ──────────────────────────────────────────────────────────── */
+#main-container { display: flex; flex: 1; overflow: hidden; }
+
+/* ── Sidebar ──────────────────────────────────────────────────────────── */
+#sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.2s ease, opacity 0.2s ease, padding 0.2s ease;
+}
+#sidebar.resizing { transition: none; }   /* no animation lag while dragging */
+#sidebar.collapsed { width: 0 !important; opacity: 0; padding: 0; border: none; }
+
+/* Drag handle between the sidebar and chat: adjust the SESSIONS width.
+   Width is persisted to localStorage; double-click resets to default. */
+#sidebar-resizer {
+  flex-shrink: 0;
+  width: 5px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+#sidebar-resizer:hover { background: var(--border-glow); }
+#sidebar.collapsed + #sidebar-resizer { display: none; }
+
+#sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+}
+#sidebar-title {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: var(--text-ghost);
+  letter-spacing: 0.5px;
+}
+
+#session-list { flex: 1; overflow-y: auto; padding: 8px; }
+.session-item {
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  border-left: 2px solid transparent;
+  margin-bottom: 2px;
+}
+.session-item:hover { background: var(--accent-glow); }
+.session-item.active {
+  background: var(--accent-glow);
+  border-left-color: var(--accent);
+  box-shadow: inset 2px 0 0 0 var(--accent), 0 0 18px rgba(0,153,255,0.12);
+}
+.session-title { font-size: 13px; color: var(--text); margin-bottom: 2px; }
+.session-meta { font-size: 11px; color: var(--text-ghost); }
+.session-badge {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-right: 4px;
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+
+/* ── Chat ─────────────────────────────────────────────────────────────── */
+#chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 16px 20px;
+  gap: 12px;
+  scroll-behavior: smooth;
+}
+
+#messages { display: flex; flex-direction: column; gap: 12px; }
+
+.message {
+  max-width: 82%;
+  padding: 12px 16px;
+  border-radius: var(--radius-card);
+  animation: msg-in 0.2s ease-out;
+  position: relative;
+}
+.message.user {
+  align-self: flex-end;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+.message.assistant {
+  align-self: flex-start;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3), 0 0 18px rgba(0,153,255,0.06);
+}
+.message.system {
+  align-self: center;
+  background: transparent;
+  border: none;
+  color: var(--text-ghost);
+  font-style: italic;
+  font-size: 12px;
+  max-width: 100%;
+  text-align: center;
+}
+/* Tool-execution card (D-2): a clean summary line + optional "show full
+   output" expander. Left-aligned (unlike the centered status line) so the
+   expanded <pre> reads naturally. */
+.message.system.tool {
+  align-self: stretch;
+  text-align: left;
+  font-style: normal;
+  max-width: 100%;
+}
+.message.system.tool .tool-line {
+  color: var(--text-dim);
+}
+.message.system.tool .tool-line strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+.tool-toggle {
+  margin-top: 4px;
+  padding: 2px 6px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.tool-toggle:hover {
+  border-color: var(--border-glow);
+  color: var(--accent-bright);
+}
+.tool-full {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  max-height: 320px;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.message.gate {
+  align-self: stretch;
+  background: var(--panel);
+  border: 1px solid var(--warning);
+  box-shadow: 0 0 18px rgba(245,158,11,0.15);
+}
+.message.history {
+  opacity: 0.5;
+}
+.message.history::before {
+  content: "── earlier ──";
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-ghost);
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--border);
+}
+
+@keyframes msg-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sender {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 4px;
+  display: block;
+}
+
+.content { font-size: 14px; line-height: 1.5; }
+.content code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--void);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--accent-bright);
+}
+.content pre {
+  position: relative;
+  background: var(--void);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  margin: 8px 0;
+}
+.content pre code { background: none; padding: 0; color: inherit; }
+.copy-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 11px;
+  padding: 2px 8px;
+  background: var(--bg-card);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+}
+.content pre:hover .copy-btn,
+.copy-btn:focus { opacity: 1; }
+.copy-btn:hover { color: var(--accent-bright); border-color: var(--accent); }
+.copy-btn.copied { color: var(--accent-bright); border-color: var(--accent); opacity: 1; }
+.content ul { margin: 6px 0; padding-left: 20px; }
+.content li { margin: 2px 0; }
+.content strong { font-weight: 600; color: var(--text); }
+.content a {
+  color: var(--accent-bright);
+  text-decoration: underline;
+}
+.content a:hover {
+  text-shadow: 0 0 8px rgba(0,153,255,0.4);
+}
+
+.timestamp {
+  font-size: 10px;
+  color: var(--text-ghost);
+  display: block;
+  margin-top: 6px;
+}
+
+/* ── Streaming ────────────────────────────────────────────────────────── */
+#streaming-container { display: flex; }
+#streaming-container.hidden { display: none; }
+#streaming-content { flex: 1; }
+.streaming-cursor {
+  color: var(--accent);
+  animation: blink 1s step-end infinite;
+  font-weight: bold;
+  margin-left: 2px;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Thinking indicator — a glowing ECG-blue pill that "breathes" (the InterGen
+   heartbeat language), with a rising glow-wave of dots. Replaces the bare
+   gray dots that read below the visual-language bar (G3-18). */
+#thinking-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  align-self: flex-start;
+  background: linear-gradient(180deg, var(--accent-glow), transparent);
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 0 0 1px rgba(0,153,255,0.04), 0 0 16px var(--accent-glow);
+  animation: thinking-breathe 2.4s ease-in-out infinite;
+}
+#thinking-indicator.hidden { display: none; }
+
+.thinking-pulse { display: inline-flex; align-items: center; gap: 5px; }
+.thinking-pulse .dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--accent-bright);
+  box-shadow: 0 0 6px var(--accent), 0 0 11px var(--accent-glow-strong);
+  animation: thinking-wave 1.3s ease-in-out infinite;
+}
+.thinking-pulse .dot:nth-child(1) { animation-delay: 0s; }
+.thinking-pulse .dot:nth-child(2) { animation-delay: 0.18s; }
+.thinking-pulse .dot:nth-child(3) { animation-delay: 0.36s; }
+
+.thinking-text {
+  color: var(--text-dim);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+@keyframes thinking-wave {
+  0%, 70%, 100% { transform: translateY(0) scale(0.7); opacity: 0.45; }
+  35%           { transform: translateY(-4px) scale(1);  opacity: 1; }
+}
+@keyframes thinking-breathe {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(0,153,255,0.04), 0 0 13px var(--accent-glow); }
+  50%      { box-shadow: 0 0 0 1px rgba(0,153,255,0.08), 0 0 24px var(--accent-glow-strong); }
+}
+
+/* ── Gate Prompt ──────────────────────────────────────────────────────── */
+.gate-card {
+  border: 1px solid var(--warning) !important;
+  box-shadow: 0 0 18px rgba(245,158,11,0.15) !important;
+}
+.gate-card .provenance-badge { margin-bottom: 8px; }
+.provenance-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.provenance-badge.direct { background: rgba(16,185,129,0.15); color: var(--success); }
+.provenance-badge.implied { background: rgba(245,158,11,0.15); color: var(--warning); }
+.provenance-badge.ingress { background: rgba(239,68,68,0.15); color: var(--destructive); }
+
+.governance-checks { margin: 8px 0; }
+.gov-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 2px 0;
+}
+.gov-check .check-mark { font-family: var(--font-mono); font-size: 10px; }
+.gov-check.passed .check-mark { color: var(--success); }
+.gov-check.failed .check-mark { color: var(--destructive); }
+
+/* the review card fields — the concrete command in mono, the computed
+   classification and the administrator-boundary footer in muted supporting text
+   so the action + choice read first. */
+.gate-command {
+  margin: 8px 0;
+}
+.gate-command code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+  display: inline-block;
+  word-break: break-all;
+}
+.gate-classification {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin: 6px 0 2px;
+}
+.gate-reason {
+  font-size: 12px;
+  color: var(--warning);
+  margin: 4px 0;
+}
+.gate-footer {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 6px 0 2px;
+}
+
+.gate-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.gate-btn {
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+.gate-btn.allow { border-color: var(--success); color: var(--success); }
+.gate-btn.allow:hover { background: rgba(16,185,129,0.1); }
+.gate-btn.allow-conv { border-color: var(--accent); color: var(--accent); }
+.gate-btn.allow-conv:hover { background: var(--accent-glow); }
+.gate-btn.deny { border-color: var(--destructive); color: var(--destructive); }
+.gate-btn.deny:hover { background: rgba(239,68,68,0.1); }
+
+/* ── Input ────────────────────────────────────────────────────────────── */
+#input-area {
+  flex-shrink: 0;
+  background: var(--void);
+  border-top: 1px solid var(--border);
+  padding: 8px 12px 12px;
+}
+
+#input-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+#buffer-indicator {
+  font-size: 11px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  padding: 2px 8px;
+  background: var(--accent-glow);
+  border-radius: var(--radius-pill);
+}
+#buffer-indicator.hidden { display: none; }
+#image-indicator.hidden { display: none; }   /* was missing — kept the empty 🖼 ✕ chip permanently visible */
+
+#input-row { display: flex; gap: 8px; align-items: flex-end; }
+
+#user-input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 10px 14px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.4;
+  resize: none;
+  min-height: 42px;
+  max-height: 160px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  outline: none;
+}
+#user-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 2px 16px rgba(0,153,255,0.15), 0 0 40px rgba(0,153,255,0.05);
+}
+#user-input::placeholder { color: var(--text-ghost); }
+
+#btn-send {
+  height: 42px;
+  width: 42px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Stats Panel ──────────────────────────────────────────────────────── */
+.stats-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+.stats-panel.collapsed { display: none; }
+
+/* ── Modals ───────────────────────────────────────────────────────────── */
+#modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5,8,16,0.8);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#modal-overlay.hidden { display: none; }
+
+#modal-box {
+  background: var(--panel);
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-panel);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.7), 0 0 40px rgba(0,153,255,0.08);
+  min-width: 400px;
+  max-width: 560px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  animation: modal-in 0.15s ease-out;
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+#modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+#modal-title { font-weight: 600; color: var(--text); }
+#modal-content { padding: 16px; overflow-y: auto; }
+
+/* ── Scrollbar ────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--text-ghost);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* ── Banners ──────────────────────────────────────────────────────────── */
+#banner-container {
+  position: fixed;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* Never wider than the viewport (the panel is only ~420px) — keep the banner
+     clear of both edges. */
+  max-width: calc(100vw - 24px);
+}
+.banner {
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--text);
+  box-shadow: 0 0 18px rgba(0,153,255,0.15);
+  animation: banner-in 0.2s ease-out;
+  /* Wrap long messages instead of running off both sides of the panel. */
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.banner.warning { border-color: var(--warning); }
+.banner.error { border-color: var(--destructive); }
+@keyframes banner-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Lightbox ─────────────────────────────────────────────────────────── */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5,8,16,0.92);
+  backdrop-filter: blur(12px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  animation: lightbox-in 0.2s ease-out;
+}
+@keyframes lightbox-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.message-image {
+  max-width: 320px;
+  max-height: 240px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  margin: 8px 0;
+}
+.message-image:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 18px rgba(0,153,255,0.2);
+}
+@media (max-width: 640px) {
+  #sidebar { display: none; }
+  #sidebar.collapsed { display: flex; }
+  #sidebar-resizer { display: none; }
+  .message { max-width: 92%; }
+  #header-hud { gap: 8px; font-size: 10px; }
+}
+@media (max-width: 480px) {
+  /* Compact assistant panel (~320-480px wide): the full dashboard header does
+     not fit, so it spilled off both edges. Drop the wordmark and the HUD stat
+     chips (their detail lives in the governance/metrics/health dashboards),
+     keeping the sidebar toggle, the connection dot and the action buttons.
+     overflow:hidden is a final guard so nothing can spill past the panel. */
+  #header { padding: 0 8px; overflow: hidden; }
+  #header-mark { display: none; }
+  #header-hud .hud-stat { display: none; }
+  #header-right { gap: 4px; }
+}
+/* Phone-a-friend OFFER affordance (decision #4) — rendered under a local answer
+   when the router recognizes the frontier model may help. The button only OPENS the
+   show-before-send consent dialog; it never sends on its own. */
+.frontier-offer { border-left: 2px solid var(--accent); }
+.frontier-offer-btn {
+  margin-top: 8px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.frontier-offer-btn:hover { background: var(--accent-bright); }
+.frontier-offer-btn:disabled { opacity: 0.5; cursor: default; }

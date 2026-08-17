@@ -1,0 +1,40 @@
+name: swtpm
+version: "0.10.1"
+release: 3  # r3: ship /usr/lib/sysusers.d/swtpm.conf declaring user tss (idempotent duplicate of tpm2-tss's) — r2's tmpfiles fragment referenced tss without shipping it, so a fresh install ordering swtpm before tpm2-tss failed the tmpfiles hook and marked the package degraded (ge9b-05 install finding 2026-07-19). r2: ship /usr/lib/tmpfiles.d/swtpm.conf creating /var/lib/swtpm-localca (0750 tss:tss) — swtpm_setup is fatal without it; first-virt-host finding 2026-07-17
+description: Software TPM emulator with socket and control channel interfaces
+license: BSD-3-Clause
+homepage: https://github.com/stefanberger/swtpm
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/stefanberger/swtpm/archive/refs/tags/v${version}.tar.gz
+    filename: swtpm-${version}.tar.gz
+    sha256: f8da11cadfed27e26d26c5f58a7b8f2d14d684e691927348906b5891f525c684
+dependencies:
+  build:
+    - autoconf
+    - automake
+    - libtool
+    - pkgconf
+    - glib2
+    - json-glib
+    - libtpms
+    - openssl
+    - gnutls
+    - libseccomp
+  host: []
+  runtime:
+    - glib2
+    - json-glib
+    - libtpms
+    - openssl
+    - gnutls
+    - libseccomp
+verify_paths:
+  - /usr/bin/swtpm
+  - /usr/bin/swtpm_setup
+  - /usr/lib/tmpfiles.d/swtpm.conf
+  - /usr/lib/sysusers.d/swtpm.conf
+  - /usr/bin/swtpm_ioctl

@@ -1,0 +1,22 @@
+name: claude-code
+version: "1.0"
+release: 9  # r9: install output rewritten for the person at the terminal. The advisory refusal, the checksum refusal and the extension-install failure now say what happened and what the reader can do; they previously named an internal identifier, a source file inside the package manager, and the commit shape a maintainer would use. Printed text only — the advisory check, the signature check and the checksum check are unchanged. r8: neutral-language sweep of comments and printed text: decisions are recorded as "decided <date>" instead of being credited to a person or project role, development-host shorthand is replaced by a plain description, and the citations of a repository that is not published are replaced by what they were pointing at. Comments and strings only — no rule, path, flag, threshold or code path changed. The public-content scanner now carries detectors for all three classes (scripts/check-public-content.py), so the classes cannot return silently; tests/preflight/test_public_language_detectors.py proves each detector in both directions. r6: guard the ext-install capture with `|| ext_rc=$?` — under the helper's `set -e` the bare `ext_out=$(...)` assignment aborted the helper (exit 7) on extension-install failure, making the r5 diagnosis/.vsix-fallback dead code AND failing the whole package over an optional extension. r5: extension-install failure reports real output + names the pkm SUDO_USER allowlist as the root-refusal cause; r4 = decoupled pinned .vsix + sha256 gate
+content_hash: 49cb5a2cd055c3eb
+description: Helper to install Anthropic Claude Code CLI and VS Code extension
+license: GPL-3.0-or-later
+payload_license: LicenseRef-Anthropic-Commercial-Terms
+homepage: https://code.claude.com/
+tier: extra
+build_style: custom
+install_func: do_install
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  # H-007 Phase B: claude-code sources /usr/share/igos/helpers/helper-lib.sh.
+  - intergenos-helper-lib
+  - nodejs
+verify_paths:
+  - /usr/bin/igos-install-claude-code
+  - /usr/share/licenses/claude-code/LICENSE-BY-SPDX

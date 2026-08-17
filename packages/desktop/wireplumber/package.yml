@@ -1,0 +1,32 @@
+name: wireplumber
+version: "0.5.13"
+release: 2  # hook-contract wave: cross-package pulseaudio mutations removed from hook (owner-side fixes live in pulseaudio)
+description: PipeWire session manager
+license: MIT
+homepage: https://pipewire.pages.freedesktop.org/wireplumber/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/pipewire/wireplumber/-/archive/${version}/wireplumber-${version}.tar.gz
+  sha256: 904e4219dacfc6070e13fcb41846b085c61aa1c1cbb0dcc59e1ab982adc8968a
+dependencies:
+  build:
+  - glib2
+  - lua
+  - pipewire
+  - linux-pam
+  - lxml
+  - systemd
+  - gettext
+  host: []
+  runtime:
+  - glib2
+  - lua
+  - pipewire
+  - linux-pam
+  - systemd
+verify_paths:
+  - /usr/bin/wireplumber
+  - /usr/bin/wpctl
+  - /usr/lib/libwireplumber-0.5.so

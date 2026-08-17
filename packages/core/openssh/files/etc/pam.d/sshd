@@ -1,0 +1,31 @@
+# Begin /etc/pam.d/sshd
+#
+# Shipped STATICALLY by the openssh package (L30, 2026-07-05). This file
+# was previously sed-generated from /etc/pam.d/login by post_install AT
+# INSTALL TIME — which made its content depend on package install ORDER:
+# on Forge installs, openssh's hook ran before the curated login stack
+# was deployed, so installed systems got upstream's stock stub
+# (pam_securetty/pam_selinux/pam_console — modules we do not ship) and
+# ssh logins died at the PAM account phase. Same lesson as the
+# sshd_config Include fix in do_install: package the config, never
+# generate it in post_install. Content mirrors /etc/pam.d/login minus
+# pam_lastlog (removed in Linux-PAM >= 1.6.0).
+
+auth      optional    pam_faildelay.so  delay=3000000
+auth      requisite   pam_nologin.so
+auth      include     system-auth
+
+account   required    pam_access.so
+account   include     system-account
+
+session   required    pam_env.so
+# pam_limits.so is NOT listed directly here: system-session (included
+# below) already runs it. Listing it both places ran it TWICE (the
+# GBC001.2 double-banner fix).
+session   include     system-session
+session   optional    pam_motd.so
+session   optional    pam_mail.so      dir=/var/mail standard quiet
+
+-password include     system-password
+
+# End /etc/pam.d/sshd

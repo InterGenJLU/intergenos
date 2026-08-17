@@ -1,0 +1,128 @@
+name: training
+version: "1.0.0"
+release: 1
+content_hash: 41dce8e444715684
+description: Training meta-package — the complete InterGen model-training stack (unsloth, transformers, pytorch with ROCm, and their full mirror-side closure) in one install step
+license: GPL-3.0-or-later
+homepage: https://www.intergenos.org/
+tier: extra
+build_style: custom
+install_func: do_install
+iso_include: false
+# training meta-package — one install surface for the model-training
+# stack (mirror-only; gaming-meta precedent).
+#
+# Decided 2026-07-21: package groupings that span mirror-only tiers get
+# a meta-package on this pattern rather than an installer toggle — the
+# grouping installs post-install, over the network, keeping the ISO
+# lean (the ROCm + LLVM trees are multi-GB).
+#
+# DERIVATION (do not hand-edit the dependency list): the flat set below
+# is the runtime-dependency closure of {unsloth, unsloth-zoo} over the
+# recipe graph (packages/*/*/package.yml, dependencies.runtime edges),
+# RESTRICTED to effective-mirror-only members (iso_include false, or
+# the extra/compute tier default). Shipped (ISO) closure members are
+# already installed on every InterGenOS system and are deliberately not
+# repeated here. Derived at dev f4e039ce0; re-derived after the F12
+# runtime-declaration wave folded sympy -> mpmath: closure = 148 names, of
+# which 80 are mirror-only and listed flat (the gaming meta's flat-set
+# convention — the package's own Depends is closure-complete for
+# targeted verification).
+#
+# KNOWN EDGE (re-derive when it changes): aotriton is a BUILD-only
+# dependency of pytorch in today's graph, so it is absent from this
+# runtime closure. The F12 declaration wave (2026-07-21) did not alter
+# pytorch's declared set; if the burn's pytorch-consumes pair-proof
+# shows aotriton is loaded at runtime, add the edge and re-derive.
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  # The flat mirror-only runtime closure of {unsloth, unsloth-zoo},
+  # sorted; derivation method + base commit in the header comment.
+  - accelerate
+  - annotated-doc
+  - annotated-types
+  - anyio
+  - arrow-cpp
+  - bitsandbytes
+  - click
+  - composable-kernel
+  - cut-cross-entropy
+  - datasets
+  - diffusers
+  - dill
+  - docstring-parser
+  - filelock
+  - fmt
+  - fsspec
+  - glog
+  - h11
+  - hf-transfer
+  - hf-xet
+  - hipblas
+  - hipblaslt
+  - hipfft
+  - hiprand
+  - hipsolver
+  - hipsparse
+  - httpcore
+  - httpx
+  - huggingface-hub
+  - miopen
+  - mpmath
+  - msgspec
+  - multiprocess
+  - nest-asyncio
+  - networkx
+  - pandas
+  - peft
+  - pillow
+  - psutil
+  - pyarrow
+  - pydantic
+  - pydantic-core
+  - python-dateutil
+  - pytorch
+  - rccl
+  - re2
+  - regex
+  - rocblas
+  - rocfft
+  - rocm-comgr
+  - rocm-device-libs
+  - rocm-hip
+  - rocm-llvm
+  - rocm-smi-lib
+  - rocprofiler-register
+  - rocr-runtime
+  - rocrand
+  - rocsolver
+  - rocsparse
+  - roctracer
+  - safetensors
+  - sentencepiece
+  - shellingham
+  - sympy
+  - thrift
+  - tokenizers
+  - torchao
+  - torchvision
+  - tqdm
+  - transformers
+  - triton
+  - trl
+  - typeguard
+  - typer
+  - typing-inspection
+  - tyro
+  - unsloth
+  - unsloth-zoo
+  - utf8proc
+  - xformers
+tests:
+  enabled: false
+  reason: "Meta-package with no source code, no compilation, no testsuite. The install step writes only a README."
+verify_paths:
+  - /usr/share/doc/training/README

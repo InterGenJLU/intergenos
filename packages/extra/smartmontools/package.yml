@@ -1,0 +1,23 @@
+name: smartmontools
+version: "7.5"
+release: 1
+description: S.M.A.R.T. disk health monitoring and reporting utilities (smartctl, smartd)
+license: GPL-2.0-or-later
+homepage: https://www.smartmontools.org/
+tier: extra
+iso_include: true  # post-install storage diagnostics — must be present for `which smartctl` (PI-Z24 / D4 directive)
+build_style: custom
+install_func: do_install
+source:
+  - url: https://downloads.sourceforge.net/project/smartmontools/smartmontools/${version}/smartmontools-${version}.tar.gz
+    sha256: 690b83ca331378da9ea0d9d61008c4b22dde391387b9bbad7f29387f2595f76e
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/sbin/smartctl
+  - /usr/sbin/smartd
+  - /usr/share/man/man8/smartctl.8
+  - /usr/share/man/man8/smartd.8
+  - /usr/share/man/man5/smartd.conf.5

@@ -1,0 +1,31 @@
+name: zram-generator
+version: "1.1.2"
+release: 1
+content_hash: 976b47ade4a1630f
+description: Systemd unit generator for zram-backed compressed swap devices
+license: MIT
+homepage: https://github.com/systemd/zram-generator
+tier: core
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/systemd/zram-generator/archive/v${version}/zram-generator-${version}.tar.gz
+    sha256: 506d47acbabffa7013bb40a1f61c6edfa758a7bd55820d06ef49c7bc83dba762
+# Upstream ships no Cargo.lock in its GitHub archive (same as cargo-c). The
+# lock is generated host-side by scripts/cargo-vendor-gen.sh, committed to
+# this package dir as the reproducibility pin, and re-staged as the named
+# side-artifact below. Both artifacts are audited at the manifest phase.
+build_artifacts:
+  - name: zram-generator-${version}-vendor.tar.xz
+    generated_by: cargo-vendor
+  - name: zram-generator-${version}-Cargo.lock
+    generated_by: cargo-vendor
+dependencies:
+  build:
+  - rust
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/systemd/system-generators/zram-generator
+  - /usr/lib/systemd/system/systemd-zram-setup@.service
+  - /etc/systemd/zram-generator.conf

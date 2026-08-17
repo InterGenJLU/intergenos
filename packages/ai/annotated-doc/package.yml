@@ -1,0 +1,22 @@
+name: annotated-doc
+# Upstream latest stable (typer requires annotated-doc>=0.0.2; no upper pin).
+version: "0.0.4"
+release: 1
+description: Inline documentation for parameters/attributes/returns via Annotated
+license: MIT
+homepage: https://github.com/fastapi/annotated-doc
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/57/ba/046ceea27344560984e26a590f90bc7f4a75b06701f653222458922b558c/annotated_doc-0.0.4.tar.gz
+  sha256: fbcda96e87e9c92ad167c2e53839e57503ecfda18804ea28102353485033faa4
+dependencies:
+  build:
+  - pdm-backend
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/annotated_doc/__init__.py
+  - /usr/lib/python3.14/site-packages/annotated_doc/main.py

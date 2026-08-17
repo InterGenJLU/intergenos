@@ -1,0 +1,47 @@
+name: python-xxhash
+version: "3.8.1"
+release: 1
+description: Python binding for the xxHash non-cryptographic hash algorithm (imported at load time by the datasets fingerprint module)
+license: BSD-2-Clause
+homepage: https://github.com/ifduyue/python-xxhash
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+# Named python-xxhash rather than xxhash: the tier: core package named xxhash
+# is the C library (libxxhash plus the xxhsum CLI), package names are globally
+# unique in the dependency graph, and a second recipe named xxhash would be a
+# duplicate-name halt. This is the python-msgpack shape, whose upstream
+# distribution is likewise named for the module it provides (msgpack).
+#
+# Decided 2026-08-04: tier ai with iso_include: false. It is a general-purpose
+# library, and the tier rules place a library in the tier of its consumer; the
+# only thing in this repository that pulls it in is the ai-tier datasets
+# package, whose fingerprint module imports xxhash at module load. Every one of
+# datasets' other Python dependencies that has no non-AI consumer already sits
+# in exactly this shape (dill, fsspec, httpx, huggingface-hub, multiprocess,
+# pyarrow, tqdm are all tier: ai with iso_include: false).
+#
+# Decided 2026-08-04: built against the system libxxhash (XXHASH_LINK_SO=1 in
+# build.sh) instead of the xxHash sources the release archive vendors, so the
+# distribution carries one implementation of the hash rather than two. The
+# vendored copy is 0.8.2, one release behind the 0.8.3 the xxhash package
+# ships, and a copy compiled into a Python extension is invisible to the
+# package graph a user inspects. Measured, not assumed: built both ways, the
+# default links no shared library and reports XXHASH_VERSION 0.8.2, while
+# XXHASH_LINK_SO=1 adds libxxhash.so.0 to the extension's NEEDED list and
+# reports 0.8.3 — the installed library's own version — with identical digests
+# from both builds.
+source:
+- url: https://files.pythonhosted.org/packages/source/x/xxhash/xxhash-${version}.tar.gz
+  sha256: b0de4bf3aa66363552d52c6a89003c479911f12098cd48a53d44a0f7a25f7c46
+dependencies:
+  build:
+  - setuptools
+  - xxhash   # provides /usr/include/xxhash.h and libxxhash.so for the linked build
+  host: []
+  runtime:
+  - xxhash   # the extension carries NEEDED libxxhash.so.0
+verify_paths:
+- /usr/lib/python3.14/site-packages/xxhash/__init__.py
+- /usr/lib/python3.14/site-packages/xxhash/_xxhash.cpython-314-x86_64-linux-gnu.so

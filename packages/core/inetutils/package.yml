@@ -1,0 +1,20 @@
+name: inetutils
+version: '2.7'
+release: 4  # r4: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: GNU network utilities
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/inetutils/inetutils-${version}.tar.gz
+  sha256: a156be1cde3c5c0ffefc262180d9369a60484087907aa554c62787d2f40ec086
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - ncurses
+  - readline
+tier: core
+build_style: autotools
+verify_paths:
+  - /usr/bin/dnsdomainname
+  - /usr/bin/ping
+  - /usr/lib/sysctl.d/50-ping-group-range.conf

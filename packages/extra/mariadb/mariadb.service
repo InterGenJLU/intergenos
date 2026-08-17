@@ -1,0 +1,46 @@
+[Unit]
+Description=MariaDB 11.8 LTS database server
+After=network.target
+
+[Service]
+Type=notify
+User=mysql
+Group=mysql
+ExecStartPre=/bin/sh -c '[ -f /var/lib/mysql/mariadb_install_complete ] || (echo "mariadb data dir not initialized; run: sudo mariadb-setup --initdb" >&2; exit 1)'
+ExecStart=/usr/sbin/mariadbd --basedir=/usr
+TimeoutStartSec=300
+TimeoutStopSec=300
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=32768
+
+# Security hardening — landing plan §5e baseline
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+ProtectClock=yes
+ProtectProc=invisible
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=true
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+CapabilityBoundingSet=
+AmbientCapabilities=
+ReadWritePaths=/var/lib/mysql /var/log/mysql /run/mysqld
+ReadOnlyPaths=/etc/mysql
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,51 @@
+name: timm
+version: "1.0.28"
+release: 2  # r2: the recipe declared setuptools as its build dependency, but the pinned sdist builds with pdm-backend and build.sh builds with --no-build-isolation, so the declared set could not have built it. Corrected to pdm-backend, which tier core already provides; setuptools is not used by this package at all.
+description: PyTorch Image Models — image model architectures, layers and pretrained weights
+license: Apache-2.0
+homepage: https://github.com/huggingface/pytorch-image-models
+tier: ai
+# TIER NOTE: this package was requested for `tier: compute`. It is placed in
+# `tier: ai` instead, because the tier definitions in docs/package-tiers.md put
+# it there unambiguously: `tier: compute` is "opt-in GPU compute SDKs" — the
+# ROCm subset, the CUDA toolkit helper, and the llama.cpp engine variants built
+# against them. timm is none of those; it is a pure-Python library with no
+# compiled component and no GPU SDK content, and it sits directly beside the
+# packages it is a sibling of — transformers, diffusers, peft and torchvision
+# are all `tier: ai`. Placing it in compute would also invert its build order
+# against torchvision, which it imports.
+#
+# Mirror-only, matching torchvision and diffusers: this is training/inference
+# apparatus, not part of the shipped assistant.
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/35/03/e41389ac641747bfec48d016fde8be1eade1901e6f2c1aedcb0c8cb4b5d9/timm-${version}.tar.gz
+  sha256: 3789d313fdd5541a327b60180d70dbb4bdec73db8ff0655e413db3c3d134a9a4
+dependencies:
+  build:
+  # Read out of the pinned 1.0.28 sdist's own pyproject.toml, not assumed from
+  # the sibling recipes: timm's [build-system] is `requires = ["pdm-backend"]`
+  # with `build-backend = "pdm.backend"`. build.sh builds with
+  # --no-build-isolation, so pip does not install the backend — it must already
+  # be in the build environment, and setuptools does not provide it. Measured
+  # on python 3.14.3: with setuptools alone the build fails
+  # `BackendUnavailable: Cannot import 'pdm.backend'` (exit 2, no wheel); with
+  # pdm-backend alone it produces the wheel. setuptools is therefore not a
+  # build dependency of this package at all. Same shape as typer and
+  # annotated-doc, the other pdm-backend recipes in this tier.
+  - pdm-backend
+  host: []
+  runtime:
+  # Upstream Requires-Dist for 1.0.28 is exactly: torch, torchvision, pyyaml,
+  # huggingface_hub, safetensors. Each maps to a package that already exists in
+  # this tree; `torch` is packaged here under its project name, pytorch.
+  - pytorch
+  - torchvision
+  - pyyaml
+  - huggingface-hub
+  - safetensors
+verify_paths:
+  - /usr/lib/python3.14/site-packages/timm/__init__.py
+  - /usr/lib/python3.14/site-packages/timm/models/__init__.py

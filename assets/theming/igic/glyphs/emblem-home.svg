@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: small "home" emblem for a folder body — roofed house + door;
+       sits low, clears the tab. -->
+  <g class="glyph">
+    <path d="M 100 152 L 128 128 L 156 152"/>
+    <path d="M 106 148 L 106 176 L 150 176 L 150 148"/>
+    <path d="M 122 176 L 122 162 L 134 162 L 134 176"/>
+  </g>
+</svg>

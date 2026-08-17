@@ -1,0 +1,19 @@
+name: ncurses-core
+ships_as: ncurses  # ch8 dual-name twin — the driver archives this recipe under the ship name (chroot-build-ch8.sh run_package arg 2; runtime deps elsewhere may name 'ncurses')
+version: '6.6'
+release: 1
+description: Terminal handling library
+license: MIT
+source:
+- url: https://invisible-mirror.net/archives/ncurses/ncurses-${version}.tar.gz
+  sha256: 355b4cbbed880b0381a04c46617b7656e362585d52e9cf84a67e2009b749ff11
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+build_style: custom
+verify_paths:
+  - /usr/bin/ncursesw6-config
+  - /usr/bin/captoinfo
+  - /usr/lib/libcurses.so

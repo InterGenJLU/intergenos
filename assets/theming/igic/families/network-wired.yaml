@@ -1,0 +1,21 @@
+# Stateful family manifest — status/network-wired (ICON_CATEGORIES.md §6.3 / §6.3.1). An
+# OVERLAY-ONLY base (no signal ladder): one ethernet-plug silhouette + a per-state mark. The
+# four states are gnome-shell NMWiredDeviceItem.icon_name (js/ui/status/network.js:613-624):
+# network-wired = ACTIVATED + internet (bare plug); acquiring = ACTIVATING (accent ellipsis);
+# no-route = ACTIVATED, no internet (warning "!"); disconnected = default (foreground slash).
+# level 0 on every state (no ladder). Names verified char-for-char vs pinned gnome-shell-49.4.
+schema_version: 1
+family: network-wired
+category: status
+fit: 0.957                  # optical T(q) family fit (two-point solve; body 0.94, overlays capped 0.985)
+kind: symbolic
+base: net-wired
+export:
+  svg: true
+  png: [16, 24, 32, 48]
+states:                          # cord is always-on (every state, incl. disconnected, R6-6); the
+                                 # divider is connected-only (its side ends would dot the dim state)
+  - { id: network-wired,              level: 0, overlays: [divider, pins], fit: 1.424 }
+  - { id: network-wired-acquiring,    level: 0, overlays: [divider, pins, acquiring], fit: 1.068 }
+  - { id: network-wired-no-route,     level: 0, overlays: [divider, pins, no-route], fit: 1.092 }
+  - { id: network-wired-disconnected, level: 0, dim: true, overlays: [disconnected], fit: 1.418 }

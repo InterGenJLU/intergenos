@@ -1,0 +1,39 @@
+name: intergenos-extensions-productivity
+version: "1.0"
+release: 6  # r6: co-bump only: no change to this package's own content. The shared source-tarball generator scripts/build-intergenos-source-tarballs.sh is listed in this package's source_tree, and it changed so that the Welcomer's tarball now carries the shared name-lookup-failure module intergen/net_diagnostics.py; the input-based content fingerprint therefore moved for every package that declares the generator. This package's staged bytes are unchanged. r5: co-bump only: no change to this package's own content. The shared source-tarball generator scripts/build-intergenos-source-tarballs.sh is listed in this package's source_tree, and it changed so that the backup engine's sysusers.d group fragment is staged into the intergenos-backup tarball; the input-based content fingerprint therefore moved for every package that declares the generator. This package's staged bytes are unchanged. r4: co-bump only: no change to this package's own content. The shared source-tarball generator scripts/build-intergenos-source-tarballs.sh is listed in this package's source_tree, and it changed so that the welcome greeter's wiki icon is staged into its tarball; the input-based content fingerprint therefore moved for every package that declares the generator. This package's staged bytes are unchanged.
+content_hash: 0d2e8ffa255d53e2
+description: InterGenOS Productivity-category GNOME Shell extensions — Coverflow Alt-Tab, Clipboard Indicator, Tiling Shell, Forge, ddterm, Alphabetical App Grid
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: file:///intergenos-extensions-productivity-${version}.tar.xz
+  generated: true
+# Canonical inputs of the generated tarball (item-8 fingerprint design):
+# the content fingerprint hashes these + build.sh instead of the tarball's
+# bytes, so a regeneration-context difference can never phantom-bump.
+# PAIRED with verify_paths: the generator derives its zip set from the
+# verify_paths UUIDs — adding a UUID there means adding its zip here too.
+source_tree:
+  - assets/theming/extensions/CoverflowAltTab@palatis.blogspot.com.zip
+  - assets/theming/extensions/clipboard-indicator@tudmotu.com.zip
+  - assets/theming/extensions/tilingshell@ferrarodomenico.com.zip
+  - assets/theming/extensions/forge@jmmaranan.com.zip
+  - assets/theming/extensions/ddterm@amezin.github.com.zip
+  - assets/theming/extensions/AlphabeticalAppGrid@stuarthayhurst.zip
+  - scripts/build-intergenos-source-tarballs.sh
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - gnome-shell-extensions
+
+verify_paths:
+  - /usr/share/gnome-shell/extensions/CoverflowAltTab@palatis.blogspot.com
+  - /usr/share/gnome-shell/extensions/clipboard-indicator@tudmotu.com
+  - /usr/share/gnome-shell/extensions/tilingshell@ferrarodomenico.com
+  - /usr/share/gnome-shell/extensions/forge@jmmaranan.com
+  - /usr/share/gnome-shell/extensions/ddterm@amezin.github.com
+  - /usr/share/gnome-shell/extensions/AlphabeticalAppGrid@stuarthayhurst

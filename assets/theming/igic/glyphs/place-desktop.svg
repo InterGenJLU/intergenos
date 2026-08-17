@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: user-desktop (places) — a workspace: monitor with two open windows and
+       the dock line, on a stand. DISTINCT from device-display (a plain screen). -->
+  <g class="glyph">
+    <rect x="40" y="60" width="176" height="112" rx="10"/>
+    <rect x="56" y="76" width="56" height="42" rx="4"/>
+    <rect x="128" y="90" width="70" height="52" rx="4"/>
+    <line x1="56" y1="158" x2="200" y2="158"/>
+    <path d="M 108 172 L 104 192 L 152 192 L 148 172"/>
+    <line x1="84" y1="192" x2="172" y2="192"/>
+  </g>
+</svg>

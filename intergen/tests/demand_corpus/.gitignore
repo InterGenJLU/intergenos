@@ -1,0 +1,6 @@
+# The merged bank + its report are GENERATED from the half-files by corpus_merge.py.
+# The half-files (demand_distribution.jsonl, surface_flex.jsonl) are the
+# source of truth; regenerate the bank with:
+#   python3 -m intergen.tests.corpus_merge demand_distribution.jsonl surface_flex.jsonl -o bank.jsonl
+bank.jsonl
+bank.report.json

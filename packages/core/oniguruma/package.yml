@@ -1,0 +1,20 @@
+name: oniguruma
+version: "6.9.10"
+release: 1
+description: Multi-charset regular-expression library (jq's regex engine)
+license: BSD-2-Clause
+homepage: https://github.com/kkos/oniguruma
+tier: core
+build_style: autotools
+install_func: do_install
+iso_include: true  # runtime dep of jq (base, in-ISO) — must ship in the squashfs, never mirror-only
+source:
+- url: https://github.com/kkos/oniguruma/releases/download/v${version}/onig-${version}.tar.gz
+  sha256: 2a5cfc5ae259e4e97f86b68dfffc152cdaffe94e2060b770cb827238d769fc05
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+- /usr/lib/libonig.so
+- /usr/include/oniguruma.h

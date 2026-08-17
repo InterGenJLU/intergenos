@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Tweaks — adjustment sliders. -->
+  <g class="glyph">
+    <line x1="52" y1="86" x2="204" y2="86"/>
+    <line x1="52" y1="128" x2="204" y2="128"/>
+    <line x1="52" y1="170" x2="204" y2="170"/>
+  </g>
+  <g class="fill"><circle cx="96" cy="86" r="13"/><circle cx="164" cy="128" r="13"/><circle cx="120" cy="170" r="13"/></g>
+</svg>

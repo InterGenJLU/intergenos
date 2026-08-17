@@ -1,0 +1,24 @@
+name: eza
+version: "0.23.4"
+release: 1
+content_hash: 99e9f62ca8ec38d3
+description: A modern, maintained replacement for ls
+license: EUPL-1.2
+homepage: https://github.com/eza-community/eza
+tier: extra
+iso_include: true  # see docs/extra-tier-classification.md
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/eza-community/eza/archive/v${version}/eza-v${version}.tar.gz
+    sha256: 9fbcad518b8a2095206ac385329ca62d216bf9fdc652dde2d082fcb37c309635
+build_artifacts:
+  - name: eza-${version}-vendor.tar.xz
+    generated_by: cargo-vendor
+dependencies:
+  build:
+  - rust
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/eza

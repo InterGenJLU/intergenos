@@ -1,0 +1,21 @@
+Vendored ELFIO (8ae6cec5): add missing <cstdint> include.
+
+elfio/elf_types.hpp defines the Elf_* aliases from uint16_t/uint32_t/
+etc. without including <cstdint>; GCC 15 no longer provides it
+transitively -> "'uint16_t' does not name a type". Current upstream
+ELFIO carries this same include in this same file. Every other ELFIO
+header chains through elf_types.hpp, so this one include covers the
+header-only library. Path prefix matches the external/elfio/ staging
+location.
+
+--- a/external/elfio/elfio/elf_types.hpp
++++ b/external/elfio/elfio/elf_types.hpp
+@@ -23,6 +23,8 @@
+ #ifndef ELFTYPES_H
+ #define ELFTYPES_H
+ 
++#include <cstdint>
++
+ #ifdef __cplusplus
+ namespace ELFIO {
+ #endif

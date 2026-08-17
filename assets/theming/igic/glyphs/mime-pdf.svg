@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- mime emblem: pdf — a bookmark ribbon (a "formatted/bound document" mark; PDF has no
+       text-free convention, so this + the red accent color-code it). Shape stands as
+       ratified; only re-centred onto the widened page. -->
+  <g class="glyph">
+    <path d="M 112 104 L 144 104 L 144 152 L 128 140 L 112 152 Z"/>
+  </g>
+</svg>

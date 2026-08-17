@@ -1,0 +1,230 @@
+Submitted By:            Douglas R. Reno <renodr at linuxfromscratch dot org>
+Date:                    2026-02-25
+Initial Package Version: 3.58.3
+Upstream Status:         Applied
+Origin:                  Upstream commits afa12b6b, 37f00d26, and aa3b98ae
+Description:             Fixes three security vulnerabilities in e-d-s. These
+                         were found while reviewing the 2026 tab of the GNOME
+                         Security Wiki. Only one of them is assigned a CVE,
+                         as that one allows for accidental local file deletion.
+                         The other two issues only allow for crashes. These
+                         issues are #625, #626, and #627 upstream.
+
+diff -Naurp evolution-data-server-3.58.3.orig/src/addressbook/backends/file/e-book-backend-file.c evolution-data-server-3.58.3/src/addressbook/backends/file/e-book-backend-file.c
+--- evolution-data-server-3.58.3.orig/src/addressbook/backends/file/e-book-backend-file.c	2026-01-30 02:19:07.000000000 -0600
++++ evolution-data-server-3.58.3/src/addressbook/backends/file/e-book-backend-file.c	2026-02-25 12:25:40.796660307 -0600
+@@ -392,7 +392,7 @@ maybe_delete_uri (EBookBackendFile *bf,
+ 	/* If the file is in our path it belongs to us and we need to delete it.
+ 	 */
+ 	if (bf->priv->photo_dirname &&
+-	    !strncmp (bf->priv->photo_dirname, filename, strlen (bf->priv->photo_dirname))) {
++	    e_util_filename_is_in_path (filename, bf->priv->photo_dirname)) {
+ 
+ 		d (g_print ("Deleting uri file: %s\n", filename));
+ 
+diff -Naurp evolution-data-server-3.58.3.orig/src/addressbook/libedata-book/e-book-meta-backend.c evolution-data-server-3.58.3/src/addressbook/libedata-book/e-book-meta-backend.c
+--- evolution-data-server-3.58.3.orig/src/addressbook/libedata-book/e-book-meta-backend.c	2026-01-30 02:19:07.000000000 -0600
++++ evolution-data-server-3.58.3/src/addressbook/libedata-book/e-book-meta-backend.c	2026-02-25 12:25:40.797660301 -0600
+@@ -586,7 +586,7 @@ ebmb_gather_photos_local_filenames (EBoo
+ 				gchar *filename;
+ 
+ 				filename = g_filename_from_uri (url, NULL, NULL);
+-				if (filename && g_str_has_prefix (filename, cache_path))
++				if (filename && e_util_filename_is_in_path (filename, cache_path))
+ 					filenames = g_slist_prepend (filenames, filename);
+ 				else
+ 					g_free (filename);
+diff -Naurp evolution-data-server-3.58.3.orig/src/calendar/libedata-cal/e-cal-cache.c evolution-data-server-3.58.3/src/calendar/libedata-cal/e-cal-cache.c
+--- evolution-data-server-3.58.3.orig/src/calendar/libedata-cal/e-cal-cache.c	2026-01-30 02:19:07.000000000 -0600
++++ evolution-data-server-3.58.3/src/calendar/libedata-cal/e-cal-cache.c	2026-02-25 12:25:40.797660301 -0600
+@@ -3707,7 +3707,7 @@ e_cal_cache_delete_attachments (ECalCach
+ 						if (!cache_dirname)
+ 							cache_dirname = g_path_get_dirname (e_cache_get_filename (E_CACHE (cal_cache)));
+ 
+-						if (g_str_has_prefix (filename, cache_dirname) &&
++						if (e_util_filename_is_in_path (filename, cache_dirname) &&
+ 						    g_unlink (filename) == -1) {
+ 							/* Ignore these errors */
+ 						}
+diff -Naurp evolution-data-server-3.58.3.orig/src/camel/camel-sasl-ntlm.c evolution-data-server-3.58.3/src/camel/camel-sasl-ntlm.c
+--- evolution-data-server-3.58.3.orig/src/camel/camel-sasl-ntlm.c	2026-01-30 02:19:07.000000000 -0600
++++ evolution-data-server-3.58.3/src/camel/camel-sasl-ntlm.c	2026-02-25 12:25:37.231679637 -0600
+@@ -79,12 +79,15 @@ ntlm_get_string (GByteArray *ba,
+ 	gchar *buf_string;
+ 	guint16 buf_length;
+ 	guint32 buf_offset;
++	guint32 buf_end;
+ 
+ 	secbuf = (SecurityBuffer *) &ba->data[offset];
+ 	buf_length = GUINT16_FROM_LE (secbuf->length);
+ 	buf_offset = GUINT32_FROM_LE (secbuf->offset);
++	buf_end = buf_offset + buf_length;
+ 
+-	if (ba->len < buf_offset + buf_length)
++	/* the last is to check for overflow */
++	if (ba->len < buf_offset || ba->len < buf_end || buf_end < buf_offset)
+ 		return NULL;
+ 
+ 	buf_string = (gchar *) &ba->data[buf_offset];
+diff -Naurp evolution-data-server-3.58.3.orig/src/camel/providers/pop3/camel-pop3-store.c evolution-data-server-3.58.3/src/camel/providers/pop3/camel-pop3-store.c
+--- evolution-data-server-3.58.3.orig/src/camel/providers/pop3/camel-pop3-store.c	2026-01-30 02:19:07.000000000 -0600
++++ evolution-data-server-3.58.3/src/camel/providers/pop3/camel-pop3-store.c	2026-02-25 12:25:38.995670069 -0600
+@@ -736,8 +736,8 @@ pop3_store_authenticate_sync (CamelServi
+ 			goto exit;
+ 		}
+ 	} else if (strcmp (mechanism, "+APOP") == 0 && pop3_engine->apop) {
+-		gchar *secret, *md5asc, *d;
+-		gsize secret_len;
++		GChecksum *checksum;
++		gchar *d;
+ 
+ 		if (password == NULL) {
+ 			g_set_error_literal (
+@@ -768,20 +768,15 @@ pop3_store_authenticate_sync (CamelServi
+ 			d++;
+ 		}
+ 
+-		secret_len =
+-			strlen (pop3_engine->apop) +
+-			strlen (password) + 1;
+-		secret = g_alloca (secret_len);
+-		g_snprintf (
+-			secret, secret_len, "%s%s",
+-			pop3_engine->apop, password);
+-		md5asc = g_compute_checksum_for_string (
+-			G_CHECKSUM_MD5, secret, -1);
++		checksum = g_checksum_new (G_CHECKSUM_MD5);
++		g_checksum_update (checksum, (const guchar *) pop3_engine->apop, strlen (pop3_engine->apop));
++		g_checksum_update (checksum, (const guchar *) (password ? password : ""), strlen (password ? password : ""));
++
+ 		pcp = camel_pop3_engine_command_new (
+ 			pop3_engine, 0, NULL, NULL, cancellable, error,
+-			"APOP %s %s\r\n", user, md5asc);
+-		g_free (md5asc);
++			"APOP %s %s\r\n", user, g_checksum_get_string (checksum));
+ 
++		g_checksum_free (checksum);
+ 	} else {
+ 		GList *link;
+ 		const gchar *test_mechanism = mechanism;
+diff -Naurp evolution-data-server-3.58.3.orig/src/libedataserver/e-data-server-util.c evolution-data-server-3.58.3/src/libedataserver/e-data-server-util.c
+--- evolution-data-server-3.58.3.orig/src/libedataserver/e-data-server-util.c	2026-01-30 02:19:07.000000000 -0600
++++ evolution-data-server-3.58.3/src/libedataserver/e-data-server-util.c	2026-02-25 12:25:40.798660296 -0600
+@@ -3152,3 +3152,45 @@ e_util_guess_source_is_readonly	(ESource
+ 
+ 	return res;
+ }
++
++/**
++ * e_util_filename_is_in_path:
++ * @filename: a filename
++ * @path: an expected path
++ *
++ * Checks whether the @filename is stored under @path.
++ * It use canonicalized form of the paths before comparing them.
++ * Both the @filename and @path are expected to be absolute paths,
++ * is not, %FALSE is returned.
++ *
++ * Returns: whether the @filename is stored under @path
++ *
++ * Since: 3.60
++ **/
++gboolean
++e_util_filename_is_in_path (const gchar *filename,
++			    const gchar *path)
++{
++	gchar *canon_filename, *canon_path;
++	gsize path_len;
++	gboolean res;
++
++	g_return_val_if_fail (filename != NULL, FALSE);
++	g_return_val_if_fail (path != NULL, FALSE);
++
++	if (!g_path_is_absolute (filename) ||
++	    !g_path_is_absolute (path))
++		return FALSE;
++
++	canon_filename = g_canonicalize_filename (filename, NULL);
++	canon_path = g_canonicalize_filename (path, NULL);
++	path_len = strlen (canon_path);
++
++	res = path_len > 0 && g_str_has_prefix (canon_filename, canon_path) &&
++		canon_filename[path_len] == G_DIR_SEPARATOR;
++
++	g_free (canon_filename);
++	g_free (canon_path);
++
++	return res;
++}
+diff -Naurp evolution-data-server-3.58.3.orig/src/libedataserver/e-data-server-util.h evolution-data-server-3.58.3/src/libedataserver/e-data-server-util.h
+--- evolution-data-server-3.58.3.orig/src/libedataserver/e-data-server-util.h	2026-01-30 02:19:07.000000000 -0600
++++ evolution-data-server-3.58.3/src/libedataserver/e-data-server-util.h	2026-02-25 12:26:31.123389922 -0600
+@@ -265,6 +265,8 @@ void		e_util_change_uri_port		(GUri **in
+ 						 gint port);
+ void		e_util_call_malloc_trim		(void);
+ gboolean	e_util_guess_source_is_readonly	(struct _ESource *source);
++gboolean e_util_filename_is_in_path (const gchar *filename,
++                                     const gchar *path);
+ 
+ G_END_DECLS
+ 
+diff -Naurp evolution-data-server-3.58.3.orig/tests/libedataserver/libedataserver-test.c evolution-data-server-3.58.3/tests/libedataserver/libedataserver-test.c
+--- evolution-data-server-3.58.3.orig/tests/libedataserver/libedataserver-test.c	2026-01-30 02:19:07.000000000 -0600
++++ evolution-data-server-3.58.3/tests/libedataserver/libedataserver-test.c	2026-02-25 12:25:40.798660296 -0600
+@@ -119,6 +119,43 @@ test_parse_date (ETestServerFixture *fix
+ 	}
+ }
+ 
++static void
++test_filename_is_in_path (ETestServerFixture *fixture,
++			  gconstpointer user_data)
++{
++	struct _tests {
++		const gchar *filename;
++		const gchar *path;
++		gboolean expected;
++	} tests[] = {
++		{ "/home/user/.cache/dir/", "/home/user/.cache/dir", FALSE },
++		{ "/home/user/.cache/dir", "/home/user/.cache/dir", FALSE },
++		{ "/home/user/.cache/dir", "/home/user/.cache/dir/", FALSE },
++		{ "/home/user/.cache/dir/", "/home/user/.cache/dir/", FALSE },
++		{ "/home/user/.cache/dir/file.txt", "/home/user/.cache/dir/", TRUE },
++		{ "/home/user/.cache/dir/file.txt", "/home/user/.cache/dir", TRUE },
++		{ "/home/user/.cache/dir/subdir/file.txt", "/home/user/.cache/dir/", TRUE },
++		{ "/home/user/.cache/dir/subdir/file.txt", "/home/user/.cache/dir", TRUE },
++		{ "/home/user/.cache/dir/./file.txt", "/home/user/.cache/dir/", TRUE },
++		{ "/home/user/.cache/dir/./file.txt", "/home/user/.cache/dir", TRUE },
++		{ "/home/user/.cache/dir/../file.txt", "/home/user/.cache/dir/", FALSE },
++		{ "/home/user/.cache/dir/../file.txt", "/home/user/.cache/dir", FALSE },
++		{ "/home/user/.cache/dir/.././dir/../../.cache/./dir/file.txt", "/home/user/.cache/dir/", TRUE },
++		{ "/home/user/.cache/dir/.././dir/../../.cache/./dir/file.txt", "/home/user/.cache/dir", TRUE },
++		{ "/home/user/.cache/dir/../../../../var/lib/file.txt", "/home/user/.cache/dir/", FALSE },
++		{ "/home/user/.cache/dir/../../../../var/lib/file.txt", "/home/user/.cache/dir", FALSE },
++		{ "./file.txt", "/home/user/.cache/dir", FALSE },
++		{ "../file.txt", "/home/user/.cache/dir", FALSE }
++	};
++	gint ii;
++
++	for (ii = 0; ii < G_N_ELEMENTS (tests); ii++) {
++		gboolean result = e_util_filename_is_in_path (tests[ii].filename, tests[ii].path);
++
++		g_assert_cmpint ((result ? 1 : 0), ==, (tests[ii].expected ? 1 : 0));
++	}
++}
++
+ gint
+ main (gint argc,
+       gchar **argv)
+@@ -138,6 +175,12 @@ main (gint argc,
+ 		e_test_server_utils_setup,
+ 		test_parse_date,
+ 		e_test_server_utils_teardown);
++	g_test_add (
++		"/libedataserver-test/FilenameIsInPath",
++		ETestServerFixture, &test_closure,
++		e_test_server_utils_setup,
++		test_filename_is_in_path,
++		e_test_server_utils_teardown);
+ 
+ 	return e_test_server_utils_run (argc, argv);
+ }

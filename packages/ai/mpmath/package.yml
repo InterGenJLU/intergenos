@@ -1,0 +1,22 @@
+name: mpmath
+# Not upstream-latest (1.4.1): sympy in this closure caps mpmath<1.4 (Rule 12 deviation).
+version: "1.3.0"
+release: 1
+description: Arbitrary-precision floating-point arithmetic
+license: BSD-3-Clause
+homepage: https://mpmath.org
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/e0/47/dd32fa426cc72114383ac549964eecb20ecfd886d1e5ccf5340b55b02f57/mpmath-1.3.0.tar.gz
+  sha256: 7a28eb2a9774d00c7bc92411c19a89209d5da7c4c9a9e227be8330a23a25b91f
+dependencies:
+  build:
+  - setuptools
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/mpmath/__init__.py
+  - /usr/lib/python3.14/site-packages/mpmath/ctx_mp.py

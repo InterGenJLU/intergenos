@@ -1,0 +1,29 @@
+name: erlang
+version: "29.0.3"
+release: 1
+description: Erlang/OTP concurrent programming language and runtime
+license: Apache-2.0
+homepage: https://www.erlang.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  # Official signed release asset; sha256 from the release's SHA256.txt.
+  - url: https://github.com/erlang/otp/releases/download/OTP-29.0.3/otp_src_29.0.3.tar.gz
+    sha256: f920c660b16794bcb7270d1cbf680f7747c719650bcd6ac449508a32c2a8972a
+    filename: otp_src_29.0.3.tar.gz
+dependencies:
+  build:
+    - perl-core
+  host: []
+  runtime:
+    - glibc
+    - gcc
+    - ncurses
+    - openssl
+    - zlib
+verify_paths:
+  - /usr/bin/erl
+  - /usr/bin/erlc
+  - /usr/bin/escript
+  - /usr/lib/erlang/releases

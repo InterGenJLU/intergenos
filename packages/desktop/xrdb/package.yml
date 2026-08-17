@@ -1,0 +1,25 @@
+name: xrdb
+version: "1.2.2"
+release: 1
+description: X server resource database utility
+license: MIT
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/app/xrdb-${version}.tar.xz
+  sha256: 31f5fcab231b38f255b00b066cf7ea3b496df712c9eb2d0d50c670b63e5033f4
+dependencies:
+  build:
+  - libX11
+  - libXmu
+  - xorgproto
+  host: []
+  runtime:
+  - libX11
+  - libXmu
+configure_flags:
+- --prefix=/usr
+verify_paths:
+  - /usr/bin/xrdb

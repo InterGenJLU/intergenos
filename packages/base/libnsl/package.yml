@@ -1,0 +1,30 @@
+name: libnsl
+version: "2.0.1"
+release: 1
+description: NIS library (libnsl replacement for glibc)
+license: LGPL-2.1-or-later
+homepage: https://github.com/thkukuk/libnsl
+tier: base
+build_style: autotools
+
+source:
+  - url: https://github.com/thkukuk/libnsl/releases/download/v${version}/libnsl-${version}.tar.xz
+    sha256: 5c9e470b232a7acd3433491ac5221b4832f0c71318618dc6aa04dd05ffcd8fd9
+
+dependencies:
+  build:
+    - libtirpc
+  host: []
+  runtime:
+    - libtirpc
+
+configure_flags:
+  - "--sysconfdir=/etc"
+  - "--disable-static"
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "NIS/RPC tests require rpcbind + working network; not available in offline build chroot"
+verify_paths:
+  - /usr/lib/libnsl.so

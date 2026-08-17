@@ -1,0 +1,144 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+
+<defs>
+
+  <!-- Surface -->
+  <linearGradient id="surface" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#10182a"/>
+    <stop offset="100%" stop-color="#060a12"/>
+  </linearGradient>
+
+  <!-- Front panel glass (slightly lighter, semi-transparent) -->
+  <linearGradient id="frontGlass" x1="0" y1="0" x2="0.1" y2="1">
+    <stop offset="0%" stop-color="#121c30" stop-opacity="0.55"/>
+    <stop offset="100%" stop-color="#0a0e1a" stop-opacity="0.60"/>
+  </linearGradient>
+
+  <!-- Directional edge energy -->
+  <linearGradient id="edgeEnergy" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#66ccff" stop-opacity="1"/>
+    <stop offset="45%" stop-color="#0099FF" stop-opacity="0.7"/>
+    <stop offset="100%" stop-color="#0099FF" stop-opacity="0.25"/>
+  </linearGradient>
+
+  <!-- Upper sheen (tab/back panel area) -->
+  <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="rgba(255,255,255,0.06)"/>
+    <stop offset="50%" stop-color="rgba(255,255,255,0.015)"/>
+    <stop offset="100%" stop-color="transparent"/>
+  </linearGradient>
+
+  <!-- Front panel diagonal glass reflection -->
+  <linearGradient id="gloss" x1="0.1" y1="0" x2="0.55" y2="0.65">
+    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.20"/>
+    <stop offset="30%" stop-color="#ffffff" stop-opacity="0.05"/>
+    <stop offset="55%" stop-color="#ffffff" stop-opacity="0"/>
+  </linearGradient>
+
+  <!-- Front panel top-edge highlight (glass catching light at crease) -->
+  <linearGradient id="frontHighlight" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.09"/>
+    <stop offset="18%" stop-color="#ffffff" stop-opacity="0.02"/>
+    <stop offset="30%" stop-color="#ffffff" stop-opacity="0"/>
+  </linearGradient>
+
+  <!-- Glow stack -->
+  <filter id="glowWide" x="-120%" y="-120%" width="340%" height="340%">
+    <feGaussianBlur stdDeviation="10"/>
+  </filter>
+
+  <filter id="glowMid">
+    <feGaussianBlur stdDeviation="4"/>
+  </filter>
+
+  <filter id="glowTight">
+    <feGaussianBlur stdDeviation="1.5"/>
+  </filter>
+
+  <filter id="creaseGlow" x="-30%" y="-200%" width="160%" height="500%">
+    <feGaussianBlur stdDeviation="3" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+
+  <!-- Clip path for front panel -->
+  <clipPath id="frontClip">
+    <path d="M32 108 H224 V184 Q224 200 208 200 H48 Q32 200 32 184 Z"/>
+  </clipPath>
+
+</defs>
+
+<!-- Base folder body -->
+<path id="f" d="M32 72
+         Q32 56 48 56
+         H104
+         Q112 56 120 64
+         L132 76
+         H208
+         Q224 76 224 92
+         V184
+         Q224 200 208 200
+         H48
+         Q32 200 32 184 Z"
+      fill="url(#surface)"/>
+
+<!-- Front panel glass overlay (creates two-panel depth) -->
+<path d="M32 108 H224 V184 Q224 200 208 200 H48 Q32 200 32 184 Z"
+      fill="url(#frontGlass)"/>
+
+<!-- Front panel top-edge highlight -->
+<g clip-path="url(#frontClip)">
+  <rect x="32" y="108" width="192" height="28" fill="url(#frontHighlight)"/>
+</g>
+
+<!-- Internal light bleed (subtle, grounded) -->
+<use href="#f"
+     fill="none"
+     stroke="#0099FF"
+     stroke-width="10"
+     opacity="0.045"/>
+
+<!-- Ambient glow (wide) -->
+<use href="#f"
+     fill="none"
+     stroke="#0099FF"
+     stroke-width="12"
+     opacity="0.06"
+     filter="url(#glowWide)"/>
+
+<!-- Mid glow -->
+<use href="#f"
+     fill="none"
+     stroke="#0099FF"
+     stroke-width="5"
+     opacity="0.18"
+     filter="url(#glowMid)"/>
+
+<!-- Directional edge energy -->
+<use href="#f"
+     fill="none"
+     stroke="url(#edgeEnergy)"
+     stroke-width="2.4"
+     filter="url(#glowTight)"/>
+
+<!-- Structural edge -->
+<use href="#f"
+     fill="none"
+     stroke="rgba(0,153,255,0.35)"
+     stroke-width="1.1"/>
+
+<!-- Crease line (where front panel meets back — subtle energy seam) -->
+<line x1="35" y1="108" x2="221" y2="108"
+      stroke="#0099FF" stroke-width="1" stroke-opacity="0.20"
+      filter="url(#creaseGlow)"/>
+
+<!-- Upper reflection plane (tab/back panel sheen) -->
+<path d="M40 82 L210 80 L210 118 L40 110 Z"
+      fill="url(#sheen)"
+      opacity="0.22"/>
+
+<!-- Front panel diagonal glass reflection -->
+<g clip-path="url(#frontClip)">
+  <path d="M32 108 L185 108 L32 198 Z" fill="url(#gloss)"/>
+</g>
+
+</svg>

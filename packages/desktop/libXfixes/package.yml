@@ -1,0 +1,25 @@
+name: libXfixes
+version: "6.0.2"
+release: 1
+description: X Fixes extension library
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/lib/libXfixes-${version}.tar.xz
+  sha256: 39f115d72d9c5f8111e4684164d3d68cc1fd21f9b27ff2401b08fddfc0f409ba
+dependencies:
+  build:
+  - libX11
+  - xorgproto
+  host: []
+  runtime:
+  - libX11
+configure_flags:
+- --prefix=/usr
+- --disable-static
+
+verify_paths:
+  - /usr/lib/libXfixes.so

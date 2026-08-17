@@ -1,0 +1,125 @@
+name: gamescope
+version: "3.16.24"
+release: 1
+description: SteamOS session compositing window manager (micro-compositor for gaming)
+license: BSD-2-Clause
+homepage: https://github.com/ValveSoftware/gamescope
+tier: extra
+build_style: custom
+install_func: do_install
+# Vendored subprojects are pinned to the exact revisions Valve ships at tag 3.16.24
+# (.gitmodules gitlinks + subprojects/*.wrap). They are carried as secondary sources
+# and extracted explicitly in configure() (Rule 5); the build runs --wrap-mode=nodownload
+# so a missing vendor fails loudly instead of reaching the network.
+source:
+- url: https://github.com/ValveSoftware/gamescope/archive/refs/tags/${version}.tar.gz
+  sha256: ba2afc669c541c6e134578ef97d45354b721aed5ecb69c7180d6178e57514186
+  filename: gamescope-${version}.tar.gz
+- url: https://github.com/Joshua-Ashton/wlroots/archive/c08d99437ec8bb56a703f04ad1ef199502c62d10.tar.gz
+  sha256: d1e5bc9a14be16150256a13d443d87cad4ec7dc7619469201cfe6e81a76f7836
+  filename: gamescope-wlroots-c08d9943.tar.gz
+- url: https://gitlab.freedesktop.org/emersion/libliftoff/-/archive/8b08dc1c14fd019cc90ddabe34ad16596b0691f4/libliftoff-8b08dc1c14fd019cc90ddabe34ad16596b0691f4.tar.gz
+  sha256: 8de28aee6f90f47b7fc7037dcd2360166197c0b5d2033f3afdbd34f2ea1bf216
+  filename: gamescope-libliftoff-8b08dc1c.tar.gz
+- url: https://github.com/Joshua-Ashton/vkroots/archive/5106d8a0df95de66cc58dc1ea37e69c99afc9540.tar.gz
+  sha256: 37b77586e91f7ebee70380dcddd73bf01ae4acef1053e6be41d0485ede022422
+  filename: gamescope-vkroots-5106d8a0.tar.gz
+- url: https://github.com/KhronosGroup/SPIRV-Headers/archive/d790ced752b5bfc06b6988baadef6eb2d16bdf96.tar.gz
+  sha256: 90141b3f6261dba643fe546d56b4539e61fe40e307c5c3b9985ea9fa0622ac3f
+  filename: gamescope-spirv-headers-d790ced7.tar.gz
+- url: https://github.com/nothings/stb/archive/5736b15f7ea0ffb08dd38af21067c314d6a3aae9.tar.gz
+  sha256: d00921d49b06af62aa6bfb97c1b136bec661dd11dd4eecbcb0da1f6da7cedb4c
+  filename: gamescope-stb-5736b15f.tar.gz
+- url: https://github.com/g-truc/glm/archive/0af55ccecd98d4e5a8d1fad7de25ba429d60e863.tar.gz
+  sha256: e7f187d83523f505eb38dd25d297ea6c0d4ed856d733e808f18253f5a8fa88a0
+  filename: gamescope-glm-0af55cce.tar.gz
+- url: https://github.com/Joshua-Ashton/reshade/archive/696b14cd6006ae9ca174e6164450619ace043283.tar.gz
+  sha256: 3aa6feda7773cc8ffa8fb012fe95e6207c776101e29198d0e0d34a0c5e339f6a
+  filename: gamescope-reshade-696b14cd.tar.gz
+dependencies:
+  build:
+  - wayland
+  - wayland-protocols
+  - libX11
+  - libXdamage
+  - libXcomposite
+  - libXcursor
+  - libXrender
+  - libXext
+  - libXfixes
+  - libXxf86vm
+  - libXtst
+  - libXres
+  - libXmu
+  - libXi
+  - libxcb
+  - xcb-util
+  - xcb-util-wm
+  - xcb-util-keysyms
+  - libxkbcommon
+  - libdrm
+  - libinput
+  - pixman
+  - vulkan-headers
+  - vulkan-loader
+  - glslang
+  - luajit
+  - libcap
+  - systemd
+  - libdisplay-info
+  - libdecor
+  - seatd
+  - hwdata
+  - xwayland
+  host: []
+  runtime:
+  - wayland
+  - libX11
+  - libXdamage
+  - libXcomposite
+  - libXcursor
+  - libXrender
+  - libXext
+  - libXfixes
+  - libXxf86vm
+  - libXtst
+  - libXres
+  - libXmu
+  - libXi
+  - libxcb
+  - libxkbcommon
+  - libdrm
+  - libinput
+  - pixman
+  - vulkan-loader
+  - luajit
+  - libcap
+  - systemd
+  - libdisplay-info
+  - libdecor
+  - seatd
+  - hwdata
+  - xwayland
+silent_loss_accepted:
+  - libxcb   # The flagged probes belong to the VENDORED wlroots SUBPROJECT, which
+             # Valve pins minimal (backends/renderers off) because gamescope compiles
+             # its own DRM-atomic + Vulkan backends in the main binary (see build.sh
+             # header). xcb itself resolves YES; the sole NO is optional xcb-errors
+             # diagnostics inside a subproject whose x11 backend is off by design.
+             # Decided accept, 2026-07-10 (silent-loss gate, ge9b-01 burn).
+  - drm-backend   # wlroots-SUBPROJECT feature (Valve-pinned off); gamescope's OWN
+                  # DRM-atomic backend is compiled in the main binary and stays on.
+  - x11-backend   # wlroots-SUBPROJECT feature (Valve-pinned off) — same shape.
+  - xcb-errors    # wlroots-SUBPROJECT optional diagnostics — same shape. All three
+                  # ride the operator's 2026-07-10 wlroots-subproject accept ruling
+                  # (the gate's summary-disabled detector keys on FEATURE names,
+                  # separately from the dep-tuple accept above).
+  - input_emulation   # gamescope's OWN feature, DELIBERATELY disabled in build.sh —
+                      # part of the recipe's documented minimal surface (header:
+                      # "OpenVR, input-emulation (libei), PipeWire capture, the SDL2
+                      # backend, AVIF screenshots, benchmarks and unit tests are all
+                      # disabled"). Machine-readable accept of that standing intent.
+verify_paths:
+  - /usr/bin/gamescope
+  - /usr/bin/gamescopereaper
+  - /usr/share/vulkan/implicit_layer.d/VkLayer_FROG_gamescope_wsi.x86_64.json

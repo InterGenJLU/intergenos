@@ -1,0 +1,83 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+  <!-- Surface -->
+  <linearGradient id="surface" x1="0" y1="0" x2="0" y2="1">
+   <stop offset="0%" stop-color="#0f1525"/>
+   <stop offset="100%" stop-color="#0a0e1a"/>
+  </linearGradient>
+
+  <!-- Edge glow -->
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+   <feGaussianBlur stdDeviation="4" result="blur"/>
+   <feMerge>
+    <feMergeNode in="blur"/>
+    <feMergeNode in="SourceGraphic"/>
+   </feMerge>
+  </filter>
+
+  <!-- Core glow -->
+  <radialGradient id="coreGlow">
+   <stop offset="0%" stop-color="#33b1ff"/>
+   <stop offset="40%" stop-color="#0099FF"/>
+   <stop offset="100%" stop-color="rgba(0,153,255,0)"/>
+  </radialGradient>
+ </defs>
+
+ <!-- Folder body -->
+ <path d="M32 72
+       Q32 56 48 56
+       H104
+       Q112 56 120 64
+       L132 76
+       H208
+       Q224 76 224 92
+       V184
+       Q224 200 208 200
+       H48
+       Q32 200 32 184 Z"
+   fill="url(#surface)"/>
+
+ <!-- Edge glow -->
+ <path d="M32 72
+       Q32 56 48 56
+       H104
+       Q112 56 120 64
+       L132 76
+       H208
+       Q224 76 224 92
+       V184
+       Q224 200 208 200
+       H48
+       Q32 200 32 184 Z"
+   fill="none"
+   stroke="rgba(0,153,255,0.35)"
+   stroke-width="3"
+   filter="url(#glow)"
+   opacity="0.6"/>
+
+ <!-- Structural edge -->
+ <path d="M32 72
+       Q32 56 48 56
+       H104
+       Q112 56 120 64
+       L132 76
+       H208
+       Q224 76 224 92
+       V184
+       Q224 200 208 200
+       H48
+       Q32 200 32 184 Z"
+   fill="none"
+   stroke="rgba(0,153,255,0.22)"
+   stroke-width="1.5"/>
+
+ <!-- Pulse core -->
+ <circle cx="128" cy="136" r="18"
+     fill="url(#coreGlow)"
+     opacity="0.9"/>
+
+ <!-- Core center -->
+ <circle cx="128" cy="136" r="5"
+     fill="#33b1ff"/>
+
+</svg>

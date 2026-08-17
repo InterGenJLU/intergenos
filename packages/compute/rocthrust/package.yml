@@ -1,0 +1,36 @@
+name: rocthrust
+version: "7.2.4"
+release: 1
+description: Thrust-compatible C++ parallel algorithms header library over rocPRIM
+license: Apache-2.0
+homepage: https://github.com/ROCm/rocm-libraries
+tier: compute
+build_style: custom
+install_func: do_install
+
+# SAME rocm-libraries tarball (shared-source pin); builds
+# projects/rocthrust from the monorepo. Header-only Thrust port over the
+# installed rocprim package (ROCPRIM_FETCH_METHOD defaults to PACKAGE —
+# pinned CMakeLists:155). rocrand/SQLite/TBB appear only inside the
+# BUILD_TEST/BUILD_BENCHMARK blocks (pinned Dependencies.cmake:261/365)
+# — both stay OFF, so none of them are build inputs here.
+source:
+  - url: https://github.com/ROCm/rocm-libraries/archive/refs/tags/rocm-${version}.tar.gz
+    filename: rocm-rocm-libraries-${version}.tar.gz
+    sha256: 50a4090b4ad18b34c375f666e5f71816cf55f89bc2175dc3eba9a7b80f65a15d
+
+gpu_targets: "gfx1100;gfx1102;gfx1201"
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - rocm-cmake
+  - rocm-hip
+  - rocprim
+  host: []
+  runtime:
+  - rocprim
+verify_paths:
+  - /opt/rocm/include/thrust/version.h
+  - /opt/rocm/lib/cmake/rocthrust

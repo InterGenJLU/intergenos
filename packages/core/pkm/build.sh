@@ -1,0 +1,125 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+#
+# pkm 0.1.0 — InterGenOS package manager
+# https://github.com/InterGenJLU/intergenos
+#
+# Installs: Python package at /usr/lib/python3.14/site-packages/pkm,
+# /usr/bin/pkm CLI shim, default /etc/pkm/repos.conf pointing at the
+# official VPS mirror, and the runtime directories pkm expects
+# (/var/lib/igos/{packages,archives}).
+#
+# Pure Python, stdlib-only — no compile step, no third-party deps.
+
+build() {
+    set -e
+    # No build step — pure Python.
+    return 0
+}
+
+do_install() {
+    set -e
+    # pkm Python package — copy sources from the repo tree. Source is the
+    # canonical pkm/ directory in /mnt/intergenos, which is staged into
+    # the chroot by the build orchestrator (scripts/build-intergenos.sh).
+    install -dm755 "${DESTDIR}/usr/lib/python3.14/site-packages/pkm"
+    cp -a /mnt/intergenos/pkm/*.py "${DESTDIR}/usr/lib/python3.14/site-packages/pkm/"
+    # release-keys.json is the pinned-fingerprint set (L-025) that
+    # repo.py:_load_pinned_fingerprints reads at import. WITHOUT it the pin set
+    # is empty and ALL repo signature verification fails closed — no installed
+    # system could `pkm update`/`pkm install` from the mirror. It's a data file,
+    # not *.py, so it must be copied explicitly (the 2026-06-14 first-mirror bug).
+    cp -a /mnt/intergenos/pkm/release-keys.json "${DESTDIR}/usr/lib/python3.14/site-packages/pkm/"
+
+    # CLI shim — thin wrapper so `pkm ...` works from PATH
+    install -Dm755 /dev/stdin "${DESTDIR}/usr/bin/pkm" << 'SHIM'
+#!/bin/sh
+exec /usr/bin/python3 -m pkm "$@"
+SHIM
+
+    # Default repo configuration — points at the public binary package
+    # mirror at repo.intergenos.org. Hosting infrastructure live since
+    # 2026-05-11 (DNS + LE cert + SSH + docroot); build-pipeline emission
+    # of per-package archives + signed index + first publish is the
+    # remaining Half-B work tracked in the project tracker.
+    install -Dm644 /dev/stdin "${DESTDIR}/etc/pkm/repos.conf" << 'REPOS'
+# InterGenOS package-manager repository configuration.
+#
+# Each repository is a stanza with a name, a base URL, and optional
+# trust settings. The default shipped repo is the InterGenOS public
+# binary mirror at repo.intergenos.org. User-added repos can be
+# appended below.
+
+[intergenos-current]
+url = https://repo.intergenos.org/x86_64/current/
+enabled = true
+# gpg_verify = true — documents the default. Index-signature verification
+# is always on and cannot be disabled: this key may be omitted or set true,
+# and an explicit false is refused at config load.
+REPOS
+
+    # /etc/pkm is created here; the trust store itself
+    # (/etc/pkm/trusted.gpg) ships via the intergenos-keyring package.
+    # Verification is unconditional — a missing keyring fails the sync
+    # closed rather than degrading to unverified.
+    install -dm755 "${DESTDIR}/etc/pkm"
+
+    # Runtime data directories pkm expects to exist. pkm itself will
+    # initialise /var/lib/igos/pkm.db on first invocation, so no
+    # schema bootstrap is required at install time.
+    install -dm755 "${DESTDIR}/var/lib/igos/packages"
+    install -dm755 "${DESTDIR}/var/lib/igos/archives"
+
+    # Man page
+    install -Dm644 /mnt/intergenos/packages/core/pkm/pkm.1 \
+        "${DESTDIR}/usr/share/man/man1/pkm.1"
+
+    # Q8 Phase B — systemd timer + service for daily check-updates.
+    # The service runs `pkm check-updates --quiet` which writes a JSON
+    # summary of available upgrades to /var/lib/pkm/available-updates.json.
+    # Consumers: intergen-pkm-notifier GNOME extension (Phase C, in its
+    # own package), /etc/update-motd.d/90-pkm-pending (Phase D, below).
+    install -Dm644 /mnt/intergenos/packages/core/pkm/pkm-check-updates.service \
+        "${DESTDIR}/usr/lib/systemd/system/pkm-check-updates.service"
+    install -Dm644 /mnt/intergenos/packages/core/pkm/pkm-check-updates.timer \
+        "${DESTDIR}/usr/lib/systemd/system/pkm-check-updates.timer"
+
+    # Q8 Phase D — MOTD line for non-desktop installs. pam_motd invokes
+    # /etc/update-motd.d/* on tty login; this script reads the JSON
+    # substrate and prints "N package update(s) available" if count > 0.
+    # Silent on the common "everything up to date" path.
+    install -Dm755 /mnt/intergenos/packages/core/pkm/motd-pkm-pending \
+        "${DESTDIR}/etc/update-motd.d/90-pkm-pending"
+
+    # Q8 Phase A — runtime state directory for available-updates.json.
+    # pkm check-updates creates it via mkdir parents=True on first run
+    # too, but pre-create here so the systemd-timer's first fire on a
+    # fresh install has the directory ready.
+    install -dm755 "${DESTDIR}/var/lib/pkm"
+
+    # PI-218-1 — tmpfiles.d so /var/cache/pkm exists on every boot, before
+    # any non-root READ (InterGen's manage_packages dispatch, `pkm search`).
+    # CacheDirectory=pkm in pkm-check-updates.service only creates it when
+    # that timer-service runs; this closes the fresh-install pre-first-sync
+    # window. Modes mirror pkm/repo.py:_ensure_cache_dirs (packages/ 0700,
+    # L-021). See packages/core/pkm/pkm.tmpfiles.
+    install -Dm644 /mnt/intergenos/packages/core/pkm/pkm.tmpfiles \
+        "${DESTDIR}/usr/lib/tmpfiles.d/pkm.conf"
+}
+
+post_install() {
+    set -e
+    # Enable pkm-check-updates.timer system-wide so daily check-updates
+    # fires automatically per the Q8 design. Users can disable per their
+    # preference (`systemctl disable pkm-check-updates.timer`) — PRIME
+    # DIRECTIVE: notify-only + user controls their machine.
+    #
+    # Guard: only fires when chroot has a usable systemctl (post-systemd
+    # install path); pre-systemd build phases that import pkm directly
+    # don't have systemd available, and chroot-internal systemctl in
+    # those contexts is a no-op anyway.
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl enable pkm-check-updates.timer 2>/dev/null || true
+    fi
+}

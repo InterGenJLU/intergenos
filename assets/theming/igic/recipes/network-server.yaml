@@ -1,0 +1,14 @@
+schema_version: 1
+id: network-server
+name: Server
+category: places
+kind: color
+template: none
+glyph: place-server       # two-unit server stack (distinct from drive-harddisk)
+color: accent-teal
+glow: signature
+pulse: none
+fit: 1.177                # optical-band re-fit (measured)
+export:
+  svg: true
+  png: [16, 24, 32, 48, 64, 128, 256]

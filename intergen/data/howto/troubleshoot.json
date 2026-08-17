@@ -1,0 +1,72 @@
+[
+  {
+    "id": "trbl-my-computer-is-running-really-slow",
+    "domain": "troubleshoot",
+    "triggers": [
+      "my computer is running really slow"
+    ],
+    "answer": "Open System Monitor (installed) → Processes and sort by % CPU or Memory to see what's using the resources; you can select a heavy process and click \"End Process\". Also check Settings → Power that you're not stuck on \"Power Saver\" if you want full performance. If it's a fresh slowdown, a reboot clears runaway state.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "trbl-my-system-froze-how-do-i-force-quit",
+    "domain": "troubleshoot",
+    "triggers": [
+      "my system froze how do I force quit"
+    ],
+    "answer": "If one app is frozen: open System Monitor, select it, and click \"End Process\". If the whole shell is stuck, try `Alt+F2` then type `r` and Enter to restart GNOME Shell without logging out. As a last resort, `Ctrl+Alt+F3` switches to a text console where you can log in and kill the process; `Ctrl+Alt+F2` returns to the desktop.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "trbl-my-computer-won-t-boot",
+    "domain": "troubleshoot",
+    "triggers": [
+      "my computer won't boot"
+    ],
+    "answer": "At the boot menu (GRUB), pick a previous kernel entry from \"Advanced options\" to rule out a bad update. InterGenOS uses signed Unified Kernel Images with Secure Boot, so if boot fails right after enabling something like the NVIDIA driver, the earlier entry is your safe fallback. If you reach a login screen but not the desktop, that's the \"black screen after login\" case below. If you're fully stuck at firmware, tell me what you see on screen and I'll walk you through it.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "trbl-i-just-get-a-black-screen-after-login",
+    "domain": "troubleshoot",
+    "triggers": [
+      "I just get a black screen after login"
+    ],
+    "answer": "This is usually a graphics-driver issue — most often after installing or updating the NVIDIA driver. From the login screen, click the gear icon and try a different session, or press `Ctrl+Alt+F3` for a text console, log in, and check things. A common fix on an NVIDIA box is confirming the driver rebuilt against the current kernel. If you recently ran `pkm install nvidia`, tell me and I'll help you verify the module signed and loaded.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "trbl-my-wifi-keeps-dropping",
+    "domain": "troubleshoot",
+    "triggers": [
+      "my wifi keeps dropping"
+    ],
+    "answer": "Wi-Fi is managed by NetworkManager. First try forgetting and rejoining the network in Settings → Wi-Fi (click the network → Forget). Frequent drops are often power-saving on the wireless card or a weak signal. I can check the connection status and signal, and toggle Wi-Fi power-saving if that's the cause.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "trbl-why-is-my-cpu-usage-so-high",
+    "domain": "troubleshoot",
+    "triggers": [
+      "why is my cpu usage so high"
+    ],
+    "answer": "Open System Monitor → Processes and sort by % CPU to see the top consumer. A background indexer or a runaway browser tab is the usual culprit. Select the process to inspect or end it. I can also list the top CPU processes from the terminal.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "trbl-what-s-using-all-my-ram",
+    "domain": "troubleshoot",
+    "triggers": [
+      "what's using all my ram"
+    ],
+    "answer": "Open System Monitor → Processes and sort by Memory, or check the Resources tab for the overall picture. Note that Linux uses free RAM for disk cache on purpose — that memory is reclaimed instantly when apps need it, so \"used\" can look high and still be fine. I can show the real breakdown.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  }
+]

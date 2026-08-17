@@ -1,0 +1,32 @@
+name: peft
+# Upstream latest stable; unsloth requires peft>=0.18.0,!=0.11.0 (satisfied).
+version: "0.19.1"
+release: 1
+description: Parameter-efficient fine-tuning methods (LoRA, adapters) for large models
+license: Apache-2.0
+homepage: https://github.com/huggingface/peft
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/86/cf/037f1e3d5186496c05513a6754639e2dab3038a05f384284d49a9bd06a2d/peft-0.19.1.tar.gz
+  sha256: 0d97542fe96dcdaa20d3b81c06f26f988618f416a73544ab23c3618ccb674a40
+dependencies:
+  build:
+  - setuptools
+  host: []
+  runtime:
+  - accelerate
+  - huggingface-hub
+  - numpy
+  - packaging
+  - psutil
+  - pyyaml
+  - pytorch   # native-build dependency — forward-declared 2026-07-21; native wave (>=1.13.0)
+  - safetensors   # native-build dependency — forward-declared 2026-07-21; recipe lands with the native wave
+  - tqdm
+  - transformers
+verify_paths:
+  - /usr/lib/python3.14/site-packages/peft/__init__.py
+  - /usr/lib/python3.14/site-packages/peft/peft_model.py

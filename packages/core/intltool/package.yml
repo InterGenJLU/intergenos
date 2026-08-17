@@ -1,0 +1,20 @@
+name: intltool
+version: "0.51.0"
+release: 2  # r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: Internationalization tool collection
+license: GPL-2.0-or-later
+source:
+- url: https://launchpad.net/intltool/trunk/0.51.0/+download/intltool-${version}.tar.gz
+  sha256: 67c74d94196b153b774ab9f89b2fa6c6ba79352407037c8c14d5aeb334e959cd
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - xml-parser
+  - perl
+tier: core
+build_style: autotools
+verify_paths:
+  - /usr/bin/intltool-extract
+  - /usr/bin/intltool-merge
+  - /usr/share/doc/intltool-0.51.0

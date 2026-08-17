@@ -1,0 +1,30 @@
+name: seatd
+version: "0.9.3"
+release: 1
+description: Minimal seat management daemon and libseat session library
+license: MIT
+homepage: https://git.sr.ht/~kennylevinsen/seatd
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://git.sr.ht/~kennylevinsen/seatd/archive/${version}.tar.gz
+  sha256: 302564d54d8e28191fadfd734f2675ecb0c9e0615a58011b89ef15dfa4dbaa96
+  filename: seatd-${version}.tar.gz
+dependencies:
+  build:
+  - systemd
+  host: []
+  runtime:
+  - systemd
+configure_flags:
+- -Dlibseat-logind=systemd
+- -Dlibseat-seatd=enabled
+- -Dlibseat-builtin=enabled
+- -Dserver=enabled
+- -Dexamples=disabled
+- -Dman-pages=disabled
+verify_paths:
+  - /usr/lib/libseat.so
+  - /usr/bin/seatd
+  - /usr/lib/pkgconfig/libseat.pc

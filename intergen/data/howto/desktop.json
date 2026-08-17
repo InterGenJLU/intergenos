@@ -1,0 +1,17 @@
+[
+  {
+    "id": "desktop-screenshot",
+    "domain": "desktop",
+    "triggers": [
+      "how do I take a screenshot",
+      "how do I capture my screen",
+      "how do I screenshot",
+      "what's the screenshot shortcut",
+      "how do I grab a picture of my screen",
+      "how do I take a screen capture"
+    ],
+    "answer": "Press **Print Screen** (PrtSc) to open the screenshot tool, then choose an area, a window, or the whole screen and capture — images save to **Pictures/Screenshots**. You can also launch the **Screenshot** app from the Activities overview, and start a screen recording from the same tool. (InterGenOS uses GNOME on Wayland.)",
+    "doc_source": "docs/getting-started.md",
+    "requires": []
+  }
+]

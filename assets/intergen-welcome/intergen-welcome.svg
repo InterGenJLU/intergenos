@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">
+  <!-- intergen-welcome app icon — "InterGenOS Welcomer". Per brand the OS
+       surface is FRAMED (the glass squircle, matching start-badge.svg). The
+       pulse rides inside; a small sparkle top-right signals "welcome / new". -->
+  <defs>
+    <linearGradient id="gg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#102a47"/><stop offset="1" stop-color="#07172a"/>
+    </linearGradient>
+  </defs>
+  <rect x="12" y="12" width="72" height="72" rx="20" fill="url(#gg)" stroke="#0099FF" stroke-width="2.5"/>
+  <path d="M22 50 L31 50 L35 30 L44 72 L49 50 L74 50"
+        fill="none" stroke="#33b1ff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- welcome sparkle -->
+  <path d="M70 26 L72.4 31.6 L78 34 L72.4 36.4 L70 42 L67.6 36.4 L62 34 L67.6 31.6 Z" fill="#7fd0ff"/>
+</svg>

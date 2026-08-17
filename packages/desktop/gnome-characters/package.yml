@@ -1,0 +1,32 @@
+name: gnome-characters
+# GNOME 49 stack alignment: 50.0 requires libadwaita-1 >= 1.9.alpha
+# (GNOME 50), but our libadwaita1 is 1.8.4 (GNOME 49). Downgrade to
+# 49.1 — latest stable in the 49.x series, compatible with our stack.
+version: '49.1'
+release: 1
+description: GNOME character map application
+license: GPL-2.0-or-later
+homepage: https://apps.gnome.org/Characters/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gnome-characters/49/gnome-characters-${version}.tar.xz
+  sha256: 795c0fe434e602dc783391fb5830dbc7d8e1ea05ca77210fb140e2f6f40a145c
+dependencies:
+  build:
+  - gjs
+  - gtk4
+  - pango
+  - glib2
+  - libadwaita1
+  host: []
+  runtime:
+  - gjs
+  - gtk4
+  - pango
+  - glib2
+  - libadwaita1
+
+verify_paths:
+  - /usr/bin/gnome-characters

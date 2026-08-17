@@ -1,0 +1,23 @@
+name: lazygit
+version: "0.41.0"
+release: 1
+description: Simple terminal UI for git commands
+license: MIT
+homepage: https://github.com/jesseduffield/lazygit
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/jesseduffield/lazygit/archive/v0.41.0/lazygit-0.41.0.tar.gz
+    sha256: f2176fa253588fe4b7118bf83f4316ae3ecb914ae1e99aad8c474e23cea49fb8
+build_artifacts:
+  - name: lazygit-0.41.0-vendor.tar.xz
+    generated_by: go-vendor
+dependencies:
+  build:
+  - go
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/lazygit
+  - /usr/share/licenses/lazygit/LICENSE

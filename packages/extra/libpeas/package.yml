@@ -1,0 +1,26 @@
+name: libpeas
+version: "1.36.0"
+release: 1
+description: GObject plugin system
+license: LGPL-2.1-or-later
+homepage: ''
+tier: extra
+iso_include: true  # 2026-05-28 curation walk — Keep (see docs/extra-tier-classification.md)
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/libpeas/1.36/libpeas-${version}.tar.xz
+  sha256: 297cb9c2cccd8e8617623d1a3e8415b4530b8e5a893e3527bbfd1edd13237b4c
+dependencies:
+  build:
+  - gtk3
+  - pygobject3
+  - glib2
+  - libxml2
+  - gobject-introspection
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/libpeas-1.0.so
+  - /usr/lib/libpeas-1.0.so.0
+  - /usr/lib/libpeas-1.0.so.0.3600.0

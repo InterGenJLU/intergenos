@@ -1,0 +1,38 @@
+# Real kernel modules whose FILENAME carries the fabricated-device vocabulary.
+#
+# Read by scripts/check-fabricated-devices.py, sweep 3. That sweep looks at every
+# built module whose name contains one of the words this class names itself with
+# — mock, dummy, fake, stub, kunit, test, loopback, simulat, emul, _sim, sim_,
+# virt_, null_, sample. A name match is NOT evidence that a module fabricates a
+# device; it is the trigger for requiring a reason. Every entry here is a module
+# that matched the vocabulary and is REAL, with the reason it is real.
+#
+# A built module that matches the vocabulary and is not listed here REFUSES THE
+# BUILD. That is deliberate and it is the whole point of the sweep: the members
+# that were missed in the first two rounds of this work — the mock SoundWire
+# codec and the fabricated GPIO controller — looked exactly like an unrecognised
+# name match, and a sweep that waved them through would have reported the class
+# absent while it was in the build.
+#
+# ⚠️ ADDING AN ENTRY HERE IS A DECISION, NOT A FORMALITY. It says a human read
+# the driver and found it drives real hardware. If instead the module fabricates
+# a device, it does NOT belong here: its Kconfig symbol joins TEST_CLASS_EXPLICIT
+# in docs/research/kernel_configs/analyze_convergence.py, which is what writes
+# the explicit "# CONFIG_X is not set" line into the shipped fragment.
+#
+# Format: <module filename>: <the reason it is a real device or feature>
+# Every entry below was measured against a real kernel build, 2026-08-07.
+
+dummy.ko: the ordinary dummy0 network interface every distribution ships (drivers/net/dummy.c). A user creates it deliberately; it fabricates no hardware on its own.
+snd-seq-dummy.ko: ALSA sequencer loopback ports for MIDI routing. It registers no sound card, which is what separates it from the fake card driver in the class.
+snd-seq-midi-emul.ko: a MIDI emulation LIBRARY that real wavetable synthesiser hardware drivers select (SND_SYNTH_EMUX). It has no prompt of its own and registers no device.
+pci-stub.ko: VFIO device passthrough. The name means it deliberately claims a device so a guest can drive it, not that it invents one.
+pci-pf-stub.ko: the SR-IOV physical-function driver, same passthrough family as pci-stub.
+xen-pciback.ko: the Xen PCI passthrough backend.
+ddbridge-dummy-fe.ko: a component of the real ddbridge DVB card driver, built unconditionally by obj-$(CONFIG_DVB_DDBRIDGE). It exports an attach function the card driver uses for inputs that have no demodulator. It has NO Kconfig symbol of its own, so no config value can remove it, and removing the card driver to satisfy a name check would disable real hardware.
+gb-loopback.ko: a Greybus CLASS driver. It binds a loopback module that is physically present on the bus rather than fabricating one. (Its in-tree help text is an upstream copy-paste from the Debug Log class and describes the wrong module — read the driver, not the help.)
+virt_wifi.ko: makes an EXISTING ethernet link appear as wifi. A stated judgement call: it does register a wiphy, which the hardware smoke check counts, but a user must explicitly create the device over a real link — exactly like dummy0 above. If that judgement is ever reversed, this is the line to change.
+governor_simpleondemand.ko: a devfreq frequency governor. Matched only because "simpleondemand" contains "sim".
+psample.ko: the netlink packet-sampling module. "Sample" here means statistical sampling of traffic, not a specimen device.
+act_sample.ko: the traffic-control packet-sampling action, same sense of "sample" as psample.
+act_simple.ko: the traffic-control "simple" action, which prints a string. Matched on "sim".

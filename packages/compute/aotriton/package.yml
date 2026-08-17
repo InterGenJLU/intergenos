@@ -1,0 +1,109 @@
+name: aotriton
+# AOTriton — Ahead-Of-Time compiled Triton kernels for ROCm scaled-dot-product
+# attention (flash / memory-efficient attention). Consumed by PyTorch's ROCm
+# SDPA backend: pytorch 2.10.0's cmake/External/aotriton.cmake pins THIS
+# version+commit (__AOTRITON_VER 0.11.1b, __AOTRITON_CI_COMMIT d34f3b6c) and,
+# when AOTRITON_INSTALLED_PREFIX is set (the pytorch recipe sets it to
+# /opt/aotriton), installs from that prefix and skips its own download — so
+# pytorch consumes what this package builds, no vendor prebuilt. Re-pinned from
+# 0.12b down under the torch 2.13.0 -> 2.10.0 cascade (unsloth torch<2.11).
+version: "0.11.1b"
+release: 1
+content_hash: 0241edf7f1bf15a1
+description: Ahead-of-time compiled Triton attention kernels for ROCm (PyTorch SDPA backend)
+license: MIT
+homepage: https://github.com/ROCm/aotriton
+tier: compute
+iso_include: false
+build_style: custom
+install_func: do_install
+
+# Prefix /opt/aotriton (== pytorch's AOTRITON_INSTALLED_PREFIX).
+#
+# ============================================================================
+# LLVM PATH — B (decided 2026-07-21, CUT-010). State for the burn scheduler:
+#   The bundled triton fork (third_party/triton @ f75e44a) is built against its
+#   OWN dedicated compute/aotriton-triton-llvm (/opt/aotriton-llvm, LLVM 21 @
+#   570885128 — the fork's exact cmake/llvm-hash.txt), via LLVM_SYSPATH +
+#   TRITON_OFFLINE_BUILD. This recipe's LLVM_SYSPATH points there.
+#   PATH A RETIRED — considered and REJECTED (not "untested"): reusing the shared
+#   compute/triton-llvm is LLVM 22 (triton 3.6.0's pin) against this fork's LLVM
+#   21 — a FULL-MAJOR gap. Per the CUT-006 rule, a full-major LLVM gap on
+#   triton's non-stable MLIR/LLVM internal APIs is disqualifying a priori (the
+#   same reason triton-llvm exists rather than an at-the-burn attempt against
+#   rocm-llvm); the a-priori evidence IS the failure evidence, so burning a cycle
+#   on the ruled-incompatible pair would be thrash, not measurement.
+#   Option C (self-download) stays rejected (offline / no silent vendoring).
+#   PAIR-PROOF: pair 2 = aotriton + aotriton-triton-llvm; the acceptance bar is
+#   compiles + links + on-GPU SDPA smoke at the burn's validation leg.
+# ============================================================================
+
+source:
+  # aotriton root (commit archive — immutable). Its submodules are NOT in the
+  # archive; the two we need are staged explicitly (Rule 5) in build.sh.
+  - url: https://github.com/ROCm/aotriton/archive/d34f3b6c824df77d5c5788a2e7555b2398be4b79.tar.gz
+    filename: aotriton-0.11.1b.tar.gz
+    sha256: d683fb40837e44b35535115a2cb16cab210c433f27eb4dcddcbe6f304dddc5c6
+  # third_party/triton — aotriton's own triton fork (aotriton-hyperjump) gitlink
+  # at the aotriton commit. Built from source against /opt/triton-llvm (path A).
+  # No further submodules.
+  - url: https://github.com/ROCmSoftwarePlatform/triton/archive/f75e44a96a54495d52fe82b1e684ec4e712c69d3.tar.gz
+    filename: aotriton-triton-f75e44a.tar.gz
+    sha256: 38e0346ffbe67da045ec848db4b2dd399e4480eccb5c404ed90d4a348035a5ee
+  # third_party/incbin — header-only; the shim compile does -I third_party/incbin
+  # (v2python/generate_shim.py) to embed the kernel images into libaotriton_v2.
+  - url: https://github.com/graphitemaster/incbin/archive/6e576cae5ab5810f25e2631f2e0b80cbe7dc8cbf.tar.gz
+    filename: aotriton-incbin-6e576cae.tar.gz
+    sha256: d23582689c46604cad116495dbd8aceb1974b46164114a231e8c8144ae12b230
+  # SUBMODULE CLOSURE NOTE (0.11.1b has four .gitmodules entries; only the two
+  # above are needed for THIS build):
+  #   - third_party/pybind11 (8a099e44): add_subdirectory is gated
+  #     `if(NOT AOTRITON_NO_PYTHON)`; we set NO_PYTHON=ON, so it is not built.
+  #   - third_party/aiter (01aae101): NOT add_subdirectory'd / not compiled by
+  #     any CMakeLists in the v2 build path (pytorch 2.10 consumes aotriton_v2);
+  #     only referenced by NAME in v3python dispatcher rule descriptions. Not
+  #     staged. If the burn shows the v3/aiter path is exercised, its pin is
+  #     01aae101 — and aiter has its OWN nested submodules, so it would need a
+  #     recursive re-derivation (flagged, not silently authored).
+
+# Feeds -DAOTRITON_TARGET_ARCH (overrides the broad upstream default arch list).
+gpu_targets: "gfx1100;gfx1102;gfx1201"
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - python
+  - rocm-hip        # find_package(hip REQUIRED); the C++ shim links hip::host
+  - rocm-llvm       # amdclang++ for the C++ shim compile
+  - aotriton-triton-llvm  # LLVM_SYSPATH=/opt/aotriton-llvm — the bundled triton's dedicated LLVM (path B, LLVM 21)
+  - roctracer       # bundled triton AMD backend include (TRITON_ROCTRACER_INCLUDE_PATH)
+  - nlohmann-json   # bundled triton JSON_SYSPATH=/usr
+  - xz              # liblzma — aotriton compresses/loads the kernel image store
+  # Consumed by the build venv (--system-site-packages, offline): aotriton's
+  # cmake pip-installs requirements.txt with the network neutered, so these must
+  # already be installed in the chroot for the venv to inherit.
+  - filelock
+  - iniconfig
+  - packaging
+  - pluggy
+  - numpy
+  - setuptools
+  - wheel
+  - pybind11
+  - pandas          # native-wave boulder (feature/uta-native); declared by name, lands with that wave
+  - pyyaml
+  host: []
+  runtime:
+  - rocm-hip        # libaotriton_v2.so links the HIP runtime; kernels dispatch through it
+verify_paths:
+  - /opt/aotriton/lib/libaotriton_v2.so
+  # The real kernel image store — the load-bearing artifact. A NOIMAGE build
+  # ships an empty dir and fails at first SDPA on target (same class as
+  # rocblas's kernel library); NOIMAGE_MODE is OFF so this is populated.
+  - /opt/aotriton/lib/aotriton.images
+  - /opt/aotriton/include/aotriton/config.h
+
+tests:
+  enabled: false
+  reason: "AOTriton's correctness test is on-GPU SDPA execution (it dispatches the AOT-compiled attention kernels), which needs a live AMD ROCm GPU — unavailable in the network-less, GPU-less build chroot (Rule 10 step 1, environmental). It is exactly the acceptance-bar smoke run on the validation workstation at the pair-proof burn (see the LLVM PATH header). The build itself is a strong gate — the kernel images only exist if the bundled triton compiled against /opt/triton-llvm — and verify_paths assert the shipped library + image store + headers. Also held-with the triton/triton-llvm pair until that burn."

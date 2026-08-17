@@ -1,0 +1,20 @@
+name: font-noto-color-emoji
+version: "2.051"
+release: 1
+description: Google Noto Color Emoji font — flag emojis + full Unicode emoji coverage
+license: OFL-1.1
+homepage: https://github.com/googlefonts/noto-emoji
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/googlefonts/noto-emoji/archive/refs/tags/v${version}.tar.gz
+  sha256: 04f3d1e5605edebebac00a7a0becb390a4a3ead015066905b27935b30c18e745
+  filename: noto-emoji-${version}.tar.gz
+dependencies:
+  build: []
+  host: []
+  runtime: []
+
+verify_paths:
+  - /usr/share/fonts/noto/NotoColorEmoji.ttf

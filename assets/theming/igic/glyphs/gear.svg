@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: gear / settings — a proper gear: 8 flat-topped teeth (trapezoidal, base
+       wider than tip) + a plain round hub. No spokes/handles past the rim (that read as
+       a ship's wheel). VL §7 primitives only: path + circle. Colorless. -->
+  <g class="glyph">
+    <path d="M 182.1 113.5 L 199.1 116.7 L 199.1 139.3 L 182.1 142.5 L 176.5 156.0 L 186.2 170.3 L 170.3 186.2 L 156.0 176.5 L 142.5 182.1 L 139.3 199.1 L 116.7 199.1 L 113.5 182.1 L 100.0 176.5 L 85.7 186.2 L 69.8 170.3 L 79.5 156.0 L 73.9 142.5 L 56.9 139.3 L 56.9 116.7 L 73.9 113.5 L 79.5 100.0 L 69.8 85.7 L 85.7 69.8 L 100.0 79.5 L 113.5 73.9 L 116.7 56.9 L 139.3 56.9 L 142.5 73.9 L 156.0 79.5 L 170.3 69.8 L 186.2 85.7 L 176.5 100.0 Z"/>
+    <circle cx="128" cy="128" r="22"/>
+  </g>
+</svg>

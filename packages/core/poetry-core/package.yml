@@ -1,0 +1,18 @@
+name: poetry-core
+version: "2.4.1"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Poetry PEP 517 build backend (self-contained build dependency)
+license: MIT
+homepage: https://github.com/python-poetry/poetry-core
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/b2/f2/fa88c58efb9a737c7e0e40e470edd0973fe33f0f277d24dcf17454b50974/poetry_core-2.4.1.tar.gz
+  sha256: 89dceb6c10e9c6d8650a16183400e3c9ff9ddee13b0a81023b5575334a2b3744
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/poetry/core

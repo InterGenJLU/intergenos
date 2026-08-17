@@ -1,0 +1,25 @@
+name: websockets
+version: "16.0"
+release: 3  # r3: license: BSD -> BSD-3-Clause — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade. r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: WebSocket implementation (RFC 6455 and 7692)
+# Upstream's LICENSE at the pinned 16.0 tag carries three clauses including the
+# non-endorsement clause, which is BSD-3-Clause. Bare 'BSD' named no version.
+license: BSD-3-Clause
+homepage: https://github.com/python-websockets/websockets
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/python-websockets/websockets/archive/16.0/websockets-16.0.tar.gz
+  sha256: c720700d313af5d1c61372da62d78c5b6192ed09871367df65a8e1087b60b1f0
+dependencies:
+  build:
+  # The pinned sdist's [build-system] names setuptools.build_meta, provided by
+  # setuptools. build.sh builds with --no-build-isolation, which installs nothing
+  # for the build, so setuptools must already be present; declaring it here is
+  # what orders it ahead of this package.
+  - setuptools
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/websockets

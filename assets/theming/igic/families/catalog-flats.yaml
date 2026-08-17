@@ -1,0 +1,41 @@
+# Family manifest — the FLAT-register catalog rows (whole-catalog wave-2, re-authored after the
+# 2026-07-22 disposition REJECTED the original ten as generic category glyphs). Two decisions bind
+# this file (Decided 2026-07-22):
+#   (1) a row stays FLAT only where the subject is genuinely a system surface with no brand
+#       identity — and then its glyph is DISTINCT and recognizably ITS OWN; no two apps share a
+#       glyph (the links/lynx shared-globe class is retired);
+#   (2) packages with a real known upstream mark (bash, samba, links, lynx, wayland) moved to the
+#       gradient register in families/third-party-apps.yaml — their rows are gone from here.
+# Remaining five, each with its own authored glyph in igic/glyphs/ (flat LINE language, template:
+# none, signature glow, intergen-blue — exactly like core-gnome-apps):
+#   gnome-session  -> power-session   (IEC power ring + stem enclosing a user bust: the user's
+#                                      running session; distinct from the bare settings power mark)
+#   org.gnome.Sysprof -> flame-graph  (Decided 2026-07-22: the stopwatch read as a generic timer and
+#                                      failed to communicate the subject; Sysprof IS the system
+#                                      profiler, and the flame graph — call-stack tiers narrowing
+#                                      upward over a capture, with the record dot — is the profiler's
+#                                      own signature artifact, centered in Sysprof's UI. Distinct
+#                                      from chart's vertical bars and SystemMonitor's trace)
+#   time           -> hourglass       (elapsed time; distinct from Clocks' face)
+#   shadow         -> user-credential (user bust over a masked password row: account credentials)
+#   pinentry       -> pin-prompt      (dialog window + masked PIN dots + caret: the PIN prompt itself;
+#                                      vendor tarball art surveyed = a stock 48px padlock window icon,
+#                                      a generic mark below the render bar — recorded in the register)
+# `stem` = the package name (or the wired .desktop-id where the app ships a launcher), which is what
+# the default-by-class classifier keys coverage on. Register rows: BRAND_GLYPH_REGISTER.md.
+schema_version: 1
+family: catalog-flats
+category: apps
+kind: color
+template: none
+glow: signature
+pulse: none
+export:
+  svg: true
+  png: [16, 24, 32, 48, 64, 128, 256]
+rows:                            # id | stem (package name / wired .desktop-id) | emblem (authored glyph) | accent | name
+  - { id: app-gnome-session, stem: gnome-session,     emblem: power-session,   accent: intergen-blue, name: "GNOME Session", fit: 1.204 }
+  - { id: app-sysprof,       stem: org.gnome.Sysprof, emblem: flame-graph,     accent: intergen-blue, name: Sysprof, fit: 1.039 }
+  - { id: app-time,          stem: time,              emblem: hourglass,       accent: intergen-blue, name: time, fit: 1.307 }
+  - { id: app-shadow,        stem: shadow,            emblem: user-credential, accent: intergen-blue, name: shadow, fit: 1.529 }
+  - { id: app-pinentry,      stem: pinentry,          emblem: pin-prompt,      accent: intergen-blue, name: pinentry, fit: 1.203 }

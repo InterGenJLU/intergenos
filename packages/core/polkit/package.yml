@@ -1,0 +1,29 @@
+name: polkit
+version: '127'
+release: 2  # L29: setuid-strip regression rebuild (staging-chokepoint chown)
+description: PolicyKit authorization toolkit
+license: LGPL-2.0-or-later
+homepage: https://github.com/polkit-org/polkit
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/polkit-org/polkit/archive/${version}/polkit-${version}.tar.gz
+  sha256: 9b7bc16f086479dcc626c575976568ba4a85d34297a750d8ab3d2e57f6d8b988
+dependencies:
+  build:
+  - duktape
+  - glib2
+  - libxslt
+  - docbook-xsl-nons
+  - docbook-xml
+  - linux-pam
+  host: []
+  runtime:
+  - duktape
+  - glib2
+  - linux-pam
+verify_paths:
+  - /usr/lib/polkit-1/polkitd
+  - /usr/bin/pkaction
+  - /usr/lib/libpolkit-agent-1.so

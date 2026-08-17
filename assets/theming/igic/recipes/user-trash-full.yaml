@@ -1,0 +1,14 @@
+schema_version: 1
+id: user-trash-full
+name: Trash (full)
+category: places
+kind: color
+template: none
+glyph: trash-full         # the trash body + contents above the rim (state sibling of user-trash)
+color: ecg-blue
+glow: signature
+pulse: none
+fit: 1.275                # optical-band re-fit (measured; contents above the rim add height vs user-trash)
+export:
+  svg: true
+  png: [16, 24, 32, 48, 64, 128, 256]

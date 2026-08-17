@@ -1,0 +1,32 @@
+name: gstreamer
+version: "1.28.1"
+release: 1
+description: GStreamer multimedia framework
+license: LGPL-2.0-or-later
+homepage: https://gstreamer.freedesktop.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://gstreamer.freedesktop.org/src/gstreamer/gstreamer-${version}.tar.xz
+  sha256: b65e2ffa35bdbf8798cb75c23ffc3d05e484e48346ff7546844ba85217664504
+dependencies:
+  build:
+  - glib2
+  - libnsl
+  - libunwind
+  - rust
+  host: []
+  runtime:
+  - glib2
+  - libnsl
+  - libunwind
+# gsl / gslcblas are TEST-only deps (gstreamer meson.build:549 `test_deps`); the
+# shipped gstreamer library is identical without them. Not a runtime loss.
+# (silent-loss audit 2026-06-25.)
+silent_loss_accepted:
+  - gsl   # TEST-only dep (meson test_deps)
+  - gslcblas   # TEST-only dep (meson test_deps)
+verify_paths:
+  - /usr/bin/gst-inspect-1.0
+  - /usr/lib/libgstbase-1.0.so

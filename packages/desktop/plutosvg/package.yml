@@ -1,0 +1,37 @@
+name: plutosvg
+version: 0.0.8
+release: 1
+description: Tiny SVG rendering library in C on plutovg — color-emoji (SVG glyph) backend for SDL3_ttf
+license: MIT
+homepage: https://github.com/sammycage/plutosvg
+tier: desktop
+build_style: cmake
+install_func: do_install
+# Upstream publishes no uploaded release assets; the tag archive is pinned by
+# sha256 (fail-closed on any regeneration) — same form as libfido2/libcbor/atop.
+source:
+- url: https://github.com/sammycage/plutosvg/archive/refs/tags/v${version}.tar.gz
+  filename: ${name}-${version}.tar.gz
+  sha256: 49d5cfe772d3aa10cd4879f2f6e189f5083c08e4c8ea01bf3d5b87c97dfca7d2
+dependencies:
+  build:
+  - plutovg
+  - freetype2
+  host: []
+  runtime:
+  - plutovg
+  - freetype2
+# PLUTOSVG_ENABLE_FREETYPE=ON is load-bearing: SDL3_ttf's system-plutosvg path
+# consumes the freetype integration (plutosvg-ft.h) for SVG glyph rendering.
+configure_flags:
+- -DBUILD_SHARED_LIBS=ON
+- -DPLUTOSVG_ENABLE_FREETYPE=ON
+- -DPLUTOSVG_BUILD_EXAMPLES=OFF
+
+tests:
+  enabled: false
+  reason: "Upstream ships no test suite — zero enable_testing()/CTest/add_test in the pinned 0.0.8 CMake tree (verified in the pinned tarball 2026-07-12); the cmake style's default check phase 'cmake --build build --target test' has no target to run. Correctness is exercised downstream: SDL3_ttf's SDLTTF_PLUTOSVG=ON path builds and links against this library, and verify_paths assert the shipped artifacts."
+
+verify_paths:
+  - /usr/lib/libplutosvg.so
+  - /usr/include/plutosvg/plutosvg.h

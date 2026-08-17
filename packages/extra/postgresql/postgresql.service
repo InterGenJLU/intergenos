@@ -1,0 +1,76 @@
+# postgresql.service — InterGenOS-hardened systemd unit for PostgreSQL
+#
+# Applies the database-landing-plan §5e systemd hardening baseline.
+# Bind default is 127.0.0.1 (set by `postgres-setup --initdb` in
+# postgresql.conf as listen_addresses='localhost'). Authentication
+# defaults to scram-sha-256 (host) + peer (local), set by initdb.
+#
+# Note: the unit assumes `postgres-setup --initdb` has run successfully
+# at least once (creating /var/lib/postgresql/data). The service refuses
+# to start without it — a deliberate guardrail against accidental
+# default-config startup.
+
+[Unit]
+Description=PostgreSQL database server
+After=network.target
+RequiresMountsFor=/var/lib/postgresql
+
+[Service]
+Type=notify
+User=postgres
+Group=postgres
+
+Environment=PGDATA=/var/lib/postgresql/data
+ExecStart=/usr/bin/postgres -D ${PGDATA}
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGINT
+TimeoutSec=300
+
+# --- landing-plan §5e hardening baseline ---
+
+NoNewPrivileges=true
+
+# Filesystem isolation
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ReadWritePaths=/var/lib/postgresql /var/log/postgresql /run/postgresql
+
+# Kernel surface reductions
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectHostname=true
+ProtectClock=true
+ProtectProc=invisible
+
+# Address-family / namespace / realtime / SUID restrictions
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+# Memory protection — PostgreSQL has no JIT-writeable-page requirement
+# at the libpq layer, but the LLVM JIT compiler (enabled at build time
+# for query-plan optimization) emits machine code into RWX pages. We
+# allow MemoryDenyWriteExecute=false to keep the LLVM JIT working;
+# operators wanting the strict MDWE posture either set jit=off in
+# postgresql.conf or `systemctl edit postgresql` to override.
+MemoryDenyWriteExecute=false
+RemoveIPC=true
+
+# Syscall surface — allow @system-service, deny privileged/resource ops
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount @swap @reboot
+
+# Capabilities — drop all (postgres doesn't need any privileged cap)
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target

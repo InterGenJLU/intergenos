@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<defs>
+  <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+    <feGaussianBlur stdDeviation="4"/></filter>
+  <filter id="shadow" x="-10%" y="-5%" width="120%" height="130%">
+    <feDropShadow dx="0" dy="5" stdDeviation="8" flood-color="#000" flood-opacity="0.5"/></filter>
+
+  <linearGradient id="bodyB" x1="0.3" y1="0" x2="0.7" y2="1">
+    <stop offset="0%" stop-color="#12192e"/>
+    <stop offset="50%" stop-color="#0d1424"/>
+    <stop offset="100%" stop-color="#080c18"/></linearGradient>
+  <linearGradient id="lidB" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#141c32" stop-opacity="0.8"/>
+    <stop offset="100%" stop-color="#0e1628" stop-opacity="0.6"/></linearGradient>
+  <radialGradient id="innerGlowB" cx="0.5" cy="0.6" r="0.5">
+    <stop offset="0%" stop-color="#0099FF" stop-opacity="0.18"/>
+    <stop offset="70%" stop-color="#0099FF" stop-opacity="0.04"/>
+    <stop offset="100%" stop-color="#0099FF" stop-opacity="0"/></radialGradient>
+  <linearGradient id="reflectB" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.07"/>
+    <stop offset="30%" stop-color="#ffffff" stop-opacity="0.02"/>
+    <stop offset="50%" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+</defs>
+<rect width="256" height="256" fill="#000000"/>
+
+<!-- Main body -->
+<rect x="38" y="62" width="180" height="146" rx="18"
+      fill="url(#bodyB)" filter="url(#shadow)"/>
+
+<!-- Inner blue glow (the energy inside) -->
+<rect x="42" y="66" width="172" height="138" rx="16"
+      fill="url(#innerGlowB)"/>
+
+<!-- Lid / top section (slightly translucent, shows energy) -->
+<path d="M 38 80 L 38 78 C 38 68, 44 62, 56 62
+         L 108 62 C 114 62, 118 62, 120 66
+         L 124 74 C 126 78, 130 80, 136 80
+         L 200 80 C 212 80, 218 86, 218 96 L 218 80
+         L 38 80 Z"
+      fill="url(#lidB)"/>
+
+<!-- Divider line (where lid meets body) -->
+<line x1="42" y1="106" x2="214" y2="106"
+      stroke="#0099FF" stroke-width="1" stroke-opacity="0.35"
+      filter="url(#glow)"/>
+
+<!-- Front body surface below divider -->
+<rect x="38" y="106" width="180" height="102" rx="0"
+      fill="url(#bodyB)" opacity="0.7"/>
+<path d="M 38 106 L 218 106 L 218 190 C 218 200, 212 208, 200 208
+         L 56 208 C 44 208, 38 200, 38 190 Z"
+      fill="url(#bodyB)"/>
+
+<!-- Surface reflection -->
+<path d="M 38 106 L 218 106 L 218 140 L 38 140 Z"
+      fill="url(#reflectB)"/>
+
+<!-- Outer edge accent -->
+<rect x="38" y="62" width="180" height="146" rx="18"
+      fill="none" stroke="#0099FF" stroke-width="0.75" stroke-opacity="0.1"/>
+</svg>

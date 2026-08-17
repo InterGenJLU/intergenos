@@ -1,0 +1,12 @@
+schema_version: 1
+id: airplane-mode
+name: Airplane Mode (symbolic)
+category: status
+kind: symbolic          # off-white stroke, no glow/tile (a top-bar status glyph)
+glyph: airplane
+accent: ecg-blue
+pulse: none
+fit: 1.046
+export:
+  svg: true
+  png: [16, 24, 32, 48]

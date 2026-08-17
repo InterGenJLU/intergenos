@@ -1,0 +1,29 @@
+name: gtkmm3
+version: "3.24.10"
+release: 1
+description: C++ interface to GTK3
+license: LGPL-2.1-or-later
+homepage: https://www.gtkmm.org/
+tier: extra
+# ISO-resident: GParted (ISO) links the GTK3 binding chain
+# (gparted -> gtkmm3 -> pangomm1/atkmm). Without this flip, pkm iso-prep aborts
+# the squashfs build (an iso_include:true pkg may not depend on a MIRROR pkg).
+iso_include: true
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gtkmm/3.24/gtkmm-${version}.tar.xz
+  sha256: 7ab7e2266808716e26c39924ace1fb46da86c17ef39d989624c42314b32b5a76
+dependencies:
+  build:
+  - atkmm
+  - gtk3
+  - pangomm1
+  host: []
+  runtime:
+  - atkmm
+  - gtk3
+  - pangomm1
+verify_paths:
+  - /usr/lib/libgtkmm-3.0.so.1
+  - /usr/lib/libgdkmm-3.0.so.1

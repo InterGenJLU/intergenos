@@ -1,0 +1,19 @@
+name: zip
+version: "3.0"
+release: 1
+description: Info-ZIP archiver for creating ZIP archives
+license: Info-ZIP
+homepage: http://infozip.sourceforge.net/
+tier: base
+build_style: custom
+install_func: do_install
+source:
+- url: https://downloads.sourceforge.net/infozip/zip30.tar.gz
+  sha256: f0e8bb1f9b7eb0b01285495a2699df3a4b766784c1765a8f1aeedf63c0806369
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/zip
+  - /usr/bin/zipcloak

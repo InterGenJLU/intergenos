@@ -1,0 +1,24 @@
+name: scons
+version: "4.10.1"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Pure-Python software build tool (Make alternative)
+tier: extra
+license: MIT
+homepage: https://scons.org
+build_style: custom
+source:
+- url: https://github.com/SCons/scons/archive/${version}.tar.gz
+  sha256: 086a9cd78847a43c17138c11e7e93234a96985d0d346563521fa8db28f5bee96
+dependencies:
+  build:
+  # The pinned sdist's [build-system] names setuptools.build_meta, provided by
+  # setuptools. build.sh builds with --no-build-isolation, which installs nothing
+  # for the build, so setuptools must already be present; declaring it here is
+  # what orders it ahead of this package.
+  - setuptools
+  host: []
+  runtime:
+  - python
+verify_paths:
+  - /usr/bin/scons
+  - /usr/lib/python3.14/site-packages/SCons/cpp.py

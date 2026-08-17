@@ -1,0 +1,23 @@
+name: xprop
+version: "1.2.8"
+release: 1
+description: Property displayer for X
+license: MIT
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/app/xprop-${version}.tar.xz
+  sha256: d689e2adb7ef7b439f6469b51cda8a7daefc83243854c2a3b8f84d0f029d67ee
+dependencies:
+  build:
+  - libX11
+  - xorgproto
+  host: []
+  runtime:
+  - libX11
+configure_flags:
+- --prefix=/usr
+verify_paths:
+  - /usr/bin/xprop

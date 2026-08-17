@@ -1,0 +1,28 @@
+name: rocm-device-libs
+version: "7.2.4"
+release: 1
+description: AMD device-side language runtime bitcode libraries (ocml, ockl, oclc, hip)
+license: NCSA
+homepage: https://github.com/ROCm/llvm-project/tree/amd-staging/amd/device-libs
+tier: compute
+build_style: custom
+install_func: do_install
+
+# SAME tarball as rocm-llvm (shared-source pin, gcc-style): this package
+# builds only the amd/device-libs subdirectory.
+source:
+  - url: https://github.com/ROCm/llvm-project/archive/refs/tags/rocm-${version}.tar.gz
+    filename: rocm-llvm-project-${version}.tar.gz
+    sha256: 526b5fe23417c41acbeb2273e470887b4593f48a297a8d9c1a1aa730d556f9fb
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - rocm-llvm
+  host: []
+  runtime: []
+verify_paths:
+  - /opt/rocm/amdgcn/bitcode/ocml.bc
+  - /opt/rocm/amdgcn/bitcode/ockl.bc
+  - /opt/rocm/amdgcn/bitcode/hip.bc

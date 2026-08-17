@@ -1,0 +1,25 @@
+name: markdown
+version: '3.10.2'
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Python Markdown implementation
+license: BSD-3-Clause
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/M/Markdown/markdown-${version}.tar.gz
+  sha256: 994d51325d25ad8aa7ce4ebaec003febcce822c3f8c911e3b17c52f7f589f950
+dependencies:
+  build:
+  # The pinned sdist's [build-system] names setuptools.build_meta, provided by
+  # setuptools. build.sh builds with --no-build-isolation, which installs nothing
+  # for the build, so setuptools must already be present; declaring it here is
+  # what orders it ahead of this package.
+  - setuptools
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/markdown_py
+  - /usr/lib/python3.14/site-packages/markdown-3.10.2.dist-info/INSTALLER
+  - /usr/lib/python3.14/site-packages/markdown-3.10.2.dist-info/METADATA

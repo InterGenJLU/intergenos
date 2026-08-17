@@ -1,0 +1,17 @@
+name: markupsafe
+version: "3.0.3"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Safe markup string implementation
+license: BSD-3-Clause
+source:
+- url: https://pypi.org/packages/source/M/MarkupSafe/markupsafe-${version}.tar.gz
+  sha256: 722695808f4b6457b320fdc131280796bdceb04ab50fe1795cd540799ebe1698
+dependencies:
+  build: []
+  host:
+  - setuptools
+  runtime: []
+tier: core
+build_style: custom
+verify_paths:
+  - /usr/lib/python3.14/site-packages/markupsafe

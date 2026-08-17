@@ -1,0 +1,25 @@
+name: sympy
+version: "1.14.0"
+release: 2  # r2: F12 runtime-declaration wave 2026-07-21 — runtime deps declared from the pinned sdist metadata (mpmath); .PKGINFO depend= change => release bump
+description: Symbolic mathematics library (computer algebra system)
+license: BSD-3-Clause
+homepage: https://sympy.org
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/83/d3/803453b36afefb7c2bb238361cd4ae6125a569b4db67cd9e79846ba2d68c/sympy-1.14.0.tar.gz
+  sha256: d3d3fe8df1e5a0b42f0e7bdf50541697dbe7d23746e894990c030e2b05e72517
+dependencies:
+  build:
+  - setuptools
+  host: []
+  runtime:
+  - mpmath
+  # Runtime import: mpmath (>=1.1.0,<1.4). No mpmath recipe exists in the
+  # tree — recorded as a UTA closure gap; add mpmath to runtime once its
+  # recipe lands (see UTA delivery notes).
+verify_paths:
+  - /usr/lib/python3.14/site-packages/sympy/__init__.py
+  - /usr/lib/python3.14/site-packages/sympy/core/__init__.py

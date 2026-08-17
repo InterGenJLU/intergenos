@@ -1,0 +1,62 @@
+name: sdl3
+version: "3.4.12"
+release: 1
+description: Simple DirectMedia Layer 3 — cross-platform media, input and GPU library
+license: Zlib
+homepage: https://www.libsdl.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/libsdl-org/SDL/releases/download/release-${version}/SDL3-${version}.tar.gz
+  sha256: f07b958a9ac5020fb7a44cadb957f658b2149c3c8abb4f63145fac9303249db7
+dependencies:
+  build:
+  - cmake
+  - wayland
+  - wayland-protocols
+  - libxkbcommon
+  - libX11
+  - libXext
+  - libXcursor
+  - libXrandr
+  - libXi
+  - libXfixes
+  - libXrender
+  - libXScrnSaver
+  - vulkan-headers
+  - libdrm
+  - mesa
+  - alsa-lib
+  - pulseaudio
+  - pipewire
+  - dbus
+  - ibus
+  - libdecor
+  - libusb
+  host: []
+  runtime:
+  - wayland
+  - libxkbcommon
+  - libX11
+  - libXext
+  - libXcursor
+  - libXrandr
+  - libXi
+  - libXfixes
+  - libXrender
+  - libXScrnSaver
+  - vulkan-loader
+  - libdrm
+  - mesa
+  - alsa-lib
+  - pulseaudio
+  - pipewire
+  - dbus
+  - ibus
+  - libdecor
+  - libusb
+verify_paths:
+  - /usr/lib/libSDL3.so
+  - /usr/include/SDL3/SDL.h
+  - /usr/lib/cmake/SDL3/SDL3Config.cmake

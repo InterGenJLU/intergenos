@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- mpv — traced from the reference rendition: a double outer ring, an inner ring, and a play triangle. -->
+  <g class="glyph">
+    <circle cx="128" cy="128" r="85.5"/>
+    <circle cx="128" cy="128" r="76.2"/>
+    <circle cx="128" cy="128" r="33.7"/>
+    <path d="M 111.4 103.8 L 154.9 128 L 111.4 152.2 Z"/>
+  </g>
+</svg>

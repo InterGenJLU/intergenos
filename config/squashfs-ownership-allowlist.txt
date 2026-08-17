@@ -1,0 +1,318 @@
+# squashfs ownership-gate allowlist (consumed by scripts/check-squashfs-ownership.py)
+#
+# Every file in the shipping tree must be traceable to an installed package's
+# manifest. This file is the ONLY sanctioned exception surface: each entry is
+# a pattern plus a mandatory reason, reviewed in-tree. Anything on disk that
+# matches neither a manifest nor an entry here FAILS the squashfs build.
+#
+# Format: <pattern><TAB or 2+ spaces><reason>
+#   pattern forms:  exact relative path      etc/fstab
+#                   subtree                  usr/share/mime/**
+#                   glob (fnmatch)           usr/share/icons/*/icon-theme.cache
+# Lines starting with # and blank lines are ignored. A malformed line
+# (no reason column) fails the gate — an exception without a why is not
+# reviewable.
+#
+# Classes below marked DEBT(<tracker-row>) are acknowledged pre-existing gaps
+# (shipped in every prior ISO) owed a real per-recipe fix — they are listed so
+# the gate can hold fail-closed against NEW classes while the debt is worked.
+# Decided 2026-07-22 (ownership survey of the full chroot; F41 wave).
+
+# ---- pkm state (the package system's own record) ---------------------------
+var/lib/igos/pkm.db          pkm database — the ownership record itself
+var/lib/igos/pkm.db-wal      sqlite WAL sidecar of pkm.db
+var/lib/igos/pkm.db-shm      sqlite shared-memory sidecar of pkm.db
+
+# ---- install-integrity + boot artifacts (build-phase written, load-bearing)
+install/intergenos-archive-manifest.txt      signed trust triplet sealed into the squashfs for installer PHASE_VERIFY (build-squashfs Step 4.8)
+install/intergenos-archive-manifest.txt.sig  signed trust triplet (detached signature)
+install/intergenos-release-key.asc           signed trust triplet (release public key)
+install/IGOS_DEV_ALLOW_UNVERIFIED            dev/test-ISO integrity-bypass marker (UNSIGNED_TEST=1 staging; release builds never carry it)
+boot/grub/grub.cfg           bootloader-phase artifact (grub config assembled at build)
+boot/intel-ucode.img         bootloader-phase artifact (early-microcode cpio assembled at build)
+boot/amd-ucode.img           early-microcode cpio, AMD sibling of intel-ucode.img (linux-kernel post-install hook regenerates it whenever the microcode helper is staged)
+usr/lib/intergen/fde-initramfs.cpio.gz       FDE unlock initramfs assembled by build-fde-initramfs.sh
+
+# ---- config-phase-written /etc (install-time identity + system config) -----
+# Written by chroot-config / create-image, not by a package. Candidates for
+# intergenos-base-files ownership migration where content is static.
+etc/machine-id               reset to 'uninitialized' at squashfs Step 3; regenerated per system
+etc/hostname                 config-phase write
+etc/hosts                    config-phase write
+etc/fstab                    config-phase write (installer rewrites on target)
+etc/locale.conf              config-phase write
+etc/localtime                config-phase write (symlink/copy to zoneinfo)
+etc/vconsole.conf            config-phase write
+etc/mtab                     compat symlink to /proc/self/mounts
+etc/.pwd.lock                shadow-suite lock artifact of config-phase user/group writes
+etc/passwd-                  shadow-suite backup written by config-phase user creation
+etc/group-                   shadow-suite backup
+etc/shadow-                  shadow-suite backup
+etc/gshadow-                 shadow-suite backup
+etc/default/useradd          written by useradd -D during config phase
+etc/systemd/network/10-dhcp.network          config-phase network default
+etc/sgml/**                  SGML catalogs composed by install-catalog during package post_installs
+etc/xml/catalog              XML catalog composed by xmlcatalog during package post_installs
+
+# PAYDOWN 2026-08-05: seventeen entries removed because the thing that made
+# them unowned is gone. Each was verified against its recipe's CURRENT install
+# path before removal, not deleted on the strength of its own stale reason:
+#   etc/clang/clang.cfg, etc/clang/clang++.cfg — llvm's do_install writes both
+#     into DESTDIR ("byte-identical to the files the retired post_install
+#     wrote"), so the manifest records them.
+#   etc/cups/client.conf — cups do_install writes it into DESTDIR.
+#   usr/lib/aspell-0.60/** — aspell r2 moved the dictionary build from
+#     post_install to do_install so the words travel in the archive.
+#   usr/bin/run-parts — fcron r6 (hook-contract wave) moved it to do_install.
+#   the firefox + thunderbird desktop entries and icons, the bindgen bash and
+#     zsh completions, the _cargo completion, the ghostscript doc tree — all
+#     staged into DESTDIR by their recipes' do_install today.
+#   usr/lib/python3.14/idlelib/**, usr/bin/idle3, usr/bin/idle3.14 — these
+#     cannot appear at all: python's do_install DELETES IDLE (no tk
+#     dependency). The gate now fail-closes if IDLE ever reappears.
+# Removing an entry only ever makes this gate STRICTER: if one of these
+# judgements is wrong the squashfs build halts and names the path, which is a
+# loud failure, never a silent unowned ship.
+#
+# F43 RESOLVED 2026-07-22: the apache-httpd/nginx/haproxy TLS cert+key are no
+# longer generated at build time — a per-service oneshot keygen unit generates
+# them per-machine on the target at first service start, so no key material
+# ships in the squashfs. The prior five DEBT(3.0-F43) allowlist entries are
+# removed; the gate now fail-closes if any of these key files ever reappears.
+
+# ---- systemd preset/enable symlinks (systemctl preset-all at Step 2) -------
+etc/systemd/system/**        preset-generated enable/alias symlinks (customize-airootfs systemctl preset-all)
+etc/systemd/user/**          preset-generated user-manager enable symlinks
+
+# ---- generated caches + databases (customize-airootfs / post_install hooks)
+usr/share/mime/**            update-mime-database output
+usr/share/applications/mimeinfo.cache        update-desktop-database output
+usr/share/glib-2.0/schemas/gschemas.compiled  glib-compile-schemas output
+etc/dconf/db/gdm             dconf update compiled binary DB (dconf post_install output; keyfile sources are the owned state)
+etc/dconf/db/ibus            dconf update compiled binary DB
+etc/dconf/db/local           dconf update compiled binary DB
+usr/share/icons/*/icon-theme.cache           gtk-update-icon-cache output
+usr/lib/gdk-pixbuf-2.0/*/loaders.cache       gdk-pixbuf-query-loaders output
+usr/lib/gio/modules/giomodule.cache          gio-querymodules output
+usr/lib/gtk-3.0/*/immodules.cache            gtk-query-immodules output
+usr/lib/locale/locale-archive                localedef-compiled locale archive
+
+# ---- runtime service-state seeds (post_install/sysusers-created state) -----
+# usr/lib/cracklib/** sits here, NOT under the manifest-completeness DEBT
+# header below: the dictionary is generated ON THE TARGET at first use, so no
+# build-time artifact can ever exist to record and no recipe fix is owed. Its
+# reason already said so; its position said the opposite until 2026-08-05.
+usr/lib/cracklib/**          cracklib post_install-compiled dictionaries — the dict is generated ON THE TARGET by post_install (packages/core/cracklib/build.sh), so no build-time artifact can be manifest-recorded; do_install stages only the empty directory
+var/log/lastlog              login-records skeleton (tmpfiles 00-intergenos.conf class)
+var/log/intergen-kernel-postinstall.log      linux-kernel post-install hook trace (Step-3 truncates it to empty; regenerated on every target install)
+var/log/wtmp                 login-records skeleton
+var/log/btmp                 login-records skeleton
+var/log/faillog              login-records skeleton
+var/mail/fcron               fcron post_install mailbox seed
+var/lib/containers/storage/**  container-storage state initialized at build (podman first-use layout)
+
+# ---- byte-compiled Python caches -------------------------------------------
+# NOT manifest-completeness debt, and moved out of that header below on
+# 2026-08-06 after being measured rather than assumed. A build-time compileall
+# cache IS staged and recorded: on a live installed system 5,367 of 5,435
+# __pycache__ files carry a pkm row (python owns 5,148 of them). The 68 that do
+# not are caches the interpreter regenerates at RUNTIME, after the install, for
+# modules whose own .py files are owned — no build-time artifact exists for a
+# manifest to record, so no recipe fix is owed. Same shape as the cracklib row
+# above, and the same correction: the reason was already right, the position
+# said otherwise.
+*/__pycache__/*              byte-compiled caches — build-time compileall output is staged and manifest-recorded; this row covers only the runtime-regenerated remainder
+
+# ---- manifest-completeness DEBT(3.0-F44) — the toolchain residue -----------
+# What is left of F44 after the 2026-08-06 paydown below. All three rows are
+# the SAME open question and cannot be settled from the tree alone: LFS Ch5-7
+# installs the cross toolchain straight into the chroot with no packaging at
+# all (scripts/toolchain-build.sh, scripts/temp-tools-build.sh), while the Ch8
+# recipes that later occupy the same trees — packages/core/binutils-core (make
+# DESTDIR install, tooldir=/usr) and packages/core/gcc-core (make DESTDIR
+# install) — stage their own output properly and DO own it.
+#
+# So each tree may hold two populations at once: Ch8 payload the manifest
+# records, and Ch5-7 leftovers nothing records. Measured on a live installed
+# system 2026-08-06, every path present under usr/lib/gcc (780) and
+# usr/libexec/gcc (11) is owned by gcc, and usr/x86_64-igos-linux-gnu does not
+# exist there at all — but an installed system is built from archives, so it
+# can only show what the archive carried and is blind to a chroot-only
+# leftover. Settling this needs one listing of these trees in a real build
+# chroot diffed against gcc's and binutils' manifests; until that runs, the
+# rows stay rather than spend a build cycle on a Step-4.85 halt.
+usr/x86_64-igos-linux-gnu/**  binutils target dir (ldscripts + cross bin aliases) — unresolved: Ch5-7 cross-toolchain leftover vs Ch8 payload, see the note above
+usr/lib/gcc/**               gcc install artifacts — unresolved: gcc-core stages this tree into DESTDIR and owns it on an installed system; a Ch5-7 leftover in the same tree would not be owned, see the note above
+usr/libexec/gcc/**           gcc install artifacts — unresolved, same population question as usr/lib/gcc above
+
+# ---- deliberately-empty service-state directories (empty-dir check) --------
+etc/cron.daily               fcron periodic drop-in dir (deliberately empty)
+etc/cron.hourly              fcron periodic drop-in dir
+etc/cron.monthly             fcron periodic drop-in dir
+etc/cron.weekly              fcron periodic drop-in dir
+etc/environment.d            systemd environment drop-in dir
+etc/intergen/mcp.d           intergen MCP config drop-in dir
+etc/kernel/cmdline.d         kernel cmdline drop-in dir
+etc/sensors.d                lm-sensors config drop-in dir
+lib64/security               PAM 32-bit module dir (lib32 scaffold)
+usr/lib/lsb                  LSB compat dir
+usr/lib/intergen/eula-helpers  intergen EULA helper staging dir
+usr/lib32/bfd-plugins        lib32 binutils plugin dir
+usr/share/X11/xorg.conf.d    xorg config drop-in dir
+usr/share/egl/egl_external_platform.d  EGL platform registry dir
+usr/share/glvnd/glx_vendor.d  GLVND vendor registry dir
+usr/share/gimp/3.0/fonts     gimp user-fonts dir
+var/lib/gdm                  gdm service state dir (sysusers/post_install-created)
+var/lib/hwclock              hwclock drift-file dir
+var/lib/openldap             slapd state dir
+var/lib/sasl                 sasl state dir
+var/lib/pkm/hooks            pkm hook staging dir
+var/lib/intergen/models      intergen model store (populated post-install)
+var/lib/intergen/data        intergen state dir
+var/lib/intergen/eula        intergen EULA state dir
+var/lib/intergen/mcp-pins    intergen MCP pin store
+
+# ---- ge9b-10 mint dispositions (2026-07-29) --------------------------------
+# Account databases: base-files r13 moved passwd/group/shadow/gshadow payload
+# to the account-skel reference dir, so no manifest claims the image's live
+# DBs — required by the live session, same family as the shadow-suite backups
+# above. The mechanism that puts them in THIS tree is the build, not an
+# install: scripts/chroot-build.sh copies passwd and group from the package's
+# account-skel (and appends the Chapter-8 tester row, which build-squashfs.sh
+# scrubs with a fail-closed assertion before the image seals). An installed
+# target reaches the same skeleton by a different path — pkm's canonical
+# account-skel-seed hook at the package phase, with the installer's
+# config-phase call as an idempotent belt — so neither of those is what these
+# four entries describe.
+etc/passwd                   build-chroot account DB copied from the package's account-skel (base-files r13 split)
+etc/group                    build-chroot account DB copied from the package's account-skel (base-files r13 split)
+etc/shadow                   build-chroot account DB materialized from passwd by pwconv (packages/core/shadow)
+etc/gshadow                  build-chroot account DB materialized from group by grpconv (packages/core/shadow)
+var/lib/chronicle            chronicle (intergenos-backup) runtime state root — engine-initialized; build-era contents purged by the Step-3 clean
+# systemd-owned runtime state roots. These were filed as "DEBT: pkm
+# manifest-dir-rows gap" on the ge9b-10 bank list — the theory being that pkm's
+# --archive install drops directory rows the builder's manifests carry. That
+# theory was retired 2026-08-06 by measurement: each directory is created at
+# RUNTIME by systemd-tmpfiles from a declaration in a tmpfiles.d file that IS
+# package-owned, so it does not exist at build or install time and no manifest
+# can record it. The declaration is the owned state; the directory is its
+# runtime effect — exactly how the etc/dconf/db/* rows above are already
+# reasoned. On a live installed system all nine carry a create-time matching
+# first boot, not the package deploy. Permanent policy, not debt; each row now
+# names the declaration that creates it, so a future reader can re-derive this
+# instead of taking it on trust.
+var/lib/libuuid              created at runtime by tmpfiles: usr/lib/tmpfiles.d/uuidd-tmpfiles.conf `d /var/lib/libuuid 2775 uuidd uuidd`
+var/lib/machines             created at runtime by tmpfiles: usr/lib/tmpfiles.d/systemd-nspawn.conf `Q /var/lib/machines 0700`
+var/lib/portables            created at runtime by tmpfiles: usr/lib/tmpfiles.d/portables.conf `Q /var/lib/portables 0700`
+var/lib/private              created at runtime by tmpfiles: usr/lib/tmpfiles.d/systemd.conf `d /var/lib/private 0700 root root`
+var/lib/systemd/coredump     created at runtime by tmpfiles: usr/lib/tmpfiles.d/systemd.conf `d /var/lib/systemd/coredump 0755 root root 2w` (the 2w age also rewrites it in service)
+var/lib/systemd/ephemeral-trees  created at runtime by tmpfiles: usr/lib/tmpfiles.d/systemd.conf `d /var/lib/systemd/ephemeral-trees 0755 root root 0`
+var/lib/systemd/network      created at runtime by systemd-networkd, which owns it as systemd-network:systemd-network; no tmpfiles line declares it and no package deploys it
+var/lib/systemd/pstore       created at runtime by tmpfiles: usr/lib/tmpfiles.d/systemd-pstore.conf `d /var/lib/systemd/pstore 0755 root root 14d`
+var/log/private              created at runtime by tmpfiles: usr/lib/tmpfiles.d/systemd.conf `d /var/log/private 0700 root root`
+etc/nginx/conf.d             nginx include dir (nginx.conf includes conf.d/*.conf; empty by design)
+etc/openldap/slapd.d         slapd dynamic-config dir (empty until slapd first init)
+# llvm's 32-bit compiler-rt side output — the fourth member of the toolchain
+# residue above, and open for the same reason. Filed on the ge9b-10 bank list
+# as an llvm manifest gap: static/shared sanitizer runtimes for -m32, shipping
+# since the ge9b-08 substrate with nothing claiming them.
+#
+# What is measurable without a build chroot, taken 2026-08-06 on a live
+# installed system: llvm 21.1.8-5 is installed, owns 92 paths under
+# usr/lib/clang, and owns ZERO under i386-unknown-linux-gnu — the directory
+# does not exist there at all, only the x86_64 sibling does. llvm's recipe
+# installs with `DESTDIR="$DESTDIR" ninja install`, which would stage these
+# runtimes like everything else, so the archive SHOULD carry them wherever the
+# multilib toolchain built them. That it carries none says the substrate the
+# ge9b-10 survey read had an llvm predating the multilib unlock its own
+# package.yml width contract describes.
+#
+# Retiring this row is therefore probably a no-op and possibly a Step-4.85
+# halt, and the two cannot be told apart from here. One listing of
+# usr/lib/clang/*/lib in a real build chroot, diffed against llvm's manifest,
+# settles it. The row stays until then.
+usr/lib/clang/21/lib/i386-unknown-linux-gnu/**  llvm 32-bit compiler-rt side output — unresolved, see the note above; absent and unowned on an installed system, status in the build chroot unmeasured
+var/lib/valkey               valkey service state dir (sysusers/hook-created; install-meta written per-install)
+var/log/nginx                nginx log dir (hook/tmpfiles-created)
+
+# ---- PAYDOWN 2026-08-05 (second pass, found by the row-currency test) -------
+# Six more rows removed. Each named a FILE its own recipe now writes into
+# DESTDIR, so the builder's manifest records it and the exception bought
+# nothing. The 2026-08-05 first pass removed seventeen rows by reading the
+# recipes named in each row's own reason; these six were missed because their
+# reasons pointed at a "config phase" that no longer writes them, and nothing
+# compared a row against the tree. tests/preflight/test_squashfs_allowlist_row_currency.py
+# now makes that comparison on every run.
+#   etc/login.defs.orig                        shadow-pam build.sh:67  (install -m644 into DESTDIR)
+#   etc/security/faillock.conf                 linux-pam build.sh:67   (cat > into DESTDIR)
+#   etc/security/limits.d/00-intergenos.conf   linux-pam build.sh:122  (cat > into DESTDIR)
+#   etc/profile.d/pythoncerts.sh               make-ca build.sh:37     (cat > into DESTDIR)
+#   etc/profile.d/rustc.sh                     rust build.sh:144       (cat > into DESTDIR)
+#   var/spool/fcron/systab.orig                fcron build.sh:116      (cat > into DESTDIR)
+#   etc/sudoers.d/00-sudo                      sudo build.sh:42        (cat > into DESTDIR)
+# Removal direction is fail-safe: a wrong judgement costs a named squashfs
+# halt, never a silent unowned ship.
+
+# ---- PAYDOWN 2026-08-06 (third pass — the F44 manifest-completeness sweep) --
+# The whole DEBT set was re-derived from this file (28 rows: one inline
+# DEBT(3.0-F44) tag, the 17-row manifest-completeness section, a nine-row
+# comment-scoped group, and one inline llvm tag) and every row dispositioned.
+# Fourteen removed, ten reclassified in place as permanent policy, four left
+# open and named. Each removal below states what makes the row unnecessary,
+# checked against the recipe AND against a live installed system's pkm
+# database rather than against the row's own reason:
+#
+#   etc/pam.d/*                        No build script writes a PAM file at
+#     all — the "assembled during config phase" reason described a flow that
+#     no longer exists. Ten recipes stage pam.d files into DESTDIR (linux-pam,
+#     shadow-pam, systemd-pass2, openssh incl. its files/ overlay, sudo, at,
+#     exim, cups, gdm, gnome-keyring). All 35 PAM files on a live system carry
+#     a pkm row.
+#   usr/lib/python3.14/site-packages/pip/**
+#   usr/lib/python3.14/site-packages/pip-*.dist-info/**
+#   usr/bin/pip3
+#   usr/bin/pip3.14                    python-pip r2 (2026-07-28) bootstraps
+#     pip from the interpreter's bundled ensurepip wheel INTO DESTDIR
+#     precisely so the payload is archived and owned. All 497 matching paths
+#     on a live system are owned by python-pip.
+#   usr/lib/python3.14/site-packages/yaml/_yaml…so
+#     pyyaml-pass2's do_install stages into DESTDIR with --ignore-installed,
+#     added for this exact empty-archive class. Owned by pyyaml-pass2 live.
+#   usr/lib/python3.14/config-3.14-x86_64-linux-gnu/python.o
+#   usr/lib/python3.14/config-3.14-x86_64-linux-gnu/libpython3.14.a
+#     python configures --without-static-libpython (build.sh), so the static
+#     library cannot be produced at all; neither path exists on a live system.
+#   usr/lib/libstdc++.so.6.0.34-gdb.py gcc-core's do_install MOVES *gdb.py out
+#     of /usr/lib into /usr/share/gdb/auto-load/usr/lib, so nothing can be left
+#     at the allowlisted path.
+#   usr/share/licenses/gdk-pixbuf-pass2/**
+#   usr/share/licenses/dbus-pass2/**
+#   usr/share/licenses/systemd-pass2/**
+#   usr/share/licenses/gobject-introspection/**
+#     All four are Python-tier direct_install packages, and the bundle they
+#     were owed landed in f59c6603 (2026-06-03): bundle_license now resolves
+#     the bundle dir against the live root for direct_install instead of the
+#     build/system stub that phase_image deleted. The builder runs
+#     bundle-license BEFORE the post-build filesystem snapshot, and
+#     /usr/share/licenses is not in the snapshot prune set, so the fs-diff
+#     that builds these manifests captures the bundle. The rows were written
+#     2026-07-22 against a substrate whose four packages had not been rebuilt
+#     since the fix.
+#   usr/share/unicode/ucd/**           Fixed in this change rather than found
+#     already fixed: ibus's configure unzips the UCD onto the live tree
+#     because configure has to read it from the real path, and nothing ever
+#     staged it, so ~40 MB of payload shipped unowned. ibus do_install now
+#     extracts the same pinned source[1] zip into DESTDIR, asserts
+#     NamesList.txt landed, and declares it in verify_paths.
+#
+# Reclassified, not removed — the row stays because the exception is real, but
+# it is permanent policy and was never debt: */__pycache__/* (measured: the
+# build-time compileall output IS owned; only the runtime-regenerated
+# remainder needs the row) and the nine systemd runtime state roots (measured:
+# created by tmpfiles.d declarations at first boot, so no manifest can record
+# them). Both notes carry their evidence inline above.
+#
+# Left OPEN and named, not silently dropped: the three toolchain-tree rows and
+# the llvm i386 compiler-rt row. All four turn on whether a real build chroot
+# holds Ch5-7 leftovers alongside the Ch8 payload, which an installed system
+# cannot show. Their notes above say what would settle each.

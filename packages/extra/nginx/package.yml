@@ -1,0 +1,27 @@
+name: nginx
+version: "1.29.8"
+release: 3  # r3: hook-contract remainder — post_install no longer re-creates /etc/nginx or /etc/nginx/conf.d. /etc/nginx already shipped as owned payload (nginx.conf + ssl/); conf.d now ships alongside it from do_install, so neither is a manifest-invisible directory laid over a path pkm owns. The /var/log and /var/cache directories stay hook-created (machine state, daemon-owned). r2: F43 — TLS cert+key no longer generated at build; per-machine oneshot keygen unit at first service start
+content_hash: 55dad54d7617195f
+description: Modern HTTP server / reverse proxy / load balancer (mainline; default-secure config — bind 127.0.0.1, server_tokens off, TLS-only sample, status locked to loopback)
+license: BSD-2-Clause
+homepage: https://nginx.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+- url: https://nginx.org/download/nginx-${version}.tar.gz
+  sha256: 7f1b985dace8fe706dfc288b83927c928f0ae60bcb7507c2d4e0025eca7280c3
+dependencies:
+  build:
+  - openssl
+  - pcre2
+  - zlib
+  host: []
+  runtime:
+  - openssl
+  - pcre2
+  - zlib
+verify_paths:
+  - /usr/sbin/nginx
+  - /etc/nginx/fastcgi.conf
+  - /etc/nginx/fastcgi.conf.default

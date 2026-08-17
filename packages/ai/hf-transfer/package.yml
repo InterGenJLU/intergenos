@@ -1,0 +1,27 @@
+name: hf-transfer
+version: "0.1.9"
+release: 1
+description: Rust-accelerated file transfer for the Hugging Face Hub
+license: Apache-2.0
+homepage: https://github.com/huggingface/hf_transfer
+tier: ai
+iso_include: false  # unsloth/-zoo dep (training-stack chain) — mirror-only
+build_style: custom
+install_func: do_install
+# maturin backend (same shape as hf-xet); sdist filename uses the underscore
+# form (hf_transfer); dist/package name hf-transfer.
+source:
+- url: https://files.pythonhosted.org/packages/source/h/hf-transfer/hf_transfer-${version}.tar.gz
+  sha256: 035572865dab29d17e783fbf1e84cf1cb24f3fcf8f1b17db1cfc7fdf139f02bf
+build_artifacts:
+  - name: hf-transfer-${version}-vendor.tar.xz
+    generated_by: cargo-vendor
+dependencies:
+  build:
+  - maturin
+  - rust
+  host: []
+  # Requires-Dist (PyPI metadata): none.
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/hf_transfer/__init__.py

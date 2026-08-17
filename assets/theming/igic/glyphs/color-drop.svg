@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: color — paint droplet. VL primitives only, colorless. -->
+  <g class="glyph">
+    <path d="M128 62 C158 106 176 132 176 156 A48 48 0 0 1 80 156 C80 132 98 106 128 62 Z"/>
+  </g>
+</svg>

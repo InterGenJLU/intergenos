@@ -1,0 +1,56 @@
+name: lib32-wayland
+version: "1.24.0"
+release: 1
+description: Wayland display server protocol libraries (32-bit multilib runtime)
+license: MIT
+homepage: https://wayland.freedesktop.org/
+tier: desktop
+# PURE-YML package (no build.sh): driven end-to-end by the builder's lib32
+# meson lane — cross-file configure, verbose ninja, allowlist staged-copy
+# install (only /usr/lib32 ships).
+build_style: meson
+lib32_source: wayland
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://gitlab.freedesktop.org/wayland/wayland/-/releases/${version}/downloads/wayland-${version}.tar.xz
+  sha256: 82892487a01ad67b334eca83b54317a7c86a03a89cfadacfef5211f11a5d0536
+dependencies:
+  build:
+  - lib32-glibc
+  - lib32-libffi
+  # The 64-bit sibling provides the NATIVE wayland-scanner this build
+  # consumes (see the scanner note below) — version-identical by the RT-9
+  # lock, since both packages pin the same source.
+  - wayland
+  host: []
+  runtime:
+  - lib32-glibc
+  - lib32-libffi
+# Libraries-only twin, pinned explicitly (verified against the PINNED
+# 1.24.0 source, src/meson.build — never from memory):
+# - scanner=false: the twin ships runtime libraries only. Protocol code
+#   generation then uses the NATIVE 64-bit wayland-scanner via meson's
+#   cross-build native-dependency lookup (src/meson.build: cross builds
+#   take `dependency('wayland-scanner', native: true)` — the 64-bit
+#   sibling provides binary + .pc at the exact same version).
+# - dtd_validation and its libxml2 dependency attach ONLY to the scanner
+#   executable in the pinned source (scanner_deps block), so with
+#   scanner=false they never enter this build — no feature is disabled
+#   on the shipped libraries and no lib32-libxml2 is needed.
+# - documentation=false matches the 64-bit sibling.
+# - tests=false: the test battery requires the in-build scanner and
+#   exercises sources identical to the 64-bit sibling's fully-tested
+#   build (environmental + scope, Rule-10 class); the shipped libs are
+#   verified by the archive-time width/time64 audits and the NEEDED-
+#   closure gate.
+configure_flags:
+- -Dlibraries=true
+- -Dscanner=false
+- -Ddocumentation=false
+- -Dtests=false
+verify_paths:
+  - /usr/lib32/libwayland-client.so.0
+  - /usr/lib32/libwayland-server.so.0
+  - /usr/lib32/pkgconfig/wayland-client.pc

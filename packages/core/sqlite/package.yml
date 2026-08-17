@@ -1,0 +1,21 @@
+name: sqlite
+version: '3510200'
+release: 3  # r3: license: Public Domain -> LicenseRef-Public-Domain — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade.
+description: SQL database engine
+# SPDX has no identifier for a bare public-domain dedication. LicenseRef- is
+# SPDX's own mechanism for a licence it does not carry, and preserves the
+# declaration exactly as the recipe stated it.
+license: LicenseRef-Public-Domain
+source:
+- url: https://sqlite.org/2026/sqlite-autoconf-${version}.tar.gz
+  sha256: fbd89f866b1403bb66a143065440089dd76100f2238314d92274a082d4f2b7bb
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - readline
+tier: core
+build_style: autotools
+verify_paths:
+  - /usr/bin/sqlite3
+  - /usr/lib/libsqlite3.so

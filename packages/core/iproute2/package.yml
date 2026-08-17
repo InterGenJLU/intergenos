@@ -1,0 +1,19 @@
+name: iproute2
+version: "6.18.0"
+release: 1
+description: IP routing utilities
+license: GPL-2.0-or-later
+source:
+- url: https://www.kernel.org/pub/linux/utils/net/iproute2/iproute2-${version}.tar.xz
+  sha256: 6ba520e1975e4c50dc931eeae91ea37c198b8a173744885f8895b84325f9d456
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - elfutils
+tier: core
+build_style: make
+verify_paths:
+  - /usr/sbin/ip
+  - /usr/sbin/bridge
+  - /usr/lib/tc

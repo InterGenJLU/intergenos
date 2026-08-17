@@ -1,0 +1,44 @@
+name: lib32-gamemode
+version: "1.8.2"
+release: 1  # r1: NEW — the 32-bit gamemode CLIENT libraries (libgamemode.so.0 + libgamemodeauto.so.0) for 32-bit games (Proton/Steam LD_PRELOAD via gamemoderun). Client libs ONLY: -Dwith-sd-bus-provider=no-daemon drops the daemon (the daemon stays 64-bit, from packages/extra/gamemode) so inih is never needed; -Dwith-util=false drops gamemoderun + the libexec helpers. Same official meson-dist tarball as the 64-bit sibling (RT-9 version lock). Mirror-only.
+description: Feral Interactive gamemode — 32-bit client libraries (multilib runtime; mirror-only)
+license: BSD-3-Clause
+homepage: https://github.com/FeralInteractive/gamemode
+tier: extra
+build_style: custom
+install_func: do_install
+lib32_source: gamemode
+elf_class: "32"
+# Mirror-only (only lib32-glibc is ISO-resident); the daemon + gamemoderun ship from
+# the 64-bit packages/extra/gamemode.
+iso_include: false
+# The lib32 meson twin: build.sh drives meson through config/lib32/lib32-cross.ini +
+# scripts/lib32-env.sh and allowlist-stages ONLY /usr/lib32 (the libs-only mechanism).
+# no-daemon means inih (a daemon-only dep, "inih currently only needed by the daemon",
+# gamemode meson.build:185) is not pulled; dep_dbus is top-level (meson.build:97) so the
+# CLIENT lib libgamemode links libdbus-1 regardless — that is exactly the lib32-dbus
+# floor this wave authored first.
+#
+# FLOOR (verified via meson introspect + the client lib link sets, not memory):
+# libgamemode.so.0 links libdbus-1 -> lib32-dbus; libgamemodeauto.so.0 (the LD_PRELOAD
+# shim) links only libdl -> lib32-glibc. Both in-tree; no new floor.
+source:
+- url: https://github.com/FeralInteractive/gamemode/releases/download/${version}/gamemode-${version}.tar.xz
+  sha256: 98cd1bcf6101c92fe87f974c7776af23c7e18f29ce6ecfe572b1c39dcde5c181
+dependencies:
+  build:
+  - lib32-glibc
+  - lib32-dbus           # libgamemode links dbus-1 (meson finds the 32-bit dbus-1.pc)
+  runtime:
+  - lib32-glibc          # libgamemodeauto.so.0 NEEDs only libdl/libc
+  - lib32-dbus           # libgamemode.so.0 NEEDs libdbus-1.so.3
+verify_paths:
+  - /usr/lib32/libgamemode.so.0
+  - /usr/lib32/libgamemodeauto.so.0
+
+# Build inputs composed from the repository tree (declared so the published
+# source archive carries every input the build consumes — the corresponding-
+# source rule the kernel config fragments established; survey 2026-08-11).
+sources_extra:
+- scripts/lib32-env.sh
+- config/lib32/lib32-cross.ini

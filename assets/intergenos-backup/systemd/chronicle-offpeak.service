@@ -1,0 +1,51 @@
+# chronicle-offpeak.service — drain the deferred-capture queue (spec §5, §6).
+#
+# Oneshot fired by chronicle-offpeak.timer. Drains the durable capture-intent
+# spool (/var/lib/chronicle/queue/) — the large changes that were deferred out
+# of working hours. The drain SELF-GATES on the off-peak window: chronicled's
+# --task drain-queue only runs the intents whose off-peak window is currently
+# open, so a timer fire during working hours is a benign no-op. An absent
+# target leaves the intents queued for reattach catch-up (quiet skip).
+#
+# Same capability posture as the capture path (read all of home, write the
+# local store + mount roots).
+
+[Unit]
+Description=Chronicle off-peak deferred-capture drain
+Documentation=man:chronicled(8) man:chronicle(1)
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/libexec/chronicle/chronicled --task drain-queue
+StandardOutput=journal
+StandardError=journal
+
+StateDirectory=chronicle
+RuntimeDirectory=chronicle
+RuntimeDirectoryPreserve=yes
+
+# Canonical daemon-hardening baseline + the ratified backup relaxations.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallFilter=~@resources
+ReadWritePaths=/var/lib/chronicle /mnt /media /run/media
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+AmbientCapabilities=CAP_DAC_READ_SEARCH

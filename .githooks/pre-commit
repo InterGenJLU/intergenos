@@ -1,0 +1,49 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+# .githooks/pre-commit — InterGenOS pre-commit gates.
+#
+# This hook runs on every `git commit` after `git config core.hooksPath
+# .githooks` is set (one-time per clone — typically wired by a contributor
+# setup step).
+#
+# Current gates:
+#   - line-citation drift on newly-added citations (S-D 5)
+#
+# Gates added here should be FAST (sub-second target) and check ONLY
+# what the staged commit introduces. Whole-repo audits belong in the
+# pre-push hook (.githooks/pre-push) or CI.
+#
+# Bypass: --no-verify on the commit. Operator-discretion.
+
+set -uo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+[ -n "$REPO_ROOT" ] || { echo "pre-commit: not in a git repo?" >&2; exit 0; }
+
+cd "$REPO_ROOT" || exit 0
+
+# S-D 5: validate citations introduced by the staged diff.
+echo "[pre-commit] checking newly-added line citations..."
+if ! bash "$REPO_ROOT/scripts/check-line-citations.sh" --diff-only; then
+    echo
+    echo "[pre-commit] commit blocked: new citations don't resolve cleanly."
+    echo "[pre-commit] fix the cited line numbers / paths, re-stage, and retry."
+    echo "[pre-commit] bypass: git commit --no-verify (operator discretion)"
+    exit 1
+fi
+
+# USA-1 Thing 28 closure: preventive lint catching moving-target URLs in
+# package source declarations. Fast enough for pre-commit (single grep
+# across ~820 package.yml files). Catches /latest/, /HEAD/, releases/latest,
+# archive/refs/heads/(main|master), and GitHub branch-ref raw/blob URLs.
+echo "[pre-commit] checking stable URLs in package sources..."
+if ! bash "$REPO_ROOT/scripts/check-stable-urls.sh"; then
+    echo
+    echo "[pre-commit] commit blocked: package source URL points at a moving target."
+    echo "[pre-commit] pin to a versioned path matching your sha256, re-stage, retry."
+    echo "[pre-commit] bypass: git commit --no-verify (operator discretion)"
+    exit 1
+fi
+
+exit 0

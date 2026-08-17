@@ -1,0 +1,84 @@
+.TH BUSYBOX-STATIC 1 "2026-05-06" "InterGenOS" "InterGenOS Manual"
+.SH NAME
+busybox.static \- statically-linked busybox userland for early-boot environments
+.SH SYNOPSIS
+.B /usr/bin/busybox.static
+.RI [ APPLET ]
+.RI [ ARGS ]
+.PP
+.B /usr/bin/busybox.static
+.B --help
+.SH DESCRIPTION
+.B busybox.static
+is a statically-linked build of busybox 1.37.0, intended for initramfs
+environments where no other userland or shared libraries are available.
+
+This is the static variant; it embeds the C library and so runs before
+any filesystem mount or library resolver is in place. Each invocation
+behaves as a different applet depending on the first argument or the
+basename used to invoke it (busybox dispatches by argv[0]).
+
+.B busybox-static
+is consumed by InterGenOS's live-boot initramfs (built by
+.IR installer/init/build-initramfs.sh ).
+The custom
+.IR /init
+script (at
+.IR installer/init/init.sh )
+exec's a small set of applets:
+.B sh, mount, umount, switch_root, awk, blkid, sleep, modprobe, mkdir,
+.B cp, ln, echo, cat, printf, grep, sed, find.
+
+For a normal interactive busybox userland on the running system, use the
+regular dynamic-linked
+.B busybox
+package instead (when authored). Mixing the two is intentional: the
+static variant is for initramfs only; the dynamic variant is for shells
+and scripts.
+.SH OPTIONS
+.TP
+.B --help
+Show all available applets.
+.TP
+.B --list
+List applet names, one per line.
+.TP
+.BR APPLET " [\fIARGS\fP...]"
+Invoke
+.IR APPLET
+(e.g.,
+.BR sh ,
+.BR mount )
+with the remaining arguments. Same effect as creating a symlink named
+.IR APPLET
+pointing at busybox.static and invoking it.
+.SH FILES
+.TP
+.I /usr/bin/busybox.static
+The statically-linked binary.
+.TP
+.I /usr/share/man/man1/busybox-static.1
+This page.
+.SH RATIONALE
+The
+.B .static
+suffix is deliberate: it preserves the
+.IR /usr/bin/busybox
+namespace for a future dynamic-linked busybox package, makes the
+distinction visible to anyone inspecting the filesystem, and matches the
+naming used by
+.IR installer/init/build-initramfs.sh .
+.SH SEE ALSO
+.BR busybox (1)
+on the upstream busybox documentation,
+.BR initramfs (8),
+.IR installer/init/init.sh
+(InterGenOS live-boot dispatcher).
+.SH AUTHOR
+busybox is maintained by Denys Vlasenko and contributors. Packaging for
+InterGenOS is by the InterGenOS project.
+.SH LICENSE
+GPL-2.0-only. Source:
+.UR https://busybox.net/
+busybox.net
+.UE .

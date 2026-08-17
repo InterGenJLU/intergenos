@@ -1,0 +1,88 @@
+# AppArmor profile for mariadbd — enforce mode
+# landing plan §5f
+
+#include <tunables/global>
+
+profile mariadbd /usr/sbin/mariadbd {
+    #include <abstractions/base>
+    #include <abstractions/nameservice>
+    #include <abstractions/openssl>
+    #include <abstractions/user-tmp>
+
+    capability dac_override,
+    capability dac_read_search,
+    capability setuid,
+    capability setgid,
+    capability sys_resource,
+    capability sys_nice,
+
+    # Binary + companion tools
+    /usr/sbin/mariadbd mr,
+    /usr/bin/my_print_defaults rix,
+
+    # Config (read-only)
+    /etc/mysql/ r,
+    /etc/mysql/** r,
+
+    # Data dir — full read/write/lock
+    /var/lib/mysql/ r,
+    /var/lib/mysql/** rwk,
+
+    # Log dir
+    /var/log/mysql/ r,
+    /var/log/mysql/** rw,
+
+    # Runtime (pidfile + socket)
+    /run/mysqld/ r,
+    /run/mysqld/** rwk,
+
+    # Standard library link surface
+    /usr/lib/ r,
+    /usr/lib/** mr,
+    /lib/ r,
+    /lib/** mr,
+    /lib64/ r,
+    /lib64/** mr,
+
+    # Plugin loader needs to mmap plugin .so files
+    /usr/lib/mysql/plugin/ r,
+    /usr/lib/mysql/plugin/** mr,
+
+    # Charset + locale data
+    /usr/share/mysql/ r,
+    /usr/share/mysql/** r,
+    /usr/share/locale/ r,
+    /usr/share/locale/** r,
+
+    # Time
+    /etc/localtime r,
+
+    # Proc — for /proc/cpuinfo CPU detection + own status
+    /proc/cpuinfo r,
+    /proc/sys/kernel/random/uuid r,
+    /proc/sys/vm/overcommit_memory r,
+    /proc/*/ r,
+    /proc/*/status r,
+    /proc/*/stat r,
+    /proc/*/cmdline r,
+
+    # Systemd notify socket (Type=notify)
+    /run/systemd/notify w,
+
+    # GSSAPI authentication (Kerberos) — operator-opt-in via PLUGIN_AUTH_GSSAPI
+    /etc/krb5.conf r,
+    /etc/krb5.keytab r,
+    /var/lib/mysql/krb5cc_* rwk,
+
+    # PAM authentication — operator-opt-in via PLUGIN_AUTH_PAM
+    /etc/pam.d/ r,
+    /etc/pam.d/mysql r,
+    /etc/security/ r,
+    /etc/security/** r,
+
+    # Deny everything else
+    deny @{PROC}/sysrq-trigger rwklx,
+    deny /sys/firmware/** rwklx,
+    deny /dev/sd* rw,
+    deny /dev/nvme* rw,
+}

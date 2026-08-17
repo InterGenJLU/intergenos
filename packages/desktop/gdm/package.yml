@@ -1,0 +1,57 @@
+name: gdm
+version: '49.2'
+release: 7  # r7: do_install also replaces the fingerprint PAM stack upstream's lfs configuration installs. That stack requires pam_fprintd.so, which no recipe in this tree builds, so authenticating against it returns 28, "Module is unknown" — measured against real PAM on an installed system. The replacement performs ordinary password authentication (correct password 0, wrong password 6). It is replaced and not deleted because /etc/pam.d/other is pam_deny, so an absent stack produces the same lockout with a different cause. # r6: do_install replaces the smartcard PAM stack that upstream's lfs configuration installs. That stack requires pam_pkcs11.so, which no recipe in this tree builds, while the supporting smartcard stack IS shipped and running — so inserting a PKCS#11 token was enough for the greeter to route authentication to a service PAM then marked faulty, and login could not succeed by any means until the token was physically removed, with nothing shown to explain it. Measured against real PAM on an installed system: the shipped stack returned 28 (Module is unknown) for the CORRECT password; the replacement returns 0 for the correct password and 6 for a wrong one. The file is replaced rather than deleted because /etc/pam.d/other is pam_deny, so an absent service produces the same lockout with a different cause. This is not smartcard support: the PKCS#11 module, certificate mapping and enrolment are separate work. r5: pre-config greeter seed — condition-gated oneshot (script + unit, preset-enabled) installs the installer-staged single-primary layout into seat0/config before gdm.service on any boot where no layout exists; survives the observed first-boot seat-state wipe by re-delivering on boot 2; inert once any layout lands. r4: greeter monitor-layout sync (decided 2026-07-21) — ship igos-greeter-monitors-sync helper + templated path/service pair; /var/lib/gdm post_install mode 0700 -> 0755 (the greeter compositor's per-boot dynamic uid must traverse to seat0/config/monitors.xml; modes, not ownership, carry the guarantee)
+content_hash: 2dd558b5ea787d83
+description: GNOME Display Manager
+license: GPL-2.0-or-later
+homepage: https://wiki.gnome.org/Projects/GDM
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://download.gnome.org/sources/gdm/49/gdm-${version}.tar.xz
+  sha256: 9813631f9f5f0f860ea14a437866e60efc7bed3023b7c3b765cc5de1de597a06
+dependencies:
+  build:
+  - accountsservice
+  - dconf
+  - libcanberra
+  - linux-pam
+  - gtk3
+  - keyutils
+  - glib2
+  - libgudev
+  - systemd
+  host: []
+  runtime:
+  - accountsservice
+  - dconf
+  - libcanberra
+  - linux-pam
+  - gtk3
+  - keyutils
+  - glib2
+  - libgudev
+  - systemd
+verify_paths:
+  - /usr/sbin/gdm
+  - /usr/bin/gdm-config
+  - /usr/lib/libgdm.so
+  # B10 USA-1 fix (496bc685): unit drop-in that orders gdm.service After=
+  # systemd-tmpfiles-setup.service so upstream's /usr/lib/tmpfiles.d/x11.conf
+  # "D! /tmp/.X11-unix 1777 root root" directive runs BEFORE gdm-greeter
+  # (DynamicUser=yes) tries to create /tmp/.X11-unix as its dynamic UID.
+  # Composes-with-upstream per the decision D6 2026-05-21 (replaces the
+  # retired /etc/tmpfiles.d/x11-unix.conf duplicate-override approach).
+  - /usr/lib/systemd/system/gdm.service.d/10-x11-unix-race.conf
+  # Greeter monitor-layout sync (decided 2026-07-21): helper + templated
+  # path/service pair; the installer enables the instance for the primary
+  # user. Modes 0644/0755 in the seat state carry the read guarantee across
+  # GDM 49's per-boot DynamicUser chowns.
+  - /usr/libexec/igos-greeter-monitors-sync
+  - /usr/lib/systemd/system/igos-greeter-monitors-sync@.path
+  - /usr/lib/systemd/system/igos-greeter-monitors-sync@.service
+  # Pre-configuration greeter seed (r5): condition-gated oneshot installing
+  # the installer-staged layout before gdm.service while no layout exists.
+  - /usr/libexec/igos-greeter-monitors-seed
+  - /usr/lib/systemd/system/igos-greeter-monitors-seed.service

@@ -1,0 +1,22 @@
+[Desktop Entry]
+Type=Application
+Name=InterGen
+GenericName=AI Assistant
+Comment=Open the InterGen AI assistant
+Exec=intergen-panel
+Icon=org.intergenos.InterGenPanel
+Terminal=false
+Categories=Utility;X-InterGenOS;
+Keywords=AI;Assistant;InterGen;
+StartupNotify=true
+StartupWMClass=org.intergenos.InterGenPanel
+# Visible app-grid launcher (operator branding pass 2026-06-11 §E): InterGenOS
+# ships no other way to open the assistant from the overview/ArcMenu, so this
+# entry is now displayed. It still doubles as the window->icon matcher (the
+# StartupWMClass / app-id equals this id, so GNOME's window tracker paints the
+# intergen-panel window with our InterGen mark instead of a generic gear).
+# Launching before onboarding is safe: intergen-panel's WebView shows a
+# "run intergen setup first" fallback page rather than a dead-end (panel
+# __init__.py _on_load_failed). The X-InterGenOS token collects it under the
+# custom ArcMenu "InterGenOS" category.
+NoDisplay=false

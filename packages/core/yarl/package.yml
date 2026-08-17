@@ -1,0 +1,23 @@
+name: yarl
+version: "1.24.2"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Yet another URL library
+license: Apache-2.0
+homepage: https://github.com/aio-libs/yarl
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/79/12/1e8f37460ea0f7eb59c221fdaf0ed75e7ac43e97f8093b9c6f411df50a78/yarl-1.24.2.tar.gz
+  sha256: 9ac374123c6fd7abf64d1fec93962b0bd4ee2c19751755a762a72dd96c0378f8
+dependencies:
+  build:
+  - setuptools
+  - wheel
+  host: []
+  runtime:
+  - idna
+  - multidict
+  - propcache
+verify_paths:
+  - /usr/lib/python3.14/site-packages/yarl

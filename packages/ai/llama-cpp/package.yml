@@ -1,0 +1,82 @@
+name: llama-cpp
+version: "b8796"
+release: 7  # r7: the engine reports which build it is. Upstream derives the build number from git metadata and these recipes build from a release tarball with no .git, so cmake's build-info step stamped zero and every binary shipped so far answered --version with "version: 0 (unknown)" — the one question a user comparing two engines has to be able to ask. configure() now passes LLAMA_BUILD_NUMBER, DERIVED from this recipe's own version pin rather than written a second time, and the pin's shape is checked so a pin that stops being b<number> fails the build loudly instead of stamping something wrong. do_install() then asks the STAGED binary for its --version and refuses to seal the archive unless it reports the pinned number; it lives there rather than in check() because the CUDA variant declares tests.enabled=false and the builder skips the whole check phase for such a package, which would have left one of the three engines unasserted. The same two shell functions are carried byte for byte by all three engine recipes, the same one-shape discipline as the --list-devices patch. Measured here: llama-cli now answers "version: 8796 (unknown)". ONE CONSEQUENCE, measured and swept: upstream derives LLAMA_INSTALL_VERSION from the build number, so the two real files behind the llama and mtmd SONAMEs are now libllama.so.0.0.8796 and libmtmd.so.0.0.8796 instead of 0.0.0, and llama.pc reports Version 0.0.8796. Every SONAME is unchanged, so nothing that links against this engine is affected, and a whole-tree grep found exactly one reference to the old filename — this package's own verify_paths, corrected in this release. r6: the package installs only what it declares. Upstream defaults LLAMA_BUILD_TESTS, LLAMA_BUILD_TOOLS and LLAMA_BUILD_EXAMPLES ON for a top-level build and `make install` installed a binary for each, so every installed machine received 81 files in /usr/bin — among them 37 named test-* (39.1 MiB) and export-graph-ops, generic names in the global namespace that no part of this system declares, documents or uses. Tests and examples are no longer compiled (LLAMA_BUILD_TESTS=OFF, LLAMA_BUILD_EXAMPLES=OFF), upstream's tool install is off (LLAMA_TOOLS_INSTALL=OFF), and do_install stages the three declared binaries by name and then refuses any /usr/bin content it did not declare, any file named test-*, and any staged file carrying a run-time library path. convert_hf_to_gguf.py, which the top-level CMakeLists installs unconditionally, is removed: it imports transformers, torch and gguf on its first lines and an installed system has none of them, so the shipped copy could only fail. The shared libraries, headers, cmake package files and llama.pc are unchanged and still come from upstream's own install rules — they are this package's product. Measured on this pin: the staged set goes from 115 files / 276.4 MiB to 37 files / 87.9 MiB, and /usr/bin from 81 files / 209.9 MiB to 3 files / 21.3 MiB. Every one of the 78 removed files is a test, example or undeclared tool binary; nothing removed is referenced anywhere in this repository, and every library, header, cmake file and symlink present before is present after. r5: --list-devices prints each device's PCI bus id as a bracketed suffix ([PCI domain:bus:device.function]) taken from the device properties both backends already carry; devices with no id print the stock line, so nothing that parses the old shape breaks. The serving-device selector maps a device to its kernel DRM card by this id — the only way to tell two identical GPUs apart — and keeps the serving model off the card driving displays; measured on the dual-R9700 workstation, where enumeration puts the display card FIRST and a first-match pick would have pinned serving onto it. Ships as an in-tree recipe patch (list-devices-pci-id.patch) applied fail-loud in configure(); the engine source pin is unchanged, and the same byte-identical patch rides all three engine variants so their output stays one shape. r3: remove dead -DLLAMA_CURL=ON (deprecated+ignored upstream); no-network-fetch posture documented — post-burn sweep 2026-07-11
+content_hash: 468421c27d3c411d
+            # r4: r3's posture comment sat INSIDE the cmake arg list (bash ends the command at a comment) — relocated above the invocation; full arg list restored
+description: LLM inference engine — server, CLI, benchmark tool, and shared libraries
+license: MIT
+homepage: https://github.com/ggml-org/llama.cpp
+tier: ai
+build_style: custom
+# Pinned to the EXACT commit validated on the IGOS laptop (.192) in April 2026.
+# b8796 is the llama.cpp build NUMBER (what `llama-server --version` reports);
+# there is no `b8796` git TAG (the commit is 6 past tag b8790), so we pin the
+# immutable 40-char commit SHA, not a tag. Commit identity cross-verified
+# against the development machine validated checkout (git HEAD == fae3a2807). sha256 below is
+# GitHub's archive of that commit (single-witness: the archive endpoint).
+#
+# This engine serves the whole tier set: TIER_1 InternVL3.5-2B (arch=qwen3, a
+# dense GQA backbone) WITH native vision via the paired mmproj projector
+# (libmtmd — see verify_paths), and TIER_2/3 Qwen3.5 9B/35B (arch=qwen35 +
+# DeltaNet, src/models/qwen35.cpp). The prior pin (b5545) predated qwen35 and
+# could not load the Qwen3.5 GGUFs at all ("unknown model architecture:
+# 'qwen35'"); b8796 loads both the long-standing qwen3 backbone InternVL rides
+# and the newer qwen35, and compiles in mtmd for --mmproj vision.
+source:
+- url: https://github.com/ggml-org/llama.cpp/archive/fae3a28070fe4026f87bd6a544aba1b2d1896566.tar.gz
+  filename: llama.cpp-${version}.tar.gz
+  sha256: 78a0190da2b2ff95506844a6f917e8a0d9c3d5b9cd7303d0f4ee95319dffd9e8
+dependencies:
+  build:
+  - cmake
+  - curl
+  - vulkan-headers
+  - vulkan-loader
+  - shaderc
+  - spirv-headers
+  host: []
+  runtime:
+  - vulkan-loader
+
+verify_paths:
+  - /usr/bin/llama-cli
+  - /usr/bin/llama-server
+  # r6: llama-bench is declared because it ships and is depended on in writing:
+  # the CUDA variant's shipped documentation and its post-install message both
+  # tell the user to run /usr/bin/llama-bench to compare that engine against
+  # this one. do_install stages exactly the three binaries named here and
+  # refuses anything else in /usr/bin, so this list and the install set cannot
+  # drift apart.
+  - /usr/bin/llama-bench
+  # The server is dynamically linked (BUILD_SHARED_LIBS=ON) against these; a
+  # build that produces the binary but drops/mis-places its libs would pass a
+  # binary-only audit yet fail at runtime with a missing-soname error -- assert
+  # the engine's own libraries land too (the present-but-unloadable class).
+  - /usr/lib/libllama.so
+  - /usr/lib/libggml.so
+  - /usr/lib/libggml-base.so
+  - /usr/lib/libggml-cpu.so
+  # Vision (mmproj/multimodal): the projector InternVL3.5 loads via --mmproj is
+  # served by libmtmd, which compiles in with the current cmake flags (ldd
+  # llama-server -> libmtmd.so.0). The runtime-NEEDED SONAME is declared here
+  # (NOT the bare libmtmd.so dev/linker symlink) so a build that drops
+  # multimodal support — projector unloadable, vision models silently
+  # text-only — halts at the squashfs verify_paths audit.
+  #
+  # r7: the real ELF behind that SONAME was declared here as libmtmd.so.0.0.0
+  # until this release. Upstream derives LLAMA_INSTALL_VERSION from the build
+  # number, which this recipe now stamps from the version pin, so the real
+  # files are libllama.so.0.0.<build-number> and libmtmd.so.0.0.<build-number>
+  # — writing that name here would put the pin's number in a third place and
+  # make a pin bump silently wrong until someone edited this list too. The
+  # guarantee it carried has not been dropped: do_install() now resolves every
+  # declared SONAME symlink and refuses the archive unless it lands on a real
+  # file, which is both derived and earlier than this audit. That matters
+  # because the squashfs audit uses lexists, which a DANGLING symlink already
+  # satisfies.
+  - /usr/lib/libmtmd.so.0
+  # Vulkan backend (r2): the GGML_VULKAN=ON build must actually ship the
+  # backend library — a build that silently produced CPU-only again is exactly
+  # the PI-Z26 class this flip closes. (Name verified against the built chroot
+  # before landing; the squashfs 4.5 audit enforces it every build thereafter.)
+  - /usr/lib/libggml-vulkan.so

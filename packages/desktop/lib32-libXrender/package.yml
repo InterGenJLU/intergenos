@@ -1,0 +1,34 @@
+name: lib32-libXrender
+version: "0.9.12"
+release: 1
+description: X Render extension library (32-bit multilib runtime)
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+# PURE-YML package (no build.sh): driven end-to-end by the builder's lib32
+# autotools lane — sourced profile per command, mechanism flags injected
+# (host triplet, lib32 libdir, verbose rules), allowlist staged-copy
+# install (only /usr/lib32 ships; headers/protos stay with the sibling).
+build_style: autotools
+lib32_source: libXrender
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://www.x.org/pub/individual/lib/libXrender-${version}.tar.xz
+  sha256: b832128da48b39c8d608224481743403ad1691bf4e554e4be9c174df171d1b97
+dependencies:
+  build:
+  - lib32-glibc
+  - xorgproto  # arch-independent X protocol headers (pkg-config-required by the pinned configure.ac/meson.build; scanner-derived 2026-07-03)
+  - lib32-libX11
+  host: []
+  runtime:
+  - lib32-glibc
+  - lib32-libX11
+configure_flags:
+- --prefix=/usr
+- --disable-static
+verify_paths:
+  - /usr/lib32/libXrender.so.1
+  - /usr/lib32/pkgconfig/xrender.pc

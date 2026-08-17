@@ -1,0 +1,19 @@
+name: abseil-cpp
+version: '20260107.1'
+release: 1
+description: Abseil C++ common libraries
+license: Apache-2.0
+homepage: ''
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/abseil/abseil-cpp/archive/${version}/abseil-cpp-${version}.tar.gz
+  sha256: 4314e2a7cbac89cac25a2f2322870f343d81579756ceff7f431803c2c9090195
+dependencies:
+  build:
+  - cmake
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/libabsl_base.so

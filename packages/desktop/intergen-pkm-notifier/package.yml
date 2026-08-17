@@ -1,0 +1,32 @@
+name: intergen-pkm-notifier
+version: "1.0"
+release: 3  # r3: neutral-language sweep of comments and printed text: decisions are recorded as "decided <date>" instead of being credited to a person or project role, development-host shorthand is replaced by a plain description, and the citations of a repository that is not published are replaced by what they were pointing at. Comments and strings only — no rule, path, flag, threshold or code path changed. The public-content scanner now carries detectors for all three classes (scripts/check-public-content.py), so the classes cannot return silently; tests/preflight/test_public_language_detectors.py proves each detector in both directions.
+content_hash: 58c5f4d0dfe8b2d8
+description: GNOME Shell extension tray indicator for available pkm package upgrades (Q8 Phase C notification surface)
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+# First-party authored GNOME shell extension following the assets/intergen-*
+# canonical convention (mirrors intergen-welcome / intergen-firstboot /
+# intergen-shell-theme / intergen-mark / theming). source: [] + direct
+# cp -a from /mnt/intergenos/assets/ avoids the tarball-assembly step
+# the super-package community-extension bundle pattern uses.
+tier: desktop
+build_style: custom
+install_func: do_install
+source: []
+# Extension source lives under assets/; fold into the fingerprint.
+source_tree:
+  - assets/intergen-pkm-notifier
+dependencies:
+  build: []
+  host: []
+  runtime:
+  # gnome-shell-extensions provides the runtime + extension-loader.
+  - gnome-shell-extensions
+  # pkm itself provides the /var/lib/pkm/available-updates.json JSON
+  # this extension reads. Without pkm the notification surface has no
+  # data source — declare the dependency so the package set is coherent.
+  - pkm
+verify_paths:
+  - /usr/share/gnome-shell/extensions/pkm-notifier@intergenos.org/extension.js
+  - /usr/share/gnome-shell/extensions/pkm-notifier@intergenos.org/metadata.json

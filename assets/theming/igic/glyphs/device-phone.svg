@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- device glyph: phone — a handset body with a speaker slot + home dot. R7-3: body narrowed a
+       touch (width 90.4 -> 80, recentred on 128; speaker slot + rx scaled to match); the R6-5 grid
+       height (146) is kept. -->
+  <g class="glyph">
+    <rect x="88" y="55" width="80" height="146" rx="15.4"/>
+    <line x1="112.6" y1="75.9" x2="143.4" y2="75.9"/>
+    <circle cx="128" cy="180.1" r="7"/>
+  </g>
+</svg>

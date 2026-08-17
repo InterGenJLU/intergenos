@@ -1,0 +1,32 @@
+# InterGenOS GNOME app-overview folder.
+#
+# Groups the first-party InterGenOS apps (Install InterGenOS, InterGenOS
+# Welcomer, Enable InterGen AI, InterGen, ...) into a single "InterGenOS"
+# folder in the GNOME app overview, instead of scattering them through the
+# flat grid. Operator branding pass 2026-06-11.
+#
+# Mechanism: GNOME Shell's AppFolder matches a folder's `categories` key
+# against each app's freedesktop `Categories=` field. Every InterGenOS app
+# .desktop now carries the custom token `X-InterGenOS;` (the same token the
+# carried ArcMenu patch uses for its custom system category), so a single
+# `categories=['X-InterGenOS']` collects them all — no hardcoded per-app
+# list to keep in sync as apps are added or removed.
+#
+# WHY the dconf `local` db (cf. 00-intergenos-dock + D-006): app-folders is a
+# core-GNOME schema, but seeding folder-children + a folder definition as a
+# system DEFAULT (so a user who never touches it still sees the folder, while
+# a user who reorganizes their overview overrides it via the user db) is
+# exactly what the path-based dconf system db provides. Read by the user
+# session through the /etc/dconf/profile/user this package ships
+# (user-db:user + system-db:local); compiled by `dconf update` in post_install.
+#
+# folder-children keeps 'Utilities' (the conventional GNOME accessories
+# folder) alongside ours so we add a folder rather than replacing the set.
+
+[org/gnome/desktop/app-folders]
+folder-children=['Utilities', 'InterGenOS']
+
+[org/gnome/desktop/app-folders/folders/InterGenOS]
+name='InterGenOS'
+translate=false
+categories=['X-InterGenOS']

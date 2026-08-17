@@ -1,0 +1,36 @@
+# InterGenOS GNOME Shell Extensions
+#
+# Default-enabled extensions for all new users (currently 9 enabled in the
+# enabled-extensions list below). Additional extensions are installed
+# system-wide but stay disabled by default; users can enable/disable via
+# the Extensions app or the first-boot greeter.
+#
+# To apply: glib-compile-schemas /usr/share/glib-2.0/schemas/
+
+[org.gnome.shell]
+# Order is load-bearing for v7.1: intergen-no-overview MUST be first so its
+# Pattern X1 mutation (Main.sessionMode.hasOverview=false + _stateAdjustment.
+# value=HIDDEN) fires BEFORE systemBackground 'loaded' triggers the
+# _prepareStartupAnimation -> _startupAnimationSession chain that reads
+# hasOverview. Empirical validation 2026-05-21T~07:Z: with intergen-no-
+# overview at position 9, the runStartupAnimation animation started before
+# our mutation landed, producing a ~250ms overview flash. Placing intergen-
+# no-overview first eliminates the race window. intergen-firstboot second
+# so its addTopChrome overlay is ready as belt-and-suspenders coverage.
+#
+# dash-to-panel + arcmenu (the Windows-style bottom-taskbar layout) are NOT
+# image-default (PI-1, decided). On first boot their startup behavior
+# contends with intergen-no-overview's hasOverview=false suppression, leaving
+# the shell in the overview at first session (obs-3, a startup race). The image
+# ships the stock GNOME layout (top panel); DtP + arcmenu are OPT-IN via the
+# Welcomer layout page, which writes them into the user's enabled-extensions.
+# Their tuned dconf values + branded start badge still ship as a dconf system db
+# (/etc/dconf/db/local.d/00-intergenos-dock) so the opt-in layout looks right
+# when chosen. intergen-no-overview MUST stay first (see above).
+enabled-extensions=['intergen-no-overview@intergenos.org', 'intergen-firstboot@intergenos.org', 'user-theme@gnome-shell-extensions.gcampax.github.com', 'appindicatorsupport@rgcjonas.gmail.com', 'CoverflowAltTab@palatis.blogspot.com', 'blur-my-shell@aunetx', 'bluetooth-quick-connect@bjarosze.gmail.com', 'burn-my-windows@schneegans.github.com', 'pkm-notifier@intergenos.org', 'intergenos-settings-arrow@intergenos.org', 'intergenos-launch-monitor@intergenos.org']
+
+[org.gnome.shell.extensions.user-theme]
+# Default = the InterGenOS native shell theme. Provided by the
+# intergenos-theme package; references in /usr/share/themes/InterGenOS/.
+# Users can switch via intergen-welcome's appearance page (7 alternates).
+name='InterGenOS'

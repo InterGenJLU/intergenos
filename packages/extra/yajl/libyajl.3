@@ -1,0 +1,39 @@
+.TH LIBYAJL 3 "2026-05-06" "yajl 2.1.0" "InterGenOS Library Manual"
+.SH NAME
+libyajl \- Yet Another JSON Library
+.SH SYNOPSIS
+.B #include <yajl/yajl_parse.h>
+.br
+.B #include <yajl/yajl_gen.h>
+.br
+.B #include <yajl/yajl_tree.h>
+.PP
+.B cc
+[\fIflags\fR] \fIfile\fR \fB-lyajl\fR
+.SH DESCRIPTION
+\fByajl\fP is a small, fast, event-driven (SAX-style) and tree-based
+(DOM-style) JSON parser and generator written in ANSI C.
+.PP
+The library provides:
+.TP
+.B yajl_parse.h
+Streaming JSON parser with callbacks for map/array start/end, keys,
+strings, numbers, booleans, and null values.
+.TP
+.B yajl_gen.h
+Programmatic JSON generator that produces properly-formatted output.
+.TP
+.B yajl_tree.h
+Document-object-model parser that reads entire JSON input into an
+in-memory tree suitable for random access.
+.PP
+Two command-line utilities are also provided:
+\fBjson_reformat\fP pretty-prints JSON input, and \fBjson_verify\fP
+validates JSON syntax.
+.SH SEE ALSO
+.BR json_reformat (1),
+.BR json_verify (1)
+.PP
+Project homepage:
+.UR https://github.com/lloyd/yajl
+.UE .

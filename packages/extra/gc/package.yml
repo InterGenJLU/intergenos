@@ -1,0 +1,24 @@
+name: gc
+version: "8.2.12"
+release: 3  # r3: license: MIT-style -> Boehm-GC — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade. r2: iso_include true — runtime closure of the 2026-07-18 curation correction (shipped consumer requires shipped provider)
+description: Boehm-Demers-Weiser conservative garbage collector
+# The notice at the head of include/gc.h in the pinned 8.2.12 tarball is the
+# text SPDX carries verbatim as Boehm-GC. It is not the Boehm-GC-without-fee
+# variant, which adds a 'without fee' clause this notice does not have.
+license: Boehm-GC
+homepage: https://www.hboehm.info/gc/
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/bdwgc/bdwgc/releases/download/v${version}/gc-${version}.tar.gz
+  sha256: 42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/libgctba.so.1.5.0
+  - /usr/lib/pkgconfig/bdw-gc.pc
+  - /usr/include/gc.h

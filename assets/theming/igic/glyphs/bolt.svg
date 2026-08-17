@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- accent glyph: the shared power symbol (R5-2) — the canonical elongated angular lightning
+       OUTLINE (flat wide head, mid-notch jutting right, long tail to a sharp point), hovering in
+       the TOP-LEFT corner (accent ecg-blue), clear of the centred power glyph. Carried by the
+       profile icons that have no integral symbol (performance / balanced). Rendered STROKED (no
+       fill region) — at the detailed sheet weight its interior reads as an outline; the small
+       EMBEDDED instances (power-saver plug, gnome-power-manager gear, battery charging) carry the
+       same silhouette FILLED, where an outline would close at status sizes. Shape from the helper
+       (canonical unit polygon), box (44,40,52,76). -->
+  <!-- R7-1: canonical bolt re-derived to match the example — 7 vertices, both-side notches incl. the mid-left concave cut-in (left-outer point + inner re-entrant); box (44,40,52,78). -->
+  <path d="M 62.6 40.0 L 95.5 40.0 L 77.2 65.6 L 94.4 68.5 L 47.8 118.0 L 60.8 85.6 L 44.2 82.7 Z"/>
+</svg>

@@ -1,0 +1,198 @@
+name: nvidia
+version: "580.159.04"
+release: 11  # r11: two shipped hook scripts say in plain words what they mean: the hardware check no longer says it is 'proceeding optimistically' when lspci is absent, and the module-signing failure states what to do instead of naming a security posture. Printed text only; no detection logic, signing step or refusal changed. HAND BUMP, stated as fact: this package records no content_hash baseline, so the automatic release bumper does not fingerprint it and cannot see that its shipped bytes changed — measured 2026-08-05 by planting a probe line in this recipe's own build.sh and watching the drift check report a different package. Without this bump the changed hooks would never reach an installed system. r10: license: MIT-AND-GPL-2.0-only-AND-LicenseRef-NVIDIA-Linux-EULA -> MIT AND GPL-2.0-only AND LicenseRef-NVIDIA-Linux-EULA — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade. r9: 3.0-F28 — declare reboot_required (the open kernel modules install behind the nouveau blacklist and cannot load until reboot; the running driver keeps serving until then). .PKGINFO metadata change => release bump so installed systems receive the activation-semantics advisory on pkm upgrade. r8: F25 — runtime deps renamed to the USER-namespace packages (gcc/make/glibc; the ch7 -core twins exist only in the build chroot, so pkm install failed on real systems: unresolved gcc-core/make-core/glibc-core, found live 2026-07-21). Deps-only change => release bump for repo-index/pkm dep-set correctness. r7: install the fourth shipped doc KERNEL-CMDLINE.md (docs/ carries 4, do_install shipped 3 — MODPROBE-OPTIONS.md dead-linked it on every install; walk ruling 2026-07-11). New archive content => release bump. r6: AUTO-COUPLE (decided 2026-07-09) — added lib32-nvidia to runtime deps so an NVIDIA box gets the 32-bit->dGPU path (gaming closure) with no manual step; one-directional (no reverse edge -> no runtime cycle), rides the existing requires_pci_vendor:10de gate. Deps-only change; new release for repo-index/pkm dep-set correctness (pinned package, no content_hash). r5: manifest-faithful symlink reproduction — do_install now ships 32 nvidia symlinks the dead parse never created (incl. the nvidia-drm_gbm.so GBM alias + libGLX_indirect.so.0 + the bare .so dev links); new archive content => release bump (a same-version republish with changed bytes breaks repo-index/pkm integrity). r4 (built + slipstreamed to the Zephyrus 2026-07-06, the box's current install): PI-Z16/Z17/Z19 rebuild-modules hints + PI-Z20 EGL external-platform GBM/Wayland/XCB glue. r3 = PI-Z15 bundled EULA.
+content_hash: b4ff425d4d30c6bc
+description: NVIDIA proprietary GPU driver — open kernel modules + closed userspace (mirror-only, post-install opt-in)
+# Same three licences as before; the AND operators were hyphens, which made the
+# whole thing one unresolvable token instead of an expression.
+license: MIT AND GPL-2.0-only AND LicenseRef-NVIDIA-Linux-EULA
+homepage: https://www.nvidia.com/en-us/drivers/
+tier: extra
+build_style: custom
+install_func: do_install
+iso_include: false
+# 3.0-F28: activation semantics. The nvidia open kernel modules install behind
+# the nouveau blacklist (build.sh writes /etc/modprobe.d/nvidia-nouveau-blacklist
+# .conf); nouveau is already loaded, so the freshly installed nvidia.ko cannot
+# bind the GPU until the next boot frees it. pkm emits a loud post-transaction
+# REBOOT REQUIRED banner naming this package so the user never has to infer that
+# the new driver is on disk but not yet active.
+reboot_required: true
+# Install-time hardware gate (Forge + TUI). GBC001 blocker fix (2026-06-05):
+# the NVIDIA .run ships a non-glvnd libEGL.so.580 whose embedded SONAME is
+# `libEGL.so.1`. On a machine with no NVIDIA GPU it still outranks glvnd's
+# libEGL.so.1.1.0 in ldconfig, breaking EGL on amdgpu/i915 -> gnome-shell
+# fails -> GDM crash-loop on the INSTALLED system. The first bare-metal
+# install pulled nvidia onto an AMD box (via the `extra` group) and crash-
+# looped GDM. Forge's package selection (installer/backend/packages.py
+# get_group_packages) skips this package unless a display controller with
+# this PCI vendor is present on the target. 10de = NVIDIA. Fail-closed: if
+# the target's GPU vendors can't be detected, nvidia is skipped (an
+# unbootable desktop is far worse than a driver the user can add later via
+# `pkm install nvidia`). Complements the glvnd-split in build.sh (which stops
+# nvidia shipping the libglvnd-owned sonames even on a real NVIDIA box).
+requires_pci_vendor: "10de"
+# EULA install-helper hybrid-model (decided 2026-05-28). First
+# instance in the project: pkm runs /usr/lib/intergen/eula-helpers/nvidia-eula
+# BEFORE the package install proceeds. The helper checks the system-wide
+# marker at /var/lib/intergen/eula/nvidia-userspace.accepted; missing
+# marker -> present the EULA bundled from the .run's own LICENSE (r3 /
+# PI-Z15: supersedes live-fetch — the assumed URL never existed) +
+# accept (or decline-and-abort). See
+# packages/extra/nvidia/eula-helper/nvidia-eula.py for the canonical
+# helper implementation + docs/operations/eula-helper-flow.md for the
+# end-to-end flow.
+eula_helper: nvidia-eula
+# v1.0 NVIDIA mandate (2026-05-28): mirror-only NVIDIA GPU driver. Bundles
+# the NVIDIA open-gpu-kernel-modules (GPLv2/MIT dual-licensed, GSP-required
+# Turing-or-newer hardware) + closed-source userspace libs extracted from
+# the NVIDIA .run installer. Production-branch 580.159.04 — long-term-
+# support cadence matches Arch's nvidia-580xx-dkms.
+#
+# Build model: DKMS-style via pkm post-install hook (no `dkms` tool in
+# tree; pkm /var/lib/pkm/hooks/<pkg>/post-install fires the rebuild on the
+# user's machine at install time + on every kernel upgrade via chained
+# call from linux-kernel's own post-install hook).
+#
+# Kernel source: /usr/src/linux-6.18.10/ + /lib/modules/<kver>/build/
+# symlink, both staged by linux-kernel-pass2 do_install.
+#
+# Signing: scripts/sign-file (kernel-native PKCS#7) with the per-machine
+# MOK at /var/lib/intergen/mok/mok.{key,crt} (generated by Forge installer
+# installer/backend/mok.py). Chains through CONFIG_SECONDARY_TRUSTED_KEYRING=y
+# to validate under CONFIG_MODULE_SIG_FORCE=y.
+#
+# Hardware floor: Turing (RTX 20xx / GTX 16xx) or newer. Pre-Turing falls
+# back to in-kernel nouveau (CONFIG_DRM_NOUVEAU=m, already shipped).
+# check-hardware.sh enforces.
+#
+# Default-state posture (security-only-alignment filter):
+#   nvidia-persistenced.service       — shipped DISABLED. Runs as system
+#                                       user but holds persistent /dev/nvidiactl
+#                                       handles. Compute users opt in; desktop
+#                                       users do not need it.
+#   nvidia-suspend.service            — shipped ENABLED. Required for
+#                                       working Wayland suspend (saves VRAM
+#                                       contents before suspend). Scoped:
+#                                       only runs at suspend transitions.
+#   nvidia-resume.service             — shipped ENABLED. Restores VRAM
+#                                       contents after resume.
+#   nvidia-hibernate.service          — shipped ENABLED. Saves VRAM to swap
+#                                       at hibernate.
+#
+# Kernel cmdline params (nvidia-drm.modeset=1 nvidia-drm.fbdev=1) shipped
+# via /etc/kernel/cmdline.d/40-nvidia.conf — linux-kernel post-install
+# merges cmdline.d fragments into the signed UKI .cmdline section at UKI
+# rebuild time. Decided 2026-05-28 (user-control grounds): module options that
+# affect boot live on the cmdline so they're auditable at `cat /proc/cmdline`
+# at the most obvious place. UKI rebuild on nvidia install/upgrade is the
+# acceptable cost — it's a transparent operation captured by build-trace.
+#
+# Cross-distro alignment:
+#   Arch     — nvidia-open-dkms package, DKMS rebuilds on kernel upgrade,
+#              modprobe.d configures modeset/fbdev. We diverge for PD
+#              alignment: cmdline > modprobe.d for boot-affecting flags.
+#   Fedora   — akmod-nvidia (rebuilds via akmod, not dkms), pesign for
+#              signing (not sign-file — Fedora-specific kernel build).
+#              modprobe.d for boot flags — we diverge same as Arch.
+#   Debian   — nvidia-open-kernel-dkms + nvidia-driver, DKMS rebuilds,
+#              user-managed MOK. modprobe.d for boot flags — we diverge
+#              same as Arch.
+#
+# InterGenOS deviations from the trio:
+#   1. No `dkms` tool — we wire the rebuild directly into pkm post-install
+#      hooks. Cleaner: no third-party rebuild abstraction layer.
+#   2. Per-machine MOK auto-generated by Forge (vs. user-managed on
+#      Debian / opt-in on Arch). Better: zero-touch signing under
+#      MODULE_SIG_FORCE=y on first install.
+#   3. Turing+ hardware floor enforced at install time (vs. silent
+#      "modules built but won't load" on the trio). Better: clear error.
+#   4. Mirror-only (`iso_include: false`) — never lands on an ISO without
+#      operator action. Matches v1.0 docker mandate posture.
+source:
+- url: https://github.com/NVIDIA/open-gpu-kernel-modules/archive/refs/tags/${version}.tar.gz
+  filename: open-gpu-kernel-modules-${version}.tar.gz
+  sha256: "cbe87400e2f6b04e39915caae082bcbba17cc6cd66dcd11337b1fa2cb6059434"
+- url: https://us.download.nvidia.com/XFree86/Linux-x86_64/${version}/NVIDIA-Linux-x86_64-${version}.run
+  filename: NVIDIA-Linux-x86_64-${version}.run
+  sha256: "c1e66761b088d17b3adf6cb6979de9af38be2684d102b001a176dcfafabdca1e"
+# sha256 re-pinned 2026-06-02 for the 580.95.05 -> 580.159.04 bump (kernel-6.18
+# fix: NVIDIA's conftest+macro for get_dev_pagemap, first shipped 580.119.02,
+# best-on-branch 580.159.04). Pins computed + dual-end verified per
+# research/2026-06-02-nvidia-6.18.10-fix/. NVIDIA's mirror URL pattern has been
+# stable for ~15 years.
+dependencies:
+  build:
+  # Open-gpu-kernel-modules build inside the chroot is a smoke test of the
+  # build environment + tarball integrity. Compiled .ko files are NOT
+  # shipped; the source tree is shipped to /usr/src/ for DKMS-style
+  # rebuild against the user's installed kernel at pkm install time.
+  - gcc-core           # kernel-equivalent toolchain (core tier; runtime gcc)
+  - make-core          # make (core tier)
+  - elfutils           # libelf for kernel-module build
+  - linux-kernel-pass2 # provides /lib/modules/<kver>/build/ + scripts/sign-file
+  - openssl            # sign-file links openssl for PKCS#7 signature build
+  - pkgconf            # pkg-config for elfutils + openssl headers
+  host: []
+  runtime:
+  # User-machine deps for pkm install nvidia. Every entry must support
+  # the post-install DKMS-style rebuild + module sign + module load chain.
+  - linux-kernel-pass2 # /lib/modules/<kver>/build/ + scripts/sign-file at runtime
+  - gcc                # rebuild-on-install needs a compiler on the target
+  - make               # rebuild-on-install needs make
+  - openssl            # scripts/sign-file links libcrypto for PKCS#7
+  - elfutils           # libelf at module-rebuild time
+  - kmod               # depmod + modprobe for module load
+  - mokutil            # MOK status checks in post-install hook
+  - libglvnd           # GL dispatch — NVIDIA libGLX_nvidia + libEGL_nvidia
+                       # register via /usr/share/glvnd/{egl,glx}_vendor.d/
+  - libdrm             # NVIDIA userspace links libdrm at runtime
+  - libpciaccess       # PCI device enumeration in nvidia-smi + nvidia-settings
+  - glibc              # libc runtime
+  - linux-firmware     # kernel firmware loader infra (NVIDIA GSP firmware
+                       # lands at /usr/lib/firmware/nvidia/<ver>/; the loader
+                       # path is configured by linux-firmware's modprobe.d)
+  # AUTO-COUPLE (decided 2026-07-09): pull the 32-bit userspace twin
+  # so every NVIDIA box gets the 32-bit->dGPU path (gaming closure) with no
+  # manual step. lib32-nvidia rides this same requires_pci_vendor:10de gate, so
+  # it never lands on a non-NVIDIA box. lib32-nvidia does NOT declare the
+  # reverse edge (it would form a runtime cycle); this couple is one-directional
+  # and the hardware gate + mirror-only posture keep it correctly scoped.
+  - lib32-nvidia
+tests:
+  enabled: false
+  reason: "NVIDIA modules cannot load inside the build chroot — there is no GPU, the kernel module signing key is the build's ephemeral RSA-4096 keypair rather than the target system's MOK, and the module ABI is keyed to the build chroot's kernel rather than the user's. Build-time validation is limited to compile-success of source[0] kernel-open/ and extract-success of source[1] userspace blobs. Same environment-bounded shape as docker / runc / containerd."
+verify_paths:
+# Open kernel module source tree — the kernel-open/ Makefile drives the
+# DKMS-style rebuild on the user's machine. Without this, the pkm
+# post-install hook has nothing to compile.
+- /usr/src/nvidia-open-580.159.04/kernel-open/Makefile
+# Userspace GLX vendor lib — the proprietary blob that libglvnd's
+# dispatcher routes to. Without this, glxinfo on NVIDIA returns Mesa.
+- /usr/lib/libGLX_nvidia.so.0
+# Kernel cmdline fragment — nvidia-drm.modeset=1 nvidia-drm.fbdev=1.
+# Decided 2026-05-28: module options that affect boot behavior
+# live on the kernel cmdline so they're auditable at `cat /proc/cmdline`
+# (Prime Directive — most discoverable place). linux-kernel/hooks/post-
+# install.sh merges /etc/kernel/cmdline.d/*.conf into the signed UKI
+# .cmdline section at UKI rebuild time. Without this, Wayland on NVIDIA
+# breaks.
+- /etc/kernel/cmdline.d/40-nvidia.conf
+# Module blacklist for nouveau. Modprobe layer is correct for module
+# load-time policy (nvidia's own opts live in cmdline.d above). Without
+# this, nouveau fights for the framebuffer.
+- /etc/modprobe.d/nvidia-nouveau-blacklist.conf
+# Bundled EULA text (PI-Z15) — the install-time EULA gate presents this
+# file; without it the gate fail-closes and the package is uninstallable.
+- /usr/lib/intergen/eula-helpers/nvidia-eula.LICENSE
+# EGL external-platform GBM glue (PI-Z20) — the three load-bearing files
+# whose absence crash-looped gnome-shell on the first multi-GPU boot
+# (mutter GBM fallback -> iris ENOMEM). The GBM backend alias, the GBM
+# EGL-platform lib, and its loader JSON. (nvidia is iso_include:false, which
+# the chroot gate 4.5 / pre-squashfs-audit exempts; these verify_paths are
+# enforced instead at archive-seal time by the mirror-only gate in
+# igos-build/tracker.py _enforce_mirror_archive_verify_paths, which fails the
+# build if any is absent from the sealed .igos.tar.gz.)
+- /usr/lib/gbm/nvidia-drm_gbm.so
+- /usr/lib/libnvidia-egl-gbm.so.1.1.3
+- /usr/share/egl/egl_external_platform.d/15_nvidia_gbm.json

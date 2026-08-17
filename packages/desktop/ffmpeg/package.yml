@@ -1,0 +1,79 @@
+name: ffmpeg
+version: '8.0.1'
+release: 3  # r3: NVENC/NVDEC enabled. configure gains --enable-ffnvcodec/--enable-nvenc/--enable-nvdec against the new nv-codec-headers package, which supplies the ffnvcodec pkg-config file, and that package joins dependencies.build. No NVIDIA code is linked or redistributed: both paths dlopen the driver's own libraries (libcuda.so.1, libnvidia-encode.so.1, libnvcuvid.so.1) at RUNTIME, so the build needs no CUDA toolkit and no nvcc, and the resulting binary runs normally where there is no NVIDIA hardware — the encoder is simply unavailable. ffmpeg 8.0.1 requires ffnvcodec >= 12.1.14.0 (read from the pinned upstream configure, lines 6912-6916); the packaged headers are 13.0.19.0 (13.1.x does not compile with ffmpeg 8.0.1's nvenc.c — see the version comment in nv-codec-headers/package.yml). The enables are explicit rather than left to autodetection so a missing header set fails the configure instead of silently producing an ffmpeg without hardware encode. Deliberately NOT enabled: --enable-cuda-nvcc and --enable-libnpp, which need the non-redistributable CUDA toolkit at build time. Bumped BY HAND: this is a pinned upstream package with no first-party content, so scripts/bump-changed-releases.py does not track it, but the recipe change alters the built artifact and a same-version rebuild that does not advance release is invisible to `pkm upgrade` on every installed system. Decided 2026-08-05.
+description: Complete multimedia framework — redistributable build (no nonfree codecs); use ffmpeg-nonfree for opt-in FDK-AAC
+license: "GPL-3.0-or-later"
+homepage: https://ffmpeg.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://ffmpeg.org/releases/ffmpeg-${version}.tar.xz
+  sha256: 05ee0b03119b45c0bdb4df654b96802e909e0a752f72e4fe3794f487229e5a41
+patches:
+  - file: ffmpeg-8.0.1-chromium_method-1.patch
+    sha256: ba75bed1121425b15b485c0af10673900ab9df48d86e64a706aff3ef94f2e139
+dependencies:
+  build:
+  - freetype2
+  - libass
+  - libaom
+  - libvorbis
+  - nasm
+  - alsa-lib
+  - dav1d
+  - lame
+  - libvpx
+  - svt-av1
+  - x264
+  - x265
+  - opus
+  - openssl
+  - fontconfig
+  - fribidi
+  - gnutls
+  - libcdio-paranoia
+  - libdrm
+  - libjxl
+  - libwebp
+  - nv-codec-headers   # BUILD-ONLY: supplies the ffnvcodec pkg-config file that
+                       # --enable-nvenc/--enable-nvdec configure against. It is
+                       # headers only; the NVIDIA libraries are dlopened from
+                       # the installed driver at runtime, so this is deliberately
+                       # NOT a runtime dependency.
+  - openjpeg2
+  - pulseaudio
+  - samba
+  - speex
+  - vulkan-loader
+  host: []
+  runtime:
+  - freetype2
+  - libass
+  - libaom
+  - libvorbis
+  - alsa-lib
+  - dav1d
+  - lame
+  - libvpx
+  - svt-av1
+  - x264
+  - x265
+  - opus
+  - openssl
+  - fontconfig
+  - fribidi
+  - gnutls
+  - libcdio-paranoia
+  - libdrm
+  - libjxl
+  - libwebp
+  - openjpeg2
+  - pulseaudio
+  - samba
+  - speex
+  - vulkan-loader
+verify_paths:
+  - /usr/bin/ffmpeg
+  - /usr/bin/ffplay
+  - /usr/lib/libavcodec.so

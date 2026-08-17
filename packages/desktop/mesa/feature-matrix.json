@@ -1,0 +1,53 @@
+{
+  "_comment": "RT-3 feature matrix (64-bit mesa) \u2014 the FROZEN pin of what auto resolved to on this tree at mesa 25.3.5 (pin-time check, design review section 7 item 2), with ONE deliberate decided change: gles1 disabled (2026-07-02; no known consumer, matches the lib32 stack). Asserted after meson setup by igos-build/mesa_feature_matrix.py; every option here is ALSO passed explicitly in build.sh \u2014 meson hard-errors on an unsatisfiable enable, the checker enforces sidecar/flags identity and catches upstream option renames. Edits to this file advance the release via the content-hash fold.",
+  "platforms": [
+    "x11",
+    "wayland"
+  ],
+  "gallium-drivers": [
+    "r300",
+    "r600",
+    "radeonsi",
+    "nouveau",
+    "i915",
+    "iris",
+    "crocus",
+    "virgl",
+    "svga",
+    "zink",
+    "llvmpipe",
+    "softpipe",
+    "d3d12"
+  ],
+  "vulkan-drivers": [
+    "amd",
+    "intel",
+    "intel_hasvk",
+    "nouveau",
+    "swrast"
+  ],
+  "egl": "enabled",
+  "glx": "dri",
+  "gbm": "enabled",
+  "glvnd": "enabled",
+  "gles1": "disabled",
+  "gles2": "enabled",
+  "llvm": "enabled",
+  "xmlconfig": "enabled",
+  "zstd": "enabled",
+  "expat": "enabled",
+  "display-info": "enabled",
+  "xlib-lease": "enabled",
+  "gallium-va": "enabled",
+  "gallium-rusticl": true,
+  "video-codecs": [
+    "all"
+  ],
+  "valgrind": "disabled",
+  "libunwind": "disabled",
+  "lmsensors": "disabled",
+  "mesa-clc": "enabled",
+  "install-mesa-clc": true,
+  "precomp-compiler": "enabled",
+  "install-precomp-compiler": true
+}

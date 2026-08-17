@@ -1,0 +1,35 @@
+name: lib32-libXdamage
+version: "1.1.7"
+release: 1
+description: X Damage extension library (32-bit multilib runtime)
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+# PURE-YML package (no build.sh): driven end-to-end by the builder's lib32
+# autotools lane — sourced profile per command, mechanism flags injected
+# (host triplet, lib32 libdir, verbose rules), allowlist staged-copy
+# install (only /usr/lib32 ships; headers/protos stay with the sibling).
+build_style: autotools
+lib32_source: libXdamage
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://www.x.org/pub/individual/lib/libXdamage-${version}.tar.xz
+  sha256: 127067f521d3ee467b97bcb145aeba1078e2454d448e8748eb984d5b397bde24
+dependencies:
+  build:
+  - lib32-glibc
+  - xorgproto  # arch-independent X protocol headers (pkg-config-required by the pinned configure.ac/meson.build; scanner-derived 2026-07-03)
+  - lib32-libX11
+  - lib32-libXfixes
+  host: []
+  runtime:
+  - lib32-glibc
+  - lib32-libXfixes
+configure_flags:
+- --prefix=/usr
+- --disable-static
+verify_paths:
+  - /usr/lib32/libXdamage.so.1
+  - /usr/lib32/pkgconfig/xdamage.pc

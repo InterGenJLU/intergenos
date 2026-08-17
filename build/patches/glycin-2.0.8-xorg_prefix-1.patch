@@ -1,0 +1,74 @@
+Submitted by:            Xi Ruoyao <xry111@xry111.site>
+Date:                    2025-11-16
+Initial Package Version: 2.0.7
+Upstream Status:         Not applicable: XORG_PREFIX is BLFS-specific.
+                         The upstream dislike binding the entire /opt and
+                         rejected MR 338.
+Origin:                  Self
+Description:             Read XORG_PREFIX at build time and add
+                         $XORG_PREFIX/lib into the binded directories in
+                         the bwrap command if $XORG_PREFIX != /usr.
+                         Required for installing Xorg into /opt because
+                         the sandboxed SVG loader needs librsvg -> cairo
+                         -> xorg-libs.
+
+From ea415d0267faa96582e0ef6de8fb558e080ec872 Mon Sep 17 00:00:00 2001
+From: Xi Ruoyao <xry111@xry111.site>
+Date: Fri, 14 Nov 2025 09:51:50 +0800
+Subject: [PATCH] BLFS: sandbox: bind $XORG_PREFIX/lib
+
+Note that env! is evaluated at compile time, so there won't be any
+run-time overhead or security risk.
+
+It would be easier to just bind /opt but per upstream discussion some
+people put private data there.
+---
+ .cargo/config.toml    | 5 +++++
+ Cargo.toml            | 3 +++
+ glycin/src/sandbox.rs | 7 +++++++
+ 3 files changed, 15 insertions(+)
+ create mode 100644 .cargo/config.toml
+
+diff --git a/.cargo/config.toml b/.cargo/config.toml
+new file mode 100644
+index 0000000..0236928
+--- /dev/null
++++ b/.cargo/config.toml
+@@ -0,0 +1,5 @@
++[source.crates-io]
++replace-with = "vendored-sources"
++
++[source.vendored-sources]
++directory = "vendor"
+diff --git a/Cargo.toml b/Cargo.toml
+index 855326b..eb63ca3 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -112,3 +112,6 @@ yeslogic-fontconfig-sys = "6.0.0"
+ zbus = { version = "5.10.0", default-features = false, features = ["p2p"] }
+ zvariant = { version = "5.4.0", default-features = false }
+ zerocopy = "0.8.12"
++
++[patch.crates-io]
++glycin = { path = "vendor/glycin" }
+diff --git a/glycin/src/sandbox.rs b/glycin/src/sandbox.rs
+index d840674..bc3ceb2 100644
+--- a/vendor/glycin/src/sandbox.rs
++++ b/vendor/glycin/src/sandbox.rs
+@@ -322,6 +322,13 @@ impl Sandbox {
+             "/tmp-run",
+         ]);
+ 
++        let xorg_prefix = Path::new(env!("XORG_PREFIX"));
++        if xorg_prefix != "/usr" {
++            let libdir = xorg_prefix.join("lib");
++            command.arg("--ro-bind-try");
++            command.args([&libdir, &libdir]);
++        }
++
+         // Inherit some environment variables
+         for key in INHERITED_ENVIRONMENT_VARIABLES {
+             if let Some(val) = std::env::var_os(key) {
+-- 
+2.51.2
+

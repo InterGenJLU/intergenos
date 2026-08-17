@@ -1,0 +1,18 @@
+--- a/projects/rocsolver/library/src/refact/rocsolver_rfinfo.cpp	2026-07-17 07:03:55.170483043 -0500
++++ b/projects/rocsolver/library/src/refact/rocsolver_rfinfo.cpp	2026-07-17 07:03:55.172426906 -0500
+@@ -63,6 +63,7 @@
+     } while(0)
+ 
+ ROCSOLVER_BEGIN_NAMESPACE
++#ifndef HAVE_ROCSPARSE
+ 
+ template <typename Fn>
+ static bool load_function(void* handle, const char* symbol, Fn& fn)
+@@ -214,6 +215,7 @@
+     static bool result = load_rocsparse();
+     return result;
+ }
++#endif /* HAVE_ROCSPARSE */
+ 
+ ROCSOLVER_END_NAMESPACE
+ 

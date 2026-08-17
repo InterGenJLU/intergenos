@@ -1,0 +1,95 @@
+name: vkd3d-proton
+version: "3.0.1"
+release: 1
+description: Vulkan-based D3D12 implementation for wine, both PE widths
+license: LGPL-2.1-or-later
+homepage: https://github.com/HansKristian-Work/vkd3d-proton
+tier: extra
+# GE extra-tier wave (build plan §4). Cross-built from SOURCE via the
+# landed mingw-w64 toolchain — upstream's release artifact is a PREBUILT
+# BINARY DLL BUNDLE (verified by extraction), unacceptable here. The
+# source array vendors the COMPLETE recursive submodule tree as separate
+# sha-pinned upstream archives (8 submodules incl. dxil-spirv's nested
+# dxbc-spirv/SPIRV-Cross/SPIRV-Tools/spirv-headers — resolved from a
+# recursive clone of the v3.0.1 tag, 2026-07-02); every secondary source
+# extracted explicitly into its .gitmodules path (Rule 5).
+#
+# The <triplet>-widl from mingw-w64-tools satisfies the cross files'
+# widl-mingw-tools-fallback binary (verified verbatim in the pinned
+# cross files — the reason that package exists). DLLs are self-contained
+# static PE like dxvk's. The first-party setup_vkd3d_proton.sh ships
+# VERBATIM beside the x86/x64 dirs (its basedir resolution is
+# dirname($0), so the layout makes it work unmodified) with a /usr/bin
+# symlink — transparent, inspectable, user-runnable.
+build_style: custom
+# Mirror-only (extra-tier default, stated explicitly).
+iso_include: false
+source:
+- url: https://github.com/HansKristian-Work/vkd3d-proton/archive/refs/tags/v${version}.tar.gz
+  filename: vkd3d-proton-${version}.tar.gz
+  sha256: 3882a57dbd6e4f25424c46b0170ea17a1b639e74c12f84d1c37f156d99ff9a08
+- url: https://github.com/KhronosGroup/SPIRV-Headers/archive/f88a2d766840fc825af1fc065977953ba1fa4a91.tar.gz
+  filename: vkd3d-spirv-headers-f88a2d76.tar.gz
+  sha256: 028424e4934f2ed8567319939e79d0a87e529ac7c504501b8b406f98598bdadd
+- url: https://github.com/KhronosGroup/Vulkan-Headers/archive/ad9ce1235e88dc09287e19171dfac384db8ec32c.tar.gz
+  filename: vkd3d-vulkan-headers-ad9ce123.tar.gz
+  sha256: 7f85689bfbec9d16dd2621e5102bb7649fdff1d68b08e9c5a37eb891982ea5a7
+- url: https://github.com/HansKristian-Work/dxil-spirv/archive/62dbb07f771534c8ce924479efdc6c8fa510361d.tar.gz
+  filename: dxil-spirv-62dbb07f.tar.gz
+  sha256: 6b99f82bb43d9a860ac3c8a71ed33984102aa37ebe27f18b64e99dc456f44c8e
+- url: https://github.com/doitsujin/dxbc-spirv/archive/29c93aeecd55533a357fdd7c95be5587d1c1f506.tar.gz
+  filename: dxbc-spirv-29c93aee.tar.gz
+  sha256: 05d786a300b6701b7df05b99f2919f48de086df13c5d8a3d315499700ee15d05
+- url: https://github.com/KhronosGroup/SPIRV-Headers/archive/c8ad050fcb29e42a2f57d9f59e97488f465c436d.tar.gz
+  filename: spirv-headers-c8ad050f.tar.gz
+  sha256: 5b6f38b430f1c68c7395c570053403da14eb4cecc7fcb4040e7a5248c2f63874
+- url: https://github.com/KhronosGroup/SPIRV-Cross/archive/4b7bcb7e5cf71015b3299088d22004bfe4e13a5e.tar.gz
+  filename: spirv-cross-4b7bcb7e.tar.gz
+  sha256: a5a23e973c3473d812feed8e72b61e1369421ba09746026a194a8967a117aed1
+- url: https://github.com/KhronosGroup/SPIRV-Tools/archive/64f5770f59db933d46b9cad6edc42b4186409ef4.tar.gz
+  filename: spirv-tools-64f5770f.tar.gz
+  sha256: f827d18323c6d6cce0c4c5b59464f2706749c5ba47ba83526734582cef0b3248
+dependencies:
+  build:
+  - mingw-w64-gcc
+  - mingw-w64-tools
+  - glslang
+  host: []
+  runtime:
+  - wine
+  - vulkan-loader
+validation:
+  - type: sanity_check
+    description: "d3d12 + d3d12core, both widths, really PE of the right width, nothing leaked, setup script staged"
+    script: |
+      set -u
+      for pair in "x64 pei-x86-64 x86_64-w64-mingw32" "x86 pei-i386 i686-w64-mingw32"; do
+          set -- $pair
+          dir="${DESTDIR}/usr/lib/vkd3d-proton/$1"
+          for d in d3d12 d3d12core; do
+              if [ ! -f "${dir}/${d}.dll" ]; then
+                  echo "VKD3D-FAIL: missing ${d}.dll in $1"
+                  exit 1
+              fi
+              if ! "/usr/bin/$3-objdump" -f "${dir}/${d}.dll" | grep -q "file format $2"; then
+                  echo "VKD3D-FAIL: ${dir}/${d}.dll is not $2"
+                  exit 1
+              fi
+          done
+          extra=$(find "${dir}" -name '*.dll' ! -name d3d12.dll ! -name d3d12core.dll | head -3)
+          if [ -n "$extra" ]; then
+              echo "VKD3D-FAIL: unexpected DLL(s) staged (support-DLL leak = non-static link): $extra"
+              exit 1
+          fi
+      done
+      if [ ! -x "${DESTDIR}/usr/lib/vkd3d-proton/setup_vkd3d_proton.sh" ]; then
+          echo "VKD3D-FAIL: setup script not staged executable"
+          exit 1
+      fi
+      echo "VKD3D-SET-COMPLETE-BOTH-WIDTHS-PE-OK"
+    expect_contains: "VKD3D-SET-COMPLETE-BOTH-WIDTHS-PE-OK"
+    fatal: true
+verify_paths:
+  - /usr/lib/vkd3d-proton/x64/d3d12.dll
+  - /usr/lib/vkd3d-proton/x86/d3d12.dll
+  - /usr/lib/vkd3d-proton/setup_vkd3d_proton.sh

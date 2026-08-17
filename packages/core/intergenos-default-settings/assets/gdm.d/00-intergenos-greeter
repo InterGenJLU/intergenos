@@ -1,0 +1,82 @@
+# InterGenOS GDM greeter customization
+#
+# This dconf database fragment configures the GDM (GNOME Display Manager)
+# greeter session. The `gdm` user runs a stripped-down gnome-shell session
+# under mode=gdm, with its dconf profile chain reading from /etc/dconf/db/gdm
+# (compiled from this file via dconf update at install time).
+#
+# D-006 retired /etc/dconf/db/system.d/ in favor of gschema-overrides for the
+# USER session. /etc/dconf/db/gdm.d/ is a DIFFERENT mechanism (GDM-greeter-
+# session-specific, cannot be expressed via gschema) and is untouched by
+# D-006. This is the canonical home for GDM-greeter settings.
+#
+# Tier 2 GDM customization landed 2026-05-22:
+#   1. Wallpaper = InterGenOS_Wallpaper_ItIsOnly.png (matches user-session bg)
+#   2. Banner disabled (the wordmark logo carries the brand work)
+#   3. disable-user-list=true (username field instead of avatar grid;
+#      security signal -- no user enumeration from greeter)
+#   4. Logo = wordmark transparent PNG (pulse + INTERGENOS wordmark +
+#      tagline + ECG-blue glow underline)
+#   5. Shell theme = InterGenOS (matches user-session shell chrome)
+
+# Greeter background is NOT set here. The GNOME-49 gdm greeter does not paint
+# org/gnome/desktop/background picture-uri (it rendered solid-dark — obs-2), so
+# the background is set in the InterGenOS gnome-shell theme CSS via #lockDialogGroup
+# (assets/intergen-shell-theme/gnome-shell/gnome-shell.css), the standard durable
+# mechanism. The G3-3 per-resolution selector + its Before=gdm oneshot are retired
+# (that pre-gdm ordering edge caused the AMD first-boot GDM crash, PI-14). The
+# ECG/wordmark/creed hero is baked INTO that background image, so `logo` stays
+# empty below.
+# Smartcard authentication is OFF at the greeter, because this system does not
+# ship a PAM module that can perform it (decided 2026-08-06).
+#
+# What the upstream default did. `enable-smartcard-authentication` defaults to
+# true. With a PKCS#11 token inserted — and this system does ship the supporting
+# smartcard stack, so a token IS detected — the greeter switched the login to
+# the `gdm-smartcard` PAM service, whose upstream stack requires a module we do
+# not build. PAM marked the stack faulty, authentication could not complete, and
+# the greeter said nothing about why. The owner of the machine could not log in
+# until the token was physically removed.
+#
+# This key stops the greeter selecting that path at all. The `gdm-smartcard` PAM
+# stack itself is separately made incapable of routing to a module that is not
+# installed, so neither layer depends on the other being right. Shipping the
+# module, certificate mapping and enrolment is a later feature; until it exists,
+# offering a login method that cannot complete is worse than not offering it.
+#
+# Fingerprint authentication is OFF for the same reason and on the same evidence
+# (decided 2026-08-06). `enable-fingerprint-authentication` also defaults to
+# true, and the shipped `gdm-fingerprint` PAM stack requires pam_fprintd.so,
+# which no recipe here builds — authenticating against it with a correct
+# password returns 28, "Module is unknown", exactly as the smartcard service did.
+#
+# The one difference from the smartcard case is that nothing answers the fprintd
+# bus name today, so the greeter does not currently route a login to it. That is
+# a dependency on an absence, not a fix: the day anything answers that name, the
+# lockout is immediate. Both layers are therefore set here as well — the key
+# below, and the PAM stack itself in the display-manager recipe — so neither has
+# to be correct for login to work.
+[org/gnome/login-screen]
+banner-message-enable=false
+disable-user-list=true
+logo=''
+enable-smartcard-authentication=false
+enable-fingerprint-authentication=false
+
+[org/gnome/shell]
+enabled-extensions=['user-theme@gnome-shell-extensions.gcampax.github.com']
+
+[org/gnome/shell/extensions/user-theme]
+name='InterGenOS'
+
+# Greeter idle-suspend (release 11, decided 2026-07-14): gnome-settings-daemon's
+# power plugin runs inside the greeter session and inherits the upstream default
+# sleep-inactive-ac-type='suspend' (timeout 1200 s) — so a freshly installed
+# machine left at the login screen auto-suspends after ~20 minutes and drops off
+# the network, and the pre-login power policy cannot be adjusted without first
+# logging in. Disable idle-suspend for the greeter session on AC power. The
+# battery default (suspend) is deliberately retained: on portable hardware an
+# unattended greeter draining to a dead battery is the worse failure. User
+# sessions are unaffected — each user keeps their own power policy.
+[org/gnome/settings-daemon/plugins/power]
+sleep-inactive-ac-type='nothing'

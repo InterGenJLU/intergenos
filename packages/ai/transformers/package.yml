@@ -1,0 +1,31 @@
+name: transformers
+# Not upstream-latest (5.14.1): unsloth caps transformers<=5.5.0 (with 4.52-5.1 exclusions).
+version: "5.5.0"
+release: 1
+description: State-of-the-art machine learning models (pretrained transformers)
+license: Apache-2.0
+homepage: https://github.com/huggingface/transformers
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/ff/9d/fb46e729b461985f41a5740167688b924a4019141e5c164bea77548d3d9e/transformers-5.5.0.tar.gz
+  sha256: c8db656cf51c600cd8c75f06b20ef85c72e8b8ff9abc880c5d3e8bc70e0ddcbd
+dependencies:
+  build:
+  - setuptools
+  host: []
+  runtime:
+  - huggingface-hub
+  - numpy
+  - packaging
+  - pyyaml
+  - regex
+  - safetensors   # native-build dependency — forward-declared 2026-07-21; recipe lands with the native wave
+  - tokenizers   # native-build dependency — forward-declared 2026-07-21; native wave (constraint >=0.22.0,<=0.23.0)
+  - tqdm
+  - typer
+verify_paths:
+  - /usr/lib/python3.14/site-packages/transformers/__init__.py
+  - /usr/lib/python3.14/site-packages/transformers/modeling_utils.py

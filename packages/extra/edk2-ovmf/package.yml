@@ -1,0 +1,41 @@
+name: edk2-ovmf
+version: "202605"
+release: 2
+description: OVMF UEFI firmware for QEMU guests with Secure Boot and TPM 2.0 support
+license: BSD-2-Clause-Patent
+homepage: https://github.com/tianocore/edk2
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/tianocore/edk2/archive/refs/tags/edk2-stable${version}.tar.gz
+    filename: edk2-${version}.tar.gz
+    sha256: 871ffdc477ccb64fc82ea6169d8de262a661888bf21b41f70fab62e825648bce
+  - url: https://github.com/google/brotli/archive/e230f474b87134e8c6c85b630084c612057f253e.tar.gz
+    filename: brotli-e230f474b87134e8c6c85b630084c612057f253e.tar.gz
+    sha256: a9ba3940267de5dd73581a47c2e81b3eb1e1df6a704138c599020d66f3677a92
+  - url: https://github.com/openssl/openssl/releases/download/openssl-3.5.7/openssl-3.5.7.tar.gz
+    filename: openssl-3.5.7-edk2.tar.gz
+    sha256: a8c0d28a529ca480f9f36cf5792e2cd21984552a3c8e4aa11a24aa31aeac98e8
+  - url: https://github.com/DMTF/libspdm/archive/1be116c7b7713fa9003e1bd53b53a34758549eb9.tar.gz
+    filename: libspdm-1be116c7b7713fa9003e1bd53b53a34758549eb9.tar.gz
+    sha256: 59275edc6fb56c629305e6f01fe173ddf9f065cde995f18b89a64e128eae8604
+  - url: https://github.com/Mbed-TLS/mbedtls/archive/0bebf8b8c7f07abe3571ded48a11aa907a1ffb20.tar.gz
+    filename: mbedtls-0bebf8b8c7f07abe3571ded48a11aa907a1ffb20.tar.gz
+    sha256: 61ac65f6362f898677b2a4cf2a769b41e4aee0985cb45f046d3b719388e5be59
+  - url: https://github.com/MIPI-Alliance/public-mipi-sys-t/archive/370b5944c046bab043dd8b133727b2135af7747a.tar.gz
+    filename: mipi-sys-t-370b5944c046bab043dd8b133727b2135af7747a.tar.gz
+    sha256: 9fda3b9a78343ab2be6f06ce6396536e7e065abac29b47c8eb2e42cbb4c4f00b
+dependencies:
+  build:
+    - nasm
+    - acpica
+    - python
+    - util-linux-core
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/share/edk2/x64/OVMF_CODE.fd
+  - /usr/share/edk2/x64/OVMF_VARS.fd
+  - /usr/share/qemu/firmware/60-edk2-x86_64-secure.json

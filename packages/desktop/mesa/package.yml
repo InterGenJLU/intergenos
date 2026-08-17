@@ -1,0 +1,94 @@
+name: mesa
+version: "25.3.5"
+release: 7  # r7: install with meson install --skip-subprojects — a plain ninja install also installs the vendored DirectX-Headers subproject's footprint (36 headers + composition/dxguids/wsl trees + 2 static libs + a .pc), which the first from-scratch build deposited into the chroot; every later rebuild then found that system copy, skipped the subproject, and sealed an archive without the files, leaving them permanently unowned on the cumulative chroot (the 4.85 ownership-gate 52-file finding on the ge9b-11 AND ge9b-12 mints). Build-time dependency only; nothing shipped consumes the headers at runtime. r6: drop deprecated -Dshared-glapi (always-on at 25.x; upstream removal would fail configure) — post-burn sweep 2026-07-11
+content_hash: 03b221b8a23ca170
+description: OpenGL, Vulkan, and OpenCL implementation
+license: MIT
+homepage: https://www.mesa3d.org/
+tier: desktop
+build_style: meson
+install_func: do_install
+# release: 4 (2026-06-02) — re-link the BLFS xdemos (glxgears/glxinfo) against
+# the GLVND public libGL (gl.pc -> -lGL) instead of Mesa's internal libgl target,
+# which under GLVND is the vendor lib (libGLX_mesa) and lacks the public gl*/glX*
+# entry points -> undefined-reference link failure. Post-patch sed in configure().
+# release: 3 (2026-06-02) — removed the `opencl-spirv` meson option: it was
+# deleted upstream in Mesa 25.x (SPIR-V is now mandatory/implicit for rusticl,
+# not a separate toggle), so 25.3.5 configure rejected it as an unknown option.
+# `gallium-rusticl=true` alone keeps open OpenCL + SPIR-V; deps unchanged.
+# release: 2 (2026-05-28) — enabled gallium-rusticl + opencl-spirv to
+# unlock open-source OpenCL on AMDGPU (radeonsi) and Intel (iris).
+# Builds libRusticlOpenCL.so + /etc/OpenCL/vendors/rusticl.icd. Zero
+# runtime cost when RUSTICL_ENABLE is unset. Companion to
+# extra/amdgpu meta-package — every user with an AMD or Intel GPU
+# gains an open OpenCL path with no per-user config beyond
+# `export RUSTICL_ENABLE=radeonsi` (or iris).
+# The mesa version floor and driver set here come from the 2026-05-28 driver
+# review; the reasoning for each option is stated inline above.
+source:
+- url: https://mesa.freedesktop.org/archive/mesa-${version}.tar.xz
+  sha256: be472413475082df945e0f9be34f5af008baa03eb357e067ce5a611a2d44c44b
+- url: https://mesa.freedesktop.org/archive/mesa-${version}-rust-crates.tar.gz
+  filename: mesa-${version}-rust-crates.tar.gz
+  sha256: e013b32b7c286cb1cbafe7170439039ea4bb3e05d0fa7b97364216a4c4a2a545
+# DirectX-Headers subproject (GE-01 L17): the d3d12 gallium driver
+# (COMPAT arc) makes dep_dxheaders REQUIRED, upstream ships it only as a
+# WRAP-GIT (no packagecache path), and the chroot has no network — so the
+# pinned tag tarball rides as a source and configure() vendors it into
+# subprojects/DirectX-Headers-1.0 (Rule 5). sha256 pinned 2026-07-03,
+# fetched twice byte-identical (BB-5).
+- url: https://github.com/microsoft/DirectX-Headers/archive/refs/tags/v1.618.1.tar.gz
+  filename: DirectX-Headers-1.618.1.tar.gz
+  sha256: 92b8b06e3dce4e689eb2e1c8545c919d385b141314d30ef5adbad4bfdddf5eb3
+patches:
+- file: mesa-add_xdemos-4.patch
+  sha256: 9677943764bfadc2800714e34933507365dfc24b33ec9d5a4720db03b6168f3d
+dependencies:
+  build:
+  - elfutils
+  - expat
+  - libdrm
+  - libX11
+  - libXext
+  - libXfixes
+  - libXrandr
+  - libxshmfence
+  - libxcb
+  - wayland-protocols
+  - llvm
+  - Mako
+  - glslang
+  - vulkan-headers
+  - vulkan-loader
+  - cbindgen
+  - rust-bindgen
+  - libclc
+  - zstd
+  - libdisplay-info
+  - libva  # HW video accel hooks (vaapi). Build #5 audit: mesa built before
+           # libva so VAAPI gallium driver was silently disabled.
+  - pyyaml-pass2
+  - python
+  host: []
+  runtime:
+  - elfutils
+  - expat
+  - libdrm
+  - libX11
+  - libXext
+  - libXfixes
+  - libXrandr
+  - libxshmfence
+  - libxcb
+  - llvm
+  - vulkan-loader
+  - zstd
+  - libdisplay-info
+verify_paths:
+  - /usr/bin/glxinfo
+  - /usr/include/gbm.h
+
+# Build inputs composed from the repository tree (survey 2026-08-11; caught by
+# the generic coverage test, not the manual survey pass — instrument correction).
+sources_extra:
+- igos-build/mesa_feature_matrix.py

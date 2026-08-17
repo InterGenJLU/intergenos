@@ -1,0 +1,50 @@
+name: libvdpau-va-gl
+version: "0.4.2"
+release: 1
+description: VDPAU driver with OpenGL/VAAPI back-end (translation layer)
+license: MIT
+homepage: https://github.com/i-rinat/libvdpau-va-gl
+tier: extra
+build_style: cmake
+install_func: do_install
+iso_include: false
+# libvdpau-va-gl — VDPAU-to-VAAPI translation layer.
+# Implements the VDPAU API on top of VAAPI + OpenGL. Needed because
+# Mesa 25.3.0 removed native VDPAU from all open-source gallium
+# drivers (radeonsi, nouveau, r600, d3d12, virtio_gpu). Legacy apps
+# that hard-require libvdpau_<driver>.so keep working when this
+# driver is loaded.
+#
+# Usage: set VDPAU_DRIVER=va_gl in the environment of the legacy app.
+# Common consumers: older mpv revisions that default to vdpau output,
+# Kodi pre-19, Smplayer with vdpau back-end.
+#
+# Cross-distro alignment:
+#   Arch:   extra/libvdpau-va-gl; cmake with the same default flags
+#   Fedora: libvdpau-va-gl; same
+#   Debian: libvdpau-va-gl1; same
+# All three ship this as the canonical VDPAU-on-VAAPI bridge since
+# Mesa 25.3. We align exactly.
+source:
+- url: https://github.com/i-rinat/libvdpau-va-gl/releases/download/v${version}/libvdpau-va-gl-${version}.tar.gz
+  sha256: 7d9121540658eb0244859e63da171ca3869e784afbeaf202f44471275c784af4
+dependencies:
+  build:
+  - cmake           # build system
+  - libva           # libva-x11.pc dispatcher headers
+  - libX11          # find_package(X11)
+  - mesa            # gl.pc + libGL
+  - libdrm          # libva pulls libdrm; explicit for sanity
+  - pkgconf         # pkg-config lookups
+  host: []
+  runtime:
+  - libva           # libva.so.2 + libva-x11.so.2 link target
+  - libvdpau        # the dispatcher loads this driver via dlopen()
+  - mesa            # libGL.so.1
+  - libX11          # libX11.so.6
+  - libdrm          # libdrm transitively
+tests:
+  enabled: false
+  reason: "Upstream ships a tests/ subdir that runs against a real VAAPI driver + GL context bound to /dev/dri/card0. The build chroot has neither a GPU nor a running X server; the tests cannot meaningfully run."
+verify_paths:
+  - /usr/lib/vdpau

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- emblem: Public / Templates — a 2x2 layout grid (a template). Colorless. -->
+  <g class="glyph">
+    <rect x="106" y="132" width="44" height="42" rx="4"/>
+    <line x1="128" y1="132" x2="128" y2="174"/>
+    <line x1="106" y1="153" x2="150" y2="153"/>
+  </g>
+</svg>

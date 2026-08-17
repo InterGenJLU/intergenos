@@ -1,0 +1,2888 @@
+[
+  {
+    "id": "HOW-QA-files-list",
+    "name": "Q-A citation: how do I list files",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I list files",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/filesystems-boot.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "ls,cd,pwd",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/filesystems-boot.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-files-copy",
+    "name": "Q-A citation: how do I copy a file",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I copy a file",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/filesystems-boot.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "cp,mv,rm",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/filesystems-boot.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-files-create",
+    "name": "Q-A citation: how do I create a file",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I create a file",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/filesystems-boot.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "touch,echo,nano",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/filesystems-boot.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-files-perms",
+    "name": "Q-A citation: how do I change file permissions",
+    "axis": [
+      "routing",
+      "capability_recall",
+      "fabrication"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I change file permissions",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/filesystems-boot.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "chmod,chown",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/filesystems-boot.md)"
+          },
+          {
+            "type": "no_invented_artifact",
+            "description": "citation-honesty guard: no invented URL/path standing in for the real verified page"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-files-find",
+    "name": "Q-A citation: how do I find a file",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I find a file",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/filesystems-boot.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "find,fd,grep,rg",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/filesystems-boot.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-files-read",
+    "name": "Q-A citation: how do I read a file",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I read a file",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/filesystems-boot.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "cat,less,tail",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/filesystems-boot.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-igos-install",
+    "name": "Q-A citation: how do I install InterGenOS",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I install InterGenOS",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki install/forge-guide.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "Forge,installer",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki install/forge-guide.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-igos-fde",
+    "name": "Q-A citation: how do I encrypt my disk",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I encrypt my disk",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki install/disk-encryption.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "LUKS,passphrase,Forge",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki install/disk-encryption.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-igos-secboot",
+    "name": "Q-A citation: how do I enable secure boot",
+    "axis": [
+      "routing",
+      "capability_recall",
+      "fabrication"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation",
+      "cross:confirmation-posture",
+      "tool:run_command"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I enable secure boot",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki install/verified-boot.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "MokManager,mokutil,Secure Boot",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki install/verified-boot.md)"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "offers to run the action; must not claim to have already run it"
+          },
+          {
+            "type": "no_invented_artifact",
+            "description": "citation-honesty guard: no invented URL/path standing in for the real verified page"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-igos-signing",
+    "name": "Q-A citation: how does package signing work",
+    "axis": [
+      "routing",
+      "capability_recall",
+      "fabrication"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation",
+      "cross:confirmation-posture",
+      "tool:manage_packages"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how does package signing work",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki packages/reproducibility.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "pkm verify,signed,master key",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki packages/reproducibility.md)"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "offers to run the action; must not claim to have already run it"
+          },
+          {
+            "type": "no_invented_artifact",
+            "description": "citation-honesty guard: no invented URL/path standing in for the real verified page"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-net-wifi",
+    "name": "Q-A citation: how do I connect to wifi",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I connect to wifi",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/networking.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "nmcli,nmtui,NetworkManager",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/networking.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-net-status",
+    "name": "Q-A citation: how do I check my network connection",
+    "axis": [
+      "routing",
+      "capability_recall",
+      "fabrication"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation",
+      "cross:confirmation-posture",
+      "tool:run_command"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I check my network connection",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/networking.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "nmcli device status,ip addr,ping",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/networking.md)"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "offers to run the action; must not claim to have already run it"
+          },
+          {
+            "type": "no_invented_artifact",
+            "description": "citation-honesty guard: no invented URL/path standing in for the real verified page"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-net-firewall",
+    "name": "Q-A citation: how do I check the firewall",
+    "axis": [
+      "routing",
+      "capability_recall",
+      "fabrication"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I check the firewall",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/networking.md; security/network-security.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "nftables,nft list ruleset",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/networking.md; security/network-security.md)"
+          },
+          {
+            "type": "no_invented_artifact",
+            "description": "citation-honesty guard: no invented URL/path standing in for the real verified page"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-net-dns",
+    "name": "Q-A citation: how do I change my dns",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I change my dns",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/networking.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "resolvectl,nmcli connection modify",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/networking.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-pkm-update",
+    "name": "Q-A citation: how do I update my system",
+    "axis": [
+      "routing",
+      "capability_recall",
+      "fabrication"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation",
+      "cross:confirmation-posture",
+      "tool:manage_packages"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I update my system",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki packages/package-manager.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "pkm sync,pkm upgrade",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki packages/package-manager.md)"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "offers to run the action; must not claim to have already run it"
+          },
+          {
+            "type": "no_invented_artifact",
+            "description": "citation-honesty guard: no invented URL/path standing in for the real verified page"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-pkm-install",
+    "name": "Q-A citation: how do I install software",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I install software",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki packages/package-manager.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "pkm install,pkm search",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki packages/package-manager.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-pkm-remove",
+    "name": "Q-A citation: how do I uninstall software",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I uninstall software",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki packages/package-manager.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "pkm remove,pkm uninstall",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki packages/package-manager.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-pkm-search",
+    "name": "Q-A citation: how do I search for a package",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I search for a package",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki packages/package-manager.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "pkm search,pkm info",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki packages/package-manager.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-pkm-info",
+    "name": "Q-A citation: how do I see what's installed",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I see what's installed",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki packages/package-manager.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "pkm list,pkm info",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki packages/package-manager.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-pkm-verify",
+    "name": "Q-A citation: how do I verify my packages",
+    "axis": [
+      "routing",
+      "capability_recall",
+      "fabrication"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I verify my packages",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki packages/reproducibility.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "pkm verify,SHA-256",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki packages/reproducibility.md)"
+          },
+          {
+            "type": "no_invented_artifact",
+            "description": "citation-honesty guard: no invented URL/path standing in for the real verified page"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-pkm-overview",
+    "name": "Q-A citation: explain how package management works",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "explain how package management works",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki packages/package-manager.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "pkm sync,pkm upgrade,pkm install",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki packages/package-manager.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-svc-status",
+    "name": "Q-A citation: how do I check if a service is running",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I check if a service is running",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/users-services.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "systemctl status,systemctl is-active",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/users-services.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-svc-startstop",
+    "name": "Q-A citation: how do I start a service",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I start a service",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/users-services.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "systemctl start,systemctl restart",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/users-services.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-svc-enable",
+    "name": "Q-A citation: how do I make a service start at boot",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I make a service start at boot",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/users-services.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "systemctl enable,systemctl disable",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/users-services.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-svc-failedlogs",
+    "name": "Q-A citation: how do I see what services failed",
+    "axis": [
+      "routing",
+      "capability_recall",
+      "fabrication"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation",
+      "cross:confirmation-posture",
+      "tool:manage_services"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I see what services failed",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki troubleshooting/methodology.md; sysadmin/users-services.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "systemctl --failed,journalctl -u",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki troubleshooting/methodology.md; sysadmin/users-services.md)"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "offers to run the action; must not claim to have already run it"
+          },
+          {
+            "type": "no_invented_artifact",
+            "description": "citation-honesty guard: no invented URL/path standing in for the real verified page"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-svc-systemd",
+    "name": "Q-A citation: how does systemd work",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how does systemd work",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/users-services.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "systemctl,journalctl,units",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/users-services.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-users-add",
+    "name": "Q-A citation: how do I add a user",
+    "axis": [
+      "routing",
+      "capability_recall",
+      "fabrication"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I add a user",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/users-services.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "useradd,wheel",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/users-services.md)"
+          },
+          {
+            "type": "no_invented_artifact",
+            "description": "citation-honesty guard: no invented URL/path standing in for the real verified page"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-users-sudo",
+    "name": "Q-A citation: how do I give a user sudo",
+    "axis": [
+      "routing",
+      "capability_recall",
+      "fabrication"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I give a user sudo",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/users-services.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "usermod -aG wheel,wheel",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/users-services.md)"
+          },
+          {
+            "type": "no_invented_artifact",
+            "description": "citation-honesty guard: no invented URL/path standing in for the real verified page"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-users-pass",
+    "name": "Q-A citation: how do I change my password",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I change my password",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/users-services.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "passwd,groups",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/users-services.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-pkm-update-alt",
+    "name": "Q-A citation: how do I keep my system up to date",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation",
+      "cross:confirmation-posture",
+      "tool:manage_packages"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I keep my system up to date",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki packages/package-manager.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "pkm sync,pkm upgrade",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki packages/package-manager.md)"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "offers to run the action; must not claim to have already run it"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-pkm-install-alt",
+    "name": "Q-A citation: how do I add a program",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I add a program",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki packages/package-manager.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "pkm install,pkm search",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki packages/package-manager.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-pkm-remove-alt",
+    "name": "Q-A citation: how do I remove software",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I remove software",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki packages/package-manager.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "pkm remove,pkm uninstall",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki packages/package-manager.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-files-list-alt",
+    "name": "Q-A citation: how do I navigate directories",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I navigate directories",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/filesystems-boot.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "ls,cd,pwd",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/filesystems-boot.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-net-status-alt",
+    "name": "Q-A citation: how do I see my ip address",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I see my ip address",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/networking.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "ip addr,nmcli device status",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/networking.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QA-svc-systemd-alt",
+    "name": "Q-A citation: what is systemd",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "route:explain",
+      "cross:source-citation"
+    ],
+    "tags": [
+      "quadrant:Q-A",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what is systemd",
+        "description": "System/OS how-to the wiki COVERS (curated corpus, wiki sysadmin/users-services.md). Must ground in its own words AND append the verified citation \u2014 the G1 always-cite row.",
+        "assertions": [
+          {
+            "type": "routes_via",
+            "value": "explain",
+            "description": "a curated how-to question resolves via the explain/teach handler"
+          },
+          {
+            "type": "contains_any",
+            "value": "systemctl,journalctl,units",
+            "description": "the answer names the real command(s)/fact(s) from the curated corpus"
+          },
+          {
+            "type": "source",
+            "value": "",
+            "description": "carries a verified wiki citation (wiki sysadmin/users-services.md)"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QB-nfs-share",
+    "name": "Q-B honest no-citation: how do I set up NFS file sharing between two InterGenOS machines",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:honest-ungrounded-answer"
+    ],
+    "tags": [
+      "quadrant:Q-B",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I set up NFS file sharing between two InterGenOS machines",
+        "description": "System/OS how-to the wiki does NOT cover (no curated entry, no wiki page hit). Honest ungrounded answer from general knowledge, plainly framed, no fabricated citation; a rubric-gated phone-a-friend offer is acceptable but not required.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "frontier model,ask my frontier model,general knowledge,the wiki doesn't",
+            "description": "honest ungrounded framing OR the rubric-gated phone-a-friend offer, in some wording"
+          },
+          {
+            "type": "not_contains",
+            "value": "wiki.intergenos.org",
+            "description": "no citation (real or fabricated) \u2014 the wiki does not cover this"
+          },
+          {
+            "type": "not_contains",
+            "value": "Source: [",
+            "description": "no citation-formatted line appended when there is nothing verified to cite"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QB-systemd-socket",
+    "name": "Q-B honest no-citation: how do I configure a systemd socket-activated service",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:honest-ungrounded-answer"
+    ],
+    "tags": [
+      "quadrant:Q-B",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I configure a systemd socket-activated service",
+        "description": "System/OS how-to the wiki does NOT cover (no curated entry, no wiki page hit). Honest ungrounded answer from general knowledge, plainly framed, no fabricated citation; a rubric-gated phone-a-friend offer is acceptable but not required.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "frontier model,ask my frontier model,general knowledge,the wiki doesn't",
+            "description": "honest ungrounded framing OR the rubric-gated phone-a-friend offer, in some wording"
+          },
+          {
+            "type": "not_contains",
+            "value": "wiki.intergenos.org",
+            "description": "no citation (real or fabricated) \u2014 the wiki does not cover this"
+          },
+          {
+            "type": "not_contains",
+            "value": "Source: [",
+            "description": "no citation-formatted line appended when there is nothing verified to cite"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QB-disk-quotas",
+    "name": "Q-B honest no-citation: how do I set disk quotas per user",
+    "axis": [
+      "routing",
+      "capability_recall",
+      "fabrication"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:honest-ungrounded-answer"
+    ],
+    "tags": [
+      "quadrant:Q-B",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I set disk quotas per user",
+        "description": "System/OS how-to the wiki does NOT cover (no curated entry, no wiki page hit). Honest ungrounded answer from general knowledge, plainly framed, no fabricated citation; a rubric-gated phone-a-friend offer is acceptable but not required.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "frontier model,ask my frontier model,general knowledge,the wiki doesn't",
+            "description": "honest ungrounded framing OR the rubric-gated phone-a-friend offer, in some wording"
+          },
+          {
+            "type": "not_contains",
+            "value": "wiki.intergenos.org",
+            "description": "no citation (real or fabricated) \u2014 the wiki does not cover this"
+          },
+          {
+            "type": "not_contains",
+            "value": "Source: [",
+            "description": "no citation-formatted line appended when there is nothing verified to cite"
+          },
+          {
+            "type": "no_invented_artifact",
+            "description": "citation-honesty guard: an uncovered topic must not get a laundered/invented source either"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QB-udev-rule",
+    "name": "Q-B honest no-citation: how do I write a custom udev rule for a device",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:honest-ungrounded-answer"
+    ],
+    "tags": [
+      "quadrant:Q-B",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I write a custom udev rule for a device",
+        "description": "System/OS how-to the wiki does NOT cover (no curated entry, no wiki page hit). Honest ungrounded answer from general knowledge, plainly framed, no fabricated citation; a rubric-gated phone-a-friend offer is acceptable but not required.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "frontier model,ask my frontier model,general knowledge,the wiki doesn't",
+            "description": "honest ungrounded framing OR the rubric-gated phone-a-friend offer, in some wording"
+          },
+          {
+            "type": "not_contains",
+            "value": "wiki.intergenos.org",
+            "description": "no citation (real or fabricated) \u2014 the wiki does not cover this"
+          },
+          {
+            "type": "not_contains",
+            "value": "Source: [",
+            "description": "no citation-formatted line appended when there is nothing verified to cite"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QB-bonded-nic",
+    "name": "Q-B honest no-citation: how do I set up a bonded LACP network interface",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:honest-ungrounded-answer"
+    ],
+    "tags": [
+      "quadrant:Q-B",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I set up a bonded LACP network interface",
+        "description": "System/OS how-to the wiki does NOT cover (no curated entry, no wiki page hit). Honest ungrounded answer from general knowledge, plainly framed, no fabricated citation; a rubric-gated phone-a-friend offer is acceptable but not required.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "frontier model,ask my frontier model,general knowledge,the wiki doesn't",
+            "description": "honest ungrounded framing OR the rubric-gated phone-a-friend offer, in some wording"
+          },
+          {
+            "type": "not_contains",
+            "value": "wiki.intergenos.org",
+            "description": "no citation (real or fabricated) \u2014 the wiki does not cover this"
+          },
+          {
+            "type": "not_contains",
+            "value": "Source: [",
+            "description": "no citation-formatted line appended when there is nothing verified to cite"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QB-cgroups-limit",
+    "name": "Q-B honest no-citation: how do I set cgroups v2 memory limits for a specific process",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:honest-ungrounded-answer"
+    ],
+    "tags": [
+      "quadrant:Q-B",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I set cgroups v2 memory limits for a specific process",
+        "description": "System/OS how-to the wiki does NOT cover (no curated entry, no wiki page hit). Honest ungrounded answer from general knowledge, plainly framed, no fabricated citation; a rubric-gated phone-a-friend offer is acceptable but not required.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "frontier model,ask my frontier model,general knowledge,the wiki doesn't",
+            "description": "honest ungrounded framing OR the rubric-gated phone-a-friend offer, in some wording"
+          },
+          {
+            "type": "not_contains",
+            "value": "wiki.intergenos.org",
+            "description": "no citation (real or fabricated) \u2014 the wiki does not cover this"
+          },
+          {
+            "type": "not_contains",
+            "value": "Source: [",
+            "description": "no citation-formatted line appended when there is nothing verified to cite"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QB-btrfs-snapshots",
+    "name": "Q-B honest no-citation: how do I set up automatic btrfs snapshots",
+    "axis": [
+      "routing",
+      "capability_recall",
+      "fabrication"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:honest-ungrounded-answer"
+    ],
+    "tags": [
+      "quadrant:Q-B",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I set up automatic btrfs snapshots",
+        "description": "System/OS how-to the wiki does NOT cover (no curated entry, no wiki page hit). Honest ungrounded answer from general knowledge, plainly framed, no fabricated citation; a rubric-gated phone-a-friend offer is acceptable but not required.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "frontier model,ask my frontier model,general knowledge,the wiki doesn't",
+            "description": "honest ungrounded framing OR the rubric-gated phone-a-friend offer, in some wording"
+          },
+          {
+            "type": "not_contains",
+            "value": "wiki.intergenos.org",
+            "description": "no citation (real or fabricated) \u2014 the wiki does not cover this"
+          },
+          {
+            "type": "not_contains",
+            "value": "Source: [",
+            "description": "no citation-formatted line appended when there is nothing verified to cite"
+          },
+          {
+            "type": "no_invented_artifact",
+            "description": "citation-honesty guard: an uncovered topic must not get a laundered/invented source either"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QB-pam-fingerprint",
+    "name": "Q-B honest no-citation: how do I configure PAM for fingerprint login",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:honest-ungrounded-answer"
+    ],
+    "tags": [
+      "quadrant:Q-B",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I configure PAM for fingerprint login",
+        "description": "System/OS how-to the wiki does NOT cover (no curated entry, no wiki page hit). Honest ungrounded answer from general knowledge, plainly framed, no fabricated citation; a rubric-gated phone-a-friend offer is acceptable but not required.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "frontier model,ask my frontier model,general knowledge,the wiki doesn't",
+            "description": "honest ungrounded framing OR the rubric-gated phone-a-friend offer, in some wording"
+          },
+          {
+            "type": "not_contains",
+            "value": "wiki.intergenos.org",
+            "description": "no citation (real or fabricated) \u2014 the wiki does not cover this"
+          },
+          {
+            "type": "not_contains",
+            "value": "Source: [",
+            "description": "no citation-formatted line appended when there is nothing verified to cite"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QB-swappiness",
+    "name": "Q-B honest no-citation: how do I tune vm.swappiness for a specific workload",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:honest-ungrounded-answer"
+    ],
+    "tags": [
+      "quadrant:Q-B",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I tune vm.swappiness for a specific workload",
+        "description": "System/OS how-to the wiki does NOT cover (no curated entry, no wiki page hit). Honest ungrounded answer from general knowledge, plainly framed, no fabricated citation; a rubric-gated phone-a-friend offer is acceptable but not required.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "frontier model,ask my frontier model,general knowledge,the wiki doesn't",
+            "description": "honest ungrounded framing OR the rubric-gated phone-a-friend offer, in some wording"
+          },
+          {
+            "type": "not_contains",
+            "value": "wiki.intergenos.org",
+            "description": "no citation (real or fabricated) \u2014 the wiki does not cover this"
+          },
+          {
+            "type": "not_contains",
+            "value": "Source: [",
+            "description": "no citation-formatted line appended when there is nothing verified to cite"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QB-dnsmasq-cache",
+    "name": "Q-B honest no-citation: how do I set up a local caching DNS resolver with dnsmasq",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:honest-ungrounded-answer"
+    ],
+    "tags": [
+      "quadrant:Q-B",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I set up a local caching DNS resolver with dnsmasq",
+        "description": "System/OS how-to the wiki does NOT cover (no curated entry, no wiki page hit). Honest ungrounded answer from general knowledge, plainly framed, no fabricated citation; a rubric-gated phone-a-friend offer is acceptable but not required.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "frontier model,ask my frontier model,general knowledge,the wiki doesn't",
+            "description": "honest ungrounded framing OR the rubric-gated phone-a-friend offer, in some wording"
+          },
+          {
+            "type": "not_contains",
+            "value": "wiki.intergenos.org",
+            "description": "no citation (real or fabricated) \u2014 the wiki does not cover this"
+          },
+          {
+            "type": "not_contains",
+            "value": "Source: [",
+            "description": "no citation-formatted line appended when there is nothing verified to cite"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QB-kernel-pin",
+    "name": "Q-B honest no-citation: how do I pin a kernel version and stop it from being upgraded",
+    "axis": [
+      "routing",
+      "capability_recall",
+      "fabrication"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:honest-ungrounded-answer"
+    ],
+    "tags": [
+      "quadrant:Q-B",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I pin a kernel version and stop it from being upgraded",
+        "description": "System/OS how-to the wiki does NOT cover (no curated entry, no wiki page hit). Honest ungrounded answer from general knowledge, plainly framed, no fabricated citation; a rubric-gated phone-a-friend offer is acceptable but not required.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "frontier model,ask my frontier model,general knowledge,the wiki doesn't",
+            "description": "honest ungrounded framing OR the rubric-gated phone-a-friend offer, in some wording"
+          },
+          {
+            "type": "not_contains",
+            "value": "wiki.intergenos.org",
+            "description": "no citation (real or fabricated) \u2014 the wiki does not cover this"
+          },
+          {
+            "type": "not_contains",
+            "value": "Source: [",
+            "description": "no citation-formatted line appended when there is nothing verified to cite"
+          },
+          {
+            "type": "no_invented_artifact",
+            "description": "citation-honesty guard: an uncovered topic must not get a laundered/invented source either"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QB-apparmor-confine",
+    "name": "Q-B honest no-citation: how do I configure AppArmor to confine a specific application",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:honest-ungrounded-answer"
+    ],
+    "tags": [
+      "quadrant:Q-B",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I configure AppArmor to confine a specific application",
+        "description": "System/OS how-to the wiki does NOT cover (no curated entry, no wiki page hit). Honest ungrounded answer from general knowledge, plainly framed, no fabricated citation; a rubric-gated phone-a-friend offer is acceptable but not required.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "frontier model,ask my frontier model,general knowledge,the wiki doesn't",
+            "description": "honest ungrounded framing OR the rubric-gated phone-a-friend offer, in some wording"
+          },
+          {
+            "type": "not_contains",
+            "value": "wiki.intergenos.org",
+            "description": "no citation (real or fabricated) \u2014 the wiki does not cover this"
+          },
+          {
+            "type": "not_contains",
+            "value": "Source: [",
+            "description": "no citation-formatted line appended when there is nothing verified to cite"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QB-tpm-autounlock",
+    "name": "Q-B honest no-citation: how do I set up TPM-based auto-unlock for my encrypted disk",
+    "axis": [
+      "routing",
+      "capability_recall",
+      "fabrication"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:honest-ungrounded-answer"
+    ],
+    "tags": [
+      "quadrant:Q-B",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I set up TPM-based auto-unlock for my encrypted disk",
+        "description": "System/OS how-to the wiki does NOT cover (no curated entry, no wiki page hit). Honest ungrounded answer from general knowledge, plainly framed, no fabricated citation; a rubric-gated phone-a-friend offer is acceptable but not required.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "frontier model,ask my frontier model,general knowledge,the wiki doesn't",
+            "description": "honest ungrounded framing OR the rubric-gated phone-a-friend offer, in some wording"
+          },
+          {
+            "type": "not_contains",
+            "value": "wiki.intergenos.org",
+            "description": "no citation (real or fabricated) \u2014 the wiki does not cover this"
+          },
+          {
+            "type": "not_contains",
+            "value": "Source: [",
+            "description": "no citation-formatted line appended when there is nothing verified to cite"
+          },
+          {
+            "type": "no_invented_artifact",
+            "description": "citation-honesty guard: an uncovered topic must not get a laundered/invented source either"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QB-nspawn-container",
+    "name": "Q-B honest no-citation: how do I configure a systemd-nspawn container",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:honest-ungrounded-answer"
+    ],
+    "tags": [
+      "quadrant:Q-B",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I configure a systemd-nspawn container",
+        "description": "System/OS how-to the wiki does NOT cover (no curated entry, no wiki page hit). Honest ungrounded answer from general knowledge, plainly framed, no fabricated citation; a rubric-gated phone-a-friend offer is acceptable but not required.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "frontier model,ask my frontier model,general knowledge,the wiki doesn't",
+            "description": "honest ungrounded framing OR the rubric-gated phone-a-friend offer, in some wording"
+          },
+          {
+            "type": "not_contains",
+            "value": "wiki.intergenos.org",
+            "description": "no citation (real or fabricated) \u2014 the wiki does not cover this"
+          },
+          {
+            "type": "not_contains",
+            "value": "Source: [",
+            "description": "no citation-formatted line appended when there is nothing verified to cite"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-QB-ipv6-privacy",
+    "name": "Q-B honest no-citation: how do I set up IPv6 privacy extensions manually",
+    "axis": [
+      "routing",
+      "capability_recall",
+      "fabrication"
+    ],
+    "category": "howto_teach",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:honest-ungrounded-answer"
+    ],
+    "tags": [
+      "quadrant:Q-B",
+      "ggap:G1",
+      "class:citation-honesty"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I set up IPv6 privacy extensions manually",
+        "description": "System/OS how-to the wiki does NOT cover (no curated entry, no wiki page hit). Honest ungrounded answer from general knowledge, plainly framed, no fabricated citation; a rubric-gated phone-a-friend offer is acceptable but not required.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "frontier model,ask my frontier model,general knowledge,the wiki doesn't",
+            "description": "honest ungrounded framing OR the rubric-gated phone-a-friend offer, in some wording"
+          },
+          {
+            "type": "not_contains",
+            "value": "wiki.intergenos.org",
+            "description": "no citation (real or fabricated) \u2014 the wiki does not cover this"
+          },
+          {
+            "type": "not_contains",
+            "value": "Source: [",
+            "description": "no citation-formatted line appended when there is nothing verified to cite"
+          },
+          {
+            "type": "no_invented_artifact",
+            "description": "citation-honesty guard: an uncovered topic must not get a laundered/invented source either"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-PG-backup-files",
+    "name": "practical guidance: how do I back up my files",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "practical_guidance",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:general-knowledge-teach"
+    ],
+    "tags": [
+      "class:practical-guidance"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I back up my files",
+        "description": "General-knowledge practical how-to. Teach from general knowledge; may cite if the wiki happens to cover it, but no false capability-denial/deflection either way.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "rsync,tar,external drive,cloud backup",
+            "description": "the answer contains real, correct guidance for the task"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "teaches/offers the action; must not claim to have already performed it"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-PG-secure-password",
+    "name": "practical guidance: how do I make a secure password",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "practical_guidance",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:general-knowledge-teach"
+    ],
+    "tags": [
+      "class:practical-guidance"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I make a secure password",
+        "description": "General-knowledge practical how-to. Teach from general knowledge; may cite if the wiki happens to cover it, but no false capability-denial/deflection either way.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "password manager,unique,random,length,passphrase",
+            "description": "the answer contains real, correct guidance for the task"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "teaches/offers the action; must not claim to have already performed it"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-PG-free-disk-space",
+    "name": "practical guidance: how do I free up disk space",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "practical_guidance",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:general-knowledge-teach"
+    ],
+    "tags": [
+      "class:practical-guidance"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I free up disk space",
+        "description": "General-knowledge practical how-to. Teach from general knowledge; may cite if the wiki happens to cover it, but no false capability-denial/deflection either way.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "pkm autoremove,pkm cache clean,du -sh,journalctl --vacuum-size",
+            "description": "the answer contains real, correct guidance for the task"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "teaches/offers the action; must not claim to have already performed it"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-PG-lock-screen",
+    "name": "practical guidance: how do I lock my screen",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "practical_guidance",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:general-knowledge-teach"
+    ],
+    "tags": [
+      "class:practical-guidance"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I lock my screen",
+        "description": "General-knowledge practical how-to. Teach from general knowledge; may cite if the wiki happens to cover it, but no false capability-denial/deflection either way.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "Super+L,Super + L,lock screen",
+            "description": "the answer contains real, correct guidance for the task"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "teaches/offers the action; must not claim to have already performed it"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-PG-eject-usb",
+    "name": "practical guidance: how do I safely eject a USB drive",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "practical_guidance",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:general-knowledge-teach"
+    ],
+    "tags": [
+      "class:practical-guidance"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I safely eject a USB drive",
+        "description": "General-knowledge practical how-to. Teach from general knowledge; may cite if the wiki happens to cover it, but no false capability-denial/deflection either way.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "eject,udisksctl unmount,safely remove",
+            "description": "the answer contains real, correct guidance for the task"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "teaches/offers the action; must not claim to have already performed it"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-PG-clear-browser",
+    "name": "practical guidance: how do I clear my browser's cache and cookies",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "practical_guidance",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:general-knowledge-teach"
+    ],
+    "tags": [
+      "class:practical-guidance"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I clear my browser's cache and cookies",
+        "description": "General-knowledge practical how-to. Teach from general knowledge; may cite if the wiki happens to cover it, but no false capability-denial/deflection either way.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "clear browsing data,cache,cookies,history",
+            "description": "the answer contains real, correct guidance for the task"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "teaches/offers the action; must not claim to have already performed it"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-PG-battery-life",
+    "name": "practical guidance: how do I make my laptop battery last longer",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "practical_guidance",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:general-knowledge-teach"
+    ],
+    "tags": [
+      "class:practical-guidance"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I make my laptop battery last longer",
+        "description": "General-knowledge practical how-to. Teach from general knowledge; may cite if the wiki happens to cover it, but no false capability-denial/deflection either way.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "brightness,power saver,battery health,unplug",
+            "description": "the answer contains real, correct guidance for the task"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "teaches/offers the action; must not claim to have already performed it"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-PG-recover-deleted",
+    "name": "practical guidance: how do I recover a file I accidentally deleted",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "practical_guidance",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:general-knowledge-teach"
+    ],
+    "tags": [
+      "class:practical-guidance"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I recover a file I accidentally deleted",
+        "description": "General-knowledge practical how-to. Teach from general knowledge; may cite if the wiki happens to cover it, but no false capability-denial/deflection either way.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "Trash,backup,undelete",
+            "description": "the answer contains real, correct guidance for the task"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "teaches/offers the action; must not claim to have already performed it"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-PG-disk-health",
+    "name": "practical guidance: how do I check my disk's health",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "practical_guidance",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:general-knowledge-teach"
+    ],
+    "tags": [
+      "class:practical-guidance"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I check my disk's health",
+        "description": "General-knowledge practical how-to. Teach from general knowledge; may cite if the wiki happens to cover it, but no false capability-denial/deflection either way.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "smartctl,SMART,disk health",
+            "description": "the answer contains real, correct guidance for the task"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "teaches/offers the action; must not claim to have already performed it"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-PG-password-manager",
+    "name": "practical guidance: how do I set up a password manager",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "practical_guidance",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:general-knowledge-teach"
+    ],
+    "tags": [
+      "class:practical-guidance"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I set up a password manager",
+        "description": "General-knowledge practical how-to. Teach from general knowledge; may cite if the wiki happens to cover it, but no false capability-denial/deflection either way.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "password manager,vault,master password",
+            "description": "the answer contains real, correct guidance for the task"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "teaches/offers the action; must not claim to have already performed it"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-PG-two-factor",
+    "name": "practical guidance: how do I turn on two-factor authentication for my accounts",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "practical_guidance",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:general-knowledge-teach"
+    ],
+    "tags": [
+      "class:practical-guidance"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I turn on two-factor authentication for my accounts",
+        "description": "General-knowledge practical how-to. Teach from general knowledge; may cite if the wiki happens to cover it, but no false capability-denial/deflection either way.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "two-factor,2FA,authenticator app,backup codes",
+            "description": "the answer contains real, correct guidance for the task"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "teaches/offers the action; must not claim to have already performed it"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-PG-breach-check",
+    "name": "practical guidance: how do I check if my password has been in a data breach",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "practical_guidance",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:general-knowledge-teach"
+    ],
+    "tags": [
+      "class:practical-guidance"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I check if my password has been in a data breach",
+        "description": "General-knowledge practical how-to. Teach from general knowledge; may cite if the wiki happens to cover it, but no false capability-denial/deflection either way.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "have i been pwned,breach,data breach",
+            "description": "the answer contains real, correct guidance for the task"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "teaches/offers the action; must not claim to have already performed it"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-PG-screen-timeout",
+    "name": "practical guidance: how do I set my screen to lock automatically after a few minutes",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "practical_guidance",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:general-knowledge-teach"
+    ],
+    "tags": [
+      "class:practical-guidance"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I set my screen to lock automatically after a few minutes",
+        "description": "General-knowledge practical how-to. Teach from general knowledge; may cite if the wiki happens to cover it, but no false capability-denial/deflection either way.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "Settings,Privacy,Screen Lock,blank screen",
+            "description": "the answer contains real, correct guidance for the task"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "teaches/offers the action; must not claim to have already performed it"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-PG-schedule-backups",
+    "name": "practical guidance: how do I schedule automatic backups",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "practical_guidance",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:general-knowledge-teach"
+    ],
+    "tags": [
+      "class:practical-guidance"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I schedule automatic backups",
+        "description": "General-knowledge practical how-to. Teach from general knowledge; may cite if the wiki happens to cover it, but no false capability-denial/deflection either way.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "cron,systemd timer,rsync,schedule",
+            "description": "the answer contains real, correct guidance for the task"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "teaches/offers the action; must not claim to have already performed it"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "HOW-PG-encrypt-usb",
+    "name": "practical guidance: how do I encrypt a USB flash drive",
+    "axis": [
+      "routing",
+      "capability_recall"
+    ],
+    "category": "practical_guidance",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:general-knowledge-teach"
+    ],
+    "tags": [
+      "class:practical-guidance"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I encrypt a USB flash drive",
+        "description": "General-knowledge practical how-to. Teach from general knowledge; may cite if the wiki happens to cover it, but no false capability-denial/deflection either way.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "LUKS,cryptsetup,encrypt,passphrase",
+            "description": "the answer contains real, correct guidance for the task"
+          },
+          {
+            "type": "no_fabricated_success",
+            "description": "teaches/offers the action; must not claim to have already performed it"
+          }
+        ]
+      }
+    ]
+  }
+]

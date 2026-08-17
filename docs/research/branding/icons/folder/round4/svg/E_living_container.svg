@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<defs>
+  <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+    <feGaussianBlur stdDeviation="3.5"/></filter>
+  <filter id="bigglow" x="-30%" y="-30%" width="160%" height="160%">
+    <feGaussianBlur stdDeviation="7"/></filter>
+  <filter id="shadow" x="-10%" y="-5%" width="120%" height="130%">
+    <feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#000" flood-opacity="0.5"/></filter>
+
+  <linearGradient id="bodyE" x1="0.2" y1="0" x2="0.8" y2="1">
+    <stop offset="0%" stop-color="#111a2e"/>
+    <stop offset="100%" stop-color="#070b14"/></linearGradient>
+  <linearGradient id="frontE" x1="0.2" y1="0" x2="0.8" y2="1">
+    <stop offset="0%" stop-color="#161f38"/>
+    <stop offset="10%" stop-color="#121a2e"/>
+    <stop offset="100%" stop-color="#0a1020"/></linearGradient>
+  <linearGradient id="highlightE" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.06"/>
+    <stop offset="35%" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+  <radialGradient id="innerE" cx="0.45" cy="0.35" r="0.5">
+    <stop offset="0%" stop-color="#0099FF" stop-opacity="0.12"/>
+    <stop offset="100%" stop-color="#0099FF" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="256" height="256" fill="#000000"/>
+
+<!-- Back panel — asymmetric top: left side is taller -->
+<path d="M 56 66 C 46 66, 38 74, 38 84
+         L 38 192 C 38 202, 46 210, 56 210
+         L 200 210 C 210 210, 218 202, 218 192
+         L 218 96 C 218 86, 210 78, 200 78
+         L 146 78
+         C 138 78, 132 74, 130 70
+         C 128 66, 124 66, 118 66
+         Z"
+      fill="url(#bodyE)" filter="url(#shadow)"/>
+
+<!-- Inner glow -->
+<path d="M 56 66 C 46 66, 38 74, 38 84
+         L 38 192 C 38 202, 46 210, 56 210
+         L 200 210 C 210 210, 218 202, 218 192
+         L 218 96 C 218 86, 210 78, 200 78
+         L 146 78 C 138 78, 132 74, 130 70 C 128 66, 124 66, 118 66 Z"
+      fill="url(#innerE)"/>
+
+<!-- Energy at the step (where tab meets lower top edge) -->
+<path d="M 146 78 C 138 78, 132 74, 130 70 C 128 66, 124 66, 118 66"
+      fill="none" stroke="#0099FF" stroke-width="1.5" stroke-opacity="0.4"
+      stroke-linecap="round" filter="url(#glow)"/>
+
+<!-- Crease — blue energy line -->
+<line x1="42" y1="120" x2="214" y2="120"
+      stroke="#0099FF" stroke-width="1.5" stroke-opacity="0.5"
+      filter="url(#glow)"/>
+
+<!-- Atmospheric glow at crease -->
+<line x1="60" y1="120" x2="200" y2="120"
+      stroke="#0099FF" stroke-width="6" stroke-opacity="0.06"
+      filter="url(#bigglow)"/>
+
+<!-- Front panel -->
+<path d="M 38 120 L 218 120
+         L 218 192 C 218 202, 210 210, 200 210
+         L 56 210 C 46 210, 38 202, 38 192 Z"
+      fill="url(#frontE)"/>
+
+<!-- Front panel highlight -->
+<path d="M 38 120 L 218 120 L 218 148 L 38 148 Z"
+      fill="url(#highlightE)"/>
+
+<!-- Very subtle outer edge -->
+<path d="M 56 66 C 46 66, 38 74, 38 84
+         L 38 192 C 38 202, 46 210, 56 210
+         L 200 210 C 210 210, 218 202, 218 192
+         L 218 96 C 218 86, 210 78, 200 78
+         L 146 78 C 138 78, 132 74, 130 70 C 128 66, 124 66, 118 66 Z"
+      fill="none" stroke="#0099FF" stroke-width="0.5" stroke-opacity="0.06"/>
+</svg>

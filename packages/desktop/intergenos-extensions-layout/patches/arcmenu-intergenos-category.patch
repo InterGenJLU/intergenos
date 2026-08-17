@@ -1,0 +1,111 @@
+diff --git a/arcmenu@arcmenu.com/constants.js b/arcmenu@arcmenu.com/constants.js
+--- a/arcmenu@arcmenu.com/constants.js
++++ b/arcmenu@arcmenu.com/constants.js
+@@ -40,6 +40,7 @@
+     HOME_SCREEN: 5,
+     SEARCH_RESULTS: 6,
+     CATEGORIES_LIST: 7,
++    INTERGENOS: 8,
+ };
+ 
+ export const DefaultMenuView = {
+@@ -85,6 +86,7 @@
+     {CATEGORY: CategoryType.ALL_PROGRAMS, NAME: _('All Apps'), IMAGE: 'view-app-grid-symbolic'},
+     {CATEGORY: CategoryType.PINNED_APPS, NAME: _('Pinned Apps'), IMAGE: 'view-pin-symbolic'},
+     {CATEGORY: CategoryType.RECENT_FILES, NAME: _('Recent Files'), IMAGE: 'document-open-recent-symbolic'},
++    {CATEGORY: CategoryType.INTERGENOS, NAME: _('InterGenOS'), IMAGE: 'intergenos-category-symbolic'},
+ ];
+ 
+ export const TooltipLocation = {
+diff --git a/arcmenu@arcmenu.com/menuButton.js b/arcmenu@arcmenu.com/menuButton.js
+--- a/arcmenu@arcmenu.com/menuButton.js
++++ b/arcmenu@arcmenu.com/menuButton.js
+@@ -145,6 +145,37 @@
+ 
+         this.menuButtonWidget = new MenuButtonWidget();
+         this.add_child(this.menuButtonWidget);
++
++        // InterGenOS downstream patch: hover tooltip on the panel start button.
++        // ArcMenu ships no tooltip/label for its menu button, so the InterGenOS
++        // start badge had nothing on hover. Reuse the built-in tooltip system
++        // (this._tooltip / showTooltip / hideTooltip) keyed off enter/leave on
++        // the button actor; suppressed while the menu is open.
++        this.connect('enter-event', () => {
++            if (this.isOpen)
++                return;
++            // Position the tooltip AWAY from the panel: a bottom panel (the
++            // InterGenOS default) opens upward, so a BOTTOM_CENTERED tooltip
++            // would land off the screen edge below the panel — use TOP_CENTERED
++            // there, and BOTTOM_CENTERED only for a top-mounted panel.
++            // _arrowSide tracks the panel side (updateArrowSide()).
++            const onTopPanel = this.arcMenu?._arrowSide === St.Side.TOP;
++            const loc = onTopPanel
++                ? Constants.TooltipLocation.BOTTOM_CENTERED
++                : Constants.TooltipLocation.TOP_CENTERED;
++            // Snappier than showTooltip()'s 750ms menu-item delay — the start
++            // button is a single fixed target the user points at deliberately,
++            // so a near-instant pop reads right (matches the panel app tooltips).
++            this.clearTooltipShowingId();
++            this._tooltipShowingID = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 220, () => {
++                this._tooltip.setTooltipData(this.menuButtonWidget, loc, _('InterGenOS'),
++                    null, Constants.DisplayType.BUTTON);
++                this._tooltip.show();
++                this._tooltipShowingID = null;
++                return GLib.SOURCE_REMOVE;
++            });
++        });
++        this.connect('leave-event', () => this.hideTooltip(true));
+     }
+ 
+     get isOpen() {
+diff --git a/arcmenu@arcmenu.com/menulayouts/baseMenuLayout.js b/arcmenu@arcmenu.com/menulayouts/baseMenuLayout.js
+--- a/arcmenu@arcmenu.com/menulayouts/baseMenuLayout.js
++++ b/arcmenu@arcmenu.com/menulayouts/baseMenuLayout.js
+@@ -340,6 +340,35 @@
+         categoryMenuItem = this.categoryDirectories.get(Constants.CategoryType.RECENT_FILES);
+         if (categoryMenuItem)
+             this._loadRecentFiles(categoryMenuItem);
++
++        // InterGenOS downstream patch: populate the custom "InterGenOS" system
++        // category with every installed app whose .desktop Categories field
++        // carries the X-InterGenOS token (forge / welcomer / intergen-toggle /
++        // the InterGen assistant). The category item is created by each layout's
++        // extra-categories loop before super.loadCategories() runs.
++        categoryMenuItem = this.categoryDirectories.get(Constants.CategoryType.INTERGENOS);
++        if (categoryMenuItem)
++            this._loadInterGenOSApps(categoryMenuItem);
++    }
++
++    // InterGenOS downstream patch — see loadCategories() above.
++    _loadInterGenOSApps(categoryMenuItem) {
++        const installed = Shell.AppSystem.get_default().get_installed();
++        for (let i = 0; i < installed.length; i++) {
++            const appInfo = installed[i];
++            if (!appInfo.should_show())
++                continue;
++            if (!Utils.getCategories(appInfo).includes('X-InterGenOS'))
++                continue;
++            const app = this.appSys.lookup_app(appInfo.get_id());
++            if (app)
++                categoryMenuItem.appList.push(app);
++        }
++        categoryMenuItem.appList.sort((a, b) => {
++            const nameA = Utils.getAppDisplayName(a);
++            const nameB = Utils.getAppDisplayName(b);
++            return nameA.localeCompare(nameB);
++        });
+     }
+ 
+     _loadCategory(categoryMenuItem, dir) {
+diff --git a/arcmenu@arcmenu.com/schemas/org.gnome.shell.extensions.arcmenu.gschema.xml b/arcmenu@arcmenu.com/schemas/org.gnome.shell.extensions.arcmenu.gschema.xml
+--- a/arcmenu@arcmenu.com/schemas/org.gnome.shell.extensions.arcmenu.gschema.xml
++++ b/arcmenu@arcmenu.com/schemas/org.gnome.shell.extensions.arcmenu.gschema.xml
+@@ -670,7 +670,7 @@
+       <summary>Menu button position offset for main panel</summary>
+     </key>
+     <key name="extra-categories" type="a(ib)">
+-      <default>[(3, true), (2, true), (0, false), (1, false), (4, false)]</default>
++      <default>[(8, true), (3, true), (2, true), (0, false), (1, false), (4, false)]</default>
+       <summary>Array of extra categories. See Constants.js - Categories</summary>
+     </key>
+     <key name="arcmenu-extra-categories-links" type="a(ib)">

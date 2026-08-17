@@ -1,0 +1,45 @@
+name: sdl3-ttf
+version: "3.2.2"
+release: 1
+description: TrueType font rendering library for SDL3 — harfbuzz shaping + plutosvg color-emoji, strict fail-closed dependency resolution
+license: Zlib
+homepage: https://www.libsdl.org/
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://github.com/libsdl-org/SDL_ttf/releases/download/release-${version}/SDL3_ttf-${version}.tar.gz
+  sha256: 63547d58d0185c833213885b635a2c0548201cc8f301e6587c0be1a67e1e045d
+dependencies:
+  build:
+  - sdl3
+  - freetype2
+  - harfbuzz
+  - plutosvg
+  host: []
+  runtime:
+  - sdl3
+  - freetype2
+  - harfbuzz
+  - plutosvg
+# SDLTTF_VENDORED=OFF: system libs only (the 3.2.2 release tarball ships NO
+# vendored sources — external/ holds download scripts only; verified 2026-07-12).
+# SDLTTF_STRICT=ON: a missing dependency is a hard configure failure, never a
+# silent feature downgrade (upstream's fail-closed switch — our doctrine).
+# SDLTTF_PLUTOSVG=ON: color-emoji SVG glyphs via system plutosvg (decided
+# 2026-07-12 — full feature surface, no scoped-down ship).
+configure_flags:
+- -DBUILD_SHARED_LIBS=ON
+- -DSDLTTF_HARFBUZZ=ON
+- -DSDLTTF_PLUTOSVG=ON
+- -DSDLTTF_VENDORED=OFF
+- -DSDLTTF_STRICT=ON
+- -DSDLTTF_SAMPLES=OFF
+
+tests:
+  enabled: false
+  reason: "Upstream ships no test suite — zero enable_testing()/CTest/add_test in the pinned 3.2.2 CMake tree (verified in the pinned tarball 2026-07-12; the SDLTTF_SAMPLES programs are examples, not a ctest suite, and stay OFF); the cmake style's default check phase 'cmake --build build --target test' has no target to run. Correctness is exercised downstream: freerdp's SDL3 client builds and links against this library, and verify_paths assert the shipped artifacts."
+
+verify_paths:
+  - /usr/lib/libSDL3_ttf.so
+  - /usr/include/SDL3_ttf/SDL_ttf.h

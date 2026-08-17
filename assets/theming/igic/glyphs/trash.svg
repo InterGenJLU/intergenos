@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: trash / bin — rim + handle + can body + three TRULY-VERTICAL slots. -->
+  <g class="glyph">
+    <line x1="72" y1="88" x2="184" y2="88"/>
+    <path d="M 108 88 L 112 72 L 144 72 L 148 88"/>
+    <path d="M 84 88 L 92 200 L 164 200 L 172 88"/>
+    <line x1="114" y1="112" x2="114" y2="178"/>
+    <line x1="128" y1="112" x2="128" y2="178"/>
+    <line x1="142" y1="112" x2="142" y2="178"/>
+  </g>
+</svg>

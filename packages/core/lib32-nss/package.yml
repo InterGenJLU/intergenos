@@ -1,0 +1,75 @@
+name: lib32-nss
+version: "3.121"
+release: 1
+description: Network Security Services (32-bit multilib runtime)
+license: MPL-2.0
+homepage: https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS
+tier: core
+# Bash-tier lib32 twin, the SIXTH of the operator's decided six (the nss
+# ADD), built via NSS's FIRST-CLASS 32-bit path — its own build.sh gyp
+# wrapper with --target ia32 (decided 2026-07-02 with the
+# four-package closure). This is a deliberate, recorded divergence from
+# the sibling's raw-make lane: raw make with USE_64 unset is documented
+# (BLFS) to try-and-fail 32-bit objects on x86_64, while build.sh
+# --target ia32 is the method the reference multilib distro (Arch
+# lib32-nss) ships in production. The gyp path needs no standalone
+# patch, so the sibling's nss-standalone-1.patch is omitted through a
+# governed (twin, patch-sha) entry in LIB32_PATCH_OMISSION_ALLOWED —
+# the patch reworks the raw-make coreconf plumbing this recipe never
+# invokes; the shipped libraries are compiled from the same sources.
+#
+# Flag provenance (every flag verified against the pinned 3.121
+# build.sh + help.txt + coreconf/config.gypi): --opt (Release),
+# --target ia32 (gyp target_arch, agreeing with the profile's -m32 CC),
+# --system-nspr + --system-sqlite (sibling parity — NSPR_INCLUDE_DIR +
+# NSS_USE_SYSTEM_SQLITE=1 in gyp form; resolved via the lib32
+# PKG_CONFIG_LIBDIR to the 32-bit .pc files), --disable-tests,
+# --enable-libpkix (Arch parity). System zlib is the pinned config.gypi
+# Linux default (links -lz -> lib32-zlib); sign_libs stays at its
+# default 1, so shlibsign emits the sibling-parity *.chk integrity
+# files beside the libs (the cross-compile branch that would zero both
+# only fires when build_tools_cc is set — it is not).
+#
+# Ships: dist/Release/lib *.so + *.chk into /usr/lib32, an nss.pc
+# sed-generated exactly like the sibling's (libdir=/usr/lib32), and the
+# sibling-parity trust symlink libnssckbi.so -> ./pkcs11/
+# p11-kit-trust.so, resolving to lib32-p11-kit's 32-bit trust module.
+# Headers + certutil/nss-config/pk12util + libcrmf.a stay with the
+# 64-bit sibling (a lib32 twin is runtime libs + .pc files).
+build_style: custom
+install_func: do_install
+lib32_source: nss
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://archive.mozilla.org/pub/security/nss/releases/NSS_3_121_RTM/src/nss-${version}.tar.gz
+  sha256: cb3a8f8781bea78b7b8edd3afb7a2cb58e4881bb0160d189a39b98216ba7632e
+dependencies:
+  build:
+  - lib32-glibc
+  - lib32-nspr
+  - lib32-sqlite
+  - lib32-zlib
+  - gyp
+  - ninja
+  host: []
+  runtime:
+  - lib32-glibc
+  - lib32-nspr
+  - lib32-sqlite
+  - lib32-zlib
+  - lib32-p11-kit
+verify_paths:
+  - /usr/lib32/libnss3.so
+  # libnssckbi.so is a symlink into lib32-p11-kit (trust-module redirect) —
+  # not own payload, so it cannot serve as a verify_path (archive-seal gate
+  # validates link-target chains within the package's own archive).
+  - /usr/lib32/libsmime3.so
+  - /usr/lib32/pkgconfig/nss.pc
+
+# Build inputs composed from the repository tree (declared so the published
+# source archive carries every input the build consumes — the corresponding-
+# source rule the kernel config fragments established; survey 2026-08-11).
+sources_extra:
+- scripts/lib32-env.sh

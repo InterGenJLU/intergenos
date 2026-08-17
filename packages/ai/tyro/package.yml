@@ -1,0 +1,26 @@
+name: tyro
+# Upstream latest stable.
+version: "1.0.15"
+release: 1
+description: Zero-effort CLI interfaces and config objects from type hints
+license: MIT
+homepage: https://github.com/brentyi/tyro
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/12/78/a5749a6c1ee9abc2999e294f339f8f72476d1a60bb95fc0e86156aafed3b/tyro-1.0.15.tar.gz
+  sha256: 3f1d60887723eecb9c489f195d11f079c4a1f33df74b723552ad31ec57c667bb
+dependencies:
+  build:
+  - hatchling
+  host: []
+  runtime:
+  - docstring-parser
+  - typeguard
+  - typing-extensions
+  # eval-type-backport is python_version<3.10 marker-gated, off on python3.14.
+verify_paths:
+  - /usr/lib/python3.14/site-packages/tyro/__init__.py
+  - /usr/lib/python3.14/site-packages/tyro/_cli.py

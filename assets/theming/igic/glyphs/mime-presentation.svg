@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- mime emblem: presentation — a screen with a staggered 4-bar chart. Heights are
+       non-monotonic (3-2-5-4); the tallest bar clears the frame line with a sliver of space. -->
+  <g class="glyph">
+    <rect x="96" y="106" width="64" height="44" rx="4"/>
+    <line x1="112" y1="140" x2="112" y2="125"/>
+    <line x1="124" y1="140" x2="124" y2="130"/>
+    <line x1="136" y1="140" x2="136" y2="115"/>
+    <line x1="148" y1="140" x2="148" y2="120"/>
+  </g>
+</svg>

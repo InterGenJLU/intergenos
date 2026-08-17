@@ -1,0 +1,23 @@
+name: expect
+version: "5.45.4"
+release: 2  # r2: license: Public-Domain -> LicenseRef-Public-Domain — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade.
+description: Tool for automating interactive applications
+# SPDX has no identifier for a bare public-domain dedication. LicenseRef- is
+# SPDX's own mechanism for a licence it does not carry, and preserves the
+# declaration exactly as the recipe stated it.
+license: LicenseRef-Public-Domain
+homepage: https://core.tcl.tk/expect/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://prdownloads.sourceforge.net/expect/expect${version}.tar.gz
+  sha256: 49a7da83b0bdd9f46d04a04deec19c7767bb9a323e40c4781f89caf760b92c34
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - tcl
+verify_paths:
+  - /usr/bin/expect
+  - /usr/lib/libexpect5.45.4.so

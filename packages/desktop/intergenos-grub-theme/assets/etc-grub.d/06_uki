@@ -1,0 +1,88 @@
+#!/bin/bash
+# Auto-detect Unified Kernel Images at /boot/efi/EFI/Linux/ and emit
+# GRUB chainloader menuentries for them. Numbered 06_ so the resulting
+# menuentries land BEFORE 10_linux's bare-vmlinuz entries, making the
+# UKI the default boot path (GRUB_DEFAULT=0 hits this first).
+#
+# Why this exists: GRUB's stock 25_bli script implements the Boot Loader
+# Specification Type 1 (the /boot/loader/entries/ ".conf" format used by
+# systemd-boot's auto-discovery) but does NOT auto-detect Type 2 UKIs at
+# /EFI/Linux/*.efi. systemd-boot detects both; GRUB only detects Type 1.
+# Without this script, our hand-built UKIs at /EFI/Linux/intergenos-
+# <kver>.efi (created by packages/core/linux-kernel/hooks/post-install.sh)
+# are present on the ESP but invisible to GRUB — and grub-mkconfig still
+# emits a bare-vmlinuz menuentry from 10_linux that boots vmlinuz with
+# NO initramfs (kernel panic on first boot).
+#
+# Surfaced 2026-05-26 install attempt #21 first-boot triage: UKI present
+# at /boot/efi/EFI/Linux/intergenos-6.18.10-igos.efi (14.4 MB, MOK-signed)
+# but GRUB menuentry list contained only the broken bare-vmlinuz entry.
+#
+# Mechanism: search the ESP at runtime via grub-probe --target=fs_uuid
+# (which the GRUB scripting environment resolves correctly), insmod
+# part_gpt + fat + chain modules, then chainloader the UKI path
+# (relative to the ESP root). UKI's bundled cmdline + initramfs are
+# embedded in PE sections so no separate `linux`/`initrd` directives are
+# needed — chainloader hands control to the UKI as a stand-alone EFI
+# binary and shim-verifies the signature when Secure Boot is enabled.
+
+set -e
+
+ESP_UKI_DIR=/boot/efi/EFI/Linux
+
+if [ ! -d "$ESP_UKI_DIR" ]; then
+    exit 0
+fi
+
+# Resolve ESP filesystem UUID via grub-probe (the GRUB-canonical way).
+# Failure here means the script silently no-ops -> GRUB falls back to
+# 10_linux's bare-vmlinuz entries (degraded but at least visible to the
+# operator who can then investigate; this is the chosen failure mode per
+# D-005 "grub-loads-vmlinuz path stays intact as fallback").
+ESP_UUID=$(grub-probe --target=fs_uuid /boot/efi 2>/dev/null) || exit 0
+if [ -z "$ESP_UUID" ]; then
+    exit 0
+fi
+
+# Emit one menuentry per UKI found, sorted by descending modification time
+# so the freshest kernel lands as the first/default entry (matches the
+# kernel-install convention of "newest kernel = default" most users expect).
+declare -A UKI_MTIME_MAP
+shopt -s nullglob
+for uki_path in "$ESP_UKI_DIR"/intergenos-*.efi; do
+    mtime=$(stat -c %Y "$uki_path" 2>/dev/null || echo 0)
+    UKI_MTIME_MAP["$uki_path"]=$mtime
+done
+shopt -u nullglob
+
+# Sort keys by mtime descending. Pure bash; no external sort/awk dependency
+# (consistent with the no-sed posture in the linux-kernel post-install hook
+# for the same install-time ordering reason).
+sorted_paths=()
+while [ ${#UKI_MTIME_MAP[@]} -gt 0 ]; do
+    best_path=""
+    best_mtime=-1
+    for path in "${!UKI_MTIME_MAP[@]}"; do
+        if [ "${UKI_MTIME_MAP[$path]}" -gt "$best_mtime" ]; then
+            best_mtime=${UKI_MTIME_MAP[$path]}
+            best_path=$path
+        fi
+    done
+    sorted_paths+=("$best_path")
+    unset 'UKI_MTIME_MAP[$best_path]'
+done
+
+for uki_path in "${sorted_paths[@]}"; do
+    uki_name="${uki_path##*/}"
+    kver="${uki_name#intergenos-}"
+    kver="${kver%.efi}"
+    cat << ENTRY
+menuentry "InterGenOS ${kver} (UKI)" --class intergenos --class gnu-linux --class gnu --class os {
+    insmod part_gpt
+    insmod fat
+    insmod chain
+    search --no-floppy --fs-uuid --set=root ${ESP_UUID}
+    chainloader /EFI/Linux/${uki_name}
+}
+ENTRY
+done

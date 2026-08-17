@@ -1,0 +1,83 @@
+name: neovim
+version: "0.12.3"
+release: 1
+description: Hyperextensible Vim-based text editor
+license: Apache-2.0
+homepage: https://neovim.io/
+tier: base
+build_style: custom
+# Bundled-deps build (upstream USE_BUNDLED=ON default). Neovim's two-stage
+# CMake build (cmake.deps/ then the main tree) statically links its own pinned
+# dependency set. Rather than packaging the 8+ libraries Neovim wants at
+# upstream-pinned versions (libuv 1.52.1, luajit @fbb36bb, luv, lpeg,
+# unibilium, utf8proc, tree-sitter 0.26.7 + 6 grammar parsers — only libuj/
+# luajit/lua exist in the tree, and at different versions than Neovim pins),
+# we stage those exact tarballs and let cmake.deps build them. On Linux,
+# gettext/libiconv are NOT bundled (USE_BUNDLED_GETTEXT/LIBICONV=OFF) so the
+# system gettext (core tier) is used; wasmtime is OFF (ENABLE_WASMTIME=OFF).
+#
+# Each bundled tarball is staged into ${IGOS_SOURCES} under a distinct
+# `filename:` and copied by build.sh into the matching DEPS_DOWNLOAD_DIR/<dir>/
+# subdir under the exact upstream basename, so CMake ExternalProject's URL_HASH
+# verification matches the pre-staged file and never hits the network (the
+# offline-build discipline). Versions/sha256 are lifted verbatim from
+# cmake.deps/deps.txt of the pinned 0.12.3 source.
+source:
+  - url: https://github.com/neovim/neovim/archive/v${version}/neovim-${version}.tar.gz
+    sha256: 36a6c66bfbba5d96fa512110aecddb981148a4d013b5ecd01a42877c49855a41
+
+  # --- bundled deps (cmake.deps/deps.txt @ v0.12.3) ---
+  - url: https://github.com/libuv/libuv/archive/v1.52.1.tar.gz
+    sha256: 478baf2599bfbc882c355288c9cb6f92e0e7dda435fa04031fa5b607cf3f414c
+    filename: neovim-${version}-dep-libuv-v1.52.1.tar.gz
+  - url: https://github.com/luajit/luajit/archive/fbb36bb6bfa88716a47c58bcf9ce9f2ef752abac.tar.gz
+    sha256: e60cd2f3057aa39d33d1c895a20087ab54494d9a1ca45aa488ff0378af42df48
+    filename: neovim-${version}-dep-luajit-fbb36bb.tar.gz
+  - url: https://github.com/luvit/luv/archive/1.52.1-0.tar.gz
+    sha256: e8b8774b31d24be4fcf2b021b90599ecccc8e476c61efcc59c3c10cab813a885
+    filename: neovim-${version}-dep-luv-1.52.1-0.tar.gz
+  - url: https://github.com/neovim/deps/raw/d495ee6f79e7962a53ad79670cb92488abe0b9b4/opt/lpeg-1.1.0.tar.gz
+    sha256: 4b155d67d2246c1ffa7ad7bc466c1ea899bbc40fef0257cc9c03cecbaed4352a
+    filename: neovim-${version}-dep-lpeg-1.1.0.tar.gz
+  - url: https://github.com/lunarmodules/lua-compat-5.3/archive/v0.13.tar.gz
+    sha256: f5dc30e7b1fda856ee4d392be457642c1f0c259264a9b9bfbcb680302ce88fc2
+    filename: neovim-${version}-dep-lua_compat53-v0.13.tar.gz
+  - url: https://github.com/neovim/unibilium/archive/v2.1.2.tar.gz
+    sha256: 370ecb07fbbc20d91d1b350c55f1c806b06bf86797e164081ccc977fc9b3af7a
+    filename: neovim-${version}-dep-unibilium-v2.1.2.tar.gz
+  - url: https://github.com/juliastrings/utf8proc/archive/v2.11.3.tar.gz
+    sha256: abfed50b6d4da51345713661370290f4f4747263ee73dc90356299dfc7990c78
+    filename: neovim-${version}-dep-utf8proc-v2.11.3.tar.gz
+  - url: https://github.com/tree-sitter/tree-sitter/archive/v0.26.7.tar.gz
+    sha256: 4343107ad1097a35e106092b79e5dd87027142c6fba5e4486b1d1d44d5499f84
+    filename: neovim-${version}-dep-treesitter-v0.26.7.tar.gz
+  - url: https://github.com/tree-sitter/tree-sitter-c/archive/v0.24.1.tar.gz
+    sha256: 25dd4bb3dec770769a407e0fc803f424ce02c494a56ce95fedc525316dcf9b48
+    filename: neovim-${version}-dep-treesitter_c-v0.24.1.tar.gz
+  - url: https://github.com/tree-sitter-grammars/tree-sitter-lua/archive/v0.5.0.tar.gz
+    sha256: cf01b93f4b61b96a6d27942cf28eeda4cbce7d503c3bef773a8930b3d778a2d9
+    filename: neovim-${version}-dep-treesitter_lua-v0.5.0.tar.gz
+  - url: https://github.com/tree-sitter-grammars/tree-sitter-vim/archive/v0.8.1.tar.gz
+    sha256: 93cafb9a0269420362454ace725a118ff1c3e08dcdfdc228aa86334b54d53c2a
+    filename: neovim-${version}-dep-treesitter_vim-v0.8.1.tar.gz
+  - url: https://github.com/neovim/tree-sitter-vimdoc/archive/v4.1.0.tar.gz
+    sha256: 020e8f117f648c8697fca967995c342e92dbd81dab137a115cc7555207fbc84f
+    filename: neovim-${version}-dep-treesitter_vimdoc-v4.1.0.tar.gz
+  - url: https://github.com/tree-sitter-grammars/tree-sitter-query/archive/v0.8.0.tar.gz
+    sha256: c2b23b9a54cffcc999ded4a5d3949daf338bebb7945dece229f832332e6e6a7d
+    filename: neovim-${version}-dep-treesitter_query-v0.8.0.tar.gz
+  - url: https://github.com/tree-sitter-grammars/tree-sitter-markdown/archive/v0.5.3.tar.gz
+    sha256: df845b1ab7c7c163ec57d7fa17170c92b04be199bddab02523636efec5224ab6
+    filename: neovim-${version}-dep-treesitter_markdown-v0.5.3.tar.gz
+
+dependencies:
+  build:
+    - cmake
+    - ninja
+    - gettext
+    - gperf
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/nvim
+  - /usr/share/nvim/

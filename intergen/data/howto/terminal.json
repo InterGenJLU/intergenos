@@ -1,0 +1,17 @@
+[
+  {
+    "id": "terminal-run-command",
+    "domain": "terminal",
+    "triggers": [
+      "how do I run a command",
+      "how do I open a terminal",
+      "how do I use the command line",
+      "how do I run a command in the terminal",
+      "what's the command to open a terminal",
+      "how do I execute a command"
+    ],
+    "answer": "Open the **Terminal** app, type the command, and press Enter:\n\n```\n<command> [arguments]     # e.g.  ls -la   or   systemctl status sshd\nsudo <command>           # for admin actions — you'll be asked for your password\n```\n\nA few safety habits worth keeping:\n\n- **Only run commands you understand**, and never paste a command from an untrusted source — especially with `sudo`, which acts as administrator.\n- `man <command>` (or `<command> --help`) explains what a command does before you run it.\n- You can also just **ask InterGen in plain language** — for anything that changes the system it shows you a consent card describing the action, and nothing runs until you approve it.",
+    "doc_source": "docs/getting-started.md",
+    "requires": []
+  }
+]

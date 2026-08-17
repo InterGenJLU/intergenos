@@ -1,0 +1,39 @@
+name: julia
+version: "1.12.6"
+release: 1
+description: The Julia programming language for technical computing
+license: MIT
+homepage: https://julialang.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  # The `-full` release tarball (Rule 12, latest stable) bundles every dependency
+  # SOURCE under deps/srccache/ so the build needs no network — the light source
+  # tarball would fetch BinaryBuilder artifacts at build time (disallowed in the
+  # offline chroot). sha256 computed from the fetched upstream tarball at
+  # authoring time (GitHub release assets publish no detached checksum; disclosed
+  # in the delivery paste-back).
+  - url: https://github.com/JuliaLang/julia/releases/download/v${version}/julia-${version}-full.tar.gz
+    sha256: 711f3aa8d6ec5c9004593eb8f3d53e3564cd759acba8ad4adae967afc20332cc
+dependencies:
+  # Julia bundles and builds its deps from source (USE_BINARYBUILDER=0), including
+  # its PATCHED LLVM fork — so it does NOT depend on the in-tree llvm. The build
+  # drives gcc/gfortran (OpenBLAS/SuiteSparse), cmake (LLVM fork, libgit2),
+  # python3 (LLVM build scripts), and perl + m4 (dep build scripts).
+  build:
+    - gcc-core
+    - cmake
+    - perl-core
+    - python
+    - m4
+    - gmp  # USE_SYSTEM_GMP=1 — links the system lib (see build.sh)
+  host: []
+  runtime:
+    - gcc
+    - glibc
+    - gmp  # USE_SYSTEM_GMP=1 — libgmp is a runtime link dep
+verify_paths:
+  - /usr/bin/julia
+  - /usr/lib/julia
+  - /usr/share/julia

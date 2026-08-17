@@ -1,0 +1,27 @@
+name: Mako
+version: "1.3.10"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Python template library (needed by Mesa)
+license: MIT
+homepage: ''
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/M/Mako/mako-${version}.tar.gz
+  sha256: 99579a6f39583fa7e5630a28c3c1f440e4e97a414b80372649c0ce338da2ea28
+dependencies:
+  build:
+  # The pinned sdist's [build-system] names setuptools.build_meta, provided by
+  # setuptools. build.sh builds with --no-build-isolation, which installs nothing
+  # for the build, so setuptools must already be present; declaring it here is
+  # what orders it ahead of this package.
+  - setuptools
+  - docbook-xsl-nons
+  host: []
+  runtime:
+  - python
+  - markupsafe
+verify_paths:
+  - /usr/bin/mako-render
+  - /usr/lib/python3.14/site-packages/mako

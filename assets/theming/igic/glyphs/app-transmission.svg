@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Transmission — traced from the reference rendition: a crossbar running through a centre block, a download arrow drawn as one continuous outline, an inbox with a closed base. -->
+  <g class="glyph">
+    <!-- crossbar: centre block with the bar integral to it, rounded outer ends -->
+    <rect x="110" y="42.5" width="36" height="44" rx="6"/>
+    <path d="M 110 51 H 75 A 8 8 0 0 0 67 59 V 69 A 8 8 0 0 0 75 77 H 110"/>
+    <path d="M 146 51 H 181 A 8 8 0 0 1 189 59 V 69 A 8 8 0 0 1 181 77 H 146"/>
+    <!-- download arrow: shaft and head as one continuous outline, interior open -->
+    <path d="M 113 86.5 V 147 H 99 L 128 184.5 L 157 147 H 143 V 86.5"/>
+    <!-- inbox: slot-like opening either side of the shaft, angled walls -->
+    <path d="M 103.4 114.5 H 76.4 L 62 191"/>
+    <path d="M 152.6 114.5 H 179.6 L 194 191"/>
+    <!-- closed base -->
+    <rect x="62" y="191" width="132" height="22.5" rx="7"/>
+  </g>
+</svg>

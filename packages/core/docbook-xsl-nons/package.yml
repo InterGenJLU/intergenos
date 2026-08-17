@@ -1,0 +1,26 @@
+name: docbook-xsl-nons
+version: "1.79.2"
+release: 2  # r2: hook-contract remainder — /etc/xml ships as owned payload from do_install instead of being created by post_install. The catalog FILE stays hook-generated (several packages register rewrite rules into one shared catalog, so its content is machine state); only the DIRECTORY moves, where the manifest can record it.
+description: DocBook XSL stylesheets
+license: MIT
+homepage: ''
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/docbook/xslt10-stylesheets/releases/download/release%2F${version}/docbook-xsl-nons-${version}.tar.bz2
+  sha256: ee8b9eca0b7a8f89075832a2da7534bce8c5478fc8fc2676f512d5d87d832102
+patches:
+  - file: docbook-xsl-nons-1.79.2-stack_fix-1.patch
+    sha256: a92c39715c54949ba9369add1809527b8f155b7e2a2b2e30cb4b39ee715f2e30
+dependencies:
+  build:
+  - docbook-xml
+  - libxml2
+  - libxslt
+  host: []
+  runtime: []
+# ruby removed 2026-05-11: docbook-xsl-nons is data-only (cp + xmlcatalog).
+# No ruby usage anywhere in build.sh. Stale declared dep, not a real dep.
+verify_paths:
+  - /usr/share/xml/docbook/xsl-stylesheets-nons-1.79.2

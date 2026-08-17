@@ -1,0 +1,26 @@
+diff -ruN a/config/external/gkcodecs/gkcodecs.symbols b/config/external/gkcodecs/gkcodecs.symbols
+--- a/config/external/gkcodecs/gkcodecs.symbols	2026-02-19 15:35:00.000000000 -0600
++++ b/config/external/gkcodecs/gkcodecs.symbols	2026-07-29 08:46:03.929956762 -0500
+@@ -1,4 +1,5 @@
+ # libaom symbols
++#ifndef MOZ_SYSTEM_LIBAOM
+ aom_codec_av1_cx
+ aom_codec_av1_dx
+ aom_codec_build_config
+@@ -51,6 +52,7 @@
+ av1_set_internal_size
+ av1_set_reference_enc
+ av1_use_as_reference
++#endif
+ # libogg symbols
+ ogg_calloc_func
+ ogg_free_func
+diff -ruN a/config/external/gkcodecs/moz.build b/config/external/gkcodecs/moz.build
+--- a/config/external/gkcodecs/moz.build	2026-02-19 15:35:00.000000000 -0600
++++ b/config/external/gkcodecs/moz.build	2026-07-29 08:46:03.937111064 -0500
+@@ -16,3 +16,5 @@
+ SYMBOLS_FILE = "gkcodecs.symbols"
+ if CONFIG["MOZ_SYSTEM_LIBVPX"]:
+     DEFINES["MOZ_SYSTEM_LIBVPX"] = True
++if CONFIG["MOZ_SYSTEM_AV1"]:
++    DEFINES["MOZ_SYSTEM_LIBAOM"] = True

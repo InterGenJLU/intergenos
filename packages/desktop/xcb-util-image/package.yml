@@ -1,0 +1,27 @@
+name: xcb-util-image
+version: "0.4.1"
+release: 1
+description: XCB image convenience library
+license: MIT
+homepage: https://xcb.freedesktop.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://xcb.freedesktop.org/dist/xcb-util-image-${version}.tar.xz
+  sha256: ccad8ee5dadb1271fd4727ad14d9bd77a64e505608766c4e98267d9aede40d3d
+dependencies:
+  build:
+  - xcb-util
+  - libxcb
+  - xorgproto
+  host: []
+  runtime:
+  - xcb-util
+  - libxcb
+configure_flags:
+- --prefix=/usr
+- --disable-static
+verify_paths:
+  - /usr/lib/libxcb-image.so
+  - /usr/lib/pkgconfig/xcb-image.pc

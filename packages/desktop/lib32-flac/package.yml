@@ -1,0 +1,79 @@
+name: lib32-flac
+version: "1.5.0"
+release: 1
+description: Free Lossless Audio Codec (32-bit multilib runtime)
+license: GPL-2.0-or-later
+homepage: https://xiph.org/flac/
+tier: desktop
+# PURE-YML package (no build.sh): driven end-to-end by the builder's lib32
+# autotools lane. The sibling is build_style:custom, but its customization
+# is configure flags + the root-environmental test policy only (verified by
+# reading packages/desktop/flac/build.sh before twinning — it is AUTOTOOLS,
+# not cmake, per its own BLFS note; no cmake toolchain file is involved) —
+# nothing the pure-yml lane can't express, so the twin rides the lane.
+#
+# Flag grounding (pinned 1.5.0 configure.ac, G3 — pin, never autodetect):
+# - --enable-ogg: pinned explicit (sibling autodetects against its libogg
+#   dep); the Ogg-FLAC surface is part of what libsndfile consumes.
+#   ⚠ flac's ogg.m4 (XIPH_PATH_OGG) is NOT pkg-config: with a bare
+#   --prefix=/usr it injects `-L/usr/lib -logg` (the 64-BIT dir) and only
+#   WARNS on a probe miss — Ogg support would drop SILENTLY (a missing
+#   NEEDED edge is invisible to the closure gate). Two-sided close:
+#   --with-ogg-libraries=/usr/lib32 pins the search deterministically, and
+#   the fatal validation gate below asserts the libogg NEEDED edge on the
+#   staged artifact (verify, never assume).
+# - --disable-programs/--disable-examples/--disable-doxygen-docs: binaries,
+#   examples and docs ship with the 64-bit sibling; not building them is
+#   the honest form of not shipping them (the allowlist would drop them).
+# - --disable-thorough-tests: sibling parity. The yml lane DOES run
+#   `make check` (every style emits it strictly since B6 removed the
+#   `|| true`), so the 32-bit suite runs here and rides the same governed
+#   tests: known_failures waiver as the sibling — the level-1 read-only
+#   iterator test fails under root CAP_DAC_OVERRIDE by environment, not
+#   defect (GE-01 launch 7 halted on exactly this before the yml lane
+#   learned the tests: policy). The shipped libs are additionally verified
+#   by the archive-time width/time64 audits + the NEEDED-closure gate.
+# - cpplibs stay at the pinned default (on): libFLAC++ costs no extra
+#   NEEDED edge (libstdc++ ships 32-bit with multilib gcc-core) and the
+#   twin is its sibling one ABI narrower, minus binaries.
+build_style: autotools
+lib32_source: flac
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://downloads.xiph.org/releases/flac/flac-${version}.tar.xz
+  sha256: f2c1c76592a82ffff8413ba3c4a1299b6c7ab06c734dee03fd88630485c2b920
+dependencies:
+  build:
+  - lib32-glibc
+  - lib32-libogg
+  host: []
+  runtime:
+  - lib32-glibc
+  - lib32-libogg
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "Same environmental root-bypass as the 64-bit sibling (packages/desktop/flac): test_libFLAC's 'level 1 interface — simple iterator on read-only file' chmod's metadata.flac read-only and expects the iterator to report it unwritable, but under root (uid 0) CAP_DAC_OVERRIDE bypasses mode bits, so the iterator correctly says writable and the test fails — upstream's own message prints 'are you running as root?'. Everything before it (entropy coder, bitreader, bitwriter, format, picture/streaminfo/tags/cuesheet metadata, native + Ogg FLAC) passes cleanly in 32-bit. Halted GE-01 launch 7 at 2026-07-03 18:46 CDT; not a code defect."
+configure_flags:
+- --prefix=/usr
+- --disable-static
+- --enable-ogg
+- --with-ogg-libraries=/usr/lib32
+- --with-ogg-includes=/usr/include
+- --disable-programs
+- --disable-examples
+- --disable-doxygen-docs
+- --disable-thorough-tests
+validation:
+  - type: sanity_check
+    description: "Ogg support really linked — ogg.m4 only WARNS on a probe miss, so assert the libogg NEEDED edge on the staged libFLAC"
+    script: |
+      readelf -d "${DESTDIR}/usr/lib32/libFLAC.so.14" | grep -F 'libogg.so.0'
+    expect_contains: "libogg.so.0"
+    fatal: true
+verify_paths:
+  - /usr/lib32/libFLAC.so.14
+  - /usr/lib32/libFLAC++.so.11
+  - /usr/lib32/pkgconfig/flac.pc

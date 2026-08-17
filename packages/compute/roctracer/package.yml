@@ -1,0 +1,36 @@
+name: roctracer
+version: "7.2.4"
+release: 1
+description: ROCm tracer + ROCTX annotation library (runtime API tracing; roctx64 is RCCL/hipBLASLt's marker backend)
+license: MIT
+homepage: https://github.com/ROCm/rocm-systems
+tier: compute
+build_style: custom
+install_func: do_install
+
+# SAME rocm-systems tarball (shared-source pin); builds
+# projects/roctracer from the monorepo. Host-side tracing library pair
+# (libroctracer64 + libroctx64) over the installed HIP + HSA runtimes.
+# Python + CppHeaderParser drive its API-table code generation at build
+# (the same generator stack rocprofiler-register uses).
+source:
+  - url: https://github.com/ROCm/rocm-systems/archive/refs/tags/rocm-${version}.tar.gz
+    filename: rocm-rocm-systems-${version}.tar.gz
+    sha256: 817f9c136125b8d162757a18cdc25b18b1efeb8ef36a948c85e4a672fd149de5
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - rocm-cmake
+  - rocm-hip
+  - rocr-runtime
+  - python
+  - python-cppheaderparser
+  host: []
+  runtime:
+  - rocm-hip
+  - rocr-runtime
+verify_paths:
+  - /opt/rocm/lib/libroctracer64.so
+  - /opt/rocm/lib/libroctx64.so

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- emblem: Music — a note (stem + head + flag). Colorless. -->
+  <g class="glyph">
+    <line x1="131" y1="130" x2="131" y2="166"/>
+    <circle cx="123" cy="168" r="8"/>
+    <path d="M 131 130 L 141 136 L 139 144"/>
+  </g>
+</svg>

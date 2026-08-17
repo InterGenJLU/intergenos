@@ -1,0 +1,33 @@
+name: libdecor
+version: "0.2.5"
+release: 1
+description: Client-side window decorations library for Wayland
+license: MIT
+homepage: https://gitlab.freedesktop.org/libdecor/libdecor
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/libdecor/libdecor/-/archive/${version}/libdecor-${version}.tar.gz
+  sha256: 39c109a9a7eae943ba34d18a282c447d5729f9c486c8bc05ea305e4acd341522
+dependencies:
+  build:
+  - wayland
+  - wayland-protocols
+  - dbus
+  - cairo
+  - pango
+  host: []
+  runtime:
+  - wayland
+  - dbus
+  - cairo
+  - pango
+configure_flags:
+- -Ddemo=false
+- -Dinstall_demo=false
+- -Dgtk=disabled
+- -Ddbus=enabled
+verify_paths:
+  - /usr/lib/libdecor-0.so
+  - /usr/lib/pkgconfig/libdecor-0.pc

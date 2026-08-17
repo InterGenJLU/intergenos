@@ -1,0 +1,27 @@
+name: grub
+version: '2.14'
+release: 2  # r2: 10_linux gains unversioned initramfs.img as the last initrd candidate (fail-closed anchor check) — fallback menu entries were ucode-only, so the GRUB recovery path could not unlock FDE; present on every installed system, masked by the UKI primary path.
+content_hash: c063c30d3da5e632
+description: GNU bootloader
+license: GPL-3.0-or-later
+source:
+- url: https://ftpmirror.gnu.org/grub/grub-${version}.tar.xz
+  sha256: bc8d3c73535b8838d8c8e2654d73edc4e6ae8c8acdb45d5df5dc9a1547446d43
+dependencies:
+  build: []
+  host: []
+  runtime: []
+tier: core
+# GRUB legitimately archives BOTH ELF widths: the i386-pc target's BIOS-boot
+# modules (/usr/lib/grub/i386-pc/*.mod|*.module) are 32-bit protected-mode
+# code by design — grub-mkimage inputs, never ld.so-loaded userspace. The
+# x86_64-efi modules + the host tools are 64-bit. Declared, not allowlisted:
+# the archive-time width audit (igos-build/elfaudit.py) waives on this
+# explicit contract, and the post-eviction squashfs sweep carries the
+# matching --allow32-prefix for the i386-pc directory.
+elf_class: mixed
+build_style: custom
+verify_paths:
+  - /usr/sbin/grub-bios-setup
+  - /usr/bin/grub-editenv
+  - /usr/lib/grub

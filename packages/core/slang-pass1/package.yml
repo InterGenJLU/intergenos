@@ -1,0 +1,34 @@
+name: slang-pass1
+version: "2.3.3"
+release: 1
+description: S-Lang programming library (bootstrap — without PNG image rendering)
+license: GPL-2.0-or-later
+homepage: ''
+tier: core
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.jedsoft.org/releases/slang/slang-${version}.tar.bz2
+  sha256: f9145054ae131973c61208ea82486d5dd10e3c5cdad23b7c4a0617743c8f5a18
+dependencies:
+  build:
+  - readline
+  host: []
+  runtime:
+  - readline
+configure_flags:
+- --prefix=/usr
+- --sysconfdir=/etc
+- --with-readline=gnu
+- --without-png
+# First pass of the 2-pass slang build. Built with --without-png so it does
+# NOT depend on libpng (tier:desktop). Satisfies newt (tier:core, text-mode
+# installer dialogs — does not use S-Lang PNG rendering). Full slang with
+# PNG image rendering lives in tier:desktop and supersedes pass1 at install
+# time via migrate-pkm-supersedes.sh. Approved 2026-05-11.
+# --without-png (not --with-png=NO): slang's autoconf treats --with-png=<val>
+# as a literal path prefix, so --with-png=NO would expand to -INO/include
+# + -LNO/lib. --without-png is the correct disable form.
+verify_paths:
+  - /usr/bin/slsh
+  - /usr/lib/libslang.so

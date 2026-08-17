@@ -1,0 +1,24 @@
+name: python-certifi
+version: "2026.6.17"
+release: 3  # r3: pip install adds --ignore-installed — an r2-class rebuild in a chroot already holding this package satisfied pip from the environment, leaving DESTDIR (and the sealed archive) EMPTY while reporting success (DFB-01/02, 2026-07-19)
+description: Python TLS trust anchor shim redirected to the system CA bundle
+license: MPL-2.0
+homepage: https://github.com/certifi/python-certifi
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://files.pythonhosted.org/packages/source/c/certifi/certifi-${version}.tar.gz
+    sha256: 024c88eeec92ca068db80f02b8b07c9cef7b9fe261d1d535abfd5abd6f6af432
+dependencies:
+  build:
+    - setuptools
+  host: []
+  # the patched shim serves /etc/ssl/certs/ca-certificates.crt at import
+  # time — that bundle is installed solely by ca-certificates (review
+  # finding F-05, 2026-07-17).
+  runtime:
+    - ca-certificates
+verify_paths:
+  - /usr/lib/python3.14/site-packages/certifi/core.py

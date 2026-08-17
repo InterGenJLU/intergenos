@@ -1,0 +1,52 @@
+name: openjdk
+version: "24.0.2"
+release: 1
+description: OpenJDK Java development kit and runtime, built from source
+license: GPL-2.0-only WITH Classpath-exception-2.0
+homepage: https://openjdk.org/
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  # Shipped artifact is compiled from this source tree (make images).
+  - url: https://github.com/adoptium/temurin24-binaries/releases/download/jdk-24.0.2%2B12/OpenJDK24U-jdk-sources_24.0.2_12.tar.gz
+    sha256: f76c96107ae408ce6f59b398b87d8747555800fc99abe810a260289de1771d4c
+    filename: OpenJDK24U-jdk-sources_24.0.2_12.tar.gz
+  # Bootstrap-seed JDK binary (Rule-5 secondary source, extracted explicitly in
+  # build.sh). Building a JVM needs an existing JVM — the same binary-seed
+  # bootstrap pattern as rust/go. The seed compiles the source; it is NOT the
+  # shipped artifact.
+  - url: https://github.com/adoptium/temurin24-binaries/releases/download/jdk-24.0.2%2B12/OpenJDK24U-jdk_x64_linux_hotspot_24.0.2_12.tar.gz
+    sha256: aea1cc55e51cf651c85f2f00ad021603fe269c4bb6493fa97a321ad770c9b096
+    filename: OpenJDK24U-jdk_x64_linux_hotspot_24.0.2_12.tar.gz
+dependencies:
+  build:
+    - cpio
+    - which
+    - zip
+    - make-ca
+  host: []
+  runtime:
+    - glibc
+    - gcc
+    - alsa-lib
+    - cups
+    - libX11
+    - libXext
+    - libXi
+    - libXrender
+    - libXtst
+    - libXt
+    - giflib
+    - harfbuzz
+    - lcms2
+    - libjpeg-turbo
+    - libpng
+    - freetype2
+    - fontconfig
+    - zlib
+verify_paths:
+  - /opt/jdk-24.0.2+12/bin/java
+  - /opt/jdk-24.0.2+12/bin/javac
+  - /opt/jdk-24.0.2+12/lib/server/libjvm.so
+  - /etc/profile.d/openjdk.sh

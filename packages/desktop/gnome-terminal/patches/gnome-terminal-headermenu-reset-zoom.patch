@@ -1,0 +1,27 @@
+From: InterGenOS <noreply@intergenos.example>
+Date: Fri, 10 Jul 2026
+Subject: [PATCH] headermenu: label the zoom-reset control "Reset _Zoom" not "100%"
+
+The hamburger-menu zoom section renders a static "100%" literal as the
+reset-to-normal control (action win.zoom-normal). It carries no binding to
+the current zoom level (all three zoom actions are stateless), so it never
+reflects the actual scale — it is a reset button wearing a value it does not
+report. A control that misdescribes its own function violates the principle
+that the user must be able to trust what the UI tells them.
+
+This is GNOME/gnome-terminal issue #140 (open since 2019); upstream master
+resolves it as a wording fix. Relabel to the translatable "Reset _Zoom" so
+the control states what it does. Label only — the win.zoom-normal action,
+the GAction state, and font-scale handling are unchanged.
+
+--- a/src/terminal-headermenu.ui
++++ b/src/terminal-headermenu.ui
+@@ -25,7 +25,7 @@
+         <attribute name="action">win.zoom-out</attribute>
+       </item>
+       <item>
+-        <attribute name="label">100%</attribute>
++        <attribute name="label" translatable="yes">Reset _Zoom</attribute>
+         <attribute name="action">win.zoom-normal</attribute>
+       </item>
+       <item>

@@ -1,0 +1,11 @@
+--- a/CMakeLists.txt	2026-07-17 07:57:40.882830376 -0500
++++ b/CMakeLists.txt	2026-07-17 07:57:40.897045984 -0500
+@@ -371,7 +371,7 @@
+   OUTPUT_STRIP_TRAILING_WHITESPACE
+ )
+ 
+-if (ENABLE_MSCCLPP AND NOT(${HOST_OS_ID} STREQUAL "ubuntu" OR ${HOST_OS_ID} STREQUAL "centos"))
++if (ENABLE_MSCCLPP AND NOT("${HOST_OS_ID}" STREQUAL "ubuntu" OR "${HOST_OS_ID}" STREQUAL "centos"))
+   set(ENABLE_MSCCLPP OFF)
+   message(WARNING "MSCCL++ integration not supported on this OS (${HOST_OS_ID}); disabling MSCCL++ build")
+ endif()

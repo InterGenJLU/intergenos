@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# igos-greeter-monitors-seed.service — one-shot install of the
+# installer-staged pre-configuration greeter monitor layout, before GDM
+# starts. Condition-gated twice: runs only while a seed is staged AND no
+# greeter layout exists yet, so it is inert on every boot after the first
+# layout lands (the per-user igos-greeter-monitors-sync@ owns the file from
+# first login on). Exists because GDM's first-boot greeter init has been
+# observed to recreate the seat-state dir, wiping an install-time-only
+# delivery — this unit re-delivers on the next boot, before gdm.service.
+#
+# Sandbox: reads the staged seed, writes only the greeter seat state.
+# ReadWritePaths is load-bearing under ProtectSystem=strict (the
+# silent-service-failure class — declared here, not discovered on a target).
+
+[Unit]
+Description=Seed the GDM greeter monitor layout before first configuration
+Before=gdm.service
+ConditionPathExists=/var/lib/igos/greeter-monitors-seed.xml
+ConditionPathExists=!/var/lib/gdm/seat0/config/monitors.xml
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/igos-greeter-monitors-seed
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/gdm
+
+[Install]
+WantedBy=graphical.target

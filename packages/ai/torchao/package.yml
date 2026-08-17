@@ -1,0 +1,29 @@
+name: torchao
+version: "0.16.0"
+release: 1
+description: PyTorch-native quantization and optimization primitives
+license: BSD-3-Clause
+homepage: https://github.com/pytorch/ao
+tier: ai
+iso_include: false  # training apparatus — mirror-only (decided 2026-07-20)
+build_style: custom
+install_func: do_install
+# VERSION PAIRING: torchao publishes NO torch pin in its metadata; 0.16.0
+# co-released with torch 2.10.0 (both 2026-02-10) = the era-exact pair, and
+# satisfies unsloth-zoo's torchao>=0.13. No sdist on PyPI — github tag
+# archive, downloaded + summed 2026-07-21. Torch-compat = execution-verify
+# at the proof build (import + a quantize smoke).
+source:
+- url: https://github.com/pytorch/ao/archive/refs/tags/v${version}.tar.gz
+  filename: torchao-0.16.0.tar.gz
+  sha256: 2dffbfcfc438fb104799c99dca9876535e30ced9cd9c2315131fcaaa1f792e7d
+dependencies:
+  build:
+  - pytorch
+  - setuptools
+  host: []
+  runtime:
+  - pytorch
+verify_paths:
+  - /usr/lib/python3.14/site-packages/torchao/__init__.py
+  - /usr/lib/python3.14/site-packages/torchao/quantization

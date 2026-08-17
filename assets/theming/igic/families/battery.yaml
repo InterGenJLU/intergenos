@@ -1,0 +1,28 @@
+# Stateful family manifest — status/battery (ICON_CATEGORIES.md §6.3). ONE base glyph
+# (battery-body: outline + a 4-segment fill ladder) + a level parameter -> the discrete
+# -symbolic.svg ladder. Charging states add the `bolt` overlay (accent); full-charged adds
+# the `check` overlay; missing = grey glyph (dim) + a thicker accent X (R4-10). State ids OMIT the -symbolic suffix (the
+# compiler appends it) so the emitted basenames match the freedesktop demand strings exactly.
+# Names verified against icon-inventory-inputs/icon-coverage-inventory-20260710-r2.tsv.
+schema_version: 1
+family: battery
+category: status
+fit: 1.274                  # optical T(q) family fit (measured convergence)
+kind: symbolic
+base: battery-body
+export:
+  svg: true
+  png: [16, 24, 32, 48]          # top-bar / status sizes (matches the wifi symbolic ladder)
+states:                          # id (no -symbolic) | level 0..4 | optional overlays
+  - { id: battery-empty,            level: 0, fit: 1.395 }
+  - { id: battery-caution,          level: 1, fit: 1.395 }
+  - { id: battery-low,              level: 2, fit: 1.395 }
+  - { id: battery-good,             level: 3, fit: 1.395 }
+  - { id: battery-full,             level: 4, fit: 1.395 }
+  - { id: battery-empty-charging,   level: 0, overlays: [bolt], fit: 1.395 }
+  - { id: battery-caution-charging, level: 1, overlays: [bolt], fit: 1.395 }
+  - { id: battery-low-charging,     level: 2, overlays: [bolt], fit: 1.395 }
+  - { id: battery-good-charging,    level: 3, overlays: [bolt], fit: 1.395 }
+  - { id: battery-full-charging,    level: 4, overlays: [bolt], fit: 1.395 }
+  - { id: battery-full-charged,     level: 4, overlays: [check], fit: 1.395 }
+  - { id: battery-missing,          level: 0, dim: true, overlays: [missing], fit: 1.408 }

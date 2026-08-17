@@ -1,0 +1,41 @@
+name: rocfft
+version: "7.2.4"
+release: 1
+description: ROCm Fast Fourier Transform library (device FFT kernels + runtime kernel cache)
+license: MIT
+homepage: https://github.com/ROCm/rocm-libraries
+tier: compute
+build_style: custom
+install_func: do_install
+
+# SAME rocm-libraries tarball (shared-source pin); builds
+# projects/rocfft from the monorepo. Compiled device library (the heavy
+# class-B build). SQLite serves the RUNTIME kernel cache (rtc_cache) —
+# SQLITE_USE_SYSTEM_PACKAGE=ON pins it to the system sqlite (3.51.2
+# satisfies the pinned >=3.50.2 floor at cmake/sqlite.cmake:29); the
+# upstream default OFF FetchContent-downloads an amalgamation, which is
+# both a hermeticity violation and a second copy of a trust-bearing
+# library. MPI stays OFF (upstream default; no MPI stack in the tree).
+source:
+  - url: https://github.com/ROCm/rocm-libraries/archive/refs/tags/rocm-${version}.tar.gz
+    filename: rocm-rocm-libraries-${version}.tar.gz
+    sha256: 50a4090b4ad18b34c375f666e5f71816cf55f89bc2175dc3eba9a7b80f65a15d
+
+gpu_targets: "gfx1100;gfx1102;gfx1201"
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - rocm-cmake
+  - rocm-hip
+  - hiprand
+  - python
+  - sqlite
+  host: []
+  runtime:
+  - rocm-hip
+  - sqlite
+verify_paths:
+  - /opt/rocm/lib/librocfft.so
+  - /opt/rocm/include/rocfft/rocfft.h

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Image Viewer / Loupe — a framed photo. -->
+  <g class="glyph">
+    <rect x="46" y="58" width="164" height="140" rx="14"/>
+    <circle cx="90" cy="96" r="15"/>
+    <path d="M 50 186 L 100 128 L 134 164 L 168 118 L 206 170"/>
+  </g>
+</svg>

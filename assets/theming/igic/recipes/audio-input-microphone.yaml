@@ -1,0 +1,12 @@
+schema_version: 1
+id: audio-input-microphone
+name: Microphone (symbolic)
+category: status
+kind: symbolic          # off-white stroke, no glow/tile (a top-bar / menu-header status glyph)
+glyph: microphone       # the generic sound-input mic (volume.js:377,385)
+accent: ecg-blue
+pulse: none
+fit: 1.456
+export:
+  svg: true
+  png: [16, 24, 32, 48]

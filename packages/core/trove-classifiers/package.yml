@@ -1,0 +1,23 @@
+name: trove-classifiers
+version: "2026.1.14.14"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Canonical trove classifiers for Python packages
+license: Apache-2.0
+homepage: https://github.com/pypa/trove-classifiers
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/t/trove-classifiers/trove_classifiers-${version}.tar.gz
+  sha256: 00492545a1402b09d4858605ba190ea33243d361e2b01c9c296ce06b5c3325f3
+dependencies:
+  build:
+  # The pinned sdist's [build-system] names setuptools.build_meta, provided by
+  # setuptools. build.sh builds with --no-build-isolation, which installs nothing
+  # for the build, so setuptools must already be present; declaring it here is
+  # what orders it ahead of this package.
+  - setuptools
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/trove_classifiers

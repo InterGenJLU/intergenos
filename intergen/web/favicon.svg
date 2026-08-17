@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 32" width="52" height="32">
+  <rect width="52" height="32" rx="6" fill="#050810"/>
+  <!-- ECG/pulse mark: short leading flat -> heartbeat spike -> LONG trailing flat,
+       matching the brand logo (assets/intergen-mark/svg/intergenos_logo.svg) where the
+       line trails off to the right. The mark is STATIC; the glow/pulse is applied by the
+       UI only during InterGen's THINKING state (app.js mark-pulse on send/stream). -->
+  <path d="M4 16 L12 16 L15 9 L18 24 L21 16 L48 16" stroke="#0099FF" stroke-width="2.5" fill="none"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

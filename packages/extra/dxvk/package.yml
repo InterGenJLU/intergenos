@@ -1,0 +1,89 @@
+name: dxvk
+version: "3.0"
+release: 1
+description: Vulkan-based D3D8/9/10/11 implementation for wine, both PE widths
+license: Zlib
+homepage: https://github.com/doitsujin/dxvk
+tier: extra
+# GE extra-tier wave (build plan §4). Cross-built from SOURCE via the
+# landed mingw-w64 toolchain — upstream's release tarball is a PREBUILT
+# BINARY DLL BUNDLE (verified by extraction) and is unacceptable here;
+# GitHub's auto source tarball omits the submodules. So the source array
+# vendors the COMPLETE recursive submodule tree as separate sha-pinned
+# upstream archives (the gcc gmp/mpfr/mpc shape — every third-party
+# component a named, upstream-verifiable pin), resolved from a recursive
+# clone of the v3.0 tag (git submodule status --recursive, 2026-07-02).
+# Every secondary source is extracted EXPLICITLY into its .gitmodules
+# path in build.sh (Rule 5).
+#
+# The produced DLLs are self-contained PE (upstream meson links -static
+# -static-libgcc -static-libstdc++ — verified in the pinned meson.build);
+# the posix-threads mingw gcc is DXVK's documented requirement and is
+# what our toolchain ships. Install layout /usr/lib/dxvk/{x32,x64} (the
+# GLFS shape). dxvk 3.0 ships NO first-party setup script (verified in
+# the tag — the old setup_dxvk.sh is gone); prefix-enablement UX belongs
+# to the compatibility arc, not this recipe.
+build_style: custom
+# Mirror-only (extra-tier default, stated explicitly).
+iso_include: false
+source:
+- url: https://github.com/doitsujin/dxvk/archive/refs/tags/v${version}.tar.gz
+  filename: dxvk-${version}.tar.gz
+  sha256: 6719b92add717d5a56d0fda08f036eaf33312ce86a7b61ef83674e6017c6df5c
+- url: https://github.com/Joshua-Ashton/mingw-directx-headers/archive/9df86f2341616ef1888ae59919feaa6d4fad693d.tar.gz
+  filename: dxvk-directx-headers-9df86f23.tar.gz
+  sha256: 9c1b8bbfd2d6c758fac4d93c2808a46bc1eee429fe656b4f21b29e02615aa8aa
+- url: https://github.com/KhronosGroup/SPIRV-Headers/archive/04f10f650d514df88b76d25e83db360142c7b174.tar.gz
+  filename: dxvk-spirv-headers-04f10f65.tar.gz
+  sha256: 1b220e3eec1714f0451b0e3652979bd280edf10893f617837b88e6359a804ded
+- url: https://github.com/KhronosGroup/Vulkan-Headers/archive/8864cdc896bbc2a9b6eb36b3218fc9ef57908d77.tar.gz
+  filename: dxvk-vulkan-headers-8864cdc8.tar.gz
+  sha256: 35824117f649befc664a12622bc801eddbba036ac03d906db400ee1c1e7903e9
+- url: https://github.com/doitsujin/dxbc-spirv/archive/aa18e0b062ae9485c9188db12ff77122f51fc4d3.tar.gz
+  filename: dxbc-spirv-aa18e0b0.tar.gz
+  sha256: 60d449e14c316653223786f9c603de0fdb6579b38d0f8f1abc74e3a69f20feb6
+- url: https://github.com/KhronosGroup/SPIRV-Headers/archive/c8ad050fcb29e42a2f57d9f59e97488f465c436d.tar.gz
+  filename: spirv-headers-c8ad050f.tar.gz
+  sha256: 5b6f38b430f1c68c7395c570053403da14eb4cecc7fcb4040e7a5248c2f63874
+- url: https://github.com/doitsujin/libdisplay-info/archive/275e6459c7ab1ddd4b125f28d0440716e4888078.tar.gz
+  filename: dxvk-libdisplay-info-275e6459.tar.gz
+  sha256: c83c3e600f90a3ac98932e9259de62ad8ad3a65dd5efb1d2abcb1e4d1c8f494a
+dependencies:
+  build:
+  - mingw-w64-gcc
+  - glslang
+  host: []
+  runtime:
+  - wine
+  - vulkan-loader
+validation:
+  - type: sanity_check
+    description: "The complete DLL set, both widths, really PE of the right width, and NOTHING leaked (a non-static link pulling a support DLL is the silent failure)"
+    script: |
+      set -u
+      for pair in "x64 pei-x86-64 x86_64-w64-mingw32" "x32 pei-i386 i686-w64-mingw32"; do
+          set -- $pair
+          dir="${DESTDIR}/usr/lib/dxvk/$1"
+          for d in d3d8 d3d9 d3d10core d3d11 dxgi; do
+              if [ ! -f "${dir}/${d}.dll" ]; then
+                  echo "DXVK-FAIL: missing ${d}.dll in $1"
+                  exit 1
+              fi
+              if ! "/usr/bin/$3-objdump" -f "${dir}/${d}.dll" | grep -q "file format $2"; then
+                  echo "DXVK-FAIL: ${dir}/${d}.dll is not $2"
+                  exit 1
+              fi
+          done
+          extra=$(find "${dir}" -name '*.dll' ! -name d3d8.dll ! -name d3d9.dll ! -name d3d10core.dll ! -name d3d11.dll ! -name dxgi.dll | head -3)
+          if [ -n "$extra" ]; then
+              echo "DXVK-FAIL: unexpected DLL(s) staged (support-DLL leak = non-static link): $extra"
+              exit 1
+          fi
+      done
+      echo "DXVK-SET-COMPLETE-BOTH-WIDTHS-PE-OK"
+    expect_contains: "DXVK-SET-COMPLETE-BOTH-WIDTHS-PE-OK"
+    fatal: true
+verify_paths:
+  - /usr/lib/dxvk/x64/d3d11.dll
+  - /usr/lib/dxvk/x64/dxgi.dll
+  - /usr/lib/dxvk/x32/d3d9.dll

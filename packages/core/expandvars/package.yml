@@ -1,0 +1,19 @@
+name: expandvars
+version: "1.1.2"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Expand system variables Unix style (build dependency)
+license: MIT
+homepage: https://github.com/sayanarijit/expandvars
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/9c/64/a9d8ea289d663a44b346203a24bf798507463db1e76679eaa72ee6de1c7a/expandvars-1.1.2.tar.gz
+  sha256: 6c5822b7b756a99a356b915dd1267f52ab8a4efaa135963bd7f4bd5d368f71d7
+dependencies:
+  build:
+  - hatchling
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/expandvars.py

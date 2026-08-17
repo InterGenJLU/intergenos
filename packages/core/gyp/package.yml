@@ -1,0 +1,36 @@
+name: gyp
+version: "0.22.2"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Generate Your Projects — meta-build system (gyp-next, the maintained fork)
+license: BSD-3-Clause
+homepage: https://github.com/nodejs/gyp-next
+tier: core
+# Host build tool, added as the forced dependency of the lib32-nss build
+# method (operator decision, 2026-07-02): NSS's first-class 32-bit path
+# is its own build.sh, which is a gyp+ninja wrapper — and nothing in the
+# tree provided gyp (nodejs bundles its own; node-gyp is a different
+# tool). gyp-next is the maintained fork (nodejs org); upstream google
+# gyp is dead. PyPI sdist, sha verified at ingest against PyPI's
+# published digest AND the downloaded bytes (upstream publishes no GPG
+# signature). Two-axis python scan: build backend setuptools>=61
+# (in-tree 82.0.0), runtime packaging>=24.0 (in-tree 26.0) +
+# setuptools>=77.0.3 (in-tree 82.0.0), both declared below.
+build_style: custom
+source:
+- url: https://pypi.org/packages/source/g/gyp-next/gyp_next-${version}.tar.gz
+  sha256: e1568ff5d0cdf5b2fbb1e9adb38d9c5b9d27d6fca02edc8e0907247dfae3e514
+dependencies:
+  build:
+  # The pinned sdist has no build backend of its own, so PEP 518 falls back to
+  # the setuptools legacy backend. build.sh builds with --no-build-isolation,
+  # which installs nothing for the build. setuptools appears under runtime
+  # below, and runtime edges do not order the build (igos-build/graph.py orders
+  # on build+host only), so it has to be declared here to be guaranteed present.
+  - setuptools
+  host: []
+  runtime:
+  - packaging
+  - setuptools
+verify_paths:
+  - /usr/bin/gyp
+  - /usr/lib/python3.14/site-packages/gyp

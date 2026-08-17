@@ -1,0 +1,51 @@
+name: cuda-toolkit
+version: "13.3.1"
+release: 3  # r3: install output rewritten for the person at the terminal: lines that named internal machinery, internal decision codes or this project's own design rationale are replaced with plain statements of what happened and what to do about it, or removed where there was nothing to act on. Printed text only — no rule, path, flag, threshold, verification step or code path changed. tests/preflight/test_package_output_is_for_users.py holds the line. r2: pre-landing correction, before r1 ever reached a mirror. The install helper's header and its pre-download banner said NVIDIA's runfile is "extracted, never executed". The runfile is a self-extracting shell archive, so unpacking it does run its outer wrapper — in extract-only mode, after the sha256 check. What is never run is NVIDIA's installer inside it. A reader who took the old wording at face value and then read the script would have found it contradicted, which is the kind of small untruth that costs more than it saves. The acceptance-record paragraph in the shipped document also now says that the record names its version, so a later toolkit version asks for consent again. No behaviour change: the same flags, the same hash gate, the same footprint. r1: introduction — the download helper for the NVIDIA CUDA toolkit.
+content_hash: d956bcbd370e5146
+description: Helper to download and install the NVIDIA CUDA toolkit into /opt/cuda
+license: GPL-3.0-or-later
+payload_license: LicenseRef-NVIDIA-CUDA-EULA
+homepage: https://developer.nvidia.com/cuda-toolkit
+tier: compute
+build_style: custom
+install_func: do_install
+# No upstream source. This package's ARCHIVE contains only first-party
+# InterGenOS content: the install helper and its documentation. Not one byte
+# of NVIDIA's toolkit is built into it, published to the mirror, or bundled
+# into a source archive.
+#
+# WHY A HELPER AND NOT A NORMAL PACKAGE. `nvcc` is not redistributable under
+# NVIDIA's CUDA EULA (only a listed subset — the runtime libraries — carries
+# redistribution rights, and then only when bundled with an application).
+# A mirror package carrying the toolkit would be redistribution. The project
+# already has the pattern for proprietary payloads it may not carry: the
+# download helper (chrome, vscode, claude-code). pkm routes any package whose
+# .PKGINFO declares `payload_license` through the consent pause and then runs
+# /usr/bin/igos-install-<name>, which fetches the vendor's own bytes on the
+# user's own machine and records every deposited file in a footprint manifest
+# so `pkm files/verify/remove` see the real install.
+#
+# Decided 2026-08-04: where a vendor's terms do not clearly permit
+# redistribution, the answer is the download-helper pattern, never a narrower
+# reading of the terms. The helper's fetch is sha256-pinned, so the bytes are
+# as strongly identified as any tarball the build stages.
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  # The helper sources /usr/share/igos/helpers/helper-lib.sh for footprint
+  # recording; it must be installed before the helper runs.
+  - intergenos-helper-lib
+  - wget          # the download (same fetcher the other helpers use)
+  - coreutils     # sha256sum — the pin check that gates everything after it
+  - rsync         # component-tree merge into /opt/cuda (preserves symlinks)
+  - pciutils      # lspci — the "is there an NVIDIA GPU here" advisory
+  # The toolkit is useless without a driver, and the driver is what provides
+  # libcuda.so.1 (the CUDA driver API) that everything CUDA links. This is a
+  # true runtime edge, and nvidia's own requires_pci_vendor gate keeps it off
+  # non-NVIDIA hardware in Forge's install-set selection.
+  - nvidia
+verify_paths:
+  - /usr/bin/igos-install-cuda-toolkit
+  - /usr/share/doc/cuda-toolkit/CUDA-TOOLKIT.md

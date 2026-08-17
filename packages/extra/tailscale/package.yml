@@ -1,0 +1,28 @@
+name: tailscale
+version: "1.98.5"
+release: 1
+content_hash: d05d4451d5ea1c56
+description: WireGuard-based mesh VPN — tailscale CLI + tailscaled node agent
+license: BSD-3-Clause
+homepage: https://tailscale.com
+tier: extra
+iso_include: true  # ship in the live ISO (extra defaults to mirror-only)
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/tailscale/tailscale/archive/refs/tags/v${version}.tar.gz
+  sha256: 58407eb29a1d5a6f5baf3784ac6d3e3d55e0af514e012f2cde1c6afbc5e6bcea
+- url: file:///tailscale-${version}-vendor.tar.xz
+  sha256: 8b3ec3d9262218dd470a21166a746efc8c05c1ec5b88ab561aa15356b46730a7
+build_artifacts:
+- name: tailscale-${version}-vendor.tar.xz
+  generated_by: go-vendor
+dependencies:
+  build:
+  - go
+  host: []
+  runtime: []
+verify_paths:
+- /usr/bin/tailscale
+- /usr/sbin/tailscaled
+- /usr/lib/systemd/system/tailscaled.service

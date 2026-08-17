@@ -1,0 +1,99 @@
+#!/bin/bash
+# postgres-setup — operator-driven first-time setup for InterGenOS PostgreSQL
+#
+# Initializes the data cluster at /var/lib/postgresql/data with safe
+# defaults (data checksums, scram-sha-256 host auth, peer local auth,
+# loopback-only bind, no baked-in superuser password). Runs once
+# manually after the postgresql package is installed; the systemd unit
+# refuses to start until this has succeeded.
+#
+# Usage:
+#   sudo postgres-setup --initdb
+#       Initialize the cluster (prompts for superuser password).
+#   sudo postgres-setup --status
+#       Report whether the cluster has been initialized.
+
+set -euo pipefail
+
+PGDATA="/var/lib/postgresql/data"
+POSTGRES_USER="postgres"
+
+die() { echo "error: $*" >&2; exit "${2:-1}"; }
+
+cmd_status() {
+    if [[ -f "$PGDATA/PG_VERSION" ]]; then
+        echo "cluster initialized at $PGDATA (PG_VERSION: $(cat "$PGDATA/PG_VERSION"))"
+        exit 0
+    fi
+    echo "cluster NOT initialized at $PGDATA"
+    echo "run 'sudo postgres-setup --initdb' to initialize"
+    exit 1
+}
+
+cmd_initdb() {
+    [[ $EUID -eq 0 ]] || die "must run as root (use sudo)" 2
+    [[ ! -e "$PGDATA/PG_VERSION" ]] || die "cluster already initialized at $PGDATA" 3
+
+    # Confirm the postgres system user exists. The package's post_install
+    # creates it; this is a safety check for a hand-installed environment.
+    getent passwd "$POSTGRES_USER" >/dev/null \
+        || die "system user '$POSTGRES_USER' not found; reinstall postgresql package" 4
+
+    # Make sure the parent dir is owned correctly.
+    install -dm700 -o "$POSTGRES_USER" -g "$POSTGRES_USER" "$PGDATA"
+
+    echo "[+] running initdb (this will prompt for the postgres superuser password)"
+    su - "$POSTGRES_USER" -c "
+        /usr/bin/initdb \
+            --pgdata='$PGDATA' \
+            --data-checksums \
+            --auth-local=peer \
+            --auth-host=scram-sha-256 \
+            --pwprompt \
+            --encoding=UTF8 \
+            --locale=C
+    "
+
+    # Post-initdb config: loopback-only bind. initdb's default
+    # listen_addresses is '' (sockets only); we set localhost so loopback
+    # TCP works for tools and tests but external interfaces remain off.
+    if ! grep -qE "^listen_addresses\s*=\s*'localhost'" "$PGDATA/postgresql.conf"; then
+        echo "" >> "$PGDATA/postgresql.conf"
+        echo "# InterGenOS default: loopback-only bind. Edit deliberately to" >> "$PGDATA/postgresql.conf"
+        echo "# expose to network interfaces." >> "$PGDATA/postgresql.conf"
+        echo "listen_addresses = 'localhost'" >> "$PGDATA/postgresql.conf"
+    fi
+    chown "$POSTGRES_USER:$POSTGRES_USER" "$PGDATA/postgresql.conf"
+
+    echo
+    echo "[postgres-setup complete]"
+    echo
+    echo "  data dir:       $PGDATA"
+    echo "  bind default:   localhost only (edit postgresql.conf to expose)"
+    echo "  host auth:      scram-sha-256"
+    echo "  local auth:     peer"
+    echo
+    echo "Start the service when ready:"
+    echo "    sudo systemctl enable --now postgresql"
+    echo
+}
+
+main() {
+    case "${1:-}" in
+        --initdb)  cmd_initdb ;;
+        --status)  cmd_status ;;
+        -h|--help)
+            sed -n '2,20p' "$0"
+            exit 0
+            ;;
+        "")
+            cmd_status || true
+            echo
+            echo "use 'postgres-setup --initdb' to initialize (or --help)"
+            exit 1
+            ;;
+        *) die "unknown argument: $1 (use --help)" 2 ;;
+    esac
+}
+
+main "$@"

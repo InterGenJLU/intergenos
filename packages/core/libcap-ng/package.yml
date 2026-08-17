@@ -1,0 +1,26 @@
+name: libcap-ng
+version: "0.9.3"
+release: 2  # r2: retier extra->core (util-linux-pass2 needs it at core-extra build time; qemu/libvirt/swtpm still consume it) — natural tier per the libcap sibling
+description: POSIX capabilities library and utilities
+license: LGPL-2.1-or-later AND GPL-2.0-or-later
+homepage: https://github.com/stevegrubb/libcap-ng
+tier: core
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/stevegrubb/libcap-ng/archive/refs/tags/v${version}.tar.gz
+    filename: libcap-ng-${version}.tar.gz
+    sha256: fe11ebbb55904763b3532f19069f13ec319042634620180a03bd4653d301563e
+dependencies:
+  build:
+    - autoconf
+    - automake
+    - libtool
+    - pkgconf
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/libcap-ng.so.0
+  - /usr/bin/pscap
+  - /usr/include/cap-ng.h

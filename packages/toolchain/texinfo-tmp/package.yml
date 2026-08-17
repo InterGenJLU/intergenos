@@ -1,0 +1,21 @@
+name: texinfo-tmp
+version: "7.2"
+release: 1
+description: "GNU documentation system (temporary tools)"
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/texinfo/
+
+source:
+  - url: https://ftpmirror.gnu.org/texinfo/texinfo-${version}.tar.xz
+    sha256: 0329d7788fbef113fa82cb80889ca197a344ce0df7646fe000974c5d714363a6
+
+dependencies:
+  build: []
+  host:
+    - python-tmp
+  runtime: []
+
+tier: toolchain
+build_style: autotools
+configure_flags:
+  - --prefix=/usr

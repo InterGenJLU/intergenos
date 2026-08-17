@@ -1,0 +1,25 @@
+name: xorriso
+version: "1.5.8.pl02"
+release: 1
+description: Creates, loads, manipulates and writes ISO 9660 filesystem images
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/xorriso/
+tier: base
+build_style: autotools
+
+source:
+  - url: https://ftp.gnu.org/gnu/xorriso/xorriso-${version}.tar.gz
+    sha256: b1455ecafbf0692ddafe1d71002a96f2ce2d77f4deae602678261ce033f97bc8
+
+dependencies:
+  build: []
+  host: []
+  runtime:
+    - zlib
+    - readline
+
+configure_flags:
+  - "--prefix=/usr"
+
+verify_paths:
+  - /usr/bin/xorriso

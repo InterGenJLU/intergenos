@@ -1,0 +1,64 @@
+name: aotriton-triton-llvm
+# Pristine upstream llvm-project at the EXACT commit AOTriton 0.11.1b's bundled
+# triton fork (aotriton-hyperjump @ f75e44a) pins in cmake/llvm-hash.txt
+# (570885128 = LLVM 21 — re-verified from the staged fork archive). This is the
+# sibling of compute/triton-llvm: same build product, DIFFERENT pin, because the
+# aotriton fork tracks a different LLVM than upstream triton 3.6.0.
+#
+# Decided 2026-07-21 (path B, CUT-010): triton links non-stable MLIR/LLVM
+# internal C++ APIs, so a FULL-MAJOR LLVM gap disqualifies a shared LLVM a
+# priori (the CUT-006 rule — the same reason triton-llvm exists). triton-llvm is
+# LLVM 22 (triton 3.6.0's pin); this fork pins LLVM 21 — a full-major gap, so a
+# shared LLVM is considered-and-rejected, not "untested": burning a cycle on a
+# ruled-incompatible pair is thrash, not measurement. Hence this dedicated LLVM.
+# Commit-archive pin, sha256 summed locally. Re-pin in lockstep with the aotriton
+# bundled-triton fork whenever its llvm-hash.txt moves.
+version: "21.0.0"
+release: 1
+description: Pristine LLVM/MLIR/LLD at AOTriton's bundled-triton pinned commit — private-prefix build product for aotriton
+license: Apache-2.0 WITH LLVM-exception
+homepage: https://github.com/llvm/llvm-project
+tier: compute
+iso_include: false
+build_style: custom
+install_func: do_install
+
+# PRIVATE PREFIX: /opt/aotriton-llvm. Kept fully OUT of every default search
+# path so it collides with NEITHER the system LLVM (/usr), the ROCm compiler
+# (/opt/rocm/lib/llvm), NOR the upstream-triton LLVM (/opt/triton-llvm): nothing
+# in /usr, /usr/local, /opt/rocm, /opt/triton-llvm, or a default ld.so / CMake
+# package path. Consumed ONLY by the aotriton recipe via an explicit
+# LLVM_SYSPATH; no ld.so.conf entry, no bin on PATH.
+
+source:
+  - url: https://github.com/llvm/llvm-project/archive/570885128351868c1308bb22e8ca351d318bc4a1.tar.gz
+    filename: llvm-project-aotriton-570885128.tar.gz
+    sha256: dfd822074e5787628d27c68a96572bf7c1dcd593d3d459914782985fe412de5d
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - python
+  - zlib
+  - zstd
+  - libffi
+  - libxml2
+  host: []
+  runtime:
+  - zlib
+  - zstd
+  - libffi
+  - libxml2
+verify_paths:
+  # llvm-config identity + the two CMake config packages the aotriton triton
+  # fork find_package's (MLIR via find_package(MLIR CONFIG), LLD via the AMD
+  # backend's find_package(LLD CONFIG)) + one load-bearing static archive.
+  - /opt/aotriton-llvm/bin/llvm-config
+  - /opt/aotriton-llvm/lib/cmake/mlir/MLIRConfig.cmake
+  - /opt/aotriton-llvm/lib/cmake/lld/LLDConfig.cmake
+  - /opt/aotriton-llvm/lib/libLLVMAMDGPUCodeGen.a
+
+tests:
+  enabled: false
+  reason: "LLVM_INCLUDE_TESTS=OFF — the check-llvm/check-mlir lit suites are excluded to bound this already very large from-source static LLVM+MLIR+LLD build, and are not built. This is a private-prefix build product with a single consumer: its correctness is proven by AOTriton's bundled triton compiling and linking against it (the pair-2 proof), not a standalone suite. FileCheck is still installed (LLVM_INSTALL_UTILS=ON) for the triton build/test hooks. Same rationale as compute/triton-llvm."

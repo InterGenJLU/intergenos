@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- states base: network-cellular — four ascending signal bars (<g class="levels">,
+       shortest -> tallest = inner -> outer). No always-on part, so level 0 (none) dims all
+       four. Overlays: an "acquiring" ellipsis (accent, three dots = searching) and a
+       "disabled" THICKER accent X (R4-1, modem off). connected = full bars (level 4,
+       no overlay). Colorless; the states generator sets per-level opacity + the role paint. -->
+  <g class="glyph">
+    <g class="levels">
+      <path d="M 80 192 L 80 168"/>
+      <path d="M 112 192 L 112 144"/>
+      <path d="M 144 192 L 144 120"/>
+      <path d="M 176 192 L 176 96"/>
+    </g>
+    <g class="overlay acquiring accent">
+      <circle cx="98" cy="74" r="8"/>
+      <circle cx="128" cy="74" r="8"/>
+      <circle cx="158" cy="74" r="8"/>
+    </g>
+    <g class="overlay disabled accent" stroke-width="2.5">
+      <path d="M 92 108 L 164 180"/>
+      <path d="M 164 108 L 92 180"/>
+    </g>
+  </g>
+</svg>

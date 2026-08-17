@@ -1,0 +1,27 @@
+name: fuse-overlayfs
+version: "1.16"
+release: 1
+content_hash: 868f37e267320273
+description: Overlay filesystem in userspace
+license: GPL-2.0-or-later
+homepage: https://github.com/containers/fuse-overlayfs
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/containers/fuse-overlayfs/archive/refs/tags/v${version}.tar.gz
+    sha256: 45968517603389ead067222d234bc8d8ed33e4b4f8ba16216bdd3e6aedcccea9
+    filename: fuse-overlayfs-${version}.tar.gz
+dependencies:
+  build:
+    - autoconf
+    - automake
+    - libtool
+    - pkgconf
+    - fuse3
+  host: []
+  runtime:
+    - fuse3
+verify_paths:
+  - /usr/bin/fuse-overlayfs
+  - /usr/share/man/man1/fuse-overlayfs.1

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- InterGenOS brand mark (theme key `intergenos`; forge-gui launcher). The
+       DISTRO badge, not an app mark. Brand rule: the OS badge is FRAMED (rounded
+       square) while the AI mark is BARE — so this reads distinct from the bare
+       app-intergen-panel pulse. The canonical ECG pulse inside, asymmetric
+       spike-left (short lead-in, R-peak+S-trough left of centre, long trail) per
+       docs/VISUAL_LANGUAGE.md §8 + assets/intergen-mark (the symbolic category
+       mark is likewise a framed simplified pulse). -->
+  <g class="glyph">
+    <rect x="40" y="40" width="176" height="176" rx="38"/>
+    <path d="M 52 130 L 76 130 L 90 76 L 110 184 L 124 130 L 202 130"/>
+  </g>
+</svg>

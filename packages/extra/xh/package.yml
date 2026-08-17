@@ -1,0 +1,23 @@
+name: xh
+version: "0.25.3"
+release: 1
+description: Friendly and fast tool for sending HTTP requests
+license: MIT
+homepage: https://github.com/ducaale/xh
+tier: extra
+build_style: custom
+install_func: do_install
+source:
+  - url: https://github.com/ducaale/xh/archive/v${version}/xh-${version}.tar.gz
+    sha256: ba331c33dc5d222f43cc6ad9f602002817772fd52ae28541976db49f34935ae3
+build_artifacts:
+  - name: xh-${version}-vendor.tar.xz
+    generated_by: cargo-vendor
+dependencies:
+  build:
+  - rust
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/xh
+  - /usr/share/man/man1/xh.1

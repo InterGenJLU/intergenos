@@ -1,0 +1,39 @@
+name: dbus-pass2
+version: "1.16.2"
+release: 3  # r3: artifact re-cut — prior seal contaminated by archive tar-recursion over supersedee dir rows (sealed 2.5 GB; igos-build fix 2026-07-20). r2: launch-helper 4750 pinned explicitly (pass1 parity; the 4.76 gate finding)
+description: Message bus system (pass 2 — rebuild with doxygen API docs)
+license: AFL-2.1 OR GPL-2.0-or-later
+homepage: https://www.freedesktop.org/wiki/Software/dbus/
+tier: desktop
+build_style: meson
+install_func: do_install
+direct_install: true
+source:
+- url: https://dbus.freedesktop.org/releases/dbus/dbus-${version}.tar.xz
+  sha256: 0ba2a1a4b16afe7bceb2c07e9ce99a8c2c3508e5dec290dbb643384bd6beb7e2
+dependencies:
+  build:
+  - doxygen
+  - meson
+  - ninja
+  - python
+  - apparmor   # libapparmor for D-Bus AppArmor mediation. Aligns with systemd-pass2 (apparmor=enabled).
+  host: []
+  runtime:
+  - apparmor
+  - systemd
+  - expat
+supersedes:
+  - dbus
+# Pass 2 of the 2-pass dbus build. Pass 1 (tier:core, ch8) is the
+# message bus + libdbus runtime built without doxygen and without AppArmor
+# integration because both (tier:desktop and tier:core/core-extra
+# respectively, built after ch8 entry) are not available at ch8 build
+# time. This pass rebuilds with both present:
+#   - doxygen: HTML API documentation generation
+#   - apparmor: kernel-LSM mediation hooks for D-Bus message routing
+#     (matches systemd-pass2's apparmor=enabled posture; closes the
+#     dbus<-libapparmor silent-loss finding from preflight-silent-loss).
+
+verify_paths:
+  - /usr/bin/dbus-daemon

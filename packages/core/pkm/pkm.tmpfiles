@@ -1,0 +1,18 @@
+# InterGenOS pkm — repo cache directories, created at every boot.
+#
+# PI-218-1 (.218 post-install eval, 2026-06-27): a non-root READ command —
+# InterGen's manage_packages dispatch, or `pkm search` / `list-available` —
+# on a FRESH install crashed FileNotFoundError on /var/cache/pkm/db because
+# the directory did not exist yet. pkm-check-updates.service's
+# CacheDirectory=pkm only creates /var/cache/pkm when that timer-service
+# runs, and pkm/repo.py:_ensure_cache_dirs cannot create it as a non-root
+# reader (root owns /var/cache). systemd-tmpfiles creates it on every boot,
+# as root, before anything reads it — closing the pre-first-sync window.
+#
+# Modes mirror pkm/repo.py:_ensure_cache_dirs: packages/ is 0700 (L-021 —
+# block a non-root local user staging an attacker archive between the
+# SHA256-verify and the tar-extract); db/ is world-readable so a non-root
+# search can read the (root-written, signed) synced index.
+d /var/cache/pkm          0755 root root -
+d /var/cache/pkm/db       0755 root root -
+d /var/cache/pkm/packages 0700 root root -

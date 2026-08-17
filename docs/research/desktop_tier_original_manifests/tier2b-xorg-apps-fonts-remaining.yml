@@ -1,0 +1,471 @@
+# InterGenOS Desktop Tier 2b — Xorg apps, fonts, Xwayland, and remaining heavy packages
+# Source: BLFS 13.0
+
+tier: desktop
+
+packages:
+  # --- Essential Xorg apps (subset needed for GNOME/Wayland) ---
+  - name: xbitmaps
+    version: "1.1.3"
+    url: https://www.x.org/pub/individual/data/xbitmaps-${version}.tar.xz
+    license: MIT
+    description: X11 bitmap files
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - util-macros
+
+  - name: mkfontscale
+    version: "1.2.3"
+    url: https://www.x.org/pub/individual/app/mkfontscale-${version}.tar.xz
+    license: MIT
+    description: Create index of scalable font files
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - libX11
+        - freetype2
+
+  - name: xauth
+    version: "1.1.3"
+    url: https://www.x.org/pub/individual/app/xauth-${version}.tar.xz
+    license: MIT
+    description: X authority file utility
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - libXau
+        - libXext
+        - libXmu
+
+  - name: xkbcomp
+    version: "1.4.7"
+    url: https://www.x.org/pub/individual/app/xkbcomp-${version}.tar.xz
+    license: MIT
+    description: XKB keyboard description compiler
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - libX11
+        - libxkbfile
+
+  - name: xrandr
+    version: "1.5.3"
+    url: https://www.x.org/pub/individual/app/xrandr-${version}.tar.xz
+    license: MIT
+    description: Primitive command line interface to RandR extension
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - libXrandr
+
+  - name: xrdb
+    version: "1.2.2"
+    url: https://www.x.org/pub/individual/app/xrdb-${version}.tar.xz
+    license: MIT
+    description: X server resource database utility
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - libX11
+        - libXmu
+
+  - name: xset
+    version: "1.2.5"
+    url: https://www.x.org/pub/individual/app/xset-${version}.tar.xz
+    license: MIT
+    description: User preference utility for X
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - libXmu
+        - libXext
+
+  - name: setxkbmap
+    version: "1.3.4"
+    url: https://www.x.org/pub/individual/app/setxkbmap-${version}.tar.xz
+    license: MIT
+    description: Set the keyboard using the X Keyboard Extension
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - libX11
+        - libxkbfile
+
+  - name: xprop
+    version: "1.2.7"
+    url: https://www.x.org/pub/individual/app/xprop-${version}.tar.xz
+    license: MIT
+    description: Property displayer for X
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - libX11
+
+  - name: xinput
+    version: "1.6.4"
+    url: https://www.x.org/pub/individual/app/xinput-${version}.tar.xz
+    license: MIT
+    description: Utility to configure and test X input devices
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - libXi
+        - libXinerama
+        - libXrandr
+
+  # --- Xorg fonts (minimal set) ---
+  - name: font-util
+    version: "1.4.1"
+    url: https://www.x.org/pub/individual/font/font-util-${version}.tar.xz
+    license: MIT
+    description: X font utilities
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+
+  - name: encodings
+    version: "1.1.0"
+    url: https://www.x.org/pub/individual/font/encodings-${version}.tar.xz
+    license: MIT
+    description: X font encodings
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - font-util
+        - mkfontscale
+
+  - name: font-alias
+    version: "1.0.5"
+    url: https://www.x.org/pub/individual/font/font-alias-${version}.tar.xz
+    license: MIT
+    description: X font aliases
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+
+  - name: font-misc-misc
+    version: "1.1.3"
+    url: https://www.x.org/pub/individual/font/font-misc-misc-${version}.tar.xz
+    license: Public-Domain
+    description: Miscellaneous X fonts
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - font-util
+        - mkfontscale
+
+  - name: xcursor-themes
+    version: "1.0.7"
+    url: https://www.x.org/pub/individual/data/xcursor-themes-${version}.tar.xz
+    license: MIT
+    description: Default X cursor themes
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+
+  # --- Xwayland ---
+  - name: xwayland
+    version: "24.1.5"
+    url: https://www.x.org/pub/individual/xserver/xwayland-${version}.tar.xz
+    license: MIT
+    description: X server running as a Wayland client
+    homepage: https://wayland.freedesktop.org/xserver.html
+    build_style: meson
+    meson_flags:
+      - "-Dxkb_dir=/usr/share/X11/xkb"
+      - "-Dxkb_output_dir=/var/lib/xkb"
+    deps:
+      build:
+        - libepoxy
+        - libxcvt
+        - mesa
+        - wayland-protocols
+        - libX11
+        - libXfont2
+        - xkeyboard-config
+        - xkbcomp
+        - font-util
+
+  - name: libXfont2
+    version: "2.0.7"
+    url: https://www.x.org/pub/individual/lib/libXfont2-${version}.tar.xz
+    license: MIT
+    description: X font handling library
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+      - "--disable-devel-docs"
+    deps:
+      build:
+        - freetype2
+        - libfontenc
+        - xorgproto
+        - xtrans
+
+  - name: libfontenc
+    version: "1.1.8"
+    url: https://www.x.org/pub/individual/lib/libfontenc-${version}.tar.xz
+    license: MIT
+    description: Font encoding library
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+    deps:
+      build:
+        - xorgproto
+
+  # --- SpiderMonkey (from Firefox sources, needed by GJS) ---
+  - name: spidermonkey
+    version: "128.6.0"
+    url: https://archive.mozilla.org/pub/firefox/releases/${version}esr/source/firefox-${version}esr.source.tar.xz
+    license: MPL-2.0
+    description: Mozilla SpiderMonkey JavaScript engine
+    homepage: https://spidermonkey.dev/
+    build_style: custom
+    deps:
+      build:
+        - cbindgen
+        - llvm
+        - rust
+        - icu
+
+  # --- WebKitGTK (very large build) ---
+  - name: enchant
+    version: "2.8.2"
+    url: https://github.com/AbiWord/enchant/releases/download/v${version}/enchant-${version}.tar.gz
+    license: LGPL-2.1-or-later
+    description: Generic spell checking library
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+
+  - name: ruby
+    version: "3.3.6"
+    url: https://cache.ruby-lang.org/pub/ruby/3.3/ruby-${version}.tar.xz
+    license: Ruby
+    description: Ruby programming language
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--enable-shared"
+
+  - name: unifdef
+    version: "2.12"
+    url: https://dotat.at/prog/unifdef/unifdef-${version}.tar.xz
+    license: BSD-2-Clause
+    description: Remove #ifdef lines from source
+    build_style: make
+
+  - name: webkitgtk
+    version: "2.46.6"
+    url: https://webkitgtk.org/releases/webkitgtk-${version}.tar.xz
+    license: LGPL-2.0-or-later
+    description: Web content engine for GTK
+    homepage: https://webkitgtk.org/
+    build_style: cmake
+    cmake_flags:
+      - "CMAKE_INSTALL_PREFIX=/usr"
+      - "CMAKE_BUILD_TYPE=Release"
+      - "ENABLE_MINIBROWSER=ON"
+      - "USE_GTK4=ON"
+      - "ENABLE_DOCUMENTATION=OFF"
+      - "USE_LIBBACKTRACE=OFF"
+    deps:
+      build:
+        - cairo
+        - gst-plugins-base
+        - gst-plugins-bad
+        - gtk3
+        - gtk4
+        - libgudev
+        - libsoup3
+        - libwebp
+        - openjpeg2
+        - ruby
+        - enchant
+        - unifdef
+        - bubblewrap
+        - geoclue2
+        - libseccomp
+        - xdg-dbus-proxy
+        - libX11
+        - wayland
+        - icu
+
+  # --- GNOME additional components ---
+  - name: gnome-menus
+    version: "3.36.0"
+    url: https://download.gnome.org/sources/gnome-menus/3.36/gnome-menus-${version}.tar.xz
+    license: LGPL-2.0-or-later
+    description: GNOME menu specification implementation
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--sysconfdir=/etc"
+      - "--disable-static"
+
+  - name: gnome-autoar
+    version: "0.4.4"
+    url: https://download.gnome.org/sources/gnome-autoar/0.4/gnome-autoar-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: GNOME automatic archive library
+    build_style: meson
+    meson_flags:
+      - "-Dgtk_doc=false"
+      - "-Dtests=false"
+    deps:
+      build:
+        - gtk3
+        - vala
+
+  - name: gnome-bluetooth
+    version: "47.1"
+    url: https://download.gnome.org/sources/gnome-bluetooth/47/gnome-bluetooth-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: GNOME Bluetooth integration
+    build_style: meson
+    meson_flags:
+      - "-Dgtk_doc=false"
+    deps:
+      build:
+        - gtk4
+        - gsound
+        - upower
+        - libadwaita1
+
+  - name: xdg-desktop-portal
+    version: "1.18.4"
+    url: https://github.com/nickvank/xdg-desktop-portal/releases/download/${version}/xdg-desktop-portal-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: Desktop integration portal
+    build_style: meson
+    meson_flags:
+      - "-Ddocbook-docs=disabled"
+      - "-Dman-pages=disabled"
+    deps:
+      build:
+        - fuse3
+        - json-glib
+        - pipewire
+
+  - name: xdg-desktop-portal-gtk
+    version: "1.15.2"
+    url: https://github.com/nickvank/xdg-desktop-portal-gtk/releases/download/${version}/xdg-desktop-portal-gtk-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: GTK backend for xdg-desktop-portal
+    build_style: meson
+    deps:
+      build:
+        - gtk3
+        - xdg-desktop-portal
+
+  - name: gvfs
+    version: "1.54.2"
+    url: https://download.gnome.org/sources/gvfs/1.54/gvfs-${version}.tar.xz
+    license: LGPL-2.0-or-later
+    description: GNOME virtual filesystem
+    build_style: meson
+    meson_flags:
+      - "-Dman=false"
+      - "-Dgoogle=false"
+      - "-Dgphoto2=false"
+      - "-Dafc=false"
+      - "-Dmtp=false"
+      - "-Dnfs=false"
+    deps:
+      build:
+        - libsecret
+        - libusb
+        - gtk3
+        - udisks2
+
+  - name: gnome-backgrounds
+    version: "47.0"
+    url: https://download.gnome.org/sources/gnome-backgrounds/47/gnome-backgrounds-${version}.tar.xz
+    license: CC-BY-SA-3.0
+    description: GNOME desktop wallpapers
+    build_style: meson
+
+  - name: yelp-xsl
+    version: "42.1"
+    url: https://download.gnome.org/sources/yelp-xsl/42/yelp-xsl-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: GNOME help stylesheets
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+    deps:
+      build:
+        - libxslt
+
+  - name: tecla
+    version: "47.0"
+    url: https://download.gnome.org/sources/tecla/47/tecla-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: GNOME on-screen keyboard
+    build_style: meson
+    deps:
+      build:
+        - libadwaita1
+        - libxkbcommon
+
+  - name: gnome-control-center
+    version: "47.4"
+    url: https://download.gnome.org/sources/gnome-control-center/47/gnome-control-center-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: GNOME system settings
+    homepage: https://gitlab.gnome.org/GNOME/gnome-control-center
+    build_style: meson
+    meson_flags:
+      - "-Ddocumentation=false"
+    deps:
+      build:
+        - accountsservice
+        - colord-gtk
+        - gnome-bluetooth
+        - gnome-online-accounts
+        - gnome-settings-daemon
+        - gsound
+        - libadwaita1
+        - libpwquality
+        - networkmanager
+        - tecla
+        - udisks2
+
+  - name: gnome-shell-extensions
+    version: "47.2"
+    url: https://download.gnome.org/sources/gnome-shell-extensions/47/gnome-shell-extensions-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: GNOME Shell extensions collection
+    build_style: meson
+    deps:
+      build:
+        - gnome-shell

@@ -1,0 +1,22 @@
+name: librevenge
+version: "0.0.5"
+release: 2  # r2: iso_include true — runtime closure of the 2026-07-18 curation correction (shipped consumer requires shipped provider)
+description: Document import filter base library
+license: LGPL-2.1-or-later OR MPL-2.0
+homepage: https://sourceforge.net/projects/libwpd/
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+- url: https://sourceforge.net/projects/libwpd/files/librevenge/librevenge-${version}/librevenge-${version}.tar.xz
+  sha256: 106d0c44bb6408b1348b9e0465666fa83b816177665a22cd017e886c1aaeeb34
+dependencies:
+  build:
+  - boost
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/librevenge-stream-0.0.so.0.0.5
+  - /usr/lib/pkgconfig/librevenge-0.0.pc
+  - /usr/lib/pkgconfig/librevenge-generators-0.0.pc

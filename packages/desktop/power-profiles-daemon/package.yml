@@ -1,0 +1,27 @@
+name: power-profiles-daemon
+version: '0.30'
+release: 1
+description: System-wide power profile management
+license: GPL-3.0-or-later
+homepage: https://gitlab.freedesktop.org/upower/power-profiles-daemon
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/upower/power-profiles-daemon/-/archive/${version}/power-profiles-daemon-${version}.tar.gz
+  sha256: 90f2c95024861d9f4062abedd514084939224e7a49edd468f001af7260ec8e6c
+dependencies:
+  build:
+  - polkit
+  - pygobject3
+  - upower
+  - glib2
+  - libgudev
+  host: []
+  runtime:
+  - polkit
+  - upower
+  - glib2
+  - libgudev
+verify_paths:
+  - /usr/bin/powerprofilesctl

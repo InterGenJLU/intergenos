@@ -1,0 +1,24 @@
+name: fsspec
+# Not upstream-latest (2026.6.0): datasets 4.3.0 in this closure caps
+# fsspec[http]<=2025.9.0, so the whole UTA set pins to 2025.9.0 (Rule 12 deviation).
+version: "2025.9.0"
+release: 1
+description: Filesystem spec — unified pythonic interface to local/remote/embedded filesystems
+license: BSD-3-Clause
+homepage: https://github.com/fsspec/filesystem_spec
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/de/e0/bab50af11c2d75c9c4a2a26a5254573c0bd97cea152254401510950486fa/fsspec-2025.9.0.tar.gz
+  sha256: 19fd429483d25d28b65ec68f9f4adc16c17ea2c7c7bf54ec61360d478fb19c19
+dependencies:
+  build:
+  - hatchling
+  - hatch-vcs
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/fsspec/__init__.py
+  - /usr/lib/python3.14/site-packages/fsspec/spec.py

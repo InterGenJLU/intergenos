@@ -1,0 +1,39 @@
+name: opensc
+version: "0.27.1"
+release: 1
+content_hash: ff70a96fcbf24e66
+description: PKCS#11 modules and tools for smart cards (PIV/PKCS#15), patched for NK1 RSA-4096
+license: LGPL-2.1-or-later
+homepage: https://github.com/OpenSC/OpenSC
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  # Pinned at 0.27.1: this is the version the InterGenOS RSA-4096 PIV patch
+  # (patches/0001-piv-force-rsa4096.patch) is line-verified against. A version
+  # bump must re-verify the patch context in src/libopensc/card-piv.c.
+  - url: https://github.com/OpenSC/OpenSC/releases/download/${version}/opensc-${version}.tar.gz
+    sha256: 976f4a23eaf3397a1a2c3a7aac80bf971a8c3d829c9a79f06145bfaeeae5eca7
+
+# Fold the in-repo patches/ dir into the source-aware change fingerprint
+# (igos-build/content_hash.py). opensc is sha-pinned, so the own-dir hashing
+# arm is skipped — without this, a patch-only edit (e.g. re-cutting the
+# RSA-4096 PIV patch) would NOT flip the skip-built hash and a targeted build
+# could ship the stale binary. source_tree is honored regardless of pinning.
+source_tree:
+  - packages/core/opensc/patches
+
+dependencies:
+  build:
+    - pkgconf
+  host: []
+  runtime:
+    - pcsc-lite
+    - openssl
+    - zlib
+    - readline
+verify_paths:
+  - /usr/lib/opensc-pkcs11.so
+  - /usr/bin/pkcs11-tool
+  - /usr/bin/opensc-tool

@@ -1,0 +1,12 @@
+schema_version: 1
+id: night-light
+name: Night Light (symbolic)
+category: status
+kind: symbolic          # off-white stroke, no glow/tile (a top-bar status glyph)
+glyph: moon
+accent: ecg-blue
+pulse: none
+fit: 1.244
+export:
+  svg: true
+  png: [16, 24, 32, 48]

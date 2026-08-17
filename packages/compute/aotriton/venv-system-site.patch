@@ -1,0 +1,17 @@
+--- a/CMakeLists.txt	2026-07-21 13:30:00.636360246 -0500
++++ b/CMakeLists.txt	2026-07-21 13:30:00.653514704 -0500
+@@ -154,7 +154,13 @@
+ if(AOTRITON_INHERIT_SYSTEM_SITE_TRITON)
+   execute_process(COMMAND "${Python3_EXECUTABLE}" -m venv --system-site-packages "${VENV_DIR}")
+ else()
+-  execute_process(COMMAND "${Python3_EXECUTABLE}" -m venv "${VENV_DIR}")
++  # IGOS: consume the chroot's installed set offline — the main venv must
++  # inherit system site-packages so the requirements.txt / triton build deps
++  # resolve without any network (paired with PIP_NO_INDEX / PIP_NO_BUILD_ISOLATION
++  # in the build environment). Upstream only sets --system-site-packages under
++  # AOTRITON_INHERIT_SYSTEM_SITE_TRITON, which additionally skips building the
++  # bundled triton (which we DO build against /opt/triton-llvm).
++  execute_process(COMMAND "${Python3_EXECUTABLE}" -m venv --system-site-packages "${VENV_DIR}")
+ endif()
+ 
+ set(ENV{VIRTUAL_ENV} "${VENV_DIR}")

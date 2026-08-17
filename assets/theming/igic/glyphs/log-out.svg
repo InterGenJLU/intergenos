@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: system-log-out — a doorway with the exit arrow leaving right. -->
+  <g class="glyph">
+    <path d="M 148 60 L 76 60 L 76 196 L 148 196"/>
+    <line x1="112" y1="128" x2="196" y2="128"/>
+    <path d="M 168 100 L 196 128 L 168 156"/>
+  </g>
+</svg>

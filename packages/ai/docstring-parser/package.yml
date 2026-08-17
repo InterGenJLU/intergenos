@@ -1,0 +1,22 @@
+name: docstring-parser
+# Upstream latest stable.
+version: "0.18.0"
+release: 1
+description: Parse Python docstrings into structured data
+license: MIT
+homepage: https://github.com/rr-/docstring_parser
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/e0/4d/f332313098c1de1b2d2ff91cf2674415cc7cddab2ca1b01ae29774bd5fdf/docstring_parser-0.18.0.tar.gz
+  sha256: 292510982205c12b1248696f44959db3cdd1740237a968ea1e2e7a900eeb2015
+dependencies:
+  build:
+  - hatchling
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/docstring_parser/__init__.py
+  - /usr/lib/python3.14/site-packages/docstring_parser/common.py

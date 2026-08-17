@@ -1,0 +1,65 @@
+name: networkmanager-pass1
+version: "1.56.0"
+release: 2  # r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: Network connection manager (bootstrap — system networking only, no desktop integration)
+license: GPL-2.0-or-later
+homepage: https://networkmanager.dev/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://gitlab.freedesktop.org/NetworkManager/NetworkManager/-/releases/${version}/downloads/NetworkManager-${version}.tar.xz
+  sha256: 59a32d385cc1e7ae26e43798c6f12d07ff6198abd041ec0620b3a08cfc021ccc
+dependencies:
+  build:
+  - libnl
+  - libndp
+  - wpa_supplicant
+  - glib2
+  - systemd
+  - curl
+  - gnutls
+  - jansson
+  - libpsl
+  - nss
+  - libnvme
+  - util-linux-core
+  - dbus
+  - perl-core
+  host: []
+  runtime:
+  - libnl
+  - libndp
+  - wpa_supplicant
+  - glib2
+  - systemd
+  - curl
+  - gnutls
+  - jansson
+  - libpsl
+  - nss
+  - libnvme
+  - util-linux
+  - dbus
+# util-linux-core, dbus, perl-core added 2026-05-12 (Scan A.2):
+# - meson.build:287 dependency('uuid')   → util-linux-core provides libuuid
+# - meson.build:290 dependency('dbus-1') → dbus
+# - meson.build:117 find_program('perl') → perl-core
+# All transitively present from ch8 builds; declaring per real upstream
+# requirement.
+# First pass of the 2-pass NetworkManager build. System networking
+# essentials only — no iptables/polkit/bluez/pygobject3/vala/upower/newt
+# integrations (those are tier:desktop). Provides enough NM to bring up
+# wired + WPA-supplicant WiFi at boot for system-tier needs. Full
+# NetworkManager with desktop integrations lives in tier:desktop and
+# supersedes pass1 at install time via migrate-pkm-supersedes.sh.
+# Approved 2026-05-11.
+# libsystemd-login: the standalone sd-login library was merged into libsystemd
+# circa systemd v209 (2014). The log shows `libsystemd found: YES 259`, so
+# sd-login comes via libsystemd — the failing `libsystemd-login` probe is a
+# stale upstream pkgconfig name, not a feature loss. (silent-loss audit 2026-06-25.)
+silent_loss_accepted:
+  - libsystemd-login   # merged into libsystemd (v209); we ship libsystemd 259
+verify_paths:
+  - /usr/bin/nmcli
+  - /usr/lib/libnm.so

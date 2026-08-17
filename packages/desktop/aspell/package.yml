@@ -1,0 +1,26 @@
+name: aspell
+version: "0.60.8.2"
+release: 2  # r2: the English dictionary (source[1]) is compiled into DESTDIR by do_install instead of onto the live tree by post_install. post_install runs after the archive is made, so the word lists reached the build chroot and nothing else — measured on an installed system as no en* files under /usr/lib/aspell-0.60, no such manifest rows, and `aspell -l en list` reporting no word lists for en. Same shape and remedy as glibc-core's zoneinfo staging. post_install is removed; it had no other body.
+description: Interactive spell checking program and libraries
+license: LGPL-2.1-or-later
+homepage: http://aspell.net/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://ftpmirror.gnu.org/aspell/aspell-${version}.tar.gz
+  sha256: 57fe4863eae6048f72245a8575b44b718fb85ca14b9f8c0afc41b254dfd76919
+- url: https://ftpmirror.gnu.org/aspell/dict/en/aspell6-en-2020.12.07-0.tar.bz2
+  sha256: 4c8f734a28a088b88bb6481fcf972d0b2c3dc8da944f7673283ce487eac49fb3
+dependencies:
+  build:
+  - which
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/aspell
+  - /usr/bin/aspell-import
+  - /usr/lib/libaspell.so
+  # The English word list: the pre-squashfs audit is the standing proof that
+  # the dictionary reached the package, which is what r2 fixed.
+  - /usr/lib/aspell-0.60/en-common.rws

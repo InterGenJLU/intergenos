@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Connections — a remote screen + link arrows. -->
+  <g class="glyph">
+    <rect x="46" y="58" width="164" height="112" rx="12"/>
+    <line x1="128" y1="170" x2="128" y2="192"/>
+    <line x1="94" y1="194" x2="162" y2="194"/>
+    <path d="M 100 114 L 138 114"/>
+    <path d="M 126 100 L 140 114 L 126 128"/>
+    <path d="M 156 138 L 118 138"/>
+    <path d="M 130 152 L 116 138 L 130 124"/>
+  </g>
+</svg>

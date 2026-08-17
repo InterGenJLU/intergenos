@@ -1,0 +1,78 @@
+name: lib32-libsndfile
+version: "1.2.2"
+release: 1
+description: Library for reading and writing sound files (32-bit multilib runtime)
+license: LGPL-2.1-or-later
+homepage: https://libsndfile.github.io/libsndfile/
+tier: desktop
+# CUSTOM build (build.sh): the sibling's BLFS source fixes (the ALAC bool
+# typedef sed is compile-load-bearing) have no pure-yml expression — the
+# recipe self-applies the lib32 profile per the custom-lane discipline
+# (source lib32-env.sh, host triplet + lib32 libdir + verbose rules,
+# allowlist staged-copy install).
+#
+# Closure role: THE unconditional NEEDED edge of lib32-libpulse (PA 17
+# meson has no trim option for sndfile — proven from the pinned source
+# graph). MPEG support is PINNED OFF: lame/mpg123 were MEASURED OUT of the
+# Decided closure (+5 codecs, terminating at libogg), so the twin
+# must not grow those edges. See build.sh for the flag grounding.
+#
+# ⚠ The pinned configure.ac treats the external xiph libs as "all or
+# nothing" and only WARNS on a pkg-config miss — a single missing 32-bit
+# .pc would SILENTLY strip flac/ogg/vorbis/opus out of the build (missing
+# NEEDED edges are invisible to the closure gate; that is exactly the
+# silently-broken-audio class the operator's ADD decision exists to
+# prevent). The fatal validation gate below asserts every ratified codec
+# edge is present AND the measured-out mpeg edges are absent, on the
+# staged artifact (verify, never assume).
+build_style: custom
+lib32_source: libsndfile
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://github.com/libsndfile/libsndfile/releases/download/${version}/libsndfile-${version}.tar.xz
+  sha256: 3799ca9924d3125038880367bf1468e53a1b7e3686a934f098b7e1d286cdb80e
+dependencies:
+  build:
+  - lib32-glibc
+  - lib32-flac
+  - lib32-libogg
+  - lib32-libvorbis
+  - lib32-opus
+  host: []
+  runtime:
+  - lib32-glibc
+  - lib32-flac
+  - lib32-libogg
+  - lib32-libvorbis
+  - lib32-opus
+validation:
+  - type: sanity_check
+    description: "The ratified codec closure really linked (all-or-nothing configure only WARNS) + the measured-out mpeg edges really absent"
+    script: |
+      out=$(readelf -d "${DESTDIR}/usr/lib32/libsndfile.so.1")
+      for edge in libFLAC.so.14 libogg.so.0 libvorbis.so.0 libvorbisenc.so.2 libopus.so.0; do
+          if ! printf '%s\n' "$out" | grep -qF "$edge"; then
+              echo "MISSING NEEDED edge: $edge"
+              exit 1
+          fi
+      done
+      for bad in libmpg123 libmp3lame; do
+          if printf '%s\n' "$out" | grep -qF "$bad"; then
+              echo "FORBIDDEN edge (measured OUT of the closure): $bad"
+              exit 1
+          fi
+      done
+      echo "XIPH-EDGES-OK-MPEG-ABSENT"
+    expect_contains: "XIPH-EDGES-OK-MPEG-ABSENT"
+    fatal: true
+verify_paths:
+  - /usr/lib32/libsndfile.so.1
+  - /usr/lib32/pkgconfig/sndfile.pc
+
+# Build inputs composed from the repository tree (declared so the published
+# source archive carries every input the build consumes — the corresponding-
+# source rule the kernel config fragments established; survey 2026-08-11).
+sources_extra:
+- scripts/lib32-env.sh

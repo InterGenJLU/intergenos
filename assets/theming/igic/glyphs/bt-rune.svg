@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- states base: bluetooth — the Bluetooth rune (mast + two right flags, the diagonals crossing),
+       always-on. Overlay-only base: bluetooth-active = the bare rune; disabled = a THICKER accent X
+       (R4-1); acquiring = an accent ellipsis clear ABOVE the rune (S3). gnome-shell bluetooth.js:425-434.
+       Thinned via the family stroke (8). -->
+  <g class="glyph">
+    <path d="M 128 66 L 128 200 L 164 166 L 92 108 M 92 158 L 164 100 L 128 66"/>
+    <g class="overlay disabled accent" stroke-width="2.5">
+      <path d="M 98 104 L 158 164"/>
+      <path d="M 158 104 L 98 164"/>
+    </g>
+    <g class="overlay acquiring accent">
+      <circle cx="102" cy="48" r="7"/>
+      <circle cx="128" cy="48" r="7"/>
+      <circle cx="154" cy="48" r="7"/>
+    </g>
+  </g>
+</svg>

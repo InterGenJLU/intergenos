@@ -1,0 +1,79 @@
+[
+  {
+    "id": "igos-forge-install",
+    "domain": "intergenos",
+    "triggers": [
+      "how do I install InterGenOS",
+      "how do I run the installer",
+      "how do I install the system to disk",
+      "how to use Forge",
+      "what's the installer called",
+      "how do I reinstall or recover"
+    ],
+    "answer": "InterGenOS is installed with **Forge**, the built-in installer. Boot the InterGenOS ISO (USB or DVD); from the boot menu you can run the **live** session to try it, or launch **Forge** to install. Forge walks you through disk selection, optional full-disk encryption, your user account, and (optionally) Secure Boot — then writes and signs the boot chain for your machine.\n\nFor repair, boot the same ISO and use the live session's recovery tools (mount your install, `chroot` in, fix, reboot). Forge can also re-run an install over an existing one.",
+    "doc_source": "wiki install/forge-guide.md; install/recovery.md",
+    "requires": []
+  },
+  {
+    "id": "igos-fde-luks",
+    "domain": "intergenos",
+    "triggers": [
+      "how do I encrypt my disk",
+      "how do I set up full disk encryption",
+      "how does FDE work on InterGenOS",
+      "how to turn on LUKS encryption",
+      "is my disk encrypted",
+      "how do I enable disk encryption"
+    ],
+    "answer": "Full-disk encryption uses **LUKS** and is set up **during the Forge install** — tick the encryption option and choose a passphrase. Once installed, the disk is unlocked by that passphrase at boot, before the system starts.\n\nIt has to be chosen at install time because it encrypts the whole root filesystem; you can't retro-fit it onto an unencrypted install without reinstalling. To check whether a disk is encrypted, `lsblk` shows a `crypt` layer over the partition. Manage the LUKS volume (e.g. add a recovery key) with `cryptsetup`.",
+    "doc_source": "wiki install/disk-encryption.md",
+    "requires": []
+  },
+  {
+    "id": "igos-secure-boot-mok",
+    "domain": "intergenos",
+    "triggers": [
+      "how do I enable secure boot",
+      "how does secure boot work on InterGenOS",
+      "what is MOK enrollment",
+      "how do I check if secure boot is on",
+      "do I need to enroll a key",
+      "how do I turn on secure boot and MOK"
+    ],
+    "answer": "On InterGenOS, Secure Boot is **OFF by default and optional** — the boot chain (shim → GRUB → signed kernel image) is signed and verifiable either way, and the kernel runs in lockdown=integrity regardless. You don't have to enable Secure Boot, and on a default install no key enrollment is required.\n\nIf you *want* firmware-enforced Secure Boot: enable it in your firmware setup, then on the next reboot **MokManager** prompts you to enroll InterGenOS's Machine Owner Key (MOK) — accept it once. Forge generates that per-machine MOK during install; enrolling it only matters when Secure Boot is on (and for trusting your own out-of-tree/DKMS modules under enforcement).\n\nCheck the current state:\n\n```\nmokutil --sb-state        # SecureBoot enabled / disabled\n```",
+    "action": { "command": "mokutil --sb-state", "tool": "run_command" },
+    "doc_source": "wiki install/verified-boot.md; docs/users/secure-boot-and-mok.md",
+    "requires": ["mokutil"]
+  },
+  {
+    "id": "igos-signing-trust",
+    "domain": "intergenos",
+    "triggers": [
+      "how does package signing work",
+      "how do I know my packages are trusted",
+      "how does InterGenOS verify packages",
+      "what's the signing model",
+      "how do I verify the package index is genuine",
+      "how do I check a package hasn't been tampered with"
+    ],
+    "answer": "Every InterGenOS package index is signed by the project's **operator master key**, and `pkm` verifies that signature against the keyring shipped on your system before it trusts any index it downloads — a forged or modified index is rejected. The master key's fingerprint is pinned (`5597 A3E0 587B 2530 06D0  DD7B 8C50 8261 8208 3050`).\n\nTo check that your installed files still match what was installed (tamper / corruption check), use:\n\n```\npkm verify            # re-hash every installed package's files\n```\n\nThis is the package-integrity counterpart to the signed *index*: signing proves the index is genuine; `pkm verify` proves your on-disk files haven't changed since install.",
+    "action": { "command": "pkm verify", "tool": "manage_packages" },
+    "doc_source": "wiki packages/reproducibility.md; docs/repository-trust.md",
+    "requires": ["pkm"]
+  },
+  {
+    "id": "igos-live-web-and-realtime-data",
+    "domain": "intergenos",
+    "triggers": [
+      "can you search the web",
+      "do you have internet access",
+      "can you look things up online",
+      "what did the dow jones close at today",
+      "what's the news today",
+      "can you tell me today's weather"
+    ],
+    "answer": "I run **fully locally** on your machine and I'm offline by design — I don't browse the web or pull live feeds, so I can't give you real-time facts like today's stock prices, news headlines, or the current weather. My knowledge is what I was trained on plus what's on this system, and I'd rather tell you that plainly than guess.\n\nFor anything live, a web browser (Firefox is installed) or your usual news, markets, or weather source is the right tool. Where I'm genuinely useful is your machine itself — packages, services, files, hardware, and how InterGenOS works.",
+    "doc_source": "README.md; docs/VISION.md",
+    "requires": []
+  }
+]

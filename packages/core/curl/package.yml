@@ -1,0 +1,32 @@
+name: curl
+version: "8.19.0"
+release: 1
+description: Command line tool and library for transferring data with URLs
+license: MIT
+homepage: https://curl.se/
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://curl.se/download/curl-${version}.tar.xz
+    sha256: 4eb41489790d19e190d7ac7e18e82857cdd68af8f4e66b292ced562d333f11df
+
+dependencies:
+  build:
+    - libpsl
+    - libssh2
+    - make-ca
+    - openssl
+  host: []
+  runtime:
+    - make-ca
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "no network in chroot — curl test suite spins up live HTTP/HTTPS/FTP/SSH test servers and exercises real protocol round-trips. Hundreds of tests in tests/data/test* require unrestricted localhost networking + port binding."
+verify_paths:
+  - /usr/bin/curl
+  - /usr/bin/curl-config
+  - /usr/lib/libcurl.so

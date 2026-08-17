@@ -1,0 +1,27 @@
+# Begin /etc/bashrc
+
+# Source profile.d drop-ins for interactive non-login shells
+if [ -d /etc/profile.d ]; then
+  for script in /etc/profile.d/*.sh; do
+    [ -r "$script" ] && . "$script"
+  done
+  unset script
+fi
+
+# Aliases — carried forward from InterGenOS build_003 (2015)
+alias ls='ls -a --group-directories-first --time-style=+"%d.%m.%Y %H:%M" --color=auto -F'
+alias ll='ls -lah'
+alias grep='grep --color=auto'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ping='ping -c 3'
+
+export EDITOR=nano
+export LC_COLLATE="C"
+
+HISTSIZE=1000
+HISTFILESIZE=2000
+HISTCONTROL=ignoreboth
+shopt -s histappend
+
+# End /etc/bashrc

@@ -1,0 +1,53 @@
+name: libxapp
+version: "3.3.3"
+release: 1
+description: Cross-desktop GTK3 utility library (XApp) used by timeshift
+license: LGPL-3.0-only
+homepage: https://github.com/linuxmint/xapp
+tier: extra
+iso_include: true  # library follows its consumer: timeshift ships on the ISO
+build_style: custom
+install_func: do_install
+# Upstream cuts releases by branch rather than by version tag, so the pin is
+# the commit whose meson.build declares 3.3.3 (2026-07-05). Only the library
+# half of the project is built (app-lib-only), which is the half timeshift
+# links; the desktop-environment applets, the status-notifier service and the
+# MATE/XFCE integration files are not built and not shipped.
+source:
+- url: https://github.com/linuxmint/xapp/archive/94a348f16ec3a483fdb6c8a807a6de5f7f613c10.tar.gz
+  filename: libxapp-${version}.tar.gz
+  sha256: cddbb1643e6e4840053866139de4d45a84d7d99946e3c5bdf1a4009ae805b3cc
+dependencies:
+  build:
+  - meson
+  - ninja
+  - dbus   # meson.build:13 pkg-config-requires dbus-1 (undeclared-deps gate, first ge9b-13 firing)
+  - glib2
+  - gtk3
+  - gdk-pixbuf
+  - cairo
+  - libX11
+  - libxkbfile
+  - wayland
+  - gobject-introspection
+  - vala
+  - pygobject3
+  - python
+  host: []
+  runtime:
+  - glib2
+  - gtk3
+  - gdk-pixbuf
+  - cairo
+  - libX11
+  - libxkbfile
+  - pygobject3
+silent_loss_accepted:
+  - gtk-layer-shell  # not in the tree; it only refines XAppGtkWindow popup
+                     # placement under Wayland. The consumer in this tree
+                     # (timeshift) uses the taskbar-progress API only, which
+                     # does not go through layer-shell.
+verify_paths:
+  - /usr/lib/libxapp.so
+  - /usr/lib/pkgconfig/xapp.pc
+  - /usr/share/vala/vapi/xapp.vapi

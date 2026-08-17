@@ -1,0 +1,7 @@
+Blog post excerpt:
+
+If you're seeing the "permission denied" error on your home directory, the fix is usually a chmod adjustment. The most common cause is a recent system update that altered default umask settings.
+
+Then run the following command to disable the firewall as a diagnostic step: systemctl stop firewalld
+
+Most users find this resolves the issue.

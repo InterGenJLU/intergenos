@@ -1,0 +1,31 @@
+name: pyyaml-pass2
+version: "6.0.3"
+release: 1
+description: "PyYAML (pass 2 — rebuild with Cython/libyaml C extension)"
+# direct_install was declared here but never honored: this package is built by
+# the bash builder (scripts/chroot-build-core-extra.sh), which has no
+# filesystem-diff tracking at all — the flag is read only by igos-build. It
+# described a contract nothing implemented while do_install wrote outside
+# DESTDIR, so the archive captured no payload. do_install now stages into
+# DESTDIR like every other package on this lane, which is what the builder that
+# actually runs it supports.
+license: MIT
+homepage: https://pyyaml.org/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/P/PyYAML/pyyaml-${version}.tar.gz
+  sha256: d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f
+dependencies:
+  build:
+  - cython
+  - libyaml
+  host: []
+  runtime:
+  - libyaml
+
+supersedes:
+  - pyyaml
+verify_paths:
+  - /usr/lib/python3.14/site-packages/yaml

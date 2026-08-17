@@ -1,0 +1,22 @@
+{
+  "id": "BASE-pkm-update-01",
+  "name": "pkm update guidance — the positive baseline (finding 1)",
+  "axis": ["routing", "capability_recall"],
+  "category": "baseline",
+  "postures": ["2B-locked"],
+  "capabilities": ["route:explain", "cross:confirmation-posture", "cross:source-citation"],
+  "tags": ["seed:dogfood-1", "class:regression-protection"],
+  "session_policy": "single-session",
+  "turns": [
+    {
+      "user": "How do I update this system?",
+      "description": "The EXCELLENT dogfood answer [1]: two-step pkm sync/upgrade, confirmation posture, dual local+online citation. This is the class the harness PROTECTS — it must grade PASS, and a regression to any lesser answer must break it.",
+      "assertions": [
+        ["routes_via", "explain", "resolved via the explain/teach handler (tools=0, llm=False)"],
+        ["contains_any", "pkm sync,pkm upgrade", "names the real two-step pkm flow"],
+        ["source", "", "carries a citation (dual local file:// + online wiki)"],
+        {"type": "no_fabricated_success", "description": "offered to run, did not claim to have already run anything"}
+      ]
+    }
+  ]
+}

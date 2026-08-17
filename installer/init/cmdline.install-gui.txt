@@ -1,0 +1,1 @@
+igos.mode=install-gui vt.default_utf8=1 rd.systemd.show_status=yes systemd.show_status=yes pcie_aspm=off

@@ -1,0 +1,29 @@
+name: font-misc-misc
+version: "1.1.3"
+release: 2  # r2: license: Public-Domain -> LicenseRef-Public-Domain — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade.
+description: Miscellaneous X fonts
+# SPDX has no identifier for a bare public-domain dedication. LicenseRef- is
+# SPDX's own mechanism for a licence it does not carry, and preserves the
+# declaration exactly as the recipe stated it.
+license: LicenseRef-Public-Domain
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/font/font-misc-misc-${version}.tar.xz
+  sha256: 79abe361f58bb21ade9f565898e486300ce1cc621d5285bec26e14b6a8618fed
+dependencies:
+  build:
+  - bdftopcf
+  - font-util
+  - mkfontscale
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+
+verify_paths:
+  - /usr/share/fonts/X11/misc/10x20-ISO8859-1.pcf.gz
+  - /usr/share/fonts/X11/misc/10x20-ISO8859-10.pcf.gz
+  - /usr/share/fonts/X11/misc/10x20-ISO8859-11.pcf.gz

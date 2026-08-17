@@ -1,0 +1,159 @@
+SDK sources: add missing <array> includes (GCC-15 class).
+
+15 files use std::array without including <array>; GCC 15's libstdc++
+stopped providing it transitively (std::array is only forward-declared
+via stl_pair.h) -> "field has incomplete type std::array<...>", first
+fired by att-tool/att_lib_wrapper.hpp:102. Full-source sweep; the
+include is added to every direct user so the class is closed corpus-
+wide rather than halt-by-halt.
+
+--- a/source/lib/att-tool/att_lib_wrapper.hpp
++++ b/source/lib/att-tool/att_lib_wrapper.hpp
+@@ -25,6 +25,7 @@
+ #include "lib/att-tool/util.hpp"
+ #include "lib/common/filesystem.hpp"
+ 
++#include <array>
+ #include <rocprofiler-sdk/experimental/thread-trace/trace_decoder.h>
+ 
+ #include <algorithm>
+--- a/source/lib/att-tool/wave.hpp
++++ b/source/lib/att-tool/wave.hpp
+@@ -29,6 +29,7 @@
+ #include "waitcnt/analysis.hpp"
+ #include "wstates.hpp"
+ 
++#include <array>
+ #include <map>
+ #include <unordered_map>
+ #include <vector>
+--- a/source/lib/common/container/small_vector.hpp
++++ b/source/lib/common/container/small_vector.hpp
+@@ -40,6 +40,7 @@
+ #include "lib/common/defines.hpp"
+ #include "lib/common/mpl.hpp"
+ 
++#include <array>
+ #include <algorithm>
+ #include <cassert>
+ #include <cstddef>
+--- a/source/lib/output/format_path.cpp
++++ b/source/lib/output/format_path.cpp
+@@ -33,6 +33,7 @@
+ #include "lib/common/utility.hpp"
+ #include "lib/output/output_key.hpp"
+ 
++#include <array>
+ #include <rocprofiler-sdk/cxx/details/tokenize.hpp>
+ 
+ #include <fmt/core.h>
+--- a/source/lib/output/generateOTF2.cpp
++++ b/source/lib/output/generateOTF2.cpp
+@@ -29,6 +29,7 @@
+ #include "lib/common/units.hpp"
+ #include "lib/common/utility.hpp"
+ 
++#include <array>
+ #include <rocprofiler-sdk/fwd.h>
+ #include <rocprofiler-sdk/marker/api_id.h>
+ #include <rocprofiler-sdk/rocprofiler.h>
+--- a/source/lib/python/rocpd/source/interop.cpp
++++ b/source/lib/python/rocpd/source/interop.cpp
+@@ -29,6 +29,7 @@
+ #include "lib/common/utility.hpp"
+ #include "lib/output/timestamps.hpp"
+ 
++#include <array>
+ #include <rocprofiler-sdk/fwd.h>
+ #include <rocprofiler-sdk/cxx/utility.hpp>
+ 
+--- a/source/lib/python/rocpd/source/otf2.cpp
++++ b/source/lib/python/rocpd/source/otf2.cpp
+@@ -38,6 +38,7 @@
+ #include "lib/output/timestamps.hpp"
+ #include "lib/rocprofiler-sdk-tool/config.hpp"
+ 
++#include <array>
+ #include <rocprofiler-sdk/fwd.h>
+ #include <rocprofiler-sdk/marker/api_id.h>
+ #include <rocprofiler-sdk/rocprofiler.h>
+--- a/source/lib/python/rocpd/source/serialization/sql.hpp
++++ b/source/lib/python/rocpd/source/serialization/sql.hpp
+@@ -26,6 +26,7 @@
+ #include "lib/common/mpl.hpp"
+ #include "lib/output/sql/common.hpp"
+ 
++#include <array>
+ #include <fmt/format.h>
+ #include <sqlite3.h>
+ #include <cereal/cereal.hpp>
+--- a/source/lib/python/rocpd/source/types.hpp
++++ b/source/lib/python/rocpd/source/types.hpp
+@@ -25,6 +25,7 @@
+ #include "lib/output/agent_info.hpp"
+ #include "lib/output/node_info.hpp"
+ 
++#include <array>
+ #include <rocprofiler-sdk/agent.h>
+ #include <rocprofiler-sdk/fwd.h>
+ #include <rocprofiler-sdk/cxx/serialization.hpp>
+--- a/source/lib/rocprofiler-sdk-attach/attach.cpp
++++ b/source/lib/rocprofiler-sdk-attach/attach.cpp
+@@ -28,6 +28,7 @@
+ 
+ #include "lib/common/logging.hpp"
+ 
++#include <array>
+ #include <rocprofiler-register/rocprofiler-register.h>
+ #include <rocprofiler-sdk/version.h>
+ 
+--- a/source/lib/rocprofiler-sdk/buffer_tracing.cpp
++++ b/source/lib/rocprofiler-sdk/buffer_tracing.cpp
+@@ -39,6 +39,7 @@
+ #include "lib/rocprofiler-sdk/rocjpeg/rocjpeg.hpp"
+ #include "lib/rocprofiler-sdk/runtime_initialization.hpp"
+ 
++#include <array>
+ #include <rocprofiler-sdk/buffer_tracing.h>
+ #include <rocprofiler-sdk/fwd.h>
+ #include <rocprofiler-sdk/hip/table_id.h>
+--- a/source/lib/rocprofiler-sdk/context/domain.hpp
++++ b/source/lib/rocprofiler-sdk/context/domain.hpp
+@@ -24,6 +24,7 @@
+ 
+ #include "lib/common/mpl.hpp"
+ 
++#include <array>
+ #include <rocprofiler-sdk/fwd.h>
+ 
+ #include <bitset>
+--- a/source/lib/rocprofiler-sdk/intercept_table.cpp
++++ b/source/lib/rocprofiler-sdk/intercept_table.cpp
+@@ -30,6 +30,7 @@
+ #include "lib/rocprofiler-sdk/rocdecode/rocdecode.hpp"
+ #include "lib/rocprofiler-sdk/rocjpeg/rocjpeg.hpp"
+ 
++#include <array>
+ #include <rocprofiler-sdk/fwd.h>
+ #include <rocprofiler-sdk/hip.h>
+ #include <rocprofiler-sdk/hsa.h>
+--- a/source/lib/rocprofiler-sdk/ompt/ompt.hpp
++++ b/source/lib/rocprofiler-sdk/ompt/ompt.hpp
+@@ -25,6 +25,7 @@
+ #include "lib/rocprofiler-sdk/context/correlation_id.hpp"
+ #include "lib/rocprofiler-sdk/tracing/fwd.hpp"
+ 
++#include <array>
+ #include <rocprofiler-sdk/buffer_tracing.h>
+ #include <rocprofiler-sdk/callback_tracing.h>
+ #include <rocprofiler-sdk/external_correlation.h>
+--- a/source/lib/rocprofiler-sdk-tool/tool.cpp
++++ b/source/lib/rocprofiler-sdk-tool/tool.cpp
+@@ -60,6 +60,7 @@
+ #include "lib/output/tmp_file.hpp"
+ #include "lib/output/tmp_file_buffer.hpp"
+ 
++#include <array>
+ #include <rocprofiler-sdk/agent.h>
+ #include <rocprofiler-sdk/buffer_tracing.h>
+ #include <rocprofiler-sdk/callback_tracing.h>

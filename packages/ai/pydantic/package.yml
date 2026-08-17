@@ -1,0 +1,27 @@
+name: pydantic
+# Upstream latest stable.
+version: "2.13.4"
+release: 1
+description: Data validation using Python type hints
+license: MIT
+homepage: https://github.com/pydantic/pydantic
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/18/a5/b60d21ac674192f8ab0ba4e9fd860690f9b4a6e51ca5df118733b487d8d6/pydantic-2.13.4.tar.gz
+  sha256: c40756b57adaa8b1efeeced5c196f3f3b7c435f90e84ea7f443901bec8099ef6
+dependencies:
+  build:
+  - hatchling
+  - hatch-fancy-pypi-readme
+  host: []
+  runtime:
+  - annotated-types
+  - pydantic-core   # native-build dependency — forward-declared 2026-07-21; native wave (pydantic-core==2.46.4 exact — pydantic 2.13.4 pins it)
+  - typing-extensions
+  - typing-inspection
+verify_paths:
+  - /usr/lib/python3.14/site-packages/pydantic/__init__.py
+  - /usr/lib/python3.14/site-packages/pydantic/main.py

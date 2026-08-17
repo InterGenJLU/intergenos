@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Rhythmbox — traced from the reference rendition: a speaker cabinet with a tweeter, a woofer and corner screws. -->
+  <g class="glyph">
+    <rect x="68.5" y="42.5" width="119" height="171" rx="10"/>
+    <circle cx="128" cy="84.1" r="21.7"/>
+    <circle cx="128" cy="84.1" r="7.1"/>
+    <circle cx="128" cy="155.1" r="38.5"/>
+    <circle cx="128" cy="155.1" r="19.5"/>
+    <circle cx="83.2" cy="53.8" r="4.5"/>
+    <circle cx="172.8" cy="53.8" r="4.5"/>
+    <circle cx="83.2" cy="197.5" r="4.5"/>
+    <circle cx="172.8" cy="197.5" r="4.5"/>
+  </g>
+</svg>

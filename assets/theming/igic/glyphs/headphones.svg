@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: audio-headphones — a headband arch meeting two ear cups cleanly, no protrusion (S3).
+       volume.js:309,357. Compositor strokes it foreground. -->
+  <path d="M 78 150 C 78 84 178 84 178 150"/>
+  <rect x="64" y="148" width="28" height="52" rx="13"/>
+  <rect x="164" y="148" width="28" height="52" rx="13"/>
+</svg>

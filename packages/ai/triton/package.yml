@@ -1,0 +1,103 @@
+name: triton
+# Version pinned to what the fleet's PyTorch release requires. PyTorch 2.10.0
+# (re-pinned from 2.13.0 down under the unsloth torch<2.11 ceiling) pins
+# triton 3.6.0 at the exact upstream commit 8fedd49b (its
+# .ci/docker/ci_commit_pins/triton.txt; .ci/docker/triton_version.txt =
+# 3.6.0; torch 2.10.0 wheel metadata: triton==3.6.0, linux/x86_64). PyPI
+# publishes 3.6.0 as WHEELS ONLY (no sdist), so the pin is the immutable
+# source commit archive — triton is an MLIR-based compiler that must be
+# built from source for the AMD backend.
+# NOTE: this version tracks the pytorch-ROCm pin; if that lands on a
+# different torch release, re-pin triton to that release's triton commit.
+version: "3.6.0"
+release: 1
+description: Triton language and compiler (GPU kernel compiler) — AMD/ROCm backend
+license: MIT
+homepage: https://github.com/triton-lang/triton
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+
+# ============================================================================
+# LLVM DECISION ITEM — RESOLVED 2026-07-21 (option A). Status:
+# held-pending-triton-llvm-proof.
+# ----------------------------------------------------------------------------
+# triton 3.6.0 pins LLVM commit f6ded0be = LLVM 22 (cmake/llvm-hash.txt) and
+# links non-stable MLIR/LLVM/LLD internal APIs, so the shared compute/rocm-llvm
+# (LLVM 22.0.0, clang;lld only, no MLIR) cannot satisfy it: even though the LLVM
+# major now matches, rocm-llvm builds NO MLIR (and is a different commit / an
+# AMD fork), which triton hard-requires — the missing-MLIR blocker stands
+# regardless of the version alignment.
+# Resolution: a dedicated compute/triton-llvm — pristine upstream LLVM at that
+# exact commit, MLIR+LLD, AMDGPU+NVPTX targets, installed to the private prefix
+# /opt/triton-llvm (shadows neither /usr nor /opt/rocm). This recipe's
+# LLVM_SYSPATH points there. Rejected alternatives, for the record: re-majoring
+# the shared rocm-llvm (it feeds three ROCm packages) and letting triton
+# self-download LLVM (silent vendoring, violates the offline/pin discipline).
+#
+# HELD flag rationale: the recipe is complete and wired, but burn scheduling
+# stays HELD until the triton + triton-llvm pair is proven to build and link
+# together on the validation workstation (the pair-proof gate). Do not schedule
+# either half on the batch burn until then.
+# ============================================================================
+
+source:
+  - url: https://github.com/triton-lang/triton/archive/8fedd49bbfc40cdb4640981009d03bd4b1dbe0af.tar.gz
+    filename: triton-3.6.0.tar.gz
+    sha256: 6f1863af27d4454a89dea58190d8305f3fa14a9d1ffa6258886d2a62e4a1abac
+  # --- Vendor exception (decided 2026-07-22): NVIDIA CUDA API headers -------
+  # Triton's bundled proton profiler compiles thin driver shims for every GPU
+  # backend unconditionally; the CUDA/CUPTI shims need NVIDIA's API headers at
+  # COMPILE TIME ONLY (the shims dlopen driver libraries at runtime). These
+  # headers have no from-source path anywhere — every distribution that ships
+  # this capability redistributes them — so excluding them would strip the
+  # whole profiler, including its fully-buildable AMD/roctracer half. The
+  # three archives below are NVIDIA's official redistributables, pinned to the
+  # exact versions in triton's cmake/nvidia-toolchain-version.json; each
+  # sha256 matches NVIDIA's published redistrib manifest. NO NVIDIA binaries
+  # are consumed or shipped: header-only build inputs, and the built package
+  # contains only triton's own MIT-licensed code. The NVIDIA codegen backend
+  # remains excluded (TRITON_CODEGEN_BACKENDS=amd) — that would require
+  # shipping proprietary executables, which stays out.
+  - url: https://developer.download.nvidia.com/compute/cuda/redist/cuda_cudart/linux-x86_64/cuda_cudart-linux-x86_64-12.8.57-archive.tar.xz
+    filename: cuda_cudart-linux-x86_64-12.8.57-archive.tar.xz
+    sha256: 5bd3ac35ea8e8ab880e595d5054ee373abf6d9e53dcb8cef0a5c75358dbc0ae2
+  - url: https://developer.download.nvidia.com/compute/cuda/redist/cuda_cupti/linux-x86_64/cuda_cupti-linux-x86_64-12.8.90-archive.tar.xz
+    filename: cuda_cupti-linux-x86_64-12.8.90-archive.tar.xz
+    sha256: 7bf5db86cb82f26a6a3cb9e2fa4dc2a131d25885f59fdbc647938929924405db
+  - url: https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvcc/linux-x86_64/cuda_nvcc-linux-x86_64-12.8.61-archive.tar.xz
+    filename: cuda_nvcc-linux-x86_64-12.8.61-archive.tar.xz
+    sha256: 145f8779bd56bdfa214447e5cb1b3a206ec1b7398da460e257f2898fd8604c54
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - python
+  - setuptools
+  - wheel
+  - pybind11        # imported as a Python module; setup.py uses pybind11.get_include()
+  - nlohmann-json   # JSON_SYSPATH=/usr (has include/nlohmann/json.hpp) — replaces the v3.11.3 download
+  - zlib
+  - triton-llvm     # LLVM_SYSPATH=/opt/triton-llvm — the MLIR/LLVM/LLD static libs triton links
+  - rocm-hip        # AMD backend: HIP headers / runtime
+  - roctracer       # AMD backend include (TRITON_ROCTRACER_INCLUDE_PATH)
+  host: []
+  runtime:
+  # LLVM/MLIR/LLD are linked statically from triton-llvm into libtriton at
+  # build time, so triton-llvm is NOT a runtime dep. Runtime needs only the
+  # ROCm runtime for the AMD-backend kernels it JITs.
+  - rocm-hip
+  - roctracer
+verify_paths:
+  - /usr/lib/python3.14/site-packages/triton/__init__.py
+  - /usr/lib/python3.14/site-packages/triton/compiler/compiler.py
+  - /usr/lib/python3.14/site-packages/triton/backends/amd/compiler.py
+  # proton profiler ships whole (the vendor-exception headers above exist to
+  # keep it) — the pin proves it sealed into the archive.
+  - /usr/lib/python3.14/site-packages/triton/profiler/__init__.py
+
+tests:
+  enabled: false
+  reason: "held-pending-triton-llvm-proof: burn scheduling is held until triton and compute/triton-llvm are proven to build+link together, so there is no artifact to test in the batch yet. Independently, triton's suite requires a live AMD ROCm GPU (it JITs and launches kernels) and is uncollectable in the network-less, GPU-less chroot (Rule 10 step 1, environmental). Once the pair proves on the validation workstation, correctness is exercised on-target there; verify_paths gate the installed surface."

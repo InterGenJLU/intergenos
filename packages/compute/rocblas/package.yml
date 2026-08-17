@@ -1,0 +1,51 @@
+name: rocblas
+version: "7.2.4"
+release: 1
+description: ROCm BLAS library with Tensile-generated GPU kernels
+license: MIT
+homepage: https://github.com/ROCm/rocm-libraries
+tier: compute
+build_style: custom
+install_func: do_install
+
+# rocm-libraries monorepo at the rocm-7.2.4 tag; builds projects/rocblas
+# with Tensile vendored at shared/tensile in the SAME tarball (no
+# separate Tensile pin). sha256 pinned 2026-07-15 (single-witness GitHub
+# archive endpoint — Arch pins the equivalent git tag, so the tag
+# identity is corroborated but not the archive bytes).
+source:
+  - url: https://github.com/ROCm/rocm-libraries/archive/refs/tags/rocm-${version}.tar.gz
+    filename: rocm-rocm-libraries-${version}.tar.gz
+    sha256: 50a4090b4ad18b34c375f666e5f71816cf55f89bc2175dc3eba9a7b80f65a15d
+
+# DECLARED GPU targets (detect-or-declare, ruled decision 2): the chroot
+# has no GPU, so Tensile compiles kernels for exactly this set. Expanding
+# the set is a declaration change + rebuild; Tensile build time scales
+# with target count.
+gpu_targets: "gfx1100;gfx1102;gfx1201"
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - rocm-cmake
+  - rocm-llvm
+  - rocm-hip
+  - msgpack-cxx
+  - python
+  - python-msgpack
+  - python-joblib
+  - pyyaml
+  - rich
+  - setuptools
+  - wheel
+  host: []
+  runtime:
+  - rocm-hip
+verify_paths:
+  - /opt/rocm/lib/librocblas.so
+  # The Tensile kernel library is THE load-bearing artifact — a rocblas
+  # that built but shipped no kernels for the declared targets loads and
+  # then fails at first GEMM. The directory existing proves the Tensile
+  # stage emitted its library set.
+  - /opt/rocm/lib/rocblas/library

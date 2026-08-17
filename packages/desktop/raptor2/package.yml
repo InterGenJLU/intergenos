@@ -1,0 +1,28 @@
+name: raptor2
+version: "2.0.16"
+release: 1
+description: RDF parser and serializer library
+license: LGPL-2.1-or-later OR Apache-2.0
+homepage: https://librdf.org/raptor/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://download.librdf.org/source/raptor2-${version}.tar.gz
+  sha256: 089db78d7ac982354bdbf39d973baf09581e6904ac4c92a98c5caadb3de44680
+dependencies:
+  build:
+  - curl
+  - libxslt
+  host: []
+  runtime:
+  - curl
+  - libxslt
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "BLFS-known: several XML tests may fail against libxml2 versions newer than upstream raptor2 2.0.16 expected."
+verify_paths:
+  - /usr/lib/libraptor2.so
+  - /usr/bin/rapper

@@ -1,0 +1,26 @@
+name: cups-pk-helper
+version: "0.2.7"
+release: 1
+description: PolicyKit mechanism exposing CUPS configuration to the GNOME Printers panel
+license: GPL-2.0-or-later
+homepage: https://www.freedesktop.org/wiki/Software/cups-pk-helper/
+tier: desktop
+build_style: meson
+install_func: do_install
+source:
+- url: https://www.freedesktop.org/software/cups-pk-helper/releases/cups-pk-helper-${version}.tar.xz
+  sha256: 66070ddb448fe9fcee76aa26be2ede5a80f85563e3a4afd59d2bfd79fbe2e831
+dependencies:
+  build:
+  - glib2
+  - cups
+  - polkit
+  - gettext
+  host: []
+  runtime:
+  - glib2
+  - cups
+  - polkit
+verify_paths:
+  - /usr/libexec/cups-pk-helper-mechanism
+  - /usr/share/polkit-1/actions/org.opensuse.cupspkhelper.mechanism.policy

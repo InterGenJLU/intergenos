@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: device-security — shield + keyhole. VL primitives only, colorless. -->
+  <g class="glyph">
+    <path d="M128 58 L188 84 L188 132 C188 172 160 198 128 210 C96 198 68 172 68 132 L68 84 Z"/>
+    <circle cx="128" cy="120" r="13"/>
+    <line x1="128" y1="132" x2="128" y2="158"/>
+  </g>
+</svg>

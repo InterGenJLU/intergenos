@@ -1,0 +1,29 @@
+name: python
+version: "3.14.3"
+release: 3  # r3: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: Python programming language
+license: PSF-2.0
+source:
+- url: https://www.python.org/ftp/python/${version}/Python-${version}.tar.xz
+  sha256: a97d5549e9ad81fe17159ed02c68774ad5d266c72f8d9a0b5a9c371fe85d902b
+- url: https://www.python.org/ftp/python/3.14.3/python-3.14.3-docs-html.tar.bz2
+  sha256: 1ac42341fdb73ff6176f6004ba0d8276b8b61b06a9bb80bf2e6ccc170f7fd47c
+dependencies:
+  build:
+  # System libmpdec for _decimal (--with-system-libmpdec) — replaces the
+  # deprecated bundled copy (upstream removal at 3.16). Built earlier in ch8.
+  - mpdecimal
+  host: []
+  runtime:
+  - openssl
+  - libffi
+  - expat
+  - sqlite
+  - readline
+  - ncurses
+  - mpdecimal
+tier: core
+build_style: custom
+verify_paths:
+  - /usr/bin/python3
+  - /usr/lib/libpython3.14.so

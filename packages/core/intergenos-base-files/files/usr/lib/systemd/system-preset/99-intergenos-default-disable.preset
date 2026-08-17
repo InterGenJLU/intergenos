@@ -1,0 +1,10 @@
+# InterGenOS — default-disable catch-all.
+# Anything not explicitly enabled by an earlier-sorted preset (80- or
+# 90-) lands here and stays disabled. Without this catch-all, systemd's
+# implicit default of "enable on no match" auto-enables every service
+# with `WantedBy=multi-user.target` in its [Install] section. That was
+# the May-12 root cause for 40+ servers (httpd, nginx, postgres, mariadb,
+# memcached, etc.) auto-starting on the live ISO — a security-only-alignment
+# violation. Closing the loop here means "user installs, user enables."
+
+disable *

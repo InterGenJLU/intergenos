@@ -1,0 +1,38 @@
+name: sentencepiece
+version: "0.2.2"
+release: 1
+content_hash: 613bb1f6832e72eb
+description: Unsupervised text tokenizer for neural network text generation (C++ core, Python bindings)
+license: Apache-2.0
+homepage: https://github.com/google/sentencepiece
+tier: ai
+iso_include: false  # training apparatus — mirror-only (decided 2026-07-20)
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/s/sentencepiece/sentencepiece-${version}.tar.gz
+  sha256: 3d2b5e824b5622038dc7b490897efe05ebbbb9e7350fc142f3ecc8789ef9bdf6
+# abseil: the sdist bundles darts_clone/esaxx/protobuf-lite but NOT abseil —
+# its CMake FetchContent-clones abseil-cpp at tag 20260526.0 at build time
+# (burn-proven 2026-07-22; the earlier "all bundled" note was wrong). The
+# tarball is staged and handed over via abseil-offline-url.patch +
+# SPM_ABSEIL_TARBALL; the populate step verifies this same sha as URL_HASH.
+- url: https://github.com/abseil/abseil-cpp/archive/refs/tags/20260526.0.tar.gz
+  filename: abseil-cpp-20260526.0.tar.gz
+  sha256: 6e1aee535473414164bf83e4ebc40240dec71a4701f8a642d906e95bea1aea0c
+dependencies:
+  build:
+  # [build-system] verified from the sdist: setuptools>=61, wheel, pybind11>=2.12
+  # (tree pybind11 = compute tier). Bundled inside the sha-pinned sdist:
+  # protobuf-lite, darts_clone, esaxx. abseil is NOT bundled — see the
+  # second source entry above; cmake drives the core build inside setup.py.
+  - setuptools
+  - pybind11
+  - cmake
+  - ninja
+  host: []
+  # Requires-Dist (PyPI metadata): none.
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/sentencepiece/__init__.py
+  - /usr/bin/spm_train

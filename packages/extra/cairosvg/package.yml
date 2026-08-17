@@ -1,0 +1,29 @@
+name: cairosvg
+version: "2.9.0"
+release: 1
+description: SVG to PNG/PDF/PS converter based on cairo (icon-generation toolchain)
+license: LGPL-3.0-or-later
+homepage: https://cairosvg.org
+tier: extra
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+  - url: https://files.pythonhosted.org/packages/source/c/cairosvg/cairosvg-${version}.tar.gz
+    sha256: 1debb00cd2da11350d8b6f5ceb739f1b539196d71d5cf5eb7363dbd1bfbc8dc5
+dependencies:
+  build:
+    - setuptools
+  host: []
+  runtime:
+    - cairocffi
+    - cssselect2
+    - defusedxml
+    - tinycss2
+    # pillow builds in the later ai tier — runtime-only edge (nothing
+    # imports it at build), resolved at install time like any cross-tier
+    # runtime dep; both packages are mirror-only.
+    - pillow
+verify_paths:
+  - /usr/bin/cairosvg
+  - /usr/lib/python3.14/site-packages/cairosvg/surface.py

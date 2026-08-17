@@ -1,0 +1,23 @@
+name: busybox-static
+version: "1.37.0"
+release: 1
+content_hash: f5d8a635dbb9c03d
+description: Statically-linked busybox userland for early-boot environments (initramfs)
+license: GPL-2.0-only
+homepage: https://busybox.net/
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://busybox.net/downloads/busybox-${version}.tar.bz2
+    sha256: 3311dff32e746499f4df0d5df04d7eb396382d7e108bb9250e7b519b837043a4
+
+dependencies:
+  build: []
+  host: []
+  runtime: []
+
+verify_paths:
+  - /usr/bin/busybox.static
+  - /usr/share/man/man1/busybox-static.1

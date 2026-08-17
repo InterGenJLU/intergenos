@@ -1,0 +1,37 @@
+name: containerd
+version: "2.2.3"
+release: 1
+description: Industry-standard container runtime daemon — OCI image + container lifecycle
+license: Apache-2.0
+homepage: https://containerd.io/
+tier: extra
+build_style: custom
+install_func: do_install
+iso_include: false
+# v1.0 docker mandate (2026-05-28): containerd is the daemon docker (dockerd)
+# shells out to for OCI container lifecycle. Pinned to v2.2.3 because moby
+# v29.5.2 hardcodes that exact version in its Dockerfile (Dockerfile:145).
+# containerd v2.2.3 in turn pins runc v1.3.5 (script/setup/runc-version).
+# Mirror-only — most users will never install it. Authored alongside
+# runc 1.3.5 + docker 29.5.2 (moby's bilaterally-tested trio).
+source:
+- url: https://github.com/containerd/containerd/archive/refs/tags/v${version}.tar.gz
+  filename: containerd-${version}.tar.gz
+  sha256: b97780bde4b01ed3596b0b0c6f55bfb130794a3db4e6fe2e0fc9719244933945
+dependencies:
+  build:
+  - go            # >= 1.24.3 required; our 1.26.4 passes
+  - go-md2man     # man-page generation
+  - pkgconf       # cgo btrfs link
+  - btrfs-progs   # /usr/include/btrfs/* for vendored btrfs CGO (same need as podman)
+  - libseccomp    # shared with runc/moby; cgo seccomp link
+  host: []
+  runtime:
+  - runc          # OCI runtime; containerd-shim-runc-v2 shells out via $PATH
+  - kmod          # containerd.service ExecStartPre runs modprobe overlay
+tests:
+  enabled: false
+  reason: "containerd's integration tests need a real Linux namespace + cgroup-v2 environment + sometimes pull images from network registries — not available in the build chroot. Unit tests under pkg/ pass but require running containerd which itself needs kernel features the chroot lacks. Binary builds + links cleanly without tests."
+verify_paths:
+  - /usr/bin/containerd
+  - /usr/bin/ctr

@@ -1,0 +1,86 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 InterGenJLU
+#
+# igos-greeter-monitors-sync <username> — sync a user's monitor layout to
+# the GDM greeter (decided 2026-07-21).
+#
+# WHY: the greeter's gnome-shell has no display configuration of its own, so
+# mutter enumerates connectors in arbitrary order at default scale — on a
+# multi-monitor box the login screen renders stretched and shuffled. The
+# standard mechanism IS a monitors.xml in the greeter's per-seat state
+# (GDM 49 reads /var/lib/gdm/seat0/config/monitors.xml); upstream ships no
+# session-to-greeter sync, so this helper closes that gap: it copies the
+# named user's layout into the greeter seat state whenever it changes
+# (driven by igos-greeter-monitors-sync@.path).
+#
+# OWNERSHIP IS DELIBERATELY NEVER TOUCHED. GDM 49 runs the greeter as a
+# per-boot DynamicUser account and chowns the seat state itself at greeter
+# start — any ownership this helper set would be both racy and overwritten.
+# The durable guarantee is carried by MODE BITS alone: file 0644, dirs 0755,
+# readable by whatever uid GDM allocates next boot (chown does not alter
+# modes). A monitor layout is not a secret; world-readable is the point.
+#
+# FAILURE POSTURE: fail loud, never degrade the greeter. A refused sync
+# leaves the previous greeter layout in place; the worst case at the greeter
+# is mutter's clone-all fallback. Recovery from a bad layout:
+#   rm /var/lib/gdm/seat0/config/monitors.xml && systemctl restart gdm
+
+set -euo pipefail
+
+SEAT_CONFIG=/var/lib/gdm/seat0/config
+TARGET="$SEAT_CONFIG/monitors.xml"
+MAX_BYTES=1048576   # monitors.xml is ~1-4 KB; anything near 1 MB is not one
+
+fail() { echo "igos-greeter-monitors-sync: ERROR: $*" >&2; exit 1; }
+
+[ $# -eq 1 ] || fail "usage: igos-greeter-monitors-sync <username>"
+USERNAME="$1"
+
+ENT="$(getent passwd "$USERNAME")" || fail "no such user: $USERNAME"
+USER_HOME="$(printf '%s' "$ENT" | cut -d: -f6)"
+USER_UID="$(printf '%s' "$ENT" | cut -d: -f3)"
+[ -d "$USER_HOME" ] || fail "home directory missing for $USERNAME: $USER_HOME"
+
+SRC="$USER_HOME/.config/monitors.xml"
+
+# No layout saved yet — nothing to sync. Not an error: the path unit fires
+# on the first write and every change thereafter.
+if [ ! -e "$SRC" ]; then
+    echo "igos-greeter-monitors-sync: $SRC absent, nothing to sync"
+    exit 0
+fi
+
+# This helper runs as root and reads out of a user-controlled directory —
+# refuse anything but a plain regular file OWNED by that user, sized like a
+# monitors.xml. A symlink here could otherwise exfiltrate an arbitrary
+# root-readable file into a world-readable location.
+[ -L "$SRC" ] && fail "$SRC is a symlink — refusing"
+[ -f "$SRC" ] || fail "$SRC is not a regular file — refusing"
+SRC_UID="$(stat -c %u "$SRC")"
+[ "$SRC_UID" = "$USER_UID" ] || \
+    fail "$SRC owned by uid $SRC_UID, expected $USER_UID — refusing"
+SRC_SIZE="$(stat -c %s "$SRC")"
+[ "$SRC_SIZE" -le "$MAX_BYTES" ] || \
+    fail "$SRC is $SRC_SIZE bytes (limit $MAX_BYTES) — refusing"
+
+# Cheap validity gate: a file that is not well-formed XML cannot be a
+# monitors.xml — refuse it and keep the previous greeter layout.
+python3 -c "import sys, xml.etree.ElementTree as ET; ET.parse(sys.argv[1])" \
+    "$SRC" 2>/dev/null || fail "$SRC is not well-formed XML — refusing"
+
+# Ensure the seat state path exists with the drift-proof dir mode. If GDM
+# has not created it yet, root-owned 0755 is correct (GDM re-chowns at
+# greeter start; modes persist). Never chmod pre-existing sibling content.
+install -dm755 /var/lib/gdm /var/lib/gdm/seat0 "$SEAT_CONFIG"
+
+# Atomic replace with the drift-proof file mode; same-filesystem mv so the
+# greeter can never observe a torn file.
+TMP="$(mktemp "$SEAT_CONFIG/.monitors.xml.XXXXXX")"
+trap 'rm -f "$TMP"' EXIT
+cat "$SRC" > "$TMP"
+chmod 0644 "$TMP"
+mv -f "$TMP" "$TARGET"
+trap - EXIT
+
+echo "igos-greeter-monitors-sync: synced $SRC -> $TARGET ($(sha256sum "$TARGET" | cut -c1-16)...)"

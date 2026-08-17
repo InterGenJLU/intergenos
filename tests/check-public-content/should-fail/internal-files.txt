@@ -1,0 +1,5 @@
+See signing_key_custody_draft.md for details on the ceremony.
+The project_vps_mirror_tracking.md file contains VPS inventory.
+Check feedback_repo_no_pii.md for documentation standards.
+The project_kilo_plugins.md describes the plugin architecture.
+Read reference_coordination_channel.md for channel protocol.

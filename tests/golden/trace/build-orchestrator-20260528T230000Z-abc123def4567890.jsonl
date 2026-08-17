@@ -1,0 +1,10 @@
+{"type":"trace_init","ts":"2026-05-29T01:00:52.189Z","runid":"abc123def4567890","start_ts":"20260528T230000Z","scope":"orchestrator","sink_path":"tests/golden/trace/build-orchestrator-20260528T230000Z-abc123def4567890.jsonl","pid":3349864,"verbose":true}
+{"type":"build_start","ts":"2026-05-29T01:00:52.195Z","runid":"abc123def4567890","host":"test-host","phase_list":["validate","setup"]}
+{"type":"phase_enter","ts":"2026-05-29T01:00:52.201Z","phase":"validate","intent":"Verify host requirements"}
+{"type":"subprocess_start","ts":"2026-05-29T01:00:52.216Z","phase":"validate","intent":"echo smoke test","pkg":"","cmd":["echo","hello smoke test"],"stdin_bytes":0,"redacted_env_keys":["SSH_AUTH_SOCK","XAUTHORITY"]}
+{"type":"subprocess_end","ts":"2026-05-29T01:00:52.233Z","phase":"validate","intent":"echo smoke test","pkg":"","cmd":["echo","hello smoke test"],"rc":0,"stdout":"hello smoke test","stderr":"","stdout_bytes":17,"stderr_bytes":0,"duration_ms":1}
+{"type":"phase_exit","ts":"2026-05-29T01:00:52.240Z","phase":"validate","rc":0,"duration_ms":1234}
+{"type":"pkg_enter","ts":"2026-05-29T01:00:52.246Z","pkg":"glibc","version":"2.43","tier":"core"}
+{"type":"pkg_phase","ts":"2026-05-29T01:00:52.252Z","pkg":"glibc","phase":"configure","rc":0,"duration_ms":4567}
+{"type":"pkg_exit","ts":"2026-05-29T01:00:52.259Z","pkg":"glibc","rc":0,"duration_ms":15000}
+{"type":"build_end","ts":"2026-05-29T01:00:52.264Z","success":true,"elapsed_s":100,"last_phase":"iso"}

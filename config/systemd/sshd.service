@@ -1,0 +1,58 @@
+# InterGenOS OpenSSH Server
+#
+# Designed for reliability and security. Based on research of BLFS, Arch Linux,
+# and Debian implementations. Key design decisions:
+#
+# - Type=simple with -D flag (foreground) for proper systemd process management
+# - Config validation before start AND reload (catches errors before disruption)
+# - Automatic host key generation on first boot
+# - No socket activation (known DoS vulnerability — Arch FS#62248)
+# - Restart=on-failure (not always — don't restart on clean shutdown)
+# - KillMode=process (don't kill active SSH sessions on daemon restart)
+#
+# NOTE: ProtectSystem/ProtectKernel* are deliberately omitted. SSH spawns
+# user sessions that inherit the service's mount namespace — restricting
+# the filesystem here would make the system unmanageable over SSH.
+
+[Unit]
+Description=InterGenOS OpenSSH Server
+Documentation=man:sshd(8) man:sshd_config(5)
+After=network.target
+
+[Service]
+Type=simple
+
+# Generate host keys if missing (first boot). MUST run before `sshd -t`:
+# the config validation step requires host keys to exist + will exit
+# "no hostkeys available -- exiting" (status 1) with no keys present.
+# If `sshd -t` ran first on a freshly-installed system with no keys,
+# the service would deadlock in a 5s-restart loop forever — the
+# key-generation step never gets to run because the prior step failed.
+# Verified empirically on install #29 (2026-05-27): boot journal
+# showed `sshd: no hostkeys available -- exiting` every 5s from
+# 01:37:58 until operator manually ran ssh-keygen -A.
+ExecStartPre=/bin/bash -c 'test -f /etc/ssh/ssh_host_ed25519_key || ssh-keygen -A'
+
+# Validate config before starting — catches syntax errors early
+ExecStartPre=/usr/sbin/sshd -t
+
+# Run in foreground (-D) for proper systemd process management
+ExecStart=/usr/sbin/sshd -D
+
+# Graceful reload — validate config first, then signal
+ExecReload=/bin/bash -c '/usr/sbin/sshd -t && /bin/kill -HUP $MAINPID'
+
+# Only kill the main process, not child sessions
+KillMode=process
+
+# Restart on failure but not on clean exit
+Restart=on-failure
+RestartSec=5s
+
+# Create /run/sshd with correct permissions
+RuntimeDirectory=sshd
+RuntimeDirectoryMode=0755
+
+
+[Install]
+WantedBy=multi-user.target

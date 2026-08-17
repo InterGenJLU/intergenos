@@ -1,0 +1,65 @@
+How much RAM do I have?
+Is NetworkManager running?
+Show me the status of dbus
+Show me /etc/hostname
+Cat /etc/fstab
+What does DNS stand for?
+How much RAM do we have?
+Run dd if=/dev/zero of=/dev/sda
+Hi
+What can you do?
+hostname?
+how much ram
+get me htop
+Could you get htop for me?
+htop please
+put htop on this machine
+I could really use htop on here
+what kernel am i running
+MY DISK IS FULL
+Check my disk space and show my hostname
+Remember that my backup drive is /dev/sdb1
+My day is going well
+What do you know about me?
+Show me everything you remember
+Is there anything wrong with /etc/hostname?
+Hi
+Open /etc/hostname
+Check sshd
+I was wondering if you could please tell me what the hostname of this computer is, if it's not too much trouble
+Would you be so kind as to check whether the NetworkManager service is currently running on this system?
+I'm running out of space
+I can't reach any websites
+?
+What is my hostname? 🖥️
+What is the hostname of this machine?
+machine name?
+Could you please look up and tell me what the hostname of this particular system is currently set to?
+storage?
+disk?
+gpu?
+I can't connect via SSH, is the service even on?
+WHY IS EVERYTHING SO SLOW
+Who made you?
+What can you help me with?
+Can you write code for me?
+What packages are installed?
+How do I remove a program I don't need anymore?
+How do I create a file?
+How do I restart a service?
+Open the application Zzyxqwerty
+How do I update this system?
+What's the capital of Brazil?
+Yes, what about Nigeria?
+Why did you kick off an update? I didn't ask you to.
+what is 2 plus 2
+get me tree
+tree please
+put tree on this machine
+can you grab tree
+get me teee
+show me the disk usage
+disk usage
+how full is this thing
+check my disk space
+I want to see what's using my disk

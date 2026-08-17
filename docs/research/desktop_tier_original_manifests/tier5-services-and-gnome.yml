@@ -1,0 +1,601 @@
+# InterGenOS Desktop Tier 5+6 — System Services + GNOME Core
+# This is the final tier — everything needed for a working GNOME desktop.
+# Source: BLFS 13.0
+
+tier: desktop
+
+packages:
+  # --- Bluetooth ---
+  - name: libical
+    version: "3.0.18"
+    url: https://github.com/nickvank/libical/releases/download/v${version}/libical-${version}.tar.gz
+    license: LGPL-2.1-or-later
+    description: iCalendar protocol implementation
+    homepage: https://github.com/nickvank/libical
+    build_style: cmake
+    cmake_flags:
+      - "CMAKE_INSTALL_PREFIX=/usr"
+      - "BUILD_SHARED_LIBS=ON"
+      - "GOBJECT_INTROSPECTION=true"
+
+  - name: bluez
+    version: "5.79"
+    url: https://www.kernel.org/pub/linux/bluetooth/bluez-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: Bluetooth protocol stack
+    homepage: http://www.bluez.org/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--sysconfdir=/etc"
+      - "--localstatedir=/var"
+      - "--enable-library"
+      - "--disable-manpages"
+    deps:
+      build:
+        - libical
+
+  # --- Sound theme ---
+  - name: sound-theme-freedesktop
+    version: "0.8"
+    url: https://people.freedesktop.org/~mccann/dist/sound-theme-freedesktop-${version}.tar.bz2
+    license: CC-BY-SA-3.0
+    description: Default XDG sound theme
+    homepage: https://www.freedesktop.org/wiki/Specifications/sound-theme-spec/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+
+  - name: libcanberra
+    version: "0.30"
+    url: https://0pointer.de/lennart/projects/libcanberra/libcanberra-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: XDG sound theme and event sounds library
+    homepage: http://0pointer.de/lennart/projects/libcanberra/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-static"
+      - "--disable-oss"
+    deps:
+      build:
+        - libvorbis
+        - alsa-lib
+        - gtk3
+        - sound-theme-freedesktop
+
+  - name: gsound
+    version: "1.0.3"
+    url: https://download.gnome.org/sources/gsound/1.0/gsound-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: GObject wrapper for libcanberra
+    homepage: https://wiki.gnome.org/Projects/GSound
+    build_style: meson
+    deps:
+      build:
+        - libcanberra
+        - vala
+
+  # --- System services ---
+  - name: accountsservice
+    version: "23.13.9"
+    url: https://www.freedesktop.org/software/accountsservice/accountsservice-${version}.tar.xz
+    license: GPL-3.0-or-later
+    description: D-Bus interface for user account management
+    homepage: https://www.freedesktop.org/wiki/Software/AccountsService/
+    build_style: meson
+    meson_flags:
+      - "-Dadmin_group=wheel"
+      - "-Dsystemdsystemunitdir=/usr/lib/systemd/system"
+    deps:
+      build:
+        - polkit
+        - vala
+
+  - name: upower
+    version: "1.90.6"
+    url: https://gitlab.freedesktop.org/upower/upower/-/archive/v${version}/upower-v${version}.tar.gz
+    license: GPL-2.0-or-later
+    description: Power management service
+    homepage: https://upower.freedesktop.org/
+    build_style: meson
+    meson_flags:
+      - "-Dman=false"
+      - "-Dgtk-doc=false"
+    deps:
+      build:
+        - libgudev
+        - libusb
+
+  - name: power-profiles-daemon
+    version: "0.23"
+    url: https://gitlab.freedesktop.org/upower/power-profiles-daemon/-/archive/${version}/power-profiles-daemon-${version}.tar.gz
+    license: GPL-3.0-or-later
+    description: System-wide power profile management
+    homepage: https://gitlab.freedesktop.org/upower/power-profiles-daemon
+    build_style: meson
+    meson_flags:
+      - "-Dtests=false"
+      - "-Dgtk_doc=false"
+    deps:
+      build:
+        - polkit
+        - upower
+
+  # --- Networking ---
+  - name: iptables
+    version: "1.8.11"
+    url: https://www.netfilter.org/projects/iptables/files/iptables-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: Linux kernel packet filtering framework
+    homepage: https://www.netfilter.org/
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--disable-nftables"
+      - "--enable-libipq"
+
+  - name: wpa_supplicant
+    version: "2.11"
+    url: https://w1.fi/releases/wpa_supplicant-${version}.tar.gz
+    license: BSD-3-Clause
+    description: WPA/WPA2/IEEE 802.1X supplicant
+    homepage: https://w1.fi/wpa_supplicant/
+    build_style: custom
+    deps:
+      build:
+        - libnl
+
+  - name: networkmanager
+    version: "1.50.0"
+    url: https://download.gnome.org/sources/NetworkManager/1.50/NetworkManager-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: Network connection manager
+    homepage: https://networkmanager.dev/
+    build_style: meson
+    meson_flags:
+      - "-Dlibaudit=no"
+      - "-Dmodem_manager=true"
+      - "-Dnmtui=true"
+      - "-Dovs=false"
+      - "-Dppp=false"
+      - "-Dselinux=false"
+      - "-Dqt=false"
+      - "-Dsession_tracking=systemd"
+      - "-Dtests=no"
+      - "-Ddocs=false"
+    deps:
+      build:
+        - iptables
+        - libndp
+        - libnl
+        - polkit
+        - pygobject3
+        - vala
+        - wpa_supplicant
+
+  - name: geoclue2
+    version: "2.7.2"
+    url: https://gitlab.freedesktop.org/geoclue/geoclue/-/archive/${version}/geoclue-${version}.tar.gz
+    license: LGPL-2.0-or-later
+    description: D-Bus geolocation service
+    homepage: https://gitlab.freedesktop.org/geoclue/geoclue
+    build_style: meson
+    meson_flags:
+      - "-Dgtk-doc=false"
+      - "-D3g-source=false"
+      - "-Dmodem-gps-source=false"
+      - "-Dcdma-source=false"
+    deps:
+      build:
+        - json-glib
+        - libsoup3
+        - libnotify
+        - vala
+
+  # --- UDisks2 chain ---
+  - name: lvm2
+    version: "2.03.28"
+    url: https://sourceware.org/ftp/lvm2/LVM2.${version}.tgz
+    license: GPL-2.0-or-later
+    description: Logical Volume Manager
+    homepage: https://sourceware.org/lvm2/
+    build_style: custom
+
+  - name: udisks2
+    version: "2.10.1"
+    url: https://github.com/storaged-project/udisks/releases/download/udisks-${version}/udisks-${version}.tar.bz2
+    license: GPL-2.0-or-later
+    description: Disk management D-Bus service
+    homepage: https://github.com/storaged-project/udisks
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--sysconfdir=/etc"
+      - "--localstatedir=/var"
+      - "--disable-static"
+    deps:
+      build:
+        - libgudev
+        - polkit
+        - lvm2
+
+  # --- GNOME libraries ---
+  - name: libsecret
+    version: "0.21.4"
+    url: https://download.gnome.org/sources/libsecret/0.21/libsecret-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: Library for accessing secrets stored in the keyring
+    homepage: https://wiki.gnome.org/Projects/Libsecret
+    build_style: meson
+    meson_flags:
+      - "-Dgtk_doc=false"
+    deps:
+      build:
+        - libgcrypt
+        - vala
+
+  - name: gcr4
+    version: "4.3.0"
+    url: https://download.gnome.org/sources/gcr/4.3/gcr-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: GNOME crypto and certificate library
+    homepage: https://wiki.gnome.org/Projects/GnomeCrypto
+    build_style: meson
+    meson_flags:
+      - "-Dgtk_doc=false"
+      - "-Dssh_agent=false"
+    deps:
+      build:
+        - libgcrypt
+        - libsecret
+        - gtk4
+        - vala
+
+  - name: geocode-glib
+    version: "3.26.4"
+    url: https://download.gnome.org/sources/geocode-glib/3.26/geocode-glib-${version}.tar.xz
+    license: LGPL-2.0-or-later
+    description: Geocoding and reverse geocoding library
+    homepage: https://developer.gnome.org/geocode-glib/
+    build_style: meson
+    meson_flags:
+      - "-Denable-gtk-doc=false"
+    deps:
+      build:
+        - json-glib
+        - libsoup3
+
+  - name: libgweather
+    version: "4.4.4"
+    url: https://download.gnome.org/sources/libgweather/4.4/libgweather-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: GNOME weather information library
+    homepage: https://wiki.gnome.org/Projects/LibGWeather
+    build_style: meson
+    meson_flags:
+      - "-Dgtk_doc=false"
+      - "-Dtests=false"
+    deps:
+      build:
+        - geocode-glib
+        - libsoup3
+        - pygobject3
+
+  - name: gnome-online-accounts
+    version: "3.52.3"
+    url: https://download.gnome.org/sources/gnome-online-accounts/3.52/gnome-online-accounts-${version}.tar.xz
+    license: LGPL-2.0-or-later
+    description: GNOME online accounts service
+    homepage: https://wiki.gnome.org/Projects/GnomeOnlineAccounts
+    build_style: meson
+    meson_flags:
+      - "-Dgtk_doc=false"
+      - "-Dman=false"
+    deps:
+      build:
+        - gcr4
+        - libadwaita1
+
+  - name: gnome-desktop
+    version: "44.1"
+    url: https://download.gnome.org/sources/gnome-desktop/44/gnome-desktop-${version}.tar.xz
+    license: LGPL-2.0-or-later
+    description: GNOME desktop core library
+    homepage: https://gitlab.gnome.org/GNOME/gnome-desktop
+    build_style: meson
+    meson_flags:
+      - "-Dgtk_doc=false"
+    deps:
+      build:
+        - gsettings-desktop-schemas
+        - iso-codes
+        - libseccomp
+        - xkeyboard-config
+        - gtk3
+        - gtk4
+
+  - name: libgusb
+    version: "0.4.9"
+    url: https://github.com/nickvank/libgusb/releases/download/${version}/libgusb-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: GObject wrapper for libusb
+    homepage: https://github.com/nickvank/libgusb
+    build_style: meson
+    meson_flags:
+      - "-Ddocs=false"
+      - "-Dtests=false"
+    deps:
+      build:
+        - json-glib
+        - libusb
+        - vala
+
+  - name: colord
+    version: "1.4.7"
+    url: https://www.freedesktop.org/software/colord/releases/colord-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: Color management daemon
+    homepage: https://www.freedesktop.org/software/colord/
+    build_style: meson
+    meson_flags:
+      - "-Ddocs=false"
+      - "-Dman=false"
+      - "-Ddaemon_user=colord"
+    deps:
+      build:
+        - lcms2
+        - libgusb
+        - polkit
+        - vala
+
+  - name: colord-gtk
+    version: "0.3.1"
+    url: https://www.freedesktop.org/software/colord/releases/colord-gtk-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: GTK integration for colord
+    homepage: https://www.freedesktop.org/software/colord/
+    build_style: meson
+    meson_flags:
+      - "-Dman=false"
+      - "-Ddocs=false"
+    deps:
+      build:
+        - colord
+        - gtk4
+
+  # --- SpiderMonkey and GJS ---
+  - name: dconf
+    version: "0.40.0"
+    url: https://download.gnome.org/sources/dconf/0.40/dconf-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: Low-level GSettings backend
+    homepage: https://wiki.gnome.org/Projects/dconf
+    build_style: meson
+    meson_flags:
+      - "-Dbash_completion=false"
+      - "-Dman=false"
+    deps:
+      build:
+        - gtk3
+        - vala
+
+  - name: gjs
+    version: "1.82.1"
+    url: https://download.gnome.org/sources/gjs/1.82/gjs-${version}.tar.xz
+    license: LGPL-2.0-or-later
+    description: GNOME JavaScript bindings
+    homepage: https://gitlab.gnome.org/GNOME/gjs
+    build_style: meson
+    meson_flags:
+      - "-Dinstalled_tests=false"
+      - "-Dskip_dbus_tests=true"
+    deps:
+      build:
+        - cairo
+        - gtk3
+        - gtk4
+
+  # --- VTE terminal ---
+  - name: vte
+    version: "0.78.2"
+    url: https://download.gnome.org/sources/vte/0.78/vte-${version}.tar.xz
+    license: LGPL-2.1-or-later
+    description: Virtual Terminal Emulator widget
+    homepage: https://wiki.gnome.org/Apps/Terminal/VTE
+    build_style: meson
+    meson_flags:
+      - "-Da11y=true"
+      - "-Dgtk3=true"
+      - "-Dgtk4=true"
+      - "-D_b_lto=false"
+    deps:
+      build:
+        - gtk3
+        - gtk4
+        - icu
+        - gnutls
+        - fribidi
+        - vala
+
+  # --- GNOME session components ---
+  - name: gnome-settings-daemon
+    version: "47.1"
+    url: https://download.gnome.org/sources/gnome-settings-daemon/47/gnome-settings-daemon-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: GNOME settings daemon
+    homepage: https://gitlab.gnome.org/GNOME/gnome-settings-daemon
+    build_style: meson
+    meson_flags:
+      - "-Dman=false"
+    deps:
+      build:
+        - alsa-lib
+        - colord
+        - fontconfig
+        - gcr4
+        - geoclue2
+        - gnome-desktop
+        - libcanberra
+        - libgweather
+        - libnotify
+        - pulseaudio
+        - upower
+        - networkmanager
+        - wayland
+
+  - name: gnome-keyring
+    version: "47.0"
+    url: https://download.gnome.org/sources/gnome-keyring/47/gnome-keyring-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: GNOME password and secret storage
+    homepage: https://wiki.gnome.org/Projects/GnomeKeyring
+    build_style: autotools
+    configure_flags:
+      - "--prefix=/usr"
+      - "--with-pam-dir=/usr/lib/security"
+    deps:
+      build:
+        - gcr4
+
+  # --- Mutter and GNOME Shell ---
+  - name: libei
+    version: "1.3.0"
+    url: https://gitlab.freedesktop.org/libinput/libei/-/archive/${version}/libei-${version}.tar.gz
+    license: MIT
+    description: Emulated Input library
+    homepage: https://gitlab.freedesktop.org/libinput/libei
+    build_style: meson
+    meson_flags:
+      - "-Dtests=disabled"
+      - "-Ddocumentation=[]"
+      - "-Dman=disabled"
+
+  - name: mutter
+    version: "47.4"
+    url: https://download.gnome.org/sources/mutter/47/mutter-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: GNOME window manager and Wayland compositor
+    homepage: https://gitlab.gnome.org/GNOME/mutter
+    build_style: meson
+    meson_flags:
+      - "-Dtests=disabled"
+      - "-Ddocs=false"
+      - "-Dprofiler=false"
+    deps:
+      build:
+        - at-spi2-core
+        - graphene
+        - libei
+        - libxcvt
+        - libdisplay-info
+        - pipewire
+        - startup-notification
+        - libinput
+        - wayland-protocols
+        - libxkbcommon
+        - libX11
+        - libXrandr
+        - libXi
+        - libXcomposite
+        - libXdamage
+        - libXfixes
+
+  - name: gnome-shell
+    version: "47.4"
+    url: https://download.gnome.org/sources/gnome-shell/47/gnome-shell-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: GNOME desktop shell
+    homepage: https://wiki.gnome.org/Projects/GnomeShell
+    build_style: meson
+    meson_flags:
+      - "-Dtests=false"
+      - "-Dman=false"
+    deps:
+      build:
+        - gcr4
+        - gjs
+        - gnome-desktop
+        - mutter
+        - polkit
+        - startup-notification
+        - gnome-settings-daemon
+
+  - name: gnome-session
+    version: "47.0"
+    url: https://download.gnome.org/sources/gnome-session/47/gnome-session-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: GNOME session manager
+    homepage: https://gitlab.gnome.org/GNOME/gnome-session
+    build_style: meson
+    meson_flags:
+      - "-Ddocbook=false"
+      - "-Dman=false"
+    deps:
+      build:
+        - gnome-desktop
+        - json-glib
+        - upower
+
+  - name: gdm
+    version: "47.0"
+    url: https://download.gnome.org/sources/gdm/47/gdm-${version}.tar.xz
+    license: GPL-2.0-or-later
+    description: GNOME Display Manager
+    homepage: https://wiki.gnome.org/Projects/GDM
+    build_style: meson
+    meson_flags:
+      - "-Dgdm-xsession=true"
+      - "-Drun-dir=/run/gdm"
+      - "-Ddefault-pam-config=lfs"
+    deps:
+      build:
+        - accountsservice
+        - dconf
+        - libcanberra
+        - gtk3
+
+  # --- Essential GNOME apps ---
+  - name: gnome-terminal
+    version: "3.54.2"
+    url: https://download.gnome.org/sources/gnome-terminal/3.54/gnome-terminal-${version}.tar.xz
+    license: GPL-3.0-or-later
+    description: GNOME terminal emulator
+    homepage: https://wiki.gnome.org/Apps/Terminal
+    build_style: meson
+    deps:
+      build:
+        - dconf
+        - gsettings-desktop-schemas
+        - vte
+        - libadwaita1
+
+  - name: nautilus
+    version: "47.2"
+    url: https://download.gnome.org/sources/nautilus/47/nautilus-${version}.tar.xz
+    license: GPL-3.0-or-later
+    description: GNOME file manager
+    homepage: https://wiki.gnome.org/Apps/Files
+    build_style: meson
+    meson_flags:
+      - "-Dtests=none"
+      - "-Ddocs=false"
+    deps:
+      build:
+        - gnome-desktop
+        - libadwaita1
+        - libportal
+        - gst-plugins-base
+
+  - name: gnome-tweaks
+    version: "47.0"
+    url: https://download.gnome.org/sources/gnome-tweaks/47/gnome-tweaks-${version}.tar.xz
+    license: GPL-3.0-or-later
+    description: GNOME advanced settings tool
+    homepage: https://wiki.gnome.org/Apps/Tweaks
+    build_style: meson
+    deps:
+      build:
+        - gtk4
+        - libadwaita1
+        - pygobject3

@@ -1,0 +1,34 @@
+name: sof-firmware
+version: "2025.12.2"
+release: 1
+description: Sound Open Firmware binaries for Intel audio DSPs
+license: BSD-3-Clause AND LicenseRef-Intel-SOF-Binary
+homepage: https://github.com/thesofproject/sof-bin
+tier: core
+build_style: custom
+install_func: do_install
+# Upstream linux-firmware does NOT ship Intel SOF (verified against the pinned
+# 20260622 tarball: zero intel/sof entries; only mediatek/sof ships there).
+# Every Intel laptop with an audio DSP (~2019 onward) needs these blobs for
+# microphone and speaker support — the SOF project distributes them separately
+# as sof-bin release tarballs, which is where every mainstream distribution's
+# sof-firmware package sources them.
+source:
+- url: https://github.com/thesofproject/sof-bin/releases/download/v2025.12.2/sof-bin-2025.12.2.tar.gz
+  sha256: 533f63e3a6d94c09ce05a782657b675fa683ff20787c0979226cf563ec79f517
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/firmware/intel/sof
+  - /usr/lib/firmware/intel/sof-tplg
+  - /usr/lib/firmware/intel/sof-ipc4
+
+# Device-payload firmware executed by the audio DSP microcontroller, never
+# loaded by the host dynamic linker — same width-audit exemption class as
+# linux-firmware (L9, declared per-recipe per the elf_class governance).
+# No elf_class_exempt: the SOF payload's .ri images are signed-manifest
+# wrapped ("XMan" magic), not host-ELF — the audit classifies nothing here
+# as ELF, so an exemption glob would be a stale declaration (fail-closed
+# caught on the ge9b-10 first build, 2026-07-29).

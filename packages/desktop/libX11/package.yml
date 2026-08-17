@@ -1,0 +1,28 @@
+name: libX11
+version: "1.8.13"
+release: 1
+description: Core X11 client library
+license: MIT
+homepage: https://www.x.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/lib/libX11-${version}.tar.xz
+  sha256: 69606f485c2c07c14ef64f75b7bb326d48587af33795d9ab3e607c0b5f94f11c
+dependencies:
+  build:
+  - libxcb
+  - xorgproto
+  - xtrans
+  host: []
+  runtime:
+  - libxcb
+configure_flags:
+- --prefix=/usr
+- --sysconfdir=/etc
+- --localstatedir=/var
+- --disable-static
+
+verify_paths:
+  - /usr/lib/libX11.so

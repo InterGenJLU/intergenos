@@ -1,0 +1,47 @@
+name: mpv
+version: "0.41.0"
+release: 3  # r3: the NoDisplay=true key that hides mpv behind Celluloid is written in do_install so it ships in the archive. It was appended by post_install, which runs after the archive is made and with DESTDIR stripped, so no package ever carried it and each target's installer hook run mutated the installed mpv.desktop that mpv's own manifest claims. Shipped artifacts carry no NoDisplay key; an installed system carries exactly one appended key. L28: declare the libvdpau link dep (.PKGINFO depend list changes)
+description: Free media player for the command line and desktop
+license: GPL-2.0-or-later
+homepage: https://mpv.io/
+tier: extra
+iso_include: true  # see docs/extra-tier-classification.md
+build_style: meson
+install_func: do_install
+source:
+- url: https://github.com/mpv-player/mpv/archive/v${version}/mpv-${version}.tar.gz
+  sha256: ee21092a5ee427353392360929dc64645c54479aefdb5babc5cfbb5fad626209
+dependencies:
+  build:
+  - ffmpeg
+  - libplacebo
+  - alsa-lib
+  - pulseaudio
+  - libva
+  - libass
+  - luajit
+  - uchardet
+  - libdvdnav
+  - mesa
+  - wayland
+  - python
+  - libvdpau   # L28: meson auto-detects vdpau; mpv + libmpv NEED libvdpau.so.1
+  host: []
+  runtime:
+  - ffmpeg
+  - libplacebo
+  - alsa-lib
+  - pulseaudio
+  - libva
+  - libass
+  - luajit
+  - uchardet
+  - libdvdnav
+  - mesa
+  - wayland
+  - libvdpau   # L28: hard NEEDED edge on the shipped binaries
+silent_loss_accepted:
+  - lua      # scripting is provided by luajit (declared above, "lua: YES" in mpv's feature summary); the lua 5.x backend is the alternative we deliberately don't ship (our lua is 5.4.8, mpv needs <5.3.0). Not a real loss.
+verify_paths:
+  - /usr/bin/mpv
+  - /usr/share/doc/mpv

@@ -1,0 +1,183 @@
+.TH INTERGENOS-FIRST-BOOT 7 "2026-04-30" "InterGenOS v1.0" "InterGenOS System Administration"
+.SH NAME
+intergenos-first-boot \- InterGenOS first-boot password greeter
+.SH DESCRIPTION
+The first time an InterGenOS image boots, the system pauses before the
+graphical login screen and prompts for a new user password on a text-mode
+terminal. This is the
+.B first-boot greeter
+\(em a one-shot service whose only job is to make sure the person at the
+console picks the password they will actually use, before the system is
+admitted to multi-user state.
+.PP
+InterGenOS ships
+.B no default passwords.
+The build script that produces an image refuses to run without explicit
+.B \-\-root\-password
+and
+.B \-\-user\-password
+arguments, and whatever values the builder supplied are immediately
+overwritten by the first-boot greeter the first time the image boots. A
+fresh image is bootable but not loggable-in-to until the prompt is
+completed.
+.SH FIRST-BOOT BEHAVIOR
+After the boot animation finishes, the screen clears and a plain text
+prompt appears, asking for a new password and a confirmation. Typing is
+silent (no echo, no asterisks); this is intentional.
+.PP
+If the two entries do not match, or either is empty, the greeter rejects
+the input and re-prompts. There is no retry limit. The system does not
+proceed to the graphical login screen until a valid password is chosen.
+.PP
+On successful completion, the greeter writes
+.I /etc/intergenos/first-boot-completed
+marking the system as first-boot complete. The unit
+.RB ( intergenos-first-boot-greeter.service )
+is gated on the absence of this flag via
+.BR ConditionPathExists ,
+so subsequent boots skip the greeter without invoking it.
+.PP
+The greeter prompts for two passwords in order: first the
+.B root
+account password, then the password for the user account named by the
+.B INTERGENOS_USER
+environment variable (set by a drop-in installed alongside the unit).
+Both prompts must complete successfully for the unit to write the flag.
+.PP
+Beyond rejecting empty entries and mismatched confirmations, the
+greeter does not impose its own length or character-class rules. It
+hands the password to
+.BR chpasswd (8),
+which honors whatever password-policy rules the system's PAM stack is
+configured with. Rejection messages from PAM modules
+.RB ( pam_pwquality ", " pam_cracklib )
+are printed on the same tty so the user sees the reason and can pick
+a password the policy accepts.
+.SH RECOVERY
+.TP
+.B Power-cycle mid-prompt
+The flag file is written atomically only after both password entries
+succeed. An interrupted run leaves the flag absent, and the greeter
+re-fires on the next boot.
+.TP
+.B Greeter unit fails to start
+The unit declares
+.B OnFailure=getty@tty1.service
+so any non-zero exit (missing
+.BR chpasswd ,
+missing user account, missing
+.B INTERGENOS_USER
+drop-in, or other script error) routes systemd to a normal text-mode
+login on the same tty. The user can log in with the build-time
+credentials and run
+.BR passwd (1)
+to set new ones.
+.TP
+.B Headless or SSH-only first boot
+The greeter is bound to
+.IR /dev/tty1 .
+On a system with no usable tty1 (serial-console-only servers,
+appliances) the
+.B OnFailure
+fallback also requires tty1, so the local console is unreachable;
+SSH access (if installed) works using the build-time credentials.
+Serial-console fallback is out of scope for v1, which is desktop-first.
+The supported recovery is to log in via SSH with the build-time
+credentials, run
+.BR passwd (1),
+then
+.B touch /etc/intergenos/first-boot-completed
+so the greeter does not gate subsequent boots.
+.TP
+.B Forgotten password after first boot
+First-boot only sets the password the first time. Subsequent password
+recovery is identical to any Linux distribution: boot a recovery image,
+mount the root filesystem, run
+.BR passwd (1).
+.SH USERNAME
+The username for the user account is set at image build time, not at
+first boot. Changing it on a running system requires more than a
+directory rename because file ownership is baked in across the system.
+The supported path for a different username is to rebuild with
+.B "build-intergenos.sh \-\-image-user " \fINAME\fR
+or to create an additional user with
+.BR useradd (8)
+after first login.
+.SH FILES
+.TP
+.I /etc/systemd/system/intergenos-first-boot-greeter.service
+systemd unit definition for the greeter
+.TP
+.I /etc/systemd/system/intergenos-first-boot-greeter.service.d/intergenos-user.conf
+drop-in installed by
+.BR create-image (8)
+setting
+.B Environment=INTERGENOS_USER=<account>
+so the greeter knows which account to prompt for
+.TP
+.I /usr/libexec/intergenos/first-boot-greeter
+bash script that prompts and pipes the password to
+.BR chpasswd (8)
+.TP
+.I /etc/intergenos/first-boot-completed
+written after successful first boot; gates re-invocation
+.SH EXIT STATUS
+.TP
+.B 0
+both passwords set successfully; flag file written; unit completes
+cleanly
+.TP
+.B 2
+.BR chpasswd (8)
+binary not found in the image
+.TP
+.B 3
+the user account named by
+.B INTERGENOS_USER
+does not exist
+.TP
+.B 4
+.B INTERGENOS_USER
+environment variable empty or not set (service drop-in missing or
+malformed)
+.PP
+Any non-zero exit triggers
+.B OnFailure=getty@tty1.service
+so the user always reaches a usable prompt; the codes are a forensic
+aid for diagnosing why the greeter dropped through, not a
+UX-affecting branch.
+.SH SECURITY
+The two-layer posture (build-time required arguments + first-boot
+overwrite) ensures no shared default credential exists at any point in
+the lifecycle of an InterGenOS image. The build script refuses to
+produce an image with a literal default; the first-boot greeter
+overwrites whatever the builder supplied with a value chosen by the
+person at the console.
+.PP
+The greeter runs on a tty rather than through Plymouth or a graphical
+prompt because a tty is the most reliable way to ask for a password on
+a system whose graphical stack has not yet been exercised. A failure of
+the graphical stack does not lock the user out of completing first boot.
+.PP
+The greeter pipes the chosen password to
+.BR chpasswd (8)
+via stdin. The password never appears on a command line, in a file on
+disk between input and the
+.B chpasswd
+invocation, or in the systemd journal beyond a generic completion
+indicator.
+.SH SEE ALSO
+.BR chpasswd (8),
+.BR passwd (1),
+.BR systemd.unit (5),
+.BR useradd (8)
+.PP
+.IR docs/first-boot-greeter.md
+\(em the long-form companion document, including the build-time half of
+the credential posture and the rationale behind the two-layer design.
+.PP
+.IR docs/ephemeral-module-signing.md
+\(em the kernel-module signing trust chain (separate from the user
+password set here).
+.SH AUTHORS
+The InterGenOS maintainers.

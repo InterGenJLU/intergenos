@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- mime emblem: code / script — a "</>" pair (chevrons + slash), using the width. -->
+  <g class="glyph">
+    <path d="M 116 110 L 102 128 L 116 146"/>
+    <path d="M 140 110 L 154 128 L 140 146"/>
+    <path d="M 132 108 L 124 148"/>
+  </g>
+</svg>

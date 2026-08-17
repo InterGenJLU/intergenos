@@ -1,0 +1,20 @@
+name: pygments
+version: "2.19.2"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Syntax highlighting library
+license: BSD-2-Clause
+homepage: ''
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/P/Pygments/pygments-${version}.tar.gz
+  sha256: 636cb2477cec7f8952536970bc533bc43743542f70392ae026374600add5b887
+dependencies:
+  build:
+  - hatchling
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/pygmentize
+  - /usr/lib/python3.14/site-packages/pygments

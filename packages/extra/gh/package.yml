@@ -1,0 +1,29 @@
+name: gh
+version: "2.95.0"
+release: 1
+content_hash: b7d5a9eac4546d31
+description: GitHub's official command-line tool
+license: MIT
+homepage: https://github.com/cli/cli
+tier: extra
+iso_include: true  # ship in the live ISO (extra defaults to mirror-only)
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/cli/cli/archive/refs/tags/v${version}.tar.gz
+  sha256: b6a1c88cbd15f49f60a68d210a117a60b349bcb0d028a0dca0ef2d9dc92bd028
+- url: file:///gh-${version}-vendor.tar.xz
+  sha256: beee80eb12cbebd0b43ebb0bf13867c9b5c8a82aee2340a6fd658386c0c1bc4b
+build_artifacts:
+- name: gh-${version}-vendor.tar.xz
+  generated_by: go-vendor
+dependencies:
+  build:
+  - go
+  host: []
+  runtime:
+  - git   # gh shells out to the `git` binary for repo operations
+verify_paths:
+- /usr/bin/gh
+- /usr/share/man/man1/gh.1
+- /usr/share/bash-completion/completions/gh

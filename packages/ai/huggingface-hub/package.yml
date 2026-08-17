@@ -1,0 +1,31 @@
+name: huggingface-hub
+# Upstream latest stable; unsloth requires huggingface_hub>=0.34.0 (satisfied).
+version: "1.24.0"
+release: 1
+description: Client library for the Hugging Face Hub (model/dataset download + cache)
+license: Apache-2.0
+homepage: https://github.com/huggingface/huggingface_hub
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/df/9b/d3bb4e7d792835daf34dd7091bbc7d7b4e0437d9388f1ea7239cce49f478/huggingface_hub-1.24.0.tar.gz
+  sha256: 18431ff4daae0749aa9ba102fc952e314c98e1d30ebdec5319d85ca0a83e1ae5
+dependencies:
+  build:
+  - setuptools
+  host: []
+  runtime:
+  - click
+  - filelock
+  - fsspec
+  - hf-xet   # native-build dependency — forward-declared 2026-07-21; recipe lands with the native wave (rust/maturin)
+  - httpx
+  - packaging
+  - pyyaml
+  - tqdm
+  - typing-extensions
+verify_paths:
+  - /usr/lib/python3.14/site-packages/huggingface_hub/__init__.py
+  - /usr/lib/python3.14/site-packages/huggingface_hub/file_download.py

@@ -1,0 +1,28 @@
+name: semantic-version
+version: "2.10.0"
+release: 1
+description: Semantic-versioning comparison and constraint library for Python (a setuptools-rust runtime dependency)
+license: BSD-2-Clause
+homepage: https://github.com/rbarrois/python-semanticversion
+tier: core
+build_style: custom
+install_func: do_install
+# Added 2026-07-21 (F12 runtime-declaration wave): setuptools-rust 1.10.2
+# imports semantic_version in setuptools_rust/{extension,rustc_info}.py, so
+# without this package setuptools-rust is broken at first import — which
+# would have halted the first in-chroot consumer build (libcst declares
+# setuptools-rust as its build backend helper). Pure python, zero runtime
+# deps of its own (verified from the sdist metadata at this pin).
+source:
+- url: https://files.pythonhosted.org/packages/7d/31/f2289ce78b9b473d582568c234e104d2a342fd658cc288a7553d83bb8595/semantic_version-${version}.tar.gz
+  sha256: bdabb6d336998cbb378d4b9db3a4b56a1e3235701dc05ea2690d9a997ed5041c
+dependencies:
+  build:
+  - setuptools
+  host: []
+  runtime: []
+tests:
+  enabled: false
+  reason: "Upstream testsuite requires django for its optional integration tests and network-fetched fixtures; the library surface consumed here (Version/SimpleSpec parsing for setuptools-rust) is exercised by every setuptools-rust-driven build. Pure-python, zero-dep package."
+verify_paths:
+- /usr/lib/python3.14/site-packages/semantic_version

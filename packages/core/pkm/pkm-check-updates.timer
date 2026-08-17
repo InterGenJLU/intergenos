@@ -1,0 +1,37 @@
+# pkm-check-updates.timer — Q8 Phase B (daily check-updates schedule)
+#
+# Fires pkm-check-updates.service daily with a 4-hour randomized delay
+# window so installs across the fleet don't hit the mirror simultaneously
+# at midnight UTC (thundering-herd avoidance). Persistent=true catches
+# up after suspended/offline machines come back online so users don't
+# silently miss daily checks because the machine was off at fire-time.
+#
+# Enabled at install time via packages/core/pkm/build.sh post_install:
+#   systemctl enable pkm-check-updates.timer
+#
+# Manual verification:
+#   systemctl list-timers pkm-check-updates.timer
+#   systemctl status pkm-check-updates.timer
+#
+# Disable / re-enable per user preference (PRIME DIRECTIVE — user controls
+# their machine):
+#   systemctl disable pkm-check-updates.timer
+#   systemctl enable pkm-check-updates.timer
+
+[Unit]
+Description=Daily pkm check-updates with randomized 4-hour delay
+Documentation=man:pkm(1)
+
+[Timer]
+# Fire once per day. With RandomizedDelaySec=4h, the actual fire time
+# spreads uniformly across a 4-hour window after the calendar trigger
+# (so machines that booted around the same time don't all hit the mirror
+# at the same instant).
+OnCalendar=daily
+RandomizedDelaySec=4h
+# Catch up missed fires (machine was off at scheduled time) on next boot.
+Persistent=true
+Unit=pkm-check-updates.service
+
+[Install]
+WantedBy=timers.target

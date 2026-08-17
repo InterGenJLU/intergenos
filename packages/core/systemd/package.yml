@@ -1,0 +1,40 @@
+name: systemd
+version: '259.1'
+release: 4  # r4: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: System and service manager
+license: LGPL-2.1-or-later
+source:
+- url: https://github.com/systemd/systemd/archive/v${version}/systemd-${version}.tar.gz
+  sha256: 7af4f36db512ad2f0f749a0f9886370edeb2bb5128014fc47cdf73702c7e1911
+- url: https://anduin.linuxfromscratch.org/LFS/systemd-man-pages-259.1.tar.xz
+  sha256: 0d130b265ed45015a88c35a1647463945dacbb48a379b506d09b1584360a49e1
+dependencies:
+  build:
+    - meson
+    - ninja
+    - gperf
+  host:
+  - jinja2
+  - pyelftools
+  runtime:
+  - util-linux
+  - kmod
+  - libcap
+  - openssl
+  - elfutils
+  - acl
+  - expat
+# gperf added 2026-05-12 (Scan A.2): meson.build:620 requires `gperf`
+# program at configure time. Was transitively present from ch8 (gperf @
+# ch8:452); declaring per real upstream requirement.
+tier: core
+build_style: meson
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "systemd meson test suite requires PID 1, cgroup v2 delegation, /dev/kvm, /sys/fs/cgroup writability, working dbus, and machined/userdbd hosts that the build chroot does not provide. Many tests (test-execute, test-cgroup, test-bus, test-network) are documented as environment-only failures."
+verify_paths:
+  - /usr/bin/systemd-ac-power
+  - /usr/bin/bootctl
+  - /usr/lib/libnss_myhostname.so.2

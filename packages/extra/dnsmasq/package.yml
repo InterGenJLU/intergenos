@@ -1,0 +1,23 @@
+name: dnsmasq
+version: "2.93"
+release: 1
+content_hash: 2237c4f1852376f2
+description: Lightweight DNS forwarder and DHCP server
+license: GPL-2.0-only OR GPL-3.0-only
+homepage: https://thekelleys.org.uk/dnsmasq/doc.html
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://www.thekelleys.org.uk/dnsmasq/dnsmasq-${version}.tar.xz
+    sha256: 0c00d4e5c97c8306e5fb932b348b34269c9c29a0e7df0e8e82958b407092bc19
+dependencies:
+  build:
+    - pkgconf
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/sbin/dnsmasq
+  - /usr/share/man/man8/dnsmasq.8
+  - /usr/lib/systemd/system/dnsmasq.service

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InterGen — Operations Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <header id="dashboard-header">
+    <span class="header-title">Operations</span>
+    <div id="tab-scroll">
+      <nav id="tab-bar">
+        <button class="tab-btn active" data-tab="governance">Governance</button>
+        <button class="tab-btn" data-tab="performance">Performance</button>
+        <button class="tab-btn" data-tab="usage">Usage</button>
+        <button class="tab-btn" data-tab="health">Health</button>
+        <button class="tab-btn" data-tab="providers">Providers</button>
+      </nav>
+    </div>
+    <button id="dashboard-close" class="icon-btn" title="Return to chat">✕</button>
+  </header>
+
+  <main id="dashboard-content">
+    <!-- ── Governance Tab ── -->
+    <section id="tab-governance" class="tab active">
+      <div id="gov-tier" class="card">
+        <div class="card-header">Autonomy Tier</div>
+        <div id="tier-display"></div>
+        <div id="tier-bar" class="tier-bar"></div>
+      </div>
+
+      <div id="gov-integrity" class="card">
+        <div class="card-header">Integrity</div>
+        <div id="hash-status"></div>
+        <button id="btn-reverify" class="primary-btn" style="margin-top:8px">Re-verify</button>
+      </div>
+
+      <div id="gov-cooldowns" class="card">
+        <div class="card-header">Cooldowns — 30 minute window</div>
+        <div id="cooldown-list"></div>
+      </div>
+
+      <div id="gov-commandments" class="card">
+        <div class="card-header">The Ten Commandments</div>
+        <div id="commandment-list"></div>
+      </div>
+
+      <div id="gov-decisions" class="card">
+        <div class="card-header">Recent Decisions — last 20</div>
+        <table id="decisions-table">
+          <thead><tr>
+            <th>Time</th><th>Tool</th><th>Decision</th><th>Provenance</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── Performance Tab ── -->
+    <section id="tab-performance" class="tab">
+      <div class="card">
+        <div class="card-header">Route Latency Breakdown</div>
+        <div id="latency-chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">Token Throughput — cumulative (llama.cpp tokenizer)</div>
+        <div id="throughput-chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">Tool Cache — read-through hit rate</div>
+        <div id="cache-chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">Model Performance</div>
+        <table id="model-perf-table">
+          <thead><tr><th>Tier</th><th>Model</th><th>Requests</th><th>Avg TTFT</th><th>p95 Latency</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── Usage Tab ── -->
+    <section id="tab-usage" class="tab">
+      <div class="card">
+        <div class="card-header">Request Volume — last 7 days</div>
+        <div id="volume-chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">Query Type Distribution</div>
+        <div id="query-type-chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">Top Tools</div>
+        <div id="top-tools-chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">Escalation Activity</div>
+        <div id="escalation-chart"></div>
+      </div>
+    </section>
+
+    <!-- ── Providers Tab (phone-a-friend) ── -->
+    <section id="tab-providers" class="tab">
+      <div class="card">
+        <div class="card-header">Phone-a-Friend — Frontier Providers</div>
+        <p style="color:var(--text-dim);font-size:13px;margin:4px 0 10px">
+          Configure a frontier model InterGen can consult <em>on request</em>. API keys are stored in your
+          system keyring — never in config or logs. Nothing leaves this machine without your explicit
+          consent at send time (you review the exact outbound content first).
+        </p>
+        <div id="providers-list"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">Add / Update a Provider</div>
+        <div id="provider-form"></div>
+        <div id="provider-form-msg" style="font-size:12px;margin-top:6px"></div>
+      </div>
+    </section>
+
+    <!-- ── Health Tab ── -->
+    <section id="tab-health" class="tab">
+      <div id="health-content">
+        <div class="card">
+          <div class="card-header">System Health</div>
+          <div id="health-report"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>

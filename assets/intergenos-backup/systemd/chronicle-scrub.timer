@@ -1,0 +1,21 @@
+# chronicle-scrub.timer — weekly integrity-scrub schedule (spec §6).
+#
+# Fires chronicle-scrub.service weekly. Persistent=true catches up a scrub
+# missed while the machine was off. RandomizedDelaySec keeps the (heavier)
+# re-hash off a predictable instant.
+#
+# User-tunable (PRIME DIRECTIVE):
+#   systemctl disable chronicle-scrub.timer
+
+[Unit]
+Description=Chronicle weekly integrity-scrub schedule
+Documentation=man:chronicled(8) man:chronicle(1)
+
+[Timer]
+OnCalendar=weekly
+RandomizedDelaySec=1h
+Persistent=true
+Unit=chronicle-scrub.service
+
+[Install]
+WantedBy=timers.target

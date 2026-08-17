@@ -1,0 +1,46 @@
+name: elfutils-libdw
+version: '0.194'
+release: 2  # r2: iso_include true — shipped qemu links libdw.so.1 (NEEDED-closure Step 4.75, ge9b-05 mint 2026-07-18); explicit override beats the compute-tier mirror-only default; libdw's own runtime closure (libelf/zlib/bzip2/xz) is core-shipped
+content_hash: 7d3f76ab16dee9d8
+description: DWARF introspection library (libdw) from elfutils
+license: GPL-2.0-or-later
+homepage: https://sourceware.org/elfutils/
+# Retiered compute -> extra 2026-07-21: the "retier on a broader consumer"
+# contract fired — libvirt (extra) declares it runtime, so the extra-tier
+# builds of libvirt-glib/libvirt-python/virt-viewer need it installed
+# before the compute phase runs (extra precedes compute since the
+# 2026-07-21 reorder; latent from-scratch break found by closure sweep).
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+
+# ADDITIVE companion to core elfutils, SAME pinned source. The core
+# recipe is deliberately LFS-exact (LFS 13.0 §8.50 installs libelf
+# ONLY); rocprofiler-sdk hard-requires libdw
+# (find_package(libdw REQUIRED), cmake/rocprofiler_config_interfaces
+# .cmake:215), so libdw ships from this separate package instead of
+# widening the core install — the Debian libelf1/libdw1 packaging
+# split, applied to our tiers. Installs ONLY the libdw surface
+# (libdw.so* + elfutils/ headers + libdw.pc); zero file overlap with
+# core elfutils. Only in-tree consumer today is compute-tier — the
+# fmt/glog precedent: tier compute, retier when a broader consumer
+# appears.
+source:
+  - url: https://sourceware.org/ftp/elfutils/0.194/elfutils-${version}.tar.bz2
+    sha256: 09e2ff033d39baa8b388a2d7fbc5390bfde99ae3b7c67c7daaf7433fbcf0f01e
+
+dependencies:
+  build:
+    - elfutils
+  host: []
+  runtime:
+    - elfutils
+    - zlib
+    - bzip2
+    - xz
+    - zstd
+verify_paths:
+  - /usr/lib/libdw.so.1
+  - /usr/include/elfutils/libdw.h
+  - /usr/lib/pkgconfig/libdw.pc

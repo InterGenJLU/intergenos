@@ -1,0 +1,25 @@
+name: typer
+# Upstream latest stable (transformers requires typer, no version pin).
+version: "0.27.0"
+release: 1
+description: Library for building CLI applications from Python type hints
+license: MIT
+homepage: https://github.com/fastapi/typer
+tier: ai
+iso_include: false
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/37/78/fda3361b56efc27944f24225f6ecd13d96d6fcfe37bd0eb34e2f4c63f9fc/typer-0.27.0.tar.gz
+  sha256: 629bd12ea5d13a17148125d9a264f949eb171fb3f120f9b04d85873cab054fa5
+dependencies:
+  build:
+  - pdm-backend
+  host: []
+  runtime:
+  - annotated-doc
+  - rich
+  - shellingham
+verify_paths:
+  - /usr/lib/python3.14/site-packages/typer/__init__.py
+  - /usr/lib/python3.14/site-packages/typer/main.py

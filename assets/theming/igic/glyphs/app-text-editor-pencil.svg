@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Text Editor pencil — the occluding overlay (badge) that reads solid over the page. -->
+  <g class="glyph">
+    <path d="M 150 214 L 156 196 L 198 154 L 214 170 L 172 212 Z"/>
+    <line x1="192" y1="160" x2="208" y2="176"/>
+  </g>
+</svg>

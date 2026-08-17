@@ -1,0 +1,40 @@
+name: winetricks
+version: "20260125"
+release: 1
+description: Helper to install Windows components and tweaks into a Wine prefix
+license: LGPL-2.1-or-later
+homepage: https://github.com/Winetricks/winetricks
+tier: extra
+build_style: custom
+install_func: do_install
+iso_include: false  # extra-tier default (mirror-only)
+# winetricks is a single POSIX-sh script — no compilation. The upstream Makefile
+# installs the script, man page, bash-completion, .desktop, AppStream metainfo and
+# icon under PREFIX (honoring DESTDIR). Hard runtime deps: wine (the prefix it acts
+# on), cabextract (winetricks w_dies without it for .cab-packed DLL verbs), unzip
+# (the 4-distro-consensus native zip path; winetricks otherwise w_warns and limps
+# via Windows 7-Zip), and a downloader — winetricks auto-selects aria2c>wget>curl>
+# fetch, so in this tree wget is the pick (curl is the auto-detected fallback; both
+# are core). GUI mode (--gui) needs zenity: recommended, not required (see the
+# paste-back). The upstream sha256 matches the downloaded artifact; the release also
+# ships a detached GPG .asc signature over this archive (provenance, corroboration).
+source:
+  - url: https://github.com/Winetricks/winetricks/archive/${version}/winetricks-${version}.tar.gz
+    sha256: 2890bd9fbbade4638e58b4999a237273192df03b58516ae7b8771e09c22d2f56
+dependencies:
+  build: []
+  host: []
+  runtime:
+    - wine        # extra/wine (present) — the Wine prefix winetricks operates on
+    - cabextract  # extra/cabextract (present) — winetricks w_dies without it for .cab-packed verbs
+    - unzip       # base/unzip (present) — 4-distro-consensus hard dep for the native zip path
+    - wget        # core/wget (present) — winetricks' selected downloader (curl is the fallback)
+tests:
+  enabled: true
+  failure_policy: strict
+  reason: "No compilation; the in-chroot test is a smoke test — the shipped POSIX-sh script parses, runs, and self-reports its 8-digit date-version. Upstream 'make check' (shellcheck + bashate lint, plus DLL-install verbs) needs shellcheck/bashate and wine + network, which are out of in-chroot scope."
+verify_paths:
+  - /usr/bin/winetricks
+  - /usr/share/man/man1/winetricks.1
+  - /usr/share/bash-completion/completions/winetricks
+  - /usr/share/applications/winetricks.desktop

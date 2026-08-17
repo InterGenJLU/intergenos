@@ -1,0 +1,60 @@
+#!/usr/sbin/nft -f
+# libvirt NAT guest networking — opt-in firewall fragment.
+#
+# WHAT THIS FRAGMENT IS STILL FOR, as of 2026-08-04: FORWARDING.
+#
+# The DHCP and DNS accepts in the input chain below are now also part of the
+# shipped default-deny ruleset (intergenos-firewall-defaults), scoped there to
+# the virtual-bridge interface class, so guests reach the host-side dnsmasq on
+# a stock install without arming anything. They are kept here so this fragment
+# remains complete on a host whose administrator has replaced the shipped
+# ruleset (`pkm remove intergenos-firewall-defaults`); duplicate accept rules
+# in nftables are harmless — the first match wins and the verdict is the same.
+#
+# The forward-chain rules below are NOT in the shipped defaults and are the
+# reason to arm this fragment: routing guest traffic onward is a separate
+# capability from answering a guest's DHCP and DNS, and it stays user-armed.
+#
+# The InterGenOS default-deny firewall runs input + forward policy drop, so
+# without the forward rules below a guest gets an address and a name server
+# and still cannot route anywhere.
+#
+# Every rule below matches the bridge interface NAME AS A CLASS ("virbr*")
+# rather than virbr0 alone (changed 2026-08-05). libvirt names the default
+# network's bridge virbr0 and additional NAT networks virbr1, virbr2 and so
+# on, so a virbr0-only match left a host with a second NAT network unable to
+# route it — the same defect on the forwarding side that the shipped ruleset's
+# bridge-scoped DHCP and DNS accepts closed on the input side. The scope is
+# still the virtual-bridge interface and nothing else: no rule here matches an
+# address, and no rule opens anything on a real network interface.
+#
+# Shipped INACTIVE by design (Decided 2026-07-19: privileged/network
+# capabilities are user-armed, matching the default-disabled preset
+# posture of the virtualization daemons themselves). To arm libvirt
+# NAT networking on this host:
+#
+#   cp /usr/share/libvirt/nftables/50-libvirt-nat.conf /etc/nftables.d/
+#   systemctl reload nftables
+#
+# To disarm: remove the copy from /etc/nftables.d/ and reload. The
+# fragment appends accept rules through the /etc/nftables.d include
+# glob; arming or disarming it never edits the shipped ruleset, whose
+# own default-deny posture stands either way.
+#
+# NOTE: `systemctl reload nftables` re-runs the full ruleset (which
+# begins with `flush ruleset`) — libvirt rebuilds its own NAT tables
+# when its networks (re)start, so arm this BEFORE starting guests, or
+# restart the libvirt network afterwards.
+table inet filter {
+    chain input {
+        # DHCP + DNS from NAT guests to the host-side dnsmasq.
+        iifname "virbr*" udp dport 67 accept
+        iifname "virbr*" udp dport 53 accept
+        iifname "virbr*" tcp dport 53 accept
+    }
+    chain forward {
+        # Guest-originated traffic out; replies routed back in.
+        iifname "virbr*" accept
+        oifname "virbr*" ct state established,related accept
+    }
+}

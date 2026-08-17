@@ -1,0 +1,37 @@
+# Family manifest — proprietary download-helper app marks (IC-029 -> IC-034). The
+# download-helper apps (brave / chrome / discord / edge / spotify / vscode) now ship in the
+# TWO-REGISTER third-party treatment: the OFFICIAL full-color brand mark recolored to gradient
+# blue (IC-034; source staged in igic/gradient/, emitted by _compile_gradient — luminance-keyed,
+# never verbatim, glow: none). That gradient mark is the DEFAULT shipped state.
+#
+# The IC-029 SWAP MECHANISM stays exactly as banked, now three-way per row via `mode`:
+#   gradient   (default) -> the official brand mark recolored to gradient blue
+#   passthrough          -> the OFFICIAL vendor mark in igic/passthrough/ emitted VERBATIM
+#                           (the conservative fallback a vendor complaint swaps to — unmodified)
+#   styled               -> the IC-029 flat brand-silhouette glyph (emblem), composed
+# All six brands are vendor-declared strict (PROPRIETARY_DOSSIER.md — logo modification forbidden
+# without permission); we author under the operator's forgiveness model, and one row flips to
+# `passthrough` for an instant, unmodified swap. An even more conservative state is to drop the
+# row so GTK falls through to the vendor icon the helper installs at hicolor under the same key.
+#
+# `stem` = the launcher's .desktop Icon= key. COVERAGE NOTE: discord's helper writes
+# Icon=/opt/discord/discord.png (an ABSOLUTE path), so GTK bypasses the theme and this mark will
+# not resolve until the helper is changed to Icon=discord — a packaging-side fix; the mark is
+# authored + staged swap-ready for when it lands. claude-code = no mark (CLI, no launcher).
+schema_version: 1
+family: proprietary-apps
+category: apps
+kind: color
+template: none
+glow: none
+pulse: none
+export:
+  svg: true
+  png: [16, 24, 32, 48, 64, 128, 256]
+rows:   # id | stem (.desktop Icon= key) | gradient (official mark, igic/gradient/) | emblem (styled swap) | passthrough (verbatim swap, igic/passthrough/) | mode | name
+  - { id: app-brave,   stem: brave-browser,  mode: gradient, gradient: brave.png,   emblem: app-brave,   passthrough: brave-browser.png,  accent: intergen-blue, name: Brave }
+  - { id: app-chrome,  stem: google-chrome,  mode: gradient, gradient: chrome.png,  emblem: app-chrome,  passthrough: google-chrome.png,  accent: intergen-blue, name: "Google Chrome" }
+  - { id: app-discord, stem: discord,        mode: gradient, gradient: discord.svg, emblem: app-discord, passthrough: discord.svg,         accent: intergen-blue, name: Discord }
+  - { id: app-edge,    stem: microsoft-edge, mode: gradient, gradient: edge.svg,    emblem: app-edge,    passthrough: microsoft-edge.svg,  accent: intergen-blue, name: "Microsoft Edge" }
+  - { id: app-spotify, stem: spotify-client, mode: gradient, gradient: spotify.svg, emblem: app-spotify, passthrough: spotify-client.svg,  accent: intergen-blue, name: Spotify }
+  - { id: app-vscode,  stem: vscode,         mode: gradient, gradient: vscode.png,  emblem: app-vscode,  passthrough: vscode.png,          accent: intergen-blue, name: "Visual Studio Code" }

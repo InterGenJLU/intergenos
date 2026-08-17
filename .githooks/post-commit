@@ -1,0 +1,24 @@
+#!/bin/bash
+# Stamp the recipe-tip commit epoch to build/.recipe-epoch (untracked).
+#
+# Why: the build orchestrator pins SOURCE_DATE_EPOCH to the recipe tip's
+# commit time so the bootloader→ISO artifact chain is build-reproducible,
+# not merely replay-reproducible. On the build VM the mounted tree can be
+# a git WORKTREE whose .git pointer does not resolve in-guest (the parent
+# clone is not shared), so `git log -1 --format=%ct` fails there — this
+# hook records the epoch host-side at every commit/checkout/merge and the
+# orchestrator reads the stamp when live git is unavailable.
+#
+# Wired for post-commit, post-checkout, post-merge (the latter two are
+# symlinks to this file). Failure is non-fatal: the orchestrator's
+# downstream scripts keep their loud wall-clock fallback.
+set -u
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+epoch="$(git -C "$repo_root" log -1 --format=%ct 2>/dev/null)" || exit 0
+case "$epoch" in
+    ''|*[!0-9]*) exit 0 ;;
+esac
+mkdir -p "$repo_root/build" 2>/dev/null || exit 0
+printf '%s\n' "$epoch" > "$repo_root/build/.recipe-epoch" 2>/dev/null || exit 0
+exit 0

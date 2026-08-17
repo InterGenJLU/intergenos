@@ -1,0 +1,57 @@
+name: amdgpu_top
+version: "0.11.5"
+release: 1
+description: TUI activity dashboard for AMD GPUs (VRAM, clocks, fan, decoders, ring buffers)
+license: MIT
+homepage: https://github.com/Umio-Yasuno/amdgpu_top
+tier: extra
+build_style: custom
+install_func: do_install
+iso_include: false
+# amdgpu_top — Rust-written AMD GPU activity dashboard.
+# Reads performance counters (GRBM, GRBM2), sensors, fdinfo, gpu_metrics,
+# and AMDGPU driver state via libdrm_amdgpu_sys. Richer than radeontop:
+# per-process GPU usage via /proc/<pid>/fdinfo, VRAM allocation breakdown,
+# video decoder/encoder utilization, clock-state histograms.
+#
+# Built with --features tui,json,libdrm_link (excludes the GUI eframe/wgpu
+# feature). Rationale: the GUI feature pulls 200+ Rust crates (eframe +
+# wgpu + egui_plot + i18n-embed), inflates the cargo-vendor tarball by
+# ~150 MB, and duplicates functionality already provided by the TUI on
+# headless servers. Users who want a Wayland GUI dashboard can install
+# corectrl independently. TUI + JSON output cover every monitoring
+# workflow without the GUI surface.
+#
+# libdrm_link (vs libdrm_dynamic_loading) chosen so we link directly
+# against libdrm_amdgpu at compile time — failure to find the library
+# is a hard build error rather than a runtime dlopen failure. We have
+# libdrm in tree; the link path is correct.
+#
+# Cross-distro alignment:
+#   Arch:   AUR/amdgpu_top (no official repo); cargo build --release
+#           with default features (GUI on). We deviate by disabling GUI.
+#   Fedora: copr/amdgpu_top; same; GUI on.
+#   Debian: not packaged officially; upstream ships .deb with GUI on.
+# We deviate by disabling GUI to keep the mirror-package surface lean
+# (TUI tool only). Justified per the Prime Directive — users who want
+# a GUI install it deliberately.
+source:
+- url: https://github.com/Umio-Yasuno/amdgpu_top/archive/refs/tags/v${version}.tar.gz
+  filename: amdgpu_top-${version}.tar.gz
+  sha256: e511ed15a6e0f3ea72321dfc97145ffb85999b37b6b304e9795978945f3f04cd
+build_artifacts:
+- name: amdgpu_top-${version}-vendor.tar.xz
+  generated_by: cargo-vendor
+dependencies:
+  build:
+  - rust            # cargo + rustc
+  - libdrm          # libdrm + libdrm_amdgpu link target for libdrm_link feature
+  - pkgconf         # pkg-config for libdrm lookup at cargo build time
+  host: []
+  runtime:
+  - libdrm          # libdrm.so + libdrm_amdgpu.so dynamic link target
+tests:
+  enabled: false
+  reason: "amdgpu_top's testsuite requires a real AMD GPU bound to /dev/dri/card0 + /dev/dri/renderD128. The build chroot has no GPU; tests cannot meaningfully run. The library that backs amdgpu_top (libdrm-amdgpu-sys-rs, git pinned via cargo) ships its own unit tests but those also require kernel + DRM access."
+verify_paths:
+  - /usr/bin/amdgpu_top

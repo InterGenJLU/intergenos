@@ -1,0 +1,38 @@
+name: gdk-pixbuf-pass2
+version: "2.44.5"
+release: 2  # r2: F23 re-cut — fs-diff manifest carried phantom build-scratch rows (/root scanner cache + builder pycache under the repo copy); builder prune fix 3119a666. Manifest-only content change => release bump so the re-cut is client-visible (same-version byte-changed republish is otherwise invisible to pkm upgrade).
+description: "gdk-pixbuf (pass 2 — rebuild with glycin support for GTK4 image loading)"
+license: LGPL-2.1-or-later
+homepage: https://wiki.gnome.org/Projects/GdkPixbuf
+tier: desktop
+build_style: custom
+install_func: do_install
+direct_install: true
+source:
+- url: https://download.gnome.org/sources/gdk-pixbuf/2.44/gdk-pixbuf-${version}.tar.xz
+  sha256: 69b93e09139b80c0ee661503d60deb5a5874a31772b5184b9cd5462a4100ab68
+dependencies:
+  build:
+  - shared-mime-info
+  - libjpeg-turbo
+  - libpng
+  - libtiff
+  - giflib
+  - glycin
+  - glib2
+  host: []
+  runtime:
+  - shared-mime-info
+  - libjpeg-turbo
+  - libpng
+  - libtiff
+  - giflib
+  - glycin
+  - glib2
+
+supersedes:
+  - gdk-pixbuf
+verify_paths:
+  - /usr/bin/gdk-pixbuf-csource
+  - /usr/bin/gdk-pixbuf-pixdata
+  - /usr/lib/libgdk_pixbuf-2.0.so

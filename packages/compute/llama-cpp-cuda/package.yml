@@ -1,0 +1,112 @@
+name: llama-cpp-cuda
+version: "b8796"
+release: 3  # r3: the engine reports which build it is. Upstream derives the build number from git metadata and these recipes build from a release tarball with no .git, so cmake's build-info step stamped zero and every binary shipped so far answered --version with "version: 0 (unknown)" — the one question a user comparing two engines has to be able to ask. configure() now passes LLAMA_BUILD_NUMBER, DERIVED from this recipe's own version pin rather than written a second time, and the pin's shape is checked so a pin that stops being b<number> fails the build loudly instead of stamping something wrong. do_install() then asks the STAGED binary for its --version and refuses to seal the archive unless it reports the pinned number; it lives there rather than in check() because the CUDA variant declares tests.enabled=false and the builder skips the whole check phase for such a package, which would have left one of the three engines unasserted. The same two shell functions are carried byte for byte by all three engine recipes, the same one-shape discipline as the --list-devices patch. Verified on a real build of this recipe on an NVIDIA machine: the staged llama-cli answers "version: 8796 (unknown)". r2: --list-devices PCI-id suffix — the same byte-identical in-tree patch as the default engine (see ai/llama-cpp r5 for the full rationale and the measurement), applied fail-loud in configure() after the toolkit assembly. One-pin policy: all three engine variants print one shape so the serving-device selector reads them identically.
+content_hash: b3b630a26c3754ec
+description: LLM inference engine — CUDA variant for NVIDIA GPUs (opt-in, mirror-only)
+license: MIT
+homepage: https://github.com/ggml-org/llama.cpp
+tier: compute
+build_style: custom
+install_func: do_install
+
+# SAME engine pin as packages/ai/llama-cpp and packages/compute/llama-cpp-hip
+# (ruled decision 6: ALL variants ride ONE llama.cpp commit; a pin bump moves
+# every variant together as its own reviewed step — this recipe inherits the
+# current in-tree pin verbatim, provenance notes in the ai recipe).
+source:
+- url: https://github.com/ggml-org/llama.cpp/archive/fae3a28070fe4026f87bd6a544aba1b2d1896566.tar.gz
+  filename: llama.cpp-${version}.tar.gz
+  sha256: 78a0190da2b2ff95506844a6f917e8a0d9c3d5b9cd7303d0f4ee95319dffd9e8
+# The CUDA toolkit, as a BUILD input only.
+#
+# nvcc is not redistributable under NVIDIA's CUDA EULA, so this entry is
+# marked redistributable: false. The builder stages and sha-verifies it like
+# any other pinned source, build.sh unpacks it in the runfile's own
+# extract-only mode so NVIDIA's installer never runs, compiles against it, and
+# scripts/build-source-archives.py refuses to place
+# it in the corresponding-source archive — writing NON-REDISTRIBUTABLE.txt
+# with this URL and this sha256 instead, so anyone reproducing the build can
+# obtain exactly these bytes from NVIDIA.
+#
+# extract: false — the builder must not try to unpack it; it is a
+# self-extracting installer, and build.sh drives its own extraction with the
+# flags that keep it headless and keep its bundled driver out of the way.
+#
+# The USER never receives these bytes from us either: the runtime libraries
+# reach an installed machine through the compute/cuda-toolkit download helper,
+# which fetches this same file from NVIDIA on the user's own machine.
+#
+# sha256 taken 2026-08-04 from a download whose MD5 matched NVIDIA's published
+# manifest at https://developer.download.nvidia.com/compute/cuda/13.3.1/docs/sidebar/md5sum.txt
+# (7c8d3eca60ee10d2c290bdc045f88f09). The pin, the version in build.sh and the
+# pin in the cuda-toolkit helper move together.
+- url: https://developer.download.nvidia.com/compute/cuda/13.3.1/local_installers/cuda_13.3.1_610.43.02_linux.run
+  filename: cuda_13.3.1_610.43.02_linux.run
+  sha256: 9f98ec1f6c950401041d3f1308e221f0d5db8771a8e10569001b64caaee31a92
+  extract: false
+  redistributable: false
+
+# DECLARED GPU targets (decision 2): the chroot has no GPU, so the target set
+# is stated, never detected. NVIDIA spelling is compute capability in the
+# CMAKE_CUDA_ARCHITECTURES vocabulary; this is upstream llama.cpp's own
+# non-native default for CUDA 13, adopted deliberately rather than inherited
+# silently (ggml/src/ggml-cuda/CMakeLists.txt at this pin).
+#
+#   75-virtual   Turing PTX. The floor: the nvidia driver package requires
+#                GSP firmware, which starts at Turing, and CUDA 13 dropped
+#                everything older. PTX rather than SASS because the driver
+#                JIT-compiles it, so Turing works without carrying its kernels.
+#   80-virtual   PTX covering the Ampere datacentre parts and anything between
+#                the real targets below.
+#   86-real      GeForce RTX 30 series — compiled kernels, no JIT at first run.
+#   89-real      GeForce RTX 40 series.
+#   120a-real    GeForce RTX 50 series (Blackwell). The 'a' is required: the
+#                FP4 tensor-core instructions are not forwards compatible.
+#   121a-real    The second Blackwell consumer target.
+#
+# Absent kernels are not a hard failure here the way they are for HIP — the
+# two -virtual entries mean an architecture without compiled kernels still
+# runs, by JIT, after a one-time pause on first load.
+gpu_targets: "75-virtual;80-virtual;86-real;89-real;120a-real;121a-real"
+
+dependencies:
+  build:
+  - cmake
+  # llama.cpp's common/ links OpenSSL (verified in the configure output at this
+  # pin: "OpenSSL found: 3.6.1"). The ai-tier recipe declares curl instead,
+  # which is vestigial there — LLAMA_CURL was removed at r3 and the shipped
+  # binary links no libcurl. Declaring what this build actually uses.
+  - openssl
+  # configure() merges the extracted CUDA component trees into one toolkit root
+  # with rsync — the per-component include/lib64 symlinks repeat and must be
+  # replaced rather than followed, which cp does not do.
+  - rsync
+  # The host compiler nvcc drives is the chroot's own toolchain, implicit here
+  # exactly as it is for the sibling engine recipes. nvcc 13.3.1 accepts GNU
+  # 15.2.0 with no override flag — measured at this pin, so the 2026-06-11
+  # design record's planned gcc-15 noexcept patch is not carried.
+  host: []
+  runtime:
+  # The CUDA runtime libraries this engine links (libcudart, libcublas,
+  # libcublasLt and their dependencies) live at /opt/cuda, put there by the
+  # cuda-toolkit download helper. Declaring the dependency gets the helper
+  # onto the machine; the post-install hook below states the one command that
+  # actually fetches the toolkit, because pkm never accepts a vendor licence
+  # on the user's behalf and so never runs a download helper unprompted.
+  - cuda-toolkit
+  # libcuda.so.1 — the CUDA driver API — comes from the driver, not the
+  # toolkit. Without it the engine cannot open a device at all.
+  - nvidia
+
+tests:
+  enabled: false
+  reason: "llama.cpp's CUDA test set requires a CUDA device: the build chroot has no GPU, no /dev/nvidia* nodes and no driver, so every device-side test fails on environment rather than on correctness. This is the second rung of the tests ladder rather than the first because the failures are not selectable — the whole set is device-side, so there is no runnable subset for a known-failures policy to keep exercising, and a policy that expects every test to fail records nothing a real regression could disturb. Accordingly build.sh also passes LLAMA_BUILD_TESTS=OFF: a test binary that can never run here is not worth about 4.7 GiB of statically-linked CUDA kernels to compile and then discard. The build's own proof is that the CUDA backend compiles for every declared architecture and that the resulting binaries link against the toolkit; device-side behaviour is proven on real NVIDIA hardware, where the CUDA-versus-Vulkan measurement for this engine is taken. The nvidia, docker and runc recipes carry the same environment-bounded disposition; the two sibling llama.cpp recipes (packages/ai/llama-cpp and packages/compute/llama-cpp-hip) declare no tests block at all, which is a weaker statement than this one, not the same one."
+
+verify_paths:
+  - /opt/llama-cpp-cuda/bin/llama-server
+  - /opt/llama-cpp-cuda/bin/llama-cli
+  # The benchmark tool is how a user confirms this engine is worth its opt-in
+  # on their own card, and it is the instrument the project's own
+  # CUDA-versus-Vulkan comparison uses. A build that dropped it would leave
+  # the claim unverifiable on the machine that matters.
+  - /opt/llama-cpp-cuda/bin/llama-bench

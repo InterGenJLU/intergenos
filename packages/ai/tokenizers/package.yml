@@ -1,0 +1,40 @@
+name: tokenizers
+version: "0.22.2"
+release: 1
+description: Fast state-of-the-art tokenizers for research and production (Rust core, Python bindings)
+license: Apache-2.0
+homepage: https://github.com/huggingface/tokenizers
+tier: ai
+iso_include: false  # training apparatus — mirror-only (decided 2026-07-20)
+build_style: custom
+install_func: do_install
+# VERSION PIN (Rule 12 comment): 0.23.1 is upstream latest, but the in-tree
+# transformers consumer pins tokenizers>=0.22.0,<=0.23.0 and no stable 0.23.0
+# exists (only 0.23.0rc0) — 0.22.2 is the latest stable inside the consumer
+# band. Re-verify the band against transformers' metadata at merge review and
+# bump when the consumer allows.
+source:
+- url: https://files.pythonhosted.org/packages/source/t/tokenizers/tokenizers-${version}.tar.gz
+  sha256: 473b83b915e547aa366d1eee11806deaf419e17be16310ac0a14077f1e28f917
+# Offline cargo vendoring — first-party generated artifact (cargo-vendor-gen.sh;
+# generated tarballs carry no sha pin by design, see the generated-tarballs
+# reference). Regenerate + stage before any build (stale-generated hazard).
+build_artifacts:
+  - name: tokenizers-${version}-vendor.tar.xz
+    generated_by: cargo-vendor
+  # The lockfile the --locked vendoring consumed — byte-identical to the
+  # sdist's bindings/python/Cargo.lock; staged beside the vendor tarball.
+  - name: tokenizers-${version}-Cargo.lock
+    generated_by: cargo-vendor
+dependencies:
+  build:
+  - maturin
+  - rust
+  host: []
+  runtime:
+  # Requires-Dist (PyPI metadata, non-extra): huggingface-hub<2.0,>=0.16.4 —
+  # authored in the python-deps wave (feature/uta-python-deps).
+  - huggingface-hub
+verify_paths:
+  - /usr/lib/python3.14/site-packages/tokenizers/__init__.py
+  - /usr/lib/python3.14/site-packages/tokenizers/tokenizers.pyi

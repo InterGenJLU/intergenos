@@ -1,0 +1,68 @@
+name: shim-signed
+version: "16.1"
+release: 2
+description: Microsoft-signed UEFI shim bootloader (Fedora-piggyback per D-002, dual-tracked with own shim-review PR per D-003)
+license: BSD-2-Clause-Patent
+homepage: https://github.com/rhboot/shim
+tier: core
+build_style: custom
+install_func: do_install
+# D-002 (2026-05-18, decided) authorizes Fedora-piggyback shipping
+# day-0. D-003 ratifies the own-MS-signed shim arm via rhboot/shim-review
+# PR (target 2026-05-22). Legal cover for redistribution recorded at
+# docs/governance/fedora-shim-redistribution.md (P-009 closure).
+#
+# Vendor-pinned shim from Fedora, signed by Microsoft. We piggyback on
+# Fedora's MS-signed shim as the v1.0 shipping path; users' machines
+# accept the shim via Fedora's vendor_db and enroll their per-install
+# user-MOK (per D-005) via MokManager at first boot.
+#
+# Source vendoring rationale: the primary URL is our own source mirror
+# (controlled, verified, sha256-locked). The fallback URL is upstream
+# Fedora kojipkgs and is used only when the mirror is unreachable; using
+# the fallback emits a build warning. Vendoring removes the build-time
+# dependency on Fedora infrastructure being reachable.
+#
+# Source: Fedora's shim-x64 RPM, repackaged. We extract shimx64.efi and
+# mmx64.efi (MokManager) from the RPM payload and install them under
+# /usr/share/shim-signed/ for Forge to copy to ESP. (Fedora's RPM payload
+# layout moved the binaries to usr/lib/efi/shim/<nvr>/EFI/fedora/ as of
+# 16.1-8 — was boot/efi/EFI/fedora/ — so build.sh locates them by
+# path-glob, release-agnostically.)
+#
+# Pinned to Fedora release 8 (was -2). shim-x64-16.1-8 is DUAL-SIGNED by
+# BOTH the Microsoft Corporation UEFI CA 2011 AND the Microsoft UEFI CA
+# 2023, so it Secure-Boots on both current firmware (2011 in db) and
+# firmware migrated to the 2023 CA. The prior -2 build was 2011-ONLY: as
+# hardware firmware migrates off the 2011 CA (Microsoft 2011->2023
+# migration, VISION item 24, cutoff 2026-06-27) a 2011-only shim would
+# silently stop Secure-Booting on migrated machines. Dual-signing closes
+# that forward exposure as the bridge to the own-MS-signed shim (D-003).
+# (Confirmed under enforcing SB: -2 is rejected by current edk2/OVMF where
+# the dual-signed -8 boots; both validate the InterGenOS-signed chain
+# downstream.)
+source:
+- url: https://intergenstudios.com/intergenos/sources/current/shim-x64-${version}-8.x86_64.rpm
+  fallback_url: https://kojipkgs.fedoraproject.org/packages/shim/${version}/8/x86_64/shim-x64-${version}-8.x86_64.rpm
+  sha256: ee8787bb9fbd13fcce73de0501938075c24efd78bc1a590826f0c01c7a10986b
+dependencies:
+  build:
+  - cpio
+  - rpm
+  host: []
+  runtime: []
+verify_paths:
+  # Both are MS-signed binaries extracted from Fedora's shim-x64 RPM.
+  # The package's whole reason for existence is to land these two files
+  # under /usr/share/shim-signed/ so Forge can copy them to ESP at
+  # install time. If either is missing post-install, the entire Secure
+  # Boot chain is unshipable. Audit them.
+  # NOT verified: shimx64-fedora.cer (build.sh installs it conditionally
+  # if present in the RPM payload; current Fedora RPM doesn't include it,
+  # so adding it to verify_paths would false-positive-fail the audit).
+  # Revisit verify_paths layout post-B-015 (own-MS-signed shim landing
+  # via rhboot/shim-review) when the package transitions away from
+  # Fedora-piggyback to InterGenJLU-direct shipping; file conventions
+  # may change at that boundary.
+  - /usr/share/shim-signed/shimx64.efi
+  - /usr/share/shim-signed/mmx64.efi

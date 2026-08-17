@@ -1,0 +1,66 @@
+# Physical-hardware driver classes that must be PRESENT in the produced kernel.
+#
+# Read by scripts/check-kernel-required-symbols.py, which both kernel recipes run
+# after merging the config fragments. These are asserted as ENABLED (=y or =m)
+# rather than at an exact value: for a driver, module-versus-built-in is a
+# legitimate packaging choice, while ABSENCE is the defect.
+#
+# WHY THIS EXISTS, measured in the shipped tree: the baseline fragment requested
+# THIRTEEN CONFIG_MMC_* host-controller drivers but never requested the parent
+# symbol they all depend on (`menuconfig MMC`). `make olddefconfig` silently
+# discarded all thirteen and wrote "# CONFIG_MMC is not set". The recipe looked
+# like it asked for a card reader; the produced kernel had no MMC subsystem at
+# all; nothing failed. Evaluations run in virtual machines, which have no SD card
+# reader, no I2C-HID touchpad and no on-board audio codec — so a kernel missing
+# every one of those drivers passes every automated check and fails on the first
+# real laptop.
+#
+# The list moved out of the recipes and into this file on 2026-08-11 so both
+# kernel passes assert it from one place. Decided 2026-08-07.
+#
+# Format: one CONFIG_X name per entry, no value. Comments and blanks ignored.
+
+CONFIG_MMC
+CONFIG_MMC_BLOCK
+CONFIG_MMC_SDHCI
+CONFIG_MMC_SDHCI_PCI
+CONFIG_MMC_REALTEK_PCI
+CONFIG_MISC_RTSX_PCI
+CONFIG_TYPEC
+CONFIG_TYPEC_UCSI
+CONFIG_USB4
+CONFIG_PINCTRL_ALDERLAKE
+CONFIG_PINCTRL_TIGERLAKE
+CONFIG_PINCTRL_METEORLAKE
+CONFIG_PINCTRL_ICELAKE
+CONFIG_PINCTRL_JASPERLAKE
+CONFIG_PINCTRL_SUNRISEPOINT
+CONFIG_PINCTRL_CANNONLAKE
+CONFIG_PINCTRL_GEMINILAKE
+CONFIG_PINCTRL_BROXTON
+CONFIG_PINCTRL_ELKHARTLAKE
+CONFIG_PINCTRL_LAKEFIELD
+CONFIG_PINCTRL_LEWISBURG
+CONFIG_PINCTRL_EMMITSBURG
+CONFIG_PINCTRL_DENVERTON
+CONFIG_PINCTRL_CEDARFORK
+CONFIG_PINCTRL_METEORPOINT
+CONFIG_PINCTRL_LYNXPOINT
+CONFIG_PINCTRL_INTEL_PLATFORM
+CONFIG_SND_SOC_INTEL_SKL_HDA_DSP_GENERIC_MACH
+CONFIG_SND_SOC_INTEL_SOUNDWIRE_SOF_MACH
+CONFIG_SND_SOC_AMD_PS
+CONFIG_VIDEO_INTEL_IPU6
+CONFIG_IPU_BRIDGE
+CONFIG_INTEL_SKL_INT3472
+CONFIG_HID_MULTITOUCH
+CONFIG_HID_GOODIX_SPI
+CONFIG_MOUSE_ELAN_I2C
+CONFIG_I2C_HID_ACPI
+CONFIG_THINKPAD_ACPI
+CONFIG_IDEAPAD_LAPTOP
+CONFIG_ASUS_WMI
+CONFIG_INTEL_VBTN
+CONFIG_KVM
+CONFIG_KVM_INTEL
+CONFIG_KVM_AMD

@@ -1,0 +1,27 @@
+name: accountsservice
+version: "23.13.9"
+release: 1
+description: D-Bus interface for user account management
+license: GPL-3.0-or-later
+homepage: https://www.freedesktop.org/wiki/Software/AccountsService/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.freedesktop.org/software/accountsservice/accountsservice-${version}.tar.xz
+  sha256: adda4cdeae24fa0992e7df3ffff9effa7090be3ac233a3edfdf69d5a9c9b924f
+dependencies:
+  build:
+  - polkit
+  - vala
+  - glib2
+  - systemd
+  - dbus
+  host: []
+  runtime:
+  - polkit
+  - glib2
+  - systemd
+  - dbus
+verify_paths:
+  - /usr/lib/libaccountsservice.so

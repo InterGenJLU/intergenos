@@ -1,0 +1,70 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 InterGenJLU
+#
+# igos-greeter-monitors-seed — install the installer-staged pre-configuration
+# greeter monitor layout into the GDM seat state, before GDM starts.
+#
+# WHY: on a fresh install no user layout exists yet, so the first greeter
+# renders mutter's clone-all fallback — stretched across every monitor at
+# default scale on a multi-head box. The installer stages a layout derived
+# from the live install session's own display state (the primary monitor the
+# installing user was looking at, at its real mode and scale) at
+# /var/lib/igos/greeter-monitors-seed.xml and also writes the seat state
+# directly. GDM's FIRST-boot greeter init has been observed to recreate the
+# seat-state directory, wiping a file placed there before first boot — so
+# delivery cannot be install-time-only: this unit re-installs the seed on
+# any boot where the target is absent, and is permanently inert once a
+# layout exists (the per-user sync owns the file from first login on; this
+# script never overwrites an existing target).
+#
+# Same mode-bit doctrine as igos-greeter-monitors-sync: ownership is never
+# touched (GDM chowns seat state itself, per-boot dynamic uid); file 0644 +
+# dirs 0755 carry the readability guarantee. Recovery from a bad layout:
+#   rm /var/lib/gdm/seat0/config/monitors.xml && systemctl restart gdm
+
+set -euo pipefail
+
+SEED=/var/lib/igos/greeter-monitors-seed.xml
+SEAT_CONFIG=/var/lib/gdm/seat0/config
+TARGET="$SEAT_CONFIG/monitors.xml"
+MAX_BYTES=1048576   # monitors.xml is ~1-4 KB; anything near 1 MB is not one
+
+fail() { echo "igos-greeter-monitors-seed: ERROR: $*" >&2; exit 1; }
+
+# Both are belt-and-suspenders re-checks of the unit's Condition lines, so a
+# manual `systemctl start` (or a direct run) is exactly as safe as the boot
+# path.
+if [ ! -e "$SEED" ]; then
+    echo "igos-greeter-monitors-seed: no seed staged at $SEED, nothing to do"
+    exit 0
+fi
+if [ -e "$TARGET" ]; then
+    echo "igos-greeter-monitors-seed: $TARGET exists — never overwritten, nothing to do"
+    exit 0
+fi
+
+[ -L "$SEED" ] && fail "$SEED is a symlink — refusing"
+[ -f "$SEED" ] || fail "$SEED is not a regular file — refusing"
+SEED_SIZE="$(stat -c %s "$SEED")"
+[ "$SEED_SIZE" -le "$MAX_BYTES" ] || \
+    fail "$SEED is $SEED_SIZE bytes (limit $MAX_BYTES) — refusing"
+
+# Same cheap validity gate as the sync helper: a file that is not
+# well-formed XML cannot be a monitors.xml — refuse and leave the greeter
+# on its fallback rather than hand mutter a broken config.
+python3 -c "import sys, xml.etree.ElementTree as ET; ET.parse(sys.argv[1])" \
+    "$SEED" 2>/dev/null || fail "$SEED is not well-formed XML — refusing"
+
+install -dm755 /var/lib/gdm /var/lib/gdm/seat0 "$SEAT_CONFIG"
+
+# Atomic install with the drift-proof file mode; same-filesystem mv so the
+# greeter can never observe a torn file.
+TMP="$(mktemp "$SEAT_CONFIG/.monitors.xml.XXXXXX")"
+trap 'rm -f "$TMP"' EXIT
+cat "$SEED" > "$TMP"
+chmod 0644 "$TMP"
+mv -f "$TMP" "$TARGET"
+trap - EXIT
+
+echo "igos-greeter-monitors-seed: installed $SEED -> $TARGET ($(sha256sum "$TARGET" | cut -c1-16)...)"

@@ -1,0 +1,50 @@
+name: arrow-cpp
+version: "25.0.0"
+release: 1
+description: Apache Arrow columnar data platform — C++ libraries (compute, dataset, parquet)
+license: Apache-2.0
+homepage: https://arrow.apache.org/
+tier: ai
+iso_include: false  # training apparatus — mirror-only (decided 2026-07-20)
+build_style: custom
+install_func: do_install
+# sha256 = Apache's published apache-arrow-25.0.0.tar.gz.sha256.
+# mimalloc: arrow force-bundles its allocator ("we want to control its build
+# options" — ThirdpartyToolchain.cmake) and ignores ARROW_DEPENDENCY_SOURCE=SYSTEM
+# for it, so the tarball is staged here and handed over via ARROW_MIMALLOC_URL in
+# configure(). sha256 matches arrow's own URL_HASH pin (cpp/thirdparty/versions.txt),
+# so the file is hash-verified twice: at staging and again by arrow's ExternalProject.
+source:
+- url: https://archive.apache.org/dist/arrow/arrow-${version}/apache-arrow-${version}.tar.gz
+  filename: arrow-cpp-25.0.0.tar.gz
+  sha256: 12afc2dc8137bdd4a68876cec939f664c9d55cfc7b75f55b45163ebb4e344d81
+- url: https://github.com/microsoft/mimalloc/archive/v3.3.1.tar.gz
+  filename: mimalloc-v3.3.1.tar.gz
+  sha256: 42c16914168ac6741eeb407e83b93a12b2b7ee25a7e14e6b4807fab8b577a540
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - boost
+  - rapidjson
+  - xsimd
+  - re2
+  - utf8proc
+  - thrift
+  - snappy
+  - brotli
+  - lz4
+  - zstd
+  host: []
+  runtime:
+  - re2
+  - utf8proc
+  - thrift
+  - snappy
+  - brotli
+  - lz4
+  - zstd
+verify_paths:
+  - /usr/lib/libarrow.so
+  - /usr/lib/libparquet.so
+  - /usr/lib/libarrow_dataset.so

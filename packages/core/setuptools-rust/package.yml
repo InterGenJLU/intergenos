@@ -1,0 +1,26 @@
+name: setuptools-rust
+version: "1.10.2"
+release: 3  # r3: F12 runtime-declaration wave 2026-07-21 — runtime deps declared from the pinned sdist metadata (semantic-version, setuptools); .PKGINFO depend= change => release bump
+description: Setuptools Rust extension plugin
+license: MIT
+homepage: https://github.com/PyO3/setuptools-rust
+source:
+- url: https://pypi.org/packages/source/s/setuptools-rust/setuptools_rust-${version}.tar.gz
+  sha256: 5d73e7eee5f87a6417285b617c97088a7c20d1a70fcea60e3bdc94ff567c29dc
+dependencies:
+  build: []
+  host:
+  - setuptools
+  - setuptools-scm
+  - wheel
+  runtime:
+  - semantic-version
+  - setuptools
+tier: core
+build_style: custom
+# Setuptools plugin for building Rust extensions. Required by
+# python-cryptography (whose backends are written in Rust via PyO3) for
+# systemd-pass2's ukify tool.
+
+verify_paths:
+  - /usr/lib/python3.14/site-packages

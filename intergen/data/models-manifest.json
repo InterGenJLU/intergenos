@@ -1,0 +1,76 @@
+{
+  "version": "0.1",
+  "entries": [
+    {
+      "name": "InternVL3.5-2B",
+      "filename": "OpenGVLab_InternVL3_5-2B-Q4_K_M.gguf",
+      "repo_id": "bartowski/OpenGVLab_InternVL3_5-2B-GGUF",
+      "quant": "Q4_K_M",
+      "size_bytes": 1282436192,
+      "sha256": "1a3605d32ecc4464ccd8451414fc9458a4b6cd12232d8ba6762af91c2dc897e0",
+      "tier": 1,
+      "license_ref": "Apache-2.0",
+      "has_vision": true,
+      "cacheable": true,
+      "mmproj_filename": "mmproj-OpenGVLab_InternVL3_5-2B-f16.gguf",
+      "mmproj_sha256": "e83ba6e675b747f7801557dc24594f43c17a7850b6129d4972d55e3e9b010359",
+      "mmproj_size_bytes": 636106144
+    },
+    {
+      "name": "Qwen3.5-2B",
+      "filename": "Qwen3.5-2B-Q4_K_M.gguf",
+      "repo_id": "unsloth/Qwen3.5-2B-GGUF",
+      "quant": "Q4_K_M",
+      "size_bytes": 1280835840,
+      "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
+      "tier": null,
+      "license_ref": "Apache-2.0"
+    },
+    {
+      "name": "Qwen3.5-9B",
+      "filename": "Qwen3.5-9B-intergen-round3-Q4_K_M.gguf",
+      "repo_id": "unsloth/Qwen3.5-9B-GGUF",
+      "quant": "Q4_K_M",
+      "size_bytes": 5629108608,
+      "sha256": "ce3e2f0bea837b35c222639fa0d9a77b477b07de98f402726c0881a59f07c6f8",
+      "tier": 2,
+      "license_ref": "Apache-2.0",
+      "has_vision": true,
+      "cacheable": false,
+      "mmproj_filename": "mmproj-Qwen3.5-9B-f16.gguf",
+      "mmproj_vendor_filename": "mmproj-F16.gguf",
+      "mmproj_sha256": "f70dc3509053962b0d0d3ee8a7eacebf5d60aa560cad78254ae8698516ae029f",
+      "mmproj_size_bytes": 918166080
+    },
+    {
+      "name": "Qwen3.5-35B-A3B",
+      "filename": "Qwen3.5-35B-A3B-Q4_K_M.gguf",
+      "repo_id": "unsloth/Qwen3.5-35B-A3B-GGUF",
+      "quant": "Q4_K_M",
+      "size_bytes": 22016023168,
+      "sha256": "3b46d1066bc91cc2d613e3bc22ce691dd77e6f0d33c9060690d24ce6de494375",
+      "tier": 3,
+      "license_ref": "Apache-2.0",
+      "has_vision": true,
+      "cacheable": false,
+      "mmproj_filename": "mmproj-Qwen3.5-35B-A3B-f16.gguf",
+      "mmproj_vendor_filename": "mmproj-F16.gguf",
+      "mmproj_sha256": "a516ab92e8240da4734d68352bdfba84c16e830ee40010b8fac80d69c77272ff",
+      "mmproj_size_bytes": 899283648
+    },
+    {
+      "name": "nomic-embed-text-v1.5",
+      "filename": "nomic-embed-text-v1.5.Q8_0.gguf",
+      "repo_id": "nomic-ai/nomic-embed-text-v1.5-GGUF",
+      "quant": "Q8_0",
+      "size_bytes": 146146432,
+      "sha256": "3e24342164b3d94991ba9692fdc0dd08e3fd7362e0aacc396a9a5c54a544c3b7",
+      "tier": null,
+      "license_ref": "Apache-2.0"
+    }
+  ],
+  "signing": {
+    "fingerprint": "5597A3E0587B253006D0DD7B8C50826182083050",
+    "signature_path": "/usr/share/intergen/models-manifest.json.asc"
+  }
+}

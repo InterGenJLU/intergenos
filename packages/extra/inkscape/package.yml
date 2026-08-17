@@ -1,0 +1,56 @@
+name: inkscape
+version: "1.4.3"
+release: 2  # r2: iso_include true — ships on the ISO (2026-07-18 curation correction, same basis as gimp r3)
+description: Vector graphics editor with SVG support
+license: GPL-2.0-or-later
+homepage: https://inkscape.org/
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+- url: https://inkscape.org/gallery/item/58914/inkscape-${version}.tar.xz
+  sha256: e83a2c3db570b6c5a1ff0fccfe7098837b3f6bd74b133567937c8a91710ed1d1
+patches:
+  - file: inkscape-1.4.3-poppler_26.02-1.patch
+    sha256: e7e9c70addce0ffc0d3019868eb3bf96fe4cf0fa1b43b34542d9ef94765267b4
+dependencies:
+  build:
+  - boost
+  - double-conversion
+  - gc
+  - gsl
+  - gtkmm3
+  - libxslt
+  - poppler
+  - popt
+  - potrace
+  - imagemagick
+  - lcms2
+  - libcanberra
+  - gspell
+  - numpy
+  - glib2
+  - libxml2
+  host: []
+  runtime:
+  - boost
+  - double-conversion
+  - gc
+  - gsl
+  - gtkmm3
+  - libxslt
+  - poppler
+  - popt
+  - potrace
+  - imagemagick
+  - lcms2
+  - libcanberra
+  - gspell
+  - glib2
+  - libxml2
+  - numpy
+verify_paths:
+  - /usr/bin/inkscape
+  - /usr/lib/lib2geom.so.1.4.0
+  - /usr/lib/inkscape/libinkscape_base.so

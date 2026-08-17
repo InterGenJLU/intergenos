@@ -1,0 +1,3 @@
+This file references claude-main in a way that should be blocked.
+The agent chris-ubuntu-code-claude should not appear in public content.
+Even windows-claude references should be caught.

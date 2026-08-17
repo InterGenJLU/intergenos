@@ -1,0 +1,46 @@
+# chronicle-scrub.service — weekly integrity scrub (spec §6, §3).
+#
+# Oneshot fired by chronicle-scrub.timer. Re-hashes the aging store and names
+# any blob whose bytes no longer match its content address, loudly, with the
+# full list of versions that reference it (spec §14.6). Read-only against the
+# stored blobs plus a small state write; capture-class capability posture.
+
+[Unit]
+Description=Chronicle weekly integrity scrub
+Documentation=man:chronicled(8) man:chronicle(1)
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/libexec/chronicle/chronicled --task scrub
+StandardOutput=journal
+StandardError=journal
+
+StateDirectory=chronicle
+RuntimeDirectory=chronicle
+RuntimeDirectoryPreserve=yes
+
+# Canonical daemon-hardening baseline + the ratified backup relaxations.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallFilter=~@resources
+ReadWritePaths=/var/lib/chronicle /mnt /media /run/media
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+AmbientCapabilities=CAP_DAC_READ_SEARCH

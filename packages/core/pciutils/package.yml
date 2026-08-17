@@ -1,0 +1,20 @@
+name: pciutils
+version: "3.14.0"
+release: 1
+description: PCI device listing and configuration utilities
+license: GPL-2.0-or-later
+homepage: https://mj.ucw.cz/sw/pciutils/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://mj.ucw.cz/download/linux/pci/pciutils-${version}.tar.gz
+  sha256: e31c79722dbbe9d2906b92996ce295268e54d4342fefe3ff476caa613e51be2a
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - hwdata
+verify_paths:
+  - /usr/bin/lspci
+  - /usr/lib/libpci.so

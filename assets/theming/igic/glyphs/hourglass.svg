@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: hourglass — frame bars + waisted glass + falling sand. -->
+  <g class="glyph">
+    <line x1="86" y1="60" x2="170" y2="60"/>
+    <line x1="86" y1="196" x2="170" y2="196"/>
+    <path d="M96 60 L96 88 C96 112 122 118 122 128 C122 138 96 144 96 168 L96 196"/>
+    <path d="M160 60 L160 88 C160 112 134 118 134 128 C134 138 160 144 160 168 L160 196"/>
+    <line x1="128" y1="136" x2="128" y2="158"/>
+  </g>
+  <g class="fill"><path d="M110 188 C116 172 124 164 128 162 C132 164 140 172 146 188 Z"/></g>
+</svg>

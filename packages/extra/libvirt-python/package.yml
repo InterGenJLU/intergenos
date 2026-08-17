@@ -1,0 +1,24 @@
+name: libvirt-python
+version: "12.5.0"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Python bindings for the libvirt API
+license: LGPL-2.1-or-later
+homepage: https://libvirt.org
+tier: extra
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+  - url: https://files.pythonhosted.org/packages/source/l/libvirt-python/libvirt_python-${version}.tar.gz
+    sha256: 25ea2261e0d6cab9d004b700911d88b57911b14528ed04b3487a617ec2b4cda9
+dependencies:
+  build:
+    - setuptools
+    - pkgconf
+    - libvirt
+  host: []
+  runtime:
+    - libvirt
+verify_paths:
+  - /usr/lib/python3.14/site-packages/libvirt.py
+  - /usr/lib/python3.14/site-packages/libvirtmod.cpython-314-x86_64-linux-gnu.so

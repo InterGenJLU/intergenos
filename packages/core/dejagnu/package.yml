@@ -1,0 +1,20 @@
+name: dejagnu
+version: "1.6.3"
+release: 1
+description: Framework for testing programs
+license: GPL-3.0-or-later
+homepage: https://www.gnu.org/software/dejagnu/
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://ftpmirror.gnu.org/dejagnu/dejagnu-${version}.tar.gz
+  sha256: 87daefacd7958b4a69f88c6856dbd1634261963c414079d0c371f589cd66a2e3
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - expect
+verify_paths:
+  - /usr/bin/dejagnu
+  - /usr/bin/runtest

@@ -1,0 +1,58 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+#
+# /etc/grub.d/06_intergenos_multi_background -- K1 closure (operator-authored 2026-05-21).
+#
+# Resolution-aware GRUB background override. Runs after 05_debian_theme (which
+# sets the default background from GRUB_BACKGROUND in /etc/default/grub). When
+# GRUB negotiates a graphical mode at boot, $gfxmode holds the actual screen
+# resolution (e.g. "1920x1080"); if a matching PNG exists at
+# /boot/grub/backgrounds/<gfxmode>.png it overrides the default. Otherwise the
+# default fallback from 05_debian_theme remains.
+#
+# Steam hardware-survey-grounded resolution set (14 entries): see
+# packages/desktop/intergenos-grub-theme/assets/grub-theme/intergenos/backgrounds/.
+#
+# Composes-with-upstream rather than forking 05_debian_theme. This is a thin
+# post-pass override; the upstream theme script is untouched.
+
+set -e
+
+. /usr/share/grub/grub-mkconfig_lib
+
+cat << 'EOF'
+# Resolution-specific InterGenOS background override (K1; 06_intergenos_multi_background).
+# GRUB sets $gfxmode to the actual negotiated resolution. If a matching PNG
+# exists in /boot/grub/backgrounds/, it replaces the default background that
+# 05_debian_theme set from GRUB_BACKGROUND.
+#
+# Two robustness fixes landed 2026-05-26 install #18 first-boot:
+#
+#  1. -m stretch on background_image: when the theme briefly unloads during
+#     chainload (between menu selection and kernel takeover), this legacy
+#     background_image command takes effect for the unload window. Without
+#     -m stretch the image renders at its native PNG resolution, off-center
+#     on any screen where actual gfxmode != PNG native — producing the
+#     off-center background flash. With -m stretch the flash matches the
+#     theme's desktop-image-scale-method=stretch behavior so the transition
+#     is consistent instead of jarring.
+#
+#  2. Resolution extraction via GRUB's regexp module: $gfxmode can be set
+#     by GRUB as either "WxH" (e.g. 1366x768) or "WxHxC" (e.g. 1366x768x32)
+#     depending on firmware/driver path (vbe vs efifb vs gop). The bare
+#     ${gfxmode}.png lookup misses on the "WxHxC" form because we ship PNGs
+#     named WxH only. Operator-surfaced 2026-05-26: laptop wasn't 1920x1080
+#     (the GRUB_BACKGROUND fallback) so the multi-background scaffold
+#     should have fired but wasn't, indicating the lookup pattern failed.
+#     regexp module extracts the WxH prefix robustly across both forms.
+if [ -n "$gfxmode" ]; then
+  insmod png
+  insmod regexp
+  if regexp -s 1:igos_res '^([0-9]+x[0-9]+)' "$gfxmode"; then
+    if background_image -m stretch /grub/backgrounds/${igos_res}.png; then
+      true
+    fi
+  fi
+fi
+EOF

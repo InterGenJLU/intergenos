@@ -1,0 +1,24 @@
+name: nettle
+version: "3.10.2"
+release: 1
+description: Low-level cryptographic library
+license: LGPL-3.0-or-later
+homepage: https://www.lysator.liu.se/~nisse/nettle/
+tier: core
+build_style: autotools
+install_func: do_install
+source:
+- url: https://ftpmirror.gnu.org/nettle/nettle-${version}.tar.gz
+  sha256: fe9ff51cb1f2abb5e65a6b8c10a92da0ab5ab6eaf26e7fc2b675c45f1fb519b5
+dependencies:
+  build: []
+  host: []
+  runtime: []
+configure_flags:
+- --prefix=/usr
+- --libdir=/usr/lib
+- --disable-static
+verify_paths:
+  - /usr/bin/nettle-hash
+  - /usr/bin/nettle-lfib-stream
+  - /usr/lib/libhogweed.so

@@ -1,0 +1,26 @@
+name: liburing
+version: "2.14"
+release: 2  # r2: deprecated licence identifiers replaced with the modern SPDX forms after reading the pinned tarball's own grant — no or-later election appears anywhere in liburing 2.14, so both are -only. Recipe metadata only, but the archive's .PKGINFO carries license=, so the shipped bytes change and the release advances with them.
+description: Linux io_uring async I/O wrapper library (Jens Axboe)
+license: MIT AND LGPL-2.1-only AND GPL-2.0-only
+homepage: https://github.com/axboe/liburing
+# tier: core (was extra) — liburing is a low-level kernel I/O wrapper library
+# (zero deps), not a user-facing application. Its prior `extra` placement built
+# it AFTER libdex (desktop) + fuse3 (core), so libdex silently fell back to its
+# posix-aio backend instead of io_uring (every mainstream distro ships libdex
+# WITH liburing on x86_64). Moving it to core (built before all desktop) enables
+# io_uring for libdex and satisfies fuse3's probe; rocksdb (extra) is unaffected.
+# (2026-06-25 silent-loss audit; matches the uchardet/attrs tier-move class.)
+tier: core
+build_style: autotools
+install_func: do_install
+source:
+- url: https://github.com/axboe/liburing/archive/refs/tags/liburing-${version}.tar.gz
+  sha256: 5f80964108981c6ad979c735f0b4877d5f49914c2a062f8e88282f26bf61de0c
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/liburing.so.2
+  - /usr/include/liburing.h

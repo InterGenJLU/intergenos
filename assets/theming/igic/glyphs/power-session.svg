@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: session — IEC power ring + stem enclosing a user bust (a user's running session). -->
+  <g class="glyph">
+    <path d="M 154 81.5 A 64 64 0 1 1 102 81.5"/>
+    <line x1="128" y1="56" x2="128" y2="104"/>
+    <circle cx="128" cy="134" r="14"/>
+    <path d="M100 182 A28 24 0 0 1 156 182"/>
+  </g>
+</svg>

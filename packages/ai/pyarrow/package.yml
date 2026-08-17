@@ -1,0 +1,42 @@
+name: pyarrow
+version: "25.0.0"
+release: 1
+description: Python bindings for Apache Arrow (builds against the system arrow-cpp)
+license: Apache-2.0
+homepage: https://arrow.apache.org/
+tier: ai
+iso_include: false  # training apparatus — mirror-only (decided 2026-07-20)
+build_style: custom
+install_func: do_install
+# Backend verified from the sdist (closes the recorded pyarrow backend re-verify
+# item): build-backend = `_build_backend` — pyarrow's IN-TREE wrapper module
+# (backend-path) over scikit-build-core; requires = scikit-build-core,
+# cython>=3.1 (tree 3.2.4), libcst>=1.8.6 (authored this wave),
+# numpy>=1.25 (tree 2.4.2), setuptools_scm>=8 (tree).
+source:
+- url: https://files.pythonhosted.org/packages/source/p/pyarrow/pyarrow-${version}.tar.gz
+  sha256: d2d697008b5ec06d75952ef260c2e9a8a0f6ccfce24266c04c9c8ade927cb3b4
+dependencies:
+  build:
+  - arrow-cpp
+  - scikit-build-core
+  - cython
+  - libcst
+  - numpy
+  - setuptools-scm
+  - cmake
+  - ninja
+  host: []
+  runtime:
+  # Requires-Dist (PyPI metadata): none (numpy optional since pyarrow 19).
+  # The native link: libarrow* from arrow-cpp.
+  - arrow-cpp
+# verify_paths MUST pin the compiled extensions, not only pure-python files:
+# the DESTDIR-redirect class packs a source-only slim wheel that passes any
+# pure-python pin — the native-lib pins below are what make that shape
+# unsealable (burn-caught 2026-07-22: a sealed pyarrow shipped with ONE .so).
+verify_paths:
+  - /usr/lib/python3.14/site-packages/pyarrow/__init__.py
+  - /usr/lib/python3.14/site-packages/pyarrow/parquet
+  - /usr/lib/python3.14/site-packages/pyarrow/libarrow_python.so
+  - /usr/lib/python3.14/site-packages/pyarrow/lib.cpython-314-x86_64-linux-gnu.so

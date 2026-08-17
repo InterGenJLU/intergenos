@@ -1,0 +1,25 @@
+name: xkbcomp
+version: "1.5.0"
+release: 1
+description: XKB keyboard description compiler
+license: MIT
+homepage: ''
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.x.org/pub/individual/app/xkbcomp-${version}.tar.xz
+  sha256: 2ac31f26600776db6d9cd79b3fcd272263faebac7eb85fb2f33c7141b8486060
+dependencies:
+  build:
+  - libX11
+  - libxkbfile
+  - xorgproto
+  host: []
+  runtime:
+  - libX11
+  - libxkbfile
+configure_flags:
+- --prefix=/usr
+verify_paths:
+  - /usr/bin/xkbcomp

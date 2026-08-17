@@ -1,0 +1,22 @@
+name: python-msgpack
+version: "1.2.1"
+release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: MessagePack serializer for Python (core — Tensile logic-file fast path)
+license: Apache-2.0
+homepage: https://msgpack.org/
+tier: core
+build_style: custom
+install_func: do_install
+
+source:
+  - url: https://files.pythonhosted.org/packages/source/m/msgpack/msgpack-${version}.tar.gz
+    sha256: 04c721c2c7448767e9e3f2520a475663d8ee0f09c31890f6d2bd70fd636a9647
+
+dependencies:
+  build:
+  - setuptools
+  - cython
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/msgpack

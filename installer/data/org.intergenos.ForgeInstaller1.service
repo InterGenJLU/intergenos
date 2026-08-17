@@ -1,0 +1,10 @@
+[D-BUS Service]
+# Forge installer D-Bus backend. Activated on-demand when a client (the
+# GTK4 GUI running as the intergenos user) sends a message to
+# org.intergenos.ForgeInstaller1 on the system bus. The service exits
+# ~30s after install completion so we don't keep a long-lived root
+# process around; the next install activates it fresh.
+Name=org.intergenos.ForgeInstaller1
+Exec=/usr/bin/forge --mode service
+User=root
+SystemdService=forge-installer-backend.service

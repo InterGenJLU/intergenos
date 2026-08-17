@@ -1,0 +1,38 @@
+name: rocm-debug-agent
+version: "7.2.4"
+release: 1
+description: ROCm debug agent library (GPU exception/state dump + wave debugging glue)
+license: MIT
+homepage: https://github.com/ROCm/rocr_debug_agent
+tier: compute
+build_style: custom
+install_func: do_install
+
+# Standalone repo (rocr_debug_agent) at the rocm-7.2.4 tag. sha256
+# pinned 2026-07-17 (single-witness GitHub tag-archive endpoint, same
+# caveat class as the other 7.2.4 pins). Links amd-dbgapi + ROCR +
+# libelf (core elfutils) + libdw (elfutils-libdw — core elfutils is
+# LFS-exact, libelf only).
+source:
+  - url: https://github.com/ROCm/rocr_debug_agent/archive/refs/tags/rocm-${version}.tar.gz
+    filename: rocr_debug_agent-rocm-${version}.tar.gz
+    sha256: 3e8c8de1e4aff795fc98521508b0625fb156315a56a894674e035ebb5ac23119
+
+dependencies:
+  build:
+  - cmake
+  - ninja
+  - rocm-cmake
+  - rocdbgapi
+  - rocr-runtime
+  - rocm-hip
+  - elfutils
+  - elfutils-libdw
+  host: []
+  runtime:
+  - rocdbgapi
+  - rocr-runtime
+  - elfutils
+  - elfutils-libdw
+verify_paths:
+  - /opt/rocm/lib/librocm-debug-agent.so.2

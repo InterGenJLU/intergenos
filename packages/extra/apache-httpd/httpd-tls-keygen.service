@@ -1,0 +1,21 @@
+# httpd-tls-keygen.service — per-machine TLS cert generation for Apache httpd
+#
+# F43: the self-signed cert+key are generated on the TARGET at first service
+# start (not at build/package time), so every machine gets a unique key and
+# no key material ships in the squashfs. httpd.service Requires= and is ordered
+# After= this unit, so the cert exists before httpd reads it. The unit is
+# pulled in as a dependency of httpd.service — it is NOT independently enabled
+# (no [Install] section), so it only ever runs when httpd is started.
+#
+# ConditionPathExists=! makes it a no-op once a cert is present (operator CA
+# cert or a prior run); a condition-skip still satisfies httpd's Requires=.
+
+[Unit]
+Description=Generate per-machine self-signed TLS certificate for Apache httpd
+ConditionPathExists=!/etc/httpd/ssl/server.pem
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/apache-httpd/generate-tls-cert.sh

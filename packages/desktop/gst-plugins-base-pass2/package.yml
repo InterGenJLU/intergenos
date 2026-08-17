@@ -1,0 +1,49 @@
+name: gst-plugins-base-pass2
+version: "1.28.1"
+release: 1
+description: "GStreamer base plugins (pass 2 — with Mesa GL support)"
+license: LGPL-2.0-or-later
+homepage: https://gstreamer.freedesktop.org/
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugins-base-${version}.tar.xz
+  sha256: 1446a4c2a92ff5d78d88e85a599f0038441d53333236f0c72d72f21a9c132497
+dependencies:
+  build:
+  - gst-plugins-base
+  - mesa
+  - alsa-lib
+  - libogg
+  - libvorbis
+  - orc
+  - pango
+  - libX11
+  - libXext
+  - glib2
+  - gstreamer
+  host: []
+  runtime:
+  - mesa
+  - alsa-lib
+  - libogg
+  - libvorbis
+  - orc
+  - pango
+  - libX11
+  - libXext
+  - glib2
+  - gstreamer
+
+supersedes:
+  - gst-plugins-base
+# vorbisidec is Tremor — the integer-only Vorbis decoder for embedded targets.
+# InterGenOS ships full libvorbis (the vorbis plugin builds against it: the log
+# shows `vorbis found: YES 1.3.7` + `vorbisenc found: YES`), so the failing
+# vorbisidec probe is by design, not a feature loss. (silent-loss audit 2026-06-25.)
+silent_loss_accepted:
+  - vorbisidec   # Tremor (embedded integer Vorbis); we ship full libvorbis
+verify_paths:
+  - /usr/bin/gst-device-monitor-1.0
+  - /usr/lib/libgstallocators-1.0.so

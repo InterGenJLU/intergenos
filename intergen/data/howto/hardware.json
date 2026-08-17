@@ -1,0 +1,169 @@
+[
+  {
+    "id": "hw-how-do-i-install-nvidia-drivers",
+    "domain": "hardware",
+    "triggers": [
+      "how do I install nvidia drivers"
+    ],
+    "answer": "InterGenOS ships open Mesa drivers by default, which cover AMD and Intel graphics with no setup. For NVIDIA cards (Turing / RTX 20-series or newer) the proprietary driver is available from the mirror and is opt-in:\n```\nsudo pkm install nvidia\n```\nOn install you'll be shown the NVIDIA license to accept, the module is built and signed against your machine's Secure Boot key automatically, and it takes effect after a reboot. Older (pre-Turing) NVIDIA cards use the built-in nouveau driver — no install needed.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "hw-how-do-i-switch-between-integrated-and-nvidia-gr",
+    "domain": "hardware",
+    "triggers": [
+      "how do I switch between integrated and nvidia graphics"
+    ],
+    "answer": "Honest answer: InterGenOS does not currently ship a GPU switcher (no PRIME/switcheroo tooling), so there's no one-click \"run this app on the NVIDIA GPU\" toggle yet. Intel/AMD integrated graphics run through Mesa by default. If you install the NVIDIA driver (`sudo pkm install nvidia`), on a laptop you can launch a single app on the NVIDIA GPU from a terminal with the standard offload variables:\n```\n__NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia <app>\n```\nA polished graphics-switching UI is on the roadmap. If this matters to you, tell me and I'll flag it.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "hw-how-do-i-connect-my-bluetooth-headphones",
+    "domain": "hardware",
+    "triggers": [
+      "how do I connect my bluetooth headphones"
+    ],
+    "answer": "Open GNOME Settings → Bluetooth, make sure Bluetooth is on, then put your headphones in pairing mode and click them in the \"Devices\" list. Once paired they connect automatically and become the audio output. If sound doesn't switch to them, open Settings → Sound and pick them under \"Output Device\". Audio runs on PipeWire, which handles the high-quality A2DP and hands-free profiles.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "hw-how-do-i-pair-a-bluetooth-mouse",
+    "domain": "hardware",
+    "triggers": [
+      "how do I pair a bluetooth mouse"
+    ],
+    "answer": "Open GNOME Settings → Bluetooth, turn Bluetooth on, put the mouse into pairing mode (usually a button underneath), and click it when it appears in the device list. It pairs and starts working immediately, and reconnects on its own next time.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "hw-my-bluetooth-isn-t-working",
+    "domain": "hardware",
+    "triggers": [
+      "my bluetooth isn't working"
+    ],
+    "answer": "Start in GNOME Settings → Bluetooth and confirm the toggle is on (also check you're not in Airplane Mode in the top-right menu). Bluetooth runs on the `bluetooth` service via BlueZ. Quick checks: make sure the adapter is up and restart the stack if needed.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "hw-why-is-there-no-sound",
+    "domain": "hardware",
+    "triggers": [
+      "why is there no sound"
+    ],
+    "answer": "First check GNOME Settings → Sound: confirm the volume isn't muted and the right device is selected under \"Output Device\" (a plugged-in HDMI monitor or headset often steals the default). Audio runs on PipeWire + WirePlumber. If the device list looks wrong, you can inspect and restart the user audio stack.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "hw-how-do-i-change-my-audio-output-device",
+    "domain": "hardware",
+    "triggers": [
+      "how do I change my audio output device"
+    ],
+    "answer": "Open GNOME Settings → Sound and choose the device under \"Output Device\", or click the volume control in the top-right menu and use the device chooser there. The change is instant. (Under the hood this sets the default sink in PipeWire/WirePlumber.)",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "hw-my-microphone-isn-t-working",
+    "domain": "hardware",
+    "triggers": [
+      "my microphone isn't working"
+    ],
+    "answer": "Open GNOME Settings → Sound and check the \"Input\" section: pick the correct \"Input Device\" and speak — the input level bar should move. Also check Settings → Privacy → Microphone to be sure access isn't blocked. Mic input runs through PipeWire; `wpctl status` lists capture devices if you want to verify.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "hw-my-webcam-isn-t-working",
+    "domain": "hardware",
+    "triggers": [
+      "my webcam isn't working"
+    ],
+    "answer": "Most UVC webcams work out of the box on the built-in kernel driver. Check Settings → Privacy → Camera to confirm access isn't blocked, then test the camera in an app that uses it (video call, etc.). If you want to confirm the device is detected, I can list the video devices.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "hw-my-usb-drive-isn-t-showing-up",
+    "domain": "hardware",
+    "triggers": [
+      "my usb drive isn't showing up"
+    ],
+    "answer": "Plug it in and it should appear in Files (Nautilus) in the sidebar and auto-mount — udisks2 handles removable drives. If it doesn't appear, the drive may be unformatted or using a filesystem it can't read; open Disks (gnome-disk-utility) to inspect it. I can list attached block devices to check it's being seen.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "hw-how-do-i-check-my-battery-health",
+    "domain": "hardware",
+    "triggers": [
+      "how do I check my battery health"
+    ],
+    "answer": "Open GNOME Settings → Power to see charge level and power-saving options; the top-right menu shows battery percentage (shown by default). For detailed health — capacity vs. original design capacity and charge cycles — battery info comes from upower.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "hw-can-i-add-more-ram",
+    "domain": "hardware",
+    "triggers": [
+      "can I add more RAM",
+      "can I add memory to this laptop",
+      "can I upgrade the RAM",
+      "how do I add more memory",
+      "is the memory upgradeable"
+    ],
+    "answer": "Adding RAM is a **physical hardware** change — a compatible memory module is fitted inside the machine; it isn't something software installs. InterGenOS can show what's fitted right now:\n```\nfree -h                # total / used / available RAM\n```\nWhether you can add more depends on the machine itself — free memory slots, the maximum the board supports, and the module type (DDR4/DDR5, SO-DIMM vs DIMM, speed). Your laptop or motherboard manual (or the manufacturer's spec page) lists the slot count and maximum capacity.\n\nOne clarification: `pkm` manages **software packages**, not hardware or software repositories — there is no `pkm add`. The package commands are `pkm install`, `pkm remove`, `pkm search`, `pkm update`, and `pkm upgrade`.",
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": []
+  },
+  {
+    "id": "hw-what-cpu-do-i-have",
+    "domain": "hardware",
+    "triggers": [
+      "what CPU do I have",
+      "what processor is in this laptop",
+      "how many cores does this machine have",
+      "how many cores do I have",
+      "is this 32 or 64 bit",
+      "what's my CPU architecture",
+      "what processor do I have"
+    ],
+    "answer": "InterGenOS can read the processor straight from the machine:\n```\nlscpu                  # model, architecture, cores/threads, caches, flags\n```\nThe first lines answer the common questions: **Model name** is the exact CPU, **Architecture** is `x86_64` (64-bit) on every InterGenOS system, **CPU(s)** is the thread count, and **Core(s) per socket** the physical cores. For just the core count, `nproc` prints the number of usable threads.",
+    "action": {
+      "command": "lscpu",
+      "tool": "run_command"
+    },
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": [
+      "lscpu"
+    ]
+  },
+  {
+    "id": "hw-what-graphics-card",
+    "domain": "hardware",
+    "triggers": [
+      "what graphics card do I have",
+      "what GPU is in this machine",
+      "what video card do I have",
+      "check my graphics card",
+      "what graphics do I have",
+      "what GPU do I have"
+    ],
+    "answer": "InterGenOS can read the graphics hardware from the PCI bus:\n```\nlspci | grep -Ei 'vga|3d|display'      # the graphics controller(s)\n```\nThat prints the make and model of each GPU. InterGenOS drives AMD and Intel graphics with the open **Mesa** drivers out of the box; for an NVIDIA card the proprietary driver is opt-in from the mirror (`sudo pkm install nvidia`). If you have an NVIDIA driver installed, `nvidia-smi` shows live GPU status.",
+    "action": {
+      "command": "lspci",
+      "tool": "run_command"
+    },
+    "doc_source": "tools/intergen-coverage/drafts",
+    "requires": [
+      "lspci"
+    ]
+  }
+]

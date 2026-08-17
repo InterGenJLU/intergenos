@@ -1,0 +1,22 @@
+name: libclc
+version: "21.1.8"
+release: 1
+description: OpenCL C library
+license: Apache-2.0
+homepage: ''
+tier: desktop
+build_style: cmake
+install_func: do_install
+source:
+- url: https://github.com/llvm/llvm-project/releases/download/llvmorg-${version}/libclc-${version}.src.tar.xz
+  sha256: 6c2677362a53531c35edf482bdc9171ea0471ca0a1e9138ac9b5a1782925616f
+dependencies:
+  build:
+  - llvm
+  - spirv-llvm-translator
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/share/pkgconfig/libclc.pc
+  - /usr/share/clc/amdgcn--amdhsa.bc
+  - /usr/share/clc/aruba-r600--.bc

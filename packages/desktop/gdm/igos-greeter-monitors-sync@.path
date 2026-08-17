@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# igos-greeter-monitors-sync@<username>.path — watch a user's monitor layout
+# and sync it to the GDM greeter on every change (decided 2026-07-21).
+#
+# %i is the username; the /home/%i path follows the installer's user-creation
+# convention (Forge creates users with /home/<name>). systemd watches the
+# parent directory when the file does not exist yet, so the FIRST layout save
+# a user ever makes also fires the sync — no pre-existing file is required.
+# PathChanged (not PathModified) fires on close-after-write and on the
+# atomic rename GNOME uses to save the file, so the sync never reads a
+# half-written layout.
+#
+# Enabled per-user by the installer for the primary user
+# (igos-greeter-monitors-sync@<username>.path); additional users are a
+# deliberate manual step — the greeter renders ONE layout.
+
+[Unit]
+Description=Watch %i's monitor layout for GDM greeter sync
+
+[Path]
+PathChanged=/home/%i/.config/monitors.xml
+
+[Install]
+WantedBy=multi-user.target

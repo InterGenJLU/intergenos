@@ -1,0 +1,23 @@
+name: alsa-ucm-conf
+# Pinned to the tree's alsa-lib 1.2.15.3 (Rule 12 pin comment): UCM profile
+# syntax versions track the alsa-lib UCM parser, so the profile set matches
+# the library that parses it. Bump the two together.
+version: "1.2.15.3"
+release: 1
+description: ALSA Use Case Manager configuration profiles
+license: BSD-3-Clause
+homepage: https://www.alsa-project.org
+tier: desktop
+build_style: custom
+install_func: do_install
+source:
+- url: https://www.alsa-project.org/files/pub/lib/alsa-ucm-conf-1.2.15.3.tar.bz2
+  sha256: 9f79e813c08fc86cfa46dd75c4fcda1a4a51b482db2607e1fcfaafb92f588a31
+dependencies:
+  build: []
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/share/alsa/ucm2/ucm.conf
+  - /usr/share/alsa/ucm2/lib
+  - /usr/share/alsa/ucm2/conf.d

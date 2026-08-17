@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Extensions (org.gnome.Extensions) — a jigsaw puzzle piece: square body
+       with a convex tab on the top edge and a concave socket on the right edge
+       (generated arcs). The universal plugin / extension mark. -->
+  <g class="glyph">
+    <path d="M 66.0 78.0 L 108.0 78.0 A 20.0 20.0 0 1 1 148.0 78.0 L 190.0 78.0 L 190.0 114.0 A 20.0 20.0 0 1 0 190.0 154.0 L 190.0 190.0 L 66.0 190.0 Z"/>
+  </g>
+</svg>

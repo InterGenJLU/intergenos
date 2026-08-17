@@ -1,0 +1,27 @@
+name: alsa-lib
+version: "1.2.15.3"
+release: 2  # capture wave: alsa-ucm-conf runtime edge
+description: ALSA sound library
+license: LGPL-2.1-or-later
+homepage: https://www.alsa-project.org/
+tier: desktop
+build_style: autotools
+install_func: do_install
+source:
+- url: https://www.alsa-project.org/files/pub/lib/alsa-lib-${version}.tar.bz2
+  sha256: 7b079d614d582cade7ab8db2364e65271d0877a37df8757ac4ac0c8970be861e
+dependencies:
+  build: []
+  host: []
+  runtime:
+  # capture wave: alsa-lib's UCM parser reads /usr/share/alsa/ucm2 at
+  # runtime — the profiles ARE the capability (internal-mic routing on
+  # DSP audio). The runtime edge guarantees ISO closure ships them,
+  # mirroring the mainstream packaging relationship.
+  - alsa-ucm-conf
+configure_flags:
+- --prefix=/usr
+- --disable-static
+verify_paths:
+  - /usr/bin/aserver
+  - /usr/lib/libasound.so

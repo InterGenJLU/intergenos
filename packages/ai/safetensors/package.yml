@@ -1,0 +1,32 @@
+name: safetensors
+version: "0.8.0"
+release: 1
+description: Safe and portable tensor serialization format (Rust core, Python bindings)
+license: Apache-2.0
+homepage: https://github.com/huggingface/safetensors
+tier: ai
+iso_include: false  # training apparatus — mirror-only (decided 2026-07-20)
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/s/safetensors/safetensors-${version}.tar.gz
+  sha256: fabaf3e0f18a6618d9b36560682562157f77c2b71fcffc7b432be2baed9d753d
+# Offline cargo vendoring — first-party generated artifact (cargo-vendor-gen.sh;
+# no sha pin by design). Regenerate + stage before any build.
+build_artifacts:
+  - name: safetensors-${version}-vendor.tar.xz
+    generated_by: cargo-vendor
+  # The lockfile the --locked vendoring consumed — byte-identical to the
+  # sdist's bindings/python/Cargo.lock; staged beside the vendor tarball.
+  - name: safetensors-${version}-Cargo.lock
+    generated_by: cargo-vendor
+dependencies:
+  build:
+  - maturin
+  - rust
+  host: []
+  # Requires-Dist (PyPI metadata): none — the Rust core is self-contained.
+  runtime: []
+verify_paths:
+  - /usr/lib/python3.14/site-packages/safetensors/__init__.py
+  - /usr/lib/python3.14/site-packages/safetensors/torch.py

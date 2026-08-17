@@ -1,0 +1,22 @@
+name: exfatprogs
+version: "1.4.2"
+release: 2  # r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+description: exFAT filesystem userspace utilities (mkfs.exfat, fsck.exfat)
+license: GPL-2.0-or-later
+homepage: https://github.com/exfatprogs/exfatprogs
+tier: core
+iso_include: true
+build_style: custom
+install_func: do_install
+source:
+- url: https://github.com/exfatprogs/exfatprogs/releases/download/${version}/exfatprogs-${version}.tar.xz
+  sha256: 47c7c8ddeccbf50d39b903353f2cb3df79134367a4fd764fe2ce3755ff5877bf
+dependencies:
+  build:
+  - util-linux-core
+  host: []
+  runtime:
+  - util-linux
+verify_paths:
+- /usr/sbin/mkfs.exfat
+- /usr/sbin/fsck.exfat

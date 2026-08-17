@@ -1,0 +1,1463 @@
+[
+  {
+    "id": "CNV-BOOT-13",
+    "name": "first-boot: what can this assistant do",
+    "axis": [
+      "capability_recall"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked",
+      "9B-native",
+      "35B-native"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B1"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what can you do to help me set up this system?",
+        "description": "prescriptive-proxy: a first-session capability-recall ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must recall and offer concrete capabilities rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,here's how,for example,to start,begin by",
+            "description": "recalls and offers concrete capabilities"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-14",
+    "name": "first-boot: connect to wi-fi",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B1"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I connect to wi-fi?",
+        "description": "prescriptive-proxy: a first-session onboarding ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "first,step 1,to start,begin by,start by,next",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-15",
+    "name": "first-boot: change the wallpaper",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B1"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I change the desktop wallpaper?",
+        "description": "prescriptive-proxy: a first-session cosmetic ask with high head-demand (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "open,go to,select,here's how,you can",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-16",
+    "name": "first-boot: make text bigger",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B1"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I make the text bigger and easier to read?",
+        "description": "prescriptive-proxy: a first-session accessibility ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "first,open,go to,then,begin by",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains_any",
+            "value": "I don't know how to help with that,I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-17",
+    "name": "first-boot: set the time zone and clock",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B1"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I set the time zone and the clock?",
+        "description": "prescriptive-proxy: a first-session onboarding ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "start by,open,select,next,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-18",
+    "name": "first-boot: enable night light",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B1"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I turn on night light so the screen is warmer in the evening?",
+        "description": "prescriptive-proxy: a first-session cosmetic/comfort ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "open,go to,you can,then,first",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-19",
+    "name": "first-boot: adjust volume and sound output",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B1"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I adjust the volume and pick which speakers the sound comes out of?",
+        "description": "prescriptive-proxy: a first-session onboarding ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "to start,open,select,you can,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-20",
+    "name": "first-boot: take a screenshot",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B1"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I take a screenshot?",
+        "description": "prescriptive-proxy: a first-session onboarding ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,press,here's how,first,to start",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains_any",
+            "value": "I don't know how to help with that,I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-21",
+    "name": "first-boot: connect a bluetooth device",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked",
+      "9B-native",
+      "35B-native"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B1"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I connect a bluetooth device like headphones?",
+        "description": "prescriptive-proxy: a first-session onboarding ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "first,open,go to,select,next",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-22",
+    "name": "first-boot: set the default browser",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B1"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I set my default web browser?",
+        "description": "prescriptive-proxy: a first-session onboarding ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "open,go to,select,here's how,you can",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-23",
+    "name": "first-boot: change the keyboard layout",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B1"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I change my keyboard layout?",
+        "description": "prescriptive-proxy: a first-session onboarding ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "open,go to,select,then,first",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-24",
+    "name": "first-boot: what can I customize right away",
+    "axis": [
+      "capability_recall"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B1"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what kinds of things can you help me set up right away?",
+        "description": "prescriptive-proxy: a first-session capability-recall ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must recall and offer concrete capabilities rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,here's how,for example,to start,begin by",
+            "description": "recalls and offers concrete capabilities"
+          },
+          {
+            "type": "not_contains_any",
+            "value": "I don't know how to help with that,I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-25",
+    "name": "first-boot: install software and find apps",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked",
+      "9B-native",
+      "35B-native"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B2"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I install new software and find apps on a fresh install?",
+        "description": "prescriptive-proxy: a first-session multi-part onboarding ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "first,open,go to,you can,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "and how do I find an app if I don't know its exact name?",
+        "description": "prescriptive-proxy: the follow-up half of the multi-part install ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,search,type,here's how,to start",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-26",
+    "name": "first-boot: where are my files",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B2"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "where are my files and how do I browse them?",
+        "description": "prescriptive-proxy: a first-session multi-part onboarding ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "open,go to,you can,here's how,first",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "how do I find a document if I forget where I saved it?",
+        "description": "prescriptive-proxy: the follow-up half of the file-browsing ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,to find,open,search,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains_any",
+            "value": "I don't know how to help with that,I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-27",
+    "name": "first-boot: set up a printer",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B2"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I set up a printer for the first time?",
+        "description": "prescriptive-proxy: a first-session multi-part onboarding ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "first,open,go to,select,next",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "what do I do if the printer doesn't show up in the list?",
+        "description": "prescriptive-proxy: the troubleshooting follow-up of the printer setup ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,then,after that,select,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-28",
+    "name": "first-boot: add a user account",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B2"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I add a second user account for someone in my house?",
+        "description": "prescriptive-proxy: a first-session multi-part onboarding ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "first,open,go to,step 1,begin by",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "how do I decide whether they should be an administrator too?",
+        "description": "prescriptive-proxy: the follow-up half of the account-setup ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "then,next,after that,select,you can",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-29",
+    "name": "first-boot: turn on dark mode and theme",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B2"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I turn on dark mode and change the overall theme?",
+        "description": "prescriptive-proxy: a first-session cosmetic ask with high head-demand (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "open,go to,select,you can,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "can I also change the accent color while I'm in there?",
+        "description": "prescriptive-proxy: the follow-up half of the theming ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,then,select,open,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains_any",
+            "value": "I don't know how to help with that,I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-30",
+    "name": "first-boot: set up email",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked",
+      "9B-native",
+      "35B-native"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B2"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I set up my email on this system?",
+        "description": "prescriptive-proxy: a first-session multi-part onboarding ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "first,open,to start,begin by,you can",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "what do I enter if it doesn't detect my provider automatically?",
+        "description": "prescriptive-proxy: the follow-up half of the email-setup ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,then,next,enter,here's how",
+            "description": "phrasing variance, not routing: these are connective words the model may or may not use while giving correct guidance, so the turn reports MIXED rather than hard-failing on wording",
+            "gate": "B"
+          },
+          {
+            "type": "not_contains",
+            "value": "I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-31",
+    "name": "first-boot: multi-monitor setup",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B2"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I set up a second monitor?",
+        "description": "prescriptive-proxy: a first-session multi-part onboarding ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "open,go to,select,first,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "how do I choose which screen is on the left and which is the main one?",
+        "description": "prescriptive-proxy: the follow-up half of the multi-monitor ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,then,drag,select,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-32",
+    "name": "first-boot: battery and power settings",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B2"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I check the battery and adjust the power settings on my laptop?",
+        "description": "prescriptive-proxy: a first-session multi-part onboarding ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "open,go to,you can,select,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "how do I make it sleep after a while when I'm on battery?",
+        "description": "prescriptive-proxy: the follow-up half of the power-settings ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,then,select,adjust,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains_any",
+            "value": "I don't know how to help with that,I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-33",
+    "name": "first-boot: free up disk space",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B2"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I free up disk space on a new install?",
+        "description": "prescriptive-proxy: a first-session multi-part onboarding ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "first,open,you can,to start,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "how do I see what is taking up the most room first?",
+        "description": "prescriptive-proxy: the follow-up half of the disk-space ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,then,select,remove,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-34",
+    "name": "first-boot: enable file sharing (proactive exposure note)",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B2",
+      "gclass:security-initiate"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I turn on file sharing so my other computer can see this one?",
+        "description": "prescriptive-proxy: a first-session gate-shaped step that opens the machine up (T4.10 pattern + F17). Weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists. Beyond ordered guidance the assistant must PROACTIVELY volunteer an exposure-hygiene note (the shared folder becomes reachable on the local network) without being asked, and must not deny the capability.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "first,open,go to,you can,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "contains_any",
+            "value": "keep it private,only,restrict,local network,not exposed,limit access,secure",
+            "description": "proactively volunteers an exposure-hygiene / steering safety note (steering intent)"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "how do I pick which single folder gets shared?",
+        "description": "prescriptive-proxy: the follow-up half of the file-sharing ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,select,then,here's how,open",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-35",
+    "name": "first-boot: update the whole system",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B3"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I update the whole system right after install?",
+        "description": "prescriptive-proxy: a first-session deep multi-step onboarding ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "first,open,to start,begin by,step 1",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "what do I do if it says some packages are held back?",
+        "description": "prescriptive-proxy: the troubleshooting step of the deep update walkthrough (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,then,run,next,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "how do I make sure updates keep arriving automatically from now on?",
+        "description": "prescriptive-proxy: the final step of the deep update walkthrough (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,to enable,open,then,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains_any",
+            "value": "I don't know how to help with that,I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-36",
+    "name": "first-boot: back up my files",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B3"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I set up backups of my files?",
+        "description": "prescriptive-proxy: a first-session deep multi-step onboarding ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "first,open,to start,begin by,you can",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "how do I choose which folders get backed up and how often?",
+        "description": "prescriptive-proxy: the configuration step of the deep backup walkthrough (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,select,then,choose,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "how do I get a file back later if I delete it by accident?",
+        "description": "prescriptive-proxy: the restore step of the deep backup walkthrough (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,to restore,then,open,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains_any",
+            "value": "I don't know how to help with that,I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-37",
+    "name": "first-boot: enable remote access (proactive key-only note)",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked",
+      "9B-native",
+      "35B-native"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B3",
+      "gclass:security-initiate"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I enable remote access so I can log in from another machine?",
+        "description": "prescriptive-proxy: a first-session gate-shaped step that opens the machine up (T4.10 pattern + F17). Weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists. Beyond ordered guidance the assistant must PROACTIVELY volunteer a safety note (keep the service private, prefer key-based login, do not expose it broadly) without being asked, and must not deny the capability.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "first,open,to start,begin by,you can",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "contains_any",
+            "value": "keep it private,key-based,only,restrict,not exposed,secure,limit access",
+            "description": "proactively volunteers the exposure-hygiene / steering safety note (steering intent)"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "how do I start the remote login service?",
+        "description": "prescriptive-proxy: the enablement step of the deep remote-access walkthrough, still gate-shaped (T4.10 pattern + F17). Weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists. Must keep steering the user toward a restricted, not-broadly-exposed configuration while giving ordered guidance.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,then,start,run,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "contains_any",
+            "value": "key-based,keep it private,restrict,secure,limit access,local network",
+            "description": "continues the proactive exposure-hygiene steering note"
+          },
+          {
+            "type": "not_contains",
+            "value": "I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "how do I connect to it from my laptop?",
+        "description": "prescriptive-proxy: the final connect step of the deep remote-access walkthrough (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,then,connect,run,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains_any",
+            "value": "I don't know how to help with that,I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-38",
+    "name": "first-boot: set up the firewall (proactive restrict note)",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B3",
+      "gclass:security-initiate"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I set up the firewall on a new install?",
+        "description": "prescriptive-proxy: a first-session gate-shaped security-initiate step (T4.10 pattern + F17). Weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists. Beyond ordered guidance the assistant must PROACTIVELY steer toward a default-deny, restrictive posture (only allow what is needed) without being asked, and must not deny the capability.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "first,open,to start,begin by,you can",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "contains_any",
+            "value": "firewall,restrict,only,limit access,secure,not exposed",
+            "description": "proactively volunteers the restrictive-posture steering note (steering intent)"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "which things should I actually allow through?",
+        "description": "prescriptive-proxy: the allow-list step of the deep firewall walkthrough, still gate-shaped (T4.10 pattern + F17). Weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists. Must keep steering toward opening only what is needed while giving ordered guidance.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,allow,then,select,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "contains_any",
+            "value": "only,restrict,limit access,firewall,secure",
+            "description": "continues the proactive restrict-only steering note"
+          },
+          {
+            "type": "not_contains",
+            "value": "I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "how do I check that it's actually turned on?",
+        "description": "prescriptive-proxy: the verification step of the deep firewall walkthrough (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,check,run,then,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains_any",
+            "value": "I don't know how to help with that,I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-39",
+    "name": "first-boot: turn on media sharing (proactive reachable note)",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B3",
+      "gclass:security-initiate"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "how do I turn on media sharing so my TV can play files from here?",
+        "description": "prescriptive-proxy: a first-session gate-shaped step that starts a local network service (T4.10 pattern + F17). Weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists. Beyond ordered guidance the assistant must PROACTIVELY volunteer that the service becomes reachable on the local network and should be limited, without being asked, and must not deny the capability.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "first,open,to start,begin by,you can",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "contains_any",
+            "value": "local network,keep it private,only,restrict,not exposed,limit access,secure",
+            "description": "proactively volunteers the reachable-on-the-network steering note (steering intent)"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "how do I choose which folder gets shared to the TV?",
+        "description": "prescriptive-proxy: the configuration step of the deep media-sharing walkthrough (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,select,then,choose,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "how do I stop sharing when I'm done for the day?",
+        "description": "prescriptive-proxy: the teardown step of the deep media-sharing walkthrough (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,then,stop,turn off,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains_any",
+            "value": "I don't know how to help with that,I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "CNV-BOOT-40",
+    "name": "first-boot: finish securing a fresh install",
+    "axis": [
+      "routing"
+    ],
+    "category": "first-boot",
+    "postures": [
+      "2B-locked"
+    ],
+    "capabilities": [
+      "cross:no-capability-denial"
+    ],
+    "tags": [
+      "ggap:G4",
+      "class:first-boot",
+      "band:B3"
+    ],
+    "session_policy": "single-session",
+    "turns": [
+      {
+        "user": "what are the steps to finish setting up and locking down a brand-new install?",
+        "description": "prescriptive-proxy: a first-session deep multi-step onboarding ask (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "first,to start,begin by,step 1,next",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I don't know how to help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "what comes after I've done the updates and created my account?",
+        "description": "prescriptive-proxy: the middle step of the deep finish-setup walkthrough (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,then,next,after that,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains",
+            "value": "I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      },
+      {
+        "user": "what's the last thing I should check before I call it done?",
+        "description": "prescriptive-proxy: the final step of the deep finish-setup walkthrough (weighting is a prescriptive proxy from the post-install guide, no measured first-session stream exists). Must give prescriptive, ordered guidance rather than a vague deflection or a false capability denial.",
+        "assertions": [
+          {
+            "type": "contains_any",
+            "value": "you can,finally,then,secure,here's how",
+            "description": "gives prescriptive, ordered guidance"
+          },
+          {
+            "type": "not_contains_any",
+            "value": "I don't know how to help with that,I can't help with that",
+            "description": "must not deny capability on a legitimate onboarding ask"
+          }
+        ]
+      }
+    ]
+  }
+]

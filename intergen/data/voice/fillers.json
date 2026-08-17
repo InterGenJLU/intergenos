@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "description": "InterGen perceived-latency filler pools. hop1_ack fires the instant a query is classified tool-bound (asserts no result, so it composes with any outcome including a gate or refusal). hop2_progress fires when a tool call crosses the slow-lane threshold (implies delivery; keeps the thinking pill alive). Voice: helpful current-gen AI — ChatGPT warmth x precision x a light Grok wink. Edit freely; this is loaded as data, no code change needed.",
+  "no_repeat_window": 5,
+  "templated_slot": "what",
+  "templated_slot_note": "{what} is filled with a clean noun-phrase from describe_tool_subject() (e.g. manage_packages list -> 'the package list', manage_services status cups -> 'the cups service'). A templated line is only eligible when a {what} phrase is available; otherwise the picker falls back to the generic pool.",
+  "hop1_ack": [
+    "On it — let me dig that up.",
+    "Good question. Let me look.",
+    "Let's find out. One sec.",
+    "Sure — pulling that together now.",
+    "Let me check on that for you.",
+    "Right, let me take a look.",
+    "Give me a heartbeat — checking now.",
+    "On it. Let me see what I can find.",
+    "Let me have a look under the hood.",
+    "Sure thing — digging in.",
+    "Looking into it now.",
+    "Let me take a quick look.",
+    "Let me pull that up.",
+    "Checking now — won't be a moment.",
+    "Let me see where things stand.",
+    "Alright, let me track that down.",
+    "One moment — getting that for you.",
+    "Let me go find out.",
+    "Happy to — looking now.",
+    "Let me get eyes on that.",
+    "Sure — let me confirm.",
+    "Let me see what the system says.",
+    "Give me a second to check.",
+    "Let me run that down for you."
+  ],
+  "hop2_progress": {
+    "generic": [
+      "Still on it — this one's taking a moment. Hang tight.",
+      "This is a bigger job than most — I'll have it in a sec.",
+      "Working on it — the system's chewing through this one.",
+      "Almost there — just gathering the details.",
+      "Bear with me a second longer — nearly done.",
+      "Still digging — this one runs a little deep.",
+      "Give me a few more seconds — pulling it all together.",
+      "Hang tight — the system's taking its time on this one.",
+      "Still working — I want to get this right, not just fast.",
+      "Nearly there — just tying up the last of it.",
+      "This one's a slow burner — I'll have it for you in a moment.",
+      "Hang in there — wrapping this one up now.",
+      "Crunching through it now — won't be much longer.",
+      "Bear with me — the system's a little busy on this one.",
+      "Still gathering — there's a fair bit to go through.",
+      "A few more seconds — making sure I've got everything...",
+      "Working through it — this one's just taking a moment...",
+      "Still here, still on it — nearly done.",
+      "The system's taking a beat — I'll have your answer shortly.",
+      "Almost got it — just double-checking the details."
+    ],
+    "templated": [
+      "Still pulling {what} together — I'll have it in just a sec.",
+      "{what} is taking a moment — hang tight, almost there.",
+      "Still working on {what} — won't be much longer.",
+      "Getting {what} now — the system's a little slow today, but we're close."
+    ]
+  },
+  "offer_run_note": "F6 offer-phrasing variance: {command} is filled with the taught shell command; two pools keyed on its safety tier. 'confirm' = mutating/CONFIRM-tier commands (the confirm modal WILL fire) — each line keeps the confirm-first promise. 'readonly' = AUTO/read-only commands (run immediately on yes, NO modal) — each line honestly OMITS the confirm-first promise. Per-pool no-repeat window keeps back-to-back offers from reading identical. Data-tunable; edit freely.",
+  "offer_run": {
+    "confirm": [
+      "Want me to run `{command}` for you? Say yes and I'll do it — you'll get the usual confirmation first.",
+      "I can run `{command}` for you — just say yes, and you'll confirm before it actually runs.",
+      "Say the word and I'll run `{command}`; you'll get a confirmation prompt first, as always.",
+      "Happy to run `{command}` if you'd like — a yes kicks it off, with the usual confirm step.",
+      "Want me to take care of that? I'd run `{command}` — say yes, and you'll confirm before anything happens.",
+      "I can handle that with `{command}` — give me a yes and you'll get the confirmation prompt.",
+      "Just say yes and I'll run `{command}` for you — you'll always confirm before it runs.",
+      "Want me to go ahead and run `{command}`? Say yes — you'll get a confirmation prompt before it runs.",
+      "I'm ready to run `{command}` whenever you are — just say yes, and you'll confirm first.",
+      "Shall I run `{command}` for you? A yes starts it, with the usual confirmation step.",
+      "Say yes and I'll take care of `{command}` — you'll confirm before anything actually changes.",
+      "I can run `{command}` now if you want — give me a yes, and you'll get the confirm prompt first."
+    ],
+    "readonly": [
+      "Want me to run `{command}` and show you? Just say yes.",
+      "I can run `{command}` for you right now — say the word.",
+      "Say yes and I'll run `{command}` and bring back the result.",
+      "Happy to run `{command}` and show you what it says — just say yes.",
+      "Want me to check with `{command}`? A yes and I'll pull it up.",
+      "I can pull that up with `{command}` — just say yes."
+    ]
+  }
+}

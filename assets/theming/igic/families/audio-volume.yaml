@@ -1,0 +1,21 @@
+# Stateful family manifest — status/audio-volume (ICON_CATEGORIES.md §6.3). ONE base glyph
+# (volume-speaker: a speaker cone + a 3-wave ladder) + a level parameter -> the discrete
+# -symbolic.svg ladder. Muted = level 0 + the `disabled` overlay (R6-2: the corpus blue disabled
+# X over the emission); overamplified = level 3 + the `plus` overlay (accent). State ids OMIT the -symbolic suffix
+# (the compiler appends it) so the emitted basenames match the freedesktop demand strings
+# exactly. Names verified against icon-inventory-inputs/icon-coverage-inventory-20260710-r2.tsv.
+schema_version: 1
+family: audio-volume
+category: status
+fit: 1.23                  # optical T(q) family fit (two-point solve; body 0.94, overlays capped 0.985)
+kind: symbolic
+base: volume-speaker
+export:
+  svg: true
+  png: [16, 24, 32, 48]
+states:                          # id (no -symbolic) | level | optional overlays
+  - { id: audio-volume-muted,         level: 0, overlays: [disabled], fit: 1.53 }
+  - { id: audio-volume-low,           level: 1, fit: 1.539 }
+  - { id: audio-volume-medium,        level: 2, fit: 1.731 }
+  - { id: audio-volume-high,          level: 3, fit: 1.748 }
+  - { id: audio-volume-overamplified, level: 3, overlays: [plus], fit: 1.347 }

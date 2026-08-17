@@ -1,0 +1,31 @@
+name: lib32-libffi
+version: "3.5.2"
+release: 1
+description: Foreign Function Interface library (32-bit multilib runtime)
+license: MIT
+homepage: https://sourceware.org/libffi/
+tier: core
+build_style: custom
+install_func: do_install
+lib32_source: libffi
+elf_class: "32"
+# Mirror-only (D-W0-7: only lib32-glibc is ISO-resident).
+iso_include: false
+source:
+- url: https://github.com/libffi/libffi/releases/download/v${version}/libffi-${version}.tar.gz
+  sha256: f3a3082a23b37c293a4fcd1053147b371f2ff91fa7ea1b2a52e335676bac82dc
+dependencies:
+  build:
+  - lib32-glibc
+  host: []
+  runtime:
+  - lib32-glibc
+verify_paths:
+  - /usr/lib32/libffi.so.8
+  - /usr/lib32/pkgconfig/libffi.pc
+
+# Build inputs composed from the repository tree (declared so the published
+# source archive carries every input the build consumes — the corresponding-
+# source rule the kernel config fragments established; survey 2026-08-11).
+sources_extra:
+- scripts/lib32-env.sh

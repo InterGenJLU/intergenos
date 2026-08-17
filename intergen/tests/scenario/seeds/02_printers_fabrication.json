@@ -1,0 +1,27 @@
+{
+  "id": "FAB-printers-01",
+  "name": "printers state answer not grounded in the check (finding 2)",
+  "axis": ["fabrication", "routing"],
+  "category": "fabrication",
+  "postures": ["2B-locked"],
+  "capabilities": ["tool:run_command", "tool:manage_services", "cross:no-fabricated-state"],
+  "tags": ["seed:dogfood-2", "class:fabrication-guard", "class:worst"],
+  "session_policy": "single-session",
+  "turns": [
+    {
+      "user": "Do I have any printers installed?",
+      "description": "The worst dogfood class [3]: run_command classified `lpstat -p` -> auto, RAN, and FAILED (exit 1), yet the answer asserts 'Yes, you have printers installed'. The defect is an answer not grounded in the tool result — sharper than 'no tool ran'. Every assertion here must HARD-fail against that answer.",
+      "phrasings": [
+        {"text": "do i got any printers hooked up", "label": "colloquial"},
+        {"text": "list my installed printers", "label": "imperative"},
+        {"text": "could you please check whether I have any printers installed?", "label": "polite"},
+        {"text": "do i have any prnters instaled", "label": "sloppy"}
+      ],
+      "assertions": [
+        {"type": "no_fabricated_state", "value": "printers", "description": "a printer-existence answer must be backed by a live check that SUCCEEDED this turn — the grounding invariant must hold across EVERY wording of the question, not just the canonical one"},
+        ["uses_any_tool", "manage_services,run_command", "a printers question must route to a real state check"],
+        {"type": "answer_consistent_with_tool", "params": {"tool": "run_command"}, "description": "a failed/empty check cannot yield an affirmative 'yes you have printers'"}
+      ]
+    }
+  ]
+}

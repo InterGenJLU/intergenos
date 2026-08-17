@@ -1,0 +1,24 @@
+name: intergen-no-overview
+version: "1.0"
+release: 4  # r4: comment/metadata text only: three attribution comments in extension.js and one sentence of the metadata.json description reworded to neutral engineering language in the pre-release register pass. No code change.  # r3: neutral-language sweep of comments and printed text: decisions are recorded as "decided <date>" instead of being credited to a person or project role, development-host shorthand is replaced by a plain description, and the citations of a repository that is not published are replaced by what they were pointing at. Comments and strings only — no rule, path, flag, threshold or code path changed. The public-content scanner now carries detectors for all three classes (scripts/check-public-content.py), so the classes cannot return silently; tests/preflight/test_public_language_detectors.py proves each detector in both directions.
+content_hash: aba15bfc42f739c6
+description: GNOME Shell extension that suppresses the activities overview at every session startup (InterGenOS fleet-default per the decision of 2026-05-21)
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenJLU/intergenos
+# First-party authored GNOME shell extension following the assets/intergen-*
+# canonical convention. source: [] + direct cp -a from /mnt/intergenos/assets/.
+tier: desktop
+build_style: custom
+install_func: do_install
+source: []
+# Extension source lives under assets/; fold into the fingerprint.
+source_tree:
+  - assets/intergen-no-overview
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - gnome-shell-extensions
+verify_paths:
+  - /usr/share/gnome-shell/extensions/intergen-no-overview@intergenos.org/extension.js
+  - /usr/share/gnome-shell/extensions/intergen-no-overview@intergenos.org/metadata.json

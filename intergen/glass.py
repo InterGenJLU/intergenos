@@ -1,0 +1,342 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 InterGenJLU
+"""The Glass Pipeline — total, always-on observability for InterGen (M1).
+
+requirement (2026-07-06): *"every single byte is logged… we have to see
+EVERYTHING."* The requirement is that **every byte of InterGen's processing is
+reconstructible from the trace alone**: warmup state, every routing verdict on
+BOTH the D-Bus and the streamed-web path, every decision (offer transitions,
+decomposer verdicts, memory reads/writes), the EXACT assembled prompt bytes fed
+to the model, the model's output bytes, and the final bytes delivered to chat —
+all threaded on one ``turn_id`` end to end.
+
+Relationship to :mod:`intergen.trace`
+-------------------------------------
+``trace.py`` is the *dev harness* decision tracer: OFF by default, content
+capture separately gated, written to ``decisions.jsonl``. The Glass Pipeline is
+its complement: **ALWAYS ON**, full-fidelity content by default, written to a
+dedicated ``glass.jsonl``. This module deliberately reuses trace.py's proven
+mechanics — a ``contextvars``-threaded turn id (asyncio-safe; the one seam that
+does not auto-propagate is a worker THREAD, so :func:`bind_context` is provided
+for the ``web_server`` ThreadPoolExecutor hop), the writable-path resolution a
+``--user`` service needs under ``ProtectSystem=strict``, and 0600 file perms —
+without disturbing the harness's separate, dev-only semantics.
+
+Security posture (security-only alignment, made explicit)
+---------------------------------------------------------
+Full content capture is the mandate, NOT the exception. The one hard line:
+credential **values** are never written — logging a secret would manufacture the
+very vulnerability the security lens exists to prevent. Any ``detail`` key whose
+name looks credential-shaped has its value replaced with an in-place placeholder
+``<redacted:key-name>`` (recursively). Redaction is attested, never silent: every
+byte is accounted for as either real content or a named redaction, so a
+reconstructed timeline has no unexplained holes. The file is 0600, owner-only.
+
+Availability posture
+--------------------
+Always on. ``INTERGEN_GLASS=0`` disables it as a user-control escape hatch — but
+disabling must be LOUD (a startup journal banner + ``glass: false`` in D-Bus
+Status), never silent (:func:`glass_enabled`). The writer is best-effort: a write
+failure degrades observability gracefully and never raises into a request. When
+the log rolls, a ``glass/rotation`` marker is emitted into the fresh file so a gap
+in a reconstructed timeline is self-explaining rather than mysterious.
+"""
+
+from __future__ import annotations
+
+import contextvars
+import itertools
+import json
+import logging
+import os
+import re
+import secrets
+import time
+from contextlib import contextmanager
+from contextvars import ContextVar
+from pathlib import Path
+from threading import Lock
+from typing import Any, Iterator
+
+logger = logging.getLogger(__name__)
+
+_LOG_DIR = "/var/log/intergen"
+_LOG_FILE = "glass.jsonl"
+
+# Schema version — lets a reader/replayer evolve the format unambiguously.
+_SCHEMA_VERSION = 1
+
+# In-process size-based rotation (D2, ratified): a --user service's
+# ~/.local/state path is not reliably reached by system logrotate, so the writer
+# rolls its own files. Roll at 64 MB, keep 5 (~320 MB ceiling).
+_ROTATE_BYTES = 64 * 1024 * 1024
+_ROTATE_KEEP = 5
+
+# Process-wide monotonic sequence — a total replay order even for rows born in
+# the same millisecond (next() is atomic). Mirrors trace.py's _seq.
+_seq = itertools.count()
+
+# Credential-shaped attribute keys whose VALUE must never be persisted. Matched
+# case-insensitively as a substring of the key; the value becomes an attested
+# in-place placeholder. Kept in lockstep with trace.py's _SECRET_KEY_RE (the
+# security rule is identical); declared locally so glass.py has no dependency on
+# a private symbol in another module.
+_SECRET_KEY_RE = re.compile(
+    r"pass(word|wd|phrase)|secret|token|api[_-]?key|authorization|"
+    r"credential|private[_-]?key|keyring|bearer",
+    re.IGNORECASE,
+)
+
+# Per-context turn state. A ContextVar is per-Context, so concurrent turns on the
+# aiohttp event loop stay isolated and nested calls inherit the same turn id.
+_current_turn_id: ContextVar[str | None] = ContextVar("intergen_glass_turn", default=None)
+_current_turn_start: ContextVar[float | None] = ContextVar("intergen_glass_start", default=None)
+_current_iface: ContextVar[str | None] = ContextVar("intergen_glass_iface", default=None)
+
+
+def _env_disabled() -> bool:
+    return os.environ.get("INTERGEN_GLASS", "").strip().lower() in ("0", "false", "no", "off")
+
+
+def _now_ms() -> float:
+    return time.time() * 1000.0
+
+
+def new_turn_id() -> str:
+    """A fresh turn id (16 hex chars). One per user turn; threads the whole chain."""
+    return secrets.token_hex(8)
+
+
+def current_turn_id() -> str:
+    """The active turn id, or "" outside a turn. Lets code join delivery to a turn."""
+    return _current_turn_id.get() or ""
+
+
+@contextmanager
+def turn(turn_id: str, iface: str) -> Iterator[str]:
+    """Bind a turn's id + interface for the duration of a block.
+
+    Everything emitted inside — however deep in router/decomposer/memory/llm —
+    shares this ``turn_id`` and is timestamped relative to the turn's start, with
+    no signature threading (deep code reads the ContextVar via :func:`emit`).
+    """
+    t0 = _now_ms()
+    tok_id = _current_turn_id.set(turn_id)
+    tok_start = _current_turn_start.set(t0)
+    tok_iface = _current_iface.set(iface)
+    try:
+        yield turn_id
+    finally:
+        _current_turn_id.reset(tok_id)
+        _current_turn_start.reset(tok_start)
+        _current_iface.reset(tok_iface)
+
+
+def bind_context() -> contextvars.Context:
+    """Snapshot the current context for work handed to a worker THREAD.
+
+    ContextVars do not auto-propagate into threads, and ``web_server`` runs the
+    LLM off the event loop in a ThreadPoolExecutor. Capture here and run the
+    threaded callable through it so the active ``turn_id`` stays attached::
+
+        ctx = bind_context()
+        executor.submit(lambda: ctx.run(_run_llm))
+
+    copy_context() snapshots the whole context, so one bind carries both the
+    glass turn id and any trace.py span in flight.
+    """
+    return contextvars.copy_context()
+
+
+def _redact(value: Any, key: str = "") -> Any:
+    """Attested in-place redaction: a credential-shaped key's value becomes
+    ``<redacted:key-name>``; dicts/lists are scrubbed recursively. Content is
+    never silently dropped — a redaction is a named, visible placeholder."""
+    if key and _SECRET_KEY_RE.search(key):
+        return f"<redacted:{key}>"
+    if isinstance(value, dict):
+        return {k: _redact(v, k) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_redact(v) for v in value]
+    return value
+
+
+class GlassLogger:
+    """Always-on full-fidelity turn tracer writing ``glass.jsonl``.
+
+    Disabled only by ``INTERGEN_GLASS=0`` (loud, never silent). Best-effort: a
+    write/rotate failure is logged and swallowed — observability degrades, the
+    request never does.
+    """
+
+    def __init__(self, log_dir: str = _LOG_DIR):
+        self.enabled = not _env_disabled()
+        self._log_dir = Path(log_dir)
+        self._log_file: Path | None = None
+        self._lock = Lock()
+        if self.enabled:
+            self._setup_log_dir()
+
+    def _setup_log_dir(self) -> None:
+        # Mirrors metrics.EventLogger / trace.Tracer: a `--user` service under
+        # ProtectSystem=strict cannot write the root-owned /var/log/intergen, so
+        # resolve a per-user writable path for a non-root process, with an
+        # OSError fallback; if nothing is writable, disable file writes (emit()
+        # guards on _log_file) rather than raising into the daemon.
+        if os.geteuid() != 0 and str(self._log_dir).startswith(("/var/", "/usr/")):
+            state_home = Path(os.environ.get(
+                "XDG_STATE_HOME", Path.home() / ".local" / "state"))
+            self._log_dir = state_home / "intergen"
+        try:
+            self._log_dir.mkdir(parents=True, exist_ok=True)
+            self._log_file = self._create_log_file(self._log_dir / _LOG_FILE)
+        except OSError as e:
+            fallback = Path.home() / ".local" / "state" / "intergen"
+            try:
+                fallback.mkdir(parents=True, exist_ok=True)
+                self._log_file = self._create_log_file(fallback / _LOG_FILE)
+                logger.warning("Cannot write glass to %s (%s); using %s",
+                               self._log_dir, e, fallback)
+            except OSError:
+                self._log_file = None
+                logger.warning("No writable location for the glass trace — "
+                               "file disabled (glass emits become no-ops)")
+
+    @staticmethod
+    def _create_log_file(path: Path) -> Path:
+        # 0600, owner-only: glass holds prompt + model + delivered bytes.
+        fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600)
+        os.close(fd)
+        os.chmod(path, 0o600)
+        return path
+
+    def emit(self, phase: str, event: str, *,
+             detail: dict[str, Any] | None = None,
+             dur_ms: float | None = None,
+             turn_id: str | None = None,
+             iface: str | None = None) -> None:
+        """Write one glass row for the active turn. No-op when disabled/unwritable.
+
+        turn_id / iface may be passed explicitly for emissions that run OUTSIDE a
+        turn contextvar scope — chiefly the startup/warmup sequence, some of which
+        runs in a daemon thread that a ContextVar cannot reach. Turn-scoped
+        callers (web/dbus) omit both and inherit the active turn.
+        """
+        if not self.enabled or self._log_file is None:
+            return
+        now = _now_ms()
+        start = None if turn_id else _current_turn_start.get()
+        record = {
+            "v": _SCHEMA_VERSION,
+            "turn_id": turn_id or _current_turn_id.get() or "no-turn",
+            "seq": next(_seq),
+            "ts": now / 1000.0,
+            "t_rel_ms": round(now - start, 3) if start is not None else None,
+            "iface": iface or _current_iface.get() or "daemon",
+            "phase": phase,
+            "event": event,
+            "detail": _redact(detail or {}),
+            "dur_ms": round(dur_ms, 3) if dur_ms is not None else None,
+        }
+        try:
+            line = json.dumps(record, default=str) + "\n"
+        except (TypeError, ValueError) as e:  # never let a bad payload break a turn
+            logger.error("glass serialize failed for %s/%s: %s", phase, event, e)
+            return
+        with self._lock:
+            try:
+                self._rotate_if_needed_locked(len(line))
+                with open(self._log_file, "a") as f:
+                    f.write(line)
+            except OSError as e:
+                logger.error("glass write failed: %s", e)
+
+    def _rotate_if_needed_locked(self, incoming_bytes: int) -> None:
+        """Roll glass.jsonl -> .1 .. .N (keep _ROTATE_KEEP) when it would exceed
+        the size cap, and drop a self-explaining marker into the fresh file so a
+        reconstructed timeline's gap is attested, not mysterious. Caller holds
+        the lock. Best-effort: a rotation failure keeps writing to the old file."""
+        assert self._log_file is not None
+        try:
+            size = self._log_file.stat().st_size
+        except OSError:
+            return
+        if size + incoming_bytes < _ROTATE_BYTES:
+            return
+        base = self._log_file
+        try:
+            oldest = base.with_name(f"{base.name}.{_ROTATE_KEEP}")
+            if oldest.exists():
+                oldest.unlink()
+            for i in range(_ROTATE_KEEP - 1, 0, -1):
+                src = base.with_name(f"{base.name}.{i}")
+                if src.exists():
+                    src.rename(base.with_name(f"{base.name}.{i + 1}"))
+            base.rename(base.with_name(f"{base.name}.1"))
+            self._create_log_file(base)
+            marker = {
+                "v": _SCHEMA_VERSION, "turn_id": "glass-rotation",
+                "seq": next(_seq), "ts": _now_ms() / 1000.0, "t_rel_ms": None,
+                "iface": "daemon", "phase": "glass", "event": "rotation",
+                "detail": {"rolled_prev_to": f"{base.name}.1",
+                           "keep": _ROTATE_KEEP, "cap_bytes": _ROTATE_BYTES},
+                "dur_ms": None,
+            }
+            with open(base, "a") as f:
+                f.write(json.dumps(marker) + "\n")
+        except OSError as e:
+            logger.error("glass rotation failed (continuing on current file): %s", e)
+
+
+_glass: GlassLogger | None = None
+
+
+def get_glass() -> GlassLogger:
+    """Process-wide GlassLogger singleton (constructed on first use)."""
+    global _glass
+    if _glass is None:
+        _glass = GlassLogger()
+    return _glass
+
+
+def glass_enabled() -> bool:
+    """True unless INTERGEN_GLASS=0. Surfaced in D-Bus Status so a disabled glass
+    is never silent (the operator's loud-kill-switch rider)."""
+    return get_glass().enabled
+
+
+def emit(phase: str, event: str, *,
+         detail: dict[str, Any] | None = None,
+         dur_ms: float | None = None,
+         turn_id: str | None = None,
+         iface: str | None = None) -> None:
+    """Module-level convenience — emit one glass row for the active turn."""
+    get_glass().emit(phase, event, detail=detail, dur_ms=dur_ms,
+                     turn_id=turn_id, iface=iface)
+
+
+# ── Reader (user-control: the user gets to see everything their agent did) ──
+
+def default_glass_path() -> Path:
+    """The canonical glass.jsonl path per XDG Base Directory spec (the reader's
+    view of what `intergen glass` shows)."""
+    xdg = os.environ.get("XDG_STATE_HOME") or str(
+        Path.home() / ".local" / "state")
+    return Path(xdg) / "intergen" / _LOG_FILE
+
+
+def read_rows(path: Path | None = None) -> "Iterator[dict[str, Any]]":
+    """Yield each parsed glass row. Skips malformed lines (append-only log; a
+    rare torn tail line must not stop the reconstruction of the rest)."""
+    p = path if path is not None else default_glass_path()
+    if not p.exists():
+        return
+    with open(p, "r", encoding="utf-8") as f:
+        for raw in f:
+            raw = raw.strip()
+            if not raw:
+                continue
+            try:
+                yield json.loads(raw)
+            except json.JSONDecodeError:
+                continue

@@ -1,0 +1,28 @@
+name: docutils
+version: "0.22.4"
+release: 3  # r3: license: Public-Domain -> LicenseRef-Public-Domain — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade. r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+description: Python documentation utilities
+# SPDX has no identifier for a bare public-domain dedication. LicenseRef- is
+# SPDX's own mechanism for a licence it does not carry, and preserves the
+# declaration exactly as the recipe stated it.
+license: LicenseRef-Public-Domain
+homepage: ''
+tier: core
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/d/docutils/docutils-${version}.tar.gz
+  sha256: 4db53b1fde9abecbb74d91230d32ab626d94f6badfc575d6db9194a49df29968
+dependencies:
+  build:
+  # The pinned sdist's [build-system] names flit_core.buildapi, provided by
+  # flit-core. build.sh builds with --no-build-isolation, which installs nothing
+  # for the build, so flit-core must already be present; declaring it here is
+  # what orders it ahead of this package.
+  - flit-core
+  - docbook-xsl-nons
+  host: []
+  runtime: []
+verify_paths:
+  - /usr/bin/docutils
+  - /usr/bin/rst2html4

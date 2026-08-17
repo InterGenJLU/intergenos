@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">
+  <!-- intergen-toggle app icon — "Enable InterGen AI". The InterGen pulse
+       mark (bare, per brand: the AI mark is free-floating) framed by a
+       power-on ring, the universal "turn on / enable" glyph. Brand blue
+       #0099FF. -->
+  <defs>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <!-- power ring: open-top circle (gap for the "on" stem) -->
+  <path d="M30 26 A28 28 0 1 0 66 26"
+        fill="none" stroke="#0099FF" stroke-width="7" stroke-linecap="round" opacity="0.55"/>
+  <!-- pulse mark, centered, short lead + spike + long tail -->
+  <path d="M20 54 L34 54 L39 34 L47 76 L52 54 L76 54"
+        fill="none" stroke="#0099FF" stroke-width="6.5"
+        stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+</svg>

@@ -1,0 +1,35 @@
+name: pandas
+version: "3.0.3"
+release: 1
+description: Powerful data structures for data analysis, time series, and statistics
+license: BSD-3-Clause
+homepage: https://pandas.pydata.org/
+tier: extra
+iso_include: false  # training apparatus — mirror-only (decided 2026-07-20)
+build_style: custom
+install_func: do_install
+source:
+- url: https://files.pythonhosted.org/packages/source/p/pandas/pandas-${version}.tar.gz
+  sha256: 696a4a00a2a2a35d4e5deb3fc946641b96c944f02230e4f76137fe35d806c4fc
+dependencies:
+  build:
+  # [build-system] requires, verified against the 3.0.3 sdist's pyproject.toml:
+  # meson-python>=0.17.1,<1 · meson>=1.2.1,<2 · wheel · Cython>3.1.0,<4 (tree: 3.2.4)
+  # · numpy>=2.0.0 (tree: 2.4.2) · versioneer[toml] (authored in the python-deps
+  # wave, 2026-07-21; [toml] extra's tomli is marker-gated OFF on python3.14).
+  - meson_python
+  - meson
+  - cython
+  - numpy
+  - versioneer
+  host: []
+  runtime:
+  # Requires-Dist on python3.14/linux, verified against the PyPI metadata:
+  # numpy>=2.3.3 (tree 2.4.2) · python-dateutil>=2.8.2 (python-deps wave).
+  # pytz is NOT a pandas 3.x dependency (dropped from 2.x-era metadata);
+  # tzdata is win32/emscripten-only — system zoneinfo serves linux.
+  - numpy
+  - python-dateutil
+verify_paths:
+  - /usr/lib/python3.14/site-packages/pandas/__init__.py
+  - /usr/lib/python3.14/site-packages/pandas/_libs

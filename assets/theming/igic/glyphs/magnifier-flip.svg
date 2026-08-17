@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- glyph: zoom — magnifier mirrored (lens upper-right, away from the badge corner). VL primitives only, colorless. -->
+  <g class="glyph">
+    <circle cx="144" cy="112" r="44"/>
+    <line x1="112" y1="144" x2="66" y2="190"/>
+  </g>
+</svg>
