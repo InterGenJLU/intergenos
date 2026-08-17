@@ -6,6 +6,10 @@
 
 **[Website](https://intergenos.org)** · **[Documentation](https://wiki.intergenos.org)** · **[InterGen Studios](https://intergenstudios.com)**
 
+> ### 📀 [Download InterGenOS R001](https://repo.intergenos.org/iso/intergenos-r001.iso)
+> x86_64 UEFI live ISO · 9.7 GiB · sha256 `1beeb90539bc1031ad135148f379e97a1830b835350f9c7924fd7b9fc3db07c7` ([checksum file](https://repo.intergenos.org/iso/intergenos-r001.iso.sha256))
+> Package mirror index signed on-hardware — [release key](https://repo.intergenos.org/keys/intergenos-release-key.asc), fingerprint `5597 A3E0 587B 2530 06D0 DD7B 8C50 8261 8208 3050`
+
 InterGenOS puts the user in control of their own machine. Every package is compiled from source with deliberate choices. Every design decision serves one purpose: giving people a system they understand, can modify, and can trust.
 
 **InterGen**, the local AI assistant, doesn't just help you use your system — it helps you understand and secure it. It runs on everything from a laptop with no discrete graphics to a GPU workstation, fully offline, choosing its model tier from the graphics hardware it finds. Every tier is multimodal. **InterGen Sentinel** — its pluggable security-scanner architecture — routes MCP traffic through your choice of scanner before it reaches a tool. A local-only default (`Local-Rules` rule-based + `Local-Qwen` InterGen-LLM-backed via your local Qwen model) ships ready to go. Six cloud providers are opt-in: Claude-Anthropic, Gemini-Google, CoPilot-Microsoft, ChatGPT-OpenAI, Grok-xAI, and DeepSeek. Frontier AI models in 2026 routinely surface security-relevant findings at scale — pluggable cloud routing lets users opt into that capability through whichever vendor they trust. The user picks which (if any) reaches across the network.
