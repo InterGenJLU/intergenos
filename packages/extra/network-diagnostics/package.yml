@@ -1,6 +1,7 @@
 name: network-diagnostics
 version: "1.0.0"
 release: 1
+content_hash: 774fb4906d7252a4
 description: Network diagnostic tool set — packet capture, path analysis, throughput and connection testing
 license: GPL-3.0-or-later
 homepage: https://github.com/InterGenOS

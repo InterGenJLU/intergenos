@@ -137,7 +137,7 @@ NEEDLE_OLD_BARE_COUNT=$'grep -c \'^run_package\' "$0"'
 
 for spec in "chroot-build-ch8.sh core PKG_COUNT 90" \
             "chroot-build-core-extra.sh core-extra EXTRA_PKG_COUNT 224" \
-            "chroot-build-base.sh base BASE_PKG_COUNT 33"; do
+            "chroot-build-base.sh base BASE_PKG_COUNT 37"; do
     set -- $spec
     script="$1"; tier="$2"; var="$3"; expected="$4"
 

@@ -2,7 +2,7 @@ name: nmap
 version: "7.991"
 release: 1
 description: Network host and service discovery and security scanner
-license: NPSL-0.95
+license: LicenseRef-NPSL-0.95  # Nmap Public Source License 0.95 — not on the SPDX list (3.28.0), so SPDX's LicenseRef form names it exactly
 homepage: https://nmap.org/
 tier: extra
 build_style: autotools

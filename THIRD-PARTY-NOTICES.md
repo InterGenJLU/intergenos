@@ -29,7 +29,7 @@ The aggregate ships on the installed system at
 ## Coverage summary
 
 
-**Total packages:** 1153
+**Total packages:** 1173
 
 **Distribution by tier:**
 
@@ -37,9 +37,9 @@ The aggregate ships on the installed system at
 |---|---:|
 | toolchain | 28 |
 | core | 315 |
-| base | 33 |
-| desktop | 468 |
-| extra | 199 |
+| base | 37 |
+| desktop | 470 |
+| extra | 213 |
 | ai | 58 |
 | compute | 52 |
 
@@ -48,17 +48,17 @@ The aggregate ships on the installed system at
 | License | Count |
 |---|---:|
 | `MIT` | 275 |
-| `LGPL-2.1-or-later` | 152 |
-| `GPL-3.0-or-later` | 151 |
-| `GPL-2.0-or-later` | 141 |
-| `BSD-3-Clause` | 96 |
-| `Apache-2.0` | 71 |
+| `GPL-3.0-or-later` | 153 |
+| `LGPL-2.1-or-later` | 153 |
+| `GPL-2.0-or-later` | 145 |
+| `BSD-3-Clause` | 98 |
+| `Apache-2.0` | 74 |
 | `LGPL-2.0-or-later` | 34 |
 | `BSD-2-Clause` | 32 |
+| `GPL-2.0-only` | 19 |
 | `LGPL-3.0-or-later` | 19 |
 | `MPL-2.0` | 18 |
 | `ISC` | 18 |
-| `GPL-2.0-only` | 12 |
 | `Zlib` | 8 |
 | `LicenseRef-Public-Domain` | 7 |
 | `MIT OR Apache-2.0` | 7 |
@@ -2441,6 +2441,13 @@ Classic UNIX line editor
 - License: `GPL-2.0-or-later`
 - Homepage: https://www.gnu.org/software/ed/
 
+### ethtool (7.1)
+
+Query and control network driver and hardware settings
+
+- License: `GPL-2.0-only`
+- Homepage: https://www.kernel.org/pub/software/network/ethtool/
+
 ### exim (4.99.1)
 
 Message Transfer Agent
@@ -2490,6 +2497,13 @@ NIS library (libnsl replacement for glibc)
 - License: `LGPL-2.1-or-later`
 - Homepage: https://github.com/thkukuk/libnsl
 
+### logrotate (3.22.0)
+
+Rotates, compresses and mails system logs
+
+- License: `GPL-2.0-only`
+- Homepage: https://github.com/logrotate/logrotate
+
 ### lsof (4.99.6)
 
 List open files
@@ -2510,6 +2524,13 @@ Hyperextensible Vim-based text editor
 
 - License: `Apache-2.0`
 - Homepage: https://neovim.io/
+
+### nvme-cli (2.16)
+
+NVMe storage management and inspection tool
+
+- License: `GPL-2.0-only`
+- Homepage: https://github.com/linux-nvme/nvme-cli
 
 ### parallel (20260322)
 
@@ -2602,6 +2623,13 @@ Extractor for PKZIP-compatible .zip archives
 - License: `Info-ZIP`
 - Homepage: https://infozip.sourceforge.net/UnZip.html
 
+### usbutils (019)
+
+USB device inspection tools (lsusb, usb-devices, usbhid-dump)
+
+- License: `GPL-2.0-or-later`
+- Homepage: https://github.com/gregkh/usbutils
+
 ### whois (5.6.6)
 
 Intelligent WHOIS client
@@ -2631,6 +2659,13 @@ Info-ZIP archiver for creating ZIP archives
 Python template library (needed by Mesa)
 
 - License: `MIT`
+
+### NetworkManager-openvpn (1.12.5)
+
+OpenVPN support for NetworkManager, with its GNOME authentication dialog
+
+- License: `GPL-2.0-or-later`
+- Homepage: https://gitlab.gnome.org/GNOME/NetworkManager-openvpn
 
 ### a52dec (0.8.0)
 
@@ -5362,6 +5397,13 @@ Steve Harris LADSPA plugin collection (~100 plugins — delay, reverb, EQ, disto
 - License: `GPL-2.0-or-later`
 - Homepage: http://plugin.org.uk/
 
+### switcheroo-control (1.3.1)
+
+D-Bus service that reports which GPU an application should run on
+
+- License: `GPL-3.0-or-later`
+- Homepage: https://gitlab.freedesktop.org/hadess/switcheroo-control
+
 ### sysprof (46.0)
 
 System-wide profiler for Linux — capture library for GTK/GNOME profiling support
@@ -5823,6 +5865,13 @@ Lightweight C library of portability wrappers and data structures (drobilla)
 
 ### Tier: `extra`
 
+### NetworkManager-openconnect (1.2.10)
+
+OpenConnect (Cisco AnyConnect-compatible) support for NetworkManager
+
+- License: `GPL-2.0-or-later`
+- Homepage: https://gitlab.gnome.org/GNOME/NetworkManager-openconnect
+
 ### R (4.6.1)
 
 R environment for statistical computing and graphics
@@ -5907,6 +5956,13 @@ Helper to download and install Brave Browser
 - License: `GPL-3.0-or-later`
 - Payload license: `LicenseRef-Brave-EULA`
 - Homepage: https://brave.com/
+
+### buildah (1.45.0)
+
+Build OCI container images without a daemon
+
+- License: `Apache-2.0`
+- Homepage: https://buildah.io/
 
 ### cabextract (1.11)
 
@@ -6071,6 +6127,13 @@ Pack, ship, and run any application as a lightweight container — daemon + CLI
 
 - License: `Apache-2.0`
 - Homepage: https://www.docker.com/
+
+### docker-buildx (0.36.1)
+
+Docker CLI plugin for extended build capabilities with BuildKit
+
+- License: `Apache-2.0`
+- Homepage: https://github.com/docker/buildx
 
 ### dust (0.9.0)
 
@@ -6305,6 +6368,13 @@ Vector graphics editor with SVG support
 
 - License: `GPL-2.0-or-later`
 - Homepage: https://inkscape.org/
+
+### iperf3 (3.21)
+
+Measures achievable network bandwidth between two hosts
+
+- License: `BSD-3-Clause`
+- Homepage: https://software.es.net/iperf/
 
 ### jemalloc (5.3.1)
 
@@ -6648,6 +6718,13 @@ Free media player for the command line and desktop
 - License: `GPL-2.0-or-later`
 - Homepage: https://mpv.io/
 
+### mtr (0.96)
+
+Combined traceroute and ping network diagnostic tool
+
+- License: `GPL-2.0-only`
+- Homepage: https://www.bitwizard.nl/mtr/
+
 ### mypaint-brushes (2.0.2)
 
 Brush data files for applications using libmypaint
@@ -6669,12 +6746,26 @@ Container network plugin written in Rust
 - License: `Apache-2.0`
 - Homepage: https://github.com/containers/netavark
 
+### network-diagnostics (1.0.0)
+
+Network diagnostic tool set — packet capture, path analysis, throughput and connection testing
+
+- License: `GPL-3.0-or-later`
+- Homepage: https://github.com/InterGenOS
+
 ### nginx (1.29.8)
 
 Modern HTTP server / reverse proxy / load balancer (mainline; default-secure config — bind 127.0.0.1, server_tokens off, TLS-only sample, status locked to loopback)
 
 - License: `BSD-2-Clause`
 - Homepage: https://nginx.org/
+
+### nmap (7.991)
+
+Network host and service discovery and security scanner
+
+- License: `LicenseRef-NPSL-0.95`
+- Homepage: https://nmap.org/
 
 ### numpy (2.4.2)
 
@@ -6690,12 +6781,26 @@ NVIDIA proprietary GPU driver — open kernel modules + closed userspace (mirror
 - License: `MIT AND GPL-2.0-only AND LicenseRef-NVIDIA-Linux-EULA`
 - Homepage: https://www.nvidia.com/en-us/drivers/
 
+### openconnect (9.21)
+
+Client for Cisco AnyConnect, Juniper, GlobalProtect and Fortinet SSL VPNs
+
+- License: `LGPL-2.1-or-later`
+- Homepage: https://www.infradead.org/openconnect/
+
 ### openjdk (24.0.2)
 
 OpenJDK Java development kit and runtime, built from source
 
 - License: `GPL-2.0-only WITH Classpath-exception-2.0`
 - Homepage: https://openjdk.org/
+
+### openvpn (2.7.6)
+
+TLS-based VPN daemon and client
+
+- License: `GPL-2.0-only`
+- Homepage: https://openvpn.net/community/
 
 ### opusfile (0.12)
 
@@ -6929,6 +7034,13 @@ Helper to download and install Signal Desktop
 - Payload license: `AGPL-3.0-only`
 - Homepage: https://signal.org/
 
+### skopeo (1.24.0)
+
+Inspect, copy and sign container images between registries and stores
+
+- License: `Apache-2.0`
+- Homepage: https://github.com/containers/skopeo
+
 ### smartmontools (7.5)
 
 S.M.A.R.T. disk health monitoring and reporting utilities (smartctl, smartd)
@@ -6942,6 +7054,13 @@ Fast compression/decompression library from Google
 
 - License: `BSD-3-Clause`
 - Homepage: https://github.com/google/snappy
+
+### socat (1.8.1.3)
+
+Relays bidirectional data between two independent data channels
+
+- License: `GPL-2.0-only`
+- Homepage: http://www.dest-unreach.org/socat/
 
 ### spice (0.16.0)
 
@@ -6999,6 +7118,13 @@ WireGuard-based mesh VPN — tailscale CLI + tailscaled node agent
 
 - License: `BSD-3-Clause`
 - Homepage: https://tailscale.com
+
+### tcpdump (4.99.6)
+
+Command-line network packet analyser
+
+- License: `BSD-3-Clause`
+- Homepage: https://www.tcpdump.org/
 
 ### tealdeer (1.6.1)
 
@@ -7119,6 +7245,13 @@ Vulkan-based D3D12 implementation for wine, both PE widths
 - License: `LGPL-2.1-or-later`
 - Homepage: https://github.com/HansKristian-Work/vkd3d-proton
 
+### vpnc-scripts (0.0.20250727)
+
+Network-configuration helper script used by VPN clients to set up routing and DNS
+
+- License: `GPL-2.0-or-later`
+- Homepage: https://gitlab.com/openconnect/vpnc-scripts
+
 ### vscode (1.0)
 
 Helper to download and install Microsoft Visual Studio Code
@@ -7175,6 +7308,13 @@ Helper to install Windows components and tweaks into a Wine prefix
 
 - License: `LGPL-2.1-or-later`
 - Homepage: https://github.com/Winetricks/winetricks
+
+### wireguard-tools (1.0.20260223)
+
+Configuration utilities for the WireGuard VPN tunnel (wg, wg-quick)
+
+- License: `GPL-2.0-only`
+- Homepage: https://www.wireguard.com/
 
 ### wxwidgets (3.2.10)
 

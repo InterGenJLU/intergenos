@@ -59,10 +59,6 @@ check() {
 do_install() {
     set -e
     make DESTDIR="$DESTDIR" install
-}
-
-post_install() {
-    set -e
 
     # Main configuration: weekly rotation, four generations kept, dateext
     # suffixes, and the `include /etc/logrotate.d` that makes every package's
