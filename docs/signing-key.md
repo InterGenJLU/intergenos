@@ -80,8 +80,10 @@ Before you trust a keyserver response, confirm the fingerprint appears identical
 - The committed pubkey at `docs/signing-key.asc` (git-tracked, same repo)
 - The keyserver response from `keys.openpgp.org`
 - The keyserver response from `keyserver.ubuntu.com`
-- The pinned fingerprint announcement on the [InterGenOS GitHub releases page](https://github.com/InterGenJLU/intergenos/releases)
-- (Future) `https://intergenstudios.com/signing-key` (TLS, maintainer-operated)
+- The served key at `https://repo.intergenos.org/keys/intergenos-release-key.asc` (TLS, project mirror)
+- `https://intergenstudios.com/signing-key` (TLS, maintainer-operated)
+- `https://intergenos.org/signing-key` (TLS, project site)
+- (Future) A pinned fingerprint announcement on the [InterGenOS GitHub releases page](https://github.com/InterGenJLU/intergenos/releases)
 - (Future) The signed fingerprint announcement (offline-root signed — published alongside subkey rollover)
 
 If any two sources disagree on the fingerprint, assume your network path is compromised and do not trust the key.
@@ -105,9 +107,11 @@ The release key is published at:
 1. **`keys.openpgp.org`** — published 2026-05-05, email-verified. Searchable by fingerprint; searchable by email after the verification click. The role UID `intergenos-primary@intergenstudios.com` is a project-role identity, not personal.
 2. **`keyserver.ubuntu.com`** — published 2026-05-05 (SKS-style; not email-verified, accepts the key as-is). Default target for `apt-key adv --keyserver` and many Debian/Ubuntu signing-key workflows.
 3. **This repo** — `docs/signing-key.md` (this page) and `docs/signing-key.asc` (the armored pubkey), git-tracked.
-4. **(Future) GitHub releases page** — pinned announcement referencing the fingerprint.
-5. **(Future) `intergenstudios.com`** — TLS-served, maintainer-operated.
-6. **(Future) Signed-by-master fingerprint announcement** — published alongside subkey rollover.
+4. **The project mirror** — `https://repo.intergenos.org/keys/intergenos-release-key.asc`, TLS-served.
+5. **`https://intergenstudios.com/signing-key`** — TLS-served, maintainer-operated.
+6. **`https://intergenos.org/signing-key`** — TLS-served, project site.
+7. **(Future) GitHub releases page** — pinned announcement referencing the fingerprint.
+8. **(Future) Signed-by-master fingerprint announcement** — published alongside subkey rollover.
 
 ## Rollover
 
