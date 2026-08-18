@@ -1,0 +1,32 @@
+name: nvme-cli
+version: "2.16"
+release: 1
+description: NVMe storage management and inspection tool
+license: GPL-2.0-only
+homepage: https://github.com/linux-nvme/nvme-cli
+tier: base
+build_style: meson
+source:
+  - url: https://github.com/linux-nvme/nvme-cli/archive/refs/tags/v${version}.tar.gz
+    filename: nvme-cli-${version}.tar.gz
+    sha256: 989682ed7b250a2c7a8127e362ffc5d29f5c370127abe405be09c73216da2b97
+
+dependencies:
+  build:
+    - meson
+    - ninja
+    - pkgconf
+    - libnvme       # dependency('libnvme', version: '>=1.16') + libnvme-mi — meson.build
+    - json-c        # dependency('json-c', version: '>=0.13') — the --output-format=json path
+  host: []
+  runtime:
+    - libnvme
+    - json-c
+
+tests:
+  enabled: false
+  reason: "the suite behind -Dnvme-tests=true drives real NVMe controllers through /dev/nvme* — it formats namespaces, writes to devices and reads controller telemetry. The build chroot has no NVMe device node, and a suite that would write to a real disk if one were present is a cleanup hazard, which is the Rule 10 ladder's escalation case rather than an environmental-failure case."
+
+verify_paths:
+  - /usr/sbin/nvme
+  - /usr/share/man/man1/nvme.1

@@ -1,0 +1,65 @@
+name: NetworkManager-openconnect
+version: "1.2.10"
+release: 1
+description: OpenConnect (Cisco AnyConnect-compatible) support for NetworkManager
+license: GPL-2.0-or-later
+homepage: https://gitlab.gnome.org/GNOME/NetworkManager-openconnect
+tier: extra
+build_style: autotools
+# tier: extra, and the reason is worth stating because the sibling
+# NetworkManager-openvpn plugin is tier: desktop. The difference is real, not
+# an inconsistency: this plugin LINKS libopenconnect — its configure requires
+# openconnect >= 3.02 through PKG_CHECK_MODULES (configure.ac:168) — so
+# openconnect is a BUILD dependency, and openconnect is tier: extra. A
+# desktop-tier package may not build-depend on an extra-tier one, because
+# desktop builds first and the library would not exist yet. The OpenVPN plugin
+# has no such edge: it EXECUTES the openvpn binary at run time rather than
+# linking anything from it, so its openvpn dependency is runtime-only and it
+# stays with the desktop integration services where its nature puts it.
+# (docs/package-tiers.md resolution 2: when the dependency is real and the
+# tiers genuinely differ, the consumer belongs in the later tier.)
+# Mirror-only follows from the tier default for extra; the plugin runs as the
+# nm-openconnect account that Forge already reserves
+# (installer/backend/_validators.py).
+source:
+  - url: https://download.gnome.org/sources/NetworkManager-openconnect/1.2/NetworkManager-openconnect-${version}.tar.xz
+    sha256: 844b6bf64ecadb97b4a68c776db89aa5e6ee7e59bd24b0180228406863136464
+
+dependencies:
+  build:
+    - pkgconf
+    - glib2           # PKG_CHECK_MODULES(GLIB…)+ (GMODULE…) — configure.ac:109,113
+    - libxml2         # PKG_CHECK_MODULES(LIBXML, libxml-2.0) — :114
+    - networkmanager  # PKG_CHECK_MODULES(LIBNM, libnm >= 1.2.0) — :152
+    - libnma          # :124
+    - libsecret       # :117
+    - gtk3            # :121
+    - gcr             # PKG_CHECK_MODULES(GCR, gcr-3 >= 3.4) — :126 (the 3.x series)
+    - webkitgtk-gtk3  # PKG_CHECK_MODULES(WEBKIT, webkit2gtk-4.1) — :148
+    - openconnect     # PKG_CHECK_MODULES(OPENCONNECT, openconnect >= 3.02) — :168
+  host: []
+  runtime:
+    - networkmanager
+    - libnma
+    - libsecret
+    - gtk3
+    - gcr
+    - webkitgtk-gtk3
+    - glib2
+    - libxml2
+    - openconnect     # the plugin drives this binary
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "as with the OpenVPN plugin, the cases that need a live NetworkManager on the system bus fail in the chroot by environment; the option-parsing cases that decide what argv openconnect receives run normally."
+
+verify_paths:
+  # Provable from the pinned Makefile.am against this recipe's prefix and
+  # libexecdir: libexec_PROGRAMS gains src/nm-openconnect-service (:27) and
+  # auth-dialog/nm-openconnect-auth-dialog (:235); dbusservicedir is
+  # $(datadir)/dbus-1/system.d (:13). The .name file's directory comes from
+  # libnm's pkg-config vpnservicedir, so it is not asserted here.
+  - /usr/libexec/nm-openconnect-service
+  - /usr/libexec/nm-openconnect-auth-dialog
+  - /usr/share/dbus-1/system.d/nm-openconnect-service.conf

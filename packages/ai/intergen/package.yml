@@ -38,6 +38,13 @@ dependencies:
   # non-web surfaces (review_modal.py -> zenity --question); without it a
   # gated action on the D-Bus/CLI/voice path cannot be approved.
   - zenity
+  # logrotate consumes /etc/logrotate.d/intergen-tool-dispatch, which this
+  # package installs (build.sh) and intergen(1) documents as the rotation
+  # mechanism for the tool-dispatch audit log. The snippet shipped from the
+  # start; the consumer did not exist until logrotate was packaged, so the
+  # audit log had no bound on its growth. Declared here so an install that
+  # carries InterGen also carries the thing that rotates its log.
+  - logrotate
 verify_paths:
   - /usr/lib/python3.14/site-packages/intergen
   - /usr/lib/python3.14/site-packages/intergen/tools

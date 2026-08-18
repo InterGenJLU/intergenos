@@ -1,0 +1,27 @@
+name: iperf3
+version: "3.21"
+release: 1
+description: Measures achievable network bandwidth between two hosts
+license: BSD-3-Clause
+homepage: https://software.es.net/iperf/
+tier: extra
+build_style: autotools
+source:
+  - url: https://github.com/esnet/iperf/archive/refs/tags/${version}.tar.gz
+    filename: iperf3-${version}.tar.gz
+    sha256: dd289b6700d3bc33eda7fa3ce6db217d6ca42239edbcb2e7f152bf7bf5c8a5aa
+dependencies:
+  build:
+    - pkgconf
+    - openssl       # RSA-authenticated sessions (--rsa-public-key-path)
+  host: []
+  runtime:
+    - openssl
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "the suite runs a server and a client against each other over the loopback interface; the chroot's networking is not guaranteed to support that, so connection-dependent cases fail by environment. The unit cases covering the results parser and the JSON output format run normally."
+verify_paths:
+  - /usr/bin/iperf3
+  - /usr/lib/libiperf.so
+  - /usr/share/man/man1/iperf3.1

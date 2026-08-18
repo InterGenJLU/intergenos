@@ -1,0 +1,39 @@
+name: vpnc-scripts
+version: "0.0.20250727"
+release: 1
+description: Network-configuration helper script used by VPN clients to set up routing and DNS
+license: GPL-2.0-or-later
+homepage: https://gitlab.com/openconnect/vpnc-scripts
+tier: extra
+build_style: custom
+# Authored because openconnect cannot be packaged honestly without it. Upstream
+# openconnect's configure searches for a vpnc-script in standard locations and
+# STOPS with an error naming the packager if none is found (configure.ac:181-220);
+# the only ways past that are to install a real script or to point the build at a
+# path nothing provides, and the second is a claim the filesystem does not back.
+# This package installs the script, so openconnect's --with-vpnc-script names a
+# file that exists.
+#
+# The upstream project publishes NO tags or releases — the GitLab tags API
+# returns an empty list — so the source is pinned to an immutable commit, the
+# same shape the docker recipe uses for its tini source pin. The version field
+# encodes the date of that commit so the ordering pkm applies is meaningful.
+source:
+  - url: https://gitlab.com/openconnect/vpnc-scripts/-/archive/ce9e961bd0f6/vpnc-scripts-ce9e961bd0f6.tar.gz
+    filename: vpnc-scripts-ce9e961bd0f6.tar.gz
+    sha256: 767fa733bc19b066e07624d1911a41aa9162dbdca262890993edc594305d104e
+
+dependencies:
+  build: []
+  host: []
+  runtime:
+    - iproute2      # the script's main path is `ip route`/`ip addr`/`ip link`
+    - gawk          # awk is used throughout to parse the ip output
+    - sed
+
+tests:
+  enabled: false
+  reason: "the tests/ directory drives the script against real network namespaces (it ships netunshare.c and an xinetd netns configuration for that purpose). Creating namespaces and interfaces inside the build chroot is a live-network operation with cleanup consequences, which is the Rule 10 ladder's infrastructure-hazard case rather than an environmental-failure case."
+
+verify_paths:
+  - /etc/vpnc/vpnc-script

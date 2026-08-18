@@ -1,0 +1,38 @@
+name: wireguard-tools
+version: "1.0.20260223"
+release: 1
+description: Configuration utilities for the WireGuard VPN tunnel (wg, wg-quick)
+license: GPL-2.0-only
+homepage: https://www.wireguard.com/
+tier: extra
+build_style: make
+# The kernel side of WireGuard has been in mainline Linux since 5.6 and is
+# configured in this tree's kernel; what was missing is the user-space half —
+# without wg and wg-quick there is no way to create a key pair, set a peer, or
+# bring an interface up, so the in-kernel support was unreachable.
+source:
+  - url: https://git.zx2c4.com/wireguard-tools/snapshot/wireguard-tools-${version}.tar.xz
+    sha256: af459827b80bfd31b83b08077f4b5843acb7d18ad9a33a2ef532d3090f291fbf
+
+dependencies:
+  # No build entries: the only build tool this package needs is make itself,
+  # which every recipe in the tree relies on and none declares — the ch8 twin
+  # ships it under the name `make` while the recipe is `make-core`, so a
+  # declared `make` matches no package and the tier validator reports it as a
+  # dangling dependency. traceroute, also a plain-make package, declares an
+  # empty build list for the same reason.
+  build: []
+  host: []
+  runtime:
+    - bash          # wg-quick is a bash script, not a POSIX sh one
+    - iproute2      # wg-quick drives `ip link`, `ip address`, `ip route`
+    - systemd       # the wg-quick@.service template unit
+
+tests:
+  enabled: false
+  reason: "the Makefile's check target runs scan-build, the clang static analyser, with --view (it opens a browser) and needs the analyser toolchain; it is a developer lint pass rather than a test of the built artefact, and it is not runnable unattended in the chroot. There is no functional test suite to enable in its place."
+
+verify_paths:
+  - /usr/bin/wg
+  - /usr/bin/wg-quick
+  - /usr/share/man/man8/wg.8

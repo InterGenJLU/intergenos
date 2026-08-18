@@ -1,0 +1,56 @@
+name: NetworkManager-openvpn
+version: "1.12.5"
+release: 1
+description: OpenVPN support for NetworkManager, with its GNOME authentication dialog
+license: GPL-2.0-or-later
+homepage: https://gitlab.gnome.org/GNOME/NetworkManager-openvpn
+tier: desktop
+build_style: autotools
+iso_include: false
+# tier: desktop because a NetworkManager VPN plugin is desktop integration —
+# it is loaded by NetworkManager and its dialog is a GTK/libnma consumer, not a
+# standalone application. iso_include: false because the plugin is useless
+# without the openvpn binary it drives, and openvpn is a mirror-only extra
+# package; a shipped package may not runtime-depend on a mirror-only one, and
+# the whole VPN capability is an opt-in install rather than a default.
+# The plugin runs as the nm-openvpn account, which Forge already reserves
+# (installer/backend/_validators.py) — that reservation predates this package
+# and is what makes the account name safe to rely on here.
+source:
+  - url: https://download.gnome.org/sources/NetworkManager-openvpn/1.12/NetworkManager-openvpn-${version}.tar.xz
+    sha256: ce32e38b0500eddf2fc8072ca17679817fc2d35eb91f6ff7b9904209c14b5afd
+
+dependencies:
+  build:
+    - pkgconf
+    - glib2         # PKG_CHECK_MODULES(GLIB, gmodule-2.0 glib-2.0 >= 2.34)
+    - networkmanager # PKG_CHECK_MODULES(LIBNM, libnm >= 1.52.2) — tree ships 1.56.0
+    - libnma        # PKG_CHECK_MODULES(LIBNMA, libnma >= 1.8.0)
+    - libsecret     # PKG_CHECK_MODULES(LIBSECRET, libsecret-1 >= 0.18)
+    - gtk3          # PKG_CHECK_MODULES(GTK, gtk+-3.0 >= 3.4)
+  host: []
+  runtime:
+    - networkmanager
+    - libnma
+    - libsecret
+    - gtk3
+    - glib2
+    - openvpn       # the plugin drives this binary; without it the connection
+                    # type appears in the UI and every attempt fails
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "the suite includes cases that exercise the plugin's option parsing against a real NetworkManager D-Bus connection; the build chroot has no running NetworkManager and no system bus, so those fail by environment. The pure option-to-argv conversion cases, which are where a mis-parse would become a wrong openvpn command line, run normally."
+
+verify_paths:
+  # All three are provable from the pinned Makefile.am against the prefix and
+  # libexecdir this recipe sets: libexec_PROGRAMS gains src/nm-openvpn-service
+  # (:72) and auth-dialog/nm-openvpn-auth-dialog (:334), and dbusservicedir is
+  # $(datadir)/dbus-1/system.d (:26). The .name file is deliberately NOT
+  # asserted: its directory comes from libnm's pkg-config vpnservicedir
+  # variable (configure.ac:125), so the path is decided by another package's
+  # pkg-config data rather than by anything this recipe sets.
+  - /usr/libexec/nm-openvpn-service
+  - /usr/libexec/nm-openvpn-auth-dialog
+  - /usr/share/dbus-1/system.d/nm-openvpn-service.conf

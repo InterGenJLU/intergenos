@@ -1,0 +1,33 @@
+name: usbutils
+version: "019"
+release: 1
+description: USB device inspection tools (lsusb, usb-devices, usbhid-dump)
+license: GPL-2.0-or-later
+homepage: https://github.com/gregkh/usbutils
+tier: base
+build_style: meson
+source:
+  - url: https://www.kernel.org/pub/linux/utils/usb/usbutils/usbutils-${version}.tar.xz
+    sha256: 659f40c440e31ba865c52c818a33d3ba6a97349e3353f8b1985179cb2aa71ec5
+
+dependencies:
+  build:
+    - meson
+    - ninja
+    - pkgconf
+    - libusb        # dependency('libusb-1.0', version: '>= 1.0.22') — meson.build:109
+    - systemd       # dependency('libudev', version: '>= 196') — meson.build:108
+  host: []
+  runtime:
+    - libusb
+    - systemd       # libudev at run time AND the hwdb that names devices
+    - python        # /usr/bin/lsusb.py is a Python script
+
+tests:
+  enabled: false
+  reason: "usbutils 019 ships no test suite — meson.build defines no test() targets, so there is nothing to run. Recorded as disabled-with-reason rather than left implicit."
+
+verify_paths:
+  - /usr/bin/lsusb
+  - /usr/bin/usb-devices
+  - /usr/share/man/man8/lsusb.8
