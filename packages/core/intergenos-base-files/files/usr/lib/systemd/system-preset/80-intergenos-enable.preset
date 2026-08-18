@@ -45,6 +45,25 @@ enable bluetooth.service
 # fallback). Update awareness is security-relevant. (GBC002.5, 2026-06-08.)
 enable pkm-check-updates.timer
 
+# logrotate.timer rotates the system logs, including
+# /etc/logrotate.d/intergen-tool-dispatch — the snippet the tree has shipped
+# since InterGen's tool-dispatch audit log landed, with nothing consuming it
+# until the logrotate package existed. Without this line the install-time
+# `systemctl preset-all` reverts the timer through the 99- `disable *`
+# catch-all, so the rotation would ship present and permanently inert: exactly
+# the failure recorded for pkm-check-updates.timer above. An audit log that
+# grows without bound is a disk-exhaustion path on a long-lived install, and a
+# log nothing rotates is also a log nobody can keep.
+enable logrotate.timer
+
+# switcheroo-control.service is the D-Bus service GNOME Shell asks which GPU an
+# application should run on; it is what puts "Launch using Discrete Graphics
+# Card" in the application menu on hybrid-graphics machines. Its unit is
+# Type=dbus with WantedBy=graphical.target, so without a whitelist line the
+# 99- `disable *` catch-all leaves it installed and never started, and the menu
+# entry is silently absent with no error anywhere to explain why.
+enable switcheroo-control.service
+
 # Explicit disables — override the upstream 90-systemd.preset, which `enable`s
 # systemd-networkd. Preset resolution is first-match-wins across lexically-
 # sorted files, so these 80- lines beat 90-systemd.preset's enable (and are

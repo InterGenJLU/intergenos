@@ -1,0 +1,31 @@
+name: docker-buildx
+version: "0.36.1"
+release: 1
+description: Docker CLI plugin for extended build capabilities with BuildKit
+license: Apache-2.0
+homepage: https://github.com/docker/buildx
+tier: extra
+build_style: custom
+install_func: do_install
+iso_include: false
+# The docker package already creates /usr/libexec/docker/cli-plugins and says
+# in its build.sh why it is empty: "buildx / compose would land plugin binaries
+# here. We don't ship either in v1.0." This package fills the buildx half. The
+# plugin is useless without the docker CLI, so it is mirror-only exactly as
+# docker is, and it declares docker as a runtime dependency rather than
+# assuming the directory it installs into already exists.
+source:
+- url: https://github.com/docker/buildx/archive/refs/tags/v${version}.tar.gz
+  filename: docker-buildx-${version}.tar.gz
+  sha256: 8959987919445ab61564f50decde4dae810137063d84e2d3c969c9a4a68ecdeb
+dependencies:
+  build:
+  - go            # go.mod declares go 1.26.3; the tree ships 1.26.4
+  host: []
+  runtime:
+  - docker        # a CLI plugin is loaded by the docker CLI and does nothing alone
+tests:
+  enabled: false
+  reason: "buildx's tests drive a live BuildKit builder — they create containers, run builds against a daemon and exercise registry pushes. The build chroot has no container runtime and no daemon socket, and a suite that would start containers if one were present is a cleanup hazard rather than a set of environment-bounded failures."
+verify_paths:
+  - /usr/libexec/docker/cli-plugins/docker-buildx

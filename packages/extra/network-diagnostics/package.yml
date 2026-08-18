@@ -1,0 +1,39 @@
+name: network-diagnostics
+version: "1.0.0"
+release: 1
+description: Network diagnostic tool set — packet capture, path analysis, throughput and connection testing
+license: GPL-3.0-or-later
+homepage: https://github.com/InterGenOS
+tier: extra
+build_style: custom
+install_func: do_install
+iso_include: false
+# A dependency-only meta-package, the same shape as the amdgpu and compute
+# metas already in this tree: no source, no compilation, one README, and a
+# runtime dependency list that is the whole point of the package.
+#
+# Why it exists: the five tools below are each mirror-only, and a user who has
+# just discovered a network problem is the least well placed to research which
+# five package names to install. One name that pulls the set is the
+# user-control answer — it makes the capability discoverable without making
+# every installation carry tools most systems never need.
+#
+# ethtool is deliberately NOT a member. It ships on the ISO because it reports
+# and changes the state of a network interface itself, which is diagnosis of
+# the machine rather than of the network beyond it; a user needs it before they
+# can reach a mirror to install anything.
+source: []
+dependencies:
+  build: []
+  host: []
+  runtime:
+  - mtr        # per-hop loss and latency along a path
+  - tcpdump    # packet capture and decode
+  - iperf3     # achievable throughput between two hosts
+  - nmap       # host and service discovery
+  - socat      # arbitrary connection construction, for testing a service by hand
+tests:
+  enabled: false
+  reason: "a meta-package with no source and no compilation: the install step writes one README. There is nothing to test, recorded explicitly rather than left implicit."
+verify_paths:
+  - /usr/share/doc/network-diagnostics/README

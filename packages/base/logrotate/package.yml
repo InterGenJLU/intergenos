@@ -1,0 +1,42 @@
+name: logrotate
+version: "3.22.0"
+release: 1
+description: Rotates, compresses and mails system logs
+license: GPL-2.0-only
+homepage: https://github.com/logrotate/logrotate
+tier: base
+build_style: autotools
+# Closes a real gap rather than adding a feature: the tree already ships
+# /etc/logrotate.d/intergen-tool-dispatch (packages/ai/intergen/build.sh) and
+# documents it in intergen(1), but no logrotate existed to consume it, so the
+# InterGen tool-dispatch audit log grew without bound. This package supplies the
+# consumer, upstream's own hardened service + timer, and the /etc/logrotate.conf
+# that includes /etc/logrotate.d. The timer is whitelisted in the systemd preset
+# single-source-of-truth (intergenos-base-files 80-intergenos-enable.preset) —
+# without that line the install-time `systemctl preset-all` reverts it via the
+# 99- catch-all and the rotation ships present but permanently inert, the same
+# failure the pkm-check-updates.timer line in that file records.
+source:
+  - url: https://github.com/logrotate/logrotate/releases/download/${version}/logrotate-${version}.tar.xz
+    sha256: 42b4080ee99c9fb6a7d12d8e787637d057a635194e25971997eebbe8d5e57618
+
+dependencies:
+  build:
+    - popt          # AC_CHECK_LIB([popt],[poptParseArgvString]) — configure.ac
+    - acl           # AC_CHECK_LIB([acl],[acl_get_file]) — --with-acl
+  host: []
+  runtime:
+    - popt
+    - acl
+    - gzip          # the `compress` directive shells out to gzip
+    - systemd       # the timer + service units are systemd units
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "the test suite exercises ACL and SELinux code paths, su-based ownership changes and mail delivery; the build chroot has no SELinux policy, no mail transport and runs as root with CAP_DAC_OVERRIDE, so those cases fail by environment rather than by defect. The rotation, compression and state-file cases run and are the load-bearing ones."
+
+verify_paths:
+  - /usr/sbin/logrotate
+  - /etc/logrotate.conf
+  - /usr/lib/systemd/system/logrotate.timer
