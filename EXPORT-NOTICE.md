@@ -1,6 +1,6 @@
 # InterGenOS — Export-Control Notice
 
-**Last updated:** 2026-05-18
+**Last updated:** 2026-08-18
 
 InterGenOS includes strong cryptographic software as a routine part
 of being a secure general-purpose operating system. This document
@@ -118,39 +118,47 @@ EAR:
   `https://repo.intergenos.org/x86_64/current/sources/` and at
   `github.com/InterGenJLU/intergenos` (and various source-fetch
   upstreams). TSU permits export of publicly available encryption
-  source code without a license, subject to the BIS notification
-  in §4.3 below.
+  source code without a license; see §4.3 for why no notification
+  filing applies to this project's standard cryptography.
 
 - **ENC — Encryption Commodities, Software, and Technology**
   (15 C.F.R. § 740.17) — for the *compiled binary* portion of
   InterGenOS distributed as install images (ISO, qcow2, and the
   installed-system tree). ENC permits export of mass-market and
-  publicly-available encryption binaries without a license, subject
-  to the same notification.
+  publicly-available encryption binaries without a license, on the
+  same standard-cryptography basis discussed in §4.3.
 
 ### 4.3 BIS Notification
 
-The U.S. Bureau of Industry and Security (BIS) and the U.S. National
-Security Agency (NSA) require a one-time email notification when a
-party first exports publicly available encryption software relying
-on the TSU exception (15 C.F.R. § 742.15(b)). For mass-market binary
-encryption distributed under the ENC exception (15 C.F.R. §
-740.17(b)(2)) the same single-event notification is filed.
+Earlier revisions of the Export Administration Regulations required a
+one-time email notification to the U.S. Bureau of Industry and
+Security (BIS) and the U.S. National Security Agency when a party
+first exported publicly available encryption source code relying on
+the TSU exception. **That requirement no longer applies to software
+like InterGenOS.** Under the current rule (15 C.F.R. § 742.15(b) and
+§ 740.13(e) as amended), publicly available encryption source code
+that implements standard cryptography — published, widely used
+algorithms — is released from the EAR upon publication, with no
+notification filing; the email-notification path survives only for
+source code implementing proprietary or unpublished cryptography.
 
-The notification for InterGenOS was filed to `crypt@bis.doc.gov` and
-`enc@nsa.gov` on **[NOTIFICATION DATE — to be backfilled before
-first public release].** This entry will be updated to the actual
-notification date when the filing is made; the entry's appearance
-in the master branch's `EXPORT-NOTICE.md` at the time of an
-exported release is the project's record of compliance for that
-release. Releases that ship before the notification date are not
-publicly distributed.
+Every cryptographic component InterGenOS ships is standard, published
+cryptography (OpenSSL, GnuPG, the Linux kernel's disk-encryption and
+network stacks, WireGuard, OpenVPN, and their peers), and the
+project's complete source code is publicly available (this repository
+and the source-archive corpus on the public mirror). **Publication of
+the source is therefore itself the act that satisfies the regulation;
+no notification has been filed because none is required.** This
+section is the project's record of that determination (recorded
+2026-08-18, against the regulation text current on that date). If the
+project ever ships non-standard or unpublished cryptography, this
+determination must be revisited before that release.
 
 If you operate a mirror of InterGenOS or otherwise redistribute it
 **from the United States**, you may be making your own export under
 the EAR. You may rely on the same TSU/ENC exceptions if your
 redistribution qualifies; consult § 742.15 directly. The InterGenOS
-notification does not satisfy your obligation, only ours.
+determination in §4.3 does not satisfy your obligation, only ours.
 
 ### 4.4 Embargoed destinations
 
@@ -272,9 +280,10 @@ same compliance obligations as the project**, including:
 
 - **Honoring the embargoed-destinations list** (§4.4 above).
 - **Honoring the end-use restrictions** (§4.5).
-- **Filing your own BIS notification** if you are in the United
-  States and your redistribution channel does not qualify under the
-  InterGenJLU notification.
+- **Making your own § 742.15 determination (and any filing it
+  requires)** if you are in the United States and your
+  redistribution channel does not qualify on the same
+  standard-cryptography, publicly-available basis as §4.3.
 - **Avoiding transfer to listed entities** (Entity List, SDN, etc.).
 
 You may not represent that downstream users are exempted from these
@@ -311,9 +320,12 @@ stacks.
 
 InterGenJLU commits to:
 
-1. **Filing the required notifications** with BIS, NSA, and any
-   other authority where the project's distribution profile makes
-   them applicable, before the first public release.
+1. **Maintaining the § 4.3 determination** — the project's
+   cryptography remains standard, published cryptography with
+   publicly available source, which is what releases it from the
+   EAR without a notification filing; any future component that is
+   not standard cryptography triggers a fresh determination (and
+   any then-required filing) before it ships.
 
 2. **Updating this notice** if our classification changes, if a
    new license exception becomes applicable, or if the embargoed-
