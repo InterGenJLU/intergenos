@@ -68,13 +68,26 @@ BOOT_DEFAULT_INTENT_REL = "etc/intergenos/boot-default.conf"
 # the grub-mkimage --sbat overlay (below) embed an identical capability set.
 # This is the historical grub-install --modules list, verbatim.
 GRUB_EFI_MODULES = (
-    "all_video boot btrfs cat chain configfile echo efifwsetup efinet ext2 "
-    "fat font gettext gfxmenu gfxterm gzio halt hfsplus iso9660 jpeg loadenv "
-    "loopback linux ls lsefi lsefimmap lsefisystab lssal memdisk minicmd "
-    "normal part_apple part_msdos part_gpt password_pbkdf2 png reboot regexp "
-    "search search_fs_uuid search_fs_file search_label sleep smbios squash4 "
-    "test true video xfs zfs zfscrypt zfsinfo"
+    "all_video bli boot btrfs cat chain configfile echo efifwsetup efinet "
+    "ext2 fat font gettext gfxmenu gfxterm gzio halt hfsplus iso9660 jpeg "
+    "loadenv loopback linux ls lsefi lsefimmap lsefisystab lssal memdisk "
+    "minicmd normal part_apple part_msdos part_gpt password_pbkdf2 png "
+    "reboot regexp search search_fs_uuid search_fs_file search_label sleep "
+    "smbios squash4 test true video xfs zfs zfscrypt zfsinfo"
 )
+# bli (added 2026-08-18): grub-mkconfig's 25_bli script does `insmod bli` in
+# every generated grub.cfg (Boot Loader Interface EFI vars — the same
+# spec-defined identification vars the UKI stub sets on the primary path).
+# Under Secure Boot the built-in shim_lock verifier refuses any module loaded
+# as a loose file from the ESP, so on every installed system the missing
+# module printed "prohibited by secure boot policy" on the boot console at
+# menu display — a flash before the menu on single-monitor machines, and
+# persistent on the second monitor of multi-head machines (the un-themed
+# console renders there). The ISO's standalone grub bakes the same module
+# (scripts/build-grub-standalone.sh); this restores parity for installed
+# systems, the surface the earlier ISO-side fix did not cover.
+# tests/installer/test_grub_module_coverage.py holds both lists to the
+# generated-config insmod set so the two builders cannot drift apart again.
 # gettext + regexp (added 2026-07-19): the grub-mkconfig-generated ESP
 # grub.cfg insmods both at runtime (gettext from 00_header's locale block;
 # regexp from the resolution-matched background-PNG selector). Under Secure
