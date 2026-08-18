@@ -817,7 +817,7 @@ The tool output indicates that `pkm` is not currently installed on this system. 
 ````
 The SSH daemon (`sshd`) is currently active and running. It has been running since April 8, 2026, and is listening on port 22.
 
-Recent activity shows successful session openings for the root user from IP `192.168.1.199` on ports 58990, 53000, and 53010. All sessions were closed immediately after the connection, indicating no active connections are currently established.
+Recent activity shows successful session openings for the root user from IP `[redacted-ip-host2]` on ports 58990, 53000, and 53010. All sessions were closed immediately after the connection, indicating no active connections are currently established.
 ````
 
 ---
@@ -829,7 +829,7 @@ Recent activity shows successful session openings for the root user from IP `192
 
 **Response:**
 ````
-The SSH service is active and running. Recent logs show successful connections from 192.168.1.199, including keyboard-interactive sessions for the root user. The service is enabled by default.
+The SSH service is active and running. Recent logs show successful connections from [redacted-ip-host2], including keyboard-interactive sessions for the root user. The service is enabled by default.
 ````
 
 ---
@@ -843,7 +843,7 @@ The SSH service is active and running. Recent logs show successful connections f
 ````
 The SSH service is active and running.
 The tool output shows `Active: active (running)` for the `sshd.service`.
-Connection attempts were logged, such as `Accepted keyboard-interactive/pam for root from 192.168.1.199 port 58990 ssh2`, indicating the service is operational.
+Connection attempts were logged, such as `Accepted keyboard-interactive/pam for root from [redacted-ip-host2] port 58990 ssh2`, indicating the service is operational.
 ````
 
 ---
@@ -855,7 +855,7 @@ Connection attempts were logged, such as `Accepted keyboard-interactive/pam for 
 
 **Response:**
 ````
-The `sshd` service is active and running. It has successfully accepted SSH connections from the IP address 192.168.1.199 on ports 58990, 53000, and 53010.
+The `sshd` service is active and running. It has successfully accepted SSH connections from the IP address [redacted-ip-host2] on ports 58990, 53000, and 53010.
 ````
 
 ---
@@ -992,7 +992,7 @@ Swap:          2.0Gi        35Mi       2.0Gi
 **Response:**
 ````
 The `sshd` service is currently active and running.
-Recent logs show successful SSH session openings and closings for user `root` from IP `192.168.1.199`.
+Recent logs show successful SSH session openings and closings for user `root` from IP `[redacted-ip-host2]`.
 No errors or blocked connections were recorded in the provided output.
 ````
 
@@ -1055,7 +1055,7 @@ You're running kernel 6.18.10.
 
 **Response:**
 ````
-Your local loopback address is 127.0.0.1, and your active network interface (wlo1) is 192.168.1.192/24.
+Your local loopback address is 127.0.0.1, and your active network interface (wlo1) is [redacted-ip-host1]/24.
 ````
 
 ---
@@ -1375,15 +1375,15 @@ Here are your network interfaces:
      CGroup: /system.slice/NetworkManager.service
              └─353 /usr/sbin/NetworkManager --no-daemon
 
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=192.168.1.192, acd pending
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1], acd pending
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 Apr 15 14:23:22 intergenos NetworkManager[353]: <info>  [1776281002.9856] agent-manager: agent[98cbb30b060c3332,:1.3045/org.gnome.Shell.NetworkAgent/60598]: agent registered
 Apr 15 14:23:29 intergenos NetworkManager[353]: <info>  [1776281009.4130] agent-manager: agent[4c8c51d7746cf946,:1.3068/org.gnome.Shell.NetworkAgent/1000]: agent registered
-Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 16 21:51:32 intergenos NetworkManager[353]: <info>  [1776394292.8669] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 16 21:51:32 intergenos NetworkManager[353]: <info>  [1776394292.8669] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 Apr 17 09:51:32 intergenos NetworkManager[353]: <info>  [1776437492.8684] dhcp4 (wlo1): state changed new lease, address=192.168.1
 [... truncated at 2000 chars ...]
 ````
@@ -1555,7 +1555,7 @@ Your system has 186GB of free disk space remaining on the root partition, which 
 
 **Response:**
 ````
-The NetworkManager service is currently running. It is active and loaded, with a main PID of 353, consuming approximately 10.9M of memory and 1.8M of CPU time. The service has been active since April 8, 2026, and is actively managing DHCP leases for the wlo1 interface on 192.168.1.192.
+The NetworkManager service is currently running. It is active and loaded, with a main PID of 353, consuming approximately 10.9M of memory and 1.8M of CPU time. The service has been active since April 8, 2026, and is actively managing DHCP leases for the wlo1 interface on [redacted-ip-host1].
 ````
 
 ---
@@ -1581,7 +1581,7 @@ Your hostname is intergenos.
 
 **Response:**
 ````
-The `sshd` service is active and running. It has accepted SSH connections from `192.168.1.199` for the user `root` at ports 58990, 53000, and 53010. No other services were checked.
+The `sshd` service is active and running. It has accepted SSH connections from `[redacted-ip-host2]` for the user `root` at ports 58990, 53000, and 53010. No other services were checked.
 ````
 
 ---

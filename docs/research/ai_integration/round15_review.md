@@ -1116,7 +1116,7 @@ Since the disk is healthy but the system is slow to boot, the issue is likely **
     *   **Network Status**: **No external connections** are possible due to the broken network interface (DNS failure/firewall block).
 *   **Recent Activity**:
     *   The service has been running continuously since the last update (since Wed, April 8).
-    *   It has successfully accepted sessions from your local IP (`192.168.1.199`) and closed them.
+    *   It has successfully accepted sessions from your local IP (`[redacted-ip-host2]`) and closed them.
 
 **Conclusion:**
 The SSH daemon itself is **healthy and operational**. The system is simply **unreachable** from outside because your network layer is down. You cannot test SSH connectivity via `telnet` or `nc` because there is no network path.
@@ -1141,7 +1141,7 @@ Since the SSH service is running, you can try to **reboot the system** immediate
 *   **Network Status**: **Local Access Only**. The SSH service is listening on port 22, but **no external connections** are possible because the network interface is down.
 *   **Recent Activity**:
     *   The service has been running continuously since **Wednesday, April 8**.
-    *   It has successfully accepted and closed multiple **local keyboard-interactive sessions** for the user `root` from your local IP (`192.168.1.199`).
+    *   It has successfully accepted and closed multiple **local keyboard-interactive sessions** for the user `root` from your local IP (`[redacted-ip-host2]`).
 
 **Conclusion:**
 The SSH daemon itself is **healthy and operational**. It is simply **unreachable** from outside the local network because your network layer is down.
@@ -1166,7 +1166,7 @@ Since the SSH service is running, you can try to **reboot the system** immediate
 *   **Network Status**: **Local Access Only**. The SSH daemon is running and listening on port 22, but **no external connections** are possible because your network interface is down.
 *   **Recent Activity**:
     *   The service has been running continuously since **Wednesday, April 8**.
-    *   It has successfully accepted and closed multiple **local keyboard-interactive sessions** for the user `root` from your local IP (`192.168.1.199`).
+    *   It has successfully accepted and closed multiple **local keyboard-interactive sessions** for the user `root` from your local IP (`[redacted-ip-host2]`).
 
 **Conclusion:**
 The SSH daemon itself is **healthy and operational**. It is simply **unreachable** from outside the local network because your network layer is down.
@@ -1192,7 +1192,7 @@ Since the SSH service is running, you can try to **reboot the system** immediate
 *   **Network Status**: **Local Access Only**. The service is listening on port 22, but **no external connections** are possible because your network interface is down.
 
 **Analysis:**
-The SSH daemon is **fully operational** and has been running since **Wednesday, April 8**. The logs show it has successfully accepted and closed multiple **local keyboard-interactive sessions** for the user `root` from your local IP (`192.168.1.199`).
+The SSH daemon is **fully operational** and has been running since **Wednesday, April 8**. The logs show it has successfully accepted and closed multiple **local keyboard-interactive sessions** for the user `root` from your local IP (`[redacted-ip-host2]`).
 
 **Conclusion:**
 The SSH service itself is **healthy and running**. The inability to connect via SSH is **not** due to the service being down, but rather because your **network layer is down** (DNS failure/firewall block), preventing any external traffic from reaching the local port 22.
@@ -1433,9 +1433,9 @@ You're running kernel 6.18.10.
 
 **Response:**
 ````
-Your local loopback address is 127.0.0.1. Your primary network interface (wlo1) has an IP address of 192.168.1.192 within the 24-bit subnet 192.168.1.0/24.
+Your local loopback address is 127.0.0.1. Your primary network interface (wlo1) has an IP address of [redacted-ip-host1] within the 24-bit subnet [redacted-lan-subnet]/24.
 
-The IPv6 addresses listed (2600:1700:7080:69b0:bbb4:ef34:7cd7:5b77/64 and fe80::fd6b:70ba:45d1:4bfe/64) represent the link-local address of the interface.
+The IPv6 addresses listed ([redacted-public-ipv6]/64 and fe80::fd6b:70ba:45d1:4bfe/64) represent the link-local address of the interface.
 ````
 
 ---
@@ -1830,14 +1830,14 @@ Here are your network interfaces:
 
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): state changed no lease
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): activation: beginning transaction (timeout in 45 seconds)
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=192.168.1.192, acd pending
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1], acd pending
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 Apr 15 14:23:22 intergenos NetworkManager[353]: <info>  [1776281002.9856] agent-manager: agent[98cbb30b060c3332,:1.3045/org.gnome.Shell.NetworkAgent/60598]: agent registered
 Apr 15 14:23:29 intergenos NetworkManager[353]: <info>  [1776281009.4130] agent-manager: agent[4c8c51d7746cf946,:1.3068/org.gnome.Shell.NetworkAgent/1000]: agent registered
-Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 ````
 
 ---
@@ -2069,8 +2069,8 @@ Your hostname is intergenos.
 *   **Identity**: Running as the `InterGenOS` OpenSSH Server.
 *   **Recent Activity**:
     *   **Session Closed**: A root session was closed at 17:02 PM.
-    *   **New Connection**: A new keyboard-interactive session opened for root from `192.168.1.199` at 18:10 PM.
-    *   **New Connection**: Another new keyboard-interactive session opened for root from `192.168.1.199` at 18:15 PM.
+    *   **New Connection**: A new keyboard-interactive session opened for root from `[redacted-ip-host2]` at 18:10 PM.
+    *   **New Connection**: Another new keyboard-interactive session opened for root from `[redacted-ip-host2]` at 18:15 PM.
 *   **Conclusion**: Your remote access is available.
 ````
 

@@ -371,7 +371,7 @@
         {
           "turn_num": 1,
           "user_input": "Is NetworkManager running?",
-          "response_text": "Yes, **NetworkManager** is currently running.\n\n**Current Status:**\n*   **State:** Active (running)\n*   **Service:** NetworkManager.service\n*   **PID:** 353\n*   **Memory Usage:** 10.6M (peak: 14.6M)\n*   **CPU Usage:** 1 min 647ms\n\nThe service was started on April 8th and has been active for one week. Recent logs show it successfully acquired a DHCP lease for the IP address `192.168.1.192` on the `wlo1` interface.",
+          "response_text": "Yes, **NetworkManager** is currently running.\n\n**Current Status:**\n*   **State:** Active (running)\n*   **Service:** NetworkManager.service\n*   **PID:** 353\n*   **Memory Usage:** 10.6M (peak: 14.6M)\n*   **CPU Usage:** 1 min 647ms\n\nThe service was started on April 8th and has been active for one week. Recent logs show it successfully acquired a DHCP lease for the IP address `[redacted-ip-host1]` on the `wlo1` interface.",
           "source": "keyword",
           "tool_calls": [],
           "elapsed_ms": 26138.3,
@@ -1610,7 +1610,7 @@
         {
           "turn_num": 1,
           "user_input": "What's my IP address?",
-          "response_text": "Here is your current network information:\n\n*   **IPv4 Address:** 192.168.1.192\n*   **IPv6 Address:** 2600:1700:7080:69b0:bbb4:ef34:7cd7:5b77\n*   **Interface:** wlo1 (Wi-Fi)\n*   **Subnet Mask:** 24 bits\n*   **Gateway:** 127.0.0.1\n\nYou are currently connected to the local Wi-Fi network at 192.168.1.192.",
+          "response_text": "Here is your current network information:\n\n*   **IPv4 Address:** [redacted-ip-host1]\n*   **IPv6 Address:** [redacted-public-ipv6]\n*   **Interface:** wlo1 (Wi-Fi)\n*   **Subnet Mask:** 24 bits\n*   **Gateway:** 127.0.0.1\n\nYou are currently connected to the local Wi-Fi network at [redacted-ip-host1].",
           "source": "keyword",
           "tool_calls": [],
           "elapsed_ms": 12250.6,
@@ -3039,7 +3039,7 @@
         {
           "turn_num": 1,
           "user_input": "is ssh runnign?",
-          "response_text": "Yes, SSH is currently running on your InterGenOS system.\n\nThe service `sshd` is **active** and **enabled**. It is actively listening for connections on port 22. Recent logs confirm that SSH sessions have been successfully established and closed for the user `root` from the IP address `192.168.1.199`.",
+          "response_text": "Yes, SSH is currently running on your InterGenOS system.\n\nThe service `sshd` is **active** and **enabled**. It is actively listening for connections on port 22. Recent logs confirm that SSH sessions have been successfully established and closed for the user `root` from the IP address `[redacted-ip-host2]`.",
           "source": "llm_tools",
           "tool_calls": [
             {
@@ -5313,7 +5313,7 @@
         {
           "turn_num": 1,
           "user_input": "Would you be so kind as to check whether the NetworkManager service is currently running on this system?",
-          "response_text": "Yes, the **NetworkManager** service is currently **active and running** on this system.\n\nHere are the key details from the output:\n*   **Status:** Active (running)\n*   **Service Type:** Network Manager\n*   **PID:** 353\n*   **Memory Usage:** 10.6M (peak: 14.6M)\n*   **CPU Usage:** 1 min 763ms\n\nThe service is actively managing network leases for the interface `wlo1` (assigned IP 192.168.1.192) and has registered GNOME Network Agent agents.",
+          "response_text": "Yes, the **NetworkManager** service is currently **active and running** on this system.\n\nHere are the key details from the output:\n*   **Status:** Active (running)\n*   **Service Type:** Network Manager\n*   **PID:** 353\n*   **Memory Usage:** 10.6M (peak: 14.6M)\n*   **CPU Usage:** 1 min 763ms\n\nThe service is actively managing network leases for the interface `wlo1` (assigned IP [redacted-ip-host1]) and has registered GNOME Network Agent agents.",
           "source": "llm_tools",
           "tool_calls": [
             {
@@ -7734,7 +7734,7 @@
         {
           "turn_num": 1,
           "user_input": "What is the current status of the SSH daemon?",
-          "response_text": "The **SSH daemon** is currently **active and running**.\n\nHere are the key details from the output:\n*   **Service Status:** Active and enabled.\n*   **Main Process:** `sshd` (PID 425) is running.\n*   **Resource Usage:**\n    *   **Memory:** 5.3M (Peak: 26.2M)\n    *   **CPU:** 14.043s\n*   **Security:** The service accepts keyboard-interactive authentication and allows connections from IP `192.168.1.199`.",
+          "response_text": "The **SSH daemon** is currently **active and running**.\n\nHere are the key details from the output:\n*   **Service Status:** Active and enabled.\n*   **Main Process:** `sshd` (PID 425) is running.\n*   **Resource Usage:**\n    *   **Memory:** 5.3M (Peak: 26.2M)\n    *   **CPU:** 14.043s\n*   **Security:** The service accepts keyboard-interactive authentication and allows connections from IP `[redacted-ip-host2]`.",
           "source": "llm_tools",
           "tool_calls": [
             {
@@ -7826,7 +7826,7 @@
         {
           "turn_num": 1,
           "user_input": "is ssh up",
-          "response_text": "Yes, **SSH is up**.\n\nBased on the `manage_services` output:\n*   **Status**: Active and running.\n*   **Service**: `sshd.service` is enabled and active.\n*   **PID**: Main process (PID 425) is running.\n*   **Recent Activity**: SSH sessions have been active and closed recently (e.g., connections from `192.168.1.199` on ports 32806, 51884, and 52104).",
+          "response_text": "Yes, **SSH is up**.\n\nBased on the `manage_services` output:\n*   **Status**: Active and running.\n*   **Service**: `sshd.service` is enabled and active.\n*   **PID**: Main process (PID 425) is running.\n*   **Recent Activity**: SSH sessions have been active and closed recently (e.g., connections from `[redacted-ip-host2]` on ports 32806, 51884, and 52104).",
           "source": "llm_tools",
           "tool_calls": [
             {

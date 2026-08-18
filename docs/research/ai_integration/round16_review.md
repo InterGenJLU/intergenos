@@ -1332,7 +1332,7 @@ Yes, SSH is running.
 **Status:** Active and listening.
 **Service:** `sshd` (PID 425)
 **Location:** `/usr/sbin/sshd -D [listener] 0 of 10-100 startups`
-**Connections:** Currently accepting connections from `192.168.1.199`.
+**Connections:** Currently accepting connections from `[redacted-ip-host2]`.
 ````
 
 ---
@@ -1406,7 +1406,7 @@ You're running kernel 6.18.10.
 
 **Response:**
 ````
-Your local loopback address is `127.0.0.1`. Your primary network interface (`wlo1`) has the IP address `192.168.1.192`.
+Your local loopback address is `127.0.0.1`. Your primary network interface (`wlo1`) has the IP address `[redacted-ip-host1]`.
 ````
 
 ---
@@ -1810,14 +1810,14 @@ Here are your network interfaces:
 
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): state changed no lease
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): activation: beginning transaction (timeout in 45 seconds)
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=192.168.1.192, acd pending
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1], acd pending
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 Apr 15 14:23:22 intergenos NetworkManager[353]: <info>  [1776281002.9856] agent-manager: agent[98cbb30b060c3332,:1.3045/org.gnome.Shell.NetworkAgent/60598]: agent registered
 Apr 15 14:23:29 intergenos NetworkManager[353]: <info>  [1776281009.4130] agent-manager: agent[4c8c51d7746cf946,:1.3068/org.gnome.Shell.NetworkAgent/1000]: agent registered
-Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 ````
 
 ---
@@ -2018,7 +2018,7 @@ Your system has **185G of free space** remaining on the root partition.
 - **Protocol:** WPA2/WPA3
 - **Interface:** `wlo1` (Wi-Fi)
 - **State:** Active
-- **DHCP:** Active (Lease: 192.168.1.192)
+- **DHCP:** Active (Lease: [redacted-ip-host1])
 
 **Interpretation:** The Network Manager service is fully operational and actively managing your wireless network interface.
 ````
@@ -2058,7 +2058,7 @@ Your hostname is intergenos.
 - **User:** root
 
 **Recent Activity:**
-- **Connections:** Active session from `192.168.1.199` (Port 42026, 49114, 33470).
+- **Connections:** Active session from `[redacted-ip-host2]` (Port 42026, 49114, 33470).
 - **Session Management:** All sessions for user `root` have been closed recently.
 - **Service State:** Enabled and active.
 

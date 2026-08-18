@@ -74,7 +74,7 @@ The /etc/fstab configuration for InterGenOS contains four entries. The primary
 pers_no_over_explain [PASS] — keyword (8735ms)
 Query: What's my IP address?
 Response:
-Your current network interface (wlo1) is configured to use the private subnet 192.168.1.0/24, with the active IP address being 192.168.1.192. The system also shows a loopback address of 127.0.0.1/8.
+Your current network interface (wlo1) is configured to use the private subnet [redacted-lan-subnet]/24, with the active IP address being [redacted-ip-host1]. The system also shows a loopback address of 127.0.0.1/8.
 
 -- That’s a lot of information that the user didn’t really ask for, and may actually be confusing. This needs work-  templated response that never reaches the LLM?
 

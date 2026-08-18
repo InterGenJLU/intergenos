@@ -518,7 +518,7 @@
         {
           "turn_num": 1,
           "user_input": "Is NetworkManager running?",
-          "response_text": "Here are your network interfaces:\n\n\u25cf NetworkManager.service - Network Manager\n     Loaded: loaded (/usr/lib/systemd/system/NetworkManager.service; enabled; preset: enabled)\n     Active: active (running) since Wed 2026-04-08 22:49:32 CDT; 1 week 1 day ago\n Invocation: 78334cb2d44c412b9ca5db20448f981f\n       Docs: man:NetworkManager(8)\n   Main PID: 353 (NetworkManager)\n      Tasks: 4 (limit: 18810)\n     Memory: 10.6M (peak: 14.6M)\n        CPU: 1min 6.093s\n     CGroup: /system.slice/NetworkManager.service\n             \u2514\u2500353 /usr/sbin/NetworkManager --no-daemon\n\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): activation: beginning transaction (timeout in 45 seconds)\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=192.168.1.192, acd pending\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=192.168.1.192\nApr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=192.168.1.192\nApr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=192.168.1.192\nApr 15 14:23:22 intergenos NetworkManager[353]: <info>  [1776281002.9856] agent-manager: agent[98cbb30b060c3332,:1.3045/org.gnome.Shell.NetworkAgent/60598]: agent registered\nApr 15 14:23:29 intergenos NetworkManager[353]: <info>  [1776281009.4130] agent-manager: agent[4c8c51d7746cf946,:1.3068/org.gnome.Shell.NetworkAgent/1000]: agent registered\nApr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=192.168.1.192\nApr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=192.168.1.192\nApr 16 21:51:32 intergenos NetworkManager[353]: <info>  [1776394292.8669] dhcp4 (wlo1): state changed new lease, address=192.168.1.192",
+          "response_text": "Here are your network interfaces:\n\n\u25cf NetworkManager.service - Network Manager\n     Loaded: loaded (/usr/lib/systemd/system/NetworkManager.service; enabled; preset: enabled)\n     Active: active (running) since Wed 2026-04-08 22:49:32 CDT; 1 week 1 day ago\n Invocation: 78334cb2d44c412b9ca5db20448f981f\n       Docs: man:NetworkManager(8)\n   Main PID: 353 (NetworkManager)\n      Tasks: 4 (limit: 18810)\n     Memory: 10.6M (peak: 14.6M)\n        CPU: 1min 6.093s\n     CGroup: /system.slice/NetworkManager.service\n             \u2514\u2500353 /usr/sbin/NetworkManager --no-daemon\n\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): activation: beginning transaction (timeout in 45 seconds)\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1], acd pending\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]\nApr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]\nApr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]\nApr 15 14:23:22 intergenos NetworkManager[353]: <info>  [1776281002.9856] agent-manager: agent[98cbb30b060c3332,:1.3045/org.gnome.Shell.NetworkAgent/60598]: agent registered\nApr 15 14:23:29 intergenos NetworkManager[353]: <info>  [1776281009.4130] agent-manager: agent[4c8c51d7746cf946,:1.3068/org.gnome.Shell.NetworkAgent/1000]: agent registered\nApr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]\nApr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]\nApr 16 21:51:32 intergenos NetworkManager[353]: <info>  [1776394292.8669] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]",
           "source": "keyword",
           "tool_calls": [],
           "elapsed_ms": 9.4,
@@ -2247,7 +2247,7 @@
         {
           "turn_num": 1,
           "user_input": "What's my IP address?",
-          "response_text": "Your local loopback IP is 127.0.0.1. Your current network interface (wlo1) has an IP address of 192.168.1.192/24.\n\n*Note: This IP is likely your router's default gateway or a device on your local network, not your public-facing IP address.*",
+          "response_text": "Your local loopback IP is 127.0.0.1. Your current network interface (wlo1) has an IP address of [redacted-ip-host1]/24.\n\n*Note: This IP is likely your router's default gateway or a device on your local network, not your public-facing IP address.*",
           "source": "keyword",
           "tool_calls": [],
           "elapsed_ms": 9210.9,
@@ -4298,7 +4298,7 @@
         {
           "turn_num": 1,
           "user_input": "is ssh runnign?",
-          "response_text": "The OpenSSH server (sshd) is active and running. It is currently listening on port 22 with 10-100 startup options.\nThe service was enabled and active on April 8, 2026.\nRecent session logs show successful connections from 192.168.1.199.",
+          "response_text": "The OpenSSH server (sshd) is active and running. It is currently listening on port 22 with 10-100 startup options.\nThe service was enabled and active on April 8, 2026.\nRecent session logs show successful connections from [redacted-ip-host2].",
           "source": "llm_tools",
           "tool_calls": [
             {
@@ -6506,7 +6506,7 @@
         {
           "turn_num": 1,
           "user_input": "Check sshd",
-          "response_text": "sshd.service is active (running) since April 8, 2026. The service is currently listening on port 22. Recent logs show successful SSH connections from 192.168.1.199 to the root user.",
+          "response_text": "sshd.service is active (running) since April 8, 2026. The service is currently listening on port 22. Recent logs show successful SSH connections from [redacted-ip-host2] to the root user.",
           "source": "llm_tools",
           "tool_calls": [
             {

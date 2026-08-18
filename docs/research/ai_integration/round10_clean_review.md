@@ -978,7 +978,7 @@ To determine how much disk space remains on your system, I need to check the cur
 
 **Response:**
 ```
-The SSH daemon is currently active and running. It is managed by systemd and is enabled, with a process ID of 425, consuming 11.954 CPU seconds and 5.9M memory. Recent logs show active sessions for the root user on multiple ports, including a successful keyboard-interactive authentication from 192.168.1.199.
+The SSH daemon is currently active and running. It is managed by systemd and is enabled, with a process ID of 425, consuming 11.954 CPU seconds and 5.9M memory. Recent logs show active sessions for the root user on multiple ports, including a successful keyboard-interactive authentication from [redacted-ip-host2].
 ```
 
 ---
@@ -1257,7 +1257,7 @@ You're running kernel 6.18.10.
 
 **Response:**
 ```
-Your current network interface lo is configured with the IP address 192.168.1.192/24. The loopback interface lo is bound to 127.0.0.1.
+Your current network interface lo is configured with the IP address [redacted-ip-host1]/24. The loopback interface lo is bound to 127.0.0.1.
 ```
 
 ---
@@ -1612,10 +1612,10 @@ Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] device
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): canceled DHCP transaction
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): state changed no lease
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): activation: beginning transaction (timeout in 45 seconds)
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=192.168.1.192, acd pending
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1], acd pending
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 Apr 15 14:23:22 intergenos NetworkManager[353]: <info>  [1776281002.9856] agent-manager: agent[98cbb30b060c3332,:1.3045/org.gnome.Shell.NetworkAgent/60598]: agent registered
 Apr 15 14:23:29 intergenos NetworkManager[353]: <info>  [1776281009.4130] agent-manager: agent[4c8c51d7746cf946,:1.3068/org.gnome.Shell.NetworkAgent/1000]: agent registered
 ```
@@ -1856,7 +1856,7 @@ Your hostname is intergenos.
 
 **Response:**
 ```
-sshd.service is currently active and running on your InterGenOS system. It has been enabled and started by systemd since April 8, 2026. The service is consuming approximately 5.9MB of memory and running 11.741 CPU cycles. Multiple successful SSH session connections are being logged for the root user from the 192.168.1.199 IP address.
+sshd.service is currently active and running on your InterGenOS system. It has been enabled and started by systemd since April 8, 2026. The service is consuming approximately 5.9MB of memory and running 11.741 CPU cycles. Multiple successful SSH session connections are being logged for the root user from the [redacted-ip-host2] IP address.
 ```
 
 **Failed assertions:**

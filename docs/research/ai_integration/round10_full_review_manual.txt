@@ -618,9 +618,9 @@ Turn 1: What's my IP address? Route: keyword (6098ms)
 
 Response:
 
-Your current network interface lo is configured with the IP address 192.168.1.192/24. The loopback interface lo is bound to 127.0.0.1.
+Your current network interface lo is configured with the IP address [redacted-ip-host1]/24. The loopback interface lo is bound to 127.0.0.1.
 
--- MIXED. The EXPECTED answer would be "Your local network IP is 192.168.1.192. Your internet-facing IP is being reported as nnn.nnn.nnn.nnn". This is simple, and may be a templating candidate.
+-- MIXED. The EXPECTED answer would be "Your local network IP is [redacted-ip-host1]. Your internet-facing IP is being reported as nnn.nnn.nnn.nnn". This is simple, and may be a templating candidate.
 
 =====
 
@@ -693,10 +693,10 @@ Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] device
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): canceled DHCP transaction
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): state changed no lease
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): activation: beginning transaction (timeout in 45 seconds)
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=192.168.1.192, acd pending
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1], acd pending
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 Apr 15 14:23:22 intergenos NetworkManager[353]: <info>  [1776281002.9856] agent-manager: agent[98cbb30b060c3332,:1.3045/org.gnome.Shell.NetworkAgent/60598]: agent registered
 Apr 15 14:23:29 intergenos NetworkManager[353]: <info>  [1776281009.4130] agent-manager: agent[4c8c51d7746cf946,:1.3068/org.gnome.Shell.NetworkAgent/1000]: agent registered
 

@@ -365,13 +365,12 @@ HOST_SHORTHAND = [
 #     MUST be RFC1918 by test semantics (TEST-NET would change behavior).
 #     Also carries synthetic global-unicast IPv6 fixtures (2601:abc::...)
 #     for the same parsing tests — exempt for the same reason (2026-08-18).
-#   - docs/research/ai_integration/ — the legacy InterGen evaluation-rounds
-#     corpus (51 files) predates this gate and carries home-LAN addresses
-#     throughout. QUARANTINED pending the operator's relocation ruling
-#     (2026-07-06); new content under any other path is gated immediately.
+#   (The docs/research/ai_integration/ entry that stood here from 2026-07-06
+#   was removed 2026-08-18: the archived transcripts now use placeholder
+#   identifiers and the directory scans like every other path. Entries on
+#   this list carry an expiry condition, never an open-ended "pending".)
 MACHINE_SPECIFICS_EXEMPT_PATHS = [
     "intergen/tests/test_ip_answer.py",
-    "docs/research/ai_integration/",
     #   - intergen/data/howto/networking.json — user-facing howto uses
     #     192.168.1.20 as a generic home-router example (idiomatic for
     #     networking docs; not a fleet address; an edit would flip the
