@@ -1,0 +1,6 @@
+Use the documentation prefix 2001:db8::1 in examples, per RFC 3849.
+Cloudflare resolvers are 2606:4700:4700::1111 and 2606:4700:4700::1001.
+Quad9 resolvers are 2620:fe::fe and 2620:fe::9.
+Mastering display metadata is based on SMPTE-2086:2014 for HDR video.
+The Nitrokey shows USB ID 20a0:42b2 in normal mode and 20a0:42dd in bootloader mode.
+A link-local address looks like fe80::82e8:2cff:fec6:fd03/64 on this interface.

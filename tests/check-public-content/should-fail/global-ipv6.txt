@@ -1,0 +1,2 @@
+The service is reachable at 2600:1700:aaaa:bbbb:cccc:dddd:eeee:ffff for testing.
+A compressed form like 3fff:1234::abcd must also be caught.
