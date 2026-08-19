@@ -177,6 +177,15 @@ class PackageRemover:
             self.root = Path(root)
         else:
             self.root = Path(getattr(db, "root", "/"))
+        # Paths this remover left on disk ON PURPOSE, accumulated across every
+        # remove() call it makes: co-owned payload, preserved configuration,
+        # configuration that could not be read to prove it unmodified, and the
+        # top-level FHS skeleton entries removal refuses on principle. A
+        # caller that audits its own outcome — `pkm iso-prep` does — needs to
+        # tell a deliberate retention from residue, and the difference is
+        # knowable only here. Files that FAILED to unlink are deliberately NOT
+        # in this set: those are the residue such an audit exists to catch.
+        self.deliberately_retained = set()
 
     def _co_owned_paths(self, exclude_pkg_id, paths):
         """Component C — the co-ownership query. Return {path: [owner names]}
@@ -529,6 +538,20 @@ class PackageRemover:
         # Remove from database
         self.db.remove_installed(name)
         self.db.log_operation("remove", name, old_version=pkg["version"])
+
+        # Record what was kept on purpose, for a caller that audits whether
+        # the removal actually cleared what the package owned. Normalised the
+        # same way the file rows are, so the caller can compare directly.
+        for _p in protected_skipped:
+            self.deliberately_retained.add(_p.strip("/"))
+        for _p in preserved_configs:
+            self.deliberately_retained.add(_p.strip("/"))
+        for _p in unreadable_preserved:
+            self.deliberately_retained.add(_p.strip("/"))
+        for _p, _owners in retained_co_owned:
+            self.deliberately_retained.add(_p.strip("/"))
+        for _p, _owners in retained_co_owned_dirs:
+            self.deliberately_retained.add(_p.strip("/"))
 
         from . import txn as _txn
         msg = (

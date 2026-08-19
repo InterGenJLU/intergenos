@@ -3339,6 +3339,34 @@ def cmd_autoremove(db, args):
     return 1 if any_failed else 0
 
 
+def _known_owned_paths(db, root, name, version):
+    """Every path `name` is known to own, from BOTH of pkm's records.
+
+    The database file rows are the obvious source and are not sufficient on
+    their own: a package whose rows are missing or incomplete has no rows to
+    check, and a build chroot's database has carried exactly that damage
+    (directory rows written with the wrong is_dir flag corpus-wide, release
+    columns reset). The on-disk text manifest is the second, independent
+    record of the same payload, so the union is what the package is known to
+    own. Read before the removal, which unlinks the manifest.
+
+    Returns root-relative paths with no leading or trailing slash.
+    """
+    from .database import MANIFEST_DIR, _parse_manifest
+
+    paths = {f["path"].strip("/") for f in db.get_files(name)}
+    if version:
+        manifest = (Path(root) / MANIFEST_DIR.relative_to("/")
+                    / f"{name}-{version}")
+        try:
+            parsed = _parse_manifest(manifest.read_text(errors="replace"))
+        except OSError:
+            parsed = None
+        if parsed:
+            paths |= {p.strip("/") for p in parsed.get("files", [])}
+    return {p for p in paths if p}
+
+
 def cmd_iso_prep(db, args):
     """pkm iso-prep --packages-from FILE [--yes] [--dry-run]
 
@@ -3508,9 +3536,16 @@ def cmd_iso_prep(db, args):
     # BEFORE its rows go away — the post-pass below has no other way to know
     # which directories the prune touched once the file rows are gone.
     swept_candidates = set()
+    # Every path each pruned package was KNOWN to own, kept per package so the
+    # post-removal audit can attribute a survivor to the package that owned
+    # it. Collected before the removal, because the removal takes both the
+    # rows and the text manifest away.
+    owned_by_target = {}
     for n in removal_order:
         for f in db.get_files(n):
             swept_candidates |= ancestor_chain(f["path"])
+        owned_by_target[n] = _known_owned_paths(db, remover.root, n,
+                                                installed[n].get("version"))
         ok, msg = remover.remove(n, force=False)
         if ok:
             # Surface the remover's own message — it carries the actual
@@ -3559,6 +3594,61 @@ def cmd_iso_prep(db, args):
                   f"(hook-product or package-state subtree):")
         for rel in exempt_seen:
             print(f"    /{rel}")
+
+    # Outcome assertion. The prune states that the listed packages are gone;
+    # this proves it rather than assuming it. On the 2026-08-15 from-scratch
+    # build two DESTDIR-staged compatibility symlinks of pruned packages
+    # (/opt/jdk, /opt/rocm/llvm) survived the prune and surfaced later at the
+    # shipping-tree ownership gate as unowned content with nothing to
+    # attribute them to; why removal did not unlink them was never determined
+    # from the evidence that survived the burn. An undetermined cause is a
+    # reason to check the outcome, not to guess at the cause.
+    #
+    # Residue is a path a pruned package was known to own that is still on
+    # disk, that no remaining package records, and that pkm did not retain on
+    # purpose. Directories belong to the emptied-skeleton sweep above: a
+    # non-empty one holds somebody's payload, and an empty unowned one has
+    # already been judged. Nothing is deleted here — a removal path that left
+    # payload behind is not one to give a second, unaudited deletion pass.
+    remaining_recorded = {p.strip("/") for (p,) in
+                          db.conn.execute("SELECT path FROM files")}
+    residue = []  # (package, path)
+    checked = 0
+    for name in removal_order:
+        for rel in sorted(owned_by_target.get(name, ())):
+            if "/" not in rel:
+                continue  # top-level FHS skeleton: removal refuses it by rule
+            checked += 1
+            if rel in remaining_recorded:
+                continue  # a remaining package still records it
+            if rel in remover.deliberately_retained:
+                continue  # co-owned, or configuration preserved on purpose
+            abs_path = str(remover.root / rel)
+            if not os.path.lexists(abs_path):
+                continue
+            if os.path.isdir(abs_path) and not os.path.islink(abs_path):
+                continue  # the emptied-skeleton sweep's subject, not this one
+            residue.append((name, rel))
+
+    if residue:
+        emit_error(
+            f"{len(residue)} path(s) of pruned package(s) are STILL ON DISK "
+            f"after the prune, recorded by no remaining package.\n"
+            f"The prune did not do what it reports. Each path below would "
+            f"reach the shipping-tree ownership gate as unowned content with "
+            f"nothing to attribute it to.\n"
+            f"Nothing was deleted here: fix the removal of the named package "
+            f"and re-run iso-prep on a clean substrate."
+        )
+        # Every path, never a sample: the ownership gate reports what
+        # survives, and the two lists are only cross-checkable in full.
+        for name, rel in residue:
+            print(f"    /{rel}   (owned by pruned {name})", file=sys.stderr)
+        return 1
+
+    emit_info(f"prune outcome verified: {checked} owned path(s) across "
+              f"{len(removal_order)} pruned package(s) checked, none left on "
+              f"disk unowned.")
 
     _size_part = f"{reclaimed_uncompressed / (1024*1024):.2f} MB reclaimed"
     if size_unknown_count:
