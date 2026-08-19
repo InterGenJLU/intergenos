@@ -567,13 +567,24 @@ fi
 # became a redundant double-prompt (Forge already collected the password,
 # then the greeter would prompt for it again on first boot).
 
-# Enable GDM and set graphical target for desktop boot
+# Set the graphical default target for desktop boot.
+#
+# The `systemctl enable gdm` that used to sit beside this line was removed: the
+# gdm package ships its own preset file (90-gdm.preset, `enable gdm.service`)
+# and the `systemctl preset-all` this phase runs against the chroot already
+# applies it, so the enable here was a second voice for a decision the preset
+# owns. Measured before removing it, against a root holding only the preset
+# files and the real gdm.service and with no enable called anywhere: the unit
+# starts disabled with no enablement symlinks, and preset-all alone resolves it
+# to enabled and writes display-manager.service. Decided 2026-08-19.
+#
+# set-default is NOT preset-owned — no preset file can express the default
+# target — so it stays here.
 if [ -f "${MOUNT_POINT}/usr/lib/systemd/system/gdm.service" ]; then
     chroot "$MOUNT_POINT" /bin/bash -c '
-        systemctl enable gdm
         systemctl set-default graphical.target
     '
-    log "  GDM enabled, default target set to graphical"
+    log "  Default target set to graphical (gdm enablement is preset-owned)"
 fi
 
 # /tmp/.X11-unix is managed by upstream systemd-tmpfiles via
@@ -636,26 +647,31 @@ chroot "$MOUNT_POINT" /bin/bash -c '
     # Linker cache — must run after all libraries are installed
     ldconfig 2>/dev/null
 
-    # Enable essential desktop services
-    systemctl enable avahi-daemon.service 2>/dev/null || true
-    # Only enable CUPS if cupsd binary actually exists
-    if [ -x /usr/sbin/cupsd ] || [ -x /usr/bin/cupsd ]; then
-        systemctl enable cups.service 2>/dev/null || true
-    else
-        systemctl disable cups.service cups.socket cups.path 2>/dev/null || true
-    fi
-    systemctl enable bluetooth.service 2>/dev/null || true
-    # sshd intentionally NOT enabled on the live ISO (D-019 2026-05-22,
-    # amends D-007 sshd-default arm): SSH is opt-in via Forge install
-    # toggle (default OFF). Live ISO + qcow2 dev images match the
-    # installed-system default. Live user can `systemctl enable --now
-    # sshd` manually if needed for debugging.
-
-    # Disable NetworkManager-wait-online — it blocks boot indefinitely
-    # when no network interface is immediately available (USB NIC unplugged,
-    # WiFi not configured). NetworkManager still manages interfaces
-    # asynchronously without this service.
-    systemctl disable NetworkManager-wait-online.service 2>/dev/null || true
+    # No service enablement here. Which services are on by default is decided
+    # in one place — intergenos-base-files'
+    # /usr/lib/systemd/system-preset/80-intergenos-enable.preset, applied by the
+    # `systemctl preset-all` this phase already runs against the chroot before
+    # the image root is populated from it. This block used to enable avahi,
+    # cups and bluetooth and disable NetworkManager-wait-online here, after
+    # that pass and against the image root instead of the chroot, so the image
+    # this script wrote disagreed with the ISO and with every installed system
+    # for the same tree. Two of those four decisions also contradicted the
+    # recipes that shipped the same units. Decided 2026-08-19: the preset files
+    # own default enablement; this script no longer has a say.
+    #
+    # The retired NetworkManager-wait-online disable carried the reason "it
+    # blocks boot indefinitely". The unit as shipped sets
+    # Environment=NM_ONLINE_TIMEOUT=60 and is Type=oneshot, so it is bounded at
+    # 60 seconds and boot continues afterwards; and it only runs at all when
+    # something pulls network-online.target in, which nothing does on a default
+    # install. The preset entry for that unit records both measurements.
+    #
+    # sshd stays off, and that is unchanged by this edit: it is off because no
+    # preset file enables it, so the 99- catch-all disables it. SSH is opt-in
+    # (decided 2026-05-22, amending the earlier sshd-default position) — the
+    # installer offers it during setup, defaulting to off, and the welcome
+    # application offers the same switch afterwards. A live user can still run
+    # `systemctl enable --now sshd` by hand for debugging.
 
     # Disable remote-fs.target and machines.target — not needed for desktop,
     # can cause boot hangs waiting for network mounts
