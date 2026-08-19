@@ -85,7 +85,7 @@ reply looks like. Full field docs live in the seed file's `schema_fields`.
 **The operator grading pass (the calibration mechanism):**
 1. Operator scores each seed's target dimension pass/flag/fail (the seed file's
    `expect_verdict` is the PROPOSED ground truth — confirm or correct it). Ground truth
-   is the operator/independent-annotator verdict, not the seed author's `author_note`.
+   is the independent annotator's verdict, not the seed author's `author_note`.
 2. Run the LLM judge (behind 4.3) over the same seeds; measure per-dimension
    judge-vs-operator agreement and tune the rubric until it tracks.
 3. **Garbage-catch gate (UNCHANGED, hard):** the judge must catch 100% of the

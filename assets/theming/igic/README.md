@@ -11,7 +11,7 @@ VISUAL_LANGUAGE.md §15).
 
 Layout:
 - `palette.yaml` — controlled palette (VISUAL_LANGUAGE.md §4 tokens + a folder/MIME
-  accent starter set; the authoritative accent enumeration is the operator's
+  accent starter set; the authoritative accent enumeration is the maintainer's
   `ICON_CATEGORIES.md`).
 - `igic_core.py` — library: palette, XXE-safe parser, both validation gates, glyph
   load/sanitize/color-strip, template + pulse + glow geometry, provenance, compositor.

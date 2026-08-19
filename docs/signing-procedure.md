@@ -20,14 +20,14 @@ The kernel-module signing key (ephemeral, per-build) and end-user MOK enrollment
 
 ## The two build-pipeline signing pauses (operator ceremonies)
 
-A from-scratch ISO build through `scripts/build-intergenos.sh` stops at **two** operator-only signing pauses, in pipeline order. Each is driven by its own pain-free wrapper: the operator runs exactly one command and signs; the Coordinator does all staging + verification around it. This two-pause structure is **new since the GB001-era ISOs** (the archive-manifest pause was added with Option-1 install-integrity in 2026) — an operator who signed earlier ISOs will not expect the first pause.
+A from-scratch ISO build through `scripts/build-intergenos.sh` stops at **two** operator-only signing pauses, in pipeline order. Each is driven by its own pain-free wrapper: the operator runs exactly one command and signs; the maintainer does all staging + verification around it. This two-pause structure is **new since the GB001-era ISOs** (the archive-manifest pause was added with Option-1 install-integrity in 2026) — an operator who signed earlier ISOs will not expect the first pause.
 
 | # | Pause (orchestrator phase) | Operator command | Key / crypto | `sudo`? | Produces |
 |---|---|---|---|:--:|---|
 | 1 | end of **`phase_manifest`** (BEFORE squashfs) | `bash scripts/sign-manifest.sh` | OpenPGP **[S1]** subkey — `gpg --detach-sign --armor` (PIN **+ touch**) | **NO** | the install-integrity trust **triplet** |
 | 2 | end of **`phase_ukis_verity`** (AFTER squashfs) | `sudo bash scripts/sign-bootloader.sh` | **PIV slot 9c** X.509 — `sbsign` (PIN-only) | **yes** | signed GRUB + 3 UKIs |
 
-The superset `scripts/sign-release.sh` (documented in the rest of this runbook) performs every signing step in one pass — it is the CI / coordinator-driven path and the standalone path for re-signing the pkm index or a shipped kernel image. It is **not** the human ceremony: during a live pipeline pause, recommend the per-pause wrapper, never `sign-release.sh`, to the operator.
+The superset `scripts/sign-release.sh` (documented in the rest of this runbook) performs every signing step in one pass — it is the CI / maintainer-driven path and the standalone path for re-signing the pkm index or a shipped kernel image. It is **not** the human ceremony: during a live pipeline pause, recommend the per-pause wrapper, never `sign-release.sh`, to the operator.
 
 ### Ceremony #1 — archive integrity manifest (`sign-manifest.sh`)
 
@@ -39,7 +39,7 @@ The triplet is three files (the wrapper emits all three from one command):
 - `intergenos-archive-manifest.txt.sig` — the detached [S1] ASCII-armored signature
 - `intergenos-release-key.asc` — the exported release public key (so the target self-validates without network)
 
-**Coordinator pre-ceremony (never the operator):**
+**Maintainer pre-ceremony (never the operator):**
 
 1. Stage the *current* manifest into the signing dir, clearing any stale prior-ceremony copy first (same stale-input hazard as the bootloader stage):
    ```
@@ -57,7 +57,7 @@ cd /mnt/intergenos && bash scripts/sign-manifest.sh
 
 GPG card-signing runs **as the operator**; `sudo` uses root's empty keyring with no card stub and fails. (The pause's own printed hint may say `sudo bash …` — that generic hint is **wrong** for the GPG path; do not relay it.) The wrapper sanity-gates the manifest's BSD format + v1 header + terminator (refusing to sign a malformed manifest that would later break `PHASE_VERIFY`'s parser), signs via `gpg --detach-sign --armor` against [S1], verifies with `gpg --verify`, and exports `intergenos-release-key.asc` — leaving the whole triplet in `/tmp/c6r2-manifest/`. Signing requires the OpenPGP **User PIN + an on-card touch** (UIF policy — watch the LED).
 
-**Coordinator post-ceremony:** deliver all THREE artifacts into `/mnt/intergenos/build/` (the directory Step 4.8 reads; the mount is shared host↔build-VM, so the `.sig` + `release-key.asc` just need copying in beside the manifest), then resume `sudo bash scripts/build-intergenos.sh --user <user> --debug-verbose --start-at squashfs`. Step 4.8's staging gate fail-closes unless the triplet is present + non-empty, the signature verifies against the staged key, and every staged archive appears in the manifest.
+**Maintainer post-ceremony:** deliver all THREE artifacts into `/mnt/intergenos/build/` (the directory Step 4.8 reads; the mount is shared host↔build-VM, so the `.sig` + `release-key.asc` just need copying in beside the manifest), then resume `sudo bash scripts/build-intergenos.sh --user <user> --debug-verbose --start-at squashfs`. Step 4.8's staging gate fail-closes unless the triplet is present + non-empty, the signature verifies against the staged key, and every staged archive appears in the manifest.
 
 > **⚠️ `build/` (and `build/bootloader/`) is root-owned AND may hold a PRIOR ceremony's stale triplet / `.efi.signed` set.** A plain `cp` from your user shell fails *permission-denied*, and even with privilege a stale prior copy can shadow the fresh one (same stale-input hazard as the bootloader stage). So the delivery is NOT a bare "just copy them in": **(1) clear the stale prior-ceremony artifacts first, then (2) copy the fresh set in, using privilege.** On the shared mount the build VM's NOPASSWD sudo is the clean privilege path: `scp` the fresh triplet to the VM's `/tmp`, then on the VM `sudo rm -f /mnt/intergenos/build/{intergenos-archive-manifest.txt,intergenos-archive-manifest.txt.sig,intergenos-release-key.asc}` (the stale set) → `sudo cp /tmp/<each> /mnt/intergenos/build/`. (Same shape for `build/bootloader/*.efi.signed` in ceremony #2.) Verify the delivered shas before resuming. (Documented 2026-06-19 after the bare-copy step failed on root-owned `build/` + stale files during GBC004.1.)
 
@@ -65,7 +65,7 @@ GPG card-signing runs **as the operator**; `sudo` uses root's empty keyring with
 
 ### Ceremony #2 — GRUB + the 3 UKIs (`sign-bootloader.sh`)
 
-The second pause (`phase_ukis_verity`, after squashfs) signs GRUB + the three UKIs via PIV slot 9c. Its CRITICAL pre-flight — re-staging the current build's UKIs and verifying each UKI's sealed `igos.verity.roothash` equals the current squashfs `ROOT_HASH` before signing — is the Coordinator's step and is documented in full under "UKI staging freshness" below.
+The second pause (`phase_ukis_verity`, after squashfs) signs GRUB + the three UKIs via PIV slot 9c. Its CRITICAL pre-flight — re-staging the current build's UKIs and verifying each UKI's sealed `igos.verity.roothash` equals the current squashfs `ROOT_HASH` before signing — is the maintainer's step and is documented in full under "UKI staging freshness" below.
 
 ## When This Procedure Runs
 
@@ -80,7 +80,7 @@ Before starting a signing window:
 
 1. **Hardware token physically present in the signing workstation.** Nitrokey 3 NFC plugged into a USB port you can reach for touch confirmation. One session = one token = one signer.
 2. **PIN unlocked.** `gpg --card-status` should list the card and its serial. `pkcs11-tool --list-slots` should list the PIV interface.
-3. **Artifacts staged (by the Coordinator).** The Coordinator assembles the build orchestrator's unsigned output into a single staging directory and verifies its freshness (see "UKI staging freshness" below) before the operator is brought in to sign. The operator never stages, copies, or moves any artifact. Staged files:
+3. **Artifacts staged (by the maintainer).** The maintainer assembles the build orchestrator's unsigned output into a single staging directory and verifies its freshness (see "UKI staging freshness" below) before the operator is brought in to sign. The operator never stages, copies, or moves any artifact. Staged files:
    - `InterGenOS.db` — the pkm repository index
    - `vmlinuz-<version>-intergenos` — one or more kernel images
    - `grubx64.efi` — the custom GRUB build
@@ -119,8 +119,8 @@ Each live/installer UKI seals the squashfs's dm-verity root hash into its cmdlin
 hash does not match the squashfs actually shipped on the ISO, **dm-verity fails at
 boot** and the firmware/initramfs reports the *stale* root hash.
 
-**This is the Coordinator's step, never the operator's.** Before every ceremony the
-Coordinator moves the OLD artifacts out and the NEW ones in:
+**This is the maintainer's step, never the operator's.** Before every ceremony the
+maintainer moves the OLD artifacts out and the NEW ones in:
 
 1. **Re-stage.** Move whatever is in the signing dir aside, then copy the *current
    build's* unsigned UKIs + GRUB from the build output into it:
@@ -150,14 +150,14 @@ Coordinator moves the OLD artifacts out and the NEW ones in:
 `88f774b0` hash. Root cause: the fresh UKIs were never copied into the signing dir.
 **Durable fix (tracked):** `sign-bootloader.sh` should self-stage from
 `build/bootloader/` and assert each UKI's `igos.verity.roothash` equals the current
-squashfs `ROOT_HASH`, aborting on mismatch — so this Coordinator step cannot be
+squashfs `ROOT_HASH`, aborting on mismatch — so this maintainer step cannot be
 skipped and the operator's job stays exactly: run the script, sign, report done.
 
 ## Running the Signature Steps
 
 **The operator's entire role is here: run one wrapper per pause, enter the PIN
-when prompted, then report completion to the Coordinator. All staging and
-freshness-verification is already done (by the Coordinator) before this point —
+when prompted, then report completion to the maintainer. All staging and
+freshness-verification is already done (by the maintainer) before this point —
 the operator stages nothing.**
 
 **Use the per-pause wrappers, not the superset.** A release build halts twice,

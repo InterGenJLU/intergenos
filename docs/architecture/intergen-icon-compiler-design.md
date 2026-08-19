@@ -63,7 +63,7 @@ igic/
   recipes/                # one YAML per icon (11 shipped)
     org.intergenos.terminal.yaml  folder.yaml  folder-documents.yaml  ...
 ```
-**In-tree target layout (SPEC-ONLY — where the coordinator lands it):** the tool tree goes to
+**In-tree target layout (SPEC-ONLY — where it lands):** the tool tree goes to
 `assets/intergen-icons/` (data: `palette.yaml`, `glyphs/`, `recipes/`) with the three
 Python modules under that dir or `tools/icons/`, mirroring `assets/intergen-mark/`. The
 compiled theme is the packaged artifact (§20.3), not the compiler.
@@ -88,7 +88,7 @@ no external binaries (`rsvg-convert`/`inkscape` are NOT used).
 `tokens:` mirror VISUAL_LANGUAGE.md §4 verbatim (authoritative canon — a change is a
 canon change, made in VISUAL_LANGUAGE.md first, then mirrored). `accents:` are the
 folder / MIME color-coding set. **BUILT** with a defensible starter accent set;
-**operator-owned:** the authoritative accent enumeration is reserved for the operator
+**reserved:** the authoritative accent enumeration is reserved for the maintainer
 in a companion `ICON_CATEGORIES.md` (v0.1 §10.2), which supersedes the starter set by
 editing `palette.yaml` — no code change. The starter set includes `accent-yellow`
 `#ffd23f`, deliberately **distinct from warning amber `#f59e0b`** so a yellow folder
@@ -344,5 +344,5 @@ hicolor (release-realistic — do not block RC on full coverage). Nothing here i
 | Date | Author | Change |
 |---|---|---|
 | 2026-06-29 | (v0.1) | Initial vision doc — pipeline concept, phasing, decisions, the two-gate validator idea, provenance. |
-| 2026-07-09 | icon-design | **v0.2** — executable-grade spec + a working reference prototype (`igic/`). Pinned the dependencies (verified on the build host), the recipe schema (every field/enum/default), the glyph contract, templates, the pulse motif, the baked glow, the compositing layer stack, content-addressed timestamp-free provenance, both validation gates (enumerated rules + reject list, fail-closed, gate-2 proven rejecting disallowed-construct input), rasterization + hybrid routing, the freedesktop theme export, the exact invocations, and the failure modes. Added the BUILT-vs-SPEC-ONLY ledger (Rule 21) and the determinism proof. Not committed; for coordinator review. Only the operator declares resolved. |
-| 2026-07-10 | icon-design | **v0.3** — design-revision leg off the operator's contact-sheet walk (five items). Corrected the stroke to VL §6 (~2% detailed / ~6% simplified; 5px/16px on the 256 canvas; routing ≤48 simplified), superseding the §11 anatomy-table 12px/24px which read too heavy (the §11 table is flagged to reconcile against §6). Rewrote the pulse motif to the canonical asymmetric layout (short lead / spike left-of-center / long tail) and encoded that asymmetry as a hard invariant in `pulse_path()`. Cleaned the folder silhouette (removed the top-left notch), moved the terminal prompt small into the top-left quadrant, and made the trash slots geometrically vertical. Recipes/glyphs revised in place; battery re-passed (validate 11/11, build 11/11); determinism byte-identical. Not committed; for coordinator review. Only the operator declares resolved. |
+| 2026-07-09 | icon-design | **v0.2** — executable-grade spec + a working reference prototype (`igic/`). Pinned the dependencies (verified on the build host), the recipe schema (every field/enum/default), the glyph contract, templates, the pulse motif, the baked glow, the compositing layer stack, content-addressed timestamp-free provenance, both validation gates (enumerated rules + reject list, fail-closed, gate-2 proven rejecting disallowed-construct input), rasterization + hybrid routing, the freedesktop theme export, the exact invocations, and the failure modes. Added the BUILT-vs-SPEC-ONLY ledger (Rule 21) and the determinism proof. |
+| 2026-07-10 | icon-design | **v0.3** — design-revision leg off the contact-sheet review (five items). Corrected the stroke to VL §6 (~2% detailed / ~6% simplified; 5px/16px on the 256 canvas; routing ≤48 simplified), superseding the §11 anatomy-table 12px/24px which read too heavy (the §11 table is flagged to reconcile against §6). Rewrote the pulse motif to the canonical asymmetric layout (short lead / spike left-of-center / long tail) and encoded that asymmetry as a hard invariant in `pulse_path()`. Cleaned the folder silhouette (removed the top-left notch), moved the terminal prompt small into the top-left quadrant, and made the trash slots geometrically vertical. Recipes/glyphs revised in place; battery re-passed (validate 11/11, build 11/11); determinism byte-identical. |
