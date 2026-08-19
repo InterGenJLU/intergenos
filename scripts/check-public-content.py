@@ -166,7 +166,7 @@ HEX_SECRETS = [
 # via LEDGER_EXEMPT_PATHS below, mirroring PRIVATE_REPO_PATH_EXEMPT_PATHS.
 INTERNAL_LEDGER = [
     ("INTERNAL-LEDGER", r"\bTRACKER(?:_[0-9][0-9._]*)?\.md\b"),
-    ("INTERNAL-LEDGER", r"\bTRACKER[ _](?:2\.0|3\.0)\b"),
+    ("INTERNAL-LEDGER", r"\bTRACKER[ _][0-9]+\.[0-9]+\b"),
 ]
 
 # Machine-specific leak class (decided 2026-07-06, after the
