@@ -7,6 +7,7 @@ skip-built fingerprint, so a targeted build silently shipped the stale binary.
 """
 import hashlib
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -581,6 +582,49 @@ class TestCoverageGate(unittest.TestCase):
         # list, not by the root-file arm — so a directory that is deliberately
         # not in that list (build output, for instance) stays unflagged.
         self.assertEqual(self.gate.external_reads("cp -r /mnt/intergenos/build ."), set())
+    def test_shared_build_input_roots_flagged(self):
+        """A recipe reading a shared build input from config/, scripts/, docs/
+        or igos-build/ is the same stale-ship class as an intergen/ read: the
+        file decides the built bytes (or IS the payload), so an edit to it must
+        move the reading package's fingerprint."""
+        for line, expected in [
+            ("source /mnt/intergenos/scripts/lib32-env.sh", "scripts/lib32-env.sh"),
+            ("    --cross-file /mnt/intergenos/config/lib32/lib32-cross.ini \\",
+             "config/lib32/lib32-cross.ini"),
+            ("    python3 /mnt/intergenos/igos-build/mesa_feature_matrix.py \\",
+             "igos-build/mesa_feature_matrix.py"),
+            ('    cp "${IGOS_SOURCE_ROOT:-/mnt/intergenos}/docs/signing-key.asc" .',
+             "docs/signing-key.asc"),
+        ]:
+            self.assertIn(expected, self.gate.external_reads(line), f"should flag: {line}")
+
+    def test_external_tops_covers_every_chroot_staged_source_root(self):
+        """The roots list must name every first-party source dir the build
+        stages into the chroot.
+
+        Anything staged there is reachable by a build.sh at build time, so a
+        staged root absent from the list is a read this gate cannot see. The
+        gate's own comment states the list MUST stay in sync with that staging
+        and admits the gate cannot enforce it on itself; this test is that
+        enforcement. Derived from build-intergenos.sh rather than restated, so
+        a NEW staged root fails here instead of silently escaping the gate.
+        """
+        build_sh = (REPO_ROOT / "scripts" / "build-intergenos.sh").read_text()
+        body = re.search(r"^sync_chroot_scripts\(\)\s*\{(.*?)^\}", build_sh, re.M | re.S)
+        self.assertIsNotNone(body, "sync_chroot_scripts() not found in build-intergenos.sh")
+        staged = set(re.findall(r"/mnt/intergenos/([A-Za-z0-9._-]+)/", body.group(1)))
+        self.assertTrue(
+            staged, "parsed zero staged roots — the parse is wrong, not the tree "
+                    "(a zero here would pass this test while checking nothing)")
+        # packages/ is the one deliberate exclusion: a recipe reading its OWN
+        # dir is hashed by content_hash arm (b) and never needs a declaration.
+        missing = sorted(r for r in staged - {"packages"}
+                         if r not in self.gate._EXTERNAL_TOPS)
+        self.assertEqual(
+            missing, [],
+            f"build-intergenos.sh stages {missing} into the chroot but "
+            f"check-source-tree-coverage.py's _EXTERNAL_TOPS does not list "
+            f"them, so a recipe reading from there escapes the gate")
 
     def test_coverage_prefix_match(self):
         self.assertTrue(self.gate._covered("intergen/web/server.py", ["intergen"]))
