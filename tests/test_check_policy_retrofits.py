@@ -140,3 +140,33 @@ class TestSpidermonkey:
         r = run_policy(self.PKG, 0)
         assert "POLICY_RC=0" in r.stdout
         assert "PASSED" in r.stdout
+
+
+class TestNodejs:
+    """core/nodejs — Chapter-8 lane, where a check failure is informational by
+    design. The waiver is still declared, because "informational" is a
+    property of the driver and the reason belongs with the package."""
+
+    PKG = "core/nodejs"
+
+    def test_the_blanket_mask_is_gone(self):
+        assert "|| true" not in check_body(self.PKG)
+
+    def test_check_routes_through_the_policy_wrapper(self):
+        assert "pkg_run_tests" in check_body(self.PKG)
+
+    def test_the_stale_failure_count_is_gone(self):
+        """The retired comment claimed ~10 of 4600+; the book says 3 of over
+        4400. A number in a recipe comment is a claim like any other."""
+        assert "~10 of 4600" not in build_sh(self.PKG)
+
+    def test_a_failing_suite_is_waived_loudly_not_silently(self):
+        r = run_policy(self.PKG, 1)
+        assert "POLICY_RC=0" in r.stdout, r.stdout + r.stderr
+        assert "allowed by failure_policy=known_failures" in r.stdout
+        assert "parallel suite" in r.stdout
+
+    def test_a_passing_suite_still_reads_as_passing(self):
+        r = run_policy(self.PKG, 0)
+        assert "POLICY_RC=0" in r.stdout
+        assert "PASSED" in r.stdout

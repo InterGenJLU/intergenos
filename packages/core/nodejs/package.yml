@@ -31,6 +31,11 @@ dependencies:
   - openssl
   - zlib
 
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "upstream documents a small known-failing set in the parallel suite — 3 of over 4400 at the version the reference book covers — and further cases here need network access and a writable /dev/shm that the offline build chroot does not provide. The suite runs and its full output is kept in the package log, so a failure count out of line with that is visible."
+
 verify_paths:
   - /usr/bin/node
   - /usr/bin/npm
