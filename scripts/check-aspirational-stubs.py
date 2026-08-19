@@ -154,6 +154,208 @@ SHELL_WRITE_PATTERN = re.compile(
 )
 
 # ---------------------------------------------------------------------------
+# pkm per-package lifecycle hooks.
+#
+# A package may ship an executable at /var/lib/pkm/hooks/<pkg>/<name> and pkm
+# runs it at the matching point in the package's life. Documentation that says
+# such a hook runs is a claim about the tree exactly like an ExecStart= is, and
+# it fails the same way: the nvidia KERNEL-CMDLINE document stated a
+# post-remove hook rebuilt the UKI after a removal, no post-remove script was
+# ever installed and pkm has no post-remove runner, and a reader was told the
+# signed cmdline had been cleared when it had not (corrected by hand 2026-08-19).
+#
+# Two properties of that case decide the shape of this check:
+#
+#   * The claim was written as a bare backticked filename, not an absolute
+#     path, so path extraction alone does not see it. Claims are matched on the
+#     lifecycle-hook NAME SHAPE instead, with or without a .sh suffix.
+#   * packages/extra/nvidia/hooks/post-remove.sh EXISTS, so "is the file in the
+#     tree" resolves the claim and finds nothing. What makes the claim false is
+#     that build.sh never installs it and pkm never runs it. The check is
+#     therefore against what is INSTALLED and what is RUN, which is the same
+#     install-manifest reasoning this gate already applies elsewhere.
+#
+# The suffix is deliberately NOT the discriminator between a lifecycle hook and
+# a helper: nvidia installs `rebuild-modules` with no suffix and it is a helper
+# its post-install hook calls. Only the name shape decides.
+# ---------------------------------------------------------------------------
+LIFECYCLE_HOOK_RE = re.compile(r"^(?:pre|post)-(?:install|remove|upgrade)(?:\.sh)?$")
+
+# The hook names pkm actually invokes. Held as a literal for readability and
+# guarded by test_pkm_runs_exactly_the_hooks_the_gate_believes_it_runs in
+# tests/preflight/test_aspirational_stub_docs.py, which derives the set from
+# pkm's own sources and fails when this list falls behind it.
+PKM_HOOKS_RUN: tuple[str, ...] = ("post-install", "pre-remove")
+
+# Where a recipe's build.sh installs a hook, and where a doc cites one.
+HOOK_INSTALL_RE = re.compile(
+    r"/var/lib/pkm/hooks/(?P<pkg>[A-Za-z0-9._+-]+)/(?P<name>[A-Za-z0-9._+-]+)")
+
+# Commands that put a file on disk. A hook path on a logical line that runs
+# none of these is a mention, not an installation.
+FILE_PLACING_RE = re.compile(
+    r"(?<![A-Za-z0-9_-])(install|cp|ln|mv|rsync|tee)(?![A-Za-z0-9_-])")
+
+# A doc citation, in the four forms this tree's documents actually use:
+#   `post-remove.sh`                              backticked bare name
+#   `/var/lib/pkm/hooks/nvidia/post-remove`       backticked absolute path
+#   /var/lib/pkm/hooks/nvidia/post-remove         the same path unquoted
+#   post-remove hook                              bare name, the word "hook"
+# The two path forms name their OWNING package, which is not always the package
+# whose document cites them — a document may correctly describe another
+# package's hook. Those forms therefore capture the owner and resolve against
+# it, so a correct cross-package citation is not reported as a false claim.
+# The bare form requires the following word "hook": loose prose ("the
+# post-installation steps", "run this before removal") must not match, and the
+# false-positive budget is what makes a documentation gate usable at all.
+DOC_HOOK_CITATION_RE = re.compile(
+    r"`(?P<name>(?:pre|post)-(?:install|remove|upgrade)(?:\.sh)?)`"
+    r"|`[^`]*?/var/lib/pkm/hooks/(?P<path_pkg>[A-Za-z0-9._+-]+)"
+    r"/(?P<path_name>[A-Za-z0-9._+-]+)[^`]*?`"
+    r"|/var/lib/pkm/hooks/(?P<plain_pkg>[A-Za-z0-9._+-]+)"
+    r"/(?P<plain_name>[A-Za-z0-9._+-]+)"
+    r"|(?<![`/A-Za-z0-9_-])(?P<word_name>(?:pre|post)-(?:install|remove|upgrade)"
+    r"(?:\.sh)?)\s+hooks?(?![A-Za-z0-9_-])")
+
+
+def is_lifecycle_hook_name(name: str) -> bool:
+    """True when `name` is shaped like a pkm per-package lifecycle hook."""
+    return bool(LIFECYCLE_HOOK_RE.match(name))
+
+
+def hook_base(name: str) -> str:
+    """The hook name with any .sh suffix removed — hooks install unsuffixed."""
+    return name[:-3] if name.endswith(".sh") else name
+
+
+def extract_doc_hook_claims(text: str) -> list[tuple[str, int, str | None]]:
+    """Lifecycle-hook names a documentation body claims, with line numbers.
+
+    Returns (hook_base_name, line_no, owning_package_or_None). The owner is
+    set only when the citation names it — the absolute-path forms do. Loose
+    prose ("before removal", "the post-installation steps") does not match:
+    only a lifecycle-hook-shaped token in a citation position does.
+    """
+    out: list[tuple[str, int, str | None]] = []
+    for m in DOC_HOOK_CITATION_RE.finditer(text):
+        name = (m.group("name") or m.group("path_name")
+                or m.group("plain_name") or m.group("word_name"))
+        if not name or not is_lifecycle_hook_name(name):
+            continue
+        owner = m.group("path_pkg") or m.group("plain_pkg")
+        out.append((hook_base(name), offset_to_line(text, m.start()), owner))
+    return out
+
+
+def logical_lines(text: str) -> list[str]:
+    """Shell lines with backslash continuations joined into one line each.
+
+    The recipes in this tree put an install destination on its own
+    continuation line, so a line-at-a-time read cannot see which command
+    places it.
+    """
+    out: list[str] = []
+    buf = ""
+    for raw in text.splitlines():
+        stripped = raw.rstrip()
+        if stripped.endswith("\\"):
+            buf += stripped[:-1] + " "
+            continue
+        out.append(buf + raw)
+        buf = ""
+    if buf:
+        out.append(buf)
+    return out
+
+
+def collect_installed_pkm_hooks(project_root: Path) -> dict[str, set[str]]:
+    """Map package name -> the hook names its build.sh installs.
+
+    Reads the install destinations, not the recipe's hooks/ directory: a script
+    sitting in the recipe that build.sh never installs reaches no system.
+
+    A hook path counts only when it appears on a logical line that runs a
+    file-placing command. A build.sh that merely NAMES a hook path — in a
+    message it prints, in a here-document — installs nothing, and reading a
+    mention as an installation would let this gate resolve a documentation
+    claim against a file that never reaches a system.
+    """
+    installed: dict[str, set[str]] = {}
+    pkg_root = project_root / "packages"
+    if not pkg_root.exists():
+        return installed
+    for build_sh in pkg_root.glob("*/*/build.sh"):
+        try:
+            text = build_sh.read_text(errors="replace")
+        except OSError:
+            continue
+        for raw in logical_lines(text):
+            line = raw.split("#", 1)[0]
+            if not FILE_PLACING_RE.search(line):
+                continue
+            for m in HOOK_INSTALL_RE.finditer(line):
+                installed.setdefault(m.group("pkg"), set()).add(m.group("name"))
+    return installed
+
+
+def package_of(path: Path, pkg_root: Path) -> str:
+    """The recipe directory a file under packages/ belongs to.
+
+    Read from the file's position under packages/<tier>/<package>/, never from
+    its immediate parent: a document one directory deeper would otherwise be
+    attributed to its own subdirectory and checked against a package that does
+    not exist.
+    """
+    parts = path.relative_to(pkg_root).parts
+    return parts[1] if len(parts) > 1 else ""
+
+
+def load_hook_allowlist(path: Path) -> set[str]:
+    """`<pkg>/<script>` entries for orphan hook scripts kept on purpose.
+
+    Fail-closed: the file must exist. A missing allowlist is an operational
+    failure, never a silently wider or narrower scan.
+    """
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    entries: set[str] = set()
+    for raw in path.read_text(errors="replace").splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if line:
+            entries.add(line)
+    return entries
+
+
+def find_orphan_hook_scripts(project_root: Path,
+                             allowlist: set[str] | None = None
+                             ) -> list[tuple[str, str, Path]]:
+    """Lifecycle-hook scripts a recipe carries but never installs.
+
+    Dead on its own, and the reason a false documentation claim looks
+    plausible to a reader who greps the recipe.
+    """
+    installed = collect_installed_pkm_hooks(project_root)
+    orphans: list[tuple[str, str, Path]] = []
+    pkg_root = project_root / "packages"
+    if not pkg_root.exists():
+        return orphans
+    for hooks_dir in sorted(pkg_root.glob("*/*/hooks")):
+        if not hooks_dir.is_dir():
+            continue
+        pkg = hooks_dir.parent.name
+        have = {hook_base(n) for n in installed.get(pkg, set())}
+        for script in sorted(hooks_dir.iterdir()):
+            if not script.is_file() or not is_lifecycle_hook_name(script.name):
+                continue
+            if hook_base(script.name) in have:
+                continue
+            if allowlist and f"{pkg}/{script.name}" in allowlist:
+                continue
+            orphans.append((pkg, script.name, script))
+    return orphans
+
+
+# ---------------------------------------------------------------------------
 # Known-system path prefixes.
 # These are FHS-standard locations owned by glibc / coreutils / systemd /
 # the base system rather than a single InterGenOS package. References to
@@ -580,8 +782,17 @@ def path_resolves(
 # ---------------------------------------------------------------------------
 
 def load_allowlist(path: Path | None) -> set[str]:
-    if path is None or not path.exists():
+    """Absolute paths the caller has decided are not stubs.
+
+    Fail-closed on a path the caller NAMED: an --allowlist argument pointing at
+    a file that does not exist is an operational failure, not an empty
+    allowlist. Every sibling gate in scripts/ makes this argument required for
+    the same reason. Omitting the argument is different and stays an empty set.
+    """
+    if path is None:
         return set()
+    if not path.exists():
+        raise FileNotFoundError(path)
     result: set[str] = set()
     for raw in path.read_text(errors="replace").splitlines():
         line = raw.strip()
@@ -647,6 +858,58 @@ def scan_surfaces(project_root: Path) -> list[ClaimedPath]:
     return claims
 
 
+def scan_documentation(project_root: Path) -> list[tuple[Path, int, str, str]]:
+    """Documentation claims about pkm lifecycle hooks that the tree does not keep.
+
+    Returns (file, line_no, claim, reason). Two surfaces are read: a package's
+    own docs/ tree, and the comment headers of the hook scripts themselves —
+    a hook script whose header describes a sibling hook that is never installed
+    misleads the next author exactly as a document does.
+
+    A claim resolves when the citing package installs a hook of that name AND
+    pkm runs a hook of that name. Either half missing is a claim the tree does
+    not keep.
+    """
+    findings: list[tuple[Path, int, str, str]] = []
+    installed = collect_installed_pkm_hooks(project_root)
+    pkg_root = project_root / "packages"
+    if not pkg_root.exists():
+        return findings
+
+    # (file, citing package, read comment lines only)
+    surfaces: list[tuple[Path, str, bool]] = []
+    for doc in sorted(pkg_root.glob("*/*/docs/**/*.md")):
+        if doc.is_file():
+            surfaces.append((doc, package_of(doc, pkg_root), False))
+    for script in sorted(pkg_root.glob("*/*/hooks/**/*")):
+        if script.is_file():
+            surfaces.append((script, package_of(script, pkg_root), True))
+
+    for path, pkg, comments_only in surfaces:
+        try:
+            text = path.read_text(errors="replace")
+        except OSError:
+            continue
+        if comments_only:
+            # Comment headers only: a hook script's own code legitimately
+            # names paths it creates at runtime.
+            text = "\n".join(
+                line if line.lstrip().startswith("#") else ""
+                for line in text.splitlines())
+        for claim, line_no, owner in extract_doc_hook_claims(text):
+            # A citation that names its owning package is checked against that
+            # package; a bare name is a claim about the citing package's own.
+            responsible = owner or pkg
+            have = {hook_base(n) for n in installed.get(responsible, set())}
+            if claim not in have:
+                findings.append((path, line_no, claim,
+                                 f"{responsible} installs no {claim} hook"))
+            elif claim not in PKM_HOOKS_RUN:
+                findings.append((path, line_no, claim,
+                                 f"pkm never runs a {claim} hook"))
+    return findings
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Rule 21 aspirational-stub detection gate (M-009 closure)",
@@ -660,6 +923,12 @@ def main() -> int:
         "--allowlist",
         default=None,
         help="Path to allowlist file (one absolute path per line; # comments OK)",
+    )
+    parser.add_argument(
+        "--hook-allowlist",
+        default=None,
+        help="Path to the orphan-hook allowlist (default: "
+             "config/aspirational-stub-hook-allowlist.txt under --project)",
     )
     parser.add_argument(
         "--verbose", "-v",
@@ -679,7 +948,12 @@ def main() -> int:
         return 2
 
     allowlist_path = Path(args.allowlist) if args.allowlist else None
-    allowlist = load_allowlist(allowlist_path)
+    try:
+        allowlist = load_allowlist(allowlist_path)
+    except FileNotFoundError:
+        print(f"[Rule 21] FATAL: allowlist {allowlist_path} does not exist. "
+              f"The gate refuses to guess its own scope.", file=sys.stderr)
+        return 2
 
     owners = collect_verify_paths(project)
     claims = scan_surfaces(project)
@@ -726,18 +1000,53 @@ def main() -> int:
         for reason, count in sorted(by_reason.items(), key=lambda kv: -kv[1])[:10]:
             print(f"  {count:5d}  {reason}")
 
-    if stubs:
+    doc_findings = scan_documentation(project)
+    hook_allowlist_path = Path(args.hook_allowlist) if args.hook_allowlist \
+        else project / "config" / "aspirational-stub-hook-allowlist.txt"
+    try:
+        hook_allowlist = load_hook_allowlist(hook_allowlist_path)
+    except FileNotFoundError:
+        print(f"[Rule 21] FATAL: hook allowlist {hook_allowlist_path} does not "
+              f"exist. The gate refuses to guess its own scope.", file=sys.stderr)
+        return 2
+    orphans = find_orphan_hook_scripts(project, hook_allowlist)
+
+    if doc_findings and not args.summary_only:
+        print()
+        print("DOCUMENTED-BEHAVIOUR-NOT-IN-TREE findings (Rule 21 violations):")
+        print()
+        for path, line_no, claim, reason in doc_findings:
+            rel = path.relative_to(project)
+            print(f"  {str(rel) + ':' + str(line_no):<60} "
+                  f"{claim:<24} {reason}")
+
+    if orphans and not args.summary_only:
+        print()
+        print("ORPHAN-HOOK-SCRIPT findings (carried but never installed):")
+        print()
+        for pkg, name, script in orphans:
+            rel = script.relative_to(project)
+            print(f"  {str(rel):<60} {pkg} build.sh installs no {hook_base(name)}")
+
+    print(
+        f"[Rule 21] Documentation: {len(doc_findings)} claim(s) the tree does "
+        f"not keep, {len(orphans)} orphan hook script(s)"
+    )
+
+    if stubs or doc_findings or orphans:
         print()
         print(
-            "[Rule 21] BUILD BLOCKER — aspirational-stub references found. "
-            "Either declare the path in the owning package's verify_paths, "
-            "fix the reference, or document an --allowlist entry with a "
-            "reason comment.",
+            "[Rule 21] BUILD BLOCKER — aspirational references found. For a "
+            "path: declare it in the owning package's verify_paths, fix the "
+            "reference, or document an --allowlist entry with a reason "
+            "comment. For a documented hook: install the hook, or correct the "
+            "documentation to say what actually happens. For an orphan hook "
+            "script: install it or delete it.",
             file=sys.stderr,
         )
         return 1
 
-    print("[Rule 21] PASS — zero aspirational-stub references detected.")
+    print("[Rule 21] PASS — zero aspirational references detected.")
     return 0
 
 

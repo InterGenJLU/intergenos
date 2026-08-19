@@ -1,0 +1,5 @@
+# Synthetic fixture: no orphan hook scripts are carried here, so this
+# allowlist is deliberately empty of entries. The FILE must exist because
+# scripts/check-aspirational-stubs.py is fail-closed on its own scope — a
+# gate that cannot read its allowlist refuses to run rather than scanning a
+# wider or narrower set in silence.
