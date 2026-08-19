@@ -59,8 +59,8 @@ The Prime Directive and the security-only alignment above are complementary: a m
 - **Custom package manager** (`pkm`) — Natural-language CLI with SQLite + text manifest hybrid storage
 - **System installer** (`forge`) — graphical and text installer powered by pkm, from partition to bootable desktop
 - **Custom build system** (`igos-build`) — Python orchestrator with YAML templates, dependency resolution, and full build logging
-- **BLFS package database** — 1,030 packages with 3,948 dependencies queryable via SQL, plus a meson feature database for auditing build options across packages
-- **5-distro kernel convergence** — kernel config derived from Ubuntu, Fedora, Arch, Debian, and openSUSE consensus (3,434 universal options)
+- **BLFS package database** — 1,000+ packages with 3,900+ dependencies queryable via SQL, plus a meson feature database for auditing build options across packages
+- **5-distro kernel convergence** — kernel config derived from Ubuntu, Fedora, Arch, Debian, and openSUSE consensus (3,400+ universal options)
 - **GNOME desktop** — Wayland-native with dark theme and InterGenOS branding
 - **Transparent boot** — no Plymouth splash. You watch the kernel hand off to systemd and every service start with `[OK]`/`[FAILED]`; if a mount breaks or a module misbehaves you see it the moment it happens. Spotting odd boot output is a real practice for catching compromise or hardware change — we give you that surface rather than hide it behind a logo. See [docs/users/desktop-experience.md](docs/users/desktop-experience.md).
 - **Forge Secure Boot chain** — signed shim → MOK-signed GRUB → MOK-signed kernel → `MODULE_SIG_FORCE=y` modules. The user's own MOK key is the trust anchor; the installer generates it per machine. See [SECURITY.md](SECURITY.md).
