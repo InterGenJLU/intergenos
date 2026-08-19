@@ -251,6 +251,47 @@ StartupNotify=false
 NoDisplay=true
 X-GNOME-Autostart-Delay=3
 AUTOSTART
+
+    # Skip the autostart unit entirely once the user is done.
+    #
+    # There is no gnome-session-binary on GNOME 49: systemd-xdg-autostart-
+    # generator converts the entry above into a user service, and for this
+    # entry that unit is Type=exec with ExitType=cgroup. On an already-set-up
+    # system the wrapper finds the done-marker and exits within milliseconds,
+    # and on one of three cold boots of an installed machine systemd lost the
+    # race to account for that process: the unit ended result=resources with
+    # "No PIDs left". Nothing was broken, but a service reporting a resource
+    # failure on a normal boot is noise in the first place a person looks when
+    # something really is wrong.
+    #
+    # This condition means no process is started at all in that case, so there
+    # is nothing for systemd to lose. Measured on systemd 259.1: a drop-in on
+    # the generated unit is found and merged, and the skip is logged as an
+    # unmet condition with Result=success, not a failure.
+    #
+    # AutostartCondition=unless-exists, the key gnome-initial-setup uses, was
+    # measured and rejected: the generator delegates it to
+    # gnome-systemd-autostart-condition, which is not shipped here, so the
+    # generator writes "ExecCondition using gnome-systemd-autostart-condition
+    # skipped due to missing binary" and runs the entry unconditionally. The
+    # same measurement is why X-GNOME-Autostart-Delay above has no effect on
+    # this stack — the generator does not translate it. Neither key is relied
+    # on; both are left in place for sessions that do read them.
+    #
+    # The wrapper's own marker check stays the authority: it also covers the
+    # app-grid --force path and the live-ISO guard, which no unit condition
+    # can see. If a future rename changes the generated unit name this drop-in
+    # simply stops matching, behaviour is unchanged, and only the race
+    # returns — tests/welcome/test_autostart_skip_when_done.py derives the
+    # name from the entry's basename so a rename is caught.
+    local unitdropin
+    unitdropin="${DESTDIR}/usr/lib/systemd/user/app-intergen\\x2dwelcome@autostart.service.d"
+    install -dm755 "${unitdropin}"
+    cat > "${unitdropin}/50-skip-when-done.conf" <<'DROPIN'
+[Unit]
+ConditionPathExists=!%h/.config/intergen-welcome/done
+DROPIN
+    chmod 644 "${unitdropin}/50-skip-when-done.conf"
 }
 
 post_install() {

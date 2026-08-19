@@ -794,15 +794,22 @@ if [ -x "$M002_GATE" ] || [ -f "$M002_GATE" ]; then
     # Capture-then-log (errexit-safe, same idiom as Step 4.8) so the gate's
     # own summary lands prefixed + indented, and rc is read from the tool,
     # not the log pipe.
-    m002_out="$(python3 "$M002_GATE" --chroot "$CHROOT" --project "$PROJECT_DIR" 2>&1)" && m002_rc=0 || m002_rc=$?
+    # --strict-unowned (2026-08-19): a required binary present in the chroot
+    # but claimed by no package.yml verify_paths entry now fails this gate
+    # too, not just a missing one. The gate has always printed those as
+    # UNOWNED and passed; the first release built with 29 of them, which is
+    # 29 binaries the installer depends on that the pre-squashfs audit never
+    # checked landed. All are declared now, so the flag holds at zero.
+    m002_out="$(python3 "$M002_GATE" --chroot "$CHROOT" --project "$PROJECT_DIR" --strict-unowned 2>&1)" && m002_rc=0 || m002_rc=$?
     [ -n "$m002_out" ] && printf '%s\n' "$m002_out" | logpipe "[m-002]"
     if [ "$m002_rc" -eq 0 ]; then
         detail "all installer-runtime binaries present in chroot"
         status_line "M-002 chroot-binary-presence gate" PASS
     else
-        detail "one or more installer-runtime binaries are missing from the chroot"
-        detail "re-run the gate directly for the full missing-list diagnostic:"
-        detail "  python3 $M002_GATE --chroot $CHROOT --project $PROJECT_DIR --verbose"
+        detail "an installer-runtime binary is missing from the chroot, or is present"
+        detail "but claimed by no package's verify_paths (--strict-unowned)"
+        detail "re-run the gate directly for the full diagnostic:"
+        detail "  python3 $M002_GATE --chroot $CHROOT --project $PROJECT_DIR --strict-unowned --verbose"
         status_line "M-002 chroot-binary-presence gate" FAIL
         die "M-002 gate failed (rc=$m002_rc) — refusing to build squashfs"
     fi

@@ -41,6 +41,7 @@ verify_paths:
   - /lib64/ld-lsb-x86-64.so.3
   - /etc/ld.so.conf
   - /etc/nsswitch.conf
+  - /usr/bin/localedef
 # Note: /etc/{passwd,group,shadow,gshadow} + /root reverted in plan v2
 # (2026-05-27). Class 11 chroot-state-not-packaged baseline content
 # moved to packages/core/intergenos-base-files/ — canonical owner

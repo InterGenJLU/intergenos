@@ -27,8 +27,13 @@ build() {
 
 check() {
     set -e
-    # ~10 of 4600+ tests known to fail per BLFS
-    make test-only || true
+    # The blanket suite mask was retired here 2026-08-19, along with the
+    # failure count the comment beside it carried: that figure did not match
+    # the reference book, which states 3 of over 4400 in the parallel suite.
+    # The suite still runs; package.yml's tests: block states the policy and
+    # pkg_run_tests names the waiver in the log.
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        make test-only
 }
 
 do_install() {

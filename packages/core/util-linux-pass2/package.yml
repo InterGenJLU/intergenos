@@ -34,3 +34,11 @@ verify_paths:
   - /usr/bin/setpriv
   - /usr/bin/mount
   - /usr/lib/libblkid.so
+  - /usr/sbin/blkid
+  - /usr/bin/findmnt
+  - /usr/sbin/losetup
+  - /usr/bin/lsblk
+  - /usr/sbin/mkswap
+  - /usr/bin/mountpoint
+  - /usr/bin/umount
+  - /usr/sbin/wipefs

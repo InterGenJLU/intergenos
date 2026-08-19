@@ -1,6 +1,6 @@
 name: mitkrb
 version: "1.22.2"
-release: 2  # L29: setuid-strip regression rebuild (staging-chokepoint chown)
+release: 3  # r3: the test-suite status is reported instead of masked. The `|| true` that swallowed every check() failure is gone and no waiver replaces it: this suite's failure is an uncharacterised segfault, which is exactly the class a waiver must not cover.  # L29: setuid-strip regression rebuild (staging-chokepoint chown)
 description: MIT Kerberos V5 authentication
 license: MIT
 homepage: ''
@@ -25,6 +25,16 @@ dependencies:
   - e2fsprogs
   - cracklib
   - openldap
+
+tests:
+  enabled: true
+  failure_policy: strict
+  # Deliberately strict, not known_failures. Upstream documents failures that need
+  # network access, a time-synchronised host and keyutils kernel support, and the
+  # first release's build log shows this suite skipping its DNS-dependent cases —
+  # but it also produced an uncharacterized segmentation fault, and a waiver would
+  # cover that too. Strict reports the real status to the driver, which logs and
+  # traces it without stopping the build on this lane.
 
 verify_paths:
   - /usr/bin/krb5-config

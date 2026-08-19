@@ -902,6 +902,50 @@ fi
 # Remove tester user
 userdel -r tester 2>/dev/null || true
 
+# --- Temp-toolchain residue sweep -------------------------------------------
+# The chapter 5-7 temporary toolchain installs files onto this live root, and a
+# final package's DESTDIR deploy overlays its own files without deleting
+# anything. So every path a final recipe deliberately drops keeps the temporary
+# toolchain's copy: core/python removes idlelib + /usr/bin/idle3* from its
+# DESTDIR (Python is built without tkinter, so IDLE cannot run) and the
+# chapter-7 Python's copies stay; the final GCC ships its GDB pretty-printers
+# under /usr/share/gdb/auto-load/ and the chapter-6 libstdc++ loader stays at
+# /usr/lib/libstdc++.so.*-gdb.py.
+#
+# That residue is unowned content in the shipping tree. build-squashfs Step
+# 4.85 fails closed on unowned files and stopped the 2026-08-15 from-scratch
+# build with 166 findings, 162 of them this class, all removed by hand. A
+# from-scratch build rebuilds them every run, so the sweep runs here — the
+# first point where every final core package's manifest exists to prove
+# ownership, and long before the mint pays for the discovery.
+#
+# The sweep removes only paths that match a declared, reasoned pattern AND
+# that no installed package's manifest records; it refuses to remove anything
+# when it cannot read an ownership set. A non-zero exit stops the build.
+log ">>> 8.86: Temp-toolchain residue sweep"
+RESIDUE_SWEEP="/mnt/intergenos/scripts/ch8-residue-sweep.py"
+RESIDUE_PATTERNS="/mnt/intergenos/config/ch8-residue-patterns.txt"
+if [ -f "$RESIDUE_SWEEP" ] && [ -f "$RESIDUE_PATTERNS" ] \
+        && command -v python3 >/dev/null 2>&1; then
+    # No pipe on this invocation, deliberately: the driver's own tee captures
+    # the sweep's stdout, and a `python3 … | sed` form would report the
+    # PIPELINE's status. That is the same class of masked failure the
+    # toolchain driver's phase calls carried.
+    if ! python3 "$RESIDUE_SWEEP" \
+            --root / \
+            --package-db "${IGOS_PKG_DB:-/var/lib/igos/packages}" \
+            --patterns "$RESIDUE_PATTERNS" \
+            --record "${IGOS_LOGS}/ch8-residue-removed.txt"; then
+        log "  error: temp-toolchain residue sweep failed — refusing to continue"
+        exit 1
+    fi
+else
+    log "  error: ch8-residue-sweep.py, its patterns file, or python3 is"
+    log "         missing after Ch8 — the temp-toolchain residue cannot be"
+    log "         proven cleared"
+    exit 1
+fi
+
 log "  Cleanup complete"
 
 # ============================================================================

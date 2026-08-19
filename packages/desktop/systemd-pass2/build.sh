@@ -22,6 +22,18 @@
 # systemd-sysusers.service boot-time unit are required for the
 # mechanism to function on the installed system.
 
+# `elfutils=enabled` (added 2026-08-19). meson.build resolves libdw and
+# libelf with `required : get_option('elfutils')` and sets HAVE_ELFUTILS only
+# when both are found; at the `auto` default the lookup fails quietly and
+# systemd-coredump is built with no ELF symbolization. That is what the first
+# release shipped — this package supersedes core/systemd, so its build is the
+# one on installed systems, and the post-install evaluation found
+# systemd-coredump reporting "elfutils disabled", which also meant the single
+# coredump that install produced could not be parsed. Explicit `enabled`
+# turns the silent downgrade into a configure-time failure. elfutils builds
+# in Chapter 8, well ahead of this tier, and is declared in both dependency
+# lists to match.
+
 configure() {
     set -e
     # Same sed fix as pass 1
@@ -67,6 +79,7 @@ configure() {
         -D libcurl=enabled                  \
         -D bashcompletiondir=/usr/share/bash-completion/completions \
         -D bootloader=enabled               \
+        -D elfutils=enabled                 \
         -D sbat-distro=intergenos           \
         -D sbat-distro-summary="InterGenOS" \
         -D sbat-distro-pkgname=systemd      \

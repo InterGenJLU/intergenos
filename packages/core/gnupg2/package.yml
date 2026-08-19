@@ -41,3 +41,4 @@ configure_flags:
 verify_paths:
   - /usr/bin/gpg
   - /usr/bin/gpgconf
+  - /usr/bin/gpgv

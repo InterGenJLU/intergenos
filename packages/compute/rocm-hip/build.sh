@@ -77,4 +77,24 @@ do_install() {
     install -Dm644 /dev/stdin "${DESTDIR}/etc/ld.so.conf.d/rocm.conf" <<'CONF'
 /opt/rocm/lib
 CONF
+
+    # Decided 2026-08-19, same shape and same reason as the rocminfo recipe's
+    # /usr/bin symlinks: /opt/rocm/bin is on no default PATH, and consumers
+    # exec these two by bare name. The tree carries its own proof that the
+    # bare name does not resolve today — packages/ai/bitsandbytes/build.sh
+    # has to prepend /opt/rocm/bin to PATH in both configure() and build()
+    # because its upstream CMakeLists calls `hipconfig --version` by bare
+    # name, and packages/compute/llama-cpp-hip/build.sh reaches hipconfig
+    # through its absolute path for the same reason.
+    #
+    # A build-time PATH export fixes only the build. At runtime the same
+    # bare-name call from a service subprocess still finds nothing, and that
+    # failure is silent: the measured consequence for the sibling tool was a
+    # GPU library falling back to a default warp size of 64 on wave32
+    # silicon, mis-detecting on every machine. profile.d was rejected there
+    # for the same reason it would be wrong here — it never reaches a
+    # systemd service. /usr/bin symlinks fix every exec context uniformly.
+    mkdir -p "${DESTDIR}/usr/bin"
+    ln -sf /opt/rocm/bin/hipcc "${DESTDIR}/usr/bin/hipcc"
+    ln -sf /opt/rocm/bin/hipconfig "${DESTDIR}/usr/bin/hipconfig"
 }

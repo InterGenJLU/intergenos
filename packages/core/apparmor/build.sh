@@ -189,54 +189,12 @@ do_install() {
     #    per-profile in future releases. (Decided 2026-07-18: the marker
     #    previously said "enforce", contradicting the profiles it ships
     #    beside — a marker must state what the package actually does.)
-    #    post_install() loads profiles directly via apparmor_parser -r
-    #    so no separate first-boot orchestrator needs to read this file
-    #    — it stays as a documented policy declaration for tooling that
-    #    wants to introspect InterGenOS's AppArmor stance.
+    #    Profile LOADING is not this recipe's job: pkm's canonical
+    #    apparmor-reload hook loads every top-level /etc/apparmor.d
+    #    profile at install time and is critical, so a fatal parse flags
+    #    the operation instead of warning past it. This marker stays as a
+    #    documented policy declaration for tooling that wants to
+    #    introspect the AppArmor stance.
     install -vdm 755 "${DESTDIR}/usr/share/intergenos-apparmor/"
     echo "complain" > "${DESTDIR}/usr/share/intergenos-apparmor/default_mode"
-}
-
-post_install() {
-    set -e
-    # Load every top-level profile in /etc/apparmor.d/ into the running
-    # kernel. Closes audit F-039 (HG) "AppArmor profiles ship without
-    # transitions" per matrix row 877 + line 1309: the package previously
-    # installed profiles to /etc/apparmor.d/ but never ran apparmor_parser
-    # so the kernel never enforced them — defense theater per the audit's
-    # framing.
-    #
-    # Per RATIFIED 2026-04-29 (matrix row 211 + commit 2f952b5; 4-0
-    # unanimous): AppArmor in enforce mode for the daemon fleet,
-    # DEFAULT_SECURITY=apparmor. This loader runs in enforce mode (the
-    # default for apparmor_parser; -C would request complain-mode).
-    #
-    # Guard: in a chroot at build/install time the kernel isn't running
-    # AppArmor + /sys/kernel/security/apparmor isn't present; the parser
-    # would fail. Skip silently in that case — profiles ship to
-    # /etc/apparmor.d/ and the systemd apparmor.service unit loads them
-    # at boot via /usr/lib/apparmor/rc.apparmor.functions. This guard
-    # matches the Debian dh_apparmor postinst pattern.
-    if [ ! -d /sys/kernel/security/apparmor ]; then
-        echo "AppArmor not enabled in this kernel (chroot install context) — profiles staged to /etc/apparmor.d/; will be loaded by apparmor.service at boot."
-        return 0
-    fi
-
-    # Each profile is a top-level file under /etc/apparmor.d/; the
-    # abstractions/ + tunables/ + abi/ + disable/ + local/ + cache/
-    # directories are filtered out by the [ -f ] test (they hold include
-    # fragments + cache, not standalone profiles).
-    for profile in /etc/apparmor.d/*; do
-        [ -f "$profile" ] || continue
-        # Capture stderr to an err variable so the diagnostic surfaces in
-        # the WARNING instead of being dropped to /dev/null. The previous
-        # `2>/dev/null` suppression made syntax errors + missing-kernel-
-        # feature events invisible at install time; with the capture, the
-        # actual apparmor_parser message rides along in the WARNING +
-        # operators can diagnose profile-syntax drift inline.
-        # Matches the Debian dh_apparmor postinst error-handling pattern.
-        if ! err=$(apparmor_parser -r "$profile" 2>&1); then
-            echo "WARNING: apparmor_parser failed to load $profile: $err (non-fatal; may indicate profile-syntax drift or a missing kernel feature). Other profiles continue to load."
-        fi
-    done
 }

@@ -50,6 +50,35 @@ check_skip() {
 }
 
 # ---------------------------------------------------------------------------
+# smoke_live_media() — true when this session was booted from the install
+# medium rather than from an installed system.
+#
+# The live boot puts `igos.mode=` on the kernel command line (live |
+# install-gui | install-tui — installer/init/init.sh dispatches on it); an
+# installed system never carries it. Checks that assert state which only an
+# INSTALL produces must consult this and SKIP with a stated reason, because
+# on live media the state is absent by design and a FAIL there says the
+# system is broken when it is not.
+#
+# Measured need: the pre-install evaluation of the first release candidate
+# ran this harness on the booted medium and got 28 PASS / 1 FAIL / 4 WARN /
+# 11 SKIP, where the single FAIL was integrity/self-reval — a check on
+# /var/lib/igos/manifest, a directory the installer creates. A false FAIL in
+# a pre-install verdict costs the reading of every other line in it.
+#
+# A SKIP is the loud form here: it prints its own line and is counted in the
+# summary, so the check is visibly not-applicable rather than absent.
+# ---------------------------------------------------------------------------
+# Injection point (same shape as the hardware category's SMOKE_HW_*): the
+# tests point this at a fixture so they never assert the suite host's own
+# boot state.
+SMOKE_CMDLINE="${SMOKE_CMDLINE:-/proc/cmdline}"
+
+smoke_live_media() {
+    grep -q 'igos\.mode=' "$SMOKE_CMDLINE" 2>/dev/null
+}
+
+# ---------------------------------------------------------------------------
 # verbose() — print only when -v supplied. Used inside check bodies for
 # diagnostic context that's noisy in default mode.
 # ---------------------------------------------------------------------------

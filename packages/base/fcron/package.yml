@@ -1,7 +1,7 @@
 name: fcron
 version: "3.4.0"
-release: 8  # r8: ships /usr/bin/crontab as a symlink to fcrontab — fcron is the only periodic scheduler here and applications look for the standard command name (timeshift checks for it at startup and refuses to run when it is missing); the BLFS-recommended compatibility link, same binary and same permissions. r7: spool ownership restored on the live system — archive deployment strips uid/gid, so /var/spool/fcron landed root:root 755 (measured on the ge9b-12 installed system) and fcrontab's setgid-fcron grant could not write user tabs; post_install now asserts fcron:fcron 770 and do_install stages the same 770 so archive metadata and on-disk state agree. r6 (hook-contract wave): run-parts + cron.* dirs + systab.orig moved post_install -> do_install (owned payload)
-content_hash: 923bebc8c41de56f
+release: 9  # r9: fcronsighup's group and setuid mode are restored on an installed system. The archive carries root:fcron 4710, but unpacking happens before the fcron group exists, so the group ownership was lost and the setuid bit went with it; the existing hook correction is extended to this binary.  # r8: ships /usr/bin/crontab as a symlink to fcrontab — fcron is the only periodic scheduler here and applications look for the standard command name (timeshift checks for it at startup and refuses to run when it is missing); the BLFS-recommended compatibility link, same binary and same permissions. r7: spool ownership restored on the live system — archive deployment strips uid/gid, so /var/spool/fcron landed root:root 755 (measured on the ge9b-12 installed system) and fcrontab's setgid-fcron grant could not write user tabs; post_install now asserts fcron:fcron 770 and do_install stages the same 770 so archive metadata and on-disk state agree. r6 (hook-contract wave): run-parts + cron.* dirs + systab.orig moved post_install -> do_install (owned payload)
+content_hash: af7eb1f22df96892
 description: Periodical command scheduler
 license: GPL-2.0-or-later
 homepage: http://fcron.free.fr/
@@ -23,6 +23,7 @@ dependencies:
 verify_paths:
   - /usr/bin/run-parts
   - /usr/bin/crontab
+  - /usr/bin/fcronsighup
   - /var/spool/fcron/systab.orig
   - /etc/cron.daily
   - /usr/sbin/fcron

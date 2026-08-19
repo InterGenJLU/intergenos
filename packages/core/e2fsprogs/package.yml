@@ -21,3 +21,4 @@ tests:
 verify_paths:
   - /usr/sbin/badblocks
   - /usr/lib/libcom_err.so
+  - /usr/sbin/mkfs.ext4

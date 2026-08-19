@@ -29,6 +29,17 @@ configure() {
     # host-deps to satisfy the require
     # condition under all build environments.
     #
+    # `elfutils=enabled` is explicit for the same reason as `bootloader`.
+    # meson.build resolves libdw and libelf with
+    # `required : get_option('elfutils')` and sets HAVE_ELFUTILS only when
+    # both are found; at the `auto` default a chroot without elfutils built
+    # yet produces a systemd-coredump with no ELF symbolization and says
+    # nothing at build time. That is what shipped in the first release —
+    # the installed system reports "elfutils disabled" and its one coredump
+    # could not be parsed. `enabled` turns that silent downgrade into a
+    # configure-time failure; elfutils is declared in dependencies.build to
+    # match, and builds ahead of systemd in the Chapter 8 order.
+    #
     # `sysusers=true` overrides the LFS 13.0 recipe default of false. LFS
     # disables sysusers because LFS users are created manually in Chapter 7;
     # InterGenOS ships /usr/lib/sysusers.d/<pkg>.conf files per the
@@ -56,6 +67,7 @@ configure() {
         -D sysupdate=disabled     \
         -D ukify=disabled         \
         -D bootloader=enabled     \
+        -D elfutils=enabled       \
         -D sbat-distro=intergenos \
         -D sbat-distro-summary="InterGenOS" \
         -D sbat-distro-pkgname=systemd \

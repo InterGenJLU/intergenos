@@ -1,6 +1,6 @@
 name: systemd-pass2
 version: "259.1"
-release: 4  # r4: artifact re-cut — prior seal contaminated by archive tar-recursion over supersedee dir rows (sealed 2.38 GB; igos-build fix 2026-07-20). r3: systemd-pcrproduct remount-fs ordering drop-in — the NvPCR anchor write raced the root rw-remount and failed every boot on a swtpm guest (DFB-09, 2026-07-19). r2: journal-over-network explicitly OFF (matches systemd r-bump, decided) — post-burn sweep 2026-07-11
+release: 5  # r5: elfutils is declared as a build dependency and -D elfutils=enabled is passed explicitly, matching the pass-1 recipe so the build the chroot and the ISO actually end with carries coredump symbolisation too.  # r4: artifact re-cut — prior seal contaminated by archive tar-recursion over supersedee dir rows (sealed 2.38 GB; igos-build fix 2026-07-20). r3: systemd-pcrproduct remount-fs ordering drop-in — the NvPCR anchor write raced the root rw-remount and failed every boot on a swtpm guest (DFB-09, 2026-07-19). r2: journal-over-network explicitly OFF (matches systemd r-bump, decided) — post-burn sweep 2026-07-11
 description: "Systemd (pass 2 — rebuild with PAM support for GNOME/GDM)"
 license: LGPL-2.1-or-later
 homepage: https://www.freedesktop.org/wiki/Software/systemd/
@@ -34,6 +34,7 @@ dependencies:
   - git               # systemd build-tooling probes for git.
   - rsync             # systemd build-tooling probes for rsync.
   - gperf
+  - elfutils          # libdw + libelf: systemd-coredump's ELF symbolization.
   host: []
   runtime:
   - linux-pam
@@ -53,6 +54,7 @@ dependencies:
   - bash-completion
   - python-pefile
   - python-cryptography
+  - elfutils
 
 supersedes:
   - systemd
@@ -60,3 +62,9 @@ verify_paths:
   - /usr/bin/systemd-ac-power
   - /usr/bin/bootctl
   - /usr/lib/libnss_myhostname.so.2
+  - /usr/bin/localectl
+  - /usr/sbin/reboot
+  - /usr/bin/systemctl
+  - /usr/bin/timedatectl
+  - /usr/bin/udevadm
+  - /usr/bin/ukify

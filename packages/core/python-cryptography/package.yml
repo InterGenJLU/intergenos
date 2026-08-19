@@ -1,6 +1,6 @@
 name: python-cryptography
 version: "44.0.0"
-release: 2  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
+release: 3  # r3: only the library is staged into site-packages. The wheel's generic top-level tests/ directory was being installed as well, where it collides with any other package shipping the same path — a co-ownership collision that no package should be able to create by accident.  # r2: pip install adds --ignore-installed — populated-chroot rebuild empty-archive class sweep (DFB-01/02, 2026-07-19).
 description: Python cryptographic recipes and primitives
 license: Apache-2.0 OR BSD-3-Clause
 homepage: https://cryptography.io/
@@ -30,4 +30,6 @@ build_style: custom
 # is disabled.
 
 verify_paths:
-  - /usr/lib/python3.14/site-packages
+  - /usr/lib/python3.14/site-packages/cryptography/__init__.py
+  - /usr/lib/python3.14/site-packages/cryptography/hazmat/bindings/_rust.abi3.so
+  - /usr/lib/python3.14/site-packages/cryptography-44.0.0.dist-info/METADATA

@@ -49,7 +49,7 @@ check_boot_efi_artifacts() {
     # boot (igos.mode= on the cmdline: live | install-gui | install-tui)
     # booted shim/grub from the ISO's own ESP, which is never mounted at
     # /boot/efi — asserting the installed layout there is a false FAIL.
-    if grep -q 'igos.mode=' /proc/cmdline 2>/dev/null; then
+    if smoke_live_media; then
         check_skip "boot/efi-artifacts" "live-media boot (igos.mode= present) — installed-system ESP layout not applicable"
         return
     fi

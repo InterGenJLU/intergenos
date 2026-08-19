@@ -25,3 +25,5 @@ verify_paths:
   - /usr/sbin/grub-bios-setup
   - /usr/bin/grub-editenv
   - /usr/lib/grub
+  - /usr/sbin/grub-install
+  - /usr/sbin/grub-mkconfig
