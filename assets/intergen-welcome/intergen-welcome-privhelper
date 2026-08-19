@@ -57,6 +57,15 @@ SSH_DROPIN="$NFTD/40-intergen-ssh.conf"
 RESOLVED_CONF_D=/etc/systemd/resolved.conf.d
 DNS_DROPIN="$RESOLVED_CONF_D/50-intergen-welcome-dns.conf"
 
+NSSWITCH=/etc/nsswitch.conf
+
+# The two forms of the name-service-switch hosts line this helper moves between.
+# OFF is the line glibc-core ships. ON is the SAME entries with mdns4_minimal
+# moved ahead of resolve. Nothing is added and nothing is removed — only the
+# position of an entry the system already ships changes.
+HOSTS_LINE_OFF='hosts: mymachines resolve [!UNAVAIL=return] files myhostname dns mdns4_minimal [NOTFOUND=return]'
+HOSTS_LINE_ON='hosts: mymachines mdns4_minimal [NOTFOUND=return] resolve [!UNAVAIL=return] files myhostname dns'
+
 reload_firewall() {
     mkdir -p "$NFTD"
     systemctl reload nftables 2>/dev/null \
@@ -69,6 +78,82 @@ caller_user() {
     if [ -n "$uid" ]; then
         getent passwd "$uid" | cut -d: -f1
     fi
+}
+
+# ---------------------------------------------------------------------------
+# .local name resolution for the discovery toggle
+#
+# WHY THIS EXISTS. Avahi answers mDNS, so with discovery on the machine SEES a
+# network printer: CUPS lists it and its queue address is the printer's .local
+# name. Resolving that name is a separate step, and the shipped hosts line
+# cannot do it: `resolve [!UNAVAIL=return]` hands the lookup to systemd-resolved
+# and returns to the caller on any answer except "resolver unavailable", so the
+# mdns4_minimal entry sitting after it is never reached. systemd-resolved has
+# its own multicast DNS switched off — as it must be, because Avahi is the
+# responder on this system and two responders cannot share udp/5353. The result
+# is a machine that finds a printer it cannot address. Measured 2026-08-19 on a
+# real install against a real IPP printer: discovery listed it, `getent hosts`
+# returned nothing, and printing failed.
+#
+# WHY IT IS TIED TO THE TOGGLE INSTEAD OF SHIPPED AS THE DEFAULT. nss-mdns does
+# not need Avahi to be running: with no Avahi socket it sends its own multicast
+# query and waits for a reply. With discovery off, the firewall drops the
+# replies, so every .local lookup on the machine would stall until nss-mdns
+# gives up — measured at 10.0 seconds against 3 milliseconds when discovery is
+# on. Shipping this order by default would trade one broken promise for a delay
+# on a machine whose owner asked for neither. So the order is part of what the
+# discovery toggle turns on, and `disable-discovery` puts it back.
+#
+# WHY IT EDITS A FILE INSTEAD OF DROPPING A FRAGMENT IN. Every other change this
+# helper makes is a removable drop-in, because the subsystem supports one. The
+# name-service switch has no drop-in directory: one file decides the order. So
+# this is the one edit in place, and it is made as narrow as an edit can be —
+# it rewrites one line, only when that line is exactly one of the two forms
+# above, and it refuses to touch a hosts line it does not recognise rather than
+# guessing at a file the owner has edited.
+# ---------------------------------------------------------------------------
+
+# mdns_hosts_line <on|off> — read a nsswitch.conf on stdin, print the hosts line
+# it should have. Exit 0 if the file's hosts line is recognised (already right,
+# or the other known form), 3 if it is not recognised, 2 on a bad argument.
+# Writes nothing. The privileged verbs below and the `mdns-hosts-line` verb both
+# go through this function, so the check the interface can run and the rewrite
+# the helper performs cannot drift apart.
+mdns_hosts_line() {
+    local want="$1" line wanted
+    case "$want" in
+        on)  wanted="$HOSTS_LINE_ON" ;;
+        off) wanted="$HOSTS_LINE_OFF" ;;
+        *)   return 2 ;;
+    esac
+    line="$(grep -m1 '^hosts:' || true)"
+    [ -n "$line" ] || return 3
+    if [ "$line" = "$HOSTS_LINE_ON" ] || [ "$line" = "$HOSTS_LINE_OFF" ]; then
+        printf '%s\n' "$wanted"
+        return 0
+    fi
+    return 3
+}
+
+# set_mdns_hosts_order <on|off> — rewrite /etc/nsswitch.conf's hosts line.
+# A hosts line that is neither known form is left alone and reported; the rest
+# of the toggle still applies, because a machine that cannot resolve .local
+# names is a lesser failure than a machine whose name lookups were rearranged
+# behind its owner's back.
+set_mdns_hosts_order() {
+    local want="$1" wanted current tmp
+    [ -f "$NSSWITCH" ] || { echo "intergen-welcome-privhelper: $NSSWITCH is absent; hosts order left unchanged" >&2; return 0; }
+    if ! wanted="$(mdns_hosts_line "$want" < "$NSSWITCH")"; then
+        echo "intergen-welcome-privhelper: the hosts line in $NSSWITCH is not one this helper wrote or ships; it was left exactly as it is" >&2
+        return 0
+    fi
+    current="$(grep -m1 '^hosts:' "$NSSWITCH" || true)"
+    [ "$current" != "$wanted" ] || return 0
+    tmp="$(mktemp "${NSSWITCH}.XXXXXX")"
+    chmod --reference="$NSSWITCH" "$tmp" 2>/dev/null || chmod 0644 "$tmp"
+    chown --reference="$NSSWITCH" "$tmp" 2>/dev/null || true
+    awk -v repl="$wanted" '!done && /^hosts:/ { print repl; done=1; next } { print }' "$NSSWITCH" > "$tmp"
+    mv -f "$tmp" "$NSSWITCH"
 }
 
 # ---------------------------------------------------------------------------
@@ -240,6 +325,7 @@ case "${1:-}" in
         ;;
     enable-discovery)
         systemctl enable --now avahi-daemon.service
+        set_mdns_hosts_order on
         mkdir -p "$NFTD"
         cat > "$MDNS_DROPIN" <<'NFT'
 #!/usr/sbin/nft -f
@@ -256,6 +342,7 @@ NFT
         ;;
     disable-discovery)
         systemctl disable --now avahi-daemon.service avahi-daemon.socket 2>/dev/null || true
+        set_mdns_hosts_order off
         rm -f "$MDNS_DROPIN"
         reload_firewall
         ;;
@@ -323,6 +410,13 @@ NFT
             write_dns_dropin custom "$*" no
         fi
         ;;
+    mdns-hosts-line)
+        # The hosts-line decision and nothing else — reads a nsswitch.conf on
+        # STDIN, writes nothing, changes nothing, needs no privilege. Stdin
+        # rather than a path on purpose: no caller-supplied filename enters this
+        # helper, and a test can still feed it a file of its own.
+        mdns_hosts_line "${2:-}" || exit $?
+        ;;
     check-address)
         # Validation and nothing else — writes nothing, changes nothing, needs
         # no privilege. Exists so the Welcomer can check an address with the
@@ -336,6 +430,7 @@ NFT
         echo "       intergen-welcome-privhelper dns-use-quad9" >&2
         echo "       intergen-welcome-privhelper dns-use-custom {encrypted|cleartext} <address> [<address>...]" >&2
         echo "       intergen-welcome-privhelper check-address <address>" >&2
+        echo "       intergen-welcome-privhelper mdns-hosts-line {on|off} < nsswitch.conf" >&2
         exit 2
         ;;
 esac
