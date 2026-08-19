@@ -13,6 +13,7 @@ dependencies:
     - meson
     - ninja
     - gperf
+    - elfutils
   host:
   - jinja2
   - pyelftools
@@ -27,6 +28,15 @@ dependencies:
 # gperf added 2026-05-12 (Scan A.2): meson.build:620 requires `gperf`
 # program at configure time. Was transitively present from ch8 (gperf @
 # ch8:452); declaring per real upstream requirement.
+# elfutils added 2026-08-19: meson.build looks up libdw and libelf with
+# `required : get_option('elfutils')` and sets HAVE_ELFUTILS only when both
+# are found, so it is a build-time dependency of the coredump stack, not a
+# runtime-only one. It was declared runtime-only, and with the option left at
+# its `auto` default the lookup failed quietly on a chroot where elfutils had
+# not been built yet: the first release ships systemd-coredump without ELF
+# symbolization, reported on the installed system as "elfutils disabled" —
+# which also means the one coredump that release produced could not be
+# parsed. See the `elfutils=enabled` flag in build.sh for the other half.
 tier: core
 build_style: meson
 

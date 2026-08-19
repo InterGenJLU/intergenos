@@ -34,6 +34,7 @@ dependencies:
   - git               # systemd build-tooling probes for git.
   - rsync             # systemd build-tooling probes for rsync.
   - gperf
+  - elfutils          # libdw + libelf: systemd-coredump's ELF symbolization.
   host: []
   runtime:
   - linux-pam
@@ -53,6 +54,7 @@ dependencies:
   - bash-completion
   - python-pefile
   - python-cryptography
+  - elfutils
 
 supersedes:
   - systemd
