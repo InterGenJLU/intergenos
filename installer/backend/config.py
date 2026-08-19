@@ -30,6 +30,11 @@ _VALID_LOCALE_NAME = re.compile(r"^[A-Za-z0-9._@-]+$")
 # the measured failure it removes.
 ROOT_CRYPT_SHUTDOWN_OPT = "x-initrd.attach"
 
+# The fields a target's os-release must carry for generate_os_release to treat
+# it as the file intergenos-base-files ships. Absence means the packages phase
+# did not deliver the package's identity file, not that the values defaulted.
+OS_RELEASE_IDENTITY_FIELDS = ("NAME", "VERSION", "VERSION_ID", "PRETTY_NAME")
+
 
 def generate_fstab(target, partitions):
     """Generate /etc/fstab — PARTUUID for plain installs, UUID-of-mapper for LUKS.
@@ -504,48 +509,91 @@ def _live_build_id():
 
 
 def generate_os_release(target):
-    """Generate /etc/os-release and related identity files."""
-    etc = Path(target) / "etc"
+    """Record the medium's build identity onto the shipped os-release.
 
-    content = (
-        'NAME="InterGenOS"\n'
-        'VERSION="1.0-dev (Revival)"\n'
-        'ID=intergenos\n'
-        'ID_LIKE=lfs\n'
-        'VERSION_ID=1.0\n'
-        'VERSION_CODENAME=revival\n'
-        'PRETTY_NAME="InterGenOS 1.0-dev (Revival)"\n'
-        'HOME_URL="https://github.com/InterGenJLU/intergenos"\n'
-        'BUG_REPORT_URL="https://github.com/InterGenJLU/intergenos/issues"\n'
+    The release identity strings (NAME, VERSION, VERSION_ID, the codename,
+    PRETTY_NAME, LOGO) are authored in exactly one place — the files
+    packages/core/intergenos-base-files ships — and the packages phase has
+    already installed them on the target by the time the config phase runs
+    (PHASE_PACKAGES precedes PHASE_CONFIG in installer/backend/install.py).
+    This step therefore does not restate any of them. It reads what the
+    package installed, replaces any medium stamp with the running medium's
+    BUILD_ID recorded as IMAGE_VERSION (N-6), and writes the file back.
+
+    Decided 2026-08-19: single-source the identity. This function used to
+    write its own hardcoded copy of every field, which made two hand-
+    maintained copies of the same strings with nothing comparing them. They
+    had already drifted — the copy here never carried the shipped
+    `LOGO=intergenos` line, so every installed system lost that field
+    silently (measured on an installed system against the package's own
+    files). Reading the installed file removes the second copy, and with it
+    the drift.
+
+    /etc/igos-release is likewise the package's file and is left exactly as
+    shipped; its presence is asserted so a target that never received the
+    package fails here rather than at first boot.
+
+    Raises:
+        FileNotFoundError: os-release or igos-release is absent from the
+            target, which means intergenos-base-files did not land.
+        ValueError: the target's os-release carries none of the identity
+            fields, so it is not the file this step is recording onto.
+    """
+    etc = Path(target) / "etc"
+    os_release = etc / "os-release"
+
+    for path in (os_release, etc / "igos-release"):
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"{path} missing — intergenos-base-files ships it; a target "
+                f"without it did not receive the package"
+            )
+
+    shipped = os_release.read_text()
+    missing = [field for field in OS_RELEASE_IDENTITY_FIELDS
+               if not re.search(rf"^{field}=", shipped, re.M)]
+    if missing:
+        raise ValueError(
+            f"{os_release} carries no {', '.join(missing)} line — it is not "
+            f"the identity file intergenos-base-files ships"
+        )
+
+    # A stamp already on the target (a re-run, or the image build's own
+    # Step 2.8 stamp riding the shipped file) is replaced, never appended to.
+    content = "".join(
+        line for line in shipped.splitlines(keepends=True)
+        if not line.startswith(("BUILD_ID=", "IMAGE_VERSION="))
     )
     build_id = _live_build_id()
     if build_id:
+        if content and not content.endswith("\n"):
+            content += "\n"
         content += f'IMAGE_VERSION="{build_id}"\n'
-    (etc / "os-release").write_text(content)
-
-    (etc / "igos-release").write_text("1.0-dev\n")
+    os_release.write_text(content)
 
 
 def generate_branding(target):
-    """Generate /etc/issue and /etc/motd branding files."""
+    """Assert the shipped /etc/issue and /etc/motd landed on the target.
+
+    Both files are authored in packages/core/intergenos-base-files and
+    installed by the packages phase. This step used to write its own copies
+    of them; those copies were byte-identical to the package's files, so
+    they added a second place to edit and nothing else (proven byte-equal
+    before removal, 2026-08-19). Nothing is rewritten here — what remains is
+    the check, so a target that never received the package fails loudly
+    instead of installing a system with no identity text at all.
+
+    Raises:
+        FileNotFoundError: either file is absent from the target.
+    """
     etc = Path(target) / "etc"
-
-    (etc / "issue").write_text(
-        "\n"
-        "  InterGenOS 1.0-dev (Revival)\n"
-        "  Kernel \\r on \\m (\\l)\n"
-        "\n"
-    )
-
-    (etc / "motd").write_text(
-        "\n"
-        '  Welcome to InterGenOS\n'
-        '  "A system you understand, can modify, and can trust."\n'
-        "\n"
-        "  Documentation:  https://github.com/InterGenJLU/intergenos\n"
-        "  Report issues:  https://github.com/InterGenJLU/intergenos/issues\n"
-        "\n"
-    )
+    for name in ("issue", "motd"):
+        path = etc / name
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"{path} missing — intergenos-base-files ships it; a target "
+                f"without it did not receive the package"
+            )
 
 
 def generate_crypttab(target, partitions):

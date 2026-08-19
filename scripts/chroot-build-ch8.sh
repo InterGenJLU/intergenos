@@ -420,6 +420,14 @@ run_package() {
 # that's after phase_core (Ch 8). Stage a minimal version here so systemd
 # can configure successfully. chroot-config-ch9.sh overwrites this with
 # the full content later.
+#
+# This stub carries NO version fields, deliberately (decided 2026-08-19).
+# It used to state VERSION_ID and a versioned PRETTY_NAME, which made it a
+# third hand-maintained copy of the release identity that nothing compared
+# against the one authored copy in packages/core/intergenos-base-files —
+# a string that can only go stale. Nothing in the build reads either field
+# (swept across scripts/, packages/, igos-build/ and pkm/); $ID is what
+# systemd's configure needs, and the real identity arrives in Chapter 9.
 if [ ! -f /etc/os-release ]; then
     log "  Staging minimal /etc/os-release (full version overwritten in Ch 9)"
     mkdir -p /etc
@@ -427,8 +435,7 @@ if [ ! -f /etc/os-release ]; then
 NAME="InterGenOS"
 ID=intergenos
 ID_LIKE=lfs
-VERSION_ID=1.0
-PRETTY_NAME="InterGenOS 1.0-dev (Ch 8 build stub)"
+PRETTY_NAME="InterGenOS (Chapter 8 build stub)"
 OSRELEASE_EOF
 fi
 
