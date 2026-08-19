@@ -76,10 +76,10 @@ The MOK is yours. It lives at `/var/lib/intergen/mok/` on the installed system. 
 
 Forge asks you for exactly one thing on this subject — the enrollment password. With that in hand, the bootloader stage does the following without asking you any further questions:
 
-1. **Generates a per-machine MOK keypair** (RSA-2048, matching the kernel module-signing default) at `/var/lib/intergen/mok/mok.key` (private key), `/var/lib/intergen/mok/mok.crt` (PEM-format X.509 cert, used by `sbsign` for UKI signing), and `/var/lib/intergen/mok/mok.der` (DER-format X.509 cert, the binary form MokManager wants for enrollment).
+1. **Generates a per-machine MOK keypair** (RSA-2048, matching the kernel module-signing default) at `/var/lib/intergen/mok/mok.key` (private key), `/var/lib/intergen/mok/mok.crt` (PEM-format X.509 cert — `ukify` signs the UKI with it, and `sbsign` signs the EFI binaries and kernel images with it), and `/var/lib/intergen/mok/mok.der` (DER-format X.509 cert, the binary form MokManager wants for enrollment).
 2. **Prompts you to set an enrollment password** in the **Secure Boot enrollment** section of the installer (a password you choose; printable-ASCII, 8–256 characters — leave it blank to skip MOK enrollment) and stages it for the first-boot enrollment step.
 3. **Stages the MOK for enrollment** so MokManager picks it up on the next reboot.
-4. **Ensures the UKI tooling is present** — `ukify` (which ships with the systemd tooling) and `sbsign` (from `sbsigntool`) are ordinary installed packages, so the linux-kernel package's post-install hook can build and sign UKIs at kernel install or upgrade time.
+4. **Ensures the UKI tooling is present** — `ukify`, an ordinary installed package that ships with the systemd tooling, so the linux-kernel package's post-install hook can build and sign UKIs at kernel install or upgrade time.
 5. **Installs an initial UKI** built from the kernel the installer just dropped on the system, signed with the freshly-generated MOK.
 6. **Configures a recovery boot entry** that loads the bare vmlinuz with no UKI envelope, as a fallback path if a UKI ever fails to sign or boot.
 
@@ -120,15 +120,15 @@ If you are running with Secure Boot enabled and do not enroll the MOK at first b
 When you install or upgrade a kernel via `pkm install linux-kernel-X.Y.Z` (or any package whose post-install hook touches the kernel), the linux-kernel package's `post_install` hook does the following on your machine, with no key material from the InterGenOS release infrastructure:
 
 1. Reads the kernel, the standard initramfs (and an additional FDE initramfs if your system is LUKS-encrypted — see below), and the canonical command-line for your system.
-2. Runs `ukify build` to bundle them into a single UKI in the systemd-stub envelope.
-3. Runs `sbsign --key /var/lib/intergen/mok/mok.key --cert /var/lib/intergen/mok/mok.crt` to sign the UKI. (`sbsign` reads PEM-format certificates; the `.der` form generated alongside is for MokManager enrollment only, not signing.)
+2. Runs `ukify` to bundle them into a single UKI in the systemd-stub envelope.
+3. Signs that UKI with your machine's MOK. `ukify` does the signing itself, in the same invocation, from `/var/lib/intergen/mok/mok.key` and the PEM certificate `/var/lib/intergen/mok/mok.crt`; the `.der` form generated alongside is for MokManager enrollment only, never for signing. If no MOK key pair is present the UKI is built unsigned and the hook records that in its log.
 4. Writes the signed UKI to `/boot/efi/EFI/Linux/intergenos-<kernel-version>.efi`.
 5. Updates the GRUB menu so the new kernel is the default boot entry.
 6. Retains a configurable number of old kernels (default: 2) and their UKIs as fallback entries.
 
 The InterGenOS PIV slot 9c key, used for release signing on our offline workstation, is never asked. It physically does not exist on your machine.
 
-If signing fails (key file corrupt, ESP full, etc.), the linux-kernel post-install hook falls back to the GRUB-loads-vmlinuz path: the kernel and initramfs are written out separately and GRUB loads them directly. (When Secure Boot is enabled, GRUB itself is signed and enforces `check_signatures=enforce`; with Secure Boot off, that gating is not active, but the fallback path still gets you a bootable system.) You do not end up with a system that has a half-installed kernel.
+If signing fails (key file corrupt, ESP full, etc.), the linux-kernel post-install hook falls back to the GRUB-loads-vmlinuz path: the kernel and initramfs are written out separately and GRUB loads them directly. (When Secure Boot is enabled, the gate inside GRUB is the shim_lock verifier built into GRUB 2.14, which refuses to load anything the firmware's trust chain does not vouch for; the installer signs each `/boot/vmlinuz-*` with your MOK so that fallback path stays loadable. With Secure Boot off, that gating is not active, and the fallback path still gets you a bootable system either way.) You do not end up with a system that has a half-installed kernel.
 
 ## ESP sizing
 
@@ -175,7 +175,8 @@ On a default install (Secure Boot off) nothing stops you, but the supported path
 | Boot stops at MokManager every time | MOK enrollment never completed; firmware re-prompts each boot | Complete enrollment; see [First-boot MOK enrollment](#first-boot-mok-enrollment) above. |
 | New kernel installs but won't boot, falls through to recovery | UKI signed with a MOK the firmware doesn't trust | Re-enroll the MOK, or re-run the kernel post-install hook after enrollment. |
 | GRUB menu shows only the recovery entry, no UKI entries | UKI signing has been failing silently | Inspect `/var/log/intergen-kernel-postinstall.log` for sign errors. ESP-full and missing MOK key file are the two common causes. |
-| `ukify` or `sbsign` is missing on the installed system | The UKI tooling packages were removed | Reinstall the `systemd` tooling (which provides `ukify`) and `sbsigntool` with `pkm`, then re-run the linux-kernel post-install hook for the current kernel. |
+| `ukify` is missing on the installed system | The package providing it was removed | Reinstall the `systemd` tooling, which provides `ukify`, with `pkm`, then re-run the linux-kernel post-install hook for the current kernel. Without `ukify` the hook builds no UKI and says so in its log; the system stays bootable through the GRUB-loads-vmlinuz path. |
+| `sbsign` is missing on the installed system | `sbsigntool` was removed | Reinstall `sbsigntool` with `pkm`. It is what signs EFI binaries and kernel images with your MOK — the installer uses it, and so does the NVIDIA module-signing hook. |
 | Secure Boot toggle in firmware is greyed out | Some firmware (especially OEM laptops) makes Secure Boot read-only outside Setup Mode | See your hardware vendor's documentation for entering Setup Mode. InterGenOS runs fine with Secure Boot off (the default); enabling it is optional. |
 
 ## Further reading
