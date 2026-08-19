@@ -26,6 +26,11 @@ dependencies:
   - libusb
   - linux-pam
   - avahi
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "the suite needs an active graphical session with a bus address, and no other cupsd running; the build chroot has neither a session bus nor a display, and upstream documents at least four tests failing with 'address in use' when a cupsd is present. Those failures are environmental. The suite runs and its output is kept, so a NEW failure class is visible in the log."
+
 verify_paths:
   - /etc/cups/client.conf
   - /etc/pam.d/cups

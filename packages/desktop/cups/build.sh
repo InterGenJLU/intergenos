@@ -26,7 +26,14 @@ build() {
 
 check() {
     set -e
-    LC_ALL=C make -k check || true
+    # The blanket suite mask was retired here 2026-08-19: it accepted every
+    # failure the suite can produce, including one never seen before, which
+    # is the unverified-claim class the security posture exists to kill. The
+    # suite still runs; its result is now governed by the tests: block in
+    # package.yml and reported by pkg_run_tests, so an environmental failure
+    # is an announced waiver rather than an invisible pass.
+    LC_ALL=C pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        make -k check
 }
 
 do_install() {
