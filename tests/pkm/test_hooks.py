@@ -319,6 +319,66 @@ class TestArchiveLifecycleHook(unittest.TestCase):
         with self.assertRaises(ValueError):
             run_archive_lifecycle_hook(self.staging, "post_oops", "foo", "1.0", "/")
 
+    # ------------------------------------------------------------------
+    # What a hook SAYS reaches the person running pkm.
+    #
+    # A lifecycle hook is the only part of a package that speaks at install
+    # time, and the messages this function returns are what pkm hands to its
+    # reporter. Until these tests existed, a hook that exited 0 had everything
+    # it printed discarded: the result carried the word "OK" and nothing else.
+    # A hook that reports what it decided about a machine — the systemd
+    # recipe's preset branch is one — was therefore silent in exactly the case
+    # where it succeeded, which is the case that happens.
+    # ------------------------------------------------------------------
+
+    def test_a_successful_hooks_stdout_is_reported(self):
+        self._make_script("post_install", 'echo "left enablement alone"',
+                          exit_code=0)
+        result = run_archive_lifecycle_hook(
+            self.staging, "post_install", "foo", "1.0", "/")
+        joined = "\n".join(result.messages)
+        self.assertIn("left enablement alone", joined)
+        self.assertIn("OK", joined)
+
+    def test_a_successful_hooks_stderr_is_reported(self):
+        """A hook that warns and still exits 0 is the shape a warning nobody
+        sees takes. rhythmbox's post_install is written exactly that way."""
+        self._make_script("post_install", 'echo "man page missing" >&2',
+                          exit_code=0)
+        result = run_archive_lifecycle_hook(
+            self.staging, "post_install", "foo", "1.0", "/")
+        self.assertIn("man page missing", "\n".join(result.messages))
+
+    def test_every_line_a_hook_prints_is_reported_not_just_the_first(self):
+        self._make_script("post_install", 'echo one; echo two; echo three',
+                          exit_code=0)
+        result = run_archive_lifecycle_hook(
+            self.staging, "post_install", "foo", "1.0", "/")
+        joined = "\n".join(result.messages)
+        for word in ("one", "two", "three"):
+            self.assertIn(word, joined)
+
+    def test_a_silent_hook_still_reports_only_ok(self):
+        """The common case stays exactly as quiet as it was — no blank lines
+        for the ~99% of hooks that print nothing."""
+        self._make_script("post_install", ":", exit_code=0)
+        result = run_archive_lifecycle_hook(
+            self.staging, "post_install", "foo", "1.0", "/")
+        self.assertEqual(result.messages, ["  hook[archive/post_install] OK"])
+
+    def test_a_truncated_failure_message_says_that_it_was_truncated(self):
+        """The failure path shortens a hook's stderr to keep one status line
+        readable. Shortening it without a mark turns "there was more" into
+        "that was all", which is the harder error to notice — the reader has
+        no reason to go looking for the rest."""
+        long_line = "E" * 500
+        self._make_script("post_install", f'echo "{long_line}" >&2',
+                          exit_code=1)
+        result = run_archive_lifecycle_hook(
+            self.staging, "post_install", "foo", "1.0", "/")
+        joined = "\n".join(result.messages)
+        self.assertIn("truncated", joined.lower())
+
 
 class TestHookEnvHygiene(unittest.TestCase):
     """Verify HOOK_ENV_ALLOWLIST does its job — LD_PRELOAD / PYTHONPATH never
