@@ -1,7 +1,7 @@
 name: apparmor
 version: "3.1.7"
-release: 2
-content_hash: ac30e887ff000772
+release: 3  # r3: the recipe's post_install profile-load loop removed. pkm's canonical apparmor-reload hook already loads the same top-level /etc/apparmor.d profiles, in one parser invocation, under the same chroot and absent-interface guards — and it is critical, so a fatal parse now flags the operation for rollback instead of printing a WARNING and continuing. Coverage widens with it: the hook fires for profiles shipped by any package, the loop only ever ran when apparmor itself was installed.
+content_hash: 24518d5fde53210d
 description: AppArmor MAC framework — libapparmor, parser, and profile set
 license: GPL-2.0-only
 homepage: https://gitlab.com/apparmor/apparmor
