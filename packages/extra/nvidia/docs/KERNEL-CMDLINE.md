@@ -108,9 +108,21 @@ embedded in the signed UKI.
 `pkm remove nvidia` removes the package's shipped files — including
 `/etc/kernel/cmdline.d/40-nvidia.conf` and
 `/etc/modprobe.d/nvidia-nouveau-blacklist.conf` — as part of its standard
-file-removal walk. The `pre-remove.sh` hook first stops NVIDIA services,
-unloads the kernel modules, and purges the built `.ko` files under
-`/lib/modules/*/extra/nvidia/`. After the files are gone, the
-`post-remove.sh` hook triggers a UKI rebuild so the signed `.cmdline`
-section no longer carries the nvidia parameters. On next boot, nouveau is
-the active GPU driver.
+file-removal walk. Before that walk, `pkm` runs the package's pre-remove
+hook (`/var/lib/pkm/hooks/nvidia/pre-remove`), which stops the NVIDIA
+services, unloads the kernel modules, and purges the built `.ko` files
+under `/lib/modules/*/extra/nvidia/`. Those `.ko` files were compiled on
+this machine after the package was installed, so no manifest records them
+and the file-removal walk cannot see them; the hook is what clears them.
+
+The UKI is NOT rebuilt as part of the removal. Until it is rebuilt, the
+signed `.cmdline` section still carries the nvidia kernel parameters, so
+the first boot after the removal passes `nvidia-drm.modeset=1` to a kernel
+with no nvidia module to consume it — harmless, but stale. The next kernel
+update rebuilds the UKI and clears them. To clear them immediately:
+
+```
+sudo /var/lib/pkm/hooks/linux-kernel/post-install
+```
+
+On next boot, nouveau is the active GPU driver.

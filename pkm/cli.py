@@ -846,7 +846,12 @@ def _rollback_proprietary(db, pkg_name, reporter):
     """Remove a half-installed proprietary package after a declined EULA or a
     helper failure, so `[installed]` never shows <app> without the real app."""
     try:
-        PackageRemover(db).remove(pkg_name, force=True, reporter=reporter)
+        # No pre-remove hook: this undoes an install that never completed
+        # (declined EULA, failed helper). The package's payload was never
+        # in service, so there is nothing for a hook to stop, unload or
+        # clean up — and the hook itself may be half-deployed.
+        PackageRemover(db).remove(pkg_name, force=True, reporter=reporter,
+                                  run_pre_remove_hook=False)
     except Exception as e:  # rollback is best-effort; surface but don't crash
         reporter.warn(f"could not fully roll back {pkg_name}: {e}")
 
@@ -1555,7 +1560,13 @@ def cmd_reinstall(db, args):
             expected_sha = repo_pkg.get("sha256")
 
         # --- now safe to remove + reinstall ---
-        ok, rmsg = remover.remove(pkg_name, force=True, reporter=reporter)
+        # No pre-remove hook: the package is not going away. Remove-then-
+        # install is how reinstall replaces the files, and a hook written
+        # for an uninstall would tear down state the replacement expects
+        # to keep (nvidia's, for one, disables the units its own package
+        # ships and nothing re-enables them).
+        ok, rmsg = remover.remove(pkg_name, force=True, reporter=reporter,
+                                  run_pre_remove_hook=False)
         if not ok:
             reporter.error(f"remove step failed for {pkg_name}: {rmsg}")
             sys.exit(1)
@@ -2032,8 +2043,12 @@ def cmd_upgrade(db, args):
         # Remove old, install new
         from .remover import PackageRemover
         remover = PackageRemover(db)
+        # No pre-remove hook: same reason as reinstall — an upgrade is not
+        # an uninstall. The old version's files are being replaced by the
+        # new version's, and the new version's post-install hook is what
+        # re-establishes runtime state.
         remove_ok, remove_msg = remover.remove(
-            installed_pkg["name"], force=True)
+            installed_pkg["name"], force=True, run_pre_remove_hook=False)
         if not remove_ok:
             # The return value was previously discarded outright. A remove
             # that refuses leaves the OLD package in place, and the install
@@ -3546,7 +3561,13 @@ def cmd_iso_prep(db, args):
             swept_candidates |= ancestor_chain(f["path"])
         owned_by_target[n] = _known_owned_paths(db, remover.root, n,
                                                 installed[n].get("version"))
-        ok, msg = remover.remove(n, force=False)
+        # No pre-remove hook: this is the build-time prune of packages the
+        # image never ships, and it runs inside the mint chroot, whose
+        # /run, /proc and /sys belong to the build machine. A hook fired
+        # here would act on the builder — stopping its services, unloading
+        # its modules — for a package that was never in service on any
+        # machine. Runtime hooks belong to real removals on real installs.
+        ok, msg = remover.remove(n, force=False, run_pre_remove_hook=False)
         if ok:
             # Surface the remover's own message — it carries the actual
             # file count plus any retained/failed/preserved warnings. The
