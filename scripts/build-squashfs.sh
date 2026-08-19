@@ -1196,6 +1196,42 @@ else
 fi
 
 # ----------------------------------------------------------------------------
+# Step 4.86: autostart entries carry no condition the session will ignore
+# ----------------------------------------------------------------------------
+# An /etc/xdg/autostart entry may carry AutostartCondition=, which decides
+# whether the entry runs — usually on a setting the user controls. GNOME 49
+# removed the machinery that read it (upstream NEWS, 49.beta: the builtin
+# service manager and "various .desktop … keys that were used only by" it), and
+# systemd-xdg-autostart-generator delegates the key to a separate binary that
+# gnome-session 49.2 does not contain. With that binary absent the generator
+# logs "unit will not be started automatically" and then emits the unit anyway,
+# with the condition demoted to a comment — so the entry RUNS and the condition
+# is silently ignored. Measured on systemd 259.1.
+#
+# The gate refuses any entry carrying the key without X-GNOME-Autostart-Phase=,
+# which is the unrelated key that actually makes the generator handle an entry
+# separately. Runs on the same tree the ownership gate just judged, so both see
+# what actually ships.
+AUTOSTART_GATE="$(dirname "$0")/check-autostart-condition-honoured.py"
+AUTOSTART_ALLOWLIST="/mnt/intergenos/config/autostart-condition-allowlist.txt"
+step_begin "[4.86/6]"
+log "autostart-condition gate (no shipped entry carries a dead condition)..."
+auto_out="$(python3 "$AUTOSTART_GATE" \
+    --root "$CHROOT" \
+    --allowlist "$AUTOSTART_ALLOWLIST" 2>&1)" \
+    && auto_rc=0 || auto_rc=$?
+[ -n "$auto_out" ] && printf '%s\n' "$auto_out" | logpipe "[autostart]"
+if [ "$auto_rc" -eq 0 ]; then
+    status_line "autostart-condition gate" PASS
+else
+    status_line "autostart-condition gate" FAIL
+    log "a shipped autostart entry would run with its condition ignored —"
+    log "drop the dead key, give the entry a gate the session honours, or add"
+    log "a reasoned allowlist entry, then rebuild the squashfs"
+    die "autostart-condition gate failed (rc=$auto_rc)"
+fi
+
+# ----------------------------------------------------------------------------
 # Step 5: mksquashfs
 # ----------------------------------------------------------------------------
 step_begin "[5/6]"

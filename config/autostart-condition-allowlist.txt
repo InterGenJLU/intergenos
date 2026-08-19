@@ -1,0 +1,21 @@
+# Autostart entries exempted from scripts/check-autostart-condition-honoured.py
+#
+# Each line: <entry basename><two-or-more-spaces-or-tab><reason>
+#
+# The gate refuses a shipped /etc/xdg/autostart entry that carries
+# AutostartCondition= without X-GNOME-Autostart-Phase=, because on this stack
+# such an entry runs with its condition silently ignored: GNOME 49 removed the
+# builtin service manager that read the key, and the systemd generator's
+# delegate for it (gnome-systemd-autostart-condition) is not part of
+# gnome-session 49.2 at all.
+#
+# An entry belongs here only when the condition being ignored is provably
+# harmless AND the entry cannot simply drop the key — for example a third-party
+# file we do not author whose condition duplicates a check the program itself
+# already makes. Write WHY, with the date and what was measured. An entry with
+# no reason is refused by the gate, not passed over.
+#
+# Empty on purpose as of 2026-08-19: the two entries on the shipped corpus that
+# carry the key (at-spi-dbus-bus.desktop, libcanberra-login-sound.desktop) also
+# carry X-GNOME-Autostart-Phase, so neither runs under GNOME and neither needs
+# an exemption.
