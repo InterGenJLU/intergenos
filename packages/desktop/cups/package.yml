@@ -1,7 +1,7 @@
 name: cups
 version: "2.4.16"
-release: 4  # r4: post_install no longer masks the scheduler enable, so a missing cups.service fails the package instead of being absorbed.  # r3: the test suite's policy is declared instead of every failure being masked. Per-finding retrofit, not a sweep.  # hook-contract wave: client.conf + pam.d/cups moved post_install -> do_install (owned payload)
-content_hash: 5b299e84ab7d68fd
+release: 5  # r5: post_install removed. It contained one call, systemctl enable cups.service, which the install-time systemctl preset-all reverted on every install, so the recipe stated a default the shipped system did not have. The scheduler's default now comes only from the preset files, where it is written down: off, because printing is one of the opt-in switches the welcome application offers, and cups.service is socket-activated by cups.socket once the user turns it on. No installed bytes beyond the retired hook change.  # r4: post_install no longer masks the scheduler enable, so a missing cups.service fails the package instead of being absorbed.  # r3: the test suite's policy is declared instead of every failure being masked. Per-finding retrofit, not a sweep.  # hook-contract wave: client.conf + pam.d/cups moved post_install -> do_install (owned payload)
+content_hash: 4a29db648834abc2
 description: Common UNIX Printing System
 license: Apache-2.0
 homepage: https://openprinting.github.io/cups/

@@ -1,7 +1,7 @@
 name: at
 version: "3.2.5"
-release: 5  # r5: post_install creates-or-corrects the spool (install -d -m1770 -o atd -g atd /var/spool/atjobs + /var/spool/atspool, .SEQ chown when present) — the sealed archive ships no spool paths and archive deployment strips uid/gid, so the spool landed root:root on installed systems (measured on the ge9b-12 installed system) and atd could not write its own spool. r4 (hook-contract wave): pam.d/atd moved post_install -> do_install (owned payload)
-content_hash: 7b4d5d05469fd039
+release: 6  # r6: post_install no longer enables atd. That enable was reverted by the install-time systemctl preset-all on every fresh install but survived on any machine where this package was later reinstalled or upgraded, because nothing re-runs that pass after a package operation — so two systems from the same medium held different defaults. The default is now written in the preset files only, and is off, which is what a fresh install already shipped. The spool .SEQ line became an if-block in the same change: with the enable removed it was the last statement in the hook, and under set -e a test-and-chain whose test is false returns non-zero, which was measured failing the hook on a system with no .SEQ file yet. The ownership and mode repair above it is unchanged.  # r5: post_install creates-or-corrects the spool (install -d -m1770 -o atd -g atd /var/spool/atjobs + /var/spool/atspool, .SEQ chown when present) — the sealed archive ships no spool paths and archive deployment strips uid/gid, so the spool landed root:root on installed systems (measured on the ge9b-12 installed system) and atd could not write its own spool. r4 (hook-contract wave): pam.d/atd moved post_install -> do_install (owned payload)
+content_hash: 2660f6250d2432f6
 description: Job scheduling commands (at, batch, atq, atrm)
 license: GPL-2.0-or-later
 tier: base

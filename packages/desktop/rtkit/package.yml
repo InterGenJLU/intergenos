@@ -1,7 +1,7 @@
 name: rtkit
 version: "0.13"
-release: 2  # r2: post_install no longer masks the service enable, so a missing rtkit-daemon.service fails the package instead of being absorbed.
-content_hash: fc72bbb677f2353a
+release: 3  # r3: post_install removed. It contained one call, systemctl enable rtkit-daemon.service, which the install-time systemctl preset-all reverted. The broker's default now comes only from the preset files: not started at boot, because the package ships a D-Bus system-service file naming the unit, so the first client that asks starts it regardless. No installed bytes beyond the retired hook change.  # r2: post_install no longer masks the service enable, so a missing rtkit-daemon.service fails the package instead of being absorbed.
+content_hash: c5672a61147fae22
 description: RealtimeKit — D-Bus service for real-time scheduling
 license: GPL-3.0-or-later
 homepage: https://github.com/heftig/rtkit

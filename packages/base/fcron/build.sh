@@ -172,5 +172,14 @@ post_install() {
     chown fcron:fcron /var/spool/fcron
     chmod 770         /var/spool/fcron
 
-    systemctl enable fcron
+    # No `systemctl enable` here. Whether fcron.service runs by default is decided in
+    # intergenos-base-files' /usr/lib/systemd/system-preset/80-intergenos-enable.preset
+    # and applied by the `systemctl preset-all` the image build and the installer
+    # both run. The enable that used to sit here was reverted by that pass on
+    # every fresh install, but survived on any machine where this package was
+    # later reinstalled or upgraded, because nothing re-runs preset-all after a
+    # package operation — so two systems from the same medium ended up with
+    # different defaults for a reason neither file recorded. Decided 2026-08-19:
+    # the preset files own this, on both paths. The work above this line is
+    # ownership and mode repair, not enablement, and is unchanged.
 }

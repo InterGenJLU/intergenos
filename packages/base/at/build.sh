@@ -86,7 +86,24 @@ post_install() {
     # either way: the Makefile's canonical atd:atd 1770 spool dirs, plus
     # atd-owned .SEQ when present (600, no setuid bit, no re-chmod hazard).
     install -d -m1770 -o atd -g atd /var/spool/atjobs /var/spool/atspool
-    [ -f /var/spool/atjobs/.SEQ ] && chown atd:atd /var/spool/atjobs/.SEQ
+    # An `if` rather than `[ -f … ] && chown …`: with the enable that used to
+    # follow it removed, this became the LAST statement in the hook, and under
+    # `set -e` a `&&` chain whose test is false makes the function return
+    # non-zero — so a system with no .SEQ file yet (every fresh install) would
+    # have failed post_install for the absence of a file this line exists to
+    # tolerate.
+    if [ -f /var/spool/atjobs/.SEQ ]; then
+        chown atd:atd /var/spool/atjobs/.SEQ
+    fi
 
-    systemctl enable atd
+    # No `systemctl enable` here. Whether atd.service runs by default is decided in
+    # intergenos-base-files' /usr/lib/systemd/system-preset/80-intergenos-enable.preset
+    # and applied by the `systemctl preset-all` the image build and the installer
+    # both run. The enable that used to sit here was reverted by that pass on
+    # every fresh install, but survived on any machine where this package was
+    # later reinstalled or upgraded, because nothing re-runs preset-all after a
+    # package operation — so two systems from the same medium ended up with
+    # different defaults for a reason neither file recorded. Decided 2026-08-19:
+    # the preset files own this, on both paths. The work above this line is
+    # ownership and mode repair, not enablement, and is unchanged.
 }

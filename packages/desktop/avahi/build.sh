@@ -43,29 +43,10 @@ do_install() {
     make DESTDIR="$DESTDIR" install
 }
 
-post_install() {
-    set -e
-    # avahi user/group + netdev group are declared by
-    # /usr/lib/sysusers.d/avahi.conf and created by the pkm canonical
-    # sysusers hook before this lifecycle hook runs.
-
-    # Enable the mDNS/DNS-SD responder.
-    #
-    # Unmasked. `systemctl enable` is an offline file operation: measured
-    # 2026-08-19 in a chroot built from this systemd 259.1, enabling a PRESENT
-    # unit returns 0 and writes the symlink, a repeat call returns 0, and the
-    # only reachable failure is a unit that does not exist, which returns 1.
-    # This package installs avahi-daemon.service itself, so a non-zero means
-    # its own unit is missing.
-    #
-    # KNOWN GAP: avahi-daemon.service is not whitelisted in
-    # intergenos-base-files' 80-intergenos-enable.preset, so the preset policy
-    # resolves it to `disable` through the 99- catch-all. Measured on an
-    # installed system 2026-08-19: the PRESET column of `systemctl
-    # list-unit-files avahi-daemon.service` reads disabled while the unit's
-    # STATE reads enabled — this recipe's enable is what survived there, and
-    # the two disagree. Unmasking settles only whether a FAILING enable is
-    # visible. Which of the two should win is a default-running-service
-    # decision, not a recipe fix.
-    systemctl enable avahi-daemon.service
-}
+# No post_install hook. Default enablement of every unit this package ships is
+# decided in one place — intergenos-base-files'
+# /usr/lib/systemd/system-preset/80-intergenos-enable.preset — and applied by the
+# `systemctl preset-all` pass the image build and the installer both run. A
+# `systemctl enable` here was a second voice for the same decision and the preset
+# pass reverted it, so the tree stated one default and shipped another. Decided
+# 2026-08-19: the preset files own this; recipes do not enable their own units.
