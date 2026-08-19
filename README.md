@@ -280,7 +280,7 @@ Items actively in flight or planned toward v1.0:
 
 ## Research
 
-Every major decision is documented. See [docs/research/](docs/research/INDEX.md) — over 180 markdown documents (plus supporting diagrams and data files) across 27 subdirectories covering:
+Every major decision is documented. See [docs/research/](docs/research/INDEX.md) — over 180 markdown documents (plus supporting diagrams and data files) across more than 25 subdirectories covering:
 
 - Why LFS over Gentoo, Buildroot, NixOS
 - Build system design (9 systems evaluated)
