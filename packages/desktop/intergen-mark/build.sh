@@ -70,8 +70,8 @@ do_install() {
     install -m644 "${sources_dir}/svg/intergenos_icon_full.svg" \
         "${DESTDIR}/usr/share/icons/hicolor/scalable/apps/intergenos-full.svg"
 
-    # Symbolic boxed mark for the ArcMenu custom "InterGenOS" category
-    # (operator branding §A). Greyscale single-fill so GNOME/ArcMenu recolors
+    # Symbolic boxed mark for the ArcMenu custom "InterGenOS" category.
+    # Greyscale single-fill so GNOME/ArcMenu recolors
     # it to the sidebar text colour. Referenced by the carried ArcMenu patch's
     # Categories entry as Icon name "intergenos-category-symbolic".
     install -m644 "${sources_dir}/symbolic/intergenos_category_symbolic.svg" \
