@@ -1,11 +1,13 @@
 # InterGenOS Release Signing Key
 
-**Last updated:** 2026-05-13
+**Last updated:** 2026-08-18
 **Status:** LIVE. Master pubkey published to `keys.openpgp.org` (verified by email). All four hardware tokens carry signing subkeys, UIF touch-policy on. PIV vendor cert (NK#1 slot 9c) generated and rotated. Drive #3 master backup secured.
 
 ## Summary
 
 InterGenOS release artifacts are signed with a PGP key whose master is generated and held offline. Verifying the key fingerprint against this page **and** at least one other independent source before trusting it on your machine protects you from MITM tampering during package download.
+
+The signing subkeys currently sign: the package repository index (`InterGenOS.db` + `.sig`), the annotated release tags, the ISO checksum file published beside each image (`<image>.sha256.asc`), and the wiki page manifest. The image checksum signature is a standing per-release artifact beginning with R001.
 
 This page is the **canonical fingerprint publication** for the release signing key. Cross-publication locations are listed below; every copy of the fingerprint on the internet should match the value here. If they don't, do not trust the mismatched source.
 
