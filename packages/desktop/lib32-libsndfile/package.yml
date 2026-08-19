@@ -1,6 +1,7 @@
 name: lib32-libsndfile
 version: "1.2.2"
 release: 1
+content_hash: 5db596f16709db7e
 description: Library for reading and writing sound files (32-bit multilib runtime)
 license: LGPL-2.1-or-later
 homepage: https://libsndfile.github.io/libsndfile/
@@ -70,6 +71,13 @@ validation:
 verify_paths:
   - /usr/lib32/libsndfile.so.1
   - /usr/lib32/pkgconfig/sndfile.pc
+
+# Build inputs from the repository tree: declared here so an edit to one
+# moves this package's content fingerprint and a targeted build rebuilds it
+# (igos-build/content_hash.py arm (c)), and in sources_extra below so the
+# published source archive carries them.
+source_tree:
+- scripts/lib32-env.sh
 
 # Build inputs composed from the repository tree (declared so the published
 # source archive carries every input the build consumes — the corresponding-

@@ -165,8 +165,8 @@ verify_paths:
   # scripts/preflight-kernel-release-lockstep.py now derives the expected value
   # from linux-kernel's recipe and refuses the build at preflight when these
   # disagree. Step 4.5 stays as the proof the files actually landed.
-  - /boot/vmlinuz-6.18.10-igos-16
-  - /usr/lib/modules/6.18.10-igos-16
+  - /boot/vmlinuz-6.18.10-igos-17
+  - /usr/lib/modules/6.18.10-igos-17
   # The D-005 UKI rebuild hook this pass now ships (added 2026-08-11). pkm fires
   # it after deploying THIS pass's kernel, which on an installed system is the
   # last kernel deploy that happens; without it the UKI keeps embedding pass 1's

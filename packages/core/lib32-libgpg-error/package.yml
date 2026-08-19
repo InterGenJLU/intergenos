@@ -1,6 +1,7 @@
 name: lib32-libgpg-error
 version: '1.59'
 release: 1
+content_hash: a65dbe5da77f735f
 description: GPG error code library (32-bit multilib runtime)
 license: LGPL-2.1-or-later
 homepage: https://www.gnupg.org/
@@ -34,6 +35,13 @@ dependencies:
 verify_paths:
   - /usr/lib32/libgpg-error.so.0
   - /usr/lib32/pkgconfig/gpg-error.pc
+
+# Build inputs from the repository tree: declared here so an edit to one
+# moves this package's content fingerprint and a targeted build rebuilds it
+# (igos-build/content_hash.py arm (c)), and in sources_extra below so the
+# published source archive carries them.
+source_tree:
+- scripts/lib32-env.sh
 
 # Build inputs composed from the repository tree (declared so the published
 # source archive carries every input the build consumes — the corresponding-

@@ -1,6 +1,7 @@
 name: lib32-zlib
 version: "1.3.2"
 release: 1
+content_hash: c8655fbab24f2545
 description: Compression library (32-bit multilib runtime)
 license: Zlib
 homepage: https://zlib.net/
@@ -25,6 +26,13 @@ dependencies:
 verify_paths:
   - /usr/lib32/libz.so.1
   - /usr/lib32/pkgconfig/zlib.pc
+
+# Build inputs from the repository tree: declared here so an edit to one
+# moves this package's content fingerprint and a targeted build rebuilds it
+# (igos-build/content_hash.py arm (c)), and in sources_extra below so the
+# published source archive carries them.
+source_tree:
+- scripts/lib32-env.sh
 
 # Build inputs composed from the repository tree (declared so the published
 # source archive carries every input the build consumes — the corresponding-
