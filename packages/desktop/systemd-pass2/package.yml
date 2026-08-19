@@ -62,3 +62,9 @@ verify_paths:
   - /usr/bin/systemd-ac-power
   - /usr/bin/bootctl
   - /usr/lib/libnss_myhostname.so.2
+  - /usr/bin/localectl
+  - /usr/sbin/reboot
+  - /usr/bin/systemctl
+  - /usr/bin/timedatectl
+  - /usr/bin/udevadm
+  - /usr/bin/ukify

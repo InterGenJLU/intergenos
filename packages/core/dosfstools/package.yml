@@ -16,3 +16,5 @@ dependencies:
   runtime: []
 verify_paths:
   - /usr/sbin/fatlabel
+  - /usr/sbin/mkfs.fat
+  - /usr/sbin/mkfs.vfat

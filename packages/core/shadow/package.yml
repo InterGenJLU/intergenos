@@ -16,3 +16,8 @@ build_style: custom
 verify_paths:
   - /usr/bin/chage
   - /usr/lib/libsubid.so
+  - /usr/sbin/chpasswd
+  - /usr/bin/passwd
+  - /usr/sbin/useradd
+  - /usr/sbin/userdel
+  - /usr/sbin/usermod

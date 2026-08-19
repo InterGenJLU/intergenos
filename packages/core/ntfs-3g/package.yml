@@ -43,3 +43,4 @@ verify_paths:
   - /usr/sbin/mkntfs
   - /usr/sbin/mount.ntfs
   - /usr/lib/libntfs-3g.so
+  - /usr/sbin/mkfs.ntfs
