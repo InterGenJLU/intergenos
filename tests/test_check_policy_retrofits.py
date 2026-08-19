@@ -111,3 +111,32 @@ class TestSamba:
         r = run_policy(self.PKG, 0)
         assert "POLICY_RC=0" in r.stdout
         assert "PASSED" in r.stdout
+
+
+class TestSpidermonkey:
+    """desktop/spidermonkey — Python lane. The failures follow from the
+    deliberate --with-system-icu choice, so they are declared, not masked."""
+
+    PKG = "desktop/spidermonkey"
+
+    def test_the_blanket_mask_is_gone(self):
+        assert "|| true" not in check_body(self.PKG)
+
+    def test_check_routes_through_the_policy_wrapper(self):
+        assert "pkg_run_tests" in check_body(self.PKG)
+
+    def test_the_suite_arguments_are_unchanged(self):
+        body = check_body(self.PKG)
+        assert "check-jstests" in body
+        assert '--timeout 300 --wpt=disabled' in body
+
+    def test_a_failing_suite_is_waived_loudly_not_silently(self):
+        r = run_policy(self.PKG, 1)
+        assert "POLICY_RC=0" in r.stdout, r.stdout + r.stderr
+        assert "allowed by failure_policy=known_failures" in r.stdout
+        assert "system-icu" in r.stdout
+
+    def test_a_passing_suite_still_reads_as_passing(self):
+        r = run_policy(self.PKG, 0)
+        assert "POLICY_RC=0" in r.stdout
+        assert "PASSED" in r.stdout

@@ -27,6 +27,11 @@ dependencies:
   - icu
   - readline
   - zlib
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "this recipe configures --with-system-icu, and upstream documents that building against the system ICU leaves a small set of the 50,000-plus jstests failing on locale-dependent expectations — 24 of them at the version the reference book covers. The failures are a property of the ICU choice, which is deliberate here, not of the build. The suite runs with --wpt=disabled and a 300s per-test timeout and its full output is kept in the package log."
+
 verify_paths:
   - /usr/bin/js140
   - /usr/bin/js140-config
