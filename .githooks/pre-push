@@ -638,7 +638,7 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
 fi
 
 # ---- 9. v1.1 deferred-followup consistency -------------------------------
-# Per the O-030-followup mechanism (operator greenlit 2026-05-19): every
+# Per the O-030-followup mechanism (decided 2026-05-19): every
 # commit that defers scope to v1.1 must register the deferral in
 # docs/v1.1-deferred-followups.md, so the ledger of v1.0/v1.1 scope splits
 # stays auditable and the work cannot be silently lost. The gate scans
