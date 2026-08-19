@@ -1,6 +1,6 @@
 name: gamescope
 version: "3.16.24"
-release: 1
+release: 2  # r2: comment wording only: the reshade shader-effect note in build.sh now uses plain engineering language. No build change.
 description: SteamOS session compositing window manager (micro-compositor for gaming)
 license: BSD-2-Clause
 homepage: https://github.com/ValveSoftware/gamescope
