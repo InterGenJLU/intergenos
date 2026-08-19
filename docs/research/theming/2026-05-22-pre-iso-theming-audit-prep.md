@@ -21,7 +21,7 @@
 
 ## How this document came to exist
 
-During USA-1 Step 2 PARTIAL walk item 9 (J-008 — "gschema icon-theme=Papirus-Dark contradicts dconf icon-theme='Cybernetic - Blue'"), the initial framing was a "1-line edit" follow-up. Empirical state was requested instead, and the sweep surfaced that what was framed as a 1-line fix is actually a multi-component drift between the decided intent (Cybernetic Blue per A33 2026-05-03) and shipping reality (Papirus-Dark across the package + dependency + metatheme + gschema chain).
+During USA-1 Step 2 PARTIAL review item 9 (J-008 — "gschema icon-theme=Papirus-Dark contradicts dconf icon-theme='Cybernetic - Blue'"), the initial framing was a "1-line edit" follow-up. Empirical state was requested instead, and the sweep surfaced that what was framed as a 1-line fix is actually a multi-component drift between the decided intent (Cybernetic Blue per A33 2026-05-03) and shipping reality (Papirus-Dark across the package + dependency + metatheme + gschema chain).
 
 The resolution for J-008 specifically:
 > *"We ship Papirus-icon-theme as the installed icon theme — we INCLUDE Cybernetic AND provide attribution for it."*
@@ -477,7 +477,7 @@ Closing this gate requires:
 
 ## Provenance
 
-- **Trigger:** decided mid-walk of audit row J-008 (USA-1 Step 2 PARTIAL walk item 9), 2026-05-22 ~12:Z
+- **Trigger:** decided mid-review of audit row J-008 (USA-1 Step 2 PARTIAL review item 9), 2026-05-22 ~12:Z
 - **Authored:** 2026-05-22
 - **Empirical sweep base:** master `2811bd28` (D-002 Path B atomic landed; install-theming.sh greeter-block delete pending)
 - **Theming directives captured here:**

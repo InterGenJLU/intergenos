@@ -926,7 +926,7 @@ SYSTEM_UTILITIES_CORE = {
 # InterGenOS first-party core packages — policy/data shippers per D-006
 # (GNOME defaults SSoT), D-011 (firewall defaults SSoT), and the keyring /
 # legal / helper-lib triplet that's been a core fixture since 2026-05.
-# No upstream; the fleet IS upstream. tier:core.
+# No upstream; the project IS upstream. tier:core.
 INTERGENOS_FIRSTPARTY_CORE = {
     "ca-certificates",                # Mozilla CA bundle for OS-level TLS
     "intergenos-base-files",          # /etc baseline + FHS skeleton (Debian base-files analog)

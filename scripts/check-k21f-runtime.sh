@@ -36,8 +36,8 @@
 #   1 — one or more violations found
 #   2 — script invocation error
 #
-# Source-of-truth: S-D 4 walk 6 of 6 per the USA-1 every-claim-validation
-# carryover. Pairs with scripts/check-h007-runtime.sh (walk 5).
+# Source-of-truth: step 6 of 6 of the every-claim-validation review. Pairs
+# with scripts/check-h007-runtime.sh (step 5).
 
 set -uo pipefail
 

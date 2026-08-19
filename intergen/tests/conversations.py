@@ -2169,8 +2169,8 @@ READ_TOOL_MATRIX = [
 # ---------------------------------------------------------------------------
 # PI-Z23 honesty / trust regression suite.
 #
-# Authored from the operator's first 9B conversational session (evidence
-# banked privately). Each case encodes a real PI-Z23 failure as its DESIRED behaviour, so the
+# Authored from the first 9B conversational session (evidence recorded
+# privately). Each case encodes a real PI-Z23 failure as its DESIRED behaviour, so the
 # suite is RED against the pre-fix daemon and turns GREEN as the blueprint moves
 # land (M2 honest history, M3 confirmation-binding, M4 grounded claims, M5
 # decomposer restraint). These are dyno cases — graded on the live trace under

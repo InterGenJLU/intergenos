@@ -22,10 +22,10 @@ iso_include: false
 # corectrl independently. TUI + JSON output cover every monitoring
 # workflow without the GUI surface.
 #
-# libdrm_link (vs libdrm_dynamic_loading) chosen so we link directly
-# against libdrm_amdgpu at compile time — failure to find the library
-# is a hard build error rather than a runtime dlopen failure. We have
-# libdrm in tree; the link path is correct.
+# libdrm_link (vs libdrm_dynamic_loading) chosen so the build links
+# directly against libdrm_amdgpu at compile time — failure to find the
+# library is a hard build error rather than a runtime dlopen failure.
+# libdrm is in tree; the link path is correct.
 #
 # Cross-distro alignment:
 #   Arch:   AUR/amdgpu_top (no official repo); cargo build --release

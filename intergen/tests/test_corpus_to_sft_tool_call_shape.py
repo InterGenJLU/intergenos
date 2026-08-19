@@ -184,7 +184,7 @@ class ToolFlowHistoryShape(unittest.TestCase):
 class TheGateCanActuallyFail(unittest.TestCase):
     """Three negative controls. A gate never shown to reject is not a gate —
     and an aggregate check that passes on the defect it exists to catch is the
-    cautionary tale this cut was written from."""
+    cautionary tale this test was written from."""
 
     def test_gate_refuses_json_string_arguments(self):
         s = _emit_one(_entry())

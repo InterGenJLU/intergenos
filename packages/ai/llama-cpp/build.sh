@@ -236,7 +236,7 @@ do_install() {
     # find, not ls: `ls` honours an alias when one is set, and an aliased ls
     # (-F appends a type marker, -a adds . and ..) makes this comparison fail
     # against a perfectly correct staged tree. Measured here 2026-08-04 —
-    # re-running this function from a shell that carries the fleet's usual
+    # re-running this function from a shell that carries a typical interactive
     # `ls` alias produced "./ ../ llama-bench* llama-cli* llama-server*" and a
     # false refusal. The package builder runs non-interactively, where aliases
     # do not expand, so the shipped path was never wrong; a gate whose verdict

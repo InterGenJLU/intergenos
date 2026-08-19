@@ -24,8 +24,8 @@ to 2-3 load-bearing files from their OWN archives. TestShippedForgePathRegressio
 pins that repoint. TestMirrorSealForgePath exercises the REAL seal gate for the
 forge-path class on a mirror-only package. TestOwnershipLintProposal is a
 reference implementation (RED/GREEN) of the PROPOSED enforcement for the shipped
-class — it is NOT wired into any production gate (widen no gate before it is
-ruled; the proposal + code citations ride in the paste-back).
+class — it is NOT wired into any production gate (widen no gate before the
+change is decided; the proposal and its code citations are delivered separately).
 """
 import importlib
 import logging

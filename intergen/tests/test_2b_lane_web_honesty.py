@@ -335,7 +335,7 @@ class ToolCapabilityNoLeak(unittest.TestCase):
 
 
 # ── 2B-LANE GAP-A + GAP-B residual corpus (r57 measurement) ──
-# The banked r57 residual sweep (r57-20260709T200045Z on the peer box) measured 122
+# The recorded r57 residual sweep (r57-20260709T200045Z on the reference machine) measured 122
 # of 146 web fixtures STILL falling through to the locked freeform floor at r57 —
 # genuine live-data asks the 2B would fabricate or disown. That corpus IS the fixture
 # set (per the follow-on dispatch): every row is pinned here to its honest route so a

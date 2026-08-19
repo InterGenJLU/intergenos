@@ -4,8 +4,8 @@
 #
 # CairoSVG 2.9.0 — SVG converter (the icon-generation toolchain's engine)
 # Not in BLFS — InterGenOS extra tier. Authored 2026-07-22 so the icon
-# lane runs pip-free from the mirror (the fleet package/network-pull
-# directive: mirror-first; these were previously pip-pulled per the
+# toolchain runs pip-free from the mirror (the project's package/network-pull
+# rule: mirror-first; these were previously pip-pulled per the
 # generator's own run instructions). Pure-python setuptools sdist from
 # PyPI (dist name "CairoSVG"; pip normalizes to cairosvg); offline pip
 # wheel+install (the python-requests pattern).

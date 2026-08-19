@@ -1,6 +1,6 @@
 """The repo's git gates must actually be armed in the working clone.
 
-A clone (or a seat restored from a fresh install) starts with core.hooksPath
+A clone (or a working copy restored from a fresh install) starts with core.hooksPath
 unset, so every in-repo gate under .githooks/ is silently NOT running — and
 nothing announces that. A hook cannot announce its own absence, so the test
 suite is the announce-point: it runs on every review cycle, turning a

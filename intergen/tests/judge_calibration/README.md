@@ -317,8 +317,8 @@ per-dimension record showed it. The clause now states that it excuses **absent w
 never present contempt**, and `user_blaming` grades `fail` again. A rubric edit that buys
 refusal tolerance with garbage-catch is rejected — this one was, and was rewritten.
 
-**Residuals, unchanged by this cut:** `confident_wrong_fact` still composes `flag` where
+**Residuals, unchanged by this change:** `confident_wrong_fact` still composes `flag` where
 the maintainer graded `fail` (caught, wrong severity), and `verbose_empty` / `off_target`
 likewise sit at `flag`. These are the known 4B severity-softening class; per the
 escalation trigger above, model escalation rather than further prompt-tuning is the decided
-response. The judge remains **ADVISORY** — this cut changed no gate role.
+response. The judge remains **ADVISORY** — this change altered no gate role.

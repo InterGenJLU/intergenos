@@ -3,8 +3,8 @@
 # Copyright (C) 2015-2016, 2026 InterGenJLU
 """Rule 21 aspirational-stub detection gate.
 
-Authored against the InterGenOS build-development-rulebook Rule 21
-("No stubs"; docs/build-development-rulebook.md:271-298) and audit finding
+Authored against the project's build rulebook Rule 21 ("No stubs") and
+audit finding
 M-009 (USA-1 audit B17 closure). Rule 21's detection layer cites this
 script by name as the canonical code-stub audit:
 
@@ -203,7 +203,7 @@ KNOWN_SYSTEM_PATHS: set[str] = {
 # Base-system binaries shipped by core packages (bash-core, coreutils-core,
 # procps-ng) but whose verify_paths hand-curates only 2-3 identity-signal
 # paths per Rule 20 (e.g., procps-ng declares /usr/bin/free + libproc2.so,
-# not every CLI it ships). Service files across the fleet routinely invoke
+# not every CLI it ships). Service files across the distribution routinely invoke
 # these by basename in ExecStart/ExecReload/ExecStop directives without
 # the citing package owning them. Comprehensive enumeration of these
 # binaries is captured at pkm-manifest layer (pkg-functions.sh:pkg_manifest

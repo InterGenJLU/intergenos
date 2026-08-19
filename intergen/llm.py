@@ -74,7 +74,7 @@ _PROVENANCE_DIRECTIVE = (
 # commands instead of using tools"). Per the rule "never drop a directive a
 # battery category depends on", it STAYS in the base on every path. And by the
 # LEG-2 measurement, prefill is not a latency lever on this KV-cached GPU box
-# (259 prompt tokens = ~0ms p50), so the cut bought nothing to offset the risk.
+# (259 prompt tokens = ~0ms p50), so the reduction bought nothing to offset the risk.
 
 # M6 LEG 1 — per-path system-prompt CHAR budgets (ceilings). The base prompt
 # silently grew ~100->221 tokens over the arc with no gate catching it; a path
@@ -845,7 +845,7 @@ class LLMRouter(LLMInterface):
         its screen's flags travel on LLMResponse.semantic_flags and the router
         discards a flagged completion. That consumer does not run on the agentic
         path, so a flagged synthesis would otherwise be served — the very gap
-        this cut closes. Flags are reported here in the reason string so the
+        this change closes. Flags are reported here in the reason string so the
         glass record says WHICH check fired.
         """
         reason = self._gate_reason(text, user_msg)
@@ -1246,7 +1246,7 @@ class LLMRouter(LLMInterface):
         Emitted on EVERY decision, pass and reject alike, because "the gate ran
         and passed it" is exactly the fact a reader cannot otherwise establish:
         a served answer looks identical whether it was checked or never checked,
-        which is the condition this cut exists to end. The conversational path
+        which is the condition this change exists to end. The conversational path
         already records its own model-phase screen the same way.
         """
         glass.emit("model", "agentic_quality_gate", detail={

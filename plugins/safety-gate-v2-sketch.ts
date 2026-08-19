@@ -1,6 +1,6 @@
 // safety-gate v2 — Kilo Code plugin: fleet-roster validation + force-push gate.
 //
-// DEPLOYMENT STATUS (kept current as the plugin lands across the fleet):
+// DEPLOYMENT STATUS (kept current as the plugin lands across development machines):
 //   The "v2-sketch" filename suffix marks the file as the v2 design surface
 //   under iteration; it does NOT mean "untested" or "not deployed."
 //   Production status is tracked here so a contributor reading this file

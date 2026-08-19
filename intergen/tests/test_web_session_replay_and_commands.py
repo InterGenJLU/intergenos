@@ -93,7 +93,7 @@ class HistoryWireFormatTests(unittest.TestCase):
         self.assertIn("role", wire[0])
 
 
-# ── The defect this cut exists for ─────────────────────────────────────────
+# ── The defect these tests exist for ───────────────────────────────────────
 class SessionSwitchShipsTranscriptTests(unittest.TestCase):
     """A switch must deliver what it loaded, not merely count it."""
 

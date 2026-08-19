@@ -67,7 +67,7 @@ class ExcisionTests(unittest.TestCase):
 
     def test_the_device_selector_survived_the_removal(self) -> None:
         # Multi-GPU device pinning was co-located with the gate but is a
-        # separate feature the ruling did not touch.
+        # separate feature the removal decision did not touch.
         from intergen.serving_device import select_serving_device
         listing = (
             "  Vulkan0: AMD Radeon Graphics (512 MiB, 400 MiB free)\n"

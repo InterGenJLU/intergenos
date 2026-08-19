@@ -24,7 +24,7 @@ from pathlib import Path
 #
 # The builder follows prevailing distro build-output convention (a consistent
 # section marker plus a single severity scheme), NOT a forced global indent.
-# Volume stays detailed — the operator wants the build detail — only the VOICE
+# Volume stays detailed — the build detail is kept — only the VOICE
 # is cleaned up. Sanctioned markers / severities / verdicts live here so every
 # call site renders the same way.
 #

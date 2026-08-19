@@ -315,8 +315,8 @@ class TestSuiteNeverReadsHostGpu(unittest.TestCase):
     `report_offer` without pinning the driver state cannot read the GPU of the
     machine running the suite. That isolation is invisible at the call site —
     a test inherits it silently and looks identical either way — which means
-    removing it would go unnoticed until a suite started failing on one box in
-    the fleet and passing on the rest. That is exactly what happened once
+    removing it would go unnoticed until a suite started failing on one
+    development machine and passing on the rest. That is exactly what happened once
     already, so the isolation gets a test rather than trust.
     """
 

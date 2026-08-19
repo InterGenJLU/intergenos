@@ -39,7 +39,7 @@ do_install() {
     # ACCIDENT, caught by the 4.76 setuid inventory gate on its first firing,
     # 2026-07-10). Decided: set what upstream declares so no unknown
     # reader path breaks and nothing diverges silently (PRIME DIRECTIVE);
-    # the verified-tighter 4110 exec-only variant is banked as a researched
+    # the verified-tighter 4110 exec-only variant is recorded as a researched
     # hardening candidate, not a ride-along.
     chmod 4750 "${DESTDIR}/usr/libexec/dbus-daemon-launch-helper"
 }

@@ -75,7 +75,7 @@ donated). It flows into every emitted sample.
 
 WHAT THIS MODULE DOES NOT DO, stated rather than implied: the
 embedding-similarity dedup pass (cosine > ~0.85) and the retention-ratio
-balance check are separate calibrated steps in the authoring lane; the
+balance check are separate calibrated steps in the corpus-authoring process; the
 held-out-family exclusion is an authoring rule enforced at authoring time
 (the bank spec forbids authoring against held-out cells) — a mechanical
 guard needs the split map and is a registered candidate, not quietly

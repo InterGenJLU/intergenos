@@ -24,7 +24,7 @@ from intergen.tests.conversations import Assertion, Conversation, Turn
 
 
 def _module(name: str):
-    """Import one of this cut's new modules INSIDE a case, never at module level.
+    """Import one of the new modules INSIDE a case, never at module level.
 
     A module-level import of a module the tree does not have yet makes the whole
     file fail to COLLECT, and "cannot import" is not a statement about behavior —

@@ -84,7 +84,7 @@ IGOS_MARK_WARN="⚠"
 IGOS_LABEL_WIDTH=11
 
 # ----------------------------------------------------------------------------
-# igos_timestamp — the [YYYY-MM-DD HH:MM:SS] prefix the operator wants kept.
+# igos_timestamp — the [YYYY-MM-DD HH:MM:SS] prefix the build logs keep.
 # ----------------------------------------------------------------------------
 igos_timestamp() {
     date '+%Y-%m-%d %H:%M:%S'

@@ -162,8 +162,8 @@ configure() {
     # EXTRACT, NEVER EXECUTE (ruled 2026-06-11, decision 5). Two flags carry
     # the whole behaviour and both are load-bearing:
     #
-    #   --extract=<abs>  the CUDA 13.x runfile's extract-only flag. The ruling
-    #                    was written against makeself's `--target … --noexec`;
+    #   --extract=<abs>  the CUDA 13.x runfile's extract-only flag. The earlier
+    #                    decision was written against makeself's `--target … --noexec`;
     #                    this runfile is not a plain makeself archive and
     #                    rejects that form. Verified against the pinned file.
     #   --nox11          without it the wrapper, finding no tty but a DISPLAY,

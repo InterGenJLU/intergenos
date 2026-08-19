@@ -394,7 +394,7 @@ class ManifestAndImportTests(_InstallHarness):
 class SealRoundTripTests(_InstallHarness):
     """recipe function -> sealed .scripts -> pkm installs -> output owned.
 
-    The end-to-end the cut exists for, taken from the recipe text rather
+    The end-to-end case these tests exist for, taken from the recipe text rather
     than from a hand-written hook script, so the seam and the recorder are
     proven against each other and not each against its own fixture.
     """

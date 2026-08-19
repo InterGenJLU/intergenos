@@ -89,7 +89,7 @@ except ImportError:
 # On a machine whose NVIDIA card is bound to the open-source driver that raises
 # the driver advisory, and `_choose_tier` then asks one more question than a
 # scripted test supplies — four tests in test_setup_model_pick.py died with
-# StopIteration on exactly one box in the fleet and passed on every other. That
+# StopIteration on exactly one development machine and passed on every other. That
 # specific file now pins the probe itself; this block is what stops the NEXT
 # test from inheriting the same trap, which is the seam the defect actually
 # lived in.

@@ -2542,9 +2542,10 @@ phase_squashfs() {
     # (subtler H-007 regression: sourcing the lib without using the API
     # leaves the manifest empty, files untracked). Also smoke-checks
     # helper-lib.sh itself.
-    # NOTE: This gate is named K21.F per the S-D 4 walk-6 enumeration in
-    # the carryover; it is NOT the same as the audit doc's K21.F (helper
-    # supply-chain hardening) or TRACKER's K21.F (DCO Signed-off-by check).
+    # NOTE: This gate is named K21.F after the validation enumeration it came
+    # from; it is NOT the same as the audit document's K21.F (helper
+    # supply-chain hardening) or the release ledger's K21.F (DCO Signed-off-by
+    # check).
     # Auto-passes when no helper infrastructure is present.
     log "  Running helper-smoke runtime gate..."
     if ! bash "${SCRIPTS}/check-k21f-runtime.sh" "${IGOS}" 2>&1 | tee -a "$BUILD_LOG"; then

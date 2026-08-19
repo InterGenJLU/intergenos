@@ -13,7 +13,7 @@ source:
   # tarball would fetch BinaryBuilder artifacts at build time (disallowed in the
   # offline chroot). sha256 computed from the fetched upstream tarball at
   # authoring time (GitHub release assets publish no detached checksum; disclosed
-  # in the delivery paste-back).
+  # with the change that added it).
   - url: https://github.com/JuliaLang/julia/releases/download/v${version}/julia-${version}-full.tar.gz
     sha256: 711f3aa8d6ec5c9004593eb8f3d53e3564cd759acba8ad4adae967afc20332cc
 dependencies:

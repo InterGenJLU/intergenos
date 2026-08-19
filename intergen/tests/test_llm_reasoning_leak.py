@@ -180,7 +180,7 @@ class ReasoningLeakServingTests(unittest.TestCase):
     def test_reasoning_channel_recovery_still_surfaces_an_untagged_answer(self):
         # _recover_empty_content exists because some models put the whole real
         # answer in reasoning_content. That answer carries no tags, so the strip
-        # must leave it alone — otherwise this cut breaks a working recovery.
+        # must leave it alone — otherwise the strip breaks a working recovery.
         recovered = "NetworkManager.service is active (running)."
 
         def _stream(*a, **k):

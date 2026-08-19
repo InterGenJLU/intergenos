@@ -52,7 +52,7 @@ class VramOnlyTierAssignTest(unittest.TestCase):
 
     def test_20gb_card_is_tier2_not_tier3(self):
         # The dual-Radeon dev PC's 20 GB card: under the resident bar →
-        # Tier 2 (the 9B), exactly per the fleet map. No RAM leg can lift it.
+        # Tier 2 (the 9B), exactly per the hardware-tier map. No RAM leg can lift it.
         self.assertEqual(
             self.det._assign_tier(is_discrete=True, gpu_vram_mb=20464),
             HardwareTierLevel.TIER_2,

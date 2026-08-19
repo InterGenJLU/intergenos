@@ -547,7 +547,7 @@ _CAP_CHALLENGE_FRAME_RE = re.compile(
 # live-data ask so it is met with an HONEST web-search offer instead of an invented
 # or disowned answer.
 #
-# 2B-LANE GAP-B (2026-07-09 follow-on, authored against the banked r57 residual
+# 2B-LANE GAP-B (2026-07-09 follow-on, authored against the recorded r57 residual
 # corpus of 122 still-fallthrough web fixtures): the r57 gate required a real-time
 # CUE *and* a listed SUBJECT, which caught only 9 of them — the natural distribution
 # is dominated by subject-without-cue ("what's the dow at", "btc price"), unlisted
@@ -2330,7 +2330,7 @@ class ConversationRouter(RouterInterface):
         LOCKED floor: the NATIVE path keeps its model-driven tool decision (no 9B
         rewrite).
 
-        GAP-B breadth (2026-07-09 follow-on, authored against the banked r57 residual
+        GAP-B breadth (2026-07-09 follow-on, authored against the recorded r57 residual
         corpus): the gate is a listed SUBJECT or a CURRENCY conversion or an IMPLICIT
         live form (no real-time cue required — the cue-and-subject gate caught only 9
         of 122 residual fixtures). Precision is held by fail-OUT guards so the model

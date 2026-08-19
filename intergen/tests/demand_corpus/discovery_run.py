@@ -27,7 +27,7 @@ The run is DISCOVERY, not pass/fail — it records everything InterGen does.
 
 Prereq (leg C): direct mode spawns its OWN llama-server, so the production
 daemon must be stopped first (frees GPU + :8080); restart it after. This runner
-does NOT manage the production service — the run sequence does (see paste-back).
+does NOT manage the production service — the run sequence around it does.
 """
 from __future__ import annotations
 

@@ -2151,7 +2151,7 @@ def cmd_upgrade(db, args):
         refresh_available_updates_after_transaction(db)
 
     # EXIT-CODE TRUTH. A transaction that reported a failure exits non-zero,
-    # so a script, a timer or another seat's automation can see it. The
+    # so a script, a timer or another machine's automation can see it. The
     # packages that DID upgrade are already installed and are not undone by
     # this; the code describes the transaction, and a transaction with a
     # failed member did not do what it was asked.

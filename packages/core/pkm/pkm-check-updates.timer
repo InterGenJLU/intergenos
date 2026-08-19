@@ -1,7 +1,7 @@
 # pkm-check-updates.timer — Q8 Phase B (daily check-updates schedule)
 #
 # Fires pkm-check-updates.service daily with a 4-hour randomized delay
-# window so installs across the fleet don't hit the mirror simultaneously
+# window so installs across many machines don't hit the mirror simultaneously
 # at midnight UTC (thundering-herd avoidance). Persistent=true catches
 # up after suspended/offline machines come back online so users don't
 # silently miss daily checks because the machine was off at fire-time.

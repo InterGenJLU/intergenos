@@ -47,7 +47,7 @@ contents as if they were commands the hook runs. The terminator is tracked so
 the scan resumes at the right place — dropping to end-of-function instead
 would silently stop checking after the first heredoc.
 
-EVERY SEALED EVENT IS GATED, not only post_install. The ruling names
+EVERY SEALED EVENT IS GATED, not only post_install. The decision behind this gate names
 post_install because that is where the tree's violations live, but the seal seam
 seals all six lifecycle events and each one executes on the target, so gating one
 would leave five delivery surfaces unchecked. Measured against the tree as
