@@ -647,6 +647,17 @@ check_integrity_dev_skip_explicit() {
 # install logged the incomplete copy loudly (never a silent skip).
 check_signing_manifest_self_reval() {
     local manifest_dir="/var/lib/igos/manifest"
+    # The triplet copy is written by the INSTALL (PHASE_CLEANUP), into the
+    # installed root. On the booted medium the directory does not exist and
+    # cannot: nothing has been installed yet. Asserting it there produced the
+    # single FAIL in the first release candidate's pre-install evaluation, on
+    # a medium whose triplet was byte-exact where it actually lives. Skip
+    # with the reason stated; the check has its verdict on the installed
+    # system, which is the only place its subject exists.
+    if smoke_live_media; then
+        check_skip "integrity/self-reval" "live-media boot (igos.mode= present) — $manifest_dir is written by the install; verdict belongs to the installed system"
+        return
+    fi
     local trace; trace="$(_ii_latest_forge_trace)"
     local have_all=1 f
     for f in intergenos-archive-manifest.txt intergenos-archive-manifest.txt.sig intergenos-release-key.asc; do
