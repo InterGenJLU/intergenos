@@ -30,4 +30,6 @@ build_style: custom
 # is disabled.
 
 verify_paths:
-  - /usr/lib/python3.14/site-packages
+  - /usr/lib/python3.14/site-packages/cryptography/__init__.py
+  - /usr/lib/python3.14/site-packages/cryptography/hazmat/bindings/_rust.abi3.so
+  - /usr/lib/python3.14/site-packages/cryptography-44.0.0.dist-info/METADATA
