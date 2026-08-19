@@ -4,7 +4,7 @@
 
 **A Linux distribution built entirely from source with a custom package manager, a tiered local AI assistant, and integrated AI-driven security auditing.**
 
-**[Website](https://intergenos.org)** · **[Documentation](https://wiki.intergenos.org)** · **[InterGen Studios](https://intergenstudios.com)**
+**[Website](https://intergenos.org)** · **[Updates](https://intergenos.org/news.html)** · **[Documentation](https://wiki.intergenos.org)** · **[InterGen Studios](https://intergenstudios.com)**
 
 > ### 📀 [Download InterGenOS R001](https://repo.intergenos.org/iso/intergenos-r001.iso)
 > x86_64 UEFI live ISO · 9.7 GiB · sha256 `1beeb90539bc1031ad135148f379e97a1830b835350f9c7924fd7b9fc3db07c7` ([checksum file](https://repo.intergenos.org/iso/intergenos-r001.iso.sha256))
