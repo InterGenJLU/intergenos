@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 InterGenJLU
-"""Chapter-8 temp-toolchain residue sweep (chroot-build-ch8.sh step 8.86).
+"""Chapter-8 temp-toolchain residue sweep (chroot-build-ch8.sh step 8.87).
 
 The LFS chapter 5-7 temporary toolchain installs files onto the live chroot
 root. A final-system package's DESTDIR deploy overlays its own files on top

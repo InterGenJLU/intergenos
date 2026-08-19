@@ -16,7 +16,7 @@ under /usr/share/gdb/auto-load/.
 That residue is unowned content in the shipping tree. build-squashfs Step 4.85
 fails closed on unowned files, and on the 2026-08-15 from-scratch build — the
 first from-scratch run since that gate landed — it stopped the pipeline with
-166 findings, 162 of which were this class. They were removed by hand. A
+166 findings, 163 of which were this class. They were removed by hand. A
 from-scratch build rebuilds the residue every time, so the disposition has to
 be a build step, not a hand pass at the most expensive discovery point.
 
@@ -298,7 +298,7 @@ class Ch8DriverWiring(unittest.TestCase):
         self.assertIn("/mnt/intergenos/config/ch8-residue-patterns.txt", text,
                       "the patterns file must be passed by absolute path")
         # The invocation must be guarded so a non-zero exit stops the build,
-        # in the same shape 8.87's backfill uses.
+        # in the same shape 8.88's backfill uses.
         idx = text.index("ch8-residue-sweep.py")
         window = text[max(0, idx - 800):idx + 800]
         self.assertIn("exit 1", window,

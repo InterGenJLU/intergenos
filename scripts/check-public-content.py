@@ -100,7 +100,7 @@ SKIP_PATHS = {
     # intergenos-wiki signed page manifest — a machine-generated JSON of PUBLIC
     # per-page sha256 hashes (nothing secret; the pages themselves are the
     # public wiki), signed (.asc) and verified fail-closed at cite
-    # time by intergen.wiki_citations. The 80 hex values trip HEX-SECRET by
+    # time by intergen.wiki_citations. The manifest's hex values trip HEX-SECRET by
     # shape, not by substance. Path-exemption authorized per
     # build-rules §3.11 (planned in the package.yml since authoring; executed
     # at the first-mint manifest ceremony, 2026-07-12).

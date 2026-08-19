@@ -17,5 +17,6 @@
 #
 # Empty on purpose as of 2026-08-19: the two entries on the shipped corpus that
 # carry the key (at-spi-dbus-bus.desktop, libcanberra-login-sound.desktop) also
-# carry X-GNOME-Autostart-Phase, so neither runs under GNOME and neither needs
-# an exemption.
+# carry X-GNOME-Autostart-Phase, which the systemd generator handles separately
+# and skips on this stack (measured; the gate reports such entries), so neither
+# produces a runnable unit and neither needs an exemption.

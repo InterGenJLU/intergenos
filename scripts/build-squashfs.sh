@@ -968,7 +968,7 @@ if [ -d "$ARCHIVE_DIR" ]; then
     if [ "$sweep_rc" -ne 0 ]; then
         detail "a metadata-less archive is invisible to the repo index and uninstallable;"
         detail "an empty install set at seal time is itself a defect. Rebuild the offending"
-        detail "package(s) — pkg_archive emits + asserts .PKGINFO; step 8.87 backfills pre-python."
+        detail "package(s) — pkg_archive emits + asserts .PKGINFO; step 8.88 backfills pre-python."
         status_line "PI-12 .PKGINFO sweep" FAIL
         die "PI-12 sweep failed — refusing to build squashfs"
     fi

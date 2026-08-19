@@ -921,7 +921,8 @@ userdel -r tester 2>/dev/null || true
 #
 # That residue is unowned content in the shipping tree. build-squashfs Step
 # 4.85 fails closed on unowned files and stopped the 2026-08-15 from-scratch
-# build with 166 findings, 162 of them this class, all removed by hand. A
+# build with 166 findings, 163 of them this class (the temporary-Python paths
+# plus the libstdc++ pretty-printer loader), all removed by hand. A
 # from-scratch build rebuilds them every run, so the sweep runs here — the
 # first point where every final core package's manifest exists to prove
 # ownership, and long before the mint pays for the discovery.
@@ -929,7 +930,7 @@ userdel -r tester 2>/dev/null || true
 # The sweep removes only paths that match a declared, reasoned pattern AND
 # that no installed package's manifest records; it refuses to remove anything
 # when it cannot read an ownership set. A non-zero exit stops the build.
-log ">>> 8.86: Temp-toolchain residue sweep"
+log ">>> 8.87: Temp-toolchain residue sweep"
 RESIDUE_SWEEP="/mnt/intergenos/scripts/ch8-residue-sweep.py"
 RESIDUE_PATTERNS="/mnt/intergenos/config/ch8-residue-patterns.txt"
 if [ -f "$RESIDUE_SWEEP" ] && [ -f "$RESIDUE_PATTERNS" ] \
@@ -956,7 +957,7 @@ fi
 log "  Cleanup complete"
 
 # ============================================================================
-# 8.87: PI-12 .PKGINFO backfill (post-python)
+# 8.88: PI-12 .PKGINFO backfill (post-python)
 # ============================================================================
 # The recipe-less core packages built BEFORE core/python (above) were archived
 # while python3 was absent from this chroot, so pkg_archive's python3-guarded
@@ -966,7 +967,7 @@ log "  Cleanup complete"
 # staged archive is the FINAL core build) so every staged archive is self-
 # describing before the build-squashfs Step 4.7 sweep. inject-pkginfo stays a
 # pure post-build loud detector; THIS is the in-build closure. Fail-loud.
-log ">>> 8.87: PI-12 .PKGINFO backfill (post-python)"
+log ">>> 8.88: PI-12 .PKGINFO backfill (post-python)"
 BACKFILL="/mnt/intergenos/scripts/backfill-pkginfo.py"
 if [ -f "$BACKFILL" ] && command -v python3 >/dev/null 2>&1; then
     if ! python3 "$BACKFILL" --archive-dir "${IGOS_PKG_ARCHIVES:-/var/lib/igos/archives}" \

@@ -8,8 +8,9 @@
 # anything, so a path the final recipe deliberately drops keeps the temporary
 # toolchain's copy forever. Those copies are then unowned content in the
 # shipping tree: build-squashfs Step 4.85 fails closed on them, which is where
-# 166 of them were first found and removed by hand on the 2026-08-15
-# from-scratch build.
+# 163 of that build's 166 findings were this class, first found and removed
+# by hand on the 2026-08-15 from-scratch build (the other 3 were pruned-package
+# residue, handled in its own lane).
 #
 # The pattern SELECTS a candidate. The sweep then refuses to remove any
 # candidate that an installed package's manifest records, and reports it — an

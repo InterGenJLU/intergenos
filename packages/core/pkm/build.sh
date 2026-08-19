@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2015-2016, 2026 InterGenJLU
 #
-# pkm 0.1.0 — InterGenOS package manager
+# pkm — InterGenOS package manager
 # https://github.com/InterGenJLU/intergenos
 #
 # Installs: Python package at /usr/lib/python3.14/site-packages/pkm,

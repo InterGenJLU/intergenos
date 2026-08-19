@@ -1065,7 +1065,7 @@ pkg_archive() {
     # packages archived BEFORE PyYAML lands in the chroot (man-pages onward, up to
     # the ch8 `pyyaml` build) get no .PKGINFO here (the python3+PyYAML guard skips
     # this call) and are populated by the in-build post-PyYAML backfill
-    # (chroot-build-ch8.sh step 8.87), then enforced universally by the
+    # (chroot-build-ch8.sh step 8.88), then enforced universally by the
     # build-squashfs Step 4.7 sweep.
     # scripts/inject-pkginfo.py is a pure post-build loud DETECTOR now (a
     # non-empty inject = a reported gate-escape), not the backfill.
@@ -1087,7 +1087,7 @@ pkg_archive() {
     # user-site so the probe matches gen-pkginfo's authoritative view of the
     # installed system yaml. In that pre-PyYAML window the call is skipped exactly
     # as for the recipe-less pre-python packages; those archives are backfilled
-    # post-PyYAML at step 8.87 and enforced universally by build-squashfs Step
+    # post-PyYAML at step 8.88 and enforced universally by build-squashfs Step
     # 4.7. A failure when the guard DOES fire is therefore a genuine fault (a
     # write error, or a malformed recipe) — exactly what should fail the build
     # rather than ship a metadata-less archive (PI-12). (History: the python3-only
