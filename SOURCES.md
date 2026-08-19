@@ -309,7 +309,7 @@ a newer stable release. In practice:
   date you received your copy.
 
 If the InterGenOS project mirror is ever decommissioned, taken
-permanently offline, or transferred to another operator, the project
+permanently offline, or transferred to another maintainer, the project
 will publish a migration notice with the new source-availability
 mechanism, and the §6b written offer remains in force.
 

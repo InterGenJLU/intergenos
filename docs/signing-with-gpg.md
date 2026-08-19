@@ -66,7 +66,7 @@ in real time):
   see [Smartcard setup the library handles](#smartcard-setup-the-library-handles)
   below for what runs on a fresh host.
 - **Phase 2/5 — Sign.** Prints a "PIN ENTRY REQUIRED" preamble naming
-  exactly which PIN the operator should enter, then invokes
+  exactly which PIN the key holder should enter, then invokes
   `gpg --detach-sign --armor --local-user <fpr> --output <out> <file>`.
   The Nitrokey will blink — touch over/near the shield symbol at the top
   of the key to authorize the signing operation. **Failure to touch in
@@ -109,7 +109,7 @@ interrupt).
    not in the local pubring, fetches it from `keys.openpgp.org` via
    `gpg --keyserver hkps://keys.openpgp.org --recv-keys <fpr>`. NOT
    restored — the pubkey stays in the keyring (required for future
-   verification operations; additive change with no operator data loss).
+   verification operations; additive change with no key-holder data loss).
 6. **Ownertrust ultimate (permanent).** Sets ownertrust on the imported
    key to `ultimate` via `gpg --import-ownertrust`. NOT restored —
    ownertrust persists in the keyring database (required for `gpg --verify`
@@ -130,10 +130,10 @@ file may be left behind. The next invocation detects this:
 
 - If the current config matches what the library would have written,
   the library auto-recovers (restores the backup, then proceeds normally).
-- If the current config looks like operator-modified content rather than
+- If the current config looks like key-holder-modified content rather than
   library-generated content, the library bails with an explicit message
-  asking the operator to reconcile manually before re-running. (This
-  guards against losing operator-authored changes that landed between
+  asking the key holder to reconcile manually before re-running. (This
+  guards against losing key-holder-authored changes that landed between
   the previous crashed run and the current one.)
 
 ## Common examples
@@ -260,5 +260,5 @@ sig, copy it elsewhere before re-running.
 The script is target-agnostic by design. Anything that needs an OpenPGP
 detached signature uses the same tool with different `--file` / `--out`
 args. No new scripts needed per ceremony. Per-ceremony specifics (which
-file, which sha256, which key) live in the operator's shell history or
+file, which sha256, which key) live in the key holder's shell history or
 in a ceremony-specific runbook, not in the universal signing tool.

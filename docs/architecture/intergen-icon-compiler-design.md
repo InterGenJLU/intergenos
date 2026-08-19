@@ -142,7 +142,7 @@ over a dark `bg-card` body:
 - `folder` — a front-facing folder silhouette: a clean single-edge outline (no top-left notch) with a raised tab.
   **BUILT.** The dark-body-with-accent-stroke rendering is one defensible reading of VL
   §11 ("folder variants differentiate by accent color + a small emblematic glyph"); the
-  exact folder treatment (dark-body-glow vs color-fill) is an **operator creative call**
+  exact folder treatment (dark-body-glow vs color-fill) is a **maintainer creative call**
   settled in `ICON_CATEGORIES.md`, swappable by editing `template_elements()`.
 
 Templates are code built-ins in the prototype. Authoring templates as sanitized SVG
@@ -313,14 +313,14 @@ templates authored as sanitized SVG files (prototype: code built-ins); per-glyph
 symbolic accent-region placement (prototype: whole-glyph off-white); CI regenerate-and-
 diff wiring (the determinism it needs is BUILT + proven); freedesktop standard-icon-name
 mapping table; the animated pulse frames; the authoritative `ICON_CATEGORIES.md` accent
-enumeration (operator creative call; prototype ships a defensible starter set). None
+enumeration (maintainer creative call; prototype ships a defensible starter set). None
 blocks the core path; each is an additive layer on a working base.
 
 ## 20. Decisions carried from v0.1 §10 (unchanged)
 
 1. **Name** — IGIC / InterGenOS Icon Compiler.
 2. **Accent palette** — a small curated set including a yellow distinct from warning
-   amber; enumerated authoritatively in `ICON_CATEGORIES.md` (operator). Prototype ships
+   amber; enumerated authoritatively in `ICON_CATEGORIES.md` (maintainer). Prototype ships
    a starter set (§5).
 3. **Packaging** — build-time tooling, NOT a shipped package; the compiled theme is the
    packaged artifact.

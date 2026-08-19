@@ -14,7 +14,7 @@ with quoted evidence, never a bare number**:
 
 | id | axis | who owns it |
 |---|---|---|
-| `correct` | #1 factually correct vs InterGenOS ground truth | LLM judge (triage-only) + operator |
+| `correct` | #1 factually correct vs InterGenOS ground truth | LLM judge (triage-only) + maintainer |
 | `on_target` | #2 answers what was asked (antecedent-resolved) | LLM judge |
 | `no_fabrication` | #3 no claimed action/capability/diagnosis it lacks | Layer-1 flag + Gate-A authority |
 | `right_sized` | #5 appropriately brief (not verbose-but-empty) | LLM judge |
@@ -45,7 +45,7 @@ with quoted evidence, never a bare number**:
 
 **Triage, not verdict.** Per dimension: `pass` / `flag` (escalate to a human) /
 `fail`; the turn's overall is worst-of. The harness surfaces only the flag/fail
-subset for the operator read — auto-pass the clearly-good. Judge verdicts fold in
+subset for the maintainer read — auto-pass the clearly-good. Judge verdicts fold in
 as `judge:*` **Gate-B** assertions (soft at the run level; quality is HARD only at
 the release milestone).
 
@@ -57,7 +57,7 @@ are ephemeral. The one real captured multi-turn conversation used as ground trut
 (26 msgs, tracked in project research records outside this repo) contains both a
 gold *bad* turn (the fabricated background `pkm sync && pkm upgrade` action,
 seed `fabricated_action_session_7074c444`) and gold *good* turns (the honest
-Dow-Jones decline, `good_honest_decline`). Operator-graded rounds elsewhere are
+Dow-Jones decline, `good_honest_decline`). Maintainer-graded rounds elsewhere are
 prose narratives tracked the same way, not a structured turn-level verdict corpus.
 
 **So the calibration set is authored here** (`known_garbage_seeds.json`, schema v2,
@@ -82,12 +82,12 @@ agreement, not one author). `annotator_provenance` records who graded, how, and 
 (null until the grading pass measures it); a per-item `expectation` states what a correct
 reply looks like. Full field docs live in the seed file's `schema_fields`.
 
-**The operator grading pass (the calibration mechanism):**
-1. Operator scores each seed's target dimension pass/flag/fail (the seed file's
+**The maintainer grading pass (the calibration mechanism):**
+1. Maintainer scores each seed's target dimension pass/flag/fail (the seed file's
    `expect_verdict` is the PROPOSED ground truth — confirm or correct it). Ground truth
    is the independent annotator's verdict, not the seed author's `author_note`.
 2. Run the LLM judge (behind 4.3) over the same seeds; measure per-dimension
-   judge-vs-operator agreement and tune the rubric until it tracks.
+   judge-vs-maintainer agreement and tune the rubric until it tracks.
 3. **Garbage-catch gate (UNCHANGED, hard):** the judge must catch 100% of the
    `known_garbage` seeds before any of its passes count. Layer 1 already achieves this
    deterministically on the `deterministic:true` subset
@@ -123,9 +123,9 @@ outside this repo) — three rules:
 The **100%-garbage-catch hard gate is separate and unchanged** — it is the safety floor
 (Layer 1 deterministic), not the advisory→counting agreement gate.
 
-## Operator grading pass — COMPLETE (2026-07-09)
+## Maintainer grading pass — COMPLETE (2026-07-09)
 
-Step 1 of the calibration plan is done: all 12 seeds operator-graded (11 confirmed,
+Step 1 of the calibration plan is done: all 12 seeds maintainer-graded (11 confirmed,
 1 corrected — `good_concise_correct` pass→flag). Ground truth now lives in each seed's
 `annotator_provenance.operator_grading`. Two rubric refinements from the pass, binding
 on the Layer-2 judge prompt:
@@ -136,10 +136,10 @@ on the Layer-2 judge prompt:
    question — a garbled ask carries no direction (`good_tolerant_of_typo` stays a pass).
 2. **The ideal repair delivers the answer in the same breath** (`not_asshole`):
    acknowledge once, explain the misread, and give the corrected answer — never
-   re-offer a trivial redo (see `apology_spiral_reoffer`'s operator-graded expectation).
+   re-offer a trivial redo (see `apology_spiral_reoffer`'s maintainer-graded expectation).
 
 Next: step 2 — the LLM judge scores the same 12 seeds (sequenced with the live judged
-runs); per-dimension judge-vs-operator agreement via Krippendorff's alpha / PABAK;
+runs); per-dimension judge-vs-maintainer agreement via Krippendorff's alpha / PABAK;
 step 3 — the 100%-garbage-catch gate before any judge pass counts.
 
 ## Steps 2+3 — first live runs COMPLETE (2026-07-24); judge remains ADVISORY
@@ -162,7 +162,7 @@ drift-guard runner; exit 3 when the hard gate is red).
   the residual divergence including the parse failure is cross-GPU numeric drift
   (temperature 0 does not guarantee cross-silicon token identity; within one box
   it repeats deterministically).
-- **Agreement vs the operator grading: raw LLM 5/12 on target dimensions
+- **Agreement vs the maintainer grading: raw LLM 5/12 on target dimensions
   (PABAK ~0.13–0.18), Layer-1-composed 8–9/12.** Far below the advisory→counting
   bar, entirely as the expectations section above anticipates for a 4B triage
   judge. **Layer-2 verdicts therefore remain ADVISORY; the human read is truth.**
@@ -189,7 +189,7 @@ addition and one pre-committed trigger:
    the audit sample, or a quality false-pass rate above **~5%**, stands up the
    heavy judge (`JUDGE_MODEL_HEAVY`, the escalation tier already pinned in
    `quality_judge.py`) — model escalation, not further 4B prompt-tuning, is the
-   ruled response (a direct rubric instruction measurably failed to move the 4B
+   decided response (a direct rubric instruction measurably failed to move the 4B
    on the residual miss class).
 
 ## Grading-direction seed classes (added 2026-07-25)
@@ -318,7 +318,7 @@ never present contempt**, and `user_blaming` grades `fail` again. A rubric edit 
 refusal tolerance with garbage-catch is rejected — this one was, and was rewritten.
 
 **Residuals, unchanged by this cut:** `confident_wrong_fact` still composes `flag` where
-the operator graded `fail` (caught, wrong severity), and `verbose_empty` / `off_target`
+the maintainer graded `fail` (caught, wrong severity), and `verbose_empty` / `off_target`
 likewise sit at `flag`. These are the known 4B severity-softening class; per the
-escalation trigger above, model escalation rather than further prompt-tuning is the ruled
+escalation trigger above, model escalation rather than further prompt-tuning is the decided
 response. The judge remains **ADVISORY** — this cut changed no gate role.

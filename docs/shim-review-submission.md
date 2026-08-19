@@ -279,7 +279,7 @@ Fedora and OpenSUSE reach lockdown by runtime promotion: they set `CONFIG_LOCK_D
 
 ### Audit-trail note
 
-The gap was discovered during this 39Q draft's population pass: baseline-only `FORCE_NONE=y` with no override would have left lockdown=integrity gated on manual cmdline or sysfs intervention — reviewer-blockable. Timeline: gap surfacing 2026-04-29T18:00:15Z; ruling 18:05:38Z; first integration at commit `baf84d8` 18:18Z, which added `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` to the override fragment. That first fix was **superseded on 2026-06-02**, when the first kernel-phase build showed the option absent from vanilla mainline: the override fragment now unsets `FORCE_NONE` and sets `CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY=y` instead, which closes the same gap without a downstream patch. The current tree state is the `FORCE_INTEGRITY` one described above; `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT` appears nowhere in the fragments.
+The gap was discovered during this 39Q draft's population pass: baseline-only `FORCE_NONE=y` with no override would have left lockdown=integrity gated on manual cmdline or sysfs intervention — reviewer-blockable. Timeline: gap surfacing 2026-04-29T18:00:15Z; decision 18:05:38Z; first integration at commit `baf84d8` 18:18Z, which added `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y` to the override fragment. That first fix was **superseded on 2026-06-02**, when the first kernel-phase build showed the option absent from vanilla mainline: the override fragment now unsets `FORCE_NONE` and sets `CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY=y` instead, which closes the same gap without a downstream patch. The current tree state is the `FORCE_INTEGRITY` one described above; `CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT` appears nowhere in the fragments.
 
 ---
 
@@ -454,7 +454,7 @@ Per `docs/research/installer/signing_key_custody_2026-04-18.md` and the executed
   Symmetric custody across both maintainers: each holds one daily-use NK + one hardened-offline NK at separate physical locations. No single-location loss revokes the chain.
 - **Encryption subkey [E]** (`62C7E2C30908823DAF5E4EBF917B649E00F2868C`) — RSA-4096, on-disk in LUKS master backup; not card-bound. Used for PGP-encrypted security reports per `SECURITY.md`.
 - **EFI-binary signing keypair (PIV slot 9c on Nitrokey #1):** RSA-4096, generated on-card via `nitropy nk3 piv --experimental` (originally during the 2026-05-05 air-gapped session; regenerated 2026-05-13 to remediate a cert/keypair desync introduced by the C6 ceremony's chicken-egg workaround; that work predates the published source history, so it is recorded here rather than as a repository link). Private half never leaves the hardware. Vendor cert DER fingerprint (SHA-256) `61:8E:74:48:52:B5:8E:5F:01:C9:B0:59:7F:16:04:D4:C8:73:48:38:69:CE:8F:4E:F2:89:9C:36:AA:D9:5B:38`; PEM-file SHA-256 `cd34977e6efa37a572a9835c111a7d563809edbe838b1764be35100279d2c172` (transport integrity). PIV management key rotated from factory hex to a fresh AES-256 value during the original C6 session; recorded only on the maintainer's paper records.
-- **Key-storage policy:** GNOME Keyring / libsecret on operator hosts (where applicable); never plaintext on disk; never embedded in source code or commit messages.
+- **Key-storage policy:** GNOME Keyring / libsecret on maintainer hosts (where applicable); never plaintext on disk; never embedded in source code or commit messages.
 - **Ephemeral kernel-module signing keys:** see Q19 — these are NOT stored. Auto-generated per kernel build and reaped at build-completion.
 
 The signing ceremony of 2026-05-05 completed all checklist steps end-to-end: Tails USB prep, root keygen, four signing subkeys keytocarded onto Nitrokeys, encryption subkey backed up via LUKS, paperkeys × 2 produced, EFI vendor cert minted on NK#1 PIV slot 9c, AES-256 PIV management key rotation. `validate.py` reported 0 failures across all 5 validation sections.
@@ -646,7 +646,7 @@ The kernel-lockdown gap (Q17) was surfaced during this draft's population pass a
 - [x] Directive items 1-7 filled with substantive content
 - [x] PGP fingerprints filled in Q6 — master + [S1]-[S4] + [E] + EFI vendor cert SHA all populated post-ceremony 2026-05-05. Q7 (Ethan Phase 1) remains independently pending on secondary maintainer's Phase 1 onboarding.
 - [x] Ethan email format decision in Q7 — resolved: shared role address (PGP-signed mail to secondary maintainer's key) per Q7 body
-- [x] Kernel-lockdown gap (Q17) RESOLVED — first at master commit `baf84d8` (ruling 2026-04-29T18:05:38Z, integrated 18:18Z), then superseded 2026-06-02 by `CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY=y` in `99-intergenos-overrides.config`, which is the shipped mechanism
+- [x] Kernel-lockdown gap (Q17) RESOLVED — first at master commit `baf84d8` (decision 2026-04-29T18:05:38Z, integrated 18:18Z), then superseded 2026-06-02 by `CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY=y` in `99-intergenos-overrides.config`, which is the shipped mechanism
 - [ ] B2 Dockerfile build artifact + SHA256 + Q22-Q25 + Q14 + Q29 + Q30 (B2 reproducibility lane)
 - [x] Q9 InterGenJLU/shim-review fork created + submission branch pushed (2026-05-05)
 - [x] Q10, Q12, Q18, Q20, Q32, Q37 specific version pins confirmed against package definitions (completed 2026-04-29)

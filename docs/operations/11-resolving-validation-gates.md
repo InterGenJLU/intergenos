@@ -176,7 +176,7 @@ When `docs/package-tiers.md` clearly classifies the package as its declared tier
 - **`cups-pk-helper`** matched the crude `*-helper → extra` fallback, but it's a desktop **print-integration service** (a PolicyKit mechanism for the GNOME Printers panel, belongs with `cups`) — `desktop` per the doc. Fix: add it to the print-stack desktop list.
 - **`zenity`** was **UNCLEAR** because its only consumer (`intergen`, tier `ai`) declares it as a **runtime** dep — invisible to the build/host reverse-dep graph. It's a core GNOME GUI utility (GUI substrate) — `desktop` per the doc. Fix: add it to `GUI_SUBSTRATE_DESKTOP_EXTRA`.
 
-> **Editing the validator to pass a verdict is legitimate ONLY when the SSoT already classifies the package that way** — you are encoding `docs/package-tiers.md`, not gaming the gate. If the doc is genuinely ambiguous about the package, that's a judgment call for the operator, not a self-serve list edit.
+> **Editing the validator to pass a verdict is legitimate ONLY when the SSoT already classifies the package that way** — you are encoding `docs/package-tiers.md`, not gaming the gate. If the doc is genuinely ambiguous about the package, that's a judgment call for the maintainer, not a self-serve list edit.
 
 ---
 
@@ -205,7 +205,7 @@ Worked examples from 2026-06-11 (both triaged from an open 2026-05-31 audit item
 
 Then re-audit the package (`_mismatches` clears) and re-aggregate.
 
-> **Divergence skips encode a permanent deviation from upstream and require operator authorization.** Propose with evidence; do not self-authorize. The same applies to `.audit-override` (below).
+> **Divergence skips encode a permanent deviation from upstream and require maintainer authorization.** Propose with evidence; do not self-authorize. The same applies to `.audit-override` (below).
 
 ### The `.audit-override` mechanism — and when NOT to reach for it
 
@@ -486,7 +486,7 @@ think.
 1. Read the failing gate's output; identify the packages and the failure class.
 2. **Audit-coverage** (missing/stale/drift): `audit-package.py <name> --save` for each → `aggregate-package-audits.py` → `preflight-audit-coverage.py` confirms PASS. Commit the JSONs to the audit store.
 3. **Tier** (MOVE/UNCLEAR): evaluate against `docs/package-tiers.md`. Either move the package (dir + `tier:` + builder wiring + re-audit) **or** add the SSoT-encoding entry to `validate-package-tiers.py`. Re-run `validate-package-tiers.py` → `# total non-OK rows: 0`.
-4. **Reconciliation mismatches**: triage each. Real gap → add the dep. Intentional → propose a divergence skip for operator authorization; once approved, add the `(name, anchor)` tuple, re-audit, re-aggregate. Confirm `mismatch` count is 0 in the new TSV.
+4. **Reconciliation mismatches**: triage each. Real gap → add the dep. Intentional → propose a divergence skip for maintainer authorization; once approved, add the `(name, anchor)` tuple, re-audit, re-aggregate. Confirm `mismatch` count is 0 in the new TSV.
 5. **Source-tree coverage** (undeclared external read): add the external source root the
    `build.sh` reads to the package's `source_tree:`. Re-run `check-source-tree-coverage.py`.
 6. Re-run locally until green:

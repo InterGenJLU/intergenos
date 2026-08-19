@@ -128,14 +128,14 @@ Subkeys rotate on a 2-year cadence; next rotation 2028-05-04.
 
 Emergency rollover (compromise): see the trust-anchor compromise policy in [SECURITY.md](../SECURITY.md). 6-hour-to-revocation SLA applies; the orderly 30-day overlap does not.
 
-### Multi-Key Trust Window (Operator Procedure)
+### Multi-Key Trust Window (Maintainer Procedure)
 
 The 30-day overlap window above requires the end-user-side keyring + pkm verifier to trust both the outgoing and incoming subkeys simultaneously. Two coordinated artifacts make this work:
 
 | Artifact | What changes during overlap | What changes after overlap |
 |---|---|---|
 | `docs/signing-key.asc` + `packages/core/intergenos-keyring/trusted.gpg` | The armored export must carry both the outgoing and the incoming subkey, and the committed binary keyring is regenerated from it so `/etc/pkm/trusted.gpg` trusts both. The keyring recipe installs that committed binary and refuses to install if its SHA-256 differs from the value pinned in `packages/core/intergenos-keyring/build.sh`, so the regenerated binary and the pin move in the same commit. | Re-export `docs/signing-key.asc` with only the new subkey active, regenerate the binary keyring from it, and update the pinned SHA-256 in the same commit. |
-| `pkm/release-keys.json` `keys` dict | Operator adds a new entry (e.g. `S5`) with the incoming subkey's 40-char fingerprint, role label, and aliases. `pkm/repo.py:_load_pinned_fingerprints` natively unions all entries — no parser change required. | Operator removes the retired subkey's entry (the one whose key was revoked at step 6). |
+| `pkm/release-keys.json` `keys` dict | The maintainer adds a new entry (e.g. `S5`) with the incoming subkey's 40-char fingerprint, role label, and aliases. `pkm/repo.py:_load_pinned_fingerprints` natively unions all entries — no parser change required. | The maintainer removes the retired subkey's entry (the one whose key was revoked at step 6). |
 
 Step-by-step (apply between steps 4 and 5 of the §Rollover procedure above, then again after step 6):
 

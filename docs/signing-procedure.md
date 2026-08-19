@@ -18,16 +18,16 @@ Each signature this procedure produces attests to one layer of the InterGenOS tr
 
 The kernel-module signing key (ephemeral, per-build) and end-user MOK enrollments are orthogonal to this procedure — they live inside the kernel build and per-install respectively, not at release-signing time.
 
-## The two build-pipeline signing pauses (operator ceremonies)
+## The two build-pipeline signing pauses (key-holder ceremonies)
 
-A from-scratch ISO build through `scripts/build-intergenos.sh` stops at **two** operator-only signing pauses, in pipeline order. Each is driven by its own pain-free wrapper: the operator runs exactly one command and signs; the maintainer does all staging + verification around it. This two-pause structure is **new since the GB001-era ISOs** (the archive-manifest pause was added with Option-1 install-integrity in 2026) — an operator who signed earlier ISOs will not expect the first pause.
+A from-scratch ISO build through `scripts/build-intergenos.sh` stops at **two** key-holder-only signing pauses, in pipeline order. Each is driven by its own pain-free wrapper: the key holder runs exactly one command and signs; the maintainer does all staging + verification around it. This two-pause structure is **new since the GB001-era ISOs** (the archive-manifest pause was added with Option-1 install-integrity in 2026) — an key holder who signed earlier ISOs will not expect the first pause.
 
-| # | Pause (orchestrator phase) | Operator command | Key / crypto | `sudo`? | Produces |
+| # | Pause (orchestrator phase) | Key-holder command | Key / crypto | `sudo`? | Produces |
 |---|---|---|---|:--:|---|
 | 1 | end of **`phase_manifest`** (BEFORE squashfs) | `bash scripts/sign-manifest.sh` | OpenPGP **[S1]** subkey — `gpg --detach-sign --armor` (PIN **+ touch**) | **NO** | the install-integrity trust **triplet** |
 | 2 | end of **`phase_ukis_verity`** (AFTER squashfs) | `sudo bash scripts/sign-bootloader.sh` | **PIV slot 9c** X.509 — `sbsign` (PIN-only) | **yes** | signed GRUB + 3 UKIs |
 
-The superset `scripts/sign-release.sh` (documented in the rest of this runbook) performs every signing step in one pass — it is the CI / maintainer-driven path and the standalone path for re-signing the pkm index or a shipped kernel image. It is **not** the human ceremony: during a live pipeline pause, recommend the per-pause wrapper, never `sign-release.sh`, to the operator.
+The superset `scripts/sign-release.sh` (documented in the rest of this runbook) performs every signing step in one pass — it is the CI / maintainer-driven path and the standalone path for re-signing the pkm index or a shipped kernel image. It is **not** the human ceremony: during a live pipeline pause, recommend the per-pause wrapper, never `sign-release.sh`, to the key holder.
 
 ### Ceremony #1 — archive integrity manifest (`sign-manifest.sh`)
 
@@ -39,7 +39,7 @@ The triplet is three files (the wrapper emits all three from one command):
 - `intergenos-archive-manifest.txt.sig` — the detached [S1] ASCII-armored signature
 - `intergenos-release-key.asc` — the exported release public key (so the target self-validates without network)
 
-**Maintainer pre-ceremony (never the operator):**
+**Maintainer pre-ceremony (never the key holder):**
 
 1. Stage the *current* manifest into the signing dir, clearing any stale prior-ceremony copy first (same stale-input hazard as the bootloader stage):
    ```
@@ -49,13 +49,13 @@ The triplet is three files (the wrapper emits all three from one command):
    then confirm its sha256.
 2. `gpgconf --kill scdaemon` (the OpenPGP card path goes stale → "Card error"); confirm the token is present (`gpg --card-status`).
 
-**Operator's entire role — ONE command, NO `sudo`:**
+**Key holder's entire role — ONE command, NO `sudo`:**
 
 ```
 cd /mnt/intergenos && bash scripts/sign-manifest.sh
 ```
 
-GPG card-signing runs **as the operator**; `sudo` uses root's empty keyring with no card stub and fails. (The pause's own printed hint may say `sudo bash …` — that generic hint is **wrong** for the GPG path; do not relay it.) The wrapper sanity-gates the manifest's BSD format + v1 header + terminator (refusing to sign a malformed manifest that would later break `PHASE_VERIFY`'s parser), signs via `gpg --detach-sign --armor` against [S1], verifies with `gpg --verify`, and exports `intergenos-release-key.asc` — leaving the whole triplet in `/tmp/c6r2-manifest/`. Signing requires the OpenPGP **User PIN + an on-card touch** (UIF policy — watch the LED).
+GPG card-signing runs **as the key holder**; `sudo` uses root's empty keyring with no card stub and fails. (The pause's own printed hint may say `sudo bash …` — that generic hint is **wrong** for the GPG path; do not relay it.) The wrapper sanity-gates the manifest's BSD format + v1 header + terminator (refusing to sign a malformed manifest that would later break `PHASE_VERIFY`'s parser), signs via `gpg --detach-sign --armor` against [S1], verifies with `gpg --verify`, and exports `intergenos-release-key.asc` — leaving the whole triplet in `/tmp/c6r2-manifest/`. Signing requires the OpenPGP **User PIN + an on-card touch** (UIF policy — watch the LED).
 
 **Maintainer post-ceremony:** deliver all THREE artifacts into `/mnt/intergenos/build/` (the directory Step 4.8 reads; the mount is shared host↔build-VM, so the `.sig` + `release-key.asc` just need copying in beside the manifest), then resume `sudo bash scripts/build-intergenos.sh --user <user> --debug-verbose --start-at squashfs`. Step 4.8's staging gate fail-closes unless the triplet is present + non-empty, the signature verifies against the staged key, and every staged archive appears in the manifest.
 
@@ -80,7 +80,7 @@ Before starting a signing window:
 
 1. **Hardware token physically present in the signing workstation.** Nitrokey 3 NFC plugged into a USB port you can reach for touch confirmation. One session = one token = one signer.
 2. **PIN unlocked.** `gpg --card-status` should list the card and its serial. `pkcs11-tool --list-slots` should list the PIV interface.
-3. **Artifacts staged (by the maintainer).** The maintainer assembles the build orchestrator's unsigned output into a single staging directory and verifies its freshness (see "UKI staging freshness" below) before the operator is brought in to sign. The operator never stages, copies, or moves any artifact. Staged files:
+3. **Artifacts staged (by the maintainer).** The maintainer assembles the build orchestrator's unsigned output into a single staging directory and verifies its freshness (see "UKI staging freshness" below) before the key holder is brought in to sign. The key holder never stages, copies, or moves any artifact. Staged files:
    - `InterGenOS.db` — the pkm repository index
    - `vmlinuz-<version>-intergenos` — one or more kernel images
    - `grubx64.efi` — the custom GRUB build
@@ -119,7 +119,7 @@ Each live/installer UKI seals the squashfs's dm-verity root hash into its cmdlin
 hash does not match the squashfs actually shipped on the ISO, **dm-verity fails at
 boot** and the firmware/initramfs reports the *stale* root hash.
 
-**This is the maintainer's step, never the operator's.** Before every ceremony the
+**This is the maintainer's step, never the key holder's.** Before every ceremony the
 maintainer moves the OLD artifacts out and the NEW ones in:
 
 1. **Re-stage.** Move whatever is in the signing dir aside, then copy the *current
@@ -151,14 +151,14 @@ maintainer moves the OLD artifacts out and the NEW ones in:
 **Durable fix (tracked):** `sign-bootloader.sh` should self-stage from
 `build/bootloader/` and assert each UKI's `igos.verity.roothash` equals the current
 squashfs `ROOT_HASH`, aborting on mismatch — so this maintainer step cannot be
-skipped and the operator's job stays exactly: run the script, sign, report done.
+skipped and the key holder's job stays exactly: run the script, sign, report done.
 
 ## Running the Signature Steps
 
-**The operator's entire role is here: run one wrapper per pause, enter the PIN
+**The key holder's entire role is here: run one wrapper per pause, enter the PIN
 when prompted, then report completion to the maintainer. All staging and
 freshness-verification is already done (by the maintainer) before this point —
-the operator stages nothing.**
+the key holder stages nothing.**
 
 **Use the per-pause wrappers, not the superset.** A release build halts twice,
 and each pause has its own wrapper, matching the table at the top of this
@@ -176,7 +176,7 @@ Pause 1 signs with the OpenPGP subkey and requires the **User PIN plus an
 on-card touch** (UIF policy — watch the LED). Pause 2 signs GRUB and the three
 Unified Kernel Images against PIV slot 9c. That slot is `ALWAYS_AUTHENTICATE`,
 so the engine demands authentication per signature; `scripts/sign-pty-feeder.py`
-answers those per-binary prompts from a single capture, so **the operator types
+answers those per-binary prompts from a single capture, so **the key holder types
 the PIN once** for the whole pause. The PIN is never placed in a command line,
 an environment variable, or a log. Per-operation authentication is intact — the
 prompts are answered, not removed. If the feeder is absent the flow degrades to
@@ -186,7 +186,7 @@ the older behaviour of prompting per binary, which is safe, just tedious.
 
 `scripts/sign-release.sh` performs the same signing operations in one
 non-interactive pass. **It is the CI/automation path and is not the human
-ceremony** — do not hand it to the operator in place of the two wrappers above.
+ceremony** — do not hand it to the key holder in place of the two wrappers above.
 For reference, it performs, in order:
 
 1. **Token presence check.** Fails fast with exit code 1 if no OpenPGP card is visible.

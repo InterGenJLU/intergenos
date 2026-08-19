@@ -141,7 +141,7 @@ the project mirror; verification instructions are in
 - **Decision tracing** through the routing and synthesis path, with per-call
   latency spans and a per-turn telemetry panel.
 - **Signing ergonomics**: the bootloader ceremony answers its per-binary PIN
-  prompts from a single capture, so the operator types the PIN once while
+  prompts from a single capture, so the key holder types the PIN once while
   per-operation authentication stays intact.
 - **A fail-closed public-language gate** on push, driven by a term list held
   outside the repository.
