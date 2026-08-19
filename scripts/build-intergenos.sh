@@ -1550,6 +1550,15 @@ phase_setup() {
     # intergen 2026-05-09 surfaced the omission.
     cp -a /mnt/intergenos/intergen   "$IGOS/mnt/intergenos/"
     cp    /mnt/intergenos/igos-build.py "$IGOS/mnt/intergenos/" 2>/dev/null || true
+    # Repo-root files packages read at build time. SOURCES.md is the single
+    # authored copy of the source-availability statement and is what
+    # packages/core/intergenos-legal installs onto every system (that recipe
+    # kept its own hand-carried copy until 2026-08-19, and it had drifted).
+    # The dir copies above never reach repo-root files, so this copy and the
+    # matching one in sync_chroot_scripts are what make it reachable in the
+    # chroot; NOT masked with `|| true` — a missing legal notice must halt the
+    # build, not ship absent.
+    cp    /mnt/intergenos/SOURCES.md "$IGOS/mnt/intergenos/"
     # The shim SBAT CSV is consumed inside the chroot by
     # check-sbat-generations.sh (default SHIM_SBAT path), which
     # build-grub-standalone.sh fires during phase_bootloader. docker/ as a
@@ -1733,6 +1742,10 @@ sync_chroot_scripts() {
     # Sync Python builder for desktop tier (igos-build + its pkm dependency
     # per RFC v1 tracker/verifier parity)
     rsync -a /mnt/intergenos/igos-build.py "$IGOS/mnt/intergenos/" 2>/dev/null || true
+    # Repo-root SOURCES.md (parity with the phase_setup copy above): the single
+    # authored source-availability statement, installed by
+    # packages/core/intergenos-legal. Unmasked for the same reason.
+    rsync -a /mnt/intergenos/SOURCES.md "$IGOS/mnt/intergenos/"
     rsync -a --delete /mnt/intergenos/igos-build/   "$IGOS/mnt/intergenos/igos-build/" 2>/dev/null || true
     rsync -a --delete /mnt/intergenos/pkm/          "$IGOS/mnt/intergenos/pkm/"        2>/dev/null || true
     # intergen source for phase_ai (parity with phase_setup copy above)

@@ -1,13 +1,20 @@
 name: intergenos-legal
 version: "0.1.0"
-release: 3
-content_hash: 388c7ebe518c310d
+release: 4  # r4: the shipped SOURCES.md is installed from the repository-root file instead of from a copy kept inside this recipe. The in-package copy had drifted 113 diff lines from the authored one and told users to read /etc/intergenos-release (no such file; it is /etc/igos-release) and to fetch an ISO name that was never released. The copy is deleted, build.sh installs /mnt/intergenos/SOURCES.md and fails the build if it is not there, the orchestrator copies that file into the chroot at both sites that populate it, and source_tree declares it so editing the authored file advances this release automatically. LICENSE is unchanged and still ships from this directory.
+content_hash: 8168e0f06e64a6a4
 description: InterGenOS legal documents — LICENSE + SOURCES.md (GPL §6 source-availability commitment) installed to /usr/share/doc/intergenos/
 license: GPL-3.0-or-later
 homepage: https://github.com/InterGenJLU/intergenos
 tier: core
 build_style: custom
 source: []
+# The shipped SOURCES.md is installed from the repo-root file (see build.sh).
+# Declaring it here folds its bytes into this recipe's content fingerprint, so
+# editing the root file advances this package's release and rebuilds it —
+# without the declaration an edit to the authored copy would leave the
+# installed systems on the previously built one, silently.
+source_tree:
+  - SOURCES.md
 dependencies:
   build: []
   host: []

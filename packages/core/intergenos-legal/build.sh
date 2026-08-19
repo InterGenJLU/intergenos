@@ -15,6 +15,9 @@
 # find the project's source-availability commitment locally without
 # needing network access to GitHub.
 #
+# SOURCES.md is installed from the repository root, which is the single
+# authored copy; this package keeps no copy of it. See do_install.
+#
 # THIRD-PARTY-NOTICES will join this package when the legal sprint
 # follow-up emits it (currently per-package LICENSE bundling is tracked
 # at audit row P-004 / P-010 / P-014).
@@ -29,17 +32,38 @@ do_install() {
     set -e
     install -dm755 "${DESTDIR}/usr/share/doc/intergenos"
 
-    # Install from the package's own directory (synced into the chroot via
-    # sync_chroot_scripts' packages/ rsync). LICENSE + SOURCES.md are
-    # copied here from the repo root by the operator when either changes;
-    # the package is self-contained and does not depend on
-    # sync_chroot_scripts coverage of repo-root files. Mirrors the
-    # intergenos-keyring pre-built-artifact pattern (build-rules §2.5)
-    # but for plain-text assets that don't need build-time tooling.
-    # Regeneration: cp /mnt/intergenos/{LICENSE,SOURCES.md} \
-    #               /mnt/intergenos/packages/core/intergenos-legal/
+    # LICENSE is installed from this package's own directory (synced into
+    # the chroot via sync_chroot_scripts' packages/ rsync). It is also the
+    # licence source scripts/pkg-functions.sh reads in-chroot, so it stays
+    # here. Mirrors the intergenos-keyring pre-built-artifact pattern
+    # (build-rules §2.5) for a plain-text asset needing no build tooling.
     install -Dm644 /mnt/intergenos/packages/core/intergenos-legal/LICENSE \
         "${DESTDIR}/usr/share/doc/intergenos/LICENSE"
-    install -Dm644 /mnt/intergenos/packages/core/intergenos-legal/SOURCES.md \
+
+    # SOURCES.md is installed from the REPO-ROOT file — the one authored
+    # copy — never from a copy kept inside this package. Decided
+    # 2026-08-19: the in-package copy was hand-carried and had drifted 113
+    # diff lines from the root file, so installed systems were handed a
+    # source-availability statement that named a release and a path that
+    # do not exist (/etc/intergenos-release, intergenos-1.0-stable.iso).
+    # A copy nothing compares is a copy that goes stale; generating the
+    # shipped file from the authored one ends the class.
+    #
+    # The chroot's /mnt/intergenos is a COPY, not a bind: the file is
+    # placed there by phase_setup and sync_chroot_scripts in
+    # scripts/build-intergenos.sh, both of which copy it explicitly. This
+    # check fails the build loudly and names them rather than installing
+    # nothing, because a legal-notice file missing from an installed
+    # system is a licence-compliance defect that nothing downstream would
+    # report.
+    local root_sources="/mnt/intergenos/SOURCES.md"
+    if [ ! -f "$root_sources" ]; then
+        echo "intergenos-legal: $root_sources missing inside the chroot —" >&2
+        echo "  the repo-root SOURCES.md is copied in by phase_setup and" >&2
+        echo "  sync_chroot_scripts (scripts/build-intergenos.sh); one of" >&2
+        echo "  those did not run or no longer copies it." >&2
+        return 1
+    fi
+    install -Dm644 "$root_sources" \
         "${DESTDIR}/usr/share/doc/intergenos/SOURCES.md"
 }
