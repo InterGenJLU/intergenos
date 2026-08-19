@@ -33,8 +33,8 @@ do_install() {
     # Categories carries the X-InterGenOS token), a greyscale boxed category
     # icon (intergenos-category-symbolic, shipped by intergen-mark), and a
     # hover tooltip on the panel start button. ArcMenu has no custom-category
-    # support upstream, so this is a real carried downstream patch (operator
-    # branding §A, "the juice justifies the squeeze"). Mirrors the gtk4 pattern:
+    # support upstream, so this is a real carried downstream patch.
+    # Mirrors the gtk4 pattern:
     # IGOS_PACKAGE_DIR points at the recipe dir; fall back to the workspace path
     # for surgical-rebuild invocations that don't propagate it. cwd here is the
     # extracted source root (the extension UUID dirs sit at top level), so the
