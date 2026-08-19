@@ -2,7 +2,7 @@
 
 InterGenOS takes security seriously. This document describes how to report vulnerabilities and how we respond.
 
-> **Project status:** InterGenOS is in active development toward its 1.0 release. This policy applies to all InterGenOS code and infrastructure from the date below onward. We are a small team; if we cannot meet a target, we will communicate openly and directly with the reporter.
+> **Project status:** the current release is **R001**, published 2026-08-16. InterGenOS keeps a single supported line — the latest release is the supported release, and fixes reach users by advancing that line rather than through maintenance branches or backports, so every user runs the package set the project evaluates. The full policy is in [docs/release-policy.md](docs/release-policy.md). This policy applies to all InterGenOS code and infrastructure from the date below onward. We are a small team; if we cannot meet a target, we will communicate openly and directly with the reporter.
 
 ## Reporting a vulnerability
 
@@ -114,6 +114,42 @@ This policy applies to:
 Out of scope:
 - Upstream projects we package (report to them directly; we will coordinate)
 - Third-party software installed by users post-install
+
+---
+
+## Verifying a release
+
+Every release is published with the artifacts needed to verify it, and none of
+them requires trusting this document:
+
+| Artifact | Where |
+|---|---|
+| Installation image | `https://repo.intergenos.org/iso/intergenos-r001.iso` |
+| Image checksum | the same name with `.sha256` |
+| Signature over that checksum | the same name with `.sha256.asc` |
+| Release public key | `https://repo.intergenos.org/keys/intergenos-release-key.asc` |
+| Signed package index | `https://repo.intergenos.org/x86_64/current/InterGenOS.db` and `.sig` |
+| Signed source tag | `R001` in this repository |
+
+Verification is two steps and the order matters: **check the signature on the
+checksum file first, then check the image against the checksum.** The signature
+proves the checksum file is the project's and was not altered on the mirror or
+in transit; hashing the image against that checksum is what catches a truncated
+download or a substituted image. Neither step substitutes for the other.
+
+The fingerprint to compare is the primary key's —
+`5597 A3E0 587B 2530 06D0  DD7B 8C50 8261 8208 3050`. Your tools will report
+the *subkey* that made a signature; subkeys rotate, the primary fingerprint is
+the one to check, and it is also published in
+[docs/signing-key.md](docs/signing-key.md).
+
+The commands, with the same filenames, are in
+[docs/getting-started.md](docs/getting-started.md#2-verifying-the-iso-image).
+The signed source tag is verified with `git tag -v R001`.
+
+If any of these checks fails, do not install the image, and report it to
+security@intergenstudios.com — a verification failure on a published artifact
+is treated as a potential trust-anchor incident, not a download problem.
 
 ---
 

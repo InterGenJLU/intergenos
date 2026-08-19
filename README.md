@@ -7,8 +7,9 @@
 **[Website](https://intergenos.org)** · **[Updates](https://intergenos.org/news.html)** · **[Documentation](https://wiki.intergenos.org)** · **[InterGen Studios](https://intergenstudios.com)**
 
 > ### 📀 [Download InterGenOS R001](https://repo.intergenos.org/iso/intergenos-r001.iso)
-> x86_64 UEFI live ISO · 9.7 GiB · sha256 `1beeb90539bc1031ad135148f379e97a1830b835350f9c7924fd7b9fc3db07c7` ([checksum file](https://repo.intergenos.org/iso/intergenos-r001.iso.sha256))
-> Package mirror index signed on-hardware — [release key](https://repo.intergenos.org/keys/intergenos-release-key.asc), fingerprint `5597 A3E0 587B 2530 06D0 DD7B 8C50 8261 8208 3050`
+> x86_64 UEFI live ISO · 9.7 GiB · sha256 `1beeb90539bc1031ad135148f379e97a1830b835350f9c7924fd7b9fc3db07c7` — [checksum file](https://repo.intergenos.org/iso/intergenos-r001.iso.sha256) and the [signature over it](https://repo.intergenos.org/iso/intergenos-r001.iso.sha256.asc)
+> **Verify before you write it:** check the signature on the checksum file, then check the image against the checksum — [the steps are here](docs/getting-started.md#2-verifying-the-iso-image).
+> Signed on-hardware with the [release key](https://repo.intergenos.org/keys/intergenos-release-key.asc), fingerprint `5597 A3E0 587B 2530 06D0 DD7B 8C50 8261 8208 3050` — the same key signs the image checksum, the release tag and the package mirror index.
 
 InterGenOS puts the user in control of their own machine. Every package is compiled from source with deliberate choices. Every design decision serves one purpose: giving people a system they understand, can modify, and can trust.
 

@@ -147,13 +147,18 @@ bash scripts/sign-with-gpg.sh \
 # -> produces intergen/data/models-manifest.json.asc
 ```
 
-### Sign a release tarball
+### Sign a release artifact
 
 ```sh
 bash scripts/sign-with-gpg.sh \
-    --file build/intergenos-1.0.iso
-# -> produces build/intergenos-1.0.iso.asc
+    --file build/intergenos-r001.iso.sha256
+# -> produces build/intergenos-r001.iso.sha256.asc
 ```
+
+The published signature for an image is the one over its **checksum file**, not
+over the image itself: it is what a user can fetch and check in seconds without
+downloading ten gigabytes twice. See the verification procedure in
+[getting-started](getting-started.md#2-verifying-the-iso-image).
 
 ### Sign with a different key
 
