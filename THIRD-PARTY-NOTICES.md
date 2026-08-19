@@ -3696,14 +3696,14 @@ Image processing and conversion suite
 
 ### intergen-firstboot (1.0)
 
-InterGenOS first-login branded ECG-pulse animation (GNOME Shell extension) -- renders the operator-tuned 22.4s pulse + text sequence above gnome-shell's session-startup UI on the first login per user; subsequent logins no-op via filesystem marker gate
+InterGenOS first-login branded ECG-pulse animation (GNOME Shell extension) -- renders the 22.4s pulse + text sequence above gnome-shell's session-startup UI on the first login per user; subsequent logins no-op via filesystem marker gate
 
 - License: `GPL-3.0-or-later`
 - Homepage: https://github.com/InterGenJLU/intergenos
 
 ### intergen-mark (1.0)
 
-InterGenOS brand-mark icon + logo + wordmark assets installed to standard hicolor / pixmaps / /usr/share/intergenos locations. release 2 rounds the badge-tile corners (GNOME-style squircle, operator branding §B) and adds the greyscale boxed symbolic mark for the custom ArcMenu "InterGenOS" category. Closes audit-rows D-010 (brand assets never installed) + J-016 (brand assets missing from hicolor) + theming-arc dispatch Item C (canonical brand-mark package); supersedes the duplicate-wordmark bandaid in intergenos-default-settings. Source-of-truth at assets/intergen-mark/ stays the brand-source canonical (with generate.py + README + all variants); build.sh reaches into it via IGOS_SOURCE_ROOT mirroring intergenos-default-settings' in-tree-config pattern.
+InterGenOS brand-mark icon + logo + wordmark assets installed to standard hicolor / pixmaps / /usr/share/intergenos locations. release 2 rounds the badge-tile corners (GNOME-style squircle) and adds the greyscale boxed symbolic mark for the custom ArcMenu "InterGenOS" category. Closes audit-rows D-010 (brand assets never installed) + J-016 (brand assets missing from hicolor) + theming-arc dispatch Item C (canonical brand-mark package); supersedes the duplicate-wordmark bandaid in intergenos-default-settings. Source-of-truth at assets/intergen-mark/ stays the brand-source canonical (with generate.py + README + all variants); build.sh reaches into it via IGOS_SOURCE_ROOT mirroring intergenos-default-settings' in-tree-config pattern.
 
 - License: `GPL-3.0-or-later`
 - Homepage: https://github.com/InterGenJLU/intergenos
@@ -3752,7 +3752,7 @@ InterGenOS Appearance-category GNOME Shell extensions — Blur My Shell, Burn My
 
 ### intergenos-extensions-layout (1.0)
 
-InterGenOS Layout-category GNOME Shell extensions — Dash to Dock, Dash to Panel, ArcMenu, Show Desktop Button. release 2 carries a downstream ArcMenu patch (patches/arcmenu-intergenos-category.patch) adding a custom "InterGenOS" system category that collects every X-InterGenOS-tagged app, a greyscale boxed category icon, and a hover tooltip on the panel start button (operator branding §A/§G).
+InterGenOS Layout-category GNOME Shell extensions — Dash to Dock, Dash to Panel, ArcMenu, Show Desktop Button. release 2 carries a downstream ArcMenu patch (patches/arcmenu-intergenos-category.patch) adding a custom "InterGenOS" system category that collects every X-InterGenOS-tagged app, a greyscale boxed category icon, and a hover tooltip on the panel start button.
 
 - License: `GPL-3.0-or-later`
 - Homepage: https://github.com/InterGenJLU/intergenos
@@ -3773,7 +3773,7 @@ InterGenOS Utilities-category GNOME Shell extensions — AppIndicator, Bluetooth
 
 ### intergenos-grub-theme (1.0)
 
-InterGenOS GRUB boot-menu theme + resolution-aware background scaffold (operator-authored design 2026-05-21; K1 closure) -- ships 12 Steam-hardware-survey-grounded background images + a runtime /etc/grub.d/06_intergenos_multi_background override that picks the matching PNG based on GRUB's negotiated $gfxmode + a minimal theme.txt that suppresses the menu border so the lower-right brand mark stays unobscured. Composes with upstream 05_debian_theme rather than forking it.
+InterGenOS GRUB boot-menu theme + resolution-aware background scaffold (design decided 2026-05-21; K1 closure) -- ships 12 Steam-hardware-survey-grounded background images + a runtime /etc/grub.d/06_intergenos_multi_background override that picks the matching PNG based on GRUB's negotiated $gfxmode + a minimal theme.txt that suppresses the menu border so the lower-right brand mark stays unobscured. Composes with upstream 05_debian_theme rather than forking it.
 
 - License: `GPL-3.0-or-later`
 - Payload license: `GPL-3.0-or-later`
@@ -3817,7 +3817,7 @@ InterGenOS curated desktop wallpapers (4 × 3840x2160) — ItIsOnly (default) + 
 
 ### intergenos-wiki (1.0.0)
 
-InterGenOS wiki — rendered mdBook HTML docs + operator-signed per-page sha256 manifest (InterGen verifies a page against this manifest before citing it)
+InterGenOS wiki — rendered mdBook HTML docs + release-key-signed per-page sha256 manifest (InterGen verifies a page against this manifest before citing it)
 
 - License: `GPL-3.0-or-later`
 - Homepage: https://github.com/InterGenJLU/intergenos
