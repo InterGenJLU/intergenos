@@ -26,6 +26,16 @@ dependencies:
   - cracklib
   - openldap
 
+tests:
+  enabled: true
+  failure_policy: strict
+  # Deliberately strict, not known_failures. Upstream documents failures that need
+  # network access, a time-synchronised host and keyutils kernel support, and the
+  # first release's build log shows this suite skipping its DNS-dependent cases —
+  # but it also produced an uncharacterized segmentation fault, and a waiver would
+  # cover that too. Strict reports the real status to the driver, which logs and
+  # traces it without stopping the build on this lane.
+
 verify_paths:
   - /usr/bin/krb5-config
   - /usr/lib/libkrb5.so

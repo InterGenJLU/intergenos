@@ -170,3 +170,44 @@ class TestNodejs:
         r = run_policy(self.PKG, 0)
         assert "POLICY_RC=0" in r.stdout
         assert "PASSED" in r.stdout
+
+
+class TestMitkrb:
+    """core/mitkrb — the one that does NOT get a waiver.
+
+    The trace audit of the first release recorded an uncharacterized
+    segmentation fault in this suite. A known-failures waiver would cover
+    that crash along with the documented environmental cases, which is the
+    same unverified claim the mask was. Strict reports the real status; the
+    Chapter-8 driver logs and traces it and the build continues, because a
+    check failure is informational on that lane by design.
+    """
+
+    PKG = "core/mitkrb"
+
+    def test_the_blanket_mask_is_gone(self):
+        assert "|| true" not in check_body(self.PKG)
+
+    def test_check_routes_through_the_policy_wrapper(self):
+        assert "pkg_run_tests" in check_body(self.PKG)
+
+    def test_the_policy_the_wrapper_actually_reads_is_strict(self):
+        """Measured through pkg_run_tests' own parser, not by reading the
+        file — the file could say one thing and the parser see another."""
+        r = run_policy(self.PKG, 0)
+        assert "policy=strict" in r.stdout, r.stdout
+
+    def test_a_failing_suite_is_reported_not_waived(self):
+        r = run_policy(self.PKG, 1)
+        assert "POLICY_RC=1" in r.stdout, r.stdout + r.stderr
+        assert "allowed by failure_policy" not in r.stdout
+        assert "FAILED" in r.stdout + r.stderr
+
+    def test_a_passing_suite_still_reads_as_passing(self):
+        r = run_policy(self.PKG, 0)
+        assert "POLICY_RC=0" in r.stdout
+        assert "PASSED" in r.stdout
+
+    def test_the_suite_output_is_not_discarded(self):
+        r = run_policy(self.PKG, 1)
+        assert "stub test output" in r.stdout

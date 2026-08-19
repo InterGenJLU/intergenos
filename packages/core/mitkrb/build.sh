@@ -37,8 +37,23 @@ build() {
 
 check() {
     set -e
-    cd src &&
-    make -j1 -k check || true
+    # The blanket suite mask was retired here 2026-08-19. This package is
+    # deliberately NOT given a known-failures waiver: the trace audit of the
+    # first release recorded a segmentation fault in this suite that nobody
+    # has characterized, and declaring a suite "expected to fail" while one
+    # of its failures is an uncharacterized crash would be exactly the
+    # unverified claim the mask already was.
+    #
+    # So the policy is strict: pkg_run_tests reports the real status, the
+    # Chapter-8 driver logs it and records it in the build trace, and the
+    # build continues because a check failure is informational on that lane
+    # by design. Nothing is hidden and nothing is asserted. The next build's
+    # log is where the crash gets characterized; if it turns out to be
+    # environmental, the finding is then declared with its reason rather
+    # than assumed now.
+    cd src
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        make -j1 -k check
 }
 
 do_install() {
