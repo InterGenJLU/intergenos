@@ -206,29 +206,24 @@ disable cups.path
 disable avahi-daemon.service
 disable avahi-daemon.socket
 
-# rtkit — the realtime-scheduling broker ships off in the sense that it is not
-# started at boot. It is D-Bus activated and does not need to be.
-#
-# Activation posture, stated honestly, because "disabled" is misleading here:
-# the package ships
+# rtkit — the realtime-scheduling broker ships ON. Decided 2026-08-19,
+# revising the disable this file first carried: a desktop's audio stack asks
+# for realtime scheduling in ordinary use, so the daemon runs on effectively
+# every install either way — the package ships
 # /usr/share/dbus-1/system-services/org.freedesktop.RealtimeKit1.service
-# declaring `SystemdService=rtkit-daemon.service`, so the first client that asks
-# for org.freedesktop.RealtimeKit1 causes systemd to start the unit regardless
-# of its enablement. Measured on an installed system: the unit reads disabled
-# and is running. A boot-time enablement would only move the same start earlier
-# and keep the daemon resident on machines where no client ever asks — which on
-# a desktop is unusual, since the audio stack asks early.
+# declaring `SystemdService=rtkit-daemon.service`, and that D-Bus activation
+# starts the unit on first request regardless of the enablement flag
+# (measured on an installed system: flag disabled, unit running).
 #
-# Security note: rtkit exists to hand out realtime scheduling priority to
-# unprivileged clients, and it runs as root to do it. Letting it start when a
-# client actually asks, rather than unconditionally at boot, is the narrower
-# posture and costs nothing, because the activation path is what starts it in
-# practice either way.
+# A written default that says one thing while the machine reliably does
+# another is a state the user cannot read the truth from. Enabled makes the
+# stated default and the actual behaviour the same thing, at the cost of
+# starting at boot what first use would have started moments later.
 #
-# Consequence of reverting this line: the daemon starts at boot on every install
-# instead of on first use, with no behaviour gained — the D-Bus activation
-# already covers every case that matters.
-disable rtkit-daemon.service
+# Consequence of reverting this line: the flag reads disabled while the
+# daemon still runs on any system with an audio stack — the misleading state
+# this entry exists to remove.
+enable rtkit-daemon.service
 
 # at and fcron — the two job schedulers ship off. Decided 2026-08-19.
 #

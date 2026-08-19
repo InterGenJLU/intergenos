@@ -231,7 +231,7 @@ def test_no_recipe_or_image_script_contradicts_the_preset_policy(tmp_path):
     ("cups.path", "disabled"),
     ("avahi-daemon.service", "disabled"),
     ("avahi-daemon.socket", "disabled"),
-    ("rtkit-daemon.service", "disabled"),
+    ("rtkit-daemon.service", "enabled"),
     ("NetworkManager.service", "enabled"),
     ("NetworkManager-wait-online.service", "enabled"),
     ("bluetooth.service", "enabled"),
