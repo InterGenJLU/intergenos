@@ -61,29 +61,38 @@ silent.
 
 ## How it scales to your hardware
 
-InterGen is designed around hardware-detected model tiers. It inspects
-your RAM and GPU at setup and picks the model tier automatically,
-re-selecting if your hardware changes. **The Tier-1 model is the
-universal floor — it runs on every install — and the Tier-2 model
-ships and is selected automatically on capable hardware.** The Tier-3
-model is still on the roadmap.
+InterGen is designed around hardware-detected model tiers. It picks a
+tier from **two things only: whether the machine has a discrete GPU,
+and how much video memory that GPU has.** System RAM is not an input.
+A large model held in system memory is slow enough to be the wrong
+answer no matter how much of it there is, so there is no decision RAM
+could usefully inform. Detection re-runs if your hardware changes.
 
-- **Tier 1 (~1.2 GB model)** — the floor, on every machine. Good for
-  system queries, command lookups, and summarizing logs. Not built for
-  writing code from scratch.
-- **Tier 2 (~5.5 GB model)** — selected automatically on machines with
-  8 to 15 GB of RAM *and a discrete GPU*, and used on larger machines too
-  until the Tier-3 model ships: coding, configuration drafts, and
-  multi-step reasoning. On a Tier-2 machine without a discrete GPU,
-  InterGen runs the smaller Tier-1 model instead, so answers stay
-  responsive.
-- **Tier 3 (~21 GB model, roadmap)** — planned for machines with 16 GB
-  or more of RAM *and* a discrete GPU: deep code analysis across
-  multiple files and complex architectural questions. Until it ships,
-  those machines run the Tier-2 model.
+Unknown capability always fails *down*. A discrete card whose video
+memory cannot be read lands on the floor tier rather than on a tier it
+might not be able to run.
 
-Both the Tier-1 and Tier-2 models are vision-capable: InterGen can look
-at a screenshot or image you show it, not just the text you type.
+- **Tier 1 — a 2-billion-parameter model, about 1.2 GB.** The universal
+  floor: every machine with no discrete GPU, every discrete GPU with
+  less than roughly 7 GB of video memory, and any card whose video
+  memory cannot be read. Good for system queries, command lookups, and
+  summarizing logs. Not built for writing code from scratch.
+- **Tier 2 — a 9-billion-parameter model, about 5.6 GB.** Selected on a
+  discrete GPU with roughly 7 GB of video memory or more: coding,
+  configuration drafts, and multi-step reasoning.
+- **Tier 3 — a 35-billion-parameter mixture-of-experts model, about
+  22 GB.** Selected on a discrete GPU with roughly 22 GB of video
+  memory or more: deep code analysis across several files and complex
+  architectural questions.
+
+If the machine's model store holds only a smaller model than its tier
+calls for, InterGen serves that smaller model and says so, rather than
+failing with nothing.
+
+Every tier is vision-capable: InterGen can look at a screenshot or
+image you show it, not just the text you type. A model that declares
+vision but whose vision component is not pinned in the signed model
+manifest is refused rather than served without it.
 
 
 ## What it can and can't do (the safety chain)

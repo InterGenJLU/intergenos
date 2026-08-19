@@ -75,8 +75,8 @@ or email **legal@intergenos.org** with the subject line
 `GPL Source Request` and include:
 
 1. The release identifier of the InterGenOS copy you received
-   (visible in `/etc/intergenos-release` on an installed system, or
-   in the ISO filename, e.g. `intergenos-1.0-stable.iso`)
+   (the `IMAGE_VERSION` field in `/etc/os-release` on an installed
+   system, or the image filename, e.g. `intergenos-r001.iso`)
 2. The package names whose source you are requesting, OR the keyword
    `ALL` to request the complete source set for that release
 3. A return postal address if you want physical media (otherwise we
@@ -309,7 +309,7 @@ a newer stable release. In practice:
   date you received your copy.
 
 If the InterGenOS project mirror is ever decommissioned, taken
-permanently offline, or transferred to another operator, the project
+permanently offline, or transferred to another maintainer, the project
 will publish a migration notice with the new source-availability
 mechanism, and the §6b written offer remains in force.
 

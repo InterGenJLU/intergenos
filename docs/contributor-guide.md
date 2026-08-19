@@ -23,13 +23,15 @@ Maintaining consistency across a large, auto-generated, and AI-assisted codebase
 
 ### Package Definitions (`package.yml`)
 Every software component in InterGenOS is defined by a `package.yml` file located within its respective tier (`packages/<tier>/<name>/package.yml`).
-*   **Fields**: Must include `name`, `version`, `description`, `license`, `source` (with URLs and `sha256` checksums), and `deps` (`build`, `host`, `runtime`).
+*   **Required fields**: `name`, `version`, `release`, `description`, `license`, `source` and `build_style`. The parser refuses a recipe that omits any of them, naming what is missing.
+*   **Dependencies**: the field is `dependencies`, a mapping of `build`, `host` and `runtime`. It is optional — a package with none may leave it out.
+*   **Unknown keys are rejected at parse time**, not warned about. A misspelled control field would otherwise run default semantics silently — `verify_path:` instead of `verify_paths:` skips an audit, `direct_instal:` changes how the package is tracked — so the parser fails and names the key. When you add a genuinely new field, add it to the parser's known-field set together with the code that consumes it.
 *   **Build Styles**: The `build_style` field dictates how `igos-build` compiles the package (e.g., `autotools`, `meson`, `cmake`, `python-pep517`). 
 
 ### Build Scripts (`build.sh`)
 If the standard build styles are insufficient, a package can declare `build_style: custom` and provide a `build.sh` script alongside the `package.yml`.
 *   **Shell Strictness**: EVERY shell script MUST begin with `set -euo pipefail`. This is a non-negotiable defense-in-depth requirement to prevent silent failures.
-*   **Functions**: `build.sh` must define bash functions corresponding to the build phases: `configure()`, `build()`, `check()`, and `install()` or `do_install()`.
+*   **Functions**: `build.sh` defines bash functions for the build phases: `configure()`, `build()`, `check()` and `do_install()`. `do_install` is the name the builder calls; a recipe that wants a function named `install()` instead must say so with `install_func: install`, which is used by the toolchain packages and rarely anywhere else.
 
 ### Branching and Commits
 *   **Branch Naming**: Use descriptive names, ideally prefixed with your role or feature area (e.g., `docs/add-contributor-guide`, `fix/pkm-hash-check`).
