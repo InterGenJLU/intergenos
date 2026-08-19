@@ -149,11 +149,16 @@ def code_lines(body):
 class TestTheHarness:
 
     def test_a_recipe_that_calls_systemctl_is_observed(self):
-        r = run_post_install("desktop/cups", rc=0)
-        assert "SYSTEMCTL_CALLED:enable cups.service" in r.stdout, r.stdout + r.stderr
+        # Was desktop/cups until 2026-08-19, when that recipe's post_install was
+        # removed: default enablement moved to the preset files as their sole
+        # decision, so cups no longer calls systemctl at all. bluez still does,
+        # and its enable agrees with the preset rather than contradicting it.
+        r = run_post_install("desktop/bluez", rc=0)
+        assert "SYSTEMCTL_CALLED:enable bluetooth.service" in r.stdout, \
+            r.stdout + r.stderr
 
     def test_a_failing_systemctl_is_observed_as_a_failing_hook(self):
-        r = run_post_install("desktop/cups", rc=1)
+        r = run_post_install("desktop/bluez", rc=1)
         assert "POST_INSTALL_RC=1" in r.stdout, r.stdout + r.stderr
 
     def test_the_namespace_leg_really_removes_the_manager_directory(self):
@@ -179,21 +184,20 @@ class TestTheHarness:
 # --------------------------------------------------------------------------
 
 # (package, the exact call the retrofit must reach)
+#
+# Eleven entries left this table on 2026-08-19, when default service enablement
+# was given a single owner: the post_install hooks of desktop/cups,
+# desktop/avahi, desktop/rtkit, desktop/networkmanager and
+# core/networkmanager-pass1 consisted only of enablement calls that the
+# install-time `systemctl preset-all` reverted, and were removed rather than
+# retrofitted. base/at and base/fcron kept their hooks — those do ownership and
+# mode repair — but lost their enable lines for the same reason. What is left
+# here is the calls that remain, and tests/test_service_enablement_single_owner.py
+# is what now proves none of them contradicts the preset policy.
 UNMASKED = [
     ("core/pkm", "enable pkm-check-updates.timer"),
-    ("core/networkmanager-pass1", "enable NetworkManager.service"),
-    ("core/networkmanager-pass1", "disable systemd-networkd.service"),
-    ("core/networkmanager-pass1", "disable systemd-networkd-wait-online.service"),
-    ("core/networkmanager-pass1", "enable NetworkManager-wait-online.service"),
-    ("desktop/networkmanager", "enable NetworkManager.service"),
-    ("desktop/networkmanager", "disable systemd-networkd.service"),
-    ("desktop/networkmanager", "disable systemd-networkd-wait-online.service"),
-    ("desktop/networkmanager", "enable NetworkManager-wait-online.service"),
     ("desktop/bluez", "enable bluetooth.service"),
     ("desktop/forge", "enable forge-tui.service"),
-    ("desktop/cups", "enable cups.service"),
-    ("desktop/avahi", "enable avahi-daemon.service"),
-    ("desktop/rtkit", "enable rtkit-daemon.service"),
     ("desktop/wireplumber", "enable --global pipewire.socket"),
     ("desktop/wireplumber", "enable --global pipewire-pulse.socket"),
     ("desktop/wireplumber", "enable --global wireplumber.service"),
