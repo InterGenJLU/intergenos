@@ -1,7 +1,7 @@
 name: cups
 version: "2.4.16"
-release: 2  # hook-contract wave: client.conf + pam.d/cups moved post_install -> do_install (owned payload)
-content_hash: 0d2bcdc06b3639b7
+release: 3  # r3: the test suite's policy is declared instead of every failure being masked. Per-finding retrofit, not a sweep.  # hook-contract wave: client.conf + pam.d/cups moved post_install -> do_install (owned payload)
+content_hash: 548f7e1221b23ea3
 description: Common UNIX Printing System
 license: Apache-2.0
 homepage: https://openprinting.github.io/cups/
