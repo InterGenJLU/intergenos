@@ -23,6 +23,7 @@ dependencies:
 verify_paths:
   - /usr/bin/run-parts
   - /usr/bin/crontab
+  - /usr/bin/fcronsighup
   - /var/spool/fcron/systab.orig
   - /etc/cron.daily
   - /usr/sbin/fcron

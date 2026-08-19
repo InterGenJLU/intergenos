@@ -58,6 +58,15 @@ do_install() {
     chmod 6755 "${DESTDIR}/usr/bin/fcrontab"
     chmod 4755 "${DESTDIR}/usr/bin/fcrondyn"
 
+    # fcronsighup is the third privileged binary and the one the post_install
+    # ownership restore was missing. Assert it staged, so a rename or a
+    # dropped install target upstream is a loud build failure here rather
+    # than a silent no-op in the hook on every installed system.
+    if [ ! -f "${DESTDIR}/usr/bin/fcronsighup" ]; then
+        echo "ERROR: ${DESTDIR}/usr/bin/fcronsighup absent after make install — upstream changed its install set; update do_install and post_install together." >&2
+        exit 1
+    fi
+
     # Shipped-as-payload set (hook-contract wave: hooks may not write
     # package-ownable bytes). Byte/mode-identical to what the retired
     # post_install blocks wrote on live targets.
@@ -129,13 +138,23 @@ post_install() {
     systemd-sysusers /usr/lib/sysusers.d/fcron.conf
     # chown the privileged binaries so the setgid bit grants effective
     # gid fcron (which owns /var/spool/fcron).
-    chown root:fcron /usr/bin/fcrontab /usr/bin/fcrondyn
+    #
+    # fcronsighup joined this list 2026-08-19: it is the third privileged
+    # binary upstream installs, its archive records root:fcron mode 4710, and
+    # an installed system measured root:root 4710 — the group was lost the
+    # same way the other two lose their mode bits, because the deploy-extract
+    # path's data filter strips uid/gid and this hook did not restore it for
+    # this one binary. With group root the 0710 permission bits grant execute
+    # to nobody but root, so the fcron group cannot signal the daemon at all.
+    chown root:fcron /usr/bin/fcrontab /usr/bin/fcrondyn /usr/bin/fcronsighup
     # The chown above clears setuid/setgid on a regular file (kernel behavior,
     # even for root) — so this hook has been shipping fcrontab/fcrondyn INERT
     # on every install to date. Restore the modes AFTER the chown. Package-local
-    # twin of the L29 staging-chokepoint strip; 6755 + 4755 per do_install.
+    # twin of the L29 staging-chokepoint strip; 6755 + 4755 per do_install,
+    # 4710 for fcronsighup per upstream's own install mode.
     chmod 6755 /usr/bin/fcrontab
     chmod 4755 /usr/bin/fcrondyn
+    chmod 4710 /usr/bin/fcronsighup
 
     # fcron silently rejects /etc/fcron.conf if owner/perms are wrong.
     # Upstream installs it root:root mode 600; fcron expects root:fcron 644.
