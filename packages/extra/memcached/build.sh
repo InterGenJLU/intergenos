@@ -112,11 +112,13 @@ post_install() {
     install -dm755 -o memcached -g memcached /var/log/memcached  2>/dev/null || true
     install -dm755 -o memcached -g memcached /run/memcached      2>/dev/null || true
 
-    # Reload systemd to pick up the new unit; reload AppArmor to
-    # load the profile in enforce mode. Both are best-effort; install
-    # succeeds even if systemd/apparmor aren't running at install time
-    # (e.g., chroot install or first-boot path).
-    systemctl daemon-reload                                  2>/dev/null || true
+    # Reload AppArmor to load the profile in enforce mode; best-effort,
+    # because the install succeeds even where apparmor is not running
+    # (chroot install or first-boot path).
+    #
+    # No daemon-reload here: pkm's canonical systemd-daemon-reload hook owns
+    # it, armed by this package's own usr/lib/systemd/system/memcached.service,
+    # and it reports its own result instead of absorbing it.
     apparmor_parser -r /etc/apparmor.d/usr.bin.memcached     2>/dev/null || true
 }
 

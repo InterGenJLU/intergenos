@@ -75,6 +75,8 @@ post_install() {
     chown root:"$PKG_GROUP" /etc/lighttpd /etc/lighttpd/lighttpd.conf
     chmod 640 /etc/lighttpd/lighttpd.conf
 
-    systemctl daemon-reload 2>/dev/null || true
+    # No daemon-reload here: pkm's canonical systemd-daemon-reload hook owns
+    # it, armed by this package's own usr/lib/systemd/system/lighttpd.service,
+    # and it reports its own result instead of absorbing it.
     apparmor_parser -r /etc/apparmor.d/usr.sbin.lighttpd 2>/dev/null || true
 }

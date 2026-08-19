@@ -240,9 +240,12 @@ post_install() {
     # per-machine on the target at first service start — never at build/install
     # time, so no shared key material ships in the archive (F43).
 
-    # Reload systemd + AppArmor. Best-effort; install succeeds even
-    # if these aren't running (chroot install / first-boot path).
-    systemctl daemon-reload                              2>/dev/null || true
+    # Reload AppArmor. Best-effort; install succeeds even where apparmor
+    # is not running (chroot install / first-boot path).
+    #
+    # No daemon-reload here: pkm's canonical systemd-daemon-reload hook owns
+    # it, armed by this package's own usr/lib/systemd/system/httpd.service,
+    # and it reports its own result instead of absorbing it.
     apparmor_parser -r /etc/apparmor.d/usr.bin.httpd     2>/dev/null || true
 
     cat <<-EOF

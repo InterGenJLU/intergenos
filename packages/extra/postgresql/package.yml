@@ -1,7 +1,7 @@
 name: postgresql
 version: "18.3"
-release: 1
-content_hash: 1bed4326e81b48a6
+release: 2  # r2: the duplicate systemd daemon-reload is removed from post_install; pkm's canonical systemd-daemon-reload hook owns that operation, is armed by this package's own unit payload, skips a root no manager owns, and records its own result.
+content_hash: cd9bfbce0f76c64c
 description: PostgreSQL relational database server (default-secure config — listen 127.0.0.1, scram-sha-256 auth, deferred initdb via postgres-setup helper)
 license: PostgreSQL
 homepage: https://www.postgresql.org/

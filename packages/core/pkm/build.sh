@@ -119,7 +119,20 @@ post_install() {
     # install path); pre-systemd build phases that import pkm directly
     # don't have systemd available, and chroot-internal systemctl in
     # those contexts is a no-op anyway.
+    #
+    # The existing `command -v systemctl` guard stays: this is a core-tier
+    # package and the early build phases that import pkm run before systemd
+    # exists in the chroot, so an absent systemctl is a real and named
+    # condition here. What is removed is the `|| true` INSIDE it. `systemctl
+    # enable` is an offline file operation: measured 2026-08-19 in a chroot
+    # built from this systemd 259.1, enabling a PRESENT unit returns 0 and
+    # writes the symlink, a repeat call returns 0, and the only reachable
+    # failure is a unit that does not exist, which returns 1. This package
+    # installs pkm-check-updates.timer itself (do_install above), so once
+    # systemctl exists a non-zero means the timer this recipe just installed
+    # is missing — and the update-notifier that depends on it would ship
+    # permanently inert.
     if command -v systemctl >/dev/null 2>&1; then
-        systemctl enable pkm-check-updates.timer 2>/dev/null || true
+        systemctl enable pkm-check-updates.timer
     fi
 }

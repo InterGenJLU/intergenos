@@ -1,7 +1,7 @@
 name: avahi
 version: "0.8"
-release: 1
-content_hash: 6faa375d7dda6fa2
+release: 2  # r2: post_install no longer masks the service enable, so a missing avahi-daemon.service fails the package instead of being absorbed.
+content_hash: 8998a72a1a2827be
 description: Service Discovery for Linux using mDNS/DNS-SD
 license: LGPL-2.1-or-later
 homepage: https://avahi.org/

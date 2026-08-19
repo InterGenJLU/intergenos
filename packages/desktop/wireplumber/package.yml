@@ -1,6 +1,6 @@
 name: wireplumber
 version: "0.5.13"
-release: 2  # hook-contract wave: cross-package pulseaudio mutations removed from hook (owner-side fixes live in pulseaudio)
+release: 3  # r3: the three --global user-unit enables no longer mask failures, and wireplumber.service is named with its suffix.  # hook-contract wave: cross-package pulseaudio mutations removed from hook (owner-side fixes live in pulseaudio)
 description: PipeWire session manager
 license: MIT
 homepage: https://pipewire.pages.freedesktop.org/wireplumber/

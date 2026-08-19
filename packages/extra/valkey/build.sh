@@ -90,7 +90,9 @@ post_install() {
     chown -R "$PKG_USER":"$PKG_GROUP" /var/log/valkey
     chown -R "$PKG_USER":"$PKG_GROUP" /run/valkey
 
-    # Reload systemd and AppArmor
-    systemctl daemon-reload 2>/dev/null || true
+    # Reload AppArmor. No daemon-reload here: pkm's canonical
+    # systemd-daemon-reload hook owns it, armed by this package's own
+    # usr/lib/systemd/system/valkey.service, and it reports its own result
+    # instead of absorbing it.
     apparmor_parser -r /etc/apparmor.d/usr.bin.valkey-server 2>/dev/null || true
 }

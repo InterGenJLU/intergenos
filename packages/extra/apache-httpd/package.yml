@@ -1,7 +1,7 @@
 name: apache-httpd
 version: "2.4.67"
-release: 4  # r4: F43 — TLS cert+key generation moved out of build to a per-machine first-start keygen unit. r3: never ship var/run/httpd (tmpfiles.d /run/httpd instead; split-brain runtime-dir class, 2026-07-17). r2 L29: setuid-strip regression rebuild (staging-chokepoint chown)
-content_hash: 5b8255d916735b62
+release: 5  # r5: the duplicate systemd daemon-reload is removed from post_install; pkm's canonical systemd-daemon-reload hook owns that operation, is armed by this package's own unit payload, skips a root no manager owns, and records its own result.  # r4: F43 — TLS cert+key generation moved out of build to a per-machine first-start keygen unit. r3: never ship var/run/httpd (tmpfiles.d /run/httpd instead; split-brain runtime-dir class, 2026-07-17). r2 L29: setuid-strip regression rebuild (staging-chokepoint chown)
+content_hash: e3f01306554c322d
 description: Apache HTTP Server 2.4.x — heritage HTTP/HTTPS server with mpm_event + DSO modules + default-secure config
 license: Apache-2.0
 homepage: https://httpd.apache.org/

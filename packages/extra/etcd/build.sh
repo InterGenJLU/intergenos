@@ -83,6 +83,8 @@ post_install() {
     # so the etcd user/group exist before the chown below resolves.
     systemd-sysusers /usr/lib/sysusers.d/etcd.conf
     chown -R "$PKG_USER":"$PKG_GROUP" /var/lib/etcd /var/log/etcd /run/etcd /etc/etcd
-    systemctl daemon-reload 2>/dev/null || true
+    # No daemon-reload here: pkm's canonical systemd-daemon-reload hook owns
+    # it, armed by this package's own usr/lib/systemd/system/etcd.service,
+    # and it reports its own result instead of absorbing it.
     apparmor_parser -r /etc/apparmor.d/usr.bin.etcd 2>/dev/null || true
 }

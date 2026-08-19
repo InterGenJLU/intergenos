@@ -1,7 +1,7 @@
 name: caddy
 version: "2.11.3"
-release: 1
-content_hash: c5fbc469260aed40
+release: 2  # r2: the duplicate systemd daemon-reload is removed from post_install; pkm's canonical systemd-daemon-reload hook owns that operation, is armed by this package's own unit payload, skips a root no manager owns, and records its own result.
+content_hash: b03c46657c5a14c0
 description: Modern ACME-aware HTTP/2/3 single-binary web server
 tier: extra
 license: Apache-2.0

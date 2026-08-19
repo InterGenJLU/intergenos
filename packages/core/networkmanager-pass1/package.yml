@@ -1,6 +1,6 @@
 name: networkmanager-pass1
 version: "1.56.0"
-release: 2  # r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+release: 3  # r3: post_install no longer masks its four systemctl calls — the NetworkManager and NetworkManager-wait-online enables and the two systemd-networkd disables report a non-zero instead of absorbing it.  # r2: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
 description: Network connection manager (bootstrap — system networking only, no desktop integration)
 license: GPL-2.0-or-later
 homepage: https://networkmanager.dev/

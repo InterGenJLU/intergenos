@@ -34,7 +34,26 @@ post_install() {
     # The PulseAudio-conflict file removals + client.conf autospawn edit moved
     # to the pulseaudio recipe's staging (hook-contract wave: no cross-package
     # mutation from hooks).
-    systemctl enable --global pipewire.socket 2>/dev/null || true
-    systemctl enable --global pipewire-pulse.socket 2>/dev/null || true
-    systemctl enable --global wireplumber 2>/dev/null || true
+    # Enable the audio stack's user units for every user account.
+    #
+    # All three unmasked. `systemctl --global enable` is an offline file
+    # operation into /etc/systemd/user and needs no running manager: measured
+    # 2026-08-19 in a chroot built from this systemd 259.1, a --global enable
+    # of a PRESENT user unit returns 0 and writes the symlink, a repeat call
+    # returns 0 unchanged, and the only reachable failure is a unit that does
+    # not exist, which returns 1.
+    #
+    # The two pipewire units are owned by the pipewire package, which this
+    # recipe declares as both a build and a runtime dependency — so pipewire
+    # is built first in the chroot and installed first by the dependency-
+    # derived install order, and its units are in place before this hook runs.
+    # A non-zero here therefore means an ordering or packaging break, which
+    # must surface rather than ship a machine with no audio routing.
+    #
+    # wireplumber.service is spelled with its suffix: the shipped unit is
+    # wireplumber.service and the bare name only worked because systemd
+    # resolves a missing suffix.
+    systemctl enable --global pipewire.socket
+    systemctl enable --global pipewire-pulse.socket
+    systemctl enable --global wireplumber.service
 }

@@ -1,7 +1,7 @@
 name: rtkit
 version: "0.13"
-release: 1
-content_hash: de419e961f36c33f
+release: 2  # r2: post_install no longer masks the service enable, so a missing rtkit-daemon.service fails the package instead of being absorbed.
+content_hash: fc72bbb677f2353a
 description: RealtimeKit — D-Bus service for real-time scheduling
 license: GPL-3.0-or-later
 homepage: https://github.com/heftig/rtkit

@@ -1,7 +1,7 @@
 name: cups
 version: "2.4.16"
-release: 3  # r3: the test suite's policy is declared instead of every failure being masked. Per-finding retrofit, not a sweep.  # hook-contract wave: client.conf + pam.d/cups moved post_install -> do_install (owned payload)
-content_hash: 548f7e1221b23ea3
+release: 4  # r4: post_install no longer masks the scheduler enable, so a missing cups.service fails the package instead of being absorbed.  # r3: the test suite's policy is declared instead of every failure being masked. Per-finding retrofit, not a sweep.  # hook-contract wave: client.conf + pam.d/cups moved post_install -> do_install (owned payload)
+content_hash: 5b299e84ab7d68fd
 description: Common UNIX Printing System
 license: Apache-2.0
 homepage: https://openprinting.github.io/cups/

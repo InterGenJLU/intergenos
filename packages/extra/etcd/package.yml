@@ -1,7 +1,7 @@
 name: etcd
 version: "3.6.11"
-release: 1
-content_hash: 2630a2db8eda7ee2
+release: 2  # r2: the duplicate systemd daemon-reload is removed from post_install; pkm's canonical systemd-daemon-reload hook owns that operation, is armed by this package's own unit payload, skips a root no manager owns, and records its own result.
+content_hash: c389f56b2d37c653
 description: Distributed reliable key-value store for cluster coordination
 tier: extra
 license: Apache-2.0

@@ -142,6 +142,19 @@ post_install() {
         return 1
     fi
 
-    # Reload systemd to pick up new binaries
-    systemctl daemon-reexec 2>/dev/null || true
+    # Re-execute the running system manager so it picks up the freshly
+    # installed binaries.
+    #
+    # Narrowed, not masked. daemon-reexec acts on a RUNNING manager, and no
+    # manager owns the build chroot's root or the installer's target-chroot
+    # root: both mount /run as a fresh tmpfs, so /run/systemd/system is absent
+    # there (measured 2026-08-19 inside a chroot built from this systemd:
+    # absent). On such a root the operation is impossible rather than failed,
+    # so it is skipped. On a live root it is possible, so a failure is a real
+    # failure and must reach the caller. pkm ships a canonical owner for
+    # daemon-reload but none for daemon-reexec, so this recipe is the only
+    # caller and a mask here would leave nobody reporting.
+    if [ -d /run/systemd/system ]; then
+        systemctl daemon-reexec
+    fi
 }

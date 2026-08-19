@@ -77,6 +77,8 @@ post_install() {
     # Idempotent; safe at both build VM time and laptop install time.
     systemd-sysusers /usr/lib/sysusers.d/caddy.conf
     chown -R "$PKG_USER":"$PKG_GROUP" /var/lib/caddy /var/log/caddy /etc/caddy
-    systemctl daemon-reload 2>/dev/null || true
+    # No daemon-reload here: pkm's canonical systemd-daemon-reload hook owns
+    # it, armed by this package's own usr/lib/systemd/system/caddy.service,
+    # and it reports its own result instead of absorbing it.
     apparmor_parser -r /etc/apparmor.d/usr.bin.caddy 2>/dev/null || true
 }

@@ -228,7 +228,16 @@ post_install() {
     # ConditionKernelCommandLine=igos.mode=install-tui still gates ACTUAL
     # invocation to install-tui boots only — but the enable is required for
     # systemd to "reach" the unit at all (an un-enabled unit is never
-    # considered, condition-check or not). 2>/dev/null||true so this stays
-    # idempotent on rebuilds and tolerates non-chroot install paths.
-    systemctl enable forge-tui.service 2>/dev/null || true
+    # considered, condition-check or not).
+    #
+    # Unmasked. The mask was justified as keeping the call idempotent on
+    # rebuilds and tolerant of non-chroot install paths; neither needs it.
+    # Measured 2026-08-19 in a chroot built from this systemd 259.1: enabling
+    # a PRESENT unit returns 0 and writes the symlink both with and without
+    # /proc mounted, and a SECOND enable of the same unit also returns 0 — the
+    # operation is idempotent on its own. The only reachable failure is a unit
+    # that does not exist, which returns 1. This package installs
+    # forge-tui.service itself, so a non-zero means the installer's text-mode
+    # entry point would ship unreachable.
+    systemctl enable forge-tui.service
 }

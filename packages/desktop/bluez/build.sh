@@ -31,6 +31,18 @@ do_install() {
 
 post_install() {
     set -e
-    # Enable bluetooth service
-    systemctl enable bluetooth 2>/dev/null || true
+    # Enable the bluetooth service.
+    #
+    # Unmasked, and the unit is named in full. `systemctl enable` is an
+    # offline file operation: measured 2026-08-19 in a chroot built from this
+    # systemd 259.1, enabling a PRESENT unit returns 0 and writes the symlink,
+    # a repeat call returns 0, and the only reachable failure is a unit that
+    # does not exist, which returns 1. This package installs bluetooth.service
+    # itself, so a non-zero means its own unit is missing.
+    #
+    # The suffix is spelled out because that is the exact string
+    # intergenos-base-files' 80-intergenos-enable.preset whitelists; the bare
+    # name resolved to the same unit (measured), but a recipe and the preset
+    # that has to agree with it should not be written two different ways.
+    systemctl enable bluetooth.service
 }

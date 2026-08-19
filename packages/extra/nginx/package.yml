@@ -1,7 +1,7 @@
 name: nginx
 version: "1.29.8"
-release: 3  # r3: hook-contract remainder — post_install no longer re-creates /etc/nginx or /etc/nginx/conf.d. /etc/nginx already shipped as owned payload (nginx.conf + ssl/); conf.d now ships alongside it from do_install, so neither is a manifest-invisible directory laid over a path pkm owns. The /var/log and /var/cache directories stay hook-created (machine state, daemon-owned). r2: F43 — TLS cert+key no longer generated at build; per-machine oneshot keygen unit at first service start
-content_hash: 55dad54d7617195f
+release: 4  # r4: the duplicate systemd daemon-reload is removed from post_install; pkm's canonical systemd-daemon-reload hook owns that operation, is armed by this package's own unit payload, skips a root no manager owns, and records its own result.  # r3: hook-contract remainder — post_install no longer re-creates /etc/nginx or /etc/nginx/conf.d. /etc/nginx already shipped as owned payload (nginx.conf + ssl/); conf.d now ships alongside it from do_install, so neither is a manifest-invisible directory laid over a path pkm owns. The /var/log and /var/cache directories stay hook-created (machine state, daemon-owned). r2: F43 — TLS cert+key no longer generated at build; per-machine oneshot keygen unit at first service start
+content_hash: b7fc00bf92ee88fe
 description: Modern HTTP server / reverse proxy / load balancer (mainline; default-secure config — bind 127.0.0.1, server_tokens off, TLS-only sample, status locked to loopback)
 license: BSD-2-Clause
 homepage: https://nginx.org/

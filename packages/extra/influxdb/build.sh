@@ -171,6 +171,8 @@ post_install() {
     systemd-sysusers /usr/lib/sysusers.d/influxdb.conf
     chown -R "$PKG_USER":"$PKG_GROUP" \
         /var/lib/influxdb /var/log/influxdb /run/influxdb /etc/influxdb
-    systemctl daemon-reload 2>/dev/null || true
+    # No daemon-reload here: pkm's canonical systemd-daemon-reload hook owns
+    # it, armed by this package's own usr/lib/systemd/system/influxdb.service,
+    # and it reports its own result instead of absorbing it.
     apparmor_parser -r /etc/apparmor.d/usr.bin.influxdb3 2>/dev/null || true
 }
