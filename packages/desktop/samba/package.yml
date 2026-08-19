@@ -60,6 +60,11 @@ dependencies:
   - lmdb
   - nss
   - popt
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "quicktest starts a self-test environment of live Samba servers and drives them over loopback sockets; upstream states plainly that the suite prints lines which look like failures and are innocuous. The build chroot has no configured network interface and no running name service, so that class of line is expected here. The suite runs and its full output is kept in the package log."
+
 verify_paths:
   - /usr/bin/samba-log-parser
   - /usr/bin/samba-regedit

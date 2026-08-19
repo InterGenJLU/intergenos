@@ -87,3 +87,27 @@ class TestCups:
     def test_the_suite_output_is_not_discarded(self):
         r = run_policy(self.PKG, 1)
         assert "stub test output" in r.stdout
+
+
+class TestSamba:
+    """desktop/samba — Python lane, same reasoning as cups on a different
+    suite: quicktest runs live servers over loopback."""
+
+    PKG = "desktop/samba"
+
+    def test_the_blanket_mask_is_gone(self):
+        assert "|| true" not in check_body(self.PKG)
+
+    def test_check_routes_through_the_policy_wrapper(self):
+        assert "pkg_run_tests" in check_body(self.PKG)
+
+    def test_a_failing_suite_is_waived_loudly_not_silently(self):
+        r = run_policy(self.PKG, 1)
+        assert "POLICY_RC=0" in r.stdout, r.stdout + r.stderr
+        assert "allowed by failure_policy=known_failures" in r.stdout
+        assert "self-test environment" in r.stdout
+
+    def test_a_passing_suite_still_reads_as_passing(self):
+        r = run_policy(self.PKG, 0)
+        assert "POLICY_RC=0" in r.stdout
+        assert "PASSED" in r.stdout

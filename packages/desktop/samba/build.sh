@@ -26,7 +26,13 @@ build() {
 
 check() {
     set -e
-    make quicktest || true
+    # The blanket suite mask was retired here 2026-08-19: it accepted every
+    # failure quicktest can produce, new ones included. The suite still runs;
+    # the tests: block in package.yml states the policy and pkg_run_tests
+    # reports the outcome, so the log carries a named waiver instead of
+    # silence.
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        make quicktest
 }
 
 do_install() {
