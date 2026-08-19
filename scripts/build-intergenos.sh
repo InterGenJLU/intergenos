@@ -978,6 +978,27 @@ phase_validate() {
         fi
     fi
 
+    # Chroot-vs-archive-union coverage gate (decided 2026-08-13, binding on
+    # every build after R001): on a populated substrate, every built file
+    # must be carried by a sealed archive or covered by the reviewed
+    # allowlist — a chroot file no archive carries means the evaluated
+    # system differs from every installed system (the stub class). The
+    # script itself loud-skips on an empty archives corpus (from-scratch
+    # launch); on package-phase resumes it fires fail-closed. Post-image
+    # resumes skip it the same way the silent-loss hold does — the chroot
+    # is terminal there and the gate's anchor already fired pre-capture.
+    if [ "${RESUME_CONTEXT:-0}" = "1" ] && [ -d "${IGOS}/var/lib/igos/packages" ] \
+       && [ -d "${IGOS}/mnt/intergenos/build/logs" ]; then
+        log "Running chroot-archive-union coverage gate (build pre-flight)..."
+        python3 "${SCRIPTS}/check-chroot-archive-union.py" --chroot "${IGOS}" \
+            --allowlist /mnt/intergenos/config/chroot-archive-union-allowlist.txt \
+            2>&1 | tee -a "$BUILD_LOG"
+        if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+            log "error: the built chroot contains files no sealed archive carries — disposition per the gate's output before launching"
+            return 1
+        fi
+    fi
+
     # Undeclared-build-dep gate (Scan A.2): for every package's source[0]
     # tarball, extract build-system files (configure.ac / meson.build /
     # CMakeLists.txt) and parse for the 5 dep-discovery patterns
