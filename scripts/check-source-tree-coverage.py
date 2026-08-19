@@ -3,8 +3,9 @@
 # Copyright (C) 2015-2016, 2026 InterGenJLU
 """Self-policing gate for source-aware change detection.
 
-A first-party package whose build.sh reads from an EXTERNAL in-tree dir
-(/mnt/intergenos/{intergen,pkm,installer} or assets/...) must declare that dir
+A first-party package whose build.sh reads from an EXTERNAL in-tree source —
+a dir (/mnt/intergenos/{intergen,pkm,installer} or assets/...) or a file at the
+repository root (/mnt/intergenos/SOURCES.md) — must declare it
 in its `source_tree:` so the content is folded into the skip-built fingerprint
 (igos-build/content_hash.py). Otherwise an edit to that external source does
 NOT flip the package's fingerprint and a targeted build silently ships the
@@ -62,11 +63,30 @@ _EXTERNAL_TOPS = ("intergen", "pkm", "installer", "assets")
 _COMMENT_RE = re.compile(r'(^|\s)#.*$')
 
 
+def _is_repo_root_file(rel: str) -> bool:
+    """True for a read of a FILE that sits at the repository root.
+
+    A repo-root file has no directory component at all, so the top-level-
+    directory list above can never classify it — and such a read is squarely
+    the class this gate exists for: packages/core/intergenos-legal installs
+    the shipped source-availability statement from /mnt/intergenos/SOURCES.md,
+    and an edit to that authored file must move the reader's fingerprint or
+    the previously built archive ships on.
+
+    A name is treated as a file when it carries an extension. A bare top-level
+    DIRECTORY name is deliberately left to _EXTERNAL_TOPS, so a directory that
+    is not on that list (build output, for instance) is not swept in here by
+    accident.
+    """
+    return "/" not in rel and "." in rel
+
+
 def external_reads(build_sh_text: str) -> set:
     """Set of repo-relative EXTERNAL source paths a build.sh reads from.
 
-    External = under intergen/pkm/installer/assets. Own-dir reads (packages/...)
-    are excluded — content_hash arm (b) covers them automatically.
+    External = under intergen/pkm/installer/assets, OR a file at the repository
+    root (see _is_repo_root_file). Own-dir reads (packages/...) are excluded —
+    content_hash arm (b) covers them automatically.
     """
     found = set()
     for raw in build_sh_text.splitlines():
@@ -78,7 +98,7 @@ def external_reads(build_sh_text: str) -> set:
             top = rel.split("/", 1)[0]
             if top == "packages":
                 continue  # own package dir — hashed by content_hash arm (b)
-            if top in _EXTERNAL_TOPS:
+            if top in _EXTERNAL_TOPS or _is_repo_root_file(rel):
                 found.add(rel)
     return found
 

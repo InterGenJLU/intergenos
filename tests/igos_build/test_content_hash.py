@@ -562,6 +562,26 @@ class TestCoverageGate(unittest.TestCase):
         # No recognized repo-root prefix -> not a repo read (wouldn't resolve).
         self.assertEqual(self.gate.external_reads("cp assets/foo/bar ."), set())
 
+    def test_repo_root_file_read_flagged(self):
+        # A package can also read a FILE at the repository root — the shipped
+        # source-availability statement is installed from /mnt/intergenos/
+        # SOURCES.md. That read is exactly the class this gate exists for (an
+        # edit to the authored file must move the reader's fingerprint), but
+        # the top-level-directory list could never see it, because the path
+        # has no directory component at all.
+        for line in [
+            '    install -Dm644 /mnt/intergenos/SOURCES.md "$DESTDIR/x"',
+            '    local f="${IGOS_SOURCE_ROOT:-/mnt/intergenos}/SOURCES.md"',
+        ]:
+            self.assertEqual(self.gate.external_reads(line), {"SOURCES.md"},
+                             f"should flag: {line}")
+
+    def test_repo_root_bare_directory_not_flagged_by_the_file_arm(self):
+        # A bare top-level DIRECTORY name is classified by the external-tops
+        # list, not by the root-file arm — so a directory that is deliberately
+        # not in that list (build output, for instance) stays unflagged.
+        self.assertEqual(self.gate.external_reads("cp -r /mnt/intergenos/build ."), set())
+
     def test_coverage_prefix_match(self):
         self.assertTrue(self.gate._covered("intergen/web/server.py", ["intergen"]))
         self.assertTrue(self.gate._covered("assets/x/y.png", ["assets/x/y.png"]))
