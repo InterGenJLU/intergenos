@@ -1,6 +1,6 @@
 name: samba
 version: "4.23.5"
-release: 2  # r2: strip var/run+var/lock install side-effects, add tmpfiles.d /run/samba + /run/lock/samba (split-brain runtime-dir class, 2026-07-17)
+release: 3  # r3: the quicktest suite's policy is declared instead of every failure being masked. Per-finding retrofit, not a sweep.  # r2: strip var/run+var/lock install side-effects, add tmpfiles.d /run/samba + /run/lock/samba (split-brain runtime-dir class, 2026-07-17)
 description: SMB/CIFS file and print server
 license: GPL-3.0-or-later
 homepage: https://www.samba.org/

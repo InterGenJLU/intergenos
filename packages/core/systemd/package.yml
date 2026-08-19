@@ -1,6 +1,6 @@
 name: systemd
 version: '259.1'
-release: 4  # r4: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
+release: 5  # r5: elfutils is declared as a build dependency and -D elfutils=enabled is passed explicitly, so coredump symbolisation is compiled in rather than left to the option's auto default. elfutils has shipped since its r3.  # r4: runtime deps renamed to shipped namespace (F25 gate wave 2026-07-21)
 description: System and service manager
 license: LGPL-2.1-or-later
 source:

@@ -1,6 +1,6 @@
 name: mitkrb
 version: "1.22.2"
-release: 2  # L29: setuid-strip regression rebuild (staging-chokepoint chown)
+release: 3  # r3: the test-suite status is reported instead of masked. The `|| true` that swallowed every check() failure is gone and no waiver replaces it: this suite's failure is an uncharacterised segfault, which is exactly the class a waiver must not cover.  # L29: setuid-strip regression rebuild (staging-chokepoint chown)
 description: MIT Kerberos V5 authentication
 license: MIT
 homepage: ''

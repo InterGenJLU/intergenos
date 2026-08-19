@@ -1,6 +1,6 @@
 name: spidermonkey
 version: "140.8.0"
-release: 2  # hook-contract wave: XP_UNIX define staged into the shipped js-config.h (closes the Step-2.7 divergence)
+release: 3  # r3: the jstests policy is declared instead of every failure being masked. Per-finding retrofit, not a sweep.  # hook-contract wave: XP_UNIX define staged into the shipped js-config.h (closes the Step-2.7 divergence)
 description: Mozilla SpiderMonkey JavaScript engine
 license: MPL-2.0
 homepage: https://spidermonkey.dev/
