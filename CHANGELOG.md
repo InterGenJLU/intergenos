@@ -20,12 +20,51 @@ landed is in the repository README, not here.
 
 ## [Unreleased]
 
-Landed since R001, for the next point release.
+Nothing yet.
+
+---
+
+## [R001.1] — 2026-08-XX
+
+<!-- The date above is set on publication day. -->
+
+The first point release. Point releases deliver accumulated fixes and minor
+package additions built against the proven substrate of the current major
+release ([docs/release-policy.md](docs/release-policy.md)). R001.1 was produced
+as a targeted rebuild against R001's substrate — every changed package
+recompiled with the full validation gate set enforced — then installed and
+evaluated on real hardware before publication. The image, its checksum, the
+signature over that checksum, and the release key are published together on the
+project mirror; verification instructions are unchanged from R001.
 
 ### Added
 
-- **Nineteen package recipes** — log rotation, VPN clients, container tooling
-  and network diagnostics — published to the binary mirror.
+- **Nineteen package recipes — the first post-release package additions.**
+  Five ship on the installation image: automatic log rotation on every install
+  (`logrotate`, ending unbounded log growth), USB device tooling (`usbutils`),
+  NVMe drive management (`nvme-cli`), ethernet diagnostics (`ethtool`), and
+  hybrid-graphics switching (`switcheroo-control`). Fourteen are published to
+  the signed mirror and install on demand: the VPN client set — OpenVPN,
+  OpenConnect and WireGuard tooling with their NetworkManager plugins — the
+  container-tooling completion (`buildah`, `skopeo`, `docker-buildx`), and a
+  network-diagnostics suite (`nmap`, `tcpdump`, `iperf3`, `mtr`, `socat`, with
+  a meta-package that installs the set in one command).
+- **Package pre-remove hooks.** The package manager runs a package's declared
+  pre-remove hook before removal, and lifecycle hooks now report what they
+  actually did rather than only that they ran.
+- **Discovered-name resolution.** When the first-boot welcomer's Network
+  Discovery option is enabled, discovered `.local` hostnames also become
+  resolvable, so a discovered machine can be reached by name, not only seen.
+- **New fail-closed build-integrity gates**: an aspirational-reference check
+  spanning services, autostart entries, documentation and package lifecycle
+  hooks — a referenced path that nothing in the tree produces refuses the
+  build; a build-root-versus-archive coverage gate — every built file must be
+  carried by a sealed package archive or a reviewed allowlist entry; a
+  source-tree coverage gate — every source root the build stages must be
+  declared by the recipes that read it; an autostart-condition gate — a shipped
+  autostart entry whose condition nothing honours refuses; and an
+  image-preparation outcome assertion — no pruned package's payload may
+  survive into the image.
 
 ### Fixed
 
@@ -37,9 +76,45 @@ Landed since R001, for the next point release.
   time the menu was drawn. The module is now embedded in that image. A test
   pins each GRUB image to the set of modules its own configuration loads, so a
   fix applied to one image can no longer miss the other.
+- **Service enablement has a single owner.** The systemd preset policy now
+  states the default for every shipped service, including six that previously
+  had none; seven package recipes and the disk-image script stopped enabling
+  or disabling units themselves; presets apply on a package's first install
+  only, so an administrator's later enablement choices survive package
+  upgrades; and the written default for the realtime scheduling daemon
+  (`rtkit-daemon`) now matches what the machine actually does.
+- **The first-boot welcomer no longer relaunches after completion.** Its
+  autostart entry is skipped once the user has finished with it.
+- **Package removal consults the full install record.** Removal consumes the
+  union of the package database and the on-disk package manifest, so a path
+  whose database row was lost — a symlinked install root, in the case that
+  surfaced — is still removed cleanly, and image preparation asserts the
+  outcome.
+- **Rebuilt packages re-bundle their license texts.** A package rebuilt in
+  place no longer inherits the prior build's on-disk license bundle; the gate
+  that requires every shipped package to carry its licenses verifies the
+  result.
+- **Coredump symbolization is built in.** systemd now declares its elfutils
+  dependency explicitly and pins the feature on, so crash reports resolve
+  symbols out of the box.
+- **The scheduler helper `fcronsighup` regains its intended group and setuid
+  mode** on installed systems.
+- **AppArmor profile loading has one critical owner**, and the HIP compute
+  probes (`hipcc`, `hipconfig`) resolve by bare name.
+- **The Python `cryptography` package stages only its library** into the
+  Python module directory, no longer carrying extra build artifacts.
 
 ### Changed
 
+- **The release identity is authored once** — in the base system files — and
+  read everywhere else; the installer no longer writes a second copy.
+- **Test-suite policies are declared instead of masked** for cups, samba,
+  SpiderMonkey, Node.js and MIT Kerberos: their suites run and report status,
+  with expected failures dispositioned by a written per-package policy rather
+  than hidden.
+- **A documentation accuracy pass**: drifting counts rounded or corrected,
+  published claims the code contradicted fixed, signing-key location lists
+  updated to the published state, and the third-party notices regenerated.
 - Release policy published as [docs/release-policy.md](docs/release-policy.md):
   the two release types, the five conditions that force a complete from-source
   rebuild, and the support model.
@@ -196,5 +271,6 @@ on GitHub under the `InterGenOS` organization. They are not part of this
 changelog; the 2026 revival is a from-scratch rewrite that shares no code
 with the original builds.
 
-[Unreleased]: https://github.com/InterGenJLU/intergenos/compare/R001...HEAD
+[Unreleased]: https://github.com/InterGenJLU/intergenos/compare/R001.1...HEAD
+[R001.1]: https://github.com/InterGenJLU/intergenos/compare/R001...R001.1
 [R001]: https://github.com/InterGenJLU/intergenos/releases/tag/R001
