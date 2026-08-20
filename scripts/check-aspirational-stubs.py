@@ -185,7 +185,7 @@ LIFECYCLE_HOOK_RE = re.compile(r"^(?:pre|post)-(?:install|remove|upgrade)(?:\.sh
 # guarded by test_pkm_runs_exactly_the_hooks_the_gate_believes_it_runs in
 # tests/preflight/test_aspirational_stub_docs.py, which derives the set from
 # pkm's own sources and fails when this list falls behind it.
-PKM_HOOKS_RUN: tuple[str, ...] = ("post-install", "pre-remove")
+PKM_HOOKS_RUN: tuple[str, ...] = ("post-install", "pre-remove", "post-remove")
 
 # Where a recipe's build.sh installs a hook, and where a doc cites one.
 HOOK_INSTALL_RE = re.compile(

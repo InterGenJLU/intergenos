@@ -41,7 +41,7 @@ SWEEP_EXEMPT_PREFIXES = ("opt/", "var/lib/igos/", "var/lib/pkm/")
 SWEEP_EXEMPT_EXACT = frozenset({"opt", "var/lib/igos", "var/lib/pkm"})
 
 
-def _pre_remove_cmd(root, hook):
+def _remove_hook_cmd(root, hook):
     """Build the command that runs `hook` for an install rooted at `root`.
 
     Returns (argv, package_root) where package_root is the value the hook
@@ -69,6 +69,22 @@ def _pre_remove_cmd(root, hook):
         return [str(hook)], "/"
     hook_in_chroot = "/" + str(Path(hook).relative_to(root))
     return ["chroot", str(root), hook_in_chroot], "/"
+
+
+def _pre_remove_cmd(root, hook):
+    """The pre-remove hook's command. See _remove_hook_cmd."""
+    return _remove_hook_cmd(root, hook)
+
+
+def _post_remove_cmd(root, hook):
+    """The post-remove hook's command. See _remove_hook_cmd.
+
+    Both removal hooks are launched exactly the same way — the chroot
+    decision is about WHERE the hook must act, which is the target root in
+    both cases, not about when it fires. They share one implementation so
+    the two can never drift into launching differently.
+    """
+    return _remove_hook_cmd(root, hook)
 
 
 def ancestor_chain(path):
@@ -365,12 +381,50 @@ class PackageRemover:
         script failed would leave the package half-present with no way
         forward.
         """
-        hook = self.root / "var" / "lib" / "pkm" / "hooks" / name / "pre-remove"
+        self._run_remove_hook(name, version, kind="pre_remove",
+                              filename="pre-remove")
+
+    def _run_post_remove_hook(self, name, version):
+        """Fire the package's post-remove runtime hook if it ships one.
+
+        Hook path: <root>/var/lib/pkm/hooks/<name>/post-remove, executable.
+        Absent or non-executable: nothing happens and nothing is said.
+
+        The mirror of the pre-remove hook, and the reason the pair exists.
+        This one runs once the file-removal walk has finished and the
+        package is out of the database, so it is for work that is only
+        correct when the payload is already GONE: rebuilding a boot image
+        so it stops referencing a driver that no longer exists, refreshing
+        a cache that must not re-include the removed files, reloading a
+        daemon that would otherwise hold a deleted path open. Doing any of
+        that before the walk would capture the state being removed.
+
+        `pkm/hooks.py` has named post_remove in LIFECYCLE_EVENTS since the
+        R001 root while nothing invoked it, so a package could ship this
+        script and state in its own documentation that it runs. The nvidia
+        package is the live instance.
+
+        Environment, privilege posture and failure handling are identical
+        to the pre-remove hook — see _run_pre_remove_hook — and share one
+        implementation so they cannot drift.
+        """
+        self._run_remove_hook(name, version, kind="post_remove",
+                              filename="post-remove")
+
+    def _run_remove_hook(self, name, version, kind, filename):
+        """Shared implementation of both removal hooks.
+
+        `kind` is the lifecycle event name from pkm/hooks.py used in the
+        trace record; `filename` is the on-disk hook name, which is also
+        the word used in any warning so the message names the thing the
+        user has to go and re-run.
+        """
+        hook = self.root / "var" / "lib" / "pkm" / "hooks" / name / filename
         if not hook.is_file() or not os.access(str(hook), os.X_OK):
             return
 
         env = {k: v for k, v in os.environ.items() if k in HOOK_ENV_ALLOWLIST}
-        cmd, package_root = _pre_remove_cmd(self.root, hook)
+        cmd, package_root = _remove_hook_cmd(self.root, hook)
         env["PKM_PACKAGE_NAME"] = name
         env["PKM_PACKAGE_VERSION"] = version
         env["PKM_PACKAGE_ROOT"] = package_root
@@ -378,22 +432,22 @@ class PackageRemover:
         try:
             if _TRACE_AVAILABLE:
                 _trace.trace_event(
-                    "pkm_hook_fire", pkg=name, hook="pre_remove",
+                    "pkm_hook_fire", pkg=name, hook=kind,
                     script_path=str(hook), argv=cmd,
                 )
                 result = _trace.traced_run(
-                    cmd, env=env, phase="pkm_pre_remove",
-                    intent=f"pre_remove hook for {name}", pkg=name,
+                    cmd, env=env, phase=f"pkm_{kind}",
+                    intent=f"{kind} hook for {name}", pkg=name,
                 )
                 _trace.trace_event(
-                    "pkm_hook_done", pkg=name, hook="pre_remove",
+                    "pkm_hook_done", pkg=name, hook=kind,
                     rc=result.returncode,
                 )
             else:
                 result = subprocess.run(cmd, env=env)  # trace-coverage: allow — _trace shim unavailable fallback
             if result.returncode != 0:
                 print(
-                    f"  WARNING: pre-remove hook for {name} exited "
+                    f"  WARNING: {filename} hook for {name} exited "
                     f"{result.returncode}; removal proceeds (hook is "
                     f"non-fatal). Whatever the hook was going to clean up "
                     f"may still be present. Re-run manually: {hook}",
@@ -403,19 +457,19 @@ class PackageRemover:
             if _TRACE_AVAILABLE:
                 try:
                     _trace.trace_event(
-                        "pkm_hook_failed", pkg=name, hook="pre_remove",
+                        "pkm_hook_failed", pkg=name, hook=kind,
                         err=str(e),
                     )
                 except Exception:
                     pass
             print(
-                f"  WARNING: pre-remove hook for {name} could not execute: "
+                f"  WARNING: {filename} hook for {name} could not execute: "
                 f"{e}; removal proceeds (hook is non-fatal).",
                 file=sys.stderr,
             )
 
     def remove(self, name, force=False, reporter=None, on_file=None,
-               run_pre_remove_hook=True):
+               run_pre_remove_hook=True, run_post_remove_hook=None):
         """Remove an installed package.
 
         Checks reverse dependencies unless force=True.
@@ -433,7 +487,18 @@ class PackageRemover:
         is going away, and a caller that says nothing should get the
         behaviour the package's own documentation describes. The callers
         that pass False are the ones whose operation is not that — see
-        _run_pre_remove_hook for what the hook is, and each call site for
+        ``run_post_remove_hook`` (default None): fire the package's
+        post-remove hook once the removal has completed. None means FOLLOW
+        the pre-remove decision, which is the safe default and not a
+        convenience: every caller that suppresses the pre-remove hook has
+        judged that this is not a real removal on a real install — a
+        rollback of an install that never completed, a reinstall, an
+        upgrade, the build-time prune inside the mint chroot — and that
+        judgment is equally true of both hooks. Defaulting to None means a
+        new call site cannot exclude one hook and silently keep the other
+        by saying nothing. Pass True or False to override deliberately.
+
+        See _run_pre_remove_hook for what the hook is, and each call site for
         why it opts out.
 
         ``on_file`` is an optional callback invoked as
@@ -470,6 +535,9 @@ class PackageRemover:
         # removal never runs it, and before the file list is read so a
         # package with no tracked files — which is still a package being
         # removed — fires it too.
+        if run_post_remove_hook is None:
+            run_post_remove_hook = run_pre_remove_hook
+
         if run_pre_remove_hook:
             self._run_pre_remove_hook(name, pkg["version"])
 
@@ -494,6 +562,8 @@ class PackageRemover:
             # No files tracked — just remove the DB entry
             self.db.remove_installed(name)
             self.db.log_operation("remove", name, old_version=pkg["version"])
+            if run_post_remove_hook:
+                self._run_post_remove_hook(name, pkg["version"])
             return True, f"Removed {name} {pkg['version']} (no files tracked)"
 
         # Classify each manifest path by what is ON DISK, not by the DB's
@@ -728,6 +798,11 @@ class PackageRemover:
         # Remove from database
         self.db.remove_installed(name)
         self.db.log_operation("remove", name, old_version=pkg["version"])
+
+        # The payload is off disk and the package is out of the database, so
+        # the post-remove hook sees the finished state it exists for.
+        if run_post_remove_hook:
+            self._run_post_remove_hook(name, pkg["version"])
 
         # Record what was kept on purpose, for a caller that audits whether
         # the removal actually cleared what the package owned. Normalised the
