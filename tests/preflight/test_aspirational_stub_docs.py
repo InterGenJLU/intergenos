@@ -277,3 +277,30 @@ class TestAgainstTheRealTree:
                     assert name in gate.PKM_HOOKS_RUN, (
                         f"{pkg} installs lifecycle hook {name!r}, which pkm "
                         f"never runs")
+
+
+class TestGateIsWiredIntoValidate:
+    """The gate must have an automatic caller.
+
+    Origin: from 2026-05-15 to 2026-08-19 the gate existed and passed every
+    hand-firing while docs/operations/README.md stated continuous gating was
+    in place — a Rule 21 shape about the Rule 21 gate itself. Wired into
+    phase_validate 2026-08-19. This test holds the wiring: the orchestrator
+    must invoke the gate and fail closed on its exit status, in the same
+    PIPESTATUS form as the sibling validate gates.
+    """
+
+    def test_build_orchestrator_fires_the_gate_fail_closed(self):
+        build_sh = (REPO_ROOT / "scripts" / "build-intergenos.sh").read_text()
+        call = re.search(
+            r'python3 "\$\{SCRIPTS\}/check-aspirational-stubs\.py"'
+            r'.*?\n\s*if \[ "\$\{PIPESTATUS\[0\]\}" -ne 0 \];.*?return 1',
+            build_sh,
+            re.DOTALL,
+        )
+        assert call, (
+            "scripts/build-intergenos.sh no longer invokes "
+            "check-aspirational-stubs.py with a fail-closed PIPESTATUS check "
+            "— the gate has lost its automatic caller and "
+            "docs/operations/README.md's continuous-gating statement is "
+            "false again")

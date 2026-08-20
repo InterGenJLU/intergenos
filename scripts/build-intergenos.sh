@@ -858,6 +858,23 @@ phase_validate() {
         return 1
     fi
 
+    # Aspirational-stub gate (Rule 21): every path a shipped surface claims —
+    # service units, .desktop files, tmpfiles.d, polkit rules, documentation,
+    # pkm lifecycle-hook claims — must resolve to something the tree actually
+    # produces, or be covered by the reviewed hook allowlist
+    # (config/aspirational-stub-hook-allowlist.txt, the script's default).
+    # Pure host-side static analysis, no chroot (measured 0.13s on the full
+    # tree, 2026-08-19). Wired here 2026-08-19: the gate existed but had no
+    # automatic caller, while docs/operations/README.md stated continuous
+    # gating — this call makes that statement true. (Same PIPESTATUS shape as
+    # the sibling gates in this phase.)
+    log "Running aspirational-stub gate (claimed paths must resolve)..."
+    python3 "${SCRIPTS}/check-aspirational-stubs.py" 2>&1 | tee -a "$BUILD_LOG"
+    if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+        log "error: a claimed path resolves to nothing the tree produces — fix the claim or its producer per the rows above"
+        return 1
+    fi
+
     # Hook-contract gate: a recipe's lifecycle functions now travel inside the
     # signed archive and run on the target, which makes them a delivery
     # mechanism the manifest, the signature and every downstream integrity gate
