@@ -34,7 +34,7 @@ incident. Previous session introduced numerous errors that need fixing before re
 |----------|-------|------|
 | HIGH | Archive format mismatch — comments say .tar.zst, code creates .tar.gz | pkg-functions.sh |
 | HIGH | Missing error checks in kernel config merge | merge-kernel-config.sh |
-| MAJOR | Hardcoded IP 192.168.122.69 in multiple scripts | temp-tools-build.sh, toolchain-build.sh, host-check.py |
+| MAJOR | Hardcoded IP [redacted-ip-buildvm] in multiple scripts | temp-tools-build.sh, toolchain-build.sh, host-check.py |
 | MODERATE | Shell injection vulnerability in SSH command construction | host-check.py |
 
 ## BASE PACKAGE build.sh SCRIPTS — CRITICAL

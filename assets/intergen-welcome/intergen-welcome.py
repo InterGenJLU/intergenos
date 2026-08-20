@@ -1712,7 +1712,7 @@ def build_dns_page():
     custom_box.set_visible(False)
 
     custom_entry = Gtk.Entry()
-    custom_entry.set_placeholder_text('for example 10.0.0.10, or two '
+    custom_entry.set_placeholder_text('for example 192.0.2.10, or two '
                                       'addresses separated by a space')
     custom_box.append(custom_entry)
 
@@ -1819,7 +1819,7 @@ def build_dns_page():
                 status.set_text(
                     'This is not an address: ' + ', '.join(bad) + '. A name '
                     'server has to be given as an address such as '
-                    '10.0.0.10 or 2001:db8::1, because this machine cannot '
+                    '192.0.2.10 or 2001:db8::1, because this machine cannot '
                     'look up a name before it has a name server that works.')
                 return
 

@@ -84,7 +84,7 @@ class SanitizeTests(unittest.TestCase):
 # ── §5.5 — secret highlight is an AID ─────────────────────────────────────────
 class SecretDetectorTests(unittest.TestCase):
     def test_finds_url_creds_and_assignment(self):
-        shown = "url=postgres://app:S3cr3tPw@10.0.0.4/db\npassword: hunter2"
+        shown = "url=postgres://app:S3cr3tPw@192.0.2.4/db\npassword: hunter2"
         spans = detect_secret_ranges(shown)
         found = {shown[a:b] for a, b in spans}
         self.assertIn("S3cr3tPw", found)

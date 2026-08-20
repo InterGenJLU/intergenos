@@ -190,8 +190,8 @@ MUTATIONS = [
         id="the-bridge-class-is-narrowed-back-to-one-bridge"),
     pytest.param(
         ('        iif "lo" accept',
-         '        ip saddr 10.0.0.0/8 udp dport 53 accept\n        iif "lo" accept'),
-        "ip saddr 10.0.0.0/8 udp dport 53 accept",
+         '        ip saddr 192.0.2.0/24 udp dport 53 accept\n        iif "lo" accept'),
+        "ip saddr 192.0.2.0/24 udp dport 53 accept",
         id="an-address-scoped-accept-is-added"),
     pytest.param(
         ('        ip6 nexthdr ipv6-icmp icmpv6 type packet-too-big accept',

@@ -80,7 +80,7 @@ The VM provides a known-good environment with all LFS prerequisites installed.
 | Issue | Details |
 |-------|---------|
 | No automation script exists | Need to write a `create-build-vm.sh` that calls `virt-install` with cloud-init |
-| Hardcoded IP in scripts | `host-check.py` and others reference `192.168.122.69` -- make configurable |
+| Hardcoded IP in scripts | `host-check.py` and others reference `[redacted-ip-buildvm]` -- make configurable |
 | virtiofs needs memfd | VM XML must include `<memoryBacking><source type="memfd"/><access mode="shared"/></memoryBacking>` |
 
 ### cloud-init User-Data (to be created)
@@ -179,7 +179,7 @@ gettext 1.0, bison 3.8.2, perl 5.42.0, python 3.14.3, texinfo 7.2, util-linux 2.
 ### Known Issues to Fix First
 | Issue | Script | Details |
 |-------|--------|---------|
-| Hardcoded IP | `toolchain-build.sh`, `temp-tools-build.sh`, `host-check.py` | `192.168.122.69` -- make configurable or remove |
+| Hardcoded IP | `toolchain-build.sh`, `temp-tools-build.sh`, `host-check.py` | `[redacted-ip-buildvm]` -- make configurable or remove |
 | Shell injection in SSH | `host-check.py` line 209 | `run_command()` interpolates `remote` into shell string |
 | Missing set -e | `toolchain-build.sh` | Intentionally omitted (SIGPIPE issue) but needs per-command error checking verified |
 

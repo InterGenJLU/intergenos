@@ -3458,7 +3458,7 @@ def check_library_consistency(remote: Optional[str] = None) -> tuple[bool, str]:
 def main():
     remote = None
     if "--remote" in sys.argv:
-        remote = "christopher@192.168.122.69"
+        remote = "christopher@[redacted-ip-buildvm]"
 
     target = f"remote ({remote})" if remote else "local system"
 

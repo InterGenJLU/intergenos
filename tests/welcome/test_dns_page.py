@@ -67,8 +67,8 @@ NETWORK_PROVIDED = json.dumps([
      "mDNS": "no", "resolvConfMode": "stub", "fallbackServers": []},
     {"ifname": "eno2", "ifindex": 2, "defaultRoute": True,
      "dnsOverTLS": "no", "dnssec": "allow-downgrade",
-     "currentServer": {"addressString": "10.0.0.1"},
-     "servers": [{"addressString": "10.0.0.1"}]},
+     "currentServer": {"addressString": "192.0.2.1"},
+     "servers": [{"addressString": "192.0.2.1"}]},
     {"ifname": "wlo1", "ifindex": 3, "defaultRoute": False,
      "dnsOverTLS": "no", "dnssec": "allow-downgrade"},
 ])
@@ -85,7 +85,7 @@ CLOUDFLARE_ENCRYPTED = json.dumps([
          {"addressString": "2606:4700:4700::1001", "name": "cloudflare-dns.com"},
      ]},
     {"ifname": "eno2", "ifindex": 2, "defaultRoute": True, "dnsOverTLS": "no",
-     "servers": [{"addressString": "10.0.0.1"}]},
+     "servers": [{"addressString": "192.0.2.1"}]},
 ])
 
 # Cloudflare on a machine with no working IPv6: only the two IPv4 addresses
@@ -105,7 +105,7 @@ QUAD9_ENCRYPTED = json.dumps([
 
 CUSTOM_CLEARTEXT = json.dumps([
     {"dnsOverTLS": "no", "resolvConfMode": "stub",
-     "servers": [{"addressString": "10.0.0.53"}]},
+     "servers": [{"addressString": "192.0.2.53"}]},
 ])
 
 NOTHING_CONFIGURED = json.dumps([
@@ -173,8 +173,8 @@ class TestResolverState(unittest.TestCase):
         self.assertEqual(link["ifname"], "eno2")
         self.assertTrue(link["default_route"])
         self.assertEqual([s["address"] for s in link["servers"]],
-                         ["10.0.0.1"])
-        self.assertEqual(link["current"], "10.0.0.1")
+                         ["192.0.2.1"])
+        self.assertEqual(link["current"], "192.0.2.1")
 
     def test_certificate_names_are_kept(self):
         state = self._state(CLOUDFLARE_ENCRYPTED)
@@ -225,7 +225,7 @@ class TestEffectiveResolver(unittest.TestCase):
         self.assertEqual(effective["origin"], "network")
         self.assertEqual(effective["ifname"], "eno2")
         self.assertEqual([s["address"] for s in effective["servers"]],
-                         ["10.0.0.1"])
+                         ["192.0.2.1"])
 
     def test_our_dropin_makes_the_global_servers_the_answer(self):
         effective = self._effective(CLOUDFLARE_ENCRYPTED, managed=True)
@@ -244,7 +244,7 @@ class TestEffectiveResolver(unittest.TestCase):
         effective = self._effective(CLOUDFLARE_ENCRYPTED, managed=False)
         self.assertEqual(effective["origin"], "network")
         self.assertEqual([s["address"] for s in effective["servers"]],
-                         ["10.0.0.1"])
+                         ["192.0.2.1"])
 
     def test_a_machine_wide_setting_that_is_not_used_is_still_reported(self):
         effective = self._effective(CLOUDFLARE_ENCRYPTED, managed=False)
@@ -259,14 +259,14 @@ class TestEffectiveResolver(unittest.TestCase):
 
     def test_machine_wide_servers_are_the_answer_when_no_interface_has_any(self):
         state = json.dumps([
-            {"dnsOverTLS": "no", "servers": [{"addressString": "10.0.0.53"}]},
+            {"dnsOverTLS": "no", "servers": [{"addressString": "192.0.2.53"}]},
             {"ifname": "eno2", "ifindex": 2, "defaultRoute": True,
              "dnsOverTLS": "no"},
         ])
         effective = self._effective(state, managed=False)
         self.assertEqual(effective["origin"], "system-wide")
         self.assertEqual([s["address"] for s in effective["servers"]],
-                         ["10.0.0.53"])
+                         ["192.0.2.53"])
 
     def test_nothing_configured_is_reported_as_such(self):
         effective = self._effective(NOTHING_CONFIGURED)
@@ -292,7 +292,7 @@ class TestSelectionFromState(unittest.TestCase):
     def test_untouched_machine_preselects_network_default(self):
         selection, addresses, encrypted = self._selection(NETWORK_PROVIDED)
         self.assertEqual(selection, "network")
-        self.assertEqual(addresses, ["10.0.0.1"])
+        self.assertEqual(addresses, ["192.0.2.1"])
         self.assertFalse(encrypted)
 
     def test_cloudflare_is_recognised(self):
@@ -319,7 +319,7 @@ class TestSelectionFromState(unittest.TestCase):
         selection, addresses, encrypted = self._selection(
             CUSTOM_CLEARTEXT, managed=True)
         self.assertEqual(selection, "custom")
-        self.assertEqual(addresses, ["10.0.0.53"])
+        self.assertEqual(addresses, ["192.0.2.53"])
         self.assertFalse(encrypted)
 
     def test_unreadable_state_selects_nothing(self):
@@ -361,7 +361,7 @@ class TestDescribeCurrent(unittest.TestCase):
 
     def test_the_servers_in_use_are_listed(self):
         servers, _origin, _encryption = self._describe(NETWORK_PROVIDED)
-        self.assertIn("10.0.0.1", servers)
+        self.assertIn("192.0.2.1", servers)
 
     def test_origin_names_the_interface_for_a_network_provided_server(self):
         _servers, origin, _encryption = self._describe(NETWORK_PROVIDED)
@@ -413,18 +413,18 @@ class TestApplyResolver(unittest.TestCase):
             self.assertNotIn("cleartext", argv)
 
     def test_custom_encrypted(self):
-        argv = self._argv("custom", ["10.0.0.53"], True)
-        self.assertEqual(argv[2:], ["dns-use-custom", "encrypted", "10.0.0.53"])
+        argv = self._argv("custom", ["192.0.2.53"], True)
+        self.assertEqual(argv[2:], ["dns-use-custom", "encrypted", "192.0.2.53"])
 
     def test_custom_cleartext_is_said_explicitly(self):
         # Cleartext for an address the user typed is allowed, and it is named
         # in the request rather than being the absence of a flag.
-        argv = self._argv("custom", ["10.0.0.53"], False)
-        self.assertEqual(argv[2:], ["dns-use-custom", "cleartext", "10.0.0.53"])
+        argv = self._argv("custom", ["192.0.2.53"], False)
+        self.assertEqual(argv[2:], ["dns-use-custom", "cleartext", "192.0.2.53"])
 
     def test_custom_passes_every_address(self):
-        argv = self._argv("custom", ["10.0.0.53", "10.0.0.54"], True)
-        self.assertEqual(argv[-2:], ["10.0.0.53", "10.0.0.54"])
+        argv = self._argv("custom", ["192.0.2.53", "192.0.2.54"], True)
+        self.assertEqual(argv[-2:], ["192.0.2.53", "192.0.2.54"])
 
     def test_unknown_selection_is_refused_without_running_anything(self):
         record = []
@@ -468,13 +468,13 @@ class TestAddressValidation(unittest.TestCase):
 
     def test_accepts_ipv4(self):
         for address in ("1.1.1.1", "9.9.9.9", "0.0.0.0", "255.255.255.255",
-                        "10.0.0.10", "10.0.0.53"):
+                        "192.0.2.10", "192.0.2.53"):
             self.assertEqual(self._check(address), 0, address)
 
     def test_accepts_ipv6(self):
         for address in ("::1", "::", "2606:4700:4700::1111", "2620:fe::fe",
                         "fe80::1", "2001:0db8:0000:0000:0000:0000:0000:0001",
-                        "::ffff:10.0.0.1", "64:ff9b::1.2.3.4"):
+                        "::ffff:192.0.2.1", "64:ff9b::1.2.3.4"):
             self.assertEqual(self._check(address), 0, address)
 
     def test_refuses_a_hostname(self):

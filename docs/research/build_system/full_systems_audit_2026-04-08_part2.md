@@ -31,7 +31,7 @@
 #   - Build logs written to /mnt/intergenos/build/logs/
 #
 # Usage:
-#   From the host: ssh christopher@192.168.122.69 'bash /mnt/intergenos/scripts/toolchain-build.sh'
+#   From the host: ssh christopher@[redacted-ip-buildvm] 'bash /mnt/intergenos/scripts/toolchain-build.sh'
 #   Or inside VM:  bash /mnt/intergenos/scripts/toolchain-build.sh
 
 # NOTE: Do NOT use 'set -e' — it interacts badly with piping and
@@ -353,7 +353,7 @@ log "============================================"
 # $IGOS_TARGET for $LFS_TGT). No deviations from the book for temp tools.
 #
 # Usage:
-#   ssh christopher@192.168.122.69 'nohup bash /mnt/intergenos/scripts/temp-tools-build.sh > /mnt/intergenos/build/logs/temp-tools-stdout.log 2>&1 &'
+#   ssh christopher@[redacted-ip-buildvm] 'nohup bash /mnt/intergenos/scripts/temp-tools-build.sh > /mnt/intergenos/build/logs/temp-tools-stdout.log 2>&1 &'
 
 # Disable bash hash
 set +h
