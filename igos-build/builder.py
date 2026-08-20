@@ -822,7 +822,8 @@ class BuildExecutor(PackageTracker):
             )
         return True
 
-    def bundle_license(self, pkg: Package, src_dir: Path, env: dict) -> bool:
+    def bundle_license(self, pkg: Package, src_dir: Path, env: dict,
+                       build_start_time: float | None = None) -> bool:
         """Bundle upstream/derived license text into the install layout (K21.B).
 
         Closes P-004 (THIRD-PARTY-NOTICES.md generator coverage) + P-010
@@ -887,6 +888,13 @@ class BuildExecutor(PackageTracker):
         # synced, uses the byte-identical packages/core/intergenos-legal/LICENSE).
         firstparty_license = Path(__file__).resolve().parent.parent / "LICENSE"
 
+        # stale_before only for direct_install: their install root "/" persists
+        # across builds, so a pre-existing bundle can be a PRIOR build's — the
+        # skip-if-present guard then leaves the bundle out of this build's
+        # fs-diff and the fresh archive carries no license paths (the union
+        # gate removes the orphaned dir; K21.B fails at the next squashfs —
+        # measured, dbus-pass2/systemd-pass2 2026-08-20). A DESTDIR staging
+        # tree is born empty, so staged packages keep the plain guard.
         result = license_bundle.apply_strategies(
             pkg.name,
             pkg.version,
@@ -896,6 +904,7 @@ class BuildExecutor(PackageTracker):
             firstparty_license=firstparty_license,
             spdx=pkg.license,
             tier=pkg.tier,
+            stale_before=(build_start_time if pkg.direct_install else None),
         )
 
         # Forensic trace (K21.B observability): record WHERE the bundle landed
@@ -1252,7 +1261,8 @@ class BuildExecutor(PackageTracker):
         # the intergenos-default-settings gschema-override package per D-006.
         if success:
             self.logger.start_phase("bundle-license")
-            self.bundle_license(pkg, src_dir, env)
+            self.bundle_license(pkg, src_dir, env,
+                                build_start_time=build_start_time)
             self.logger.end_phase("bundle-license", 0)
 
         # --- Run validation ---
