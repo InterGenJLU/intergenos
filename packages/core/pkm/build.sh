@@ -108,31 +108,18 @@ REPOS
         "${DESTDIR}/usr/lib/tmpfiles.d/pkm.conf"
 }
 
-post_install() {
-    set -e
-    # Enable pkm-check-updates.timer system-wide so daily check-updates
-    # fires automatically per the Q8 design. Users can disable per their
-    # preference (`systemctl disable pkm-check-updates.timer`) — PRIME
-    # DIRECTIVE: notify-only + user controls their machine.
-    #
-    # Guard: only fires when chroot has a usable systemctl (post-systemd
-    # install path); pre-systemd build phases that import pkm directly
-    # don't have systemd available, and chroot-internal systemctl in
-    # those contexts is a no-op anyway.
-    #
-    # The existing `command -v systemctl` guard stays: this is a core-tier
-    # package and the early build phases that import pkm run before systemd
-    # exists in the chroot, so an absent systemctl is a real and named
-    # condition here. What is removed is the `|| true` INSIDE it. `systemctl
-    # enable` is an offline file operation: measured 2026-08-19 in a chroot
-    # built from this systemd 259.1, enabling a PRESENT unit returns 0 and
-    # writes the symlink, a repeat call returns 0, and the only reachable
-    # failure is a unit that does not exist, which returns 1. This package
-    # installs pkm-check-updates.timer itself (do_install above), so once
-    # systemctl exists a non-zero means the timer this recipe just installed
-    # is missing — and the update-notifier that depends on it would ship
-    # permanently inert.
-    if command -v systemctl >/dev/null 2>&1; then
-        systemctl enable pkm-check-updates.timer
-    fi
-}
+# No post_install hook.
+#
+# This recipe's post_install existed only to run `systemctl enable pkm-check-updates.timer`.
+# That default is decided in intergenos-base-files'
+# /usr/lib/systemd/system-preset/80-intergenos-enable.preset
+# and applied by the `systemctl preset-all` the image build and the installer both
+# run; measured 2026-08-19 against that same engine (`systemctl --root <root>
+# preset-all` over the tree's own preset files), the policy resolves pkm-check-updates.timer
+# to ENABLED, so the call changed nothing on a fresh install.
+#
+# What it changed was an upgrade: pkm fires a sealed post_install on every upgrade
+# and nothing re-runs preset-all afterwards, so a user who had turned the unit off
+# got it back on with no message. With the call gone the function had nothing left
+# to do, and a hook that does nothing is not kept for symmetry — it is removed, so
+# nothing fires on every install and upgrade to accomplish nothing. Decided 2026-08-19.

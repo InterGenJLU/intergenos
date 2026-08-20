@@ -25,9 +25,28 @@ the same command the installer runs — using the tree's own preset files. A cal
 whose verb disagrees with what the preset policy resolves that unit to is a
 contradiction and fails here.
 
-Agreement is allowed. A recipe that enables a unit the preset also enables is
-redundant but not a contradiction, and this test does not object to it; the
-defect being kept out is disagreement, not duplication.
+AGREEMENT IS NOT ALLOWED EITHER, and that is the second thing this file
+measures. It originally accepted a recipe that enabled a unit the preset also
+enabled, on the reasoning that duplication is not disagreement. That reasoning
+was wrong, and the reason is the moment the two artifacts are applied. The
+preset pass runs once, at image build and at the end of an install. A recipe's
+post_install runs then AND on every subsequent upgrade of that package, because
+pkm fires the sealed post_install hook on an upgrade too. So a redundant enable
+is not a harmless duplicate of the preset's decision — it is a re-application of
+it, months later, over whatever the user has since chosen. Four recipes were in
+that state: pkm's update timer, bluez, forge-tui and the backup engine. Each
+would silently turn its unit back on for a user who had turned it off, and this
+test could not see any of them, because agreement is the shape of that defect.
+
+The rule is therefore the simple one: enablement of a system unit is decided in
+the preset files and nowhere else, so a recipe or the image script making any
+such call at all is the finding — whether it agrees with the policy or not. The
+99- catch-all `disable *` means the policy resolves EVERY system unit, so there
+is no system unit whose enablement a recipe could own.
+
+`systemctl --global` calls act on USER units, which system presets do not
+govern; they are outside this rule and are excluded deliberately, which the
+harness below proves rather than assumes.
 
 The preset engine is never reimplemented. Glob matching, first-match-wins
 across lexically sorted files and the `disable *` catch-all are all evaluated
@@ -73,10 +92,33 @@ def _preset_files():
     return found
 
 
+def _splice_continuations(text):
+    r"""Join backslash-continued shell lines into one logical line.
+
+    Found 2026-08-19 while red-firing the agreement rule: the backup engine's
+    recipe called `systemctl enable chronicled.service \` with three timers on
+    the continuation lines, and this scanner reported ONLY chronicled.service.
+    Units two onwards were invisible, so a contradiction hidden on a
+    continuation line would have been waved through by a gate that looked like
+    it had read the call. A scanner that reads part of a statement does not
+    report less; it reports the wrong thing.
+    """
+    out, buf = [], ""
+    for line in text.splitlines():
+        if line.rstrip().endswith("\\"):
+            buf += line.rstrip()[:-1] + " "
+            continue
+        out.append(buf + line)
+        buf = ""
+    if buf:
+        out.append(buf)
+    return "\n".join(out)
+
+
 def _units_named_by(text):
     """The (verb, unit) pairs a shell fragment calls systemctl with."""
     out = []
-    for line in text.splitlines():
+    for line in _splice_continuations(text).splitlines():
         stripped = line.strip()
         if stripped.startswith("#"):
             continue
@@ -183,17 +225,75 @@ class TestTheHarness:
         assert _resolve(["no-such-invented-unit.service"], tmp_path)[
             "no-such-invented-unit.service"] == "disabled"
 
-    def test_calls_are_actually_found_in_the_tree(self):
-        """An empty call list would make the contradiction test pass by
-        finding nothing. Assert the scanner still sees real calls."""
-        calls = _collect_calls()
-        assert calls, "the scanner found no systemctl calls at all"
+    def test_the_scanner_reads_the_real_recipes(self):
+        """The invariant below now expects ZERO calls, so a scanner that read
+        nothing at all would pass it while proving nothing.
+
+        This control was originally `assert calls` — it asserted the tree still
+        CONTAINED the defect, so it stopped working the moment the defect was
+        fixed. What it should have pinned is that the scanner reaches the real
+        files. It asserts the parser found real post_install bodies, and that a
+        call injected into a real recipe's real body is seen.
+        """
+        bodies = {
+            f"{b.parent.parent.name}/{b.parent.name}": _post_install_body(b)
+            for b in sorted(PACKAGES.glob("*/*/build.sh"))
+        }
+        nonempty = {k: v for k, v in bodies.items() if v.strip()}
+        assert len(nonempty) > 20, (
+            f"only {len(nonempty)} post_install bodies parsed; the scanner is "
+            f"not reaching the recipes")
+
+        real = next(iter(nonempty.values()))
+        injected = real + "\n    systemctl enable injected-probe.service\n"
+        assert ("enable", "injected-probe.service") in _units_named_by(injected), (
+            "the scanner did not see a call injected into a real recipe body")
+
+    def test_the_global_exclusion_is_deliberate_and_still_load_bearing(self):
+        """`systemctl --global` acts on USER units; system presets do not
+        govern them, so they are excluded from this rule.
+
+        The exclusion is asserted against the tree rather than trusted: the
+        wireplumber recipe really does make three such calls, a plain text
+        search finds them, and the scanner really does drop them. Without this,
+        a regex that had quietly stopped matching anything would read exactly
+        like a clean tree.
+        """
+        wp = PACKAGES / "desktop" / "wireplumber" / "build.sh"
+        body = _post_install_body(wp)
+        raw = [l.strip() for l in body.splitlines()
+               if l.strip().startswith("systemctl enable")]
+        assert len(raw) == 3, f"expected wireplumber's three --global calls, saw {raw}"
+        assert all("--global" in l for l in raw), raw
+        assert _units_named_by(body) == [], (
+            f"the scanner should exclude --global user-unit calls, but returned "
+            f"{_units_named_by(body)}")
 
     def test_the_scanner_reads_a_call_it_is_shown(self):
         found = _units_named_by(
             "post_install() {\n    systemctl enable example.service\n}\n"
         )
         assert ("enable", "example.service") in found, found
+
+    def test_the_scanner_sees_every_unit_on_a_continued_line(self):
+        """A backslash continuation used to hide every unit after the first.
+
+        The real case that exposed it: the backup engine enabled its service
+        and three timers across four lines, and this scanner reported one unit.
+        Both directions are pinned — the continued form and the single-line
+        form must yield the same set — so the splice cannot regress quietly.
+        """
+        continued = _units_named_by(
+            "post_install() {\n"
+            "    systemctl enable a.service \\\n"
+            "        b.timer \\\n"
+            "        c.timer\n"
+            "}\n"
+        )
+        assert continued == [("enable", "a.service"), ("enable", "b.timer"),
+                             ("enable", "c.timer")], continued
+        single = _units_named_by("    systemctl enable a.service b.timer c.timer\n")
+        assert continued == single, (continued, single)
 
     def test_the_scanner_ignores_a_commented_call(self):
         found = _units_named_by("    # systemctl enable example.service\n")
@@ -204,24 +304,43 @@ class TestTheHarness:
 # The invariant.
 # --------------------------------------------------------------------------
 
-def test_no_recipe_or_image_script_contradicts_the_preset_policy(tmp_path):
-    """The defect this whole change set exists to remove: an artifact that
-    turns a service on while the preset policy turns it off, or the reverse.
-    Whichever ran last won, and the tree said both."""
+def test_no_recipe_or_image_script_decides_system_unit_enablement(tmp_path):
+    """The invariant: the preset files decide enablement, and nothing else
+    makes the call — agreeing or disagreeing.
+
+    Disagreement was the original finding: an artifact turning a service on
+    while the policy turned it off, whichever ran last winning, the tree saying
+    both. Agreement turned out to be the same defect on a different timescale.
+    The preset pass runs once per image build and once per install; a recipe's
+    post_install runs on every upgrade as well, so a call that merely repeats
+    the policy re-applies it over a choice the user has made since. That is why
+    a redundant enable is reported here and not waved through.
+
+    Each finding still carries what the policy resolves the unit to, because
+    that is what tells a reader whether they are looking at a stale
+    disagreement or a redundant repetition.
+    """
     calls = _collect_calls()
+    if not calls:
+        return
+
     units = sorted({unit for _, _, unit in calls})
     resolved = _resolve(units, tmp_path)
-
     want = {"enable": "enabled", "disable": "disabled"}
-    contradictions = [
-        f"{src}: `systemctl {verb} {unit}` but the preset policy resolves "
-        f"{unit} to {resolved[unit]}"
-        for src, verb, unit in calls
-        if resolved[unit] != want[verb]
-    ]
-    assert not contradictions, (
-        "these artifacts state a default the preset policy does not:\n  "
-        + "\n  ".join(contradictions)
+
+    findings = []
+    for src, verb, unit in calls:
+        kind = ("REDUNDANT — the preset policy already resolves it this way, and "
+                "this call re-applies that on every upgrade"
+                if resolved[unit] == want[verb] else
+                "CONTRADICTION — the preset policy resolves it the other way")
+        findings.append(
+            f"{src}: `systemctl {verb} {unit}` -> policy says {resolved[unit]} "
+            f"({kind})")
+
+    assert not findings, (
+        "enablement of a system unit is decided in the preset files and nowhere "
+        "else; these artifacts decide it too:\n  " + "\n  ".join(findings)
     )
 
 

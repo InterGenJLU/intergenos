@@ -42,6 +42,7 @@ same harness DOES observe a call when one is present — an instrument that has
 never been shown to detect a true positive cannot certify a zero.
 """
 
+import re
 import subprocess
 import textwrap
 from pathlib import Path
@@ -149,16 +150,20 @@ def code_lines(body):
 class TestTheHarness:
 
     def test_a_recipe_that_calls_systemctl_is_observed(self):
-        # Was desktop/cups until 2026-08-19, when that recipe's post_install was
-        # removed: default enablement moved to the preset files as their sole
-        # decision, so cups no longer calls systemctl at all. bluez still does,
-        # and its enable agrees with the preset rather than contradicting it.
-        r = run_post_install("desktop/bluez", rc=0)
-        assert "SYSTEMCTL_CALLED:enable bluetooth.service" in r.stdout, \
+        # Was desktop/cups, then desktop/bluez, and is now desktop/wireplumber.
+        # Each move happened because the previous holder stopped calling
+        # systemctl at all: cups on 2026-08-19 when default enablement became
+        # the preset files' sole decision, then bluez, pkm and forge in the
+        # change that removed the redundant re-application of that same
+        # decision. wireplumber's calls are `--global`, which act on USER units
+        # that system presets do not govern, so they are outside that rule and
+        # are the remaining true positive this harness can be proven against.
+        r = run_post_install("desktop/wireplumber", rc=0)
+        assert "SYSTEMCTL_CALLED:enable --global pipewire.socket" in r.stdout, \
             r.stdout + r.stderr
 
     def test_a_failing_systemctl_is_observed_as_a_failing_hook(self):
-        r = run_post_install("desktop/bluez", rc=1)
+        r = run_post_install("desktop/wireplumber", rc=1)
         assert "POST_INSTALL_RC=1" in r.stdout, r.stdout + r.stderr
 
     def test_the_namespace_leg_really_removes_the_manager_directory(self):
@@ -194,10 +199,15 @@ class TestTheHarness:
 # mode repair — but lost their enable lines for the same reason. What is left
 # here is the calls that remain, and tests/test_service_enablement_single_owner.py
 # is what now proves none of them contradicts the preset policy.
+# Three more entries left on 2026-08-19: core/pkm, desktop/bluez and
+# desktop/forge each enabled a unit the preset policy ALREADY resolves to
+# enabled. Retrofitting a call to fail loudly is the right treatment for a call
+# that should exist; these should not exist, because a recipe re-applies its
+# line on every upgrade while the preset pass runs only at image build and
+# install — so the "duplicate" quietly overrode a user's later choice. They are
+# now covered by ENABLEMENT_DELETED below, and none of the three has a
+# post_install left at all.
 UNMASKED = [
-    ("core/pkm", "enable pkm-check-updates.timer"),
-    ("desktop/bluez", "enable bluetooth.service"),
-    ("desktop/forge", "enable forge-tui.service"),
     ("desktop/wireplumber", "enable --global pipewire.socket"),
     ("desktop/wireplumber", "enable --global pipewire-pulse.socket"),
     ("desktop/wireplumber", "enable --global wireplumber.service"),
@@ -240,19 +250,77 @@ def test_no_masked_systemctl_call_survives_in_the_hook(pkg):
     assert not offenders, offenders
 
 
-def test_pkm_still_tolerates_an_absent_systemctl():
-    """pkm's `command -v systemctl` guard is a real named condition, not a
-    mask: this is a core-tier package and the early build phases that import
-    pkm run before systemd exists in the chroot. Measured here by making the
-    command genuinely unavailable rather than by reading the guard."""
-    r = run_post_install("core/pkm", drop_systemctl=True, empty_path=True)
-    assert "POST_INSTALL_RC=0" in r.stdout, r.stdout + r.stderr
-    assert "SYSTEMCTL_CALLED" not in r.stdout
+# pkm's two tests here — that its `command -v systemctl` guard tolerated an
+# absent systemctl, and that it failed the hook once one existed — went with the
+# hook itself on 2026-08-19. The guard was a real named condition while there was
+# a call inside it to guard; with the enable gone the function was empty, and an
+# empty hook that pkm fires on every install and upgrade is not kept for
+# symmetry. What remains to prove about pkm is that it makes no such call at
+# all, which ENABLEMENT_DELETED below drives rather than reads.
 
 
-def test_pkm_does_not_tolerate_a_failing_systemctl_once_one_exists():
-    r = run_post_install("core/pkm", rc=1)
-    assert "POST_INSTALL_RC=1" in r.stdout, r.stdout + r.stderr
+# --------------------------------------------------------------------------
+# DELETED — enablement the preset policy already owns
+# --------------------------------------------------------------------------
+
+# package -> the unit its post_install used to enable, and the preset file that
+# decides that unit now. Both halves are checked against the tree rather than
+# trusted from this table: the preset file has to actually name the unit.
+ENABLEMENT_DELETED = {
+    "core/pkm": ("pkm-check-updates.timer", "80-intergenos-enable.preset"),
+    "desktop/bluez": ("bluetooth.service", "80-intergenos-enable.preset"),
+    "desktop/forge": ("forge-tui.service", "80-intergenos-enable.preset"),
+}
+
+
+@pytest.mark.parametrize("pkg", sorted(ENABLEMENT_DELETED))
+def test_the_recipe_declares_no_post_install_at_all(pkg):
+    """Each of these hooks existed only to make the enablement call. With the
+    call gone the body was empty, and an empty post_install still costs a hook
+    invocation on every install AND every upgrade to accomplish nothing, so the
+    function was removed rather than left as a shell.
+
+    Read from the recipe's CODE, not its text: the comment left in place of the
+    function names post_install in order to explain its absence, so a whole-file
+    search for the word would be satisfied by the explanation and would pass on
+    a recipe that had quietly grown the hook back.
+    """
+    text = (PACKAGES / pkg / "build.sh").read_text()
+    code = code_lines(text)
+    assert not re.search(r"(?m)^post_install\(\) \{", code), (
+        f"{pkg} declares a post_install again:\n"
+        + "\n".join(l for l in code.splitlines() if "post_install" in l))
+
+
+@pytest.mark.parametrize("pkg", sorted(ENABLEMENT_DELETED))
+def test_no_hook_in_the_recipe_enables_anything(pkg):
+    """Wider than the test above: whatever hooks the recipe does declare, none
+    of them calls `systemctl enable` or `systemctl disable`. Catches the call
+    reappearing in a pre_install or post_upgrade instead of where it was."""
+    code = code_lines((PACKAGES / pkg / "build.sh").read_text())
+    offenders = [l.strip() for l in code.splitlines()
+                 if re.search(r"systemctl\s+(enable|disable)\b", l)]
+    assert not offenders, offenders
+
+
+@pytest.mark.parametrize("pkg", sorted(ENABLEMENT_DELETED))
+def test_the_preset_file_really_names_the_unit_that_lost_its_call(pkg):
+    """The deletion is only correct because something else decides the unit.
+    That "something else" is checked here rather than assumed — a deletion whose
+    preset line had been removed in the same change would otherwise leave the
+    unit decided by nothing at all, which is the failure this whole file exists
+    to prevent, arrived at from the opposite direction.
+    """
+    unit, preset_name = ENABLEMENT_DELETED[pkg]
+    matches = [q for q in REPO_ROOT.rglob(preset_name) if ".git" not in q.parts]
+    assert matches, f"{preset_name} not found in the tree"
+    text = matches[0].read_text()
+    decided = [l.strip() for l in text.splitlines()
+               if l.strip().startswith(("enable ", "disable "))
+               and l.split()[1] == unit]
+    assert decided, (
+        f"{preset_name} does not decide {unit}; {pkg} deleted its enable and "
+        f"nothing took the decision over")
 
 
 # --------------------------------------------------------------------------

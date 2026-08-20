@@ -149,18 +149,29 @@ post_install() {
         systemd-sysusers /usr/lib/sysusers.d/chronicle.conf || \
             echo "chronicle: could not create the chronicle group now; systemd-sysusers.service will create it at the next boot, and the backup application will not work for ordinary users until then" >&2
     fi
-    # Enable the always-on engine + the three timers (the restore leg is a
-    # template started on demand, never enabled). Guarded so a chroot/offline
-    # install does not fail when systemd is not the running init.
+    # No `systemctl enable` here. Whether the engine and its three timers run
+    # by default is decided in this package's own
+    # assets/intergenos-backup/systemd/90-chronicle.preset, installed to
+    # /usr/lib/systemd/system-preset/90-chronicle.preset by do_install above,
+    # and applied by the `systemctl preset-all` the image build and the
+    # installer both run. Measured 2026-08-19 against that same engine
+    # (`systemctl --root <root> preset-all` over the tree's own preset files):
+    # the policy resolves chronicled.service, chronicle-userdata.timer,
+    # chronicle-offpeak.timer and chronicle-scrub.timer all to ENABLED, so the
+    # enable call that used to sit here changed nothing on a fresh install.
+    #
+    # What it did change was an upgrade. pkm fires a package's sealed
+    # post_install on every install AND every upgrade, and nothing re-runs
+    # preset-all afterwards — so on a machine where the user had turned the
+    # engine OFF, the next upgrade of this package turned it back ON and said
+    # nothing. The preset file is the single place this default is decided.
+    # Decided 2026-08-19.
+    #
+    # The start below is a DIFFERENT operation and is kept: enablement decides
+    # what happens at the next boot, and without a start a freshly-installed or
+    # live-upgraded system has no running engine until then. It is guarded so a
+    # chroot/offline install does not fail when systemd is not the running init.
     if command -v systemctl >/dev/null 2>&1; then
-        systemctl enable chronicled.service \
-            chronicle-userdata.timer \
-            chronicle-offpeak.timer \
-            chronicle-scrub.timer 2>/dev/null || true
-        # Enable alone leaves a freshly-installed (or live-upgraded) system
-        # with no running engine until its next boot; start now, guarded the
-        # same way for chroot/offline installs where no service manager is
-        # running.
         systemctl start chronicled.service \
             chronicle-userdata.timer \
             chronicle-offpeak.timer \

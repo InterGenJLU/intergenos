@@ -1,6 +1,6 @@
 name: bluez
 version: '5.86'
-release: 2  # r2: post_install no longer masks the bluetooth enable, and names the unit bluetooth.service to match both the shipped unit and the preset entry it has to agree with.
+release: 3  # r3: the post_install hook is removed. It existed only to run `systemctl enable bluetooth.service`, and 80-intergenos-enable.preset already whitelists that unit: measured against the real engine (`systemctl --root <root> preset-all` over the tree's own preset files), the policy resolves it to enabled, so the call changed nothing on a fresh install. What it changed was an upgrade — pkm fires a sealed post_install on every upgrade and nothing re-runs preset-all afterwards, so a user who had turned Bluetooth off got it back on with no message. With the call gone the function was empty, and an empty hook is removed rather than kept for symmetry. HAND bump: this recipe pins an upstream tarball and declares no source_tree, so bump-changed-releases.py does not track it and would have shipped a changed recipe at an unchanged release. No packaged bytes change. # r2: post_install no longer masks the bluetooth enable, and names the unit bluetooth.service to match both the shipped unit and the preset entry it has to agree with.
 description: Bluetooth protocol stack
 license: GPL-2.0-or-later
 homepage: http://www.bluez.org/

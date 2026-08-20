@@ -29,20 +29,18 @@ do_install() {
     ln -svf ../libexec/bluetooth/bluetoothd "${DESTDIR}/usr/sbin/bluetoothd"
 }
 
-post_install() {
-    set -e
-    # Enable the bluetooth service.
-    #
-    # Unmasked, and the unit is named in full. `systemctl enable` is an
-    # offline file operation: measured 2026-08-19 in a chroot built from this
-    # systemd 259.1, enabling a PRESENT unit returns 0 and writes the symlink,
-    # a repeat call returns 0, and the only reachable failure is a unit that
-    # does not exist, which returns 1. This package installs bluetooth.service
-    # itself, so a non-zero means its own unit is missing.
-    #
-    # The suffix is spelled out because that is the exact string
-    # intergenos-base-files' 80-intergenos-enable.preset whitelists; the bare
-    # name resolved to the same unit (measured), but a recipe and the preset
-    # that has to agree with it should not be written two different ways.
-    systemctl enable bluetooth.service
-}
+# No post_install hook.
+#
+# This recipe's post_install existed only to run `systemctl enable bluetooth.service`.
+# That default is decided in intergenos-base-files'
+# /usr/lib/systemd/system-preset/80-intergenos-enable.preset
+# and applied by the `systemctl preset-all` the image build and the installer both
+# run; measured 2026-08-19 against that same engine (`systemctl --root <root>
+# preset-all` over the tree's own preset files), the policy resolves bluetooth.service
+# to ENABLED, so the call changed nothing on a fresh install.
+#
+# What it changed was an upgrade: pkm fires a sealed post_install on every upgrade
+# and nothing re-runs preset-all afterwards, so a user who had turned the unit off
+# got it back on with no message. With the call gone the function had nothing left
+# to do, and a hook that does nothing is not kept for symmetry — it is removed, so
+# nothing fires on every install and upgrade to accomplish nothing. Decided 2026-08-19.
