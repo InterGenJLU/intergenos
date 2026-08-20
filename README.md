@@ -39,12 +39,14 @@ Security is not first. It is **only**.
 
 ```mermaid
 flowchart TD
-    FW["&nbsp;UEFI firmware<br/>(Secure Boot on)&nbsp;"] -->|&nbsp;trusts MS UEFI CA&nbsp;| SHIM["&nbsp;shim<br/>Microsoft-signed&nbsp;"]
-    SHIM -->|&nbsp;verifies SBAT + signature&nbsp;| GRUB["&nbsp;GRUB<br/>MOK-signed&nbsp;"]
-    GRUB -->|&nbsp;verifies&nbsp;| UKI["&nbsp;Unified Kernel Image<br/>MOK-signed&nbsp;"]
-    UKI --> KRN["&nbsp;kernel<br/>lockdown=integrity<br/>module sig_enforce&nbsp;"]
-    MOK(["&nbsp;Your Machine Owner Key<br/>enrolled once — the trust anchor&nbsp;"]) -. &nbsp;signs&nbsp; .-> GRUB
-    MOK -. &nbsp;signs&nbsp; .-> UKI
+    FW["UEFI firmware<br/>(Secure Boot on)"] --> E1["&nbsp;trusts MS UEFI CA&nbsp;"] --> SHIM["shim<br/>Microsoft-signed"]
+    SHIM --> E2["&nbsp;verifies SBAT + signature&nbsp;"] --> GRUB["GRUB<br/>MOK-signed"]
+    GRUB --> E3["&nbsp;verifies&nbsp;"] --> UKI["Unified Kernel Image<br/>MOK-signed"]
+    UKI --> KRN["kernel<br/>lockdown=integrity<br/>module sig_enforce"]
+    MOK(["Your Machine Owner Key<br/>enrolled once — the trust anchor"]) -.-> S1["&nbsp;signs&nbsp;"] -.-> GRUB
+    MOK -.-> S2["&nbsp;signs&nbsp;"] -.-> UKI
+    classDef lab fill:#4b4b4b,color:#ffffff,stroke:none;
+    class E1,E2,E3,S1,S2 lab;
 ```
 
 ## The Prime Directive
@@ -90,14 +92,16 @@ What separates InterGen from a generic local-LLM wrapper is the permission model
 
 ```mermaid
 flowchart TD
-    U["&nbsp;You&nbsp;"] --> IG["&nbsp;InterGen<br/>local LLM assistant&nbsp;"]
-    IG -->|&nbsp;every tool call&nbsp;| SEN{"&nbsp;InterGen Sentinel<br/>scan + permission gate&nbsp;"}
-    SEN --> LR["&nbsp;Local-Rules<br/>(deterministic)&nbsp;"]
-    SEN --> LQ["&nbsp;Local-Qwen<br/>(local model review)&nbsp;"]
-    SEN -. &nbsp;opt-in&nbsp; .-> CL["&nbsp;Cloud scanner<br/>Claude · Gemini · CoPilot ·<br/>ChatGPT · Grok · DeepSeek&nbsp;"]
-    LR --> RUN["&nbsp;approved → tool runs<br/>(logged to the dispatch audit)&nbsp;"]
+    U["You"] --> IG["InterGen<br/>local LLM assistant"]
+    IG --> T1["&nbsp;every tool call&nbsp;"] --> SEN{"InterGen Sentinel<br/>scan + permission gate"}
+    SEN --> LR["Local-Rules<br/>(deterministic)"]
+    SEN --> LQ["Local-Qwen<br/>(local model review)"]
+    SEN -.-> T2["&nbsp;opt-in&nbsp;"] -.-> CL["Cloud scanner<br/>Claude · Gemini · CoPilot ·<br/>ChatGPT · Grok · DeepSeek"]
+    LR --> RUN["approved → tool runs<br/>(logged to the dispatch audit)"]
     LQ --> RUN
     CL -.-> RUN
+    classDef lab fill:#4b4b4b,color:#ffffff,stroke:none;
+    class T1,T2 lab;
 ```
 
 See `intergen(1)` for the full command surface and `/etc/intergen/config.yml` for the default configuration.
