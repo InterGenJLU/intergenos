@@ -128,7 +128,7 @@ var/mail/fcron	mailbox seed created by the cron package's post-install step
 # their /usr/bin counterparts (all four hashes differ). Per this note's own
 # rule, the difference is a recorded finding and the residue is not resolvable
 # by deletion — the tree stays covered by the entry below and stays watched.
-usr/x86_64-igos-linux-gnu/**	temporary-toolchain target-prefix tree (target-prefixed tool copies and linker scripts) — the final binutils installs with tooldir=/usr and never populates it; see the note above for the disposition owed
+usr/x86_64-igos-linux-gnu/**	temporary-toolchain target-prefix tree (target-prefixed tool copies and linker scripts) — the final binutils installs with tooldir=/usr and never populates it; the note above records why measurement rules out deleting it
 usr/lib/gcc/*/*/include-fixed/**	temporary-toolchain fixincludes output — the final gcc configures --disable-fixincludes and cannot produce it
 usr/lib/gcc/*/*/install-tools/**	temporary-toolchain fixincludes support files — same reason
 usr/libexec/gcc/*/*/install-tools/**	temporary-toolchain fixincludes tooling — same reason
