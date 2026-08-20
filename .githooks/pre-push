@@ -885,6 +885,49 @@ if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ] \
     fi
 fi
 
+# ---- 9.7 Changelog accumulation gate --------------------------------------
+# CHANGELOG.md was absent for R001 entirely and its frame still read
+# v1.0-Unreleased afterwards, because nothing connected the act of changing
+# what ships to the act of recording it. This gate makes that connection at
+# the cheapest point, the push.
+#
+# Delta-only and deliberately NARROW: it fires on a commit that changes a
+# package's upstream `version:`, ADDS a packages/*/*/package.yml, or DELETES
+# one. A release-only bump does NOT fire it — that is a rebuild or metadata
+# change, and gate 9.6 above already enforces the recipe's own `# rNN:` note
+# chain for exactly those. Measured over the last 40 commits on the
+# development branch: keying on any release bump would have blocked 21 of
+# them, so the exemption trailer would become boilerplate on more than half
+# of all pushes; the narrowed trigger blocks none of the 40 while still
+# blocking the R001.1 package wave with all 20 of its additions named.
+#
+# Satisfied by CHANGELOG.md being touched anywhere in the push RANGE (a bump
+# in one commit and its entry in the next is ordinary work), or by a
+# reasoned `Changelog-Exempt: <reason>` trailer on the triggering commit.
+# Per-commit NO-GATE override honored inside the script.
+#
+# Absence of the script or of a Python interpreter is announced rather than
+# skipped silently. Gate 9.6 above skips both conditions without a word; a
+# gate that can vanish quietly reports the same nothing whether it passed or
+# was never there, and the whole point of this one is that a record cannot
+# go missing unnoticed.
+if [ -n "$LOCAL" ] && [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+    if [ ! -f scripts/check-changelog-accumulation.py ]; then
+        echo "[pre-push] WARN: scripts/check-changelog-accumulation.py not found; changelog accumulation gate NOT run"
+    elif [ -z "$PY_BIN" ]; then
+        echo "[pre-push] WARN: no Python 3 interpreter found; changelog accumulation gate NOT run"
+    else
+        BASE=$(git merge-base "$LOCAL" "$REMOTE" 2>/dev/null || echo "$REMOTE")
+        if ! "$PY_BIN" scripts/check-changelog-accumulation.py --base "$BASE" --head "$LOCAL"; then
+            echo "[pre-push] BLOCK: this push changes the shipped package set without a changelog record (see above)."
+            echo "  Add the entry to CHANGELOG.md in this push, or put"
+            echo "  \`Changelog-Exempt: <why this does not belong in a user-facing"
+            echo "  changelog>\` in the triggering commit's message."
+            exit 1
+        fi
+    fi
+fi
+
 # ---- 10. TRACKER anchor advancement (anti-drift; cross-repo lock-step) ---
 # Every push to public-repo master advances the private-repo TRACKER's
 # anchor line in lock-step. Drift becomes mechanically impossible at the
