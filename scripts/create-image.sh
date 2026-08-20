@@ -648,8 +648,12 @@ chroot "$MOUNT_POINT" /bin/bash -c '
     ldconfig 2>/dev/null
 
     # No service enablement here. Which services are on by default is decided
-    # in one place — intergenos-base-files'
+    # in one place — the intergenos-base-files preset file
     # /usr/lib/systemd/system-preset/80-intergenos-enable.preset, applied by the
+    # (NOTE: this whole block is a single-quoted bash -c string — an apostrophe
+    # anywhere in these comments terminates it early and mangles the script;
+    # exactly that shipped on 2026-08-19 and halted the first image build that
+    # executed it. Keep these comments apostrophe-free.)
     # `systemctl preset-all` this phase already runs against the chroot before
     # the image root is populated from it. This block used to enable avahi,
     # cups and bluetooth and disable NetworkManager-wait-online here, after
