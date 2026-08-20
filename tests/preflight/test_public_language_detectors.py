@@ -167,6 +167,67 @@ def test_numbers_that_are_not_hosts_are_not_refused(tmp_path: Path, line: str) -
 
 
 # --------------------------------------------------------------------------
+# 4. Private (RFC1918) addresses, all three blocks.
+#
+# One true-positive control per block. The tier covered a single /24 until
+# 2026-08-20, so a block losing coverage is exactly the regression these
+# assert against: each case below is an address the narrower pattern did not
+# match, which is what makes them controls rather than decoration.
+# --------------------------------------------------------------------------
+
+PRIVATE_ADDRESSES = [
+    ("10/8",        "# The worker answered on 10.4.19.7 during the run.\n"),
+    ("172.16/12",   "# The segment gateway is 172.20.0.1 for that lane.\n"),
+    ("192.168/16",  "# The virtualization host sits at 192.168.240.11.\n"),
+    # A sentence-final period must not hide an address: the trailing shape
+    # guard allows the period while still refusing a further octet.
+    ("sentence-final", "# The lease was issued to 10.9.9.9.\n"),
+    # An address inside a command line is the shape the published instances
+    # that motivated this change actually had.
+    ("in a command", "#   ssh user@192.168.240.11 'bash build.sh'\n"),
+]
+
+
+@pytest.mark.parametrize("block,line", PRIVATE_ADDRESSES,
+                         ids=[b for b, _ in PRIVATE_ADDRESSES])
+def test_private_address_is_refused(tmp_path: Path, block: str, line: str) -> None:
+    result = _scan(tmp_path, "docs/demo.md", line)
+    assert _blocked(result, "PRIVATE-IP"), (
+        f"{block} not detected: {line!r}\n{result.stdout}")
+
+
+NOT_PRIVATE_ADDRESSES = [
+    # RFC 5737 documentation ranges — the correct addresses for examples.
+    ("doc range TEST-NET-1", "# Use 192.0.2.10 in the example.\n"),
+    ("doc range TEST-NET-2", "# Use 198.51.100.7 in the example.\n"),
+    ("doc range TEST-NET-3", "# Use 203.0.113.9 in the example.\n"),
+    # One address on each side of every block boundary, all public space.
+    ("below 10/8",        "# Reached 9.255.255.255 on that hop.\n"),
+    ("above 10/8",        "# Reached 11.0.0.1 on that hop.\n"),
+    ("below 172.16/12",   "# Reached 172.15.0.1 on that hop.\n"),
+    ("above 172.16/12",   "# Reached 172.32.0.1 on that hop.\n"),
+    ("below 192.168/16",  "# Reached 191.168.1.1 on that hop.\n"),
+    ("above 192.168/16",  "# Reached 192.169.1.1 on that hop.\n"),
+    # Public resolvers appear in shipped DNS defaults and their docs.
+    ("public resolver",   "# The default resolvers are 1.1.1.1 and 9.9.9.9.\n"),
+    # Shapes that are not addresses at all.
+    ("longer dotted run", "# The sequence 1.10.0.0.1 is not an address.\n"),
+    ("further octet",     "# The sequence 10.0.0.1.5 is not an address.\n"),
+    ("inside an identifier", "# The tag v10.0.0.1 is not an address.\n"),
+    ("version prose",     "# Compared release 0.2.0 against the 3.14 interpreter.\n"),
+]
+
+
+@pytest.mark.parametrize("case,line", NOT_PRIVATE_ADDRESSES,
+                         ids=[c for c, _ in NOT_PRIVATE_ADDRESSES])
+def test_addresses_outside_private_space_are_not_refused(
+        tmp_path: Path, case: str, line: str) -> None:
+    result = _scan(tmp_path, "docs/demo.md", line)
+    assert not _blocked(result, "PRIVATE-IP"), (
+        f"false positive ({case}): {line!r}\n{result.stdout}")
+
+
+# --------------------------------------------------------------------------
 # The tiers are actually wired in, not merely defined.
 # --------------------------------------------------------------------------
 
@@ -176,8 +237,26 @@ def test_all_three_tiers_are_armed() -> None:
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     armed = {cat for cat, _ in mod.BLOCK_PATTERNS}
-    for tier in ("PERSONA-ATTRIBUTION", "PRIVATE-REPO-PATH", "HOST-SHORTHAND"):
+    for tier in ("PERSONA-ATTRIBUTION", "PRIVATE-REPO-PATH", "HOST-SHORTHAND",
+                 "PRIVATE-IP"):
         assert tier in armed, f"{tier} is defined but not in BLOCK_PATTERNS"
+
+
+def test_every_private_block_has_its_own_pattern() -> None:
+    """Coverage of the three RFC1918 blocks is asserted against the patterns
+    themselves, not only through the scans above: a block deleted from the
+    tier would otherwise be caught by exactly one parametrized case, and a
+    reader of this file could not tell which blocks are meant to be covered."""
+    import importlib.util
+    import re
+    spec = importlib.util.spec_from_file_location("_cpc", SCANNER)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    private = [re.compile(p) for cat, p in mod.MACHINE_SPECIFICS
+               if cat == "PRIVATE-IP"]
+    for address in ("10.4.19.7", "172.20.0.1", "192.168.240.11"):
+        assert any(p.search(address) for p in private), (
+            f"no PRIVATE-IP pattern covers {address}")
 
 
 def test_every_exempt_path_is_a_real_file() -> None:

@@ -170,15 +170,51 @@ INTERNAL_LEDGER = [
 ]
 
 # Machine-specific leak class (decided 2026-07-06, after the
-# docs/sessions relocation: 29 session docs full of home-LAN addresses and
-# fleet-host names had accumulated in the public tree). These facts are
-# private-repo-only. NOTE: the libvirt NAT subnet (192.168.122.x) used by
-# the public build-VM docs is deliberately NOT blocked — the leak class is
-# the development LAN (192.168.1.x). Bare fleet-host names are
-# blocked outright (the phrasal AGENT_ABBREV tier above catches only
-# "per SPOC"-style usage; a bare name in public content is still a leak).
+# docs/sessions relocation: 29 session docs full of development-network
+# addresses and fleet-host names had accumulated in the public tree). These
+# facts are private-repo-only. Bare fleet-host names are blocked outright
+# (the phrasal AGENT_ABBREV tier above catches only the prepositional form,
+# a preposition followed by the name; a bare name is still a leak).
+#
+# PRIVATE-IP covers all three RFC1918 blocks (decided 2026-08-20). It used to
+# describe ONE /24 — the development LAN — which made the tier's coverage a
+# statement about where the development machines happened to sit rather than
+# about the class of value being kept out of public text. Two consequences
+# were measured before this change:
+#   - a virtualization subnet in the same private space carried a real host
+#     address through six published lines with the gate reporting PASS, and
+#   - any future move of a machine into 10/8 or 172.16/12 would have been
+#     invisible to this tier on the day it happened.
+# A private address identifies a machine on a network the reader cannot
+# reach, so it belongs in the private repository whichever block it sits in;
+# scoping the pattern to the blocks themselves makes the tier's coverage
+# independent of the current addressing.
+#
+# Shape guards (the leading/trailing pair, kept from the existing dotted-quad
+# and host-shorthand patterns):
+#   - the leading lookbehind refuses a digit, dot or letter predecessor, so
+#     an address embedded in a longer dotted sequence (1.10.0.0.1) or in an
+#     identifier (v10.0.0.1) does not match;
+#   - the trailing pair refuses an alphanumeric successor and a further
+#     dotted octet, but ALLOWS a sentence-ending period, because an address
+#     at the end of a sentence is exactly as much of a leak as one mid-line
+#     and the first version of the host-shorthand pattern missed that case;
+#   - octets stay \d{1,3} rather than a validated 0-255 range, matching the
+#     tier's existing dotted-quad spelling: an out-of-range octet is not a
+#     reachable address, and a stricter octet would only narrow coverage.
+_RFC1918_LEAD = r"(?<![0-9A-Za-z.])"
+_RFC1918_TAIL = r"(?![0-9A-Za-z])(?!\.\d)"
 MACHINE_SPECIFICS = [
-    ("HOME-LAN-IP", r"\b192\.168\.1\.\d{1,3}\b"),
+    # 10.0.0.0/8
+    ("PRIVATE-IP",
+     _RFC1918_LEAD + r"10(?:\.\d{1,3}){3}" + _RFC1918_TAIL),
+    # 172.16.0.0/12 — second octet 16-31 only, so 172.15.x and 172.32.x
+    # (both public space) stay unmatched.
+    ("PRIVATE-IP",
+     _RFC1918_LEAD + r"172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}" + _RFC1918_TAIL),
+    # 192.168.0.0/16
+    ("PRIVATE-IP",
+     _RFC1918_LEAD + r"192\.168(?:\.\d{1,3}){2}" + _RFC1918_TAIL),
     ("SUDO-PASS-PATH", r"Documents/s\.txt"),
     # Global-unicast IPv6 literals (added 2026-08-18, completing this tier:
     # the RFC1918 pattern above had no IPv6 counterpart). Global unicast is

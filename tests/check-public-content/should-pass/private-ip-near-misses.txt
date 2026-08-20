@@ -1,0 +1,13 @@
+The near-miss controls for the RFC1918 block patterns. Every address here is
+outside private space or is not an address at all, so a pattern that widened
+past its block fails this fixture rather than teaching people to route around
+a noisy gate.
+The documentation ranges belong in examples: 192.0.2.10, 198.51.100.7 and
+203.0.113.9, per RFC 5737.
+Just outside 172.16/12, both public space: 172.15.0.1 and 172.32.0.1.
+Just outside 10/8, both public space: 9.255.255.255 and 11.0.0.1.
+Just outside 192.168/16, both public space: 191.168.1.1 and 192.169.1.1.
+Public resolvers stay legal: 1.1.1.1, 8.8.8.8 and 9.9.9.9.
+A longer dotted sequence is not an address: 1.10.0.0.1 and 10.0.0.1.5.
+An identifier that merely starts with digits is not an address: v10.0.0.1.
+Version prose is not an address: LFS 13.0 and the 3.14 interpreter.

@@ -1,0 +1,6 @@
+One true-positive control per RFC1918 block, so a block that stops being
+covered fails this fixture instead of failing silently in the tree.
+The 10/8 control: a worker answered on 10.4.19.7 during the run.
+The 172.16/12 control: the gateway is 172.20.0.1 on that segment.
+The 192.168/16 control: the virtualization host sits at 192.168.240.11.
+An address at the end of a sentence is still an address: 10.9.9.9.
