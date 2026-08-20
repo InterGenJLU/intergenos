@@ -28,6 +28,9 @@ dependencies:
     - zlib
     - lua
     - pcre2
+silent_loss_accepted:
+  - liblinear   # not a feature loss — measured 2026-08-20: configure printed "liblinear was found... no, will use our own" and the build compiled and linked the tarball's bundled liblinear, so IPv6 OS detection ships; a system liblinear recipe is a candidate for a later wave, not a build-time hole
+
 tests:
   enabled: true
   failure_policy: known_failures
