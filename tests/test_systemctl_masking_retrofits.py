@@ -324,6 +324,53 @@ def test_the_preset_file_really_names_the_unit_that_lost_its_call(pkg):
 
 
 # --------------------------------------------------------------------------
+# CONDITIONAL — `systemctl start` obeys the unit's own enablement
+# --------------------------------------------------------------------------
+
+# intergenos-backup kept its hook (it does real work), and kept its start —
+# but a start is the same override as an enable, one moment later: pkm fires
+# post_install on every install AND every upgrade with no verb reaching the
+# hook, so an unconditional start would bring up a service the user had
+# turned off, on every upgrade, and say nothing. Decided 2026-08-19: a unit
+# is started only when its recorded enablement says it should be running.
+START_IS_CONDITIONAL = {
+    "desktop/intergenos-backup",
+}
+
+
+@pytest.mark.parametrize("pkg", sorted(START_IS_CONDITIONAL))
+def test_every_start_is_guarded_by_the_unit_own_enablement(pkg):
+    """Every `systemctl start` in the hook's CODE names exactly one unit and
+    sits under an `is-enabled --quiet` check of that same unit. The guard and
+    the start must share their subject — a guard on one unit excusing a start
+    of another would satisfy a looser pairing check while still overriding
+    the user."""
+    code = code_lines(post_install_body(pkg))
+    starts = [l.strip() for l in code.splitlines()
+              if re.search(r"systemctl\s+start\b", l)]
+    assert starts, f"{pkg} post_install no longer starts anything — update this table"
+    for line in starts:
+        assert re.search(r'systemctl start "\$_unit"', line), (
+            f"{pkg}: a start that is not the guarded single-unit form: {line}")
+    assert re.search(r'if systemctl is-enabled --quiet "\$_unit"', code), (
+        f"{pkg}: the is-enabled guard on the same unit variable is gone — "
+        f"the start no longer obeys the user's enablement")
+
+
+@pytest.mark.parametrize("pkg", sorted(START_IS_CONDITIONAL))
+def test_no_multi_unit_or_bare_start_remains(pkg):
+    """The pre-fix shape was one `systemctl start` naming four units,
+    unconditionally. Its return would satisfy a presence-style check, so its
+    absence is asserted on its own."""
+    code = code_lines(post_install_body(pkg))
+    offenders = [l.strip() for l in code.splitlines()
+                 if re.search(r"systemctl\s+start\s+\S+\s+\S", l)
+                 and '"$_unit"' not in l]
+    assert not offenders, (
+        f"{pkg}: an unconditional multi-unit start is back: {offenders}")
+
+
+# --------------------------------------------------------------------------
 # NARROWED — `systemctl daemon-reexec`, guarded on a live manager
 # --------------------------------------------------------------------------
 

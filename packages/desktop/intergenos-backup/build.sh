@@ -167,15 +167,27 @@ post_install() {
     # nothing. The preset file is the single place this default is decided.
     # Decided 2026-08-19.
     #
-    # The start below is a DIFFERENT operation and is kept: enablement decides
-    # what happens at the next boot, and without a start a freshly-installed or
-    # live-upgraded system has no running engine until then. It is guarded so a
-    # chroot/offline install does not fail when systemd is not the running init.
+    # The start below is a DIFFERENT operation and is kept — but CONDITIONAL
+    # on each unit's own enablement (decided 2026-08-19, same session as the
+    # enable deletion above: starting a unit the user turned off is the same
+    # override as re-enabling it, just at a different moment). pkm fires this
+    # hook on every install AND every upgrade with no verb distinguishing the
+    # two, so the guard must be self-contained: a unit is started only when
+    # its recorded enablement says it should be running. On a fresh image the
+    # units are enabled by preset-all before first boot and systemd starts
+    # them at boot, so nothing is lost there; on a live upgrade a unit the
+    # user disabled stays exactly as the user left it. `is-enabled` is a
+    # file-state read and works without a running systemd; `start` still
+    # tolerates the chroot/offline case where there is no bus to talk to.
     if command -v systemctl >/dev/null 2>&1; then
-        systemctl start chronicled.service \
+        for _unit in chronicled.service \
             chronicle-userdata.timer \
             chronicle-offpeak.timer \
-            chronicle-scrub.timer 2>/dev/null || true
+            chronicle-scrub.timer; do
+            if systemctl is-enabled --quiet "$_unit" 2>/dev/null; then
+                systemctl start "$_unit" 2>/dev/null || true
+            fi
+        done
     fi
     if command -v gtk-update-icon-cache >/dev/null 2>&1; then
         gtk-update-icon-cache --quiet --force /usr/share/icons/hicolor 2>/dev/null || true
