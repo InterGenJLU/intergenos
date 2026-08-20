@@ -564,8 +564,22 @@ if [ ${#LINK_DEST_CANDS[@]} -gt 0 ]; then
     done
     echo "  partial push: hardlinking unchanged archives from ${#LINK_DEST_CANDS[@]} snapshot(s)"
 fi
+# Release key rides every publish (decided 2026-08-19): clients fetch the
+# signing key beside the packages they verify, so it is served at
+# <repo>/x86_64/current/intergenos-release-key.asc. The promote is an atomic
+# generation swap — anything not staged here vanishes from current/ at the
+# next publish, which is exactly what happened before this line existed
+# (the key 404'd at that path while /keys/ served it). Source of truth is
+# the tracked docs/signing-key.asc; fail-closed on absence or emptiness —
+# a publish that would drop the served key is refused.
+RELEASE_KEY_SRC="docs/signing-key.asc"
+[ -s "$RELEASE_KEY_SRC" ] \
+    || { echo "ERROR: release key ${RELEASE_KEY_SRC} missing or empty — refusing to publish without the served key" >&2; exit 1; }
+cp "$RELEASE_KEY_SRC" "$ARCHIVE_DIR/intergenos-release-key.asc"
+
 rsync -av "${LINK_DEST_OPTS[@]}" -e "ssh -p ${REMOTE_PORT}" \
     "$ARCHIVE_DIR"/*.igos.tar.gz \
+    "$ARCHIVE_DIR/intergenos-release-key.asc" \
     "$INDEX_PATH" \
     "$SIG_PATH" \
     "$STAGING_RSYNC/" \
