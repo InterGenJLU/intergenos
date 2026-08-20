@@ -28,7 +28,27 @@
 
 configure() {
     set -e
-    NOCONFIGURE=1 ./autogen.sh
+    # The tag archive's autogen.sh hard-requires gnome-common's
+    # gnome-autogen.sh, which this system does not ship. configure.ac uses
+    # exactly two macros this system cannot expand, and dropping both changes
+    # nothing that ships (proven end-to-end in the chroot 2026-08-20: the
+    # daemon, unit, and bus policy all still land):
+    #   - GNOME_COMPILE_WARNINGS: extra compiler-warning flags only;
+    #     src/Makefile.am consumes them as $(WARN_CFLAGS), which expands
+    #     empty when unset.
+    #   - GTK_DOC_CHECK: documentation REGENERATION machinery, default-off
+    #     even where gtk-doc exists; no Makefile.am references its
+    #     ENABLE_GTK_DOC conditional, and gtk-doc.m4 is not on this system,
+    #     so the unexpanded macro would otherwise reach configure verbatim
+    #     and die as a shell syntax error.
+    sed -i '/GNOME_COMPILE_WARNINGS/d;/GTK_DOC_CHECK/d' configure.ac
+    # docs/Makefile.am still unconditionally includes the gtk-doc.make
+    # automake glue (only gtkdocize provides it). Write the same minimal
+    # file upstream's own bootstrap (gnome-autogen.sh) writes when gtk-doc
+    # is absent: the two variables the include and the later `CLEANFILES +=`
+    # consume. Doc regeneration stays off; nothing shipped changes.
+    printf 'EXTRA_DIST =\nCLEANFILES =\n' > gtk-doc.make
+    autoreconf -fi
     ./configure                                                   \
         --prefix=/usr                                             \
         --libexecdir=/usr/libexec                                  \

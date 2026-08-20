@@ -42,5 +42,9 @@ check() {
 
 do_install() {
     set -e
-    make DESTDIR="$DESTDIR" install install-man
+    # This tarball's Makefile has exactly one install rule (`install: all`,
+    # Makefile.in:421) and no separate install-man target — the man page is
+    # installed by `install` itself (tcpdump.1 into man1). Asking for the
+    # nonexistent target stopped make after the payload was already staged.
+    make DESTDIR="$DESTDIR" install
 }
