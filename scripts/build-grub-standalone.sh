@@ -23,6 +23,9 @@
 #   EMBEDDED_CFG  — embedded grub.cfg (default: packages/core/grub/embedded-grub.cfg)
 #   SBAT_CSV      — SBAT entries CSV (default: packages/core/grub/sbat.csv)
 #   GRUB_FORMAT   — grub-mkstandalone format (default: x86_64-efi)
+#   UNICODE_PF2   — console font baked into the memdisk
+#                   (default: /usr/share/grub/unicode.pf2, produced by the
+#                   grub package's build-time grub-mkfont)
 #
 # Prerequisites:
 #   - GRUB 2.14 installed (provides grub-mkstandalone + EFI modules)
@@ -34,9 +37,30 @@ OUTPUT="${OUTPUT:?missing OUTPUT env var}"
 EMBEDDED_CFG="${EMBEDDED_CFG:-packages/core/grub/embedded-grub.cfg}"
 SBAT_CSV="${SBAT_CSV:-packages/core/grub/sbat.csv}"
 GRUB_FORMAT="${GRUB_FORMAT:-x86_64-efi}"
+UNICODE_PF2="${UNICODE_PF2:-/usr/share/grub/unicode.pf2}"
+
+# Path of the font INSIDE the memdisk. Not boot/grub/fonts/: grub_font_load()
+# resolves a bare font name by trying "(memdisk)/fonts/<name>.pf2" before
+# "$prefix/fonts/<name>.pf2" (grub-core/font/font.c:452-467), so a config that
+# says `loadfont unicode` reaches this exact path with no prefix dependency.
+MEMDISK_FONT="fonts/unicode.pf2"
 
 [ -f "$EMBEDDED_CFG" ] || { echo "ERROR: EMBEDDED_CFG not found: $EMBEDDED_CFG" >&2; exit 1; }
 [ -f "$SBAT_CSV" ]     || { echo "ERROR: SBAT_CSV not found: $SBAT_CSV" >&2; exit 1; }
+# Fail closed on the font. The ESP-side menu config loads it from the memdisk
+# ((memdisk)/fonts/unicode.pf2, installer/iso/grub/grub.cfg): under Secure Boot
+# the built-in shim_lock verifier refuses any font read off the ESP, because
+# GRUB_FILE_TYPE_FONT is absent from its skip list (grub-core/kern/efi/sb.c)
+# while font.c opens fonts as that type — the refusal prints
+# "prohibited by secure boot policy" and the menu falls back to grub's built-in
+# font. Bytes inside the memdisk are exempt (grub-core/kern/verifiers.c returns
+# memdisk and procfs reads unverified) because the image carrying them is
+# itself signature-verified. Building without the font would ship that
+# regression silently, so refuse here instead.
+[ -s "$UNICODE_PF2" ] || { echo "ERROR: UNICODE_PF2 not found or empty: $UNICODE_PF2" >&2
+                           echo "       The grub package's build-time grub-mkfont produces it;" >&2
+                           echo "       without it the boot menu cannot load a font from inside" >&2
+                           echo "       the signed image." >&2; exit 1; }
 
 # SBAT generation precheck — block before bake-in if any vendor entry fell
 # below upstream baseline (Tails-6.5-class footgun mitigation).
@@ -127,6 +151,7 @@ echo "  Output:        $OUTPUT"
 echo "  Format:        $GRUB_FORMAT"
 echo "  Embedded cfg:  $EMBEDDED_CFG"
 echo "  SBAT CSV:      $SBAT_CSV"
+echo "  Memdisk font:  $UNICODE_PF2 -> ($MEMDISK_FONT)"
 echo "  Modules (${#MODULES[@]}): ${MODULES[*]}"
 echo ""
 
@@ -141,7 +166,8 @@ grub-mkstandalone \
     --output="$OUTPUT" \
     --modules="${MODULES[*]}" \
     --sbat="$SBAT_CSV" \
-    "boot/grub/grub.cfg=$EMBEDDED_CFG"
+    "boot/grub/grub.cfg=$EMBEDDED_CFG" \
+    "$MEMDISK_FONT=$UNICODE_PF2"
 
 if [ ! -f "$OUTPUT" ]; then
     echo "FAIL: grub-mkstandalone did not produce $OUTPUT" >&2
@@ -160,11 +186,32 @@ fi
 # objcopy with a single file argument REWRITES that file in place (fresh PE
 # layout — the class that stripped the ge9b-01 UKI signatures, 2026-07-11);
 # the explicit discard output keeps this a pure read.
+# The section is NUL-padded, and a command substitution that reads it prints
+# "warning: command substitution: ignored null byte in input" on every build.
+# The bytes it drops are the padding, so the check was never wrong — but a
+# standing warning in build output is where a real one goes unnoticed. Dump to a
+# file and strip the NULs explicitly instead.
 _SBAT_PE_DISCARD=$(mktemp)
-SBAT_DUMP=$(objcopy --dump-section .sbat=/dev/stdout "$OUTPUT" "$_SBAT_PE_DISCARD" 2>/dev/null || true)
+_SBAT_SECTION=$(mktemp)
+objcopy --dump-section ".sbat=$_SBAT_SECTION" "$OUTPUT" "$_SBAT_PE_DISCARD" 2>/dev/null || true
 rm -f "$_SBAT_PE_DISCARD"
+SBAT_DUMP=$(tr -d '\0' < "$_SBAT_SECTION")
+rm -f "$_SBAT_SECTION"
 if [ -z "$SBAT_DUMP" ]; then
     echo "FAIL: .sbat section missing or empty in $OUTPUT" >&2
+    exit 1
+fi
+
+# Fail closed unless the console font really landed in the memdisk. A missing
+# member is invisible at build time and shows up only as a boot-console line
+# plus a fallback font, which is exactly why it is checked here.
+if [ -f "$SCRIPT_DIR/check-grub-memdisk-font.py" ]; then
+    python3 "$SCRIPT_DIR/check-grub-memdisk-font.py" \
+        --image "$OUTPUT" --member "$MEMDISK_FONT" --expect-file "$UNICODE_PF2" \
+        || { echo "FAIL: memdisk font check failed for $OUTPUT" >&2; exit 1; }
+else
+    echo "FAIL: $SCRIPT_DIR/check-grub-memdisk-font.py missing; refusing to" >&2
+    echo "      ship a GRUB image whose memdisk font was never verified." >&2
     exit 1
 fi
 

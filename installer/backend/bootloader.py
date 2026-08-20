@@ -20,12 +20,15 @@ Shim is registered as the primary UEFI boot entry. On boot:
   -> kernel boots, MODULE_SIG_FORCE=y rejects unsigned modules
 """
 
+import hashlib
+import io
 import logging
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 
 from . import trace
@@ -41,6 +44,33 @@ from .mok import sign_efi_binary
 # was rebuilt with the do_install do_install changes that ship
 # /usr/share/grub/unicode.pf2 on the target itself.
 HOST_GRUB_UNICODE_PF2 = Path("/usr/share/grub/unicode.pf2")
+
+# The console font is also carried INSIDE the signed grub core image, in an
+# embedded memdisk, so the boot-time font load never opens a file on the ESP.
+#
+# Why: GRUB's built-in shim_lock verifier (grub-core/kern/efi/sb.c) has no
+# GRUB_FILE_TYPE_FONT entry in its skip list, and grub-core/font/font.c opens
+# every font as that type (font.c:434 and font.c:454). Under Secure Boot the
+# verifier therefore refuses every font file read off the ESP with
+# "prohibited by secure boot policy" (sb.c:177) — printed on the boot console
+# once per boot, and the intended unicode.pf2 never renders; grub falls back
+# to its built-in font. Bytes read out of a memdisk are exempt because
+# grub-core/kern/verifiers.c returns the file unverified for the memdisk and
+# procfs device ids — they are inside the image the firmware already verified.
+#
+# The fix removes the unverified file open. It does NOT widen the verifier:
+# a font file sitting on the ESP is a real pre-boot input, and the refusal is
+# that control working as designed.
+#
+# The member path is "fonts/unicode.pf2" and not "boot/grub/fonts/..." on
+# purpose: grub_font_load() resolves a BARE font name (one with no leading
+# '(', '/' or '+') by trying "(memdisk)/fonts/<name>.pf2" FIRST and only then
+# "$prefix/fonts/<name>.pf2" (font.c:452-467). The grub-mkconfig-generated
+# grub.cfg loads the font by the bare name `unicode` at runtime, so putting
+# the file at this exact path is what makes the generated config resolve into
+# the memdisk without any rewriting of the generated file.
+GRUB_MEMDISK_FONT_MEMBER = "fonts/unicode.pf2"
+GRUB_MEMDISK_TAR_CHROOT = "/tmp/igos-grub-memdisk.tar"
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +103,17 @@ GRUB_EFI_MODULES = (
     "loadenv loopback linux ls lsefi lsefimmap lsefisystab lssal memdisk "
     "minicmd normal part_apple part_msdos part_gpt password_pbkdf2 png "
     "reboot regexp search search_fs_uuid search_fs_file search_label sleep "
-    "smbios squash4 test true video xfs zfs zfscrypt zfsinfo"
+    "smbios squash4 tar test true video xfs zfs zfscrypt zfsinfo"
 )
+# tar (added 2026-08-20): the core image now carries an embedded memdisk (a
+# ustar archive holding the console font — see _build_grub_font_memdisk).
+# `memdisk` provides the (memdisk) block device; `tar` is the filesystem
+# driver that reads files out of it. grub-mkimage does NOT push either module
+# for you when --memdisk is passed (util/grub-mkimage.c has no push_module
+# calls; only grub-mkstandalone pushes memdisk + tar itself), so both must be
+# listed here. Without `tar`, (memdisk)/fonts/unicode.pf2 is unreadable, the
+# font load falls back to the ESP copy, and the Secure-Boot refusal this
+# memdisk exists to remove comes straight back.
 # bli (added 2026-08-18): grub-mkconfig's 25_bli script does `insmod bli` in
 # every generated grub.cfg (Boot Loader Interface EFI vars — the same
 # spec-defined identification vars the UKI stub sets on the primary path).
@@ -843,10 +882,148 @@ def _install_signed_efi_chain(target, partitions, mok_keypair,
         )
 
 
+def _build_grub_font_memdisk(target):
+    """Write the ustar archive grub-mkimage embeds as the core image's memdisk.
+
+    One member, at GRUB_MEMDISK_FONT_MEMBER, holding the console font copied
+    from the running live ISO (HOST_GRUB_UNICODE_PF2). Written deterministically
+    (fixed mode/owner/mtime) so identical inputs give identical image bytes.
+
+    Returns the sha256 of the font bytes placed in the archive, so the caller
+    can prove the built image carries exactly these bytes.
+
+    Fails closed if the host font is missing: without it the generated config's
+    font load falls through to the ESP copy, which Secure Boot refuses.
+    """
+    if not HOST_GRUB_UNICODE_PF2.exists():
+        raise trace.install_failure(
+            where="bootloader.py:_build_grub_font_memdisk",
+            why=(f"host {HOST_GRUB_UNICODE_PF2} missing, so the console font "
+                 "cannot be carried inside the signed grub image. The boot-time "
+                 "font load would fall back to the ESP copy, which the built-in "
+                 "shim_lock verifier refuses under Secure Boot "
+                 "('prohibited by secure boot policy'), leaving the menu on "
+                 "grub's built-in font. Live ISO build must ship the grub "
+                 "package's grub-mkfont-generated font."),
+            extra={"host_path": str(HOST_GRUB_UNICODE_PF2)},
+        )
+
+    font_bytes = HOST_GRUB_UNICODE_PF2.read_bytes()
+    tar_host = Path(target) / GRUB_MEMDISK_TAR_CHROOT.lstrip("/")
+    tar_host.parent.mkdir(parents=True, exist_ok=True)
+
+    with tarfile.open(tar_host, "w", format=tarfile.USTAR_FORMAT) as tf:
+        info = tarfile.TarInfo(GRUB_MEMDISK_FONT_MEMBER)
+        info.size = len(font_bytes)
+        info.mode = 0o644
+        info.mtime = 0
+        info.uid = info.gid = 0
+        info.uname = info.gname = "root"
+        tf.addfile(info, io.BytesIO(font_bytes))
+
+    font_sha = hashlib.sha256(font_bytes).hexdigest()
+    trace.trace_event(
+        "grub_font_memdisk",
+        phase="bootloader",
+        path=str(tar_host),
+        member=GRUB_MEMDISK_FONT_MEMBER,
+        font_bytes=len(font_bytes),
+        font_sha256=font_sha,
+        tar_bytes=tar_host.stat().st_size,
+    )
+    return font_sha
+
+
+def read_memdisk_member(image_bytes, member):
+    """Return the bytes of `member` from a ustar archive embedded in an image.
+
+    grub-mkimage stores the --memdisk archive verbatim inside the PE, so the
+    member can be read straight out of the image bytes: find the ustar header
+    whose name field is `member`, take the size from the header, and slice the
+    content that follows it.
+
+    The ustar magic is checked at its header-relative offset (257) rather than
+    accepting any occurrence of the name. Without that check this would also
+    match the member path where it appears as ordinary text — the embedded
+    early config names the same path — and would report a font that is not
+    actually in the image.
+
+    Returns None when no such member is present.
+    """
+    name = member.encode()
+    pos = 0
+    while True:
+        idx = image_bytes.find(name, pos)
+        if idx < 0:
+            return None
+        header = image_bytes[idx:idx + 512]
+        if len(header) == 512 and header[257:262] == b"ustar":
+            size_field = header[124:136].split(b"\0")[0].strip()
+            try:
+                size = int(size_field, 8)
+            except ValueError:
+                return None
+            return image_bytes[idx + 512:idx + 512 + size]
+        pos = idx + 1
+
+
+def _verify_grub_memdisk_font(image_path, expected_font_sha256):
+    """Fail closed unless the built grub image carries the font and the ESP prefix.
+
+    Two properties, both of which have a silent-failure mode:
+
+    1. The memdisk really holds the font. A missing or truncated member sends
+       the boot-time font load back to the ESP file, which Secure Boot refuses
+       — visible only as a console line at boot.
+
+    2. The prefix is still the ESP directory. `grub-mkimage -m` documents that
+       it "implies -p (memdisk)/boot/grub and overrides any prefix supplied
+       previously" (util/grub-mkimage.c:198 assigns it unconditionally), so a
+       -m placed after -p silently replaces the ESP prefix. Grub would then
+       look for grub.cfg and its module directory inside the memdisk and find
+       neither: an unbootable system, produced by an argument-order mistake no
+       other check would catch. Nothing in grub-core embeds that string, so its
+       presence in the image means exactly one thing — the prefix was replaced.
+    """
+    image = Path(image_path).read_bytes()
+
+    clobbered = b"(memdisk)/boot/grub" in image
+    member = read_memdisk_member(image, GRUB_MEMDISK_FONT_MEMBER)
+    actual_sha = hashlib.sha256(member).hexdigest() if member is not None else None
+
+    trace.trace_event(
+        "grub_memdisk_verify",
+        phase="bootloader",
+        image=str(image_path),
+        member=GRUB_MEMDISK_FONT_MEMBER,
+        member_found=member is not None,
+        member_sha256=actual_sha,
+        expected_sha256=expected_font_sha256,
+        prefix_clobbered=clobbered,
+    )
+
+    if clobbered:
+        raise RuntimeError(
+            "grub-mkimage produced an image whose prefix is "
+            "'(memdisk)/boot/grub', not the ESP directory: the --memdisk "
+            "argument overrode --prefix (it must be passed BEFORE -p). Such a "
+            "grub cannot find its config or modules on the ESP. Aborting "
+            "before signing."
+        )
+    if actual_sha != expected_font_sha256:
+        raise RuntimeError(
+            "grub-mkimage produced an image that does not carry the console "
+            f"font in its memdisk at {GRUB_MEMDISK_FONT_MEMBER} "
+            f"(found sha256={actual_sha}, expected {expected_font_sha256}). "
+            "The boot-time font load would fall back to the ESP file, which "
+            "Secure Boot refuses. Aborting before signing."
+        )
+
+
 def _grub_mkimage_sbat_efi(target, partitions):
     """Rebuild grubx64.efi with grub-mkimage --sbat + an ESP-resident prefix.
 
-    Two jobs, both required for a Secure-Boot- and FDE-capable boot:
+    Three jobs, all required for a Secure-Boot- and FDE-capable boot:
 
     1. SBAT: grub-install (GRUB 2.14) cannot embed an SBAT section, which shim
        16.1 enforces (rejects with 0x1A). This OVERWRITES grub-install's
@@ -864,6 +1041,15 @@ def _grub_mkimage_sbat_efi(target, partitions):
        (chainloaded by /etc/grub.d/06_uki), grub never touches the encrypted
        root. Uniform for plain + FDE; install-alongside-safe (UUID, not a baked
        partition number).
+
+    3. Console font inside the image: an embedded memdisk carries unicode.pf2,
+       so the boot-time font load reads bytes covered by the image's own
+       signature instead of opening a file on the ESP. Under Secure Boot every
+       ESP font open is refused ("prohibited by secure boot policy") — see the
+       GRUB_MEMDISK_FONT_MEMBER comment at the top of this module for the code
+       path. Both font loads resolve into the memdisk: the early config below
+       names it explicitly, and the grub-mkconfig-generated menu config loads
+       the bare name `unicode`, which grub tries in the memdisk first.
 
     Fails closed if the ESP UUID can't be resolved — never silently ship a grub
     with an unresolvable prefix (would yield an unbootable system).
@@ -890,7 +1076,16 @@ def _grub_mkimage_sbat_efi(target, partitions):
     # Embedded early config (baked into the signed PE): locate the ESP by its
     # FAT fs UUID, point grub's root + prefix at our ESP dir, and load the menu
     # grub.cfg from there. Nothing here reads the (FDE-encrypted) root fs.
+    #
+    # The font is loaded here, from the embedded memdisk, before the ESP config
+    # is read: the bytes come from inside the signed image, so no file is opened
+    # on the ESP and the shim_lock verifier has nothing to refuse. Embedded
+    # modules are loaded before this config runs (kern/main.c: grub_load_modules
+    # at line 341, grub_parser_execute of the embedded config at line 364), so
+    # both `loadfont` and the (memdisk) device exist by now.
+    font_sha = _build_grub_font_memdisk(target)
     load_cfg = (
+        f"loadfont (memdisk)/{GRUB_MEMDISK_FONT_MEMBER}\n"
         f"search --no-floppy --fs-uuid --set=root {esp_uuid}\n"
         f"set prefix=($root)/EFI/{BOOTLOADER_ID}\n"
         f"configfile ($root)/EFI/{BOOTLOADER_ID}/grub.cfg\n"
@@ -907,18 +1102,29 @@ def _grub_mkimage_sbat_efi(target, partitions):
         intent="SBAT metadata for grub-mkimage (shim 16.1 enforces SBAT)",
     )
 
+    # -m MUST come before -p. grub-mkimage assigns prefix = "(memdisk)/boot/grub"
+    # whenever it handles -m, discarding whatever -p set earlier
+    # (util/grub-mkimage.c:189-198). Passing -p afterwards is what keeps the ESP
+    # prefix; _verify_grub_memdisk_font below fails closed if it ever stops
+    # being true.
     rc, _, stderr = trace.traced_run_chroot(target,
         f"mkdir -p {ESP_BOOT_DIR} && "
         f"grub-mkimage -O {GRUB_FORMAT} -o {ESP_BOOT_DIR}/{GRUB_BINARY} "
+        f"-m {GRUB_MEMDISK_TAR_CHROOT} "
         f"-p /EFI/{BOOTLOADER_ID} -c /tmp/igos-grub-load.cfg "
         "--sbat /tmp/igos-grub-sbat.csv "
         f"{GRUB_EFI_MODULES}",
         phase="bootloader",
-        intent="build SecureBoot-correct grubx64.efi with embedded SBAT "
-               "(overwrites grub-install's SBAT-less image)",
+        intent="build SecureBoot-correct grubx64.efi with embedded SBAT + the "
+               "console font in an embedded memdisk (overwrites grub-install's "
+               "SBAT-less image)",
     )
     if rc != 0:
         raise RuntimeError(f"grub-mkimage (SBAT) failed: {stderr}")
+
+    _verify_grub_memdisk_font(
+        Path(target) / ESP_BOOT_DIR.lstrip("/") / GRUB_BINARY, font_sha,
+    )
 
     # Fail-closed verify: the .sbat section MUST be present + non-empty, else
     # shim would reject the (about-to-be-MOK-signed) binary at boot with 0x1A.
