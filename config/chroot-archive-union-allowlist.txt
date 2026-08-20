@@ -139,3 +139,9 @@ usr/libexec/gcc/*/*/install-tools/**	temporary-toolchain fixincludes tooling —
 # (ldconfig) generated state, the recipe's manifest accounting is correct, and
 # no recipe change is owed. Generated state no archive should carry:
 usr/lib/libnvidia-ngx.so.1	ldconfig-generated soname link — its target libnvidia-ngx.so.580.159.04 is archive-carried; measured 2026-08-19
+# libvdpau_nvidia.so.1 — MEASURED 2026-08-20 (R001.1 desktop-tier rebuild): the
+# same ldconfig-state class as the entry above — the link appeared when the
+# tier's post-install ldconfig ran (2026-08-19 23:33), its target
+# libvdpau_nvidia.so.580.159.04 is carried by the nvidia archive and named in
+# the nvidia package's manifest, and no recipe change is owed:
+usr/lib/libvdpau_nvidia.so.1	ldconfig-generated soname link — its target libvdpau_nvidia.so.580.159.04 is archive-carried (nvidia); measured 2026-08-20
