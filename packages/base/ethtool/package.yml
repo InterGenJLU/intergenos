@@ -1,0 +1,28 @@
+name: ethtool
+version: "7.1"
+release: 1
+description: Query and control network driver and hardware settings
+license: GPL-2.0-only
+homepage: https://www.kernel.org/pub/software/network/ethtool/
+tier: base
+build_style: autotools
+source:
+  - url: https://www.kernel.org/pub/software/network/ethtool/ethtool-${version}.tar.xz
+    sha256: 4d78c26edc0255bc92f4b995b5fd66108d75ff966ed4694f6025a6d370bc2496
+
+dependencies:
+  build:
+    - pkgconf
+    - libmnl        # PKG_CHECK_MODULES([MNL],[libmnl]) — configure.ac
+  host: []
+  runtime:
+    - libmnl
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "the suite includes cases that open a netlink socket and query a real network interface; the build chroot has no configured interface, so those fail by environment. The parser and command-construction cases, which are what this package's correctness rests on, run normally."
+
+verify_paths:
+  - /usr/sbin/ethtool
+  - /usr/share/man/man8/ethtool.8

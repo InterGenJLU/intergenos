@@ -102,9 +102,9 @@ Apr 16 12:05:39 intergenos systemd[1]: Removed slice User Slice of UID 0.
 ░░ A stop job for unit user-0.slice has finished.
 ░░ 
 ░░ The job identifier is 108688 and the job result is done.
-Apr 16 12:05:45 intergenos kernel: nft-dropped: IN=wlo1 OUT= MAC=20:4e:f6:a5:69:f7:90:d0:92:07:e6:11:86:dd SRC=fe80:0000:0000:0000:92d0:92ff:fe07:e611 DST=fe80:0000:0000:0000:fd6b:70ba:45d1:4bfe LEN=183 TC=0 HOPLIMIT=64 FLOWLBL=0 PROTO=UDP SPT=547 DPT=546 LEN=143 
-Apr 16 12:05:58 intergenos kernel: nft-dropped: IN=wlo1 OUT= MAC=ff:ff:ff:ff:ff:ff:38:8c:ef:39:35:2c:08:00 SRC=192.168.1.205 DST=192.168.1.255 LEN=63 TOS=0x00 PREC=0x00 TTL=64 ID=31174 DF PROTO=UDP SPT=58388 DPT=15600 LEN=43 
-Apr 16 12:06:10 intergenos kernel: nft-dropped: IN=wlo1 OUT= MAC=ff:ff:ff:ff:ff:ff:38:8c
+Apr 16 12:05:45 intergenos kernel: nft-dropped: IN=wlo1 OUT= MAC=[redacted-mac-3]:[redacted-mac-2]:86:dd SRC=fe80:0000:0000:0000:92d0:92ff:fe07:e611 DST=fe80:0000:0000:0000:fd6b:70ba:45d1:4bfe LEN=183 TC=0 HOPLIMIT=64 FLOWLBL=0 PROTO=UDP SPT=547 DPT=546 LEN=143 
+Apr 16 12:05:58 intergenos kernel: nft-dropped: IN=wlo1 OUT= MAC=ff:ff:ff:ff:ff:ff:[redacted-mac-1]:08:00 SRC=[redacted-ip-host3] DST=[redacted-ip-broadcast] LEN=63 TOS=0x00 PREC=0x00 TTL=64 ID=31174 DF PROTO=UDP SPT=58388 DPT=15600 LEN=43 
+Apr 16 12:06:10 intergenos kernel: nft-dropped: IN=wlo1 OUT= MAC=ff:ff:ff:ff:ff:ff:[redacted-mac-1]
 [... truncated at 2000 chars ...]
 ````
 
@@ -427,7 +427,7 @@ systemctl status nginx.service
 ````
 The disk usage has dropped to **17%** (`/dev/root`), which is the correct partition for your system. The previous 99% reading was likely a transient glitch or a different mount point.
 
-**SSH is still active and running** (as confirmed by the logs showing connections from `192.168.1.199`). The "crashing" you mentioned is likely a temporary kernel panic or a race condition, not a service failure.
+**SSH is still active and running** (as confirmed by the logs showing connections from `[redacted-ip-host2]`). The "crashing" you mentioned is likely a temporary kernel panic or a race condition, not a service failure.
 
 **Why is it slow?**
 Your system is running **InterGenOS**, which is compiled entirely to the user's disk. Since your disk is now at 17% (plenty of space), the kernel is no longer bloated by user data. However, if the previous "slow" state was due to the kernel being loaded on a partition that was filling up, it should have been resolved.
@@ -1055,7 +1055,7 @@ tmpfs           1.6G   44K  1.6G   1% /run/user/1000
 
 **Response:**
 ````
-The SSH daemon (sshd) is currently **active and running**. It has been active for one week since April 8th. Recent logs show it is accepting new connections from the IP address `192.168.1.199` on ports 50596 and 42684.
+The SSH daemon (sshd) is currently **active and running**. It has been active for one week since April 8th. Recent logs show it is accepting new connections from the IP address `[redacted-ip-host2]` on ports 50596 and 42684.
 ````
 
 **Failed assertions:**
@@ -1070,7 +1070,7 @@ The SSH daemon (sshd) is currently **active and running**. It has been active fo
 
 **Response:**
 ````
-Yes, the SSH daemon (sshd) is **active and running**. It has been active for one week since April 8th and is currently accepting new connections from the IP address `192.168.1.199` on ports 50596 and 42684.
+Yes, the SSH daemon (sshd) is **active and running**. It has been active for one week since April 8th and is currently accepting new connections from the IP address `[redacted-ip-host2]` on ports 50596 and 42684.
 ````
 
 **Failed assertions:**
@@ -1105,7 +1105,7 @@ list
 ````
 The SSH daemon (`sshd`) is **active and running**. The service was started on April 8th and has been active for one week.
 
-Recent logs show it is accepting new connections from `192.168.1.199` on ports 50596 and 42684. The connection you are trying to make is likely being rejected by the firewall or the specific port configuration, not that the service is down.
+Recent logs show it is accepting new connections from `[redacted-ip-host2]` on ports 50596 and 42684. The connection you are trying to make is likely being rejected by the firewall or the specific port configuration, not that the service is down.
 ````
 
 ---
@@ -1331,7 +1331,7 @@ You're running kernel 6.18.10.
 
 **Response:**
 ````
-Your current local IP address is 127.0.0.1 (loopback interface). Your public IP address is 192.168.1.192 (wired connection).
+Your current local IP address is 127.0.0.1 (loopback interface). Your public IP address is [redacted-ip-host1] (wired connection).
 ````
 
 ---
@@ -1707,14 +1707,14 @@ Here are your network interfaces:
 
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): state changed no lease
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): activation: beginning transaction (timeout in 45 seconds)
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=192.168.1.192, acd pending
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1], acd pending
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 Apr 15 14:23:22 intergenos NetworkManager[353]: <info>  [1776281002.9856] agent-manager: agent[98cbb30b060c3332,:1.3045/org.gnome.Shell.NetworkAgent/60598]: agent registered
 Apr 15 14:23:29 intergenos NetworkManager[353]: <info>  [1776281009.4130] agent-manager: agent[4c8c51d7746cf946,:1.3068/org.gnome.Shell.NetworkAgent/1000]: agent registered
-Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 ````
 
 ---
@@ -1918,8 +1918,8 @@ The **NetworkManager** service is currently **active and running**.
 *   **Status:** Active (running)
 *   **Last Activity:** The service has been active since **Wednesday, April 8, 2026**.
 *   **Current Configuration:**
-    *   **DHCPv4:** Active on interface `wlo1` with IP address `192.168.1.192`.
-    *   **DHCPv6:** Active on interface `wlo1` with lease `192.168.1.192`.
+    *   **DHCPv4:** Active on interface `wlo1` with IP address `[redacted-ip-host1]`.
+    *   **DHCPv6:** Active on interface `wlo1` with lease `[redacted-ip-host1]`.
     *   **Agent:** GNOME Shell Network Agent is registered and active.
 
 The service is currently managing network connections for the `wlo1` wireless interface.

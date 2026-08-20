@@ -37,9 +37,15 @@ build() {
 
 check() {
     set -e
-    cd obj &&
-    make -C js/src check-jstests \
-         JSTESTS_EXTRA_ARGS="--timeout 300 --wpt=disabled" || true
+    # The blanket suite mask was retired here 2026-08-19: it accepted all
+    # 50,000-plus results whatever they were. The suite still runs with the
+    # same arguments; the tests: block in package.yml declares the policy and
+    # pkg_run_tests reports the outcome, so a waiver is named in the log
+    # rather than implied by silence.
+    cd obj
+    pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        make -C js/src check-jstests \
+             JSTESTS_EXTRA_ARGS="--timeout 300 --wpt=disabled"
 }
 
 do_install() {

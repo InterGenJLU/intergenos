@@ -15,8 +15,8 @@ iso_include: false  # extra-tier default (mirror-only)
 # (the 4-distro-consensus native zip path; winetricks otherwise w_warns and limps
 # via Windows 7-Zip), and a downloader — winetricks auto-selects aria2c>wget>curl>
 # fetch, so in this tree wget is the pick (curl is the auto-detected fallback; both
-# are core). GUI mode (--gui) needs zenity: recommended, not required (see the
-# paste-back). The upstream sha256 matches the downloaded artifact; the release also
+# are core). GUI mode (--gui) needs zenity: recommended, not required.
+# The upstream sha256 matches the downloaded artifact; the release also
 # ships a detached GPG .asc signature over this archive (provenance, corroboration).
 source:
   - url: https://github.com/Winetricks/winetricks/archive/${version}/winetricks-${version}.tar.gz

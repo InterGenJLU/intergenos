@@ -817,7 +817,7 @@ The SSH daemon is currently active and running. It is listening on port 22 for I
 
 **Response:**
 ````
-The `sshd` service is active and running. Recent logs show successful SSH sessions established between the host and the client `192.168.1.199` for user `root`.
+The `sshd` service is active and running. Recent logs show successful SSH sessions established between the host and the client `[redacted-ip-host2]` for user `root`.
 ````
 
 ---
@@ -982,7 +982,7 @@ Swap:          2.0Gi        35Mi       2.0Gi
 **Response:**
 ````
 The `sshd` service is active and running.
-Recent logs show successful SSH connections from `192.168.1.199` to the root user on April 17, 2026.
+Recent logs show successful SSH connections from `[redacted-ip-host2]` to the root user on April 17, 2026.
 No blocked or rejected commands were observed in the provided output.
 ````
 
@@ -1045,7 +1045,7 @@ You're running kernel 6.18.10.
 
 **Response:**
 ````
-Your current network interface is `wlo1`, which has an IP address of 192.168.1.192/24. The local loopback address is 127.0.0.1/8, but this is not your public IP address.
+Your current network interface is `wlo1`, which has an IP address of [redacted-ip-host1]/24. The local loopback address is 127.0.0.1/8, but this is not your public IP address.
 ````
 
 ---
@@ -1365,14 +1365,14 @@ Here are your network interfaces:
              └─353 /usr/sbin/NetworkManager --no-daemon
 
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): activation: beginning transaction (timeout in 45 seconds)
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=192.168.1.192, acd pending
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1], acd pending
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 Apr 15 14:23:22 intergenos NetworkManager[353]: <info>  [1776281002.9856] agent-manager: agent[98cbb30b060c3332,:1.3045/org.gnome.Shell.NetworkAgent/60598]: agent registered
 Apr 15 14:23:29 intergenos NetworkManager[353]: <info>  [1776281009.4130] agent-manager: agent[4c8c51d7746cf946,:1.3068/org.gnome.Shell.NetworkAgent/1000]: agent registered
-Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 Apr 16 21:51:32 intergenos NetworkManager[353]: <info>  [1776394292.8669] dhcp4 (wlo1): state changed new lease, addres
 [... truncated at 2000 chars ...]
 ````
@@ -1546,7 +1546,7 @@ Your system has 186G of free disk space on the root partition, which is currentl
 
 **Response:**
 ````
-NetworkManager is currently running. It is active since Wed, April 8, 2026, and manages DHCP leases for the wlo1 interface on IP address 192.168.1.192.
+NetworkManager is currently running. It is active since Wed, April 8, 2026, and manages DHCP leases for the wlo1 interface on IP address [redacted-ip-host1].
 ````
 
 ---
@@ -1574,7 +1574,7 @@ Your hostname is intergenos.
 ````
 sshd is currently active and running. The service is enabled and active since April 8, 2026. It is listening on port 22.
 
-Recent activity shows successful logins for the root user from IP 192.168.1.199 at ports 58990, 53000, and 53010.
+Recent activity shows successful logins for the root user from IP [redacted-ip-host2] at ports 58990, 53000, and 53010.
 ````
 
 ---

@@ -1,0 +1,33 @@
+# Chapter-8 temp-toolchain residue patterns (scripts/ch8-residue-sweep.py)
+#
+# Each line: <pattern><two-or-more-spaces-or-tab><reason>
+#
+# A pattern names a path class that the LFS chapter 5-7 temporary toolchain
+# installs onto the live root and that no final-system package ever claims.
+# The final package's DESTDIR deploy overlays its own files but never deletes
+# anything, so a path the final recipe deliberately drops keeps the temporary
+# toolchain's copy forever. Those copies are then unowned content in the
+# shipping tree: build-squashfs Step 4.85 fails closed on them, which is where
+# 163 of that build's 166 findings were this class, first found and removed
+# by hand on the 2026-08-15 from-scratch build (the other 3 were pruned-package
+# residue, handled in its own lane).
+#
+# The pattern SELECTS a candidate. The sweep then refuses to remove any
+# candidate that an installed package's manifest records, and reports it — an
+# owned match means the pattern is wrong or a recipe changed, and that must be
+# read, not silently skipped. Patterns are relative to the sweep root, with no
+# leading slash.
+#
+# Pattern forms (same three the squashfs ownership allowlist uses):
+#   exact/path            one path
+#   subtree/**            the directory and everything under it
+#   glob/with/*/chars     fnmatch glob
+#
+# Decided 2026-08-19: declare the class, verify ownership before deleting.
+# A blanket "delete every unowned path under /usr" would delete build state
+# that later tiers still need; a hardcoded delete list would delete files a
+# recipe may since have started shipping. Neither verifies.
+
+usr/lib/python3.*/idlelib/**    IDLE's library. The chapter-7 temporary Python installs it; packages/core/python/build.sh removes idlelib from its DESTDIR because InterGenOS builds Python Tk-less (no tkinter, no tk dependency), so the final python package claims none of it.
+usr/bin/idle3*                  The IDLE launcher scripts, same class and same cause as idlelib above: installed by the temporary Python, removed from the final python package's DESTDIR by the same build.sh lines.
+usr/lib/libstdc++.so.*-gdb.py   GDB pretty-printer loader written beside the library by the chapter-6 temporary libstdc++. The final GCC installs its pretty-printers under /usr/share/gdb/auto-load/ instead, so nothing claims the /usr/lib copy.

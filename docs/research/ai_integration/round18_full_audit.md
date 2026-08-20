@@ -140,7 +140,7 @@ Comparison to R17: honest score improved from 77/112 (68.8%) to 79/112 (70.5%). 
 
 #### 19. `pers_no_over_explain` | "What's my IP address?"
 - **Source:** keyword | **Latency:** 8,838ms | **Grade:** PASS
-- **Response:** "Your public IP address is 192.168.1.192. This address belongs to your local network interface (`wlo1`). To find your public IP, you must use an external service like `ifconfig` (Linux) or `ipconfig` (Windows) to query the router's WAN interface."
+- **Response:** "Your public IP address is [redacted-ip-host1]. This address belongs to your local network interface (`wlo1`). To find your public IP, you must use an external service like `ifconfig` (Linux) or `ipconfig` (Windows) to query the router's WAN interface."
 - **Verdict: ACCEPTABLE** — Labels a private IP (192.168.1.x) as "public IP" which is incorrect. The IP is the local/private IP. Also mentions Windows `ipconfig` on an InterGenOS system. Real data shown, but the interpretation is sloppy.
 
 #### 20. `pers_first_person` | "How much RAM do we have?"
@@ -234,7 +234,7 @@ Comparison to R17: honest score improved from 77/112 (68.8%) to 79/112 (70.5%). 
 
 #### 35. `messy_typo_service` | "is ssh runnign?"
 - **Source:** llm_tools | **Latency:** 33,112ms | **Grade:** PASS
-- **Response:** "The OpenSSH server (sshd.service) is active and running. Started on April 8, 2026. Recent logs show successful session openings for root from 192.168.1.199."
+- **Response:** "The OpenSSH server (sshd.service) is active and running. Started on April 8, 2026. Recent logs show successful session openings for root from [redacted-ip-host2]."
 - **Verdict: GOOD** — Correct tool used, correct data, typo handled.
 
 #### 36. `messy_casual_install` | "get me htop"
@@ -347,7 +347,7 @@ Comparison to R17: honest score improved from 77/112 (68.8%) to 79/112 (70.5%). 
 
 #### 53. `wt_check_vs_start` | "Check sshd"
 - **Source:** llm_tools | **Latency:** 33,684ms | **Grade:** PASS
-- **Response:** "sshd is active and running. Enabled and active, main PID of 425. Running since Wed, April 8, 2026. Recent activity shows successful SSH connections from 192.168.1.199."
+- **Response:** "sshd is active and running. Enabled and active, main PID of 425. Running since Wed, April 8, 2026. Recent activity shows successful SSH connections from [redacted-ip-host2]."
 - **Verdict: GOOD** — Correct tool, checked status not started. Real data.
 
 #### 54. `wt_find_vs_search` | "Find /etc/fstab"
@@ -572,7 +572,7 @@ Comparison to R17: honest score improved from 77/112 (68.8%) to 79/112 (70.5%). 
 
 #### 90. `lex_svc_casual` | "is ssh up"
 - **Source:** llm_tools | **Latency:** 32,800ms | **Grade:** PASS
-- **Response:** "SSH is currently active and running. Main PID of 425. Recent logs show successful SSH2 connections from 192.168.1.199."
+- **Response:** "SSH is currently active and running. Main PID of 425. Recent logs show successful SSH2 connections from [redacted-ip-host2]."
 - **Verdict: GOOD**
 
 #### 91. `lex_svc_indirect` | "I can't connect via SSH, is the service even on?"

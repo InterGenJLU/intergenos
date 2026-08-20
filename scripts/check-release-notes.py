@@ -6,7 +6,7 @@ note chain in the same line's inline comment (`# rNN: ...`) is authored by
 hand. Nothing enforced the two moving together, so machine bumps shipped
 with stale chain heads — found 2026-07-30 at real cost: intergen sat at
 release 130 with its chain head reading r109 (20 releases undocumented),
-forge likewise, plus an 87-package no-note class (tracker L17mq/L17mr).
+forge likewise, plus an 87-package no-note class.
 
 This gate makes the class structurally impossible going FORWARD without
 prejudging the legacy back-fill decision: it evaluates only commits that

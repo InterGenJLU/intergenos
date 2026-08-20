@@ -12,7 +12,7 @@ schema so the merge tool unifies them and the runner drives them WITHOUT transla
 
 ## 1. Why this exists
 
-M8-6 mandate (operator, 2026-07-08): generate a large bank of questions that flex every
+M8-6 requirement (decided 2026-07-08): generate a large bank of questions that flex every
 aspect of InterGen, mass-run it through the reset-enabled autopilot harness against the live
 9B, and record every turn via glass. The FIRST run is DISCOVERY — record what InterGen
 actually does under the real user distribution — not pass/fail. Routing gets tweaked first,

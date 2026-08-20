@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2015-2016, 2026 InterGenJLU
 #
-# pkm 0.1.0 — InterGenOS package manager
+# pkm — InterGenOS package manager
 # https://github.com/InterGenJLU/intergenos
 #
 # Installs: Python package at /usr/lib/python3.14/site-packages/pkm,
@@ -108,18 +108,18 @@ REPOS
         "${DESTDIR}/usr/lib/tmpfiles.d/pkm.conf"
 }
 
-post_install() {
-    set -e
-    # Enable pkm-check-updates.timer system-wide so daily check-updates
-    # fires automatically per the Q8 design. Users can disable per their
-    # preference (`systemctl disable pkm-check-updates.timer`) — PRIME
-    # DIRECTIVE: notify-only + user controls their machine.
-    #
-    # Guard: only fires when chroot has a usable systemctl (post-systemd
-    # install path); pre-systemd build phases that import pkm directly
-    # don't have systemd available, and chroot-internal systemctl in
-    # those contexts is a no-op anyway.
-    if command -v systemctl >/dev/null 2>&1; then
-        systemctl enable pkm-check-updates.timer 2>/dev/null || true
-    fi
-}
+# No post_install hook.
+#
+# This recipe's post_install existed only to run `systemctl enable pkm-check-updates.timer`.
+# That default is decided in intergenos-base-files'
+# /usr/lib/systemd/system-preset/80-intergenos-enable.preset
+# and applied by the `systemctl preset-all` the image build and the installer both
+# run; measured 2026-08-19 against that same engine (`systemctl --root <root>
+# preset-all` over the tree's own preset files), the policy resolves pkm-check-updates.timer
+# to ENABLED, so the call changed nothing on a fresh install.
+#
+# What it changed was an upgrade: pkm fires a sealed post_install on every upgrade
+# and nothing re-runs preset-all afterwards, so a user who had turned the unit off
+# got it back on with no message. With the call gone the function had nothing left
+# to do, and a hook that does nothing is not kept for symmetry — it is removed, so
+# nothing fires on every install and upgrade to accomplish nothing. Decided 2026-08-19.

@@ -24,3 +24,4 @@ verify_paths:
   - /usr/sbin/lvm
   - /usr/sbin/blkdeactivate
   - /usr/lib/libdevmapper.so
+  - /usr/sbin/pvs

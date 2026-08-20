@@ -138,7 +138,9 @@ post_install() {
     # per-machine on the target at first service start — never at build/install
     # time, so no shared key material ships in the archive (F43).
 
-    systemctl daemon-reload                              2>/dev/null || true
+    # No daemon-reload here: pkm's canonical systemd-daemon-reload hook owns
+    # it, armed by this package's own usr/lib/systemd/system/nginx.service,
+    # and it reports its own result instead of absorbing it.
     apparmor_parser -r /etc/apparmor.d/usr.sbin.nginx    2>/dev/null || true
 }
 

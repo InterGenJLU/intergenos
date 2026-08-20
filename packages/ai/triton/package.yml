@@ -1,5 +1,5 @@
 name: triton
-# Version pinned to what the fleet's PyTorch release requires. PyTorch 2.10.0
+# Version pinned to what this tree's PyTorch release requires. PyTorch 2.10.0
 # (re-pinned from 2.13.0 down under the unsloth torch<2.11 ceiling) pins
 # triton 3.6.0 at the exact upstream commit 8fedd49b (its
 # .ci/docker/ci_commit_pins/triton.txt; .ci/docker/triton_version.txt =

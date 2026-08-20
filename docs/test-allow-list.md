@@ -47,7 +47,7 @@ tests:
   LAST resort (Rule 10): only when the test infrastructure itself is
   hazardous (leaves loop mounts, needs live container ops).
 
-## The Rule-10 ladder (private build-development-rulebook.md)
+## The Rule-10 ladder (from the project's build rulebook)
 
 1. Environmental failure → `known_failures` + reason (suite still runs).
 2. Harness not parallel-safe → `jobs: 1` + reason (suite still enforced).

@@ -49,24 +49,10 @@ do_install() {
     DESTDIR="$DESTDIR" ninja install
 }
 
-post_install() {
-    set -e
-    # Enable NetworkManager for system networking at boot. (Full NM with
-    # desktop integration supersedes this pass1 at install time; the
-    # systemctl enable persists across the supersede.)
-    systemctl enable NetworkManager.service 2>/dev/null || true
-
-    # Disable systemd-networkd if enabled (conflicts with NM)
-    systemctl disable systemd-networkd.service 2>/dev/null || true
-    systemctl disable systemd-networkd-wait-online.service 2>/dev/null || true
-
-    # Enable NetworkManager-wait-online so network-online.target fires once
-    # NM has a connection. Without this target firing, systemd-timesyncd
-    # never wakes from "Idle." and the system clock never syncs to NTP
-    # (operator-flagged 2026-05-25: install-laptop showed Feb 6 because
-    # the chain was broken). wait-online has a default 30s timeout; on a
-    # network-less boot it falls through and the rest of boot continues,
-    # so the prior comment about "blocks boot indefinitely" was overly
-    # cautious — worst case is +30s, common case is +<5s.
-    systemctl enable NetworkManager-wait-online.service 2>/dev/null || true
-}
+# No post_install hook. Default enablement of every unit this package ships is
+# decided in one place — intergenos-base-files'
+# /usr/lib/systemd/system-preset/80-intergenos-enable.preset — and applied by the
+# `systemctl preset-all` pass the image build and the installer both run. A
+# `systemctl enable` here was a second voice for the same decision and the preset
+# pass reverted it, so the tree stated one default and shipped another. Decided
+# 2026-08-19: the preset files own this; recipes do not enable their own units.

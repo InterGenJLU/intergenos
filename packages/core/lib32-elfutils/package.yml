@@ -1,6 +1,7 @@
 name: lib32-elfutils
 version: '0.194'
 release: 2  # r2: sibling patch parity — carry elfutils r2's riscv_disasm const patch (lib32 governance: a dropped sibling patch builds divergent libs; libcpu is not compiled by this libelf-only twin, so built output is unchanged). Decided 2026-08-15.
+content_hash: cc52e4019783f6ad
 description: ELF object file access library, libelf only (32-bit multilib runtime)
 license: GPL-2.0-or-later
 homepage: https://sourceware.org/elfutils/
@@ -56,6 +57,13 @@ silent_loss_accepted:
 verify_paths:
   - /usr/lib32/libelf.so.1
   - /usr/lib32/pkgconfig/libelf.pc
+
+# Build inputs from the repository tree: declared here so an edit to one
+# moves this package's content fingerprint and a targeted build rebuilds it
+# (igos-build/content_hash.py arm (c)), and in sources_extra below so the
+# published source archive carries them.
+source_tree:
+- scripts/lib32-env.sh
 
 # Build inputs composed from the repository tree (declared so the published
 # source archive carries every input the build consumes — the corresponding-

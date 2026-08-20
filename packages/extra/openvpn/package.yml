@@ -1,0 +1,44 @@
+name: openvpn
+version: "2.7.6"
+release: 1
+description: TLS-based VPN daemon and client
+license: GPL-2.0-only
+homepage: https://openvpn.net/community/
+tier: extra
+build_style: autotools
+# tier: extra rather than base: a VPN client is an opt-in capability a user
+# installs, not a utility every general-purpose system is expected to carry.
+# It reaches installs from the mirror, either directly or through the
+# NetworkManager-openvpn plugin that runtime-depends on it.
+source:
+  - url: https://build.openvpn.net/downloads/releases/openvpn-${version}.tar.gz
+    sha256: 10e24a9385f23cc38cc5cf448f3ca0769f939bc4cbecc4f4647d7e006e52db74
+
+dependencies:
+  build:
+    - pkgconf
+    - openssl       # the TLS backend chosen below
+    - lzo           # PKG_CHECK_MODULES([LZO]) — configure.ac:997
+    - lz4           # PKG_CHECK_MODULES([LZ4]) — :1049
+    - libcap-ng     # PKG_CHECK_MODULES([LIBCAPNG]) — :764, for privilege drop
+    - libnl         # PKG_CHECK_MODULES([LIBNL_GENL]) — :716, kernel DCO offload
+    - systemd       # PKG_CHECK_MODULES([libsystemd] > 216) — :1121
+  host: []
+  runtime:
+    - openssl
+    - lzo
+    - lz4
+    - libcap-ng
+    - libnl
+    - systemd
+    - iproute2      # the daemon runs `ip` to configure the tun interface
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "the suite's networking cases create tun interfaces and bind sockets; the build chroot has no tun device and no configured network, so those fail by environment. The cipher, packet-format and option-parsing cases — the ones that decide whether traffic is protected correctly — run normally."
+
+verify_paths:
+  - /usr/sbin/openvpn
+  - /usr/share/man/man8/openvpn.8
+  - /usr/lib/systemd/system/openvpn-client@.service

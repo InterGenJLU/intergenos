@@ -21,7 +21,7 @@ files, read by one gate that BOTH passes run.
 
 These tests fire the real gate. They prove each requirement kind detects its own
 measured failure shape, that a gate which cannot measure refuses rather than
-passes, and — the point of the cut — that BOTH recipes actually run it.
+passes, and — the point of the change — that BOTH recipes actually run it.
 """
 import re
 import subprocess

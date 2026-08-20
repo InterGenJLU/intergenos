@@ -136,7 +136,9 @@ post_install() {
     install -dm755 -o postgres -g postgres /var/log/postgresql  2>/dev/null || true
     install -dm755 -o postgres -g postgres /run/postgresql      2>/dev/null || true
 
-    systemctl daemon-reload                                  2>/dev/null || true
+    # No daemon-reload here: pkm's canonical systemd-daemon-reload hook owns
+    # it, armed by this package's own usr/lib/systemd/system/postgresql.service,
+    # and it reports its own result instead of absorbing it.
     apparmor_parser -r /etc/apparmor.d/usr.bin.postgres      2>/dev/null || true
 
     # Post-install operator guidance — printed to the install log; the

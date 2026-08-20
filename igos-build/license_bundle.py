@@ -178,6 +178,24 @@ def already_bundled(license_dir):
     return False
 
 
+def _newest_ctime(license_dir):
+    """Newest inode-change time among the regular files under ``license_dir``.
+
+    ctime, not mtime: the filesystem-diff tracking for direct_install
+    packages keys on created-or-ctime-modified (builder.diff_new_files), and
+    mtime survives copy2 from an old source tree — a bundle written THIS
+    build can carry an old mtime but never an old ctime.
+    """
+    newest = 0.0
+    for child in Path(license_dir).rglob("*"):
+        try:
+            if child.is_file():
+                newest = max(newest, child.stat().st_ctime)
+        except OSError:
+            continue
+    return newest
+
+
 def is_firstparty(name):
     """True if ``name`` matches a first-party InterGenOS pattern (S3)."""
     if name.endswith(HELPER_SUFFIX):
@@ -228,6 +246,7 @@ def apply_strategies(
     firstparty_license=None,
     spdx=None,
     tier="unknown",
+    stale_before=None,
 ):
     """Populate ``license_dir`` for one package, trying S1-S4 in order.
 
@@ -241,6 +260,19 @@ def apply_strategies(
         firstparty_license: path to the project LICENSE for S3 (None to skip).
         spdx: SPDX identifier for the S4 stub (None/empty to skip).
         tier: package tier, for the stub's source-of-record line.
+        stale_before: timestamp (time.time() epoch) separating this build's
+            writes from prior-build residue, or None to treat any existing
+            content as authoritative. Callers whose install root persists
+            across builds (the direct_install live root "/") MUST pass the
+            build's start time: on such a root, content whose every file
+            predates the build is a PRIOR build's bundle, and honoring it as
+            "already staged" leaves the re-bundle out of this build's
+            filesystem diff — the fresh archive then carries no license paths
+            while the on-disk dir becomes archive-unowned (the union gate
+            removes it, and K21.B fails at the next squashfs). Measured on the
+            2026-08-20 dbus-pass2/systemd-pass2 rebuilds. DESTDIR-staged
+            callers keep None — a staging tree is born empty, so any content
+            there is this build's by construction.
 
     Returns one of: ``skipped`` | ``backfilled`` | ``pass-mirror`` |
     ``firstparty`` | ``spdx-stub`` | ``no-licenses``. Never raises on a
@@ -248,7 +280,12 @@ def apply_strategies(
     """
     license_dir = Path(license_dir)
     if already_bundled(license_dir):
-        return "skipped"
+        if stale_before is None or _newest_ctime(license_dir) >= stale_before:
+            return "skipped"
+        # Every file predates this build: prior-build residue, not this
+        # build's staging. Clear it and re-apply the strategies so the fresh
+        # bundle enters this build's filesystem diff (and thus its archive).
+        shutil.rmtree(license_dir, ignore_errors=True)
 
     # --- S1: upstream license files in the source tree -------------------
     if src_root is not None:

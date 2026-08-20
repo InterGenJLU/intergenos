@@ -26,7 +26,14 @@ build() {
 
 check() {
     set -e
-    LC_ALL=C make -k check || true
+    # The blanket suite mask was retired here 2026-08-19: it accepted every
+    # failure the suite can produce, including one never seen before, which
+    # is the unverified-claim class the security posture exists to kill. The
+    # suite still runs; its result is now governed by the tests: block in
+    # package.yml and reported by pkg_run_tests, so an environmental failure
+    # is an announced waiver rather than an invisible pass.
+    LC_ALL=C pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
+        make -k check
 }
 
 do_install() {
@@ -52,7 +59,10 @@ EOF
     chmod 644 "${DESTDIR}/etc/pam.d/cups"
 }
 
-post_install() {
-    set -e
-    systemctl enable cups.service 2>/dev/null || true
-}
+# No post_install hook. Default enablement of every unit this package ships is
+# decided in one place — intergenos-base-files'
+# /usr/lib/systemd/system-preset/80-intergenos-enable.preset — and applied by the
+# `systemctl preset-all` pass the image build and the installer both run. A
+# `systemctl enable` here was a second voice for the same decision and the preset
+# pass reverted it, so the tree stated one default and shipped another. Decided
+# 2026-08-19: the preset files own this; recipes do not enable their own units.

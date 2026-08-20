@@ -4,7 +4,7 @@
 # blue (IC-034; source staged in igic/gradient/, emitted by _compile_gradient — luminance-keyed,
 # never verbatim, glow: none). That gradient mark is the DEFAULT shipped state.
 #
-# The IC-029 SWAP MECHANISM stays exactly as banked, now three-way per row via `mode`:
+# The IC-029 SWAP MECHANISM is unchanged, now three-way per row via `mode`:
 #   gradient   (default) -> the official brand mark recolored to gradient blue
 #   passthrough          -> the OFFICIAL vendor mark in igic/passthrough/ emitted VERBATIM
 #                           (the conservative fallback a vendor complaint swaps to — unmodified)

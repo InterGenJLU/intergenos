@@ -21,7 +21,7 @@ with the positive control proving the instrument is not simply mute: the same ed
 packages/ai/intergen (which IS tracked) produced
 `intergen: content changed but release not bumped (recorded 1090327c1ad7 != now ...)`.
 
-That is the rocminfo class from tracker row 3.0-L476 finding #1, and it reached the
+That is the rocminfo class recorded in the project's release ledger, and it reached the
 publish preflight before anything refused it. Worse than a late refusal: mirror-only
 delivery means an unbumped fix reaches no machine at all. The recipe's own r2 note,
 hand-written 2026-08-13, says the same thing in the author's words — "no instrument

@@ -139,9 +139,9 @@ class DispatchPolicyTests(unittest.TestCase):
     def test_tier3_capable_only_tier2_lane_shipped_walks_down_to_9b(self):
         # The 9B lane shipped, the 35B lane did not — a Tier-3 box runs the 9B,
         # the largest shipped lane AT OR BELOW it, with native dispatch. Operator
-        # ruling (2026-07-09): walk-down, NOT floor-clamp — the 9B ships to 16GB+
+        # Decided 2026-07-09: walk-down, NOT floor-clamp — the 9B ships to 16GB+
         # boxes, not only to the 8-15GB band. (This case previously asserted a
-        # floor-clamp; the ruling inverted it.)
+        # floor-clamp; that decision inverted it.)
         r = resolve_dispatch(
             _hw(HardwareTierLevel.TIER_3),
             shipped_lanes=frozenset({HardwareTierLevel.TIER_2}),

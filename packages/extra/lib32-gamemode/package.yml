@@ -1,6 +1,7 @@
 name: lib32-gamemode
 version: "1.8.2"
 release: 1  # r1: NEW — the 32-bit gamemode CLIENT libraries (libgamemode.so.0 + libgamemodeauto.so.0) for 32-bit games (Proton/Steam LD_PRELOAD via gamemoderun). Client libs ONLY: -Dwith-sd-bus-provider=no-daemon drops the daemon (the daemon stays 64-bit, from packages/extra/gamemode) so inih is never needed; -Dwith-util=false drops gamemoderun + the libexec helpers. Same official meson-dist tarball as the 64-bit sibling (RT-9 version lock). Mirror-only.
+content_hash: 802d2b2caa6f63ea
 description: Feral Interactive gamemode — 32-bit client libraries (multilib runtime; mirror-only)
 license: BSD-3-Clause
 homepage: https://github.com/FeralInteractive/gamemode
@@ -35,6 +36,14 @@ dependencies:
 verify_paths:
   - /usr/lib32/libgamemode.so.0
   - /usr/lib32/libgamemodeauto.so.0
+
+# Build inputs from the repository tree: declared here so an edit to one
+# moves this package's content fingerprint and a targeted build rebuilds it
+# (igos-build/content_hash.py arm (c)), and in sources_extra below so the
+# published source archive carries them.
+source_tree:
+- config/lib32/lib32-cross.ini
+- scripts/lib32-env.sh
 
 # Build inputs composed from the repository tree (declared so the published
 # source archive carries every input the build consumes — the corresponding-

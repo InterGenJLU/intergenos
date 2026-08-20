@@ -1,7 +1,7 @@
 name: influxdb
 version: "3.9.0"
-release: 1
-content_hash: 86d882c8c09f953d
+release: 2  # r2: the duplicate systemd daemon-reload is removed from post_install; pkm's canonical systemd-daemon-reload hook owns that operation, is armed by this package's own unit payload, skips a root no manager owns, and records its own result.
+content_hash: ddf0aea281b30ee0
 description: Time-series database (Core edition, Apache-2.0 OR MIT)
 tier: extra
 license: Apache-2.0 OR MIT

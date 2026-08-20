@@ -65,7 +65,7 @@ if _build_id:
 #
 # Forge follows the prevailing distro build-output convention (consistent
 # section markers + colored status, like emerge / makepkg), keeping the
-# detailed default the operator wants — we clean the VOICE, not the volume.
+# detailed default — the VOICE is cleaned up, not the volume.
 # One step-line style with aligned labels (modeled on pkm's Reporter.step),
 # one severity scheme (error: / warning: / note:, lower-case, apt/dnf-style,
 # to stderr), and a single sanctioned verdict marker pair (✓ / ✗) plus the

@@ -149,22 +149,45 @@ post_install() {
         systemd-sysusers /usr/lib/sysusers.d/chronicle.conf || \
             echo "chronicle: could not create the chronicle group now; systemd-sysusers.service will create it at the next boot, and the backup application will not work for ordinary users until then" >&2
     fi
-    # Enable the always-on engine + the three timers (the restore leg is a
-    # template started on demand, never enabled). Guarded so a chroot/offline
-    # install does not fail when systemd is not the running init.
+    # No `systemctl enable` here. Whether the engine and its three timers run
+    # by default is decided in this package's own
+    # assets/intergenos-backup/systemd/90-chronicle.preset, installed to
+    # /usr/lib/systemd/system-preset/90-chronicle.preset by do_install above,
+    # and applied by the `systemctl preset-all` the image build and the
+    # installer both run. Measured 2026-08-19 against that same engine
+    # (`systemctl --root <root> preset-all` over the tree's own preset files):
+    # the policy resolves chronicled.service, chronicle-userdata.timer,
+    # chronicle-offpeak.timer and chronicle-scrub.timer all to ENABLED, so the
+    # enable call that used to sit here changed nothing on a fresh install.
+    #
+    # What it did change was an upgrade. pkm fires a package's sealed
+    # post_install on every install AND every upgrade, and nothing re-runs
+    # preset-all afterwards — so on a machine where the user had turned the
+    # engine OFF, the next upgrade of this package turned it back ON and said
+    # nothing. The preset file is the single place this default is decided.
+    # Decided 2026-08-19.
+    #
+    # The start below is a DIFFERENT operation and is kept — but CONDITIONAL
+    # on each unit's own enablement (decided 2026-08-19, same session as the
+    # enable deletion above: starting a unit the user turned off is the same
+    # override as re-enabling it, just at a different moment). pkm fires this
+    # hook on every install AND every upgrade with no verb distinguishing the
+    # two, so the guard must be self-contained: a unit is started only when
+    # its recorded enablement says it should be running. On a fresh image the
+    # units are enabled by preset-all before first boot and systemd starts
+    # them at boot, so nothing is lost there; on a live upgrade a unit the
+    # user disabled stays exactly as the user left it. `is-enabled` is a
+    # file-state read and works without a running systemd; `start` still
+    # tolerates the chroot/offline case where there is no bus to talk to.
     if command -v systemctl >/dev/null 2>&1; then
-        systemctl enable chronicled.service \
+        for _unit in chronicled.service \
             chronicle-userdata.timer \
             chronicle-offpeak.timer \
-            chronicle-scrub.timer 2>/dev/null || true
-        # Enable alone leaves a freshly-installed (or live-upgraded) system
-        # with no running engine until its next boot; start now, guarded the
-        # same way for chroot/offline installs where no service manager is
-        # running.
-        systemctl start chronicled.service \
-            chronicle-userdata.timer \
-            chronicle-offpeak.timer \
-            chronicle-scrub.timer 2>/dev/null || true
+            chronicle-scrub.timer; do
+            if systemctl is-enabled --quiet "$_unit" 2>/dev/null; then
+                systemctl start "$_unit" 2>/dev/null || true
+            fi
+        done
     fi
     if command -v gtk-update-icon-cache >/dev/null 2>&1; then
         gtk-update-icon-cache --quiet --force /usr/share/icons/hicolor 2>/dev/null || true

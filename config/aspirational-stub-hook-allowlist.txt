@@ -1,0 +1,25 @@
+# Orphan pkm lifecycle-hook scripts that are deliberately carried without
+# being installed — read by scripts/check-aspirational-stubs.py.
+#
+# Format: <package>/<script filename>  # reason
+#
+# An entry here is a written decision, not a way to quiet the gate. The gate
+# reports this class because an uninstalled lifecycle-hook script sitting in a
+# recipe is what makes a false documentation claim look plausible to the next
+# reader: it was exactly this file that let the nvidia KERNEL-CMDLINE document
+# state a post-remove hook rebuilt the UKI after a removal when nothing
+# installed or ran one. Silence about the script is what allowed that. Naming
+# it here keeps it visible and attaches the reason to it.
+#
+# Every entry must name a file that exists; a stale entry fails
+# tests/preflight/test_aspirational_stub_docs.py rather than rotting quietly.
+
+nvidia/post-remove.sh  # Retained deliberately, uninstalled. pkm has no
+                       # post-remove runner, so installing it would ship a
+                       # script that still never fires. The decision to keep
+                       # the file while shipping nothing is recorded in
+                       # tests/pkm/test_pre_remove_hook.py
+                       # (test_c2_documentation_describes_only_wired_behaviour),
+                       # which asserts build.sh does not install it and that
+                       # the document does not claim it fires. Decided
+                       # 2026-08-19.

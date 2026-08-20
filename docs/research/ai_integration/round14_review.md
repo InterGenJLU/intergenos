@@ -1037,7 +1037,7 @@ Recent logs show successful sessions established at 16:58 and 17:02 on port 4108
 ````
 Yes, the SSH service is active and running on InterGenOS. The `sshd.service` is enabled and currently active, with the main process (`sshd`) running in the `systemd` container.
 
-Recent logs show successful key-based authentication from the `192.168.1.199` IP address, confirming the service is operational and accepting connections.
+Recent logs show successful key-based authentication from the `[redacted-ip-host2]` IP address, confirming the service is operational and accepting connections.
 ````
 
 ---
@@ -1203,7 +1203,7 @@ Yes, SSH is running. The `sshd.service` is active and running.
 *   **Status:** Active (running)
 *   **PID:** 425
 *   **Last Activity:** Session closed on 16:58:41
-*   **Recent Connection:** A successful SSH session was established from `192.168.1.199` at 16:46:51.
+*   **Recent Connection:** A successful SSH session was established from `[redacted-ip-host2]` at 16:46:51.
 
 The service is operational and actively accepting connections.
 ````
@@ -1269,7 +1269,7 @@ You're running kernel 6.18.10.
 
 **Response:**
 ````
-Your current IP address is **192.168.1.192**. The output also shows your local interface (wlo1) is connected to the 2600:1700:7080:69b0:bbb4:ef34:7cd7:5b77 network.
+Your current IP address is **[redacted-ip-host1]**. The output also shows your local interface (wlo1) is connected to the [redacted-public-ipv6] network.
 ````
 
 ---
@@ -1701,14 +1701,14 @@ Here are your network interfaces:
 
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): state changed no lease
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): activation: beginning transaction (timeout in 45 seconds)
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=192.168.1.192, acd pending
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1], acd pending
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 Apr 15 14:23:22 intergenos NetworkManager[353]: <info>  [1776281002.9856] agent-manager: agent[98cbb30b060c3332,:1.3045/org.gnome.Shell.NetworkAgent/60598]: agent registered
 Apr 15 14:23:29 intergenos NetworkManager[353]: <info>  [1776281009.4130] agent-manager: agent[4c8c51d7746cf946,:1.3068/org.gnome.Shell.NetworkAgent/1000]: agent registered
-Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 ````
 
 ---
@@ -1914,7 +1914,7 @@ Your hostname is intergenos.
 ````
 The `sshd` service is currently active and running. It is listening on the default port 22.
 
-Recent activity shows successful keyboard-interactive authentication sessions for the `root` user from the IP `192.168.1.199`. No connection failures or errors were reported in the provided logs.
+Recent activity shows successful keyboard-interactive authentication sessions for the `root` user from the IP `[redacted-ip-host2]`. No connection failures or errors were reported in the provided logs.
 ````
 
 ---

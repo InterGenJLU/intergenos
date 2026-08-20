@@ -133,7 +133,7 @@ class PrecisionControlTests(unittest.TestCase):
                 self.assertIn(out, got)
 
     def test_possessive_and_quantity_forms_survive(self):
-        """The forms the cut names explicitly as must-not-regress."""
+        """The forms named explicitly as must-not-regress."""
         for q, out in (("what is MY disk usage", DF_OUTPUT),
                        ("how much memory", FREE_OUTPUT),
                        ("what kernel am I running", "6.18.10-igos-8")):

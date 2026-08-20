@@ -62,7 +62,7 @@ The Python implementation passes if **all** of the following are met on the IGOS
 
 ## §3. Fail criteria (any one of these triggers revert-to-C per Q4 directive)
 
-**The load-bearing criterion is visual sign-off by the maintainer (per the decided §3 verdict).** Quantitative metrics (frame rates, glyph diffs) are supportive evidence but the authoritative judgment is operator's eyes on the IGOS laptop.
+**The load-bearing criterion is visual sign-off by the maintainer (per the decided §3 verdict).** Quantitative metrics (frame rates, glyph diffs) are supportive evidence but the authoritative judgment is a visual check on the laptop.
 
 Triggers:
 - Maintainer verdict: *"this doesn't look right"* or *"nope, back to C we go"* — no further analysis required, revert is greenlit immediately.
@@ -117,7 +117,7 @@ Plain operational note — no ceremony required. If a revert is called:
 1. Remove the Python package + the new XDG autostart file from the build pipeline.
 2. The C/DRM source at `assets/intergen-firstboot-drm/` was removed 2026-05-22 per Q6 post-testing-cleanup verdict + audit-row D-011 closure. **Note on revert-state shipping posture:** the C/DRM was never wrapped in a shipping package per audit row D-001 (`built but never shipped (no package)`); the systemd unit at `assets/intergen-firstboot-drm/intergen-firstboot.service` was a source-of-truth file, not a deployed unit. The immediate revert-state therefore has no shipping firstboot animation. If a shipping firstboot animation is wanted under the revert, that requires reviving the C source from git history (commits prior to the D-011 deletion) + separately authoring a proper C/DRM package (`packages/desktop/intergen-firstboot/build.sh` + `package.yml`) which deploys the unit to `/etc/systemd/system/intergen-firstboot.service` and the binary to `/usr/bin/intergen-firstboot` — that packaging work is its own work-stream and is not part of this revert path.
 3. Move the Python source files out of tree to an archive location (the `build-output/` or `_archive/` area; not kept live in tree per ratified §5 verdict). Git history retains the full implementation if archaeology is ever needed.
-4. The flow-intent question (operator wants animation post-login, but C can only render pre-compositor) remains open — a different approach would be needed to deliver post-login while staying in C. That decision belongs to operator + happens at a separate time.
+4. The flow-intent question (a post-login animation is wanted, but C can only render pre-compositor) remains open — a different approach would be needed to deliver post-login while staying in C. That decision is taken separately.
 
 Single commit lands the revert; no audit row required (the lesson is captured in the matrix + this plan).
 

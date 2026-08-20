@@ -1,7 +1,7 @@
 name: openssh
 version: "10.2p1"
-release: 6  # r6: neutral wording in both shipped sshd_config.d drop-in headers (no directive changed); r5: hook-contract wave: D-007 + hardening sshd_config.d drop-ins moved post_install -> do_install (owned payload)
-content_hash: 38c36853c7a8b4d0
+release: 7  # r7: no shipped-content change: the systemd unit this recipe installs from config/systemd/sshd.service is now declared in source_tree, so editing the unit moves this package's fingerprint. The installed unit is byte-identical to r6.  # r6: neutral wording in both shipped sshd_config.d drop-in headers (no directive changed); r5: hook-contract wave: D-007 + hardening sshd_config.d drop-ins moved post_install -> do_install (owned payload)
+content_hash: 0a5ba401920334f8
 description: Secure Shell client and server
 license: BSD-2-Clause
 homepage: https://www.openssh.com/
@@ -28,6 +28,13 @@ verify_paths:
   - /etc/ssh/sshd_config.d/01-intergenos-hardening.conf
   - /usr/bin/scp
   - /usr/share/doc/openssh-10.2p1
+
+# Build inputs from the repository tree: declared here so an edit to one
+# moves this package's content fingerprint and a targeted build rebuilds it
+# (igos-build/content_hash.py arm (c)), and in sources_extra below so the
+# published source archive carries them.
+source_tree:
+- config/systemd/sshd.service
 
 # Build inputs composed from the repository tree (declared so the published
 # source archive carries every input the build consumes — the corresponding-

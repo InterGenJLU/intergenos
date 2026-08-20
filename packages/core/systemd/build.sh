@@ -29,6 +29,17 @@ configure() {
     # host-deps to satisfy the require
     # condition under all build environments.
     #
+    # `elfutils=enabled` is explicit for the same reason as `bootloader`.
+    # meson.build resolves libdw and libelf with
+    # `required : get_option('elfutils')` and sets HAVE_ELFUTILS only when
+    # both are found; at the `auto` default a chroot without elfutils built
+    # yet produces a systemd-coredump with no ELF symbolization and says
+    # nothing at build time. That is what shipped in the first release —
+    # the installed system reports "elfutils disabled" and its one coredump
+    # could not be parsed. `enabled` turns that silent downgrade into a
+    # configure-time failure; elfutils is declared in dependencies.build to
+    # match, and builds ahead of systemd in the Chapter 8 order.
+    #
     # `sysusers=true` overrides the LFS 13.0 recipe default of false. LFS
     # disables sysusers because LFS users are created manually in Chapter 7;
     # InterGenOS ships /usr/lib/sysusers.d/<pkg>.conf files per the
@@ -56,6 +67,7 @@ configure() {
         -D sysupdate=disabled     \
         -D ukify=disabled         \
         -D bootloader=enabled     \
+        -D elfutils=enabled       \
         -D sbat-distro=intergenos \
         -D sbat-distro-summary="InterGenOS" \
         -D sbat-distro-pkgname=systemd \
@@ -182,6 +194,70 @@ post_install() {
     # cross-pattern post_install sweep alongside the D-007
     # SSH/credentials cluster.
 
-    # Enable/disable services per preset policy
-    systemctl preset-all
+    # Apply the preset policy — ON A FIRST INSTALL ONLY.
+    #
+    # This function runs in four places. Three of them have no user choices to
+    # lose: the build chroot, the image chroot, and the target the installer is
+    # populating. The fourth does. pkm fires a package's sealed post_install on
+    # every install AND every upgrade — it has one archive-lifecycle call site
+    # and it names post_install — so an unconditional preset-all here re-applied
+    # the whole default policy over a running machine whenever this package was
+    # upgraded, turning off every service its owner had turned on, remote login
+    # among them, and writing nothing anywhere to say it had happened.
+    #
+    # The installer still applies the policy authoritatively to a freshly
+    # installed target at the end of its own run. This hook is not that pass and
+    # must not behave as if it were.
+    #
+    # THE PREDICATE IS SYSTEMD'S OWN, not a heuristic invented here.
+    # /etc/machine-id is what systemd itself uses to decide whether a boot is
+    # the first one, and the rules are in machine-id(5) under FIRST BOOT
+    # SEMANTICS: the file absent means first boot; the literal string
+    # "uninitialized" means first boot; an EMPTY file means the boot is NOT a
+    # first boot; a valid id means not a first boot. Reusing that definition is
+    # what makes this branch and ConditionFirstBoot= agree by construction. The
+    # empty case is the one that is easy to get backwards, and getting it
+    # backwards would preset a live system every time systemd had not yet
+    # committed the id back to disk.
+    #
+    # No package ships /etc/machine-id as payload, so installing packages never
+    # creates the marker: the image build writes "uninitialized" into the
+    # chroot, and the installer writes a real id in its config phase, which runs
+    # AFTER the package phase this hook fires in. Both of those are first
+    # installs and both still get the full pass.
+    #
+    # The root comes from PKM_PACKAGE_ROOT because pkm runs lifecycle hooks on
+    # the HOST and never under chroot, passing the target root in that variable.
+    # An unrooted systemctl in this hook therefore acted on whatever system the
+    # installer was running from rather than the target being installed into. A
+    # predicate about one root is meaningless unless the action targets the same
+    # root, so both the read and the write are scoped to it. When the root is
+    # "/" the unrooted form is kept, which is what the build chroot has always
+    # run — same resolution, and same scoping rule, as this tree's other
+    # root-aware hook in the kernel recipe.
+    local root="${PKM_PACKAGE_ROOT:-/}"
+    local marker="${root%/}/etc/machine-id"
+    local first_install=0 why=""
+    if [ ! -e "$marker" ]; then
+        first_install=1
+        why="$marker does not exist"
+    elif [ "$(cat "$marker" 2>/dev/null)" = "uninitialized" ]; then
+        first_install=1
+        why="$marker reads uninitialized"
+    elif [ -s "$marker" ]; then
+        why="$marker holds a machine id, so that system has already booted"
+    else
+        why="$marker exists but is empty, which machine-id(5) defines as not a first boot"
+    fi
+
+    if [ "$first_install" -eq 1 ]; then
+        echo "systemd: applying the service preset policy to ${root} — $why, so no service enablement there was chosen by anyone yet"
+        if [ "${root%/}" = "" ]; then
+            systemctl preset-all
+        else
+            systemctl --root "${root}" preset-all
+        fi
+    else
+        echo "systemd: leaving service enablement on ${root} unchanged — $why, and the services enabled on a system that has booted are the ones its owner chose; the preset policy is applied when a system is installed, not when a package on it is upgraded"
+    fi
 }

@@ -1,0 +1,3 @@
+Legitimate version-number prose that must stay clean: the bug tracker
+for GNOME 4.0 applications, an issue tracker 4.0 milestone written in
+lowercase, and a feature tracker rewrite planned for version 5.

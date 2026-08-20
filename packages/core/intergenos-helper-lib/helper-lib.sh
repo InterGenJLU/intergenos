@@ -148,7 +148,7 @@ igos_helper_init() {
 
     # Clean any pre-existing .partial sidecar for this package -- a
     # fresh init means we're starting over; a prior crash is being
-    # retried + the operator wants the partial-state superseded.
+    # retried and the partial state is superseded.
     local dest_dir="${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}"
     rm -f "$dest_dir/$name.manifest.partial" 2>/dev/null || true
 

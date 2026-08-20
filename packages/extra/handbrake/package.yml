@@ -99,6 +99,16 @@ silent_loss_accepted:
   - nvdec     # NVIDIA hardware decoding, same reason.
   - qsv       # Intel Quick Sync needs the oneVPL runtime, not in the tree.
   - vce       # AMD hardware encoding needs the AMF headers, not in the tree.
+  # The two entries below are inside HandBrake's BUNDLED libbluray contrib only
+  # (upstream's own contrib meson invocation passes -Dfreetype=disabled
+  # -Dlibxml2=disabled): they serve BD-J menu font rendering and disc-library
+  # metadata parsing, code paths HandBrake never calls — it uses libbluray for
+  # title scanning only. The MAIN HandBrake build links the SYSTEM freetype (via
+  # libass) as the header comment above records. Enabling them would grow the
+  # static contrib surface to light up unreachable code, diverging from the
+  # upstream contrib recipe for no user-visible capability. Decided 2026-08-05.
+  - freetype   # bundled-libbluray-only; upstream contrib default; unreachable via HandBrake
+  - libxml2    # bundled-libbluray-only; upstream contrib default; unreachable via HandBrake
 tests:
   enabled: false
   reason: >-
@@ -106,17 +116,6 @@ tests:
     the only test target upstream defines is a meson validation of the GTK
     front-end's AppStream metadata, which requires appstreamcli, and that tool
     is not in the tree. There is nothing this phase could run.
-# The two entries below are inside HandBrake's BUNDLED libbluray contrib only
-# (upstream's own contrib meson invocation passes -Dfreetype=disabled
-# -Dlibxml2=disabled): they serve BD-J menu font rendering and disc-library
-# metadata parsing, code paths HandBrake never calls — it uses libbluray for
-# title scanning only. The MAIN HandBrake build links the SYSTEM freetype (via
-# libass) as the header comment above records. Enabling them would grow the
-# static contrib surface to light up unreachable code, diverging from the
-# upstream contrib recipe for no user-visible capability. Decided 2026-08-05.
-silent_loss_accepted:
-  - freetype   # bundled-libbluray-only; upstream contrib default; unreachable via HandBrake
-  - libxml2    # bundled-libbluray-only; upstream contrib default; unreachable via HandBrake
 verify_paths:
   - /usr/bin/HandBrakeCLI
   - /usr/bin/ghb

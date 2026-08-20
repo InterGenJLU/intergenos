@@ -456,6 +456,18 @@ BASE_CLI = {
     # expects, not required to boot (docs/package-tiers.md base criteria): dig/host/
     # nslookup (bind-utils), whois, traceroute.
     "bind-utils", "whois", "traceroute",
+    # 2026-08-18 system-maintenance + hardware-inspection utilities, same base
+    # criteria: a CLI tool, the system boots without it, and every
+    # general-purpose distribution carries it.
+    #   logrotate — rotates the system logs, including the
+    #     /etc/logrotate.d/intergen-tool-dispatch snippet the tree already
+    #     shipped with no consumer.
+    #   usbutils  — lsusb and friends; names devices from the udev hwdb.
+    #   nvme-cli  — the CLI consumer of the core libnvme library.
+    #   ethtool   — reports and changes network-interface state; needed before
+    #     a machine can reach a mirror, which is why it is on the ISO and the
+    #     mirror-only network diagnostics are not.
+    "logrotate", "usbutils", "nvme-cli", "ethtool",
 }
 
 # AI assistant stack.
@@ -810,6 +822,20 @@ PASS1_FULL_BUILDS_DESKTOP = {
 
 # Final-stragglers desktop additions (catches the remaining UNCLEAR rows).
 GUI_SUBSTRATE_DESKTOP_EXTRA = {
+    # 2026-08-18 desktop integration services. All three are loaded or driven
+    # by something in the desktop rather than launched by a user, and all three
+    # are invisible to consumer inference because nothing build-depends on them
+    # (the desktop consumes them at run time, over D-Bus or as a plugin).
+    #   switcheroo-control — the D-Bus service GNOME Shell asks which GPU an
+    #     application should run on; it is what puts "Launch using Discrete
+    #     Graphics Card" in the menu on hybrid-graphics machines.
+    #   NetworkManager-openvpn / -openconnect — VPN plugins loaded by
+    #     NetworkManager, each shipping a libnma/GTK authentication dialog.
+    #     They are mirror-only (iso_include: false in their recipes) because
+    #     each is useless without the mirror-only client binary it drives, but
+    #     mirror-only is a delivery axis and does not change what they ARE.
+    "switcheroo-control",
+    "NetworkManager-openvpn",
     # X11 server-side utilities
     "libdmx", "sessreg", "setxkbmap",
     # iOS / USB device integration (consumed by gvfs)
@@ -900,7 +926,7 @@ SYSTEM_UTILITIES_CORE = {
 # InterGenOS first-party core packages — policy/data shippers per D-006
 # (GNOME defaults SSoT), D-011 (firewall defaults SSoT), and the keyring /
 # legal / helper-lib triplet that's been a core fixture since 2026-05.
-# No upstream; the fleet IS upstream. tier:core.
+# No upstream; the project IS upstream. tier:core.
 INTERGENOS_FIRSTPARTY_CORE = {
     "ca-certificates",                # Mozilla CA bundle for OS-level TLS
     "intergenos-base-files",          # /etc baseline + FHS skeleton (Debian base-files analog)
@@ -939,6 +965,12 @@ GPU_DRIVERS_EXTRA = {
 # Container runtime tooling — optional. tier:extra. Added 2026-05-31.
 CONTAINER_RUNTIME_EXTRA = {
     "docker", "containerd", "runc",
+    # 2026-08-18 container tooling wave. docker-buildx is a docker CLI plugin
+    # and lands in the cli-plugins directory the docker package already creates
+    # and documents as empty. buildah and skopeo are daemonless peers that
+    # build and move OCI images; they belong with the engine because they are
+    # the same capability, not user applications layered on the desktop.
+    "docker-buildx", "buildah", "skopeo",
 }
 
 # The mingw-w64 PE cross-toolchain (GE extra-tier wave, RT-15 staged
@@ -1084,6 +1116,41 @@ SYSTEM_DIAGNOSTICS_EXTRA = {
     "dmidecode",      # BIOS SMBIOS/DMI hardware inspector (dmidecode, biosdecode)
     "lm-sensors",     # hwmon thermal/fan visibility (sensors, sensors-detect,
                       # fancontrol) — ships per the 2026-07-21 thermal ruling
+}
+
+# Network diagnostics (2026-08-18). Mirror-only command-line tools for finding
+# where a network problem is, plus the meta-package that installs the set.
+# tier:extra is FORCED for two of them rather than chosen: tcpdump and nmap
+# both link libpcap, which is tier:desktop here, and a base-tier package may
+# not build-depend on a desktop-tier one. The other three sit with them so the
+# meta-package's whole closure lives in one tier. ethtool is deliberately NOT
+# here — it is in BASE_CLI and ships on the ISO, because it reports on the
+# machine's own interface rather than on the network beyond it.
+NETWORK_DIAGNOSTICS_EXTRA = {
+    "mtr",                   # per-hop loss and latency along a path
+    "tcpdump",               # packet capture and decode (links libpcap)
+    "iperf3",                # achievable throughput between two hosts
+    "nmap",                  # host and service discovery (links libpcap)
+    "socat",                 # arbitrary connection construction
+    "network-diagnostics",   # dependency-only meta-package over the five
+}
+
+# VPN clients and their helper (2026-08-18). Mirror-only: a VPN client is an
+# opt-in capability a user installs, not a utility every general-purpose
+# system carries, and none of these is needed to reach the mirror. The
+# NetworkManager plugins that front two of them are desktop-tier integration
+# and are classified with the desktop sets, not here.
+VPN_CLIENTS_EXTRA = {
+    "openvpn",        # TLS-based VPN daemon and client
+    "openconnect",    # Cisco AnyConnect / Juniper / GlobalProtect / Fortinet
+    "wireguard-tools",# wg + wg-quick, the user-space half of in-kernel WireGuard
+    "vpnc-scripts",   # the routing/DNS helper openconnect refuses to build without
+    # The OpenConnect NetworkManager plugin sits here rather than with the
+    # desktop integration services because it LINKS libopenconnect, making
+    # openconnect a build dependency and forcing the plugin into the later
+    # tier. Its OpenVPN sibling only executes a binary at run time and stays
+    # in the desktop set.
+    "NetworkManager-openconnect",
 }
 
 # Support libraries whose only consumers today are the training stack
@@ -1263,6 +1330,10 @@ def hard_category_tier(name: str, lfs_ch8: Set[str]) -> str:
     if name in GPU_DRIVERS_EXTRA:
         return "extra"
     if name in CONTAINER_RUNTIME_EXTRA:
+        return "extra"
+    if name in NETWORK_DIAGNOSTICS_EXTRA:
+        return "extra"
+    if name in VPN_CLIENTS_EXTRA:
         return "extra"
     if name in WINDOWS_CROSS_TOOLCHAIN_EXTRA:
         return "extra"

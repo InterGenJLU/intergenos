@@ -1,0 +1,41 @@
+name: nmap
+version: "7.991"
+release: 1
+description: Network host and service discovery and security scanner
+license: LicenseRef-NPSL-0.95  # Nmap Public Source License 0.95 — not on the SPDX list (3.28.0), so SPDX's LicenseRef form names it exactly
+homepage: https://nmap.org/
+tier: extra
+build_style: autotools
+# tier: extra for the same forced reason as tcpdump: nmap links libpcap, which
+# is a tier:desktop package here, so no earlier tier is available to it.
+source:
+  - url: https://nmap.org/dist/nmap-${version}.tar.bz2
+    sha256: a5d507f29437bef3bedd4771ff9aaa8fc1c2a109ddba1f5b1cf12027456929be
+dependencies:
+  build:
+    - pkgconf
+    - libpcap       # packet capture — the bundled copy is refused below
+    - openssl       # TLS probing and the ssl-* scripts
+    - libssh2       # the ssh2 scripts and SSH host-key collection
+    - zlib
+    - lua           # the Nmap Scripting Engine's interpreter
+    - pcre2         # service-fingerprint matching
+  host: []
+  runtime:
+    - libpcap
+    - openssl
+    - libssh2
+    - zlib
+    - lua
+    - pcre2
+silent_loss_accepted:
+  - liblinear   # not a feature loss — measured 2026-08-20: configure printed "liblinear was found... no, will use our own" and the build compiled and linked the tarball's bundled liblinear, so IPv6 OS detection ships; a system liblinear recipe is a candidate for a later wave, not a build-time hole
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "the suite's scan cases probe live hosts and need raw-socket capability and a reachable network, neither of which the build chroot has, so they fail by environment. The self-tests of the fingerprint parser, the scripting engine's own unit tests and the output formatters run normally."
+verify_paths:
+  - /usr/bin/nmap
+  - /usr/bin/ncat
+  - /usr/share/man/man1/nmap.1

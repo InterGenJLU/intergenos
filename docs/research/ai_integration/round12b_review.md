@@ -964,7 +964,7 @@ Could you please specify:
 
 **Response:**
 ````
-The SSH daemon (sshd) is currently active and running. It is enabled and started by the system's systemd service, and the main process (PID 425) has been active for over a week. Recent logs show successful session openings and keyboard-interactive authentication for user root from IP 192.168.1.199.
+The SSH daemon (sshd) is currently active and running. It is enabled and started by the system's systemd service, and the main process (PID 425) has been active for over a week. Recent logs show successful session openings and keyboard-interactive authentication for user root from IP [redacted-ip-host2].
 ````
 
 **Failed assertions:**
@@ -979,7 +979,7 @@ The SSH daemon (sshd) is currently active and running. It is enabled and started
 
 **Response:**
 ````
-SSH is active and running. The `sshd.service` is enabled and currently active, with the main process (PID 425) started at 22:49 on April 8. Multiple successful SSH session openings to the root user from the IP `192.168.1.199` are visible in the logs.
+SSH is active and running. The `sshd.service` is enabled and currently active, with the main process (PID 425) started at 22:49 on April 8. Multiple successful SSH session openings to the root user from the IP `[redacted-ip-host2]` are visible in the logs.
 ````
 
 **Failed assertions:**
@@ -996,7 +996,7 @@ SSH is active and running. The `sshd.service` is enabled and currently active, w
 ````
 Yes, the SSH service is running. The `sshd.service` is active, loaded, and currently running with a main process (PID 425) consuming 16.335 CPU seconds.
 
-Recent logs show successful connection attempts from the IP `192.168.1.199` to port 42684 and 42698, followed by successful passwordless SSH key exchanges.
+Recent logs show successful connection attempts from the IP `[redacted-ip-host2]` to port 42684 and 42698, followed by successful passwordless SSH key exchanges.
 ````
 
 ---
@@ -1166,7 +1166,7 @@ Swap:          2.0Gi       205Mi       1.8Gi
 ````
 Yes, SSH is running. The `sshd.service` is active and currently running, listening on port 22.
 
-Recent system logs confirm active SSH sessions for user `root` from IP `192.168.1.199` on ports 42684, 42698, and 42278.
+Recent system logs confirm active SSH sessions for user `root` from IP `[redacted-ip-host2]` on ports 42684, 42698, and 42278.
 ````
 
 ---
@@ -1234,7 +1234,7 @@ You're running kernel 6.18.10.
 
 **Response:**
 ````
-Your public IP address is 192.168.1.192. The local loopback address 127.0.0.1 is not a public IP.
+Your public IP address is [redacted-ip-host1]. The local loopback address 127.0.0.1 is not a public IP.
 ````
 
 ---
@@ -1629,14 +1629,14 @@ Here are your network interfaces:
 
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): state changed no lease
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): activation: beginning transaction (timeout in 45 seconds)
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=192.168.1.192, acd pending
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1], acd pending
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 Apr 15 14:23:22 intergenos NetworkManager[353]: <info>  [1776281002.9856] agent-manager: agent[98cbb30b060c3332,:1.3045/org.gnome.Shell.NetworkAgent/60598]: agent registered
 Apr 15 14:23:29 intergenos NetworkManager[353]: <info>  [1776281009.4130] agent-manager: agent[4c8c51d7746cf946,:1.3068/org.gnome.Shell.NetworkAgent/1000]: agent registered
-Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 ````
 
 ---
@@ -1852,7 +1852,7 @@ sshd is active and running on InterGenOS. It has been running since April 8, 202
 
 **Recent Activity:**
 - SSH sessions are active on user `root`.
-- The most recent connection was accepted from `192.168.1.199` at `13:26:22`.
+- The most recent connection was accepted from `[redacted-ip-host2]` at `13:26:22`.
 ````
 
 ---

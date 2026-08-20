@@ -518,7 +518,7 @@
         {
           "turn_num": 1,
           "user_input": "Is NetworkManager running?",
-          "response_text": "Here are your network interfaces:\n\n\u25cf NetworkManager.service - Network Manager\n     Loaded: loaded (/usr/lib/systemd/system/NetworkManager.service; enabled; preset: enabled)\n     Active: active (running) since Wed 2026-04-08 22:49:32 CDT; 1 week 0 days ago\n Invocation: 78334cb2d44c412b9ca5db20448f981f\n       Docs: man:NetworkManager(8)\n   Main PID: 353 (NetworkManager)\n      Tasks: 4 (limit: 18810)\n     Memory: 10.9M (peak: 14.6M)\n        CPU: 1min 2.612s\n     CGroup: /system.slice/NetworkManager.service\n             \u2514\u2500353 /usr/sbin/NetworkManager --no-daemon\n\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): state changed no lease\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): activation: beginning transaction (timeout in 45 seconds)\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=192.168.1.192, acd pending\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=192.168.1.192\nApr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=192.168.1.192\nApr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=192.168.1.192\nApr 15 14:23:22 intergenos NetworkManager[353]: <info>  [1776281002.9856] agent-manager: agent[98cbb30b060c3332,:1.3045/org.gnome.Shell.NetworkAgent/60598]: agent registered\nApr 15 14:23:29 intergenos NetworkManager[353]: <info>  [1776281009.4130] agent-manager: agent[4c8c51d7746cf946,:1.3068/org.gnome.Shell.NetworkAgent/1000]: agent registered\nApr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=192.168.1.192\nApr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=192.168.1.192",
+          "response_text": "Here are your network interfaces:\n\n\u25cf NetworkManager.service - Network Manager\n     Loaded: loaded (/usr/lib/systemd/system/NetworkManager.service; enabled; preset: enabled)\n     Active: active (running) since Wed 2026-04-08 22:49:32 CDT; 1 week 0 days ago\n Invocation: 78334cb2d44c412b9ca5db20448f981f\n       Docs: man:NetworkManager(8)\n   Main PID: 353 (NetworkManager)\n      Tasks: 4 (limit: 18810)\n     Memory: 10.9M (peak: 14.6M)\n        CPU: 1min 2.612s\n     CGroup: /system.slice/NetworkManager.service\n             \u2514\u2500353 /usr/sbin/NetworkManager --no-daemon\n\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): state changed no lease\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): activation: beginning transaction (timeout in 45 seconds)\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1], acd pending\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]\nApr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]\nApr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]\nApr 15 14:23:22 intergenos NetworkManager[353]: <info>  [1776281002.9856] agent-manager: agent[98cbb30b060c3332,:1.3045/org.gnome.Shell.NetworkAgent/60598]: agent registered\nApr 15 14:23:29 intergenos NetworkManager[353]: <info>  [1776281009.4130] agent-manager: agent[4c8c51d7746cf946,:1.3068/org.gnome.Shell.NetworkAgent/1000]: agent registered\nApr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]\nApr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]",
           "source": "keyword",
           "tool_calls": [],
           "elapsed_ms": 9.1,
@@ -2247,7 +2247,7 @@
         {
           "turn_num": 1,
           "user_input": "What's my IP address?",
-          "response_text": "Your local loopback address is 127.0.0.1. Your active network interface (wlo1) has the IP address 192.168.1.192, which falls within the 192.168.1.0/24 subnet.",
+          "response_text": "Your local loopback address is 127.0.0.1. Your active network interface (wlo1) has the IP address [redacted-ip-host1], which falls within the [redacted-lan-subnet]/24 subnet.",
           "source": "keyword",
           "tool_calls": [],
           "elapsed_ms": 8643.6,
@@ -4285,7 +4285,7 @@
         {
           "turn_num": 1,
           "user_input": "is ssh runnign?",
-          "response_text": "Yes, the SSH server is running. The service `sshd.service` is currently active and running, with the main process (PID 425) executing `sshd` in the background.\n\nThe provided logs show multiple successful session openings and connections from `192.168.1.199` on ports 42278, 38026, and 50098, confirming the service is operational and accepting incoming connections.",
+          "response_text": "Yes, the SSH server is running. The service `sshd.service` is currently active and running, with the main process (PID 425) executing `sshd` in the background.\n\nThe provided logs show multiple successful session openings and connections from `[redacted-ip-host2]` on ports 42278, 38026, and 50098, confirming the service is operational and accepting incoming connections.",
           "source": "llm_tools",
           "tool_calls": [
             {
@@ -6492,7 +6492,7 @@
         {
           "turn_num": 1,
           "user_input": "Check sshd",
-          "response_text": "sshd.service is active and running. The service has been running since April 8, 2026. It is currently accepting SSH connections from 192.168.1.199.",
+          "response_text": "sshd.service is active and running. The service has been running since April 8, 2026. It is currently accepting SSH connections from [redacted-ip-host2].",
           "source": "llm_tools",
           "tool_calls": [
             {
@@ -10885,7 +10885,7 @@
         {
           "turn_num": 1,
           "user_input": "What is the current status of the SSH daemon?",
-          "response_text": "The SSH daemon (sshd) is currently active and running as a system service on InterGenOS. The process has been active for one week, and it is currently handling incoming SSH connections from the IP address 192.168.1.199.\n\n**Status:** Active (running)\n**Service:** sshd.service",
+          "response_text": "The SSH daemon (sshd) is currently active and running as a system service on InterGenOS. The process has been active for one week, and it is currently handling incoming SSH connections from the IP address [redacted-ip-host2].\n\n**Status:** Active (running)\n**Service:** sshd.service",
           "source": "llm_tools",
           "tool_calls": [
             {
@@ -11012,7 +11012,7 @@
         {
           "turn_num": 1,
           "user_input": "is ssh up",
-          "response_text": "Yes, the SSH server is currently up and running.\n\n**Status:** Active (running)\n**Service:** sshd.service (Enabled)\n**PID:** 425\n**Load:** 6M / 26.2M memory\n\n**Recent Activity:**\n- Active connections from IP `192.168.1.199` are observed.\n- A session was closed at 12:45 PM.\n- New connection attempts were accepted at 1:26 PM and 1:51 PM.",
+          "response_text": "Yes, the SSH server is currently up and running.\n\n**Status:** Active (running)\n**Service:** sshd.service (Enabled)\n**PID:** 425\n**Load:** 6M / 26.2M memory\n\n**Recent Activity:**\n- Active connections from IP `[redacted-ip-host2]` are observed.\n- A session was closed at 12:45 PM.\n- New connection attempts were accepted at 1:26 PM and 1:51 PM.",
           "source": "llm_tools",
           "tool_calls": [
             {
@@ -11139,7 +11139,7 @@
         {
           "turn_num": 1,
           "user_input": "I can't connect via SSH, is the service even on?",
-          "response_text": "The SSH service (`sshd`) is currently **active and running**.\n\n**Key Evidence:**\n*   **Status:** Active (running) since Wed, April 8, 2026.\n*   **PID:** 425 (PID 425).\n*   **Load:** 16.426 CPU seconds.\n*   **Memory:** 6M used (peak: 26.2M).\n*   **Log:** Confirmed active connection attempts from `192.168.1.199` on ports 42278 and 38026.\n\n**Conclusion:**\nThe service is running, but the failure to connect is likely due to a network configuration issue (e.g., firewall blocking, incorrect IP, or port restriction) rather than the service itself being down.",
+          "response_text": "The SSH service (`sshd`) is currently **active and running**.\n\n**Key Evidence:**\n*   **Status:** Active (running) since Wed, April 8, 2026.\n*   **PID:** 425 (PID 425).\n*   **Load:** 16.426 CPU seconds.\n*   **Memory:** 6M used (peak: 26.2M).\n*   **Log:** Confirmed active connection attempts from `[redacted-ip-host2]` on ports 42278 and 38026.\n\n**Conclusion:**\nThe service is running, but the failure to connect is likely due to a network configuration issue (e.g., firewall blocking, incorrect IP, or port restriction) rather than the service itself being down.",
           "source": "llm_tools",
           "tool_calls": [
             {
@@ -11266,7 +11266,7 @@
         {
           "turn_num": 1,
           "user_input": "ssh isn't responding, check if it's running",
-          "response_text": "SSH is responding. The `sshd` service is **active (running)**, running as PID 425 since April 8, 2026.\n\nRecent logs show successful SSH connections from `192.168.1.199` (ports 42278, 38026, and 50098) for the root user. No errors indicate the service is unresponsive.",
+          "response_text": "SSH is responding. The `sshd` service is **active (running)**, running as PID 425 since April 8, 2026.\n\nRecent logs show successful SSH connections from `[redacted-ip-host2]` (ports 42278, 38026, and 50098) for the root user. No errors indicate the service is unresponsive.",
           "source": "llm_tools",
           "tool_calls": [
             {
@@ -11284,7 +11284,7 @@
               "value": "error",
               "passed": false,
               "description": "Should check service",
-              "actual": "SSH is responding. The `sshd` service is **active (running)**, running as PID 425 since April 8, 2026.\n\nRecent logs show successful SSH connections from `192.168.1.199` (ports 42278, 38026, and 50098)"
+              "actual": "SSH is responding. The `sshd` service is **active (running)**, running as PID 425 since April 8, 2026.\n\nRecent logs show successful SSH connections from `[redacted-ip-host2]` (ports 42278, 38026, and 50098)"
             },
             {
               "type": "auto:no_filler_opening",

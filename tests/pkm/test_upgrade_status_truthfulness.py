@@ -96,8 +96,15 @@ class FakeInstaller:
 class FakeRemover:
     def __init__(self, db, root=None):
         self.db = db
+        self.calls = []
 
-    def remove(self, name, force=False, reporter=None, on_file=None):
+    def remove(self, name, force=False, reporter=None, on_file=None,
+               run_pre_remove_hook=True):
+        # Signature mirrors PackageRemover.remove exactly. A double whose
+        # signature has drifted from the real one stops standing in for it —
+        # it starts hiding whatever the caller now passes.
+        self.calls.append({"name": name, "force": force,
+                           "run_pre_remove_hook": run_pre_remove_hook})
         return True, f"Removed {name}"
 
 
@@ -181,7 +188,8 @@ class ExitCodeTruthTest(UpgradeTruthTestBase):
         removal left the old package in place and the install landed on top of
         a package that was supposed to be gone."""
         class RefusingRemover(FakeRemover):
-            def remove(self, name, force=False, reporter=None, on_file=None):
+            def remove(self, name, force=False, reporter=None, on_file=None,
+                       run_pre_remove_hook=True):
                 return False, "another package depends on it"
 
         installer = FakeInstaller(result=(True, "Installed kern"))

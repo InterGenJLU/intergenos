@@ -1610,7 +1610,7 @@
         {
           "turn_num": 1,
           "user_input": "What's my IP address?",
-          "response_text": "Your current interface IP address is 192.168.1.192/24, with the loopback address 127.0.0.1/8 and the IPv6 address 2600:1700:7080:69b0:bbb4:ef34:7cd7:5b77/64.",
+          "response_text": "Your current interface IP address is [redacted-ip-host1]/24, with the loopback address 127.0.0.1/8 and the IPv6 address [redacted-public-ipv6]/64.",
           "source": "keyword",
           "tool_calls": [],
           "elapsed_ms": 8665.9,
@@ -7919,7 +7919,7 @@
         {
           "turn_num": 1,
           "user_input": "I can't connect via SSH, is the service even on?",
-          "response_text": "The SSH service is active and running. The service status shows as active (running) since Wed 2026-04-08 22:49:33 CDT, and the main process (PID 425) is currently executing. Recent logs confirm successful session openings and connections from the client IP 192.168.1.199.",
+          "response_text": "The SSH service is active and running. The service status shows as active (running) since Wed 2026-04-08 22:49:33 CDT, and the main process (PID 425) is currently executing. Recent logs confirm successful session openings and connections from the client IP [redacted-ip-host2].",
           "source": "llm_tools",
           "tool_calls": [
             {

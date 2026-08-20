@@ -100,7 +100,7 @@ SKIP_PATHS = {
     # intergenos-wiki signed page manifest — a machine-generated JSON of PUBLIC
     # per-page sha256 hashes (nothing secret; the pages themselves are the
     # public wiki), signed (.asc) and verified fail-closed at cite
-    # time by intergen.wiki_citations. The 80 hex values trip HEX-SECRET by
+    # time by intergen.wiki_citations. The manifest's hex values trip HEX-SECRET by
     # shape, not by substance. Path-exemption authorized per
     # build-rules §3.11 (planned in the package.yml since authoring; executed
     # at the first-mint manifest ceremony, 2026-07-12).
@@ -166,7 +166,7 @@ HEX_SECRETS = [
 # via LEDGER_EXEMPT_PATHS below, mirroring PRIVATE_REPO_PATH_EXEMPT_PATHS.
 INTERNAL_LEDGER = [
     ("INTERNAL-LEDGER", r"\bTRACKER(?:_[0-9][0-9._]*)?\.md\b"),
-    ("INTERNAL-LEDGER", r"\bTRACKER[ _](?:2\.0|3\.0)\b"),
+    ("INTERNAL-LEDGER", r"\bTRACKER[ _][0-9]+\.[0-9]+\b"),
 ]
 
 # Machine-specific leak class (decided 2026-07-06, after the
@@ -180,6 +180,21 @@ INTERNAL_LEDGER = [
 MACHINE_SPECIFICS = [
     ("HOME-LAN-IP", r"\b192\.168\.1\.\d{1,3}\b"),
     ("SUDO-PASS-PATH", r"Documents/s\.txt"),
+    # Global-unicast IPv6 literals (added 2026-08-18, completing this tier:
+    # the RFC1918 pattern above had no IPv6 counterpart). Global unicast is
+    # 2000::/3, so the first hextet starts with 2 or 3. Shape guards:
+    #   - two colons minimum, so USB vendor:product IDs (20a0:42b2) and
+    #     standards citations (SMPTE-2086:2014) never match;
+    #   - the leading lookbehind refuses a hex-or-colon predecessor, so the
+    #     interior segments of a link-local address (fe80::...) never match;
+    #   - carved out in-pattern, as public infrastructure rather than
+    #     machine-specific values: the RFC 3849 documentation prefix
+    #     (2001:db8::/32) and the Cloudflare (2606:4700::/32) and Quad9
+    #     (2620:fe::/32) resolver prefixes used by shipped DNS defaults,
+    #     their docs, and test fixtures.
+    ("GLOBAL-IPV6",
+     r"(?<![0-9A-Fa-f:.])\b(?!2001:0?[Dd][Bb]8\b)(?!2606:4700\b)(?!2620:[Ff][Ee]\b)"
+     r"[23][0-9A-Fa-f]{3}:[0-9A-Fa-f]{0,4}:[0-9A-Fa-f:]*[0-9A-Fa-f]\b"),
 ]
 # Bare fleet-host names are BLOCK-tier — decided 2026-07-08: there
 # are NO legitimate uses of fleet seat names in public content, period. The
@@ -348,13 +363,14 @@ HOST_SHORTHAND = [
 #   - intergen/tests/test_ip_answer.py — synthetic ifconfig fixtures; the
 #     tests exercise RFC1918 internal-IP parsing, so the fixture addresses
 #     MUST be RFC1918 by test semantics (TEST-NET would change behavior).
-#   - docs/research/ai_integration/ — the legacy InterGen evaluation-rounds
-#     corpus (51 files) predates this gate and carries home-LAN addresses
-#     throughout. QUARANTINED pending the operator's relocation ruling
-#     (2026-07-06); new content under any other path is gated immediately.
+#     Also carries synthetic global-unicast IPv6 fixtures (2601:abc::...)
+#     for the same parsing tests — exempt for the same reason (2026-08-18).
+#   (The docs/research/ai_integration/ entry that stood here from 2026-07-06
+#   was removed 2026-08-18: the archived transcripts now use placeholder
+#   identifiers and the directory scans like every other path. Entries on
+#   this list carry an expiry condition, never an open-ended "pending".)
 MACHINE_SPECIFICS_EXEMPT_PATHS = [
     "intergen/tests/test_ip_answer.py",
-    "docs/research/ai_integration/",
     #   - intergen/data/howto/networking.json — user-facing howto uses
     #     192.168.1.20 as a generic home-router example (idiomatic for
     #     networking docs; not a fleet address; an edit would flip the

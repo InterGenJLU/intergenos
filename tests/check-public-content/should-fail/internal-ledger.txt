@@ -1,0 +1,3 @@
+Internal-ledger citations in the spellings the enumeration missed: the
+space-separated current form TRACKER 4.0 on one line, and a future
+rollover spelling TRACKER 12.10 on another.

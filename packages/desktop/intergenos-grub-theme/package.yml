@@ -1,8 +1,8 @@
 name: intergenos-grub-theme
 version: "1.0"
-release: 3
+release: 4  # r4: description wording only: the design is recorded as decided on its date rather than credited to a project role. Theme, backgrounds and the /etc/grub.d override are unchanged. Hand bump — package.yml-only edits are outside the automatic bumper's fingerprint.
 content_hash: 64b677293f24db00
-description: InterGenOS GRUB boot-menu theme + resolution-aware background scaffold (operator-authored design 2026-05-21; K1 closure) -- ships 12 Steam-hardware-survey-grounded background images + a runtime /etc/grub.d/06_intergenos_multi_background override that picks the matching PNG based on GRUB's negotiated $gfxmode + a minimal theme.txt that suppresses the menu border so the lower-right brand mark stays unobscured. Composes with upstream 05_debian_theme rather than forking it.
+description: InterGenOS GRUB boot-menu theme + resolution-aware background scaffold (design decided 2026-05-21; K1 closure) -- ships 12 Steam-hardware-survey-grounded background images + a runtime /etc/grub.d/06_intergenos_multi_background override that picks the matching PNG based on GRUB's negotiated $gfxmode + a minimal theme.txt that suppresses the menu border so the lower-right brand mark stays unobscured. Composes with upstream 05_debian_theme rather than forking it.
 license: GPL-3.0-or-later
 homepage: https://github.com/InterGenJLU/intergenos
 # First-party authored assets following the assets/intergen-* canonical

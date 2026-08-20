@@ -1,6 +1,7 @@
 name: lib32-libtasn1
 version: "4.21.0"
 release: 1
+content_hash: 77fca4c6e3435393
 description: ASN.1 library used by GnuTLS and p11-kit (32-bit multilib runtime)
 license: LGPL-2.1-or-later
 homepage: https://www.gnu.org/software/libtasn1/
@@ -34,6 +35,13 @@ dependencies:
 verify_paths:
   - /usr/lib32/libtasn1.so.6
   - /usr/lib32/pkgconfig/libtasn1.pc
+
+# Build inputs from the repository tree: declared here so an edit to one
+# moves this package's content fingerprint and a targeted build rebuilds it
+# (igos-build/content_hash.py arm (c)), and in sources_extra below so the
+# published source archive carries them.
+source_tree:
+- scripts/lib32-env.sh
 
 # Build inputs composed from the repository tree (declared so the published
 # source archive carries every input the build consumes — the corresponding-

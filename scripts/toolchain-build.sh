@@ -53,6 +53,19 @@ mkdir -pv $IGOS_LOGS
 [ -f /mnt/intergenos/scripts/lib/trace.sh ] && source /mnt/intergenos/scripts/lib/trace.sh
 [ "${IGOS_TRACE_LIB_LOADED:-0}" = "1" ] && trace_init "tier-toolchain"
 
+# Phase-invocation helper. Every recipe phase below runs through
+# igos_run_phase: a phase called as the left operand of `||` runs with
+# errexit suspended, so a failed command mid-phase is not seen and the phase
+# reports the status of whatever ran last (measured; the header of
+# scripts/lib/phase-run.sh carries the three forms and their results).
+# Absence is fatal — without it the phases have no failure detection at all.
+if [ ! -f /mnt/intergenos/scripts/lib/phase-run.sh ]; then
+    echo "FATAL: /mnt/intergenos/scripts/lib/phase-run.sh not found — phases cannot be run with failure detection" >&2
+    exit 1
+fi
+# shellcheck disable=SC1091
+source /mnt/intergenos/scripts/lib/phase-run.sh
+
 # ============================================================================
 # Build helper functions
 # ============================================================================
@@ -116,8 +129,8 @@ build_package() {
     local start_time=$(date +%s)
 
     log "--- [CONFIGURE] ---"
-    configure >> "$pkg_log" 2>&1
-    local rc=$?
+    igos_run_phase configure "$pkg_log"
+    local rc=$IGOS_PHASE_RC
     if [ $rc -ne 0 ]; then
         log "FAILED in configure phase (exit $rc)"
         trace_pkg_capture --pkg "$pkg_name" --version "$pkg_version" --tier toolchain --phase configure --rc "$rc" --duration-ms "$(( ($(date +%s) - start_time) * 1000 ))" --log "$pkg_log" --cmd-file "$build_script"
@@ -128,8 +141,8 @@ build_package() {
     log "  configure completed successfully"
 
     log "--- [BUILD] ---"
-    build >> "$pkg_log" 2>&1
-    rc=$?
+    igos_run_phase build "$pkg_log"
+    rc=$IGOS_PHASE_RC
     if [ $rc -ne 0 ]; then
         log "FAILED in build phase (exit $rc)"
         trace_pkg_capture --pkg "$pkg_name" --version "$pkg_version" --tier toolchain --phase build --rc "$rc" --duration-ms "$(( ($(date +%s) - start_time) * 1000 ))" --log "$pkg_log" --cmd-file "$build_script"
@@ -142,8 +155,8 @@ build_package() {
     # Install (some packages define install, some don't)
     if type -t install | grep -q function; then
         log "--- [INSTALL] ---"
-        install >> "$pkg_log" 2>&1
-        rc=$?
+        igos_run_phase install "$pkg_log"
+        rc=$IGOS_PHASE_RC
         if [ $rc -ne 0 ]; then
             log "FAILED in install phase (exit $rc)"
             trace_pkg_capture --pkg "$pkg_name" --version "$pkg_version" --tier toolchain --phase install --rc "$rc" --duration-ms "$(( ($(date +%s) - start_time) * 1000 ))" --log "$pkg_log" --cmd-file "$build_script"
@@ -203,7 +216,10 @@ if [ ! -f "$IGOS_SOURCES/binutils-2.46.0.tar.xz" ]; then
 fi
 
 # --- 5.2: Binutils Pass 1 ---
-build_package "binutils-pass1" "2.46.0" "binutils-2.46.0.tar.xz" || exit 1
+build_package "binutils-pass1" "2.46.0" "binutils-2.46.0.tar.xz"
+# Status read from $? — a call on the left of `||` suspends errexit for
+# everything the callee runs (see scripts/lib/phase-run.sh).
+[ $? -eq 0 ] || exit 1
 
 # --- 5.3: GCC Pass 1 ---
 # GCC needs GMP, MPFR, MPC extracted into its source tree
@@ -231,15 +247,30 @@ source /mnt/intergenos/packages/toolchain/gcc-pass1/build.sh
 
 GCC_START=$(date +%s)
 log "--- [CONFIGURE] ---"
-configure >> "$GCC_LOG" 2>&1 || { log "FAILED in gcc-pass1 configure"; tail -20 "$GCC_LOG" | while read l; do log "  $l"; done; exit 1; }
+igos_run_phase configure "$GCC_LOG"
+if [ "$IGOS_PHASE_RC" -ne 0 ]; then
+    log "FAILED in gcc-pass1 configure (exit $IGOS_PHASE_RC)"
+    tail -20 "$GCC_LOG" | while read l; do log "  $l"; done
+    exit 1
+fi
 log "  configure completed successfully"
 
 log "--- [BUILD] ---"
-build >> "$GCC_LOG" 2>&1 || { log "FAILED in gcc-pass1 build"; tail -20 "$GCC_LOG" | while read l; do log "  $l"; done; exit 1; }
+igos_run_phase build "$GCC_LOG"
+if [ "$IGOS_PHASE_RC" -ne 0 ]; then
+    log "FAILED in gcc-pass1 build (exit $IGOS_PHASE_RC)"
+    tail -20 "$GCC_LOG" | while read l; do log "  $l"; done
+    exit 1
+fi
 log "  build completed successfully"
 
 log "--- [INSTALL] ---"
-install >> "$GCC_LOG" 2>&1 || { log "FAILED in gcc-pass1 install"; tail -20 "$GCC_LOG" | while read l; do log "  $l"; done; exit 1; }
+igos_run_phase install "$GCC_LOG"
+if [ "$IGOS_PHASE_RC" -ne 0 ]; then
+    log "FAILED in gcc-pass1 install (exit $IGOS_PHASE_RC)"
+    tail -20 "$GCC_LOG" | while read l; do log "  $l"; done
+    exit 1
+fi
 log "  install completed successfully"
 
 GCC_END=$(date +%s)
@@ -249,7 +280,10 @@ cd /
 rm -rf "$GCC_WORK"
 
 # --- 5.4: Linux API Headers ---
-build_package "linux-headers" "6.18.10" "linux-6.18.10.tar.xz" || exit 1
+build_package "linux-headers" "6.18.10" "linux-6.18.10.tar.xz"
+# Status read from $? — a call on the left of `||` suspends errexit for
+# everything the callee runs (see scripts/lib/phase-run.sh).
+[ $? -eq 0 ] || exit 1
 
 # --- 5.5: Glibc ---
 # Glibc needs the FHS patch applied first
@@ -272,19 +306,39 @@ source /mnt/intergenos/packages/toolchain/glibc/build.sh
 
 GLIBC_START=$(date +%s)
 log "--- [CONFIGURE] ---"
-configure >> "$GLIBC_LOG" 2>&1 || { log "FAILED in glibc configure"; tail -20 "$GLIBC_LOG" | while read l; do log "  $l"; done; exit 1; }
+igos_run_phase configure "$GLIBC_LOG"
+if [ "$IGOS_PHASE_RC" -ne 0 ]; then
+    log "FAILED in glibc configure (exit $IGOS_PHASE_RC)"
+    tail -20 "$GLIBC_LOG" | while read l; do log "  $l"; done
+    exit 1
+fi
 log "  configure completed successfully"
 
 log "--- [BUILD] ---"
-build >> "$GLIBC_LOG" 2>&1 || { log "FAILED in glibc build"; tail -20 "$GLIBC_LOG" | while read l; do log "  $l"; done; exit 1; }
+igos_run_phase build "$GLIBC_LOG"
+if [ "$IGOS_PHASE_RC" -ne 0 ]; then
+    log "FAILED in glibc build (exit $IGOS_PHASE_RC)"
+    tail -20 "$GLIBC_LOG" | while read l; do log "  $l"; done
+    exit 1
+fi
 log "  build completed successfully"
 
 log "--- [INSTALL] ---"
-install >> "$GLIBC_LOG" 2>&1 || { log "FAILED in glibc install"; tail -20 "$GLIBC_LOG" | while read l; do log "  $l"; done; exit 1; }
+igos_run_phase install "$GLIBC_LOG"
+if [ "$IGOS_PHASE_RC" -ne 0 ]; then
+    log "FAILED in glibc install (exit $IGOS_PHASE_RC)"
+    tail -20 "$GLIBC_LOG" | while read l; do log "  $l"; done
+    exit 1
+fi
 log "  install completed successfully"
 
 log "--- [SANITY CHECK] ---"
-check >> "$GLIBC_LOG" 2>&1 || { log "FAILED in glibc sanity check"; tail -20 "$GLIBC_LOG" | while read l; do log "  $l"; done; exit 1; }
+igos_run_phase check "$GLIBC_LOG"
+if [ "$IGOS_PHASE_RC" -ne 0 ]; then
+    log "FAILED in glibc sanity check (exit $IGOS_PHASE_RC)"
+    tail -20 "$GLIBC_LOG" | while read l; do log "  $l"; done
+    exit 1
+fi
 log "  sanity check passed"
 
 GLIBC_END=$(date +%s)
@@ -312,15 +366,30 @@ source /mnt/intergenos/packages/toolchain/libstdcpp/build.sh
 
 LIBSTDCPP_START=$(date +%s)
 log "--- [CONFIGURE] ---"
-configure >> "$LIBSTDCPP_LOG" 2>&1 || { log "FAILED in libstdcpp configure"; tail -20 "$LIBSTDCPP_LOG" | while read l; do log "  $l"; done; exit 1; }
+igos_run_phase configure "$LIBSTDCPP_LOG"
+if [ "$IGOS_PHASE_RC" -ne 0 ]; then
+    log "FAILED in libstdcpp configure (exit $IGOS_PHASE_RC)"
+    tail -20 "$LIBSTDCPP_LOG" | while read l; do log "  $l"; done
+    exit 1
+fi
 log "  configure completed successfully"
 
 log "--- [BUILD] ---"
-build >> "$LIBSTDCPP_LOG" 2>&1 || { log "FAILED in libstdcpp build"; tail -20 "$LIBSTDCPP_LOG" | while read l; do log "  $l"; done; exit 1; }
+igos_run_phase build "$LIBSTDCPP_LOG"
+if [ "$IGOS_PHASE_RC" -ne 0 ]; then
+    log "FAILED in libstdcpp build (exit $IGOS_PHASE_RC)"
+    tail -20 "$LIBSTDCPP_LOG" | while read l; do log "  $l"; done
+    exit 1
+fi
 log "  build completed successfully"
 
 log "--- [INSTALL] ---"
-install >> "$LIBSTDCPP_LOG" 2>&1 || { log "FAILED in libstdcpp install"; tail -20 "$LIBSTDCPP_LOG" | while read l; do log "  $l"; done; exit 1; }
+igos_run_phase install "$LIBSTDCPP_LOG"
+if [ "$IGOS_PHASE_RC" -ne 0 ]; then
+    log "FAILED in libstdcpp install (exit $IGOS_PHASE_RC)"
+    tail -20 "$LIBSTDCPP_LOG" | while read l; do log "  $l"; done
+    exit 1
+fi
 log "  install completed successfully"
 
 LIBSTDCPP_END=$(date +%s)

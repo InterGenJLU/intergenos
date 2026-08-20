@@ -858,6 +858,23 @@ phase_validate() {
         return 1
     fi
 
+    # Aspirational-stub gate (Rule 21): every path a shipped surface claims —
+    # service units, .desktop files, tmpfiles.d, polkit rules, documentation,
+    # pkm lifecycle-hook claims — must resolve to something the tree actually
+    # produces, or be covered by the reviewed hook allowlist
+    # (config/aspirational-stub-hook-allowlist.txt, the script's default).
+    # Pure host-side static analysis, no chroot (measured 0.13s on the full
+    # tree, 2026-08-19). Wired here 2026-08-19: the gate existed but had no
+    # automatic caller, while docs/operations/README.md stated continuous
+    # gating — this call makes that statement true. (Same PIPESTATUS shape as
+    # the sibling gates in this phase.)
+    log "Running aspirational-stub gate (claimed paths must resolve)..."
+    python3 "${SCRIPTS}/check-aspirational-stubs.py" 2>&1 | tee -a "$BUILD_LOG"
+    if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+        log "error: a claimed path resolves to nothing the tree produces — fix the claim or its producer per the rows above"
+        return 1
+    fi
+
     # Hook-contract gate: a recipe's lifecycle functions now travel inside the
     # signed archive and run on the target, which makes them a delivery
     # mechanism the manifest, the signature and every downstream integrity gate
@@ -974,6 +991,27 @@ phase_validate() {
         python3 "${SCRIPTS}/preflight-bash-tier-currency.py" --start-at "${START_AT:-}" 2>&1 | tee -a "$BUILD_LOG"
         if [ "${PIPESTATUS[0]}" -ne 0 ]; then
             log "error: a stale bash-tier build would ship silently on this resume — cover the named packages"
+            return 1
+        fi
+    fi
+
+    # Chroot-vs-archive-union coverage gate (decided 2026-08-13, binding on
+    # every build after R001): on a populated substrate, every built file
+    # must be carried by a sealed archive or covered by the reviewed
+    # allowlist — a chroot file no archive carries means the evaluated
+    # system differs from every installed system (the stub class). The
+    # script itself loud-skips on an empty archives corpus (from-scratch
+    # launch); on package-phase resumes it fires fail-closed. Post-image
+    # resumes skip it the same way the silent-loss hold does — the chroot
+    # is terminal there and the gate's anchor already fired pre-capture.
+    if [ "${RESUME_CONTEXT:-0}" = "1" ] && [ -d "${IGOS}/var/lib/igos/packages" ] \
+       && [ -d "${IGOS}/mnt/intergenos/build/logs" ]; then
+        log "Running chroot-archive-union coverage gate (build pre-flight)..."
+        python3 "${SCRIPTS}/check-chroot-archive-union.py" --chroot "${IGOS}" \
+            --allowlist /mnt/intergenos/config/chroot-archive-union-allowlist.txt \
+            2>&1 | tee -a "$BUILD_LOG"
+        if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+            log "error: the built chroot contains files no sealed archive carries — disposition per the gate's output before launching"
             return 1
         fi
     fi
@@ -1529,6 +1567,15 @@ phase_setup() {
     # intergen 2026-05-09 surfaced the omission.
     cp -a /mnt/intergenos/intergen   "$IGOS/mnt/intergenos/"
     cp    /mnt/intergenos/igos-build.py "$IGOS/mnt/intergenos/" 2>/dev/null || true
+    # Repo-root files packages read at build time. SOURCES.md is the single
+    # authored copy of the source-availability statement and is what
+    # packages/core/intergenos-legal installs onto every system (that recipe
+    # kept its own hand-carried copy until 2026-08-19, and it had drifted).
+    # The dir copies above never reach repo-root files, so this copy and the
+    # matching one in sync_chroot_scripts are what make it reachable in the
+    # chroot; NOT masked with `|| true` — a missing legal notice must halt the
+    # build, not ship absent.
+    cp    /mnt/intergenos/SOURCES.md "$IGOS/mnt/intergenos/"
     # The shim SBAT CSV is consumed inside the chroot by
     # check-sbat-generations.sh (default SHIM_SBAT path), which
     # build-grub-standalone.sh fires during phase_bootloader. docker/ as a
@@ -1712,6 +1759,10 @@ sync_chroot_scripts() {
     # Sync Python builder for desktop tier (igos-build + its pkm dependency
     # per RFC v1 tracker/verifier parity)
     rsync -a /mnt/intergenos/igos-build.py "$IGOS/mnt/intergenos/" 2>/dev/null || true
+    # Repo-root SOURCES.md (parity with the phase_setup copy above): the single
+    # authored source-availability statement, installed by
+    # packages/core/intergenos-legal. Unmasked for the same reason.
+    rsync -a /mnt/intergenos/SOURCES.md "$IGOS/mnt/intergenos/"
     rsync -a --delete /mnt/intergenos/igos-build/   "$IGOS/mnt/intergenos/igos-build/" 2>/dev/null || true
     rsync -a --delete /mnt/intergenos/pkm/          "$IGOS/mnt/intergenos/pkm/"        2>/dev/null || true
     # intergen source for phase_ai (parity with phase_setup copy above)
@@ -2508,9 +2559,10 @@ phase_squashfs() {
     # (subtler H-007 regression: sourcing the lib without using the API
     # leaves the manifest empty, files untracked). Also smoke-checks
     # helper-lib.sh itself.
-    # NOTE: This gate is named K21.F per the S-D 4 walk-6 enumeration in
-    # the carryover; it is NOT the same as the audit doc's K21.F (helper
-    # supply-chain hardening) or TRACKER's K21.F (DCO Signed-off-by check).
+    # NOTE: This gate is named K21.F after the validation enumeration it came
+    # from; it is NOT the same as the audit document's K21.F (helper
+    # supply-chain hardening) or the release ledger's K21.F (DCO Signed-off-by
+    # check).
     # Auto-passes when no helper infrastructure is present.
     log "  Running helper-smoke runtime gate..."
     if ! bash "${SCRIPTS}/check-k21f-runtime.sh" "${IGOS}" 2>&1 | tee -a "$BUILD_LOG"; then

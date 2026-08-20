@@ -561,6 +561,26 @@ run_package "traceroute" "traceroute" "2.1.6" \
     "traceroute-2.1.6.tar.gz" \
     "Trace the network path packets take to a host"
 
+# System-maintenance and hardware-inspection utilities.
+# logrotate is a correctness fix rather than an addition: the tree already
+# installs /etc/logrotate.d/intergen-tool-dispatch and documents it in
+# intergen(1), but nothing consumed that snippet until this package existed.
+run_package "logrotate" "logrotate" "3.22.0" \
+    "logrotate-3.22.0.tar.xz" \
+    "Rotates, compresses and mails system logs"
+
+run_package "usbutils" "usbutils" "019" \
+    "usbutils-019.tar.xz" \
+    "USB device inspection tools (lsusb, usb-devices, usbhid-dump)"
+
+run_package "nvme-cli" "nvme-cli" "2.16" \
+    "nvme-cli-2.16.tar.gz" \
+    "NVMe storage management and inspection tool"
+
+run_package "ethtool" "ethtool" "7.1" \
+    "ethtool-7.1.tar.xz" \
+    "Query and control network driver and hardware settings"
+
 # ============================================================================
 # Summary
 # ============================================================================

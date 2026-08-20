@@ -22,6 +22,18 @@
 # systemd-sysusers.service boot-time unit are required for the
 # mechanism to function on the installed system.
 
+# `elfutils=enabled` (added 2026-08-19). meson.build resolves libdw and
+# libelf with `required : get_option('elfutils')` and sets HAVE_ELFUTILS only
+# when both are found; at the `auto` default the lookup fails quietly and
+# systemd-coredump is built with no ELF symbolization. That is what the first
+# release shipped — this package supersedes core/systemd, so its build is the
+# one on installed systems, and the post-install evaluation found
+# systemd-coredump reporting "elfutils disabled", which also meant the single
+# coredump that install produced could not be parsed. Explicit `enabled`
+# turns the silent downgrade into a configure-time failure. elfutils builds
+# in Chapter 8, well ahead of this tier, and is declared in both dependency
+# lists to match.
+
 configure() {
     set -e
     # Same sed fix as pass 1
@@ -67,6 +79,7 @@ configure() {
         -D libcurl=enabled                  \
         -D bashcompletiondir=/usr/share/bash-completion/completions \
         -D bootloader=enabled               \
+        -D elfutils=enabled                 \
         -D sbat-distro=intergenos           \
         -D sbat-distro-summary="InterGenOS" \
         -D sbat-distro-pkgname=systemd      \
@@ -129,6 +142,19 @@ post_install() {
         return 1
     fi
 
-    # Reload systemd to pick up new binaries
-    systemctl daemon-reexec 2>/dev/null || true
+    # Re-execute the running system manager so it picks up the freshly
+    # installed binaries.
+    #
+    # Narrowed, not masked. daemon-reexec acts on a RUNNING manager, and no
+    # manager owns the build chroot's root or the installer's target-chroot
+    # root: both mount /run as a fresh tmpfs, so /run/systemd/system is absent
+    # there (measured 2026-08-19 inside a chroot built from this systemd:
+    # absent). On such a root the operation is impossible rather than failed,
+    # so it is skipped. On a live root it is possible, so a failure is a real
+    # failure and must reach the caller. pkm ships a canonical owner for
+    # daemon-reload but none for daemon-reexec, so this recipe is the only
+    # caller and a mask here would leave nobody reporting.
+    if [ -d /run/systemd/system ]; then
+        systemctl daemon-reexec
+    fi
 }

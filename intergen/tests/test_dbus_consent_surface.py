@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2015-2016, 2026 InterGenJLU
-"""PR3 — dbus consent-surface cells (D1-D5), grounded from the fleet red-team.
+"""PR3 — dbus consent-surface cells (D1-D5), grounded from the red-team review.
 
 The dbus Ask path does NOT share the web gate bridge: it is the SYNCHRONOUS
 review_callback (make_review_callback -> prompt_review -> zenity/libnotify),

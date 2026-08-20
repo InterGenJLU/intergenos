@@ -3,12 +3,15 @@
 # Copyright (C) 2015-2016, 2026 InterGenJLU
 """Self-policing gate for source-aware change detection.
 
-A first-party package whose build.sh reads from an EXTERNAL in-tree dir
-(/mnt/intergenos/{intergen,pkm,installer} or assets/...) must declare that dir
-in its `source_tree:` so the content is folded into the skip-built fingerprint
-(igos-build/content_hash.py). Otherwise an edit to that external source does
-NOT flip the package's fingerprint and a targeted build silently ships the
-STALE binary — the exact class that bit intergen-welcome and cost us days.
+A first-party package whose build.sh reads from an EXTERNAL in-tree source —
+a dir under any first-party source root the build stages into the chroot
+(intergen/, pkm/, installer/, assets/, config/, scripts/, docs/, igos-build/,
+docker/) or a file at the repository root (/mnt/intergenos/SOURCES.md) — must
+declare it in its `source_tree:` so the content is folded into the skip-built
+fingerprint (igos-build/content_hash.py). Otherwise an edit to that external
+source does NOT flip the package's fingerprint and a targeted build silently
+ships the STALE binary — the exact class that bit intergen-welcome and cost us
+days.
 
 This gate keeps the fix COMPLETE as the tree grows: it fails the build's
 validate phase if any package reads an external source dir not covered by its
@@ -51,22 +54,48 @@ _ROOT_PREFIX = (
 _PATH_RE = re.compile(_ROOT_PREFIX + r'/([A-Za-z0-9._+/-]+)')
 # The first-party top-level source roots that count as "external" — a build
 # script reading from one of these (outside its own package dir) must declare it
-# in source_tree. MUST stay in sync with the source dirs the build rsyncs into
-# the chroot (build-intergenos.sh ensure_sources_staged): a NEW first-party
-# top-level source root added to the tree has to be added here too, or reads
-# from it silently escape this gate (WC review). Kept a literal for clarity —
-# this comment is the reminder the gate cannot enforce on itself.
-_EXTERNAL_TOPS = ("intergen", "pkm", "installer", "assets")
+# in source_tree. The list must name every source dir the build stages into the
+# chroot (build-intergenos.sh sync_chroot_scripts): whatever is staged there is
+# reachable from a build.sh at build time, so a staged root missing from this
+# list is a read the gate cannot see. packages/ is the one deliberate omission —
+# a recipe reading its OWN dir is hashed by content_hash arm (b).
+#
+# Kept a literal for clarity, and the sync is no longer carried by a comment
+# alone: test_external_tops_covers_every_chroot_staged_source_root in
+# tests/igos_build/test_content_hash.py derives the staged set from
+# build-intergenos.sh and fails when this list falls behind it.
+_EXTERNAL_TOPS = ("intergen", "pkm", "installer", "assets",
+                  "config", "scripts", "docs", "igos-build", "docker")
 # Strip a shell comment (`# ...` at start-of-token) so a path mentioned only in
 # a comment never trips the gate.
 _COMMENT_RE = re.compile(r'(^|\s)#.*$')
 
 
+def _is_repo_root_file(rel: str) -> bool:
+    """True for a read of a FILE that sits at the repository root.
+
+    A repo-root file has no directory component at all, so the top-level-
+    directory list above can never classify it — and such a read is squarely
+    the class this gate exists for: packages/core/intergenos-legal installs
+    the shipped source-availability statement from /mnt/intergenos/SOURCES.md,
+    and an edit to that authored file must move the reader's fingerprint or
+    the previously built archive ships on.
+
+    A name is treated as a file when it carries an extension. A bare top-level
+    DIRECTORY name is deliberately left to _EXTERNAL_TOPS, so a directory that
+    is not on that list (build output, for instance) is not swept in here by
+    accident.
+    """
+    return "/" not in rel and "." in rel
+
+
 def external_reads(build_sh_text: str) -> set:
     """Set of repo-relative EXTERNAL source paths a build.sh reads from.
 
-    External = under intergen/pkm/installer/assets. Own-dir reads (packages/...)
-    are excluded — content_hash arm (b) covers them automatically.
+    External = under one of _EXTERNAL_TOPS (every first-party source root the
+    build stages into the chroot), OR a file at the repository root (see
+    _is_repo_root_file). Own-dir reads (packages/...) are excluded —
+    content_hash arm (b) covers them automatically.
     """
     found = set()
     for raw in build_sh_text.splitlines():
@@ -78,7 +107,7 @@ def external_reads(build_sh_text: str) -> set:
             top = rel.split("/", 1)[0]
             if top == "packages":
                 continue  # own package dir — hashed by content_hash arm (b)
-            if top in _EXTERNAL_TOPS:
+            if top in _EXTERNAL_TOPS or _is_repo_root_file(rel):
                 found.add(rel)
     return found
 

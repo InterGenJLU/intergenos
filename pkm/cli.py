@@ -846,7 +846,12 @@ def _rollback_proprietary(db, pkg_name, reporter):
     """Remove a half-installed proprietary package after a declined EULA or a
     helper failure, so `[installed]` never shows <app> without the real app."""
     try:
-        PackageRemover(db).remove(pkg_name, force=True, reporter=reporter)
+        # No pre-remove hook: this undoes an install that never completed
+        # (declined EULA, failed helper). The package's payload was never
+        # in service, so there is nothing for a hook to stop, unload or
+        # clean up — and the hook itself may be half-deployed.
+        PackageRemover(db).remove(pkg_name, force=True, reporter=reporter,
+                                  run_pre_remove_hook=False)
     except Exception as e:  # rollback is best-effort; surface but don't crash
         reporter.warn(f"could not fully roll back {pkg_name}: {e}")
 
@@ -1555,7 +1560,13 @@ def cmd_reinstall(db, args):
             expected_sha = repo_pkg.get("sha256")
 
         # --- now safe to remove + reinstall ---
-        ok, rmsg = remover.remove(pkg_name, force=True, reporter=reporter)
+        # No pre-remove hook: the package is not going away. Remove-then-
+        # install is how reinstall replaces the files, and a hook written
+        # for an uninstall would tear down state the replacement expects
+        # to keep (nvidia's, for one, disables the units its own package
+        # ships and nothing re-enables them).
+        ok, rmsg = remover.remove(pkg_name, force=True, reporter=reporter,
+                                  run_pre_remove_hook=False)
         if not ok:
             reporter.error(f"remove step failed for {pkg_name}: {rmsg}")
             sys.exit(1)
@@ -2032,8 +2043,12 @@ def cmd_upgrade(db, args):
         # Remove old, install new
         from .remover import PackageRemover
         remover = PackageRemover(db)
+        # No pre-remove hook: same reason as reinstall — an upgrade is not
+        # an uninstall. The old version's files are being replaced by the
+        # new version's, and the new version's post-install hook is what
+        # re-establishes runtime state.
         remove_ok, remove_msg = remover.remove(
-            installed_pkg["name"], force=True)
+            installed_pkg["name"], force=True, run_pre_remove_hook=False)
         if not remove_ok:
             # The return value was previously discarded outright. A remove
             # that refuses leaves the OLD package in place, and the install
@@ -2136,7 +2151,7 @@ def cmd_upgrade(db, args):
         refresh_available_updates_after_transaction(db)
 
     # EXIT-CODE TRUTH. A transaction that reported a failure exits non-zero,
-    # so a script, a timer or another seat's automation can see it. The
+    # so a script, a timer or another machine's automation can see it. The
     # packages that DID upgrade are already installed and are not undone by
     # this; the code describes the transaction, and a transaction with a
     # failed member did not do what it was asked.
@@ -3339,6 +3354,34 @@ def cmd_autoremove(db, args):
     return 1 if any_failed else 0
 
 
+def _known_owned_paths(db, root, name, version):
+    """Every path `name` is known to own, from BOTH of pkm's records.
+
+    The database file rows are the obvious source and are not sufficient on
+    their own: a package whose rows are missing or incomplete has no rows to
+    check, and a build chroot's database has carried exactly that damage
+    (directory rows written with the wrong is_dir flag corpus-wide, release
+    columns reset). The on-disk text manifest is the second, independent
+    record of the same payload, so the union is what the package is known to
+    own. Read before the removal, which unlinks the manifest.
+
+    Returns root-relative paths with no leading or trailing slash.
+    """
+    from .database import MANIFEST_DIR, _parse_manifest
+
+    paths = {f["path"].strip("/") for f in db.get_files(name)}
+    if version:
+        manifest = (Path(root) / MANIFEST_DIR.relative_to("/")
+                    / f"{name}-{version}")
+        try:
+            parsed = _parse_manifest(manifest.read_text(errors="replace"))
+        except OSError:
+            parsed = None
+        if parsed:
+            paths |= {p.strip("/") for p in parsed.get("files", [])}
+    return {p for p in paths if p}
+
+
 def cmd_iso_prep(db, args):
     """pkm iso-prep --packages-from FILE [--yes] [--dry-run]
 
@@ -3508,10 +3551,23 @@ def cmd_iso_prep(db, args):
     # BEFORE its rows go away — the post-pass below has no other way to know
     # which directories the prune touched once the file rows are gone.
     swept_candidates = set()
+    # Every path each pruned package was KNOWN to own, kept per package so the
+    # post-removal audit can attribute a survivor to the package that owned
+    # it. Collected before the removal, because the removal takes both the
+    # rows and the text manifest away.
+    owned_by_target = {}
     for n in removal_order:
         for f in db.get_files(n):
             swept_candidates |= ancestor_chain(f["path"])
-        ok, msg = remover.remove(n, force=False)
+        owned_by_target[n] = _known_owned_paths(db, remover.root, n,
+                                                installed[n].get("version"))
+        # No pre-remove hook: this is the build-time prune of packages the
+        # image never ships, and it runs inside the mint chroot, whose
+        # /run, /proc and /sys belong to the build machine. A hook fired
+        # here would act on the builder — stopping its services, unloading
+        # its modules — for a package that was never in service on any
+        # machine. Runtime hooks belong to real removals on real installs.
+        ok, msg = remover.remove(n, force=False, run_pre_remove_hook=False)
         if ok:
             # Surface the remover's own message — it carries the actual
             # file count plus any retained/failed/preserved warnings. The
@@ -3559,6 +3615,61 @@ def cmd_iso_prep(db, args):
                   f"(hook-product or package-state subtree):")
         for rel in exempt_seen:
             print(f"    /{rel}")
+
+    # Outcome assertion. The prune states that the listed packages are gone;
+    # this proves it rather than assuming it. On the 2026-08-15 from-scratch
+    # build two DESTDIR-staged compatibility symlinks of pruned packages
+    # (/opt/jdk, /opt/rocm/llvm) survived the prune and surfaced later at the
+    # shipping-tree ownership gate as unowned content with nothing to
+    # attribute them to; why removal did not unlink them was never determined
+    # from the evidence that survived the burn. An undetermined cause is a
+    # reason to check the outcome, not to guess at the cause.
+    #
+    # Residue is a path a pruned package was known to own that is still on
+    # disk, that no remaining package records, and that pkm did not retain on
+    # purpose. Directories belong to the emptied-skeleton sweep above: a
+    # non-empty one holds somebody's payload, and an empty unowned one has
+    # already been judged. Nothing is deleted here — a removal path that left
+    # payload behind is not one to give a second, unaudited deletion pass.
+    remaining_recorded = {p.strip("/") for (p,) in
+                          db.conn.execute("SELECT path FROM files")}
+    residue = []  # (package, path)
+    checked = 0
+    for name in removal_order:
+        for rel in sorted(owned_by_target.get(name, ())):
+            if "/" not in rel:
+                continue  # top-level FHS skeleton: removal refuses it by rule
+            checked += 1
+            if rel in remaining_recorded:
+                continue  # a remaining package still records it
+            if rel in remover.deliberately_retained:
+                continue  # co-owned, or configuration preserved on purpose
+            abs_path = str(remover.root / rel)
+            if not os.path.lexists(abs_path):
+                continue
+            if os.path.isdir(abs_path) and not os.path.islink(abs_path):
+                continue  # the emptied-skeleton sweep's subject, not this one
+            residue.append((name, rel))
+
+    if residue:
+        emit_error(
+            f"{len(residue)} path(s) of pruned package(s) are STILL ON DISK "
+            f"after the prune, recorded by no remaining package.\n"
+            f"The prune did not do what it reports. Each path below would "
+            f"reach the shipping-tree ownership gate as unowned content with "
+            f"nothing to attribute it to.\n"
+            f"Nothing was deleted here: fix the removal of the named package "
+            f"and re-run iso-prep on a clean substrate."
+        )
+        # Every path, never a sample: the ownership gate reports what
+        # survives, and the two lists are only cross-checkable in full.
+        for name, rel in residue:
+            print(f"    /{rel}   (owned by pruned {name})", file=sys.stderr)
+        return 1
+
+    emit_info(f"prune outcome verified: {checked} owned path(s) across "
+              f"{len(removal_order)} pruned package(s) checked, none left on "
+              f"disk unowned.")
 
     _size_part = f"{reclaimed_uncompressed / (1024*1024):.2f} MB reclaimed"
     if size_unknown_count:

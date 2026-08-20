@@ -124,10 +124,13 @@ class Formatters(unittest.TestCase):
             "This machine has 1 CPU core.")
 
     def test_version_routes_to_os_summary(self):
-        out = 'PRETTY_NAME="InterGenOS 1.0-dev (Revival)"\nID=intergenos'
+        # A deliberately synthetic release string: this asserts the formatter
+        # echoes whatever PRETTY_NAME it is handed, so naming the real release
+        # here would only make the fixture go stale at every release.
+        out = 'PRETTY_NAME="InterGenOS R000.0 (Testcase)"\nID=intergenos'
         self.assertEqual(
             R._template_synthesis("what version am I running", out),
-            "OS: InterGenOS 1.0-dev (Revival).")
+            "OS: InterGenOS R000.0 (Testcase).")
 
 
 if __name__ == "__main__":

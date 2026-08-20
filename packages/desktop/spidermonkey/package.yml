@@ -1,6 +1,6 @@
 name: spidermonkey
 version: "140.8.0"
-release: 2  # hook-contract wave: XP_UNIX define staged into the shipped js-config.h (closes the Step-2.7 divergence)
+release: 3  # r3: the jstests policy is declared instead of every failure being masked. Per-finding retrofit, not a sweep.  # hook-contract wave: XP_UNIX define staged into the shipped js-config.h (closes the Step-2.7 divergence)
 description: Mozilla SpiderMonkey JavaScript engine
 license: MPL-2.0
 homepage: https://spidermonkey.dev/
@@ -27,6 +27,11 @@ dependencies:
   - icu
   - readline
   - zlib
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "this recipe configures --with-system-icu, and upstream documents that building against the system ICU leaves a small set of the 50,000-plus jstests failing on locale-dependent expectations — 24 of them at the version the reference book covers. The failures are a property of the ICU choice, which is deliberate here, not of the build. The suite runs with --wpt=disabled and a 300s per-test timeout and its full output is kept in the package log."
+
 verify_paths:
   - /usr/bin/js140
   - /usr/bin/js140-config

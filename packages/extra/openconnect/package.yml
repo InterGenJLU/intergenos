@@ -1,0 +1,41 @@
+name: openconnect
+version: "9.21"
+release: 1
+description: Client for Cisco AnyConnect, Juniper, GlobalProtect and Fortinet SSL VPNs
+license: LGPL-2.1-or-later
+homepage: https://www.infradead.org/openconnect/
+tier: extra
+build_style: autotools
+source:
+  - url: https://www.infradead.org/openconnect/download/openconnect-${version}.tar.gz
+    sha256: 5b32369467db6e5f317aa1ed12cfcbb81ed00bdbc765450b6bfcbdc300944a58
+
+dependencies:
+  build:
+    - pkgconf
+    - gnutls        # PKG_CHECK_MODULES(GNUTLS, gnutls) — configure.ac:458
+    - p11-kit       # PKG_CHECK_MODULES(P11KIT, p11-kit-1) — :492
+    - libtasn1      # PKG_CHECK_MODULES(TASN1, [libtasn1]) — :751
+    - libxml2       # PKG_CHECK_MODULES(LIBXML2, libxml-2.0) — :974
+    - lz4           # PKG_CHECK_MODULES([LIBLZ4], [liblz4]) — :910
+    - zlib
+    - vpnc-scripts  # configure REFUSES to build without a vpnc-script present
+  host: []
+  runtime:
+    - gnutls
+    - p11-kit
+    - libtasn1
+    - libxml2
+    - lz4
+    - zlib
+    - vpnc-scripts  # executed after the tunnel comes up, to set routes and DNS
+    - iproute2
+
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "the suite stands up local TLS servers and network namespaces to drive a real handshake; the build chroot has no namespace tooling and no loopback networking guarantee, so those cases fail by environment. The certificate-handling, URL-parsing and protocol-encoding cases run normally, and those are where a defect would become a wrong trust decision."
+
+verify_paths:
+  - /usr/sbin/openconnect
+  - /usr/share/man/man8/openconnect.8

@@ -56,8 +56,8 @@ class MaybeOfferTests(unittest.TestCase):
         self.assertFalse(esc.escalate_called)  # advisory only — nothing sent
 
     def test_offer_voice_is_the_ruled_verbatim_text(self):
-        # The provider-present offer text was ruled VERBATIM 2026-07-23 — pin
-        # its load-bearing phrases so a re-word cannot land without a ruling.
+        # Decided 2026-07-23: the provider-present offer text is VERBATIM — pin
+        # its load-bearing phrases so a re-word cannot land without a decision.
         esc = _FakeEscalation(
             EscalationDecision(True, "I am not confident in my local answer",
                                0.7, "anthropic"))

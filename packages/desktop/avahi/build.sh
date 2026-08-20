@@ -43,11 +43,10 @@ do_install() {
     make DESTDIR="$DESTDIR" install
 }
 
-post_install() {
-    set -e
-    # avahi user/group + netdev group are declared by
-    # /usr/lib/sysusers.d/avahi.conf and created by the pkm canonical
-    # sysusers hook before this lifecycle hook runs.
-
-    systemctl enable avahi-daemon.service 2>/dev/null || true
-}
+# No post_install hook. Default enablement of every unit this package ships is
+# decided in one place — intergenos-base-files'
+# /usr/lib/systemd/system-preset/80-intergenos-enable.preset — and applied by the
+# `systemctl preset-all` pass the image build and the installer both run. A
+# `systemctl enable` here was a second voice for the same decision and the preset
+# pass reverted it, so the tree stated one default and shipped another. Decided
+# 2026-08-19: the preset files own this; recipes do not enable their own units.

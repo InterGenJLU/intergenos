@@ -22,7 +22,7 @@
 #   * building the LLVM fork from source is the dominant cost (hours + high RAM);
 #     schedule it accordingly.
 #   * OpenBLAS builds from source and needs gfortran (present: gcc-core r4).
-#   * JULIA_CPU_TARGET below keeps the shipped sysimage portable across the fleet;
+#   * JULIA_CPU_TARGET below keeps the shipped sysimage portable across target machines;
 #     tune if a single-target build is wanted. If a bundled-dep build wall is hit,
 #     STOP and document per Rule A (no third tactical patch) rather than churning.
 

@@ -1,0 +1,41 @@
+name: skopeo
+version: "1.24.0"
+release: 1
+description: Inspect, copy and sign container images between registries and stores
+license: Apache-2.0
+homepage: https://github.com/containers/skopeo
+tier: extra
+build_style: custom
+install_func: do_install
+iso_include: false
+source:
+- url: https://github.com/containers/skopeo/archive/refs/tags/v${version}.tar.gz
+  filename: skopeo-${version}.tar.gz
+  sha256: 1eea9364e344c4d6cb398fac53bc387663d19690552003b43c75819e8bb55527
+dependencies:
+  build:
+  - go            # go.mod declares go 1.25.7; the tree ships 1.26.4
+  - go-md2man     # docs/*.1.md -> man pages
+  - pkgconf
+  - gpgme         # signature creation and verification through cgo
+  - libassuan
+  - libgpg-error
+  - btrfs-progs   # btrfs storage-driver headers (the probe-derived tag)
+  - lvm2          # device-mapper headers
+  - sqlite        # containers/storage sqlite backend
+  host: []
+  runtime:
+  - containers-common  # owns /etc/containers/policy.json and registries.conf,
+                       # which skopeo reads to decide whether an image's
+                       # signature satisfies policy — see build.sh for why this
+                       # package does not install its own copies
+  - gpgme
+  - libassuan
+  - libgpg-error
+  - sqlite
+tests:
+  enabled: false
+  reason: "the integration suite starts local registries and an OCI runtime and copies real images between them; the build chroot has neither networking to a registry nor a container runtime. The unit tests that do not need those are not separable from the suite's own setup, which starts the registry fixture, so the whole suite is a live-service dependency rather than a set of environment-bounded failures."
+verify_paths:
+  - /usr/bin/skopeo
+  - /usr/share/man/man1/skopeo.1

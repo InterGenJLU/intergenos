@@ -793,7 +793,7 @@ The tool output indicates that the command `list` was executed successfully, but
 
 **Response:**
 ````
-The SSH daemon is currently active and running. It is listening on port 22 and has successfully handled several SSH session connections and keyboard-interactive authentication requests for the user `root` from IP `192.168.1.199`.
+The SSH daemon is currently active and running. It is listening on port 22 and has successfully handled several SSH session connections and keyboard-interactive authentication requests for the user `root` from IP `[redacted-ip-host2]`.
 ````
 
 ---
@@ -806,7 +806,7 @@ The SSH daemon is currently active and running. It is listening on port 22 and h
 **Response:**
 ````
 The `sshd` service is active and running.
-Recent logs show successful SSH connections from `192.168.1.199` to the `root` user.
+Recent logs show successful SSH connections from `[redacted-ip-host2]` to the `root` user.
 No errors or blocked commands were detected in the provided output.
 ````
 
@@ -823,7 +823,7 @@ No errors or blocked commands were detected in the provided output.
 
 **Response:**
 ````
-The `sshd` service is active and running. However, the connection attempt from 192.168.1.199 was blocked by the safety layer.
+The `sshd` service is active and running. However, the connection attempt from [redacted-ip-host2] was blocked by the safety layer.
 ````
 
 ---
@@ -835,7 +835,7 @@ The `sshd` service is active and running. However, the connection attempt from 1
 
 **Response:**
 ````
-The `sshd` service is active and running. It is listening on port 22 and accepting SSH connections from the IP address 192.168.1.199.
+The `sshd` service is active and running. It is listening on port 22 and accepting SSH connections from the IP address [redacted-ip-host2].
 
 The service is currently accepting new sessions, as evidenced by the recent `Accepted keyboard-interactive/pam` logs for root user connections from that IP address.
 ````
@@ -970,7 +970,7 @@ Swap:          2.0Gi        35Mi       2.0Gi
 
 **Response:**
 ````
-The SSH daemon (sshd) is currently active and running. It has successfully established secure connections for user root from IP address 192.168.1.199.
+The SSH daemon (sshd) is currently active and running. It has successfully established secure connections for user root from IP address [redacted-ip-host2].
 ````
 
 ---
@@ -1032,7 +1032,7 @@ You're running kernel 6.18.10.
 
 **Response:**
 ````
-Your current IP address is 192.168.1.192/24. Your interface wlo1 is also configured with the address 2600:1700:7080:69b0:bbb4:ef34:7cd7:5b77/64.
+Your current IP address is [redacted-ip-host1]/24. Your interface wlo1 is also configured with the address [redacted-public-ipv6]/64.
 ````
 
 ---
@@ -1359,15 +1359,15 @@ Here are your network interfaces:
      CGroup: /system.slice/NetworkManager.service
              └─353 /usr/sbin/NetworkManager --no-daemon
 
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=192.168.1.192, acd pending
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1], acd pending
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 Apr 15 14:23:22 intergenos NetworkManager[353]: <info>  [1776281002.9856] agent-manager: agent[98cbb30b060c3332,:1.3045/org.gnome.Shell.NetworkAgent/60598]: agent registered
 Apr 15 14:23:29 intergenos NetworkManager[353]: <info>  [1776281009.4130] agent-manager: agent[4c8c51d7746cf946,:1.3068/org.gnome.Shell.NetworkAgent/1000]: agent registered
-Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 16 21:51:32 intergenos NetworkManager[353]: <info>  [1776394292.8669] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 16 21:51:32 intergenos NetworkManager[353]: <info>  [1776394292.8669] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 Apr 17 09:51:32 intergenos NetworkManager[353]: <info>  [1776437492.8684] dhcp4 (wlo1): state changed new lease, address=192.168.1
 [... truncated at 2000 chars ...]
 ````
@@ -1539,7 +1539,7 @@ The tool output indicates that `pkm` is not currently installed on this system. 
 
 **Response:**
 ````
-The NetworkManager service is currently active and running. It is managed by systemd and has a main PID of 353. The service has been active since April 8, 2026, and is actively handling DHCP lease renewals for the wlo1 interface on IP address 192.168.1.192.
+The NetworkManager service is currently active and running. It is managed by systemd and has a main PID of 353. The service has been active since April 8, 2026, and is actively handling DHCP lease renewals for the wlo1 interface on IP address [redacted-ip-host1].
 ````
 
 ---
@@ -1565,7 +1565,7 @@ Your hostname is intergenos.
 
 **Response:**
 ````
-The `sshd` service is active and running. It has successfully accepted keyboard-interactive sessions from IP 192.168.1.199 for the root user. No blocked or rejected commands were observed in the log.
+The `sshd` service is active and running. It has successfully accepted keyboard-interactive sessions from IP [redacted-ip-host2] for the root user. No blocked or rejected commands were observed in the log.
 ````
 
 ---

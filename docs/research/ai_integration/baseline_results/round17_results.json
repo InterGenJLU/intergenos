@@ -518,7 +518,7 @@
         {
           "turn_num": 1,
           "user_input": "Is NetworkManager running?",
-          "response_text": "Here are your network interfaces:\n\n\u25cf NetworkManager.service - Network Manager\n     Loaded: loaded (/usr/lib/systemd/system/NetworkManager.service; enabled; preset: enabled)\n     Active: active (running) since Wed 2026-04-08 22:49:32 CDT; 1 week 0 days ago\n Invocation: 78334cb2d44c412b9ca5db20448f981f\n       Docs: man:NetworkManager(8)\n   Main PID: 353 (NetworkManager)\n      Tasks: 4 (limit: 18810)\n     Memory: 10.4M (peak: 14.6M)\n        CPU: 1min 4.408s\n     CGroup: /system.slice/NetworkManager.service\n             \u2514\u2500353 /usr/sbin/NetworkManager --no-daemon\n\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): state changed no lease\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): activation: beginning transaction (timeout in 45 seconds)\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=192.168.1.192, acd pending\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=192.168.1.192\nApr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=192.168.1.192\nApr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=192.168.1.192\nApr 15 14:23:22 intergenos NetworkManager[353]: <info>  [1776281002.9856] agent-manager: agent[98cbb30b060c3332,:1.3045/org.gnome.Shell.NetworkAgent/60598]: agent registered\nApr 15 14:23:29 intergenos NetworkManager[353]: <info>  [1776281009.4130] agent-manager: agent[4c8c51d7746cf946,:1.3068/org.gnome.Shell.NetworkAgent/1000]: agent registered\nApr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=192.168.1.192\nApr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=192.168.1.192",
+          "response_text": "Here are your network interfaces:\n\n\u25cf NetworkManager.service - Network Manager\n     Loaded: loaded (/usr/lib/systemd/system/NetworkManager.service; enabled; preset: enabled)\n     Active: active (running) since Wed 2026-04-08 22:49:32 CDT; 1 week 0 days ago\n Invocation: 78334cb2d44c412b9ca5db20448f981f\n       Docs: man:NetworkManager(8)\n   Main PID: 353 (NetworkManager)\n      Tasks: 4 (limit: 18810)\n     Memory: 10.4M (peak: 14.6M)\n        CPU: 1min 4.408s\n     CGroup: /system.slice/NetworkManager.service\n             \u2514\u2500353 /usr/sbin/NetworkManager --no-daemon\n\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): state changed no lease\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): activation: beginning transaction (timeout in 45 seconds)\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1], acd pending\nApr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]\nApr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]\nApr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]\nApr 15 14:23:22 intergenos NetworkManager[353]: <info>  [1776281002.9856] agent-manager: agent[98cbb30b060c3332,:1.3045/org.gnome.Shell.NetworkAgent/60598]: agent registered\nApr 15 14:23:29 intergenos NetworkManager[353]: <info>  [1776281009.4130] agent-manager: agent[4c8c51d7746cf946,:1.3068/org.gnome.Shell.NetworkAgent/1000]: agent registered\nApr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]\nApr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]",
           "source": "keyword",
           "tool_calls": [],
           "elapsed_ms": 8.8,
@@ -2247,7 +2247,7 @@
         {
           "turn_num": 1,
           "user_input": "What's my IP address?",
-          "response_text": "Your local machine's loopback address is 127.0.0.1. Your primary network interface (wlo1) has an IP address of 192.168.1.192. Additionally, your device is connected to the 2600:1700:7080:69b0:bbb4:ef34:7cd7:5b77/64 link-local address range.",
+          "response_text": "Your local machine's loopback address is 127.0.0.1. Your primary network interface (wlo1) has an IP address of [redacted-ip-host1]. Additionally, your device is connected to the [redacted-public-ipv6]/64 link-local address range.",
           "source": "keyword",
           "tool_calls": [],
           "elapsed_ms": 10492.9,
@@ -7876,7 +7876,7 @@
         {
           "turn_num": 1,
           "user_input": "I can't reach any websites",
-          "response_text": "I cannot reach any websites.\n\n**Diagnosis:** Your system is likely blocked by a firewall or network restriction. Since InterGenOS manages network access directly, a rule has been added to the local network interface.\n\n**Action:** To restore connectivity, run the following command to whitelist your local IP address:\n```bash\npkm firewall add --allow-remote 192.168.1.100\n```\n*Note: Replace `192.168.1.100` with your actual local IP address if you are not in a container.*",
+          "response_text": "I cannot reach any websites.\n\n**Diagnosis:** Your system is likely blocked by a firewall or network restriction. Since InterGenOS manages network access directly, a rule has been added to the local network interface.\n\n**Action:** To restore connectivity, run the following command to whitelist your local IP address:\n```bash\npkm firewall add --allow-remote [redacted-ip-host5]\n```\n*Note: Replace `[redacted-ip-host5]` with your actual local IP address if you are not in a container.*",
           "source": "llm_freeform",
           "tool_calls": [],
           "elapsed_ms": 9708.7,
@@ -8471,7 +8471,7 @@
         {
           "turn_num": 1,
           "user_input": "Status",
-          "response_text": "System status: Active.\nKernel: 6.8.0-arch1-arch.\nNetwork: Connected to 192.168.1.1/24.\nServices: All running normally.\nStorage: 128GB SSD, 4TB HDD.\nMemory: 32GB RAM.\nTime: Thursday, April 16, 2026, 9:28 PM.",
+          "response_text": "System status: Active.\nKernel: 6.8.0-arch1-arch.\nNetwork: Connected to [redacted-ip-router]/24.\nServices: All running normally.\nStorage: 128GB SSD, 4TB HDD.\nMemory: 32GB RAM.\nTime: Thursday, April 16, 2026, 9:28 PM.",
           "source": "llm_tools",
           "tool_calls": [
             {
@@ -10901,7 +10901,7 @@
         {
           "turn_num": 1,
           "user_input": "What is the current status of the SSH daemon?",
-          "response_text": "The SSH daemon is currently active and running. It is listening on port 22 and has successfully handled multiple user sessions, including root access from 192.168.1.199.",
+          "response_text": "The SSH daemon is currently active and running. It is listening on port 22 and has successfully handled multiple user sessions, including root access from [redacted-ip-host2].",
           "source": "llm_tools",
           "tool_calls": [
             {

@@ -1,0 +1,47 @@
+name: buildah
+version: "1.45.0"
+release: 1
+description: Build OCI container images without a daemon
+license: Apache-2.0
+homepage: https://buildah.io/
+tier: extra
+build_style: custom
+install_func: do_install
+iso_include: false
+source:
+- url: https://github.com/containers/buildah/archive/refs/tags/v${version}.tar.gz
+  filename: buildah-${version}.tar.gz
+  sha256: d2bc03332c9f6ad5fcc210c68ad3190fe11d358214c88fb12a233f5045d5eddd
+dependencies:
+  build:
+  - go            # go.mod declares go 1.25.9; the tree ships 1.26.4
+  - go-md2man     # docs/*.1.md -> man pages, via `make -C docs`
+  - pkgconf       # cgo pkg-config lookups for the libraries below
+  - gpgme         # containers/image signature verification through cgo
+  - libassuan     # gpgme's IPC library
+  - libgpg-error  # shared error base of the gpg stack
+  - libseccomp    # the `seccomp` security build tag
+  - apparmor      # libapparmor for the `apparmor` build tag
+  - btrfs-progs   # /usr/include/btrfs headers for the btrfs storage driver
+  - lvm2          # device-mapper headers for the devicemapper storage driver
+  - systemd       # libsystemd for the journald logging tag
+  - sqlite        # the containers/storage sqlite backend tag
+  host: []
+  runtime:
+  - runc              # the OCI runtime buildah executes to run build steps
+  - containers-common # /etc/containers/policy.json + registries.conf, which
+                      # buildah reads on every pull and push; without them a
+                      # signature policy decision has no configuration to rest on
+  - gpgme
+  - libassuan
+  - libgpg-error
+  - libseccomp
+  - apparmor
+  - systemd
+  - sqlite
+tests:
+  enabled: false
+  reason: "buildah's suite builds real container images: it creates mounts and user namespaces, runs an OCI runtime and writes into a container storage root. The build chroot provides none of that, and a suite that performs live container operations when it can is the Rule 10 ladder's infrastructure-hazard case, the same disposition runc and docker already carry in this tree."
+verify_paths:
+  - /usr/bin/buildah
+  - /usr/share/man/man1/buildah.1

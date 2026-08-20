@@ -1,0 +1,37 @@
+name: mtr
+version: "0.96"
+release: 1
+description: Combined traceroute and ping network diagnostic tool
+license: GPL-2.0-only
+homepage: https://www.bitwizard.nl/mtr/
+tier: extra
+build_style: autotools
+source:
+  - url: https://github.com/traviscross/mtr/archive/refs/tags/v${version}.tar.gz
+    filename: mtr-${version}.tar.gz
+    sha256: 73e6aef3fb6c8b482acb5b5e2b8fa7794045c4f2420276f035ce76c5beae632d
+dependencies:
+  build:
+    - autoconf      # the tag archive ships configure.ac only
+    - automake
+    - libtool
+    - pkgconf
+    - ncurses-core  # the curses interface
+    - libcap        # AC_CHECK_LIB([cap],[cap_set_proc]) — configure.ac:145
+    - jansson       # PKG_CHECK_MODULES([JANSSON]) — :110, the --json report mode
+  host: []
+  runtime:
+    # the shipped name, not the build-namespace recipe name ncurses-core: the
+    # published depend= entry has to resolve on a user's system, where the
+    # package is installed as `ncurses` via the ch8 twin's ships_as
+    - ncurses
+    - libcap
+    - jansson
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "the test suite sends real ICMP and UDP probes and needs raw-socket capability plus a reachable network; the build chroot has neither, so those cases fail by environment. The report-formatting and argument-parsing cases run normally."
+verify_paths:
+  - /usr/sbin/mtr
+  - /usr/sbin/mtr-packet
+  - /usr/share/man/man8/mtr.8

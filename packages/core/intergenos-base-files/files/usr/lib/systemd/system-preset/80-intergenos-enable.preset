@@ -45,6 +45,77 @@ enable bluetooth.service
 # fallback). Update awareness is security-relevant. (GBC002.5, 2026-06-08.)
 enable pkm-check-updates.timer
 
+# logrotate.timer rotates the system logs, including
+# /etc/logrotate.d/intergen-tool-dispatch — the snippet the tree has shipped
+# since InterGen's tool-dispatch audit log landed, with nothing consuming it
+# until the logrotate package existed. Without this line the install-time
+# `systemctl preset-all` reverts the timer through the 99- `disable *`
+# catch-all, so the rotation would ship present and permanently inert: exactly
+# the failure recorded for pkm-check-updates.timer above. An audit log that
+# grows without bound is a disk-exhaustion path on a long-lived install, and a
+# log nothing rotates is also a log nobody can keep.
+enable logrotate.timer
+
+# switcheroo-control.service is the D-Bus service GNOME Shell asks which GPU an
+# application should run on; it is what puts "Launch using Discrete Graphics
+# Card" in the application menu on hybrid-graphics machines. Its unit is
+# Type=dbus with WantedBy=graphical.target, so without a whitelist line the
+# 99- `disable *` catch-all leaves it installed and never started, and the menu
+# entry is silently absent with no error anywhere to explain why.
+enable switcheroo-control.service
+
+# NetworkManager-wait-online.service — enabled, stated here rather than left
+# implied. Decided 2026-08-19.
+#
+# It was already enabled on every install, but not by anything that said so:
+# NetworkManager.service's own [Install] section carries
+# `Also=NetworkManager-wait-online.service`, so whitelisting NetworkManager
+# above enables the wait unit as a side effect. Measured by running the
+# installer's own pass (`systemctl --root <target> preset-all`) against a root
+# holding these preset files and the real shipped units: preset-all first
+# removed the wait-online link, then re-created it while enabling
+# NetworkManager. The effective answer therefore depended on the order units
+# were visited inside a single preset-all run. Naming the unit here makes the
+# result a stated decision instead of an ordering artefact, and it agrees with
+# `Also=` rather than fighting it, so the two can never disagree.
+#
+# Survey: upstream systemd ships the same posture for its own network stack —
+# presets/90-systemd.preset carries `enable systemd-networkd-wait-online.service`.
+# The packaging of the same unit elsewhere has already moved the decision out of
+# the package and into the preset for exactly this reason; one distribution's
+# NetworkManager packaging still carries the comment "older versions used to
+# install this file, effectively always enabling
+# NetworkManager-wait-online.service. We no longer do that and rely on preset."
+#
+# Cost, measured on an installed system rather than argued: the unit is
+# `WantedBy=network-online.target`, and on a default install nothing pulls that
+# target in — its reverse-dependency list holds only itself, and the three units
+# that declare `Wants=network-online.target` (systemd-sysupdate.service,
+# transmission-daemon.service, update-pki.service) are all left disabled by the
+# 99- catch-all, with update-pki.timer disabled too. The unit did not run at all
+# on the measured boot: inactive, no start timestamp, and absent from
+# `systemd-analyze blame`. When something does pull the target, the unit is
+# bounded, not open-ended: it ships `Environment=NM_ONLINE_TIMEOUT=60` and is
+# Type=oneshot, so the worst case is a 60-second wait after which boot
+# continues. Two descriptions of this unit in the tree were wrong in opposite
+# directions and are removed by the same change set: one called it a service
+# that "blocks boot indefinitely", the other put its worst case at 30 seconds,
+# which is the nm-online binary's default and not the value the shipped unit
+# sets.
+#
+# Security note: the unit runs `nm-online -s -q`, which waits for
+# NetworkManager to report startup complete. It opens no port, accepts no
+# input, and starts no daemon of its own.
+#
+# Consequence of reverting this line: the unit goes back to being enabled only
+# as a side effect of `Also=`, which is the state this entry exists to stop
+# being unstated. To genuinely stop the unit from being enabled, the
+# `Also=NetworkManager-wait-online.service` line in NetworkManager.service has
+# to be addressed as well — a `disable` line here would contend with it inside
+# the same preset-all run and reintroduce the ordering dependence described
+# above.
+enable NetworkManager-wait-online.service
+
 # Explicit disables — override the upstream 90-systemd.preset, which `enable`s
 # systemd-networkd. Preset resolution is first-match-wins across lexically-
 # sorted files, so these 80- lines beat 90-systemd.preset's enable (and are
@@ -59,6 +130,147 @@ enable pkm-check-updates.timer
 disable systemd-networkd.service
 disable systemd-networkd.socket
 disable systemd-networkd-wait-online.service
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Explicit default-off decisions. Decided 2026-08-19.
+#
+# These three would already resolve to disabled through the 99- `disable *`
+# catch-all, so the lines below change no resolved state. They are written out
+# because a default that is only the absence of a whitelist line reads as an
+# oversight, and each of these has in fact been read that way: the recipes for
+# all three called `systemctl enable` on their own unit, which the install-time
+# `systemctl preset-all` then reverted, so the tree stated one policy and shipped
+# another. Those calls are removed in the same change set that adds these lines,
+# leaving these files the single place a default is decided.
+#
+# Survey: a package deciding its own default is the pattern being retired here,
+# not the convention. One distribution ships a global `disable *` of exactly the
+# same shape as the 99- file. Another hands every one of these four packages'
+# enablement to its distribution preset policy through the packaging macro that
+# runs `systemctl preset` at install time, so the package names the units and the
+# preset decides them.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# cups — the print scheduler ships off, because printing is one of the
+# opt-in switches the welcome application offers on first run. That page tells
+# the user in as many words that the services on it "ship OFF for security", and
+# its printing switch runs `systemctl enable --now cups.socket`. A default-on
+# scheduler would make that sentence untrue and the switch meaningless, since it
+# would already be on before the user saw it.
+#
+# Activation posture, stated honestly: disabled here does not mean unreachable.
+# cups.service is `TriggeredBy=cups.socket`, so once the user turns printing on,
+# the socket starts the scheduler on the first request. With printing off,
+# neither unit is enabled and nothing listens. Measured on an installed system
+# where the user had turned printing on: cups.service reads disabled and is
+# nevertheless running, reached through the enabled socket, and cupsd listens on
+# 127.0.0.1:631 and [::1]:631 only — loopback, never a network interface.
+#
+# Security note: the exposure a running scheduler adds is local, not remote,
+# because of that loopback binding. The reason to leave it off is not an open
+# port; it is that a print daemon, its filters and its driver stack are a large
+# amount of code to run on a machine that may never print.
+#
+# Consequence of reverting these lines: the scheduler starts on every install
+# whether or not the machine has a printer, and the welcome application's
+# printing switch shows as already on at first run while claiming it ships off.
+disable cups.service
+disable cups.socket
+disable cups.path
+
+# avahi — the mDNS/DNS-SD responder ships off for the same reason and one
+# further one. It is the welcome application's "Enable Network Discovery"
+# switch, which runs `systemctl enable --now avahi-daemon.service` AND writes a
+# firewall fragment accepting udp/5353; turning it back off removes that
+# fragment again. The firewall's input chain is `policy drop`, so the daemon and
+# the rule that lets it answer are deliberately turned on together by one
+# choice.
+#
+# Activation posture, stated honestly: avahi has no socket or D-Bus activation
+# path that would start it while disabled. Disabled here means the daemon does
+# not run.
+#
+# Security note: this is the one of the three that changes what the machine says
+# about itself on a network. The daemon binds 0.0.0.0:5353 and [::]:5353 —
+# measured on an installed system with discovery turned on — and mDNS is an
+# announcement protocol: a default-on responder would advertise the machine's
+# hostname and services to every network it ever joins, including untrusted
+# ones, without the user having asked for it. Enabling it by default would also
+# leave the daemon running while the firewall still dropped inbound udp/5353, so
+# the machine would broadcast and be unable to answer: attack surface with the
+# feature still not working.
+#
+# Consequence of reverting these lines: the machine announces itself on every
+# network it joins from first boot, and the welcome application's discovery
+# switch shows as already on while its firewall half is still absent.
+disable avahi-daemon.service
+disable avahi-daemon.socket
+
+# rtkit — the realtime-scheduling broker ships ON. Decided 2026-08-19,
+# revising the disable this file first carried: a desktop's audio stack asks
+# for realtime scheduling in ordinary use, so the daemon runs on effectively
+# every install either way — the package ships
+# /usr/share/dbus-1/system-services/org.freedesktop.RealtimeKit1.service
+# declaring `SystemdService=rtkit-daemon.service`, and that D-Bus activation
+# starts the unit on first request regardless of the enablement flag
+# (measured on an installed system: flag disabled, unit running).
+#
+# A written default that says one thing while the machine reliably does
+# another is a state the user cannot read the truth from. Enabled makes the
+# stated default and the actual behaviour the same thing, at the cost of
+# starting at boot what first use would have started moments later.
+#
+# Consequence of reverting this line: the flag reads disabled while the
+# daemon still runs on any system with an audio stack — the misleading state
+# this entry exists to remove.
+enable rtkit-daemon.service
+
+# at and fcron — the two job schedulers ship off. Decided 2026-08-19.
+#
+# Neither was named when this change set started; both surfaced from the test
+# that came with it, which resolves every remaining `systemctl enable` in the
+# tree against the real preset engine and reports the ones the policy
+# contradicts. Both recipes enabled their own daemon while the policy disabled
+# it, which is the same shape as the four above.
+#
+# These two are also where the cost of leaving that unresolved was measurable.
+# On a fresh install the preset pass runs last and the daemons ship off. But
+# nothing re-runs that pass after an ordinary package operation, so on a machine
+# where either package was later reinstalled or upgraded, the recipe's enable
+# was the last word and the daemon has been running ever since. Measured on a
+# development machine installed 2026-08-03: both units read STATE enabled with
+# PRESET disabled, and their enablement symlinks carry a timestamp three days
+# after the install, from a package operation and not from the install. Two
+# machines from the same medium therefore held different answers, and no file
+# in the tree recorded which.
+#
+# Off is what a fresh install already ships, so these lines change nothing about
+# a new machine; what they change is that both paths now agree, and that the
+# answer is written down.
+#
+# Survey: neither daemon is enabled by the global default of the distribution
+# whose preset posture matches ours (a single `disable *`). Beyond that, this is
+# not a convention question — running two job schedulers by default on a desktop
+# is the part that needs justifying, and nothing in this tree asks for it. The
+# one scheduled job the system does rely on, log rotation, runs from
+# logrotate.timer, which is whitelisted above on its own merits.
+#
+# Activation posture, stated honestly: neither has socket or D-Bus activation.
+# Disabled means the daemon does not run, and an `at` or `fcron` job a user
+# creates will not fire until they enable the corresponding unit.
+#
+# Security note: a job scheduler runs arbitrary user-supplied commands as root
+# or as the submitting user on a timer. Both packages also ship setuid and
+# setgid binaries, which their own install hooks repair on every deployment.
+# That surface is worth having available and is not worth running by default on
+# a machine that has been given no jobs to run.
+#
+# Consequence of reverting these lines: both daemons start on every install.
+# Turning either on by default is a one-line change here — which is the point of
+# deciding it in one file instead of in a recipe that the install-time pass
+# silently overrules.
+disable atd.service
+disable fcron.service
 
 # forge-tui.service has ConditionKernelCommandLine=igos.mode=install-tui
 # so it only fires in install-tui mode. In live + install-gui modes the

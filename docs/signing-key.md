@@ -1,11 +1,13 @@
 # InterGenOS Release Signing Key
 
-**Last updated:** 2026-05-13
+**Last updated:** 2026-08-18
 **Status:** LIVE. Master pubkey published to `keys.openpgp.org` (verified by email). All four hardware tokens carry signing subkeys, UIF touch-policy on. PIV vendor cert (NK#1 slot 9c) generated and rotated. Drive #3 master backup secured.
 
 ## Summary
 
 InterGenOS release artifacts are signed with a PGP key whose master is generated and held offline. Verifying the key fingerprint against this page **and** at least one other independent source before trusting it on your machine protects you from MITM tampering during package download.
+
+The signing subkeys currently sign: the package repository index (`InterGenOS.db` + `.sig`), the annotated release tags, the ISO checksum file published beside each image (`<image>.sha256.asc`), and the wiki page manifest. The image checksum signature is a standing per-release artifact beginning with R001.
 
 This page is the **canonical fingerprint publication** for the release signing key. Cross-publication locations are listed below; every copy of the fingerprint on the internet should match the value here. If they don't, do not trust the mismatched source.
 
@@ -80,8 +82,10 @@ Before you trust a keyserver response, confirm the fingerprint appears identical
 - The committed pubkey at `docs/signing-key.asc` (git-tracked, same repo)
 - The keyserver response from `keys.openpgp.org`
 - The keyserver response from `keyserver.ubuntu.com`
-- The pinned fingerprint announcement on the [InterGenOS GitHub releases page](https://github.com/InterGenJLU/intergenos/releases)
-- (Future) `https://intergenstudios.com/signing-key` (TLS, maintainer-operated)
+- The served key at `https://repo.intergenos.org/keys/intergenos-release-key.asc` (TLS, project mirror)
+- `https://intergenstudios.com/signing-key` (TLS, maintainer-operated)
+- `https://intergenos.org/signing-key` (TLS, project site)
+- (Future) A pinned fingerprint announcement on the [InterGenOS GitHub releases page](https://github.com/InterGenJLU/intergenos/releases)
 - (Future) The signed fingerprint announcement (offline-root signed — published alongside subkey rollover)
 
 If any two sources disagree on the fingerprint, assume your network path is compromised and do not trust the key.
@@ -105,9 +109,11 @@ The release key is published at:
 1. **`keys.openpgp.org`** — published 2026-05-05, email-verified. Searchable by fingerprint; searchable by email after the verification click. The role UID `intergenos-primary@intergenstudios.com` is a project-role identity, not personal.
 2. **`keyserver.ubuntu.com`** — published 2026-05-05 (SKS-style; not email-verified, accepts the key as-is). Default target for `apt-key adv --keyserver` and many Debian/Ubuntu signing-key workflows.
 3. **This repo** — `docs/signing-key.md` (this page) and `docs/signing-key.asc` (the armored pubkey), git-tracked.
-4. **(Future) GitHub releases page** — pinned announcement referencing the fingerprint.
-5. **(Future) `intergenstudios.com`** — TLS-served, maintainer-operated.
-6. **(Future) Signed-by-master fingerprint announcement** — published alongside subkey rollover.
+4. **The project mirror** — `https://repo.intergenos.org/keys/intergenos-release-key.asc`, TLS-served.
+5. **`https://intergenstudios.com/signing-key`** — TLS-served, maintainer-operated.
+6. **`https://intergenos.org/signing-key`** — TLS-served, project site.
+7. **(Future) GitHub releases page** — pinned announcement referencing the fingerprint.
+8. **(Future) Signed-by-master fingerprint announcement** — published alongside subkey rollover.
 
 ## Rollover
 
@@ -122,30 +128,30 @@ Subkeys rotate on a 2-year cadence; next rotation 2028-05-04.
 
 Emergency rollover (compromise): see the trust-anchor compromise policy in [SECURITY.md](../SECURITY.md). 6-hour-to-revocation SLA applies; the orderly 30-day overlap does not.
 
-### Multi-Key Trust Window (Operator Procedure)
+### Multi-Key Trust Window (Maintainer Procedure)
 
 The 30-day overlap window above requires the end-user-side keyring + pkm verifier to trust both the outgoing and incoming subkeys simultaneously. Two coordinated artifacts make this work:
 
 | Artifact | What changes during overlap | What changes after overlap |
 |---|---|---|
-| `docs/signing-key-next.asc` | Operator commits this file containing the incoming subkey's ASCII-armored pubkey (signed by master per step 3 above). `packages/core/intergenos-keyring/build.sh` imports it into `/etc/pkm/trusted.gpg` alongside `docs/signing-key.asc` when present. | Operator removes this file and re-exports `docs/signing-key.asc` with only the new subkey active. |
-| `pkm/release-keys.json` `keys` dict | Operator adds a new entry (e.g. `S5`) with the incoming subkey's 40-char fingerprint, role label, and aliases. `pkm/repo.py:_load_pinned_fingerprints` natively unions all entries — no parser change required. | Operator removes the retired subkey's entry (the one whose key was revoked at step 6). |
+| `docs/signing-key.asc` + `packages/core/intergenos-keyring/trusted.gpg` | The armored export must carry both the outgoing and the incoming subkey, and the committed binary keyring is regenerated from it so `/etc/pkm/trusted.gpg` trusts both. The keyring recipe installs that committed binary and refuses to install if its SHA-256 differs from the value pinned in `packages/core/intergenos-keyring/build.sh`, so the regenerated binary and the pin move in the same commit. | Re-export `docs/signing-key.asc` with only the new subkey active, regenerate the binary keyring from it, and update the pinned SHA-256 in the same commit. |
+| `pkm/release-keys.json` `keys` dict | The maintainer adds a new entry (e.g. `S5`) with the incoming subkey's 40-char fingerprint, role label, and aliases. `pkm/repo.py:_load_pinned_fingerprints` natively unions all entries — no parser change required. | The maintainer removes the retired subkey's entry (the one whose key was revoked at step 6). |
 
 Step-by-step (apply between steps 4 and 5 of the §Rollover procedure above, then again after step 6):
 
 **Begin overlap window** (after the new subkey has been published and cross-attested):
 
-1. ASCII-armor-export the incoming subkey pubkey to `docs/signing-key-next.asc` (signed by master so transparency-log verifiers can chain the rotation evidence — see [repository-trust.md §4 Key Rotation](repository-trust.md#4-key-rotation) and §5 transparency log).
+1. ASCII-armor-export the key bundle to `docs/signing-key.asc` so it carries both the outgoing and the incoming subkey, the incoming one signed by master so transparency-log verifiers can chain the rotation evidence (see [repository-trust.md §4 Key Rotation](repository-trust.md#4-key-rotation) and §5 transparency log). Then regenerate `packages/core/intergenos-keyring/trusted.gpg` from it and update the `EXPECTED_SHA256` pin in `packages/core/intergenos-keyring/build.sh` — the exact commands are in that file's header comment. Nothing imports key material at build time: the recipe installs the committed binary keyring and verifies its hash, so the keyring only trusts what was committed.
 2. Add a new entry under `keys` in `pkm/release-keys.json`, naming it `S5` (or the next available slot) with the incoming subkey's fingerprint, role label (e.g. "transition signing (Nitrokey NK5 serial XXXXXXXX)"), and aliases.
-3. Commit both files in a single coordinated commit so reviewers see the artifact + the pin update together.
+3. Commit the armored key, the regenerated binary keyring, its updated SHA-256 pin and the `release-keys.json` entry in a single coordinated commit, so a reviewer sees the artifacts and the pins together and can verify the binary matches the armored export.
 4. **Run `bash scripts/validate-keyring-rotation.sh` before publishing.** The script exercises the three end-to-end links via ephemeral keys (dual-import + multi-key keyring acceptance + VALIDSIG-roundtrip + unknown-key refusal) and exits non-zero if any link is broken. Catches regressions in the rotation infrastructure before they reach end users.
 5. Bump `packages/core/intergenos-keyring/package.yml` version (e.g. `0.1.0` → `0.2.0`) so end users pick up the dual-key keyring via `pkm upgrade intergenos-keyring`.
 6. Rebuild + publish `intergenos-keyring` through the normal release pipeline.
 
 **End overlap window** (after the outgoing subkey has been revoked at step 6):
 
-1. Delete `docs/signing-key-next.asc`.
-2. Re-export `docs/signing-key.asc` with only the new subkey active (the old subkey is revoked at the master keyring level, so its presence in the bundle no longer implies trust — but cleaning it from the bundle removes the failed-trust-decision noise from `gpg --verify` output).
+1. Re-export `docs/signing-key.asc` with only the new subkey active (the old subkey is revoked at the master keyring level, so its presence in the bundle no longer implies trust — but cleaning it from the bundle removes the failed-trust-decision noise from `gpg --verify` output).
+2. Regenerate `packages/core/intergenos-keyring/trusted.gpg` from that export and update the `EXPECTED_SHA256` pin in `packages/core/intergenos-keyring/build.sh` in the same commit.
 3. Remove the retired subkey's entry from `pkm/release-keys.json`.
 4. Bump `intergenos-keyring` version again (e.g. `0.2.0` → `0.3.0`).
 5. Rebuild + publish.

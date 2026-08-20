@@ -1,6 +1,6 @@
 # Getting Started with InterGenOS
 
-Welcome to InterGenOS 1.0. This guide covers how to verify your download, write the installation media, and what to expect during your first boot, as well as how to keep your new system up to date.
+Welcome to InterGenOS R001. This guide covers how to verify your download, write the installation media, and what to expect during your first boot, as well as how to keep your new system up to date.
 
 ## 1. Hardware Requirements
 
@@ -13,31 +13,74 @@ InterGenOS is built for modern 64-bit hardware with the following minimum requir
 
 ## 2. Verifying the ISO Image
 
-Before writing the image to a USB drive, you must verify its integrity. InterGenOS uses a strict "Security-Only Alignment" doctrine; verifying your download protects you against man-in-the-middle attacks or corrupted files.
+Before writing the image to a USB drive, verify it. InterGenOS uses a strict "security-only alignment" doctrine; verifying your download is what protects you against a tampered mirror, an interception in transit, or a truncated file.
 
-1.  **Download the signing key:** 
-    Download the canonical release signing key from [docs/signing-key.md](signing-key.md) or intergenstudios.com/signing-key.
-2.  **Import the key:**
-    gpg --import intergenos-release-key.asc
-3.  **Verify the fingerprint:**
-    Ensure the fingerprint matches the master fingerprint exactly:
-    5597 A3E0 587B 2530 06D0  DD7B 8C50 8261 8208 3050
-4.  **Verify the ISO:**
-    gpg --verify intergenos-1.0.iso.sig intergenos-1.0.iso
-    You should see a "Good signature" message from the primary key or one of the trusted subkeys ([S1] or [S2]).
+The image is published with a checksum file, and that checksum file is signed. Verification is therefore two steps, in this order — first prove the checksum file is the project's, then prove the image is the one it names. This is the procedure for every InterGenOS release; substitute the release's own filenames.
+
+**1. Get the release public key and check its fingerprint.**
+
+The same key is served from the project mirror and from the public keyservers. Fetching it from more than one place and comparing the fingerprint is stronger than fetching it from any single one.
+
+```bash
+curl -O https://repo.intergenos.org/keys/intergenos-release-key.asc
+gpg --import intergenos-release-key.asc
+
+# or, from a keyserver
+gpg --keyserver keys.openpgp.org --recv-keys 5597A3E0587B253006D0DD7B8C50826182083050
+```
+
+The fingerprint to compare is the **primary** key's:
+
+```
+5597 A3E0 587B 2530 06D0  DD7B 8C50 8261 8208 3050
+```
+
+That primary key carries several signing subkeys, and the subkey is what your tools will report as "using RSA key …" when they check a signature. Subkey fingerprints change when a subkey is rotated; the primary fingerprint is the one to compare. The same fingerprint is published in [docs/signing-key.md](signing-key.md), and the armored key itself is in the repository at [docs/signing-key.asc](signing-key.asc).
+
+**2. Download the image, its checksum, and the signature over that checksum.**
+
+```bash
+curl -O https://repo.intergenos.org/iso/intergenos-r001.iso
+curl -O https://repo.intergenos.org/iso/intergenos-r001.iso.sha256
+curl -O https://repo.intergenos.org/iso/intergenos-r001.iso.sha256.asc
+```
+
+**3. Verify the signature on the checksum file, then the image against the checksum.**
+
+```bash
+gpg --export 5597A3E0587B253006D0DD7B8C50826182083050 > release-key.gpg
+gpgv --keyring ./release-key.gpg \
+     intergenos-r001.iso.sha256.asc intergenos-r001.iso.sha256
+
+sha256sum -c intergenos-r001.iso.sha256
+```
+
+Expect `Good signature from "InterGenOS Project Signing Key (primary)"` from the first command and `intergenos-r001.iso: OK` from the second.
+
+Both halves matter, and each answers a different question. The signature proves the checksum file is the project's and was not altered on the mirror or in transit. It says nothing about the file on your disk — hashing the image against that checksum is the step that catches a truncated download or a substituted image.
+
+`gpgv` is used rather than `gpg --verify` on purpose: it checks the signature against exactly the keyring you name and nothing else, which is the question you are asking here.
 
 ## 3. Writing the Installation Media
 
-Once verified, write the ISO to a USB flash drive (8GB or larger).
+Once verified, write the image to a USB flash drive of at least 16 GB. The R001 image is about 9.7 GiB, so an 8 GB stick cannot hold it.
 
 **On Linux/macOS:**
 ```bash
 # Replace /dev/sdX with your actual USB device. DOUBLE-CHECK THIS.
-sudo dd if=intergenos-1.0.iso of=/dev/sdX bs=4M status=progress oflag=sync
+sudo dd if=intergenos-r001.iso of=/dev/sdX bs=4M status=progress oflag=sync
 ```
 
 **On Windows:**
 We recommend using [Rufus](https://rufus.ie) or [balenaEtcher](https://balena.io/etcher) in "DD Image" mode.
+
+A successful exit from the write command is not proof the stick holds the image. Read back exactly the image's byte count from the device and hash that:
+
+```bash
+head -c "$(stat -c %s intergenos-r001.iso)" /dev/sdX | sha256sum
+```
+
+The value it prints must equal the checksum you verified in section 2.
 
 ## 4. Booting and Installation
 

@@ -31,8 +31,8 @@ from intergen.tests.conversations import Assertion
 from intergen.tests.grader import compute_turn_grade, grade_turn, grade_turn_trace
 from intergen.tests.quality_judge import apply_judge_grading
 
-# The names this cut ADDS are reached through the module rather than imported at
-# the top. Against a tree without the cut, a module-level import of a new name
+# The names added here are reached through the module rather than imported at
+# the top. Against a tree without them, a module-level import of a new name
 # fails the whole file at collection — every case then reports "cannot import",
 # which says nothing about what the code DOES. Reached this way, each case below
 # either fails for its own behavioural reason or, for the handful that exercise

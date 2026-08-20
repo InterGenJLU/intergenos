@@ -13,7 +13,7 @@
 # AVIF screenshots, benchmarks and unit tests are all disabled. The DRM atomic backend
 # and the Vulkan WSI layer (the reason gamescope exists on this box) stay on.
 #
-# NOTE (recorded for the paste-back / next bump): at 3.16.24 the reshade shader-effect
+# NOTE (recorded for the next version bump): at 3.16.24 the reshade shader-effect
 # runtime has no meson toggle — it is compiled unconditionally from src/reshade — so the
 # reshade source is vendored. Its extra needs (luajit, sol2) are already satisfied:
 # luajit is an in-tree system package and sol2 ships inside gamescope's own thirdparty/.

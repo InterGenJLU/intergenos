@@ -253,5 +253,8 @@ post_install() {
     # operator who actually wants docker explicitly enables them after
     # install. Mirror-only distribution means the package never lands
     # without operator action; this is the belt-and-suspenders layer.
-    systemctl daemon-reload 2>/dev/null || true
+    #
+    # No daemon-reload here either: pkm's canonical systemd-daemon-reload hook
+    # owns it, armed by this package's own usr/lib/systemd/system/docker.service
+    # and docker.socket, and it reports its own result instead of absorbing it.
 }

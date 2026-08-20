@@ -240,7 +240,7 @@ class InterGenTestClient:
           OBSERVABILITY — so the run's snapshot/delta/leak/write-gap can actually
           measure what a live turn wrote (a store scenario that persists a fact,
           the linked-pair forget that must sweep it). This is the development
-          store the fleet exercises on a dev box (standing order: daemon data
+          store the suite exercises on a development machine (decided: daemon data
           stores are dev instruments, not protected user data); the delta cleanup
           removes ONLY rows the run created (created_at>=cutoff, with the
           baseline-id safety belt that never touches a pre-existing row), so it is

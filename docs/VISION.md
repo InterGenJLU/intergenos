@@ -282,7 +282,7 @@ A polished, modern installation experience that reflects InterGenOS's philosophy
 10. **Virtualization** — KVM vs VirtualBox vs VMware. KVM selected for performance, kernel compatibility, and scriptability.
 11. **LFS version pinning** — Evaluated LFS 12.3 through 13.0. Pinned to 13.0 (March 2026 release).
 
-Full research archives in [docs/research/](research/INDEX.md) (180+ documents across 27 topical subdirectories — including post-mortems on the signing ceremony, pkm migration design lessons, code audit deliverables, and shim-review preparation)
+Full research archives in [docs/research/](research/INDEX.md) (180+ documents across more than 25 topical subdirectories — including post-mortems on the signing ceremony, pkm migration design lessons, code audit deliverables, and shim-review preparation)
 
 ---
 
@@ -303,7 +303,7 @@ Full research archives in [docs/research/](research/INDEX.md) (180+ documents ac
 
 ### Build system maturity (April–May 2026)
 
-11. ☑ Forge installer backend (over 7,000 lines across 10 modules — disks/packages/config/users/hooks/mok/bootloader/install/integrity/secureboot)
+11. ☑ Forge installer backend (several thousand lines across its core modules — disks/packages/config/users/hooks/mok/bootloader/install/integrity/secureboot)
 12. ☑ Forge installer TUI frontend (over 1,200 lines)
 13. ☑ Test harness (over 400 tests covering installer backend, MOK validation, Class 1 signing-chain verification, supersedes parser/db/verifier)
 14. ☑ AppArmor LSM (apparmor 3.0.8 + starter profiles, default-on for v1.0)
@@ -367,7 +367,7 @@ After a successful build, run a scripted test suite inside the booted VM:
 Upload `.igos.tar.gz` archives to the VPS at `origin.intergenstudios.com`. `pkm update` fetches a package index; `pkm install <name>` downloads and installs pre-built binaries. No compilation on the user's machine.
 
 ### Universal Kernel Config
-Kernel configuration derived from convergence analysis of 5 major distributions. The baseline covers 3,434 options where 4+ distros agree. InterGenOS-specific overrides add desktop optimizations (PREEMPT, HZ=1000), IoT support, and hardware-specific drivers (HP laptop SOF audio, RTW88 WiFi, LPSS I2C).
+Kernel configuration derived from convergence analysis of 5 major distributions. The baseline covers more than 3,400 options where 4+ distros agree. InterGenOS-specific overrides add desktop optimizations (PREEMPT, HZ=1000), IoT support, and hardware-specific drivers (HP laptop SOF audio, RTW88 WiFi, LPSS I2C).
 
 ---
 

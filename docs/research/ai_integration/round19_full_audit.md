@@ -217,8 +217,8 @@ R17 had 25 false passes. R18 had 20. R19 has 20 — unchanged. The grounded synt
 
 #### 19. `pers_no_over_explain` | "What's my IP address?"
 - **Source:** keyword | **Latency:** 9,211ms | **Grade:** PASS
-- **Response:** "Your local loopback IP is 127.0.0.1. Your current network interface (wlo1) has an IP address of 192.168.1.192/24. Note: This IP is likely your router's default gateway or a device on your local network, not your public-facing IP address."
-- **Verdict: ACCEPTABLE** — Real data shown. The note claiming the IP "is likely your router's default gateway" is wrong — 192.168.1.192 is the machine's own IP, not the gateway. Minor synthesis error but the actual data is correct.
+- **Response:** "Your local loopback IP is 127.0.0.1. Your current network interface (wlo1) has an IP address of [redacted-ip-host1]/24. Note: This IP is likely your router's default gateway or a device on your local network, not your public-facing IP address."
+- **Verdict: ACCEPTABLE** — Real data shown. The note claiming the IP "is likely your router's default gateway" is wrong — [redacted-ip-host1] is the machine's own IP, not the gateway. Minor synthesis error but the actual data is correct.
 
 #### 20. `pers_first_person` | "How much RAM do we have?"
 - **Source:** keyword | **Latency:** 9.7ms | **Grade:** PASS
@@ -406,7 +406,7 @@ R17 had 25 false passes. R18 had 20. R19 has 20 — unchanged. The grounded synt
 
 #### 53. `wt_check_vs_start` | "Check sshd"
 - **Source:** llm_tools | **Latency:** 32,643ms | **Grade:** PASS
-- **Response:** "sshd.service is active (running) since April 8, 2026. The service is currently listening on port 22. Recent logs show successful SSH connections from 192.168.1.199 to the root user."
+- **Response:** "sshd.service is active (running) since April 8, 2026. The service is currently listening on port 22. Recent logs show successful SSH connections from [redacted-ip-host2] to the root user."
 - **Verdict: GOOD** — Correct tool, checked status not started. Real data.
 
 #### 54. `wt_find_vs_search` | "Find /etc/fstab"

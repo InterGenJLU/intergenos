@@ -2,7 +2,7 @@
 # wear their OWN full-color KNOWN icon recolored to a luminance-keyed GRADIENT BLUE (the
 # approved IC-032/033 look); InterGenOS's own first-party + system marks speak the
 # flat LINE language and live in other families (intergen-apps / core-gnome-apps / the status,
-# device, folder, mimetype sets) — untouched by this cut.
+# device, folder, mimetype sets) — untouched by this change.
 #
 # Every row here is `mode: gradient`: the app's full-color source is staged in igic/gradient/
 # and emitted by _compile_gradient, which keys each pixel's ITU-R 709 luminance onto a fixed

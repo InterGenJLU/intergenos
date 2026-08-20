@@ -1,7 +1,7 @@
 name: valkey
 version: "9.0.4"
-release: 1
-content_hash: fc5cda558566269a
+release: 2  # r2: the duplicate systemd daemon-reload is removed from post_install; pkm's canonical systemd-daemon-reload hook owns that operation, is armed by this package's own unit payload, skips a root no manager owns, and records its own result.
+content_hash: 4510588a09735b8c
 description: High-performance in-memory KV store (Redis-wire-compatible)
 tier: extra
 license: BSD-3-Clause

@@ -28,7 +28,7 @@ install_func: do_install
 # configs (perf-differentiated, not capability-differentiated — every
 # solver works without it). Recommendation: v1 OFF, rocMLIR as a v1.x
 # addition target decided on R9700 perf data. Silent it is not: this
-# comment + the tracker row are the record.
+# comment is the record.
 source:
   - url: https://github.com/ROCm/rocm-libraries/archive/refs/tags/rocm-${version}.tar.gz
     filename: rocm-rocm-libraries-${version}.tar.gz

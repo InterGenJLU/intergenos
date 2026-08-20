@@ -274,9 +274,12 @@ post_install() {
     chown -R "$PKG_USER:$PKG_GROUP" /var/log/mysql 2>/dev/null || true
     chown -R "$PKG_USER:$PKG_GROUP" /run/mysqld    2>/dev/null || true
 
-    # Reload systemd + AppArmor. Best-effort: install succeeds even
-    # if these aren't running (chroot install / first-boot path).
-    systemctl daemon-reload                                  2>/dev/null || true
+    # Reload AppArmor. Best-effort: install succeeds even where apparmor
+    # is not running (chroot install / first-boot path).
+    #
+    # No daemon-reload here: pkm's canonical systemd-daemon-reload hook owns
+    # it, armed by this package's own usr/lib/systemd/system/mariadb.service,
+    # and it reports its own result instead of absorbing it.
     apparmor_parser -r /etc/apparmor.d/usr.sbin.mariadbd     2>/dev/null || true
 
     # IMPORTANT: do NOT auto-fire mariadb-install-db here. Operators

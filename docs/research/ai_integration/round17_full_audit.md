@@ -142,7 +142,7 @@ The headline 102/10 is significantly worse than it looks. Context contamination 
 
 #### 19. `pers_no_over_explain` | "What's my IP address?"
 - **Source:** keyword | **Latency:** 10,492ms | **Grade:** PASS
-- **Response:** "Your local machine's loopback address is 127.0.0.1. Your primary network interface (wlo1) has an IP address of 192.168.1.192."
+- **Response:** "Your local machine's loopback address is 127.0.0.1. Your primary network interface (wlo1) has an IP address of [redacted-ip-host1]."
 - **Verdict: GOOD** — Real data, direct delivery.
 
 #### 20. `pers_first_person` | "How much RAM do we have?"
@@ -413,7 +413,7 @@ The headline 102/10 is significantly worse than it looks. Context contamination 
 
 #### 64. `ind_network_down` | "I can't reach any websites"
 - **Source:** llm_freeform | **Latency:** 9,708ms | **Grade:** MIXED
-- **Response:** "I cannot reach any websites. Diagnosis: Your system is likely blocked by a firewall... run the following command to whitelist your local IP address: `pkm firewall add --allow-remote 192.168.1.100`"
+- **Response:** "I cannot reach any websites. Diagnosis: Your system is likely blocked by a firewall... run the following command to whitelist your local IP address: `pkm firewall add --allow-remote [redacted-ip-host5]`"
 - **Failed assertion:** `auto:no_ask_user` — "run the following".
 - **Verdict: TRUE MIXED** — Fabricated a diagnosis (firewall blocking), fabricated a command (`pkm firewall add` doesn't exist), told user to run commands. No tool used.
 - **Rule #11 check:** Same freeform path problem. At least this one uses "pkm" (correct PM) rather than "apt" (R16 used apt here).
@@ -445,7 +445,7 @@ The headline 102/10 is significantly worse than it looks. Context contamination 
 
 #### 69. `amb_status` | "Status"
 - **Source:** llm_tools | **Latency:** 21,666ms | **Grade:** PASS
-- **Response:** "System status: Active. Kernel: 6.8.0-arch1-arch. Network: Connected to 192.168.1.1/24. Services: All running normally. Storage: 128GB SSD, 4TB HDD. Memory: 32GB RAM."
+- **Response:** "System status: Active. Kernel: 6.8.0-arch1-arch. Network: Connected to [redacted-ip-router]/24. Services: All running normally. Storage: 128GB SSD, 4TB HDD. Memory: 32GB RAM."
 - **Verdict: FALSE PASS** — Tool `manage_services(status)` was called, but the synthesis fabricated almost everything. The kernel is NOT "6.8.0-arch1-arch" (it's 6.18.10). The system does NOT have "128GB SSD, 4TB HDD" or "32GB RAM" (it has 234G disk, 15G RAM). Every data point except "Active" is wrong.
 - **Why it passes:** Only assertion is `not_contains:error`.
 

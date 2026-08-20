@@ -1,7 +1,7 @@
 name: mesa
 version: "25.3.5"
-release: 7  # r7: install with meson install --skip-subprojects — a plain ninja install also installs the vendored DirectX-Headers subproject's footprint (36 headers + composition/dxguids/wsl trees + 2 static libs + a .pc), which the first from-scratch build deposited into the chroot; every later rebuild then found that system copy, skipped the subproject, and sealed an archive without the files, leaving them permanently unowned on the cumulative chroot (the 4.85 ownership-gate 52-file finding on the ge9b-11 AND ge9b-12 mints). Build-time dependency only; nothing shipped consumes the headers at runtime. r6: drop deprecated -Dshared-glapi (always-on at 25.x; upstream removal would fail configure) — post-burn sweep 2026-07-11
-content_hash: 03b221b8a23ca170
+release: 8  # r8: no built-byte change: igos-build/mesa_feature_matrix.py, which configure() runs to resolve this build's feature surface, is now declared in source_tree. Editing the matrix must rebuild mesa; it has not changed, so r8 builds what r7 built.  # r7: install with meson install --skip-subprojects — a plain ninja install also installs the vendored DirectX-Headers subproject's footprint (36 headers + composition/dxguids/wsl trees + 2 static libs + a .pc), which the first from-scratch build deposited into the chroot; every later rebuild then found that system copy, skipped the subproject, and sealed an archive without the files, leaving them permanently unowned on the cumulative chroot (the 4.85 ownership-gate 52-file finding on the ge9b-11 AND ge9b-12 mints). Build-time dependency only; nothing shipped consumes the headers at runtime. r6: drop deprecated -Dshared-glapi (always-on at 25.x; upstream removal would fail configure) — post-burn sweep 2026-07-11
+content_hash: 3a21b483f51e5b5f
 description: OpenGL, Vulkan, and OpenCL implementation
 license: MIT
 homepage: https://www.mesa3d.org/
@@ -87,6 +87,13 @@ dependencies:
 verify_paths:
   - /usr/bin/glxinfo
   - /usr/include/gbm.h
+
+# Build inputs from the repository tree: declared here so an edit to one
+# moves this package's content fingerprint and a targeted build rebuilds it
+# (igos-build/content_hash.py arm (c)), and in sources_extra below so the
+# published source archive carries them.
+source_tree:
+- igos-build/mesa_feature_matrix.py
 
 # Build inputs composed from the repository tree (survey 2026-08-11; caught by
 # the generic coverage test, not the manual survey pass — instrument correction).

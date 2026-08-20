@@ -1,6 +1,6 @@
 name: cairosvg
 version: "2.9.0"
-release: 1
+release: 2  # r2: comment wording only: the mirror-first note in build.sh now uses plain engineering language. No build change.
 description: SVG to PNG/PDF/PS converter based on cairo (icon-generation toolchain)
 license: LGPL-3.0-or-later
 homepage: https://cairosvg.org

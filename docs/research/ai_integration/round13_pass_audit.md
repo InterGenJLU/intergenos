@@ -226,9 +226,9 @@
 ---
 
 **17. `pers_no_over_explain` — "What's my IP address?"**
-- Response: `Your local loopback address is 127.0.0.1. Your active network interface (wlo1) has the IP address 192.168.1.192, which falls within the 192.168.1.0/24 subnet.`
+- Response: `Your local loopback address is 127.0.0.1. Your active network interface (wlo1) has the IP address [redacted-ip-host1], which falls within the [redacted-lan-subnet]/24 subnet.`
 - Source: keyword | Latency: 8644ms
-- **Verdict: ACCEPTABLE** — Provides the answer but over-specifies (subnet info, loopback). User probably just wants 192.168.1.192. But it's not bad.
+- **Verdict: ACCEPTABLE** — Provides the answer but over-specifies (subnet info, loopback). User probably just wants [redacted-ip-host1]. But it's not bad.
 - Assertions adequate for what they test, but this is borderline over-explaining despite passing the `not_contains "Let me explain how"` check.
 
 ---

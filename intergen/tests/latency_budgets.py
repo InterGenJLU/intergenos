@@ -45,7 +45,7 @@ DECOMPOSED_COMPOUND = "decomposed_compound"     # multi-clause decomposition
 TOOL_ROUTED_EXEC = "tool_routed_exec"       # model + tool dispatch + execution
 
 
-# Warm p50 ceilings in ms — the 9B-GPU reference box measurements banked from
+# Warm p50 ceilings in ms — the 9B-GPU reference machine measurements recorded from
 # the M6 leg-4 latency wave (2026-07-08). TOOL_ROUTED_EXEC is deliberately None:
 # no ceiling has been measured yet, so it is REPORTED, never FAILED — set it from
 # a 9B-GPU-box measurement after the 4.3 wave frees the box, never invent it.

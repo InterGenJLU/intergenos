@@ -113,7 +113,7 @@ negatives. Each pattern names a fixture file under `fixtures/`.
   `instruction-override` + `role-confusion` categories from `patterns.json`
   as a follow-on cleanup.
 - **`tests/intergen/test_injection_corpus.py`** (integration tests; authored
-  by the installed-system coordinator's Step 12) — loads `patterns.json` +
+  by the installed-system integration work's Step 12) — loads `patterns.json` +
   fixtures, feeds each fixture through the dispatcher, asserts the
   advisory tag fires on positive fixtures + does NOT fire on benign
   negatives.

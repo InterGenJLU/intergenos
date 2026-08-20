@@ -1,6 +1,7 @@
 name: lib32-dbus
 version: "1.16.2"
 release: 1  # r1: NEW — 32-bit libdbus-1 (the D-Bus client library), the floor for the full-client half of lib32-gamemode (libgamemode.so.0 links libdbus-1). Libs-only (-Dmessage_bus=false: no 32-bit dbus-daemon, no expat edge; the daemon stays 64-bit), sibling of packages/core/dbus (RT-9 version lock). -Dsystemd=enabled matches the 64-bit libdbus-1.so.3 NEEDED closure. Mirror-only.
+content_hash: 89593a0aea66f5f5
 description: D-Bus message bus client library — libdbus-1 (32-bit multilib runtime)
 license: AFL-2.1 OR GPL-2.0-or-later
 homepage: https://www.freedesktop.org/wiki/Software/dbus/
@@ -40,6 +41,14 @@ dependencies:
 verify_paths:
   - /usr/lib32/libdbus-1.so.3
   - /usr/lib32/pkgconfig/dbus-1.pc
+
+# Build inputs from the repository tree: declared here so an edit to one
+# moves this package's content fingerprint and a targeted build rebuilds it
+# (igos-build/content_hash.py arm (c)), and in sources_extra below so the
+# published source archive carries them.
+source_tree:
+- config/lib32/lib32-cross.ini
+- scripts/lib32-env.sh
 
 # Build inputs composed from the repository tree (declared so the published
 # source archive carries every input the build consumes — the corresponding-

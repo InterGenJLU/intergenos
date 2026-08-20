@@ -559,7 +559,7 @@ However, there's a bigger problem the assertion DIDN'T catch: Qwen used the wron
 **Full response text:**
 > SSH is responding. The `sshd` service is **active (running)**, running as PID 425 since April 8, 2026.
 >
-> Recent logs show successful SSH connections from `192.168.1.199` (ports 42278, 38026, and 50098) for the root user. No errors indicate the service is unresponsive.
+> Recent logs show successful SSH connections from `[redacted-ip-host2]` (ports 42278, 38026, and 50098) for the root user. No errors indicate the service is unresponsive.
 
 **Assertions (12 passed, 1 failed):**
 - **[FAIL] not_contains: "error"** — "Should check service"

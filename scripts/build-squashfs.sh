@@ -794,15 +794,22 @@ if [ -x "$M002_GATE" ] || [ -f "$M002_GATE" ]; then
     # Capture-then-log (errexit-safe, same idiom as Step 4.8) so the gate's
     # own summary lands prefixed + indented, and rc is read from the tool,
     # not the log pipe.
-    m002_out="$(python3 "$M002_GATE" --chroot "$CHROOT" --project "$PROJECT_DIR" 2>&1)" && m002_rc=0 || m002_rc=$?
+    # --strict-unowned (2026-08-19): a required binary present in the chroot
+    # but claimed by no package.yml verify_paths entry now fails this gate
+    # too, not just a missing one. The gate has always printed those as
+    # UNOWNED and passed; the first release built with 29 of them, which is
+    # 29 binaries the installer depends on that the pre-squashfs audit never
+    # checked landed. All are declared now, so the flag holds at zero.
+    m002_out="$(python3 "$M002_GATE" --chroot "$CHROOT" --project "$PROJECT_DIR" --strict-unowned 2>&1)" && m002_rc=0 || m002_rc=$?
     [ -n "$m002_out" ] && printf '%s\n' "$m002_out" | logpipe "[m-002]"
     if [ "$m002_rc" -eq 0 ]; then
         detail "all installer-runtime binaries present in chroot"
         status_line "M-002 chroot-binary-presence gate" PASS
     else
-        detail "one or more installer-runtime binaries are missing from the chroot"
-        detail "re-run the gate directly for the full missing-list diagnostic:"
-        detail "  python3 $M002_GATE --chroot $CHROOT --project $PROJECT_DIR --verbose"
+        detail "an installer-runtime binary is missing from the chroot, or is present"
+        detail "but claimed by no package's verify_paths (--strict-unowned)"
+        detail "re-run the gate directly for the full diagnostic:"
+        detail "  python3 $M002_GATE --chroot $CHROOT --project $PROJECT_DIR --strict-unowned --verbose"
         status_line "M-002 chroot-binary-presence gate" FAIL
         die "M-002 gate failed (rc=$m002_rc) — refusing to build squashfs"
     fi
@@ -961,7 +968,7 @@ if [ -d "$ARCHIVE_DIR" ]; then
     if [ "$sweep_rc" -ne 0 ]; then
         detail "a metadata-less archive is invisible to the repo index and uninstallable;"
         detail "an empty install set at seal time is itself a defect. Rebuild the offending"
-        detail "package(s) — pkg_archive emits + asserts .PKGINFO; step 8.87 backfills pre-python."
+        detail "package(s) — pkg_archive emits + asserts .PKGINFO; step 8.88 backfills pre-python."
         status_line "PI-12 .PKGINFO sweep" FAIL
         die "PI-12 sweep failed — refusing to build squashfs"
     fi
@@ -1186,6 +1193,42 @@ if [ "$ISO_PREP" = "1" ]; then
 else
     warn "squashfs ownership gate SKIPPED (ISO_PREP=$ISO_PREP diagnostic build)"
     status_line "squashfs ownership gate" SKIP
+fi
+
+# ----------------------------------------------------------------------------
+# Step 4.86: autostart entries carry no condition the session will ignore
+# ----------------------------------------------------------------------------
+# An /etc/xdg/autostart entry may carry AutostartCondition=, which decides
+# whether the entry runs — usually on a setting the user controls. GNOME 49
+# removed the machinery that read it (upstream NEWS, 49.beta: the builtin
+# service manager and "various .desktop … keys that were used only by" it), and
+# systemd-xdg-autostart-generator delegates the key to a separate binary that
+# gnome-session 49.2 does not contain. With that binary absent the generator
+# logs "unit will not be started automatically" and then emits the unit anyway,
+# with the condition demoted to a comment — so the entry RUNS and the condition
+# is silently ignored. Measured on systemd 259.1.
+#
+# The gate refuses any entry carrying the key without X-GNOME-Autostart-Phase=,
+# which is the unrelated key that actually makes the generator handle an entry
+# separately. Runs on the same tree the ownership gate just judged, so both see
+# what actually ships.
+AUTOSTART_GATE="$(dirname "$0")/check-autostart-condition-honoured.py"
+AUTOSTART_ALLOWLIST="/mnt/intergenos/config/autostart-condition-allowlist.txt"
+step_begin "[4.86/6]"
+log "autostart-condition gate (no shipped entry carries a dead condition)..."
+auto_out="$(python3 "$AUTOSTART_GATE" \
+    --root "$CHROOT" \
+    --allowlist "$AUTOSTART_ALLOWLIST" 2>&1)" \
+    && auto_rc=0 || auto_rc=$?
+[ -n "$auto_out" ] && printf '%s\n' "$auto_out" | logpipe "[autostart]"
+if [ "$auto_rc" -eq 0 ]; then
+    status_line "autostart-condition gate" PASS
+else
+    status_line "autostart-condition gate" FAIL
+    log "a shipped autostart entry would run with its condition ignored —"
+    log "drop the dead key, give the entry a gate the session honours, or add"
+    log "a reasoned allowlist entry, then rebuild the squashfs"
+    die "autostart-condition gate failed (rc=$auto_rc)"
 fi
 
 # ----------------------------------------------------------------------------

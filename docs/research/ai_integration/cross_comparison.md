@@ -1861,7 +1861,7 @@ The `/dev/root` partition is currently at 17% full, which is healthy for a typic
 
 **Round 10:** [Acceptable] route=llm_tools 35278ms | assertions=8/8 | flags=RAW_DUMP
 ````
-The SSH daemon is currently active and running. It is managed by systemd and is enabled, with a process ID of 425, consuming 11.954 CPU seconds and 5.9M memory. Recent logs show active sessions for the root user on multiple ports, including a successful keyboard-interactive authentication from 192.168.1.199.
+The SSH daemon is currently active and running. It is managed by systemd and is enabled, with a process ID of 425, consuming 11.954 CPU seconds and 5.9M memory. Recent logs show active sessions for the root user on multiple ports, including a successful keyboard-interactive authentication from [redacted-ip-host2].
 ````
 
 **Baseline A:** [Acceptable] route=llm_tools 13045ms | assertions=7/8 | flags=NARRATION
@@ -1880,7 +1880,7 @@ Here are the key details from the output:
 *   **Resource Usage:**
     *   **Memory:** 5.3M (Peak: 26.2M)
     *   **CPU:** 14.043s
-*   **Security:** The service accepts keyboard-interactive authentication and allows connections from IP `192.168.1.199`.
+*   **Security:** The service accepts keyboard-interactive authentication and allows connections from IP `[redacted-ip-host2]`.
 ````
 
 ---
@@ -1908,7 +1908,7 @@ Based on the `manage_services` output:
 *   **Status**: Active and running.
 *   **Service**: `sshd.service` is enabled and active.
 *   **PID**: Main process (PID 425) is running.
-*   **Recent Activity**: SSH sessions have been active and closed recently (e.g., connections from `192.168.1.199` on ports 32806, 51884, and 52104).
+*   **Recent Activity**: SSH sessions have been active and closed recently (e.g., connections from `[redacted-ip-host2]` on ports 32806, 51884, and 52104).
 ````
 
 ---
@@ -1924,7 +1924,7 @@ To determine if the SSH service is running, I need to check its current status o
 
 **Baseline A:** [Acceptable] route=llm_tools 32793ms | assertions=8/8 | flags=RAW_DUMP
 ````
-The SSH service is active and running. The service status shows as active (running) since Wed 2026-04-08 22:49:33 CDT, and the main process (PID 425) is currently executing. Recent logs confirm successful session openings and connections from the client IP 192.168.1.199.
+The SSH service is active and running. The service status shows as active (running) since Wed 2026-04-08 22:49:33 CDT, and the main process (PID 425) is currently executing. Recent logs confirm successful session openings and connections from the client IP [redacted-ip-host2].
 ````
 
 **Baseline B:** [Good] route=llm_tools 33277ms | assertions=8/8 | flags=none
@@ -2251,7 +2251,7 @@ Yes, SSH is running on InterGenOS. The service sshd is active and currently list
 ````
 Yes, SSH is currently running on your InterGenOS system.
 
-The service `sshd` is **active** and **enabled**. It is actively listening for connections on port 22. Recent logs confirm that SSH sessions have been successfully established and closed for the user `root` from the IP address `192.168.1.199`.
+The service `sshd` is **active** and **enabled**. It is actively listening for connections on port 22. Recent logs confirm that SSH sessions have been successfully established and closed for the user `root` from the IP address `[redacted-ip-host2]`.
 ````
 
 ---
@@ -2373,25 +2373,25 @@ You are currently running the Linux kernel version **6.18.10**.
 
 **Round 10:** [Good] route=keyword 6098ms | assertions=9/9 | flags=none
 ````
-Your current network interface lo is configured with the IP address 192.168.1.192/24. The loopback interface lo is bound to 127.0.0.1.
+Your current network interface lo is configured with the IP address [redacted-ip-host1]/24. The loopback interface lo is bound to 127.0.0.1.
 ````
 
 **Baseline A:** [Good] route=keyword 8666ms | assertions=9/9 | flags=none
 ````
-Your current interface IP address is 192.168.1.192/24, with the loopback address 127.0.0.1/8 and the IPv6 address 2600:1700:7080:69b0:bbb4:ef34:7cd7:5b77/64.
+Your current interface IP address is [redacted-ip-host1]/24, with the loopback address 127.0.0.1/8 and the IPv6 address [redacted-public-ipv6]/64.
 ````
 
 **Baseline B:** [Good] route=keyword 12251ms | assertions=9/9 | flags=none
 ````
 Here is your current network information:
 
-*   **IPv4 Address:** 192.168.1.192
-*   **IPv6 Address:** 2600:1700:7080:69b0:bbb4:ef34:7cd7:5b77
+*   **IPv4 Address:** [redacted-ip-host1]
+*   **IPv6 Address:** [redacted-public-ipv6]
 *   **Interface:** wlo1 (Wi-Fi)
 *   **Subnet Mask:** 24 bits
 *   **Gateway:** 127.0.0.1
 
-You are currently connected to the local Wi-Fi network at 192.168.1.192.
+You are currently connected to the local Wi-Fi network at [redacted-ip-host1].
 ````
 
 ---
@@ -3092,9 +3092,9 @@ Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] device
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): canceled DHCP transaction
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): state changed no lease
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): activation: beginning transaction (timeout in 45 seconds)
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=192.168.1.192, acd pending
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1], acd pending
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 Apr 15 09:51:32 intergenos NetworkManager[353]
 [... truncated ...]
 ````
@@ -3115,7 +3115,7 @@ Yes, **NetworkManager** is currently running.
 *   **Memory Usage:** 10.6M (peak: 14.6M)
 *   **CPU Usage:** 1 min 647ms
 
-The service was started on April 8th and has been active for one week. Recent logs show it successfully acquired a DHCP lease for the IP address `192.168.1.192` on the `wlo1` interface.
+The service was started on April 8th and has been active for one week. Recent logs show it successfully acquired a DHCP lease for the IP address `[redacted-ip-host1]` on the `wlo1` interface.
 ````
 
 ---
@@ -3466,7 +3466,7 @@ Here are the key details from the output:
 *   **Memory Usage:** 10.6M (peak: 14.6M)
 *   **CPU Usage:** 1 min 763ms
 
-The service is actively managing network leases for the interface `wlo1` (assigned IP 192.168.1.192) and has registered GNOME Network Agent agents.
+The service is actively managing network leases for the interface `wlo1` (assigned IP [redacted-ip-host1]) and has registered GNOME Network Agent agents.
 ````
 
 ---
@@ -3502,7 +3502,7 @@ The command `run_command` returned `intergenos`, which indicates that the system
 
 **Round 10:** [Acceptable] route=llm_tools 36495ms | assertions=7/8 | flags=RAW_DUMP
 ````
-sshd.service is currently active and running on your InterGenOS system. It has been enabled and started by systemd since April 8, 2026. The service is consuming approximately 5.9MB of memory and running 11.741 CPU cycles. Multiple successful SSH session connections are being logged for the root user from the 192.168.1.199 IP address.
+sshd.service is currently active and running on your InterGenOS system. It has been enabled and started by systemd since April 8, 2026. The service is consuming approximately 5.9MB of memory and running 11.741 CPU cycles. Multiple successful SSH session connections are being logged for the root user from the [redacted-ip-host2] IP address.
 ````
 - FAIL: not_contains: Should check status, not start
 

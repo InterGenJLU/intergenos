@@ -4,9 +4,22 @@
 
 import os
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
+# Forensic-trace shim — defensive import, same shape as installer.py and
+# hooks.py: the trace module is present on a built system and absent in a
+# bare source checkout, and neither case may change what removal does.
+try:
+    from . import _trace
+    _TRACE_AVAILABLE = True
+except ImportError:
+    _trace = None
+    _TRACE_AVAILABLE = False
+
 from .database import PackageDB, MANIFEST_DIR, _sha256
+from .hooks import HOOK_ENV_ALLOWLIST
 
 # Subtrees the post-prune directory sweep never touches.
 #
@@ -26,6 +39,52 @@ from .database import PackageDB, MANIFEST_DIR, _sha256
 # package-owned content for the same reason.
 SWEEP_EXEMPT_PREFIXES = ("opt/", "var/lib/igos/", "var/lib/pkm/")
 SWEEP_EXEMPT_EXACT = frozenset({"opt", "var/lib/igos", "var/lib/pkm"})
+
+
+def _remove_hook_cmd(root, hook):
+    """Build the command that runs `hook` for an install rooted at `root`.
+
+    Returns (argv, package_root) where package_root is the value the hook
+    is given as PKM_PACKAGE_ROOT.
+
+    Two cases, mirroring the install-side per-package hook runner:
+
+      root "/"    — the live system. Run the hook directly.
+      any other   — a chroot target (a Forge install, the mint chroot, a
+                    recovery mount). Run the hook UNDER chroot(root), so
+                    every filesystem-rooted path inside it (/lib/modules,
+                    /etc, /var/log, /boot) resolves to the target rather
+                    than to the machine driving the removal. A hook that
+                    unloads kernel modules or deletes /lib/modules content
+                    must never reach the host that way.
+
+    PKM_PACKAGE_ROOT is "/" in both cases because it is the root from the
+    HOOK's own perspective: under chroot the target IS the root.
+
+    Kept as a module-level function rather than inlined so both branches
+    can be read, and asserted, without executing a removal.
+    """
+    root = Path(root)
+    if str(root) == "/":
+        return [str(hook)], "/"
+    hook_in_chroot = "/" + str(Path(hook).relative_to(root))
+    return ["chroot", str(root), hook_in_chroot], "/"
+
+
+def _pre_remove_cmd(root, hook):
+    """The pre-remove hook's command. See _remove_hook_cmd."""
+    return _remove_hook_cmd(root, hook)
+
+
+def _post_remove_cmd(root, hook):
+    """The post-remove hook's command. See _remove_hook_cmd.
+
+    Both removal hooks are launched exactly the same way — the chroot
+    decision is about WHERE the hook must act, which is the target root in
+    both cases, not about when it fires. They share one implementation so
+    the two can never drift into launching differently.
+    """
+    return _remove_hook_cmd(root, hook)
 
 
 def ancestor_chain(path):
@@ -177,6 +236,15 @@ class PackageRemover:
             self.root = Path(root)
         else:
             self.root = Path(getattr(db, "root", "/"))
+        # Paths this remover left on disk ON PURPOSE, accumulated across every
+        # remove() call it makes: co-owned payload, preserved configuration,
+        # configuration that could not be read to prove it unmodified, and the
+        # top-level FHS skeleton entries removal refuses on principle. A
+        # caller that audits its own outcome — `pkm iso-prep` does — needs to
+        # tell a deliberate retention from residue, and the difference is
+        # knowable only here. Files that FAILED to unlink are deliberately NOT
+        # in this set: those are the residue such an audit exists to catch.
+        self.deliberately_retained = set()
 
     def _co_owned_paths(self, exclude_pkg_id, paths):
         """Component C — the co-ownership query. Return {path: [owner names]}
@@ -249,7 +317,159 @@ class PackageRemover:
                 owners.setdefault(path, set()).add(owner)
         return {p: sorted(names) for p, names in owners.items()}
 
-    def remove(self, name, force=False, reporter=None, on_file=None):
+    def _manifest_recorded_paths(self, name, version):
+        """Root-relative paths the package's on-disk text manifest records.
+
+        The manifest is the second, independent record of the same payload
+        the database rows describe (see cli._known_owned_paths, which reads
+        the identical union for iso-prep's outcome assertion). Read before
+        the removal, which unlinks the manifest itself. Missing or
+        unparseable manifest: empty set — the database rows then stand
+        alone, exactly the pre-union behavior.
+        """
+        from .database import MANIFEST_DIR, _parse_manifest
+
+        if not version:
+            return set()
+        manifest = (Path(self.root) / MANIFEST_DIR.relative_to("/")
+                    / f"{name}-{version}")
+        try:
+            parsed = _parse_manifest(manifest.read_text(errors="replace"))
+        except OSError:
+            return set()
+        if not parsed:
+            return set()
+        return {p.strip("/") for p in parsed.get("files", []) if p.strip("/")}
+
+    def _run_pre_remove_hook(self, name, version):
+        """Fire the package's pre-remove runtime hook if it ships one.
+
+        Hook path: <root>/var/lib/pkm/hooks/<name>/pre-remove, executable.
+        Absent or non-executable: nothing happens and nothing is said —
+        the overwhelming majority of packages ship no hook and must pay
+        nothing for the ones that do.
+
+        What it is for: work that is only possible while the package's
+        payload is still on disk. Stopping a service the payload provides,
+        unloading kernel modules built from it, deleting artefacts the
+        package created AFTER its manifest was sealed — those artefacts
+        are in no manifest, so the file-removal walk cannot see them and
+        they survive the removal unless something removes them first. That
+        is why this runs ahead of the walk rather than after it.
+
+        Environment given to the hook:
+            PKM_PACKAGE_NAME      — package name
+            PKM_PACKAGE_VERSION   — version being removed
+            PKM_PACKAGE_ROOT      — "/" (the root from the hook's own
+                                    perspective; see _pre_remove_cmd)
+
+        The inherited environment is stripped to HOOK_ENV_ALLOWLIST first.
+        The hook runs with the privilege of the removing process, so an
+        inherited LD_PRELOAD, PYTHONPATH or *_PROXY set by whoever could
+        reach the parent environment would otherwise steer it. This uses
+        the lifecycle-hook allowlist rather than the wider helper one: the
+        two differ only in SUDO_USER, which exists so a helper can drop to
+        the invoking user for a per-user install. No remove-time hook has
+        that need, and the demonstrated-need rule in pkm/hooks.py says the
+        hook environment stays minimal until one does.
+
+        Failure is non-fatal and is REPORTED: a non-zero exit and an exec
+        that could not happen at all both print a warning naming the
+        package, what went wrong and the path to re-run by hand, and the
+        removal then proceeds. Non-fatal is not silent — the hook cleans
+        up around a removal, and a removal that stopped because a cleanup
+        script failed would leave the package half-present with no way
+        forward.
+        """
+        self._run_remove_hook(name, version, kind="pre_remove",
+                              filename="pre-remove")
+
+    def _run_post_remove_hook(self, name, version):
+        """Fire the package's post-remove runtime hook if it ships one.
+
+        Hook path: <root>/var/lib/pkm/hooks/<name>/post-remove, executable.
+        Absent or non-executable: nothing happens and nothing is said.
+
+        The mirror of the pre-remove hook, and the reason the pair exists.
+        This one runs once the file-removal walk has finished and the
+        package is out of the database, so it is for work that is only
+        correct when the payload is already GONE: rebuilding a boot image
+        so it stops referencing a driver that no longer exists, refreshing
+        a cache that must not re-include the removed files, reloading a
+        daemon that would otherwise hold a deleted path open. Doing any of
+        that before the walk would capture the state being removed.
+
+        `pkm/hooks.py` has named post_remove in LIFECYCLE_EVENTS since the
+        R001 root while nothing invoked it, so a package could ship this
+        script and state in its own documentation that it runs. The nvidia
+        package is the live instance.
+
+        Environment, privilege posture and failure handling are identical
+        to the pre-remove hook — see _run_pre_remove_hook — and share one
+        implementation so they cannot drift.
+        """
+        self._run_remove_hook(name, version, kind="post_remove",
+                              filename="post-remove")
+
+    def _run_remove_hook(self, name, version, kind, filename):
+        """Shared implementation of both removal hooks.
+
+        `kind` is the lifecycle event name from pkm/hooks.py used in the
+        trace record; `filename` is the on-disk hook name, which is also
+        the word used in any warning so the message names the thing the
+        user has to go and re-run.
+        """
+        hook = self.root / "var" / "lib" / "pkm" / "hooks" / name / filename
+        if not hook.is_file() or not os.access(str(hook), os.X_OK):
+            return
+
+        env = {k: v for k, v in os.environ.items() if k in HOOK_ENV_ALLOWLIST}
+        cmd, package_root = _remove_hook_cmd(self.root, hook)
+        env["PKM_PACKAGE_NAME"] = name
+        env["PKM_PACKAGE_VERSION"] = version
+        env["PKM_PACKAGE_ROOT"] = package_root
+
+        try:
+            if _TRACE_AVAILABLE:
+                _trace.trace_event(
+                    "pkm_hook_fire", pkg=name, hook=kind,
+                    script_path=str(hook), argv=cmd,
+                )
+                result = _trace.traced_run(
+                    cmd, env=env, phase=f"pkm_{kind}",
+                    intent=f"{kind} hook for {name}", pkg=name,
+                )
+                _trace.trace_event(
+                    "pkm_hook_done", pkg=name, hook=kind,
+                    rc=result.returncode,
+                )
+            else:
+                result = subprocess.run(cmd, env=env)  # trace-coverage: allow — _trace shim unavailable fallback
+            if result.returncode != 0:
+                print(
+                    f"  WARNING: {filename} hook for {name} exited "
+                    f"{result.returncode}; removal proceeds (hook is "
+                    f"non-fatal). Whatever the hook was going to clean up "
+                    f"may still be present. Re-run manually: {hook}",
+                    file=sys.stderr,
+                )
+        except (OSError, subprocess.SubprocessError) as e:
+            if _TRACE_AVAILABLE:
+                try:
+                    _trace.trace_event(
+                        "pkm_hook_failed", pkg=name, hook=kind,
+                        err=str(e),
+                    )
+                except Exception:
+                    pass
+            print(
+                f"  WARNING: {filename} hook for {name} could not execute: "
+                f"{e}; removal proceeds (hook is non-fatal).",
+                file=sys.stderr,
+            )
+
+    def remove(self, name, force=False, reporter=None, on_file=None,
+               run_pre_remove_hook=True, run_post_remove_hook=None):
         """Remove an installed package.
 
         Checks reverse dependencies unless force=True.
@@ -260,6 +480,26 @@ class PackageRemover:
         actually removed are listed WITH their target paths (≤50 inline, else
         a per-dir breakdown), along with any preserved (user-edited) configs.
         None keeps the legacy silent (ok, msg) behavior.
+
+        ``run_pre_remove_hook`` (default True): fire the package's
+        pre-remove runtime hook, if it ships one, before anything on disk
+        is touched. True is the default because "remove" means the package
+        is going away, and a caller that says nothing should get the
+        behaviour the package's own documentation describes. The callers
+        that pass False are the ones whose operation is not that — see
+        ``run_post_remove_hook`` (default None): fire the package's
+        post-remove hook once the removal has completed. None means FOLLOW
+        the pre-remove decision, which is the safe default and not a
+        convenience: every caller that suppresses the pre-remove hook has
+        judged that this is not a real removal on a real install — a
+        rollback of an install that never completed, a reinstall, an
+        upgrade, the build-time prune inside the mint chroot — and that
+        judgment is equally true of both hooks. Defaulting to None means a
+        new call site cannot exclude one hook and silently keep the other
+        by saying nothing. Pass True or False to override deliberately.
+
+        See _run_pre_remove_hook for what the hook is, and each call site for
+        why it opts out.
 
         ``on_file`` is an optional callback invoked as
         ``on_file(index, total, path)`` as each recorded path is considered.
@@ -289,12 +529,41 @@ class PackageRemover:
                     f"  Use 'pkm remove {name} --force' to remove anyway."
                 )
 
-        # Get file list
+        # Pre-remove hook, ahead of every filesystem change this method
+        # makes. Placed after the two checks that can still refuse the
+        # removal (not installed, reverse dependencies) so a refused
+        # removal never runs it, and before the file list is read so a
+        # package with no tracked files — which is still a package being
+        # removed — fires it too.
+        if run_post_remove_hook is None:
+            run_post_remove_hook = run_pre_remove_hook
+
+        if run_pre_remove_hook:
+            self._run_pre_remove_hook(name, pkg["version"])
+
+        # Get file list — the UNION of both of pkm's records, not the
+        # database rows alone. The database has been incomplete on real
+        # substrates while the text manifest carried the missing paths: the
+        # 2026-08-15 build recorded the /opt/jdk and /opt/rocm/llvm compat
+        # symlinks only in their packages' text manifests (as trailing-slash
+        # directory entries the database import dropped), so this
+        # database-driven removal left them behind as dangling symlinks —
+        # caught by iso-prep's outcome assertion, which already checks the
+        # union (2026-08-20). Removal now consumes the same union the
+        # assertion checks. Disk truth still classifies every path, and the
+        # FHS-skeleton and co-ownership guards below apply to the manifest
+        # paths identically; a path on neither disk nor database is a no-op.
         files = self.db.get_files(name)
+        db_recorded = {f["path"].strip("/") for f in files}
+        for rel in sorted(self._manifest_recorded_paths(name, pkg["version"])):
+            if rel and rel not in db_recorded:
+                files.append({"path": rel, "is_dir": False})
         if not files:
             # No files tracked — just remove the DB entry
             self.db.remove_installed(name)
             self.db.log_operation("remove", name, old_version=pkg["version"])
+            if run_post_remove_hook:
+                self._run_post_remove_hook(name, pkg["version"])
             return True, f"Removed {name} {pkg['version']} (no files tracked)"
 
         # Classify each manifest path by what is ON DISK, not by the DB's
@@ -529,6 +798,25 @@ class PackageRemover:
         # Remove from database
         self.db.remove_installed(name)
         self.db.log_operation("remove", name, old_version=pkg["version"])
+
+        # The payload is off disk and the package is out of the database, so
+        # the post-remove hook sees the finished state it exists for.
+        if run_post_remove_hook:
+            self._run_post_remove_hook(name, pkg["version"])
+
+        # Record what was kept on purpose, for a caller that audits whether
+        # the removal actually cleared what the package owned. Normalised the
+        # same way the file rows are, so the caller can compare directly.
+        for _p in protected_skipped:
+            self.deliberately_retained.add(_p.strip("/"))
+        for _p in preserved_configs:
+            self.deliberately_retained.add(_p.strip("/"))
+        for _p in unreadable_preserved:
+            self.deliberately_retained.add(_p.strip("/"))
+        for _p, _owners in retained_co_owned:
+            self.deliberately_retained.add(_p.strip("/"))
+        for _p, _owners in retained_co_owned_dirs:
+            self.deliberately_retained.add(_p.strip("/"))
 
         from . import txn as _txn
         msg = (

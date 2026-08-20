@@ -123,7 +123,7 @@ The full verbatim quotes and the SMOOTHNESS QUALITY BAR are documented in the fi
 
 ## Recommended sequencing mechanism for Option A (if chosen)
 
-If operator chooses Option A (Chain), the cleanest sequencing approach is:
+If Option A (Chain) is chosen, the cleanest sequencing approach is:
 
 - `intergen-firstboot.desktop` declares `X-GNOME-Autostart-Phase=Initialization` (fires as early as possible after session start, BEFORE Applications phase)
 - `intergen-welcome.desktop` stays at default (Applications phase; fires AFTER Initialization completes)
@@ -151,8 +151,8 @@ For belt-and-suspenders the new `intergen-firstboot` binary should `gtk_window_p
 
 **Override paths considered:**
 
-- If operator prefers Option B for UX continuity (smooth visual transition from animation to first welcomer page without window-close + window-open flicker), the migration done-marker concern is solvable but requires care.
-- If operator prefers a hybrid (e.g. animation in a separate XDG autostart but welcomer extended to absorb the "Hello." / "Shall we get started?" text-transition phase from the existing DRM binary as its own first page), that splits the difference and is worth surfacing for review.
+- If Option B is preferred for UX continuity (smooth visual transition from animation to first welcomer page without window-close + window-open flicker), the migration done-marker concern is solvable but requires care.
+- If a hybrid is preferred (e.g. animation in a separate XDG autostart but welcomer extended to absorb the "Hello." / "Shall we get started?" text-transition phase from the existing DRM binary as its own first page), that splits the difference and is worth surfacing for review.
 
 ---
 

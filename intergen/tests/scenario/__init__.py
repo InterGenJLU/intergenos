@@ -6,7 +6,7 @@ A harness that iterates scenario CLASSES against the full assistant stack and
 regression-protects each, replacing per-turn dispatch point-fixes. Six grading
 axes: context persistence over turns, memory persistence between sessions,
 decomposer correctness, routing/decisioning, capability recall, and fabrication
-guards. The authoritative design is banked separately (the scenario-harness
+guards. The authoritative design is recorded separately (the scenario-harness
 design artifact); this package implements it phase by phase.
 
 Phase 1 (this package so far):

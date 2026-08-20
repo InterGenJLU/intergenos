@@ -1,6 +1,6 @@
 name: samba
 version: "4.23.5"
-release: 2  # r2: strip var/run+var/lock install side-effects, add tmpfiles.d /run/samba + /run/lock/samba (split-brain runtime-dir class, 2026-07-17)
+release: 3  # r3: the quicktest suite's policy is declared instead of every failure being masked. Per-finding retrofit, not a sweep.  # r2: strip var/run+var/lock install side-effects, add tmpfiles.d /run/samba + /run/lock/samba (split-brain runtime-dir class, 2026-07-17)
 description: SMB/CIFS file and print server
 license: GPL-3.0-or-later
 homepage: https://www.samba.org/
@@ -60,6 +60,11 @@ dependencies:
   - lmdb
   - nss
   - popt
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "quicktest starts a self-test environment of live Samba servers and drives them over loopback sockets; upstream states plainly that the suite prints lines which look like failures and are innocuous. The build chroot has no configured network interface and no running name service, so that class of line is expected here. The suite runs and its full output is kept in the package log."
+
 verify_paths:
   - /usr/bin/samba-log-parser
   - /usr/bin/samba-regedit

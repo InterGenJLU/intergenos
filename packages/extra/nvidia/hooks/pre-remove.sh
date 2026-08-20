@@ -28,8 +28,26 @@ log "starting"
 if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
     for unit in nvidia-persistenced.service nvidia-suspend.service \
                 nvidia-resume.service nvidia-hibernate.service; do
-        systemctl stop "$unit" 2>/dev/null || true
-        systemctl disable "$unit" 2>/dev/null || true
+        # Narrowed instead of masked. The named condition is that a unit in
+        # this list may legitimately not be installed on a given machine, and
+        # stop or disable of a unit that does not exist returns 1 for "does
+        # not exist" (measured 2026-08-19) — an impossible operation, not a
+        # failed one. Existence is tested first, so whatever remains is a real
+        # failure and is reported rather than absorbed.
+        #
+        # `systemctl cat` is a valid existence test ONLY here, where the
+        # /run/systemd/system test above has already established that a live
+        # manager owns this root. Measured 2026-08-19: on a live root it
+        # returns 0 for a present unit and 1 for an absent one, but inside a
+        # manager-less chroot it returns 0 even for an absent unit. Do not
+        # copy this guard into a context that can run without a manager.
+        systemctl cat -- "$unit" >/dev/null 2>&1 || continue
+
+        systemctl stop "$unit"; rc=$?
+        [ "$rc" -eq 0 ] || log "WARNING: 'systemctl stop $unit' exited $rc — the module unload below may find the device busy"
+
+        systemctl disable "$unit"; rc=$?
+        [ "$rc" -eq 0 ] || log "WARNING: 'systemctl disable $unit' exited $rc — the unit may still be started on the next boot"
     done
 fi
 

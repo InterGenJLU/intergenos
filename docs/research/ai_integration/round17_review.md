@@ -36,7 +36,7 @@ InterGenOS does not run Python natively; it relies on the `pkm` package manager 
 ````
 System status: Active.
 Kernel: 6.8.0-arch1-arch.
-Network: Connected to 192.168.1.1/24.
+Network: Connected to [redacted-ip-router]/24.
 Services: All running normally.
 Storage: 128GB SSD, 4TB HDD.
 Memory: 32GB RAM.
@@ -513,9 +513,9 @@ I cannot reach any websites.
 
 **Action:** To restore connectivity, run the following command to whitelist your local IP address:
 ```bash
-pkm firewall add --allow-remote 192.168.1.100
+pkm firewall add --allow-remote [redacted-ip-host5]
 ```
-*Note: Replace `192.168.1.100` with your actual local IP address if you are not in a container.*
+*Note: Replace `[redacted-ip-host5]` with your actual local IP address if you are not in a container.*
 ````
 
 **Failed assertions:**
@@ -848,7 +848,7 @@ Your system has 100% of available disk space. No action is required.
 
 **Response:**
 ````
-The SSH daemon is currently active and running. It is listening on port 22 and has successfully handled multiple user sessions, including root access from 192.168.1.199.
+The SSH daemon is currently active and running. It is listening on port 22 and has successfully handled multiple user sessions, including root access from [redacted-ip-host2].
 ````
 
 ---
@@ -1081,7 +1081,7 @@ You're running kernel 6.18.10.
 
 **Response:**
 ````
-Your local machine's loopback address is 127.0.0.1. Your primary network interface (wlo1) has an IP address of 192.168.1.192. Additionally, your device is connected to the 2600:1700:7080:69b0:bbb4:ef34:7cd7:5b77/64 link-local address range.
+Your local machine's loopback address is 127.0.0.1. Your primary network interface (wlo1) has an IP address of [redacted-ip-host1]. Additionally, your device is connected to the [redacted-public-ipv6]/64 link-local address range.
 ````
 
 ---
@@ -1442,14 +1442,14 @@ Here are your network interfaces:
 
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): state changed no lease
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): activation: beginning transaction (timeout in 45 seconds)
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=192.168.1.192, acd pending
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1], acd pending
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 Apr 15 14:23:22 intergenos NetworkManager[353]: <info>  [1776281002.9856] agent-manager: agent[98cbb30b060c3332,:1.3045/org.gnome.Shell.NetworkAgent/60598]: agent registered
 Apr 15 14:23:29 intergenos NetworkManager[353]: <info>  [1776281009.4130] agent-manager: agent[4c8c51d7746cf946,:1.3068/org.gnome.Shell.NetworkAgent/1000]: agent registered
-Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 ````
 
 ---

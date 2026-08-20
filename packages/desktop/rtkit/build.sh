@@ -30,12 +30,10 @@ do_install() {
     DESTDIR="$DESTDIR" ninja install
 }
 
-post_install() {
-    set -e
-    # rtkit user/group is declared by /usr/lib/sysusers.d/rtkit.conf
-    # and created by the pkm canonical sysusers hook before this
-    # lifecycle hook runs.
-
-    # Enable the service
-    systemctl enable rtkit-daemon.service 2>/dev/null || true
-}
+# No post_install hook. Default enablement of every unit this package ships is
+# decided in one place — intergenos-base-files'
+# /usr/lib/systemd/system-preset/80-intergenos-enable.preset — and applied by the
+# `systemctl preset-all` pass the image build and the installer both run. A
+# `systemctl enable` here was a second voice for the same decision and the preset
+# pass reverted it, so the tree stated one default and shipped another. Decided
+# 2026-08-19: the preset files own this; recipes do not enable their own units.

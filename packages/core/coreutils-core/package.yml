@@ -20,3 +20,4 @@ build_style: autotools
 verify_paths:
   - /usr/bin/b2sum
   - /usr/libexec/coreutils/libstdbuf.so
+  - /usr/sbin/chroot

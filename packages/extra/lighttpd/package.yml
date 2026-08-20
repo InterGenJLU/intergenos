@@ -1,7 +1,7 @@
 name: lighttpd
 version: "1.4.82"
-release: 1
-content_hash: 5efe600f2f882de0
+release: 2  # r2: the duplicate systemd daemon-reload is removed from post_install; pkm's canonical systemd-daemon-reload hook owns that operation, is armed by this package's own unit payload, skips a root no manager owns, and records its own result.
+content_hash: 36c22c57204cc07b
 description: Lightweight event-driven HTTP server (BSD-3)
 tier: extra
 license: BSD-3-Clause

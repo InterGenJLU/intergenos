@@ -1,0 +1,31 @@
+name: tcpdump
+version: "4.99.6"
+release: 1
+description: Command-line network packet analyser
+license: BSD-3-Clause
+homepage: https://www.tcpdump.org/
+tier: extra
+build_style: autotools
+# tier: extra is forced by the dependency, not chosen for convenience: tcpdump
+# links libpcap, and libpcap is a tier:desktop package in this tree. A base-tier
+# package may not build-depend on a desktop-tier one, so the earliest tier this
+# recipe can honestly sit in is the one after desktop.
+source:
+  - url: https://www.tcpdump.org/release/tcpdump-${version}.tar.xz
+    sha256: 40a8cefd45f0d2a06827e6658efb830d484868c449ad80f7efb33516af44f3da
+dependencies:
+  build:
+    - pkgconf
+    - libpcap       # the capture library tcpdump is a front end for
+    - openssl       # decryption of ESP payloads when a key is supplied
+  host: []
+  runtime:
+    - libpcap
+    - openssl
+tests:
+  enabled: true
+  failure_policy: known_failures
+  reason: "the suite replays saved capture files and compares printed output, which runs anywhere; the cases that open a live interface need a network device and CAP_NET_RAW, which the build chroot does not provide, and fail by environment."
+verify_paths:
+  - /usr/bin/tcpdump
+  - /usr/share/man/man1/tcpdump.1

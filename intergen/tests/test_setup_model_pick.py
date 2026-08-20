@@ -47,7 +47,7 @@ def _no_nvidia():
     list and four tests in this file die with StopIteration inside
     unittest.mock — on that box only. The same four passed on every machine
     without an NVIDIA card, which is precisely what makes this shape hard to
-    see: the suite looks green on most of the fleet and the failure looks like
+    see: the suite looks green on most machines and the failure looks like
     a code regression on the one box that has the hardware.
 
     A test must not read host hardware. Pinning the driver state makes these
@@ -268,7 +268,7 @@ class TestSetupDriverAdvisory(_SetupHarness):
 
     def test_no_advisory_asks_nothing_when_only_one_rung_is_offered(self):
         # The other half of the same fact, and the reason the four failures
-        # were invisible on most of the fleet: with no NVIDIA card the ladder
+        # were invisible on most machines: with no NVIDIA card the ladder
         # holds one rung, setup asks NOTHING, and a single scripted answer is
         # enough. Same box, same suite, one fewer question.
         mm = _FakeMM()

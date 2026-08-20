@@ -1,6 +1,7 @@
 name: lib32-sqlite
 version: '3510200'
 release: 2  # r2: license: Public Domain -> LicenseRef-Public-Domain — a valid SPDX identifier, so the new licence-identifier gate passes and the SBOM/mirror index carry something resolvable. .PKGINFO carries license=, so this metadata-only change still needs the bump to reach installed systems on pkm upgrade.
+content_hash: 1857f43bf618da3c
 description: SQL database engine (32-bit multilib runtime)
 # SPDX has no identifier for a bare public-domain dedication. LicenseRef- is
 # SPDX's own mechanism for a licence it does not carry, and preserves the
@@ -42,6 +43,13 @@ dependencies:
 verify_paths:
   - /usr/lib32/libsqlite3.so.0
   - /usr/lib32/pkgconfig/sqlite3.pc
+
+# Build inputs from the repository tree: declared here so an edit to one
+# moves this package's content fingerprint and a targeted build rebuilds it
+# (igos-build/content_hash.py arm (c)), and in sources_extra below so the
+# published source archive carries them.
+source_tree:
+- scripts/lib32-env.sh
 
 # Build inputs composed from the repository tree (declared so the published
 # source archive carries every input the build consumes — the corresponding-

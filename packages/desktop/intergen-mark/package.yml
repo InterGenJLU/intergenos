@@ -1,8 +1,8 @@
 name: intergen-mark
 version: "1.0"
-release: 3  # r3: no behaviour change: the asset README's description of the two mark versions reworded in the pre-release register pass. Documentation wording only; the SVG assets are untouched.
-content_hash: 5ba77db5114577cb
-description: InterGenOS brand-mark icon + logo + wordmark assets installed to standard hicolor / pixmaps / /usr/share/intergenos locations. release 2 rounds the badge-tile corners (GNOME-style squircle, operator branding §B) and adds the greyscale boxed symbolic mark for the custom ArcMenu "InterGenOS" category. Closes audit-rows D-010 (brand assets never installed) + J-016 (brand assets missing from hicolor) + theming-arc dispatch Item C (canonical brand-mark package); supersedes the duplicate-wordmark bandaid in intergenos-default-settings. Source-of-truth at assets/intergen-mark/ stays the brand-source canonical (with generate.py + README + all variants); build.sh reaches into it via IGOS_SOURCE_ROOT mirroring intergenos-default-settings' in-tree-config pattern.
+release: 4  # r4: wording only, no asset or code change: the description and one install comment no longer cite an internal branding section by name. The squircle badge tile and the greyscale category mark are described by what they are.  # r3: no behaviour change: the asset README's description of the two mark versions reworded in the pre-release register pass. Documentation wording only; the SVG assets are untouched.
+content_hash: d03c162ee578e044
+description: InterGenOS brand-mark icon + logo + wordmark assets installed to standard hicolor / pixmaps / /usr/share/intergenos locations. release 2 rounds the badge-tile corners (GNOME-style squircle) and adds the greyscale boxed symbolic mark for the custom ArcMenu "InterGenOS" category. Closes audit-rows D-010 (brand assets never installed) + J-016 (brand assets missing from hicolor) + theming-arc dispatch Item C (canonical brand-mark package); supersedes the duplicate-wordmark bandaid in intergenos-default-settings. Source-of-truth at assets/intergen-mark/ stays the brand-source canonical (with generate.py + README + all variants); build.sh reaches into it via IGOS_SOURCE_ROOT mirroring intergenos-default-settings' in-tree-config pattern.
 license: GPL-3.0-or-later
 homepage: https://github.com/InterGenJLU/intergenos
 tier: desktop

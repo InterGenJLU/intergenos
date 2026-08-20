@@ -4,7 +4,7 @@
 **Issued:** 2026-05-18
 **Severity:** High (local privilege escalation to root)
 **InterGenOS versions affected:** All builds shipping kernel 6.18.10 prior to this advisory's mitigation commit
-**Status:** Mitigated by in-tree kernel patches plus a defense-in-depth module blacklist. The mitigation takes effect on the next kernel rebuild and ISO rebuild.
+**Status:** Mitigated by in-tree kernel patches plus a defense-in-depth module blacklist. The mitigation was carried into the first public release: the R001 source tree declares all three patches for both kernel build passes, including the pass that produces the kernel an installed system boots.
 
 ---
 
@@ -12,7 +12,7 @@
 
 Three upstream Linux kernel CVEs disclosed between May 7 and May 13, 2026, collectively the "Dirty Frag" cluster, affect every InterGenOS build using kernel 6.18.10 (the version pinned and built since pre-release work began). All three are local privilege escalation to root via in-place decryption paths in the IPsec ESP and rxrpc receive code.
 
-InterGenOS has not yet shipped a public ISO, so no public installations were exposed during this window. The kernel image was nonetheless vulnerable as built. This advisory documents the cluster and the fix.
+No public InterGenOS ISO existed during this window — the first public release, R001, was published 2026-08-16 — so no public installations were exposed. The kernel image was nonetheless vulnerable as built. This advisory documents the cluster and the fix.
 
 ## The cluster
 
@@ -42,13 +42,13 @@ Public exploit code exists for all three, particularly Fragnesia (William Bowlin
 - **Pre-fix patches in tree:** only `CVE-2026-31431-copy-fail.patch` (algif_aead, April 29, 2026)
 - **Pre-fix verdict:** **fully vulnerable** to all three Dirty Frag CVEs
 
-No InterGenOS ISO has been shipped publicly yet; the project remains in development. **No public-user impact resulted from this window.**
+No InterGenOS ISO had been published at the time of this advisory. **No public-user impact resulted from this window.**
 
 ## Mitigation
 
 ### 1. In-tree kernel patches
 
-Three new patches in `packages/core/linux-kernel/patches/`:
+Three new patches in `build/patches/`, declared in the `patches:` list of both kernel recipes:
 
 - `CVE-2026-43284-xfrm-esp-shared-frags.patch` (mainline commit `f4c50a4034e6`, applies cleanly to 6.18.10)
 - `CVE-2026-43500-rxrpc-shared-frags.patch` (**InterGenOS-specific 6.18.10 backport** — see note below)
@@ -56,9 +56,9 @@ Three new patches in `packages/core/linux-kernel/patches/`:
 
 **CVE-2026-43500 disposition (revised 2026-05-18 evening).** The upstream mainline commit `aa54b1d27fe0` modifies `net/rxrpc/call_event.c` and `net/rxrpc/conn_event.c`. Those file locations correspond to a refactor introduced by upstream commit `d0d5c0cd1e71` ("rxrpc: Use skb_unshare() rather than skb_cow_data()") which post-dates 6.18.10 — in 6.18.10's source those files contain zero `skb_cloned` / `skb_unshare` references and the vulnerable code path the mainline patch modifies simply does not exist there. The structurally equivalent vulnerable site in 6.18.10 lives in `net/rxrpc/io_thread.c` (`rxrpc_input_packet()`, DATA case) and in the RESPONSE-packet code path that flows through `rxrpc_process_event()` → `security->verify_response()` → `rxkad_decrypt_response()` in-place. The shipped patch is an InterGenOS-authored custom backport targeting `io_thread.c` — widening the unshare-or-copy gate in both the DATA case and (new) the server-side RESPONSE case to call `skb_copy()` whenever `skb_has_frag_list()` or `skb_has_shared_frag()` is true, regardless of `skb_cloned()` status. Patch provenance, full reasoning, and the disposition for replacing it with upstream stable's 6.18.y backport (when issued) are documented in the patch file header itself.
 
-Kernel version pin: 6.18.10 is the InterGenOS v1.0 kernel and the pin is binding for this release line. Backporting the fixes, rather than bumping the kernel version, is the chosen v1.0 path.
+Kernel version pin: 6.18.10 is the kernel of the R001 release line and the pin is binding for it. Backporting the fixes, rather than bumping the kernel version, is the chosen path for this line.
 
-Applied automatically by `packages/core/linux-kernel/build.sh` on kernel build. **Mitigation requires a kernel rebuild** — the patches are not active on existing built artifacts until the kernel is rebuilt and the resulting `vmlinuz` + UKI replace what's currently on disk.
+Applied on every kernel build from the recipe declaration, with each patch's SHA-256 verified before it is applied. **Mitigation requires a kernel rebuild** — the patches are not active on existing built artifacts until the kernel is rebuilt and the resulting `vmlinuz` + UKI replace what is currently on disk.
 
 ### 2. Defense-in-depth module blacklist
 
@@ -105,7 +105,7 @@ The kernel patches above remain in effect even with the blacklist removed — op
 
 ## Required action for InterGenOS builds going forward
 
-Any future ISO build picks up the patches automatically — `linux-kernel`'s `build.sh` applies every `*.patch` in alphabetical order from `packages/core/linux-kernel/patches/` at configure time. **No manual step needed** beyond rebuilding the kernel (and the UKI, since the kernel image changed).
+Any future ISO build picks up the patches automatically. Both kernel recipes — `packages/core/linux-kernel/package.yml` and `packages/core/linux-kernel-pass2/package.yml` — declare the same patch files with their SHA-256 hashes in a `patches:` list, and each build applies them in declaration order after checking every hash, reading the files from `build/patches/`. Declaring the set in both recipes is what makes it reach the kernel a user boots: the second pass supersedes the first, so a patch applied only by the first pass never reaches an installed system. **No manual step needed** beyond rebuilding the kernel (and the UKI, since the kernel image changed).
 
 ## Sources
 

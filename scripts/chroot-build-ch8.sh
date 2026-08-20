@@ -420,6 +420,14 @@ run_package() {
 # that's after phase_core (Ch 8). Stage a minimal version here so systemd
 # can configure successfully. chroot-config-ch9.sh overwrites this with
 # the full content later.
+#
+# This stub carries NO version fields, deliberately (decided 2026-08-19).
+# It used to state VERSION_ID and a versioned PRETTY_NAME, which made it a
+# third hand-maintained copy of the release identity that nothing compared
+# against the one authored copy in packages/core/intergenos-base-files —
+# a string that can only go stale. Nothing in the build reads either field
+# (swept across scripts/, packages/, igos-build/ and pkm/); $ID is what
+# systemd's configure needs, and the real identity arrives in Chapter 9.
 if [ ! -f /etc/os-release ]; then
     log "  Staging minimal /etc/os-release (full version overwritten in Ch 9)"
     mkdir -p /etc
@@ -427,8 +435,7 @@ if [ ! -f /etc/os-release ]; then
 NAME="InterGenOS"
 ID=intergenos
 ID_LIKE=lfs
-VERSION_ID=1.0
-PRETTY_NAME="InterGenOS 1.0-dev (Ch 8 build stub)"
+PRETTY_NAME="InterGenOS (Chapter 8 build stub)"
 OSRELEASE_EOF
 fi
 
@@ -902,10 +909,55 @@ fi
 # Remove tester user
 userdel -r tester 2>/dev/null || true
 
+# --- Temp-toolchain residue sweep -------------------------------------------
+# The chapter 5-7 temporary toolchain installs files onto this live root, and a
+# final package's DESTDIR deploy overlays its own files without deleting
+# anything. So every path a final recipe deliberately drops keeps the temporary
+# toolchain's copy: core/python removes idlelib + /usr/bin/idle3* from its
+# DESTDIR (Python is built without tkinter, so IDLE cannot run) and the
+# chapter-7 Python's copies stay; the final GCC ships its GDB pretty-printers
+# under /usr/share/gdb/auto-load/ and the chapter-6 libstdc++ loader stays at
+# /usr/lib/libstdc++.so.*-gdb.py.
+#
+# That residue is unowned content in the shipping tree. build-squashfs Step
+# 4.85 fails closed on unowned files and stopped the 2026-08-15 from-scratch
+# build with 166 findings, 163 of them this class (the temporary-Python paths
+# plus the libstdc++ pretty-printer loader), all removed by hand. A
+# from-scratch build rebuilds them every run, so the sweep runs here — the
+# first point where every final core package's manifest exists to prove
+# ownership, and long before the mint pays for the discovery.
+#
+# The sweep removes only paths that match a declared, reasoned pattern AND
+# that no installed package's manifest records; it refuses to remove anything
+# when it cannot read an ownership set. A non-zero exit stops the build.
+log ">>> 8.87: Temp-toolchain residue sweep"
+RESIDUE_SWEEP="/mnt/intergenos/scripts/ch8-residue-sweep.py"
+RESIDUE_PATTERNS="/mnt/intergenos/config/ch8-residue-patterns.txt"
+if [ -f "$RESIDUE_SWEEP" ] && [ -f "$RESIDUE_PATTERNS" ] \
+        && command -v python3 >/dev/null 2>&1; then
+    # No pipe on this invocation, deliberately: the driver's own tee captures
+    # the sweep's stdout, and a `python3 … | sed` form would report the
+    # PIPELINE's status. That is the same class of masked failure the
+    # toolchain driver's phase calls carried.
+    if ! python3 "$RESIDUE_SWEEP" \
+            --root / \
+            --package-db "${IGOS_PKG_DB:-/var/lib/igos/packages}" \
+            --patterns "$RESIDUE_PATTERNS" \
+            --record "${IGOS_LOGS}/ch8-residue-removed.txt"; then
+        log "  error: temp-toolchain residue sweep failed — refusing to continue"
+        exit 1
+    fi
+else
+    log "  error: ch8-residue-sweep.py, its patterns file, or python3 is"
+    log "         missing after Ch8 — the temp-toolchain residue cannot be"
+    log "         proven cleared"
+    exit 1
+fi
+
 log "  Cleanup complete"
 
 # ============================================================================
-# 8.87: PI-12 .PKGINFO backfill (post-python)
+# 8.88: PI-12 .PKGINFO backfill (post-python)
 # ============================================================================
 # The recipe-less core packages built BEFORE core/python (above) were archived
 # while python3 was absent from this chroot, so pkg_archive's python3-guarded
@@ -915,7 +967,7 @@ log "  Cleanup complete"
 # staged archive is the FINAL core build) so every staged archive is self-
 # describing before the build-squashfs Step 4.7 sweep. inject-pkginfo stays a
 # pure post-build loud detector; THIS is the in-build closure. Fail-loud.
-log ">>> 8.87: PI-12 .PKGINFO backfill (post-python)"
+log ">>> 8.88: PI-12 .PKGINFO backfill (post-python)"
 BACKFILL="/mnt/intergenos/scripts/backfill-pkginfo.py"
 if [ -f "$BACKFILL" ] && command -v python3 >/dev/null 2>&1; then
     if ! python3 "$BACKFILL" --archive-dir "${IGOS_PKG_ARCHIVES:-/var/lib/igos/archives}" \

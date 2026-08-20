@@ -705,9 +705,36 @@ def run_archive_lifecycle_hook(staging_dir, event, name, version, root):
                 )
             except Exception:
                 pass
-        stderr_snip = result.stderr.strip().replace("\n", " ")[:200]
+        # WHAT THE HOOK SAID REACHES THE PERSON RUNNING pkm.
+        #
+        # A lifecycle hook is the only part of a package that speaks at install
+        # time, and these messages are what the caller hands to its reporter.
+        # Until this block existed, everything a hook printed was discarded
+        # whenever it exited 0 — the result carried the word OK and nothing
+        # else — so a hook that reported what it had decided about a machine
+        # was silent in precisely the case that happens. Both streams are
+        # carried because a hook that warns and still exits 0 puts that warning
+        # on stderr, and a warning nobody sees is the same defect wearing a
+        # different stream. A hook that prints nothing still yields exactly the
+        # one OK line it always did, so the ~99% of packages with no lifecycle
+        # hook, and the quiet ones that have one, read unchanged.
+        said = [
+            f"  hook[archive/{event}]: {line}"
+            for line in result.stdout.splitlines() if line.strip()
+        ] + [
+            f"  hook[archive/{event}] stderr: {line}"
+            for line in result.stderr.splitlines() if line.strip()
+        ]
+        # The status line below keeps one line readable by shortening a long
+        # stderr, and it SAYS when it has done so. A cap that leaves no mark
+        # turns "there was more" into "that was all", which is the harder error
+        # to notice: the reader has no reason to go looking for the rest.
+        _flat = result.stderr.strip().replace("\n", " ")
+        stderr_snip = _flat[:200]
+        if len(_flat) > 200:
+            stderr_snip += f" […truncated, {len(_flat)} chars total]"
         if result.returncode == 0:
-            return HookResult([], [], [f"  hook[archive/{event}] OK"])
+            return HookResult([], [], said + [f"  hook[archive/{event}] OK"])
         elif result.returncode == 2:
             return HookResult(
                 [], [event],

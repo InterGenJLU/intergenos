@@ -965,7 +965,7 @@ I will check the total disk space available on your system using `df -h`. This c
 
 **Response:**
 ````
-The SSH daemon (sshd) is currently active and running on InterGenOS. The service has been enabled and is in the active state, listening on port 22. Recent logs show successful session openings for the root user from the IP address 192.168.1.199.
+The SSH daemon (sshd) is currently active and running on InterGenOS. The service has been enabled and is in the active state, listening on port 22. Recent logs show successful session openings for the root user from the IP address [redacted-ip-host2].
 ````
 
 **Failed assertions:**
@@ -982,7 +982,7 @@ The SSH daemon (sshd) is currently active and running on InterGenOS. The service
 ````
 Yes, SSH is currently up and running on InterGenOS. The `sshd.service` is active and listening on port 22.
 
-Recent logs show successful session openings for user `root` from IP `192.168.1.199` at 11:16 AM and 11:26 AM today.
+Recent logs show successful session openings for user `root` from IP `[redacted-ip-host2]` at 11:16 AM and 11:26 AM today.
 ````
 
 ---
@@ -1239,7 +1239,7 @@ You're running kernel 6.18.10.
 
 **Response:**
 ````
-Your current local IP address is 127.0.0.1 (localhost). The device also has an external interface (wlo1) configured with the IP 192.168.1.192/24. Please check your network interface configuration to find your assigned static IP address on the network.
+Your current local IP address is 127.0.0.1 (localhost). The device also has an external interface (wlo1) configured with the IP [redacted-ip-host1]/24. Please check your network interface configuration to find your assigned static IP address on the network.
 ````
 
 **Failed assertions:**
@@ -1652,14 +1652,14 @@ Here are your network interfaces:
 
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): state changed no lease
 Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8452] dhcp6 (wlo1): activation: beginning transaction (timeout in 45 seconds)
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=192.168.1.192, acd pending
-Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8608] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1], acd pending
+Apr 14 09:51:32 intergenos NetworkManager[353]: <info>  [1776178292.8612] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 14 21:51:32 intergenos NetworkManager[353]: <info>  [1776221492.8655] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 15 09:51:32 intergenos NetworkManager[353]: <info>  [1776264692.8639] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 Apr 15 14:23:22 intergenos NetworkManager[353]: <info>  [1776281002.9856] agent-manager: agent[98cbb30b060c3332,:1.3045/org.gnome.Shell.NetworkAgent/60598]: agent registered
 Apr 15 14:23:29 intergenos NetworkManager[353]: <info>  [1776281009.4130] agent-manager: agent[4c8c51d7746cf946,:1.3068/org.gnome.Shell.NetworkAgent/1000]: agent registered
-Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
-Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=192.168.1.192
+Apr 15 21:51:32 intergenos NetworkManager[353]: <info>  [1776307892.8675] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
+Apr 16 09:51:32 intergenos NetworkManager[353]: <info>  [1776351092.8688] dhcp4 (wlo1): state changed new lease, address=[redacted-ip-host1]
 ````
 
 ---
