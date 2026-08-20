@@ -123,12 +123,19 @@ var/mail/fcron	mailbox seed created by the cron package's post-install step
 # because the rest of that tree is current payload the archives do carry and
 # the gate must keep watching it.
 #
-# The disposition owed: confirm whether the target-prefix assembler and linker
-# are byte-identical to their /usr/bin counterparts. If they are, removal
-# cannot change tool selection and the residue can be deleted outright; if they
-# are not, the difference is itself a finding and must not be resolved by a
-# deletion.
+# The disposition owed was MEASURED 2026-08-19 (R001.1 pre-flight, in the real
+# chroot): the target-prefix assembler and linker are NOT byte-identical to
+# their /usr/bin counterparts (all four hashes differ). Per this note's own
+# rule, the difference is a recorded finding and the residue is not resolvable
+# by deletion — the tree stays covered by the entry below and stays watched.
 usr/x86_64-igos-linux-gnu/**	temporary-toolchain target-prefix tree (target-prefixed tool copies and linker scripts) — the final binutils installs with tooldir=/usr and never populates it; see the note above for the disposition owed
 usr/lib/gcc/*/*/include-fixed/**	temporary-toolchain fixincludes output — the final gcc configures --disable-fixincludes and cannot produce it
 usr/lib/gcc/*/*/install-tools/**	temporary-toolchain fixincludes support files — same reason
 usr/libexec/gcc/*/*/install-tools/**	temporary-toolchain fixincludes tooling — same reason
+
+# libnvidia-ngx.so.1 — MEASURED 2026-08-19 (R001.1 pre-flight): the versioned
+# library libnvidia-ngx.so.580.159.04 is present in the chroot and archive-
+# carried; only the bare .so.1 link is unowned. The link is linker-cache
+# (ldconfig) generated state, the recipe's manifest accounting is correct, and
+# no recipe change is owed. Generated state no archive should carry:
+usr/lib/libnvidia-ngx.so.1	ldconfig-generated soname link — its target libnvidia-ngx.so.580.159.04 is archive-carried; measured 2026-08-19
