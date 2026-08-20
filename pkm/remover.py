@@ -301,6 +301,30 @@ class PackageRemover:
                 owners.setdefault(path, set()).add(owner)
         return {p: sorted(names) for p, names in owners.items()}
 
+    def _manifest_recorded_paths(self, name, version):
+        """Root-relative paths the package's on-disk text manifest records.
+
+        The manifest is the second, independent record of the same payload
+        the database rows describe (see cli._known_owned_paths, which reads
+        the identical union for iso-prep's outcome assertion). Read before
+        the removal, which unlinks the manifest itself. Missing or
+        unparseable manifest: empty set — the database rows then stand
+        alone, exactly the pre-union behavior.
+        """
+        from .database import MANIFEST_DIR, _parse_manifest
+
+        if not version:
+            return set()
+        manifest = (Path(self.root) / MANIFEST_DIR.relative_to("/")
+                    / f"{name}-{version}")
+        try:
+            parsed = _parse_manifest(manifest.read_text(errors="replace"))
+        except OSError:
+            return set()
+        if not parsed:
+            return set()
+        return {p.strip("/") for p in parsed.get("files", []) if p.strip("/")}
+
     def _run_pre_remove_hook(self, name, version):
         """Fire the package's pre-remove runtime hook if it ships one.
 
@@ -449,8 +473,23 @@ class PackageRemover:
         if run_pre_remove_hook:
             self._run_pre_remove_hook(name, pkg["version"])
 
-        # Get file list
+        # Get file list — the UNION of both of pkm's records, not the
+        # database rows alone. The database has been incomplete on real
+        # substrates while the text manifest carried the missing paths: the
+        # 2026-08-15 build recorded the /opt/jdk and /opt/rocm/llvm compat
+        # symlinks only in their packages' text manifests (as trailing-slash
+        # directory entries the database import dropped), so this
+        # database-driven removal left them behind as dangling symlinks —
+        # caught by iso-prep's outcome assertion, which already checks the
+        # union (2026-08-20). Removal now consumes the same union the
+        # assertion checks. Disk truth still classifies every path, and the
+        # FHS-skeleton and co-ownership guards below apply to the manifest
+        # paths identically; a path on neither disk nor database is a no-op.
         files = self.db.get_files(name)
+        db_recorded = {f["path"].strip("/") for f in files}
+        for rel in sorted(self._manifest_recorded_paths(name, pkg["version"])):
+            if rel and rel not in db_recorded:
+                files.append({"path": rel, "is_dir": False})
         if not files:
             # No files tracked — just remove the DB entry
             self.db.remove_installed(name)

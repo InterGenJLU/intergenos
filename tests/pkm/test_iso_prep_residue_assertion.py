@@ -9,8 +9,14 @@ had just removed: the /opt/jdk compatibility symlink of a pruned JDK, the
 /opt/rocm/llvm compatibility symlink of a pruned compiler package, and the
 directory left under them. Both symlinks are DESTDIR payload — their recipes
 create them with `ln -s` into DESTDIR — so the prune should have unlinked
-them, and why it did not was never determined from the evidence that survived
-the burn.
+them. The cause was determined 2026-08-20 when the assertion reproduced the
+pair live: the text manifests record each symlink as a trailing-slash
+directory entry (the generator stat-followed the link), the database import
+dropped the row entirely, and the database-driven removal therefore never
+looked at the path. Removal now consumes the same database∪manifest union
+this assertion checks, which heals the class at the removal layer; the
+assertion stays, because an outcome check is not made redundant by fixing
+one cause of the outcome.
 
 The response to an undetermined cause is not a guess about the cause. It is a
 check: the prune states what it did, so the prune proves it. After the
@@ -127,11 +133,14 @@ class _Fixture(unittest.TestCase):
 
 class ResidueIsCaught(_Fixture):
 
-    def test_surviving_payload_the_database_never_recorded_fails_the_prune(self):
-        """The measured shape. The recipe stages a compatibility symlink into
-        DESTDIR, the text manifest records it, the database rows do not, and
-        removal therefore never looks at it. It survives the prune as an
-        unowned symlink — which is exactly what reached the ownership gate."""
+    def test_payload_the_database_never_recorded_is_removed_by_the_union(self):
+        """The measured shape, healed at the removal layer. The recipe stages
+        a compatibility symlink into DESTDIR, the text manifest records it,
+        the database rows do not. Removal consumes the union of both records
+        — the same union this assertion checks — so the symlink is unlinked
+        with the rest of the payload and the outcome assertion has nothing to
+        catch. Before the union, removal was database-driven and the symlink
+        survived to fail the prune (the 2026-08-20 iso-prep halt)."""
         self._live_file("opt/vendor-jdk/bin/java")
         self._live_symlink("opt/jdk", "vendor-jdk")
         self._register("openjdk", ["opt/vendor-jdk/bin/java"],
@@ -139,16 +148,13 @@ class ResidueIsCaught(_Fixture):
 
         rc, out = self._run("openjdk")
 
-        self.assertNotEqual(rc, 0,
-                            "a prune that left its own payload behind "
-                            "reported success:\n" + out)
-        self.assertIn("opt/jdk", out)
-        self.assertIn("openjdk", out,
-                      "the residue must be attributed to the package that "
-                      "owned it")
-        self.assertTrue(self._exists("opt/jdk"),
-                        "the check reports; it does not delete behind the "
-                        "removal path's back")
+        self.assertEqual(rc, 0,
+                         "the union-fed removal should leave the outcome "
+                         "assertion nothing to catch:\n" + out)
+        self.assertFalse(self._exists("opt/jdk"),
+                         "the manifest-recorded symlink is the removal "
+                         "path's to unlink, not the assertion's to report")
+        self.assertFalse(self._exists("opt/vendor-jdk/bin/java"))
 
     def test_recorded_file_that_could_not_be_unlinked_fails_the_prune(self):
         """removal already warns about a file it could not unlink, inside a
