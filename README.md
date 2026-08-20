@@ -264,15 +264,13 @@ Active development, pre-1.0. Originally built 2015-2016 (build_001 through build
 
 ## Upcoming
 
-Items actively in flight or planned toward v1.0:
+Items actively in flight or planned post R001.1:
 
 - **Microsoft shim-review submission** — obtaining an InterGenOS-owned MS-signed shim via the `rhboot/shim-review` sponsor track, so Secure Boot works out of the box without the first-boot MOK-enrollment step.
-- **Public binary mirror — v1.0 archive completion** — `repo.intergenos.org` is live, serving signed per-package archives and a signed `InterGenOS.db` index; remaining work is completing full v1.0 package coverage on the mirror.
-- **VPS source mirror completion** — download-sources tooling refresh plus an upstream-version auto-poller (Components 2 and 3 of the mirror design).
-- **Gaming and Windows-application compatibility layer** — 32-bit multilib runtime plus a Steam / Proton / Wine stack with verified-runtime helpers, built as an optional layer on top of the base system.
-- **35B AI tier bring-up** — the 35-billion-parameter mixture-of-experts tier is defined and its weights and vision projector are SHA-256-pinned in the signed model manifest; what remains is validation on high-end GPU hardware alongside the entry and mid tiers.
-- **Dual-boot alongside Windows** — a tested install flow for sharing a disk with an existing Windows installation.
+- **OneDrive and Google Drive integration** — built-in cloud-file access for users coming from Windows: connect a Microsoft or Google account through a guided graphical sign-in that is as easy as logging in on a phone, with files syncing to the local desktop — no command line, no config files.
 - **Switchable desktop environments** — v1 ships GNOME on Wayland; KDE Plasma, XFCE, and other Wayland-capable desktops are planned as additional options, with the per-tier architecture already supporting the split.
+- **Automated CVE advisories** — an automated pipeline that continuously matches published CVE data against the exact package versions each release ships, producing public security advisories and prioritized package updates.
+- **Package-set expansion** — new from-source packages planned for upcoming releases, including Qt6 and the KDE frameworks that underpin the switchable-desktop work above.
 - **Security Hall of Fame** — researcher acknowledgment page maintained alongside the project's responsible-disclosure track.
 
 ## History
