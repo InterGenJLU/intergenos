@@ -24,9 +24,7 @@ Nothing yet.
 
 ---
 
-## [R001.1] — 2026-08-XX
-
-<!-- The date above is set on publication day. -->
+## [R001.1] — 2026-08-20
 
 The first point release. Point releases deliver accumulated fixes and minor
 package additions built against the proven substrate of the current major
