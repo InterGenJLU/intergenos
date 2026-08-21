@@ -20,7 +20,23 @@ landed is in the repository README, not here.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **`gst-plugin-gtk4` — the GTK4 video sink element (`gtk4paintablesink`).**
+  The camera application's live preview requires this GStreamer element and
+  the application aborted at launch without it. The element lives in the
+  Rust `gst-plugins-rs` project rather than the C GStreamer plugin sets, so
+  it is packaged from there (version lockstep with the GStreamer stack),
+  and the camera application now declares the dependency so the pairing
+  cannot ship apart again.
+
+### Fixed
+
+- **The virtual-machine manager opens again.** Current glib releases
+  removed a compatibility alias the application's startup path still used,
+  so it failed before its window appeared. The startup call now resolves
+  the current name, with a fallback for systems whose glib still provides
+  the old one.
 
 ---
 

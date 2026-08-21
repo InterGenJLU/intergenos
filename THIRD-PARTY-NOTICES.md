@@ -29,7 +29,7 @@ The aggregate ships on the installed system at
 ## Coverage summary
 
 
-**Total packages:** 1173
+**Total packages:** 1174
 
 **Distribution by tier:**
 
@@ -38,7 +38,7 @@ The aggregate ships on the installed system at
 | toolchain | 28 |
 | core | 315 |
 | base | 37 |
-| desktop | 470 |
+| desktop | 471 |
 | extra | 213 |
 | ai | 58 |
 | compute | 52 |
@@ -56,8 +56,8 @@ The aggregate ships on the installed system at
 | `LGPL-2.0-or-later` | 34 |
 | `BSD-2-Clause` | 32 |
 | `GPL-2.0-only` | 19 |
+| `MPL-2.0` | 19 |
 | `LGPL-3.0-or-later` | 19 |
-| `MPL-2.0` | 18 |
 | `ISC` | 18 |
 | `Zlib` | 8 |
 | `LicenseRef-Public-Domain` | 7 |
@@ -3562,6 +3562,13 @@ Spell checking library for GTK applications
 GStreamer FFmpeg-backed broad codec coverage
 
 - License: `LGPL-2.0-or-later`
+- Homepage: https://gstreamer.freedesktop.org/
+
+### gst-plugin-gtk4 (1.28.1)
+
+GStreamer GTK4 video sink plugin (gtk4paintablesink)
+
+- License: `MPL-2.0`
 - Homepage: https://gstreamer.freedesktop.org/
 
 ### gst-plugins-bad (1.28.1)
