@@ -212,6 +212,88 @@ class MatchingTests(unittest.TestCase):
                              f"a non-licence capitalised stem must block again: {blocked}")
 
 
+class SeparatorVariantTests(unittest.TestCase):
+    """A multi-token entry blocks all three spellings of its separator.
+
+    The bypass this closes: an entry listed in ONE spelling ("a-b") passed when
+    the same two tokens were written with the other separator ("a b") or run
+    together ("ab"). All tokens here are synthetic and coined in this file.
+    """
+
+    HYPHENATED = f"{TOK}-{SHORT}"
+    SPACED = f"{TOK} {SHORT}"
+
+    def _variants(self, first, second):
+        return (f"note {first}-{second} here",
+                f"note {first} {second} here",
+                f"note {first}{second} here")
+
+    def test_hyphenated_entry_blocks_all_three_spellings(self):
+        ct = _compiled(self.HYPHENATED)
+        for line in self._variants(TOK, SHORT):
+            self.assertTrue(clg.scan_line(line, ct),
+                            f"a separator variant must block: {line}")
+
+    def test_spaced_entry_blocks_all_three_spellings(self):
+        ct = _compiled(self.SPACED)
+        for line in self._variants(TOK, SHORT):
+            self.assertTrue(clg.scan_line(line, ct),
+                            f"a separator variant must block: {line}")
+
+    def test_separator_run_blocks(self):
+        # A run of separators is the same evasion as one character.
+        ct = _compiled(self.HYPHENATED)
+        for line in (f"note {TOK}  {SHORT} here",
+                     f"note {TOK} - {SHORT} here",
+                     f"note {TOK}--{SHORT} here"):
+            self.assertTrue(clg.scan_line(line, ct),
+                            f"a separator run must block: {line}")
+
+    def test_word_boundary_still_holds_across_the_rejoin(self):
+        # The rejoined form is still boundary-anchored: the same letters inside
+        # a larger word are not a hit.
+        ct = _compiled(self.HYPHENATED)
+        for line in (f"the {TOK}{SHORT}X driver", f"the X{TOK}-{SHORT} driver",
+                     f"the {TOK}{SHORT}ing pass"):
+            self.assertEqual(clg.scan_line(line, ct), [],
+                             f"a larger word must not hit: {line}")
+
+    def test_unlisted_separators_are_not_matched(self):
+        # NAMED RESIDUE, pinned so a future widening is a deliberate choice:
+        # an underscore, a dot and a case-join carry no variant and do not hit.
+        ct = _compiled(self.HYPHENATED)
+        for line in (f"note {TOK}_{SHORT} here", f"note {TOK}.{SHORT} here"):
+            self.assertEqual(clg.scan_line(line, ct), [],
+                             f"an unlisted separator must not hit: {line}")
+
+    def test_single_token_entry_matcher_is_unchanged(self):
+        # Every one-word entry keeps the exact previous matcher.
+        self.assertEqual(clg.term_pattern_body(TOK), re.escape(TOK))
+        ct = _compiled(TOK)
+        self.assertEqual(clg.scan_line(f"a {TOK} b", ct), [TOK])
+        self.assertEqual(clg.scan_line(f"a {TOK}X b", ct), [])
+
+    def test_entry_edged_with_a_separator_falls_back_to_exact_spelling(self):
+        # A term that begins or ends with a separator keeps its exact escaped
+        # spelling — that character is part of the term as written.
+        for edged in (f"-{TOK}", f"{TOK}-", f" {TOK}", f"{TOK} "):
+            self.assertEqual(clg.term_pattern_body(edged), re.escape(edged),
+                             f"an edge-separator term must not be rejoined: {edged!r}")
+
+    def test_exemption_ladder_still_applies_to_a_rejoined_match(self):
+        # A rejoined hit inside a documented exempt span is still suppressed,
+        # and a rejoined hit outside one still blocks.
+        ct = _compiled(self.HYPHENATED)
+        synthetic_exempt = [("synthetic", re.compile(rf"{TOK} {SHORT}-v\d+"))]
+        with mock.patch.object(clg, "_EXEMPT_SPAN_PATTERNS", synthetic_exempt):
+            self.assertEqual(clg.scan_line(f"the {TOK} {SHORT}-v2 driver", ct), [])
+            self.assertTrue(clg.scan_line(f"{TOK}{SHORT} in the {TOK} {SHORT}-v2 driver", ct))
+
+    def test_trailer_line_still_passes_whole_for_a_rejoined_match(self):
+        ct = _compiled(self.HYPHENATED)
+        self.assertEqual(clg.scan_line(f"Co-Authored-By: {TOK} {SHORT} <x@y.z>", ct), [])
+
+
 class FailClosedTests(unittest.TestCase):
     def test_missing_list_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:

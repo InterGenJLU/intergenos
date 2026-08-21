@@ -307,6 +307,38 @@ def load_terms(path: Path) -> list[str]:
     return terms
 
 
+# A multi-token term's SEPARATOR is not part of its identity. The same two
+# tokens written with a hyphen, with a space, or run together read as the same
+# word, and a list can only spell one of the three — so the two it does not
+# spell used to pass. Splitting a term on its separator run and rejoining the
+# tokens with this class blocks all three spellings from a single entry.
+_TERM_SEPARATOR_RE = re.compile(r"[-\s]+")
+_SEPARATOR_VARIANTS = r"[-\s]*"
+
+
+def term_pattern_body(term: str) -> str:
+    """Return the matcher body for one term, with separator variants folded in.
+
+    A single-token term compiles to its escaped literal exactly as before, so
+    every one-word entry keeps a byte-identical matcher. A multi-token entry
+    becomes its tokens joined by a class accepting a hyphen run, a whitespace
+    run, or nothing at all.
+
+    The quantifier is `*`, not `?`, because the no-separator spelling is itself
+    one of the variants being closed, and a separator RUN ("a - b", "a  b") is
+    the same evasion as a single separator character. Widening stops there: an
+    underscore, a dot, or a case-join carries no variant and is NOT matched.
+
+    A term that begins or ends with a separator character falls back to its
+    exact escaped spelling — that character is part of the term as written, and
+    the fallback can only ever match less than a rejoin, never more.
+    """
+    tokens = _TERM_SEPARATOR_RE.split(term)
+    if len(tokens) < 2 or not tokens[0] or not tokens[-1]:
+        return re.escape(term)
+    return _SEPARATOR_VARIANTS.join(re.escape(t) for t in tokens)
+
+
 def compile_terms(terms: list[str]):
     """Compile each term to a case-insensitive, boundary-anchored matcher.
 
@@ -316,7 +348,8 @@ def compile_terms(terms: list[str]):
     """
     compiled = []
     for t in terms:
-        pat = re.compile(r"(?<!\w)" + re.escape(t) + r"(?!\w)", re.IGNORECASE)
+        pat = re.compile(r"(?<!\w)" + term_pattern_body(t) + r"(?!\w)",
+                         re.IGNORECASE)
         compiled.append((t, pat))
     return compiled
 
