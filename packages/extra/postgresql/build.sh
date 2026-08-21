@@ -24,18 +24,27 @@
 #
 # Configure flag policy: enable every dispatch-required feature plus
 # every feature whose dependency is already in tree (perl-core, llvm,
-# python, mitkrb, libxml2, libxslt). One feature is explicitly disabled:
-# tcl (no `tcl` package in tree at v1.0; pltcl unavailable until a tcl
-# package lands).
+# python, mitkrb, libxml2, libxslt, tcl, liburing). Nothing is disabled
+# for a missing dependency.
 #
-# liburing forward-flag: -Dliburing=disabled in this commit per the
-# database-landing-plan §5a sequencing. The liburing package landed at
-# master 90043445 + cherry-picked into 28440cb6 series, but enabling
-# it here would be a same-commit forward-edit that the landing-plan
-# section recommends doing in a follow-up commit *after* this lands
-# (mirrors the same pattern used on liburing's own package).
-# A future maintainer flips to -Dliburing=enabled in a dedicated
-# commit after this one merges.
+# PL/Tcl — enabled 2026-08-21: -Dpltcl=enabled. The text here used to say
+# there was no tcl package in the tree. There is: packages/core/tcl 8.6.17,
+# built in Chapter 8 and present since the initial import. It ships
+# /usr/lib/pkgconfig/tcl.pc and /usr/include/tcl.h, which is what meson's
+# tcl block resolves against (dependency('tcl') by pkg-config, then
+# cc.has_header('tcl.h')). `enabled` rather than the `auto` default is
+# deliberate: auto silently produces a server without PL/Tcl if the probe
+# misses, whereas enabled makes the configure step fail and say so.
+#
+# io_uring asynchronous I/O — enabled 2026-08-21: -Dliburing=enabled. This
+# flag was written disabled while the sequencing plan had liburing landing
+# in a separate commit; that package is packages/core/liburing 2.14, built
+# in the core-extra phase and present since the initial import, and it ships
+# /usr/lib/pkgconfig/liburing.pc, which is how meson's liburing block finds
+# it (dependency('liburing'), pkg-config only). The sequencing the old note
+# described is complete, so the flag now matches the tree. `enabled` over
+# `auto` for the same reason as PL/Tcl: a missing dependency must halt the
+# build rather than quietly remove asynchronous I/O from the server.
 #
 # Initdb is NOT auto-fired on package install. The PostgreSQL default
 # initdb behavior is `--auth-local=trust --auth-host=trust` which is
@@ -89,8 +98,8 @@ configure() {
         -Dlibxslt=enabled                                                  \
         -Dplperl=enabled                                                   \
         -Dplpython=enabled                                                 \
-        -Dpltcl=disabled                                                   \
-        -Dliburing=disabled
+        -Dpltcl=enabled                                                    \
+        -Dliburing=enabled
 }
 
 build() {
