@@ -257,14 +257,25 @@ def test_multi_match_line_names_its_match_count(tmp_path: Path) -> None:
 # --------------------------------------------------------------------------
 
 def test_all_three_tiers_are_armed() -> None:
+    """These four tiers are defined AND reach the assembled BLOCK list.
+
+    The BLOCK list stopped being a module constant when the identity patterns
+    moved to a private file: it is assembled per run by build_block_patterns(),
+    which splices the private groups in at their original positions. The
+    assertion is unchanged in substance — a tier that is defined but never
+    assembled is a tier that catches nothing — and the private groups are
+    supplied here as synthetic placeholders so this test needs no private file.
+    """
     import importlib.util
     spec = importlib.util.spec_from_file_location("_cpc", SCANNER)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    armed = {cat for cat, _ in mod.BLOCK_PATTERNS}
+    private = {group: [(f"CAT-{group}", "zqxplaceholder")]
+               for group in mod.REQUIRED_PRIVATE_GROUPS}
+    armed = {cat for cat, _ in mod.build_block_patterns(private)}
     for tier in ("PERSONA-ATTRIBUTION", "PRIVATE-REPO-PATH", "HOST-SHORTHAND",
                  "PRIVATE-IP"):
-        assert tier in armed, f"{tier} is defined but not in BLOCK_PATTERNS"
+        assert tier in armed, f"{tier} is defined but not in the BLOCK tiers"
 
 
 def test_every_private_block_has_its_own_pattern() -> None:

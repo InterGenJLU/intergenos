@@ -53,6 +53,112 @@ ALLOWLIST_FILE = Path(__file__).resolve().parent / "check-public-content.allowli
 # detection, or as a clean scan, would be acting on a scan that never ran.
 EXIT_REFUSED = 2
 
+# ---------------------------------------------------------------------------
+# PRIVATE PATTERN STORE
+#
+# The patterns whose TEXT names an identity — session/agent host identifiers,
+# username-bearing paths, and the coined tokens blocked bare — are NOT stored
+# here. They used to be, and that was the hole: this file published the exact
+# strings the gate exists to keep out of public text, and SKIP_PATHS excuses
+# this file from its own scan, so nothing measured the leak. They now load at
+# run time from a private file outside any repository, the same arrangement the
+# public-language gate already uses for its term list.
+#
+# What stays in this file is everything that reveals nothing on its own:
+# address-class regexes, filename and path shapes, format checks, and the
+# scanner's machinery.
+#
+# FAIL-CLOSED. A missing, unreadable, empty, malformed or short pattern file is
+# a REFUSAL (exit 2 — the scan did not happen), never a scan with fewer
+# patterns that prints PASS. Silently reduced coverage is the failure this
+# whole gate exists to prevent, so it cannot be the failure mode of its own
+# loader.
+# ---------------------------------------------------------------------------
+ENV_VAR_PATTERNS = "IGOS_PUBLIC_CONTENT_PATTERNS"
+DEFAULT_PATTERNS_PATH = (
+    Path.home() / ".config" / "intergenos" / "public-content-patterns")
+
+# Every group the gate requires. A group that is absent, or present with zero
+# entries, is a refusal: the alternative is a scan missing a whole tier that
+# still reports PASS, which is indistinguishable from a clean tree.
+REQUIRED_PRIVATE_GROUPS = (
+    "AGENT_NAMES",
+    "AGENT_ABBREV",
+    "HOME_PATH",
+    "FLEET_HOST_BLOCK",
+)
+
+
+class PatternsUnavailable(Exception):
+    """The private pattern file is missing, unreadable, or unusable.
+
+    The caller must treat this as a REFUSAL, never as a pass and never as a
+    scan with a reduced pattern set."""
+
+
+def resolve_patterns_path(override=None):
+    """Private pattern-file path: explicit override, else env var, else default."""
+    if override:
+        return Path(override).expanduser()
+    env = os.environ.get(ENV_VAR_PATTERNS)
+    if env:
+        return Path(env).expanduser()
+    return DEFAULT_PATTERNS_PATH
+
+
+def load_private_patterns(path):
+    """Load the private pattern groups. Returns {group: [(category, regex)]}.
+
+    Format: a group header alone on a line in [SQUARE_BRACKETS], then one entry
+    per line as CATEGORY<TAB>REGEX. Blank lines and # comments are ignored. The
+    regex is taken verbatim — no unquoting — so it reads exactly as it would
+    inside an r"..." literal.
+
+    Every failure raises PatternsUnavailable naming the exact path and the
+    exact line, because the reader of a refusal is usually someone whose push
+    just stopped and who needs to know which file to look at.
+    """
+    if not path.exists():
+        raise PatternsUnavailable(f"pattern file not found at {path}")
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError as e:
+        raise PatternsUnavailable(f"pattern file unreadable at {path}: {e}") from e
+
+    groups = {}
+    current = None
+    for lineno, line in enumerate(raw.splitlines(), 1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if stripped.startswith("[") and stripped.endswith("]"):
+            current = stripped[1:-1].strip()
+            groups.setdefault(current, [])
+            continue
+        if current is None:
+            raise PatternsUnavailable(
+                f"{path}:{lineno}: entry before any [GROUP] header")
+        if "\t" not in line:
+            raise PatternsUnavailable(
+                f"{path}:{lineno}: expected CATEGORY<TAB>REGEX, found no tab")
+        category, _, regex = line.partition("\t")
+        category = category.strip()
+        if not category or not regex:
+            raise PatternsUnavailable(
+                f"{path}:{lineno}: empty category or empty regex")
+        try:
+            re.compile(regex)
+        except re.error as e:
+            raise PatternsUnavailable(
+                f"{path}:{lineno}: invalid regex for {category}: {e}") from e
+        groups[current].append((category, regex))
+
+    missing = [g for g in REQUIRED_PRIVATE_GROUPS if not groups.get(g)]
+    if missing:
+        raise PatternsUnavailable(
+            f"{path}: required group(s) missing or empty: {', '.join(missing)}")
+    return groups
+
 BINARY_EXTENSIONS = {
     ".png", ".jpg", ".jpeg", ".gif", ".ico", ".svg", ".bmp", ".webp",
     ".woff", ".woff2", ".ttf", ".otf", ".eot",
@@ -92,10 +198,10 @@ SKIP_PATHS = {
     # Same reason, for the 2026-08-16 scope-fix tests: the file must hold
     # samples of the shapes it proves refused.
     "tests/preflight/test_check_public_content_scope.py",
-    # docs/research/fleet_tooling/ — fleet schema docs intrinsically enumerate
-    # the roster (fleet_agents.json shape spec). Path-excepted by design;
-    # rosters are load-bearing for the safety-gate plugin's getAllowedPrefixes()
-    # lookup in plugins/safety-gate-v2-sketch.ts.
+    # docs/research/fleet_tooling/ — schema documentation for the agent roster
+    # format, which necessarily enumerates the roster it specifies. Path-excepted
+    # by design; the roster is load-bearing for the safety-gate plugin's
+    # getAllowedPrefixes() lookup in plugins/safety-gate-v2-sketch.ts.
     "docs/research/fleet_tooling/",
     # intergenos-wiki signed page manifest — a machine-generated JSON of PUBLIC
     # per-page sha256 hashes (nothing secret; the pages themselves are the
@@ -107,11 +213,8 @@ SKIP_PATHS = {
     "packages/desktop/intergenos-wiki/pages-manifest.json",
 }
 
-AGENT_NAMES = [
-    ("AGENT-NAME", r"claude-main|claude-laptop|claude-windows|windows-claude|Ubuntu-Claude|InterGenOS-Claude"),
-    ("AGENT-NAME", r"chris-ubuntu-code-claude|chris-intergenos-code-claude|chris-windows-code-claude"),
-    ("AGENT-NAME", r"chris-ubuntu-codium-deepseek|chris-windows-codium-gemini_flash"),
-]
+# AGENT_NAMES — session/agent host identifiers, several of them username-
+# bearing. PRIVATE: group AGENT_NAMES in the pattern file.
 
 INTERNAL_VOCAB = [
     # The separator is [-\s]+ (hyphen-or-whitespace), NOT \s+: the doctrine
@@ -129,9 +232,8 @@ OTHER_PROJECTS = [
     ("OTHER-PROJECT", r"\bemelia_paint\b"),
 ]
 
-HOME_PATH = [
-    ("HOME-PATH", r"/home/christopher/"),
-]
+# HOME_PATH — developer home-directory paths, username-bearing by definition.
+# PRIVATE: group HOME_PATH in the pattern file.
 
 INTERNAL_FILES = [
     ("INTERNAL-FILE", r"signing_key_custody.*draft\.md"),
@@ -142,15 +244,17 @@ INTERNAL_FILES = [
     ("INTERNAL-FILE", r"\bcontext_carryover_[a-z0-9_]+\.md\b"),
 ]
 
-# Agent abbreviations in contextual usage. Standalone "DS" / "WC" can be
-# legitimate non-agent acronyms (Direct Sound, water closet, etc.), so we
-# anchor on patterns that only the fleet uses: action-verb-prepositions
-# ("per SPOC", "by IGOSC", "from DS"); possessive ("DS's directive",
-# "SPOC's lane") followed by work-product nouns; or fleet-process phrases
-# ("fleet vote", "fleet dispatch", "fleet-wide RFC").
-AGENT_ABBREV = [
-    ("AGENT-ABBREV", r"\b(?:per|by|from|via|with|told|asked|dispatched)\s+(?:SPOC|IGOSC|WC|DS|GP)\b"),
-    ("AGENT-ABBREV", r"\b(?:SPOC|IGOSC|WC|DS|GP)'s\s+(?:lane|directive|dispatch|broadcast|review|note|prior|design|proposal|draft|plan|doc|document|branch|commit|sketch|critique)\b"),
+# AGENT_ABBREV — short identity tokens in CONTEXTUAL usage. Some of these
+# tokens are two letters long and have ordinary non-identity meanings, so a
+# bare match would be noise; the patterns anchor on the surrounding words that
+# only an internal-process sentence puts there — a preposition before the
+# token, or a possessive form followed by a work-product noun. PRIVATE: group
+# AGENT_ABBREV in the pattern file.
+#
+# The process-vocabulary pattern below carries no identity of its own, so it
+# stays in public source. It matches an internal-process noun after the word
+# it qualifies, in either the hyphenated or the spaced spelling.
+INTERNAL_PROCESS_VOCAB = [
     ("INTERNAL-VOCAB", r"\bfleet[-\s]+(?:vote|review|dispatch|broadcast|protocol|bus|wide|tooling|agents)\b"),
 ]
 
@@ -170,11 +274,12 @@ INTERNAL_LEDGER = [
 ]
 
 # Machine-specific leak class (decided 2026-07-06, after the
-# docs/sessions relocation: 29 session docs full of development-network
-# addresses and fleet-host names had accumulated in the public tree). These
-# facts are private-repo-only. Bare fleet-host names are blocked outright
-# (the phrasal AGENT_ABBREV tier above catches only the prepositional form,
-# a preposition followed by the name; a bare name is still a leak).
+# docs/sessions relocation: 29 session documents full of development-network
+# addresses and development-host identifiers had accumulated in the public
+# tree). These facts are private-repository-only. The identity tokens
+# themselves are blocked bare by the private FLEET_HOST_BLOCK group — the
+# contextual AGENT_ABBREV group catches only the prepositional form, and a
+# bare identifier is still a leak.
 #
 # PRIVATE-IP covers all three RFC1918 blocks (decided 2026-08-20). It used to
 # describe ONE /24 — the development LAN — which made the tier's coverage a
@@ -232,33 +337,32 @@ MACHINE_SPECIFICS = [
      r"(?<![0-9A-Fa-f:.])\b(?!2001:0?[Dd][Bb]8\b)(?!2606:4700\b)(?!2620:[Ff][Ee]\b)"
      r"[23][0-9A-Fa-f]{3}:[0-9A-Fa-f]{0,4}:[0-9A-Fa-f:]*[0-9A-Fa-f]\b"),
 ]
-# Bare fleet-host names are BLOCK-tier — decided 2026-07-08: there
-# are NO legitimate uses of fleet seat names in public content, period. The
-# 104 pre-existing sites this tier used to WARN about were swept to
-# role-neutral phrasing the same day the ruling landed; the allowlist is
-# deliberately unable to suppress this category (see ALLOWLIST_IMMUNE_CATS
-# + scan_file), so neither an allowlist entry nor a path exemption can
-# reopen it. The only exempt surfaces are the checker's own machinery
-# (SKIP_PATHS: this file, its allowlist, its tests) and the documented
-# fleet_tooling roster schema — mechanical necessities, not judgment calls.
-# The distinctive full seat names (SPOC, ZIGOSC, IGOSC) are bare-blocked here —
-# they are coined tokens with zero false-positive risk. ZIGOSC was missing from
-# this alternation (and `\bIGOSC\b` does NOT match inside "ZIGOSC" — no word
-# boundary between Z and I), so a bare "ZIGOSC" leaked past BOTH this tier and the
-# phrasal AGENT_ABBREV tier undetected until it was caught in review; added here to
-# complete the 2026-07-08 ruling, which names ZIGOSC explicitly. The 2-letter seats
-# (WC/DS/GP) stay contextual-only (AGENT_ABBREV) by design — bare-blocking them
-# would false-positive on ordinary acronyms (water closet, etc.).
-# (?i): the tier was compiled case-sensitively until 2026-08-16, so a
-# lowercase seat spelling passed the gate — one existed in a build-script
-# comment and the gate returned PASS on that file. The coined tokens have no
-# legitimate lowercase use either, so the whole tier is case-insensitive.
-# The alternation is assembled from pieces so this definition never spells
-# the bare tokens (the language gate's self-reference discipline; see the
-# devicepath example in check-public-language.py).
-FLEET_HOST_BLOCK = [
-    ("FLEET-HOST", r"(?i)\b(?:" + "SP" "OC" + "|" + "ZIG" "OSC" + "|" + "IG" "OSC" + r")\b"),
-]
+# FLEET_HOST_BLOCK — coined identity tokens, blocked BARE and case-
+# insensitively. PRIVATE: group FLEET_HOST_BLOCK in the pattern file.
+#
+# Decided 2026-07-08: there are no legitimate uses of these tokens in public
+# content, so the category is immune to the allowlist (see
+# ALLOWLIST_IMMUNE_CATS + scan_file) and no path exemption can reopen it. The
+# 104 pre-existing sites the tier used to warn about were rewritten to
+# role-neutral phrasing the day the decision landed. The only exempt surfaces
+# are the scanner's own machinery (SKIP_PATHS: this file, its allowlist, its
+# tests) and the documented roster-schema directory — mechanical necessities,
+# not judgment calls.
+#
+# Three properties of this tier are load-bearing and each was learned from a
+# measured miss; they belong with the pattern, so keep them in step with it:
+#   * ONE ALTERNATION, ALL TOKENS. A word boundary does not exist between two
+#     adjacent letters, so a token that is a suffix of another token is NOT
+#     matched by the shorter one's pattern. A token missing from the
+#     alternation therefore passes this tier AND the contextual tier, which is
+#     how one of them went undetected until a review caught it.
+#   * CASE-INSENSITIVE. The tier was compiled case-sensitively until
+#     2026-08-16, so a lowercase spelling passed; one sat in a build-script
+#     comment and the gate reported PASS on that file. These tokens have no
+#     legitimate lowercase use.
+#   * BARE ONLY FOR UNAMBIGUOUS TOKENS. Short tokens with ordinary meanings
+#     stay in the contextual tier; bare-blocking them would fire on ordinary
+#     acronyms.
 
 # ---------------------------------------------------------------------------
 # Language classes this checker could not see until 2026-08-05.
@@ -378,7 +482,7 @@ PRIVATE_REPO_PATH_CATS = {cat for cat, _ in PRIVATE_REPO_PATH}
 # sed expressions — a tier that noisy gets exempted into uselessness within a
 # week. Anchored to the words that actually surround a machine reference, it
 # matched 39 places and every one of them was a real host shorthand. The same
-# reasoning already governs the two-letter seat names in AGENT_ABBREV above.
+# reasoning already governs the short identity tokens in AGENT_ABBREV above.
 #
 # The trailing guard allows a sentence-ending period ("seen on .241.") while
 # still refusing a real dotted quad, because the first version of this pattern
@@ -409,7 +513,7 @@ MACHINE_SPECIFICS_EXEMPT_PATHS = [
     "intergen/tests/test_ip_answer.py",
     #   - intergen/data/howto/networking.json — user-facing howto uses
     #     192.168.1.20 as a generic home-router example (idiomatic for
-    #     networking docs; not a fleet address; an edit would flip the
+    #     networking docs; not a development-network address; an edit would flip the
     #     intergen template hash for zero leak reduction).
     "intergen/data/howto/networking.json",
 ]
@@ -468,15 +572,25 @@ WARN_EXEMPT_PATHS = [
     "scripts/reload-slot-9c.sh",
 ]
 
-BLOCK_PATTERNS = (
-    AGENT_NAMES + AGENT_ABBREV + INTERNAL_VOCAB + OTHER_PROJECTS + HOME_PATH
-    + INTERNAL_FILES + HEX_SECRETS + INTERNAL_LEDGER + MACHINE_SPECIFICS + FLEET_HOST_BLOCK
-    # Armed LAST, after the tree was swept: 192 persona-attribution lines, 6
-    # sweepable private-repository citations and 39 host shorthands were
-    # removed first, so arming these three tiers does not block a push against
-    # a tree that still carries hits.
-    + PERSONA_ATTRIBUTION + PRIVATE_REPO_PATH + HOST_SHORTHAND
-)
+def build_block_patterns(private):
+    """Assemble the full BLOCK tier list from private groups + public patterns.
+
+    The sequence is the reporting order, and it is UNCHANGED by the move to a
+    private store: each private group is spliced back at exactly the position
+    its patterns held when they lived in this file, so a line carrying two
+    hits still reports them in the same order it always did.
+    """
+    return (
+        private["AGENT_NAMES"] + private["AGENT_ABBREV"] + INTERNAL_PROCESS_VOCAB
+        + INTERNAL_VOCAB + OTHER_PROJECTS + private["HOME_PATH"]
+        + INTERNAL_FILES + HEX_SECRETS + INTERNAL_LEDGER + MACHINE_SPECIFICS
+        + private["FLEET_HOST_BLOCK"]
+        # Armed LAST, after the tree was swept: 192 persona-attribution lines, 6
+        # sweepable private-repository citations and 39 host shorthands were
+        # removed first, so arming these three tiers does not block a push against
+        # a tree that still carries hits.
+        + PERSONA_ATTRIBUTION + PRIVATE_REPO_PATH + HOST_SHORTHAND
+    )
 
 # Categories the allowlist can NEVER suppress (decided 2026-07-08:
 # no legitimate uses exist, so no allowlist entry may create one). Applied
@@ -848,7 +962,7 @@ def scan_file(filepath, block_patterns, warn_patterns, allowlist_patterns, repo_
         # Allowlist suppression is applied PER MATCH, not per line: categories
         # in ALLOWLIST_IMMUNE_CATS must block even on an allowlisted line —
         # otherwise a broad allowlist literal would silently reopen a ruled-
-        # closed class (the fleet-name ruling, 2026-07-08).
+        # closed class (the identity-token decision, 2026-07-08).
         line_allowlisted = is_allowlisted(line_stripped, allowlist_patterns)
 
         for cat, pat in block_patterns:
@@ -910,7 +1024,7 @@ def scan_file(filepath, block_patterns, warn_patterns, allowlist_patterns, repo_
     # over two comment lines passed the gate while the token sat whole in the
     # file. Each adjacent line PAIR is re-scanned with the break and the
     # second line's comment leader removed, for the token-shaped tiers only
-    # (filenames and coined seat names; the phrasal tiers stay per-line by
+    # (filenames and coined identity tokens; the phrasal tiers stay per-line by
     # design). A pair hit already reported by the line scan is not repeated.
     token_cats = {"INTERNAL-FILE", "FLEET-HOST"} | LEDGER_CATS
     token_patterns = [(c, q) for c, q in block_patterns if c in token_cats]
@@ -989,7 +1103,7 @@ def scan_commit_messages(range_spec, block_patterns, warn_patterns, allowlist_pa
             if not line_stripped:
                 continue
             # Same per-match allowlist rule as scan_file: ALLOWLIST_IMMUNE_CATS
-            # block even on an allowlisted line (fleet-name ruling 2026-07-08).
+            # block even on an allowlisted line (identity-token decision 2026-07-08).
             line_allowlisted = is_allowlisted(line_stripped, allowlist_patterns)
 
             for cat, pat in block_patterns:
@@ -1031,8 +1145,24 @@ def main():
 
     args = parser.parse_args()
 
+    # FAIL-CLOSED, and before anything else is read: without the private
+    # pattern file this scanner would run a reduced tier set and print PASS,
+    # which is the exact failure it exists to prevent. A refusal (exit 2) says
+    # the scan did not happen; it is deliberately not exit 1, so no caller can
+    # read it as a detection, and not exit 0, so none can read it as clean.
+    patterns_path = resolve_patterns_path()
+    try:
+        private_patterns = load_private_patterns(patterns_path)
+    except PatternsUnavailable as e:
+        refuse(
+            f"{e}\n         the private pattern file is required and must be "
+            f"complete. Set {ENV_VAR_PATTERNS} to point at it, or place it at "
+            f"{DEFAULT_PATTERNS_PATH}. A missing pattern file is never a "
+            f"silent pass and never a scan with fewer patterns."
+        )
+
     allowlist_patterns = load_allowlist(ALLOWLIST_FILE)
-    block_compiled = compile_patterns(BLOCK_PATTERNS)
+    block_compiled = compile_patterns(build_block_patterns(private_patterns))
     warn_compiled = compile_patterns(WARN_PATTERNS)
 
     all_violations = []

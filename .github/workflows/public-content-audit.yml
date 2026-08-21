@@ -8,11 +8,30 @@ on:
   pull_request:
     branches: [master]
 
+# The content audit runs in the pre-push hook, not here.
+#
+# Its identity-detection patterns are held privately, outside the repository,
+# and the scanner REFUSES to run without them rather than scanning with a
+# reduced pattern set and reporting a pass. A hosted runner has no copy of that
+# file, so this job could only ever do one of two things: refuse on every run,
+# which trains readers to ignore a red check, or run partial and print a pass
+# it has not earned. Neither is enforcement.
+#
+# The sibling public-language gate has always been arranged this way for the
+# same reason — its term list is private and it runs only at push time.
+#
+# What this gives up, stated plainly: a change that reaches the repository
+# without passing through a machine that has the hook and the pattern file is
+# no longer audited by CI. Every push today comes from such a machine.
+#
+# Decided 2026-08-21, with the pattern-store split.
 jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run public-content audit
-        run: python3 scripts/check-public-content.py
+      - name: Content audit runs at push time, not in CI
+        run: |
+          echo "The public-content audit runs in .githooks/pre-push, where the"
+          echo "private pattern file exists. See the comment in this workflow."
