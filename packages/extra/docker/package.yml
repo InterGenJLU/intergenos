@@ -61,3 +61,12 @@ tests:
 verify_paths:
   - /usr/bin/dockerd
   - /usr/bin/docker
+  # The CLI man pages are generated during build() by the docker/cli
+  # scripts/docs/generate-man.sh run and copied into place by do_install.
+  # Nothing checked that any of them landed, so a generator that produced an
+  # empty tree would have shipped silently. One page per generated section is
+  # declared here: docker.1 covers the cobra-generated man1 set and
+  # Dockerfile.5 covers the man5 set, so a section that came out empty fails
+  # the pre-squashfs path audit instead of shipping.
+  - /usr/share/man/man1/docker.1
+  - /usr/share/man/man5/Dockerfile.5
