@@ -1,6 +1,6 @@
 name: samba
 version: "4.23.5"
-release: 3  # r3: the quicktest suite's policy is declared instead of every failure being masked. Per-finding retrofit, not a sweep.  # r2: strip var/run+var/lock install side-effects, add tmpfiles.d /run/samba + /run/lock/samba (split-brain runtime-dir class, 2026-07-17)
+release: 4  # r4: test execution is declared truthfully: enabling the suite requires --enable-selftest, which compiles selftest-only branches into the shipped smbd (an on-demand sleep message handler) and the DNS resolver (a RESOLV_CONF environment override), so tests stay disabled and the reason records both consequences. check() edits only; installed bytes unchanged. HAND bump: pinned-upstream recipe, untracked by bump-changed-releases.py.  # r3: the quicktest suite's policy is declared instead of every failure being masked. Per-finding retrofit, not a sweep.  # r2: strip var/run+var/lock install side-effects, add tmpfiles.d /run/samba + /run/lock/samba (split-brain runtime-dir class, 2026-07-17)
 description: SMB/CIFS file and print server
 license: GPL-3.0-or-later
 homepage: https://www.samba.org/

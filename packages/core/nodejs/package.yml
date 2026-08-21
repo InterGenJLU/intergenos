@@ -1,6 +1,6 @@
 name: nodejs
 version: "22.22.0"
-release: 3  # r3: the test-suite policy is declared instead of every failure being masked, and the stale failure count in the comment beside it is corrected to what the suite actually reports.  # hook-contract wave: doc symlink moved post_install -> do_install (owned payload)
+release: 4  # r4: check() runs upstream's own offline 'default' suite set via tools/test.py instead of the make target that aborted fetching documentation tooling (npm ci) before any test ran in the offline chroot. check() edits only; installed bytes unchanged. HAND bump: pinned-upstream recipe, untracked by bump-changed-releases.py.  # r3: the test-suite policy is declared instead of every failure being masked, and the stale failure count in the comment beside it is corrected to what the suite actually reports.  # hook-contract wave: doc symlink moved post_install -> do_install (owned payload)
 description: JavaScript runtime built on V8
 license: MIT
 homepage: https://nodejs.org/
