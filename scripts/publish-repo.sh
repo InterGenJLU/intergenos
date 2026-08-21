@@ -41,6 +41,7 @@ DRY_RUN=false
 SKIP_SOURCES=false
 SKIP_TRANSPARENCY=false
 SKIP_SIGN=false
+CHROOT_MANIFEST=""
 
 # Retention: how many archived snapshots to keep under _previous/ after a
 # promote. The promote moves the outgoing current/ target into _previous/;
@@ -111,6 +112,15 @@ Usage: $0 [--dry-run] [--archive-dir DIR] [--gpg-key NK1|NK2] [--skip-sources]
                    falls below ${MIN_FREE_PCT}% on the remote. Without this the
                    capacity preflight fails closed — publishing past the
                    backup threshold surfaces days later as a failed backup.
+  --chroot-manifest FILE
+                   REQUIRED for a signing publish. sha256sum output taken
+                   inside the build chroot's archive dir — the corpus gate
+                   proves every staged archive byte-identical to the built
+                   corpus, both directions, before the index is generated
+                   (decided 2026-08-21: staging derives from the evaluated
+                   corpus; the persistent-staging overlay is retired). No
+                   bypass exists. --skip-sign resumes reuse the already-
+                   gated index and skip the re-check.
 EOF
     exit 1
 }
@@ -125,6 +135,7 @@ while [ $# -gt 0 ]; do
         --skip-sign)       SKIP_SIGN=true; shift ;;
         --keep-previous)   KEEP_PREVIOUS="$2"; shift 2 ;;
         --accept-capacity-risk) ACCEPT_CAPACITY_RISK=true; shift ;;
+        --chroot-manifest) CHROOT_MANIFEST="$2"; shift 2 ;;
         -h|--help)         usage ;;
         *) echo "Unknown option: $1"; usage ;;
     esac
@@ -402,6 +413,30 @@ if [ "$SKIP_SOURCES" != true ]; then
         --packages-root packages \
         || { echo "ERROR: source-correspondence gate failed — generate the missing" >&2
              echo "       source archives (scripts/build-source-archives.py) and re-run" >&2
+             exit 1; }
+fi
+
+# Corpus-correspondence gate (decided 2026-08-21, fail-closed, no bypass):
+# the staging corpus must be byte-identical to the evaluated build corpus in
+# BOTH directions before the index it feeds is generated and signed. Origin:
+# the overlay-onto-persistent-staging model silently served pre-rebuild bytes
+# for 796 of 842 published components after the first full-rebuild release.
+# --skip-sign resumes reuse an index this gate already vetted, so the manifest
+# is not re-required there; every signing publish must present one.
+if [ "$SKIP_SIGN" != true ] && [ "$DRY_RUN" != true ]; then
+    if [ -z "$CHROOT_MANIFEST" ]; then
+        echo "ERROR: --chroot-manifest is required for a signing publish." >&2
+        echo "  Generate it inside the build chroot's archive dir, e.g.:" >&2
+        echo "  ssh <builder>@<build-vm> 'cd /mnt/igos/var/lib/igos/archives && sudo sha256sum *.igos.tar.gz' > /tmp/chroot-archives.sha256" >&2
+        exit 1
+    fi
+    echo "[preflight] Checking staged corpus <-> built corpus byte correspondence..."
+    python3 scripts/check-corpus-correspondence.py \
+        --staging "$ARCHIVE_DIR" \
+        --chroot-manifest "$CHROOT_MANIFEST" \
+        --packages packages \
+        || { echo "ERROR: corpus-correspondence gate failed — re-stage from the" >&2
+             echo "       evaluated chroot and re-run. There is no bypass." >&2
              exit 1; }
 fi
 
