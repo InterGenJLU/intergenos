@@ -873,11 +873,26 @@ run_package "e2fsprogs" "e2fsprogs" "1.47.3" \
 # 8.84 — 8.86: Stripping and Cleanup
 # ============================================================================
 
-# --- 8.85: Stripping debug symbols — SKIPPED ---
-# Debug symbols are kept during development. They're essential for debugging
-# segfaults and tracing issues during desktop tier builds. Stripping will be
-# done in create-image.sh when packaging the final distributable image.
-log "  8.85: Stripping — SKIPPED (keeping debug symbols for development)"
+# --- 8.85: Stripping debug symbols — NOT DONE HERE, AND NOT DONE LATER ---
+# Debug symbols are retained. They are useful for debugging segfaults and
+# tracing issues during the later tier builds, and nothing downstream removes
+# them. Swept 2026-08-21 across scripts/ and igos-build/: no debug-symbol
+# stripping step exists in create-image.sh, in build-squashfs.sh, or anywhere
+# else the pipeline runs, and none appears anywhere in this repository's
+# history from its initial import forward. This note previously promised that
+# create-image.sh would strip at image-packaging time; no such step is present,
+# so the promise is removed rather than left describing behaviour the tree does
+# not have.
+#
+# Decided 2026-08-21 — the posture that replaces it: strip at package-build
+# time and keep the separated debug data as its own downloadable debug package
+# on the mirror, so a user who needs symbols installs them and an image that
+# does not need them does not carry them. That is a corpus-wide change to how
+# every package is built, so it lands as a planned corpus rebuild and proves
+# itself on the next from-scratch build, not as an edit to this driver. Until
+# it lands, the shipped binaries carry their debug symbols — a known and
+# deliberate state, recorded here so it is not mistaken for an oversight.
+log "  8.85: Stripping — NOT PERFORMED (debug symbols retained; see the note above)"
 
 # ============================================================================
 # 8.86: Cleanup
