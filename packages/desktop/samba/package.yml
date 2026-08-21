@@ -61,9 +61,8 @@ dependencies:
   - nss
   - popt
 tests:
-  enabled: true
-  failure_policy: known_failures
-  reason: "quicktest starts a self-test environment of live Samba servers and drives them over loopback sockets; upstream states plainly that the suite prints lines which look like failures and are innocuous. The build chroot has no configured network interface and no running name service, so that class of line is expected here. The suite runs and its full output is kept in the package log."
+  enabled: false
+  reason: "the suite cannot run against a build configured for shipping, and enabling it would change the binaries we ship. All source line numbers below are in the pinned samba 4.23.5 tarball. `make quicktest` calls waf test, whose cmd_testonly refuses immediately unless NSS_WRAPPER, UID_WRAPPER and SOCKET_WRAPPER are configured (selftest/wscript:112-116, printing 'ERROR: You must use --enable-selftest to enable selftest' and exiting 1). Those are set only by --enable-selftest or --enable-developer (selftest/wscript:100-101), and ENABLE_SELFTEST is a compile-time define consumed by production code, not by test code: it registers an on-demand MSG_SMB_SLEEP handler inside smbd (source3/smbd/server.c:1472-1474) and makes libcli/dns/dns_lookup.c:73-79 take the resolver configuration path from a RESOLV_CONF environment variable instead of /etc/resolv.conf. Passing the flag to make a test suite runnable would put both into the shipped daemon, so the flag is not passed and the suite does not run. This block previously declared known_failures and said the suite ran; it never ran — it exited on the guard above in under two seconds. Coverage for this package therefore comes from the build and the pre-squashfs path audit, not from upstream's suite."
 
 verify_paths:
   - /usr/bin/samba-log-parser

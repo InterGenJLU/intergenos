@@ -86,8 +86,19 @@ build() {
 check() {
     set -e
     cd build
-    # os-release is needed for tests
-    echo 'NAME="InterGenOS"' > /etc/os-release
+    # The tests read /etc/os-release, so one has to exist. Corrected
+    # 2026-08-21: this used to write the file unconditionally, which
+    # overwrote the identity stub the Chapter 8 driver stages before this
+    # package builds (chroot-build-ch8.sh, "Minimal OS identity stub") and
+    # dropped the ID= line that stub exists to provide. systemd's own configure
+    # reads $ID from that file, and every Chapter 8 package built after this
+    # one saw a file with nothing but a NAME. The stub is also guarded by a
+    # file-exists test, so it would not restore what this phase removed; only
+    # Chapter 9 rewrote it, much later. Write a fallback only when the file is
+    # genuinely absent, and otherwise leave whatever the driver staged alone.
+    if [ ! -f /etc/os-release ]; then
+        printf 'NAME="InterGenOS"\nID=intergenos\n' > /etc/os-release
+    fi
     pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
         unshare -m ninja test
 }

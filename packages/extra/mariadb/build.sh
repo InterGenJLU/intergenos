@@ -99,18 +99,29 @@
 #                                          for "yes"/"auto"/"static" so
 #                                          =ON would NOT enable jemalloc.)
 #
-# NUMA — explicit OFF (libnuma absent from tree):
-#   -DWITH_NUMA=OFF                        libnuma is not present in
-#                                          packages/. Default WITH_NUMA=
-#                                          AUTO would auto-detect-miss
-#                                          and silently disable; explicit
-#                                          OFF makes the absence visible
-#                                          to a future maintainer.
-#                                          Acceptable for v1.0 — the
-#                                          innodb-numa-interleave knob is
-#                                          only relevant on multi-socket
-#                                          NUMA hardware. v1.1+ can land
-#                                          libnuma and flip to ON.
+# NUMA — explicit ON (enabled 2026-08-21):
+#   -DWITH_NUMA=ON                         libnuma IS in the tree, as
+#                                          packages/core/numactl, and has
+#                                          been since the initial import.
+#                                          It builds in the core-extra
+#                                          phase, well before this tier,
+#                                          and ships /usr/include/numa.h,
+#                                          /usr/include/numaif.h and
+#                                          /usr/lib/libnuma.so — exactly
+#                                          the three things cmake/numa.cmake
+#                                          probes for. The text here used to
+#                                          state that libnuma was absent from
+#                                          packages/; it was in the tree the
+#                                          whole time, so the flag is flipped
+#                                          rather than the claim reworded.
+#                                          ON is deliberate over AUTO: AUTO
+#                                          silently disables when the probe
+#                                          misses, whereas ON makes cmake fail
+#                                          with "Could not find NUMA headers/
+#                                          libraries", so a missing dependency
+#                                          halts the build instead of quietly
+#                                          shipping a server without the
+#                                          innodb-numa-interleave knob.
 #
 # Authentication plugins (operator-opt-in at account-config layer):
 #   -DPLUGIN_AUTH_GSSAPI=YES               GSSAPI / Kerberos auth via
@@ -188,7 +199,7 @@ configure() {
           -DWITH_ZLIB=system                                                \
           -DWITH_PCRE=system                                                \
           -DWITH_JEMALLOC=yes                                               \
-          -DWITH_NUMA=OFF                                                   \
+          -DWITH_NUMA=ON                                                    \
           -DWITH_WSREP=OFF                                                  \
           -DPLUGIN_AUTH_GSSAPI=YES                                          \
           -DPLUGIN_AUTH_PAM=YES                                             \

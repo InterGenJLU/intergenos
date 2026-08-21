@@ -22,6 +22,17 @@ landed is in the repository README, not here.
 
 ### Added
 
+- **MariaDB gains NUMA memory placement, and PostgreSQL gains PL/Tcl and
+  io_uring asynchronous I/O.** All three features were switched off in their
+  recipes because the library each one needs was described as missing from the
+  project. Each library was in fact already part of the system — `numactl` for
+  MariaDB, Tcl and `liburing` for PostgreSQL — so the features are now built
+  in. MariaDB can use the `innodb-numa-interleave` setting on multi-socket
+  machines, PostgreSQL can run stored procedures written in Tcl, and
+  PostgreSQL's asynchronous I/O can use the kernel's io_uring interface. Each
+  is now a hard build requirement rather than an automatic probe, so a missing
+  library stops the build instead of quietly producing a server without the
+  feature.
 - **`gst-plugin-gtk4` — the GTK4 video sink element (`gtk4paintablesink`).**
   The camera application's live preview requires this GStreamer element and
   the application aborted at launch without it. The element lives in the
@@ -32,6 +43,25 @@ landed is in the repository README, not here.
 
 ### Fixed
 
+- **The system identity file survives the Chapter 8 build.** While building
+  systemd, the test step overwrote `/etc/os-release` with a single line,
+  discarding the `ID` field that the build stages beforehand and that
+  systemd's own configuration step reads. Every package built after systemd in
+  that stage saw the reduced file, and the step that stages it only writes when
+  the file is absent, so nothing put the field back until much later in the
+  build. The test step now writes the file only when it is genuinely missing.
+- **Package test declarations describe what their test suites actually do.**
+  Three recipes carried a written policy stating that a suite ran and that its
+  failures were understood, when the suite had not run at all or had stopped
+  for a different reason than the one recorded. Samba's suite cannot run
+  without a build option that compiles test-only behaviour into the shipped
+  file server, so it is now declared as not run, with that reason stated.
+  Node.js's suite stopped while trying to fetch documentation tooling from the
+  network before reaching a single test; it now runs the test set the Node.js
+  project itself designates for a run with no network access. CUPS's suite runs
+  its programming-interface tests and then stops because the printing-scheduler
+  test plan refuses to run as the build user; the record now says so instead of
+  naming an unrelated cause.
 - **The virtual-machine manager opens again.** Current glib releases
   removed a compatibility alias the application's startup path still used,
   so it failed before its window appeared. The startup call now resolves

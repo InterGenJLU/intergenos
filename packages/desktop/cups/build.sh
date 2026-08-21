@@ -32,6 +32,14 @@ check() {
     # suite still runs; its result is now governed by the tests: block in
     # package.yml and reported by pkg_run_tests, so an environmental failure
     # is an announced waiver rather than an invisible pass.
+    #
+    # Corrected 2026-08-21: the reason recorded in package.yml described a
+    # cause the build log does not show. The unit tests do run; the scheduler
+    # test plan refuses to run as root and is what makes the target exit
+    # non-zero. The reason now states that, so the waiver names the failure it
+    # is actually waiving. -k is kept deliberately: it lets every unit test run
+    # to completion before the refusal, which is what puts their output in the
+    # log.
     LC_ALL=C pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
         make -k check
 }
