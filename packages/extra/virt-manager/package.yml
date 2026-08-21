@@ -1,6 +1,7 @@
 name: virt-manager
 version: "5.1.0"
-release: 1
+release: 2  # r2: the application starts again on current glib. glib 2.80 moved the glib-unix helpers to the GLibUnix-2.0 introspection namespace and glib 2.88 removed the compatibility copies from GLib-2.0, so upstream 5.1.0's startup call to GLib.unix_signal_add raised an attribute error before the window appeared; a patch resolves the function with a GLibUnix fallback, keeping the legacy name where the running glib still provides it.
+content_hash: 8317f1da52c0c195
 description: Desktop application for managing QEMU/KVM virtual machines
 license: GPL-2.0-or-later
 homepage: https://virt-manager.org

@@ -1,0 +1,24 @@
+--- a/virtManager/virtmanager.py	2026-08-21 07:03:00.214322888 -0500
++++ b/virtManager/virtmanager.py	2026-08-21 07:10:38.109774175 -0500
+@@ -302,7 +302,20 @@
+         log.debug("Received KeyboardInterrupt. Exiting application.")
+         engine.exit_app()
+ 
+-    GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, _sigint_handler, None)
++    # glib 2.80 moved the Unix-only helpers into their own introspection
++    # namespace (GLibUnix-2.0) and glib 2.88 removed the compatibility
++    # copies from GLib-2.0, so GLib.unix_signal_add no longer exists via
++    # introspection even though the C symbol is still exported. Prefer the
++    # legacy name when present (older glib); otherwise use
++    # GLibUnix.signal_add — same signature and behaviour either way.
++    # (`gi` is the module-level import; a function-local import here would
++    # shadow it for the whole function and break the earlier uses.)
++    unix_signal_add = getattr(GLib, "unix_signal_add", None)
++    if unix_signal_add is None:
++        gi.require_version("GLibUnix", "2.0")
++        from gi.repository import GLibUnix
++        unix_signal_add = GLibUnix.signal_add
++    unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, _sigint_handler, None)
+ 
+     engine.start(options.uri, show_window, domain, skip_autostart)
+ 

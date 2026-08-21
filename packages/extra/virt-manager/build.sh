@@ -19,6 +19,15 @@
 
 configure() {
     set -e
+    # glib 2.80 moved the glib-unix helpers to the GLibUnix-2.0 introspection
+    # namespace and glib 2.88 removed the compatibility copies from GLib-2.0;
+    # upstream 5.1.0 still calls GLib.unix_signal_add and dies at startup
+    # ("'gi.repository.GLib' object has no attribute 'unix_signal_add'",
+    # measured on two installed systems 2026-08-21). The patch resolves the
+    # function with a GLibUnix fallback, keeping the legacy name when the
+    # running glib still provides it.
+    BUILD_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+    patch -Np1 -i "$BUILD_DIR/glib-2.88-unix-signal-add.patch"
     meson setup build \
         --prefix=/usr \
         --buildtype=release \
