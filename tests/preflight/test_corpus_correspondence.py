@@ -28,11 +28,8 @@ class CorpusCorrespondenceTest(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         root = Path(self._tmp.name)
         self.staging = root / "staging"
-        self.packages = root / "packages"
         self.manifest = root / "chroot-archives.sha256"
         self.staging.mkdir()
-        (self.packages / "toolchain" / "gcc-initial").mkdir(parents=True)
-        (self.packages / "core" / "zlib").mkdir(parents=True)
         self.built = {}
 
     def tearDown(self):
@@ -54,8 +51,7 @@ class CorpusCorrespondenceTest(unittest.TestCase):
         return subprocess.run(
             [sys.executable, str(GATE),
              "--staging", str(self.staging),
-             "--chroot-manifest", str(self.manifest),
-             "--packages", str(self.packages)],
+             "--chroot-manifest", str(self.manifest)],
             capture_output=True, text=True)
 
     def test_full_correspondence_passes(self):
@@ -87,18 +83,27 @@ class CorpusCorrespondenceTest(unittest.TestCase):
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
         self.assertIn("ORPHAN in staging", r.stdout)
 
-    def test_intermediates_excluded_by_name_and_tier(self):
-        """-passN/-tmp/-bootstrap and toolchain-tier archives are never-publish:
-        absent from staging is correct, and every exclusion is printed."""
+    def test_intermediates_excluded_by_name(self):
+        """-passN/-tmp/-bootstrap archives are never-publish: absent from
+        staging is correct, and every exclusion is printed."""
         self._build_archive("zlib-1.3.1.igos.tar.gz", "zlib bytes")
         for interm in ("gcc-pass1-14.2.igos.tar.gz",
                        "glibc-tmp-2.40.igos.tar.gz",
-                       "glib2-bootstrap-2.88.1.igos.tar.gz",
-                       "gcc-initial-14.2.igos.tar.gz"):
+                       "glib2-bootstrap-2.88.1.igos.tar.gz"):
             self._build_archive(interm, f"intermediate {interm}", stage=False)
         r = self._run()
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual(r.stdout.count("excluded (never-publish intermediate)"), 4)
+        self.assertEqual(r.stdout.count("excluded (never-publish intermediate)"), 3)
+
+    def test_toolchain_twin_plain_archive_stays_publishable(self):
+        """The Chapter-8 recipe-less class (first real firing, 2026-08-21):
+        glibc/m4/ncurses carry toolchain twin recipes but their plain
+        archives PUBLISH — a plain versioned name must demand correspondence."""
+        self._build_archive("glibc-2.43.igos.tar.gz", "published glibc bytes")
+        self._build_archive("m4-1.4.21.igos.tar.gz", "published m4 bytes")
+        r = self._run()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("2 publishable", r.stdout)
 
     def test_staged_intermediate_fails(self):
         """An intermediate must not ride INTO staging either."""
@@ -123,8 +128,7 @@ class CorpusCorrespondenceTest(unittest.TestCase):
         r = subprocess.run(
             [sys.executable, str(GATE),
              "--staging", str(self.staging),
-             "--chroot-manifest", str(self.manifest),
-             "--packages", str(self.packages)],
+             "--chroot-manifest", str(self.manifest)],
             capture_output=True, text=True)
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
 

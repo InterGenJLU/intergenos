@@ -434,7 +434,6 @@ if [ "$SKIP_SIGN" != true ] && [ "$DRY_RUN" != true ]; then
     python3 scripts/check-corpus-correspondence.py \
         --staging "$ARCHIVE_DIR" \
         --chroot-manifest "$CHROOT_MANIFEST" \
-        --packages packages \
         || { echo "ERROR: corpus-correspondence gate failed — re-stage from the" >&2
              echo "       evaluated chroot and re-run. There is no bypass." >&2
              exit 1; }

@@ -21,8 +21,13 @@ The gate checks BOTH directions, fail-closed:
 
 "Publishable" excludes the never-published build intermediates. The
 exclusion set is DERIVED and PRINTED, never hidden: an archive is excluded
-iff its package name ends in -pass<N>, -tmp, or -bootstrap, or its recipe
-lives under packages/toolchain/. Everything else must correspond.
+iff its package name ends in -pass<N>, -tmp, or -bootstrap. Everything else
+must correspond. (The gate's first real firing, 2026-08-21, proved the name
+patterns match the built corpus's intermediate set exactly — 20/20 — and
+that a toolchain-tier recipe-directory derivation over-matches: glibc, m4,
+and ncurses carry toolchain twin recipes while their plain archives publish,
+the Chapter-8 recipe-less class. An unanticipated future intermediate shape
+fails loud as MISSING-from-staging rather than slipping through.)
 
 Inputs:
   --staging DIR          the staging archive dir (the corpus about to be
@@ -33,8 +38,6 @@ Inputs:
                              'cd /var/lib/igos/archives 2>/dev/null \
                               || cd /mnt/igos/var/lib/igos/archives; \
                               sudo sha256sum *.igos.tar.gz'
-  --packages DIR         the packages tree (for toolchain-tier derivation).
-
 Exit 0: full correspondence. Exit 2: findings (each named). Exit 1: usage /
 unreadable input. There is deliberately NO bypass flag: a publish that
 cannot prove correspondence does not publish.
@@ -84,35 +87,25 @@ def load_manifest(path: Path) -> dict:
     return entries
 
 
-def toolchain_names(packages_dir: Path) -> set:
-    tdir = packages_dir / "toolchain"
-    if not tdir.is_dir():
-        return set()
-    return {p.name for p in tdir.iterdir() if p.is_dir()}
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description="staged<->built corpus byte gate")
     ap.add_argument("--staging", required=True, type=Path)
     ap.add_argument("--chroot-manifest", required=True, type=Path)
-    ap.add_argument("--packages", required=True, type=Path)
     args = ap.parse_args()
 
-    for p, what in ((args.staging, "staging dir"), (args.chroot_manifest, "manifest"),
-                    (args.packages, "packages dir")):
+    for p, what in ((args.staging, "staging dir"), (args.chroot_manifest, "manifest")):
         if not p.exists():
             print(f"ERROR: {what} not found: {p}", file=sys.stderr)
             return 1
 
     built = load_manifest(args.chroot_manifest)
     staged = {p.name: p for p in sorted(args.staging.glob("*.igos.tar.gz"))}
-    tool_names = toolchain_names(args.packages)
 
     excluded = []
     publishable = {}
     for fname, digest in built.items():
         pkg = archive_pkgname(fname)
-        if INTERMEDIATE_RE.match(pkg) or pkg in tool_names:
+        if INTERMEDIATE_RE.match(pkg):
             excluded.append(fname)
             continue
         publishable[fname] = digest
