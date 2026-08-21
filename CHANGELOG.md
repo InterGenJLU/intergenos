@@ -37,6 +37,14 @@ landed is in the repository README, not here.
   so it failed before its window appeared. The startup call now resolves
   the current name, with a fallback for systems whose glib still provides
   the old one.
+- **The wiki's release-identity examples match what current images report.**
+  Four documentation pages still showed the original R001 image's
+  `1.0-dev (Revival)` system-identity string as the expected value, although
+  images since R001.1 report the release they were built from. The examples
+  now show the current shape, name the two fields that stay stable across
+  releases, and explain that a system installed from the original image
+  keeps its old string until the updated file is adopted as a configuration
+  update. The wiki's signed page manifest was regenerated and re-signed.
 - **Upgrade rollback copies are actually kept, and the upgrade output
   tells the truth about rollback.** The package manager keeps a copy of
   each package's outgoing archive before upgrading it, so a failed install
