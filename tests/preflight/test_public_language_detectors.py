@@ -227,6 +227,31 @@ def test_addresses_outside_private_space_are_not_refused(
         f"false positive ({case}): {line!r}\n{result.stdout}")
 
 
+def test_multi_match_line_names_its_match_count(tmp_path: Path) -> None:
+    """One message per line is the deliberate reporting shape, but the count
+    must not under-report: a line carrying three leaked values used to read
+    as a single violation, and a reviewer of that output would reasonably
+    believe one value leaked when several did. The message now names the
+    line's match count whenever it exceeds one (decided 2026-08-21); a
+    single-match line keeps the unannotated message."""
+    multi = "# hosts 10.4.19.7 and 172.20.0.1 and 192.168.240.11 answered.\n"
+    result = _scan(tmp_path, "docs/multi.md", multi)
+    assert _blocked(result, "PRIVATE-IP"), result.stdout
+    out = result.stdout + result.stderr
+    assert "3 matches on this line" in out, out
+
+    single = "# the worker answered on 10.4.19.7 during the run.\n"
+    result = _scan(tmp_path, "docs/single.md", single)
+    assert _blocked(result, "PRIVATE-IP"), result.stdout
+    # Both fixture files share the scanned tree, so assert on the single
+    # file's own message line rather than the whole output.
+    single_lines = [ln for ln in (result.stdout + result.stderr).splitlines()
+                    if "docs/single.md" in ln]
+    assert single_lines, result.stdout
+    assert all("matches on this line" not in ln for ln in single_lines), (
+        single_lines)
+
+
 # --------------------------------------------------------------------------
 # The tiers are actually wired in, not merely defined.
 # --------------------------------------------------------------------------

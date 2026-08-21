@@ -867,7 +867,31 @@ def scan_file(filepath, block_patterns, warn_patterns, allowlist_patterns, repo_
                     continue
                 if cat in LEDGER_CATS and ledger_exempt:
                     continue
-                msg = f"{display_path}:{line_no}: [{cat}] {matched} — remove or replace with public-safe equivalent"
+                # One message per line is the deliberate output shape (uniform
+                # across tiers), but the count must not under-report: a line
+                # carrying several matching values used to read as a single
+                # violation. Count every surviving match on the line — same
+                # exemption ladder as above — and name the count when it
+                # exceeds one (decided 2026-08-21).
+                line_matches = 0
+                for count_cat, count_pat in block_patterns:
+                    if line_allowlisted and count_cat not in ALLOWLIST_IMMUNE_CATS:
+                        continue
+                    if count_cat == "HEX-SECRET" and is_sha256_line(line):
+                        continue
+                    if count_cat in MACHINE_SPECIFICS_CATS and machine_specifics_exempt:
+                        continue
+                    if count_cat in PRIVATE_REPO_PATH_CATS and private_repo_path_exempt:
+                        continue
+                    if count_cat in PERSONA_ATTRIBUTION_CATS and persona_attribution_exempt:
+                        continue
+                    if count_cat in LEDGER_CATS and ledger_exempt:
+                        continue
+                    line_matches += sum(1 for _ in count_pat.finditer(line))
+                count_note = (f" ({line_matches} matches on this line)"
+                              if line_matches > 1 else "")
+                msg = (f"{display_path}:{line_no}: [{cat}] {matched} — remove "
+                       f"or replace with public-safe equivalent{count_note}")
                 violations.append(("block", msg))
                 break
 
