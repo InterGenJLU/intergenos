@@ -198,13 +198,13 @@ existing `pkm/remover.py` path:
 - `db.get_files(name)` returns the rows
   `add_files` wrote at install time, including the symlink-path
   entries.
-- The remover's `file_paths` loop at `pkm/remover.py:387-428` calls `os.remove(abs_path)`
+- The remover's `file_paths` loop at `pkm/remover.py:656-697` calls `os.remove(abs_path)`
   for each entry. POSIX `unlink()` semantics unlink the symlink
   itself rather than following it, so symlink entries are
   correctly cleaned up + the target files (which appear
   independently in `files[]`) are also deleted.
 - Empty directories left after file removal are cleaned by the
-  existing `dir_paths` loop at `pkm/remover.py:447-507`.
+  existing `dir_paths` loop at `pkm/remover.py:716-733`.
 
 `pkm files <name>`, `pkm verify <name>`, and
 `pkm provides <abs-path>` all read from the same files table, so
