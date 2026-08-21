@@ -50,6 +50,21 @@ def build_sh(pkg_rel: str) -> str:
     return (REPO_ROOT / "packages" / pkg_rel / "build.sh").read_text()
 
 
+def check_invocation(pkg_rel: str) -> str:
+    """The pkg_run_tests call in check(), comments stripped.
+
+    Scoped deliberately: a recipe comment may legitimately name a command it
+    NO LONGER runs, in order to record why it was replaced. Asserting on the
+    whole body would read that explanation as the invocation."""
+    lines = []
+    for line in check_body(pkg_rel).split("\n"):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        lines.append(line)
+    return "\n".join(lines)
+
+
 def check_body(pkg_rel: str) -> str:
     """Just the check() function. Scoped deliberately: other hooks in these
     recipes carry their own masked calls (`systemctl enable ... || true` is a
@@ -77,7 +92,27 @@ class TestCups:
         r = run_policy(self.PKG, 1)
         assert "POLICY_RC=0" in r.stdout, r.stdout + r.stderr
         assert "allowed by failure_policy=known_failures" in r.stdout
-        assert "graphical session" in r.stdout, "the reason must reach the log"
+        assert "refuses to run as root" in r.stdout, "the reason must reach the log"
+
+    def test_the_reason_names_the_cause_the_build_log_shows(self):
+        """The reason used to blame a session bus, a display and address-in-use
+        conflicts. The build log shows none of those: the interface tests run
+        and the scheduler test plan refuses to run as root. A waiver that names
+        the wrong cause is the unverified claim this module exists to catch.
+
+        The reason still mentions the retired explanation, deliberately, to
+        record that it was replaced — so this asserts which cause is stated as
+        the operative one rather than which words appear."""
+        r = run_policy(self.PKG, 1)
+        assert "run-stp-tests.sh" in r.stdout
+        assert "the measured cause is the root refusal" in r.stdout
+        assert "The unit tests do run" in r.stdout
+
+    def test_the_reason_names_the_consequence_of_waiving_the_whole_target(self):
+        """known_failures here covers make check entirely, so a new unit-test
+        failure is absorbed too. That is a real limit and the reason states it."""
+        r = run_policy(self.PKG, 1)
+        assert "would also be absorbed" in r.stdout
 
     def test_a_passing_suite_still_reads_as_passing(self):
         r = run_policy(self.PKG, 0)
@@ -90,8 +125,17 @@ class TestCups:
 
 
 class TestSamba:
-    """desktop/samba — Python lane, same reasoning as cups on a different
-    suite: quicktest runs live servers over loopback."""
+    """desktop/samba — the suite is declared NOT RUN, because it cannot run
+    against a build configured for shipping.
+
+    quicktest calls waf test, which refuses unless the build was configured
+    with --enable-selftest. That flag is a compile-time define consumed by
+    production code, not test code: it puts an on-demand sleep-message handler
+    inside smbd and lets an environment variable replace the DNS resolver's
+    configuration path. Turning it on to make a suite runnable would change the
+    shipped daemon, so it stays off and the suite stays unrun. The earlier
+    policy here declared known_failures and described a suite that ran; it
+    never ran, and these tests pin the corrected declaration."""
 
     PKG = "desktop/samba"
 
@@ -101,16 +145,32 @@ class TestSamba:
     def test_check_routes_through_the_policy_wrapper(self):
         assert "pkg_run_tests" in check_body(self.PKG)
 
-    def test_a_failing_suite_is_waived_loudly_not_silently(self):
+    def test_the_suite_is_declared_not_run(self):
+        """Measured through pkg_run_tests' own parser: the file could say one
+        thing and the parser read another."""
         r = run_policy(self.PKG, 1)
-        assert "POLICY_RC=0" in r.stdout, r.stdout + r.stderr
-        assert "allowed by failure_policy=known_failures" in r.stdout
-        assert "self-test environment" in r.stdout
-
-    def test_a_passing_suite_still_reads_as_passing(self):
-        r = run_policy(self.PKG, 0)
+        assert "phase skipped (enabled=false)" in r.stdout, r.stdout + r.stderr
         assert "POLICY_RC=0" in r.stdout
-        assert "PASSED" in r.stdout
+
+    def test_the_declaration_does_not_claim_a_waived_failure(self):
+        """A suite that never started must not be reported as a suite whose
+        failures were expected — that is the claim the correction removed."""
+        r = run_policy(self.PKG, 1)
+        assert "allowed by failure_policy=known_failures" not in r.stdout
+        assert "self-test environment" not in r.stdout
+
+    def test_the_reason_names_why_the_flag_is_not_passed(self):
+        """The reason has to carry the shipped-binary consequence, or a later
+        reader sees only a missing configure flag and adds it."""
+        r = run_policy(self.PKG, 1)
+        assert "--enable-selftest" in r.stdout
+        assert "MSG_SMB_SLEEP" in r.stdout
+        assert "RESOLV_CONF" in r.stdout
+
+    def test_the_command_stays_recorded(self):
+        """Not running the suite is a decision, not an erasure: the invocation
+        remains in check() as the record of what would run."""
+        assert "make quicktest" in check_body(self.PKG)
 
 
 class TestSpidermonkey:
@@ -159,6 +219,20 @@ class TestNodejs:
         """The retired comment claimed ~10 of 4600+; the book says 3 of over
         4400. A number in a recipe comment is a claim like any other."""
         assert "~10 of 4600" not in build_sh(self.PKG)
+
+    def test_the_invocation_is_not_the_one_that_never_reached_a_test(self):
+        """`make test-only` runs build-addons first, whose stamp chain ends in
+        an npm fetch for documentation tooling. The build chroot is offline, so
+        make aborted before a single test ran while the recipe declared a
+        policy for the failures of a suite that had not started."""
+        assert "make test-only" not in check_invocation(self.PKG)
+
+    def test_the_suite_runs_the_offline_set_upstream_designates(self):
+        """tools/test.py expands `default` to every suite except the ones
+        upstream excludes for needing a network or addon compilation."""
+        invocation = check_invocation(self.PKG)
+        assert "tools/test.py" in invocation
+        assert "default" in invocation
 
     def test_a_failing_suite_is_waived_loudly_not_silently(self):
         r = run_policy(self.PKG, 1)
