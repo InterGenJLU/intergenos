@@ -34,7 +34,7 @@ dependencies:
 tests:
   enabled: true
   failure_policy: known_failures
-  reason: "upstream documents a small known-failing set in the parallel suite — 3 of over 4400 at the version the reference book covers — and further cases here need network access and a writable /dev/shm that the offline build chroot does not provide. The suite runs and its full output is kept in the package log, so a failure count out of line with that is visible."
+  reason: "the suite is invoked as tools/test.py over the `default` suite set, which is what upstream designates for a run with no network and no addon compilation: ArgsToTestPaths expands `default` to every suite except IGNORED_SUITES, and that list's own comment in the pinned node-v22.22.0 tarball says those suites 'should not be run as part of the default JavaScript test-run, e.g., internet/ requires a network connection, addons/ requires compilation'. Upstream documents a small known-failing set in the parallel suite — 3 of over 4400 at the version the reference book covers — and a few further cases here need a writable /dev/shm the build chroot does not provide, so the policy stays known_failures and the full output is kept in the package log, where a failure count out of line with that is visible. This block previously described the same policy while the recipe ran `make test-only`, which aborted before any test ran because its addon-build prerequisite chain ends in an npm fetch; the invocation was corrected 2026-08-21 so the statement and the behaviour agree."
 
 verify_paths:
   - /usr/bin/node

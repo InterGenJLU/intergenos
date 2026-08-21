@@ -26,11 +26,15 @@ build() {
 
 check() {
     set -e
-    # The blanket suite mask was retired here 2026-08-19: it accepted every
-    # failure quicktest can produce, new ones included. The suite still runs;
-    # the tests: block in package.yml states the policy and pkg_run_tests
-    # reports the outcome, so the log carries a named waiver instead of
-    # silence.
+    # The blanket suite mask was retired here 2026-08-19. Corrected 2026-08-21:
+    # the wording that replaced it said the suite still ran, and it did not —
+    # waf test refuses in under two seconds unless the build was configured
+    # with --enable-selftest, and that flag compiles test-only behaviour into
+    # the shipped smbd. package.yml's tests: block now records that, carries
+    # the evidence, and declares enabled: false, so the log states the reason
+    # the suite is not run rather than reporting a waived failure that was
+    # really a refusal to start. The command stays here as the record of what
+    # would run if the package were ever configured for self-test.
     pkg_run_tests "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/package.yml" \
         make quicktest
 }
