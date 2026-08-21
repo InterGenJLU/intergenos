@@ -1928,10 +1928,48 @@ def cmd_upgrade(db, args):
     # never blocks the upgrade.
     from . import pretxn
     _upgrade_names = [p["name"] for p, _ in upgradable]
-    pretxn.run_pre_transaction_hook(
+    _pretxn_result = pretxn.run_pre_transaction_hook(
         db, "upgrade", _upgrade_names,
         reason=f"pre-transaction upgrade: {', '.join(_upgrade_names)}",
     )
+    # Tell the user what protection this transaction actually has, ONCE,
+    # before anything is mutated. Three truthful states:
+    #   - a pre-transaction handler captured a restore point (the backup
+    #     engine's capture covers every touched file + the pkm db);
+    #   - no restore point, but the outgoing versions' archives are cached,
+    #     so a rollback copy is kept per package;
+    #   - neither — typical for the first upgrade after installation, when
+    #     nothing has ever been downloaded into the pkg cache. One calm
+    #     line, not a warning per package: absence of first-hop rollback
+    #     is the normal state of a fresh system, not an error the user
+    #     caused or can fix.
+    _restore_point_ok = bool(
+        _pretxn_result is not None and _pretxn_result.ran and any(
+            h not in _pretxn_result.failures
+            for h in _pretxn_result.handlers))
+    _uncovered = [
+        p["name"] for p, _ in upgradable
+        if _cached_old_archive(
+            p["name"], p["version"], p.get("release", 1)) is None
+    ]
+    if _restore_point_ok:
+        emit_info(
+            "Restore point captured — if this upgrade fails, the previous "
+            "state can be restored with chronicle(1)."
+        )
+    elif not _uncovered:
+        emit_info(
+            "A rollback copy of each package's current archive will be "
+            "kept under /var/cache/pkm/rollback/."
+        )
+    else:
+        emit_info(
+            f"No restore-point engine is running and no cached archive "
+            f"exists for {len(_uncovered)} of {len(upgradable)} "
+            f"package(s) (normal for the first upgrade after "
+            f"installation) — automatic rollback is unavailable for "
+            f"those if an install step fails."
+        )
 
     upgraded_this_txn = []
     # Every package whose upgrade did NOT succeed, with the reason. The
@@ -2020,10 +2058,10 @@ def cmd_upgrade(db, args):
             continue
 
         # Q1 (O-007): save the old archive to the rollback cache BEFORE
-        # remove. The current pkg-cache archive at REPO_PKG_CACHE/<name>-
-        # <oldver>-<rel>.igos.tar.gz becomes the restore source on
-        # install-failure (covered below). Missing archive (cache was
-        # cleared) → rollback unavailable → WARN but proceed.
+        # remove. The current pkg-cache archive (either filename shape —
+        # see _cached_old_archive) becomes the restore source on
+        # install-failure (covered below). Missing archive → rollback
+        # unavailable for this package; coverage was reported once above.
         rollback_saved = _save_rollback_archive(
             installed_pkg["name"],
             installed_pkg["version"],
@@ -2032,13 +2070,11 @@ def cmd_upgrade(db, args):
         rollback_archive, rollback_sha = (
             rollback_saved if rollback_saved is not None else (None, None)
         )
-        if rollback_archive is None:
-            emit_warn(
-                f"no cached archive for {installed_pkg['name']} "
-                f"{installed_pkg['version']}; rollback unavailable if the "
-                f"install fails. Run `pkm cache clean --keep-current` to "
-                f"keep installed-version archives in future."
-            )
+        # No per-package warning here: transaction-level rollback coverage
+        # was stated truthfully, once, before the loop. The old per-package
+        # WARN fired on every upgrade of every package (the lookup bug
+        # _cached_old_archive documents) and pointed at `cache clean
+        # --keep-current`, which cannot help a cache that holds nothing.
 
         # Remove old, install new
         from .remover import PackageRemover
@@ -3044,22 +3080,51 @@ def _save_rollback_archive(name, version, release):
         the save-to-restore window — or None when the old archive is
         not in REPO_PKG_CACHE (cache was cleared, --archive install
         never cached, etc.). Caller treats None as "rollback
-        unavailable; proceed with WARN."
+        unavailable" and reports coverage once per transaction, not
+        per package.
     """
     import shutil
-    from .repo import REPO_PKG_CACHE, REPO_ROLLBACK_DIR
+    from .repo import REPO_PKG_CACHE
 
-    archive_name = f"{name}-{version}-{int(release or 1)}.igos.tar.gz"
-    src = REPO_PKG_CACHE / archive_name
-    if not src.exists():
+    src = _cached_old_archive(name, version, release)
+    if src is None:
         return None
     try:
+        from .repo import REPO_ROLLBACK_DIR
         REPO_ROLLBACK_DIR.mkdir(parents=True, exist_ok=True)
-        dest = REPO_ROLLBACK_DIR / archive_name
+        # Destination keeps the fully-qualified name regardless of which
+        # cache shape matched, so `cache clean --rollback`'s
+        # name-version-release parsing sees one consistent shape.
+        dest = (REPO_ROLLBACK_DIR
+                / f"{name}-{version}-{int(release or 1)}.igos.tar.gz")
         shutil.copy2(str(src), str(dest))
         return dest, _sha256(str(dest))
     except (OSError, IOError):
         return None
+
+
+def _cached_old_archive(name, version, release):
+    """The pkg-cache Path holding this installed version's archive, or None.
+
+    The cache is written by repo.download_package under the signed index's
+    `filename` field, and the live index publishes RELEASE-LESS names
+    (`acl-2.3.2.igos.tar.gz` — all 1,126 entries measured 2026-08-21).
+    The original lookup here built only the release-qualified name, which
+    the cache therefore never contained: the rollback save missed on every
+    upgrade on every system since the mechanism landed. Both shapes are
+    checked, most-specific first, so a future index that publishes
+    release-qualified filenames keeps working too.
+    """
+    from .repo import REPO_PKG_CACHE
+
+    for archive_name in (
+        f"{name}-{version}-{int(release or 1)}.igos.tar.gz",
+        f"{name}-{version}.igos.tar.gz",
+    ):
+        src = REPO_PKG_CACHE / archive_name
+        if src.exists():
+            return src
+    return None
 
 
 def _render_restart_results(results):

@@ -77,6 +77,31 @@ class SaveRollbackArchiveShaTests(unittest.TestCase):
     def test_missing_cache_archive_returns_none(self):
         self.assertIsNone(_save_rollback_archive("foo", "1.0", 1))
 
+    def test_release_less_cached_filename_is_found(self):
+        # The live signed index publishes RELEASE-LESS filenames (all
+        # 1,126 entries measured 2026-08-21), so this is the shape the
+        # pkg cache actually holds. The pre-fix lookup built only the
+        # release-qualified name and missed on every real system.
+        payload = b"release-less-cache-bytes"
+        (self.cache_dir / "foo-1.0.igos.tar.gz").write_bytes(payload)
+        result = _save_rollback_archive("foo", "1.0", 1)
+        self.assertIsNotNone(result)
+        dest, sha = result
+        # The saved copy is renamed to the fully-qualified shape the
+        # rollback cache's cleaner parses.
+        self.assertEqual(Path(dest).name, "foo-1.0-1.igos.tar.gz")
+        self.assertEqual(sha, hashlib.sha256(payload).hexdigest())
+
+    def test_release_qualified_shape_preferred_when_both_exist(self):
+        qualified = b"qualified-bytes"
+        bare = b"bare-bytes"
+        (self.cache_dir / "foo-1.0-1.igos.tar.gz").write_bytes(qualified)
+        (self.cache_dir / "foo-1.0.igos.tar.gz").write_bytes(bare)
+        result = _save_rollback_archive("foo", "1.0", 1)
+        self.assertIsNotNone(result)
+        _, sha = result
+        self.assertEqual(sha, hashlib.sha256(qualified).hexdigest())
+
 
 class UpgradeRehashThreadingTests(unittest.TestCase):
 

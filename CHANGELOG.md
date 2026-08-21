@@ -37,6 +37,17 @@ landed is in the repository README, not here.
   so it failed before its window appeared. The startup call now resolves
   the current name, with a fallback for systems whose glib still provides
   the old one.
+- **Upgrade rollback copies are actually kept, and the upgrade output
+  tells the truth about rollback.** The package manager keeps a copy of
+  each package's outgoing archive before upgrading it, so a failed install
+  can restore the previous version — but the copy was looked up under a
+  filename shape the download cache never contains, so it was never found
+  and every upgrade of every package printed a per-package "rollback
+  unavailable" warning whose suggested remedy could not help. The lookup
+  now matches the cache's real naming. The per-package warning is replaced
+  by one line before the transaction stating the protection that actually
+  applies: a captured backup restore point, a kept rollback copy, or —
+  normal for the first upgrade after installation — neither.
 
 ---
 
