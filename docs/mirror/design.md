@@ -45,8 +45,11 @@ cPanel/WHM container. The `intergenos` cPanel account (distinct from the
 and distinct from the `christopher` admin account) owns the
 `repo.intergenos.org` subdomain's docroot.
 
-**DNS.** `repo.intergenos.org` → `162.255.162.237`, TTL 7199s,
-cPanel-as-authoritative on `origin.intergenstudios.com`.
+**DNS.** `repo.intergenos.org` resolves to the mirror host, TTL 7199s,
+cPanel-as-authoritative on `origin.intergenstudios.com`. The address itself
+is deliberately not written here: it is a routable address for a machine
+this document's readers reach by name, so the name is what the document
+should carry. Resolve it if you need the literal.
 
 **TLS.** Let's Encrypt R12 cert via cPanel AutoSSL.
 `CN = www.repo.intergenos.org`, notAfter Aug 9 2026, auto-renewing.
