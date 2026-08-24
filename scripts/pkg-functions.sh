@@ -26,6 +26,16 @@ IGOS_PKG_DB="/var/lib/igos/packages"
 IGOS_PKG_ARCHIVES="/var/lib/igos/archives"
 IGOS_PKG_STAGING="/tmp/igos-staging"
 
+# The build's single-flight assertion for pkm lives in its own file so the
+# config phases can source it too. pkg-functions.sh sets errexit at its top, and
+# a phase script that sourced this whole library to reach one function would
+# inherit that — a behaviour change nobody asked for.
+for _sf_lib in "$(dirname "${BASH_SOURCE[0]}")/lib/pkm-single-flight.sh" \
+               /mnt/intergenos/scripts/lib/pkm-single-flight.sh; do
+    if [ -f "$_sf_lib" ]; then . "$_sf_lib"; break; fi
+done
+unset _sf_lib
+
 # Source the forensic-trace bash companion if available. Idempotent re-source
 # is safe (the file guards via IGOS_TRACE_LIB_LOADED). pkg-functions.sh is
 # sourced by every chroot-build-*.sh that does per-package builds, so the
@@ -1793,7 +1803,7 @@ pkg_install() {
     # registered package is a no-op.
     if command -v pkm >/dev/null 2>&1; then
         [ "${IGOS_TRACE_LIB_LOADED:-0}" = "1" ] && trace_event pkm_invoke subcommand=import pkg="$name" version="$version" cwd="$PWD"
-        pkm import 2>&1 | sed 's/^/  /' || pkg_log "  (pkm import non-fatal)"
+        pkg_run_pkm_single_flight import
     fi
 
     # Clean up staging directory

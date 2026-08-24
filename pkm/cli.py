@@ -251,7 +251,16 @@ def _pkm_mutation_lock(command, dry_run=False, wait=None, wait_timeout=None):
         return
     lock_path = resolve_lock_path()
     # Chroot-install robustness: /var/lock is conventionally a symlink to
-    # /run/lock on systemd systems. At chroot-install time (golden-builder
+    # /run/lock on systemd systems.
+    #
+    # WHAT ACTUALLY REACHES THE ESCAPE BELOW, measured 2026-08-24 rather than
+    # assumed from this comment: NOT the dangling symlink. The symlink branch
+    # resolves the link and creates its TARGET, so that case takes the lock
+    # normally and skips nothing. The escape is reached only when even the
+    # resolved target cannot be made — a component of the path that is a regular
+    # file, or a parent nothing may write to. The comment used to imply the
+    # chroot case ran unlocked; it does not, and tests/pkm/test_chroot_lock_
+    # fallback.py pins both directions. At chroot-install time (golden-builder
     # invoking `pkm import` after each package deploy via
     # scripts/pkg-functions.sh:688), /run is not mounted, so the symlink
     # dangles. Python's Path.mkdir(exist_ok=True) checks isdir() on
@@ -278,9 +287,13 @@ def _pkm_mutation_lock(command, dry_run=False, wait=None, wait_timeout=None):
         else:
             lock_dir.mkdir(parents=True, exist_ok=True)
     except OSError as e:
-        emit_warn(f"cannot create lock-file parent dir {lock_path.parent}: {e}")
-        emit_warn("skipping lock acquisition (chroot-install context assumed; "
-                  "no concurrent pkm in build chroots)")
+        emit_warn(
+            f"the lock directory {lock_path.parent} cannot be created ({e}), so "
+            f"this pkm operation is running WITHOUT the mutation lock and "
+            f"concurrent pkm operations are NOT serialized while that is true — "
+            f"which is safe only where nothing else runs pkm at the same time, "
+            f"the chroot-install context this path exists for."
+        )
         if _TRACE_AVAILABLE:
             try:
                 _trace.trace_event(

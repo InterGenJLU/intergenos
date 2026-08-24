@@ -68,7 +68,7 @@ def test_the_escape_does_not_fire_when_the_directory_can_be_created(
     with cli._pkm_mutation_lock("vacuum"):
         assert lock.exists(), "the lock file was not created, so nothing was held"
     err = capsys.readouterr().err
-    assert "skipping lock acquisition" not in err.lower(), (
+    assert "without the mutation lock" not in err.lower(), (
         "the chroot escape fired on a path that could be created — a mutation "
         "would have run with no lock held on a system where locking works")
 
@@ -81,9 +81,9 @@ def test_the_escape_fires_when_the_directory_cannot_be_created(
     with cli._pkm_mutation_lock("vacuum"):
         ran = True
     assert ran, "the guarded work did not run; the fallback must be non-fatal"
-    err = capsys.readouterr().err
-    assert "lock" in err.lower() and "skip" in err.lower(), (
-        f"the escape fired without saying so; stderr was: {err!r}")
+    err = capsys.readouterr().err.lower()
+    assert "without the mutation lock" in err, (
+        f"the escape fired without saying that no lock is held; stderr was: {err!r}")
 
 
 def test_the_warning_names_the_condition_and_the_consequence(
@@ -116,7 +116,7 @@ def test_the_escape_is_reached_only_through_the_directory_failure(
             with cli._pkm_mutation_lock("vacuum"):
                 pass
         err = capsys.readouterr().err.lower()
-        assert "skipping lock acquisition" not in err, (
+        assert "without the mutation lock" not in err, (
             "an unwritable lock FILE was treated as the chroot condition; that "
             "would let a real permission fault run a mutation unlocked")
     finally:
@@ -129,7 +129,7 @@ def test_a_read_only_command_never_reaches_the_escape(monkeypatch, tmp_path,
     monkeypatch.setenv("IGOS_PKM_LOCK", str(lock))
     with cli._pkm_mutation_lock("list"):
         pass
-    assert "skip" not in capsys.readouterr().err.lower(), (
+    assert "mutation lock" not in capsys.readouterr().err.lower(), (
         "a read-only command produced lock output; it takes no lock at all")
 
 
@@ -147,7 +147,7 @@ def test_a_dangling_symlink_parent_is_REPAIRED_not_escaped(
     with cli._pkm_mutation_lock("vacuum"):
         pass
     err = capsys.readouterr().err.lower()
-    assert "skip" not in err, (
+    assert "without the mutation lock" not in err, (
         "the dangling-symlink case reached the escape; if that is now true the "
         "comment is right and this test is what needs changing")
     assert lock.exists(), "the lock file was not created through the symlink"
