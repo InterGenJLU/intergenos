@@ -71,9 +71,31 @@ _SCHEMA_VERSION = 1
 
 # In-process size-based rotation (D2, ratified): a --user service's
 # ~/.local/state path is not reliably reached by system logrotate, so the writer
-# rolls its own files. Roll at 64 MB, keep 5 (~320 MB ceiling).
+# rolls its own files. Roll at 64 MiB, keep 5.
 _ROTATE_BYTES = 64 * 1024 * 1024
 _ROTATE_KEEP = 5
+
+# THE WORST CASE ON DISK (REC-18 C03). This used to be written in a comment as
+# "~320 MB ceiling", which is _ROTATE_KEEP * _ROTATE_BYTES and leaves out the
+# LIVE file — and the live file is on the same disk as the five kept ones. The
+# real worst case is six files, 384 MiB. It is derived here rather than written
+# down, so it cannot drift from the constants it describes the way the comment
+# did, and it is a function so a reader or a gate can ask the module what it
+# will cost instead of recomputing it and hoping the two agree.
+#
+# The largest a SINGLE row may be. Rotation is decided BEFORE a row is written,
+# so without this bound a row larger than _ROTATE_BYTES rotated the file away
+# and was then written whole into the fresh one: the cap meant nothing for that
+# row, and a run of such rows rolled the entire retained history out of the
+# record in a handful of writes (measured — one 24 KiB row against an 8 KiB cap
+# left a 25,051-byte live file). Keeping every row under this bound is what
+# makes the ceiling above a fact rather than a hope.
+_MAX_ROW_BYTES = _ROTATE_BYTES // 8
+
+
+def retention_ceiling_bytes() -> int:
+    """The most disk this writer's files can occupy at once."""
+    return (_ROTATE_KEEP + 1) * _ROTATE_BYTES
 
 # Process-wide monotonic sequence — a total replay order even for rows born in
 # the same millisecond (next() is atomic). Mirrors trace.py's _seq.
@@ -327,6 +349,72 @@ def bind_context() -> contextvars.Context:
     return contextvars.copy_context()
 
 
+def _bound_row(record: dict[str, Any]) -> str:
+    """Re-serialize an oversized row so it fits under :data:`_MAX_ROW_BYTES`.
+
+    THE SHORTENING IS ATTESTED, NEVER SILENT. The row keeps its turn id, its
+    sequence number, its phase and its event, so it is still joinable and still
+    in order; its detail is replaced by a note saying how large the row was,
+    what the limit is, and how much of the original detail was kept — followed
+    by that kept prefix. A trace that quietly drops what it could not fit would
+    be deciding on its own what the record does not have to say, which is the
+    one thing this module exists not to do.
+
+    The kept prefix is halved until the whole row fits, because a prefix
+    re-embedded as a JSON string can grow when its quotes and backslashes are
+    escaped, so a single subtraction is not enough to guarantee the bound.
+    """
+    try:
+        original = json.dumps(record.get("detail", {}), default=str)
+    except (TypeError, ValueError):
+        original = "<detail could not be serialized>"
+    original_bytes = len(json.dumps(record, default=str)) + 1
+    budget = _MAX_ROW_BYTES // 2
+    while budget >= 0:
+        bounded = dict(record)
+        kept = original[:budget]
+        bounded["detail"] = {
+            "glass_oversized_row": {
+                "original_bytes": original_bytes,
+                "limit_bytes": _MAX_ROW_BYTES,
+                "kept_bytes": len(kept),
+                "reason": "a single row must stay smaller than the rotation "
+                          "size, or one row rolls the retained history out of "
+                          "the record",
+            },
+            "truncated_detail": kept,
+        }
+        try:
+            line = json.dumps(bounded, default=str) + "\n"
+        except (TypeError, ValueError):
+            budget = budget // 2 if budget else -1
+            continue
+        if len(line) <= _MAX_ROW_BYTES:
+            return line
+        budget = budget // 2 if budget else -1
+    # Nothing fit, which means the bound is smaller than the row's own skeleton.
+    # Say that, rather than write something larger than the module promised.
+    return json.dumps({
+        "v": _SCHEMA_VERSION,
+        "turn_id": record.get("turn_id", "no-turn"),
+        "seq": record.get("seq"),
+        "run": _RUN_ID,
+        "ts": record.get("ts"),
+        "t_rel_ms": None,
+        "iface": record.get("iface", "daemon"),
+        "phase": record.get("phase", "glass"),
+        "event": record.get("event", "unknown"),
+        "detail": {"glass_oversized_row": {
+            "original_bytes": original_bytes,
+            "limit_bytes": _MAX_ROW_BYTES,
+            "kept_bytes": 0,
+            "reason": "the row did not fit under the size bound even with its "
+                      "detail removed",
+        }},
+        "dur_ms": None,
+    }, default=str) + "\n"
+
+
 def _redact(value: Any, key: str = "") -> Any:
     """Attested in-place redaction: a credential-shaped key's value becomes
     ``<redacted:key-name>``; dicts/lists are scrubbed recursively. Content is
@@ -475,8 +563,8 @@ class GlassLogger:
     def _write_row(self, record: dict[str, Any]) -> None:
         """Append one already-built row. The single place bytes reach the file,
         so every row — an ordinary emission, the rotation marker, the sequence
-        resume — gets the same locking, the same rotation check and the same
-        file mode."""
+        resume — gets the same locking, the same rotation check, the same size
+        bound and the same file mode."""
         if self._log_file is None:
             return
         try:
@@ -485,6 +573,8 @@ class GlassLogger:
             logger.error("glass serialize failed for %s/%s: %s",
                          record.get("phase"), record.get("event"), e)
             return
+        if len(line) > _MAX_ROW_BYTES:
+            line = _bound_row(record)
         with self._lock:
             try:
                 self._rotate_if_needed_locked(len(line))
