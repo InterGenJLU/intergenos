@@ -176,10 +176,10 @@ _SECRET_KEY_RE = re.compile(
 #   timeout    a deadline fired
 #   unreported the turn ended without any of the above; see _synthesize_terminal
 #
-# ⚠️ "timeout" is carried for the whole-turn route deadline being added on the
-# turn-lifecycle lane. It is NOT produced anywhere in THIS branch, so nothing
-# here exercises it against a real producer — it is in the vocabulary so that
-# lane's deadline satisfies this invariant without editing this module.
+# NOTE: "timeout" is what the web server's whole-turn route deadline ends a turn
+# with. The deadline decides the ending; this module only names it, so the two
+# stay in one vocabulary and a reader asking "how did this turn finish?" gets
+# the same answer whichever interface served it.
 _TERMINAL_PHASE = "delivery"
 _TERMINAL_EVENTS = ("final", "refused", "error", "cancelled", "timeout",
                     "unreported")

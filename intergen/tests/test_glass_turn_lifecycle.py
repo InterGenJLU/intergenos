@@ -36,12 +36,13 @@ own source that fails when a thread handoff does not carry the context. That
 gate carries a true-positive control, because a gate that has only ever seen
 correct code has not been shown to detect incorrect code.
 
-⚠️ ONE TERMINAL KIND IS SPECIFIED HERE AND NOT EXERCISED AGAINST ITS PRODUCER:
-the route deadline. It is being added on a different lane (the turn-lifecycle
-branch) and is NOT in this branch's base, so no test here can drive it. The
-vocabulary includes it so that lane's timeout slots into this invariant without
-touching this gate — but that it does is UNPROVEN here and is named as such in
-the delivery.
+NOTE ON THE ROUTE DEADLINE. Its terminal kind, "timeout", is exercised against
+its real producer here: TheShippedWebPathTerminatesAndJoins drives web_server's
+own _run_turn with its own deadline code and reads back the glass file that run
+wrote. An earlier revision of this file could not do that, because the deadline
+was not in the base it was written against; it is in the base now, so the
+vocabulary test below is backed by a test that drives the producer rather than
+standing alone.
 """
 
 from __future__ import annotations
@@ -218,8 +219,8 @@ class TerminalVocabulary(unittest.TestCase):
         self.assertTrue(glass.is_terminal_event("delivery", "error"))
 
     def test_a_timeout_is_terminal(self) -> None:
-        """Specified for the route deadline arriving on another lane. NOT
-        exercised against its producer here — that code is not in this base."""
+        """The name half. Its producer — the web server's route deadline — is
+        driven for real in TheShippedWebPathTerminatesAndJoins below."""
         self.assertTrue(glass.is_terminal_event("delivery", "timeout"))
 
     def test_an_ordinary_row_is_not_terminal(self) -> None:
