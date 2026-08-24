@@ -1921,7 +1921,7 @@ def build_shortcuts_page():
         ('Super', 'Activities overview'),
         ('Super + A', 'All applications'),
         ('Alt + Tab', 'Switch applications'),
-        ('Super + `', 'Switch windows of one app'),
+        ('Super + backtick', 'Switch windows of one app'),
         ('Super + L', 'Lock screen'),
     ]
 
