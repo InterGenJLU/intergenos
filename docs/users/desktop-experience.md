@@ -28,23 +28,26 @@ given so the claim is verifiable rather than asserted.
 | `Super + A` | Show all applications | `org.gnome.shell.keybindings toggle-application-view` |
 | `Super + Tab` / `Alt + Tab` | Switch between open **applications** | `org.gnome.desktop.wm.keybindings switch-applications` |
 | `Super + backtick` / `Alt + backtick` | Switch between windows of the same application | `org.gnome.desktop.wm.keybindings switch-group` |
+| `Ctrl + Alt + T` | Open a terminal | `org.gnome.settings-daemon.plugins.media-keys custom-keybindings` (custom0) |
 | `Super + L` | Lock screen | `org.gnome.settings-daemon.plugins.media-keys screensaver` |
 | `Super + Left` / `Super + Right` | Tile window to the left or right half | `org.gnome.mutter.keybindings toggle-tiled-left` / `toggle-tiled-right` |
 | `Super + Up` | Maximize window | `org.gnome.desktop.wm.keybindings maximize` |
 | `Super + Down` | Unmaximize window | `org.gnome.desktop.wm.keybindings unmaximize` |
 | `Super + H` | Minimize window | `org.gnome.desktop.wm.keybindings minimize` |
+| `Super + D` | Show the desktop | `org.gnome.desktop.wm.keybindings show-desktop` |
 | `Super + Shift + Left/Right` | Move window to adjacent monitor | `org.gnome.desktop.wm.keybindings move-to-monitor-left` / `move-to-monitor-right` |
 | `Super + Page Up` / `Page Down` | Switch workspace | `org.gnome.desktop.wm.keybindings switch-to-workspace-left` / `switch-to-workspace-right` |
 | `Ctrl + Alt + Del` | Log out | `org.gnome.settings-daemon.plugins.media-keys logout` |
 | `Alt + F2` | Open the run-a-command prompt | `org.gnome.desktop.wm.keybindings panel-run-dialog` |
 
 **Not bound in R001.1.** These are worth knowing because other distributions
-bind them and their absence is otherwise silent:
+bind them and their absence is otherwise silent. `Ctrl + Alt + T` and
+`Super + D` were in this list until 2026-08-24 and are now bound — GNOME ships
+neither by default, so InterGenOS sets them: the terminal key through the
+system dconf defaults (a custom keybinding's schema is relocatable and a
+gschema override cannot carry one) and show-desktop through the desktop gschema
+override.
 
-- `Ctrl + Alt + T` does not open a terminal — `custom-keybindings` is empty, and
-  GNOME has no built-in terminal key to inherit. Launch the terminal from the
-  overview or the dock.
-- `Super + D` does not show the desktop — `show-desktop` has no binding.
 - There are no corner or quadrant tiling bindings; `Super + Arrow` tiles to
   halves and maximizes or unmaximizes, as listed above.
 - `Ctrl + Alt + Del` logs out. It does not open a power-off or restart dialog;

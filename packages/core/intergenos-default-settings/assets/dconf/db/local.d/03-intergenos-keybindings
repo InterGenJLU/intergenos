@@ -1,0 +1,47 @@
+# InterGenOS keyboard-shortcut defaults — the terminal key.
+#
+# WHY A dconf SYSTEM DB AND NOT A gschema OVERRIDE (the same structural
+# argument as 00-intergenos-dock and 02-intergenos-shell-effects beside this
+# file, for a different reason). System-wide GNOME defaults belong in
+# /usr/share/glib-2.0/schemas/*.gschema.override, and show-desktop is set
+# there, in config/gsettings/92_intergenos-desktop.gschema.override, because
+# org.gnome.desktop.wm.keybindings has a fixed path.
+#
+# A custom keybinding does not. Its per-binding schema
+# org.gnome.settings-daemon.plugins.media-keys.custom-keybinding is
+# RELOCATABLE: it declares no path, and each binding lives at a path chosen at
+# runtime. A gschema override can only set keys in a schema that has a fixed
+# path, so it cannot carry one of these at all. The dconf layer is path-based
+# and schema-independent, which makes a system db the only mechanism that can
+# ship a default custom keybinding.
+#
+# THE LIST KEY IS HERE TOO, DELIBERATELY. custom-keybindings itself lives in a
+# fixed-path schema and could sit in the gschema override, but the list and the
+# binding it points at are one setting: a list entry with no section is a
+# dangling path and a section nothing points at is never read. Splitting them
+# across two mechanisms would give one setting two writers, which is the drift
+# shape this tree has already had to close once.
+#
+# NOT LOCKED. A user who wants the key for something else changes it and their
+# user db wins. This is a default, not policy.
+#
+# WHAT IS BOUND. Ctrl+Alt+T opens the terminal the image ships,
+# /usr/bin/gnome-terminal, named by absolute path so what the key runs depends
+# on the image rather than on the session's PATH. The path is the one
+# packages/desktop/gnome-terminal declares in its own verify_paths, and the
+# preflight gate tests/preflight/test_desktop_keybindings_are_shipped.py fails
+# the build if the two ever stop agreeing.
+#
+# WHY IT IS BOUND AT ALL. GNOME ships no built-in terminal key, so on a stock
+# desktop the combination does nothing. Measured on an installed R001.1 system
+# on 2026-08-24: custom-keybindings was empty, while the user documentation and
+# the first-run page both told the reader the key opened a terminal. Decided
+# 2026-08-24: bind it rather than document its absence.
+
+[org/gnome/settings-daemon/plugins/media-keys]
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/']
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0]
+name='Terminal'
+command='/usr/bin/gnome-terminal'
+binding='<Control><Alt>t'
