@@ -51,7 +51,15 @@ _PKEXEC_RUNNER_PATH = "/usr/bin/intergen-privileged-runner"
 # before PolicyKit is ever contacted. The user manager does not run under that
 # flag, so a unit it starts begins from the manager's own context. Nothing about
 # the daemon's hardening changes; only who starts the runner does.
-_SYSTEMD_RUN = "systemd-run"
+# ABSOLUTE, deliberately (2026-08-24). This is the privileged entry path: the
+# runner and the interpreter beyond it are both named absolutely, and resolving
+# the first word of that chain through PATH would make the way in the only link
+# whose identity depends on the environment the daemon happens to carry.
+_SYSTEMD_RUN = "/usr/bin/systemd-run"
+
+#: How the manager's state is measured, for the same reason and in the same
+#: place. `is-system-running` is the manager's own answer about itself.
+_SYSTEMCTL = "/usr/bin/systemctl"
 
 #: Wall-clock ceiling on one privileged dispatch, applied to the transient unit
 #: itself so a runner that never returns cannot hold the boundary open
@@ -59,11 +67,24 @@ _SYSTEMD_RUN = "systemd-run"
 #: transaction.
 _DISPATCH_UNIT_MAX_SECONDS = 900
 
-# The user manager's private socket. Its presence is a direct, cheap and
-# side-effect-free measurement of "a systemd user manager is running for this
-# account" — used so a dispatch that fails because no manager is reachable can
-# SAY so rather than blame the runner.
-_USER_MANAGER_SOCKET_RELPATH = os.path.join("systemd", "private")
+#: How long the manager probe may take before it is abandoned. It is a local
+#: query on a failure path; a bound stops a wedged bus turning a diagnostic
+#: into a second hang.
+_MANAGER_PROBE_TIMEOUT_SECONDS = 5
+
+#: The words `systemctl --user is-system-running` prints that mean no manager is
+#: there to run anything. Every other word it prints — running, degraded,
+#: starting, stopping, maintenance, initializing — describes a manager that
+#: exists, and "degraded" in particular is a RUNNING manager, so treating it as
+#: absence would reintroduce the defect this replaced.
+#:
+#: WHY THIS REPLACED A PATH CHECK (2026-08-24). The earlier probe answered the
+#: question by asking whether $XDG_RUNTIME_DIR/systemd/private exists. An
+#: independent review measured that probe reading false while the manager still
+#: started a unit — the variable can point elsewhere, and that socket is a
+#: systemd-internal detail rather than a supported presence interface. The old
+#: answer was evidence about a path, and the sentence it fed was about a manager.
+_MANAGER_ABSENT_ANSWERS = ("offline",)
 
 from intergen.interfaces.tool import BaseTool
 from intergen.interfaces.types import SafetyTier, ToolCall, ToolResult, ToolSchema
@@ -1220,6 +1241,95 @@ class ToolRegistry:
             facts["executable"] = None
         return facts
 
+    #: What the manager probe can establish, on the same terms as _probe_path:
+    #: each value is a MEASUREMENT and none of them is a cause.
+    _MANAGER_RUNNING = "running"
+    _MANAGER_ABSENT = "absent"
+    _MANAGER_UNDETERMINED = "undetermined"
+
+    @staticmethod
+    def _probe_user_manager() -> dict:
+        """Ask this account's systemd user manager about itself.
+
+        The question is put the way the dispatch reaches the manager — through
+        systemctl, over the same bus — rather than by looking for a file that
+        the manager happens to create. That is the whole correction: the old
+        probe read a path and the sentence it produced was about a manager, and
+        an independent review measured the two disagreeing.
+
+        `answer` carries the manager's own word whenever it gave one, so the
+        diagnostic can quote a measurement instead of paraphrasing it. Three
+        states, and the third is not a polite spelling of the second:
+
+          running       the manager answered with a word describing itself.
+                        "degraded" is in this state, because a degraded manager
+                        is a running one and will start a unit.
+          absent        the manager answered one of _MANAGER_ABSENT_ANSWERS.
+          undetermined  the question could not be put, or was not answered in
+                        time; `detail` says why and NOTHING about the manager
+                        is claimed.
+        """
+        facts: dict[str, Any] = {
+            "state": ToolRegistry._MANAGER_UNDETERMINED,
+            "answer": "",
+            "detail": "",
+        }
+        argv = [_SYSTEMCTL, "--user", "is-system-running"]
+        try:
+            completed = subprocess.run(
+                argv, capture_output=True, text=True, check=False,
+                timeout=_MANAGER_PROBE_TIMEOUT_SECONDS,
+            )
+        except FileNotFoundError:
+            facts["detail"] = f"{_SYSTEMCTL} is not present, so it was not asked"
+            return facts
+        except subprocess.TimeoutExpired:
+            facts["detail"] = (
+                f"{_SYSTEMCTL} did not answer within "
+                f"{_MANAGER_PROBE_TIMEOUT_SECONDS}s"
+            )
+            return facts
+        except OSError as exc:
+            facts["detail"] = f"the question could not be put ({exc})"
+            return facts
+
+        # is-system-running exits non-zero for every state except "running",
+        # so the EXIT CODE is not the answer — the word is. An empty answer
+        # with a non-zero code means it declined to say, which is undetermined.
+        answer = (completed.stdout or "").strip().splitlines()
+        answer = answer[0].strip() if answer else ""
+        facts["answer"] = answer
+        if not answer:
+            facts["detail"] = (
+                f"{_SYSTEMCTL} exited {completed.returncode} without naming a "
+                f"state"
+            )
+            return facts
+        if answer in _MANAGER_ABSENT_ANSWERS:
+            facts["state"] = ToolRegistry._MANAGER_ABSENT
+            return facts
+        if answer == "unknown":
+            facts["detail"] = f"{_SYSTEMCTL} answered {answer!r}"
+            return facts
+        facts["state"] = ToolRegistry._MANAGER_RUNNING
+        return facts
+
+    @staticmethod
+    def _describe_user_manager(facts: dict) -> str:
+        """One line of measured fact about the manager. No conclusion."""
+        state = facts["state"]
+        if state == ToolRegistry._MANAGER_RUNNING:
+            return (
+                f"systemd user manager: answered {facts['answer']!r} (checked "
+                f"with {_SYSTEMCTL} --user is-system-running)"
+            )
+        if state == ToolRegistry._MANAGER_ABSENT:
+            return (
+                f"systemd user manager: answered {facts['answer']!r} (checked "
+                f"with {_SYSTEMCTL} --user is-system-running)"
+            )
+        return f"systemd user manager: could not be determined ({facts['detail']})"
+
     @staticmethod
     def _describe_path(path: str, facts: dict) -> str:
         """One line of measured fact about `path`. No conclusion."""
@@ -1285,27 +1395,27 @@ class ToolRegistry:
         stderr_message = completed.stderr.rstrip("\n")
 
         runner_facts = ToolRegistry._probe_path(_PKEXEC_RUNNER_PATH)
-        systemd_run_path = shutil.which(_SYSTEMD_RUN)
-        manager_socket = os.path.join(
-            os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"),
-            _USER_MANAGER_SOCKET_RELPATH,
-        )
-        manager_facts = ToolRegistry._probe_path(manager_socket)
-        manager_running = manager_facts["state"] == ToolRegistry._PATH_PRESENT
+        systemd_run_facts = ToolRegistry._probe_path(_SYSTEMD_RUN)
+        manager_facts = ToolRegistry._probe_user_manager()
 
         if stdout_message:
             # The runner reached its own logic and said why it stopped. That is
             # the most specific account anyone has; it leads.
             headline = stdout_message
-        elif systemd_run_path is None:
+        elif systemd_run_facts["state"] == ToolRegistry._PATH_ABSENT:
             headline = (
-                f"{_SYSTEMD_RUN} was not found on PATH (checked), so the "
-                f"privileged runner for {tool_name} could not be started"
+                f"{_SYSTEMD_RUN} is not present (checked), so the privileged "
+                f"runner for {tool_name} could not be started"
             )
-        elif not manager_running:
+        elif manager_facts["state"] == ToolRegistry._MANAGER_ABSENT:
+            # ONLY the manager's own word produces this sentence. An
+            # undetermined probe deliberately falls through to the
+            # nothing-was-established headline below: reporting "I could not
+            # tell" as "it is not running" is the defect this branch corrects,
+            # and it would be a strange place to reintroduce it.
             headline = (
-                f"no systemd user manager was reachable for this account "
-                f"(checked: {manager_socket}), so the privileged runner for "
+                f"this account's systemd user manager answered "
+                f"{manager_facts['answer']!r}, so the privileged runner for "
                 f"{tool_name} could not be started"
             )
         elif runner_facts["state"] == ToolRegistry._PATH_ABSENT:
@@ -1326,21 +1436,17 @@ class ToolRegistry:
         measured = [
             f"exit code: {completed.returncode}",
             ToolRegistry._describe_path(_PKEXEC_RUNNER_PATH, runner_facts),
-            f"{_SYSTEMD_RUN}: "
-            + (f"found at {systemd_run_path} (checked)" if systemd_run_path
-               else "not found on PATH (checked)"),
-            "systemd user manager: "
-            + ("reachable (checked)" if manager_running
-               else f"not reachable (checked: {manager_socket})"),
+            ToolRegistry._describe_path(_SYSTEMD_RUN, systemd_run_facts),
+            ToolRegistry._describe_user_manager(manager_facts),
         ]
         if stderr_message:
             measured.append(f"it said: {stderr_message}")
         content = f"{headline} [{'; '.join(measured)}]"
         logger.error(
             "privileged dispatch of %s failed: rc=%s runner=%s systemd_run=%s "
-            "manager_reachable=%s stderr=%r",
+            "manager=%s stderr=%r",
             tool_name, completed.returncode, runner_facts,
-            systemd_run_path, manager_running, stderr_message,
+            systemd_run_facts, manager_facts, stderr_message,
         )
         return ToolResult(
             call_id=call.call_id,

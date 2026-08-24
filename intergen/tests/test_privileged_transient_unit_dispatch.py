@@ -96,7 +96,9 @@ class _DispatchTestCase(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
         self.recorded_argv: list[list[str]] = []
+        self.recorded_manager_probes: list[list[str]] = []
         self.runner_path = tr._PKEXEC_RUNNER_PATH
+        self.systemd_run_path = tr._SYSTEMD_RUN
 
     def _dispatch(self, completed=None, *, raises=None,
                   runner_present=True, systemd_run_present=True,
@@ -111,15 +113,24 @@ class _DispatchTestCase(unittest.TestCase):
             completed = _Completed(0, "done", "")
 
         def _fake_run(argv, **kwargs):
+            # THE MANAGER PROBE IS NOT A DISPATCH (2026-08-24). The diagnostic
+            # now asks the user manager about itself, through systemctl, on the
+            # failure path. That is a second subprocess call, and recording it
+            # beside the dispatch would make "attempted exactly once" count two
+            # — turning a real invariant into a test that fails for a reason
+            # that has nothing to do with retries. Route on the argv and keep
+            # the probe out of the dispatch record.
+            if len(argv) >= 3 and tuple(argv[1:3]) == ("--user",
+                                                       "is-system-running"):
+                self.recorded_manager_probes.append(list(argv))
+                return _Completed(
+                    0 if manager_present else 1,
+                    "running\n" if manager_present else "offline\n", "",
+                )
             self.recorded_argv.append(list(argv))
             if raises is not None:
                 raise raises
             return completed
-
-        def _fake_which(name):
-            if name == "systemd-run":
-                return "/usr/bin/systemd-run" if systemd_run_present else None
-            return f"/usr/bin/{name}"
 
         # REAL files, not a patched os.path.exists (changed 2026-08-24).
         # The diagnostic now distinguishes "absent" from "could not be
@@ -135,12 +146,16 @@ class _DispatchTestCase(unittest.TestCase):
         else:
             runner = runtime / "runner-absent"
 
-        manager_socket = runtime / "systemd" / "private"
-        if manager_present:
-            manager_socket.parent.mkdir(exist_ok=True)
-            manager_socket.touch()
-        elif manager_socket.exists():
-            manager_socket.unlink()
+        # systemd-run is a REAL path here for the same reason the runner is:
+        # the diagnostic probes it with stat(), not with a PATH lookup, since
+        # the constant is now absolute.
+        systemd_run = runtime / "systemd-run-present"
+        if systemd_run_present:
+            systemd_run.write_text("#!/bin/sh\nexit 0\n")
+            systemd_run.chmod(0o755)
+        else:
+            systemd_run = runtime / "systemd-run-absent"
+        self.systemd_run_path = str(systemd_run)
 
         # Remembered because the patch is undone by the time a test asserts:
         # argv holds the path used DURING the dispatch, so that is what the
@@ -149,8 +164,8 @@ class _DispatchTestCase(unittest.TestCase):
         self.runner_path = str(runner)
 
         with mock.patch.object(tr, "_PKEXEC_RUNNER_PATH", str(runner)), \
-                mock.patch.object(tr.subprocess, "run", side_effect=_fake_run), \
-                mock.patch.object(tr.shutil, "which", side_effect=_fake_which):
+                mock.patch.object(tr, "_SYSTEMD_RUN", str(systemd_run)), \
+                mock.patch.object(tr.subprocess, "run", side_effect=_fake_run):
             return ToolRegistry._dispatch_via_pkexec(
                 _call(), "manage_packages", dict(ARGS), TOKEN,
             )
@@ -175,11 +190,17 @@ class _DispatchTestCase(unittest.TestCase):
 class GoesThroughTheUserManagerTests(_DispatchTestCase):
 
     def test_invocation_starts_with_systemd_run_user(self):
+        """The first word is the absolute systemd-run path the module names,
+        not a program name for PATH to resolve on the privileged entry path."""
         self._dispatch()
         self.assertEqual(
-            self.argv[:2], ["systemd-run", "--user"],
+            self.argv[:2], [self.systemd_run_path, "--user"],
             f"the runner is not being started through the user manager: "
             f"{self.argv}",
+        )
+        self.assertTrue(
+            os.path.isabs(self.argv[0]),
+            f"argv[0] is resolved through PATH: {self.argv[0]!r}",
         )
 
     def test_invocation_waits_for_the_unit(self):
@@ -471,7 +492,13 @@ class DiagnosticMeasuresTheNewDependencyTests(_DispatchTestCase):
 
     def test_manager_presence_is_measured_not_assumed(self):
         """Same canned result, different measured environment, different
-        message. A dispatcher that never looks cannot pass this."""
+        message. A dispatcher that never looks cannot pass this.
+
+        Amended 2026-08-24: what is varied is the MANAGER'S ANSWER, because
+        that is what the code now reads. The earlier form varied a socket path,
+        and an independent review measured that path disagreeing with the
+        mechanism it was standing in for.
+        """
         present = self._dispatch(
             _Completed(1, "", "something went wrong"), manager_present=True)
         self.recorded_argv.clear()
@@ -479,8 +506,12 @@ class DiagnosticMeasuresTheNewDependencyTests(_DispatchTestCase):
             _Completed(1, "", "something went wrong"), manager_present=False)
         self.assertNotEqual(
             present.content, absent.content,
-            "the diagnostic reads the same whether or not a user manager "
-            "exists, so its reachability is asserted rather than measured",
+            "the diagnostic reads the same whichever way the manager answered, "
+            "so its state is asserted rather than measured",
+        )
+        self.assertTrue(
+            self.recorded_manager_probes,
+            "the diagnostic never asked the manager anything",
         )
 
     def test_every_measured_fact_reaches_the_user(self):

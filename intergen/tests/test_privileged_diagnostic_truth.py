@@ -41,6 +41,7 @@ state is written.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import tempfile
 import unittest
@@ -78,6 +79,27 @@ def _call() -> ToolCall:
     )
 
 
+def _manager_routing_run(dispatch_result, manager_answer):
+    """A `subprocess.run` stand-in that tells the two calls apart.
+
+    The diagnostic now runs a second command — it asks the user manager about
+    itself — and a stub that answered every call with the dispatch's canned
+    result would feed the dispatch's stdout to the manager probe. The two
+    questions would then be indistinguishable in the harness, which is exactly
+    the confusion the code change exists to end. Route on the argv.
+    """
+
+    def _run(argv, *args, **kwargs):
+        if len(argv) >= 3 and tuple(argv[1:3]) == ("--user", "is-system-running"):
+            if manager_answer is None:
+                raise FileNotFoundError(2, "No such file or directory", argv[0])
+            return _Completed(0 if manager_answer == "running" else 1,
+                              manager_answer + "\n", "")
+        return dispatch_result
+
+    return _run
+
+
 def _dispatch(returncode, stdout, stderr, *, runner_present,
               systemd_run_present=True, manager_present=True):
     """Run the dispatcher against a canned result and a chosen environment.
@@ -90,17 +112,16 @@ def _dispatch(returncode, stdout, stderr, *, runner_present,
     The diagnostic now distinguishes absence from a traversal failure, and a
     regular executable from a directory, which a single patched boolean cannot
     express — a harness that cannot represent the states under test would let
-    a wrong answer pass. Only `shutil.which` is still stubbed, because
-    systemd-run's presence is genuinely a PATH question and nothing else.
+    a wrong answer pass.
+
+    Amended the same day for the manager probe: `manager_present` is now
+    expressed as the manager's OWN answer, because that is what the code reads.
+    systemd-run's presence is a real file on a real path here for the same
+    reason the runner's is.
 
     Returns ToolResult.content.
     """
     completed = _Completed(returncode, stdout, stderr)
-
-    def _fake_which(name):
-        if name == "systemd-run":
-            return "/usr/bin/systemd-run" if systemd_run_present else None
-        return f"/usr/bin/{name}"
 
     with tempfile.TemporaryDirectory(prefix="privdiag-") as runtime:
         runtime_path = Path(runtime)
@@ -113,16 +134,24 @@ def _dispatch(returncode, stdout, stderr, *, runner_present,
         else:
             runner = runtime_path / "runner-absent"
 
-        # The user manager: a real file at the socket path, or nothing there.
-        if manager_present:
-            (runtime_path / "systemd").mkdir(exist_ok=True)
-            (runtime_path / "systemd" / "private").touch()
+        # systemd-run: likewise a real path, present or absent.
+        systemd_run = runtime_path / "systemd-run-present"
+        if systemd_run_present:
+            systemd_run.write_text("#!/bin/sh\nexit 0\n")
+            systemd_run.chmod(0o755)
+        else:
+            systemd_run = runtime_path / "systemd-run-absent"
 
         with mock.patch.dict(
                 os.environ, {"XDG_RUNTIME_DIR": runtime}, clear=False), \
                 mock.patch.object(tr, "_PKEXEC_RUNNER_PATH", str(runner)), \
-                mock.patch.object(tr.subprocess, "run", return_value=completed), \
-                mock.patch.object(tr.shutil, "which", side_effect=_fake_which):
+                mock.patch.object(tr, "_SYSTEMD_RUN", str(systemd_run)), \
+                mock.patch.object(
+                    tr.subprocess, "run",
+                    side_effect=_manager_routing_run(
+                        completed,
+                        "running" if manager_present else "offline",
+                    )):
             result = ToolRegistry._dispatch_via_pkexec(
                 _call(), "manage_packages", {"action": "upgrade"},
                 "token-placeholder",
@@ -176,17 +205,26 @@ class PrivilegedDiagnosticTruthTests(unittest.TestCase):
         self.assertNotEqual(no_manager, no_systemd_run)
 
     def test_a_missing_user_manager_is_reported_as_the_measured_fact(self):
-        """Rewritten 2026-08-24. This case used to assert the message said the
-        installed package "is not a fault" — a verdict about a component the
-        code never examined. What was actually established is that the user
-        manager could not be reached, and that is what the message must say;
-        the reader draws their own conclusion from a true statement."""
+        """Rewritten 2026-08-24, twice, and the second rewrite is the point.
+
+        It first asserted the message said the installed package "is not a
+        fault" — a verdict about a component the code never examined. It then
+        asserted the message said the manager "was not reachable", which was a
+        true-sounding sentence resting on a path check that a second review
+        measured disagreeing with the mechanism.
+
+        What is established now is narrower and actually established: the
+        manager was ASKED, and it answered "offline". So the sentence quotes the
+        word rather than paraphrasing it, and the reader draws their own
+        conclusion from something the code really has.
+        """
         content = _dispatch(1, "", "Failed to connect to user scope bus",
                             runner_present=True, manager_present=False)
         lowered = content.lower()
         self.assertNotIn("misinstalled", lowered, content)
         self.assertNotIn("not at fault", lowered, content)
-        self.assertIn("no systemd user manager was reachable", lowered, content)
+        self.assertIn("offline", lowered, content)
+        self.assertIn("is-system-running", lowered, content)
 
     def test_stderr_is_never_discarded(self):
         """Every non-zero branch surfaces what the dispatch actually said."""
@@ -258,14 +296,14 @@ def _dispatch_with_real_runner_path(returncode, stderr, runner_path,
     """Dispatch against a canned result but a REAL runner path on disk."""
     completed = _Completed(returncode, stdout, stderr)
     with tempfile.TemporaryDirectory(prefix="privdiag-real-") as runtime:
-        os.makedirs(os.path.join(runtime, "systemd"), exist_ok=True)
-        # A real user-manager socket stand-in, so the manager probe is not the
-        # thing under test here.
-        open(os.path.join(runtime, "systemd", "private"), "w").close()
+        # The manager answers "running", so it is not the thing under test here
+        # and the runner's own state is what the message has to turn on.
         with mock.patch.dict(
                 os.environ, {"XDG_RUNTIME_DIR": runtime}, clear=False), \
                 mock.patch.object(tr, "_PKEXEC_RUNNER_PATH", str(runner_path)), \
-                mock.patch.object(tr.subprocess, "run", return_value=completed):
+                mock.patch.object(
+                    tr.subprocess, "run",
+                    side_effect=_manager_routing_run(completed, "running")):
             result = ToolRegistry._dispatch_via_pkexec(
                 _call(), "manage_packages", {"action": "upgrade"},
                 "token-placeholder",
@@ -409,7 +447,8 @@ _MANAGER_PROBE_HEAD = ("--user", "is-system-running")
 
 def _dispatch_with_manager(manager_answer, *, socket_present, returncode=127,
                            stderr="Error executing command as another user: "
-                                  "Not authorized"):
+                                  "Not authorized",
+                           runtime=None):
     """Dispatch with the manager's OWN answer chosen, and the socket path
     chosen independently of it.
 
@@ -418,6 +457,11 @@ def _dispatch_with_manager(manager_answer, *, socket_present, returncode=127,
 
     `manager_answer` is the word `systemctl --user is-system-running` prints, or
     None to mean the probe could not run at all (the command is missing).
+
+    `runtime` lets a caller reuse ONE directory across two dispatches. A test
+    that compares two messages has to hold every other path fixed, or the
+    temporary directory's own random name is the difference it measures — which
+    is the mistake this parameter exists to stop.
     """
     completed = _Completed(returncode, "", stderr)
 
@@ -431,21 +475,30 @@ def _dispatch_with_manager(manager_answer, *, socket_present, returncode=127,
                               manager_answer + "\n", "")
         return completed
 
-    with tempfile.TemporaryDirectory(prefix="privdiag-manager-") as runtime:
+    with contextlib.ExitStack() as stack:
+        if runtime is None:
+            runtime = stack.enter_context(
+                tempfile.TemporaryDirectory(prefix="privdiag-manager-"))
         runner = Path(runtime) / "runner"
-        runner.write_text("#!/bin/sh\nexit 0\n")
-        runner.chmod(0o755)
+        if not runner.exists():
+            runner.write_text("#!/bin/sh\nexit 0\n")
+            runner.chmod(0o755)
+        socket = Path(runtime) / "systemd" / "private"
         if socket_present:
-            (Path(runtime) / "systemd").mkdir(exist_ok=True)
-            (Path(runtime) / "systemd" / "private").touch()
-        with mock.patch.dict(
-                os.environ, {"XDG_RUNTIME_DIR": runtime}, clear=False), \
-                mock.patch.object(tr, "_PKEXEC_RUNNER_PATH", str(runner)), \
-                mock.patch.object(tr.subprocess, "run", side_effect=_run):
-            result = ToolRegistry._dispatch_via_pkexec(
-                _call(), "manage_packages", {"action": "upgrade"},
-                "token-placeholder",
-            )
+            socket.parent.mkdir(exist_ok=True)
+            socket.touch()
+        elif socket.exists():
+            socket.unlink()
+        stack.enter_context(mock.patch.dict(
+            os.environ, {"XDG_RUNTIME_DIR": str(runtime)}, clear=False))
+        stack.enter_context(
+            mock.patch.object(tr, "_PKEXEC_RUNNER_PATH", str(runner)))
+        stack.enter_context(
+            mock.patch.object(tr.subprocess, "run", side_effect=_run))
+        result = ToolRegistry._dispatch_via_pkexec(
+            _call(), "manage_packages", {"action": "upgrade"},
+            "token-placeholder",
+        )
     return result.content
 
 
@@ -488,9 +541,18 @@ class TheUserManagerIsMeasuredByAskingItTests(unittest.TestCase):
 
     def test_the_socket_path_is_no_longer_consulted_at_all(self):
         """With the manager answering, the socket's presence must make no
-        difference to the message. If it does, something still reads it."""
-        with_socket = _dispatch_with_manager("running", socket_present=True)
-        without_socket = _dispatch_with_manager("running", socket_present=False)
+        difference to the message. If it does, something still reads it.
+
+        ONE runtime directory serves both dispatches, so the only thing that
+        differs between them is the socket. Two directories would have differed
+        by their random names as well, and the comparison would have proved
+        nothing.
+        """
+        with tempfile.TemporaryDirectory(prefix="privdiag-socket-") as runtime:
+            with_socket = _dispatch_with_manager(
+                "running", socket_present=True, runtime=runtime)
+            without_socket = _dispatch_with_manager(
+                "running", socket_present=False, runtime=runtime)
         self.assertEqual(with_socket, without_socket)
 
 
