@@ -145,6 +145,62 @@ if [ "$UNSIGNED_TEST" = "1" ]; then
     echo "[build-iso]     Do not release this artifact; release builds require signing." >&2
 fi
 
+# --------------------------------------------------------------------------
+# Release-validation gate (Class A — blocks ISO assembly on a release build)
+# --------------------------------------------------------------------------
+# The installed-system gate tier (tests/installed/) measures the composition
+# properties that only exist once the software is installed and running: real
+# file modes under a real home, the real hardened unit, the real embedding
+# corpus answering real sentences. R001.1 shipped with those properties broken
+# and with every unit test green, because nothing required that tier to have
+# been RUN against the candidate on real hardware.
+#
+# So an image is not assembled for release until a sealed run record exists for
+# THIS candidate. Absence of a record is "not validated"; it is never "validated
+# by absence". There is no override — a flag here would be used the first time a
+# release was urgent, which is the release that most needs the checks.
+#
+# UNSIGNED_TEST=1 is exempt for the same reason it is exempt from the signing
+# and verity gates above: it produces an artifact that is marked unusable as a
+# release and cannot be confused with one.
+if [ "$UNSIGNED_TEST" != "1" ]; then
+    RELVAL_REPO="${IGOS_REPO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+    RELVAL_SCRIPT="$RELVAL_REPO/scripts/check-release-validation.py"
+    RELVAL_RECIPE="$RELVAL_REPO/packages/ai/intergen/package.yml"
+    echo "[build-iso] Running release-validation gate..." >&2
+    if [ ! -f "$RELVAL_SCRIPT" ]; then
+        echo "[build-iso] error: $RELVAL_SCRIPT is absent." >&2
+        echo "[build-iso] The release-validation gate cannot run, and an ISO that" >&2
+        echo "[build-iso] skipped it is indistinguishable from one that passed it." >&2
+        exit 1
+    fi
+    if [ -z "${RELEASE_VALIDATION_RECORD:-}" ]; then
+        echo "[build-iso] error: RELEASE_VALIDATION_RECORD is not set." >&2
+        echo "[build-iso] This release candidate has no installed-system gate run" >&2
+        echo "[build-iso] recorded against it. Produce one on a real installed" >&2
+        echo "[build-iso] machine with scripts/run-installed-gates.py and point" >&2
+        echo "[build-iso] RELEASE_VALIDATION_RECORD at the record directory." >&2
+        echo "[build-iso] A missing record is NOT VALIDATED. Refusing to assemble ISO." >&2
+        exit 1
+    fi
+    RELVAL_RELEASE=$(sed -n 's/^release:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$RELVAL_RECIPE" | head -1)
+    RELVAL_HASH=$(sed -n 's/^content_hash:[[:space:]]*\([0-9a-f][0-9a-f]*\).*/\1/p' "$RELVAL_RECIPE" | head -1)
+    if [ -z "$RELVAL_RELEASE" ] || [ -z "$RELVAL_HASH" ]; then
+        echo "[build-iso] error: could not read the candidate identity from $RELVAL_RECIPE." >&2
+        echo "[build-iso] Without a candidate identity the record cannot be matched to" >&2
+        echo "[build-iso] anything, so it cannot validate anything. Refusing to assemble ISO." >&2
+        exit 1
+    fi
+    if ! python3 "$RELVAL_SCRIPT" --record "$RELEASE_VALIDATION_RECORD" \
+            --candidate-release "$RELVAL_RELEASE" \
+            --candidate-content-hash "$RELVAL_HASH"; then
+        echo "[build-iso] error: release-validation gate refused (see above)." >&2
+        echo "[build-iso] Refusing to assemble a release ISO from an unvalidated candidate." >&2
+        exit 1
+    fi
+    echo "[build-iso] release-validation gate passed" >&2
+fi
+
 SHIM="${SHIM:?missing SHIM env var (signed shimx64.efi)}"
 # PI-ge9b04-A: MokManager is REQUIRED. shim only looks for mmx64.efi in the
 # directory it was launched from; a live ESP without it dead-ends an SB=ON

@@ -866,6 +866,119 @@ else
     printf '%s\n' "$NOTICES_OUT" | sed 's/^/  /'
 fi
 
+# ---- 9.5 Release-validation gate (master pushes only; fail-closed) --------
+# A push to master IS the promotion. R001.1 reached users with its composition
+# properties broken and every unit test green, because nothing required the
+# installed-system gate tier (tests/installed/) to have been RUN against the
+# candidate on real hardware. This gate is that requirement at the moment of
+# promotion.
+#
+# MASTER ONLY, and the narrow scope is deliberate: dev is an integration branch
+# and a feature branch is not a release. Only master publishes to users.
+#
+# THE PUSHED COMMIT IS THE SUBJECT, AND ALSO THE INSTRUMENT. The candidate
+# identity is read from the SHA BEING PUSHED, and the checking script is run
+# from a throwaway detached worktree at that same sha — the resolution gate 9b
+# already uses, for the same reason: a push publishes a commit, and the working
+# tree is not necessarily those bytes.
+#   MEASURED 2026-08-24, which is why it is written this way: a first version
+#   tested `-f scripts/check-release-validation.py` against the working tree.
+#   Rehearsing a promotion from a tree that predated the script then refused
+#   with "the gate could not run" in every state, including the states meant to
+#   pass. Nothing unsafe happened — the refusal is fail-closed — but the reason
+#   named the wrong cause, and a gate whose subject and instrument come from
+#   different bytes cannot say which bytes it judged.
+#
+# There is no override. A missing record is NOT VALIDATED, never validated by
+# absence. Producing one is scripts/run-installed-gates.py on a real install.
+RELVAL_MASTER=""
+for refline in "${PUSH_REFS[@]}"; do
+    read -r _lref local_sha remote_ref remote_sha <<< "$refline"
+    if [ "$remote_ref" = "refs/heads/master" ] && [ "$local_sha" != "$ZERO" ]; then
+        RELVAL_MASTER="$local_sha"
+        break
+    fi
+done
+
+if [ -n "$RELVAL_MASTER" ]; then
+    echo "[pre-push] release-validation gate: promotion to master detected..."
+    if [ -z "$PY_BIN" ]; then
+        echo "[pre-push] BLOCK: no Python 3 interpreter is available, so the"
+        echo "  release-validation gate cannot run. A promotion that skipped the"
+        echo "  check is indistinguishable from one that passed it."
+        exit 1
+    fi
+    if [ -z "${RELEASE_VALIDATION_RECORD:-}" ]; then
+        echo "[pre-push] BLOCK: RELEASE_VALIDATION_RECORD is not set."
+        echo "  Promoting to master publishes this release to users, and the"
+        echo "  installed-system gates have not been recorded against it."
+        echo "  Produce a record on a real installed machine:"
+        echo "    scripts/run-installed-gates.py --output <dir> --tier <repo>/tests/installed"
+        echo "  then set RELEASE_VALIDATION_RECORD=<dir> and push again."
+        echo "  A missing record is NOT VALIDATED."
+        exit 1
+    fi
+    RELVAL_RECIPE_TEXT=$(git show "$RELVAL_MASTER:packages/ai/intergen/package.yml" 2>/dev/null || echo "")
+    if [ -z "$RELVAL_RECIPE_TEXT" ]; then
+        echo "[pre-push] BLOCK: could not read the candidate identity from the"
+        echo "  commit being pushed. Without it a record cannot be matched to"
+        echo "  anything, so it cannot validate anything."
+        exit 1
+    fi
+    RELVAL_RELEASE=$(printf '%s\n' "$RELVAL_RECIPE_TEXT" | sed -n 's/^release:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -1)
+    RELVAL_HASH=$(printf '%s\n' "$RELVAL_RECIPE_TEXT" | sed -n 's/^content_hash:[[:space:]]*\([0-9a-f][0-9a-f]*\).*/\1/p' | head -1)
+    if [ -z "$RELVAL_RELEASE" ] || [ -z "$RELVAL_HASH" ]; then
+        echo "[pre-push] BLOCK: the pushed commit's package.yml carries no"
+        echo "  parseable release/content_hash pair."
+        exit 1
+    fi
+    RELVAL_TMP=$(mktemp -d 2>/dev/null || echo "")
+    if [ -z "$RELVAL_TMP" ] || [ ! -d "$RELVAL_TMP" ]; then
+        echo "[pre-push] BLOCK: could not create a temporary directory to evaluate"
+        echo "  the pushed content. The gate is fail-closed: an unevaluated"
+        echo "  promotion to master is not permitted."
+        exit 1
+    fi
+    RELVAL_WT="$RELVAL_TMP/wt"
+    if ! git worktree add --detach "$RELVAL_WT" "$RELVAL_MASTER" >/dev/null 2>&1; then
+        rm -rf "$RELVAL_TMP"
+        echo "[pre-push] BLOCK: could not check out the commit being pushed to"
+        echo "  evaluate it. The gate is fail-closed: an unevaluated promotion to"
+        echo "  master is not permitted."
+        exit 1
+    fi
+    RELVAL_SCRIPT="$RELVAL_WT/scripts/check-release-validation.py"
+    if [ ! -f "$RELVAL_SCRIPT" ]; then
+        git worktree remove --force "$RELVAL_WT" >/dev/null 2>&1 || true
+        rm -rf "$RELVAL_TMP"
+        echo "[pre-push] BLOCK: the commit being pushed to master carries no"
+        echo "  scripts/check-release-validation.py, so this promotion cannot be"
+        echo "  checked at all. The absence of the gate is not a passing gate."
+        exit 1
+    fi
+    RELVAL_RC=0
+    "$PY_BIN" "$RELVAL_SCRIPT" \
+        --record "$RELEASE_VALIDATION_RECORD" \
+        --candidate-release "$RELVAL_RELEASE" \
+        --candidate-content-hash "$RELVAL_HASH" || RELVAL_RC=$?
+    git worktree remove --force "$RELVAL_WT" >/dev/null 2>&1 || true
+    rm -rf "$RELVAL_TMP"
+    # The checker reserves 1 for "not validated" and 2 for "you invoked me
+    # wrong" so a caller can tell them apart. Both refuse the push — an
+    # undecided release is not a validated one — but they are never reported as
+    # the same thing.
+    if [ "$RELVAL_RC" -eq 2 ]; then
+        echo "[pre-push] BLOCK: the release-validation gate was invoked incorrectly"
+        echo "  (exit 2 = usage error). Nothing was decided about this release."
+        exit 1
+    elif [ "$RELVAL_RC" -ne 0 ]; then
+        echo "[pre-push] BLOCK: release-validation gate refused (see above)."
+        echo "  Refusing to promote an unvalidated release to master."
+        exit 1
+    fi
+    echo "[pre-push] release-validation gate passed"
+fi
+
 # ---- 9.6 Release-note chain gate ------------------------------------------
 # The machine owns the release NUMBER (bump-changed-releases.py); the note
 # chain in the same line's comment is authored by hand, and nothing made

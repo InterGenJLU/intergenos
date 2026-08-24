@@ -33,11 +33,64 @@ from __future__ import annotations
 
 import os
 import pwd
+import sys
 from pathlib import Path
 
 import pytest
 
 GATE_ENV = "INTERGENOS_INSTALLED_GATES"
+
+# An installed package lives under the system library tree. Anything else is
+# source, and this tier has no business reporting on source.
+_INSTALLED_PREFIXES = ("/usr/lib/", "/usr/lib64/", "/usr/local/lib/")
+
+
+def _looks_installed(path: str) -> bool:
+    return path.startswith(_INSTALLED_PREFIXES) and "/site-packages/" in path
+
+
+def _repair_import_path() -> list[str]:
+    """Take the source checkout back off sys.path before anything imports.
+
+    MEASURED 2026-08-24, and the reason this function exists: the tier was
+    importing the SOURCE TREE, not the installed package, in every invocation —
+    from inside the checkout and from outside it alike. The repository-root
+    conftest inserts the project root at sys.path[0] so that ordinary tests can
+    import the project, which is right for every other tier and fatal for this
+    one: `import intergen` then resolves to the checkout ahead of
+    site-packages, and gates written to measure the shipped system measured the
+    source instead. That is the exact silent-green this tier exists to end,
+    sitting inside the instrument.
+
+    Repairing the path is not enough on its own and is not trusted on its own —
+    :func:`require_installed_intergenos` below ASSERTS the outcome afterwards.
+    This function removes the cause; that assertion is what refuses to report if
+    the cause is still there.
+
+    Returns the entries removed, so the failure message can name them.
+    """
+    removed: list[str] = []
+    for entry in list(sys.path):
+        if not entry:
+            continue
+        try:
+            shadows = (Path(entry) / "intergen" / "__init__.py").is_file()
+        except OSError:
+            shadows = False
+        if shadows and not _looks_installed(str(Path(entry) / "intergen")):
+            sys.path.remove(entry)
+            removed.append(entry)
+    if removed:
+        # Anything already imported from the checkout has to go too, or the
+        # repaired path changes nothing for a module that is already resident.
+        for name in [m for m in sys.modules
+                     if m == "intergen" or m.startswith("intergen.")]:
+            del sys.modules[name]
+    return removed
+
+
+_REMOVED_FROM_PATH: list[str] = (
+    _repair_import_path() if os.environ.get(GATE_ENV) == "1" else [])
 
 _SKIP_REASON = (
     f"NOT VERIFIED: the installed-system gate tier did not run because {GATE_ENV}=1 "
@@ -48,18 +101,45 @@ _SKIP_REASON = (
 
 
 def pytest_collection_modifyitems(config, items):
-    """Deselect the whole tier unless it was asked for, with a loud reason."""
-    if os.environ.get(GATE_ENV) == "1":
+    """Deselect the whole tier unless it was asked for, with a loud reason.
+
+    When the tier IS asked for, it must be the only thing in the session. This
+    tier takes the source checkout off sys.path so it can import the installed
+    package (see :func:`_repair_import_path`); every other tier in this
+    repository imports the project FROM that checkout and would break. Refusing
+    a mixed session is how that repair stays safe to make.
+    """
+    if os.environ.get(GATE_ENV) != "1":
+        skip = pytest.mark.skip(reason=_SKIP_REASON)
+        here = Path(__file__).resolve().parent
+        for item in items:
+            try:
+                in_tier = here in Path(str(item.fspath)).resolve().parents
+            except OSError:
+                in_tier = False
+            if in_tier:
+                item.add_marker(skip)
         return
-    skip = pytest.mark.skip(reason=_SKIP_REASON)
+
     here = Path(__file__).resolve().parent
+    outsiders = []
     for item in items:
         try:
             in_tier = here in Path(str(item.fspath)).resolve().parents
         except OSError:
             in_tier = False
-        if in_tier:
-            item.add_marker(skip)
+        if not in_tier:
+            outsiders.append(str(item.nodeid))
+    if outsiders:
+        raise pytest.UsageError(
+            f"{GATE_ENV}=1 selects the installed-system gate tier, which must "
+            f"run ALONE: it removes the source checkout from sys.path so it can "
+            f"import the INSTALLED package, and the rest of this repository's "
+            f"tests import the project from that checkout. "
+            f"{len(outsiders)} test(s) outside the tier were collected, "
+            f"starting with {outsiders[0]}. Run the tier by itself "
+            f"(scripts/run-installed-gates.py does).")
+    return
 
 
 def _real_home() -> Path:
@@ -100,7 +180,17 @@ def os_release() -> dict[str, str]:
 
 @pytest.fixture(scope="session", autouse=True)
 def require_installed_intergenos(os_release):
-    """Refuse to run against anything that is not an installed InterGenOS system."""
+    """Refuse to run against anything that is not an installed InterGenOS system.
+
+    THREE CHECKS, and the third is the one that was missing. Presence of the
+    installed directory says the shipped package EXISTS; it says nothing about
+    which package the gates are importing. Until 2026-08-24 this fixture stopped
+    at presence, and the tier imported the source checkout in every invocation
+    while reporting as though it had measured the installed system. Asking where
+    ``intergen`` actually resolved is the only check that could have caught that,
+    so it is now asked, and it is asked of the imported module rather than of the
+    filesystem.
+    """
     if os_release.get("ID") != "intergenos":
         pytest.fail(
             "This machine does not identify as InterGenOS "
@@ -108,11 +198,28 @@ def require_installed_intergenos(os_release):
             "properties of a real InterGenOS install; running them elsewhere would "
             "produce a verdict about nothing."
         )
-    site = Path("/usr/lib") / f"python3.{__import__('sys').version_info.minor}" / "site-packages" / "intergen"
+    site = Path("/usr/lib") / f"python3.{sys.version_info.minor}" / "site-packages" / "intergen"
     if not site.is_dir():
         pytest.fail(
             f"The installed assistant package is not present at {site}. This tier "
             "reads the SHIPPED modules, not the source tree, so it cannot run here."
+        )
+
+    import intergen
+    resolved = intergen.__file__ or ""
+    if not _looks_installed(resolved):
+        pytest.fail(
+            "THIS TIER IS MEASURING THE WRONG SOFTWARE.\n"
+            f"  `import intergen` resolved to: {resolved}\n"
+            f"  the installed package is at:   {site}\n"
+            "Every gate below reads the imported package, so a verdict from here "
+            "would describe the source tree and would then be quoted as evidence "
+            "about a release nobody installed.\n"
+            f"  entries removed from sys.path before import: "
+            f"{_REMOVED_FROM_PATH or 'none'}\n"
+            f"  sys.path[0:4] now: {sys.path[0:4]}\n"
+            "Run this tier by itself, from outside any checkout "
+            "(scripts/run-installed-gates.py does exactly that)."
         )
 
 

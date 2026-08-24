@@ -53,6 +53,12 @@ InterGenOS is a **curated rolling** distribution with a single supported line:
   the installation image without a rebuild, an installation, and an evaluation on
   real hardware. This is the tested-rolling-snapshot model rather than a
   continuous, per-package rolling model.
+- **The evaluation is a gate, not a step.** A release candidate is not imaged and
+  not published until the installed-system test tier has been run against that
+  exact candidate on an installed machine, with nothing failing and no check
+  skipped that was not declared in advance; the record of that run is checked by
+  the image builder and the mirror publisher, and a missing record refuses the
+  release rather than passing it.
 
 A long-term-support line (a designated major release receiving security-only point
 releases) is structurally compatible with this policy and may be introduced later
