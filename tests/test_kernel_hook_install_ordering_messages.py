@@ -165,15 +165,15 @@ def _run(fixture):
     the module docstring.
     """
     inner = (
-        'mount --bind "$IGOSC_FIX/boot" /boot && '
-        'mount --bind "$IGOSC_FIX/varlog" /var/log && '
-        'mount --bind "$IGOSC_FIX/libintergen" /usr/lib/intergen && '
-        'PATH="$IGOSC_FIX/bin" exec "$IGOSC_FIX/bin/bash" "$IGOSC_HOOK"'
+        'mount --bind "$FIXTURE_ROOT/boot" /boot && '
+        'mount --bind "$FIXTURE_ROOT/varlog" /var/log && '
+        'mount --bind "$FIXTURE_ROOT/libintergen" /usr/lib/intergen && '
+        'PATH="$FIXTURE_ROOT/bin" exec "$FIXTURE_ROOT/bin/bash" "$HOOK_PATH"'
     )
     env = dict(os.environ)
     env.update({
-        "IGOSC_FIX": str(fixture.root),
-        "IGOSC_HOOK": str(HOOK),
+        "FIXTURE_ROOT": str(fixture.root),
+        "HOOK_PATH": str(HOOK),
         "PKM_PACKAGE_NAME": "linux-kernel",
         "PKM_PACKAGE_VERSION": "6.18.10",
         "PKM_PACKAGE_ROOT": str(fixture.root / "pkgroot"),

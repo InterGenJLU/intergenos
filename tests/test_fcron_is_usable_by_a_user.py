@@ -4,7 +4,7 @@
 
 WHY THIS EXISTS. On the shipped R001.1 system, `fcrontab -l` run by the
 installed user fails. Measured 2026-08-24 on this image
-(evidence: igosc140-evidence/runs/66-i06-mechanism-on-the-installed-system.txt).
+(the run is captured whole in this change set's evidence bundle).
 Two independent defects, either of which alone is fatal to the command:
 
   1. AUTHORIZATION FILES UNREADABLE.  /etc/fcron.allow and /etc/fcron.deny
