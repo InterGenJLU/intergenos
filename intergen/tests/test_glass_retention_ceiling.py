@@ -41,6 +41,7 @@ import unittest
 from pathlib import Path
 
 import intergen.glass as glass
+from intergen.tests import glass_rows
 
 
 class RetentionCeilingIsTheTruth(unittest.TestCase):
@@ -136,16 +137,17 @@ class RetentionCeilingIsTheTruth(unittest.TestCase):
                        detail={"text": "z" * (glass._ROTATE_BYTES * 3)})
             glass.emit("delivery", "final", detail={"text": "done"})
         rows = [r for f in self._files() for r in self._rows(f)]
-        assembled = [r for r in rows if r.get("event") == "assembled"]
+        assembled = glass_rows.where(rows, event="assembled")
         self.assertEqual(len(assembled), 1, rows)
-        self.assertEqual(assembled[0]["turn_id"], tid)
-        self.assertEqual(assembled[0]["phase"], "prompt")
+        row = glass_rows.only(rows, event="assembled")
+        self.assertEqual(row["turn_id"], tid)
+        self.assertEqual(row["phase"], "prompt")
 
     def test_the_dropped_bytes_are_named_not_silently_gone(self) -> None:
         glass.emit("prompt", "assembled",
                    detail={"text": "z" * (glass._ROTATE_BYTES * 3)})
         rows = [r for f in self._files() for r in self._rows(f)]
-        row = [r for r in rows if r.get("event") == "assembled"][0]
+        row = glass_rows.only(rows, event="assembled")
         note = row["detail"].get("glass_oversized_row")
         self.assertIsNotNone(
             note, f"an oversized row was shortened with no attestation: {row}")
@@ -157,7 +159,7 @@ class RetentionCeilingIsTheTruth(unittest.TestCase):
         two tests above would pass on a writer that shortens everything."""
         glass.emit("prompt", "assembled", detail={"text": "a short prompt"})
         rows = [r for f in self._files() for r in self._rows(f)]
-        row = [r for r in rows if r.get("event") == "assembled"][0]
+        row = glass_rows.only(rows, event="assembled")
         self.assertEqual(row["detail"], {"text": "a short prompt"})
 
 

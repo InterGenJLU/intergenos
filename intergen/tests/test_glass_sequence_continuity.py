@@ -30,7 +30,6 @@ The contract, in three parts:
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 import sys
@@ -38,19 +37,17 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from intergen.tests import glass_rows
+
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _rows(tmp: str) -> list[dict]:
-    p = Path(tmp) / "intergen" / "glass.jsonl"
-    if not p.exists():
-        return []
-    with open(p) as f:
-        return [json.loads(x) for x in f]
+    return glass_rows.read(tmp)
 
 
 def _probe_rows(tmp: str) -> list[dict]:
-    return [r for r in _rows(tmp) if r.get("phase") == "probe"]
+    return glass_rows.where(_rows(tmp), phase="probe")
 
 
 class SequenceSurvivesARestart(unittest.TestCase):
@@ -139,25 +136,25 @@ class SequenceSurvivesARestart(unittest.TestCase):
         self._child("first")
         first_high = max(r["seq"] for r in _rows(self.tmp))
         self._child("second")
-        resumed = [r for r in _rows(self.tmp)
-                   if r.get("phase") == "glass"
-                   and r.get("event") == "sequence_resumed"]
+        resumed = glass_rows.where(_rows(self.tmp),
+                                   phase="glass", event="sequence_resumed")
         self.assertEqual(len(resumed), 2, _rows(self.tmp))
-        self.assertIsNone(resumed[0]["detail"].get("resumed_from"),
-                          resumed[0])
-        self.assertEqual(resumed[1]["detail"].get("resumed_from"), first_high,
-                         resumed[1])
+        opened_first = glass_rows.first(resumed)
+        opened_again = glass_rows.last(resumed)
+        self.assertIsNone(opened_first["detail"].get("resumed_from"),
+                          opened_first)
+        self.assertEqual(opened_again["detail"].get("resumed_from"), first_high,
+                         opened_again)
 
     def test_a_first_run_on_an_empty_file_says_so(self) -> None:
         """The other branch of the same record: nothing to resume from is a
         fact worth writing, not a reason to stay quiet."""
         self._child("first")
-        resumed = [r for r in _rows(self.tmp)
-                   if r.get("phase") == "glass"
-                   and r.get("event") == "sequence_resumed"]
+        resumed = glass_rows.where(_rows(self.tmp),
+                                   phase="glass", event="sequence_resumed")
         self.assertEqual(len(resumed), 1, _rows(self.tmp))
-        self.assertIsNone(resumed[0]["detail"].get("resumed_from"),
-                          resumed[0])
+        opened = glass_rows.only(resumed)
+        self.assertIsNone(opened["detail"].get("resumed_from"), opened)
 
 
 if __name__ == "__main__":

@@ -39,13 +39,13 @@ as an attested placeholder saying WHAT kind of thing was removed.
 
 from __future__ import annotations
 
-import json
 import os
 import tempfile
 import unittest
 from pathlib import Path
 
 import intergen.glass as glass
+from intergen.tests import glass_rows
 
 
 def _reset(tmp: str) -> None:
@@ -55,30 +55,19 @@ def _reset(tmp: str) -> None:
 
 
 def _rows(tmp: str) -> list[dict]:
-    p = Path(tmp) / "intergen" / "glass.jsonl"
-    if not p.exists():
-        return []
-    with open(p) as f:
-        return [json.loads(x) for x in f]
+    return glass_rows.read(tmp)
 
 
 def _row(tmp: str, phase: str, event: str) -> dict:
     """The row THIS test wrote, selected by what it IS rather than by position.
 
-    The writer emits rows of its own around a turn — a ``glass/sequence_resumed``
-    row when the logger opens the file, and a synthesized terminal row when a
-    turn ends without one — so the first line in the record is not the line a
-    test emitted. Selecting by (phase, event) says what the test means, and it
-    cannot be quietly invalidated by a new row the writer learns to emit.
+    This selection was written here first, when the writer's opening row moved
+    every position in this file. It now delegates to
+    intergen/tests/glass_rows.py so the corpus has ONE selection helper rather
+    than a copy per file — the same reason the two secret-shape writers share
+    one definition of what a secret looks like.
     """
-    rows = _rows(tmp)
-    for r in rows:
-        if r.get("phase") == phase and r.get("event") == event:
-            return r
-    raise AssertionError(
-        f"no {phase}/{event} row in the record. Rows present: "
-        + (", ".join(f"{r.get('phase')}/{r.get('event')}" for r in rows)
-           or "none"))
+    return glass_rows.first(_rows(tmp), phase=phase, event=event)
 
 
 # ── The corpus, case for case from the confirming seat's measurement ────────

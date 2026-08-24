@@ -33,9 +33,9 @@ import json
 import os
 import tempfile
 import unittest
-from pathlib import Path
 
 import intergen.glass as glass
+from intergen.tests import glass_rows
 from intergen.router import ConversationRouter
 
 
@@ -49,11 +49,7 @@ def _glass_reset(tmp: str) -> None:
 
 
 def _glass_rows(tmp: str) -> list[dict]:
-    p = Path(tmp) / "intergen" / "glass.jsonl"
-    if not p.exists():
-        return []
-    with open(p) as f:
-        return [json.loads(x) for x in f]
+    return glass_rows.read(tmp)
 
 
 class TurnRelatesToOffer(unittest.TestCase):
@@ -98,10 +94,11 @@ class OfferStageArmsWindow(unittest.TestCase):
             r._stage_single_offer(action=("pkm upgrade", "run_command", "q"))
         self.assertEqual(r._action_offer_ttl, 4)
         self.assertEqual(r._offer_topic_terms, frozenset({"pkm", "upgrade"}))
-        stage = [x for x in _glass_rows(self.tmp) if x.get("event") == "offer_stage"]
+        stage = glass_rows.where(_glass_rows(self.tmp), event="offer_stage")
         self.assertTrue(stage)
-        self.assertEqual(stage[-1]["detail"]["slot"], "action")
-        self.assertEqual(stage[-1]["detail"]["command"], "pkm upgrade")
+        staged = glass_rows.last(stage)
+        self.assertEqual(staged["detail"]["slot"], "action")
+        self.assertEqual(staged["detail"]["command"], "pkm upgrade")
 
 
 class _FakeLLM:
@@ -138,16 +135,16 @@ class BuildMessagesInjectionGate(unittest.TestCase):
         with glass.turn(glass.new_turn_id(), "test"):
             msgs = self.r._build_messages("did the upgrade finish", with_tools=False)
         self.assertTrue(self._has_note(msgs))
-        rows = self._preventive_rows()
-        self.assertEqual(rows[-1]["detail"]["decision"], "injected")
+        decided = glass_rows.last(self._preventive_rows())
+        self.assertEqual(decided["detail"]["decision"], "injected")
 
     def test_open_window_unrelated_turn_is_skipped(self) -> None:
         with glass.turn(glass.new_turn_id(), "test"):
             msgs = self.r._build_messages("did the stock market close today",
                                           with_tools=False)
         self.assertFalse(self._has_note(msgs))
-        rows = self._preventive_rows()
-        self.assertEqual(rows[-1]["detail"]["decision"], "skipped_unrelated")
+        decided = glass_rows.last(self._preventive_rows())
+        self.assertEqual(decided["detail"]["decision"], "skipped_unrelated")
 
     def test_with_tools_turn_never_injects(self) -> None:
         # Scoped to the toolless path — a with_tools turn can genuinely dispatch.
