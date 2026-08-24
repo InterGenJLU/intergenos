@@ -400,7 +400,11 @@ class _EmittingRouter:
         self._source = source
         self.route_calls = 0
 
-    def route(self, user_msg, decide_only=True, review_callback=None):
+    def route(self, user_msg, decide_only=True, review_callback=None,
+              conversation=None, conversation_active=False):
+        # The two conversation keywords are the composed router's call shape (the
+        # per-conversation router-state change); this double records nothing per
+        # conversation, so it accepts them and reads only the turn.
         self.route_calls += 1
         glass.emit("route", "verdict", detail={"where": "worker thread"})
         if self._stall:
