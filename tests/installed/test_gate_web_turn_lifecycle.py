@@ -20,10 +20,16 @@ EXPECTED TO FAIL ON R001.1 AS SHIPPED.
 
 from __future__ import annotations
 
+import importlib.util
 import re
 from pathlib import Path
 
 import pytest
+
+_spec = importlib.util.spec_from_file_location(
+    "_wtl_shape", Path(__file__).resolve().parent / "_shape_detectors.py")
+shape = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(shape)
 
 
 @pytest.fixture(scope="module")
@@ -52,74 +58,111 @@ def _one(pattern: str, text: str, what: str) -> str:
     return found[0]
 
 
-def test_the_client_deadline_is_longer_than_every_server_deadline_it_covers(web_files):
-    """The browser must not give up before the work it is waiting on can finish."""
-    client_ms = int(_one(r"RESPONSE_TIMEOUT_MS\s*=\s*(\d+)", web_files["app_js"],
-                         "the browser's response deadline"))
-    embed_s = float(_one(r"def embed\(self[^)]*?timeout:\s*float\s*=\s*([\d.]+)",
-                         web_files["llama"].replace("\n", " "),
-                         "the embedding call's deadline"))
-    model_s = float(_one(r'config\.get\("request_timeout",\s*(\d+)\)',
-                         web_files["llm"], "the model request deadline"))
+def test_the_server_declares_a_routing_deadline_inside_the_client_failsafe(web_files):
+    """Routing must be bounded, and bounded shorter than the browser's failsafe.
 
+    RE-KEYED 2026-08-24, and the reason matters more than the change. The earlier
+    form compared the browser's ``RESPONSE_TIMEOUT_MS`` against the embedding
+    call's deadline and against the model request's deadline, on the premise that
+    the browser arms ONE deadline covering the whole turn. That premise has moved.
+    The shipped client now arms that constant only until the server acknowledges
+    the turn, then re-arms a longer one (``POST_ACK_TIMEOUT_MS``); a streaming
+    model request no longer sits inside it at all, because the first content frame
+    disarms it. Comparing it to the model request deadline therefore reported a
+    defect the shape had been changed to remove, while saying nothing about what
+    now actually bounds routing.
+
+    What bounds routing is the server's own declared deadline. The property is the
+    one the shipped design states in ``intergen/web/app.js`` and enforces in
+    ``intergen/tests/test_turn_lifecycle_contract.py``: the server declares a
+    routing deadline, and it is strictly shorter than the client's failsafe, so
+    the server gives up and says so before the browser concludes it has died.
+
+    This is NOT a weakening. On R001.1 as shipped there is no declared routing
+    deadline at all — routing is unbounded — so this fails, and it fails naming
+    the real cause instead of an arithmetic comparison against a deadline that no
+    longer covers the same work.
+    """
+    client_ms = int(_one(r"RESPONSE_TIMEOUT_MS\s*=\s*(\d+)", web_files["app_js"],
+                         "the browser's pre-acknowledgement failsafe"))
     client_s = client_ms / 1000.0
-    problems = []
-    if client_s <= embed_s:
-        problems.append(
-            f"  the browser gives the whole turn {client_s:g}s while a single "
-            f"embedding call inside that turn is allowed {embed_s:g}s — the client "
-            "gives up at the same moment the server's own phase deadline expires")
-    if client_s < model_s:
-        problems.append(
-            f"  the browser gives the whole turn {client_s:g}s while the model request "
-            f"alone is allowed {model_s:g}s — {model_s / client_s:.0f} times longer")
-    assert not problems, (
-        "\nThe browser's deadline does not cover the work it is waiting for:\n"
-        + "\n".join(problems) +
-        "\n\nWhen it expires the user is told the assistant did not respond, the reply "
-        "is discarded and the socket is force-closed, while the server is still "
-        "working on that turn."
+
+    declared = re.findall(r"^SERVER_ROUTE_DEADLINE_S\s*=\s*([\d.]+)",
+                          web_files["server"], re.MULTILINE)
+    assert declared, (
+        "\nThe shipped web server declares no routing deadline.\n"
+        f"  the browser's pre-acknowledgement failsafe: {client_s:g}s\n"
+        "  the server's routing deadline             : none declared\n"
+        "Routing runs unbounded. When it outlasts the browser's failsafe the user "
+        "is told the assistant did not respond, the reply is discarded and the "
+        "socket is force-closed while the server is still working on that turn. "
+        "Nothing on the server ever gives up and says so, because nothing on the "
+        "server is counting."
+    )
+
+    route_s = float(declared[0])
+    assert route_s < client_s, (
+        "\nThe server's routing deadline does not fit inside the browser's "
+        "failsafe:\n"
+        f"  the browser's pre-acknowledgement failsafe: {client_s:g}s\n"
+        f"  the server's routing deadline             : {route_s:g}s\n"
+        "The browser gives up first, so the user is told the assistant did not "
+        "respond by a timer that fires before the server's own timer can report "
+        "what went wrong."
     )
 
 
 def test_the_server_acknowledges_a_turn_before_it_finishes_routing(web_files):
-    """Something must reach the browser before the slow phase, or its timer is blind.
+    """Something the client can use must reach it before the slow phase begins.
 
-    The browser's turn timer is armed when the turn is sent and disarmed only by
-    ``stream_start`` or a terminal frame. This asserts that between the turn arriving
-    at the handler and the routing call, the server sends the client at least one frame
-    that is not an error — an acknowledgement the client can use. Error frames do not
-    count: a turn that is going to succeed slowly never produces one.
+    RE-KEYED 2026-08-24. The earlier form found the routing call with the text
+    pattern ``self._router.route(`` and then scanned the source lines between the
+    handler and that call for a ``send_json`` that was not an error frame.
+    MEASURED against the current tree: the routing call is now handed to an
+    executor, so the router's ``route`` never appears in callee position, the
+    pattern matched nothing, and the gate took its own "must be rewritten against
+    the new shape" branch — on a tree that sends exactly the acknowledgement this
+    gate exists to require. It would have reported a corrected defect as still
+    present, and blamed the ordering rather than its own reader.
+
+    Two things also had to stop being assumed. The acknowledgement need not live
+    in the function that routes — the shipped one is sent by the caller, above the
+    call into it. And a frame's line is the line of the SEND, not of whatever
+    ``try:`` or ``with`` encloses it; measuring by the enclosing statement's line
+    counted the final response frame as though it preceded routing.
+
+    Both halves are asserted. A frame the browser has no arm for would leave its
+    failsafe running exactly as if nothing had been sent.
     """
-    lines = web_files["server"].splitlines()
-
-    handler = next((i for i, ln in enumerate(lines)
-                    if "async def _handle_client_message" in ln), None)
-    route_line = next((i for i, ln in enumerate(lines)
-                       if i > (handler or 0) and re.search(r"self\._router\.route\(", ln)),
-                      None)
-    if handler is None or route_line is None:
+    try:
+        acknowledgements = shape.acknowledgement_before_routing(web_files["server"])
+    except shape.ShapeNotRecognised as exc:
         pytest.fail(
-            "Could not locate the turn handler and its routing call in the installed "
-            f"web server (handler at {handler}, route at {route_line}); the ordering "
-            "cannot be asserted and this gate must be rewritten against the new shape.")
-
-    window = lines[handler:route_line]
-    frames = [(handler + i + 1, ln.strip()) for i, ln in enumerate(window)
-              if "send_json" in ln]
-    acknowledgements = [(n, ln) for n, ln in frames if "_make_error" not in ln]
+            f"This gate could not characterise the shipped turn path ({exc}). "
+            "That is a statement about this reader, not about the installed "
+            "system: it must be rewritten against the new shape rather than "
+            "reporting a verdict it did not measure.")
 
     assert acknowledgements, (
         "\nNothing reaches the browser between the turn arriving and routing "
-        "finishing:\n"
-        f"  the turn handler starts at web_server.py line {handler + 1};\n"
-        f"  the routing call is at line {route_line + 1};\n"
-        f"  frames sent in between: {len(frames)}, all of them error frames "
-        f"({[n for n, _ in frames]}).\n"
-        "The routing phase — which includes the embedding call the browser's deadline "
-        "is racing — therefore runs with a timer nothing can disarm. The browser gives "
-        "up, tells the user the assistant did not respond, and force-closes the socket "
-        "while the server is still working on the turn."
+        "beginning.\n"
+        f"  routing is entered at: {shape.routing_call_sites(web_files['server'])}\n"
+        "  non-error frames sent before that point: none\n"
+        "The routing phase — which includes the embedding call the browser's "
+        "failsafe is racing — therefore runs with a timer nothing can disarm. The "
+        "browser gives up, tells the user the assistant did not respond, and "
+        "force-closes the socket while the server is still working on the turn."
+    )
+
+    unhandled = [t for t in acknowledgements
+                 if not shape.client_dispatches(web_files["app_js"], t)]
+    assert len(unhandled) < len(acknowledgements), (
+        "\nThe server sends an acknowledgement the shipped browser does not read:\n"
+        f"  frame types sent before routing: {acknowledgements}\n"
+        f"  types the browser has no dispatch arm for: {unhandled}\n"
+        "An acknowledgement the client ignores leaves its failsafe armed exactly "
+        "as if the frame had never been sent, so the turn still ends in a reported "
+        "failure while the server is still working."
     )
 
 

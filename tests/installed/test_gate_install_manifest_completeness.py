@@ -120,6 +120,14 @@ def test_the_verifier_fails_when_a_promised_archive_is_absent(shipped_verifier, 
     )
 
 
+#: Any one of these on the terminal event tells a reader how many entries the
+#: manifest promised and did not deliver. More than one spelling is accepted
+#: deliberately: the gate is asserting that the gap is RECORDED, not dictating
+#: which word the recorder uses for it.
+GAP_FIELDS = ("expected_entries_missing", "missing_archives",
+              "manifest_entries_without_archive")
+
+
 def test_the_audit_record_distinguishes_an_expected_entry_from_a_checked_one(
         shipped_verifier, tmp_path):
     """The record must let a reader tell a short install from a complete one.
@@ -154,20 +162,43 @@ def test_the_audit_record_distinguishes_an_expected_entry_from_a_checked_one(
     finally:
         integrity.verify_manifest_signature = real_verify_signature
 
-    completion = [json.loads(ln) for ln in
-                  audit_log.read_text(encoding="utf-8").splitlines() if ln.strip()]
-    completed = [e for e in completion if e.get("event") == "verify_completed"]
+    events = [json.loads(ln) for ln in
+              audit_log.read_text(encoding="utf-8").splitlines() if ln.strip()]
 
-    missing_field = [e for e in completed
-                     if not any(k in e for k in
-                                ("expected_entries_missing", "missing_archives",
-                                 "manifest_entries_without_archive"))]
+    # Whatever the verifier decides to do about the gap, it ends the run with a
+    # terminal event, and THAT event is what a reader of the install record has.
+    # Both spellings are read: "verify_completed" when the run finished, "abort"
+    # when it stopped because of the gap.
+    terminal = [e for e in events
+                if e.get("event") in ("verify_completed", "abort")]
 
-    assert not (completed and missing_field), (
-        "\nThe verifier's completion record cannot distinguish a complete install from "
-        "a short one.\n"
-        f"  completion event as written: {completed}\n"
-        "It records how many archives were checked and never how many the manifest "
-        "expected but did not find. A reader of the install record — including the "
-        "post-install evaluation — has no field to read the gap from."
+    # RE-KEYED 2026-08-24. The earlier form asserted
+    #   not (completed and missing_field)
+    # over the "verify_completed" events alone. MEASURED against the current
+    # tree, which aborts on a short manifest and writes no completion event at
+    # all: that expression is `not ([] and ...)`, which is True, so the gate went
+    # GREEN having examined no terminal record whatsoever. A gate that passes
+    # because the thing it inspects is absent is the exact silent-green this tier
+    # exists to end, and it was sitting inside the tier. Requiring a terminal
+    # event first is what makes the second assertion capable of failing.
+    assert terminal, (
+        "\nThe verifier wrote no terminal event for this run, so the install "
+        "record cannot be read for the outcome at all.\n"
+        f"  events written: {[e.get('event') for e in events]}\n"
+        "A run that ends without recording how it ended leaves a reader — "
+        "including the post-install evaluation — with nothing to refuse on."
+    )
+
+    without_gap = [e for e in terminal
+                   if not any(k in e for k in GAP_FIELDS)]
+
+    assert not without_gap, (
+        "\nThe verifier's terminal record cannot distinguish a complete install "
+        "from a short one.\n"
+        f"  terminal event as written: {without_gap}\n"
+        f"  any one of these fields would carry the gap: {sorted(GAP_FIELDS)}\n"
+        "It records how many archives were checked and never how many the "
+        "manifest expected but did not find. A reader of the install record — "
+        "including the post-install evaluation — has no field to read the gap "
+        "from."
     )

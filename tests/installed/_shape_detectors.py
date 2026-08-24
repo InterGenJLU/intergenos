@@ -25,10 +25,21 @@ The readers live here, in one file, for two reasons.
 Compiled code objects, not source text: an earlier gate in this tier went green
 by reading source text and matching the wrong expression. A code object carries
 the names a function really uses, and comments and strings cannot fake it.
+
+Where the property is about ORDER rather than reference — did a frame reach the
+client before the routing work started — a code object cannot answer, because
+order across two functions is not something ``co_names`` records. Those readers
+parse the module into a syntax tree instead. That is the same discipline, not an
+exception to it: what is forbidden is matching TEXT, and a syntax tree is no more
+text than a code object is. A reader of either kind that cannot characterise the
+shape in front of it raises :class:`ShapeNotRecognised` rather than returning an
+answer, because "I could not tell" and "the property is absent" are different
+facts and only one of them is a defect in the software being measured.
 """
 
 from __future__ import annotations
 
+import ast
 import re
 
 # The call that ends one conversation. Its name is part of the shipped
@@ -127,8 +138,6 @@ def consent_record_sites(web_text: str, router_text: str) -> tuple[int, int]:
 # importing is deliberate — this reader must be able to characterise a module
 # it must NOT execute, including the R001.1 stand-in the true-positive control
 # builds.
-
-import ast
 
 _DISPATCH_FUNC = "_dispatch_via_pkexec"
 _LAUNCHER_LEAF = "systemd-run"
@@ -233,3 +242,166 @@ def daemon_execs_the_setuid_helper_directly(source: str) -> bool:
         f"{_DISPATCH_FUNC}'s argv begins with an expression this reader does not "
         f"understand ({value}); the shape has moved and the reader must move with it"
     )
+
+# ── Reading the turn path: did anything reach the client before routing? ──────
+
+class ShapeNotRecognised(Exception):
+    """The reader could not find the construct it measures ordering against.
+
+    Raised rather than returned. A gate that received ``[]`` from a reader that
+    never located the routing call would report "no acknowledgement is sent",
+    which is a statement about the software; the true statement is about the
+    reader. The two must not be able to look the same to whoever reads the
+    failure.
+    """
+
+
+#: What the server calls to put a frame on the socket.
+_SEND_METHODS = ("send_json", "send_str", "send")
+
+#: A frame type carrying a failure is not an acknowledgement: a turn that is
+#: going to succeed slowly never produces one, so counting it would let a gate
+#: pass on exactly the turns this property exists to protect.
+_ERROR_MARKERS = ("error", "fail", "denied", "refused")
+
+
+def _is_router_route(node: ast.AST) -> bool:
+    """True for ``self._router.route`` however it is spelled."""
+    return (isinstance(node, ast.Attribute) and node.attr == "route"
+            and isinstance(node.value, ast.Attribute)
+            and node.value.attr == "_router"
+            and isinstance(node.value.value, ast.Name)
+            and node.value.value.id == "self")
+
+
+def routing_call_sites(module_source: str) -> list[tuple[str, int]]:
+    """``(function name, line)`` for every site that hands a turn to the router.
+
+    BOTH shapes count, and that is the point of this reader. R001.1 called
+    ``self._router.route(...)`` directly, so the routing site was the callee.
+    The current tree offloads it — the router's ``route`` is handed to an
+    executor as an ARGUMENT and never appears in callee position at all. A
+    reader that recognised only the first shape would find nothing on a system
+    that routes perfectly well, and the gate above it would report the
+    acknowledgement as missing, blaming the software for the reader's blindness.
+    """
+    tree = ast.parse(module_source)
+    # Innermost definition wins: a nested helper's name is the useful one, and
+    # walk order is not nesting order, so the containing span is compared rather
+    # than relying on which definition happened to be visited last.
+    spans = [(fn.lineno, fn.end_lineno or fn.lineno, fn.name)
+             for fn in ast.walk(tree)
+             if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef))]
+
+    def owner_of(line: int) -> str:
+        containing = [(start, end, name) for start, end, name in spans
+                      if start <= line <= end]
+        if not containing:
+            return "<module>"
+        return min(containing, key=lambda s: s[1] - s[0])[2]
+
+    sites: list[tuple[str, int]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        hit = _is_router_route(node.func) or any(
+            _is_router_route(a) for a in list(node.args) +
+            [kw.value for kw in node.keywords])
+        if hit:
+            sites.append((owner_of(node.lineno), node.lineno))
+    return sorted(set(sites))
+
+
+def _frame_sends(node: ast.AST) -> list[tuple[int, str]]:
+    """``(line, type)`` for every frame this subtree puts on the socket.
+
+    The LINE OF THE SEND ITSELF, never the line of a statement containing it. A
+    ``try:`` or a ``with`` header sits above its own body, so a reader that
+    filtered compound statements by their header line would count a frame sent
+    after the routing call as one sent before it — the gate would then report an
+    acknowledgement that the user never receives in time. Measured while writing
+    this reader: filtering by statement line reported the R001.1 module as
+    acknowledging turns, because the function header precedes everything in the
+    function including the response frame sent at the end.
+    """
+    sends: list[tuple[int, str]] = []
+    for sub in ast.walk(node):
+        if not isinstance(sub, ast.Call):
+            continue
+        func = sub.func
+        if not (isinstance(func, ast.Attribute) and func.attr in _SEND_METHODS):
+            continue
+        for arg in sub.args:
+            if not isinstance(arg, ast.Dict):
+                continue
+            for key, value in zip(arg.keys, arg.values):
+                if (isinstance(key, ast.Constant) and key.value == "type"
+                        and isinstance(value, ast.Constant)
+                        and isinstance(value.value, str)):
+                    sends.append((sub.lineno, value.value))
+    return sends
+
+
+def acknowledgement_before_routing(module_source: str) -> list[str]:
+    """Frame types the server sends the client BEFORE the routing work starts.
+
+    Two placements are read, because the shipped code has used both. The frame
+    may be sent inside the function that routes, above the routing call; or it
+    may be sent by a function that then calls the one that routes, which is
+    where the current tree puts it. Error frames are excluded by
+    :data:`_ERROR_MARKERS`.
+
+    :raises ShapeNotRecognised: when no routing site can be found at all.
+    """
+    sites = routing_call_sites(module_source)
+    if not sites:
+        raise ShapeNotRecognised(
+            "no call handing a turn to the router was found in this module, so "
+            "there is no routing work to order an acknowledgement against")
+
+    tree = ast.parse(module_source)
+    routing_functions = {name for name, _line in sites}
+    first_route_line = {}
+    for name, line in sites:
+        first_route_line[name] = min(line, first_route_line.get(name, line))
+
+    acknowledgements: list[str] = []
+    for fn in ast.walk(tree):
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+
+        cutoffs: list[int] = []
+        # (a) the acknowledgement sits above the routing call in the same function
+        if fn.name in routing_functions:
+            cutoffs.append(first_route_line[fn.name])
+        # (b) the acknowledgement sits above a call INTO the function that routes,
+        #     which is where the current tree puts it
+        calls_in = [
+            sub.lineno for sub in ast.walk(fn)
+            if isinstance(sub, ast.Call) and isinstance(sub.func, ast.Attribute)
+            and sub.func.attr in routing_functions
+            and isinstance(sub.func.value, ast.Name) and sub.func.value.id == "self"
+        ]
+        if calls_in:
+            cutoffs.append(min(calls_in))
+        if not cutoffs:
+            continue
+
+        cutoff = min(cutoffs)
+        for line, frame_type in _frame_sends(fn):
+            if line < cutoff:
+                acknowledgements.append(frame_type)
+
+    return sorted({t for t in acknowledgements
+                   if not any(m in t.lower() for m in _ERROR_MARKERS)})
+
+
+def client_dispatches(app_js: str, frame_type: str) -> bool:
+    """True when the shipped browser has a dispatch arm for *frame_type*.
+
+    An acknowledgement the client does not read is not an acknowledgement: the
+    server's frame would leave the browser's failsafe armed exactly as if it had
+    never been sent, so both halves are asserted rather than the server's alone.
+    """
+    return bool(re.search(r"case\s*['\"]" + re.escape(frame_type) + r"['\"]\s*:",
+                          app_js))
