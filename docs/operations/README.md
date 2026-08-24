@@ -18,7 +18,7 @@ The docs are numbered in topical order, not strict procedural order. A first-tim
 | [02](02-running-the-builder.md) | Running the builder | `scripts/build-intergenos.sh` flags, the 21-phase canonical order (plus the optional `publish` phase), targeted-rebuild invocations, graceful-halt mechanics |
 | [03](03-automating-signing.md) | Automating release signing | `scripts/sign-release.sh` workflow against the hardware token (GPG + PIV slot 9c) on the offline signing workstation |
 | [04](04-generating-squashfs.md) | Generating the live-ISO squashfs | `scripts/build-squashfs.sh` step-by-step flow, the mirror-only prune and archive exclusion, the four fail-closed pre-seal gates (binary presence, verify_paths, install-set parseability, file ownership), and the dm-verity hashtree emit |
-| [05](05-creating-iso.md) | Creating the bootable ISO | `scripts/build-iso.sh` six-phase assembly of the hybrid UEFI+BIOS ISO from signed inputs; the trust-gap closure for the squashfs |
+| [05](05-creating-iso.md) | Creating the bootable ISO | `scripts/build-iso.sh` six-phase assembly of the hybrid ISO9660+GPT image from signed inputs; the trust-gap closure for the squashfs |
 | [06](06-test-vm-and-evaluation.md) | Test VM with the ISO + evaluation | virt-install of an OVMF-Secure-Boot test VM; smoke harness invocation; journalctl grep patterns |
 | [07](07-golden-builder-snapshot.md) | Snapshotting a reference build VM | `virsh snapshot-create-as` flow with pre-snapshot validation; when to capture a new reference snapshot |
 | [08](08-adding-packages.md) | Adding a package to the build | `packages/<tier>/<name>/` layout, Rule 20 verify_paths authoring, builder reachability via static-list vs Python tier-driver |
@@ -28,7 +28,7 @@ The docs are numbered in topical order, not strict procedural order. A first-tim
 
 ## Conventions
 
-Every doc follows the same six-section structure:
+These docs follow a shared convention rather than a fixed template:
 
 1. **Goal** — what the procedure accomplishes
 2. **Prerequisites** — required state / credentials / access
@@ -36,6 +36,15 @@ Every doc follows the same six-section structure:
 4. **Validation** — how to confirm the step worked
 5. **Common failures + troubleshooting** — what goes wrong and how to recover
 6. **Cross-references** — links to related docs in this set and to canonical script source files
+
+It is a convention, not an invariant, and the difference matters if you are
+looking for a section by name. Topics 01, 04, 05 and 08 carry all six headings
+in that order. Topics 02, 03, 06, 07, 09 and 11 carry most of them and add or
+replace others where the subject needs it — 03 opens with a scope section, 07
+opens with what a golden builder is and is not, 11 is organised one section per
+gate. Topic 10 uses none of the six headings: it is written as a short sequence
+about a single invocation. Read the topic's own heading list rather than
+assuming this one.
 
 Code blocks show literal commands or file content. Inline code references files and paths. Tables enumerate per-symptom failure modes and their fixes. **Every command in these runbooks is verified against the current master tip** per Rule 21: aspirational content is forbidden. If a procedure has a gap (for example a missing helper script), the gap is called out explicitly in the doc itself.
 

@@ -2375,7 +2375,38 @@ def cmd_search(db, args):
 def cmd_info(db, args):
     pkg = db.get_installed(args.package)
     if not pkg:
-        emit_info(f"Package '{args.package}' is not installed")
+        # Not installed is not the same as nothing to say. The repository index
+        # this machine has already synced carries the version, tier, licence and
+        # description of every AVAILABLE package, and `pkm search` prints them
+        # from that same index in the same session. Refusing to read it here
+        # made `info` useless for the one question it is most often asked —
+        # "what is this package, before I install it?" — and made the worked
+        # example in the package-management guide false.
+        #
+        # The report below never implies the package is present: the first line
+        # says it is not installed, and only fields the index actually carries
+        # are printed. An index that is missing, unsynced or unreadable is not
+        # an error here; the answer degrades to the plain line it always was.
+        available = None
+        try:
+            available = RepoManager().get_package(args.package)
+        except Exception:  # noqa: BLE001 — an index fault must not break info
+            available = None
+        if not available:
+            emit_info(f"Package '{args.package}' is not installed")
+            return
+        title = f"{available['name']} {_vr_str(available.get('version', ''), available.get('release', 1))}"
+        rule = "=" * len(title)
+        print(f"  {rule}")
+        print(f"  {title}")
+        print(f"  {rule}")
+        print(f"  {'status':20s}: available, not installed")
+        for key in ["tier", "description", "license", "size", "sha256"]:
+            val = available.get(key)
+            if val:
+                print(f"  {key:20s}: {val}")
+        print(f"\n  Install it with: sudo pkm install {available['name']}")
+        print()
         return
 
     # PKM-A30: show the full version-release identity (a same-version mirror

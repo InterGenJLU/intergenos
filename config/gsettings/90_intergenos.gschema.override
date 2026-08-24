@@ -21,13 +21,21 @@ color-scheme='prefer-dark'
 gtk-theme='InterGenOS'
 icon-theme='InterGenOS'
 cursor-theme='Bibata-Modern-Classic'
-# Font defaults
-font-name='Inter 11'
+# Font defaults.
+# The family named here must be the family the font package actually ships.
+# font-inter ships the variable release of Inter, whose family name is
+# "Inter Variable"; a request for the bare name "Inter" matches no installed
+# family, and fontconfig answers an unmatched request by substituting its best
+# candidate and reporting success — measured 2026-08-24 on an installed system,
+# "Inter 11" loaded Noto Sans. Corrected to the shipped family name; the
+# preflight gate tests/preflight/test_configured_fonts_resolve_to_a_shipped_family.py
+# now fails the build if the two ever drift apart again.
+font-name='Inter Variable 11'
 monospace-font-name='JetBrains Mono 11'
-document-font-name='Inter 11'
+document-font-name='Inter Variable 11'
 
 [org.gnome.desktop.wm.preferences]
-titlebar-font='Inter Bold 11'
+titlebar-font='Inter Variable Bold 11'
 # button-layout canonical writer is 92_intergenos-desktop.gschema.override
 # (close-RIGHT, 'appmenu:minimize,maximize,close', matches intergenos-theme
 # metatheme + modern GNOME default). The close-LEFT entry that was here

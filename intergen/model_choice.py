@@ -169,8 +169,19 @@ class SetupOffer:
         """True when there is more than one rung to pick from."""
         return len(self.tiers) > 1
 
-    def to_status(self) -> dict:
-        """Compact dict for the daemon's Status surface and the Welcomer."""
+    def to_status(self, *, pins_path: Path | None = None) -> dict:
+        """Compact dict for the daemon's Status surface and the Welcomer.
+
+        ``download_bytes`` maps each offered tier to the total number of bytes
+        setup will fetch for it, projector included, read from the signed
+        models manifest. It is here so the first-run page can STATE that number
+        instead of carrying a constant: what is fetched depends on the rung, and
+        a constant was wrong on every rung. A tier the manifest does not
+        describe is simply absent from the map — the page then says nothing
+        about size for it, which is the honest answer.
+        """
+        sizes = tier_download_sizes(
+            **({"pins_path": pins_path} if pins_path is not None else {}))
         return {
             "tiers": [t.value for t in self.tiers],
             "advisory": self.advisory,
@@ -178,6 +189,8 @@ class SetupOffer:
             "gpu_driver": self.driver_state.driver,
             "nvidia_present": self.driver_state.nvidia_present,
             "proprietary_nvidia": self.driver_state.proprietary_nvidia,
+            "download_bytes": {t.value: sizes[t.value]["total_bytes"]
+                               for t in self.tiers if t.value in sizes},
         }
 
 
@@ -261,6 +274,58 @@ def build_offer(*, is_discrete: bool, vram_mb: int | None,
                                            vram_mb=vram_mb),
                       advisory=False, driver_state=state)
 
+
+
+# ── What each rung costs to download ──────────────────────────────────────────
+
+
+def tier_download_sizes(pins_path: Path | None = None) -> dict[int, dict[str, int]]:
+    """Per tier: the model bytes, the projector bytes, and their total.
+
+    Read from the signed models manifest, which is the record that decides what
+    setup actually fetches. The projector is counted because setup fetches it
+    too — leaving it out understated Tier 1 by about 0.6 GiB.
+
+    Fail-closed and quiet: a manifest that is missing, unreadable or malformed
+    yields an EMPTY map, and every caller then declines to state a size rather
+    than stating one it cannot support. A number shown to a person deciding
+    whether they have the bandwidth for something is not a place to guess.
+    """
+    if pins_path is None:
+        from intergen.model_manager import PINS_MANIFEST_PATH
+        pins_path = PINS_MANIFEST_PATH
+    try:
+        payload = json.loads(Path(pins_path).read_text(encoding="utf-8"))
+        entries = payload["entries"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return {}
+    sizes: dict[int, dict[str, int]] = {}
+    for entry in entries:
+        try:
+            tier = entry.get("tier")
+            if not tier:
+                continue
+            model = int(entry["size_bytes"])
+            projector = int(entry.get("mmproj_size_bytes") or 0)
+        except (AttributeError, TypeError, ValueError, KeyError):
+            continue
+        sizes[int(tier)] = {"model_bytes": model,
+                            "projector_bytes": projector,
+                            "total_bytes": model + projector}
+    return sizes
+
+
+def format_download_size(total_bytes: int) -> str:
+    """A download size in the units a person reads on their own connection.
+
+    Binary units, one decimal place below 10 GiB and none above, because the
+    difference between 1.8 and 2 GiB matters to somebody on a metered link and
+    the difference between 21 and 21.3 does not.
+    """
+    gib = total_bytes / (1024 ** 3)
+    if gib < 10:
+        return f"{gib:.1f} GB"
+    return f"{gib:.0f} GB"
 
 # ── Remembering what the user picked ──────────────────────────────────────────
 

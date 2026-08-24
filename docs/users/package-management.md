@@ -59,7 +59,13 @@ Checks the installed files of a package against the expected SHA-256 hashes reco
 ```bash
 pkm info valkey
 ```
-Displays detailed metadata about a package, including its version, description, license, install date, dependencies, and reverse dependencies (what else on your system depends on it).
+Displays detailed metadata about a package. For an installed package that is
+its version, description, licence, install date, dependencies and reverse
+dependencies (what else on your system depends on it). For a package that is
+available but not installed, `info` answers from the synced repository index —
+version, tier, description, licence, download size and checksum — and says
+plainly that it is not installed, so you can read what a package is before
+deciding to add it.
 
 ### Natural-Language Aliases
 

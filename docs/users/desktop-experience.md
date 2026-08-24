@@ -4,7 +4,7 @@ InterGenOS ships GNOME 49 on Wayland by default — a modern, fast, and privacy-
 
 ## 1. The Desktop Environment
 
-InterGenOS runs **GNOME 49** on the **Wayland** display protocol. The default visual experience is tuned with the first-party **InterGenOS** icon theme (default since 1.4; inherits Adwaita/hicolor for full application coverage), the **Bibata-Modern-Classic** cursor, and a system-wide prefer-dark color scheme. The **Papirus-Dark** and **Cybernetic Blue** icon themes ship as featured alternates — selectable via Settings → Appearance or the first-boot welcomer. System typography is **Inter** (clean geometric sans, used for UI + documents + titlebars) paired with **JetBrains Mono** (programming-ligature monospace, used for terminal + text editor + code surfaces). These choices reflect the InterGenOS visual language — clean, modern, and distinctly ours.
+InterGenOS runs **GNOME 49** on the **Wayland** display protocol. The default visual experience is tuned with the first-party **InterGenOS** icon theme (default since 1.4; inherits Adwaita/hicolor for full application coverage), the **Bibata-Modern-Classic** cursor, and a system-wide prefer-dark color scheme. The **Papirus-Dark** and **Cybernetic Blue** icon themes ship as featured alternates — selectable via Settings → Appearance or the first-boot welcomer. System typography is **Inter** (clean geometric sans, used for UI + documents + titlebars) paired with **JetBrains Mono** (programming-ligature monospace, used for terminal + text editor + code surfaces). Inter ships as its variable release, so the family name the desktop defaults ask for is `Inter Variable`; `fc-match 'Inter Variable'` on an installed system resolves it to `InterVariable.ttf`. These choices reflect the InterGenOS visual language — clean, modern, and distinctly ours.
 
 The Adwaita widget theme ships as the GTK4 baseline and is customized through a GSettings override file that applies at user-session start. This means the theme is consistent whether you are using core GNOME apps or third-party GTK4 applications installed through pkm.
 
@@ -17,17 +17,40 @@ The Adwaita widget theme ships as the GTK4 baseline and is customized through a 
 
 ### Keyboard Shortcuts
 
-| Shortcut | Action |
-|---|---|
-| `Super` | Open Activities overview |
-| `Super + Tab` | Switch between open applications |
-| `Super + \`` | Switch between windows of the same application |
-| `Ctrl + Alt + T` | Open GNOME Terminal |
-| `Super + L` | Lock screen |
-| `Super + Arrow keys` | Snap window to half-screen or quadrant |
-| `Super + Shift + Arrow` | Move window to adjacent monitor |
-| `Ctrl + Alt + Del` | Power off / restart dialog |
-| `Alt + F2`, then `r`, then `Enter` | Restart GNOME Shell (without logging out) |
+Every row below is a binding that is active on an installed R001.1 system.
+Each was read back with `gsettings get` rather than taken from the GNOME
+defaults, and you can check any of them the same way — the schema and key are
+given so the claim is verifiable rather than asserted.
+
+| Shortcut | Action | Where the binding lives |
+|---|---|---|
+| `Super` | Open Activities overview | `org.gnome.mutter overlay-key` |
+| `Super + A` | Show all applications | `org.gnome.shell.keybindings toggle-application-view` |
+| `Super + Tab` / `Alt + Tab` | Switch between open **applications** | `org.gnome.desktop.wm.keybindings switch-applications` |
+| `Super + backtick` / `Alt + backtick` | Switch between windows of the same application | `org.gnome.desktop.wm.keybindings switch-group` |
+| `Super + L` | Lock screen | `org.gnome.settings-daemon.plugins.media-keys screensaver` |
+| `Super + Left` / `Super + Right` | Tile window to the left or right half | `org.gnome.mutter.keybindings toggle-tiled-left` / `toggle-tiled-right` |
+| `Super + Up` | Maximize window | `org.gnome.desktop.wm.keybindings maximize` |
+| `Super + Down` | Unmaximize window | `org.gnome.desktop.wm.keybindings unmaximize` |
+| `Super + H` | Minimize window | `org.gnome.desktop.wm.keybindings minimize` |
+| `Super + Shift + Left/Right` | Move window to adjacent monitor | `org.gnome.desktop.wm.keybindings move-to-monitor-left` / `move-to-monitor-right` |
+| `Super + Page Up` / `Page Down` | Switch workspace | `org.gnome.desktop.wm.keybindings switch-to-workspace-left` / `switch-to-workspace-right` |
+| `Ctrl + Alt + Del` | Log out | `org.gnome.settings-daemon.plugins.media-keys logout` |
+| `Alt + F2` | Open the run-a-command prompt | `org.gnome.desktop.wm.keybindings panel-run-dialog` |
+
+**Not bound in R001.1.** These are worth knowing because other distributions
+bind them and their absence is otherwise silent:
+
+- `Ctrl + Alt + T` does not open a terminal — `custom-keybindings` is empty, and
+  GNOME has no built-in terminal key to inherit. Launch the terminal from the
+  overview or the dock.
+- `Super + D` does not show the desktop — `show-desktop` has no binding.
+- There are no corner or quadrant tiling bindings; `Super + Arrow` tiles to
+  halves and maximizes or unmaximizes, as listed above.
+- `Ctrl + Alt + Del` logs out. It does not open a power-off or restart dialog;
+  use the system menu at the top right for those.
+- `Alt + F2`, then `r` restarts GNOME Shell on X11 only. R001.1 runs Wayland,
+  where the shell cannot restart in place and the command is unavailable.
 
 ## 2. What's Installed by Default
 
@@ -53,14 +76,21 @@ System utilities are also included: disk usage analyzer, system monitor, screens
 
 The binary repository at [repo.intergenos.org](https://repo.intergenos.org) carries a curated selection of user-facing applications. Some of these are part of the default install; others are optional packages you add when you need them. The notes below mark which is which.
 
+Whether an application ships in the image is not an editorial choice made in
+this document: it is the `iso_include` field of the package's own recipe, which
+the build reads when it decides what goes into the squashfs. Each entry below
+names its package, and the preflight gate
+`tests/preflight/test_documented_application_labels_match_the_image.py`
+fails the build when a label here disagrees with that field.
+
 ### Audio and Video
 
-These are optional packages, installed on demand:
+These ship on the ISO and are installed by default:
 
-- **Audacity** — Multi-track audio editor
-- **Rhythmbox** — Music player with podcast support
-- **Transmission** — BitTorrent client
-- **Celluloid** — GTK4 frontend for mpv
+- **Audacity** (`audacity`) — Multi-track audio editor
+- **Rhythmbox** (`rhythmbox`) — Music player with podcast support
+- **Transmission** (`transmission`) — BitTorrent client
+- **Celluloid** (`celluloid`) — GTK4 frontend for mpv, also listed among the default applications above
 
 ### Development Tools
 
@@ -82,10 +112,13 @@ A set of modern command-line utilities ships by default in the base tier:
 - **ripgrep (rg)** — Recursive grep replacement
 - **fd** — `find` replacement
 
+These ship on the ISO and are installed by default:
+
+- **zoxide** (`zoxide`) — Smart `cd` command
+
 The following are optional, installed on demand:
 
-- **zoxide** — Smart `cd` command
-- **hyperfine** — Command-line benchmarking tool
+- **hyperfine** (`hyperfine`) — Command-line benchmarking tool
 
 ### Download-Helper Packages
 

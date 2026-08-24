@@ -1,8 +1,16 @@
 # Databases on InterGenOS
 
-Every major open-source database category is available to install with `pkm install`. Nothing is pre-installed in the desktop image, so you choose exactly what your workload needs.
+Every major open-source database category is available to install with `pkm install`. Apart from SQLite — which is part of the base system, because a great deal of desktop software embeds it — no database server is pre-installed, so you choose exactly what your workload needs.
 
-InterGenOS provides curated database packages across relational SQL, in-memory key-value cache, embedded key-value, time-series, and distributed key-value categories. The packages available in a given release are listed by `pkm search database` against the live package index.
+InterGenOS provides curated database packages across relational SQL, in-memory key-value cache, embedded key-value, time-series, and distributed key-value categories.
+
+`pkm search` matches text in a package's name and description, so `pkm search
+database` finds the packages that use that word and misses the ones that
+describe themselves as a key-value store — Valkey, Memcached, LevelDB, RocksDB
+and etcd among them. It is a text search, not a category listing. The tables in
+this guide name every database package the release carries; search for one by
+name (`pkm search valkey`) to see its version and tier, and `pkm info valkey`
+for its licence, size and checksum whether or not it is installed.
 
 ## 1. Quick Chooser
 
