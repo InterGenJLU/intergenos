@@ -77,7 +77,58 @@ _ROTATE_KEEP = 5
 
 # Process-wide monotonic sequence — a total replay order even for rows born in
 # the same millisecond (next() is atomic). Mirrors trace.py's _seq.
+#
+# N-02/N-03: created at import, this restarted at zero every time the daemon
+# started, and two runs writing the same file both wrote seq 0, 1, 2. A reader
+# ordering by seq then interleaved two runs into one plausible, wrong timeline.
+# The logger reseeds it above the highest number already in the file (see
+# GlassLogger._resume_sequence), so the order is total across restarts.
 _seq = itertools.count()
+
+# Identifies THIS process's rows. The reseed is the mechanism that keeps the
+# order total; this is what makes a FAILED reseed visible instead of silently
+# plausible — two rows sharing a sequence number can be told apart, and a reader
+# can see where one run stopped and the next began.
+_RUN_ID = secrets.token_hex(6)
+
+# How much of an existing glass file to read when resuming the counter. The
+# counter is monotonic within a run, so the largest number lives near the end,
+# and a bounded read means neither a very large file nor a partly corrupt one
+# can make startup slow or make it fail.
+_SEQ_SCAN_BYTES = 256 * 1024
+
+
+def _highest_seq_in(path: Path) -> int | None:
+    """The largest sequence number in the tail of an existing glass file.
+
+    None when the file is absent, empty, unreadable, or carries no parseable
+    sequence number — every one of which is a real state, and each is reported
+    to the reader in the ``glass/sequence_resumed`` row rather than guessed at.
+    """
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return None
+    if size == 0:
+        return None
+    highest: int | None = None
+    try:
+        with open(path, "rb") as f:
+            if size > _SEQ_SCAN_BYTES:
+                f.seek(size - _SEQ_SCAN_BYTES)
+                f.readline()  # discard the line this offset landed inside
+            for raw in f:
+                try:
+                    row = json.loads(raw)
+                except (ValueError, UnicodeDecodeError):
+                    continue  # a torn tail line must not stop the scan
+                seq = row.get("seq")
+                if isinstance(seq, int) and not isinstance(seq, bool):
+                    if highest is None or seq > highest:
+                        highest = seq
+    except OSError:
+        return None
+    return highest
 
 # Credential-shaped attribute keys whose VALUE must never be persisted. Matched
 # case-insensitively as a substring of the key; the value becomes an attested
@@ -304,6 +355,46 @@ class GlassLogger:
         self._lock = Lock()
         if self.enabled:
             self._setup_log_dir()
+            self._resume_sequence()
+
+    def _resume_sequence(self) -> None:
+        """Continue the sequence above what the file already holds (N-02/N-03).
+
+        Called once, at construction, before any row of this run is written and
+        before any other thread can reach the logger — get_glass() serializes
+        construction for exactly that reason.
+
+        The reseed is ATTESTED: a ``glass/sequence_resumed`` row says what the
+        counter continued from, or says plainly that there was nothing to
+        continue from. A restart is a real discontinuity in the record, and a
+        reader is owed the boundary rather than left to infer it from a jump.
+        """
+        global _seq
+        if self._log_file is None:
+            return
+        highest = _highest_seq_in(self._log_file)
+        if highest is not None:
+            _seq = itertools.count(highest + 1)
+        self._write_row({
+            "v": _SCHEMA_VERSION,
+            "turn_id": "glass-sequence",
+            "seq": next(_seq),
+            "ts": _now_ms() / 1000.0,
+            "t_rel_ms": None,
+            "run": _RUN_ID,
+            "iface": "daemon",
+            "phase": "glass",
+            "event": "sequence_resumed",
+            "detail": {
+                "resumed_from": highest,
+                "reason": (
+                    "continued above the highest sequence number already in "
+                    "this file" if highest is not None else
+                    "nothing to continue from: this file holds no readable "
+                    "sequence number"),
+            },
+            "dur_ms": None,
+        })
 
     def _setup_log_dir(self) -> None:
         # Mirrors metrics.EventLogger / trace.Tracer: a `--user` service under
@@ -370,6 +461,7 @@ class GlassLogger:
             "v": _SCHEMA_VERSION,
             "turn_id": turn_id or _current_turn_id.get() or "no-turn",
             "seq": next(_seq),
+            "run": _RUN_ID,
             "ts": now / 1000.0,
             "t_rel_ms": round(now - start, 3) if start is not None else None,
             "iface": iface or _current_iface.get() or "daemon",
@@ -378,10 +470,20 @@ class GlassLogger:
             "detail": _redact(detail or {}),
             "dur_ms": round(dur_ms, 3) if dur_ms is not None else None,
         }
+        self._write_row(record)
+
+    def _write_row(self, record: dict[str, Any]) -> None:
+        """Append one already-built row. The single place bytes reach the file,
+        so every row — an ordinary emission, the rotation marker, the sequence
+        resume — gets the same locking, the same rotation check and the same
+        file mode."""
+        if self._log_file is None:
+            return
         try:
             line = json.dumps(record, default=str) + "\n"
         except (TypeError, ValueError) as e:  # never let a bad payload break a turn
-            logger.error("glass serialize failed for %s/%s: %s", phase, event, e)
+            logger.error("glass serialize failed for %s/%s: %s",
+                         record.get("phase"), record.get("event"), e)
             return
         with self._lock:
             try:
@@ -420,7 +522,8 @@ class GlassLogger:
             self._create_log_file(base)
             marker = {
                 "v": _SCHEMA_VERSION, "turn_id": "glass-rotation",
-                "seq": next(_seq), "ts": _now_ms() / 1000.0, "t_rel_ms": None,
+                "seq": next(_seq), "run": _RUN_ID,
+                "ts": _now_ms() / 1000.0, "t_rel_ms": None,
                 "iface": "daemon", "phase": "glass", "event": "rotation",
                 "detail": {"rolled_prev_to": f"{base.name}.1",
                            "keep": _ROTATE_KEEP, "cap_bytes": _ROTATE_BYTES},
@@ -434,12 +537,20 @@ class GlassLogger:
 
 _glass: GlassLogger | None = None
 
+# Construction is serialized. Two threads reaching an unbuilt logger at once
+# would each construct one and each reseed the sequence counter, and the second
+# reseed would hand out numbers the first had already promised — the exact
+# collision the reseed exists to remove.
+_GLASS_INIT_LOCK = Lock()
+
 
 def get_glass() -> GlassLogger:
     """Process-wide GlassLogger singleton (constructed on first use)."""
     global _glass
     if _glass is None:
-        _glass = GlassLogger()
+        with _GLASS_INIT_LOCK:
+            if _glass is None:
+                _glass = GlassLogger()
     return _glass
 
 

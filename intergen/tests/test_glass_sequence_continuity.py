@@ -128,16 +128,25 @@ class SequenceSurvivesARestart(unittest.TestCase):
                          f"{runs}")
 
     def test_the_resume_is_recorded_not_silent(self) -> None:
-        """Attested, like every other gap in this record: the second process
-        says where it picked the counter up."""
+        """Attested, like every other gap in this record: each process says
+        where it picked the counter up, and the second one names the number the
+        first one actually stopped at.
+
+        One marker per run, not one per file: a restart is a real discontinuity
+        and the boundary is what a reader needs. (The red version of this test
+        expected a single marker across both runs, which would have left the
+        first run's boundary unrecorded.)"""
         self._child("first")
+        first_high = max(r["seq"] for r in _rows(self.tmp))
         self._child("second")
         resumed = [r for r in _rows(self.tmp)
                    if r.get("phase") == "glass"
                    and r.get("event") == "sequence_resumed"]
-        self.assertEqual(len(resumed), 1, _rows(self.tmp))
-        self.assertEqual(resumed[0]["detail"].get("resumed_from"), 2,
-                         resumed[0])
+        self.assertEqual(len(resumed), 2, _rows(self.tmp))
+        self.assertIsNone(resumed[0]["detail"].get("resumed_from"),
+                          resumed[0])
+        self.assertEqual(resumed[1]["detail"].get("resumed_from"), first_high,
+                         resumed[1])
 
     def test_a_first_run_on_an_empty_file_says_so(self) -> None:
         """The other branch of the same record: nothing to resume from is a
