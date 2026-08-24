@@ -45,8 +45,16 @@ if [ -z "$ESP_UUID" ]; then
 fi
 
 # Emit one menuentry per UKI found, sorted by descending modification time
-# so the freshest kernel lands as the first/default entry (matches the
-# kernel-install convention of "newest kernel = default" most users expect).
+# so the freshest kernel lands first (matches the kernel-install convention of
+# "newest kernel = default" most users expect).
+#
+# EVERY entry also carries a menuentry id, and the newest carries a FIXED one
+# (STABLE_ID below). Being first is not the same as being the default: the
+# stock header emits `set default="0"`, which is a POSITION, so any generator
+# that later emits an entry ahead of these takes the default without anything
+# changing here. /etc/default/grub pins the fixed id instead, which no ordering
+# can move. Older kernels get an id of their own so an operator or an automated
+# recovery step can select one by name rather than by counting rows.
 declare -A UKI_MTIME_MAP
 shopt -s nullglob
 for uki_path in "$ESP_UKI_DIR"/intergenos-*.efi; do
@@ -72,12 +80,22 @@ while [ ${#UKI_MTIME_MAP[@]} -gt 0 ]; do
     unset 'UKI_MTIME_MAP[$best_path]'
 done
 
+# The name /etc/default/grub pins. Exactly one entry may carry it: the newest.
+STABLE_ID=intergenos-uki
+
+first=1
 for uki_path in "${sorted_paths[@]}"; do
     uki_name="${uki_path##*/}"
     kver="${uki_name#intergenos-}"
     kver="${kver%.efi}"
+    if [ "$first" -eq 1 ]; then
+        entry_id="${STABLE_ID}"
+        first=0
+    else
+        entry_id="${STABLE_ID}-${kver}"
+    fi
     cat << ENTRY
-menuentry "InterGenOS ${kver} (UKI)" --class intergenos --class gnu-linux --class gnu --class os {
+menuentry "InterGenOS ${kver} (UKI)" --id ${entry_id} --class intergenos --class gnu-linux --class gnu --class os {
     insmod part_gpt
     insmod fat
     insmod chain

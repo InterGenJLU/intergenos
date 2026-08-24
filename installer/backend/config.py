@@ -792,14 +792,44 @@ def generate_grub_defaults(target, partitions, detect_other_oses=True):
     else:
         grub_theme_path = "/boot/grub/themes/intergenos/theme.txt"
         grub_bg_path = "/boot/grub/grub_background.png"
+    # THE DEFAULT IS A NAME, NOT A POSITION. GRUB_DEFAULT=0 selects whatever
+    # entry happens to be first, and the unified-kernel entry is first only
+    # because /etc/grub.d/06_uki sorts before 10_linux. Any generator that
+    # later emits an entry ahead of it would take the default silently, on a
+    # machine that boots correctly today. 06_uki gives its newest entry the
+    # fixed id below and this pins that id, which no ordering can move.
+    from .bootloader import STABLE_UKI_MENU_ID
+
+    # An encrypted install whose stock Linux menu entries survive
+    # (bootloader.apply_fde_menu_policy keeps them only when /boot carries an
+    # initramfs that can plausibly unlock) must also be TOLD what to unlock:
+    # those entries name the mapper device as the root filesystem and carry no
+    # way to open it. The unified-kernel path does not read this cmdline at
+    # all — its own embedded cmdline is written by generate_kernel_cmdline —
+    # so adding this affects only the fallback entries.
+    crypt_fragment = ""
+    if partitions.get("luks_enabled"):
+        luks_uuid = _get_uuid(partitions.get("root"))
+        if luks_uuid:
+            crypt_fragment = f" cryptdev=UUID={luks_uuid}"
+        else:
+            # No uuid to name. Emitting nothing is right: a cryptdev= pointing
+            # at a renamable kernel device path would be worse than none, and
+            # the entries are withheld anyway when the initramfs cannot unlock.
+            LOG.warning(
+                "Encrypted install: no filesystem uuid for %s, so the fallback "
+                "boot entries carry no cryptdev=. They cannot unlock the root "
+                "filesystem on their own.", partitions.get("root"),
+            )
+
     (etc_default / "grub").write_text(
         "# GRUB defaults for InterGenOS\n"
-        "GRUB_DEFAULT=0\n"
+        f"GRUB_DEFAULT={STABLE_UKI_MENU_ID}\n"
         "GRUB_TIMEOUT_STYLE=menu\n"
         "GRUB_TIMEOUT=10\n"
         'GRUB_DISTRIBUTOR="InterGenOS"\n'
         'GRUB_CMDLINE_LINUX_DEFAULT=""\n'
-        f'GRUB_CMDLINE_LINUX="{cmdline_tail}"\n'
+        f'GRUB_CMDLINE_LINUX="{cmdline_tail}{crypt_fragment}"\n'
         "GRUB_DISABLE_LINUX_PARTUUID=false\n"
         f"GRUB_DISABLE_OS_PROBER={os_prober_value}\n"
         f"GRUB_GFXMODE={gfx_chain}\n"

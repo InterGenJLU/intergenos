@@ -15,11 +15,35 @@ Inserted as PHASE_VERIFY before PHASE_PARTITION in the orchestrator. The flow:
        filename isn't in the manifest at all), invoke the warning_callback
        (frontend renders the warning text) followed by ack_callback (frontend
        collects the typed-phrase override).
-    4. ack_callback returns True only if the user typed
-       OVERRIDE_HASH_MISMATCH_<package_normalized> exactly. False = abort.
-    5. Every event (verify_started, override granted, abort, verify_completed)
+    4. Ask the OPPOSITE question: does every entry the manifest promises have an
+       archive that was actually checked? The entries with none are collected
+       and raised as ONE warning and ONE typed-phrase decision — see
+       "THE SECOND QUESTION" below.
+    5. ack_callback returns True only if the user typed the exact phrase for
+       that decision: OVERRIDE_HASH_MISMATCH_<package_normalized> for a
+       per-archive mismatch, OVERRIDE_MISSING_ARCHIVES_<count> for the short
+       media. False = abort.
+    6. Every event (verify_started, override granted, abort, verify_completed)
        is appended to a hash-chained JSONL audit log so silent post-install
        tampering of the log is detectable.
+
+THE SECOND QUESTION, and why it is one decision rather than many. Walking the
+archives that are PRESENT can only ever find a bad archive; it cannot find an
+absent one, because an entry with no file is never visited. One installed
+system's own record showed the consequence: 1145 manifest entries, 861 archives
+checked, verification reported successful, zero overrides — 284 promised
+archives never looked at and nothing in the record to tell a short install from
+a complete one. The manifest is a census rather than a wish list (the build
+emits it by hashing every archive in the chroot's own archive directory), so an
+entry without an archive means something that existed when the media was signed
+is not on the media now.
+
+That class is raised as a SINGLE warning naming every missing entry, and a
+single typed phrase carrying the COUNT. Per-archive prompting is right for a
+mismatch, where the user is judging one package they may have built themselves;
+it is useless for a short media, because no one types 284 phrases, and an
+override channel a person cannot use is the same as no override channel at all.
+The count is in the phrase so it cannot be typed without reading the warning.
 
 Frontend split — the warning text and ack collection are NOT done in this
 module. TUI passes input()-style callbacks; GUI passes GLib-marshaled
@@ -106,6 +130,74 @@ INTEGRITY_WARNING_TEMPLATE = """
 """
 
 
+#: Placed in the ``actual_sha256`` position of warning_callback when the
+#: subject is not a bad archive but an archive that is not there at all. There
+#: is no hash to report, and reporting an empty string or a row of zeroes would
+#: read as a hash.
+ARCHIVE_ABSENT = "<no archive on the install media>"
+
+#: The pseudo package name used for the short-media decision. It is not a
+#: package: it carries the COUNT so that one callback signature serves both
+#: decisions and both frontends can build the right phrase from the name alone,
+#: without either of them string-matching on their own.
+MISSING_ARCHIVES_KEY_PREFIX = "missing-archives:"
+
+#: Typed phrase for the short-media decision. The count is part of it
+#: deliberately — it cannot be typed without reading how many are missing.
+MISSING_ARCHIVES_OVERRIDE_FORMAT = "OVERRIDE_MISSING_ARCHIVES_{count}"
+
+#: How many missing entries the warning text lists before it summarises the
+#: rest. The audit log always records every one of them.
+MISSING_ARCHIVES_LISTED = 40
+
+
+MISSING_ARCHIVES_WARNING_TEMPLATE = """
+═════════════════════════════════════════════════════════════════════════
+  ⚠  Archives promised by the signed manifest are not on the install media
+═════════════════════════════════════════════════════════════════════════
+
+  Missing: {count} of the archives the signed manifest lists
+
+{package_list}
+
+  The cryptographically-signed manifest published with this InterGenOS
+  release lists these package archives, and they are not present on this
+  install media. This means one of:
+
+    • The install media is incomplete — it was written from a partial
+      source, or the write did not finish.
+    • The media was tampered with and archives were removed.
+    • The build that produced this media did not ship everything its
+      own manifest recorded.
+
+  Installing anyway gives you a system that is missing software the
+  release says it has. Nothing will warn you again: the missing pieces
+  are found later, by whoever needed them.
+
+  We strongly recommend that you do not proceed. Instead:
+
+    1. Re-write the install media from a trusted, complete source.
+    2. Email security@intergenstudios.com with this text and a
+       description of where you obtained the install media.
+    3. Wait for guidance before retrying.
+
+  This is your machine, however. If you know this media is a partial
+  build and you want it anyway, you may proceed at your own risk.
+
+  The full list of missing archives is recorded in:
+      /var/log/igos-integrity-override.log
+
+  To proceed despite the missing archives, type the following exactly
+  (case-sensitive):
+
+      {override_phrase}
+
+  To abort the install, type anything else (or press Ctrl+C).
+
+═════════════════════════════════════════════════════════════════════════
+"""
+
+
 # Per-mismatch typed-phrase format. The package_normalized component is
 # the package name with non-alphanumeric chars replaced by underscores
 # (e.g. "gtk+3" → "gtk_3"), which avoids shell-interpretation issues during
@@ -129,11 +221,22 @@ class VerifyResult:
     error:             non-None if signature verification or manifest parse
                        failed; in that case overrides_granted == 0 and
                        aborted_at is None (we never got far enough to ask).
+    manifest_entry_count: how many archives the signed manifest promises.
+    archives_checked:  how many archives were actually found and hashed.
+                       These two are reported together, always, because either
+                       one alone reads as a complete check.
+    missing_archives:  manifest entries with no archive on the media, sorted.
+                       Empty on a complete media. A frontend that shows only
+                       success/failure cannot tell a complete install from a
+                       short one; this is the field that lets it.
     """
     success: bool
     overrides_granted: int = 0
     aborted_at: Optional[str] = None
     error: Optional[str] = None
+    manifest_entry_count: int = 0
+    archives_checked: int = 0
+    missing_archives: list = field(default_factory=list)
 
 
 def normalize_package_name(name: str) -> str:
@@ -147,10 +250,71 @@ def normalize_package_name(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9]+", "_", name)
 
 
+def missing_archives_key(count: int) -> str:
+    """The pseudo package name for the short-media decision.
+
+    Passed to warning_callback and ack_callback in the package position so both
+    frontends keep one signature and one way to build the phrase.
+    """
+    return f"{MISSING_ARCHIVES_KEY_PREFIX}{count}"
+
+
+def missing_archives_count(package_name: str) -> Optional[int]:
+    """How many archives are missing, if *package_name* is the short-media key.
+
+    ``None`` for an ordinary package name. Returns ``None`` rather than raising
+    on a malformed count so a frontend rendering an unexpected key degrades to
+    the per-package path instead of crashing mid-install.
+    """
+    if not package_name.startswith(MISSING_ARCHIVES_KEY_PREFIX):
+        return None
+    try:
+        return int(package_name[len(MISSING_ARCHIVES_KEY_PREFIX):])
+    except ValueError:
+        return None
+
+
 def expected_override_phrase(package_name: str) -> str:
-    """The exact typed phrase the user must enter to override a given mismatch."""
+    """The exact typed phrase the user must enter to override a given decision.
+
+    Two decisions, two phrases: a per-archive mismatch names the package, and
+    the short-media decision names how many archives are missing.
+    """
+    count = missing_archives_count(package_name)
+    if count is not None:
+        return MISSING_ARCHIVES_OVERRIDE_FORMAT.format(count=count)
     return OVERRIDE_PHRASE_FORMAT.format(
         package_normalized=normalize_package_name(package_name)
+    )
+
+
+def render_integrity_warning(package_name: str, expected_sha256: str,
+                             actual_sha256: str) -> str:
+    """The warning text for one integrity decision, ready to display.
+
+    Both frontends call THIS rather than formatting a template themselves. When
+    they each did their own formatting, a second kind of warning could reach one
+    surface and not the other; there is now one place that decides which text a
+    given decision gets, and adding a third kind cannot miss a surface.
+    """
+    count = missing_archives_count(package_name)
+    if count is not None:
+        listed = [line for line in expected_sha256.splitlines() if line.strip()]
+        shown = listed[:MISSING_ARCHIVES_LISTED]
+        body = "\n".join(f"    {rel}" for rel in shown)
+        if len(listed) > len(shown):
+            body += (f"\n    ... and {len(listed) - len(shown)} more, all of "
+                     f"them listed in the log named below")
+        return MISSING_ARCHIVES_WARNING_TEMPLATE.format(
+            count=count,
+            package_list=body,
+            override_phrase=expected_override_phrase(package_name),
+        )
+    return INTEGRITY_WARNING_TEMPLATE.format(
+        package=package_name,
+        expected_sha256=expected_sha256,
+        actual_sha256=actual_sha256,
+        override_phrase=expected_override_phrase(package_name),
     )
 
 
@@ -432,6 +596,16 @@ def verify_archives(
     # 4. Walk archive_dir, sha + cross-reference each file.
     overrides = 0
     archives = sorted(p for p in archive_dir.rglob("*.igos.tar.gz") if p.is_file())
+    checked: set[str] = set()
+
+    def _counts(**extra):
+        """The two numbers that must always travel together, plus the caller's."""
+        base = {
+            "manifest_entry_count": len(manifest),
+            "archives_checked": len(checked),
+        }
+        base.update(extra)
+        return base
 
     for archive in archives:
         # Manifest paths are relative to archive_dir (e.g. "toolchain/glibc-2.40-1.igos.tar.gz").
@@ -440,6 +614,7 @@ def verify_archives(
         rel = archive.relative_to(archive_dir).as_posix()
         actual = sha256_file(archive)
         expected = manifest.get(rel)
+        checked.add(rel)
 
         if expected is not None and expected == actual:
             continue  # silent pass
@@ -467,31 +642,88 @@ def verify_archives(
         # User declined to override — abort.
         _audit_log_append(
             audit_log_path,
-            {
-                "event": "abort",
-                "package": rel,
-                "expected": expected_str,
-                "actual": actual,
-                "overrides_granted_before_abort": overrides,
-            },
+            _counts(
+                event="abort",
+                package=rel,
+                expected=expected_str,
+                actual=actual,
+                overrides_granted_before_abort=overrides,
+            ),
         )
         return VerifyResult(
             success=False,
             overrides_granted=overrides,
             aborted_at=rel,
+            manifest_entry_count=len(manifest),
+            archives_checked=len(checked),
+            missing_archives=sorted(set(manifest) - checked),
         )
 
-    # 5. All archives accounted for.
+    # 5. The second question: does every entry the manifest promises have an
+    #    archive that was actually checked? Walking the files that are PRESENT
+    #    cannot answer it — an entry with no file is never visited — so it is
+    #    asked here, once, against the whole manifest.
+    missing = sorted(set(manifest) - checked)
+
+    if missing:
+        key = missing_archives_key(len(missing))
+        # The package position carries the count; the expected position carries
+        # the entries themselves, one per line, which is what the frontend
+        # renders and what makes the decision informed rather than a number.
+        warning_callback(key, "\n".join(missing), ARCHIVE_ABSENT)
+        if not ack_callback(key):
+            _audit_log_append(
+                audit_log_path,
+                _counts(
+                    event="abort",
+                    package=key,
+                    reason="archives promised by the manifest are not on the "
+                           "install media",
+                    missing_archives=missing,
+                    manifest_entries_without_archive=len(missing),
+                    overrides_granted_before_abort=overrides,
+                ),
+            )
+            return VerifyResult(
+                success=False,
+                overrides_granted=overrides,
+                aborted_at=key,
+                manifest_entry_count=len(manifest),
+                archives_checked=len(checked),
+                missing_archives=missing,
+            )
+        overrides += 1
+        _audit_log_append(
+            audit_log_path,
+            _counts(
+                event="override",
+                package=key,
+                reason="archives promised by the manifest are not on the "
+                       "install media",
+                missing_archives=missing,
+                manifest_entries_without_archive=len(missing),
+            ),
+        )
+
+    # 6. Everything the manifest promised is accounted for, either by an archive
+    #    that was checked or by an override the user typed out in full.
     _audit_log_append(
         audit_log_path,
-        {
-            "event": "verify_completed",
-            "overrides_granted": overrides,
-            "archives_checked": len(archives),
-        },
+        _counts(
+            event="verify_completed",
+            overrides_granted=overrides,
+            manifest_entries_without_archive=len(missing),
+            expected_entries_missing=missing,
+        ),
     )
 
-    return VerifyResult(success=True, overrides_granted=overrides)
+    return VerifyResult(
+        success=True,
+        overrides_granted=overrides,
+        manifest_entry_count=len(manifest),
+        archives_checked=len(checked),
+        missing_archives=missing,
+    )
 
 
 def copy_audit_log_to_target(audit_log_path: Path, target: Path) -> None:

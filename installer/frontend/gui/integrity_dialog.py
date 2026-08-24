@@ -40,19 +40,21 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, Gtk  # noqa: E402
 
 from installer.backend.integrity import (
-    INTEGRITY_WARNING_TEMPLATE,
     expected_override_phrase,
+    render_integrity_warning,
 )
 
 
 def _build_warning_text(package_name, expected_sha256, actual_sha256):
-    """Fill the hard-coded warning template for display."""
-    return INTEGRITY_WARNING_TEMPLATE.format(
-        package=package_name,
-        expected_sha256=expected_sha256,
-        actual_sha256=actual_sha256,
-        override_phrase=expected_override_phrase(package_name),
-    )
+    """The warning text for display, chosen and filled in by the backend.
+
+    Both decisions the verifier can raise — a per-archive hash mismatch and a
+    media short of archives the manifest promised — come through this one call,
+    so a decision the backend learns to raise cannot reach the text frontend and
+    miss this one.
+    """
+    return render_integrity_warning(package_name, expected_sha256,
+                                    actual_sha256)
 
 
 def _make_paste_disabled_entry(expected_phrase, on_match_change):
