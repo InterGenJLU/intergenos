@@ -8,8 +8,8 @@ closes the SAME race for the user's first login: with no stored
 session's first background paint runs against unsettled state (measured on a
 triple-GPU install: solid-color desktop + mis-thrown windows, 233
 offscreen-framebuffer failures in the first login's journal, zero on every
-boot after a monitors.xml existed). users.seed_user_monitor_layout writes the
-synthesized single-primary layout to the target user's ~/.config/monitors.xml
+boot after a monitors.xml existed). users.seed_user_monitor_layout writes a layout
+enabling EVERY connected monitor to the target user's ~/.config/monitors.xml
 owned by that user (uid/gid from the TARGET's /etc/passwd — the created user
 does not exist in the host's), and skips-with-trace rather than failing the
 install when the live state is unreadable or the user cannot be resolved: a
@@ -82,13 +82,23 @@ class TestUserSeedWrite(unittest.TestCase):
             self.assertEqual(os.stat(seeded).st_mode & 0o777, 0o644)
             self.assertEqual(
                 os.stat(seeded.parent).st_mode & 0o777, 0o700)
-            # The layout is the SAME synthesis the greeter seed uses.
+            # The layout enables BOTH connected monitors. It used to be the
+            # same single-primary synthesis the greeter seed uses, and that
+            # assertion was this defect written down: it required the user's
+            # seed to switch off every monitor but one.
             root = ET.parse(seeded).getroot()
             lm = root.findall("./configuration/logicalmonitor")
-            self.assertEqual(len(lm), 1)
+            self.assertEqual(len(lm), 2)
             self.assertEqual(lm[0].findtext("primary"), "yes")
+            self.assertEqual(lm[0].findtext("x"), "0")
             spec = lm[0].find("./monitor/monitorspec")
             self.assertEqual(spec.findtext("connector"), "HDMI-1")
+            # The second follows it at the primary's logical width (3840 at
+            # scale 1.5), which is where the live session had it.
+            self.assertEqual(lm[1].findtext("x"), "2560")
+            self.assertEqual(
+                lm[1].findtext("./monitor/monitorspec/connector"), "eDP-1")
+            self.assertEqual(root.findall("./configuration/disabled"), [])
             # Ownership resolved from the TARGET passwd, both paths chowned.
             self.assertIn((seeded, 1234, 5678), chowned)
             self.assertIn((seeded.parent, 1234, 5678), chowned)

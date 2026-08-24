@@ -170,3 +170,97 @@ def synthesize_primary_only_layout(state):
     xml += ("  </configuration>\n"
             "</monitors>\n")
     return xml
+
+
+def synthesize_extended_layout(state):
+    """Render a monitors.xml enabling EVERY connected monitor, side by side.
+
+    WHY THIS EXISTS BESIDE THE SINGLE-PRIMARY ONE. Both layouts close the same
+    race — a stored configuration means the compositor has nothing to settle
+    while the first frame paints — but they answer different questions. The
+    greeter is a login prompt on one screen, so single-primary is right there.
+    The USER's session is the machine its owner plugged monitors into, and a
+    seed that lists those monitors under <disabled/> switches them off at the
+    moment the session starts: lit by the kernel through the whole boot scroll,
+    dark from the first frame of the desktop. Measured on an installed
+    three-head system on 2026-08-24.
+
+    The primary keeps its live mode and scale and sits at 0,0; every other
+    connected monitor follows it left to right at its own current mode and at
+    the scale its live logical monitor uses. Positions are RECOMPUTED rather
+    than copied from the live session: the installer session's arrangement may
+    be mutter's clone-all fallback, in which case the live positions overlap
+    and mutter would refuse the configuration. Laying them out end to end is
+    valid whatever the live session was doing.
+
+    A monitor with no current mode is skipped rather than guessed at, and if
+    that leaves nothing enabled the caller gets a DisplayStateError — an empty
+    configuration would be worse than no seed at all.
+    """
+    _serial, monitors, logical_monitors, _props = state
+    if not monitors:
+        raise DisplayStateError("no connected monitors in GetCurrentState")
+    if not logical_monitors:
+        raise DisplayStateError("no logical monitors in GetCurrentState")
+
+    primary = next((lm for lm in logical_monitors if lm[4]), logical_monitors[0])
+    primary_spec = list(primary[5][0]) if primary[5] else None
+    if primary_spec is None:
+        raise DisplayStateError("primary logical monitor lists no monitors")
+
+    # The scale each monitor's own live logical monitor uses; the primary's
+    # scale is the fallback for a monitor the live session had switched off.
+    scale_of = {}
+    for lm in logical_monitors:
+        for spec in lm[5]:
+            scale_of[tuple(spec)] = lm[2]
+    default_scale = primary[2]
+
+    ordered = [m for m in monitors if list(m[0]) == primary_spec]
+    ordered += [m for m in monitors if list(m[0]) != primary_spec]
+
+    entries = []
+    for monitor in ordered:
+        spec = list(monitor[0])
+        mode = next((md for md in monitor[1]
+                     if md[6].get("is-current") in (True, {"type": "b", "data": True})),
+                    None)
+        if mode is None:
+            continue
+        entries.append((spec, mode, scale_of.get(tuple(spec), default_scale)))
+    if not entries:
+        raise DisplayStateError(
+            "no connected monitor reported a current mode")
+
+    def _spec_xml(spec, indent):
+        c, v, p, s = (escape(str(x)) for x in spec)
+        i = " " * indent
+        return (f"{i}<monitorspec>\n"
+                f"{i}  <connector>{c}</connector>\n"
+                f"{i}  <vendor>{v}</vendor>\n"
+                f"{i}  <product>{p}</product>\n"
+                f"{i}  <serial>{s}</serial>\n"
+                f"{i}</monitorspec>\n")
+
+    xml = "<monitors version=\"2\">\n  <configuration>\n"
+    x = 0
+    for index, (spec, mode, scale) in enumerate(entries):
+        width, height, rate = mode[1], mode[2], mode[3]
+        xml += ("    <logicalmonitor>\n"
+                f"      <x>{x}</x>\n"
+                "      <y>0</y>\n"
+                f"      <scale>{_fmt_scale(scale)}</scale>\n")
+        if index == 0:
+            xml += "      <primary>yes</primary>\n"
+        xml += ("      <monitor>\n"
+                + _spec_xml(spec, 8) +
+                "        <mode>\n"
+                f"          <width>{int(width)}</width>\n"
+                f"          <height>{int(height)}</height>\n"
+                f"          <rate>{rate}</rate>\n"
+                "        </mode>\n"
+                "      </monitor>\n"
+                "    </logicalmonitor>\n")
+        x += round(int(width) / float(scale))
+    xml += "  </configuration>\n</monitors>\n"
+    return xml

@@ -678,7 +678,13 @@ def seed_user_monitor_layout(target, username):
     from . import display
     try:
         state = display.read_live_display_state()
-        xml = display.synthesize_primary_only_layout(state)
+        # EVERY connected monitor, not just the primary. The greeter keeps the
+        # single-primary layout above; the user's session gets the machine as
+        # its owner plugged it in. Seeding the greeter's layout here listed the
+        # other monitors under <disabled/>, which switched them off at the first
+        # frame of the desktop after the kernel had driven them through the
+        # whole boot scroll.
+        xml = display.synthesize_extended_layout(state)
     except display.DisplayStateError as exc:
         log.warning("user monitor seed skipped: %s", exc)
         trace.trace_event("user_monitor_seed_skipped",
