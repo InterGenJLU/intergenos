@@ -71,18 +71,32 @@ from __future__ import annotations
 import errno
 import json
 import os
+import re
 import secrets
 import stat
 
 __all__ = [
     "FORMAT_VERSION",
+    "MAX_REQUEST_BYTES",
+    "REQUEST_ID_RE",
+    "RUNTIME_ROOT",
     "RUNTIME_SUBDIR",
     "RequestError",
     "discard_request",
     "read_request",
     "request_dir",
+    "request_id_for",
+    "resolve_request",
     "write_request",
 ]
+
+#: Where per-user runtime directories live. Root DERIVES the request directory
+#: from this and the calling uid rather than reading $XDG_RUNTIME_DIR: root's
+#: own value of that variable is not the user's, and honouring a variable would
+#: put the caller back in control of where a privileged process reads from. A
+#: module constant so a test can pin it at a temporary root; nothing passes it
+#: in, so no caller can influence it.
+RUNTIME_ROOT = "/run/user"
 
 #: Subdirectory of the user's runtime directory that holds in-flight requests.
 RUNTIME_SUBDIR = "intergen"
@@ -95,10 +109,26 @@ REQUEST_PREFIX = "privileged-request-"
 #: misread request is a privileged action running on the wrong arguments.
 FORMAT_VERSION = 1
 
+#: The only shape a request identifier may take as it crosses the boundary.
+#: Lower-case hex of exactly the length write_request generates, anchored at
+#: both ends. Everything a path could smuggle — a separator, a parent
+#: reference, an absolute prefix, a newline, a NUL — fails to match, so those
+#: stop being cases to defend against and become cases that cannot be spelled.
+REQUEST_ID_RE = re.compile(r"\A[0-9a-f]{32}\Z")
+
 #: Bytes of randomness in a request filename. Enough that two concurrent
 #: dispatches never collide; the O_EXCL create is what makes a collision an
 #: error rather than an overwrite, so this only has to make collisions rare.
 _NAME_RANDOM_BYTES = 16
+
+#: The largest request the root side will read. A request carries a tool name,
+#: a small arguments object and a token; nothing legitimate comes close to this.
+#: The bound exists so the UNPRIVILEGED side cannot decide how much memory the
+#: PRIVILEGED side allocates — `fstat` has already returned the size by the time
+#: the check is made, so it costs one comparison. Added 2026-08-24: an
+#: independent review listed a size check among the facts the root side
+#: establishes about a caller-supplied file, and it was the one that was absent.
+MAX_REQUEST_BYTES = 64 * 1024
 
 #: The only mode a request file may carry when it is read.
 _REQUIRED_MODE = 0o600
@@ -271,6 +301,88 @@ def discard_request(path: str) -> None:
         raise
 
 
+def request_id_for(path: str) -> str:
+    """Return the opaque identifier for a request file this process wrote.
+
+    The identifier is what crosses the privilege boundary; the path does not.
+    """
+    name = os.path.basename(path)
+    if not name.startswith(REQUEST_PREFIX):
+        raise RequestError(f"{path} is not a privileged request file")
+    request_id = name[len(REQUEST_PREFIX):]
+    if not REQUEST_ID_RE.match(request_id):
+        raise RequestError(
+            f"{path} does not carry a well-formed request identifier"
+        )
+    return request_id
+
+
+def resolve_request(request_id: str, expected_uid: int) -> str:
+    """Build the request path root-side from an identifier. Runs as root.
+
+    WHY ROOT BUILDS IT. Everything read_request checks about the FILE is still
+    checked, and those checks are what stop a planted or borrowed file being
+    believed. This function removes the question one level earlier: the
+    unprivileged side no longer names a path at all, so there is no traversal,
+    no absolute path, no symlinked parent directory and no NUL to reason
+    about — only an identifier that either is thirty-two hex characters or is
+    refused.
+
+    The DIRECTORY is verified as well as the name, because root is trusting it:
+    it must be a real directory (not a symlink to one), owned by the calling
+    user, and mode 0700. A group- or world-writable request directory would let
+    another account place a file that passes every check read_request makes,
+    since those checks describe the file and this one describes who could have
+    put it there.
+
+    Args:
+        request_id: the identifier handed across the boundary.
+        expected_uid: the uid pkexec reports for the calling user.
+
+    Returns:
+        The absolute path of the request file. Its CONTENTS are still nothing
+        until read_request has validated them.
+
+    Raises:
+        RequestError: the identifier is malformed, or the directory it would
+            resolve under cannot be trusted.
+    """
+    if not isinstance(request_id, str) or not REQUEST_ID_RE.match(request_id):
+        raise RequestError(
+            f"privileged request identifier {request_id!r} is not the expected "
+            f"shape; refusing to turn it into a path"
+        )
+
+    directory = os.path.join(
+        RUNTIME_ROOT, str(expected_uid), RUNTIME_SUBDIR,
+    )
+    try:
+        info = os.stat(directory, follow_symlinks=False)
+    except OSError as exc:
+        raise RequestError(
+            f"cannot examine the privileged-request directory {directory}: "
+            f"{exc}"
+        ) from exc
+    if not stat.S_ISDIR(info.st_mode):
+        raise RequestError(
+            f"the privileged-request directory {directory} is not a directory "
+            f"(a symbolic link is refused rather than followed)"
+        )
+    if info.st_uid != expected_uid:
+        raise RequestError(
+            f"the privileged-request directory {directory} is owned by uid "
+            f"{info.st_uid}, not the calling user {expected_uid}; refusing"
+        )
+    if stat.S_IMODE(info.st_mode) != _DIR_MODE:
+        raise RequestError(
+            f"the privileged-request directory {directory} is mode "
+            f"{stat.S_IMODE(info.st_mode):o}, not {_DIR_MODE:o}; another "
+            f"account could place a request there; refusing"
+        )
+
+    return os.path.join(directory, f"{REQUEST_PREFIX}{request_id}")
+
+
 def read_request(path: str, *, expected_uid: int | None = None
                  ) -> tuple[str, dict, str]:
     """Read and remove a privileged request. Runs as root, inside the runner.
@@ -286,7 +398,9 @@ def read_request(path: str, *, expected_uid: int | None = None
       * mode exactly 0600, because a request readable by anyone else has
         already published the token it carries;
       * exactly one link, because a second name for the same inode means
-        someone can still read the contents after we unlink our name.
+        someone can still read the contents after we unlink our name;
+      * no larger than MAX_REQUEST_BYTES, so the unprivileged side does not
+        choose how much memory the privileged side allocates.
 
     Args:
         path: the request file, as handed to the runner on its command line.
@@ -337,6 +451,16 @@ def read_request(path: str, *, expected_uid: int | None = None
             raise RequestError(
                 f"privileged request {path} has {info.st_nlink} links; another "
                 f"name for the same file would outlive our removal; refusing"
+            )
+        if info.st_size > MAX_REQUEST_BYTES:
+            # The file is ours — owner, mode and link count are already
+            # established — so this is a CONTENT refusal and the file goes,
+            # rather than being left on disk carrying an approval token.
+            discard_request(path)
+            raise RequestError(
+                f"privileged request {path} is {info.st_size} bytes, which is "
+                f"too large (the limit is {MAX_REQUEST_BYTES}); refusing rather "
+                f"than reading a privileged request of unbounded size"
             )
 
         try:
