@@ -47,6 +47,40 @@ log() {
     echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') $msg" >> "$LOGFILE" 2>/dev/null || true
 }
 
+# Has the system this hook is populating ever booted? The predicate is
+# systemd's own (machine-id(5), FIRST BOOT SEMANTICS): the marker absent, or
+# holding the literal string "uninitialized", means no boot has happened yet.
+# An EMPTY file is explicitly NOT a first boot, and that is the case that is
+# easy to get backwards. Same resolution, and the same root scoping, as the
+# systemd recipe's post_install (packages/core/systemd/build.sh) — pkm runs
+# lifecycle hooks on the HOST and passes the target root in PKM_PACKAGE_ROOT,
+# so a predicate about that root is read under that root.
+#
+# WHY THIS HOOK NEEDS IT. Two conditions below are EXPECTED SEQUENCING during
+# an install and a REAL FAILURE on a running machine, and until this predicate
+# existed the messages could not tell the operator which one had happened:
+#   - ukify absent. It is built by the desktop-tier systemd-pass2 recipe
+#     (-D ukify=enabled), not by the core-tier systemd recipe
+#     (-D ukify=disabled), so the core-tier linux-kernel package extracts and
+#     fires this hook before any UKI builder is on the target.
+#   - the ESP GRUB menu absent. The installer composes it AFTER the package
+#     hooks run, from the installed kernel, so there is nothing to repoint yet.
+# Both were measured on the R001.1 install of 2026-08-22, in the installed
+# system's own /var/log/intergen-kernel-postinstall.log: the fire at 02:08:58
+# found no ukify, the fire at 02:28:09 found it and built and signed the UKI,
+# and the menu update at 02:28:09 failed because the menu did not exist yet.
+first_install_ordering() {
+    local root="${PKM_PACKAGE_ROOT:-/}"
+    local marker="${root%/}/etc/machine-id"
+    if [ ! -e "$marker" ]; then
+        return 0
+    fi
+    if [ "$(cat "$marker" 2>/dev/null)" = "uninitialized" ]; then
+        return 0
+    fi
+    return 1
+}
+
 # Identify the newly-installed kernel — pick the most-recently-modified
 # /boot/vmlinuz-*-igos* image. Forge install + pkm install land vmlinuz at
 # /boot/vmlinuz-<version>-igos-<release> per the package's do_install convention
@@ -167,11 +201,20 @@ if [ -f /etc/crypttab ] && grep -qE "^[^#]" /etc/crypttab 2>/dev/null; then
     fi
 fi
 
-# Required tool: ukify (ships with systemd; systemd-pass2 has -D ukify=enabled).
-# If absent, the system is on the pre-D-005 grub-loads-vmlinuz path (which
-# D-005 explicitly preserves as recovery-fallback per directive). Bail clean.
+# Required tool: ukify. It is built by the desktop-tier systemd-pass2 recipe
+# (-D ukify=enabled); the core-tier systemd recipe builds without it
+# (-D ukify=disabled). Absence therefore means one of two different things,
+# and the two get different messages — the message this replaced asserted that
+# the install ships no UKI builder at all and that the grub-loads-vmlinuz
+# entry is this host's canonical boot path, and neither is true. The signed
+# UKI is the canonical path; that entry is the recovery fallback D-005
+# preserves. Either way this is never fatal to the kernel install.
 if ! command -v ukify >/dev/null 2>&1; then
-    log "ukify not on PATH — install ships systemd without UKI builder; grub-loads-vmlinuz path remains canonical for this host. Skipping UKI generation."
+    if first_install_ordering; then
+        log "ukify not yet deployed (first-install ordering) — skipping UKI generation; it is shipped by the desktop-tier systemd-pass2 package, which extracts after this core-tier one, and this hook fires again with the builder present later in the same install."
+    else
+        log "WARNING: ukify absent on a system that has already booted — NO UKI was built or signed for $NEW_KVER, so the ESP still holds the previous release's UKI and the next boot will run the previous kernel. The signed UKI is this system's canonical boot path; the grub-loads-vmlinuz entry is the recovery fallback only. Fix: install the package that provides ukify (systemd-pass2), then re-run this hook with 'sudo pkm reinstall linux-kernel'."
+    fi
     exit 0
 fi
 
@@ -322,7 +365,21 @@ if [ -x "$MENU_UPDATER" ]; then
     if "$MENU_UPDATER" "$NEW_KVER" 2>&1 | tee -a "$LOGFILE" >&2; then
         log "boot menu updated to $NEW_KVER"
     else
-        log "WARNING: boot-menu update FAILED — the GRUB default entry may still chainload a PREVIOUS kernel whose modules were just removed; the next boot can drop to emergency mode. Manual fix: point every kernel-release token in /boot/efi/EFI/intergenos/grub.cfg at $NEW_KVER (sudo $MENU_UPDATER $NEW_KVER)."
+        # The menu path is RESOLVED BY THE UPDATER and never spelled here.
+        # This message used to print a lowercase /boot/efi/EFI/intergenos/
+        # grub.cfg — a second copy of the path that had drifted from the
+        # updater's, and that exists on no installed system, so the manual fix
+        # it offered could not work. The updater already resolves the
+        # installer's mixed-case /boot/efi/EFI/InterGenOS/grub.cfg and
+        # discovers a single menu elsewhere under the ESP; asking it is the
+        # only way this message stays true when that resolution changes.
+        MENU_PATH=$("$MENU_UPDATER" --print-menu-path 2>/dev/null)
+        [ -n "$MENU_PATH" ] || MENU_PATH="the ESP GRUB menu"
+        if first_install_ordering; then
+            log "boot menu not updated to $NEW_KVER — the updater's own reason is on the line above. This system has not booted yet, and on an install the boot menu at $MENU_PATH is composed by the installer AFTER the package hooks run, from the installed kernel, so a menu that is not there yet is the expected order and nothing is lost. To check it afterwards: sudo $MENU_UPDATER $NEW_KVER"
+        else
+            log "WARNING: boot-menu update FAILED — the GRUB default entry may still chainload a PREVIOUS kernel whose modules were just removed; the next boot can drop to emergency mode. Manual fix: point every kernel-release token in $MENU_PATH at $NEW_KVER (sudo $MENU_UPDATER $NEW_KVER)."
+        fi
     fi
 else
     log "WARNING: $MENU_UPDATER absent — boot menu NOT updated; the GRUB default entry may still chainload a previous kernel (see the 2026-07-24 emergency-mode incident class)."

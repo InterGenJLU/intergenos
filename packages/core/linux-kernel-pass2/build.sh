@@ -159,8 +159,11 @@ do_install() {
 
     install -vm755 -d "${DESTDIR}/boot"
     cp -v arch/x86/boot/bzImage "${DESTDIR}/boot/vmlinuz-${KVER}"
-    cp -v System.map "${DESTDIR}/boot/System.map-6.18.10"
-    cp -v .config "${DESTDIR}/boot/config-6.18.10"
+    # Named from ${KVER}, matching pass 1 and the "both passes stage the
+    # identical /boot/vmlinuz-<KVER>" contract stated above — these two lines
+    # were the exception to it, carrying a literal version with no release.
+    cp -v System.map "${DESTDIR}/boot/System.map-${KVER}"
+    cp -v .config "${DESTDIR}/boot/config-${KVER}"
 
     # Release-stamped LOCALVERSION (-igos-<release>) makes modules install to
     # /lib/modules/<ver>-igos-<release>/ — depmod must match that KERNELRELEASE,
