@@ -152,14 +152,77 @@ if [ -z "$GPG_FP" ]; then
     exit 1
 fi
 
-COUNT=$(ls "$ARCHIVE_DIR"/*.igos.tar.gz 2>/dev/null | wc -l)
+# MEASURED 2026-08-24: the previous form was
+#   COUNT=$(ls "$ARCHIVE_DIR"/*.igos.tar.gz 2>/dev/null | wc -l)
+# and under `set -e -o pipefail` a directory with no archives made `ls` fail,
+# which failed the pipeline, which exited this script with code 2 having
+# printed NOTHING AT ALL — not the banner, not the archive dir, not a reason.
+# A publisher that dies silently on its most ordinary misconfiguration is the
+# failure mode this project exists to remove. `find` reports an empty directory
+# as zero rather than as an error, so the script reaches the check below and
+# says what is wrong.
+COUNT=$(find "$ARCHIVE_DIR" -maxdepth 1 -type f -name '*.igos.tar.gz' | wc -l)
 
 echo "=== InterGenOS Repository Publish ==="
 echo "Archive dir: $ARCHIVE_DIR"
 echo "Packages:    $COUNT .igos.tar.gz files"
 echo "GPG key:     $GPG_KEY ($GPG_FP)"
 echo "Remote:      $REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH"
+
+# Publishing nothing is not publishing. An empty archive directory means the
+# build did not land where this script was told to look, and continuing would
+# regenerate an index over zero packages and offer to sign it.
+if [ "$COUNT" -eq 0 ]; then
+    echo "ERROR: no .igos.tar.gz archives found in $ARCHIVE_DIR." >&2
+    echo "  There is nothing to publish. Point --archive-dir at the build's" >&2
+    echo "  archive directory, or build the packages first." >&2
+    exit 1
+fi
 echo ""
+
+# Release-validation gate (fail-closed, no bypass): a signing publish is a
+# RELEASE reaching users, and a release is not published until the
+# installed-system gate tier has been run green against this candidate on a
+# real installed machine. R001.1 reached users with its composition properties
+# broken and every unit test green, because nothing required that tier to have
+# run. A missing record is NOT VALIDATED — never validated by absence.
+#
+# --dry-run and --skip-sign are exempt for the same reason they are exempt from
+# the corpus gate below: neither publishes new signed bytes to users.
+if [ "$SKIP_SIGN" != true ] && [ "$DRY_RUN" != true ]; then
+    RELVAL_REPO="${IGOS_REPO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+    RELVAL_SCRIPT="$RELVAL_REPO/scripts/check-release-validation.py"
+    RELVAL_RECIPE="$RELVAL_REPO/packages/ai/intergen/package.yml"
+    echo "Running release-validation gate..."
+    if [ ! -f "$RELVAL_SCRIPT" ]; then
+        echo "ERROR: $RELVAL_SCRIPT is absent; the release-validation gate cannot run." >&2
+        echo "  A publish that skipped it is indistinguishable from one that passed it." >&2
+        exit 1
+    fi
+    if [ -z "${RELEASE_VALIDATION_RECORD:-}" ]; then
+        echo "ERROR: RELEASE_VALIDATION_RECORD is not set." >&2
+        echo "  This release candidate has no installed-system gate run recorded" >&2
+        echo "  against it. Produce one on a real installed machine with" >&2
+        echo "  scripts/run-installed-gates.py and point RELEASE_VALIDATION_RECORD" >&2
+        echo "  at the record directory. A missing record is NOT VALIDATED." >&2
+        exit 1
+    fi
+    RELVAL_RELEASE=$(sed -n 's/^release:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$RELVAL_RECIPE" | head -1)
+    RELVAL_HASH=$(sed -n 's/^content_hash:[[:space:]]*\([0-9a-f][0-9a-f]*\).*/\1/p' "$RELVAL_RECIPE" | head -1)
+    if [ -z "$RELVAL_RELEASE" ] || [ -z "$RELVAL_HASH" ]; then
+        echo "ERROR: could not read the candidate identity from $RELVAL_RECIPE." >&2
+        echo "  Without a candidate identity a record cannot be matched to anything." >&2
+        exit 1
+    fi
+    if ! python3 "$RELVAL_SCRIPT" --record "$RELEASE_VALIDATION_RECORD" \
+            --candidate-release "$RELVAL_RELEASE" \
+            --candidate-content-hash "$RELVAL_HASH"; then
+        echo "ERROR: release-validation gate refused (see above)." >&2
+        echo "  Refusing to publish an unvalidated release to the mirror." >&2
+        exit 1
+    fi
+    echo "Release-validation gate passed."
+fi
 
 # Preflight checks — fail-fast before expensive operations
 echo "[preflight] Checking SSH connectivity..."
