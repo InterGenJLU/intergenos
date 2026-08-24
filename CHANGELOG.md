@@ -209,7 +209,14 @@ landed is in the repository README, not here.
   rewording, so nothing was removed and the reply claimed no such memory
   existed. The subject is now matched in the forms the store can have written,
   the reply states how many facts were removed, and the turn record carries a
-  row for the forget.
+  row for the forget. The running assistant's per-conversation relevance
+  caches drop the forgotten fact as well, in every live conversation.
+- **Three installed-system gates decide from the shape of the installed code,
+  not from matching text.** The privilege-boundary gate reads how the setuid
+  helper is launched, the start-up embedding gate reads what the embedding
+  call spans, and the restart-persistence gate counts index writes only inside
+  the functions that build the index; a shape the reader cannot classify fails
+  loudly instead of passing.
 - **The affected recipes now carry several installed-system corrections.** The
   fcron package stages the ownership and PAM configuration `fcrontab` needs for
   an ordinary user; the kernel recipes give images, maps and configuration
