@@ -304,6 +304,14 @@ GDMHIDPI
     # the component sources that justify the two keys it sets.
     install -m644 "${assets}/dconf/db/local.d/02-intergenos-shell-effects" \
         "${DESTDIR}/etc/dconf/db/local.d/02-intergenos-shell-effects"
+    # Keyboard-shortcut defaults. Ctrl+Alt+T opens the shipped terminal. This
+    # is a dconf fragment rather than a gschema override because a custom
+    # keybinding's per-binding schema is RELOCATABLE — it has no fixed path, so
+    # an override cannot set it. The companion show-desktop binding IS in a
+    # fixed-path schema and lives in the 92 gschema override. The file itself
+    # carries that argument and the measurement behind it.
+    install -m644 "${assets}/dconf/db/local.d/03-intergenos-keybindings" \
+        "${DESTDIR}/etc/dconf/db/local.d/03-intergenos-keybindings"
     # PI-3: lock folder-children so the gnome-shell first-login user-db seed
     # (['System','Utilities','YaST','Pardus']) cannot overwrite our system
     # default — without this lock the "InterGenOS" folder never appears

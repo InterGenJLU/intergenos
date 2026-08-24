@@ -13,6 +13,21 @@ show-battery-percentage=true
 [org.gnome.desktop.wm.preferences]
 button-layout='appmenu:minimize,maximize,close'
 
+[org.gnome.desktop.wm.keybindings]
+# Show the desktop on Super+D. GNOME leaves show-desktop unbound in its own
+# defaults, so on a stock desktop the combination does nothing — measured on an
+# installed R001.1 system on 2026-08-24, while the user documentation and the
+# first-run page both told the reader it showed the desktop. Decided
+# 2026-08-24: bind it rather than document its absence.
+#
+# This one belongs in a gschema override and its companion does not:
+# org.gnome.desktop.wm.keybindings has a FIXED path, so an override can set it.
+# The Ctrl+Alt+T terminal binding uses a relocatable per-binding schema with no
+# fixed path, which an override cannot reach at all, and is shipped through the
+# system dconf db instead — see
+# packages/core/intergenos-default-settings/assets/dconf/db/local.d/03-intergenos-keybindings.
+show-desktop=['<Super>d']
+
 [org.gnome.desktop.peripherals.touchpad]
 tap-to-click=true
 natural-scroll=true

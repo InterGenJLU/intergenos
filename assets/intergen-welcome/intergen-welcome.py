@@ -1959,6 +1959,7 @@ def build_shortcuts_page():
         ('Super + A', 'All applications'),
         ('Alt + Tab', 'Switch applications'),
         ('Super + backtick', 'Switch windows of one app'),
+        ('Ctrl + Alt + T', 'Open a terminal'),
         ('Super + L', 'Lock screen'),
     ]
 
@@ -1967,6 +1968,7 @@ def build_shortcuts_page():
         ('Super + Up', 'Maximize window'),
         ('Super + Down', 'Unmaximize window'),
         ('Super + H', 'Minimize window'),
+        ('Super + D', 'Show the desktop'),
         ('Super + Page Up/Down', 'Switch workspace'),
     ]
 
