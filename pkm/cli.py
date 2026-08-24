@@ -7,6 +7,7 @@ import contextlib
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
 try:
@@ -60,6 +61,85 @@ except ImportError:
 # concurrent mutator gets immediate failure with a hint, not a silent wait
 # (security-aligned posture: prefer fail-loud over queue-and-hope).
 PKM_LOCK_PATH = Path("/var/lock/pkm.lock")
+
+# How long a wait runs before it gives up and refuses. Ten minutes is longer than
+# any single pkm transaction observed on this fleet and short enough that a
+# forgotten terminal does not sit there for an afternoon.
+PKM_LOCK_WAIT_TIMEOUT_DEFAULT = 600
+
+# How often a wait says what it is waiting for. Silence while waiting is
+# indistinguishable from a hang.
+PKM_LOCK_WAIT_REPORT_EVERY = 5
+
+
+def resolve_lock_path():
+    """Where the mutation lock lives for THIS invocation.
+
+    /var/lock/pkm.lock is the answer on an installed system and the default here.
+    IGOS_PKM_LOCK overrides it, for the same reason IGOS_PKM_DB overrides the
+    database path: without an override, driving two concurrent mutations against
+    a scratch prefix still contends on the MACHINE-WIDE lock, so a test of the
+    serialization would take a real system lock on whatever machine ran it. The
+    override is read at each call rather than captured at import, because a test
+    sets it after this module is already imported.
+    """
+    override = os.environ.get("IGOS_PKM_LOCK")
+    return Path(override) if override else PKM_LOCK_PATH
+
+
+def _flock_holder_pids(lock_path):
+    """The pids holding an flock on `lock_path`, read from /proc/locks.
+
+    Named rather than counted: a person told to wait deserves to know what they
+    are waiting for. /proc/locks is the kernel's own record, so this reports what
+    actually holds the lock instead of guessing from process names — and unlike
+    `fuser` or `lsof` it needs no external tool present on the system. Returns an
+    empty list when the file cannot be read or the lock is gone, and the caller
+    treats that as "unknown holder" rather than "no holder".
+    """
+    try:
+        st = os.stat(str(lock_path))
+    except OSError:
+        return []
+    want_inode = st.st_ino
+    major, minor = os.major(st.st_dev), os.minor(st.st_dev)
+    pids = []
+    try:
+        with open("/proc/locks", "r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                parts = line.split()
+                # 1: FLOCK  ADVISORY  WRITE 12345 fd:00:1234567 0 EOF
+                if len(parts) < 6 or parts[1] != "FLOCK":
+                    continue
+                where = parts[5]
+                bits = where.split(":")
+                if len(bits) != 3:
+                    continue
+                try:
+                    if (int(bits[0], 16) != major or int(bits[1], 16) != minor
+                            or int(bits[2]) != want_inode):
+                        continue
+                    pids.append(int(parts[4]))
+                except ValueError:
+                    continue
+    except OSError:
+        return []
+    return pids
+
+
+def _describe_holders(lock_path):
+    """A short human phrase naming who holds the lock, or None if unknown."""
+    pids = _flock_holder_pids(lock_path)
+    if not pids:
+        return None
+    described = []
+    for pid in pids:
+        try:
+            with open(f"/proc/{pid}/comm", "r", encoding="utf-8") as fh:
+                described.append(f"pid {pid} ({fh.read().strip()})")
+        except OSError:
+            described.append(f"pid {pid}")
+    return ", ".join(described)
 PKM_MUTATING_COMMANDS = frozenset({
     "install", "install-helper", "remove", "reinstall", "update", "upgrade", "import",
     "restart-services",
@@ -139,11 +219,29 @@ def _is_dry_run_invocation(args):
 
 
 @contextlib.contextmanager
-def _pkm_mutation_lock(command, dry_run=False):
-    """Acquire fcntl.flock on PKM_LOCK_PATH for the duration of a mutating
-    subcommand. No-op for read-only commands or platforms without fcntl
-    (e.g. test runs on Windows where fcntl is unavailable; production pkm
-    only runs on Linux). Raises sys.exit(1) on lock-contention.
+def _pkm_mutation_lock(command, dry_run=False, wait=None, wait_timeout=None):
+    """Hold the mutation lock for the whole of a mutating subcommand.
+
+    An fcntl.flock on resolve_lock_path(), taken before the handler runs and
+    released after it returns. The kernel arbitrates it, so there is no
+    check-then-act window, and a process that dies loses the lock by
+    construction rather than by cleanup.
+
+    No-op for read-only commands, for a dry-run preview, and on a platform
+    without fcntl (a test run on Windows; production pkm runs only on Linux).
+
+    ON CONTENTION, `wait` decides, and None means "decide from the caller":
+    True at a terminal, False otherwise. A person who has just been told another
+    operation is in progress almost always wants to wait for it; a script or a
+    systemd unit almost never does, and a unit that hangs on a lock is worse
+    than one that fails. --wait and --no-wait set it explicitly.
+
+    A wait is bounded by `wait_timeout` seconds (default
+    PKM_LOCK_WAIT_TIMEOUT_DEFAULT) and says what it is waiting for every
+    PKM_LOCK_WAIT_REPORT_EVERY seconds, naming the holding process — silence
+    while waiting is indistinguishable from a hang. Expiry refuses with the same
+    text an immediate refusal uses, because the outcome is the same: this
+    invocation did not get the lock and changed nothing.
     """
     # A dry-run preview mutates nothing, so it must not take the mutation lock
     # (which would need write access to /var/lock and defeats the unprivileged
@@ -151,6 +249,7 @@ def _pkm_mutation_lock(command, dry_run=False):
     if command not in PKM_MUTATING_COMMANDS or not _HAS_FLOCK or dry_run:
         yield
         return
+    lock_path = resolve_lock_path()
     # Chroot-install robustness: /var/lock is conventionally a symlink to
     # /run/lock on systemd systems. At chroot-install time (golden-builder
     # invoking `pkm import` after each package deploy via
@@ -170,7 +269,7 @@ def _pkm_mutation_lock(command, dry_run=False):
     # comment at scripts/pkg-functions.sh:680-686 specifically warns
     # about ("Discovered when /usr/bin/ping triaged as an orphan binary").
     try:
-        lock_dir = PKM_LOCK_PATH.parent
+        lock_dir = lock_path.parent
         if lock_dir.is_symlink():
             target = lock_dir.readlink()
             if not target.is_absolute():
@@ -179,7 +278,7 @@ def _pkm_mutation_lock(command, dry_run=False):
         else:
             lock_dir.mkdir(parents=True, exist_ok=True)
     except OSError as e:
-        emit_warn(f"cannot create lock-file parent dir {PKM_LOCK_PATH.parent}: {e}")
+        emit_warn(f"cannot create lock-file parent dir {lock_path.parent}: {e}")
         emit_warn("skipping lock acquisition (chroot-install context assumed; "
                   "no concurrent pkm in build chroots)")
         if _TRACE_AVAILABLE:
@@ -187,14 +286,55 @@ def _pkm_mutation_lock(command, dry_run=False):
                 _trace.trace_event(
                     "pkm_lock_chroot_fallback",
                     command=command, reason=str(e),
-                    lock_path=str(PKM_LOCK_PATH),
+                    lock_path=str(lock_path),
                 )
             except Exception:
                 pass
         yield
         return
-    fd = open(str(PKM_LOCK_PATH), "w")
+    if wait is None:
+        # Decided from the caller, not from a default: see the docstring.
+        try:
+            wait = bool(sys.stdin.isatty())
+        except (AttributeError, ValueError, OSError):
+            wait = False
+    if wait_timeout is None:
+        wait_timeout = PKM_LOCK_WAIT_TIMEOUT_DEFAULT
+
+    fd = open(str(lock_path), "w")
     acquired = False
+
+    def _refuse(waited=None):
+        """The one place contention is refused, so a wait that expires and an
+        immediate refusal cannot drift into saying different things."""
+        fd.close()
+        if _TRACE_AVAILABLE:
+            try:
+                _trace.trace_event(
+                    "pkm_lock_contention",
+                    command=command, lock_path=str(lock_path),
+                    waited_seconds=(round(waited, 1) if waited is not None else 0),
+                )
+            except Exception:
+                pass
+        held_by = _describe_holders(lock_path)
+        by = f", held by {held_by}" if held_by else ""
+        if waited is not None:
+            emit_error(
+                f"gave up after waiting {int(waited)}s: another pkm operation is "
+                f"in progress (lock held on {lock_path}{by}). Nothing was "
+                f"changed. Re-run when it has finished, or raise "
+                f"--wait-timeout."
+            )
+        else:
+            emit_error(
+                f"another pkm operation is in progress (lock held on "
+                f"{lock_path}{by}). Wait for it to complete, re-run with --wait, "
+                f"or check for stale pkm processes (`fuser {lock_path}` or "
+                f"`lsof {lock_path}`)."
+            )
+        sys.exit(1)
+
     try:
         try:
             fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -202,25 +342,61 @@ def _pkm_mutation_lock(command, dry_run=False):
             if _TRACE_AVAILABLE:
                 try:
                     _trace.trace_event("pkm_lock_acquired",
-                                       command=command, lock_path=str(PKM_LOCK_PATH))
+                                       command=command, lock_path=str(lock_path))
                 except Exception:
                     pass
         except (BlockingIOError, OSError):
-            fd.close()
+            if not wait:
+                _refuse()
+            # WAITING. Polled rather than a blocking flock, deliberately: a
+            # blocking acquisition cannot be bounded by a timeout and cannot say
+            # anything while it blocks, and a wait that prints nothing is
+            # indistinguishable from a hang.
+            started = time.monotonic()
+            reported = 0.0
+            held_by = _describe_holders(lock_path)
+            by = f" ({held_by})" if held_by else ""
+            emit_warn(
+                f"waiting for another pkm operation to finish{by}; "
+                f"lock {lock_path}. Up to {int(wait_timeout)}s, then this "
+                f"invocation gives up without changing anything. "
+                f"--no-wait refuses immediately instead."
+            )
+            if _TRACE_AVAILABLE:
+                try:
+                    _trace.trace_event("pkm_lock_waiting",
+                                       command=command, lock_path=str(lock_path),
+                                       timeout_seconds=int(wait_timeout))
+                except Exception:
+                    pass
+            while True:
+                try:
+                    fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    acquired = True
+                    break
+                except (BlockingIOError, OSError):
+                    pass
+                waited = time.monotonic() - started
+                if waited >= wait_timeout:
+                    _refuse(waited=waited)
+                if waited - reported >= PKM_LOCK_WAIT_REPORT_EVERY:
+                    reported = waited
+                    held_by = _describe_holders(lock_path)
+                    by = f" ({held_by})" if held_by else ""
+                    emit_warn(
+                        f"still waiting{by} — {int(waited)}s of "
+                        f"{int(wait_timeout)}s")
+                time.sleep(0.2)
             if _TRACE_AVAILABLE:
                 try:
                     _trace.trace_event(
-                        "pkm_lock_contention",
-                        command=command, lock_path=str(PKM_LOCK_PATH),
-                    )
+                        "pkm_lock_acquired", command=command,
+                        lock_path=str(lock_path),
+                        waited_seconds=round(time.monotonic() - started, 1))
                 except Exception:
                     pass
-            emit_error(
-                f"another pkm operation is in progress (lock held on "
-                f"{PKM_LOCK_PATH}). Wait for it to complete, or check for stale "
-                f"pkm processes (`fuser {PKM_LOCK_PATH}` or `lsof {PKM_LOCK_PATH}`)."
-            )
-            sys.exit(1)
+            emit_warn(f"the other pkm operation finished after "
+                      f"{int(time.monotonic() - started)}s; continuing.")
         yield
     finally:
         # Only unlock+close a lock we actually acquired. On the contention
@@ -235,7 +411,7 @@ def _pkm_mutation_lock(command, dry_run=False):
                 if _TRACE_AVAILABLE:
                     try:
                         _trace.trace_event("pkm_lock_released",
-                                           command=command, lock_path=str(PKM_LOCK_PATH))
+                                           command=command, lock_path=str(lock_path))
                     except Exception:
                         pass
             except (OSError, ValueError):
@@ -246,13 +422,37 @@ def _pkm_mutation_lock(command, dry_run=False):
                 pass
 
 
-def main():
+def build_parser():
+    """Build pkm's argument parser.
+
+    Extracted from main() so the command line can be inspected without
+    running a command. A test that has to call main() to find out whether a
+    flag exists is a test that runs the program to ask it a question about
+    itself.
+    """
     parser = argparse.ArgumentParser(
         prog="pkm",
         description="InterGenOS Package Manager",
     )
     parser.add_argument("--version", action="version", version=f"pkm {__version__}")
     parser.add_argument("--db", help="Database path override")
+
+    # Waiting on the mutation lock. The DEFAULT is deliberately not a constant:
+    # it is None here and resolved at acquisition from whether stdin is a
+    # terminal, because the right answer differs by caller and not by taste. A
+    # person who has just been told another operation is in progress almost
+    # always wants to wait for it; a script or a systemd unit almost never does,
+    # and a unit that hangs on a lock is worse than one that fails.
+    parser.add_argument(
+        "--wait", dest="wait", action="store_true", default=None,
+        help="Wait for an in-progress pkm operation to finish (default at a terminal)")
+    parser.add_argument(
+        "--no-wait", dest="wait", action="store_false",
+        help="Refuse immediately if another pkm operation holds the lock")
+    parser.add_argument(
+        "--wait-timeout", type=int, default=PKM_LOCK_WAIT_TIMEOUT_DEFAULT,
+        metavar="SECONDS",
+        help=f"Give up waiting after this long (default {PKM_LOCK_WAIT_TIMEOUT_DEFAULT}s)")
 
     # Verbosity (PRIME DIRECTIVE transparency layer). Shared across the
     # mutating subcommands via `parents=[verbosity]` AND accepted before the
@@ -679,6 +879,11 @@ def main():
              "grows unbounded.",
     )
 
+    return parser
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
 
     # Natural-language aliases — pkm's "Natural-language CLI" positioning
@@ -826,7 +1031,9 @@ def main():
         "vacuum": cmd_vacuum,
     }
     try:
-        with _pkm_mutation_lock(args.command, dry_run=dry_run_preview):
+        with _pkm_mutation_lock(args.command, dry_run=dry_run_preview,
+                                wait=getattr(args, "wait", None),
+                                wait_timeout=getattr(args, "wait_timeout", None)):
             handler = _dispatch.get(args.command)
             if handler is None:
                 emit_error(f"unknown command: {args.command}")
