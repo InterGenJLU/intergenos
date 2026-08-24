@@ -28,6 +28,7 @@ import logging
 import os
 import secrets
 import shutil
+import stat as stat_module
 import subprocess
 import time
 from dataclasses import replace
@@ -1124,100 +1125,191 @@ class ToolRegistry:
             # a request left behind is an approval token left behind.
             privileged_request.discard_request(request_path)
 
+    #: What a path probe can establish. Each value is a MEASUREMENT, never a
+    #: cause: "absent" means stat() said ENOENT, not that anyone is at fault.
+    _PATH_ABSENT = "absent"
+    _PATH_PRESENT = "present"
+    _PATH_UNDETERMINED = "undetermined"
+
+    @staticmethod
+    def _probe_path(path: str) -> dict:
+        """Report what the filesystem says about `path`. Infer nothing.
+
+        `os.path.exists()` is a single boolean covering several different
+        findings, and the diagnostic used to speak as though it covered one:
+
+          * it answers False when the path is absent AND when a component of it
+            cannot be traversed — absence and "permission denied" are different
+            findings with different repairs;
+          * it answers True for a directory, a socket, a device, and for a
+            regular file that nothing on this system can execute.
+
+        So this returns the states separately:
+
+          absent        stat() reported ENOENT.
+          undetermined  stat() failed some other way; `detail` says how, and
+                        NOTHING about presence is claimed.
+          present       stat() succeeded; `regular` and `executable` carry the
+                        two further facts that decide whether it could run.
+
+        Decided 2026-08-24: none of these is a cause, and no caller may turn
+        one into a verdict about which component is at fault.
+        """
+        facts: dict[str, Any] = {
+            "state": ToolRegistry._PATH_UNDETERMINED,
+            "detail": "",
+            "regular": None,
+            "executable": None,
+        }
+        try:
+            info = os.stat(path)
+        except FileNotFoundError:
+            facts["state"] = ToolRegistry._PATH_ABSENT
+            return facts
+        except NotADirectoryError as exc:
+            facts["detail"] = (
+                f"a component of the path is not a directory "
+                f"({exc.strerror or exc})"
+            )
+            return facts
+        except PermissionError as exc:
+            facts["detail"] = (
+                f"permission denied while resolving it ({exc.strerror or exc})"
+            )
+            return facts
+        except OSError as exc:
+            facts["detail"] = f"the check itself failed ({exc.strerror or exc})"
+            return facts
+
+        facts["state"] = ToolRegistry._PATH_PRESENT
+        facts["regular"] = stat_module.S_ISREG(info.st_mode)
+        try:
+            facts["executable"] = os.access(path, os.X_OK)
+        except OSError:
+            facts["executable"] = None
+        return facts
+
+    @staticmethod
+    def _describe_path(path: str, facts: dict) -> str:
+        """One line of measured fact about `path`. No conclusion."""
+        state = facts["state"]
+        if state == ToolRegistry._PATH_ABSENT:
+            return f"{path}: not present (checked)"
+        if state == ToolRegistry._PATH_UNDETERMINED:
+            return (
+                f"{path}: presence could not be determined — "
+                f"{facts['detail']} (checked)"
+            )
+        kind = "a regular file" if facts["regular"] else "NOT a regular file"
+        if facts["executable"] is None:
+            runnable = "executability could not be determined"
+        elif facts["executable"]:
+            runnable = "executable by this account"
+        else:
+            runnable = "NOT executable by this account"
+        return f"{path}: present, {kind}, {runnable} (checked)"
+
     @staticmethod
     def _privileged_failure_result(
         call: ToolCall,
         tool_name: str,
         completed: Any,
     ) -> ToolResult:
-        """Build the failure ToolResult, naming only what was MEASURED.
+        """Build the failure ToolResult, stating ONLY what was measured.
 
-        Exit codes on this path are ambiguous by design. pkexec's 127 covers
-        "the program could not be executed", "the caller is not authorized",
-        "an authorization could not be obtained", and internal errors — exactly
-        one of which is a missing runner. Starting through the user manager adds
-        a second ambiguity: systemd-run reports its OWN failure to reach the
-        manager with a non-zero code too.
+        WHY THIS IS NARROWER THAN IT LOOKS. The exit codes on this path do not
+        identify a cause, and an earlier version of this function spoke as if
+        they did. Two claims in particular were inferences wearing a
+        measurement's clothes:
 
-        Decided 2026-08-24: name only what was measured. Every component this
-        dispatch depends on is CHECKED on the filesystem before anything is said
-        about it, and the real stderr is carried out rather than replaced. An
-        unmeasured cause in a diagnostic sends a person to repair a component
-        that was never at fault — which is what happened in the field, where a
-        127 was rendered as "runner not found / package may be misinstalled"
-        and people reinstalled a package that was perfectly healthy.
+          * "exit 126 means the authentication prompt was dismissed". pkexec(1)
+            propagates the exit status of a program it successfully executed,
+            and this runner ends in `exec python3 ...` — so a 126 can equally
+            come from the CHILD. Telling a person their prompt was dismissed
+            when the tool actually failed sends them to repeat an action that
+            already ran, or to hunt an authentication problem that never
+            happened.
+          * "exit 127 with the runner present means pkexec never reached it, so
+            the installed package is not at fault". Presence was read from
+            os.path.exists(), which proves neither a regular file nor
+            executability nor correct contents; and 127 can likewise be the
+            child's own status. An independent review drove three genuinely
+            different states — a directory, a regular file nothing can execute,
+            and a healthy executable whose program returned 127 — and every one
+            of them produced that same innocence verdict.
 
-        The headline picks the most specific account available:
-          the runner's own words, if it got far enough to speak;
-          then the two new dependencies, if either is measurably absent;
-          then pkexec's own codes (126 dismissed, 127 disambiguated by the
-          measured runner presence);
-          then a plain statement that it did not complete.
+        Decided 2026-08-24: this function reports the exit code, whatever the
+        boundary said on stderr, and a per-component probe of each thing the
+        dispatch depends on. Where a component is MEASURABLY absent, that is
+        stated, because it was established. Where it is not, the message says
+        the exit code does not identify a cause on its own — which is true, and
+        is more useful to someone repairing a system than a confident wrong
+        answer.
+
+        The runner's own words still lead when it got far enough to speak: that
+        is the one account in this whole path that was produced by something
+        which knew what it was doing.
         """
         stdout_message = completed.stdout.rstrip("\n")
         stderr_message = completed.stderr.rstrip("\n")
 
-        runner_present = os.path.exists(_PKEXEC_RUNNER_PATH)
-        systemd_run_present = shutil.which(_SYSTEMD_RUN) is not None
-        manager_present = os.path.exists(
-            os.path.join(
-                os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"),
-                _USER_MANAGER_SOCKET_RELPATH,
-            )
+        runner_facts = ToolRegistry._probe_path(_PKEXEC_RUNNER_PATH)
+        systemd_run_path = shutil.which(_SYSTEMD_RUN)
+        manager_socket = os.path.join(
+            os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"),
+            _USER_MANAGER_SOCKET_RELPATH,
         )
+        manager_facts = ToolRegistry._probe_path(manager_socket)
+        manager_running = manager_facts["state"] == ToolRegistry._PATH_PRESENT
 
         if stdout_message:
             # The runner reached its own logic and said why it stopped. That is
             # the most specific account anyone has; it leads.
             headline = stdout_message
-        elif not systemd_run_present:
+        elif systemd_run_path is None:
             headline = (
-                f"{_SYSTEMD_RUN} is not installed (checked), so the privileged "
-                f"runner for {tool_name} could not be started"
+                f"{_SYSTEMD_RUN} was not found on PATH (checked), so the "
+                f"privileged runner for {tool_name} could not be started"
             )
-        elif not manager_present:
+        elif not manager_running:
             headline = (
-                f"no systemd user manager is running for this account "
-                f"(checked), so the privileged runner for {tool_name} could not "
-                f"be started. This is not a fault in the installed package"
+                f"no systemd user manager was reachable for this account "
+                f"(checked: {manager_socket}), so the privileged runner for "
+                f"{tool_name} could not be started"
             )
-        elif completed.returncode == 126:
+        elif runner_facts["state"] == ToolRegistry._PATH_ABSENT:
             headline = (
-                f"the authentication prompt for {tool_name} was dismissed or "
-                f"denied, so the action did not run"
-            )
-        elif completed.returncode == 127 and not runner_present:
-            headline = (
-                f"the privileged runner is missing from {_PKEXEC_RUNNER_PATH} "
-                f"(checked), so {tool_name} could not be dispatched"
-            )
-        elif completed.returncode == 127:
-            headline = (
-                f"pkexec exited 127 without running {tool_name}. The privileged "
-                f"runner IS present at {_PKEXEC_RUNNER_PATH} (checked), so the "
-                f"installed package is not at fault; pkexec stopped before "
-                f"reaching it"
+                f"the privileged runner is not present at "
+                f"{_PKEXEC_RUNNER_PATH} (checked), so {tool_name} could not be "
+                f"dispatched"
             )
         else:
-            headline = f"the privileged dispatch of {tool_name} did not complete"
+            headline = (
+                f"the privileged dispatch of {tool_name} did not complete "
+                f"(exit {completed.returncode}). This exit code does not "
+                f"identify a cause on its own — it is returned both by the "
+                f"privilege boundary and by the program it runs — so what was "
+                f"measured is listed rather than guessed at"
+            )
 
         measured = [
             f"exit code: {completed.returncode}",
-            f"privileged runner at {_PKEXEC_RUNNER_PATH}: "
-            f"{'present' if runner_present else 'ABSENT'} (checked)",
+            ToolRegistry._describe_path(_PKEXEC_RUNNER_PATH, runner_facts),
             f"{_SYSTEMD_RUN}: "
-            f"{'present' if systemd_run_present else 'ABSENT'} (checked)",
-            f"systemd user manager: "
-            f"{'running' if manager_present else 'NOT RUNNING'} (checked)",
+            + (f"found at {systemd_run_path} (checked)" if systemd_run_path
+               else "not found on PATH (checked)"),
+            "systemd user manager: "
+            + ("reachable (checked)" if manager_running
+               else f"not reachable (checked: {manager_socket})"),
         ]
         if stderr_message:
             measured.append(f"it said: {stderr_message}")
         content = f"{headline} [{'; '.join(measured)}]"
         logger.error(
-            "privileged dispatch of %s failed: rc=%s runner_present=%s "
-            "systemd_run_present=%s manager_present=%s stderr=%r",
-            tool_name, completed.returncode, runner_present,
-            systemd_run_present, manager_present, stderr_message,
+            "privileged dispatch of %s failed: rc=%s runner=%s systemd_run=%s "
+            "manager_reachable=%s stderr=%r",
+            tool_name, completed.returncode, runner_facts,
+            systemd_run_path, manager_running, stderr_message,
         )
         return ToolResult(
             call_id=call.call_id,
