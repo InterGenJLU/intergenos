@@ -85,6 +85,31 @@ _SLOW_TOOL_THRESHOLD_S = 5.0
 # never completes (loop stall). Either way the bridge fails closed to "deny".
 _GATE_BRIDGE_TIMEOUT_S = 310.0
 
+# TURN-LIFECYCLE DEADLINES. The browser arms a whole-turn failsafe the moment
+# the user presses send and disarms it only on the first server frame for that
+# turn. Nothing used to be sent between "message received" and "routing
+# finished", so whenever routing outlived that failsafe the browser hid the
+# thinking indicator, told the user InterGen had not responded and force-closed
+# the socket — while the server was still working on the turn, and with the
+# answer, when it existed, having nowhere left to go. Two rules close that:
+# every turn is acknowledged immediately (the turn_ack frame in _run_turn), and
+# the server holds itself to a routing deadline STRICTLY SHORTER than the
+# client's failsafe, so the side that gives up first is always the side that can
+# say why.
+#
+# CLIENT_RESPONSE_TIMEOUT_S mirrors RESPONSE_TIMEOUT_MS in intergen/web/app.js.
+# It is not read by the server at runtime; it is here so the relationship is
+# stated in one place. intergen/tests/test_turn_lifecycle_contract.py parses the
+# real app.js and fails if the two ever drift apart or if the ordering below is
+# inverted, so neither side can be edited alone.
+CLIENT_RESPONSE_TIMEOUT_S = 30.0
+SERVER_ROUTE_DEADLINE_S = 20.0
+
+# How often the routing watchdog wakes to decide whether to charge the deadline.
+# Small enough that the deadline is accurate to a fraction of a second, large
+# enough that the poll costs nothing next to a routing round-trip.
+_ROUTE_DEADLINE_TICK_S = 0.05
+
 TOKEN_PATH = Path.home() / ".config" / "intergen" / "web-token"
 STATIC_DIR = Path(__file__).parent / "web"
 _503_BODY = json.dumps({"type": "error", "code": "server_not_ready",
@@ -962,6 +987,18 @@ class WebServer:
             with glass.turn(_gturn, "web"):
                 glass.emit("route", "turn_start",
                            detail={"user_msg": data.get("content", "")})
+                # ACKNOWLEDGE BEFORE ROUTING. The browser cannot distinguish a
+                # server that is working from one that has died, and its
+                # whole-turn failsafe acts on that difference: with no frame in
+                # hand it eventually hides the indicator and force-closes the
+                # socket. This frame is that difference. It carries no result
+                # and waits on nothing, so it is sent before any routing work
+                # begins — a turn that is slow to answer is still visibly a
+                # turn that arrived.
+                await ctx.ws.send_json({
+                    "type": "turn_ack",
+                    "turn_id": _gturn,
+                })
                 await self._handle_client_message(ctx, data)
         except _CLIENT_GONE:
             logger.debug(
@@ -985,6 +1022,40 @@ class WebServer:
                 ))
             except _CLIENT_GONE:
                 pass
+
+    async def _await_route_within_deadline(
+        self,
+        ctx: ConnectionContext,
+        route_future: "asyncio.Future",
+    ) -> Any:
+        """Await routing, charging the deadline only for time the SERVER spent.
+
+        A turn may legitimately sit inside route() for minutes with a consent
+        card on screen while the person decides. That wait is theirs, not a
+        stall — the browser has the card in hand and is not waiting on us — so
+        the clock is charged only while no card is pending. Raises TimeoutError
+        once the server's own working time passes SERVER_ROUTE_DEADLINE_S.
+
+        What this bounds is what the USER experiences, not what the machine
+        does: route() runs in a worker thread and cannot be interrupted, so on a
+        timeout that thread runs on and its eventual result is discarded. Any
+        state route() mutates on the way is still mutated. The guarantee is a
+        truthful terminal frame instead of silence, and that is the guarantee
+        the person in front of the browser actually needs.
+        """
+        charged = 0.0
+        while True:
+            done, _pending = await asyncio.wait(
+                {route_future}, timeout=_ROUTE_DEADLINE_TICK_S)
+            if done:
+                return route_future.result()
+            if ctx.pending_gate is not None:
+                continue  # the person is deciding; their time is not ours
+            charged += _ROUTE_DEADLINE_TICK_S
+            if charged >= SERVER_ROUTE_DEADLINE_S:
+                raise TimeoutError(
+                    f"routing exceeded {SERVER_ROUTE_DEADLINE_S}s of server "
+                    f"working time")
 
     async def _handle_client_message(self, ctx: ConnectionContext,
                                       data: dict[str, Any]) -> None:
@@ -1043,13 +1114,37 @@ class WebServer:
             self._route_lock = asyncio.Lock()
         _route_review_cb = self._make_web_review_callback(ctx, turn_id, loop)
         async with self._route_lock:
-            result = await loop.run_in_executor(
+            _route_future = loop.run_in_executor(
                 None,
                 lambda: self._router.route(
                     user_msg, decide_only=True,
                     review_callback=_route_review_cb,
                 ),
             )
+            try:
+                result = await self._await_route_within_deadline(
+                    ctx, _route_future)
+            except TimeoutError:
+                # The server has now spent longer routing than it allows itself,
+                # and the browser's own failsafe is still ahead of us. Say so and
+                # end the turn: a truthful stop is worth more to the person
+                # waiting than an answer that arrives after the socket is gone.
+                glass.emit("route", "deadline_exceeded", detail={
+                    "iface": "web",
+                    "deadline_s": SERVER_ROUTE_DEADLINE_S,
+                })
+                logger.warning(
+                    "Routing exceeded the %.1fs server deadline for client=%s; "
+                    "ending the turn and abandoning the routing thread.",
+                    SERVER_ROUTE_DEADLINE_S, ctx.client_id,
+                )
+                await ctx.ws.send_json(_make_error(
+                    "route_timeout",
+                    "That one is taking me longer to work out than it should. "
+                    "I've stopped rather than leave you waiting with nothing — "
+                    "please try asking again.",
+                ))
+                return
 
         # M3(i): a prefixed "yes" over a live offer routed the tail through the
         # pipeline; route() set the reminder on the result (web is decide_only, so

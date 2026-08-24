@@ -19,6 +19,15 @@
   // on a legitimately slow first response (the daemon emits stream_start within
   // seconds of routing, even on a cold model).
   const RESPONSE_TIMEOUT_MS = 30000;
+  // Once the server acknowledges a turn (turn_ack) the send demonstrably
+  // arrived, so the failsafe above has done its job and would now be measuring
+  // the wrong thing. A longer one takes over until the first content frame, so
+  // a server that dies partway through a turn is still surfaced rather than
+  // leaving the indicator spinning forever. Comfortably longer than the
+  // server's own routing deadline, which is in turn strictly shorter than
+  // RESPONSE_TIMEOUT_MS — an invariant checked against this file by
+  // intergen/tests/test_turn_lifecycle_contract.py.
+  const POST_ACK_TIMEOUT_MS = 120000;
 
   // ── State ──────────────────────────────────────────────────────────────
   const state = {
@@ -179,6 +188,7 @@
     const type = msg.type;
     switch (type) {
       case 'connected':     handleConnected(msg); break;
+      case 'turn_ack':     handleTurnAck(msg); break;
       case 'stream_start':  handleStreamStart(msg); break;
       case 'tool_ack':      handleToolFiller(msg); break;
       case 'tool_progress': handleToolFiller(msg); break;
@@ -355,6 +365,11 @@
 
   function handleGatePrompt(msg) {
     state.pendingGate = msg;
+    // The server is now waiting on THIS PERSON, and they may take as long as
+    // they like. Disarm the liveness failsafe: firing it here would force-close
+    // the socket while the card is still on screen and lose the decision with
+    // it. handleGateResolved re-arms once the answer is back with the server.
+    clearResponseTimeout();
     state.streaming = false;
     dom.streamingContainer.classList.add('hidden');
     dom.headerMark.style.animation = '';
@@ -368,6 +383,11 @@
   function handleGateResolved(msg) {
     state.pendingGate = null;
     state.streamingContent = '';
+    // The decision is back with the server and the turn is its responsibility
+    // again, so the liveness failsafe disarmed in handleGatePrompt comes back.
+    armResponseTimeout(
+      POST_ACK_TIMEOUT_MS,
+      'InterGen stopped responding partway through that — reconnecting…');
     // single-gate review: the user-facing outcome of a deny is now the deterministic honest
     // handoff (streamed as tokens by the server) — advising the real path
     // forward, not a bare "action denied" system line. So nothing extra is
@@ -752,20 +772,35 @@
     dom.thinking.classList.add('hidden');
   }
 
-  // Armed when a message is sent. If it fires, no server response ever arrived
-  // (half-open socket): clear thinking, surface it honestly, force a reconnect.
-  function armResponseTimeout() {
+  // Armed when a message is sent, and re-armed (longer, with wording that fits)
+  // once the server acknowledges the turn. If it fires, the server has gone
+  // quiet: clear thinking, surface it honestly, force a reconnect.
+  function armResponseTimeout(waitMs, notice) {
     clearResponseTimeout();
+    const wait = waitMs || RESPONSE_TIMEOUT_MS;
+    const message = notice || "InterGen didn't respond — reconnecting…";
     state.pendingResponseTimer = setTimeout(() => {
       state.pendingResponseTimer = null;
       if (state.streaming) return;  // tokens are flowing — the socket is alive
+      if (state.pendingGate) return;  // a consent card is up — the wait is ours
       dom.headerMark.style.animation = '';
       dom.thinking.classList.add('hidden');
       dom.streamingContainer.classList.add('hidden');
-      showBanner("InterGen didn't respond — reconnecting…", 'warning');
+      showBanner(message, 'warning');
       // Force the (likely half-open) socket closed; onclose → scheduleReconnect.
       try { if (state.ws) state.ws.close(); } catch (e) { /* already gone */ }
-    }, RESPONSE_TIMEOUT_MS);
+    }, wait);
+  }
+
+  // The server received the turn and has started work on it. Swap the "did the
+  // send even arrive" failsafe for the longer "is the server still there" one.
+  // The thinking indicator deliberately stays up: nothing has been answered
+  // yet, and this frame carries no content — it only proves arrival.
+  function handleTurnAck(msg) {
+    if (msg.turn_id) state.turnId = msg.turn_id;
+    armResponseTimeout(
+      POST_ACK_TIMEOUT_MS,
+      'InterGen stopped responding partway through that — reconnecting…');
   }
 
   function sendMessage() {
