@@ -70,12 +70,29 @@ fi
 # positional arguments past this entry point — any further argv would either be
 # silently ignored or could be exploited via downstream argv-shaping.
 if [ "$#" -ne 1 ]; then
-    printf 'intergen-privileged-runner: usage: intergen-privileged-runner <request_path> (exactly 1 arg)\n' >&2
+    printf 'intergen-privileged-runner: usage: intergen-privileged-runner <request_id> (exactly 1 arg)\n' >&2
     exit 2
 fi
 
-REQUEST_PATH="$1"
+# The single argument is an IDENTIFIER, not a path (changed 2026-08-24). It is
+# checked here, at the first thing that runs as root, against a pattern that
+# admits nothing but lower-case hex of the generated length. A traversal, an
+# absolute path, a shell metacharacter, a newline: none of them match, so none
+# of them reach the dispatcher. The dispatcher re-derives the path from
+# PKEXEC_UID and verifies the directory as well; this is the outer of two
+# checks, not the only one.
+REQUEST_ID="$1"
 shift
+case "${REQUEST_ID}" in
+    *[!0-9a-f]* | "")
+        printf 'intergen-privileged-runner: request identifier is not hex; refusing.\n' >&2
+        exit 2
+        ;;
+esac
+if [ "${#REQUEST_ID}" -ne 32 ]; then
+    printf 'intergen-privileged-runner: request identifier is not 32 characters; refusing.\n' >&2
+    exit 2
+fi
 
 # Resolve the calling user's name (downstream tools may need
 # /home/$USER context — e.g. write_file refuses to overwrite a
@@ -104,10 +121,10 @@ export HOME=/root
 export PKEXEC_UID
 export PKEXEC_USER
 
-# Hand off to the Python dispatcher. Its argv is the request path and nothing
-# else; the tool name, the arguments and the approval token are read from the
+# Hand off to the Python dispatcher. Its argv is the request identifier and
+# nothing else; the tool name, the arguments and the approval token are read from the
 # file, which the dispatcher removes as it reads. python3 is guaranteed-present
 # per packages/core/python (the intergen Python module ships with the same
 # package set; if python3 disappears, intergen itself is broken upstream of this
 # point and the issue surfaces before any tool dispatch).
-exec /usr/bin/python3 -m intergen.privileged_dispatch --request "${REQUEST_PATH}"
+exec /usr/bin/python3 -m intergen.privileged_dispatch --request-id "${REQUEST_ID}"

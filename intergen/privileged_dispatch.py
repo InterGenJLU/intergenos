@@ -13,7 +13,7 @@ boundary.
 
 Argv contract (from `intergen-privileged-runner`):
 
-    python3 -m intergen.privileged_dispatch --request <request_path>
+    python3 -m intergen.privileged_dispatch --request-id <request_id>
 
 That is the whole command line, and it is the point. The tool name, the
 arguments and the human-approval token are read from the request file, which is
@@ -166,14 +166,14 @@ def main(argv: list[str] | None = None) -> int:
     """
     args = argv if argv is not None else sys.argv[1:]
 
-    if len(args) != 2 or args[0] != "--request":
+    if len(args) != 2 or args[0] != "--request-id":
         _fail(
             "privileged_dispatch: usage: python3 -m intergen.privileged_dispatch "
-            "--request <request_path>",
+            "--request-id <request_id>",
             exit_code=2,
         )
 
-    request_path = args[1]
+    request_id = args[1]
 
     # PKEXEC_UID + PKEXEC_USER are set by the runner shim. Their absence
     # means this module was invoked outside the runner — a bug or a
@@ -197,11 +197,24 @@ def main(argv: list[str] | None = None) -> int:
             f"({type(exc).__name__}: {exc}); refusing.",
         )
 
-    # Read the request. We are root and the path came from the unprivileged
-    # side, so privileged_request checks what it is about to read rather than
-    # trusting it — regular file, no symlink, owned by the calling user, mode
-    # 0600, single-linked — and removes the file as it reads. A request we
-    # cannot fully trust is a privileged action we do not run.
+    # Turn the identifier into a path OURSELVES (2026-08-24). The unprivileged
+    # side names thirty-two hex characters and nothing else; this process
+    # derives the directory from the uid pkexec reported and verifies that
+    # directory belongs to that user at mode 0700 before joining anything to
+    # it. There is no path spelling to fall back to. The runner shim and this
+    # module ship in the same package and are upgraded together, so there is no
+    # window in which the two disagree, and a caller that hands over a path is
+    # a caller this boundary does not recognise.
+    try:
+        request_path = privileged_request.resolve_request(request_id, uid)
+    except privileged_request.RequestError as exc:
+        _fail(f"privileged_dispatch: {exc}; refusing dispatch.")
+
+    # Read the request. We are root, so privileged_request checks what it is
+    # about to read rather than trusting it — regular file, no symlink, owned
+    # by the calling user, mode 0600, single-linked, within its size bound —
+    # and removes the file as it reads. A request we cannot fully trust is a
+    # privileged action we do not run.
     try:
         tool_name, arguments, token = privileged_request.read_request(
             request_path, expected_uid=uid,
