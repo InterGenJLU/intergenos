@@ -382,3 +382,147 @@ class DiagnosticAssignsNoUnmeasuredCauseTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# --- The second review's F-01 and F-06 ---------------------------------------
+#
+# F-01. The diagnostic decided whether a systemd user manager was running by
+# asking whether $XDG_RUNTIME_DIR/systemd/private EXISTS, and printed "(checked)"
+# beside the answer. An independent review measured that probe reading False
+# while `systemd-run --user … /bin/true` succeeded, so the sentence carrying
+# "(checked)" could be false at the moment it was printed. That socket is also a
+# systemd-internal detail, not a supported presence interface: its absence is
+# evidence about a path, and the sentence was about a manager.
+#
+# The contract these tests pin: the manager is measured by ASKING THE MANAGER,
+# and the answer reported is the manager's own word. Three outcomes are
+# distinguishable — it answered that it is running, it answered "offline", or
+# the question could not be put at all — and only the middle one may carry a
+# causal sentence. "I could not tell" must never be reported as "it is not
+# running", which is the whole class of defect this file exists to keep out.
+#
+# F-06. The privileged entry path resolved `systemd-run` through PATH while the
+# runner and the interpreter beyond it are both absolute.
+
+_MANAGER_PROBE_HEAD = ("--user", "is-system-running")
+
+
+def _dispatch_with_manager(manager_answer, *, socket_present, returncode=127,
+                           stderr="Error executing command as another user: "
+                                  "Not authorized"):
+    """Dispatch with the manager's OWN answer chosen, and the socket path
+    chosen independently of it.
+
+    The two are deliberately separable here, because the defect under test is
+    exactly that the code treated one as evidence for the other.
+
+    `manager_answer` is the word `systemctl --user is-system-running` prints, or
+    None to mean the probe could not run at all (the command is missing).
+    """
+    completed = _Completed(returncode, "", stderr)
+
+    def _run(argv, *args, **kwargs):
+        # Route on the command being run, so the dispatch result and the
+        # manager probe cannot be confused for one another.
+        if len(argv) >= 3 and tuple(argv[1:3]) == _MANAGER_PROBE_HEAD:
+            if manager_answer is None:
+                raise FileNotFoundError(2, "No such file or directory", argv[0])
+            return _Completed(0 if manager_answer == "running" else 1,
+                              manager_answer + "\n", "")
+        return completed
+
+    with tempfile.TemporaryDirectory(prefix="privdiag-manager-") as runtime:
+        runner = Path(runtime) / "runner"
+        runner.write_text("#!/bin/sh\nexit 0\n")
+        runner.chmod(0o755)
+        if socket_present:
+            (Path(runtime) / "systemd").mkdir(exist_ok=True)
+            (Path(runtime) / "systemd" / "private").touch()
+        with mock.patch.dict(
+                os.environ, {"XDG_RUNTIME_DIR": runtime}, clear=False), \
+                mock.patch.object(tr, "_PKEXEC_RUNNER_PATH", str(runner)), \
+                mock.patch.object(tr.subprocess, "run", side_effect=_run):
+            result = ToolRegistry._dispatch_via_pkexec(
+                _call(), "manage_packages", {"action": "upgrade"},
+                "token-placeholder",
+            )
+    return result.content
+
+
+class TheUserManagerIsMeasuredByAskingItTests(unittest.TestCase):
+    """F-01 — the manager's state is the manager's answer, not a path's."""
+
+    def test_a_running_manager_is_not_called_unreachable_because_a_socket_is_gone(self):
+        """The measured case from the review: the socket path is absent and the
+        manager is running. The old probe called that "not reachable"."""
+        content = _dispatch_with_manager("running", socket_present=False)
+        lowered = content.lower()
+        self.assertNotIn("no systemd user manager", lowered, content)
+        self.assertNotIn("not reachable", lowered, content)
+
+    def test_the_manager_s_own_word_is_what_gets_reported(self):
+        """A degraded manager is running. Reporting the word it gave is the
+        difference between quoting a measurement and paraphrasing one."""
+        content = _dispatch_with_manager("degraded", socket_present=False)
+        self.assertIn("degraded", content.lower(), content)
+
+    def test_an_offline_manager_is_reported_as_not_running(self):
+        """The truthful negative still works, and it comes from the manager."""
+        content = _dispatch_with_manager("offline", socket_present=True)
+        self.assertIn("offline", content.lower(), content)
+
+    def test_a_probe_that_could_not_run_states_no_manager_conclusion(self):
+        """Undetermined is its own answer. It must not be reported as absence,
+        and it must not carry a cause."""
+        content = _dispatch_with_manager(None, socket_present=False)
+        lowered = content.lower()
+        self.assertNotIn("no systemd user manager was reachable", lowered,
+                         content)
+        for claim in _FORBIDDEN_CAUSE_CLAIMS:
+            self.assertNotIn(claim, lowered, content)
+
+    def test_an_unknown_answer_is_not_turned_into_absence(self):
+        content = _dispatch_with_manager("unknown", socket_present=False)
+        self.assertNotIn("no systemd user manager was reachable",
+                         content.lower(), content)
+
+    def test_the_socket_path_is_no_longer_consulted_at_all(self):
+        """With the manager answering, the socket's presence must make no
+        difference to the message. If it does, something still reads it."""
+        with_socket = _dispatch_with_manager("running", socket_present=True)
+        without_socket = _dispatch_with_manager("running", socket_present=False)
+        self.assertEqual(with_socket, without_socket)
+
+
+class TheSystemdRunPathIsAbsoluteTests(unittest.TestCase):
+    """F-06 — the privileged entry path does not resolve a program by PATH."""
+
+    def test_the_configured_systemd_run_is_an_absolute_path(self):
+        self.assertTrue(
+            os.path.isabs(tr._SYSTEMD_RUN),
+            f"the privileged dispatch resolves {tr._SYSTEMD_RUN!r} through "
+            f"PATH; the runner and the interpreter beyond it are both absolute "
+            f"and this one is the way in",
+        )
+
+    def test_the_argv_the_dispatch_builds_starts_with_that_absolute_path(self):
+        """The constant being absolute is not the same as the argv using it."""
+        seen = {}
+
+        def _run(argv, *args, **kwargs):
+            seen.setdefault("argv", list(argv))
+            return _Completed(0, "done", "")
+
+        with tempfile.TemporaryDirectory(prefix="privdiag-abs-") as runtime:
+            with mock.patch.dict(
+                    os.environ, {"XDG_RUNTIME_DIR": runtime}, clear=False), \
+                    mock.patch.object(tr.subprocess, "run", side_effect=_run):
+                ToolRegistry._dispatch_via_pkexec(
+                    _call(), "manage_packages", {"action": "upgrade"},
+                    "token-placeholder",
+                )
+        self.assertIn("argv", seen, "the dispatch built no command at all")
+        self.assertTrue(
+            os.path.isabs(seen["argv"][0]),
+            f"argv[0] is {seen['argv'][0]!r}, resolved through PATH",
+        )
