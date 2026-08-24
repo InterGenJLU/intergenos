@@ -52,6 +52,7 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 import unittest
 from unittest import mock
@@ -668,3 +669,78 @@ class TheWaitIsBoundedAndAnUnknownOutcomeSaysSoTests(_DispatchTestCase):
             raises=subprocess.TimeoutExpired(cmd="systemd-run", timeout=1))
         unit = [a for a in self.argv if a.startswith("--unit=")][0]
         self.assertIn(unit.split("=", 1)[1], result.content)
+
+
+class ATimedOutDispatchDoesNotRaceTheRunnerTests(_DispatchTestCase):
+    """The cleanup that is right on every other failure path is wrong on this one.
+
+    Every other way the dispatch can fail means the runner never got there, so
+    removing the request is the caller's half of the contract — a request left
+    behind is an approval token left behind. A TIMEOUT is the one case where
+    that reasoning does not hold: the unit outlives the client by construction,
+    so the runner may be about to read the very file the caller would be
+    deleting. Removing it there does not clean anything up; it turns a dispatch
+    that was going to complete into one that fails at the privilege boundary,
+    and makes an already-unknown outcome less knowable.
+
+    So the timeout path leaves the request, and the staleness bound is what
+    eventually removes it — which is a different mechanism with a different
+    guarantee, and the tests say which one is doing the work.
+    """
+
+    def test_a_timed_out_dispatch_leaves_the_request_for_the_runner(self):
+        before = self._requests_left_behind()
+        self._dispatch(
+            raises=subprocess.TimeoutExpired(cmd="systemd-run", timeout=1))
+        after = self._requests_left_behind()
+        self.assertEqual(
+            len(after), len(before) + 1,
+            "the timed-out dispatch removed the request while the unit that "
+            "reads it may still be running",
+        )
+
+    def test_every_other_failure_still_removes_the_request(self):
+        """The narrowing must be exactly one case wide."""
+        for raises in (FileNotFoundError(2, "no such file", "systemd-run"),
+                       OSError("bus error")):
+            with self.subTest(raises=type(raises).__name__):
+                self._dispatch(raises=raises)
+                self.assertEqual(
+                    self._requests_left_behind(), [],
+                    "a failed dispatch left an approval token on disk",
+                )
+
+    def test_a_nonzero_exit_still_removes_the_request(self):
+        self._dispatch(_Completed(127, "", "pkexec must be setuid root"))
+        self.assertEqual(self._requests_left_behind(), [])
+
+    def test_a_stale_request_is_removed_by_a_later_dispatch(self):
+        """What eventually collects what the timeout path leaves. Without this
+        the narrowing above would be a leak rather than a hand-off."""
+        self._dispatch(
+            raises=subprocess.TimeoutExpired(cmd="systemd-run", timeout=1))
+        left = self._requests_left_behind()
+        self.assertEqual(len(left), 1)
+
+        # Age it past the bound, then dispatch again.
+        stale = os.path.join(pr.request_dir(), left[0])
+        old = time.time() - (pr.MAX_REQUEST_AGE_SECONDS + 60)
+        os.utime(stale, (old, old))
+        self._dispatch()
+        self.assertNotIn(
+            left[0], self._requests_left_behind(),
+            "a request older than the bound survived a later dispatch",
+        )
+
+    def test_a_fresh_request_is_not_collected_by_a_concurrent_dispatch(self):
+        """The bound must not sweep a request another dispatch is still using;
+        that would be the same race in the other direction."""
+        self._dispatch(
+            raises=subprocess.TimeoutExpired(cmd="systemd-run", timeout=1))
+        left = self._requests_left_behind()
+        self.assertEqual(len(left), 1)
+        self._dispatch()
+        self.assertIn(
+            left[0], self._requests_left_behind(),
+            "a request well inside the staleness bound was collected anyway",
+        )

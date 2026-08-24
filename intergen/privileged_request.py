@@ -74,6 +74,7 @@ import os
 import re
 import secrets
 import stat
+import time
 
 __all__ = [
     "FORMAT_VERSION",
@@ -129,6 +130,18 @@ _NAME_RANDOM_BYTES = 16
 #: independent review listed a size check among the facts the root side
 #: establishes about a caller-supplied file, and it was the one that was absent.
 MAX_REQUEST_BYTES = 64 * 1024
+
+#: How long a request file may sit in the directory before a later dispatch
+#: collects it. Added 2026-08-24 with the bounded wait: a dispatch that times
+#: out deliberately does NOT remove its request, because the unit that reads it
+#: outlives the client and deleting the file would break a dispatch that was
+#: going to complete. Something still has to collect what that leaves, and this
+#: is it — comfortably longer than the unit's own ceiling, so a request in the
+#: hands of a live runner is never swept, and short enough that an approval
+#: token does not outlive its usefulness by much. A token is single-use, bound
+#: to one (tool, arguments, uid) and separately expiring, so the file is not the
+#: only thing standing between a leftover and a replay; it is the tidiness half.
+MAX_REQUEST_AGE_SECONDS = 3600
 
 #: The only mode a request file may carry when it is read.
 _REQUIRED_MODE = 0o600
@@ -282,6 +295,53 @@ def write_request(tool_name: str, arguments: dict, token: str) -> str:
         f"cannot allocate a privileged request filename in {directory} "
         f"after 8 attempts: {last_exc}"
     )
+
+
+def prune_stale_requests(*, max_age_seconds: int | None = None,
+                         now: float | None = None) -> list[str]:
+    """Remove request files older than the staleness bound. Returns their names.
+
+    Called at the start of a dispatch rather than on a timer, so it needs no
+    process of its own: the next privileged action is exactly when a leftover
+    stops being possibly-in-flight and starts being litter.
+
+    It never raises. A directory that cannot be listed, or a file that cannot be
+    removed, leaves the file where it is — this is housekeeping, and a dispatch
+    must not be refused because of it. Only files carrying this module's own
+    prefix are considered; anything else in the directory belongs to somebody
+    else and is left alone.
+
+    The AGE is taken from the file's own mtime, not from a name or a record, so
+    a request written by a process that has since died is still collected.
+    """
+    if max_age_seconds is None:
+        max_age_seconds = MAX_REQUEST_AGE_SECONDS
+    if now is None:
+        now = time.time()
+    removed: list[str] = []
+    directory = request_dir()
+    try:
+        names = os.listdir(directory)
+    except OSError:
+        return removed
+    for name in names:
+        if not name.startswith(REQUEST_PREFIX):
+            continue
+        path = os.path.join(directory, name)
+        try:
+            info = os.stat(path, follow_symlinks=False)
+        except OSError:
+            continue
+        if not stat.S_ISREG(info.st_mode):
+            continue
+        if now - info.st_mtime <= max_age_seconds:
+            continue
+        try:
+            os.unlink(path)
+        except OSError:
+            continue
+        removed.append(name)
+    return removed
 
 
 def discard_request(path: str) -> None:

@@ -67,6 +67,15 @@ _SYSTEMCTL = "/usr/bin/systemctl"
 #: transaction.
 _DISPATCH_UNIT_MAX_SECONDS = 900
 
+#: Ceiling on the CALL that waits for the unit, which is a different thing from
+#: the ceiling on the unit. With --wait, systemd-run is a client: if the unit
+#: reaches its own ceiling systemd reports that and the client returns, but a
+#: bus that never answers leaves the client waiting on a unit it can no longer
+#: hear from. DELIBERATELY LONGER than the unit's ceiling, so the unit's own
+#: bound fires first and the ordinary slow case ends in systemd's answer rather
+#: than in this backstop, which can only ever report that nothing is known.
+_DISPATCH_WAIT_MAX_SECONDS = _DISPATCH_UNIT_MAX_SECONDS + 60
+
 #: How long the manager probe may take before it is abandoned. It is a local
 #: query on a failure path; a bound stops a wedged bus turning a diagnostic
 #: into a second hang.
@@ -1101,6 +1110,19 @@ class ToolRegistry:
         # parent is not rejected here — it cannot be written down.
         request_id = privileged_request.request_id_for(request_path)
 
+        # Collect anything a previous dispatch left behind. The one path that
+        # deliberately leaves a request is the timeout below, where the unit
+        # outlives this client and may still be about to read it; the next
+        # dispatch is the natural moment to decide that a leftover has stopped
+        # being possibly-in-flight. Housekeeping only — it never refuses a
+        # dispatch, and the bound is far longer than the unit's own ceiling.
+        collected = privileged_request.prune_stale_requests()
+        if collected:
+            logger.info(
+                "collected %d stale privileged request(s) left by earlier "
+                "dispatches", len(collected),
+            )
+
         # The transient unit's properties are FIXED and request-independent.
         # The user manager is a launch mechanism, not an authenticity boundary,
         # so nothing about the request may influence how the unit is
@@ -1125,10 +1147,56 @@ class ToolRegistry:
             "pkexec", _PKEXEC_RUNNER_PATH, request_id,
         ]
 
+        leave_request = False
         try:
             try:
                 completed = subprocess.run(
                     argv, capture_output=True, text=True, check=False,
+                    timeout=_DISPATCH_WAIT_MAX_SECONDS,
+                )
+            except subprocess.TimeoutExpired:
+                # LEAVE THE REQUEST. Every other failure here means the runner
+                # never got there, so removing it is this side's half of the
+                # contract. A timeout is the one case where that is false: the
+                # unit outlives this client by construction, so the runner may
+                # be about to read the very file this would delete. Removing it
+                # would not clean anything up — it would turn a dispatch that
+                # was going to complete into one that fails at the privilege
+                # boundary, and make an already-unknown outcome less knowable.
+                # prune_stale_requests above is what eventually collects it.
+                leave_request = True
+                # THE OUTCOME IS NOT KNOWN, and saying anything more definite
+                # would be a claim this code cannot support. systemd-run was a
+                # client; the unit outlives it. By the time this fires the
+                # runner may never have started, may be waiting on a dialog
+                # nobody answered, or may have spent the approval and completed
+                # the action. "It failed" would be false comfort, and it is the
+                # sentence that would make an automatic retry look safe, so it
+                # is not said. Nothing is retried here: a fresh approval proves
+                # a person authorized the action, not that the previous attempt
+                # did not perform it.
+                logger.error(
+                    "privileged dispatch of %s exceeded %ss with no answer; "
+                    "outcome unknown (unit %s)",
+                    tool_name, _DISPATCH_WAIT_MAX_SECONDS, unit_name,
+                )
+                return ToolResult(
+                    call_id=call.call_id,
+                    name=tool_name,
+                    content=(
+                        f"the outcome of {tool_name} is not known. The "
+                        f"privileged dispatch did not report within "
+                        f"{_DISPATCH_WAIT_MAX_SECONDS} seconds, so it was "
+                        f"abandoned here — but the unit that carries it runs "
+                        f"independently of this wait, and the action may have "
+                        f"been performed. It has NOT been attempted again, "
+                        f"because repeating an action that may already have "
+                        f"happened is a decision for you rather than for this "
+                        f"program. What ran is the transient unit "
+                        f"{unit_name}; its own record is the account of what "
+                        f"happened."
+                    ),
+                    success=False,
                 )
             except FileNotFoundError as exc:
                 logger.error(
@@ -1175,7 +1243,12 @@ class ToolRegistry:
             # never got there — it was never started, it died early, the
             # manager refused — the request must not be left on disk, because
             # a request left behind is an approval token left behind.
-            privileged_request.discard_request(request_path)
+            #
+            # The single exception is a timed-out wait, which sets
+            # leave_request: there the runner may still be holding it. See the
+            # TimeoutExpired branch.
+            if not leave_request:
+                privileged_request.discard_request(request_path)
 
     #: What a path probe can establish. Each value is a MEASUREMENT, never a
     #: cause: "absent" means stat() said ENOENT, not that anyone is at fault.
