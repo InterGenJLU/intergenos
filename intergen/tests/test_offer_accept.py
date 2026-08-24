@@ -207,7 +207,13 @@ class ResetClearsAllOfferSlots(unittest.TestCase):
             def reset_conversation(self):
                 pass
 
-        r._trust_state = None
+        # The consent record keeps its identity across a reset now (it is
+        # cleared, not replaced), so the stub answers reset() like the real one.
+        class _Trust:
+            def reset(self):
+                pass
+
+        r._trust_state = _Trust()
         r._ingress_tracker = _Tracker()
         r._conversation_history = ["turn-1", "turn-2"]
         r._memory = None

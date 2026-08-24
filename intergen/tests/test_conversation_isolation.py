@@ -84,6 +84,8 @@ def _bare_router():
     r._max_history = 20
     r._record = lambda *a, **k: None
     r._current_query_type = "general"
+    r._memory = None
+    r._embedder = None
     return r
 
 
@@ -180,11 +182,15 @@ class TwoClientsAlternatingTurnsTests(unittest.TestCase):
         router._wiki_retrieval = None
         state_a, state_b = _new_state(), _new_state()
 
+        # The conversation is named ON THE CALL, because the browser server
+        # writes the delivered exchange back after the route lock is released,
+        # by which time another connection may be the one bound.
         append = getattr(router, "_append_history")
         with _bind(router, state_a):
-            append(state_a, "what is my disk usage", "83% of 1 TB is in use")
+            append("what is my disk usage", "83% of 1 TB is in use",
+                   state=state_a)
         with _bind(router, state_b):
-            append(state_b, "who wrote the kernel", "many people did")
+            append("who wrote the kernel", "many people did", state=state_b)
             built = router._build_messages("and how big is it",
                                            with_tools=False)
 
@@ -298,7 +304,7 @@ def _dirty(state):
 class NewSessionClearsTheConversationTests(unittest.TestCase):
 
     def _new_session(self):
-        srv = _server()
+        srv = _server(router=_bare_router())
         srv._sessions = mock.MagicMock()
         srv._send_session_list = mock.AsyncMock()
         ctx = _ctx()
@@ -339,7 +345,7 @@ class NewSessionClearsTheConversationTests(unittest.TestCase):
 class SwitchSessionRestoresThatSessionTests(unittest.TestCase):
 
     def _switch(self, loaded):
-        srv = _server()
+        srv = _server(router=_bare_router())
         sessions = mock.MagicMock()
         sessions.load.return_value = {"messages": loaded}
         srv._sessions = sessions
@@ -402,7 +408,7 @@ class DbusAndWebDoNotCrossTests(unittest.TestCase):
                          "allow")
 
     def test_a_browser_new_session_leaves_the_bus_conversation_untouched(self):
-        srv = _server()
+        srv = _server(router=_bare_router())
         srv._sessions = mock.MagicMock()
         srv._send_session_list = mock.AsyncMock()
         bus_state = _dirty(_new_state())

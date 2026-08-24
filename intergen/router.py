@@ -16,6 +16,7 @@ Priority chain:
 
 from __future__ import annotations
 
+import contextlib
 import functools
 import ipaddress
 import json
@@ -24,6 +25,7 @@ import os
 import re
 import shlex
 import shutil
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -32,6 +34,9 @@ from typing import Any, Callable
 from intergen import glass
 from intergen import persona
 from intergen import capability_registry
+from intergen.conversation_state import (
+    ConversationState, new_conversation_state,
+)
 from intergen.dispatch_policy import is_system_category_conversation
 from intergen.decomposer import analyze_query, DecomposedQuery
 from intergen.intents import BOOT_PERF_COMPLAINT_PATTERN
@@ -1283,6 +1288,21 @@ def _lexical_fact_match(user_input: str, facts: list[tuple[str, str]], *,
     return [text for _score, _pos, text in scored[:max(1, max_facts)]]
 
 
+class ConversationUnbound(RuntimeError):
+    """Raised when a turn is routed without naming its conversation.
+
+    Fail-closed by design: a router shared by several frontends has no honest
+    default conversation to fall back to, and answering from whichever one was
+    bound last is exactly the defect the per-conversation state replaced.
+    """
+
+
+# Distinguishes "never given a conversation" (a partially constructed router)
+# from "its conversation was deliberately detached" (a shared router). The first
+# is answered by giving it one; the second must be refused.
+_CONVERSATION_UNSET = object()
+
+
 class ConversationRouter(RouterInterface):
     """Routes user input through a priority chain to produce a response."""
 
@@ -1398,72 +1418,36 @@ class ConversationRouter(RouterInterface):
                     "wiki retrieval unavailable at init; freeform answers will not "
                     "be wiki-grounded this session", exc_info=True)
                 self._wiki_retrieval = None
-        self._conversation_history: list[Message] = []
         self._max_history = 20
-        # M2b: retrieval-over-verbatim session memory. Embeds each completed turn
-        # via the SAME :8081 nomic embedder the matcher/howto use, and at turn
-        # start returns the single most relevant PAST exchange the raw history
-        # window has already lost (the truncation-lottery). Window kept in lockstep
-        # with the raw window (_max_history messages = _max_history//2 exchanges).
-        # Guarded construction (like the howto corpus): a memory-index failure must
-        # NEVER take the router down — it degrades to the raw window.
         self._embedder = embedder
-        self._turn_index = None
-        if embedder is not None:
-            try:
-                from intergen.memory import SessionTurnIndex
-                self._turn_index = SessionTurnIndex(
-                    embedder, window_turns=max(1, self._max_history // 2))
-            except Exception:  # noqa: BLE001 — memory must never be a startup risk
-                logger.warning("M2b session memory disabled: SessionTurnIndex "
-                               "failed to construct; the router uses the raw "
-                               "history window only.", exc_info=True)
-                self._turn_index = None
-        self._first_interaction = True
-        # A bare declarative ("my editor is vim" / "my screen is too bright")
-        # is acknowledged with an OFFER (store the preference / look into the
-        # complaint), never stored silently. The pending offer awaits the user's
-        # yes/no on the next turn: (kind, key, value, original_text) or None.
-        self._pending_memory_offer: tuple[str, str, str, str] | None = None
-        # Explain-first-then-offer (PI-218-2): when an explain answer carried a
-        # runnable command, the offer to run it awaits the user's yes/no next turn:
-        # (command, tool, original_query) or None. Resolved at the top of
-        # _route_impl through the normal safety-gated path — never auto-run.
-        self._pending_action_offer: tuple[str, str, str] | None = None
-        # LOOP-KILLER: commands the user has already declined / had
-        # handed off in this conversation. Once an offered action is denied at
-        # the gate, re-offering it as fresh next turn is the incoherent
-        # offer/deny loop (evidence 2026-07-13). We remember the normalized
-        # command line and, on a later turn that would re-stage the SAME action,
-        # substitute an honest acknowledgement + handoff instead of arming a new
-        # offer. Best-effort conversation scope: cleared on an explicit
-        # conversation reset (reset_conversation); erring toward MORE suppression
-        # (a declined action stays declined) is the safe direction.
-        self._handed_off_commands: set[str] = set()
+        # ── The conversation ────────────────────────────────────────────────
+        # History, consent record, ingress watermarks, the three offer slots,
+        # the preventive-grounding window, the handed-off set, the relevance
+        # index over this conversation's turns and the first-interaction flag
+        # all live on ONE object, per conversation, described field by field in
+        # intergen/conversation_state.py. The router reads and writes them only
+        # through the conversation bound to the turn it is serving.
+        #
+        # A router built here is given a conversation of its own, because a
+        # router that is not shared is not multiplexed: a single-frontend caller
+        # (the desktop bus, a test) has one conversation and this is it. A
+        # frontend that serves SEVERAL conversations over this one router —
+        # the browser server does — binds the conversation it is serving around
+        # every turn (bind_conversation) and detaches the router's own
+        # (detach_conversation) so that a turn which forgot to say which
+        # conversation it belongs to is refused rather than silently served
+        # from whatever was left bound.
+        self._bound_conversation = new_conversation_state(
+            embedder=embedder, window_turns=max(1, self._max_history // 2))
+        # Set while a turn that named its conversation is being served, per
+        # thread (see the `_conv` property).
+        self._conversation_binding = threading.local()
         # M3(i) turn-scoped scratch: a prefixed reply over a live action offer
         # sets the stripped tail to route (consumed in _route_impl) and, for a
         # prefixed "yes", the one-line re-offer reminder (consumed in route()).
         self._reoffer_tail: str | None = None
         self._reoffer_reminder: str | None = None
         self._effective_input: str | None = None
-        # M3(ii) option B (preventive grounding) + PI-Z29: a turn-count TTL counts
-        # down the turns for which a just-made action offer keeps its no-dispatch
-        # grounding window OPEN — the window in which the small model may fabricate
-        # an execution narrative off the offer text. Set to _OFFER_GROUNDING_TTL (a
-        # SHORT count, NOT the full buffer) when an offer is staged, so the window
-        # decays independently of buffer eviction (PI-Z29 a — a long-lived
-        # conversation stops nagging). _offer_topic_terms holds the offered command's
-        # content words so the note injects only on a turn that plausibly relates to
-        # the offer (PI-Z29 b); claim_screen stays the honesty backstop for
-        # everything the narrowed injection no longer covers.
-        self._action_offer_ttl = 0
-        self._offer_in_recent_history = False
-        self._offer_topic_terms: frozenset[str] = frozenset()
-        # IPv6 follow-up offer: after the AUTO IPv4 answer, the user's yes/no on
-        # "want your IPv6 too?" awaits the next turn. Holds the original query (or
-        # None). Gated because a global IPv6 can pin a device (SLAAC) — the v6
-        # answer never auto-fires. Resolved at the top of _route_impl.
-        self._pending_ipv6_offer: str | None = None
         # Per-turn semantic-match confidence (cosine score). None until a route()
         # turn reaches P2 semantic matching; reset to None at the top of each
         # _route_impl so the telemetry "Confidence" reflects THIS turn's decision
@@ -1473,14 +1457,6 @@ class ConversationRouter(RouterInterface):
         # was served. Read by _synth_renderer so the answer linkage names the
         # composer that actually produced the delivered text.
         self._last_synthesis_rejection: str | None = None
-        # D-008 RFC §5.1 + §5.3: per-turn ingress-fire tracker + per-conv
-        # symmetric allow/deny trust state. Both flow into every tool
-        # dispatch through ToolRegistry.execute(). The tracker is reset at
-        # the start of each route() invocation; the trust state persists
-        # across turns within a conversation and is reset via
-        # reset_conversation_state().
-        self._ingress_tracker = IngressTracker()
-        self._trust_state = ConversationTrustState()
         # Turn-scoped human-review surface for held/privileged tool dispatches,
         # set per route() call (alongside the ingress tracker). None until a
         # full-mode frontend (e.g. the D-Bus Ask path) supplies a callback built
@@ -1492,13 +1468,215 @@ class ConversationRouter(RouterInterface):
 
         # Start a new session if memory is available
         if self._memory:
-            self._memory.start_session()
+            self._bound_conversation.memory_session_id = (
+                self._memory.start_session())
+
+    # ── The conversation this router is serving ─────────────────────────────
+
+    @property
+    def _conv(self) -> ConversationState:
+        """The conversation the current turn belongs to.
+
+        Every read and write of conversation state goes through here, so there
+        is no path by which one conversation's history, consent decisions or
+        pending offers can be reached while another one is being served.
+
+        A router whose conversation has been detached raises rather than
+        answering from whatever was bound last. That is the whole point of the
+        detach: on a router shared by several frontends, a caller that does not
+        say which conversation it is serving must be refused, because the
+        alternative is the defect this replaced — one conversation's decisions
+        quietly applied to another's turn.
+        """
+        # A turn that named its conversation wins, and it is remembered per
+        # THREAD: route() runs in a worker thread, and a turn abandoned at the
+        # server deadline keeps running there. Without the thread scope that
+        # abandoned turn would go on writing into whichever conversation was
+        # bound next — one person's answer landing in another person's history.
+        local = getattr(self, "_conversation_binding", None)
+        named = getattr(local, "state", None) if local is not None else None
+        if named is not None:
+            return named
+        conv = getattr(self, "_bound_conversation", _CONVERSATION_UNSET)
+        if conv is _CONVERSATION_UNSET:
+            # A router built with __new__ and no __init__ (the partial-router
+            # idiom used by the unit tests) has never been given one. It is not
+            # shared with anything, so it gets its own here rather than failing
+            # on a state question it can answer truthfully.
+            conv = new_conversation_state()
+            self._bound_conversation = conv
+        if conv is None:
+            raise ConversationUnbound(
+                "This router is serving no conversation. It is shared by more "
+                "than one frontend, so a turn must name the conversation it "
+                "belongs to (bind_conversation) before it can be routed.")
+        return conv
+
+    @contextlib.contextmanager
+    def _conversation_scope(self, state: ConversationState):
+        local = getattr(self, "_conversation_binding", None)
+        if local is None:
+            local = self._conversation_binding = threading.local()
+        previous = getattr(local, "state", None)
+        local.state = state
+        try:
+            yield state
+        finally:
+            local.state = previous
+
+    def bind_conversation(self, state: ConversationState):
+        """Serve `state` for the duration of the with-block, then restore.
+
+        Used by a frontend that multiplexes several conversations over this one
+        router: it binds the conversation the turn belongs to, routes, and the
+        binding is undone whether the turn succeeded or raised.
+        """
+        if not isinstance(state, ConversationState):
+            raise TypeError(
+                "bind_conversation needs a ConversationState; got "
+                f"{type(state).__name__}.")
+        return self._conversation_scope(state)
+
+    def new_conversation(self) -> ConversationState:
+        """A fresh conversation, wired to this router's embedder.
+
+        Frontends call this rather than building one themselves so that every
+        conversation gets its own relevance index over its own turns — an index
+        shared between conversations would put one person's exchanges into
+        another's prompt, which is the retrieval half of the same defect.
+        """
+        return new_conversation_state(
+            embedder=getattr(self, "_embedder", None),
+            window_turns=max(1, getattr(self, "_max_history", 20) // 2))
+
+    def detach_conversation(self) -> None:
+        """Give up the router's own conversation.
+
+        A frontend that serves many conversations over one router calls this
+        once at wiring time. From then on every turn must bind the conversation
+        it belongs to, and one that does not is refused (see `_conv`) instead of
+        being served from a shared default.
+        """
+        self._bound_conversation = None
+
+    # ── The names the conversation's state used to have ─────────────────────
+    # Before this change these were attributes of the router itself, which is
+    # why one conversation's history and decisions reached every other. They
+    # remain readable and writable under the old names, but each one now reads
+    # and writes THE CONVERSATION BEING SERVED — there is no router-wide copy
+    # left to fall out of step with it. The shipped code paths use `self._conv`
+    # directly; these exist so that a caller holding a router (the test suite
+    # reaches into most of these) does not have to know where the state moved.
+
+    @property
+    def _conversation_history(self) -> "list[Message]":
+        return self._conv.history
+
+    @_conversation_history.setter
+    def _conversation_history(self, value) -> None:
+        # In place: the browser connection's transcript is the same list.
+        self._conv.history[:] = list(value)
+
+    @property
+    def _trust_state(self):
+        return self._conv.trust_state
+
+    @_trust_state.setter
+    def _trust_state(self, value) -> None:
+        self._conv.trust_state = value
+
+    @property
+    def _ingress_tracker(self):
+        return self._conv.ingress_tracker
+
+    @_ingress_tracker.setter
+    def _ingress_tracker(self, value) -> None:
+        self._conv.ingress_tracker = value
+
+    @property
+    def _pending_action_offer(self):
+        return self._conv.pending_action_offer
+
+    @_pending_action_offer.setter
+    def _pending_action_offer(self, value) -> None:
+        self._conv.pending_action_offer = value
+
+    @property
+    def _pending_ipv6_offer(self):
+        return self._conv.pending_ipv6_offer
+
+    @_pending_ipv6_offer.setter
+    def _pending_ipv6_offer(self, value) -> None:
+        self._conv.pending_ipv6_offer = value
+
+    @property
+    def _pending_memory_offer(self):
+        return self._conv.pending_memory_offer
+
+    @_pending_memory_offer.setter
+    def _pending_memory_offer(self, value) -> None:
+        self._conv.pending_memory_offer = value
+
+    @property
+    def _action_offer_ttl(self) -> int:
+        return self._conv.action_offer_ttl
+
+    @_action_offer_ttl.setter
+    def _action_offer_ttl(self, value) -> None:
+        self._conv.action_offer_ttl = value
+
+    @property
+    def _offer_in_recent_history(self) -> bool:
+        return self._conv.offer_in_recent_history
+
+    @_offer_in_recent_history.setter
+    def _offer_in_recent_history(self, value) -> None:
+        self._conv.offer_in_recent_history = value
+
+    @property
+    def _offer_topic_terms(self):
+        return self._conv.offer_topic_terms
+
+    @_offer_topic_terms.setter
+    def _offer_topic_terms(self, value) -> None:
+        self._conv.offer_topic_terms = value
+
+    @property
+    def _handed_off_commands(self) -> "set[str]":
+        return self._conv.handed_off_commands
+
+    @_handed_off_commands.setter
+    def _handed_off_commands(self, value) -> None:
+        self._conv.handed_off_commands = set(value)
+
+    @property
+    def _turn_index(self):
+        return self._conv.turn_index
+
+    @_turn_index.setter
+    def _turn_index(self, value) -> None:
+        self._conv.turn_index = value
+
+    @property
+    def _first_interaction(self) -> bool:
+        return self._conv.first_interaction
+
+    @_first_interaction.setter
+    def _first_interaction(self, value) -> None:
+        self._conv.first_interaction = value
 
     def route(self, user_input: str, *,
+              conversation: ConversationState | None = None,
               conversation_active: bool = False,
               decide_only: bool = False,
               review_callback: Callable[..., str] | None = None) -> RouteResult:
         """Route user input through the priority chain (traced wrapper).
+
+        conversation: the conversation this turn belongs to. A frontend that
+        serves several conversations over one router names it here, on the call,
+        and it is in force for exactly this turn on exactly this thread. A
+        frontend that has only one conversation (the desktop bus) may leave it
+        out and let the router serve the one it holds.
 
         Wraps :meth:`_route_impl` in the request-scoped decision trace
         (intergen.trace): opens the root "router.route" span, runs the real
@@ -1508,6 +1686,51 @@ class ConversationRouter(RouterInterface):
         span is a no-op and ``trace_id`` stays "". See :meth:`_route_impl` for
         the full routing contract.
         """
+        if conversation is not None:
+            with self._conversation_scope(conversation):
+                return self._route_named(
+                    user_input,
+                    conversation_active=conversation_active,
+                    decide_only=decide_only,
+                    review_callback=review_callback)
+        return self._route_named(
+            user_input,
+            conversation_active=conversation_active,
+            decide_only=decide_only,
+            review_callback=review_callback)
+
+    def _route_named(self, user_input: str, *,
+                     conversation_active: bool = False,
+                     decide_only: bool = False,
+                     review_callback: Callable[..., str] | None = None
+                     ) -> RouteResult:
+        """route() with the conversation already bound for this thread."""
+        # Fail closed on an unnamed conversation. A router shared by several
+        # frontends has no honest default: answering from whatever was bound
+        # last would serve one person's turn with another person's history,
+        # consent decisions and staged offers. Refuse, say why in the log, and
+        # hand the frontend a result it can show rather than an exception it
+        # will most likely swallow.
+        _local = getattr(self, "_conversation_binding", None)
+        if (getattr(_local, "state", None) is None
+                and getattr(self, "_bound_conversation",
+                            _CONVERSATION_UNSET) is None):
+            logger.error(
+                "Refusing to route: this router serves several conversations "
+                "and this turn did not name the one it belongs to. Nothing was "
+                "read from, or written to, any conversation.")
+            glass.emit("route", "conversation_unbound", detail={
+                "input_chars": len(user_input.strip())})
+            return RouteResult(
+                text=("Something went wrong on my side: I could not tell which "
+                      "conversation this message belongs to, so I have not "
+                      "answered it. Please try again."),
+                source="conversation_unbound",
+                handled=False,
+                answer_linkage=AnswerLinkage(
+                    kind="code", renderer="conversation_unbound"),
+            )
+
         tracer = get_tracer()
         with tracer.span("router.route", kind="request") as span:
             span.set_attribute("input_chars", len(user_input.strip()))
@@ -1637,7 +1860,7 @@ class ConversationRouter(RouterInterface):
         # a PRIOR turn (the cross-turn injection vector). Recreating the tracker
         # here (the old behavior) is exactly what made the gate inert against
         # fetch-poison-then-act-next-turn.
-        self._ingress_tracker.reset()
+        self._conv.ingress_tracker.reset()
         # Turn-scoped: every ToolRegistry.execute() this turn reads this for the
         # human-review surface on held/privileged dispatches (None = fail-closed).
         self._review_callback = review_callback
@@ -1687,19 +1910,19 @@ class ConversationRouter(RouterInterface):
         user_input = self._semantic._normalize_input(user_input)
 
         # Track first interaction (for session awareness on demand)
-        if self._first_interaction:
-            self._first_interaction = False
+        if self._conv.first_interaction:
+            self._conv.first_interaction = False
 
         # M3(ii) option B + PI-Z29: is a recent action offer's grounding window still
         # open? Snapshot it for THIS turn's freeform generation (the preventive-
         # grounding gate), then age the window by one turn (PI-Z29 a). A NEW offer
         # staged later this turn re-arms the TTL. Glass-log the moment the window
         # DECAYS closed so a reader sees the nag stop, not just its absence.
-        self._offer_in_recent_history = getattr(self, "_action_offer_ttl", 0) > 0
-        if getattr(self, "_action_offer_ttl", 0) > 0:
-            self._action_offer_ttl -= 1
-            if self._action_offer_ttl == 0:
-                self._offer_topic_terms = frozenset()
+        self._conv.offer_in_recent_history = self._conv.action_offer_ttl > 0
+        if self._conv.action_offer_ttl > 0:
+            self._conv.action_offer_ttl -= 1
+            if self._conv.action_offer_ttl == 0:
+                self._conv.offer_topic_terms = frozenset()
                 glass.emit("decision", "preventive_grounding", detail={
                     "decision": "window_expired", "reason": "ttl_decayed"})
 
@@ -2311,7 +2534,7 @@ class ConversationRouter(RouterInterface):
         """True when the most recent assistant turn was about web-search capability
         — so a bare capability-challenge press ("are you SURE you can't do that?")
         is understood as still asking about web search (2B-LANE context carry)."""
-        for msg in reversed(getattr(self, "_conversation_history", []) or []):
+        for msg in reversed(self._conv.history or []):
             if getattr(msg.role, "value", str(msg.role)) != "assistant":
                 continue
             c = (getattr(msg, "content", "") or "").lower()
@@ -2642,7 +2865,7 @@ class ConversationRouter(RouterInterface):
         human phrase ("I can <human>"). Returns None when the last assistant turn was
         not a tool-capability answer, so a bare press only carries a genuine topic
         (mirrors _recent_topic_is_web_search, history-grounded, no stored state)."""
-        for msg in reversed(getattr(self, "_conversation_history", []) or []):
+        for msg in reversed(self._conv.history or []):
             if getattr(msg.role, "value", str(msg.role)) != "assistant":
                 continue
             c = (getattr(msg, "content", "") or "").lower()
@@ -2741,10 +2964,10 @@ class ConversationRouter(RouterInterface):
         # Pending-offer follow-up: a prior turn offered to store a preference or
         # to look into a complaint. Resolve it on a yes/no reply; an unrelated
         # reply just abandons the offer and routes normally.
-        if self._pending_memory_offer is not None:
-            kind, key, value, original = self._pending_memory_offer
+        if self._conv.pending_memory_offer is not None:
+            kind, key, value, original = self._conv.pending_memory_offer
             if MemoryManager.is_affirmative(user_input):
-                self._pending_memory_offer = None
+                self._conv.pending_memory_offer = None
                 if kind == "preference":
                     stored_key = self._memory._shift_perspective(key)
                     fact = self._memory.store(stored_key, value)
@@ -2763,14 +2986,14 @@ class ConversationRouter(RouterInterface):
                 # diagnostic guard will improve this automatically).
                 return self._route_single(original)
             if MemoryManager.is_negative(user_input):
-                self._pending_memory_offer = None
+                self._conv.pending_memory_offer = None
                 return RouteResult(
                     text="No problem — I won't.", source="memory", handled=True,
                     answer_linkage=AnswerLinkage(
                         kind="code", renderer="memory_template"))
             # Neither yes nor no — the offer lapses; fall through to route this
             # input on its own merits.
-            self._pending_memory_offer = None
+            self._conv.pending_memory_offer = None
 
         # Session recall: "what were we working on?" / "what did we do last time?"
         lower = user_input.lower()
@@ -3008,10 +3231,8 @@ class ConversationRouter(RouterInterface):
 
     def _command_handed_off(self, command: str) -> bool:
         """True if this exact action was already declined / handed off this
-        conversation (loop-killer). getattr-guarded for partial
-        construction (router.__new__ without __init__)."""
-        return self._norm_command(command) in getattr(
-            self, "_handed_off_commands", frozenset())
+        conversation (loop-killer)."""
+        return self._norm_command(command) in self._conv.handed_off_commands
 
     def _note_handed_off(self, command: str) -> None:
         """Record an action as declined / handed off so it is never re-offered as
@@ -3019,10 +3240,7 @@ class ConversationRouter(RouterInterface):
         key = self._norm_command(command)
         if not key:
             return
-        store = getattr(self, "_handed_off_commands", None)
-        if store is None:
-            self._handed_off_commands = store = set()
-        store.add(key)
+        self._conv.handed_off_commands.add(key)
 
     def _handoff_line(self, command: str) -> str:
         """The honest handoff (the honest-handoff design) for a staged shell command that could not
@@ -3053,17 +3271,17 @@ class ConversationRouter(RouterInterface):
         ONE offer slot may be live at a time, so a later "yes" can never bind to a
         stale co-live offer from an earlier turn. Staging any offer clears the other
         two; calling with no arguments clears all three (no live offer)."""
-        self._pending_action_offer = action
-        self._pending_ipv6_offer = ipv6
-        self._pending_memory_offer = memory
+        self._conv.pending_action_offer = action
+        self._conv.pending_ipv6_offer = ipv6
+        self._conv.pending_memory_offer = memory
         if action:
             # M3(ii) option B + PI-Z29 (a): the offer text now enters history — arm
             # the preventive-grounding window for a SHORT, decaying count of turns
             # (not the whole buffer). Capture the offered command's content words so
             # the note injects only on a turn that plausibly relates to THIS offer
             # (PI-Z29 b), never on an unrelated topic while the window is still open.
-            self._action_offer_ttl = self._OFFER_GROUNDING_TTL
-            self._offer_topic_terms = frozenset(
+            self._conv.action_offer_ttl = self._OFFER_GROUNDING_TTL
+            self._conv.offer_topic_terms = frozenset(
                 w for w in re.findall(r"[a-z]{3,}", (action[0] or "").lower()))
         _live = ("action" if action else "ipv6" if ipv6
                  else "memory" if memory else None)
@@ -3081,7 +3299,7 @@ class ConversationRouter(RouterInterface):
         (the over-steer fix); claim_screen still backstops any fabrication that slips."""
         if MemoryManager.is_affirmative(user_input):
             return True
-        terms = self._offer_topic_terms
+        terms = self._conv.offer_topic_terms
         if terms:
             words = set(re.findall(r"[a-z]{3,}", user_input.lower()))
             if words & terms:
@@ -3137,9 +3355,9 @@ class ConversationRouter(RouterInterface):
                 or MemoryManager.is_bare_negative(user_input)
                 or is_grat):
             return None
-        if (getattr(self, "_pending_action_offer", None) is not None
-                or getattr(self, "_pending_ipv6_offer", None) is not None
-                or getattr(self, "_pending_memory_offer", None) is not None):
+        if (self._conv.pending_action_offer is not None
+                or self._conv.pending_ipv6_offer is not None
+                or self._conv.pending_memory_offer is not None):
             return None
         if is_grat:
             result = RouteResult(
@@ -3167,9 +3385,9 @@ class ConversationRouter(RouterInterface):
         there is no pending offer or it lapsed (caller continues routing)."""
         # getattr-guarded for partial-construction tests (router.__new__ without
         # __init__) — same convention as getattr(self, '_reference', None).
-        if getattr(self, "_pending_action_offer", None) is None:
+        if self._conv.pending_action_offer is None:
             return None
-        command, _tool, _original, *_rest = self._pending_action_offer
+        command, _tool, _original, *_rest = self._conv.pending_action_offer
         _args = _rest[0] if _rest else None  # M8-4: structured args for write_file
         # M3(i) — confirmation binding is CODE. The offer-state × input table:
         #   LIVE × bare-yes     -> EXECUTE the staged cmd, clear offer
@@ -3194,7 +3412,7 @@ class ConversationRouter(RouterInterface):
         # command cold and this retains the kill of the latent hazard where a
         # merely-starts-with-yes turn fired it.
         if MemoryManager.is_bare_affirmative(user_input):
-            self._pending_action_offer = None
+            self._conv.pending_action_offer = None
             glass.emit("decision", "offer_consume", detail={
                 "command": command, "user_msg": user_input, "dispatched": True})
             # Code-owned execution: run the STAGED action verbatim (NOT
@@ -3214,7 +3432,7 @@ class ConversationRouter(RouterInterface):
                 # acceptance rather than asking anything new, so this IS the
                 # consent: execute exactly as a bare yes (offer-consent
                 # execution integrity, decided 2026-07-24).
-                self._pending_action_offer = None
+                self._conv.pending_action_offer = None
                 glass.emit("decision", "offer_consume", detail={
                     "command": command, "user_msg": user_input,
                     "dispatched": True, "restated_acceptance": True,
@@ -3240,7 +3458,7 @@ class ConversationRouter(RouterInterface):
             self._reoffer_reminder = reminder
             return None
         if MemoryManager.is_bare_negative(user_input):
-            self._pending_action_offer = None
+            self._conv.pending_action_offer = None
             glass.emit("decision", "offer_decline", detail={
                 "command": command, "user_msg": user_input})
             result = RouteResult(text="No problem — I won't run it.",
@@ -3251,7 +3469,7 @@ class ConversationRouter(RouterInterface):
             return result
         if MemoryManager.is_negative(user_input):
             # Prefixed "No, <tail>": clear the offer (nothing runs), route the tail.
-            self._pending_action_offer = None
+            self._conv.pending_action_offer = None
             glass.emit("decision", "offer_decline", detail={
                 "command": command, "user_msg": user_input, "prefixed": True})
             self._reoffer_tail = MemoryManager.strip_negative_prefix(
@@ -3260,7 +3478,7 @@ class ConversationRouter(RouterInterface):
         # Neither yes nor no — the offer lapses; route this input on its own merits.
         glass.emit("decision", "offer_lapse", detail={
             "command": command, "user_msg": user_input})
-        self._pending_action_offer = None
+        self._conv.pending_action_offer = None
         return None
 
     def _file_offer_line(self, label: str) -> str:
@@ -3278,7 +3496,7 @@ class ConversationRouter(RouterInterface):
         narrated completion. Returns a handled offer RouteResult, or None to fall
         through to the model (itself gated under M8-1)."""
         prior_draft = None
-        hist = getattr(self, "_conversation_history", None)
+        hist = self._conv.history
         if hist:
             for msg in reversed(hist):
                 if getattr(msg, "role", None) == MessageRole.ASSISTANT \
@@ -3322,7 +3540,7 @@ class ConversationRouter(RouterInterface):
             return None
         if text in (honest_action_fallback(), honest_no_selfoffer_fallback()):
             return None
-        if getattr(self, "_pending_action_offer", None) is not None:
+        if self._conv.pending_action_offer is not None:
             return None  # an offer is already armed this turn — do not double-stage
         spec = detect_file_lifecycle_intent(user_input, prior_draft=generated_text)
         if spec is None or spec.get("tool") != "write_file":
@@ -3374,8 +3592,8 @@ class ConversationRouter(RouterInterface):
         try:
             tool_result = self._tools.execute(
                 call,
-                ingress_tracker=self._ingress_tracker,
-                trust_state=self._trust_state,
+                ingress_tracker=self._conv.ingress_tracker,
+                trust_state=self._conv.trust_state,
                 review_callback=self._review_callback,
             )
         except Exception as e:  # noqa: BLE001 — a dispatch error must not crash the turn
@@ -3469,8 +3687,8 @@ class ConversationRouter(RouterInterface):
                         source_of_request=Provenance.USER_DIRECT)
         try:
             tr = self._tools.execute(
-                call, ingress_tracker=self._ingress_tracker,
-                trust_state=self._trust_state, review_callback=self._review_callback)
+                call, ingress_tracker=self._conv.ingress_tracker,
+                trust_state=self._conv.trust_state, review_callback=self._review_callback)
         except Exception as e:  # noqa: BLE001 — a probe failure must not crash the turn
             logger.error("IP-handler command failed (%s): %s", command, e)
             return None
@@ -3534,9 +3752,9 @@ class ConversationRouter(RouterInterface):
         """Resolve the IPv6 offer left by _answer_ip_query. "yes" -> the gated v6
         answer; "no" -> decline; neither -> the offer lapses and the input routes
         normally. getattr-guarded for partial-construction tests."""
-        if getattr(self, "_pending_ipv6_offer", None) is None:
+        if self._conv.pending_ipv6_offer is None:
             return None
-        self._pending_ipv6_offer = None
+        self._conv.pending_ipv6_offer = None
         if MemoryManager.is_affirmative(user_input):
             return self._answer_ipv6(t0)
         if MemoryManager.is_negative(user_input):
@@ -3978,8 +4196,8 @@ class ConversationRouter(RouterInterface):
                 # per-conversation trust state.
                 result = self._tools.execute(
                     chunk,
-                    ingress_tracker=self._ingress_tracker,
-                    trust_state=self._trust_state,
+                    ingress_tracker=self._conv.ingress_tracker,
+                    trust_state=self._conv.trust_state,
                     review_callback=self._review_callback,
                 )
                 tool_results.append(result)
@@ -4362,9 +4580,9 @@ class ConversationRouter(RouterInterface):
         """True if a CODE-owned offer is armed this turn (its confirmation is
         tracked by the state machine) — so a matching model-authored offer is
         legitimate, not a masquerade. getattr-guarded for partial-construction."""
-        return (getattr(self, "_pending_action_offer", None) is not None
-                or getattr(self, "_pending_memory_offer", None) is not None
-                or getattr(self, "_pending_ipv6_offer", None) is not None)
+        return (self._conv.pending_action_offer is not None
+                or self._conv.pending_memory_offer is not None
+                or self._conv.pending_ipv6_offer is not None)
 
     def _regenerate_without_selfoffer(self, messages: "list[Message]") -> str | None:
         """M7 leg 2: regenerate a freeform draft ONCE, re-grounded that it has no
@@ -4607,7 +4825,7 @@ class ConversationRouter(RouterInterface):
         """
         messages = self._llm.build_system_messages(query_type="system_map",
                                                    with_tools=False)
-        for msg in self._conversation_history[-self._max_history:]:
+        for msg in self._conv.history[-self._max_history:]:
             messages.append(msg)
         messages.append(Message(
             role=MessageRole.USER,
@@ -4784,8 +5002,8 @@ class ConversationRouter(RouterInterface):
         try:
             return call, self._tools.execute(
                 call,
-                ingress_tracker=self._ingress_tracker,
-                trust_state=self._trust_state,
+                ingress_tracker=self._conv.ingress_tracker,
+                trust_state=self._conv.trust_state,
                 review_callback=self._review_callback,
             )
         except Exception as e:
@@ -6058,7 +6276,7 @@ class ConversationRouter(RouterInterface):
         messages = self._llm.build_system_messages(query_type=query_type,
                                                    with_tools=with_tools)
 
-        for msg in self._conversation_history[-self._max_history:]:
+        for msg in self._conv.history[-self._max_history:]:
             messages.append(msg)
 
         # M2b Stage C: relevance-selected memory the raw window above cannot carry
@@ -6073,10 +6291,10 @@ class ConversationRouter(RouterInterface):
         _mem_facts: list[str] = []
         _facts_source: str | None = None
         _qv = None
-        if self._turn_index is not None:
-            _qv = self._turn_index.embed_query(user_input)
+        if self._conv.turn_index is not None:
+            _qv = self._conv.turn_index.embed_query(user_input)
             if _qv is not None:
-                _mem = self._turn_index.retrieve(user_input, query_vector=_qv)
+                _mem = self._conv.turn_index.retrieve(user_input, query_vector=_qv)
         # An EXPLICITLY STORED fact is durable, code-owned state — the user typed
         # "remember that …" and the row is on disk. Its delivery into the answer
         # must therefore not depend on a sidecar being up or on a similarity score
@@ -6098,8 +6316,8 @@ class ConversationRouter(RouterInterface):
             except Exception:  # a memory-store hiccup must not fail a turn
                 _facts = []
         if _facts:
-            if _qv is not None and self._turn_index is not None:
-                _mem_facts = self._turn_index.retrieve_facts(_qv, _facts)
+            if _qv is not None and self._conv.turn_index is not None:
+                _mem_facts = self._conv.turn_index.retrieve_facts(_qv, _facts)
                 if _mem_facts:
                     _facts_source = "embedding"
             if not _mem_facts:
@@ -6137,7 +6355,7 @@ class ConversationRouter(RouterInterface):
         # claim_screen stays the honesty backstop. with_tools turns can genuinely
         # dispatch, so the note (which asserts nothing ran) is scoped to toolless only.
         _window_open = (not with_tools
-                        and getattr(self, "_offer_in_recent_history", False))
+                        and self._conv.offer_in_recent_history)
         _preventive = _window_open and self._turn_relates_to_offer(user_input)
         if _preventive:
             messages.append(Message(role=MessageRole.USER,
@@ -6172,7 +6390,7 @@ class ConversationRouter(RouterInterface):
             "memory_turn_no": (_mem.turn_no if _mem is not None else None),
             "memory_facts_injected": len(_mem_facts),
             "memory_facts_source": _facts_source,
-            "history_msg_count": min(len(self._conversation_history),
+            "history_msg_count": min(len(self._conv.history),
                                      self._max_history),
             # M6 LEG 1 prefill accounting.
             "system_prompt_chars": _sys_chars,
@@ -6243,8 +6461,17 @@ class ConversationRouter(RouterInterface):
             f"{reference.conventions()}\n\n{facts}"
         )
 
-    def _append_history(self, user_input: str, response: str) -> None:
-        """Append exchange to conversation history.
+    def _append_history(self, user_input: str, response: str, *,
+                        state: ConversationState | None = None) -> None:
+        """Append one exchange to a conversation's model-facing buffer.
+
+        `state` names the conversation to write into; the bound one is used when
+        it is not given. It is a keyword because the browser server writes the
+        delivered exchange back AFTER the route lock has been released, by which
+        time another connection may already be bound — so that caller passes the
+        conversation the answer actually belongs to rather than trusting what is
+        bound at the moment of the write. Callers inside a turn run under the
+        lock with their own conversation bound and use the default.
 
         M2a idempotency guard: a repeat call with the SAME (user_input, response)
         as the current tail is a no-op. This makes the web-path write-back
@@ -6253,19 +6480,16 @@ class ConversationRouter(RouterInterface):
         ALREADY self-appended inside route() (explain / staged-run). The buffer
         gains each exchange exactly once, never doubled.
         """
-        hist = self._conversation_history
+        conv = self._conv if state is None else state
+        hist = conv.history
         if (len(hist) >= 2
                 and hist[-2].role == MessageRole.USER
                 and hist[-2].content == user_input
                 and hist[-1].role == MessageRole.ASSISTANT
                 and hist[-1].content == response):
             return
-        self._conversation_history.append(
-            Message(role=MessageRole.USER, content=user_input)
-        )
-        self._conversation_history.append(
-            Message(role=MessageRole.ASSISTANT, content=response)
-        )
+        hist.append(Message(role=MessageRole.USER, content=user_input))
+        hist.append(Message(role=MessageRole.ASSISTANT, content=response))
         # M1 (bullet 3): every write to the model-facing conversation buffer.
         # By its ABSENCE on the streamed web path this is the exact (a)/(c)
         # write-gap — making it visible (and, post-M2a, its presence) is the
@@ -6273,17 +6497,19 @@ class ConversationRouter(RouterInterface):
         glass.emit("decision", "history_write", detail={
             "store": "conversation_history", "user_input": user_input,
             "response": response,
-            "len_after": len(self._conversation_history)})
-        if len(self._conversation_history) > self._max_history * 2:
-            self._conversation_history = self._conversation_history[
-                -self._max_history:
-            ]
+            "len_after": len(hist)})
+        if len(hist) > self._max_history * 2:
+            # Trimmed IN PLACE. The browser connection's transcript and this
+            # buffer are the same list, so rebinding the name here would leave
+            # the pane and the prompt reading two different objects — the drift
+            # this conversation object exists to make impossible.
+            del hist[:-self._max_history]
         # M2b Stage B: index the (new) completed exchange for relevance retrieval.
         # Reached only PAST the idempotency guard above, so the blanket web-path
         # write-back never double-indexes. Off the hot path (bounded worker);
         # a no-op when the index is disabled/degraded.
-        if self._turn_index is not None:
-            self._turn_index.index_turn(user_input, response)
+        if conv.turn_index is not None:
+            conv.turn_index.index_turn(user_input, response)
 
     # ── Recording ──
 
@@ -6352,69 +6578,74 @@ class ConversationRouter(RouterInterface):
 
     # ── Conversation lifecycle ──
 
-    def reset_conversation_state(self) -> None:
-        """Reset per-conversation state at conversation end.
+    def reset_conversation_state(
+            self, state: ConversationState | None = None) -> None:
+        """End ONE conversation: return its state to what a fresh one starts in.
 
-        D-008 RFC §5.3 + §6: the symmetric trust state (allow_conversation
-        / deny_conversation decisions) and the ingress-watermark tracker
-        both belong to a single conversation. The frontend (CLI / GUI /
-        IPC adapter) invokes this when the user explicitly ends a
-        conversation so subsequent conversations start with a clean
-        provenance posture. Conversation history is cleared alongside so
-        the LLM context window does not carry stale turn references that
-        would conflict with the freshly-reset trust state.
+        D-008 RFC §5.3 + §6: the symmetric trust state (allow_conversation /
+        deny_conversation decisions) and the ingress watermark both belong to a
+        single conversation. A frontend calls this when the person explicitly
+        ends or leaves a conversation, so the next one starts with a clean
+        provenance posture. The history is cleared alongside them, so the
+        model's context window cannot carry turn references that contradict the
+        freshly cleared consent record.
+
+        `state` names the conversation to end; the bound one is used when it is
+        not given. It is a parameter because the browser server keeps one
+        conversation per connected client and must be able to end THAT one — a
+        reset that took whatever happened to be bound would end whichever
+        conversation was last served, which on a shared router is somebody
+        else's.
+
+        The relevance index and the long-term memory session are replaced here
+        rather than in ConversationState.clear(), because both are built from
+        components the router owns (the embedder and the memory store).
         """
-        self._trust_state = ConversationTrustState()
-        self._ingress_tracker.reset_conversation()
-        self._conversation_history.clear()
-        # F3 (offer/accept fix, 2026-07-01): clear ALL offer slots, not just
-        # memory — a "yes" in a fresh conversation must never bind to an action or
-        # ipv6 offer staged in a discarded one (the stale-bind-across-reset hole).
-        self._pending_action_offer = None
-        self._pending_ipv6_offer = None
-        self._pending_memory_offer = None
-        # M3(ii) option B + PI-Z29: the preventive-grounding window is per-
-        # conversation — a discarded conversation's offer must not inject a
-        # no-dispatch note into a fresh one (same stale-bind-across-reset class as
-        # the offer slots above). Clear the window TTL AND the topic terms.
-        self._action_offer_ttl = 0
-        self._offer_in_recent_history = False
-        self._offer_topic_terms = frozenset()
-        # loop-killer set is per-conversation — a fresh conversation may
-        # re-offer an action a prior (discarded) one declined.
-        self._handed_off_commands = set()
-        # M2b: the session turn index is per-conversation — retrieval must never
-        # surface a discarded conversation's exchanges into a fresh one (same
-        # stale-bind-across-reset class as the offer slots above).
-        if self._turn_index is not None:
-            self._turn_index.clear()
-        self._first_interaction = True
-        if self._memory:
-            self._memory.start_session()
+        conv = self._conv if state is None else state
+        # Everything a conversation carries in its own right — history, consent
+        # record, ingress watermark, all three offer slots, the grounding
+        # window, the handed-off set and the first-interaction flag.
+        conv.clear()
+        # M2b: the relevance index is per-conversation — retrieval must never
+        # surface a discarded conversation's exchanges into a fresh one (the
+        # same stale-bind-across-reset class as the offer slots).
+        if conv.turn_index is not None:
+            conv.turn_index.clear()
+        if getattr(self, "_memory", None):
+            conv.memory_session_id = self._memory.start_session()
 
     # ── Status ──
 
     def get_status(self) -> dict:
         """Return router status."""
+        # Read WITHOUT binding: a status question must never fail because no
+        # turn happens to be in flight, and it must never bind a conversation of
+        # its own choosing. A frontend that wants its own conversation's numbers
+        # binds it around the call (the desktop bus does).
+        conv = getattr(self, "_bound_conversation", None)
+        index = conv.turn_index if conv is not None else None
         status = {
             "tool_count": self._tools.tool_count,
             "intent_count": self._semantic.get_intent_count(),
-            "history_length": len(self._conversation_history),
+            # Conversation-scoped. `conversation_bound` says whether there was a
+            # conversation to report on at all, so a zero here is never read as
+            # "the conversation is empty" when it means "none was named".
+            "conversation_bound": conv is not None,
+            "history_length": len(conv.history) if conv is not None else 0,
             "escalation_mode": self._llm.get_escalation_mode().value,
             # M2b (design D5): a degraded memory path is never silent. True when
             # the :8081 embedder was found unreachable/malformed on an index or
             # retrieve; enabled=False means no embedder was wired at all.
-            "memory_enabled": self._turn_index is not None,
-            "memory_degraded": (self._turn_index.degraded
-                                if self._turn_index is not None else False),
+            "memory_enabled": (index is not None if conv is not None
+                               else self._embedder is not None),
+            "memory_degraded": (index.degraded if index is not None else False),
             # MEASURED, not configured. enabled says an index was wired;
             # verified says the embedder has actually answered at least once.
             # Before this existed, a machine whose embedder never came up
             # reported neither enabled=False nor degraded=True — it had not
             # failed yet, only never succeeded — and the user surface read that
             # as working.
-            "memory_verified": (self._turn_index.verified
-                                if self._turn_index is not None else False),
+            "memory_verified": (index.verified if index is not None else False),
         }
         if self._metrics:
             status.update(self._metrics.get_status())
