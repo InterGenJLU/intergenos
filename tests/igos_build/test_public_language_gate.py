@@ -356,3 +356,56 @@ class RangeScanTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DigitSuffixTests(unittest.TestCase):
+    """A coined seat identifier followed by digits escaped the gate.
+
+    Measured 2026-08-24 with a three-line probe: a name written as
+    ``<name>-canary-x`` hit, ``<name>093-evidence/…`` did NOT, bare ``<name>``
+    hit. The trailing ``(?!\\w)`` treats a digit as part of the word, so the
+    name-plus-digits shape reached a public remote in thirteen commit messages
+    and one branch name before a person caught it.
+
+    Widening EVERY term this way is wrong — it was measured against the whole
+    tree and fired on ``hd0,gpt2`` (a partition specifier), ``sol2`` (a
+    library) and ``SOL_SOCKET``. So the list marks the terms that get the
+    widened boundary with a trailing ``*``: for those, letters and underscore
+    still end the match, digits do not. Unmarked terms keep the strict
+    boundary. The star is list syntax, never part of the term.
+    """
+
+    def test_starred_term_hits_with_digit_suffix(self):
+        ct = _compiled(f"{TOK}*")
+        # The report names the matched text — the term — not the digits after it.
+        self.assertEqual(clg.scan_line(f"see {TOK}093-evidence/x", ct), [TOK])
+
+    def test_starred_term_still_hits_bare_and_hyphenated(self):
+        ct = _compiled(f"{TOK}*")
+        self.assertEqual(clg.scan_line(f"{TOK}-canary-x", ct), [TOK])
+        self.assertEqual(clg.scan_line(f"bare {TOK} here", ct), [TOK])
+
+    def test_starred_term_does_not_hit_inside_a_longer_word(self):
+        ct = _compiled(f"{TOK}*")
+        self.assertEqual(clg.scan_line(f"{TOK}RANK and {TOK}_socket and 9{TOK}", ct), [])
+
+    def test_unstarred_term_keeps_the_strict_boundary(self):
+        ct = _compiled(TOK)
+        self.assertEqual(clg.scan_line(f"see {TOK}093-evidence/x", ct), [])
+
+    def test_star_is_syntax_not_term_text(self):
+        # The literal star is never matched and never reported.
+        ct = _compiled(f"{TOK}*")
+        self.assertEqual(clg.scan_line(f"{TOK}* literal", ct), [TOK])
+
+    def test_text_mode_end_to_end_with_starred_list(self):
+        # The pre-push ref-name gate goes through --text; a seat-named ref
+        # with a digit suffix must be refused there too.
+        with tempfile.TemporaryDirectory() as td:
+            lst = Path(td) / "list"
+            lst.write_text(f"# synthetic\n{TOK}*\n", encoding="utf-8")
+            r = subprocess.run(
+                ["python3", str(_SCRIPT), "--denylist", str(lst),
+                 "--label", "ref name", "--text", f"{TOK.lower()}093/topic"],
+                capture_output=True, text=True, timeout=120)
+            self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
