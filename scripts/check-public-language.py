@@ -289,7 +289,11 @@ class ListUnavailable(Exception):
 def load_terms(path: Path) -> list[str]:
     """Load banned terms from the private list. One term per line; blank lines
     and `#` comments ignored. Raises ListUnavailable (fail-closed) if the file
-    is absent, unreadable, or yields zero usable terms."""
+    is absent, unreadable, or yields zero usable terms.
+
+    A term may end in ``*`` — list syntax consumed by compile_terms (the
+    digit-tolerant boundary); it is kept on the string here so the marker has
+    exactly one reader."""
     if not path.exists():
         raise ListUnavailable(f"term list not found at {path}")
     try:
@@ -345,12 +349,29 @@ def compile_terms(terms: list[str]):
     (?<!\\w) / (?!\\w) is a robust word boundary that also anchors terms whose
     edge character is non-word — so a bare token as a standalone word matches,
     while the same letters inside a larger word do not.
+
+    A term written with a trailing ``*`` gets a DIGIT-TOLERANT trailing
+    boundary instead: letters and underscore still end the match, digits do
+    not, so ``<term>093`` is a hit. The star is list syntax, never term text.
+    Measured 2026-08-24: a coined identifier followed by digits passed
+    ``(?!\\w)`` — a digit is a word character — and reached a public remote in
+    thirteen commit messages and one ref name. The tolerant boundary is opt-in
+    per term because applying it to every term was measured against the whole
+    tree and fired on ordinary technical text (a partition specifier such as
+    ``hd0,gpt2``, a library named ``sol2``); only coined identifiers have no
+    digit-suffixed legitimate use. The leading boundary is never widened: some
+    of these tokens are spelled entirely in hex letters, so a widened lead
+    would fire inside checksums.
     """
     compiled = []
     for t in terms:
-        pat = re.compile(r"(?<!\w)" + term_pattern_body(t) + r"(?!\w)",
+        if t.endswith("*"):
+            term, tail = t[:-1], r"(?![A-Za-z_])"
+        else:
+            term, tail = t, r"(?!\w)"
+        pat = re.compile(r"(?<!\w)" + term_pattern_body(term) + tail,
                          re.IGNORECASE)
-        compiled.append((t, pat))
+        compiled.append((term, pat))
     return compiled
 
 
