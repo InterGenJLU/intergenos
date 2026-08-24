@@ -44,6 +44,7 @@ in a reconstructed timeline is self-explaining rather than mysterious.
 
 from __future__ import annotations
 
+import asyncio
 import contextvars
 import itertools
 import json
@@ -89,11 +90,96 @@ _SECRET_KEY_RE = re.compile(
     re.IGNORECASE,
 )
 
+# THE TERMINAL VOCABULARY (REC-17). A turn ends exactly once, and these are the
+# ways it may end. Named in ONE place so every interface ends a turn the same
+# way and a reader can ask "how did this turn finish?" without knowing which
+# interface served it.
+#
+#   final      the turn produced an answer
+#   refused    the turn was declined — an empty message, an unavailable router,
+#              a denied tool. A refusal is an outcome, not an absence of one.
+#   error      the turn raised
+#   cancelled  the client went away mid-turn
+#   timeout    a deadline fired
+#   unreported the turn ended without any of the above; see _synthesize_terminal
+#
+# ⚠️ "timeout" is carried for the whole-turn route deadline being added on the
+# turn-lifecycle lane. It is NOT produced anywhere in THIS branch, so nothing
+# here exercises it against a real producer — it is in the vocabulary so that
+# lane's deadline satisfies this invariant without editing this module.
+_TERMINAL_PHASE = "delivery"
+_TERMINAL_EVENTS = ("final", "refused", "error", "cancelled", "timeout",
+                    "unreported")
+
+#: Written when a turn ends with no terminal event of its own.
+_TERMINAL_FALLBACK = "unreported"
+
+#: Written INSTEAD of a second terminal, so a call site that ends a turn twice
+#: stays findable rather than silently winning or silently losing.
+_TERMINAL_AFTER_TERMINAL = "terminal_after_terminal"
+
+
+def is_terminal_event(phase: str, event: str) -> bool:
+    """Whether a (phase, event) pair ends a turn.
+
+    One predicate, so the writer's enforcement and any reader's reconstruction
+    cannot drift apart — a gate and a reader disagreeing about what "the end"
+    means is how an exactly-once guarantee quietly stops holding.
+    """
+    return phase == _TERMINAL_PHASE and event in _TERMINAL_EVENTS
+
+
 # Per-context turn state. A ContextVar is per-Context, so concurrent turns on the
 # aiohttp event loop stay isolated and nested calls inherit the same turn id.
 _current_turn_id: ContextVar[str | None] = ContextVar("intergen_glass_turn", default=None)
 _current_turn_start: ContextVar[float | None] = ContextVar("intergen_glass_start", default=None)
 _current_iface: ContextVar[str | None] = ContextVar("intergen_glass_iface", default=None)
+
+# Whether the ACTIVE turn has already ended. A ContextVar and not a set keyed by
+# turn id: turns overlap on the event loop, and process-wide state would make one
+# turn's ending look like another's.
+#
+# The VALUE is a one-element list rather than a bool, and that is load-bearing.
+# :func:`bind_context` hands work to a worker thread through
+# ``contextvars.copy_context()``, which copies the MAPPING. A bool written in the
+# copy would be invisible to the turn that made the copy, so a terminal emitted
+# from the worker thread would not count as the turn's end — and the turn's own
+# exit would then synthesize a SECOND one, breaking the exactly-once guarantee in
+# precisely the seam the bind exists to hold together. A shared mutable cell is
+# seen from both sides. It stays per-turn because :func:`turn` installs a fresh
+# cell, and it is absent (None) outside any turn.
+_current_turn_ended: ContextVar[list[bool] | None] = ContextVar(
+    "intergen_glass_turn_ended", default=None)
+
+# Guards the claim below. A terminal can be attempted from the event loop and
+# from a worker thread bound into the same turn; without this both could read the
+# cell as unclaimed and both would write a terminal.
+_TURN_END_LOCK = Lock()
+
+
+def _claim_turn_end() -> bool:
+    """Claim the active turn's single terminal slot.
+
+    True when this caller may write the terminal; False when the turn has
+    already ended, in which case the caller records the ATTEMPT instead of
+    writing a second terminal. Outside a turn there is nothing to claim and
+    nothing to refuse, so an emission that carries its own turn id (startup,
+    warmup) is never affected.
+    """
+    cell = _current_turn_ended.get()
+    if cell is None:
+        return True
+    with _TURN_END_LOCK:
+        if cell[0]:
+            return False
+        cell[0] = True
+        return True
+
+
+def _turn_has_ended() -> bool:
+    """Whether the active turn already has its terminal row."""
+    cell = _current_turn_ended.get()
+    return bool(cell and cell[0])
 
 
 def _env_disabled() -> bool:
@@ -126,12 +212,52 @@ def turn(turn_id: str, iface: str) -> Iterator[str]:
     tok_id = _current_turn_id.set(turn_id)
     tok_start = _current_turn_start.set(t0)
     tok_iface = _current_iface.set(iface)
+    tok_ended = _current_turn_ended.set([False])
     try:
         yield turn_id
+    except asyncio.CancelledError:
+        # The client went away mid-turn. That is an OUTCOME and the record owes
+        # the reader the fact, not a record that simply stops.
+        _synthesize_terminal("cancelled")
+        raise
+    except BaseException as exc:
+        # Includes the crashes that reach web_server's no-wedge backstop, which
+        # answers the client and emits nothing of its own.
+        _synthesize_terminal("error", exc=exc)
+        raise
+    else:
+        # The turn ended without saying how: an early refusal (empty message,
+        # router unavailable) or a path that simply returns. Still an ending.
+        _synthesize_terminal(_TERMINAL_FALLBACK)
     finally:
+        _current_turn_ended.reset(tok_ended)
         _current_turn_id.reset(tok_id)
         _current_turn_start.reset(tok_start)
         _current_iface.reset(tok_iface)
+
+
+def _synthesize_terminal(event: str, exc: BaseException | None = None) -> None:
+    """Write the terminal row the call site did not write.
+
+    Marked ``synthesized`` in its detail so a reader can tell an ending an
+    interface MEANT from one this module supplied. Without that mark the
+    guarantee would convert a silent gap into a silent pass, which is the exact
+    failure it exists to remove.
+
+    Best effort by construction: recording how a turn ended must never change
+    how it ended, so a failure here is logged and swallowed and the original
+    exception, when there is one, propagates unchanged.
+    """
+    if _turn_has_ended():
+        return
+    detail: dict[str, Any] = {"synthesized": True}
+    if exc is not None:
+        detail["exception"] = type(exc).__name__
+    try:
+        emit(_TERMINAL_PHASE, event, detail=detail)
+    except Exception:  # the writer is best-effort; the turn's outcome is not ours
+        logger.debug("glass could not synthesize the %s terminal for turn %s",
+                     event, current_turn_id(), exc_info=True)
 
 
 def bind_context() -> contextvars.Context:
@@ -226,6 +352,18 @@ class GlassLogger:
         """
         if not self.enabled or self._log_file is None:
             return
+        # EXACTLY ONE TERMINAL PER TURN (REC-17). A second terminal is not
+        # dropped: it is written under a different event name, so a call site
+        # that ends an already-ended turn stays findable instead of silently
+        # winning or silently losing. Only turn-scoped emissions take part — one
+        # carrying its own turn_id runs outside the turn ContextVars (startup,
+        # warmup) and has no turn to end.
+        if (turn_id is None and _current_turn_id.get() is not None
+                and is_terminal_event(phase, event)):
+            if not _claim_turn_end():
+                detail = dict(detail or {})
+                detail["refused_terminal"] = event
+                event = _TERMINAL_AFTER_TERMINAL
         now = _now_ms()
         start = None if turn_id else _current_turn_start.get()
         record = {
