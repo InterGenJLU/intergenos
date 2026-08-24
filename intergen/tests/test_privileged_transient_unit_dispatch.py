@@ -51,6 +51,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+from pathlib import Path
 import unittest
 from unittest import mock
 
@@ -95,6 +96,7 @@ class _DispatchTestCase(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
         self.recorded_argv: list[list[str]] = []
+        self.runner_path = tr._PKEXEC_RUNNER_PATH
 
     def _dispatch(self, completed=None, *, raises=None,
                   runner_present=True, systemd_run_present=True,
@@ -119,18 +121,36 @@ class _DispatchTestCase(unittest.TestCase):
                 return "/usr/bin/systemd-run" if systemd_run_present else None
             return f"/usr/bin/{name}"
 
-        real_exists = os.path.exists
+        # REAL files, not a patched os.path.exists (changed 2026-08-24).
+        # The diagnostic now distinguishes "absent" from "could not be
+        # determined" and reports whether the runner is a regular file that
+        # this account can execute — facts a single patched boolean cannot
+        # express. A harness that cannot represent the states under test is a
+        # harness that can pass a wrong answer, so the states are built on disk.
+        runtime = Path(self._tmp.name)
+        runner = runtime / "runner-present"
+        if runner_present:
+            runner.write_text("#!/bin/sh\nexit 0\n")
+            runner.chmod(0o755)
+        else:
+            runner = runtime / "runner-absent"
 
-        def _fake_exists(path):
-            if path == tr._PKEXEC_RUNNER_PATH:
-                return runner_present
-            if path.endswith(os.path.join("systemd", "private")):
-                return manager_present
-            return real_exists(path)
+        manager_socket = runtime / "systemd" / "private"
+        if manager_present:
+            manager_socket.parent.mkdir(exist_ok=True)
+            manager_socket.touch()
+        elif manager_socket.exists():
+            manager_socket.unlink()
 
-        with mock.patch.object(tr.subprocess, "run", side_effect=_fake_run), \
-                mock.patch.object(tr.shutil, "which", side_effect=_fake_which), \
-                mock.patch.object(tr.os.path, "exists", side_effect=_fake_exists):
+        # Remembered because the patch is undone by the time a test asserts:
+        # argv holds the path used DURING the dispatch, so that is what the
+        # assertions must compare against, not the module constant restored
+        # afterwards.
+        self.runner_path = str(runner)
+
+        with mock.patch.object(tr, "_PKEXEC_RUNNER_PATH", str(runner)), \
+                mock.patch.object(tr.subprocess, "run", side_effect=_fake_run), \
+                mock.patch.object(tr.shutil, "which", side_effect=_fake_which):
             return ToolRegistry._dispatch_via_pkexec(
                 _call(), "manage_packages", dict(ARGS), TOKEN,
             )
@@ -191,10 +211,10 @@ class GoesThroughTheUserManagerTests(_DispatchTestCase):
         pkexec invocation against the same narrow action's exec.path."""
         self._dispatch()
         self.assertIn("pkexec", self.argv)
-        self.assertIn(tr._PKEXEC_RUNNER_PATH, self.argv)
+        self.assertIn(self.runner_path, self.argv)
         pkexec_at = self.argv.index("pkexec")
         self.assertEqual(
-            self.argv[pkexec_at + 1], tr._PKEXEC_RUNNER_PATH,
+            self.argv[pkexec_at + 1], self.runner_path,
             "pkexec must invoke the runner directly — the PolicyKit action is "
             "bound to that exact exec.path",
         )
@@ -228,16 +248,64 @@ class TheFlagIsNotReimposedTests(_DispatchTestCase):
             f"defect this change exists to correct: {self.argv}",
         )
 
-    def test_no_hardening_property_is_imposed_on_the_unit(self):
-        """The unit is deliberately plain. Any -p/--property here would be a
-        policy decision made in a command builder rather than in a unit file,
-        which is where this project keeps them."""
+    #: The complete set of unit properties this dispatch is allowed to set.
+    #: An allowlist rather than a ban (narrowed 2026-08-24): a transient unit
+    #: has no unit file, so the one legitimate bound on it — a ceiling on how
+    #: long it may run — can only be expressed on the command that creates it.
+    #: The ban this replaces would have been satisfied by removing that bound,
+    #: which is not an improvement. Everything the ban existed to stop is still
+    #: stopped, and more sharply: any property not named here fails, and the
+    #: value of the one that is named must not vary with the request.
+    _ALLOWED_PROPERTIES = {"RuntimeMaxSec"}
+
+    def test_only_the_allowed_unit_properties_are_set(self):
         self._dispatch()
         for arg in self.argv:
-            self.assertFalse(
-                arg.startswith("--property") or arg == "-p",
-                f"unexpected unit property on the dispatch: {arg}",
+            if arg == "-p" or arg.startswith("--property"):
+                self.assertTrue(
+                    arg.startswith("--property="),
+                    f"a unit property is passed in a form this test cannot "
+                    f"read, so it cannot be checked: {arg}",
+                )
+                key = arg.split("=", 1)[1].split("=", 1)[0]
+                self.assertIn(
+                    key, self._ALLOWED_PROPERTIES,
+                    f"unexpected unit property on the dispatch: {arg}",
+                )
+
+    def test_no_hardening_property_is_imposed_on_the_unit(self):
+        """No property may weaken or re-impose process hardening.
+
+        Named explicitly rather than left to the allowlist, because this is the
+        class that matters: the correction depends on the child NOT inheriting
+        the daemon's restrictions, and a hardening directive smuggled onto the
+        unit would undo it silently.
+        """
+        self._dispatch()
+        joined = " ".join(self.argv)
+        for directive in (
+            "NoNewPrivileges", "ProtectSystem", "PrivateDevices",
+            "RestrictSUIDSGID", "CapabilityBoundingSet", "SystemCallFilter",
+            "ProtectKernelModules", "RestrictNamespaces",
+        ):
+            self.assertNotIn(
+                directive, joined,
+                f"the transient unit names {directive}, which is a hardening "
+                f"decision this dispatch must not be making: {self.argv}",
             )
+
+    def test_the_unit_properties_do_not_vary_with_the_request(self):
+        """The user manager is a launch mechanism, not an authenticity
+        boundary, so nothing the caller supplies may shape the unit."""
+        def _properties():
+            self.recorded_argv.clear()
+            self._dispatch()
+            return [a for a in self.argv if a.startswith("--property=")]
+
+        first = _properties()
+        second = _properties()
+        self.assertEqual(first, second)
+        self.assertTrue(first, "no properties were captured; the test is blind")
 
 
 class NoProtectedValueOnTheCommandLineTests(_DispatchTestCase):
@@ -265,18 +333,30 @@ class NoProtectedValueOnTheCommandLineTests(_DispatchTestCase):
             f"asked for is readable by any local account: {self.argv}",
         )
 
-    def test_a_request_path_is_what_is_passed_instead(self):
+    def test_a_request_identifier_is_what_is_passed_instead(self):
+        """Changed 2026-08-24: the argument is an IDENTIFIER, not a path.
+
+        The runner used to receive the request file's full path. It now
+        receives thirty-two hex characters and the privileged side derives the
+        path itself, so a traversal or an absolute path is not something to
+        reject — it is something that cannot be written down.
+        """
         self._dispatch()
-        runner_at = self.argv.index(tr._PKEXEC_RUNNER_PATH)
+        runner_at = self.argv.index(self.runner_path)
         passed = self.argv[runner_at + 1:]
         self.assertEqual(
             len(passed), 1,
             f"the runner should receive exactly one argument, the request "
-            f"path; got {passed}",
+            f"identifier; got {passed}",
         )
-        self.assertTrue(
-            os.path.basename(passed[0]).startswith(pr.REQUEST_PREFIX),
-            f"the runner's single argument is not a request path: {passed[0]}",
+        self.assertRegex(
+            passed[0], r"\A[0-9a-f]{32}\Z",
+            f"the runner's single argument is not a bare request identifier: "
+            f"{passed[0]!r}",
+        )
+        self.assertNotIn(
+            "/", passed[0],
+            "a path separator reached the runner's command line",
         )
 
     def test_the_request_file_holds_what_left_the_command_line(self):
@@ -286,7 +366,14 @@ class NoProtectedValueOnTheCommandLineTests(_DispatchTestCase):
 
         def _capture_run(argv, **kwargs):
             self.recorded_argv.append(list(argv))
-            path = argv[-1]
+            # argv carries the IDENTIFIER now, so the file is reached the way
+            # the privileged side reaches it: by joining the identifier to the
+            # request directory. Opening argv[-1] directly would have stopped
+            # working the moment a path stopped being passed, which is exactly
+            # the change under test.
+            request_id = argv[-1]
+            path = os.path.join(
+                pr.request_dir(), f"{pr.REQUEST_PREFIX}{request_id}")
             with open(path, encoding="utf-8") as fh:
                 captured["payload"] = json.load(fh)
             return _Completed(0, "done", "")
@@ -414,6 +501,48 @@ class DiagnosticMeasuresTheNewDependencyTests(_DispatchTestCase):
         result = self._dispatch(_Completed(0, "installed 1 package", ""))
         self.assertTrue(result.success)
         self.assertEqual(result.content, "installed 1 package")
+
+
+class NoAutomaticRetryTests(_DispatchTestCase):
+    """A dispatch whose outcome is unknown must not be attempted again.
+
+    The approval token is consumed by the privileged side BEFORE the tool runs,
+    which is right for replay protection and has a consequence worth stating:
+    once an outcome is unknown, a fresh token cannot make a retry safe. A fresh
+    token proves a person approved the action; it says nothing about whether the
+    previous attempt already performed it. Retrying a package transaction or a
+    file write that may already have happened is a worse outcome than reporting
+    honestly that nobody knows.
+
+    No retry loop exists in the dispatch path. That is asserted here rather than
+    left as a property of the current shape, because "there is no loop" is the
+    kind of fact a later edit changes without anyone noticing.
+    """
+
+    def test_a_failing_dispatch_is_attempted_exactly_once(self):
+        for rc in (1, 126, 127, 255):
+            with self.subTest(rc=rc):
+                self.recorded_argv.clear()
+                self._dispatch(_Completed(rc, "", "the boundary said something"))
+                self.assertEqual(
+                    len(self.recorded_argv), 1,
+                    f"rc={rc} produced {len(self.recorded_argv)} invocations; a "
+                    f"privileged action whose outcome is unknown must not be "
+                    f"retried automatically",
+                )
+
+    def test_a_dispatch_that_raises_is_attempted_exactly_once(self):
+        self.recorded_argv.clear()
+        self._dispatch(raises=OSError("the manager went away"))
+        self.assertEqual(len(self.recorded_argv), 1)
+
+    def test_the_counter_can_see_more_than_one_invocation(self):
+        """Instrument control: the assertions above are only meaningful if the
+        recorder would actually report a second attempt."""
+        self.recorded_argv.clear()
+        self._dispatch(_Completed(1, "", "first"))
+        self._dispatch(_Completed(1, "", "second"))
+        self.assertEqual(len(self.recorded_argv), 2)
 
 
 if __name__ == "__main__":
