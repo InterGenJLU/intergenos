@@ -324,5 +324,159 @@ class RuntimeDirectoryResolutionTests(_RuntimeDirTestCase):
         )
 
 
+class BoundedReadTests(_RuntimeDirTestCase):
+    """The root side must not read an unbounded file into memory.
+
+    Added 2026-08-24 after an independent review listed a size check among the
+    facts the root side establishes about a caller-supplied path and found it
+    was the one that was missing. Everything else about the file is verified
+    before its contents are believed — that it is a regular file, owned by the
+    calling user, mode 0600, with a single link — and then the whole of it is
+    read with no ceiling.
+
+    The request is a small JSON object: a tool name, an arguments object, and a
+    token. There is no legitimate request anywhere near the bound below. What a
+    bound buys is that the unprivileged side cannot decide how much memory the
+    privileged side allocates, which is a property worth having on its own and
+    costs one comparison against a number `fstat` already returned.
+    """
+
+    def test_an_oversized_request_is_refused(self):
+        path = pr.write_request("manage_packages", {"action": "list"}, "tok")
+        # Grow the file past the bound while keeping every other property the
+        # root side checks intact: same inode, same owner, same mode, one link.
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(" " * (pr.MAX_REQUEST_BYTES + 1))
+        with self.assertRaises(pr.RequestError) as caught:
+            pr.read_request(path, expected_uid=os.getuid())
+        self.assertIn("too large", str(caught.exception).lower())
+
+    def test_the_refusal_removes_the_file(self):
+        """An oversized request is a CONTENT refusal: the file is ours, we
+        established that before looking at its size, so it does not stay on
+        disk carrying an approval token."""
+        path = pr.write_request("manage_packages", {"action": "list"}, "tok")
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(" " * (pr.MAX_REQUEST_BYTES + 1))
+        with self.assertRaises(pr.RequestError):
+            pr.read_request(path, expected_uid=os.getuid())
+        self.assertFalse(os.path.exists(path), "the oversized request survived")
+
+    def test_a_request_at_the_bound_is_still_accepted(self):
+        """Negative control: the bound must not reject ordinary requests.
+
+        Without this, a bound of zero would pass the test above and break every
+        real dispatch.
+        """
+        padding = "x" * 2048
+        path = pr.write_request(
+            "manage_packages", {"action": "install", "package": padding}, "tok")
+        self.assertLess(os.stat(path).st_size, pr.MAX_REQUEST_BYTES)
+        tool, arguments, token = pr.read_request(path, expected_uid=os.getuid())
+        self.assertEqual(tool, "manage_packages")
+        self.assertEqual(arguments["package"], padding)
+        self.assertEqual(token, "tok")
+
+
+class RootConstructsThePathTests(_RuntimeDirTestCase):
+    """The unprivileged side names an ID; the privileged side builds the path.
+
+    Added 2026-08-24. Until now the caller handed root a complete filesystem
+    path and root defended itself by inspecting what it found there — a regular
+    file, right owner, right mode, one link, opened without following symlinks.
+    Those checks are correct and they stay. But they are a defence applied to
+    an input class that does not need to exist: there is no reason for the
+    unprivileged side to be able to NAME an arbitrary path to a root process at
+    all.
+
+    So the argument across the boundary becomes an opaque request ID — hex, of
+    a fixed length, nothing else accepted — and root constructs the path
+    itself, beneath a runtime directory it has verified belongs to the calling
+    user. Path traversal, absolute paths, symlinked parents and every other
+    naming trick stop being things to defend against and become things that
+    cannot be expressed.
+    """
+
+    def setUp(self):
+        """Line the two views of the directory up on a temporary root.
+
+        The unprivileged side reads $XDG_RUNTIME_DIR; the privileged side
+        DERIVES <RUNTIME_ROOT>/<uid>. In production those name the same place.
+        Here both are pointed at a temporary tree of the real shape, so the
+        derivation is exercised rather than bypassed.
+        """
+        super().setUp()
+        self._root = tempfile.TemporaryDirectory(prefix="runtime-root-")
+        self.addCleanup(self._root.cleanup)
+        uid_dir = os.path.join(self._root.name, str(os.getuid()))
+        os.makedirs(uid_dir, mode=0o700, exist_ok=True)
+        patcher = mock.patch.object(pr, "RUNTIME_ROOT", self._root.name)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        env = mock.patch.dict(os.environ, {"XDG_RUNTIME_DIR": uid_dir},
+                              clear=False)
+        env.start()
+        self.addCleanup(env.stop)
+
+    def test_a_written_request_yields_an_id_that_resolves_back(self):
+        path = pr.write_request("manage_packages", {"action": "list"}, "tok")
+        request_id = pr.request_id_for(path)
+        self.assertRegex(request_id, r"\A[0-9a-f]{32}\Z")
+        resolved = pr.resolve_request(request_id, os.getuid())
+        self.assertEqual(os.path.realpath(resolved), os.path.realpath(path))
+
+    def test_ids_that_are_not_plain_hex_are_refused(self):
+        for bad in (
+            "../../etc/shadow",
+            "/etc/shadow",
+            "..",
+            "",
+            "g" * 32,
+            "0" * 31,
+            "0" * 33,
+            "0123456789abcdef0123456789abcde/",
+            "0123456789abcdef0123456789abcd\n",
+            "0123456789ABCDEF0123456789ABCDEF",
+        ):
+            with self.subTest(request_id=bad):
+                with self.assertRaises(pr.RequestError):
+                    pr.resolve_request(bad, os.getuid())
+
+    def test_a_resolved_path_never_leaves_the_request_directory(self):
+        path = pr.write_request("manage_packages", {"action": "list"}, "tok")
+        resolved = pr.resolve_request(pr.request_id_for(path), os.getuid())
+        self.assertEqual(os.path.dirname(resolved), pr.request_dir())
+
+    def test_a_world_writable_request_directory_is_refused(self):
+        """The directory is part of what root is trusting; it is checked too."""
+        pr.write_request("manage_packages", {"action": "list"}, "tok")
+        directory = pr.request_dir()
+        os.chmod(directory, 0o777)
+        self.addCleanup(os.chmod, directory, 0o700)
+        with self.assertRaises(pr.RequestError) as caught:
+            pr.resolve_request("0" * 32, os.getuid())
+        self.assertIn("mode", str(caught.exception).lower())
+
+    def test_a_request_directory_owned_by_someone_else_is_refused(self):
+        """Root must not read out of a directory the calling user does not own.
+
+        The OWNERSHIP branch has to be the one that fires, so the directory for
+        the other uid is really created first — this test used to name a uid
+        whose directory did not exist and was satisfied by an ENOENT refusal,
+        which proves only that a missing directory is refused. The directory
+        below exists, is mode 0700, and is owned by THIS account while the
+        caller is claimed to be another: exactly one fact is wrong, and it is
+        the fact under test.
+        """
+        other_uid = os.getuid() + 1
+        other_dir = os.path.join(pr.RUNTIME_ROOT, str(other_uid), "intergen")
+        os.makedirs(other_dir, mode=0o700, exist_ok=True)
+        self.assertEqual(os.stat(other_dir).st_uid, os.getuid(),
+                         "fixture precondition: the directory is ours")
+        with self.assertRaises(pr.RequestError) as caught:
+            pr.resolve_request("0" * 32, other_uid)
+        self.assertIn("owned", str(caught.exception).lower())
+
+
 if __name__ == "__main__":
     unittest.main()
