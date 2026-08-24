@@ -38,7 +38,16 @@ set -uo pipefail
 
 PROGRAM_NAME="intergenos-bootorder-check"
 INTENT_FILE="/etc/intergenos/boot-default.conf"
-EFIBOOTMGR="/usr/bin/efibootmgr"
+# efibootmgr is installed in an sbin directory — packages/core/efibootmgr
+# declares /usr/sbin/efibootmgr in its verify_paths, and that is where it
+# lands. Resolve it from a candidate list instead of naming one directory,
+# so a packaging or path change cannot leave this check unable to read NVRAM
+# while it still exits 0. Naming a single wrong directory is exactly what
+# made this guard print "cannot determine boot order" on every boot of an
+# install whose firmware HAD demoted the registered entry. An explicit
+# --efibootmgr always wins over the list.
+EFIBOOTMGR=""
+EFIBOOTMGR_CANDIDATES="/usr/sbin/efibootmgr /usr/bin/efibootmgr /sbin/efibootmgr /bin/efibootmgr"
 EFI_FIRMWARE_DIR="/sys/firmware/efi"
 LABEL_DEFAULT="InterGenOS"
 DRY_RUN="no"
@@ -50,7 +59,8 @@ Usage: ${PROGRAM_NAME} [options]
 Options:
   --intent-file PATH   read the default-boot-target record from PATH
                        (default ${INTENT_FILE})
-  --efibootmgr PATH    use this efibootmgr binary (default ${EFIBOOTMGR})
+  --efibootmgr PATH    use this efibootmgr binary (default: the first of
+                       ${EFIBOOTMGR_CANDIDATES} that is executable)
   --efi-dir PATH       treat PATH as the EFI firmware directory whose
                        presence marks an EFI system (default ${EFI_FIRMWARE_DIR})
   --label LABEL        boot-entry label to keep first (default from the
@@ -83,6 +93,16 @@ done
 # ---- Can this check run at all? -------------------------------------------
 if [ ! -d "$EFI_FIRMWARE_DIR" ]; then
     log "not an EFI system ($EFI_FIRMWARE_DIR absent) — nothing to check."
+    exit 0
+fi
+if [ -z "$EFIBOOTMGR" ]; then
+    for candidate in $EFIBOOTMGR_CANDIDATES; do
+        if [ -x "$candidate" ]; then EFIBOOTMGR="$candidate"; break; fi
+    done
+fi
+if [ -z "$EFIBOOTMGR" ]; then
+    log "cannot determine boot order: no executable efibootmgr found in" \
+        "$EFIBOOTMGR_CANDIDATES."
     exit 0
 fi
 if [ ! -x "$EFIBOOTMGR" ]; then
