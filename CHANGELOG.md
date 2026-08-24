@@ -184,6 +184,13 @@ landed is in the repository README, not here.
   is enabled, gives the command, and states each directory's schedule. The
   installer's post-install checks report a certificate directory they could not
   read as unreadable rather than as absent.
+- **A release is refused without a sealed, green installed-system gate run on
+  real hardware.** A runner records the installed-system gate tier's results
+  as a sealed record; the image builder, the mirror publisher and the promotion
+  path refuse a release whose record is missing, belongs to another release,
+  carries failed gates, or was edited after sealing. The gate tier itself now
+  imports the installed package rather than the source checkout, so its
+  results describe the installed system.
 - **The affected recipes now carry several installed-system corrections.** The
   fcron package stages the ownership and PAM configuration `fcrontab` needs for
   an ordinary user; the kernel recipes give images, maps and configuration
