@@ -191,6 +191,13 @@ landed is in the repository README, not here.
   carries failed gates, or was edited after sealing. The gate tier itself now
   imports the installed package rather than the source checkout, so its
   results describe the installed system.
+- **The ROCm serving engine's linked libraries are declared by the packages
+  that link them.** `rocm-hip`, `rocr-runtime` and `rocsparse` link
+  `librocprofiler-register` and `libroctx64` but did not declare their
+  providers as runtime dependencies, so an installed ROCm engine failed at the
+  dynamic linker while both providers sat on the mirror. A build-time check now
+  fails a package whose linked library is not in its declared runtime closure,
+  and an installed-system check asks the loader directly.
 - **The affected recipes now carry several installed-system corrections.** The
   fcron package stages the ownership and PAM configuration `fcrontab` needs for
   an ordinary user; the kernel recipes give images, maps and configuration
