@@ -44,6 +44,7 @@ from __future__ import annotations
 import os
 import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from intergen import tool_registry as tr
@@ -85,16 +86,16 @@ def _dispatch(returncode, stdout, stderr, *, runner_present,
     MEASURES. They default to present so each test below isolates the one
     condition it is about.
 
+    Rewritten 2026-08-24 to build REAL files rather than stub os.path.exists.
+    The diagnostic now distinguishes absence from a traversal failure, and a
+    regular executable from a directory, which a single patched boolean cannot
+    express — a harness that cannot represent the states under test would let
+    a wrong answer pass. Only `shutil.which` is still stubbed, because
+    systemd-run's presence is genuinely a PATH question and nothing else.
+
     Returns ToolResult.content.
     """
     completed = _Completed(returncode, stdout, stderr)
-
-    def _fake_exists(path):
-        if path == tr._PKEXEC_RUNNER_PATH:
-            return runner_present
-        if path.endswith(os.path.join("systemd", "private")):
-            return manager_present
-        return False
 
     def _fake_which(name):
         if name == "systemd-run":
@@ -102,11 +103,26 @@ def _dispatch(returncode, stdout, stderr, *, runner_present,
         return f"/usr/bin/{name}"
 
     with tempfile.TemporaryDirectory(prefix="privdiag-") as runtime:
+        runtime_path = Path(runtime)
+
+        # The runner: a real 0755 regular file, or a path that really is absent.
+        runner = runtime_path / "runner-present"
+        if runner_present:
+            runner.write_text("#!/bin/sh\nexit 0\n")
+            runner.chmod(0o755)
+        else:
+            runner = runtime_path / "runner-absent"
+
+        # The user manager: a real file at the socket path, or nothing there.
+        if manager_present:
+            (runtime_path / "systemd").mkdir(exist_ok=True)
+            (runtime_path / "systemd" / "private").touch()
+
         with mock.patch.dict(
                 os.environ, {"XDG_RUNTIME_DIR": runtime}, clear=False), \
+                mock.patch.object(tr, "_PKEXEC_RUNNER_PATH", str(runner)), \
                 mock.patch.object(tr.subprocess, "run", return_value=completed), \
-                mock.patch.object(tr.shutil, "which", side_effect=_fake_which), \
-                mock.patch.object(tr.os.path, "exists", side_effect=_fake_exists):
+                mock.patch.object(tr.shutil, "which", side_effect=_fake_which):
             result = ToolRegistry._dispatch_via_pkexec(
                 _call(), "manage_packages", {"action": "upgrade"},
                 "token-placeholder",
@@ -135,14 +151,14 @@ class PrivilegedDiagnosticTruthTests(unittest.TestCase):
             with self.subTest(stderr=stderr or "(empty)"):
                 content = _dispatch(127, "", stderr, runner_present=True)
                 lowered = content.lower()
-                self.assertNotIn("not found", lowered, content)
+                self.assertNotIn("not present", lowered, content)
                 self.assertNotIn("misinstalled", lowered, content)
 
     def test_absent_runner_is_reported_as_absent(self):
         content = _dispatch(127, "", RUNNER_ABSENT, runner_present=False)
         lowered = content.lower()
-        self.assertTrue(
-            "not found" in lowered or "missing" in lowered,
+        self.assertIn(
+            "not present", lowered,
             f"a genuinely absent runner must still be reported as absent: {content}",
         )
 
@@ -159,12 +175,18 @@ class PrivilegedDiagnosticTruthTests(unittest.TestCase):
         self.assertNotEqual(both_present, no_systemd_run)
         self.assertNotEqual(no_manager, no_systemd_run)
 
-    def test_a_missing_user_manager_does_not_blame_the_installed_package(self):
+    def test_a_missing_user_manager_is_reported_as_the_measured_fact(self):
+        """Rewritten 2026-08-24. This case used to assert the message said the
+        installed package "is not a fault" — a verdict about a component the
+        code never examined. What was actually established is that the user
+        manager could not be reached, and that is what the message must say;
+        the reader draws their own conclusion from a true statement."""
         content = _dispatch(1, "", "Failed to connect to user scope bus",
                             runner_present=True, manager_present=False)
         lowered = content.lower()
         self.assertNotIn("misinstalled", lowered, content)
-        self.assertIn("not a fault in the installed package", lowered, content)
+        self.assertNotIn("not at fault", lowered, content)
+        self.assertIn("no systemd user manager was reachable", lowered, content)
 
     def test_stderr_is_never_discarded(self):
         """Every non-zero branch surfaces what the dispatch actually said."""
@@ -201,6 +223,161 @@ class PrivilegedDiagnosticTruthTests(unittest.TestCase):
                        "(BadSignature): refusing dispatch.")
         content = _dispatch(1, runner_said, "", runner_present=True)
         self.assertIn(runner_said, content)
+
+
+# ---------------------------------------------------------------------------
+# The cause-assignment cases (added 2026-08-24 after an independent review).
+#
+# The review drove three filesystem states that are genuinely different — a
+# directory, a regular file nothing can execute, and a healthy executable whose
+# PROGRAM returned 127 — and got the same "the installed package is not at
+# fault / pkexec stopped before reaching it" headline from all three. The
+# diagnostic was reading one boolean, os.path.exists(), and speaking as though
+# it had read four facts.
+#
+# pkexec(1) propagates the status of a program it successfully executed, and the
+# runner ends in `exec python3 ...`. So 126 and 127 can be RAISED BY THE CHILD.
+# "126 means the prompt was dismissed" and "127 with a present runner means
+# pkexec never got there" are therefore inferences, not measurements.
+#
+# These tests use REAL files in a temporary directory rather than a stubbed
+# os.path.exists: the point is that the probe reports what a filesystem actually
+# says, and a stub that returns whatever the test wants cannot show that.
+# ---------------------------------------------------------------------------
+
+_FORBIDDEN_CAUSE_CLAIMS = (
+    "dismissed or denied",
+    "not at fault",
+    "stopped before reaching",
+    "misinstalled",
+)
+
+
+def _dispatch_with_real_runner_path(returncode, stderr, runner_path,
+                                    *, stdout=""):
+    """Dispatch against a canned result but a REAL runner path on disk."""
+    completed = _Completed(returncode, stdout, stderr)
+    with tempfile.TemporaryDirectory(prefix="privdiag-real-") as runtime:
+        os.makedirs(os.path.join(runtime, "systemd"), exist_ok=True)
+        # A real user-manager socket stand-in, so the manager probe is not the
+        # thing under test here.
+        open(os.path.join(runtime, "systemd", "private"), "w").close()
+        with mock.patch.dict(
+                os.environ, {"XDG_RUNTIME_DIR": runtime}, clear=False), \
+                mock.patch.object(tr, "_PKEXEC_RUNNER_PATH", str(runner_path)), \
+                mock.patch.object(tr.subprocess, "run", return_value=completed):
+            result = ToolRegistry._dispatch_via_pkexec(
+                _call(), "manage_packages", {"action": "upgrade"},
+                "token-placeholder",
+            )
+    return result.content
+
+
+class DiagnosticAssignsNoUnmeasuredCauseTests(unittest.TestCase):
+    """No branch may state a cause the code did not establish."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory(prefix="privdiag-states-")
+        self.root = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+
+    def _states(self):
+        """Return (label, path) for each distinguishable filesystem state."""
+        absent = self.root / "absent-runner"
+
+        directory = self.root / "directory-runner"
+        directory.mkdir()
+
+        non_exec = self.root / "non-executable-runner"
+        non_exec.write_text("#!/bin/sh\nexit 0\n")
+        non_exec.chmod(0o644)
+
+        healthy = self.root / "healthy-runner"
+        healthy.write_text("#!/bin/sh\nexit 0\n")
+        healthy.chmod(0o755)
+
+        broken_interp = self.root / "broken-interpreter-runner"
+        broken_interp.write_text("#!/nonexistent/interpreter\nexit 0\n")
+        broken_interp.chmod(0o755)
+
+        unreadable_dir = self.root / "unreadable"
+        unreadable_dir.mkdir()
+        hidden = unreadable_dir / "runner"
+        hidden.write_text("#!/bin/sh\nexit 0\n")
+        hidden.chmod(0o755)
+        unreadable_dir.chmod(0o000)
+        self.addCleanup(unreadable_dir.chmod, 0o700)
+
+        return [
+            ("absent", absent),
+            ("directory", directory),
+            ("regular-non-executable", non_exec),
+            ("regular-executable", healthy),
+            ("broken-interpreter", broken_interp),
+            ("permission-denied-on-path", hidden),
+        ]
+
+    def test_no_state_produces_an_unmeasured_cause_claim(self):
+        """Not one of the six states may yield an innocence or reachability
+        verdict, at either exit code the review named."""
+        for label, path in self._states():
+            for rc in (126, 127):
+                with self.subTest(state=label, rc=rc):
+                    content = _dispatch_with_real_runner_path(
+                        rc, "some stderr from the boundary", path)
+                    lowered = content.lower()
+                    for claim in _FORBIDDEN_CAUSE_CLAIMS:
+                        self.assertNotIn(
+                            claim, lowered,
+                            f"state={label} rc={rc}: the diagnostic states a "
+                            f"cause it did not measure: {content!r}",
+                        )
+
+    def test_distinguishable_states_are_reported_distinguishably(self):
+        """A directory, a non-executable file and a healthy executable are
+        three different findings and must not share one message."""
+        seen = {}
+        for label, path in self._states():
+            seen[label] = _dispatch_with_real_runner_path(
+                127, "identical stderr", path)
+        for a, b in (
+            ("directory", "regular-non-executable"),
+            ("directory", "regular-executable"),
+            ("regular-non-executable", "regular-executable"),
+            ("absent", "regular-executable"),
+        ):
+            with self.subTest(pair=f"{a} vs {b}"):
+                self.assertNotEqual(
+                    seen[a], seen[b],
+                    f"{a} and {b} produce the same message, so the diagnostic "
+                    f"is not distinguishing states it claims to have checked",
+                )
+
+    def test_a_child_returned_126_is_not_called_a_dismissed_prompt(self):
+        """The runner ends in exec; 126 can come from the child."""
+        healthy = dict(self._states())["regular-executable"]
+        content = _dispatch_with_real_runner_path(
+            126, "", healthy)
+        self.assertNotIn("dismissed", content.lower(), content)
+
+    def test_permission_denied_is_not_reported_as_absence(self):
+        """os.path.exists() answers False for EACCES; absence is a different
+        finding and must not be asserted from a traversal failure."""
+        hidden = dict(self._states())["permission-denied-on-path"]
+        content = _dispatch_with_real_runner_path(127, "", hidden)
+        lowered = content.lower()
+        self.assertNotIn(
+            "absent", lowered,
+            f"a path we could not traverse was reported as absent: {content!r}")
+        self.assertNotIn("missing", lowered, content)
+
+    def test_the_exit_code_and_stderr_still_reach_the_user_in_every_state(self):
+        for label, path in self._states():
+            with self.subTest(state=label):
+                content = _dispatch_with_real_runner_path(
+                    127, "the boundary said this", path)
+                self.assertIn("127", content, content)
+                self.assertIn("the boundary said this", content, content)
 
 
 if __name__ == "__main__":
