@@ -45,14 +45,35 @@ class ClassificationTests(unittest.TestCase):
     def test_sensitive_is_confirm_not_blocked(self):
         # Sensitive system paths that are NOT on the signed never-list stay CONFIRM
         # (legit AI-assisted edit targets); the root-side euid backstop, not a hard
-        # block, protects them. (/etc/ssh/sshd_config is NO LONGER here: it is an
-        # exact entry in the manifest's identity_auth_privilege never-list, so once
-        # the signed manifest verifies — the PI-D fix — it is correctly BLOCKED, not
-        # CONFIRM. These two are not on the never-list, so they remain CONFIRM in
-        # every environment.)
-        for p in ("/usr/lib/systemd/system/x.service",
-                  "/usr/share/applications/x.desktop"):
+        # block, protects them.
+        #
+        # Two paths have left this list as the never-list grew, and each left for
+        # the same reason — the manifest became stricter and the expectation here
+        # did not follow. /etc/ssh/sshd_config is an exact entry in
+        # identity_auth_privilege. /usr/lib/systemd/system/x.service is covered by
+        # the system_binaries prefix /usr/lib/, added in r179; that case now lives
+        # in test_system_binaries_never_list_prefixes_blocked below.
+        #
+        # /usr/share/ is deliberately what remains: it is a SENSITIVE_PREFIXES entry
+        # and carries no never-list coverage at all, so it is the honest CONFIRM
+        # case — sensitive enough to need the euid backstop, not so dangerous that
+        # the signed manifest forbids it outright.
+        for p in ("/usr/share/applications/x.desktop",
+                  "/usr/share/dbus-1/services/x.service"):
             self.assertEqual(_classify_path(Path(p)), SafetyTier.CONFIRM, p)
+
+    def test_system_binaries_never_list_prefixes_blocked(self):
+        # r179 added the system_binaries category to the signed never-list, whose
+        # prefixes cover the executable and library trees. A write under any of
+        # them is BLOCKED in EVERY context — not CONFIRM, and not merely refused
+        # by the euid backstop, which an unprivileged caller could otherwise read
+        # as "allowed once I am root".
+        for p in ("/usr/bin/ls",
+                  "/usr/sbin/init",
+                  "/usr/lib/systemd/system/x.service",
+                  "/usr/lib/modules/x.ko",
+                  "/usr/lib64/x.so"):
+            self.assertEqual(_classify_path(Path(p)), SafetyTier.BLOCKED, p)
 
     def test_ordinary_path_confirm(self):
         for p in ("/home/me/notes.txt", "/tmp/x"):
@@ -75,12 +96,19 @@ class ClassificationTests(unittest.TestCase):
             tool.classify_safety({"path": "/etc/sudoers.d/x", "content": "x"}),
             SafetyTier.BLOCKED,
         )
-        # A sensitive-but-not-never-listed path delegates to CONFIRM (env-independent:
-        # this path is not on the signed never-list, so it is CONFIRM whether or not
-        # the manifest is loaded). sshd_config is intentionally NOT used here — it is
-        # a never-list exact entry and is BLOCKED once the manifest verifies.
+        # A never-listed path delegates to BLOCKED. /usr/lib/ is a system_binaries
+        # prefix (r179), so this is the never-list speaking, not the interim floor.
         self.assertEqual(
             tool.classify_safety({"path": "/usr/lib/systemd/system/x.service", "content": "x"}),
+            SafetyTier.BLOCKED,
+        )
+        # A sensitive-but-not-never-listed path still delegates to CONFIRM. This is
+        # the case that proves the delegation has not simply collapsed to BLOCKED
+        # for everything system-ish: /usr/share/ is sensitive and carries no
+        # never-list coverage, so CONFIRM is the correct tier and the euid backstop
+        # is what protects it.
+        self.assertEqual(
+            tool.classify_safety({"path": "/usr/share/applications/x.desktop", "content": "x"}),
             SafetyTier.CONFIRM,
         )
         self.assertEqual(
@@ -147,16 +175,49 @@ class ExecuteGuardTests(unittest.TestCase):
 
     def test_unprivileged_sensitive_write_refused(self):
         # Tests run unprivileged (euid != 0); a sensitive-prefix write must be
-        # refused rather than self-approved. Uses a sensitive-but-not-never-listed
-        # path (a systemd unit) so this exercises the euid backstop on the CONFIRM
-        # tier specifically — sshd_config would now hard-BLOCK via the never-list
-        # (a different, stronger refusal path) and is covered separately.
+        # refused rather than self-approved. The path must be sensitive AND NOT on
+        # the never-list, or the hard block fires first and this asserts nothing
+        # about the euid backstop at all — which is what happened while this case
+        # used a systemd unit under /usr/lib/, a prefix r179 added to the
+        # never-list. /usr/share/ is sensitive with no never-list coverage, so the
+        # backstop is what refuses here.
         self.assertNotEqual(os.geteuid(), 0, "test assumes non-root runner")
+        self.assertEqual(
+            _classify_path(Path("/usr/share/applications/evil.desktop")),
+            SafetyTier.CONFIRM,
+            "this case is only meaningful while the path is NOT never-listed",
+        )
         result = self.tool.execute(
-            {"path": "/usr/lib/systemd/system/evil.service", "content": "x"}
+            {"path": "/usr/share/applications/evil.desktop", "content": "x"}
         )
         self.assertFalse(result.success)
         self.assertIn("sensitive", result.content.lower())
+
+    def test_never_listed_write_refused_in_every_context(self):
+        # The stronger refusal, kept distinct from the one above. A never-listed
+        # path is refused whether or not the caller is root.
+        #
+        # success=False on its own would prove nothing here: the runner is not
+        # root, so a write to /usr/lib/ that got past every guard would still fail
+        # on filesystem permissions, and the root-context case mocks geteuid
+        # without actually gaining privilege — so it would fail the same way. Both
+        # assertions therefore read the REFUSAL ITSELF. The block names the
+        # never-list and says it holds in every context; the euid backstop's
+        # message says "system-sensitive prefix" instead, so the two cannot be
+        # confused, and a filesystem error would say neither.
+        target = "/usr/lib/systemd/system/evil.service"
+        result = self.tool.execute({"path": target, "content": "x"})
+        self.assertFalse(result.success)
+        self.assertIn("every context", result.content.lower(), result.content)
+
+        with mock.patch("intergen.tools.write_file.os.geteuid", return_value=0):
+            as_root = self.tool.execute({"path": target, "content": "x"})
+        self.assertFalse(
+            as_root.success,
+            "a never-listed path was accepted in root context — the never-list is "
+            "meant to hold in EVERY context, not only unprivileged ones",
+        )
+        self.assertIn("every context", as_root.content.lower(), as_root.content)
 
     def test_root_context_sensitive_write_allowed(self):
         # In root context (the reviewed privileged path) the euid backstop does
