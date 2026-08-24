@@ -226,6 +226,104 @@ def test_addresses_outside_private_space_are_not_refused(
     assert not _blocked(result, "PRIVATE-IP"), (
         f"false positive ({case}): {line!r}\n{result.stdout}")
 
+# --------------------------------------------------------------------------
+# 5. Publicly routable IPv4 addresses (the GLOBAL-IPV4 tier).
+# --------------------------------------------------------------------------
+#
+# The address tier blocked the three private blocks, a last-octet host
+# shorthand and global-unicast IPv6, and had NO pattern for a publicly
+# routable IPv4 address — so a fixture carrying one PASSED. The rule the tier
+# exists to enforce is that a routable address never appears in a public-bound
+# artifact, and an address that reaches the whole internet is the clearest case
+# of one, not an exception to it.
+#
+# The addresses below are assembled at run time from octets, for the same
+# reason the identity fixtures are assembled: a real routable literal written
+# into a public test file is the thing the detector exists to keep out. None of
+# them is a fleet address; they are chosen from ranges nothing here uses.
+
+def _quad(*octets: int) -> str:
+    return ".".join(str(o) for o in octets)
+
+
+ROUTABLE = [
+    ("class A", _quad(23, 45, 67, 89)),
+    ("class B", _quad(131, 253, 24, 8)),
+    ("class C", _quad(200, 12, 34, 56)),
+    ("high range", _quad(212, 58, 109, 3)),
+    ("sentence-final", _quad(23, 45, 67, 89) + "."),
+]
+
+
+@pytest.mark.parametrize("case,addr", ROUTABLE, ids=[c for c, _ in ROUTABLE])
+def test_routable_address_is_refused(tmp_path: Path, case: str, addr: str) -> None:
+    result = _scan(tmp_path, "docs/demo.md", f"The host answered from {addr}\n")
+    assert _blocked(result, "GLOBAL-IPV4"), (
+        f"routable address not detected ({case}): {addr!r}\n{result.stdout}")
+
+
+NOT_ROUTABLE = [
+    # Already covered by their own tier, and still not GLOBAL-IPV4.
+    ("private 10/8",        _quad(10, 0, 0, 1)),
+    ("private 172.16/12",   _quad(172, 16, 0, 1)),
+    ("private 192.168/16",  _quad(192, 168, 1, 1)),
+    # Ranges that are not routable and are legitimate in public text.
+    ("loopback",            _quad(127, 0, 0, 1)),
+    ("link-local",          _quad(169, 254, 1, 1)),
+    ("this-network",        _quad(0, 0, 0, 0)),
+    ("carrier-grade NAT",   _quad(100, 64, 0, 1)),
+    ("benchmarking",        _quad(198, 18, 0, 1)),
+    ("multicast",           _quad(224, 0, 0, 1)),
+    ("reserved",            _quad(240, 0, 0, 1)),
+    ("broadcast",           _quad(255, 255, 255, 255)),
+    # RFC 5737 documentation ranges — the correct addresses for examples, and
+    # the ones the existing near-miss fixture already uses.
+    ("doc range TEST-NET-1", _quad(192, 0, 2, 10)),
+    ("doc range TEST-NET-2", _quad(198, 51, 100, 7)),
+    ("doc range TEST-NET-3", _quad(203, 0, 113, 9)),
+    # Public resolvers ship as DNS defaults in this tree and are documented in
+    # user-facing text. They are public infrastructure, carved for the same
+    # reason the IPv6 tier carves the Cloudflare and Quad9 prefixes.
+    ("resolver 1.1.1.1",     _quad(1, 1, 1, 1)),
+    ("resolver 1.0.0.1",     _quad(1, 0, 0, 1)),
+    ("resolver 8.8.8.8",     _quad(8, 8, 8, 8)),
+    ("resolver 8.8.4.4",     _quad(8, 8, 4, 4)),
+    ("resolver 9.9.9.9",     _quad(9, 9, 9, 9)),
+    ("resolver quad9 alt",   _quad(149, 112, 112, 112)),
+    # Shapes that are not addresses at all — the same guards the private tier
+    # relies on, re-asserted for this pattern.
+    ("longer dotted run",    "1.10.0.0.1"),
+    ("further octet",        "10.0.0.1.5"),
+    ("inside an identifier", "v23.45.67.89"),
+    ("octet out of range",   "256.1.1.1"),
+]
+
+
+@pytest.mark.parametrize("case,addr", NOT_ROUTABLE, ids=[c for c, _ in NOT_ROUTABLE])
+def test_non_routable_and_carved_addresses_are_not_refused(
+        tmp_path: Path, case: str, addr: str) -> None:
+    result = _scan(tmp_path, "docs/demo.md", f"The value here is {addr}\n")
+    assert not _blocked(result, "GLOBAL-IPV4"), (
+        f"refused something that is not a routable leak ({case}): {addr!r}\n"
+        f"{result.stdout}")
+
+
+def test_the_tier_is_allowlist_eligible_not_immune(tmp_path: Path) -> None:
+    # Decided with the tier: unlike the identity tokens, a routable address can
+    # have a legitimate public use (a version string that happens to parse as
+    # one, a third-party address quoted in an archived log), so the category
+    # must remain suppressible by an allowlist entry. Immunity is reserved for
+    # classes with NO legitimate use.
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("cpc", SCANNER)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert "GLOBAL-IPV4" not in mod.ALLOWLIST_IMMUNE_CATS
+    assert "GLOBAL-IPV4" in mod.MACHINE_SPECIFICS_CATS, (
+        "the tier must sit in MACHINE_SPECIFICS so its path exemptions apply")
+
+
+
 
 def test_multi_match_line_names_its_match_count(tmp_path: Path) -> None:
     """One message per line is the deliberate reporting shape, but the count
